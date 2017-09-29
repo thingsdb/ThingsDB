@@ -1,0 +1,24 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../grammar/cgrammar/lang.c 
+
+OBJS += \
+./grammar/cgrammar/lang.o 
+
+C_DEPS += \
+./grammar/cgrammar/lang.d 
+
+
+# Each subdirectory must supply rules for building sources it contributes
+grammar/cgrammar/%.o: ../grammar/cgrammar/%.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: Cross GCC Compiler'
+	gcc -I"/home/joente/workspace/rqldb/inc" -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+

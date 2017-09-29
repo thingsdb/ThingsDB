@@ -50,3 +50,16 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Eclipse
+.cproject
+.project
+.settings/
+
+# Binaries
+Debug/rqldb
+Release/rqldb
+
+# Python
+.pyc
+__pycache__/

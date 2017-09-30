@@ -35,6 +35,5 @@ void rql_elem_drop(rql_elem_t * elem)
         {
             rql_elem_drop(elem->elems[i]);
         }
-
     }
 }

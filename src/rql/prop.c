@@ -20,7 +20,9 @@ rql_prop_t * rql_prop_create(
         const char * name,
         rql_val_t tp,
         uint32_t flags,
-        rql_prop_via_t via)
+        rql_kind_t * kind,
+        rql_prop_t * fwd_prop,
+        rql_val_via_t * def)
 {
     rql_prop_t * prop = (rql_prop_t *) malloc(sizeof(rql_prop_t));
 
@@ -34,7 +36,9 @@ rql_prop_t * rql_prop_create(
 
     prop->tp = tp;
     prop->flags = flags;
-    prop->via = via;
+    prop->kind = kind;
+    prop->prop = fwd_prop;
+    prop->def = def;
 
     return prop;
 }
@@ -45,14 +49,14 @@ void rql_prop_destroy(rql_prop_t * prop)
 
     free(prop->name);
 
-    if (prop->tp == RQL_VAL_ELEM && prop->via.kind)
+    if (prop->tp == RQL_VAL_ELEM && prop->kind)
     {
-        rql_kind_drop(prop->via.kind);
+        rql_kind_drop(prop->kind);
     }
-    else if (prop->tp != RQL_VAL_ELEM && prop->via.def)
+    else if (prop->tp != RQL_VAL_ELEM && prop->def)
     {
         assert (~prop->flags & RQL_PROP_IS_ARR);
-        rql_val_destroy(prop->tp, prop->via.def);
+        rql_val_destroy(prop->tp, prop->def);
     }
 
     free(prop);

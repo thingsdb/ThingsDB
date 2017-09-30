@@ -12,7 +12,6 @@
 #define RQL_PROP_NO_NULL 2
 
 typedef struct rql_prop_s  rql_prop_t;
-typedef union rql_prop_u rql_prop_via_t;
 
 #include <inttypes.h>
 #include <rql/val.h>
@@ -22,21 +21,19 @@ rql_prop_t * rql_prop_create(
         const char * name,
         rql_val_t tp,
         uint32_t flags,
-        rql_prop_via_t via);
+        rql_kind_t * kind,
+        rql_prop_t * fwd_prop,
+        rql_val_via_t * def);
 void rql_prop_destroy(rql_prop_t * prop);
-
-union rql_prop_u
-{
-    rql_kind_t * kind;   /* NULL or restricted to */
-    rql_val_via_t * def;  /* defaults can only be used with strings etc. */
-};
 
 struct rql_prop_s
 {
     char * name;
     rql_val_t tp;
     uint32_t flags;
-    rql_prop_via_t via;
+    rql_kind_t * kind;   /* NULL or restricted to */
+    rql_prop_t * prop;   /* Can be used when kind is set */
+    rql_val_via_t * def;  /* defaults can only be used with strings etc. */
 };
 
 #endif /* RQL_PROP_H_ */

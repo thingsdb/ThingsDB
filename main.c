@@ -10,15 +10,14 @@ int main(int argc, char * argv[])
 
     rql_kind_t * kind = rql_kind_create("MyKind");
 
-    rql_prop_via_t via = {0};
-    via.def = rql_val_create(RQL_VAL_STR, "My String Value");
-    rql_prop_t * prop = rql_prop_create("MyProp", RQL_VAL_STR, 0, via);
+    rql_val_via_t * val = rql_val_create(RQL_VAL_STR, "My String Value");
+    rql_prop_t * prop = rql_prop_create("MyProp", RQL_VAL_STR, 0, NULL, NULL, val);
 
-    printf("Pntr: %p, str: %s\n", prop->via.def, prop->via.def->str_);
+    printf("Pntr: %p, str: %s\n", prop->def, prop->def->str_);
 
     rql_kind_append_props(kind, &prop, 1);
 
-    printf("Pntr: %p, str: %s\n", kind->props[0], kind->props[0]->via.def->str_);
+    printf("Pntr: %p, str: %s\n", kind->props[0], kind->props[0]->def->str_);
 
     rql_kind_drop(kind);
 

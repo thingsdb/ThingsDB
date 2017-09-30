@@ -25,7 +25,7 @@ rql_kind_t * rql_kind_create(const char * name)
 
     kind->ref = 1;
     kind->flags = 0;
-    kind->props_n = 0;
+    kind->props = 0;
     kind->props = NULL;
 
     return kind;

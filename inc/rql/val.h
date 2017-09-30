@@ -20,7 +20,7 @@ typedef enum rql_val_e
 } rql_val_t;
 
 #include <inttypes.h>
-#include <rql/arr.h>
+#include <vec/vec.h>
 #include <rql/raw.h>
 #include <rql/elem.h>
 
@@ -33,7 +33,7 @@ union rql_val_u
     _Bool bool_;
     char * str_;
     rql_raw_t * raw_;
-    rql_arr_t * arr_;  /* not specified by type */
+    vec_t * arr_;  /* not specified by type */
 };
 
 rql_val_via_t * rql_val_create(rql_val_t tp, void * data);

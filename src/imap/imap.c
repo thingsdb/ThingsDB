@@ -19,7 +19,6 @@ static void * IMAP_pop(imap_node_t * node, uint64_t id);
 static void IMAP_walk(imap_node_t * node, imap_cb cb, void * data, int * rc);
 static void IMAP_walkn(imap_node_t * node, imap_cb cb, void * data, size_t * n);
 static void IMAP_2vec(imap_node_t * node, vec_t * vec);
-static void IMAP_2vec_ref(imap_node_t * node, vec_t * vec);
 static void IMAP_union_ref(imap_node_t * dest, imap_node_t * node);
 static void IMAP_intersection_ref(
         imap_node_t * dest,
@@ -291,9 +290,10 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * data)
 }
 
 /*
- * Returns NULL and raises a SIGNAL in case an error has occurred.
+ * Returns a pointer to imap->vec or NULL in case an allocation error has
+ * occurred.
  *
- * When successful a BORROWED pointer to vec is returned.
+ * The imap->vec will be created if it does not yet exist.
  */
 vec_t * imap_vec(imap_t * imap)
 {
@@ -337,70 +337,6 @@ vec_t * imap_vec_pop(imap_t * imap)
     vec_t * vec = imap_vec(imap);
     imap->vec = NULL;
     return vec;
-}
-
-/*
- * Returns NULL and raises a SIGNAL in case an error has occurred.
- *
- * When successful a NEW vec is returned.
- */
-vec_t * imap_2vec(imap_t * imap)
-{
-    vec_t * vec = imap_vec(imap);
-    if (vec != NULL)
-    {
-        vec = vec_copy(vec);
-    }
-    return vec;
-}
-
-/*
- * Use this function to create a s-list copy and update the ref count
- * for each object. We expect each object to have object->ref (uint_xxx_t) on
- * top of the object definition.
- *
- * There is no function to handle the decrement for the ref count since they
- * are different for each object. Best is to handle the decrement while looping
- * over the returned list.
- *
- * Returns NULL and raises a SIGNAL in case an error has occurred.
- */
-vec_t * imap_2vec_ref(imap_t * imap)
-{
-    if (!imap->vec)
-    {
-        imap->vec = vec_new(imap->n);
-
-        if (imap->vec != NULL && imap->n)
-        {
-            imap_node_t * nd;
-
-            for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-            {
-                nd = imap->nodes + i;
-
-                if (nd->data != NULL)
-                {
-                    vec_append(imap->vec, nd->data);
-                    rql_ref_inc((rql_ref_t *) nd->data);
-                }
-
-                if (nd->nodes != NULL)
-                {
-                    IMAP_2vec_ref(nd, imap->vec);
-                }
-            }
-        }
-    }
-    else
-    {
-        for (size_t i = 0; i < imap->vec->n; i++)
-        {
-            rql_ref_inc((rql_ref_t *) vec_get(imap->vec, i));
-        }
-    }
-
-    return (imap->vec) ? vec_copy(imap->vec) : NULL;
 }
 
 /*
@@ -903,27 +839,6 @@ static void IMAP_2vec(imap_node_t * node, vec_t * vec)
         if (nd->nodes != NULL)
         {
             IMAP_2vec(nd, vec);
-        }
-    }
-}
-
-static void IMAP_2vec_ref(imap_node_t * node, vec_t * vec)
-{
-    imap_node_t * nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        nd = node->nodes + i;
-
-        if (nd->data != NULL)
-        {
-            vec_append(vec, nd->data);
-            rql_ref_inc((rql_ref_t *) nd->data);
-        }
-
-        if (nd->nodes != NULL)
-        {
-            IMAP_2vec_ref(nd, vec);
         }
     }
 }

@@ -22,8 +22,6 @@ struct rql_kind_s
     uint64_t ref;
     uint32_t flags;
     vec_t * props;
-    uint32_t props_n;
-    rql_prop_t ** props;
     char * name;
 };
 

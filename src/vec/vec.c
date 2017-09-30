@@ -58,9 +58,29 @@ vec_t * vec_append(vec_t * vec, void * data)
 
         vec = tmp;
     }
-
     vec->data_[vec->n++] = data;
+    return vec;
+}
 
+vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n)
+{
+    vec->n += n;
+    if (vec->n > vec->sz)
+    {
+        vec_t * tmp = (vec_t *) realloc(
+                vec,
+                sizeof(vec_t) + vec->n * sizeof(void*));
+        if (!tmp)
+        {
+            /* restore original length */
+            vec->n -= n;
+            return NULL;
+        }
+
+        vec = tmp;
+        vec->sz = vec->n;
+    }
+    memcpy(vec->data_ + (vec->n - n), data, n * sizeof(void*));
     return vec;
 }
 
@@ -75,3 +95,5 @@ vec_t * vec_shrink(vec_t * vec)
     vec->sz = vec->n;
     return vec;
 }
+
+

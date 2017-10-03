@@ -24,7 +24,7 @@ static inline void rql_ref_inc(rql_ref_t * ref)
     ref->ref++;
 }
 
-static inline void rql_ref_def(rql_ref_t * ref)
+static inline void rql_ref_dec(rql_ref_t * ref)
 {
     assert(ref->ref > 1);
     ref->ref--;

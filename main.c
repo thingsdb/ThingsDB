@@ -17,7 +17,7 @@ int main(int argc, char * argv[])
 
     rql_kind_append_props(kind, &prop, 1);
 
-    printf("Pntr: %p, str: %s\n", kind->props[0], kind->props[0]->def->str_);
+    printf("Pntr: %p, str: %s\n", vec_get(kind->props, 0), ((rql_prop_t *) vec_get(kind->props, 0))->def->str_);
 
     rql_kind_drop(kind);
 

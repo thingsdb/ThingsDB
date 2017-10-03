@@ -4,7 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/rql/arr.c \
+../src/rql/db.c \
 ../src/rql/elem.c \
 ../src/rql/kind.c \
 ../src/rql/prop.c \
@@ -14,7 +14,7 @@ C_SRCS += \
 ../src/rql/val.c 
 
 OBJS += \
-./src/rql/arr.o \
+./src/rql/db.o \
 ./src/rql/elem.o \
 ./src/rql/kind.o \
 ./src/rql/prop.o \
@@ -24,7 +24,7 @@ OBJS += \
 ./src/rql/val.o 
 
 C_DEPS += \
-./src/rql/arr.d \
+./src/rql/db.d \
 ./src/rql/elem.d \
 ./src/rql/kind.d \
 ./src/rql/prop.d \

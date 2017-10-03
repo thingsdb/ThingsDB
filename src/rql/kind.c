@@ -24,7 +24,7 @@ rql_kind_t * rql_kind_create(const char * name)
 
     if (!kind->props || !kind->name)
     {
-        vec_destroy(kind->props);
+        free(kind->props);
         free(kind->name);
         return NULL;
     }
@@ -49,11 +49,7 @@ void rql_kind_drop(rql_kind_t * kind)
 {
     if (!--kind->ref)
     {
-        for (uint32_t i = 0; i < kind->props->n; i++)
-        {
-            rql_prop_destroy((rql_prop_t *) vec_get(kind->props, i));
-        }
-        vec_destroy(kind->props);
+        vec_destroy(kind->props, (vec_destroy_cb) rql_prop_destroy);
         free(kind->name);
         free(kind);
     }
@@ -69,7 +65,7 @@ void rql_kind_drop(rql_kind_t * kind)
  */
 int rql_kind_append_props(rql_kind_t * kind, rql_prop_t * props[], uint32_t n)
 {
-    vec_t * tmp = vec_extend(kind->props, props, n);
+    vec_t * tmp = vec_extend(kind->props, (void *) props, n);
     if (!tmp) return -1;
 
     kind->props = tmp;

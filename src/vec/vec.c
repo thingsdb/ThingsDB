@@ -4,8 +4,8 @@
  *  Created on: Sep 30, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-
-
+#include <string.h>
+#include <stdlib.h>
 #include <vec/vec.h>
 
 vec_t * vec_create(uint32_t sz)
@@ -17,12 +17,21 @@ vec_t * vec_create(uint32_t sz)
     return vec;
 }
 
+void vec_destroy(vec_t * vec, vec_destroy_cb cb)
+{
+    if (vec && cb) for (uint32_t i = 0; i < vec->n; i++)
+    {
+        (*cb)(vec_get(vec, i));
+    }
+    free(vec);
+}
+
 vec_t * vec_copy(vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->sz * sizeof(void*);
     vec_t * vec_ = (vec_t *) malloc(sz);
-    if (! vec_) return NULL;
-    memcpy( vec_, vec, sz);
+    if (!vec_) return NULL;
+    memcpy(vec_, vec, sz);
     return vec_;
 }
 

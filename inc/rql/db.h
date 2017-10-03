@@ -9,12 +9,20 @@
 
 typedef struct rql_db_s  rql_db_t;
 
+#include <inttypes.h>
+#include <imap/imap.h>
+#include <smap/smap.h>
+
 struct rql_db_s
 {
-    cleri_grammar_t * lang;
+    uint64_t ref;
+    char * name;
+    imap_t * elems;
+    smap_t * kinds;
 };
 
-rql_t * rql_create(void);
-void rql_destroy(rql_t * rql);
+rql_db_t * rql_db_create(void);
+rql_db_t * rql_db_grab(rql_db_t * db);
+void rql_db_drop(rql_db_t * db);
 
 #endif /* RQL_DB_H_ */

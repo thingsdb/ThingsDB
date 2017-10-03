@@ -18,8 +18,9 @@ from pyleri import Prio
 from pyleri import Grammar
 from pyleri import Tokens
 
+
 class RqlLang(Grammar):
-    
+
     RE_KEYWORDS = re.compile('^\\w+')
     r_uint = Regex('^[0-9]+')
     r_int = Regex('^[-+]?[0-9]+')

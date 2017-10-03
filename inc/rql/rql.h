@@ -10,10 +10,12 @@
 typedef struct rql_s  rql_t;
 
 #include <cleri/cleri.h>
+#include <vec/vec.h>
 
 struct rql_s
 {
     cleri_grammar_t * lang;
+    vec_t * dbs;
 };
 
 rql_t * rql_create(void);

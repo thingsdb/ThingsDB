@@ -28,8 +28,6 @@ static int SMAP_add(
         smap_node_t * node,
         const char * key,
         void * data);
-static void * SMAP_get(smap_node_t * node, const char * key);
-static void ** SMAP_getaddr(smap_node_t * node, const char * key);
 static void * SMAP_pop(
         smap_node_t * parent,
         smap_node_t ** nd,
@@ -67,7 +65,7 @@ smap_t * smap_create(void)
 /*
  * Destroy smap.
  */
-void smap_destroy(smap_t * smap , smap_destroy_cb cb)
+void smap_destroy(smap_t * smap, smap_destroy_cb cb)
 {
     if (!smap) return;
 
@@ -97,14 +95,14 @@ void smap_destroy(smap_t * smap , smap_destroy_cb cb)
  *
  * In case of an allocation error, SMAP_ERR_ALLOC will be returned.
  */
-int smap_add(smap_t * smap , const char * key, void * data)
+int smap_add(smap_t * smap, const char * key, void * data)
 {
     int rc;
     smap_node_t ** nd;
     uint8_t k = (uint8_t) *key;
     if (!*key) return SMAP_ERR_EXIST;
 
-    if (SMAP_node_resize((smap_node_t *) smap , k / SMAP_BSZ))
+    if (SMAP_node_resize((smap_node_t *) smap, k / SMAP_BSZ))
     {
         return SMAP_ERR_ALLOC;
     }
@@ -139,25 +137,16 @@ int smap_add(smap_t * smap , const char * key, void * data)
 /*
  * Returns an item or NULL if the key does not exist.
  */
-void * smap_get(smap_t * smap , const char * key)
+void * smap_get(smap_t * smap, const char * key)
 {
-    smap_node_t * nd;
-    uint8_t k = (uint8_t) *key;
-    uint8_t pos = k / SMAP_BSZ;
-
-    if (!*key || pos < smap->offset || pos >= smap->offset + smap->sz)
-    {
-        return NULL;
-    }
-    nd = (*smap->nodes)[k - smap->offset * SMAP_BSZ];
-
-    return (nd) ? SMAP_get(nd, key + 1) : NULL;
+    void ** data = smap_getaddr(smap, key);
+    return (data) ? *data : NULL;
 }
 
 /*
  * Returns the address of an item or NULL if the key does not exist.
  */
-void ** smap_getaddr(smap_t * smap , const char * key)
+void ** smap_getaddr(smap_t * smap, const char * key)
 {
     smap_node_t * nd;
     uint8_t k = (uint8_t) *key;
@@ -169,7 +158,25 @@ void ** smap_getaddr(smap_t * smap , const char * key)
     }
     nd = (*smap->nodes)[k - smap->offset * SMAP_BSZ];
 
-    return (nd) ? SMAP_getaddr(nd, key + 1) : NULL;
+    while (nd && !strncmp(nd->key, ++key, nd->n))
+    {
+        key += nd->n;
+
+        if (!*key) return &nd->data;
+        if (!nd->nodes) return NULL;
+
+        k = (uint8_t) *key;
+        pos = k / SMAP_BSZ;
+
+        if (pos < nd->offset || pos >= nd->offset + nd->sz)
+        {
+            return NULL;
+        }
+
+        nd = (*nd->nodes)[k - nd->offset * SMAP_BSZ];
+    }
+
+    return NULL;
 }
 
 /*
@@ -177,7 +184,7 @@ void ** smap_getaddr(smap_t * smap , const char * key)
  *
  * (re-allocation might fail but this is not critical)
  */
-void * smap_pop(smap_t * smap , const char * key)
+void * smap_pop(smap_t * smap, const char * key)
 {
     smap_node_t ** nd;
     void * data;
@@ -217,10 +224,8 @@ void * smap_pop(smap_t * smap , const char * key)
  * Returns 0 when the call-back is called on all items, -1 in case of
  * an allocation error or 1 when looping did not finish because of a non
  * zero return value.
- *
- * (in case of -1 a SIGNAL is raised)
  */
-int smap_items(smap_t * smap , smap_item_cb cb, void * arg)
+int smap_items(smap_t * smap, smap_item_cb cb, void * arg)
 {
     size_t buffer_sz = SMAP_BUF_SIZE;
     size_t n = 1;
@@ -245,7 +250,7 @@ int smap_items(smap_t * smap , smap_item_cb cb, void * arg)
  * The return value is 0 when the callback is successful called on all values
  * or the value of the failed callback.
  */
-int smap_values(smap_t * smap , smap_val_cb cb, void * arg)
+int smap_values(smap_t * smap, smap_val_cb cb, void * arg)
 {
     smap_node_t * nd;
     int rc = 0;
@@ -464,62 +469,6 @@ static int SMAP_add(
     node->data = data;
 
     return 0;
-}
-
-/*
- * Returns an item or NULL if the key does not exist.
- */
-static void * SMAP_get(smap_node_t * node, const char * key)
-{
-    if (strncmp(node->key, key, node->n)) return NULL;
-
-    key += node->n;
-
-    if (!*key) return node->data;
-
-    if (node->nodes)
-    {
-        uint8_t k = (uint8_t) *key;
-        uint8_t pos = k / SMAP_BSZ;
-
-        if (pos < node->offset || pos >= node->offset + node->sz)
-        {
-            return NULL;
-        }
-
-        smap_node_t * nd = (*node->nodes)[k - node->offset * SMAP_BSZ];
-
-        return (nd) ? SMAP_get(nd, key + 1) : NULL;
-    }
-    return NULL;
-}
-
-/*
- * Returns an address of an item or NULL if the key does not exist.
- */
-static void ** SMAP_getaddr(smap_node_t * node, const char * key)
-{
-    if (strncmp(node->key, key, node->n)) return NULL;
-
-    key += node->n;
-
-    if (!*key) return &node->data;
-
-    if (node->nodes)
-    {
-        uint8_t k = (uint8_t) *key;
-        uint8_t pos = k / SMAP_BSZ;
-
-        if (pos < node->offset || pos >= node->offset + node->sz)
-        {
-            return NULL;
-        }
-
-        smap_node_t * nd = (*node->nodes)[k - node->offset * SMAP_BSZ];
-
-        return (nd) ? SMAP_getaddr(nd, key + 1) : NULL;
-    }
-    return NULL;
 }
 
 /*

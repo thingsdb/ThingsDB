@@ -23,6 +23,9 @@ vec_t * vec_append(vec_t * vec, void * data);
 vec_t * vec_shrink(vec_t * vec);
 vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n);
 
+/* unsafe macro for vec_append() which assumes the vector has enough space */
+#define VEC_append(vec__, data__) (vec__)->data_[(vec__)->n++] = data__
+
 struct vec_s
 {
     uint32_t n;
@@ -39,5 +42,6 @@ static inline void * vec_pop(vec_t * vec)
 {
     return (vec->n) ? vec->data_[--vec->n] : NULL;
 }
+
 
 #endif /* VEC_H_ */

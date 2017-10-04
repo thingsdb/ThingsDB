@@ -19,6 +19,13 @@ struct rql_ref_s
 static inline void rql_ref_inc(rql_ref_t * ref);
 static inline void rql_ref_dec(rql_ref_t * ref);
 
+/* macro for rql_ref_inc() */
+#define RQL_ref_inc(ref__) (ref__)->ref++
+
+/* unsafe macro for rql_ref_dec() */
+#define RQL_ref_dec(ref__) (ref__)->ref--
+
+
 static inline void rql_ref_inc(rql_ref_t * ref)
 {
     ref->ref++;

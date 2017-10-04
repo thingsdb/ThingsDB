@@ -67,7 +67,7 @@ vec_t * vec_append(vec_t * vec, void * data)
 
         vec = tmp;
     }
-    vec->data_[vec->n++] = data;
+    VEC_append(vec, data);
     return vec;
 }
 

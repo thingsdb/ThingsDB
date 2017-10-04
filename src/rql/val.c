@@ -23,11 +23,6 @@ rql_val_via_t * rql_val_create(rql_val_t tp, void * data)
         int64_t * p = (int64_t *) data;
         val->int_ = *p;
     } break;
-    case RQL_VAL_UINT:
-    {
-        uint64_t * p = (uint64_t *) data;
-        val->uint_ = *p;
-    } break;
     case RQL_VAL_FLOAT:
     {
         double * p = (double *) data;
@@ -64,7 +59,6 @@ void rql_val_destroy(rql_val_t tp, rql_val_via_t * via)
     {
     case RQL_VAL_ELEM:  /* a value by itself has no reference */
     case RQL_VAL_INT:
-    case RQL_VAL_UINT:
     case RQL_VAL_FLOAT:
     case RQL_VAL_BOOL:
         break;;

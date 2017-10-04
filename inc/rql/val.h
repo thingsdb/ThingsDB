@@ -12,7 +12,6 @@ typedef enum rql_val_e
 {
     RQL_VAL_ELEM,
     RQL_VAL_INT,
-    RQL_VAL_UINT,
     RQL_VAL_FLOAT,
     RQL_VAL_BOOL,
     RQL_VAL_STR,
@@ -28,7 +27,6 @@ union rql_val_u
 {
     rql_elem_t * elem_;
     int64_t int_;
-    uint64_t uint_;
     double float_;
     _Bool bool_;
     char * str_;

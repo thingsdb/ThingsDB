@@ -6,7 +6,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <imap/imap.h>
+#include <util/imap.h>
 #include <rql/ref.h>
 
 #define IMAP_NODE_SZ 32
@@ -15,7 +15,6 @@ static void imap__node_destroy(imap_node_t * node);
 static void imap__node_destroy_cb(imap_node_t * node, imap_destroy_cb cb);
 static void * imap__set(imap_node_t * node, uint64_t id, void * data);
 static int imap__add(imap_node_t * node, uint64_t id, void * data);
-static void * imap__get(imap_node_t * node, uint64_t id);
 static void * imap__pop(imap_node_t * node, uint64_t id);
 static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
@@ -184,8 +183,7 @@ void * imap_get(imap_t * imap, uint64_t id)
         if (!id) return nd->data;
         if (!nd->nodes) return NULL;
 
-        id--;
-        nd = nd->nodes + (id % IMAP_NODE_SZ);
+        nd = nd->nodes + (--id % IMAP_NODE_SZ);
     }
 }
 
@@ -710,19 +708,6 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
     return rc;
 }
 
-static void * imap__get(imap_node_t * node, uint64_t id)
-{
-    imap_node_t * nd = node->nodes + (id % IMAP_NODE_SZ);
-    id /= IMAP_NODE_SZ;
-
-    if (!id)
-    {
-        return nd->data;
-    }
-
-    return (nd->nodes) ? imap__get(nd, id - 1) : NULL;
-}
-
 static void * imap__pop(imap_node_t * node, uint64_t id)
 {
     void * data;
@@ -775,7 +760,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
 
         if (nd->nodes)
         {
-            rc = imap__walk(nd, cb, arg, rc);
+            rc = imap__walk(nd, cb, arg);
             if (rc) return rc;
         }
     }

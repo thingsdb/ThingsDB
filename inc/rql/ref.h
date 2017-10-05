@@ -22,7 +22,8 @@ static inline void rql_ref_dec(rql_ref_t * ref);
 /* macro for rql_ref_inc() */
 #define RQL_ref_inc(ref__) (ref__)->ref++
 
-/* unsafe macro for rql_ref_dec() */
+/* unsafe macro for rql_ref_dec() which assumes more than one reference
+ * is left */
 #define RQL_ref_dec(ref__) (ref__)->ref--
 
 

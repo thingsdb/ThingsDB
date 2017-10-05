@@ -4,41 +4,44 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../src/rql/args.c \
 ../src/rql/db.c \
 ../src/rql/elem.c \
-../src/rql/kind.c \
-../src/rql/prop.c \
+../src/rql/pool.c \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
 ../src/rql/rql.c \
-../src/rql/val.c 
+../src/rql/val.c \
+../src/rql/version.c 
 
 OBJS += \
+./src/rql/args.o \
 ./src/rql/db.o \
 ./src/rql/elem.o \
-./src/rql/kind.o \
-./src/rql/prop.o \
+./src/rql/pool.o \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
 ./src/rql/rql.o \
-./src/rql/val.o 
+./src/rql/val.o \
+./src/rql/version.o 
 
 C_DEPS += \
+./src/rql/args.d \
 ./src/rql/db.d \
 ./src/rql/elem.d \
-./src/rql/kind.d \
-./src/rql/prop.d \
+./src/rql/pool.d \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
 ./src/rql/rql.d \
-./src/rql/val.d 
+./src/rql/val.d \
+./src/rql/version.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
 src/rql/%.o: ../src/rql/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross GCC Compiler'
-	gcc -I"/home/joente/workspace/rqldb/inc" -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -I"/home/joente/workspace/rqldb/inc" -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

@@ -22,7 +22,7 @@ typedef void (*imap_update_cb)(
 
 #include <inttypes.h>
 #include <stddef.h>
-#include <vec/vec.h>
+#include <util/vec.h>
 
 imap_t * imap_create(void);
 void imap_destroy(imap_t * imap, imap_destroy_cb cb);

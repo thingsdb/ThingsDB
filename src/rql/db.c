@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <rql/db.h>
 #include <rql/elem.h>
-#include <rql/kind.h>
 
 rql_db_t * rql_db_create(void)
 {
@@ -17,9 +16,9 @@ rql_db_t * rql_db_create(void)
     db->ref = 1;
     db->name = NULL;
     db->elems = imap_create();
-    db->kinds = smap_create();
+    db->props = smap_create();
 
-    if (!db->elems || !db->kinds)
+    if (!db->elems || !db->props)
     {
         rql_db_drop(db);
         return NULL;
@@ -39,8 +38,8 @@ void rql_db_drop(rql_db_t * db)
     if (!--db->ref)
     {
         free(db->name);
-        imap_destroy(db->elems, (imap_destroy_cb) rql_elem_drop);
-        smap_destroy(db->kinds, (smap_destroy_cb) rql_kind_drop);
+        imap_destroy(db->elems, NULL);
+        smap_destroy(db->props, NULL);
         free(db);
     }
 }

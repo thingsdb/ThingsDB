@@ -10,9 +10,9 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#define SMAP_ERR_ALLOC -1
-#define SMAP_ERR_EXIST -2
-#define SMAP_ERR_CB    -3
+#define SMAP_ERR_ALLOC      -1
+#define SMAP_ERR_EXIST      -2
+#define SMAP_ERR_EMPTY_KEY  -3
 
 typedef struct smap_s smap_t;
 typedef struct smap_node_s smap_node_t;
@@ -32,7 +32,8 @@ int smap_add(smap_t * smap, const char * key, void * data);
 void * smap_get(smap_t * node, const char * key);
 void ** smap_getaddr(smap_t * smap, const char * key);
 void * smap_pop(smap_t * smap, const char * key);
-int smap_items(smap_t * smap, smap_item_cb cb, void * arg);
+size_t smap_longest_key_size(smap_t * smap);
+int smap_items(smap_t * smap, char * buf, smap_item_cb cb, void * arg);
 int smap_values(smap_t * smap, smap_val_cb cb, void * arg);
 
 struct smap_s

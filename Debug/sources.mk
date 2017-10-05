@@ -14,9 +14,6 @@ C_DEPS :=
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 . \
-src/imap \
-src/lang \
 src/rql \
-src/smap \
-src/vec \
+src/utils \
 

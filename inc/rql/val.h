@@ -19,7 +19,7 @@ typedef enum rql_val_e
 } rql_val_t;
 
 #include <inttypes.h>
-#include <vec/vec.h>
+#include <util/vec.h>
 #include <rql/raw.h>
 #include <rql/elem.h>
 

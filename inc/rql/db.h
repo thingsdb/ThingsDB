@@ -10,15 +10,15 @@
 typedef struct rql_db_s  rql_db_t;
 
 #include <inttypes.h>
-#include <imap/imap.h>
-#include <smap/smap.h>
+#include <util/imap.h>
+#include <util/smap.h>
 
 struct rql_db_s
 {
     uint64_t ref;
     char * name;
     imap_t * elems;
-    smap_t * kinds;
+    smap_t * props;
 };
 
 rql_db_t * rql_db_create(void);

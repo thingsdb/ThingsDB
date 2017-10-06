@@ -1,5 +1,5 @@
 #include <locale.h>
-#include <stdio.h>
+
 #include <stdlib.h>
 #include <time.h>
 #include <rql/rql.h>
@@ -19,8 +19,8 @@ int main(int argc, char * argv[])
     /* initialize random */
     srand(time(NULL));
 
-    /* set threadpool size to 8 (default=4) */
-    putenv("UV_THREADPOOL_SIZE=8");
+    /* set threadpool size to 4 (default=4) */
+    putenv("UV_THREADPOOL_SIZE=4");
 
     /* set default timezone to UTC */
     putenv("TZ=:UTC");
@@ -29,30 +29,21 @@ int main(int argc, char * argv[])
     rql_t * rql = rql_create();
 
     /* check rql and parse arguments */
-    if (!rql || (rc = rql_args_parse(rql->args, argc, argv))) goto do_exit;
+    if (!rql || (rc = rql_args_parse(rql->args, argc, argv))) goto stop;
 
     if (rql->args->version)
     {
-        printf(
-                "RQL Server %s\n"
-                "Build date: %s\n"
-                "Maintainer: %s\n"
-                "Home-page: %s\n",
-#ifndef DEBUG
-                RQL_VERSION,
-#else
-                RQL_VERSION "-DEBUG-RELEASE",
-#endif
-                RQL_BUILD_DATE,
-                RQL_MAINTAINER,
-                RQL_HOME_PAGE);
-
-        goto do_exit;
+        rql_version_print();
+        goto stop;
     }
 
-    rql_setup_logger(rql);
+    rql_init_logger(rql);
 
-do_exit:
+    if ((rc = rql_cfg_parse(rql->cfg, rql->args->config))) goto stop;
+    if ((rc = rql_init_fn(rql))) goto stop;
+
+
+stop:
     rql_destroy(rql);
 
     return rc;

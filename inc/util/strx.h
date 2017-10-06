@@ -23,5 +23,6 @@ bool strx_is_float(const char * str);
 bool strx_is_graph(const char * str);
 double strx_to_double(const char * src, size_t len);
 uint64_t strx_to_uint64(const char * src, size_t len);
+char * strx_cat(const char * s1, const char * s2);
 
 #endif /* RQL_STRX_H_ */

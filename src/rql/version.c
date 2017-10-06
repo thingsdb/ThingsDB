@@ -6,6 +6,7 @@
  */
 #include <rql/version.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 int rql_version_cmp(const char * version_a, const char * version_b)
 {
@@ -27,4 +28,21 @@ int rql_version_cmp(const char * version_a, const char * version_b)
         str_a++;
         str_b++;
     }
+}
+
+void rql_version_print(void)
+{
+    printf(
+            "RQL Server %s\n"
+            "Build date: %s\n"
+            "Maintainer: %s\n"
+            "Home-page: %s\n",
+    #ifndef DEBUG
+            RQL_VERSION,
+    #else
+            RQL_VERSION "-DEBUG-RELEASE",
+    #endif
+            RQL_BUILD_DATE,
+            RQL_MAINTAINER,
+            RQL_HOME_PAGE);
 }

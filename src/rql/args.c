@@ -49,7 +49,7 @@ int rql_args_parse(rql_args_t * args, int argc, char *argv[])
             action: ARGPARSE_STORE_STRING,
             default_int32_t: 0,
             pt_value_int32_t: NULL,
-            str_default: "/etc/siridb/siridb.conf",
+            str_default: "/etc/rql/rql.conf",
             str_value: args->config,
             choices: NULL
     };

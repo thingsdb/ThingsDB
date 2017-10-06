@@ -7,16 +7,24 @@
 #ifndef RQL_CFG_H_
 #define RQL_CFG_H_
 
-typedef struct rql_node_s  rql_node_t;
+#define RQL_CFG_PATH_MAX 4096
+#define RQL_CFG_ADDR_MAX 256
 
-#include <stddef.h>
+typedef struct rql_cfg_s  rql_cfg_t;
 
-struct rql_node_s
+#include <inttypes.h>
+
+rql_cfg_t * rql_cfg_create(void);
+void rql_cfg_destroy(rql_cfg_t * cfg);
+int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file);
+
+struct rql_cfg_s
 {
-    char * rql_path;
+    uint16_t listen_client_port;
+    uint16_t listen_backend_port;
+    uint8_t ip_support;
+    char node_address[RQL_CFG_ADDR_MAX];
+    char rql_path[RQL_CFG_PATH_MAX];
 };
-
-rql_node_t * rql_node_create(void);
-void rql_node_destroy(rql_raw_t * raw);
 
 #endif /* RQL_CFG_H_ */

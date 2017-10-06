@@ -9,13 +9,19 @@
 
 typedef struct rql_node_s  rql_node_t;
 
-#include <stddef.h>
+#include <inttypes.h>
 
 struct rql_node_s
 {
+    uint64_t ref;
+    uint8_t id;  /* equal to the index in rql->nodes */
+    uint8_t flags;
+    uint16_t port;
+    char * addr;
 };
 
-rql_node_t * rql_node_create(void);
-void rql_node_destroy(rql_raw_t * raw);
+rql_node_t * rql_node_create(uint8_t id, char * address, uint16_t port);
+rql_node_t * rql_node_grab(rql_node_t * node);
+void rql_node_drop(rql_node_t * node);
 
 #endif /* RQL_NODE_H_ */

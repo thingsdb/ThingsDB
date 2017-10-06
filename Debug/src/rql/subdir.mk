@@ -5,34 +5,43 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/rql/args.c \
+../src/rql/cfg.c \
 ../src/rql/db.c \
 ../src/rql/elem.c \
 ../src/rql/pool.c \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
 ../src/rql/rql.c \
+../src/rql/sock.c \
+../src/rql/user.c \
 ../src/rql/val.c \
 ../src/rql/version.c 
 
 OBJS += \
 ./src/rql/args.o \
+./src/rql/cfg.o \
 ./src/rql/db.o \
 ./src/rql/elem.o \
 ./src/rql/pool.o \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
 ./src/rql/rql.o \
+./src/rql/sock.o \
+./src/rql/user.o \
 ./src/rql/val.o \
 ./src/rql/version.o 
 
 C_DEPS += \
 ./src/rql/args.d \
+./src/rql/cfg.d \
 ./src/rql/db.d \
 ./src/rql/elem.d \
 ./src/rql/pool.d \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
 ./src/rql/rql.d \
+./src/rql/sock.d \
+./src/rql/user.d \
 ./src/rql/val.d \
 ./src/rql/version.d 
 

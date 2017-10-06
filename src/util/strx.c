@@ -305,3 +305,17 @@ uint64_t strx_to_uint64(const char * src, size_t len)
 
     return i;
 }
+
+char * strx_cat(const char * s1, const char * s2)
+{
+    size_t n1 = strlen(s1);
+    size_t n2 = strlen(s2);
+
+    char * s = (char *) malloc(n1 + n2 + 1);
+    if (!s) return NULL;
+
+    memcpy(s, s1, n1);
+    memcpy(s + n1, s2, n2 + 1);
+
+    return s;
+}

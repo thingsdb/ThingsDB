@@ -27,6 +27,7 @@
 #define RQL_HOME_PAGE "http://rql.net"
 
 int rql_version_cmp(const char * version_a, const char * version_b);
+void rql_version_print(void);
 
 /* RQL can only connect with servers having at least this version. */
 #define RQL_MINIMAL_VERSION "0.0.0"

@@ -10,6 +10,7 @@
 typedef struct rql_node_s  rql_node_t;
 
 #include <inttypes.h>
+#include <rql/sock.h>
 
 struct rql_node_s
 {
@@ -17,6 +18,7 @@ struct rql_node_s
     uint8_t id;  /* equal to the index in rql->nodes */
     uint8_t flags;
     uint16_t port;
+    rql_sock_t * sock;
     char * addr;
 };
 

@@ -8,9 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <limits.h>
 #include <unistd.h>
-//#include <sys/resource.h>
 #include <sys/socket.h>
 #include <rql/cfg.h>
 #include <rql/sock.h>
@@ -42,7 +40,7 @@ static void rql__cfg_read_ip_support(
 
 rql_cfg_t * rql_cfg_new(void)
 {
-    rql_cfg_t * cfg = (rql_cfg_t *) malloc(sizeof(rql_cfg_t));
+    rql_cfg_t * cfg = (rql_cfg_t *) calloc(1, sizeof(rql_cfg_t));
     if (!cfg) return NULL;
 
     /* set defaults */

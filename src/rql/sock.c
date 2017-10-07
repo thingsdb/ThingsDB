@@ -4,9 +4,14 @@
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <rql/sock.h>
+#include <util/logger.h>
 
+static void rql__sock_stop(uv_tcp_t * tcp);
 
 rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql)
 {
@@ -21,16 +26,9 @@ rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql)
     sock->rql = rql;
     sock->via.user = NULL;
     sock->cb = NULL;
-    sock->tcp = (uv_tcp_t *) malloc(sizeof(uv_tcp_t));
     sock->buf = NULL;
 
-    if (!sock->tcp)
-    {
-        rql_sock_drop(sock);
-        return NULL;
-    }
-
-    sock->tcp->data = sock;
+    sock->tcp.data = sock;
 
     return sock;
 }
@@ -45,26 +43,33 @@ void rql_sock_drop(rql_sock_t * sock)
 {
     if (sock && !--sock->ref)
     {
-        if (sock->flags & RQL_SOCK_FLAG_INIT)
-        {
-            uv_close(sock->tcp, (uv_close_cb) rql__sock_destroy);
-            return;
-        }
-        rql__sock_destroy(sock->tcp);
+        assert (~sock->flags & RQL_SOCK_FLAG_INIT);
+        free(sock->buf);
+        free(sock);
     }
 }
 
-void rql_sock_init(rql_sock_t * sock)
+int rql_sock_init(rql_sock_t * sock)
 {
-    uv_tcp_init(sock->rql->loop, sock->tcp);
-    sock->flags |= RQL_SOCK_FLAG_INIT;
+    int rc = uv_tcp_init(sock->rql->loop, &sock->tcp);
+    if (!rc)
+    {
+        sock->flags |= RQL_SOCK_FLAG_INIT;
+    }
+    return rc;
 }
 
+/*
+ * Call rqlsock_closr
+ */
 void rql_sock_close(rql_sock_t * sock)
 {
-    sock->n = 0;
-    sock->flags |= RQL_SOCK_FLAG_CLOSE;
-    rql_sock_drop(sock);
+    assert (sock->flags & RQL_SOCK_FLAG_INIT);
+    sock->n = 0; /* prevents quick looping allocation function */
+    sock->flags &= ~RQL_SOCK_FLAG_INIT;
+    uv_close(
+            (uv_handle_t *) &sock->tcp,
+            (uv_close_cb) rql__sock_stop);
 }
 
 void rql_sock_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
@@ -95,9 +100,8 @@ void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf)
     rql_sock_t * sock  = (rql_sock_t *) clnt->data;
     rql_pkg_t * pkg;
     size_t total_sz;
-    int rc;
 
-    if (sock->flags & RQL_SOCK_FLAG_CLOSE) return;
+    if (~sock->flags & RQL_SOCK_FLAG_INIT) return;
 
     if (n < 0)
     {
@@ -111,7 +115,7 @@ void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf)
     if (sock->n < sizeof(rql_pkg_t)) return;
 
     pkg = (rql_pkg_t *) sock->buf;
-    if (!siridb_pkg_check_bit(pkg) || pkg->n > RQL_PKG_MAX_SIZE)
+    if (!rql_pkg_check(pkg))
     {
         log_error("invalid package; closing connection");
         rql_sock_drop(sock);
@@ -159,7 +163,7 @@ const char * rql_sock_ip_support_str(uint8_t ip_support)
     }
 }
 
-static void rql__sock_destroy(uv_tcp_t * tcp)
+static void rql__sock_stop(uv_tcp_t * tcp)
 {
     rql_sock_t * sock = (rql_sock_t * ) tcp->data;
     switch (sock->tp)
@@ -172,8 +176,7 @@ static void rql__sock_destroy(uv_tcp_t * tcp)
         rql_user_drop(sock->via.user);
 
     }
-    free(sock);
-    free(tcp);
+    rql_sock_drop(sock);
 }
 
 

@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <rql/rql.h>
+#include <rql/user.h>
 #include <rql/version.h>
+#include <util/fx.h>
 
 
 int main(int argc, char * argv[])
@@ -47,7 +49,8 @@ int main(int argc, char * argv[])
     {
         if (fx_file_exist(rql->fn))
         {
-            printf("error: directory '%s' is already initialized\n");
+            printf("error: directory '%s' is already initialized\n",
+                    rql->cfg->rql_path);
             rc = -1;
             goto stop;
         }
@@ -76,10 +79,12 @@ int main(int argc, char * argv[])
         }
     }
 
-
-
+    rc = rql_run(rql);
 stop:
-    rc = rql_unlock(rql);
+    if (rql_unlock(rql) && !rc)
+    {
+        rc = -1;
+    }
     rql_destroy(rql);
 
     return rc;

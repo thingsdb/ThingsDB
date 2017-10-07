@@ -9,6 +9,7 @@
 
 typedef struct rql_ref_s  rql_ref_t;
 
+#include <assert.h>
 #include <inttypes.h>
 
 struct rql_ref_s

@@ -16,6 +16,7 @@ rql_node_t * rql_node_create(uint8_t id, char * addr, uint16_t port)
     node->ref = 1;
     node->id = id;
     node->port =port;
+    node->sock = NULL;
     node->addr = strdup(addr);
 
     if (!node->addr)
@@ -37,6 +38,7 @@ void rql_node_drop(rql_node_t * node)
 {
     if (node && !--node->ref)
     {
+        rql_sock_drop(node->sock);
         free(node->addr);
         free(node);
     }

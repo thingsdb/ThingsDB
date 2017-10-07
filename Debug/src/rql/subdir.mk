@@ -14,6 +14,7 @@ C_SRCS += \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
 ../src/rql/rql.c \
+../src/rql/signals.c \
 ../src/rql/sock.c \
 ../src/rql/user.c \
 ../src/rql/val.c \
@@ -30,6 +31,7 @@ OBJS += \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
 ./src/rql/rql.o \
+./src/rql/signals.o \
 ./src/rql/sock.o \
 ./src/rql/user.o \
 ./src/rql/val.o \
@@ -46,6 +48,7 @@ C_DEPS += \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
 ./src/rql/rql.d \
+./src/rql/signals.d \
 ./src/rql/sock.d \
 ./src/rql/user.d \
 ./src/rql/val.d \

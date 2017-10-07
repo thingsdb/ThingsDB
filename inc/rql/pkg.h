@@ -24,4 +24,10 @@ struct rql_pkg_s
     unsigned char data[];
 };
 
+/* setting ntp is to avoid ~ unsigned warn */
+#define rql_pkg_check(pkg__) (\
+        ((pkg__)->tp == ((pkg__)->ntp ^= 255)) && \
+        ((pkg__)->tp != ((pkg__)->ntp ^= 255)) && \
+        (pkg__)->n <= RQL_PKG_MAX_SIZE)
+
 #endif /* RQL_PKG_H_ */

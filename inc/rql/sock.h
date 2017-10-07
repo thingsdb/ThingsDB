@@ -9,7 +9,6 @@
 
 #define RQL_SOCK_FLAG_INIT 1
 #define RQL_SOCK_FLAG_AUTH 2
-#define RQL_SOCK_FLAG_CLOSE 4
 
 typedef enum
 {
@@ -34,7 +33,7 @@ typedef void (*rql_sock_cb)(rql_sock_t * sock, rql_pkg_t * pkg);
 rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql);
 rql_sock_t * rql_sock_grab(rql_sock_t * sock);
 void rql_sock_drop(rql_sock_t * sock);
-void rql_sock_init(rql_sock_t * sock);
+int rql_sock_init(rql_sock_t * sock);
 void rql_sock_close(rql_sock_t * sock);
 void rql_sock_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf);
@@ -56,7 +55,7 @@ struct rql_sock_s
     rql_t * rql;
     rql_sock_via_t via;
     rql_sock_cb cb;
-    uv_tcp_t * tcp;
+    uv_tcp_t tcp;
     char * buf;
 };
 

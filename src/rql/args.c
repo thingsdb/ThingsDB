@@ -22,12 +22,13 @@
 
 rql_args_t * rql_args_new(void)
 {
-    rql_args_t * args = (rql_args_t *) malloc(sizeof(rql_args_t));
+    rql_args_t * args = (rql_args_t *) calloc(1, sizeof(rql_args_t));
     if (!args) return NULL;
     args->version = 0;
     strcpy(args->config, "");
     strcpy(args->log_level, "");
     args->log_colorized = 0;
+    args->init = 0;
     return args;
 }
 

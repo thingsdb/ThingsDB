@@ -66,7 +66,7 @@ void rql_val_destroy(rql_val_e tp, rql_val_via_t * via)
         free(via->str_);
         break;
     case RQL_VAL_RAW:
-        rql_raw_destroy(via->raw_);
+        free(via->raw_);
         break;
     }
     free(via);

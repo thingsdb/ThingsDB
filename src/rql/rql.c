@@ -5,15 +5,14 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <qpack.h>
 #include <rql/rql.h>
 #include <rql/db.h>
 #include <rql/user.h>
+#include <rql/signals.h>
 #include <util/fx.h>
-#include <util/logger.h>
 #include <util/strx.h>
 #include <util/qpx.h>
 #include <util/lock.h>
@@ -24,18 +23,21 @@ const int rql_fn_schema = 0;
 
 static qp_packer_t * rql__pack(rql_t * rql);
 static int rql__unpack(rql_t * rql, qp_res_t * res);
+static void rql__close_handles(uv_handle_t * handle, void * arg);
 
 rql_t * rql_create(void)
 {
     rql_t * rql = (rql_t *) malloc(sizeof(rql_t));
     if (!rql) return NULL;
 
+    rql->flags = 0;
     rql->redundancy = rql_def_redundancy;
+    rql->fn = NULL;
     rql->node = NULL;
 
-    rql->fn = NULL;
     rql->args = rql_args_new();
     rql->cfg = rql_cfg_new();
+    rql->back = rql_back_create(rql);
     rql->dbs = vec_create(0);
     rql->nodes = vec_create(0);
     rql->users = vec_create(0);
@@ -43,6 +45,7 @@ rql_t * rql_create(void)
 
     if (!rql->args ||
         !rql->cfg ||
+        !rql->back ||
         !rql->dbs ||
         !rql->nodes ||
         !rql->users ||
@@ -62,6 +65,7 @@ void rql_destroy(rql_t * rql)
     free(rql->fn);
     free(rql->args);
     free(rql->cfg);
+    rql_back_destroy(rql->back);
     vec_destroy(rql->dbs, (vec_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, NULL);
     vec_destroy(rql->users, NULL);
@@ -102,7 +106,7 @@ void rql_init_logger(rql_t * rql)
 
 int rql_init_fn(rql_t * rql)
 {
-    rql->fn = strx_cat(rql->cfg->rql_path, rql_fn);
+    rql->fn = strx_cat(rql->cfg->rql_path, "bla");
     return (rql->fn) ? 0 : -1;
 }
 
@@ -144,6 +148,25 @@ int rql_read(rql_t * rql)
     rc = rql__unpack(rql, res);
     qp_res_destroy(res);
     return rc;
+}
+
+int rql_run(rql_t * rql)
+{
+    uv_loop_init(rql->loop);
+
+    if (rql_signals_init(rql)) abort();
+
+    if (rql_back_listen(rql->back)) rql_term(SIGTERM);
+
+    uv_run(rql->loop, UV_RUN_DEFAULT);
+
+    uv_walk(rql->loop, rql__close_handles, rql);
+
+    uv_run(rql->loop, UV_RUN_DEFAULT);
+
+    uv_loop_close(rql->loop);
+
+    return 0;
 }
 
 int rql_save(rql_t * rql)
@@ -291,4 +314,22 @@ failed:
     return NULL;
 }
 
+static void rql__close_handles(uv_handle_t * handle, void * arg)
+{
+    rql_t * rql = (rql_t *) arg;
+    (void)(rql);
 
+    if (uv_is_closing(handle)) return;
+
+    switch (handle->type)
+    {
+    case UV_SIGNAL:
+        uv_close(handle, NULL);
+        break;
+    case UV_TCP:
+        rql_sock_close((rql_sock_t *) handle->data);
+        break;
+    default:
+        log_error("unexpected handle type: %d", handle->type);
+    }
+}

@@ -17,7 +17,6 @@ struct rql_raw_s
     unsigned char raw[];
 };
 
-rql_raw_t * rql_raw_create(const unsigned char * raw, size_t n);
-void rql_raw_destroy(rql_raw_t * raw);
+rql_raw_t * rql_raw_new(const unsigned char * raw, size_t n);
 
 #endif /* RQL_RAW_H_ */

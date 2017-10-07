@@ -8,7 +8,7 @@
 #include <string.h>
 #include <rql/val.h>
 
-rql_val_via_t * rql_val_create(rql_val_t tp, void * data)
+rql_val_via_t * rql_val_create(rql_val_e tp, void * data)
 {
     rql_val_via_t * val = (rql_val_via_t *) malloc(sizeof(rql_val_via_t));
     if (!val) return NULL;
@@ -53,7 +53,7 @@ rql_val_via_t * rql_val_create(rql_val_t tp, void * data)
 /*
  * Destroy a value.
  */
-void rql_val_destroy(rql_val_t tp, rql_val_via_t * via)
+void rql_val_destroy(rql_val_e tp, rql_val_via_t * via)
 {
     switch(tp)
     {

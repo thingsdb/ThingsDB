@@ -15,5 +15,5 @@ C_DEPS :=
 SUBDIRS := \
 . \
 src/rql \
-src/utils \
+src/util \
 

@@ -20,7 +20,7 @@
 #define DEFAULT_LOG_LEVEL "info"
 #endif
 
-rql_args_t * rql_args_create(void)
+rql_args_t * rql_args_new(void)
 {
     rql_args_t * args = (rql_args_t *) malloc(sizeof(rql_args_t));
     if (!args) return NULL;
@@ -29,11 +29,6 @@ rql_args_t * rql_args_create(void)
     strcpy(args->log_level, "");
     args->log_colorized = 0;
     return args;
-}
-
-void rql_args_destroy(rql_args_t * args)
-{
-    free(args);
 }
 
 int rql_args_parse(rql_args_t * args, int argc, char *argv[])
@@ -52,6 +47,18 @@ int rql_args_parse(rql_args_t * args, int argc, char *argv[])
             str_default: "/etc/rql/rql.conf",
             str_value: args->config,
             choices: NULL
+    };
+
+    argparse_argument_t init_ = {
+            name: "init",
+            shortcut: 0,
+            help: "initialize a new RQL store",
+            action: ARGPARSE_STORE_TRUE,
+            default_int32_t: 0,
+            pt_value_int32_t: &args->init,
+            str_default: NULL,
+            str_value: NULL,
+            choices: NULL,
     };
 
     argparse_argument_t version_ = {
@@ -91,6 +98,7 @@ int rql_args_parse(rql_args_t * args, int argc, char *argv[])
     };
 
     if (    argparse_add_argument(parser, &config_) ||
+            argparse_add_argument(parser, &init_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
             argparse_add_argument(parser, &log_colorized_)) return -1;

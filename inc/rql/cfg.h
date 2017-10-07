@@ -14,16 +14,15 @@ typedef struct rql_cfg_s  rql_cfg_t;
 
 #include <inttypes.h>
 
-rql_cfg_t * rql_cfg_create(void);
-void rql_cfg_destroy(rql_cfg_t * cfg);
+rql_cfg_t * rql_cfg_new(void);
 int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file);
 
 struct rql_cfg_s
 {
-    uint16_t listen_client_port;
-    uint16_t listen_backend_port;
+    uint16_t client_port;
+    uint16_t port;  /* back-end port */
     uint8_t ip_support;
-    char node_address[RQL_CFG_ADDR_MAX];
+    char addr[RQL_CFG_ADDR_MAX];
     char rql_path[RQL_CFG_PATH_MAX];
 };
 

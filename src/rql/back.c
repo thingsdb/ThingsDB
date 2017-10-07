@@ -1,0 +1,105 @@
+/*
+ * back.c
+ *
+ *  Created on: Oct 5, 2017
+ *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
+ */
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <rql/back.h>
+#include <util/logger.h>
+
+static void rql__back_on_connect(uv_tcp_t * tcp, int status);
+static void rql__back_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
+
+rql_back_t * rql_back_create(rql_t * rql)
+{
+    rql_back_t * back = (rql_back_t *) malloc(sizeof(rql_back_t));
+    if (!back) return NULL;
+
+    back->sock = rql_sock_create(RQL_SOCK_BACK, rql);
+    if (!back->sock)
+    {
+        rql_back_destroy(back);
+        return NULL;
+    }
+
+    return back;
+}
+
+void rql_back_destroy(rql_back_t * back)
+{
+    rql_sock_close(back->sock);
+    free(back);
+}
+
+int rql_back_listen(rql_back_t * back)
+{
+    int rc;
+    rql_t * rql = back->sock->rql;
+    rql_sock_init(back->sock);
+
+    struct sockaddr_storage addr;
+
+    if (rql->cfg->ip_support == AF_INET)
+    {
+        uv_ip4_addr("0.0.0.0", rql->cfg->port, (struct sockaddr_in *) &addr);
+    }
+    else
+    {
+        uv_ip6_addr("::", rql->cfg->port, (struct sockaddr_in6 *) &addr);
+    }
+
+    if ((rc = uv_tcp_bind(
+            back->sock->tcp,
+            (const struct sockaddr *) &addr,
+            (rql->cfg->ip_support == AF_INET6) ?
+                    UV_TCP_IPV6ONLY : 0)) ||
+
+        (rc = uv_listen(
+            (uv_stream_t *) back->sock->tcp,
+            RQL_MAX_NODES,
+            (uv_connection_cb) rql__back_on_connect)))
+    {
+        log_error("error listening for nodes: %s", uv_strerror(rc));
+        return -1;
+    }
+
+    log_info("start listening for nodes on port %d", rql->cfg->port);
+    return 0;
+}
+
+static void rql__back_on_connect(uv_tcp_t * tcp, int status)
+{
+    int rc;
+
+    if (status < 0)
+    {
+        log_error("node connection error: %s", uv_strerror(status));
+        return;
+    }
+
+    rql_sock_t * sock = (rql_sock_t *) tcp->data;
+
+    log_debug("node connected");
+
+    rql_sock_t * nsock = rql_sock_create(RQL_SOCK_CONN, sock->rql);
+    if (!nsock) return;
+    rql_sock_init(nsock);
+    nsock->cb = rql__back_on_pkg;
+    if ((rc = uv_accept((uv_stream_t *) tcp, (uv_stream_t *) nsock->tcp)) ||
+        (rc = uv_read_start(
+                (uv_stream_t *) nsock->tcp,
+                rql_sock_alloc_buf,
+                rql_sock_on_data)))
+    {
+        log_error(uv_strerror(rc));
+        rql_sock_close(nsock);
+        return;
+    }
+}
+
+static void rql__back_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
+{
+
+}

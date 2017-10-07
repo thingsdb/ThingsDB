@@ -5,10 +5,12 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/rql/args.c \
+../src/rql/back.c \
 ../src/rql/cfg.c \
 ../src/rql/db.c \
 ../src/rql/elem.c \
-../src/rql/pool.c \
+../src/rql/node.c \
+../src/rql/pkg.c \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
 ../src/rql/rql.c \
@@ -19,10 +21,12 @@ C_SRCS += \
 
 OBJS += \
 ./src/rql/args.o \
+./src/rql/back.o \
 ./src/rql/cfg.o \
 ./src/rql/db.o \
 ./src/rql/elem.o \
-./src/rql/pool.o \
+./src/rql/node.o \
+./src/rql/pkg.o \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
 ./src/rql/rql.o \
@@ -33,10 +37,12 @@ OBJS += \
 
 C_DEPS += \
 ./src/rql/args.d \
+./src/rql/back.d \
 ./src/rql/cfg.d \
 ./src/rql/db.d \
 ./src/rql/elem.d \
-./src/rql/pool.d \
+./src/rql/node.d \
+./src/rql/pkg.d \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
 ./src/rql/rql.d \
@@ -50,7 +56,7 @@ C_DEPS += \
 src/rql/%.o: ../src/rql/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross GCC Compiler'
-	gcc -I"/home/joente/workspace/rqldb/inc" -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -DDEBUG -I"/home/joente/workspace/rqldb/inc" -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

@@ -40,24 +40,19 @@ static void rql__cfg_read_ip_support(
         uint8_t * ip_support);
 
 
-rql_cfg_t * rql_cfg_create(void)
+rql_cfg_t * rql_cfg_new(void)
 {
     rql_cfg_t * cfg = (rql_cfg_t *) malloc(sizeof(rql_cfg_t));
     if (!cfg) return NULL;
 
     /* set defaults */
-    cfg->listen_client_port = 9200;
-    cfg->listen_backend_port = 9220;
+    cfg->client_port = 9200;
+    cfg->port = 9220;
     cfg->ip_support = AF_UNSPEC;
-    strcpy(cfg->node_address, "localhost");
+    strcpy(cfg->addr, "localhost");
     strcpy(cfg->rql_path, "/var/lib/rql/");
 
     return cfg;
-}
-
-void rql_cfg_destroy(rql_cfg_t * cfg)
-{
-    free(cfg);
 }
 
 int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file)
@@ -85,8 +80,8 @@ int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file)
                 parser,
                 cfg_file,
                 "node_name",
-                cfg->node_address,
-                &cfg->listen_backend_port)) ||
+                cfg->addr,
+                &cfg->port)) ||
         (rc = rql__cfg_read_rql_path(
                 parser,
                 cfg_file,
@@ -96,7 +91,7 @@ int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file)
             parser,
             cfg_file,
             "listen_client_port",
-            &cfg->listen_client_port);
+            &cfg->client_port);
     rql__cfg_read_ip_support(parser, cfg_file, &cfg->ip_support);
 
 exit_parse:
@@ -125,7 +120,7 @@ static void rql__cfg_read_port(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%u')",
                 option_name,
                 cfg_file,
@@ -135,7 +130,7 @@ static void rql__cfg_read_port(
     else if (option->tp != CFGPARSER_TP_INTEGER)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%u')",
                 option_name,
                 cfg_file,
@@ -145,8 +140,8 @@ static void rql__cfg_read_port(
     else if (option->val->integer < min_ || option->val->integer > max_)
     {
         log_warning(
-                "Error reading '%s' in '%s': "
-                "value should be between %d and %d but got %d. "
+                "error reading '%s' in '%s'; "
+                "value should be between %d and %d but got %d "
                 "(using default value: '%u')",
                 option_name,
                 cfg_file,
@@ -176,7 +171,7 @@ static void rql__cfg_read_ip_support(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%s')",
                 "ip_support",
                 cfg_file,
@@ -186,7 +181,7 @@ static void rql__cfg_read_ip_support(
     else if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%s')",
                 "ip_support",
                 cfg_file,
@@ -210,8 +205,8 @@ static void rql__cfg_read_ip_support(
         else
         {
             log_warning(
-                    "Error reading '%s' in '%s': "
-                    "error: expecting ALL, IPV4ONLY or IPV6ONLY but got '%s'. "
+                    "error reading '%s' in '%s': "
+                    "expecting ALL, IPV4ONLY or IPV6ONLY but got '%s' "
                     "(using default value: '%s')",
                     "ip_support",
                     cfg_file,
@@ -237,7 +232,7 @@ static int rql__cfg_read_rql_path(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%s')",
                 "rql_path",
                 cfg_file,
@@ -247,7 +242,7 @@ static int rql__cfg_read_rql_path(
     else if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
-                "Error reading '%s' in '%s': %s. "
+                "error reading '%s' in '%s': %s "
                 "(using default value: '%s')",
                 "rql_path",
                 cfg_file,
@@ -267,7 +262,7 @@ static int rql__cfg_read_rql_path(
     if (len == RQL_CFG_PATH_MAX - 2)
     {
         log_warning(
-                "Default database path exceeds %d characters, please "
+                "rql path exceeds %d characters, please "
                 "check your configuration file: %s",
                 RQL_CFG_PATH_MAX - 3,
                 cfg_file);
@@ -303,9 +298,9 @@ static int rql__cfg_read_address_port(
     if (gethostname(hostname, RQL_CFG_ADDR_MAX))
     {
         log_debug(
-                "Unable to read the systems host name. Since its only purpose "
+                "unable to read the systems host name; since its only purpose "
                 "is to apply this in the configuration file this might not be "
-                "any problem. (using 'localhost' as fallback)");
+                "any problem (using 'localhost' as fallback)");
         strcpy(hostname, "localhost");
     }
 
@@ -396,7 +391,7 @@ static int rql__cfg_read_address_port(
             *port_pt = (uint16_t) test_port;
         }
 
-        log_debug("Read '%s' from configuration: %s:%d",
+        log_debug("read '%s' from configuration: %s:%d",
                 option_name,
                 address_pt,
                 *port_pt);

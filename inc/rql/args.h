@@ -11,8 +11,7 @@ typedef struct rql_args_s  rql_args_t;
 
 #include <util/argparse.h>
 
-rql_args_t * rql_args_create(void);
-void rql_args_destroy(rql_args_t * args);
+rql_args_t * rql_args_new(void);
 int rql_args_parse(rql_args_t * args, int argc, char *argv[]);
 
 struct rql_args_s
@@ -20,6 +19,7 @@ struct rql_args_s
     /* true/false props */
     int32_t version;
     int32_t log_colorized;
+    int32_t init;
 
     /* string props */
     char config[ARGPARSE_MAX_LEN_ARG];

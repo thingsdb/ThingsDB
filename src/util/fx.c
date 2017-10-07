@@ -5,19 +5,23 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <util/fx.h>
 
-int filex_write(const char * fn, unsigned char * data, size_t n)
+int fx_write(const char * fn, unsigned char * data, size_t n)
 {
     int rc = 0;
     FILE * fp = fopen(fn, "w");
     if (!fp) return -1;
 
-    rc = write(data, n, 1, fp);
+    rc = fwrite(data, n, 1, fp);
 
     return fclose(fp) || rc;
 }
 
-unsigned char * filex_read(const char * fn, ssize_t * size)
+unsigned char * fx_read(const char * fn, ssize_t * size)
 {
     unsigned char * data = NULL;
     FILE * fp = fopen(fn, "w");
@@ -40,3 +44,21 @@ final:
     fclose(fp);
     return data;
 }
+
+int fx_file_exist(const char * fn)
+{
+    FILE * fp;
+    fp = fopen(fn, "r");
+    if (!fp) return 0;
+    fclose(fp);
+    return 1;
+}
+
+int fx_is_dir(const char * path)
+{
+    struct stat st = {0};
+    stat(path, &st);
+    return S_ISDIR(st.st_mode);
+}
+
+

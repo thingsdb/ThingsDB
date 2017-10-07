@@ -14,7 +14,8 @@ typedef struct rql_user_s  rql_user_t;
 
 #include <inttypes.h>
 
-const char * rql_user_def_name = "root";
+extern const char * rql_user_def_name;
+extern const char * rql_user_def_pass;
 
 rql_user_t * rql_user_create(const char * name);
 rql_user_t * rql_user_grab(rql_user_t * user);

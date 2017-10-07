@@ -5,14 +5,25 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 
-#include <rql/rql.h>
-#include <rql/db.h>
-#include <util/logger.h>
-#include <util/strx.h>
-#include <util/filex.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <qpack.h>
+#include <rql/rql.h>
+#include <rql/db.h>
+#include <rql/user.h>
+#include <util/fx.h>
+#include <util/logger.h>
+#include <util/strx.h>
+#include <util/qpx.h>
+#include <util/lock.h>
+
+const uint8_t rql_def_redundancy = 3;
+const char * rql_fn = "rql.qp";
+const int rql_fn_schema = 0;
+
+static qp_packer_t * rql__pack(rql_t * rql);
+static int rql__unpack(rql_t * rql, qp_res_t * res);
 
 rql_t * rql_create(void)
 {
@@ -23,8 +34,8 @@ rql_t * rql_create(void)
     rql->node = NULL;
 
     rql->fn = NULL;
-    rql->args = rql_args_create();
-    rql->cfg = rql_cfg_create();
+    rql->args = rql_args_new();
+    rql->cfg = rql_cfg_new();
     rql->dbs = vec_create(0);
     rql->nodes = vec_create(0);
     rql->users = vec_create(0);
@@ -49,8 +60,8 @@ void rql_destroy(rql_t * rql)
     if (!rql) return;
 
     free(rql->fn);
-    rql_args_destroy(rql->args);
-    rql_cfg_destroy(rql->cfg);
+    free(rql->args);
+    free(rql->cfg);
     vec_destroy(rql->dbs, (vec_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, NULL);
     vec_destroy(rql->users, NULL);
@@ -99,8 +110,7 @@ int rql_build(rql_t * rql)
 {
     rql_user_t * user = rql_user_create(rql_user_def_name);
     if (!user || vec_append(rql->users, user)) goto failed;
-
-    rql->node = rql_node_create(0, rql->cfg->node_address);
+    rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
     if (!rql->node || vec_append(rql->nodes, rql->node)) goto failed;
 
     if (rql_save(rql)) goto failed;
@@ -120,7 +130,7 @@ int rql_read(rql_t * rql)
 {
     int rc;
     ssize_t n;
-    unsigned char * data = filex_read(rql->fn, &n);
+    unsigned char * data = fx_read(rql->fn, &n);
     if (!data) return -1;
     qp_unpacker_t unpacker;
     qp_unpacker_init(&unpacker, data, (size_t) n);
@@ -131,29 +141,69 @@ int rql_read(rql_t * rql)
         log_critical(qp_strerror(rc));
         return -1;
     }
-    rc = rql_unpack(rql, res);
+    rc = rql__unpack(rql, res);
     qp_res_destroy(res);
     return rc;
 }
 
 int rql_save(rql_t * rql)
 {
-    qp_packer_t * packer = rql_pack(rql);
+    qp_packer_t * packer = rql__pack(rql);
     if (!packer) return -1;
 
-    int rc = filex_write(rql->fn, packer->buffer, packer->len);
+    int rc = fx_write(rql->fn, packer->buffer, packer->len);
+    if (rc) log_error("failed to write file: '%s'", rql->fn);
     qp_packer_destroy(packer);
     return rc;
 }
 
-int rql_unpack(rql_t * rql, qp_res_t * res)
+int rql_lock(rql_t * rql)
 {
-    qp_res_t * redundancy, * node, * nodes;
+    lock_t rc = lock_lock(rql->cfg->rql_path, LOCK_FLAG_OVERWRITE);
+
+    switch (rc)
+    {
+    case LOCK_IS_LOCKED_ERR:
+    case LOCK_PROCESS_NAME_ERR:
+    case LOCK_WRITE_ERR:
+    case LOCK_READ_ERR:
+    case LOCK_MEM_ALLOC_ERR:
+        log_error("%s (%s)", lock_str(rc), rql->cfg->rql_path);
+        return -1;
+    case LOCK_NEW:
+        log_info("%s (%s)", lock_str(rc), rql->cfg->rql_path);
+        break;
+    case LOCK_OVERWRITE:
+        log_warning("%s (%s)", lock_str(rc), rql->cfg->rql_path);
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+int rql_unlock(rql_t * rql)
+{
+    lock_t rc = lock_unlock(rql->cfg->rql_path);
+    if (rc != LOCK_REMOVED)
+    {
+        log_error(lock_str(rc));
+        return -1;
+    }
+    return 0;
+}
+
+static int rql__unpack(rql_t * rql, qp_res_t * res)
+{
+    qp_res_t * schema, * redundancy, * node, * nodes;
 
     if (res->tp != QP_RES_MAP ||
+        !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(redundancy = qpx_map_get(res->via.map, "redundancy")) ||
         !(node = qpx_map_get(res->via.map, "node")) ||
         !(nodes = qpx_map_get(res->via.map, "nodes")) ||
+        schema->tp != QP_RES_INT64 ||
+        schema->via.int64 != rql_fn_schema ||
         redundancy->tp != QP_RES_INT64 ||
         node->tp != QP_RES_INT64 ||
         nodes->tp != QP_RES_ARRAY ||
@@ -165,12 +215,12 @@ int rql_unpack(rql_t * rql, qp_res_t * res)
 
     for (uint32_t i = 0; i < nodes->via.array->n; i++)
     {
-        qp_res_t * itm = nodes->via.array->values[i];
+        qp_res_t * itm = nodes->via.array->values + i;
         qp_res_t * addr, * port;
         if (itm->tp != QP_RES_ARRAY ||
             itm->via.array->n != 2 ||
-            !(addr = itm->via.array->values[0]) ||
-            !(port = itm->via.array->values[1]) ||
+            !(addr = itm->via.array->values) ||
+            !(port = itm->via.array->values + 1) ||
             addr->tp != QP_RES_STR ||
             port->tp != QP_RES_INT64 ||
             port->via.int64 < 1 ||
@@ -200,12 +250,16 @@ failed:
     return -1;
 }
 
-qp_packer_t * rql_pack(rql_t * rql)
+static qp_packer_t * rql__pack(rql_t * rql)
 {
     qp_packer_t * packer = qp_packer_create(1024);
     if (!packer) return NULL;
 
     if (qp_add_map(&packer)) goto failed;
+
+    /* schema */
+    if (qp_add_raw(packer, "schema", 6) ||
+        qp_add_int64(packer, rql_fn_schema)) goto failed;
 
     /* redundancy */
     if (qp_add_raw(packer, "redundancy", 10) ||
@@ -236,3 +290,5 @@ failed:
     qp_packer_destroy(packer);
     return NULL;
 }
+
+

@@ -7,6 +7,8 @@
 #ifndef RQL_H_
 #define RQL_H_
 
+#define RQL_MAX_NODES 64
+
 typedef struct rql_s rql_t;
 
 #include <uv.h>
@@ -14,14 +16,19 @@ typedef struct rql_s rql_t;
 #include <util/vec.h>
 #include <rql/args.h>
 #include <rql/cfg.h>
+#include <rql/node.h>
 
-const uint8_t rql_def_redundancy = 3;
-const char * rql_fn = "rql.qp";
 
 rql_t * rql_create(void);
 void rql_destroy(rql_t * rql);
 void rql_init_logger(rql_t * rql);
 int rql_init_fn(rql_t * rql);
+int rql_build(rql_t * rql);
+int rql_read(rql_t * rql);
+int rql_save(rql_t * rql);
+int rql_lock(rql_t * rql);
+int rql_unlock(rql_t * rql);
+
 
 struct rql_s
 {

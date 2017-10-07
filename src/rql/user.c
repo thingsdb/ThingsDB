@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <rql/user.h>
 
+const char * rql_user_def_name = "iris";
+const char * rql_user_def_pass = "siri";
+
 rql_user_t * rql_user_create(const char * name)
 {
     rql_user_t * user = (rql_user_t *) malloc(sizeof(rql_user_t));

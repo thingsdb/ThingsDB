@@ -5,9 +5,7 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <qpack.h>
+
 #include <rql/rql.h>
 #include <rql/db.h>
 #include <rql/user.h>
@@ -38,6 +36,7 @@ rql_t * rql_create(void)
     rql->args = rql_args_new();
     rql->cfg = rql_cfg_new();
     rql->back = rql_back_create(rql);
+    rql->front = rql_front_create(rql);
     rql->dbs = vec_create(0);
     rql->nodes = vec_create(0);
     rql->users = vec_create(0);
@@ -46,6 +45,7 @@ rql_t * rql_create(void)
     if (!rql->args ||
         !rql->cfg ||
         !rql->back ||
+        !rql->front ||
         !rql->dbs ||
         !rql->nodes ||
         !rql->users ||
@@ -66,6 +66,7 @@ void rql_destroy(rql_t * rql)
     free(rql->args);
     free(rql->cfg);
     rql_back_destroy(rql->back);
+    rql_front_destroy(rql->front);
     vec_destroy(rql->dbs, (vec_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, NULL);
     vec_destroy(rql->users, NULL);
@@ -98,10 +99,7 @@ void rql_init_logger(rql_t * rql)
             return;
         }
     }
-    /* We should not get here since args should always
-     * contain a valid log level
-     */
-    logger_init(stdout, 0);
+    assert (0);
 }
 
 int rql_init_fn(rql_t * rql)
@@ -112,8 +110,11 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
-    rql_user_t * user = rql_user_create(rql_user_def_name);
-    if (!user || vec_append(rql->users, user)) goto failed;
+    rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
+
+    if (!user ||
+        !rql_user_set_pass(user, user->pass, NULL) ||
+        vec_append(rql->users, user)) goto failed;
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
     if (!rql->node || vec_append(rql->nodes, rql->node)) goto failed;
 
@@ -156,7 +157,8 @@ int rql_run(rql_t * rql)
 
     if (rql_signals_init(rql)) abort();
 
-    if (rql_back_listen(rql->back)) rql_term(SIGTERM);
+    if (rql_back_listen(rql->back) ||
+        rql_front_listen(rql->front)) rql_term(SIGTERM);
 
     uv_run(rql->loop, UV_RUN_DEFAULT);
 

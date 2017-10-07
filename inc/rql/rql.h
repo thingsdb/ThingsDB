@@ -22,6 +22,7 @@ typedef struct rql_s rql_t;
 #include <rql/cfg.h>
 #include <rql/node.h>
 #include <rql/back.h>
+#include <rql/front.h>
 #include <util/logger.h>
 
 #define rql_term(signum__) {\
@@ -48,6 +49,7 @@ struct rql_s
     rql_args_t * args;
     rql_cfg_t * cfg;
     rql_back_t * back;
+    rql_front_t * front;
     vec_t * dbs;
     vec_t * nodes;
     vec_t * users;

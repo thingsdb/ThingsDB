@@ -14,6 +14,7 @@ typedef struct rql_pkg_s rql_pkg_t;
 #include <inttypes.h>
 
 rql_pkg_t * rql_pkg_new(uint8_t tp, const unsigned char * data, uint32_t n);
+rql_pkg_t * rql_pkg_e(ex_t * e);
 
 struct rql_pkg_s
 {

@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
 
     rc = rql_run(rql);
 stop:
-    if (rql_unlock(rql) && !rc)
+    if (!rc && rql_unlock(rql))
     {
         rc = -1;
     }

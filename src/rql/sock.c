@@ -12,6 +12,9 @@
 #include <util/logger.h>
 
 static void rql__sock_stop(uv_tcp_t * tcp);
+static const char * rql__sock_addr(rql_sock_t * sock);
+static const char * rql__unresolved = "unresolved";
+
 
 rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql)
 {
@@ -27,6 +30,7 @@ rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql)
     sock->via.user = NULL;
     sock->cb = NULL;
     sock->buf = NULL;
+    sock->addr_ = NULL;
 
     sock->tcp.data = sock;
 
@@ -45,6 +49,7 @@ void rql_sock_drop(rql_sock_t * sock)
     {
         assert (~sock->flags & RQL_SOCK_FLAG_INIT);
         free(sock->buf);
+        free(sock->addr_);
         free(sock);
     }
 }
@@ -82,7 +87,7 @@ void rql_sock_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
         sock->buf = (char *) malloc(sugsz);
         if (sock->buf == NULL)
         {
-            log_error("error allocating memory for buffer");
+            log_error(EX_ALLOC);
             buf->base = NULL;
             buf->len = 0;
             return;
@@ -111,14 +116,14 @@ void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf)
     }
 
     sock->n += n;
-
     if (sock->n < sizeof(rql_pkg_t)) return;
 
     pkg = (rql_pkg_t *) sock->buf;
     if (!rql_pkg_check(pkg))
     {
-        log_error("invalid package; closing connection");
-        rql_sock_drop(sock);
+        log_error("invalid package from '%s'; closing connection",
+                rql_sock_addr(sock));
+        rql_sock_close(sock);
         return;
     }
 
@@ -131,6 +136,7 @@ void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf)
             char * tmp = realloc(sock->buf, total_sz);
             if (!tmp)
             {
+                log_error(EX_ALLOC);
                 rql_sock_close(sock);
                 return;
             }
@@ -143,7 +149,6 @@ void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf)
     sock->cb(sock, pkg);
 
     sock->n -= total_sz;
-
     if (sock->n > 0)
     {
         /* move data and call rql_sock_on_data() again */
@@ -163,20 +168,81 @@ const char * rql_sock_ip_support_str(uint8_t ip_support)
     }
 }
 
+const char * rql_sock_addr(rql_sock_t * sock)
+{
+    return (sock->addr_) ? sock->addr_ : rql__sock_addr(sock);
+}
+
 static void rql__sock_stop(uv_tcp_t * tcp)
 {
     rql_sock_t * sock = (rql_sock_t * ) tcp->data;
     switch (sock->tp)
     {
     case RQL_SOCK_BACK:
-    case RQL_SOCK_CONN:
+    case RQL_SOCK_FRONT:
+        break;
+    case RQL_SOCK_NODE:
+        log_info("node disconnected: %s", rql_sock_addr(sock));
         rql_node_drop(sock->via.node);
         break;
-    case RQL_SOCK_FRONT:
+    case RQL_SOCK_CLIENT:
+        log_info("client disconnected: %s", rql_sock_addr(sock));
         rql_user_drop(sock->via.user);
-
+        break;
     }
     rql_sock_drop(sock);
 }
 
+static const char * rql__sock_addr(rql_sock_t * sock)
+{
+    const size_t sz = 54;
+    sock->addr_ = (char *) malloc(sz);
+    if (!sock->addr_) return rql__unresolved;
+
+    struct sockaddr_storage name;
+    int n = sizeof(name);
+
+    if (uv_tcp_getpeername(&sock->tcp, (struct sockaddr *) &name, &n))
+    {
+        return rql__unresolved;
+    }
+
+    switch (name.ss_family)
+    {
+    case AF_INET:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uv_inet_ntop(
+                AF_INET,
+                &((struct sockaddr_in *) &name)->sin_addr,
+                addr,
+                sizeof(addr));
+        snprintf(
+                sock->addr_,
+                sz,
+                "%s:%d",
+                addr,
+                ntohs(((struct sockaddr_in *) &name)->sin_port));
+    } break;
+    case AF_INET6:
+    {
+        char addr[INET6_ADDRSTRLEN];
+        uv_inet_ntop(
+                AF_INET6,
+                &((struct sockaddr_in6 *) &name)->sin6_addr,
+                addr,
+                sizeof(addr));
+        snprintf(
+                sock->addr_,
+                sz,
+                "[%s]:%d",
+                addr,
+                ntohs(((struct sockaddr_in6 *) &name)->sin6_port));
+    } break;
+    default:
+        return rql__unresolved;
+    }
+
+    return sock->addr_;
+}
 

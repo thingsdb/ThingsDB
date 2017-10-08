@@ -7,7 +7,10 @@
 #ifndef EX_H_
 #define EX_H_
 
-#define ERRX_DEF_SZ 128
+#define EX_DEF_SZ 128
+
+#define EX_ALLOC \
+    "allocation error in '%s' at %s:%d", __func__, __FILE__, __LINE__
 
 typedef struct ex_s ex_t;
 
@@ -24,11 +27,11 @@ struct ex__s
     int errnr;
     size_t sz;
     size_t n;
-    char errmsg[ERRX_DEF_SZ];
+    char errmsg[EX_DEF_SZ];
 } ex__t;
 
 #define ex_ptr(e__) \
-    struct ex__s extmp__ = {errnr:0, sz:ERRX_DEF_SZ, errmsg:""}; \
+    struct ex__s extmp__ = {errnr:0, sz:EX_DEF_SZ, errmsg:""}; \
     ex_t * e__ = (ex_t *) &extmp__
 
 ex_t * ex_new(size_t sz);

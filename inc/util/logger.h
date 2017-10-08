@@ -66,7 +66,8 @@ extern logger_t Logger;
         log__critical(fmt, ##__VA_ARGS__)   \
 
 #define LOGC(fmt, ...) \
-    fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
-    log_critical(fmt, ##__VA_ARGS__)
+    {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
+    log_critical(fmt, ##__VA_ARGS__);}
+
 
 #endif /* LOGGER_H_ */

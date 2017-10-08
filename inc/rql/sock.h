@@ -12,9 +12,10 @@
 
 typedef enum
 {
-    RQL_SOCK_BACK,  /* listen to nodes */
-    RQL_SOCK_CONN,  /* connections to nodes */
-    RQL_SOCK_FRONT, /* listen to clients */
+    RQL_SOCK_BACK,      /* listen to nodes */
+    RQL_SOCK_NODE,      /* connections to nodes */
+    RQL_SOCK_FRONT,     /* listen to clients */
+    RQL_SOCK_CLIENT,    /* connections to clients */
 } rql_sock_e;
 
 typedef struct rql_sock_s  rql_sock_t;
@@ -27,8 +28,7 @@ typedef union rql_sock_u rql_sock_via_t;
 #include <rql/node.h>
 #include <rql/pkg.h>
 
-typedef void (*rql_sock_cb)(rql_sock_t * sock, rql_pkg_t * pkg);
-
+typedef void (*rql_sock_ondata_cb)(rql_sock_t * sock, rql_pkg_t * pkg);
 
 rql_sock_t * rql_sock_create(rql_sock_e tp, rql_t * rql);
 rql_sock_t * rql_sock_grab(rql_sock_t * sock);
@@ -38,6 +38,7 @@ void rql_sock_close(rql_sock_t * sock);
 void rql_sock_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void rql_sock_on_data(uv_stream_t * clnt, ssize_t n, const uv_buf_t * buf);
 const char * rql_sock_ip_support_str(uint8_t ip_support);
+const char * rql_sock_addr(rql_sock_t * sock);
 
 union rql_sock_u
 {
@@ -54,9 +55,16 @@ struct rql_sock_s
     uint8_t flags;
     rql_t * rql;
     rql_sock_via_t via;
-    rql_sock_cb cb;
+    rql_sock_ondata_cb cb;
     uv_tcp_t tcp;
     char * buf;
+    char * addr_;
+};
+
+struct rql_sock_req_s
+{
+    rql_sock_t * sock;
+    rql_pkg_t * pkg;
 };
 
 #endif /* RQL_SOCK_H_ */

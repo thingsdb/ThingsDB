@@ -4,21 +4,25 @@
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <stdlib.h>
 #include <rql/front.h>
 #include <rql/rql.h>
 #include <rql/user.h>
 #include <rql/users.h>
+#include <rql/write.h>
+#include <rql/ref.h>
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status);
 static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg);
+static void rql__front_write_cb(rql_write_t * req, int status);
 
 rql_front_t * rql_front_create(rql_t * rql)
 {
     rql_front_t * front = (rql_front_t *) malloc(sizeof(rql_front_t));
     if (!front) return NULL;
 
-    front->sock = rql_sock_create(RQL_SOCK_BACK, rql);
+    front->sock = rql_sock_create(RQL_SOCK_FRONT, rql);
     if (!front->sock)
     {
         rql_front_destroy(front);
@@ -79,21 +83,30 @@ int rql_front_listen(rql_front_t * front)
     return 0;
 }
 
+int rql_front_write(rql_sock_t * sock, rql_pkg_t * pkg)
+{
+    return rql_write(sock, pkg, NULL, rql__front_write_cb);
+}
+
+static void rql__front_write_cb(rql_write_t * req, int status)
+{
+    (void)(status);
+    free(req->pkg);
+}
+
 static void rql__front_on_connect(uv_tcp_t * tcp, int status)
 {
     int rc;
 
     if (status < 0)
     {
-        log_error("node connection error: %s", uv_strerror(status));
+        log_error("client connection error: %s", uv_strerror(status));
         return;
     }
 
     rql_sock_t * sock = (rql_sock_t *) tcp->data;
 
-    log_debug("node connected");
-
-    rql_sock_t * nsock = rql_sock_create(RQL_SOCK_CONN, sock->rql);
+    rql_sock_t * nsock = rql_sock_create(RQL_SOCK_CLIENT, sock->rql);
     if (!nsock || rql_sock_init(nsock)) return;
     nsock->cb = rql__front_on_pkg;
     if ((rc = uv_accept((uv_stream_t *) tcp, (uv_stream_t *) &nsock->tcp)) ||
@@ -106,7 +119,9 @@ static void rql__front_on_connect(uv_tcp_t * tcp, int status)
         rql_sock_close(nsock);
         return;
     }
+    log_info("client connected: %s", rql_sock_addr(nsock));
 }
+
 
 static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
 {
@@ -116,7 +131,8 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
         rql__front_on_auth(sock, pkg);
         break;
     default:
-        log_error("test sock flags: %u", sock->flags);
+        log_error("unexpected package type: %u (source: %s)",
+                pkg->tp, rql_sock_addr(sock));
     }
 }
 
@@ -133,6 +149,20 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     rql_user_t * user = rql_users_auth(sock->rql->users, &name, &pass, e);
     if (e->errnr)
     {
-        resp = rql_pkg_e(e);
+        log_error("authentication failed: %s (source: %s)",
+                e->errmsg, rql_sock_addr(sock));
+        resp = rql_pkg_e(e, pkg->id);
+    }
+    else
+    {
+        /* only set new authentication when successful */
+        sock->via.user = rql_user_grab(user);
+        resp = rql_pkg_new(RQL_FRONT_ACK, NULL, 0);
+    }
+
+    if (!resp || rql_front_write(sock, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
     }
 }

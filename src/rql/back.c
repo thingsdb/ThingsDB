@@ -84,9 +84,7 @@ static void rql__back_on_connect(uv_tcp_t * tcp, int status)
 
     rql_sock_t * sock = (rql_sock_t *) tcp->data;
 
-    log_debug("node connected");
-
-    rql_sock_t * nsock = rql_sock_create(RQL_SOCK_CONN, sock->rql);
+    rql_sock_t * nsock = rql_sock_create(RQL_SOCK_NODE, sock->rql);
     if (!nsock || rql_sock_init(nsock)) return;
     nsock->cb = rql__back_on_pkg;
     if ((rc = uv_accept((uv_stream_t *) tcp, (uv_stream_t *) &nsock->tcp)) ||
@@ -99,6 +97,7 @@ static void rql__back_on_connect(uv_tcp_t * tcp, int status)
         rql_sock_close(nsock);
         return;
     }
+    log_info("node connected: %s", rql_sock_addr(nsock));
 }
 
 static void rql__back_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)

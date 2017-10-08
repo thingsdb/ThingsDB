@@ -5,6 +5,8 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <rql/rql.h>
+#include <rql/users.h>
+#include <util/cryptx.h>
 
 rql_user_t * rql_users_auth(
         vec_t * users,
@@ -41,7 +43,7 @@ rql_user_t * rql_users_auth(
                 ex_set(e, RQL_FRONT_AUTH_ERR, "incorrect password");
                 return NULL;
             }
-            return rql_user_grab(user);
+            return user;
         }
     }
 

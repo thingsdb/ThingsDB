@@ -122,11 +122,19 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
 
     imap->n += (ret == data);
 
-    /* a safe vec_append is required here */
-    if (imap->vec && (ret != data || vec_append(imap->vec, data)))
+    /* a safe vec_push is required here */
+    if (imap->vec && ret == data)
     {
-        free(imap->vec);
-        imap->vec = NULL;
+        vec_t * vtmp = vec_push(imap->vec, data);
+        if (vtmp)
+        {
+            imap->vec = vtmp;
+        }
+        else
+        {
+            free(imap->vec);
+            imap->vec = NULL;
+        }
     }
 
     return ret;
@@ -149,22 +157,28 @@ int imap_add(imap_t * imap, uint64_t id, void * data)
     if (!id)
     {
         if (nd->data) return IMAP_ERR_EXIST;
-
-        imap->n++;
         nd->data = data;
     }
     else
     {
         int rc = imap__add(nd, id - 1, data);
         if (rc) return rc;
-        imap->n++;
     }
+    imap->n++;
 
-    /* a safe vec_append is required here */
-    if (imap->vec && vec_append(imap->vec, data))
+    /* a safe vec_push is required here */
+    if (imap->vec)
     {
-        free(imap->vec);
-        imap->vec = NULL;
+        vec_t * vtmp = vec_push(imap->vec, data);
+        if (vtmp)
+        {
+            imap->vec = vtmp;
+        }
+        else
+        {
+            free(imap->vec);
+            imap->vec = NULL;
+        }
     }
 
     return 0;

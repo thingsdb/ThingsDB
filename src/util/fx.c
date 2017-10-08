@@ -16,7 +16,7 @@ int fx_write(const char * fn, unsigned char * data, size_t n)
     FILE * fp = fopen(fn, "w");
     if (!fp) return -1;
 
-    rc = fwrite(data, n, 1, fp);
+    rc = (fwrite(data, n, 1, fp) == 1) ? 0 : -1;
 
     return fclose(fp) || rc;
 }
@@ -24,7 +24,7 @@ int fx_write(const char * fn, unsigned char * data, size_t n)
 unsigned char * fx_read(const char * fn, ssize_t * size)
 {
     unsigned char * data = NULL;
-    FILE * fp = fopen(fn, "w");
+    FILE * fp = fopen(fn, "r");
     if (!fp) return NULL;
 
     if (fseeko(fp, 0, SEEK_END) &&

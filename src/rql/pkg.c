@@ -34,7 +34,10 @@ rql_pkg_t * rql_pkg_e(ex_t * e, uint16_t id)
     qp_add_raw(packer, e->errmsg, e->n);
     qp_close_map(packer);
 
-    rql_pkg_t * pkg = (rql_pkg_t *) packer;
+    rql_pkg_t * pkg = (rql_pkg_t *) packer->buffer;
+    packer->buffer = NULL;
+    qp_packer_destroy(packer);
+
     pkg->id = id;
     pkg->n = e->n;
     pkg->tp = (uint8_t) e->errnr;

@@ -92,6 +92,7 @@ static void rql__front_write_cb(rql_write_t * req, int status)
 {
     (void)(status);
     free(req->pkg);
+    free(req);
 }
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status)

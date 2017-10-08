@@ -75,7 +75,6 @@ int rql_user_set_pass(rql_user_t * user, const char * pass, ex_t * e)
         return -1;
     }
 
-
     /* generate a random salt */
     cryptx_gen_salt(salt);
 

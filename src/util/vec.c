@@ -48,13 +48,13 @@ vec_t * vec_copy(vec_t * vec)
 }
 
 /*
- * Appends data to vec and returns vec.
+ * Append data to vec and returns vec.
  *
  * Returns a pointer to vec. The returned vec can be equal to the original
  * vec but there is no guarantee. The return value is NULL in case of an
  * allocation error.
  */
-vec_t * vec_append(vec_t * vec, void * data)
+vec_t * vec_push(vec_t * vec, void * data)
 {
     if (vec->n == vec->sz)
     {

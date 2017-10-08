@@ -10,6 +10,7 @@
 #define RQL_MAX_NODES 64
 
 #define RQL_FLAG_SIGNAL 1
+#define RQL_FLAG_SAVING 2
 
 typedef struct rql_s rql_t;
 
@@ -54,6 +55,7 @@ struct rql_s
     vec_t * nodes;
     vec_t * users;
     uv_loop_t * loop;
+    uint64_t event_id;
     uint8_t redundancy;  /* value 1..64 */
     uint8_t flags;
 };

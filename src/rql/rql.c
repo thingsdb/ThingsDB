@@ -104,19 +104,29 @@ void rql_init_logger(rql_t * rql)
 
 int rql_init_fn(rql_t * rql)
 {
-    rql->fn = strx_cat(rql->cfg->rql_path, "bla");
+    rql->fn = strx_cat(rql->cfg->rql_path, rql_fn);
     return (rql->fn) ? 0 : -1;
 }
 
 int rql_build(rql_t * rql)
 {
     rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
+    vec_t * vtmp;
 
-    if (!user ||
-        !rql_user_set_pass(user, user->pass, NULL) ||
-        vec_append(rql->users, user)) goto failed;
+    rql->event_id = 0;
+
+    if (!user || rql_user_set_pass(user, user->pass, NULL)) goto failed;
+
+    vtmp = vec_push(rql->users, user);
+    if (!vtmp) goto failed;
+    rql->users = vtmp;
+
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
-    if (!rql->node || vec_append(rql->nodes, rql->node)) goto failed;
+    if (!rql->node) goto failed;
+
+    vtmp = vec_push(rql->nodes, rql->node);
+    if (!vtmp) goto failed;
+    rql->nodes = vtmp;
 
     if (rql_save(rql)) goto failed;
 
@@ -221,6 +231,7 @@ int rql_unlock(rql_t * rql)
 static int rql__unpack(rql_t * rql, qp_res_t * res)
 {
     qp_res_t * schema, * redundancy, * node, * nodes;
+    vec_t * vtmp;
 
     if (res->tp != QP_RES_MAP ||
         !(schema = qpx_map_get(res->via.map, "schema")) ||
@@ -256,7 +267,10 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
                 addr->via.str,
                 (uint16_t) port->via.int64);
 
-        if (!node || vec_append(rql->nodes, node)) goto failed;
+        if (!node) goto failed;
+        vtmp = vec_push(rql->nodes, node);
+        if (!vtmp) goto failed;
+        rql->nodes = vtmp;
     }
 
     if (node->via.int64 >= rql->nodes->n) goto failed;
@@ -279,7 +293,6 @@ static qp_packer_t * rql__pack(rql_t * rql)
 {
     qp_packer_t * packer = qp_packer_create(1024);
     if (!packer) return NULL;
-
     if (qp_add_map(&packer)) goto failed;
 
     /* schema */

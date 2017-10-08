@@ -68,7 +68,11 @@ int main(int argc, char * argv[])
     {
         if (fx_file_exist(rql->fn))
         {
-            if ((rc = rql_read(rql))) goto stop;
+            if ((rc = rql_read(rql)))
+            {
+                printf("error reading rql pool from: '%s'\n", rql->fn);
+                goto stop;
+            }
         }
         else
         {

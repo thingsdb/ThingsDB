@@ -64,3 +64,6 @@ Release/rqldb
 .pyc
 __pycache__/
 /Debug/
+/Release/
+
+/test/testdir/

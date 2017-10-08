@@ -11,8 +11,7 @@ typedef struct rql_task_s rql_task_t;
 
 struct rql_task_s
 {
-    uint64_t id;
-    vec_t * tasks;
+    int i;
 };
 
 

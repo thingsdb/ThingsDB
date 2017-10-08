@@ -9,6 +9,7 @@ C_SRCS += \
 ../src/rql/cfg.c \
 ../src/rql/db.c \
 ../src/rql/elem.c \
+../src/rql/event.c \
 ../src/rql/front.c \
 ../src/rql/node.c \
 ../src/rql/pkg.c \
@@ -17,6 +18,7 @@ C_SRCS += \
 ../src/rql/rql.c \
 ../src/rql/signals.c \
 ../src/rql/sock.c \
+../src/rql/task.c \
 ../src/rql/user.c \
 ../src/rql/users.c \
 ../src/rql/val.c \
@@ -28,6 +30,7 @@ OBJS += \
 ./src/rql/cfg.o \
 ./src/rql/db.o \
 ./src/rql/elem.o \
+./src/rql/event.o \
 ./src/rql/front.o \
 ./src/rql/node.o \
 ./src/rql/pkg.o \
@@ -36,6 +39,7 @@ OBJS += \
 ./src/rql/rql.o \
 ./src/rql/signals.o \
 ./src/rql/sock.o \
+./src/rql/task.o \
 ./src/rql/user.o \
 ./src/rql/users.o \
 ./src/rql/val.o \
@@ -47,6 +51,7 @@ C_DEPS += \
 ./src/rql/cfg.d \
 ./src/rql/db.d \
 ./src/rql/elem.d \
+./src/rql/event.d \
 ./src/rql/front.d \
 ./src/rql/node.d \
 ./src/rql/pkg.d \
@@ -55,6 +60,7 @@ C_DEPS += \
 ./src/rql/rql.d \
 ./src/rql/signals.d \
 ./src/rql/sock.d \
+./src/rql/task.d \
 ./src/rql/user.d \
 ./src/rql/users.d \
 ./src/rql/val.d \

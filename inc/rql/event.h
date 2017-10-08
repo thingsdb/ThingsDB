@@ -9,6 +9,9 @@
 
 typedef struct rql_event_s rql_event_t;
 
+#include <inttypes.h>
+#include <util/vec.h>
+
 struct rql_event_s
 {
     uint64_t id;

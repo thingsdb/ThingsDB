@@ -11,7 +11,7 @@
 /*
  * Returns a new vec with size sz.
  */
-vec_t * vec_create(uint32_t sz)
+vec_t * vec_new(uint32_t sz)
 {
     vec_t * vec = (vec_t *) malloc(sizeof(vec_t) + sz * sizeof(void*));
     if (!vec) return NULL;
@@ -40,11 +40,11 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
 vec_t * vec_copy(vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->n * sizeof(void*);
-    vec_t * vec_ = (vec_t *) malloc(sz);
-    if (!vec_) return NULL;
-    memcpy(vec_, vec, sz);
-    vec_->sz = vec_->n;
-    return vec_;
+    vec_t * v = (vec_t *) malloc(sz);
+    if (!v) return NULL;
+    memcpy(v, vec, sz);
+    v->sz = v->n;
+    return v;
 }
 
 /*
@@ -125,13 +125,12 @@ vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n)
 vec_t * vec_shrink(vec_t * vec)
 {
     if (vec->n == vec->sz) return vec;
-    vec_t * tmp = (vec_t *) realloc(
+    vec_t * v = (vec_t *) realloc(
             vec,
             sizeof(vec_t) + vec->n * sizeof(void*));
-    if (!tmp) return NULL;
-    vec = tmp;
-    vec->sz = vec->n;
-    return vec;
+    if (!v) return NULL;
+    v->sz = v->n;
+    return v;
 }
 
 

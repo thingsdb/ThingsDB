@@ -308,7 +308,7 @@ vec_t * imap_vec(imap_t * imap)
 {
     if (!imap->vec)
     {
-        imap->vec = vec_create(imap->n);
+        imap->vec = vec_new(imap->n);
 
         if (imap->vec && imap->n)
         {

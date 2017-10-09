@@ -31,7 +31,7 @@ class Rql:
             host=self._host,
             port=self._port)
         self._transport, self._protocol = await asyncio.wait_for(
-            conn, 
+            conn,
             timeout=timeout)
         self._pid = 0
 
@@ -39,7 +39,7 @@ class Rql:
         self._username = username
         self._password = password
         future = self.write_package(
-            PROTO_AUTH, 
+            PROTO_AUTH,
             data=(self._username, self._password),
             timeout=timeout)
         resp = await future
@@ -99,7 +99,6 @@ class _RqlProtocol(asyncio.Protocol):
     _connected = False
 
 
-
     def connection_made(self, transport):
         '''
         override asyncio.Protocol
@@ -125,7 +124,7 @@ async def test():
     await rql.connect('localhost')
     await rql.authenticate('iris', 'siri')
 
-    
+
 if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)

@@ -14,14 +14,14 @@ typedef void (*vec_destroy_cb)(void * data);
 #include <inttypes.h>
 
 
-vec_t * vec_create(uint32_t sz);
+vec_t * vec_new(uint32_t sz);
 void vec_destroy(vec_t * vec, vec_destroy_cb cb);
 static inline void * vec_get(vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 vec_t * vec_copy(vec_t * vec);
 vec_t * vec_push(vec_t * vec, void * data);
-vec_t * vec_shrink(vec_t * vec);
 vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n);
+vec_t * vec_shrink(vec_t * vec);
 
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_append(vec__, data__) (vec__)->data_[(vec__)->n++] = data__

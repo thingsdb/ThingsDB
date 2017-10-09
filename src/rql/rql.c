@@ -37,9 +37,9 @@ rql_t * rql_create(void)
     rql->cfg = rql_cfg_new();
     rql->back = rql_back_create(rql);
     rql->front = rql_front_create(rql);
-    rql->dbs = vec_create(0);
-    rql->nodes = vec_create(0);
-    rql->users = vec_create(0);
+    rql->dbs = vec_new(0);
+    rql->nodes = vec_new(0);
+    rql->users = vec_new(0);
     rql->loop = (uv_loop_t *) malloc(sizeof(uv_loop_t));
 
     if (!rql->args ||

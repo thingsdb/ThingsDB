@@ -45,9 +45,9 @@ static inline void * queue_pop(queue_t * queue)
 
 static inline void * queue_shift(queue_t * queue)
 {
-    return (queue->n) ?
-            (((queue->s = queue_idx(queue, 1))) ?
-                    queue->sz : queue->s) - 1 : NULL;
+    return (queue->n && queue->n--) ?
+            queue->data_[(((queue->s = queue_idx(queue, 1))) ?
+                    queue->sz : queue->s) - 1] : NULL;
 }
 
 #endif /* QUEUE_H_ */

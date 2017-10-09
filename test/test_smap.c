@@ -8,7 +8,6 @@
 
 #include "test.h"
 #include <util/smap.h>
-#include <stdlib.h>
 
 const unsigned int num_entries = 14;
 char * entries[] = {

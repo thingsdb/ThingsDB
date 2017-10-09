@@ -1,14 +1,6 @@
 #!/bin/bash
-OUT=test_smap.out
+NAME=test_smap
+C_SRC=\
+"../src/util/smap.c "\
 
-rm "$OUT" 2> /dev/null
-
-gcc -I"../inc" -O0 -g3 -Wall -Wextra -Winline -std=c99 test_smap.c ../src/smap/smap.c -o "$OUT"
-
-if [ "$1" = "-m" ]; then
-    valgrind --tool=memcheck ./$OUT
-else
-    ./$OUT
-    rm "$OUT" 2> /dev/null
-fi
-
+. test.sh

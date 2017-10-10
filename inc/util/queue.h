@@ -16,18 +16,24 @@ typedef void (*queue_destroy_cb)(void * data);
 
 queue_t * queue_new(size_t sz);
 void queue_destroy(queue_t * queue, queue_destroy_cb cb);
+static inline size_t queue_space(queue_t * queue);
 static inline void * queue_get(queue_t * queue, size_t i);
 static inline void * queue_pop(queue_t * queue);
 static inline void * queue_shift(queue_t * queue);
-queue_t * queue_copy(queue_t * queue);
+static inline void queue_clear(queue_t * queue);
+void queue_copy(queue_t * queue, void * dest[]);
+queue_t * queue_reserve(queue_t * queue, size_t n);
+queue_t * queue_dup(queue_t * queue);
 queue_t * queue_push(queue_t * queue, void * data);
 queue_t * queue_unshift(queue_t * queue, void * data);
 queue_t * queue_extend(queue_t * queue, void * data[], size_t n);
 queue_t * queue_shrink(queue_t * queue);
-/* unsafe macro for queue_push(); might overwrite data if not enough space */
+/* unsafe macro for queue_push();
+ * might overwrite data if not enough space and requires at least size 1 */
 #define QUEUE_push(q__, d__) \
     (q__)->data_[queue__i(q__, (q__)->n++)] = d__
-/* unsafe macro for queue_unshift(); might overwrite data if not enough space */
+/* unsafe macro for queue_unshift();
+ * might overwrite data if not enough space and requires at least size 1 */
 #define QUEUE_unshift(q__, d__) \
         (q__)->data_[((q__)->s_ = (((q__)->s_ ? \
                 (q__)->s_ : (q__)->sz) - (!!++(q__)->n)))] = d__;
@@ -39,6 +45,11 @@ struct queue_s
     size_t s_;
     void * data_[];
 };
+
+static inline size_t queue_space(queue_t * queue)
+{
+    return queue->sz - queue->n;
+}
 
 static inline void * queue_get(queue_t * queue, size_t i)
 {
@@ -55,6 +66,11 @@ static inline void * queue_shift(queue_t * queue)
     return (queue->n && queue->n--) ?
             queue->data_[(((queue->s_ = queue__i(queue, 1))) ?
                     queue->s_: queue->sz ) - 1] : NULL;
+}
+
+static inline void queue_clear(queue_t * queue)
+{
+    queue->n = queue->s_ = 0;
 }
 
 #endif /* QUEUE_H_ */

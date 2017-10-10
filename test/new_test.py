@@ -10,7 +10,9 @@ CTEMPLATE = """/*
  *  Created on: {today}
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include "test.h"
 #include <{header}>
 

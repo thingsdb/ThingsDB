@@ -320,7 +320,7 @@ vec_t * imap_vec(imap_t * imap)
 
                 if (nd->data)
                 {
-                    VEC_append(imap->vec, nd->data);
+                    VEC_push(imap->vec, nd->data);
                 }
 
                 if (nd->nodes)
@@ -809,7 +809,7 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
 
         if (nd->data)
         {
-            VEC_append(vec, nd->data);
+            VEC_push(vec, nd->data);
         }
 
         if (nd->nodes)

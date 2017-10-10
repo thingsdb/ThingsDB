@@ -4,9 +4,12 @@
  *  Created on: Sep 30, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include "test.h"
 #include <util/queue.h>
+#include <util/vec.h>
 
 const unsigned int num_entries = 8;
 char * entries[] = {
@@ -86,6 +89,20 @@ int main()
         }
     }
 
+    /* test copy */
+    {
+        assert (q->n = num_entries);
+        vec_t * v = vec_new(q->n);
+        queue_copy(q, v->data);
+        v->n = q->n;
+
+        for (size_t i = 0; i < v->n; i++)
+        {
+            assert (vec_get(v, i) == entries[i]);
+        }
+        free(v);
+    }
+
     /* test adding an extra value */
     {
         const char * extra = "extra";
@@ -99,10 +116,10 @@ int main()
         assert (queue_pop(q) == extra);
     }
 
-    /* test copy */
+    /* test dup */
     {
         queue_t * cp;
-        assert ((cp = queue_copy(q)) != NULL);
+        assert ((cp = queue_dup(q)) != NULL);
         assert (cp->n = num_entries);
         assert (cp->sz = num_entries);
         for (size_t i = 0; i < num_entries; i++)
@@ -173,7 +190,17 @@ int main()
         }
     }
 
-    free(q);
+    /* test destroy */
+    {
+        queue_clear(q);
+        for (size_t i = 0; i < num_entries; i++)
+        {
+            char * d = strdup(entries[i]);
+            assert (d);
+            assert ((q = queue_push(q, d)) != NULL);
+        }
+        queue_destroy(q, free);
+    }
 
     test_end(0);
     return 0;

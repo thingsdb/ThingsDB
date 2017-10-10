@@ -69,10 +69,10 @@ int main()
         v = push_entries(v);  /* restore entries */
     }
 
-    /* test copy */
+    /* test dup */
     {
         vec_t * cp;
-        assert ((cp = vec_copy(v)) != NULL);
+        assert ((cp = vec_dup(v)) != NULL);
         assert (cp->n = num_entries);
         assert (cp->sz = num_entries);
         for (size_t i = 0; i < num_entries; i++)

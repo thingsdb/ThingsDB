@@ -37,7 +37,7 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
  * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will
  * be equal. In case of an allocation error the return value is NULL.
  */
-vec_t * vec_copy(vec_t * vec)
+vec_t * vec_dup(vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->n * sizeof(void*);
     vec_t * v = (vec_t *) malloc(sz);
@@ -60,7 +60,7 @@ vec_t * vec_push(vec_t * vec, void * data)
     {
         size_t sz = vec->sz;
 
-        if (sz < 5)
+        if (sz < 4)
         {
             vec->sz++;
         }
@@ -86,7 +86,7 @@ vec_t * vec_push(vec_t * vec, void * data)
 
         vec = tmp;
     }
-    VEC_append(vec, data);
+    VEC_push(vec, data);
     return vec;
 }
 
@@ -113,8 +113,25 @@ vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n)
         vec = tmp;
         vec->sz = vec->n;
     }
-    memcpy(vec->data_ + (vec->n - n), data, n * sizeof(void*));
+    memcpy(vec->data + (vec->n - n), data, n * sizeof(void*));
     return vec;
+}
+
+/*
+ * Resize a vec to sz. If the new size is smaller then vec->n might decrease.
+ */
+vec_t * vec_resize(vec_t * vec, uint32_t sz)
+{
+    vec_t * v = (vec_t *) realloc(
+            vec,
+            sizeof(vec_t) + sz * sizeof(void*));
+    if (!v) return NULL;
+    if (v->n > sz)
+    {
+        v->n = sz;
+    }
+    v->sz = sz;
+    return v;
 }
 
 /*

@@ -27,6 +27,15 @@ vec_t * vec_shrink(vec_t * vec);
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_push(vec__, data_) (vec__)->data[(vec__)->n++] = data_
 
+/* use vec_each in a for loop to go through all values.
+ * do not change the vec while iterating over the values */
+#define vec_each(vec__, dt__, var__) \
+    dt__ * var__, \
+    ** v__ = (dt__ **) (vec__)->data, \
+    ** e__ = v__ + (vec__)->n; \
+    v__ < e__ && (var__ = *v__); \
+    v__++
+
 struct vec_s
 {
     uint32_t n;

@@ -7,11 +7,16 @@
 #ifndef RQL_TASK_H_
 #define RQL_TASK_H_
 
+typedef enum
+{
+    RQL_TASK_CREATE_USER
+} rql_task_e;
+
 typedef struct rql_task_s rql_task_t;
 
 struct rql_task_s
 {
-    int i;
+    rql_task_e type;
 };
 
 

@@ -102,6 +102,18 @@ int main()
         }
     }
 
+    /* test vec_each loop */
+    {
+        v = push_entries(v); /* restore some points */
+        char ** e = entries;
+        size_t n = 0;
+        for (vec_each(v, char, s), n++, e++)
+        {
+            assert (s == *e);
+        }
+        assert (n == num_entries); /* make sure we have hit all entries */
+    }
+
     free(v);
 
     test_end(0);

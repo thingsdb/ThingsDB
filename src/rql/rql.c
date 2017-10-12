@@ -33,11 +33,12 @@ rql_t * rql_create(void)
     rql->fn = NULL;
     rql->node = NULL;
 
+
     rql->args = rql_args_new();
     rql->cfg = rql_cfg_new();
     rql->back = rql_back_create(rql);
     rql->front = rql_front_create(rql);
-    rql->dbs = vec_new(0);
+    rql->dbs = link_create();
     rql->nodes = vec_new(0);
     rql->users = vec_new(0);
     rql->loop = (uv_loop_t *) malloc(sizeof(uv_loop_t));
@@ -67,7 +68,7 @@ void rql_destroy(rql_t * rql)
     free(rql->cfg);
     rql_back_destroy(rql->back);
     rql_front_destroy(rql->front);
-    vec_destroy(rql->dbs, (vec_destroy_cb) rql_db_drop);
+    link_destroy(rql->dbs, (link_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, NULL);
     vec_destroy(rql->users, NULL);
     free(rql->loop);
@@ -110,10 +111,14 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
+    rql_event_t * event = rql_event_create(0);
+    rql_task_t * task = rql_task_create(RQL_TASK_CREATE_USER);
+
     rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
     vec_t * vtmp;
 
-    rql->event_id = 0;
+    rql->event_max_id = 0;
+    rql->event_app_id = 0;
 
     if (!user || rql_user_set_pass(user, user->pass, NULL)) goto failed;
 
@@ -280,9 +285,8 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
     return 0;
 
 failed:
-    for (uint32_t i = 0; i < rql->nodes->n; i++)
+    for (vec_each(rql->nodes, rql_node_t, node))
     {
-        rql_node_t * node = (rql_node_t *) vec_get(rql->nodes, i);
         rql_node_drop(node);
     }
     rql->node = NULL;

@@ -89,6 +89,17 @@ int main()
         }
     }
 
+    /* test each */
+    {
+        size_t i = 0;
+        char ** entry = entries;
+        for (queue_each(q, char, s), i++, entry++)
+        {
+            assert (s == *entry);
+        }
+        assert (i == num_entries);
+    }
+
     /* test copy */
     {
         assert (q->n = num_entries);
@@ -126,6 +137,7 @@ int main()
         {
             assert (queue_get(cp, i) == entries[i]);
         }
+
         free(cp);
     }
 

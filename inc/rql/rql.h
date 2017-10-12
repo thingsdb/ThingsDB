@@ -25,6 +25,7 @@ typedef struct rql_s rql_t;
 #include <rql/back.h>
 #include <rql/front.h>
 #include <util/logger.h>
+#include <util/link.h>
 
 #define rql_term(signum__) {\
     log_critical("critical error at: %s:%d (%s); raising %s", \
@@ -51,12 +52,14 @@ struct rql_s
     rql_cfg_t * cfg;
     rql_back_t * back;
     rql_front_t * front;
-    vec_t * dbs;
+    link_t * dbs;
     vec_t * nodes;
     vec_t * users;
     uv_loop_t * loop;
-    uint64_t event_id;
-    uint8_t redundancy;  /* value 1..64 */
+    uint64_t event_cur_id;
+    uint64_t event_max_id;
+    link_t * queue;         /* queued events */
+    uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
 };
 

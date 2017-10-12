@@ -29,9 +29,8 @@ rql_user_t * rql_users_auth(
         return NULL;
     }
 
-    for (uint32_t i = 0; i < users->n; i++)
+    for (vec_each(users, rql_user_t, user))
     {
-        rql_user_t * user = (rql_user_t *) vec_get(users, i);
         if (strncmp(user->name, name->via.raw, name->len) == 0)
         {
             memcpy(passbuf, pass->via.raw, pass->len);

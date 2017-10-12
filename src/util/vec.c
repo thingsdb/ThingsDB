@@ -26,9 +26,9 @@ vec_t * vec_new(uint32_t sz)
  */
 void vec_destroy(vec_t * vec, vec_destroy_cb cb)
 {
-    if (vec && cb) for (uint32_t i = 0; i < vec->n; i++)
+    if (vec && cb)
     {
-        (*cb)(vec_get(vec, i));
+        for (vec_each(vec, void, obj), (*cb)(obj));
     }
     free(vec);
 }

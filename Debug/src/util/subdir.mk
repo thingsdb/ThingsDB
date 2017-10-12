@@ -10,6 +10,7 @@ C_SRCS += \
 ../src/util/ex.c \
 ../src/util/fx.c \
 ../src/util/imap.c \
+../src/util/link.c \
 ../src/util/lock.c \
 ../src/util/logger.c \
 ../src/util/qpx.c \
@@ -26,6 +27,7 @@ OBJS += \
 ./src/util/ex.o \
 ./src/util/fx.o \
 ./src/util/imap.o \
+./src/util/link.o \
 ./src/util/lock.o \
 ./src/util/logger.o \
 ./src/util/qpx.o \
@@ -42,6 +44,7 @@ C_DEPS += \
 ./src/util/ex.d \
 ./src/util/fx.d \
 ./src/util/imap.d \
+./src/util/link.d \
 ./src/util/lock.d \
 ./src/util/logger.d \
 ./src/util/qpx.d \

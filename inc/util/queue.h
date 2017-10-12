@@ -38,6 +38,23 @@ queue_t * queue_shrink(queue_t * queue);
         (q__)->data_[((q__)->s_ = (((q__)->s_ ? \
                 (q__)->s_ : (q__)->sz) - (!!++(q__)->n)))] = d__;
 
+/* use queue_each in a for loop to go through all values.
+ * do not change the queue while iterating, with the exception of one
+ * queue_shift per iteration which is allowed. */
+#define queue_each(q__, dt__, var__)\
+        dt__ * var__, \
+        ** b__ = (dt__ **) (q__)->data_, \
+        ** v__ = b__ + (q__)->s_, \
+        ** e__ = b__ + (q__)->sz, \
+        ** n__ = v__ + (q__)->n; \
+        (v__ < e__ && v__ < n__ && (var__ = *v__) ) || \
+        (       e__ < n__ && \
+                (v__ = b__) && \
+                (n__ = b__ + (n__ - e__)) && \
+                (var__ = *v__) \
+        ); \
+        v__++
+
 struct queue_s
 {
     size_t n;

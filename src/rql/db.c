@@ -35,7 +35,7 @@ rql_db_t * rql_db_grab(rql_db_t * db)
 
 void rql_db_drop(rql_db_t * db)
 {
-    if (!--db->ref)
+    if (db && !--db->ref)
     {
         free(db->name);
         imap_destroy(db->elems, NULL);

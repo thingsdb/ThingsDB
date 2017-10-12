@@ -29,9 +29,9 @@ queue_t * queue_new(size_t sz)
  */
 void queue_destroy(queue_t * queue, queue_destroy_cb cb)
 {
-    if (queue && cb) for (size_t i = 0; i < queue->n; i++)
+    if (queue && cb)
     {
-        (*cb)(queue_get(queue, i));
+        for (queue_each(queue, void, obj), (*cb)(obj));
     }
     free(queue);
 }

@@ -15,6 +15,7 @@
 #include <util/qpx.h>
 #include <util/lock.h>
 
+extern const char * rql_name = "_";
 const uint8_t rql_def_redundancy = 3;
 const char * rql_fn = "rql.qp";
 const int rql_fn_schema = 0;
@@ -111,14 +112,21 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
-    rql_event_t * event = rql_event_create(0);
-    rql_task_t * task = rql_task_create(RQL_TASK_CREATE_USER);
+    ex_ptr(e);
+    qp_packer_t * packer = rql_misc_pack_init_event_request();
+    rql_event_t * event = rql_event_create(rql);
+    rql_event_raw(event, packer->buffer, packer->len, e);
+    rql_event_init(event);
+
+    qp_packer_destroy(packer);
+
+
 
     rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
     vec_t * vtmp;
 
     rql->event_max_id = 0;
-    rql->event_app_id = 0;
+    rql->event_cur_id = 0;
 
     if (!user || rql_user_set_pass(user, user->pass, NULL)) goto failed;
 

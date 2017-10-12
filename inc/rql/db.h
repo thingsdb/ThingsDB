@@ -19,8 +19,6 @@ struct rql_db_s
     char * name;
     imap_t * elems;
     smap_t * props;
-    uint64_t event_cur_id;
-    uint64_t event_max_id;
 };
 
 rql_db_t * rql_db_create(void);

@@ -10,8 +10,6 @@
 #include <util/ex.h>
 
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
-inline static uint64_t * rql__event_cur_id(rql_event_t * event);
-inline static uint64_t * rql__event_max_id(rql_event_t * event);
 
 rql_event_t * rql_event_create(rql_t * rql)
 {
@@ -33,22 +31,56 @@ void rql_event_destroy(rql_event_t * event)
     free(event);
 }
 
-void rql_event_init(rql_event_t * event, rql_db_t * target)
+void rql_event_init(rql_event_t * event)
 {
-    event->target = (target) ? rql_db_grab(target) : NULL;
     event->node = rql_node_grab(event->rql->node);
-    event->id = ++(*rql__event_max_id(event));
+    event->id = ++event->rql->event_max_id;
 }
 
-void rql_event_set(
+int rql_event_set(
         rql_event_t * event,
         uint64_t id,
         rql_node_t * node,
         rql_db_t * target)
 {
+    rql_t * rql = event->rql;
+    if (id > rql->event_max_id)
+    {
+        if (link_unshift(rql->queue, event))
+        {
+            log_error(EX_ALLOC);
+            return -1;
+        }
+        rql->event_max_id = id;;
+        goto accept;
+    }
+
+    if (id <= rql->event_cur_id)
+    {
+        log_warning("reject event id: %"PRIu64" (current id: %"PRIu64")",
+                id, rql->event_cur_id);
+        return -1;
+    }
+
+    for (link_each(event->rql->queue, rql_event_t, ev))
+    {
+        if (id ev->target != target) continue;
+        assert (ev->id > event->id)
+        if (ev->id < event->id) goto accept;
+        if (rql__event_cmp(event, ev) < 0) return -1;
+
+        assert (ev->status <= RQL_EVENT_STATUS_WAIT_ACCEPT);
+
+        link_pop_current(event->rql->queue);
+        rql_event_destroy(ev);
+    }
+
+accept:
+    //    *rql__event_max_id(event) = event->id;
+    event->id = id;
     event->target = (target) ? rql_db_grab(target) : NULL;
     event->node = rql_node_grab(node);
-    event->id = id;
+    return 0;
 }
 
 int rql_event_raw(
@@ -67,7 +99,7 @@ int rql_event_raw(
         return -1;
     }
 
-    if (event->target || qpx_raw_equal(&target, "_rql")) goto target;
+    if (event->target || qpx_raw_equal(&target, rql_name)) goto target;
 
     for (link_each(event->rql->dbs, rql_db_t, db))
     {
@@ -111,6 +143,8 @@ int rql_event_accept_id(rql_event_t * event)
 
         assert (ev->status <= RQL_EVENT_STATUS_WAIT_ACCEPT);
 
+        link_pop_current(event->rql->queue);
+        rql_event_destroy(ev);
 
 
     }
@@ -129,14 +163,4 @@ inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b)
            ((b->node->id + b->id) % b->rql->nodes->n);
 }
 
-inline static uint64_t * rql__event_cur_id(rql_event_t * event)
-{
-    return (event->target) ?
-            &event->target->event_cur_id : &event->rql->event_cur_id;
-}
 
-inline static uint64_t * rql__event_max_id(rql_event_t * event)
-{
-    return (event->target) ?
-            &event->target->event_max_id : &event->rql->event_max_id;
-}

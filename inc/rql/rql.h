@@ -12,6 +12,8 @@
 #define RQL_FLAG_SIGNAL 1
 #define RQL_FLAG_SAVING 2
 
+extern const char * rql_name;
+
 typedef struct rql_s rql_t;
 
 #include <uv.h>

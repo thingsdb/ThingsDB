@@ -44,6 +44,8 @@ static inline void * link_shift(link_t * link);
 #define link_insert_after(link__, data__) \
         link__insert_after__(link__, (struct link__s **) l__, data__)
 
+#define link_replace_current(data__) \
+        (*((struct link__s **) l__))->data_ = data__
 
 /* private function */
 void * link__pop_current__(link_t * link, struct link__s ** link_);

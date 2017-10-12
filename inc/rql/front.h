@@ -18,6 +18,7 @@ typedef enum
 {
     RQL_FRONT_ACK,      // empty
     RQL_FRONT_ERR=64,   // empty
+    RQL_FRONT_REJECT,   // empty
     RQL_FRONT_AUTH_ERR, // {error_msg: "..."} authentication or privileges
     RQL_FRONT_NODE_ERR, // {error_msg: "..."} node is unable to respond to the request
     RQL_FRONT_TYPE_ERR, // {error_msg: "..."} something is wrong with the request

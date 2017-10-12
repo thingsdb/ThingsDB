@@ -11,6 +11,10 @@
 #define RQL_EVENT_STATUS_WAIT_ACCEPT 1
 #define RQL_EVENT_STATUS_ACCEPTED 2
 
+//#define RQL_EVENT_STATUS_CANCELLED 3
+#define RQL_EVENT_STATUS_REJECTED 3
+
+
 typedef struct rql_event_s rql_event_t;
 
 #include <inttypes.h>

@@ -71,6 +71,11 @@ void * link__pop__(link_t * link, struct link__s ** link_)
     return data;
 }
 
+/*
+ * Returns the next data element or NULL if this was the last.
+ * The next iteration of link_each will will be the next value after the
+ * returned value.
+ */
 void * link__pop_current__(link_t * link, struct link__s ** link_)
 {
     struct link__s * cur = *link_;

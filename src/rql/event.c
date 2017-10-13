@@ -7,7 +7,10 @@
 #include <rql/event.h>
 #include <qpack.h>
 #include <util/link.h>
+#include <util/queue.h>
 #include <util/ex.h>
+
+const int rql_event_approval_timeout = 10;
 
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
 
@@ -34,10 +37,11 @@ void rql_event_destroy(rql_event_t * event)
 void rql_event_init(rql_event_t * event)
 {
     event->node = rql_node_grab(event->rql->node);
-    event->id = ++event->rql->event_max_id;
+    event->id = event->rql->event_next_id;
+    event->status = RQL_EVENT_STATUS_WAIT_ACCEPT;
 }
 
-int rql_event_set(
+int rql_event_fill(
         rql_event_t * event,
         uint64_t id,
         rql_node_t * node,
@@ -95,13 +99,14 @@ int rql_event_raw(
     if (!qp_is_map(qp_next(&unpacker, NULL)) ||
         !qp_is_raw(qp_next(&unpacker, target)))
     {
-        ex_set(e, RQL_FRONT_TYPE_ERR, "invalid event");  /* TODO: add info */
+        ex_set(e, RQL_PROTO_TYPE_ERR, "invalid event");  /* TODO: add info */
         return -1;
     }
 
     if (event->target || qpx_raw_equal(&target, rql_name)) goto target;
 
-    for (link_each(event->rql->dbs, rql_db_t, db))
+    link_iter_t iter = link_iter(event->rql->dbs);
+    for (link_each(iter, rql_db_t, db))
     {
         if (qpx_raw_equal(&target, db->name))
         {
@@ -109,7 +114,7 @@ int rql_event_raw(
             goto target;
         }
     }
-    ex_set(e, RQL_FRONT_INDX_ERR,
+    ex_set(e, RQL_PROTO_INDX_ERR,
             "invalid target: '%.*s'", target.len, target.via.raw);
     return -1;
 
@@ -117,7 +122,7 @@ target:
     event->raw = (unsigned char *) malloc(sz);
     if (!event->raw)
     {
-        ex_set(e, RQL_FRONT_RUNT_ERR, EX_ALLOC);
+        ex_set(e, RQL_PROTO_RUNT_ERR, EX_ALLOC);
         return -1;
     }
 
@@ -125,6 +130,73 @@ target:
     event->raw_sz = sz;
 
     return 0;
+}
+
+int rql_event_to_queue(rql_event_t * event)
+{
+    rql_t * rql = event->rql;
+    if (event->id >= rql->event_next_id)
+    {
+        if (queue_push(&rql->queue, event)) return -1;
+
+        rql->event_next_id = event->id + 1;
+        return 0;
+    }
+
+    size_t i = 0;
+    for (queue_each(rql->queue, rql_event_t, ev), i++)
+    {
+        if (ev->id >= event->id) break;
+    }
+
+    return queue_insert(&rql->queue, i, event);
+}
+
+int rql_event_get_approval(rql_event_t * event)
+{
+    rql_t * rql = event->rql;
+    char * target = (event->target) ? event->target->name : rql_name;
+
+    rql_prom_t * prom = rql_prom_create(
+            rql->nodes->n - 1,
+            event,
+            rql__event_on_approbal_cb);
+
+
+    qpx_packer_t * xpkg = qpx_packer_create(64);
+
+    if (qp_add_array(&xpkg) ||
+        qp_add_int64(xpkg, (int64_t) event->id) ||
+        qp_add_int64(xpkg, (int64_t) event->node->id) ||
+        qp_add_raw(xpkg, target, strlen(target)) ||
+        qp_close_array(xpkg)) goto failed;
+
+    rql_pkg_t * pkg = qpx_packer_pkg(xpkg, RQL_BACK_REG_EVENT);
+
+
+    for (vec_each(rql->nodes, rql_node_t, node))
+    {
+        if (node == rql->node) continue;
+        rql_req_t * req = rql_req(
+                node,
+                pkg,
+                rql_event_approval_timeout,
+                rql_prom_grab(prom),
+                rql_prom_req_cb);
+    }
+
+    rql_prom_go(prom);
+
+failed:
+    return -1;
+}
+
+void rql__event_on_approbal_cb(rql_prom_t * prom)
+{
+    for (size_t i = 0; i < prom->n; i++)
+    {
+        prom->res[i].handle;
+    }
 }
 
 /*

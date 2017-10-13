@@ -112,21 +112,28 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
-    ex_ptr(e);
-    qp_packer_t * packer = rql_misc_pack_init_event_request();
-    rql_event_t * event = rql_event_create(rql);
-    rql_event_raw(event, packer->buffer, packer->len, e);
-    rql_event_init(event);
+    rql->event_commit_id = 0;
+    rql->event_next_id = 1;
 
+    ex_ptr(e);
+    rql_event_t * event = rql_event_create(rql);
+    rql_event_init(event);
+    qp_packer_t * packer = rql_misc_pack_init_event_request();
+    rql_event_raw(event, packer->buffer, packer->len, e);
     qp_packer_destroy(packer);
+
+    rql_event_to_queue(event);
+
+    rql_event_get_approval(event);
+
+
+
 
 
 
     rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
     vec_t * vtmp;
 
-    rql->event_max_id = 0;
-    rql->event_cur_id = 0;
 
     if (!user || rql_user_set_pass(user, user->pass, NULL)) goto failed;
 

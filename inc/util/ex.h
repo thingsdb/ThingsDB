@@ -12,6 +12,14 @@
 #define EX_ALLOC \
     "allocation error in '%s' at %s:%d", __func__, __FILE__, __LINE__
 
+typedef enum
+{
+    EX_REQUEST_TIMEOUT=-3,
+    EX_REQUEST_CANCEL,
+    EX_WRITE_SOCKET_UV,
+    EX_MEMORY_ALLOCATION
+} ex_e;
+
 typedef struct ex_s ex_t;
 
 struct ex_s

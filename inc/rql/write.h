@@ -12,14 +12,16 @@ typedef struct rql_write_s rql_write_t;
 #include <uv.h>
 #include <rql/sock.h>
 #include <rql/pkg.h>
+#include <util/ex.h>
 
-typedef void (*rql_write_cb)(rql_write_t * req, int status);
+typedef void (*rql_write_cb)(rql_write_t * req, ex_e status);
 
 int rql_write(
         rql_sock_t * sock,
         rql_pkg_t * pkg,
         void * data,
         rql_write_cb cb);
+void rql_write_destroy(rql_write_t * req);
 
 struct rql_write_s
 {

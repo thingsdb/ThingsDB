@@ -72,36 +72,35 @@ void * link__pop__(link_t * link, struct link__s ** link_)
 }
 
 /*
- * Returns the next data element or NULL if this was the last.
- * The next iteration of link_each will will be the next value after the
- * returned value.
+ * Removes the current item from the list and sets the iterator to the next
+ * item in the list.
  */
-void * link__pop_current__(link_t * link, struct link__s ** link_)
+void link_iter_remove(link_t * link, link_iter_t iter)
 {
-    struct link__s * cur = *link_;
-    *link_ = cur->next_;
+    struct link__s * cur = *iter;
+    *iter = cur->next_;
     free(cur);
     link->n--;
-
-    return (*link_) ? (*link_)->data_: NULL;
 }
 
-int link__insert_before__(link_t * link, struct link__s ** link_, void * data)
+int link_iter_insert(link_t * link, link_iter_t iter, void * data)
 {
-    struct link__s * tmp = link__new((*link_)->data_, (*link_)->next_);
-    if (!tmp) return -1;
-    (*link_)->data_ = data;
-    (*link_)->next_ = tmp;
-    link->n++;
+    struct link__s * tmp;
 
-    return 0;
-}
+    if (*iter)
+    {
+        tmp = link__new((*iter)->data_, (*iter)->next_);
+        if (!tmp) return -1;
+        (*iter)->data_ = data;
+        (*iter)->next_ = tmp;
+    }
+    else
+    {
+        tmp = link__new(data, NULL);
+        if (!tmp) return -1;
+        *iter = tmp;
+    }
 
-int link__insert_after__(link_t * link, struct link__s ** link_, void * data)
-{
-    struct link__s * tmp = link__new(data, (*link_)->next_);
-    if (!tmp) return -1;
-    (*link_)->next_ = tmp;
     link->n++;
 
     return 0;

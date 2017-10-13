@@ -23,13 +23,12 @@ char * entries[] = {
     "Seventh entry",
 };
 
-static queue_t * push_entries(queue_t * q)
+static void push_entries(queue_t * q)
 {
     for (size_t i = 0; i < num_entries; i++)
     {
-        assert ((q = queue_push(q, entries[i])) != NULL);
+        assert (queue_push(&q, entries[i]) == 0);
     }
-    return q;
 }
 
 int main()
@@ -49,7 +48,7 @@ int main()
     {
         for (size_t i = 0; i < num_entries; i++)
         {
-            assert ((q = queue_push(q, entries[i])) != NULL);
+            assert (queue_push(&q, entries[i]) == 0);
         }
     }
 
@@ -66,7 +65,7 @@ int main()
         }
 
         assert (q->n == 0);
-        q = push_entries(q);  /* restore entries */
+        push_entries(q);  /* restore entries */
     }
 
     /* test shift */
@@ -81,7 +80,7 @@ int main()
     /* test force another order in queue */
     {
         q->s_ = 4;
-        q = push_entries(q);
+        push_entries(q);
         assert (q->sz == num_entries);
         for (size_t i = 0; i < num_entries; i++)
         {
@@ -117,7 +116,7 @@ int main()
     /* test adding an extra value */
     {
         const char * extra = "extra";
-        assert ((q = queue_push(q, (void *) extra)) != NULL);
+        assert (queue_push(&q, (void *) extra) == 0);
         assert (q->sz == num_entries * 2);
         assert (q->n == num_entries + 1);
         for (size_t i = 0; i < num_entries; i++)
@@ -145,7 +144,7 @@ int main()
     {
         for (size_t i = 0; i < num_entries; i++)
         {
-            assert ((q = queue_unshift(q, entries[i])) != NULL);
+            assert (queue_unshift(&q, entries[i]) == 0);
         }
         assert (q->n == num_entries * 2);
         for (size_t i = 0; i < num_entries; i++)
@@ -172,30 +171,30 @@ int main()
                     num_entries - j - 1 : j - num_entries;
                 assert (queue_get(q, j) == entries[p]);
             }
-            assert ((q = queue_shrink(q)) != NULL);
+            assert (queue_shrink(&q) == 0);
             assert (q->sz == n - i);
             assert (q->sz == q->n);
             assert (queue_pop(q) != NULL);
         }
-        assert ((q = queue_shrink(q)) != NULL);
+        assert (queue_shrink(&q) == 0);
         assert (q->sz == 0);
     }
 
     /* test extend */
     {
-        assert ((q = queue_extend(q, (void **) entries, num_entries)) != NULL);
+        assert (queue_extend(&q, (void **) entries, num_entries) == 0);
         for (size_t i = 0; i < num_entries; i++)
         {
             assert (queue_get(q, i) == entries[i]);
         }
         q->n = 0;
         q->s_ = 6;
-        assert ((q = queue_extend(q, (void **) entries, num_entries)) != NULL);
+        assert (queue_extend(&q, (void **) entries, num_entries) == 0);
         for (size_t i = 0; i < num_entries; i++)
         {
             assert (queue_get(q, i) == entries[i]);
         }
-        assert ((q = queue_extend(q, (void **) entries, num_entries)) != NULL);
+        assert (queue_extend(&q, (void **) entries, num_entries) == 0);
         for (size_t i = 0; i < num_entries * 2; i++)
         {
             assert (queue_get(q, i) == entries[i % num_entries]);
@@ -209,7 +208,7 @@ int main()
         {
             char * d = strdup(entries[i]);
             assert (d);
-            assert ((q = queue_push(q, d)) != NULL);
+            assert (queue_push(&q, d) == 0);
         }
         queue_destroy(q, free);
     }

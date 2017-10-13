@@ -15,9 +15,8 @@ int rql_write(rql_sock_t * sock, rql_pkg_t * pkg, void * data, rql_write_cb cb)
     rql_write_t * req = (rql_write_t *) malloc(sizeof(uv_write_t));
     if (!req) return -1;
 
-    RQL_ref_inc(sock);
     req->req_.data = req;
-    req->sock = sock;
+    req->sock = rql_sock_grab(sock);
     req->pkg = pkg;
     req->data = data;
     req->cb_ = cb;
@@ -28,12 +27,20 @@ int rql_write(rql_sock_t * sock, rql_pkg_t * pkg, void * data, rql_write_cb cb)
     return 0;
 }
 
+void rql_write_destroy(rql_write_t * req)
+{
+    rql_sock_drop(req->sock);
+    free(req);
+}
+
+/*
+ * Actually a callback on uv_write.
+ */
 static void rql__write_cb(uv_write_t * req, int status)
 {
     if (status) log_error(uv_strerror(status));
 
-    rql_write_t * rq = (rql_write_t *) req->data;
+    rql_write_t * rql_req = (rql_write_t *) req->data;
 
-    rql_sock_drop(rq->sock);
-    rq->cb_(rq, status);
+    rql_req->cb_(rql_req, (status) ? EX_WRITE_SOCKET_UV : 0);
 }

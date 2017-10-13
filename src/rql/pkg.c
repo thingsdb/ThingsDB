@@ -9,7 +9,8 @@
 #include <qpack.h>
 #include <stdlib.h>
 #include <rql/pkg.h>
-#include <rql/front.h>
+#include <rql/proto.h>
+#include <util/qpx.h>
 
 rql_pkg_t * rql_pkg_new(uint8_t tp, const unsigned char * data, uint32_t n)
 {
@@ -24,23 +25,16 @@ rql_pkg_t * rql_pkg_new(uint8_t tp, const unsigned char * data, uint32_t n)
 
 rql_pkg_t * rql_pkg_e(ex_t * e, uint16_t id)
 {
-    assert (e && e->n && e->errnr >= RQL_FRONT_ERR && e->errnr < 255);
-    qp_packer_t * packer = qp_packer_create(sizeof(rql_pkg_t) + 20 + e->n);
-    if (!packer) return NULL;
-    packer->len = sizeof(rql_pkg_t);
+    assert (e && e->n && e->errnr >= RQL_PROTO_ERR && e->errnr < 255);
+    qpx_packer_t * xpkg = qpx_packer_create(20 + e->n);
+    if (!xpkg) return NULL;
 
-    qp_add_map(&packer);
-    qp_add_raw(packer, "error_msg", 9);
-    qp_add_raw(packer, e->errmsg, e->n);
-    qp_close_map(packer);
+    qp_add_map(&xpkg);
+    qp_add_raw(xpkg, "error_msg", 9);
+    qp_add_raw(xpkg, e->errmsg, e->n);
+    qp_close_map(xpkg);
 
-    rql_pkg_t * pkg = (rql_pkg_t *) packer->buffer;
-    packer->buffer = NULL;
-    qp_packer_destroy(packer);
-
+    rql_pkg_t * pkg = qpx_packer_pkg(xpkg, (uint8_t) e->errnr);
     pkg->id = id;
-    pkg->n = e->n;
-    pkg->tp = (uint8_t) e->errnr;
-    pkg->ntp = pkg->tp ^ 255;
     return pkg;
 }

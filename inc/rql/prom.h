@@ -1,0 +1,49 @@
+/*
+ * prom.h
+ *
+ *  Created on: Sep 29, 2017
+ *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
+ */
+#ifndef RQL_PROM_H_
+#define RQL_PROM_H_
+
+typedef enum
+{
+    RQL_PROM_VIA_REQ,
+    RQL_PROM_VIA_ASYNC
+} rql_prom_e;
+
+typedef struct rql_prom_s rql_prom_t;
+typedef struct rql_prom_res_s rql_prom_res_t;
+
+#include <uv.h>
+#include <util/vec.h>
+#include <util/ex.h>
+
+typedef void (*rql_prom_cb)(rql_prom_t * prom, ex_e status);
+
+rql_prom_t * rql_prom_create(size_t sz, void * data, rql_prom_cb cb);
+rql_prom_t * rql_prom_grab(rql_prom_t * prom);
+void rql_prom_drop(rql_prom_t * prom);
+void rql_prom_go(rql_prom_t * prom);
+//void rql_prom_cancel(rql_prom_t * prom);
+
+void rql_prom_req_cb(rql_req_t * req, ex_t status);
+
+struct rql_prom_res_s
+{
+    rql_prom_e tp;
+    ex_t status;
+    void * handle;
+};
+
+struct rql_prom_s
+{
+    size_t n;
+    size_t sz;
+    void * data;
+    rql_prom_cb cb_;
+    rql_prom_res_t res[];
+};
+
+#endif /* RQL_PROM_H_ */

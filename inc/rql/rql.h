@@ -58,9 +58,9 @@ struct rql_s
     vec_t * nodes;
     vec_t * users;
     uv_loop_t * loop;
-    uint64_t event_cur_id;
-    uint64_t event_max_id;
-    link_t * queue;         /* queued events */
+    uint64_t event_commit_id;
+    uint64_t event_next_id;
+    queue_t * queue;         /* queued events */
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
 };

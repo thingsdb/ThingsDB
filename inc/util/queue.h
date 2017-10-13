@@ -21,13 +21,16 @@ static inline void * queue_get(queue_t * queue, size_t i);
 static inline void * queue_pop(queue_t * queue);
 static inline void * queue_shift(queue_t * queue);
 static inline void queue_clear(queue_t * queue);
-void queue_copy(queue_t * queue, void * dest[]);
-queue_t * queue_reserve(queue_t * queue, size_t n);
 queue_t * queue_dup(queue_t * queue);
-queue_t * queue_push(queue_t * queue, void * data);
-queue_t * queue_unshift(queue_t * queue, void * data);
-queue_t * queue_extend(queue_t * queue, void * data[], size_t n);
-queue_t * queue_shrink(queue_t * queue);
+void queue_copy(queue_t * queue, void * dest[]);
+void * queue_remove(queue_t * queue, size_t idx);
+void * queue_replace(queue_t * queue, size_t idx, void * data);
+int queue_reserve(queue_t ** qaddr, size_t n);
+int queue_push(queue_t ** qaddr, void * data);
+int queue_unshift(queue_t ** qaddr, void * data);
+int queue_insert(queue_t ** qaddr, size_t idx, void * data);
+int queue_extend(queue_t ** qaddr, void * data[], size_t n);
+int queue_shrink(queue_t ** qaddr);
 /* unsafe macro for queue_push();
  * might overwrite data if not enough space and requires at least size 1 */
 #define QUEUE_push(q__, d__) \

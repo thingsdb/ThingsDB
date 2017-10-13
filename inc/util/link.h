@@ -8,6 +8,8 @@
 #define LINK_H_
 
 typedef struct link_s  link_t;
+typedef struct link__s ** link_iter_t;
+
 typedef void (*link_destroy_cb)(void * data);
 
 /* private */
@@ -25,32 +27,21 @@ static inline int link_push(link_t * link, void * data);
 static inline int link_unshift(link_t * link, void * data);
 static inline void * link_shift(link_t * link);
 
-/*
- * link_each is a rich looping
- */
-#define link_each(link__, dt__, var__) \
-        dt__ * var__, \
-        ** l__ = (dt__ **) &link__->next_; \
-        *l__ && \
-        (var__ = (dt__ *) (*((struct link__s **) l__))->data_); \
-        l__ = (dt__ **) &(*((struct link__s **) l__))->next_
+/* iterator functions */
+static inline link_iter_t link_iter(link_t * link);
+void link_iter_remove(link_t * link, link_iter_t iter);
+int link_iter_insert(link_t * link, link_iter_t iter, void * data);
+#define link_iter_next(iter__) (iter__) = &(*(iter__)) ? &(*(iter__))->next_ : (iter__)
+static inline void * link_iter_get(link_iter_t iter);
 
-#define link_pop_current(link__) \
-        link__pop_current__(link__, (struct link__s **) l__)
-
-#define link_insert_before(link__, data__) \
-        link__insert_before__(link__, (struct link__s **) l__, data__)
-
-#define link_insert_after(link__, data__) \
-        link__insert_after__(link__, (struct link__s **) l__, data__)
-
-#define link_replace_current(data__) \
-        (*((struct link__s **) l__))->data_ = data__
+/* loop using the iterator */
+#define link_each(iter__, dt__, var__) \
+        dt__ * var__; \
+        *iter__ && \
+        (var__ = (dt__ *) (*iter__)->data_); \
+        iter__ = &(*iter__)->next_
 
 /* private function */
-void * link__pop_current__(link_t * link, struct link__s ** link_);
-int link__insert_before__(link_t * link, struct link__s ** link_, void * data);
-int link__insert_after__(link_t * link, struct link__s ** link_, void * data);
 void * link__pop__(link_t * link, struct link__s ** link_);
 
 struct link_s
@@ -72,6 +63,16 @@ static inline int link_unshift(link_t * link, void * data)
 static inline void * link_shift(link_t * link)
 {
     return (link->next_) ? link__pop__(link, &link->next_) : NULL;
+}
+
+static inline link_iter_t link_iter(link_t * link)
+{
+    return &link->next_;
+}
+
+static inline void * link_iter_get(link_iter_t iter)
+{
+    return (*iter) ? (*iter)->data_ : NULL;
 }
 
 

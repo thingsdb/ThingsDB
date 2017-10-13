@@ -36,51 +36,6 @@ void queue_destroy(queue_t * queue, queue_destroy_cb cb)
     free(queue);
 }
 
-void queue_copy(queue_t * queue, void * dest[])
-{
-    size_t m = queue->sz - queue->s_;
-    if (m < queue->n)
-    {
-        memcpy(dest, queue->data_ + queue->s_, m * sizeof(void*));
-        memcpy(dest + m, queue->data_, (queue->n - m) * sizeof(void*));
-    }
-    else
-    {
-        memcpy(dest, queue->data_ + queue->s_, queue->n * sizeof(void*));
-    }
-}
-
-/*
- * This function may resize the queue so it has space for at least n new
- * objects.
- */
-queue_t * queue_reserve(queue_t * queue, size_t n)
-{
-    size_t nn = queue->n + n;
-    if (nn > queue->sz)
-    {
-        queue_t * q;
-        size_t sz = queue->sz;
-        queue->sz = (nn > (queue->sz += queue->s_)) ? nn : queue->sz;
-
-        q = (queue_t *) realloc(
-                queue,
-                sizeof(queue_t) + queue->sz * sizeof(void*));
-
-        if (!q)
-        {
-            /* restore original size */
-            queue->sz = sz;
-            return NULL;
-        }
-
-        /* until q->s_ is always initialized but we can more than required */
-        memcpy(q->data_ + sz, q->data_, q->s_ * sizeof(void*));
-        queue = q;
-    }
-    return queue;
-}
-
 /*
  * Returns a copy of queue with an exact fit so the new queue->sz and queue->n
  * will be equal. In case of an allocation error the return value is NULL.
@@ -99,42 +54,168 @@ queue_t * queue_dup(queue_t * queue)
     return q;
 }
 
+void queue_copy(queue_t * queue, void * dest[])
+{
+    size_t m = queue->sz - queue->s_;
+    if (m < queue->n)
+    {
+        memcpy(dest, queue->data_ + queue->s_, m * sizeof(void*));
+        memcpy(dest + m, queue->data_, (queue->n - m) * sizeof(void*));
+    }
+    else
+    {
+        memcpy(dest, queue->data_ + queue->s_, queue->n * sizeof(void*));
+    }
+}
+
+void * queue_remove(queue_t * queue, size_t idx)
+{
+    if (idx >= queue->n) return NULL;
+
+    size_t i = queue__i(queue, idx);
+    void * data = queue->data_[i];
+
+    if (i >= queue->s_)
+    {
+        /* walk reverse */
+        for (;i > queue->s_; i--)
+        {
+            queue->data_[i] = queue->data_[i - 1];
+        }
+        queue->s_++;
+    }
+    else
+    {
+        /* walk forward */
+        size_t e = queue__i(queue, queue->n);
+        for (i++; i < e; i++)
+        {
+            queue->data_[i - 1] = queue->data_[i];
+        }
+    }
+    queue->n--;
+    return data;
+}
+
+void * queue_replace(queue_t * queue, size_t idx, void * data)
+{
+    size_t i = queue__i(queue, idx);
+    void * ret = queue->data_[i];
+    queue->data_[i] = data;
+    return ret;
+}
+
+/*
+ * This function may resize the queue so it has space for at least n new
+ * objects.
+ */
+int queue_reserve(queue_t ** qaddr, size_t n)
+{
+    queue_t * queue = *qaddr;
+    size_t nn = queue->n + n;
+    if (nn > queue->sz)
+    {
+        queue_t * q;
+        size_t sz = queue->sz;
+        queue->sz = (nn > (queue->sz += queue->s_)) ? nn : queue->sz;
+
+        q = (queue_t *) realloc(
+                queue,
+                sizeof(queue_t) + queue->sz * sizeof(void*));
+
+        if (!q)
+        {
+            /* restore original size */
+            queue->sz = sz;
+            return -1;
+        }
+
+        /* until q->s_ is always initialized but we can more than required */
+        memcpy(q->data_ + sz, q->data_, q->s_ * sizeof(void*));
+        *qaddr = q;
+    }
+    return 0;
+}
+
 /*
  * Push data to the queue and returns an address to the new queue.
  *
  * The returned queue can be equal to the original queue but there is no
  * guarantee. The return value is NULL in case of an allocation error.
  */
-queue_t * queue_push(queue_t * queue, void * data)
+int queue_push(queue_t ** qaddr, void * data)
 {
+    queue_t * queue = *qaddr;
     if (queue->n == queue->sz)
     {
-        queue_t * tmp = queue__grow(queue);
-        if (!tmp) return NULL;
-        queue = tmp;
+        queue_t * q = queue__grow(queue);
+        if (!q) return -1;
+        *qaddr = queue = q;
     }
     QUEUE_push(queue, data);
-    return queue;
+    return 0;
 }
 
-queue_t * queue_unshift(queue_t * queue, void * data)
+int queue_unshift(queue_t ** qaddr, void * data)
 {
+    queue_t * queue = *qaddr;
     if (queue->n == queue->sz)
     {
         queue_t * tmp = queue__grow(queue);
-        if (!tmp) return NULL;
-        queue = tmp;
+        if (!tmp) return -1;
+        *qaddr = queue = tmp;
     }
     QUEUE_unshift(queue, data);
-
-    return queue;
+    return 0;
 }
 
-queue_t * queue_extend(queue_t * queue, void * data[], size_t n)
+int queue_insert(queue_t ** qaddr, size_t idx, void * data)
 {
+    queue_t * queue = *qaddr;
+
+    if (!idx) return queue_unshift(qaddr, data);
+    if (idx >= queue->n) return queue_push(qaddr, data);
+
+    if (queue->n == queue->sz)
+    {
+        queue_t * q = queue__grow(queue);
+        if (!q) return -1;
+        *qaddr = queue = q;
+    }
+
+    size_t i = queue__i(queue, idx);
+    size_t e = queue__i(queue, queue->n);
+    size_t x;
+
+    if (i < e)
+    {
+        /* walk reverse */
+        for (x = e; x != i; x--)
+        {
+            queue->data_[x] = queue->data_[x - 1];
+        }
+    }
+    else
+    {
+        /* walk forward */
+        for (x = queue->s_;; x++)
+        {
+            queue->data_[x - 1] = queue->data_[x];
+            if (x == i) break;
+        }
+    }
+    queue->n++;
+    queue->data_[x] = data;
+    return 0;
+}
+
+int queue_extend(queue_t ** qaddr, void * data[], size_t n)
+{
+    queue_t * q;
     size_t m, next;
-    queue_t * q = queue_reserve(queue, n);
-    if (!q) return NULL;
+    if (queue_reserve(qaddr, n)) return -1;
+
+    q = *qaddr;
 
     next = queue__i(q, q->n);
     if (next < q->s_ || (n <= (m = q->sz - next)))
@@ -148,7 +229,8 @@ queue_t * queue_extend(queue_t * queue, void * data[], size_t n)
     }
 
     q->n += n;
-    return q;
+
+    return 0;
 }
 
 /*
@@ -156,11 +238,12 @@ queue_t * queue_extend(queue_t * queue, void * data[], size_t n)
  *
  * Returns a pointer to the new queue.
  */
-queue_t * queue_shrink(queue_t * queue)
+int queue_shrink(queue_t ** qaddr)
 {
+    queue_t * queue = *qaddr;
     size_t n;
     queue_t * q;
-    if (queue->n == queue->sz) return queue;
+    if (queue->n == queue->sz) return 0;
 
     n = queue->sz - queue->s_;
     n = (n <= queue->n) ? n : queue->n;
@@ -172,12 +255,13 @@ queue_t * queue_shrink(queue_t * queue)
     q = (queue_t *) realloc(
             queue,
             sizeof(queue_t) + queue->n * sizeof(void*));
-    if (!q) return NULL;
+    if (!q) return -1;
 
     q->sz = q->n;
     q->s_ = q->n - n;
 
-    return q;
+    *qaddr = q;
+    return 0;
 }
 
 static queue_t * queue__grow(queue_t * queue)

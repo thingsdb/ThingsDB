@@ -11,6 +11,7 @@
 #include <rql/users.h>
 #include <rql/write.h>
 #include <rql/ref.h>
+#include <rql/proto.h>
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status);
 static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
@@ -88,11 +89,11 @@ int rql_front_write(rql_sock_t * sock, rql_pkg_t * pkg)
     return rql_write(sock, pkg, NULL, rql__front_write_cb);
 }
 
-static void rql__front_write_cb(rql_write_t * req, int status)
+static void rql__front_write_cb(rql_write_t * req, ex_e status)
 {
     (void)(status);
     free(req->pkg);
-    free(req);
+    rql_write_destroy(req);
 }
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status)
@@ -158,7 +159,7 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     {
         /* only set new authentication when successful */
         sock->via.user = rql_user_grab(user);
-        resp = rql_pkg_new(RQL_FRONT_ACK, NULL, 0);
+        resp = rql_pkg_new(RQL_PROTO_ACK, NULL, 0);
     }
 
     if (!resp || rql_front_write(sock, resp))

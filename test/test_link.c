@@ -45,8 +45,8 @@ int main()
     {
         size_t i = 0;
         char ** entry = entries;
-
-        for (link_each(link, char, val), i++, entry++)
+        link_iter_t iter = link_iter(link);
+        for (link_each(iter, char, val), i++, entry++)
         {
             assert (val == *entry);
         }
@@ -68,15 +68,17 @@ int main()
         }
     }
 
-    /* test pop current */
+    /* test remove while iterate */
     {
         size_t i = 0;
-        for (link_each(link, char, val), i++)
+        link_iter_t iter = link_iter(link);
+        for (link_each(iter, char, val), i++)
         {
             if (val == entries[1] || val == entries[3])
             {
                 /* return value should be the next value, so 2 / 4 */
-                val = link_pop_current(link);
+                link_iter_remove(link, iter);
+                val = (char *) link_iter_get(iter);
                 i++;
             }
             assert (val == entries[i]);
@@ -84,22 +86,25 @@ int main()
 
         assert (link-> n == num_entries - 2);
 
-        /* test inset before */
-        for (link_each(link, char, val))
+        /* test inset iter */
+        iter = link_iter(link);
+        for (link_each(iter, char, val))
         {
-            if (val == entries[0])
+            if (val == entries[2])
             {
-                assert (link_insert_after(link, entries[1]) == 0);
+                assert (link_iter_insert(link, iter, entries[1]) == 0);
+                link_iter_next(iter);
             }
             if (val == entries[4])
             {
-                assert (link_insert_before(link, entries[3]) == 0);
-                break;  /* stop because of recursion */
+                assert (link_iter_insert(link, iter, entries[3]) == 0);
+                link_iter_next(iter);
             }
         }
 
         i = 0;
-        for (link_each(link, char, val), i++)
+        iter = link_iter(link);
+        for (link_each(iter, char, val), i++)
         {
             assert (val == entries[i]);
         }

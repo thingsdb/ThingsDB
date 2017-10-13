@@ -49,8 +49,8 @@ union rql_sock_u
 struct rql_sock_s
 {
     uint64_t ref;
-    uint32_t n;
-    uint32_t sz;
+    uint32_t n;     /* buffer n */
+    uint32_t sz;    /* buffer sz */
     rql_sock_e tp;
     uint8_t flags;
     rql_t * rql;

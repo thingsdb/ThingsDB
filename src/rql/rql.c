@@ -116,6 +116,8 @@ int rql_build(rql_t * rql)
     rql->event_next_id = 1;
 
     ex_ptr(e);
+    if (!rql_nodes_has_quorum(rql)) goto failed;
+
     rql_event_t * event = rql_event_create(rql);
     rql_event_init(event);
     qp_packer_t * packer = rql_misc_pack_init_event_request();

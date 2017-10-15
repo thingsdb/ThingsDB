@@ -162,7 +162,6 @@ int rql_event_get_approval(rql_event_t * event)
             event,
             rql__event_on_approbal_cb);
 
-
     qpx_packer_t * xpkg = qpx_packer_create(64);
 
     if (qp_add_array(&xpkg) ||
@@ -173,16 +172,22 @@ int rql_event_get_approval(rql_event_t * event)
 
     rql_pkg_t * pkg = qpx_packer_pkg(xpkg, RQL_BACK_REG_EVENT);
 
-
     for (vec_each(rql->nodes, rql_node_t, node))
     {
         if (node == rql->node) continue;
-        rql_req_t * req = rql_req(
-                node,
+        if (node->status != RQL_NODE_STAT_READY || rql_req(node,
                 pkg,
                 rql_event_approval_timeout,
                 rql_prom_grab(prom),
-                rql_prom_req_cb);
+                rql_prom_req_cb))
+        {
+            prom->sz--;
+        }
+    }
+
+    if (!prom->sz)
+    {
+        free(pkg);
     }
 
     rql_prom_go(prom);
@@ -195,7 +200,8 @@ void rql__event_on_approbal_cb(rql_prom_t * prom)
 {
     for (size_t i = 0; i < prom->n; i++)
     {
-        prom->res[i].handle;
+        rql_req_t * req = (rql_req_t *) prom->res[i].handle;
+
     }
 }
 

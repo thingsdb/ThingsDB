@@ -7,6 +7,14 @@
 #ifndef RQL_NODE_H_
 #define RQL_NODE_H_
 
+typedef enum
+{
+    RQL_NODE_STAT_OFFLINE,
+    RQL_NODE_STAT_CONNECTED,
+    RQL_NODE_STAT_MAINTENANCE,
+    RQL_NODE_STAT_READY
+} rql_node_status_t;
+
 typedef struct rql_node_s  rql_node_t;
 
 #include <inttypes.h>
@@ -18,6 +26,8 @@ struct rql_node_s
     uint64_t ref;
     uint8_t id;  /* equal to the index in rql->nodes */
     uint8_t flags;
+    uint8_t status;
+    uint8_t pad0;
     uint16_t port;
     uint16_t req_next_id;
     imap_t * reqs;

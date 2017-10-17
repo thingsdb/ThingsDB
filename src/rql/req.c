@@ -4,8 +4,10 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <rql/req.h>
+#include <rql/write.h>
 
 static void rql__req_timeout(uv_timer_t * handle);
 static void rql__req_write_cb(rql_write_t * req, int status);
@@ -25,6 +27,7 @@ int rql_req(
     req->node = rql_node_grab(node);
     req->data = data;
     req->pkg_req = pkg;
+    req->cb_ = cb;
     while (!++node->req_next_id);
     req->id = node->req_next_id;
 
@@ -36,7 +39,7 @@ int rql_req(
         rql_req_cancel(prev);
     }
 
-    if (uv_timer_init(node->sock->rql->loop, &req->timer) ||
+    if (uv_timer_init(&node->sock->rql->loop, &req->timer) ||
         uv_timer_start(&req->timer, rql__req_timeout, timeout, 0)
     ) goto failed;
 
@@ -46,8 +49,8 @@ int rql_req(
 
 cancel:
     imap_pop(node->reqs, req->id);
-    uv_timer_stop(req->timer);
-    uv_close((uv_handle_t *) req->timer, NULL);
+    uv_timer_stop(&req->timer);
+    uv_close((uv_handle_t *) &req->timer, NULL);
 
 failed:
     rql_node_drop(node);
@@ -68,10 +71,10 @@ void rql_req_destroy(rql_req_t * req)
  */
 void rql_req_cancel(rql_req_t * req)
 {
-    if (!uv_is_closing(req->timer))
+    if (!uv_is_closing((uv_handle_t *) &req->timer))
     {
-        uv_timer_stop(req->timer);
-        uv_close((uv_handle_t *) req->timer, NULL);
+        uv_timer_stop(&req->timer);
+        uv_close((uv_handle_t *) &req->timer, NULL);
     }
     req->cb_(req, EX_REQUEST_CANCEL);
 }
@@ -85,7 +88,7 @@ static void rql__req_timeout(uv_timer_t * handle)
     log_warning("timeout received on '%s' req to node: '%s'",
             rql_back_req_str(req->pkg_req->tp), req->node->addr);
 
-    uv_close((uv_handle_t *) req->timer, NULL);
+    uv_close((uv_handle_t *) &req->timer, NULL);
 
     req->cb_(req, EX_REQUEST_TIMEOUT);
 }
@@ -101,8 +104,8 @@ static void rql__req_write_cb(rql_write_t * wreq, ex_e status)
 
         imap_pop(req->node->reqs, req->id);
 
-        uv_timer_stop(req->timer);
-        uv_close((uv_handle_t *) req->timer, NULL);
+        uv_timer_stop(&req->timer);
+        uv_close((uv_handle_t *) &req->timer, NULL);
 
         req->cb_(req, status);
     }

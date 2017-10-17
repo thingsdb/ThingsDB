@@ -25,8 +25,10 @@ extern const unsigned int rql_max_pass;  // length including terminator
 rql_user_t * rql_user_create(const char * name, const char * encrpass);
 rql_user_t * rql_user_grab(rql_user_t * user);
 void rql_user_drop(rql_user_t * user);
+int rql_user_name_check(const char * name, ex_t * e);
+int rql_user_pass_check(const char * pass, ex_t * e);
 int rql_user_rename(rql_user_t * user, const char * name);
-int rql_user_set_pass(rql_user_t * user, const char * pass, ex_t * e);
+int rql_user_set_pass(rql_user_t * user, const char * pass);
 
 struct rql_user_s
 {

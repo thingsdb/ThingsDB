@@ -54,8 +54,9 @@ vec_t * vec_dup(vec_t * vec)
  * vec but there is no guarantee. The return value is NULL in case of an
  * allocation error.
  */
-vec_t * vec_push(vec_t * vec, void * data)
+int vec_push(vec_t ** vaddr, void * data)
 {
+    vec_t * vec = *vaddr;
     if (vec->n == vec->sz)
     {
         size_t sz = vec->sz;
@@ -81,13 +82,13 @@ vec_t * vec_push(vec_t * vec, void * data)
         {
             /* restore original size */
             vec->sz = sz;
-            return NULL;
+            return -1;
         }
 
-        vec = tmp;
+        *vaddr = vec = tmp;
     }
     VEC_push(vec, data);
-    return vec;
+    return 0;
 }
 
 /*
@@ -95,8 +96,9 @@ vec_t * vec_push(vec_t * vec, void * data)
  *
  * In case of an error NULL is returned.
  */
-vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n)
+int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 {
+    vec_t * vec = *vaddr;
     vec->n += n;
     if (vec->n > vec->sz)
     {
@@ -107,31 +109,33 @@ vec_t * vec_extend(vec_t * vec, void * data[], uint32_t n)
         {
             /* restore original length */
             vec->n -= n;
-            return NULL;
+            return -1;
         }
 
-        vec = tmp;
+        *vaddr = vec = tmp;
         vec->sz = vec->n;
     }
     memcpy(vec->data + (vec->n - n), data, n * sizeof(void*));
-    return vec;
+    return 0;
 }
 
 /*
  * Resize a vec to sz. If the new size is smaller then vec->n might decrease.
  */
-vec_t * vec_resize(vec_t * vec, uint32_t sz)
+int vec_resize(vec_t ** vaddr, uint32_t sz)
 {
+    vec_t * vec = *vaddr;
     vec_t * v = (vec_t *) realloc(
             vec,
             sizeof(vec_t) + sz * sizeof(void*));
-    if (!v) return NULL;
+    if (!v) return -1;
     if (v->n > sz)
     {
         v->n = sz;
     }
     v->sz = sz;
-    return v;
+    *vaddr = v;
+    return 0;
 }
 
 /*
@@ -139,15 +143,17 @@ vec_t * vec_resize(vec_t * vec, uint32_t sz)
  *
  * Returns a pointer to the new vec.
  */
-vec_t * vec_shrink(vec_t * vec)
+int vec_shrink(vec_t ** vaddr)
 {
-    if (vec->n == vec->sz) return vec;
+    vec_t * vec = *vaddr;
+    if (vec->n == vec->sz) return 0;
     vec_t * v = (vec_t *) realloc(
             vec,
             sizeof(vec_t) + vec->n * sizeof(void*));
-    if (!v) return NULL;
+    if (!v) return -1;
     v->sz = v->n;
-    return v;
+    *vaddr = v;
+    return 0;
 }
 
 

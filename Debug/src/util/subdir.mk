@@ -17,8 +17,7 @@ C_SRCS += \
 ../src/util/queue.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
-../src/util/vec.c \
-../src/util/write.c 
+../src/util/vec.c 
 
 OBJS += \
 ./src/util/argparse.o \
@@ -34,8 +33,7 @@ OBJS += \
 ./src/util/queue.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
-./src/util/vec.o \
-./src/util/write.o 
+./src/util/vec.o 
 
 C_DEPS += \
 ./src/util/argparse.d \
@@ -51,8 +49,7 @@ C_DEPS += \
 ./src/util/queue.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
-./src/util/vec.d \
-./src/util/write.d 
+./src/util/vec.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

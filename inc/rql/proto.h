@@ -13,6 +13,7 @@ typedef enum
 
     RQL_PROTO_ERR=64,   // empty
     RQL_PROTO_REJECT,   // empty
+
     RQL_PROTO_AUTH_ERR, // {error_msg: "..."} authentication or privileges
     RQL_PROTO_NODE_ERR, // {error_msg: "..."} node is unable to respond to the request
     RQL_PROTO_TYPE_ERR, // {error_msg: "..."} something is wrong with the request

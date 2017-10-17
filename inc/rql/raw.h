@@ -14,7 +14,7 @@ typedef struct rql_raw_s  rql_raw_t;
 struct rql_raw_s
 {
     size_t n;
-    unsigned char raw[];
+    unsigned char data[];
 };
 
 rql_raw_t * rql_raw_new(const unsigned char * raw, size_t n);

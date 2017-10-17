@@ -16,7 +16,7 @@ typedef enum
 {
     EX_REQUEST_TIMEOUT=-3,
     EX_REQUEST_CANCEL,
-    EX_WRITE_SOCKET_UV,
+    EX_WRITE_UV,
     EX_MEMORY_ALLOCATION
 } ex_e;
 

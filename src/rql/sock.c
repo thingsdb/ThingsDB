@@ -56,7 +56,7 @@ void rql_sock_drop(rql_sock_t * sock)
 
 int rql_sock_init(rql_sock_t * sock)
 {
-    int rc = uv_tcp_init(sock->rql->loop, &sock->tcp);
+    int rc = uv_tcp_init(&sock->rql->loop, &sock->tcp);
     if (!rc)
     {
         sock->flags |= RQL_SOCK_FLAG_INIT;

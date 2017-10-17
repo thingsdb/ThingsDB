@@ -14,12 +14,15 @@
 #include <util/strx.h>
 #include <util/qpx.h>
 #include <util/lock.h>
+#include <rql/misc.h>
+#include <rql/event.h>
 
-extern const char * rql_name = "_";
+const char * rql_name = "_";
 const uint8_t rql_def_redundancy = 3;
 const char * rql_fn = "rql.qp";
 const int rql_fn_schema = 0;
 
+static void rql__run_event_loop(uv_async_t * handle);
 static qp_packer_t * rql__pack(rql_t * rql);
 static int rql__unpack(rql_t * rql, qp_res_t * res);
 static void rql__close_handles(uv_handle_t * handle, void * arg);
@@ -34,7 +37,6 @@ rql_t * rql_create(void)
     rql->fn = NULL;
     rql->node = NULL;
 
-
     rql->args = rql_args_new();
     rql->cfg = rql_cfg_new();
     rql->back = rql_back_create(rql);
@@ -42,7 +44,6 @@ rql_t * rql_create(void)
     rql->dbs = link_create();
     rql->nodes = vec_new(0);
     rql->users = vec_new(0);
-    rql->loop = (uv_loop_t *) malloc(sizeof(uv_loop_t));
 
     if (!rql->args ||
         !rql->cfg ||
@@ -50,8 +51,7 @@ rql_t * rql_create(void)
         !rql->front ||
         !rql->dbs ||
         !rql->nodes ||
-        !rql->users ||
-        !rql->loop)
+        !rql->users)
     {
         rql_destroy(rql);
         return NULL;
@@ -72,7 +72,6 @@ void rql_destroy(rql_t * rql)
     link_destroy(rql->dbs, (link_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, NULL);
     vec_destroy(rql->users, NULL);
-    free(rql->loop);
 
     free(rql);
 }
@@ -113,48 +112,41 @@ int rql_init_fn(rql_t * rql)
 int rql_build(rql_t * rql)
 {
     rql->event_commit_id = 0;
-    rql->event_next_id = 1;
-
-    ex_ptr(e);
-    rql_event_t * event = rql_event_create(rql);
-    rql_event_init(event);
-    qp_packer_t * packer = rql_misc_pack_init_event_request();
-    rql_event_raw(event, packer->buffer, packer->len, e);
-    qp_packer_destroy(packer);
-
-    rql_event_to_queue(event);
-
-    rql_event_get_approval(event);
-
-
-
-
-
-
-    rql_user_t * user = rql_user_create(rql_user_def_name, rql_user_def_pass);
-    vec_t * vtmp;
-
-
-    if (!user || rql_user_set_pass(user, user->pass, NULL)) goto failed;
-
-    vtmp = vec_push(rql->users, user);
-    if (!vtmp) goto failed;
-    rql->users = vtmp;
+    rql->event_next_id = 0;
 
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
-    if (!rql->node) goto failed;
-
-    vtmp = vec_push(rql->nodes, rql->node);
-    if (!vtmp) goto failed;
-    rql->nodes = vtmp;
-
+    if (!rql->node || vec_push(&rql->nodes, rql->node)) goto failed;
     if (rql_save(rql)) goto failed;
+
+    ex_ptr(e);
+//    if (!rql_nodes_has_quorum(rql)) goto failed;
+
+    LOGC("Here...1");
+    rql_event_t * event = rql_event_create(rql);
+    LOGC("Here...2");
+    rql_event_init(event);
+    LOGC("Here...3");
+    qp_packer_t * packer = rql_misc_pack_init_event_request();
+    LOGC("Here...4");
+    if (rql_event_raw(event, packer->buffer, packer->len, e))
+    {
+        LOGC("error: %.*s", e->n, e->errmsg);
+        goto failed;
+    }
+    LOGC("Here...5");
+    qp_packer_destroy(packer);
+    int rc = rql_event_run(event);
+    LOGC("Result: %d\n", rc);
+
+//    rql_event_to_queue(event);
+
+//    rql_event_get_approval(event);
+
+
 
     return 0;
 
 failed:
-    vec_pop(rql->users);
-    rql_user_drop(user);
     vec_pop(rql->nodes);
     rql_node_drop(rql->node);
     rql->node = NULL;
@@ -183,20 +175,22 @@ int rql_read(rql_t * rql)
 
 int rql_run(rql_t * rql)
 {
-    uv_loop_init(rql->loop);
+    uv_loop_init(&rql->loop);
+
+    uv_async_init(&rql->loop, &rql->event_loop, rql__run_event_loop);
 
     if (rql_signals_init(rql)) abort();
 
     if (rql_back_listen(rql->back) ||
         rql_front_listen(rql->front)) rql_term(SIGTERM);
 
-    uv_run(rql->loop, UV_RUN_DEFAULT);
+    uv_run(&rql->loop, UV_RUN_DEFAULT);
 
-    uv_walk(rql->loop, rql__close_handles, rql);
+    uv_walk(&rql->loop, rql__close_handles, rql);
 
-    uv_run(rql->loop, UV_RUN_DEFAULT);
+    uv_run(&rql->loop, UV_RUN_DEFAULT);
 
-    uv_loop_close(rql->loop);
+    uv_loop_close(&rql->loop);
 
     return 0;
 }
@@ -248,10 +242,28 @@ int rql_unlock(rql_t * rql)
     return 0;
 }
 
+static void rql__run_event_loop(uv_async_t * handle)
+{
+    rql_t * rql = (rql_t *) handle->data;
+
+    while (rql->queue->n)
+    {
+        rql_event_t * event = (rql_event_t *) queue_get(
+                rql->queue,
+                rql->queue->n - 1);
+        if (event->id == rql->event_commit_id)
+        {
+            rql_event_run(event);
+            queue_pop(rql->queue);
+            rql_event_done(event);
+            rql_event_destroy(event);
+        }
+    }
+}
+
 static int rql__unpack(rql_t * rql, qp_res_t * res)
 {
     qp_res_t * schema, * redundancy, * node, * nodes;
-    vec_t * vtmp;
 
     if (res->tp != QP_RES_MAP ||
         !(schema = qpx_map_get(res->via.map, "schema")) ||
@@ -287,10 +299,7 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
                 addr->via.str,
                 (uint16_t) port->via.int64);
 
-        if (!node) goto failed;
-        vtmp = vec_push(rql->nodes, node);
-        if (!vtmp) goto failed;
-        rql->nodes = vtmp;
+        if (!node || vec_push(&rql->nodes, node)) goto failed;
     }
 
     if (node->via.int64 >= rql->nodes->n) goto failed;
@@ -357,6 +366,7 @@ static void rql__close_handles(uv_handle_t * handle, void * arg)
 
     switch (handle->type)
     {
+    case UV_ASYNC:
     case UV_SIGNAL:
         uv_close(handle, NULL);
         break;

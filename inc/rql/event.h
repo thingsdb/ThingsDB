@@ -7,27 +7,34 @@
 #ifndef RQL_EVENT_H_
 #define RQL_EVENT_H_
 
-#define RQL_EVENT_STATUS_WAIT_ACCEPT 0
-#define RQL_EVENT_STATUS_ACCEPTED 1
+#define RQL_EVENT_STAT_WAIT_ACCEPT 0
+#define RQL_EVENT_STAT_ACCEPTED 1
 
-//#define RQL_EVENT_STATUS_CANCELLED 3
-#define RQL_EVENT_STATUS_REJECTED 3
+//#define RQL_EVENT_STAT_CANCELLED 3
+#define RQL_EVENT_STAT_REJECTED 3
 
 
 typedef struct rql_event_s rql_event_t;
 
 #include <inttypes.h>
+#include <qpack.h>
+#include <rql/rql.h>
+#include <rql/db.h>
+#include <rql/raw.h>
+#include <rql/prom.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
-rql_event_t * rql_create_event(rql_t * rql);
+rql_event_t * rql_event_create(rql_t * rql);
 void rql_event_destroy(rql_event_t * event);
+void rql_event_init(rql_event_t * event);
 int rql_event_raw(
         rql_event_t * event,
         const unsigned char * raw,
         size_t sz,
         ex_t * e);
-
+int rql_event_run(rql_event_t * event);
+int rql_event_done(rql_event_t * event);
 
 struct rql_event_s
 {
@@ -37,11 +44,12 @@ struct rql_event_s
     rql_t * rql;
     rql_db_t * target; // NULL for _rql or pointer to database
     rql_node_t * node;
-    unsigned char * raw;
-    size_t raw_sz;
+    rql_sock_t * source;    // NULL or requesting client
+    rql_raw_t * raw;
     imap_t * refelems;
-    vec_t * tasks;
+    vec_t * tasks;  /* each task is a qp_res_t */
+    qp_packer_t * result;
+    rql_prom_t * prom;
 };
-
 
 #endif /* RQL_EVENT_H_ */

@@ -4,8 +4,8 @@
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-#ifndef RQL_BACK_H_
-#define RQL_BACK_H_
+#ifndef RQL_MISC_H_
+#define RQL_MISC_H_
 
 #include <qpack.h>
 

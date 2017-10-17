@@ -17,28 +17,28 @@ typedef struct rql_prom_s rql_prom_t;
 typedef struct rql_prom_res_s rql_prom_res_t;
 
 #include <uv.h>
+#include <rql/req.h>
 #include <util/vec.h>
 #include <util/ex.h>
 
-typedef void (*rql_prom_cb)(rql_prom_t * prom, ex_e status);
+typedef void (*rql_prom_cb)(rql_prom_t * prom);
 
-rql_prom_t * rql_prom_create(size_t sz, void * data, rql_prom_cb cb);
-rql_prom_t * rql_prom_grab(rql_prom_t * prom);
-void rql_prom_drop(rql_prom_t * prom);
+rql_prom_t * rql_prom_new(size_t sz, void * data, rql_prom_cb cb);
+//rql_prom_t * rql_prom_grab(rql_prom_t * prom);
+//void rql_prom_destroy(rql_prom_t * prom);
 void rql_prom_go(rql_prom_t * prom);
-//void rql_prom_cancel(rql_prom_t * prom);
-
-void rql_prom_req_cb(rql_req_t * req, ex_t status);
+void rql_prom_req_cb(rql_req_t * req, ex_e status);
 
 struct rql_prom_res_s
 {
     rql_prom_e tp;
-    ex_t status;
+    ex_e status;
     void * handle;
 };
 
 struct rql_prom_s
 {
+//    int64_t ref;
     size_t n;
     size_t sz;
     void * data;

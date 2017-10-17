@@ -22,13 +22,12 @@ char * entries[] = {
 };
 
 
-static vec_t * push_entries(vec_t * v)
+static void push_entries(vec_t ** v)
 {
     for (size_t i = 0; i < num_entries; i++)
     {
-        assert ((v = vec_push(v, entries[i])) != NULL);
+        assert (vec_push(v, entries[i]) == 0);
     }
-    return v;
 }
 
 
@@ -49,7 +48,7 @@ int main()
     {
         for (size_t i = 0; i < num_entries; i++)
         {
-            assert ((v = vec_push(v, entries[i])) != NULL);
+            assert (vec_push(&v, entries[i]) == 0);
         }
     }
 
@@ -66,7 +65,7 @@ int main()
         }
 
         assert (v->n == 0);
-        v = push_entries(v);  /* restore entries */
+        push_entries(&v);  /* restore entries */
     }
 
     /* test dup */
@@ -84,7 +83,7 @@ int main()
 
     /* test extend */
     {
-        assert ((v = vec_extend(v, (void **) entries, num_entries)) != NULL);
+        assert (vec_extend(&v, (void **) entries, num_entries) == 0);
         for (size_t i = 0; i < num_entries * 2; i++)
         {
             assert (vec_get(v, i) == entries[i % num_entries]);
@@ -97,14 +96,14 @@ int main()
         for (size_t i = 0; i < n; i++)
         {
             assert (vec_pop(v) == entries[num_entries - (i % 8) - 1]);
-            assert ((v = vec_shrink(v)) != NULL);
+            assert (vec_shrink(&v) == 0);
             assert (v->n == v->sz);
         }
     }
 
     /* test vec_each loop */
     {
-        v = push_entries(v); /* restore some points */
+        push_entries(&v); /* restore some points */
         char ** e = entries;
         size_t n = 0;
         for (vec_each(v, char, s), n++, e++)

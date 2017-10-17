@@ -7,7 +7,8 @@
 #ifndef RQL_NODES_H_
 #define RQL_NODES_H_
 
+#include <rql/rql.h>
 
-int rql_nodes_req_event_id(rql_t * rql);
+_Bool rql_nodes_has_quorum(rql_t * rql);
 
 #endif /* RQL_NODES_H_ */

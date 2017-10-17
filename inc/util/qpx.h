@@ -13,7 +13,7 @@
 typedef qp_packer_t qpx_packer_t;
 
 qp_res_t * qpx_map_get(qp_map_t * map, const char * key);
-int qpx_raw_equal(qp_obj_t * obj, const char * s);
+_Bool qpx_raw_equal(qp_obj_t * obj, const char * s);
 
 qpx_packer_t * qpx_packer_create(size_t sz);
 rql_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp);

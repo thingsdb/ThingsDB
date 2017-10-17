@@ -54,7 +54,11 @@ int main(int argc, char * argv[])
             rc = -1;
             goto stop;
         }
-        if ((rc = rql_build(rql))) goto stop;
+        if ((rc = rql_build(rql)))
+        {
+            printf("error: building new pool has failed\n");
+            goto stop;
+        }
 
         printf(
             "Well done! You successfully initialized a new rql pool.\n"

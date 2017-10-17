@@ -29,7 +29,7 @@ int rql_signals_init(rql_t * rql)
     for (int i = 0; i < nsigs; i++)
     {
         signals[i].data = rql;
-        if (uv_signal_init(rql->loop, &signals[i]) ||
+        if (uv_signal_init(&rql->loop, &signals[i]) ||
             uv_signal_start(&signals[i], rql__signals_handler, signms[i]))
         {
             return -1;
@@ -57,5 +57,5 @@ static void rql__signals_handler(uv_signal_t * sig, int signum)
         log_warning("received stop signal (%s)", strsignal(signum));
     }
 
-    uv_stop(rql->loop);
+    uv_stop(&rql->loop);
 }

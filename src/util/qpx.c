@@ -23,13 +23,13 @@ qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
 /*
  * Compare a raw object to a null terminated string.
  */
-int qpx_raw_equal(qp_obj_t * obj, const char * s)
+_Bool qpx_raw_equal(qp_obj_t * obj, const char * s)
 {
     for (size_t i = 0; i < obj->len; i++, s++)
     {
-        if (*s != obj->via.raw[i] || !*s) return -1;
+        if (*s != obj->via.raw[i] || !*s) return 0;
     }
-    return 0;
+    return 1;
 }
 
 qpx_packer_t * qpx_packer_create(size_t sz)

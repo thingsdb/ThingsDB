@@ -15,9 +15,10 @@ C_SRCS += \
 ../src/rql/node.c \
 ../src/rql/nodes.c \
 ../src/rql/pkg.c \
+../src/rql/prom.c \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
-../src/rql/request.c \
+../src/rql/req.c \
 ../src/rql/rql.c \
 ../src/rql/signals.c \
 ../src/rql/sock.c \
@@ -25,7 +26,8 @@ C_SRCS += \
 ../src/rql/user.c \
 ../src/rql/users.c \
 ../src/rql/val.c \
-../src/rql/version.c 
+../src/rql/version.c \
+../src/rql/write.c 
 
 OBJS += \
 ./src/rql/args.o \
@@ -39,9 +41,10 @@ OBJS += \
 ./src/rql/node.o \
 ./src/rql/nodes.o \
 ./src/rql/pkg.o \
+./src/rql/prom.o \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
-./src/rql/request.o \
+./src/rql/req.o \
 ./src/rql/rql.o \
 ./src/rql/signals.o \
 ./src/rql/sock.o \
@@ -49,7 +52,8 @@ OBJS += \
 ./src/rql/user.o \
 ./src/rql/users.o \
 ./src/rql/val.o \
-./src/rql/version.o 
+./src/rql/version.o \
+./src/rql/write.o 
 
 C_DEPS += \
 ./src/rql/args.d \
@@ -63,9 +67,10 @@ C_DEPS += \
 ./src/rql/node.d \
 ./src/rql/nodes.d \
 ./src/rql/pkg.d \
+./src/rql/prom.d \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
-./src/rql/request.d \
+./src/rql/req.d \
 ./src/rql/rql.d \
 ./src/rql/signals.d \
 ./src/rql/sock.d \
@@ -73,7 +78,8 @@ C_DEPS += \
 ./src/rql/user.d \
 ./src/rql/users.d \
 ./src/rql/val.d \
-./src/rql/version.d 
+./src/rql/version.d \
+./src/rql/write.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

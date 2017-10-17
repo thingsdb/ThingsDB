@@ -64,3 +64,6 @@ Release/rqldb
 .pyc
 __pycache__/
 /tmp/
+
+# testdir
+/test/testdir/

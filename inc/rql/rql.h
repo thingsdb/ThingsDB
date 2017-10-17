@@ -20,7 +20,6 @@ typedef struct rql_s rql_t;
 #include <signal.h>
 #include <string.h>
 #include <inttypes.h>
-#include <util/vec.h>
 #include <rql/args.h>
 #include <rql/cfg.h>
 #include <rql/node.h>
@@ -28,6 +27,8 @@ typedef struct rql_s rql_t;
 #include <rql/front.h>
 #include <util/logger.h>
 #include <util/link.h>
+#include <util/queue.h>
+#include <util/vec.h>
 
 #define rql_term(signum__) {\
     log_critical("critical error at: %s:%d (%s); raising %s", \
@@ -45,7 +46,6 @@ int rql_save(rql_t * rql);
 int rql_lock(rql_t * rql);
 int rql_unlock(rql_t * rql);
 
-
 struct rql_s
 {
     char * fn;
@@ -57,10 +57,14 @@ struct rql_s
     link_t * dbs;
     vec_t * nodes;
     vec_t * users;
-    uv_loop_t * loop;
+    /* event stuff */
     uint64_t event_commit_id;
     uint64_t event_next_id;
     queue_t * queue;         /* queued events */
+    vec_t * done;
+    uv_loop_t loop;
+    uv_async_t event_loop;
+
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
 };

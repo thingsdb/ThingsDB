@@ -10,6 +10,7 @@
 #define RQL_API_TASK "_t"
 #define RQL_API_USER "_u"
 #define RQL_API_PASS "_p"
+#define RQL_API_STAT "_s"
 
 #endif /* RQL_API_H_ */
 

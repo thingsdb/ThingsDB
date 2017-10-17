@@ -10,8 +10,9 @@
 
 rql_raw_t * rql_raw_new(const unsigned char * raw, size_t n)
 {
-    rql_raw_t * raw_ = (rql_raw_t *) malloc(sizeof(rql_raw_t) + n);
-    memcpy(raw_->raw, raw, n);
-    return raw_;
+    rql_raw_t * r = (rql_raw_t *) malloc(sizeof(rql_raw_t) + n);
+    r->n = n;
+    memcpy(r->data, raw, n);
+    return r;
 }
 

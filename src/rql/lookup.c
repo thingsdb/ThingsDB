@@ -4,6 +4,25 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <stdlib.h>
+#include <rql/lookup.h>
+
+rql_lookup_t * rql_lookup_create(rql_t * rql, uint8_t n, uint8_t redundancy)
+{
+    rql_lookup_t * lookup = (rql_lookup_t *) malloc(
+            sizeof(rql_lookup_t) + n * sizeof(uint64_t));
+    if (!lookup) return NULL;
+    lookup->n = n;
+    lookup->redundancy = redundancy;
+    lookup->sz = (n < redundancy) ? n : redundancy;
+    lookup->nodes = vec_new(lookup->sz * n);
+    if (!lookup->nodes)
+    {
+        rql_lookup_destroy(lookup);
+        return NULL;
+    }
+    return lookup;
+}
 
 
 

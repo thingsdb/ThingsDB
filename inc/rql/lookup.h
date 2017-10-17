@@ -13,7 +13,8 @@ struct rql_lookup_s
 {
     uint8_t redundancy;
     uint8_t n;          /* equal to nodes->n */
-    vec_t * nodes;      /* legnth is equal to min(n, redundancy */
+    uint8_t sz;         /* equal to min(n, redundancy) */
+    vec_t * nodes;      /* legnth is equal to sz * n */
     uint64_t masks[];
 };
 

@@ -368,7 +368,6 @@ static int rql__event_unpack(
         qp_unpacker_t * unpacker,
         ex_t * e)
 {
-    qp_unpacker_t tmp;
     qp_res_t * res;
     if (!qp_is_array(qp_next(unpacker, NULL)))
     {
@@ -376,7 +375,7 @@ static int rql__event_unpack(
                 "invalid event: expecting an array with tasks");
         return -1;
     }
-//    qp_unpacker_init(&tmp, unpacker->pt)
+
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)
     {
         if (vec_push(&event->tasks, res))
@@ -391,6 +390,7 @@ static int rql__event_unpack(
         ex_set(e, RQL_PROTO_TYPE_ERR, "error unpacking tasks from event");
         return -1;
     }
+
     return 0;
 }
 

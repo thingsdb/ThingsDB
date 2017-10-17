@@ -42,5 +42,5 @@ static void rql__write_cb(uv_write_t * req, int status)
 
     rql_write_t * rql_req = (rql_write_t *) req->data;
 
-    rql_req->cb_(rql_req, (status) ? EX_WRITE_SOCKET_UV : 0);
+    rql_req->cb_(rql_req, (status) ? EX_WRITE_UV : 0);
 }

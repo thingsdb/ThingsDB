@@ -6,6 +6,7 @@
  */
 #include <rql/rql.h>
 #include <rql/users.h>
+#include <rql/proto.h>
 #include <util/cryptx.h>
 
 rql_user_t * rql_users_auth(
@@ -19,13 +20,13 @@ rql_user_t * rql_users_auth(
 
     if (name->len < rql_min_name || name->len >= rql_max_name)
     {
-        ex_set(e, RQL_FRONT_AUTH_ERR, "invalid user");
+        ex_set(e, RQL_PROTO_AUTH_ERR, "invalid user");
         return NULL;
     }
 
     if (pass->len < rql_min_pass || pass->len >= rql_max_pass)
     {
-        ex_set(e, RQL_FRONT_AUTH_ERR, "invalid password");
+        ex_set(e, RQL_PROTO_AUTH_ERR, "invalid password");
         return NULL;
     }
 
@@ -39,13 +40,13 @@ rql_user_t * rql_users_auth(
             cryptx(passbuf, user->pass, pw);
             if (strcmp(pw, user->pass))
             {
-                ex_set(e, RQL_FRONT_AUTH_ERR, "incorrect password");
+                ex_set(e, RQL_PROTO_AUTH_ERR, "incorrect password");
                 return NULL;
             }
             return user;
         }
     }
 
-    ex_set(e, RQL_FRONT_AUTH_ERR, "user not found");
+    ex_set(e, RQL_PROTO_AUTH_ERR, "user not found");
     return NULL;
 }

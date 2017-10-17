@@ -72,6 +72,18 @@ int rql_back_listen(rql_back_t * back)
     return 0;
 }
 
+const char * rql_back_req_str(rql_back_req_e tp)
+{
+    switch (tp)
+    {
+    case RQL_BACK_PING: return "PING";
+    case RQL_BACK_AUTH: return "AUTH";
+    case RQL_BACK_EVENT_REG: return "EVENT_REG";
+    case RQL_BACK_EVENT_GO: return "EVENT_GO";
+    }
+    return "UNKNOWN";
+}
+
 static void rql__back_on_connect(uv_tcp_t * tcp, int status)
 {
     int rc;

@@ -6,6 +6,8 @@
  */
 #include <rql/misc.h>
 #include <rql/api.h>
+#include <rql/rql.h>
+#include <rql/task.h>
 
 /*
  * Pack:

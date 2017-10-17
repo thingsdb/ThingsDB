@@ -10,8 +10,8 @@
 
 const char * rql_user_def_name = "iris";
 const char * rql_user_def_pass = "siri";
-const unsigned int rql_min_name = 2;
-const unsigned int rql_max_name = 64;
+const unsigned int rql_min_name = 1;
+const unsigned int rql_max_name = 128;
 const unsigned int rql_min_pass = 4;
 const unsigned int rql_max_pass = 128;
 
@@ -48,18 +48,27 @@ void rql_user_drop(rql_user_t * user)
     }
 }
 
-int rql_user_rename(rql_user_t * user, const char * name)
+int rql_user_name_check(const char * name, ex_t * e)
 {
-    free(user->name);
-    user->name = strdup(name);
-    return (user->name) ? 0 : -1;
+    if (strlen(name) < rql_min_name)
+    {
+        ex_set(e, -1, "user name should be at least %u characters",
+                rql_min_name);
+        return -1;
+    }
+
+
+    if (strlen(name) >= rql_max_name)
+    {
+        ex_set(e, -1, "user name should be less than %u characters",
+                rql_max_name);
+        return -1;
+    }
+    return 0;
 }
 
-int rql_user_set_pass(rql_user_t * user, const char * pass, ex_t * e)
+int rql_user_pass_check(const char * pass, ex_t * e)
 {
-    char salt[CRYPTX_SALT_SZ];
-    char encrypted[CRYPTX_SZ];
-
     if (strlen(pass) < rql_min_pass)
     {
         ex_set(e, -1, "password should be at least %u characters",
@@ -74,6 +83,23 @@ int rql_user_set_pass(rql_user_t * user, const char * pass, ex_t * e)
                 rql_max_pass);
         return -1;
     }
+    return 0;
+}
+
+int rql_user_rename(rql_user_t * user, const char * name)
+{
+    char * username = strdup(name);
+    if (!username) return -1;
+    free(user->name);
+    user->name = username;
+    return 0;
+}
+
+int rql_user_set_pass(rql_user_t * user, const char * pass)
+{
+    char * password;
+    char salt[CRYPTX_SALT_SZ];
+    char encrypted[CRYPTX_SZ];
 
     /* generate a random salt */
     cryptx_gen_salt(salt);
@@ -82,9 +108,10 @@ int rql_user_set_pass(rql_user_t * user, const char * pass, ex_t * e)
     cryptx(pass, salt, encrypted);
 
     /* replace user password with encrypted password */
+    password = strdup(encrypted);
+    if (!password) return -1;
     free(user->pass);
-    user->pass = strdup(encrypted);
-    if (!user->pass) return ex_set(e, -1, "allocation error");
+    user->pass = password;
 
     return 0;
 }

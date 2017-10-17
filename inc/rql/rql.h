@@ -57,6 +57,7 @@ struct rql_s
     link_t * dbs;
     vec_t * nodes;
     vec_t * users;
+
     /* event stuff */
     uint64_t event_commit_id;
     uint64_t event_next_id;

@@ -153,7 +153,6 @@ target:
         ex_set(e, RQL_PROTO_RUNT_ERR, EX_ALLOC);
         return -1;
     }
-    LOGC("Bla....5");
     return rql__event_unpack(event, &unpacker, e);
 }
 
@@ -162,6 +161,7 @@ int rql_event_run(rql_event_t * event)
     int success = 0;
     rql_task_stat_e rc = RQL_TASK_SUCCESS;
     qp_add_array(&event->result);
+
     for (vec_each(event->tasks, qp_res_t, task))
     {
         rc = rql_task(task, event, rc);

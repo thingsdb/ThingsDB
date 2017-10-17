@@ -70,8 +70,8 @@ void rql_destroy(rql_t * rql)
     rql_back_destroy(rql->back);
     rql_front_destroy(rql->front);
     link_destroy(rql->dbs, (link_destroy_cb) rql_db_drop);
-    vec_destroy(rql->nodes, NULL);
-    vec_destroy(rql->users, NULL);
+    vec_destroy(rql->nodes, (vec_destroy_cb) rql_node_drop);
+    vec_destroy(rql->users, (vec_destroy_cb) rql_user_drop);
 
     free(rql);
 }
@@ -119,24 +119,16 @@ int rql_build(rql_t * rql)
     if (rql_save(rql)) goto failed;
 
     ex_ptr(e);
-//    if (!rql_nodes_has_quorum(rql)) goto failed;
 
-    LOGC("Here...1");
     rql_event_t * event = rql_event_create(rql);
-    LOGC("Here...2");
     rql_event_init(event);
-    LOGC("Here...3");
     qp_packer_t * packer = rql_misc_pack_init_event_request();
-    LOGC("Here...4");
     if (rql_event_raw(event, packer->buffer, packer->len, e))
     {
-        LOGC("error: %.*s", e->n, e->errmsg);
         goto failed;
     }
-    LOGC("Here...5");
     qp_packer_destroy(packer);
-    int rc = rql_event_run(event);
-    LOGC("Result: %d\n", rc);
+    if (rql_event_run(event) != 1) goto failed;
 
 //    rql_event_to_queue(event);
 
@@ -159,6 +151,7 @@ int rql_read(rql_t * rql)
     ssize_t n;
     unsigned char * data = fx_read(rql->fn, &n);
     if (!data) return -1;
+
     qp_unpacker_t unpacker;
     qp_unpacker_init(&unpacker, data, (size_t) n);
     qp_res_t * res = qp_unpacker_res(&unpacker, &rc);
@@ -309,6 +302,7 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
     return 0;
 
 failed:
+    LOGC("Here...");
     for (vec_each(rql->nodes, rql_node_t, node))
     {
         rql_node_drop(node);

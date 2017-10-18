@@ -159,7 +159,7 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     {
         /* only set new authentication when successful */
         sock->via.user = rql_user_grab(user);
-        resp = rql_pkg_new(RQL_PROTO_ACK, NULL, 0);
+        resp = rql_pkg_new(pkg->id, RQL_PROTO_ACK, NULL, 0);
     }
 
     if (!resp || rql_front_write(sock, resp))

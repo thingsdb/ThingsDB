@@ -12,7 +12,11 @@
 #include <rql/proto.h>
 #include <util/qpx.h>
 
-rql_pkg_t * rql_pkg_new(uint8_t tp, const unsigned char * data, uint32_t n)
+rql_pkg_t * rql_pkg_new(
+        uint16_t id,
+        uint8_t tp,
+        const unsigned char * data,
+        uint32_t n)
 {
     rql_pkg_t * pkg = (rql_pkg_t *) malloc(sizeof(rql_pkg_t) + n);
     if (!pkg) return NULL;

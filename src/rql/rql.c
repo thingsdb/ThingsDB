@@ -16,13 +16,13 @@
 #include <util/lock.h>
 #include <rql/misc.h>
 #include <rql/event.h>
+#include <rql/store.h>
 
 const char * rql_name = "_";
 const uint8_t rql_def_redundancy = 3;
 const char * rql_fn = "rql.qp";
 const int rql_fn_schema = 0;
 
-static void rql__run_event_loop(uv_async_t * handle);
 static qp_packer_t * rql__pack(rql_t * rql);
 static int rql__unpack(rql_t * rql, qp_res_t * res);
 static void rql__close_handles(uv_handle_t * handle, void * arg);
@@ -114,35 +114,42 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
+    ex_ptr(e);
+    int rc = -1;
+    rql_event_t * event = NULL;
+    qp_packer_t * packer = rql_misc_pack_init_event_request();
+    if (!packer) return -1;
+
     rql->events->commit_id = 0;
     rql->events->next_id = 0;
 
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
-    if (!rql->node || vec_push(&rql->nodes, rql->node)) goto failed;
-    if (rql_save(rql)) goto failed;
+    if (!rql->node || vec_push(&rql->nodes, rql->node)) goto stop;
 
-    ex_ptr(e);
+    event = rql_event_create(rql->events);
+    if (!event) goto stop;
 
-    rql_event_t * event = rql_event_create(rql);
     rql_event_init(event);
-    qp_packer_t * packer = rql_misc_pack_init_event_request();
-    if (rql_event_raw(event, packer->buffer, packer->len, e))
+
+    if (rql_save(rql) ||
+        rql_event_raw(event, packer->buffer, packer->len, e) ||
+        rql_event_run(event) != 1 ||
+        rql_store(rql)) goto stop;
+
+    rc = 0;
+
+stop:
+    if (rc)
     {
-        goto failed;
+        fx_rmdir(rql->cfg->rql_path);
+        mkdir(rql->cfg->rql_path, 0700);  /* no error checking required */
+        rql_node_drop(rql->node);
+        rql->node = NULL;
+        vec_pop(rql->nodes);
     }
     qp_packer_destroy(packer);
-    if (rql_event_run(event) != 1) goto failed;
-
-//    rql_event_to_queue(event);
-//    rql_event_get_approval(event);
-
-    return 0;
-
-failed:
-    vec_pop(rql->nodes);
-    rql_node_drop(rql->node);
-    rql->node = NULL;
-    return -1;
+    rql_event_destroy(event);
+    return rc;
 }
 
 int rql_read(rql_t * rql)
@@ -163,6 +170,9 @@ int rql_read(rql_t * rql)
     }
     rc = rql__unpack(rql, res);
     qp_res_destroy(res);
+
+    rc = rql_restore(rql);
+
     return rc;
 }
 

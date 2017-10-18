@@ -10,5 +10,6 @@
 #include <rql/rql.h>
 
 int rql_store(rql_t * rql);
+int rql_restore(rql_t * rql);
 
 #endif /* RQL_STORE_H_ */

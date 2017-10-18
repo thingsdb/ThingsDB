@@ -172,6 +172,9 @@ int rql_event_run(rql_event_t * event)
 
     qp_close_array(event->result);
 
+    /* update commit_id */
+    event->events->commit_id = event->id;
+
     return success;
 
 failed:

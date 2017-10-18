@@ -43,6 +43,7 @@ void rql_user_drop(rql_user_t * user)
 {
     if (user && !--user->ref)
     {
+        free(user->pass);
         free(user->name);
         free(user);
     }

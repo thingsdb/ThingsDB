@@ -41,7 +41,7 @@ static inline _Bool rql_lookup_node_has_id(
         rql_node_t * node,
         uint64_t id)
 {
-    return lookup->mask_[id % lookup->n_] & node->id;
+    return lookup->mask_[id % lookup->n_] & (1 << node->id);
 }
 
 #endif /* RQL_LOOKUP_H_ */

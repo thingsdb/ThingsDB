@@ -8,6 +8,8 @@
 #include <qpack.h>
 #include <rql/events.h>
 #include <rql/event.h>
+#include <util/fx.h>
+#include <util/qpx.h>
 
 const int rql_events_fn_schema = 0;
 
@@ -89,11 +91,7 @@ int rql_events_restore(rql_events_t * events, const char * fn)
         commit_id->via.int64 < 0) goto stop;
 
     events->commit_id = (uint64_t) commit_id->via.int64;
-
-    if (events->next_id < events->commit_id)
-    {
-        events->next_id = events->commit_id;
-    }
+    events->next_id = events->commit_id;
 
     rc = 0;
 

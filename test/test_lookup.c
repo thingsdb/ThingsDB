@@ -38,15 +38,40 @@ int main()
 
     /* test create lookup */
     {
-        rql_lookup_t * lookup = rql_lookup_create(5, 3, nodes);
-        // for (vec_each(lookup->nodes_, rql_node_t, nd))
-        // {
-        //     printf("Node: %u\n", nd->id);
-        // }
-        // for (int i = 0; i < 5; i++)
-        // {
-        //     printf("Mask: %lu\n", lookup->mask_[i]);
-        // }
+        for (uint8_t n = 1; n < 10; n++)
+        {
+            for (uint8_t r = 1; r < 6; r++)
+            {
+                size_t m = (n < r) ? n : r;
+                size_t sz = n * m;
+                rql_lookup_t * lookup = rql_lookup_create(n, r, nodes);
+                assert (lookup->nodes_->sz == sz);
+                for (size_t i = 0; i < sz; i++)
+                {
+                    assert (vec_get(lookup->nodes_, i) != NULL);
+                }
+                rql_lookup_destroy(lookup);
+            }
+        }
+    }
+
+    /* test assignments */
+    {
+        uint8_t n = 5;
+        uint8_t r = 3;
+        size_t nids = 1000;
+        size_t expected = (size_t) (((float) r / n) * nids);
+        rql_lookup_t * lookup = rql_lookup_create(n, r, nodes);
+        for (uint8_t i = 0; i < n; i++)
+        {
+            size_t a = 0;
+            for (size_t id = 0; id < nids; id++)
+            {
+                a += rql_lookup_node_has_id(lookup, &entries[i], id);
+            }
+            assert (a == expected);
+        }
+
         rql_lookup_destroy(lookup);
     }
 

@@ -38,7 +38,7 @@ rql_user_t * rql_users_auth(
 
     for (vec_each(users, rql_user_t, user))
     {
-        if (strncmp(user->name, name->via.raw, name->len) == 0)
+        if (qpx_raw_equal(name, user->name))
         {
             memcpy(passbuf, pass->via.raw, pass->len);
             passbuf[pass->len] = '\0';

@@ -14,8 +14,8 @@ CTEMPLATE = """/*
 #define _GNU_SOURCE
 #endif
 #include "test.h"
+#include "test_{name}.h"
 #include <{header}>
-
 
 
 int main()
@@ -30,6 +30,13 @@ int main()
     test_end(0);
     return 0;
 }}
+"""
+
+HTEMPLATE = """#ifndef RQL_TEST_{name}_H_
+#define RQL_TEST_{name}_H_
+
+
+#endif  /* RQL_TEST_{name}_H_ */
 """
 
 SHTEMPLATE = """#!/bin/bash
@@ -75,6 +82,11 @@ if __name__ == '__main__':
         print("file already exists:", cfn)
         exit(1)
 
+    hfn = "test_{}.h".format(name)
+    if os.path.exists(hfn):
+        print("file already exists:", hfn)
+        exit(1)
+
     today = "{:%b %d, %Y}".format(datetime.date.today())
 
     with open(shfn, "w") as f:
@@ -82,6 +94,9 @@ if __name__ == '__main__':
 
     with open(cfn, "w") as f:
         f.write(CTEMPLATE.format(name=name, today=today, header=header))
+
+    with open(cfn, "w") as f:
+        f.write(HTEMPLATE.format(name=name.upper())
 
     st = os.stat(shfn)
     os.chmod(shfn, st.st_mode | stat.S_IEXEC)

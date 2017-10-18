@@ -1,3 +1,6 @@
+#ifndef RQL_TEST_H_
+#define RQL_TEST_H_
+
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -35,3 +38,5 @@ static int test_end(int status)
 
     return status;
 }
+
+#endif  /* RQL_TEST_H_ */

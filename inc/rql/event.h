@@ -34,7 +34,7 @@ int rql_event_raw(
         size_t sz,
         ex_t * e);
 int rql_event_run(rql_event_t * event);
-//int rql_event_done(rql_event_t * event);
+int rql_event_done(rql_event_t * event);
 
 struct rql_event_s
 {

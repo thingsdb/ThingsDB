@@ -23,6 +23,7 @@ rql_pkg_t * rql_pkg_new(
     pkg->tp = tp;
     pkg->ntp = tp ^ 255;
     pkg->n = n;
+    pkg->id = id;
     memcpy(pkg->data, data, n);
     return pkg;
 }

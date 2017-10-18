@@ -29,7 +29,7 @@ _Bool qpx_raw_equal(qp_obj_t * obj, const char * s)
     {
         if (*s != obj->via.raw[i] || !*s) return 0;
     }
-    return 1;
+    return !*s;
 }
 
 qpx_packer_t * qpx_packer_create(size_t sz)
@@ -43,12 +43,12 @@ qpx_packer_t * qpx_packer_create(size_t sz)
 rql_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 {
     rql_pkg_t * pkg = (rql_pkg_t *) packer->buffer;
-    packer->buffer = NULL;
-    qp_packer_destroy(packer);
 
     pkg->n = packer->len - sizeof(rql_pkg_t);
     pkg->tp = (uint8_t) tp;
     pkg->ntp = pkg->tp ^ 255;
 
+    packer->buffer = NULL;
+    qp_packer_destroy(packer);
     return pkg;
 }

@@ -9,7 +9,7 @@
 #include <util/qpx.h>
 #include <rql/api.h>
 
-static rql_task_stat_e rql__task_create_user(
+static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
         rql_event_t * event);
 static rql_task_stat_e rql__task_fail(rql_event_t * event, const char * msg);
@@ -54,8 +54,8 @@ rql_task_stat_e rql_task(
     tp = (rql_task_e) tasktp->via.int64;
     switch (tp)
     {
-    case RQL_TASK_CREATE_USER:
-        rc = rql__task_create_user(taskmap, event);
+    case RQL_TASK_USER_CREATE:
+        rc = rql__task_user_create(taskmap, event);
         break;
     }
 
@@ -70,7 +70,7 @@ finish:
     return rc;
 }
 
-static rql_task_stat_e rql__task_create_user(
+static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
         rql_event_t * event)
 {

@@ -33,7 +33,25 @@ class Rql:
         self._transport, self._protocol = await asyncio.wait_for(
             conn,
             timeout=timeout)
+        self._protocol.on_package_received = self._on_package_received
         self._pid = 0
+
+    def _on_package_received(self, pkg):
+        logging.debug(pkg)
+        try:
+            future, task = self._requests.pop(pkg.pid)
+        except KeyError:
+            logging.error('package ID not found: {}'.format(
+                    self._data_package.pid))
+            return None
+
+        # cancel the timeout task
+        task.cancel()
+
+        if future.cancelled():
+            return
+
+        future.set_result(pkg.data)
 
     async def authenticate(self, username, password, timeout=5):
         self._username = username
@@ -75,29 +93,35 @@ class Rql:
 
 class DataPackage(object):
 
-    __slots__ = ('pid', 'length', 'tipe', 'checkbit', 'data')
+    __slots__ = ('pid', 'length', 'total', 'tipe', 'checkbit', 'data')
 
     struct_datapackage = struct.Struct('<IHBB')
 
     def __init__(self, barray):
         self.length, self.pid, self.tipe, self.checkbit = \
             self.__class__.struct_datapackage.unpack_from(barray, offset=0)
-        self.length += self.__class__.struct_datapackage.size
+        self.total = self.__class__.struct_datapackage.size + self.length
         self.data = None
 
     def extract_data_from(self, barray):
         try:
-            self.data = self.__class__._MAP[protomap.MAP_RES_DTYPE[self.tipe]](
-                barray[self.__class__.struct_datapackage.size:self.length])
+            self.data = qpack.unpackb(
+                barray[self.__class__.struct_datapackage.size:self.total]) \
+                if self.length else None
         finally:
-            del barray[:self.length]
+            del barray[:self.total]
 
+    def __repr__(self):
+        return '<id: {0.pid} size: {0.length} tp: {0.tipe}>'.format(self)
 
 
 class _RqlProtocol(asyncio.Protocol):
 
     _connected = False
 
+    def __init__(self):
+        self._buffered_data = bytearray()
+        self._data_package = None
 
     def connection_made(self, transport):
         '''
@@ -116,13 +140,37 @@ class _RqlProtocol(asyncio.Protocol):
         '''
         override asyncio.Protocol
         '''
-        logging.info('received')
+        self._buffered_data.extend(data)
+        while self._buffered_data:
+            size = len(self._buffered_data)
+            if self._data_package is None:
+                if size < DataPackage.struct_datapackage.size:
+                    return None
+                self._data_package = DataPackage(self._buffered_data)
+            if size < self._data_package.total:
+                return None
+            try:
+                self._data_package.extract_data_from(self._buffered_data)
+            except KeyError as e:
+                logging.error('Unsupported package received: {}'.format(e))
+            except Exception as e:
+                logging.exception(e)
+                # empty the byte-array to recover from this error
+                self._buffered_data.clear()
+            else:
+                self.on_package_received(self._data_package)
+            self._data_package = None
+
+    @staticmethod
+    def on_package_received(pkg):
+        raise NotImplementedError
 
 
 async def test():
     rql = Rql()
     await rql.connect('localhost')
-    await rql.authenticate('iris', 'siri')
+    res = await rql.authenticate('iris', 'siri')
+    print(res)
 
 
 if __name__ == '__main__':

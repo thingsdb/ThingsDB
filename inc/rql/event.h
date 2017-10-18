@@ -18,14 +18,14 @@ typedef struct rql_event_s rql_event_t;
 
 #include <inttypes.h>
 #include <qpack.h>
-#include <rql/rql.h>
+#include <rql/events.h>
 #include <rql/db.h>
 #include <rql/raw.h>
 #include <rql/prom.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
-rql_event_t * rql_event_create(rql_t * rql);
+rql_event_t * rql_event_create(rql_events_t * events);
 void rql_event_destroy(rql_event_t * event);
 void rql_event_init(rql_event_t * event);
 int rql_event_raw(
@@ -41,7 +41,7 @@ struct rql_event_s
     uint64_t id;
     uint8_t flags;
     uint8_t status;
-    rql_t * rql;
+    rql_events_t * events;
     rql_db_t * target; // NULL for _rql or pointer to database
     rql_node_t * node;
     rql_sock_t * source;    // NULL or requesting client

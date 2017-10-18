@@ -5,9 +5,11 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include <util/fx.h>
 
 int fx_write(const char * fn, unsigned char * data, size_t n)

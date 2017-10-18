@@ -8,12 +8,6 @@
 #include <stdlib.h>
 #include <rql/lookup.h>
 
-#ifndef TESTING
-#include <rql/node.h>
-#else
-#include "../test/test_lookup.h"
-#endif
-
 static void rql__lookup_calculate(rql_lookup_t * lookup, const vec_t * nodes);
 
 rql_lookup_t * rql_lookup_create(

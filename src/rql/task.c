@@ -95,7 +95,7 @@ static rql_task_stat_e rql__task_create_user(
     usr = rql_user_create(user->via.str, pass->via.str);
     if (!usr ||
         rql_user_set_pass(usr, usr->pass) ||
-        vec_push(&event->rql->users, usr))
+        vec_push(&event->events->rql->users, usr))
     {
         log_critical(EX_ALLOC);
         rql_user_drop(usr);

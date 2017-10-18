@@ -4,9 +4,14 @@
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <stdlib.h>
+#include <string.h>
 #include <rql/users.h>
 #include <rql/proto.h>
 #include <util/cryptx.h>
+#include <util/fx.h>
+#include <util/qpx.h>
+#include <util/logger.h>
 
 const int rql_users_fn_schema = 0;
 

@@ -44,6 +44,7 @@ rql_t * rql_create(void)
     rql->dbs = link_create();
     rql->nodes = vec_new(0);
     rql->users = vec_new(0);
+    rql->events = rql_events_create(rql);
 
     if (!rql->args ||
         !rql->cfg ||
@@ -51,7 +52,8 @@ rql_t * rql_create(void)
         !rql->front ||
         !rql->dbs ||
         !rql->nodes ||
-        !rql->users)
+        !rql->users ||
+        !rql->events)
     {
         rql_destroy(rql);
         return NULL;
@@ -69,6 +71,7 @@ void rql_destroy(rql_t * rql)
     free(rql->cfg);
     rql_back_destroy(rql->back);
     rql_front_destroy(rql->front);
+    rql_events_destroy(rql->events);
     link_destroy(rql->dbs, (link_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, (vec_destroy_cb) rql_node_drop);
     vec_destroy(rql->users, (vec_destroy_cb) rql_user_drop);
@@ -111,8 +114,8 @@ int rql_init_fn(rql_t * rql)
 
 int rql_build(rql_t * rql)
 {
-    rql->event_commit_id = 0;
-    rql->event_next_id = 0;
+    rql->events->commit_id = 0;
+    rql->events->next_id = 0;
 
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
     if (!rql->node || vec_push(&rql->nodes, rql->node)) goto failed;
@@ -131,10 +134,7 @@ int rql_build(rql_t * rql)
     if (rql_event_run(event) != 1) goto failed;
 
 //    rql_event_to_queue(event);
-
 //    rql_event_get_approval(event);
-
-
 
     return 0;
 
@@ -170,9 +170,7 @@ int rql_run(rql_t * rql)
 {
     uv_loop_init(&rql->loop);
 
-    uv_async_init(&rql->loop, &rql->events->loop, rql__run_event_loop);
-
-    if (rql_signals_init(rql)) abort();
+    if (rql_events_init(rql->events) || rql_signals_init(rql)) abort();
 
     if (rql_back_listen(rql->back) ||
         rql_front_listen(rql->front)) rql_term(SIGTERM);
@@ -235,24 +233,7 @@ int rql_unlock(rql_t * rql)
     return 0;
 }
 
-static void rql__run_event_loop(uv_async_t * handle)
-{
-    rql_t * rql = (rql_t *) handle->data;
 
-    while (rql->queue->n)
-    {
-        rql_event_t * event = (rql_event_t *) queue_get(
-                rql->queue,
-                rql->queue->n - 1);
-        if (event->id == rql->event_commit_id)
-        {
-            rql_event_run(event);
-            queue_pop(rql->queue);
-            rql_event_done(event);
-            rql_event_destroy(event);
-        }
-    }
-}
 
 static int rql__unpack(rql_t * rql, qp_res_t * res)
 {

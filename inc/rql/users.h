@@ -8,6 +8,7 @@
 #define RQL_USERS_H_
 
 #include <qpack.h>
+#include <rql/user.h>
 #include <util/vec.h>
 #include <util/ex.h>
 

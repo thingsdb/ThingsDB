@@ -11,6 +11,7 @@
 #include <rql/req.h>
 #include <rql/proto.h>
 #include <rql/task.h>
+#include <rql/rql.h>
 #include <util/link.h>
 #include <util/queue.h>
 #include <util/ex.h>
@@ -25,11 +26,11 @@ static int rql__event_unpack(
         qp_unpacker_t * unpacker,
         ex_t * e);
 
-rql_event_t * rql_event_create(rql_t * rql)
+rql_event_t * rql_event_create(rql_events_t * events)
 {
     rql_event_t * event = malloc(sizeof(rql_event_t));
     if (!event) return NULL;
-    event->rql = rql;
+    event->events = events;
     event->target = NULL;
     event->node = NULL;
     event->raw = NULL;
@@ -64,8 +65,8 @@ void rql_event_destroy(rql_event_t * event)
 
 void rql_event_init(rql_event_t * event)
 {
-    event->node = rql_node_grab(event->rql->node);
-    event->id = event->rql->event_next_id;
+    event->node = rql_node_grab(event->events->rql->node);
+    event->id = event->events->next_id;
     event->status = RQL_EVENT_STAT_WAIT_ACCEPT;
 }
 
@@ -133,7 +134,7 @@ int rql_event_raw(
 
     if (event->target || qpx_raw_equal(&target, rql_name)) goto target;
 
-    link_iter_t iter = link_iter(event->rql->dbs);
+    link_iter_t iter = link_iter(event->events->rql->dbs);
     for (link_each(iter, rql_db_t, db))
     {
         if (qpx_raw_equal(&target, db->name))
@@ -179,34 +180,34 @@ failed:
 
 int rql_event_done(rql_event_t * event)
 {
-    if (vec_push(&event->rql->done, event->raw)) return -1;
+    if (vec_push(&event->events->done, event->raw)) return -1;
     event->raw = NULL;
     return 0;
 }
 
 int rql_event_to_queue(rql_event_t * event)
 {
-    rql_t * rql = event->rql;
-    if (event->id >= rql->event_next_id)
+    rql_events_t * events = event->events;
+    if (event->id >= events->next_id)
     {
-        if (queue_push(&rql->queue, event)) return -1;
+        if (queue_push(&events->queue, event)) return -1;
 
-        rql->event_next_id = event->id + 1;
+        events->next_id = event->id + 1;
         return 0;
     }
 
     size_t i = 0;
-    for (queue_each(rql->queue, rql_event_t, ev), i++)
+    for (queue_each(events->queue, rql_event_t, ev), i++)
     {
         if (ev->id >= event->id) break;
     }
 
-    return queue_insert(&rql->queue, i, event);
+    return queue_insert(&events->queue, i, event);
 }
 
 int rql_event_reg(rql_event_t * event)
 {
-    rql_t * rql = event->rql;
+    rql_t * rql = event->events->rql;
 
     rql_prom_t * prom = rql_prom_new(
             rql->nodes->n - 1,
@@ -284,7 +285,7 @@ static int rql__event_go(rql_event_t * event)
 {
     event->status = RQL_EVENT_STAT_ACCEPTED;
 
-    rql_t * rql = event->rql;
+    rql_t * rql = event->events->rql;
 
     rql_prom_t * prom = rql_prom_new(
             rql->nodes->n,
@@ -305,7 +306,7 @@ static int rql__event_go(rql_event_t * event)
     {
         if (node == rql->node)
         {
-            uv_async_send(&rql->event_loop);
+            uv_async_send(&event->events->loop);
             continue;
         }
         if (node->status != RQL_NODE_STAT_READY || rql_req(
@@ -358,9 +359,9 @@ failed:
  */
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b)
 {
-    assert (a->id == b->id && a->rql->nodes->n == b->rql->nodes->n);
-    return ((a->node->id + a->id) % a->rql->nodes->n) -
-           ((b->node->id + b->id) % b->rql->nodes->n);
+    assert (a->id == b->id && a->node->id != b->node->id);
+    return ((a->node->id + a->id) % a->events->rql->nodes->n) -
+           ((b->node->id + b->id) % b->events->rql->nodes->n);
 }
 
 static int rql__event_unpack(

@@ -15,10 +15,10 @@ typedef void (*vec_destroy_cb)(void * data);
 
 vec_t * vec_new(uint32_t sz);
 void vec_destroy(vec_t * vec, vec_destroy_cb cb);
-static inline uint32_t vec_space(vec_t * vec);
-static inline void * vec_get(vec_t * vec, uint32_t i);
+static inline uint32_t vec_space(const vec_t * vec);
+static inline void * vec_get(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
-vec_t * vec_dup(vec_t * vec);
+vec_t * vec_dup(const vec_t * vec);
 int vec_push(vec_t ** vaddr, void * data);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);
 int vec_resize(vec_t ** vaddr, uint32_t sz);
@@ -43,12 +43,12 @@ struct vec_s
     void * data[];
 };
 
-static inline uint32_t vec_space(vec_t * vec)
+static inline uint32_t vec_space(const vec_t * vec)
 {
     return vec->sz - vec->n;
 }
 
-static inline void * vec_get(vec_t * vec, uint32_t i)
+static inline void * vec_get(const vec_t * vec, uint32_t i)
 {
     return vec->data[i];
 }

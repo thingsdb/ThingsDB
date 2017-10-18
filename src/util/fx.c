@@ -42,7 +42,7 @@ final:
     return data;
 }
 
-int fx_file_exist(const char * fn)
+_Bool fx_file_exist(const char * fn)
 {
     FILE * fp;
     fp = fopen(fn, "r");
@@ -51,11 +51,46 @@ int fx_file_exist(const char * fn)
     return 1;
 }
 
-int fx_is_dir(const char * path)
+_Bool fx_is_dir(const char * path)
 {
     struct stat st = {0};
-    stat(path, &st);
-    return S_ISDIR(st.st_mode);
+    return !stat(path, &st) && S_ISDIR(st.st_mode);
+}
+
+int fx_rmdir(const char * path)
+{
+    DIR * d = opendir(path);
+    if (!d) return -1;
+
+    size_t bufsz = 0, path_len = strlen(path);
+    struct dirent * p;
+    char * buf = NULL;
+
+    while ((p = readdir(d)))
+    {
+        size_t len;
+
+        /* Skip the names "." and ".." as we don't want to recurse on them. */
+        if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) continue;
+
+        len = path_len + strlen(p->d_name) + 1;
+        if (len > bufsz)
+        {
+            bufsz = len;
+            char * tmp = (char *) realloc(buf, bufsz);
+            if (!tmp) goto stop;
+            buf = tmp;
+        }
+
+        snprintf(buf, len, "%s%s", path, p->d_name);
+        if (fx_is_dir(buf) ? fx_rmdir(buf) : unlink(buf)) goto stop;
+    }
+
+stop:
+    free(buf);
+    closedir(d);
+
+    return rmdir(path);
 }
 
 

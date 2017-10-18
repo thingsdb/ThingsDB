@@ -170,7 +170,7 @@ int rql_run(rql_t * rql)
 {
     uv_loop_init(&rql->loop);
 
-    uv_async_init(&rql->loop, &rql->event_loop, rql__run_event_loop);
+    uv_async_init(&rql->loop, &rql->events->loop, rql__run_event_loop);
 
     if (rql_signals_init(rql)) abort();
 
@@ -340,9 +340,7 @@ static qp_packer_t * rql__pack(rql_t * rql)
             qp_close_array(packer)) goto failed;
 
     }
-    if (qp_close_array(packer)) goto failed;
-
-    if (qp_close_map(packer)) goto failed;
+    if (qp_close_array(packer) || qp_close_map(packer)) goto failed;
 
     return packer;
 

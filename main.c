@@ -67,6 +67,7 @@ int main(int argc, char * argv[])
             rql_user_def_name,
             rql_user_def_pass);
 
+        goto stop;
     }
     else
     {

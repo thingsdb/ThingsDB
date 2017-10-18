@@ -25,9 +25,9 @@ typedef struct rql_s rql_t;
 #include <rql/node.h>
 #include <rql/back.h>
 #include <rql/front.h>
+#include <rql/events.h>
 #include <util/logger.h>
 #include <util/link.h>
-#include <util/queue.h>
 #include <util/vec.h>
 
 #define rql_term(signum__) {\
@@ -54,20 +54,13 @@ struct rql_s
     rql_cfg_t * cfg;
     rql_back_t * back;
     rql_front_t * front;
+    rql_events_t * events;
     link_t * dbs;
     vec_t * nodes;
     vec_t * users;
-
-    /* event stuff */
-    uint64_t event_commit_id;
-    uint64_t event_next_id;
-    queue_t * queue;         /* queued events */
-    vec_t * done;
-    uv_loop_t loop;
-    uv_async_t event_loop;
-
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
+    uv_loop_t loop;
 };
 
 #endif /* RQL_H_ */

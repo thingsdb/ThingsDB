@@ -12,8 +12,8 @@
 
 int fx_write(const char * fn, unsigned char * data, size_t n);
 unsigned char * fx_read(const char * fn, ssize_t * size);
-int fx_file_exist(const char * fn);
-int fx_is_dir(const char * path);
-
+_Bool fx_file_exist(const char * fn);
+_Bool fx_is_dir(const char * path);
+int fx_rmdir(const char * path);
 
 #endif /* RQL_FILEX_H_ */

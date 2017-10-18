@@ -16,13 +16,13 @@ typedef void (*queue_destroy_cb)(void * data);
 
 queue_t * queue_new(size_t sz);
 void queue_destroy(queue_t * queue, queue_destroy_cb cb);
-static inline size_t queue_space(queue_t * queue);
-static inline void * queue_get(queue_t * queue, size_t i);
+static inline size_t queue_space(const queue_t * queue);
+static inline void * queue_get(const queue_t * queue, size_t i);
 static inline void * queue_pop(queue_t * queue);
 static inline void * queue_shift(queue_t * queue);
 static inline void queue_clear(queue_t * queue);
-queue_t * queue_dup(queue_t * queue);
-void queue_copy(queue_t * queue, void * dest[]);
+queue_t * queue_dup(const queue_t * queue);
+void queue_copy(const queue_t * queue, void * dest[]);
 void * queue_remove(queue_t * queue, size_t idx);
 void * queue_replace(queue_t * queue, size_t idx, void * data);
 int queue_reserve(queue_t ** qaddr, size_t n);
@@ -66,12 +66,12 @@ struct queue_s
     void * data_[];
 };
 
-static inline size_t queue_space(queue_t * queue)
+static inline size_t queue_space(const queue_t * queue)
 {
     return queue->sz - queue->n;
 }
 
-static inline void * queue_get(queue_t * queue, size_t i)
+static inline void * queue_get(const queue_t * queue, size_t i)
 {
     return queue->data_[queue__i(queue, i)];
 }

@@ -37,7 +37,7 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
  * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will
  * be equal. In case of an allocation error the return value is NULL.
  */
-vec_t * vec_dup(vec_t * vec)
+vec_t * vec_dup(const vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->n * sizeof(void*);
     vec_t * v = (vec_t *) malloc(sz);

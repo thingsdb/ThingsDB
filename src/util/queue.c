@@ -40,7 +40,7 @@ void queue_destroy(queue_t * queue, queue_destroy_cb cb)
  * Returns a copy of queue with an exact fit so the new queue->sz and queue->n
  * will be equal. In case of an allocation error the return value is NULL.
  */
-queue_t * queue_dup(queue_t * queue)
+queue_t * queue_dup(const queue_t * queue)
 {
     queue_t * q =
             (queue_t *) malloc(sizeof(queue_t) + queue->n * sizeof(void*));
@@ -54,7 +54,7 @@ queue_t * queue_dup(queue_t * queue)
     return q;
 }
 
-void queue_copy(queue_t * queue, void * dest[])
+void queue_copy(const queue_t * queue, void * dest[])
 {
     size_t m = queue->sz - queue->s_;
     if (m < queue->n)

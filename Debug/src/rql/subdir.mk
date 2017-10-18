@@ -11,6 +11,7 @@ C_SRCS += \
 ../src/rql/elem.c \
 ../src/rql/event.c \
 ../src/rql/front.c \
+../src/rql/lookup.c \
 ../src/rql/misc.c \
 ../src/rql/node.c \
 ../src/rql/nodes.c \
@@ -37,6 +38,7 @@ OBJS += \
 ./src/rql/elem.o \
 ./src/rql/event.o \
 ./src/rql/front.o \
+./src/rql/lookup.o \
 ./src/rql/misc.o \
 ./src/rql/node.o \
 ./src/rql/nodes.o \
@@ -63,6 +65,7 @@ C_DEPS += \
 ./src/rql/elem.d \
 ./src/rql/event.d \
 ./src/rql/front.d \
+./src/rql/lookup.d \
 ./src/rql/misc.d \
 ./src/rql/node.d \
 ./src/rql/nodes.d \

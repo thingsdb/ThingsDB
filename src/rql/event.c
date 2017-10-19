@@ -9,6 +9,7 @@
 #include <qpack.h>
 #include <rql/event.h>
 #include <rql/req.h>
+#include <rql/access.h>
 #include <rql/proto.h>
 #include <rql/task.h>
 #include <rql/rql.h>
@@ -54,7 +55,7 @@ void rql_event_destroy(rql_event_t * event)
     rql_db_drop(event->target);
     rql_node_drop(event->node);
     rql_sock_drop(event->client);
-    vec_destroy(event->tasks, (vec_destroy_cb) qp_res_destroy);
+    vec_destroy(event->tasks, (vec_destroy_cb) rql_task_destroy);
     if (event->result)
     {
         qp_packer_destroy(event->result);
@@ -128,7 +129,7 @@ int rql_event_raw(
     if (!qp_is_map(qp_next(&unpacker, NULL)) ||
         !qp_is_raw(qp_next(&unpacker, &target)))
     {
-        ex_set(e, RQL_PROTO_TYPE_ERR, "invalid event");  /* TODO: add info */
+        ex_set(e, RQL_PROTO_TYPE_ERR, "invalid event");
         return -1;
     }
 
@@ -164,9 +165,9 @@ int rql_event_run(rql_event_t * event)
     rql_task_stat_e rc = RQL_TASK_SUCCESS;
     qp_add_array(&event->result);
 
-    for (vec_each(event->tasks, qp_res_t, task))
+    for (vec_each(event->tasks, rql_task_t, task))
     {
-        rc = rql_task(task, event, rc);
+        rc = rql_task_run(task, event, rc);
         if (rc == RQL_TASK_ERR) goto failed;
         success += (rc == RQL_TASK_SUCCESS);
     }
@@ -175,10 +176,11 @@ int rql_event_run(rql_event_t * event)
 
     /* update commit_id */
     event->events->commit_id = event->id;
-
+    log_debug("tasks success: %d (total: %"PRIu32")", success, event->tasks->n);
     return success;
 
 failed:
+    log_critical("task failed with a critical error");
     return -1;
 }
 

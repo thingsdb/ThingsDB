@@ -65,6 +65,7 @@ int fx_rmdir(const char * path)
     if (!d) return -1;
 
     size_t bufsz = 0, path_len = strlen(path);
+    const char * slash = (path[path_len - 1] == '/') ? "" : "/";
     struct dirent * p;
     char * buf = NULL;
 
@@ -75,7 +76,7 @@ int fx_rmdir(const char * path)
         /* Skip the names "." and ".." as we don't want to recurse on them. */
         if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) continue;
 
-        len = path_len + strlen(p->d_name) + 1;
+        len = path_len + strlen(p->d_name) + 2;
         if (len > bufsz)
         {
             bufsz = len;
@@ -84,7 +85,8 @@ int fx_rmdir(const char * path)
             buf = tmp;
         }
 
-        snprintf(buf, len, "%s%s", path, p->d_name);
+        snprintf(buf, len, "%s%s%s", path, slash, p->d_name);
+
         if (fx_is_dir(buf) ? fx_rmdir(buf) : unlink(buf)) goto stop;
     }
 

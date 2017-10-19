@@ -4,13 +4,19 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <stdlib.h>
 #include <assert.h>
 #include <rql/task.h>
-#include <util/ex.h>
 #include <util/qpx.h>
 #include <rql/api.h>
+#include <rql/proto.h>
+#include <rql/access.h>
+#include <rql/users.h>
 
 static rql_task_stat_e rql__task_user_create(
+        qp_map_t * task,
+        rql_event_t * event);
+static rql_task_stat_e rql__task_grant(
         qp_map_t * task,
         rql_event_t * event);
 static rql_task_stat_e rql__task_fail(rql_event_t * event, const char * msg);
@@ -62,12 +68,11 @@ void rql_task_destroy(rql_task_t * task)
     free(task);
 }
 
-rql_task_stat_e rql_task(
+rql_task_stat_e rql_task_run(
         rql_task_t * task,
         rql_event_t * event,
         rql_task_stat_e rc)
 {
-    qp_map_t * taskmap;
     if (event->client && qp_add_map(&event->result))
     {
         rc = RQL_TASK_ERR;
@@ -81,10 +86,10 @@ rql_task_stat_e rql_task(
     switch (task->tp)
     {
     case RQL_TASK_USER_CREATE:
-        rc = rql__task_user_create(taskmap, event);
+        rc = rql__task_user_create(task->res->via.map, event);
         break;
     case RQL_TASK_GRANT:
-        rc = rql__task_grant(taskmap, event);
+        rc = rql__task_grant(task->res->via.map, event);
         break;
     default:
         assert (0);
@@ -124,12 +129,15 @@ static rql_task_stat_e rql__task_user_create(
         return rql__task_failn(event, e->errmsg, e->n);
     }
 
-    if (rql_users_get(event->events->rql->users, user->via.str))
+    if (rql_users_get_by_name(event->events->rql->users, user->via.str))
     {
         return rql__task_fail(event, "user already exists");
     }
 
-    usr = rql_user_create(event->id, user->via.str, pass->via.str);
+    usr = rql_user_create(
+            rql_events_get_obj_id(event->events),
+            user->via.str,
+            pass->via.str);
     if (!usr ||
         rql_user_set_pass(usr, usr->pass) ||
         vec_push(&event->events->rql->users, usr))
@@ -157,15 +165,15 @@ static rql_task_stat_e rql__task_grant(
                 "or permission flags ("RQL_API_PERM")");
     }
 
-    rql_user_t * user = rql_users_get(
+    rql_user_t * user = rql_users_get_by_name(
             event->events->rql->users,
             quser->via.str);
 
     if (!user) return rql__task_fail(event, "user not found");
 
-    if (rql_access_set(
+    if (rql_access_grant(
             (event->target) ?
-                    event->target->access : event->events->rql->access,
+                    &event->target->access : &event->events->rql->access,
             user,
             (uint64_t) qperm->via.int64))
     {

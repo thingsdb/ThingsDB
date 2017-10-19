@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <rql/auth.h>
 
-rql_auth_t * rql_auth_new(rql_user_t * user, mask)
+rql_auth_t * rql_auth_new(rql_user_t * user, uint64_t mask)
 {
     rql_auth_t * auth = (rql_auth_t *) malloc(sizeof(rql_auth_t));
     if (!auth) return NULL;

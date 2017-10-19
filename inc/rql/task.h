@@ -7,7 +7,7 @@
 #ifndef RQL_TASK_H_
 #define RQL_TASK_H_
 
-#define RQL_TASK_N 1
+#define RQL_TASK_N 13
 
 typedef enum
 {
@@ -38,6 +38,7 @@ typedef struct rql_task_s rql_task_t;
 
 #include <qpack.h>
 #include <rql/event.h>
+#include <util/ex.h>
 
 rql_task_t * rql_task_create(qp_res_t * res, ex_t * e);
 void rql_task_destroy(rql_task_t * task);

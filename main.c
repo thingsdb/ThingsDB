@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <rql/rql.h>
+#include <rql/store.h>
 #include <rql/user.h>
 #include <rql/version.h>
 #include <util/fx.h>
@@ -76,6 +77,12 @@ int main(int argc, char * argv[])
             if ((rc = rql_read(rql)))
             {
                 printf("error reading rql pool from: '%s'\n", rql->fn);
+                goto stop;
+            }
+
+            if ((rc = rql_restore(rql)))
+            {
+                printf("error loading rql pool\n");
                 goto stop;
             }
         }

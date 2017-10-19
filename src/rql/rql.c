@@ -45,6 +45,7 @@ rql_t * rql_create(void)
     rql->nodes = vec_new(0);
     rql->users = vec_new(0);
     rql->events = rql_events_create(rql);
+    rql->access = vec_new(0);
 
     if (!rql->args ||
         !rql->cfg ||
@@ -53,7 +54,8 @@ rql_t * rql_create(void)
         !rql->dbs ||
         !rql->nodes ||
         !rql->users ||
-        !rql->events)
+        !rql->events ||
+        !rql->access)
     {
         rql_destroy(rql);
         return NULL;
@@ -75,7 +77,7 @@ void rql_destroy(rql_t * rql)
     link_destroy(rql->dbs, (link_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, (vec_destroy_cb) rql_node_drop);
     vec_destroy(rql->users, (vec_destroy_cb) rql_user_drop);
-
+    vec_destroy(rql->access, free);
     free(rql);
 }
 
@@ -122,6 +124,7 @@ int rql_build(rql_t * rql)
 
     rql->events->commit_id = 0;
     rql->events->next_id = 0;
+    rql->events->obj_id = 0;
 
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
     if (!rql->node || vec_push(&rql->nodes, rql->node)) goto stop;
@@ -133,14 +136,16 @@ int rql_build(rql_t * rql)
 
     if (rql_save(rql) ||
         rql_event_raw(event, packer->buffer, packer->len, e) ||
-        rql_event_run(event) != 1 ||
+        rql_event_run(event) != 2 ||
         rql_store(rql)) goto stop;
 
     rc = 0;
 
 stop:
+
     if (rc)
     {
+        if (e->errnr) log_critical(ex_log(e));
         fx_rmdir(rql->cfg->rql_path);
         mkdir(rql->cfg->rql_path, 0700);  /* no error checking required */
         rql_node_drop(rql->node);
@@ -170,8 +175,6 @@ int rql_read(rql_t * rql)
     }
     rc = rql__unpack(rql, res);
     qp_res_destroy(res);
-
-    rc = rql_restore(rql);
 
     return rc;
 }

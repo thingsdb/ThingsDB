@@ -113,6 +113,26 @@ int main()
         assert (n == num_entries); /* make sure we have hit all entries */
     }
 
+    /* test vec_remove loop */
+    {
+        vec_remove(v, 4);
+        char ** e = entries;
+        size_t n = 0;
+
+        assert (v->n == num_entries - 1);
+
+        for (vec_each(v, char, s), n++, e++)
+        {
+            if (n == 4)
+            {
+                e++;
+            }
+            assert (s == *e);
+        }
+
+        assert (n == num_entries - 1);
+    }
+
     free(v);
 
     test_end(0);

@@ -36,7 +36,7 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
 void * vec_remove(vec_t * vec, uint32_t i)
 {
     void * data = vec_get(vec, i);
-    memcpy(vec->data + i, vec->data + i + 1, --vec->n - i);
+    memmove(vec->data + i, vec->data + i + 1, (--vec->n - i) * sizeof(void*));
     return data;
 }
 

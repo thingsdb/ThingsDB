@@ -57,6 +57,24 @@ rql_user_t * rql_users_auth(
     return NULL;
 }
 
+rql_user_t * rql_users_get_by_id(const vec_t * users, uint64_t id)
+{
+    for (vec_each(users, rql_user_t, user))
+    {
+        if (user->id == id) return user;
+    }
+    return NULL;
+}
+
+rql_user_t * rql_users_get_by_name(const vec_t * users, const char * name)
+{
+    for (vec_each(users, rql_user_t, user))
+    {
+        if (strcmp(user->name, name) == 0) return user;
+    }
+    return NULL;
+}
+
 int rql_users_store(const vec_t * users, const char * fn)
 {
     int rc = -1;
@@ -84,28 +102,28 @@ int rql_users_store(const vec_t * users, const char * fn)
     if (qp_close_array(packer) || qp_close_map(packer)) goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
-    if (rc) log_error("failed to write file: '%s'", fn);
 
 stop:
+    if (rc) log_error("failed to write file: '%s'", fn);
     qp_packer_destroy(packer);
     return rc;
 }
 
 int rql_users_restore(vec_t ** users, const char * fn)
 {
-    int rc = -1;
+    int rcode, rc = -1;
     ssize_t n;
     unsigned char * data = fx_read(fn, &n);
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
     qp_unpacker_init(&unpacker, data, (size_t) n);
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rc);
+    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
     free(data);
 
-    if (rc)
+    if (rcode)
     {
-        log_critical(qp_strerror(rc));
+        log_critical(qp_strerror(rcode));
         return -1;
     }
 
@@ -141,6 +159,7 @@ int rql_users_restore(vec_t ** users, const char * fn)
     rc = 0;
 
 stop:
+    if (rc) log_critical("failed to restore from file: '%s'", fn);
     qp_res_destroy(res);
     return rc;
 }

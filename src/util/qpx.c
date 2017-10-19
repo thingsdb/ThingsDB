@@ -9,7 +9,7 @@
 
 qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
 {
-    for (size_t i = 0; map->n; i++)
+    for (size_t i = 0; i < map->n; i++)
     {
         qp_res_t * k = map->keys + i;
         if (k->tp == QP_RES_STR && strcmp(k->via.str, key) == 0)

@@ -45,4 +45,6 @@ struct ex__s
 ex_t * ex_new(size_t sz);
 int ex_set(ex_t * e, int errnr, const char * errmsg, ...);
 
+#define ex_log(e__) "%.*s", (e__)->n, (e__)->errmsg
+
 #endif /* EX_H_ */

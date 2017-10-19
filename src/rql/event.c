@@ -13,6 +13,7 @@
 #include <rql/proto.h>
 #include <rql/task.h>
 #include <rql/rql.h>
+#include <rql/nodes.h>
 #include <util/link.h>
 #include <util/queue.h>
 #include <util/ex.h>
@@ -20,9 +21,10 @@
 
 const int rql_event_reg_timeout = 10;
 
+static int rql__event_to_queue(rql_event_t * event);
 static void rql__event_on_reg_cb(rql_prom_t * prom);
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
-static int rql__event_unpack(
+static void rql__event_unpack(
         rql_event_t * event,
         qp_unpacker_t * unpacker,
         ex_t * e);
@@ -56,12 +58,36 @@ void rql_event_destroy(rql_event_t * event)
     rql_node_drop(event->node);
     rql_sock_drop(event->client);
     vec_destroy(event->tasks, (vec_destroy_cb) rql_task_destroy);
-    if (event->result)
-    {
-        qp_packer_destroy(event->result);
-    }
+    qpx_packer_destroy(event->result);
     free(event->raw);
     free(event);
+}
+
+void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
+{
+    if (!rql_nodes_has_quorum(sock->rql))
+    {
+        ex_set(e, RQL_PROTO_NODE_ERR,
+                "node '%s' does not have the required quorum",
+                sock->rql->node->addr);
+        return;
+    }
+    rql_event_t * event = rql_event_create(sock->rql->events);
+    if (!event)
+    {
+        ex_set_alloc(e);
+        return;
+    }
+    rql_event_init(event);
+    rql_event_raw(event, pkg->data, pkg->n, e);
+    if (e.errnr) return;
+
+    if (rql__event_to_queue(event))
+    {
+        ex_set_alloc(e);
+        return;
+    }
+
 }
 
 void rql_event_init(rql_event_t * event)
@@ -117,7 +143,7 @@ void rql_event_init(rql_event_t * event)
 //    return 0;
 //}
 
-int rql_event_raw(
+void rql_event_raw(
         rql_event_t * event,
         const unsigned char * raw,
         size_t sz,
@@ -130,13 +156,12 @@ int rql_event_raw(
         !qp_is_raw(qp_next(&unpacker, &target)))
     {
         ex_set(e, RQL_PROTO_TYPE_ERR, "invalid event");
-        return -1;
+        return;
     }
 
     if (event->target || qpx_raw_equal(&target, rql_name)) goto target;
 
-    link_iter_t iter = link_iter(event->events->rql->dbs);
-    for (link_each(iter, rql_db_t, db))
+    for (vec_each(event->events->rql->dbs, rql_db_t, db))
     {
         if (qpx_raw_equal(&target, db->name) ||
             qpx_raw_equal(&target, db->guid.guid))
@@ -147,16 +172,17 @@ int rql_event_raw(
     }
     ex_set(e, RQL_PROTO_INDX_ERR,
             "invalid target: '%.*s'", target.len, target.via.raw);
-    return -1;
+    return;
 
 target:
     event->raw = rql_raw_new(raw, sz);
     if (!event->raw)
     {
-        ex_set(e, RQL_PROTO_RUNT_ERR, EX_ALLOC);
-        return -1;
+        ex_set_alloc(e);
+        return;
     }
-    return rql__event_unpack(event, &unpacker, e);
+    rql__event_unpack(event, &unpacker, e);
+    return;
 }
 
 int rql_event_run(rql_event_t * event)
@@ -191,38 +217,17 @@ int rql_event_done(rql_event_t * event)
     return 0;
 }
 
-int rql_event_to_queue(rql_event_t * event)
-{
-    rql_events_t * events = event->events;
-    if (event->id >= events->next_id)
-    {
-        if (queue_push(&events->queue, event)) return -1;
-
-        events->next_id = event->id + 1;
-        return 0;
-    }
-
-    size_t i = 0;
-    for (queue_each(events->queue, rql_event_t, ev), i++)
-    {
-        if (ev->id >= event->id) break;
-    }
-
-    return queue_insert(&events->queue, i, event);
-}
-
-int rql_event_reg(rql_event_t * event)
+static int rql__event_reg(rql_event_t * event)
 {
     rql_t * rql = event->events->rql;
-
     rql_prom_t * prom = rql_prom_new(
             rql->nodes->n - 1,
             event,
             rql__event_on_reg_cb);
-
     qpx_packer_t * xpkg = qpx_packer_create(20);
-
-    if (qp_add_array(&xpkg) ||
+    if (!prom ||
+        !xpkg ||
+        qp_add_array(&xpkg) ||
         qp_add_int64(xpkg, (int64_t) event->id) ||
         qp_add_int64(xpkg, (int64_t) event->node->id) ||
         qp_close_array(xpkg)) goto failed;
@@ -246,8 +251,32 @@ int rql_event_reg(rql_event_t * event)
     free(prom->sz ? NULL : pkg);
     rql_prom_go(prom);
 
+    return 0;
+
 failed:
+    free(prom);
+    qpx_packer_destroy(xpkg);
     return -1;
+}
+
+static int rql__event_to_queue(rql_event_t * event)
+{
+    rql_events_t * events = event->events;
+    if (event->id >= events->next_id)
+    {
+        if (queue_push(&events->queue, event)) return -1;
+
+        events->next_id = event->id + 1;
+        return 0;
+    }
+
+    size_t i = 0;
+    for (queue_each(events->queue, rql_event_t, ev), i++)
+    {
+        if (ev->id >= event->id) break;
+    }
+
+    return queue_insert(&events->queue, i, event);
 }
 
 static void rql__event_on_reg_cb(rql_prom_t * prom)
@@ -370,7 +399,7 @@ inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b)
            ((b->node->id + b->id) % b->events->rql->nodes->n);
 }
 
-static int rql__event_unpack(
+static void rql__event_unpack(
         rql_event_t * event,
         qp_unpacker_t * unpacker,
         ex_t * e)
@@ -380,7 +409,7 @@ static int rql__event_unpack(
     {
         ex_set(e, RQL_PROTO_TYPE_ERR,
                 "invalid event: expecting an array with tasks");
-        return -1;
+        return;
     }
 
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)
@@ -389,14 +418,14 @@ static int rql__event_unpack(
         if (!task)
         {
             qp_res_destroy(res);
-            return -1;  /* e is set */
+            return;  /* e is set */
         }
 
         if (vec_push(&event->tasks, task))
         {
             rql_task_destroy(task);
-            ex_set(e, RQL_PROTO_RUNT_ERR, "allocation error");
-            return -1;
+            ex_set_alloc(e);
+            return;
         }
 
         if (event->client &&
@@ -406,17 +435,15 @@ static int rql__event_unpack(
                 event->client->via.user,
                 task->tp))
         {
-            ex_set(e, RQL_PROTO_RUNT_ERR, "allocation error");
-            return -1;
+            ex_set_alloc(e);
+            return;
         }
     }
 
     if (unpacker->pt != unpacker->end)
     {
         ex_set(e, RQL_PROTO_TYPE_ERR, "error unpacking tasks from event");
-        return -1;
+        return;
     }
-
-    return 0;
 }
 

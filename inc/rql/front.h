@@ -11,7 +11,7 @@ typedef enum
 {
     RQL_FRONT_PING,     // empty
     RQL_FRONT_AUTH,     // [user, password]
-    RQL_FRONT_REQ
+    RQL_FRONT_EVENT,    // {"target": [tasks...]}
 } rql_front_req_e;
 
 

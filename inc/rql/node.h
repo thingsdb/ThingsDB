@@ -32,7 +32,7 @@ struct rql_node_s
     uint16_t req_next_id;
     imap_t * reqs;
     rql_sock_t * sock;
-    char * addr;
+    char * addr;    /* can be used as name */
 };
 
 rql_node_t * rql_node_create(uint8_t id, char * address, uint16_t port);

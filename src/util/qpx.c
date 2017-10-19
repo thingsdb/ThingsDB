@@ -6,6 +6,7 @@
  */
 #include <string.h>
 #include <util/qpx.h>
+#include <util/logger.h>
 
 qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
 {
@@ -38,6 +39,12 @@ qpx_packer_t * qpx_packer_create(size_t sz)
     if (!packer) return NULL;
     packer->len = sizeof(rql_pkg_t);
     return packer;
+}
+
+void qpx_packer_destroy(qpx_packer_t * xpkg)
+{
+    if (!xpkg) return;
+    qp_packer_destroy(xpkg);
 }
 
 rql_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)

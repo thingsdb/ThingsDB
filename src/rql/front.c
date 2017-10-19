@@ -15,6 +15,7 @@
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status);
 static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
+static void rql__front_on_ping(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_write_cb(rql_write_t * req, int status);
 
@@ -129,12 +130,28 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
 {
     switch ((rql_front_req_e) pkg->tp)
     {
+    case RQL_FRONT_PING:
+        rql__front_on_ping(sock, pkg);
+        break;
     case RQL_FRONT_AUTH:
         rql__front_on_auth(sock, pkg);
         break;
+    case RQL_FRONT_EVENT:
+        rql__front_on_event(sock, pkg);
+        break
     default:
         log_error("unexpected package type: %u (source: %s)",
                 pkg->tp, rql_sock_addr(sock));
+    }
+}
+
+static void rql__front_on_ping(rql_sock_t * sock, rql_pkg_t * pkg)
+{
+    rql_pkg_t * resp = rql_pkg_new(pkg->id, RQL_PROTO_ACK, NULL, 0);
+    if (!resp || rql_front_write(sock, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
     }
 }
 
@@ -162,6 +179,31 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
         resp = rql_pkg_new(pkg->id, RQL_PROTO_ACK, NULL, 0);
     }
 
+    if (!resp || rql_front_write(sock, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
+    }
+}
+
+static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
+{
+    ex_ptr(e);
+    rql_pkg_t * resp;
+    if (!sock->via.user)
+    {
+        ex_set(e, RQL_PROTO_AUTH_ERR, "connection is not authenticated");
+        goto failed;
+    }
+
+    rql_event_new(sock, pkg, e);
+    if (e.errnr) goto failed;
+
+    return;
+
+failed:
+    log_error(ex_log(e));
+    resp = rql_pkg_e(e, pkg->id);
     if (!resp || rql_front_write(sock, resp))
     {
         free(resp);

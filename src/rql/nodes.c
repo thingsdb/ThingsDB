@@ -14,7 +14,7 @@ _Bool rql_nodes_has_quorum(rql_t * rql)
 
     for (vec_each(rql->nodes, rql_node_t, node))
     {
-        if (node->status > RQL_NODE_STAT_OFFLINE && ++q == quorum) return 1;
+        if (node->status > RQL_NODE_STAT_CONNECTED && ++q == quorum) return 1;
     }
 
     return 0;

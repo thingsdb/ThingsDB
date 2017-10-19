@@ -28,7 +28,7 @@ typedef struct rql_event_s rql_event_t;
 rql_event_t * rql_event_create(rql_events_t * events);
 void rql_event_destroy(rql_event_t * event);
 void rql_event_init(rql_event_t * event);
-int rql_event_raw(
+void rql_event_raw(
         rql_event_t * event,
         const unsigned char * raw,
         size_t sz,

@@ -46,5 +46,5 @@ ex_t * ex_new(size_t sz);
 int ex_set(ex_t * e, int errnr, const char * errmsg, ...);
 
 #define ex_log(e__) "%.*s", (e__)->n, (e__)->errmsg
-
+#define ex_set_alloc(e__) ex_set((e__), RQL_PROTO_RUNT_ERR, EX_ALLOC)
 #endif /* EX_H_ */

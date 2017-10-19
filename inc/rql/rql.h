@@ -27,7 +27,6 @@ typedef struct rql_s rql_t;
 #include <rql/front.h>
 #include <rql/events.h>
 #include <util/logger.h>
-#include <util/link.h>
 #include <util/vec.h>
 
 #define rql_term(signum__) {\
@@ -55,7 +54,7 @@ struct rql_s
     rql_back_t * back;
     rql_front_t * front;
     rql_events_t * events;
-    link_t * dbs;
+    vec_t * dbs;
     vec_t * nodes;
     vec_t * users;
     vec_t * access;

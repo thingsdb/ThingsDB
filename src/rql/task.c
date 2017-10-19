@@ -48,7 +48,7 @@ rql_task_t * rql_task_create(qp_res_t * res, ex_t * e)
     task = (rql_task_t *) malloc(sizeof(rql_task_t));
     if (!task)
     {
-        ex_set(e, RQL_PROTO_RUNT_ERR, "allocation error");
+        ex_set_alloc(e);
         return NULL;
     }
 

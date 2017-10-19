@@ -30,7 +30,7 @@ qp_packer_t * rql_misc_pack_init_event_request(void)
         qp_add_array(&packer) ||
         qp_add_map(&packer) ||
         qp_add_raw(packer, RQL_API_TASK, strlen(RQL_API_TASK)) ||
-        qp_add_int64(packer, RQL_TASK_CREATE_USER) ||
+        qp_add_int64(packer, RQL_TASK_USER_CREATE) ||
         qp_add_raw(packer, RQL_API_USER, strlen(RQL_API_USER)) ||
         qp_add_raw(packer, rql_user_def_name, strlen(rql_user_def_name)) ||
         qp_add_raw(packer, RQL_API_PASS, strlen(RQL_API_PASS)) ||

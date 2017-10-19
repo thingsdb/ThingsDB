@@ -33,6 +33,14 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
     free(vec);
 }
 
+void * vec_remove(vec_t * vec, uint32_t i)
+{
+    void * data = vec_get(vec, i);
+    memcpy(vec->data + i, vec->data + i + 1, --vec->n - i);
+    return data;
+}
+
+
 /*
  * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will
  * be equal. In case of an allocation error the return value is NULL.

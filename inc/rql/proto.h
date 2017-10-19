@@ -1,5 +1,5 @@
 /*
- * front.h
+ * proto.h
  *
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>

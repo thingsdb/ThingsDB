@@ -58,6 +58,7 @@ struct rql_s
     link_t * dbs;
     vec_t * nodes;
     vec_t * users;
+    vec_t * access;
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
     uv_loop_t loop;

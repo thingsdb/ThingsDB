@@ -18,6 +18,7 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb);
 static inline uint32_t vec_space(const vec_t * vec);
 static inline void * vec_get(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
+void * vec_remove(vec_t * vec, uint32_t i);
 vec_t * vec_dup(const vec_t * vec);
 int vec_push(vec_t ** vaddr, void * data);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);

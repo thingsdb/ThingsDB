@@ -1,4 +1,5 @@
 #!/bin/bash
+./test_guid.sh
 ./test_link.sh
 ./test_lookup.sh
 ./test_queue.sh

@@ -11,6 +11,7 @@
 #define RQL_API_USER "_u"
 #define RQL_API_PASS "_p"
 #define RQL_API_STAT "_s"
+#define RQL_API_PERM "_p"
 
 #endif /* RQL_API_H_ */
 

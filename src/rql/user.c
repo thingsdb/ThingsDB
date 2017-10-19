@@ -15,11 +15,15 @@ const unsigned int rql_max_name = 128;
 const unsigned int rql_min_pass = 4;
 const unsigned int rql_max_pass = 128;
 
-rql_user_t * rql_user_create(const char * name, const char * encrpass)
+rql_user_t * rql_user_create(
+        uint64_t id,
+        const char * name,
+        const char * encrpass)
 {
     rql_user_t * user = (rql_user_t *) malloc(sizeof(rql_user_t));
     if (!user) return NULL;
 
+    user->id = id;
     user->ref = 1;
     user->name = strdup(name);
     user->pass = strdup(encrpass);

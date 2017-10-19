@@ -34,7 +34,7 @@ rql_event_t * rql_event_create(rql_events_t * events)
     event->target = NULL;
     event->node = NULL;
     event->raw = NULL;
-    event->source = NULL;
+    event->client = NULL;
     event->refelems = NULL;
     event->tasks = vec_new(1);
     event->result = qpx_packer_create(16);
@@ -53,7 +53,7 @@ void rql_event_destroy(rql_event_t * event)
     if (!event) return;
     rql_db_drop(event->target);
     rql_node_drop(event->node);
-    rql_sock_drop(event->source);
+    rql_sock_drop(event->client);
     vec_destroy(event->tasks, (vec_destroy_cb) qp_res_destroy);
     if (event->result)
     {
@@ -137,7 +137,8 @@ int rql_event_raw(
     link_iter_t iter = link_iter(event->events->rql->dbs);
     for (link_each(iter, rql_db_t, db))
     {
-        if (qpx_raw_equal(&target, db->name))
+        if (qpx_raw_equal(&target, db->name) ||
+            qpx_raw_equal(&target, db->guid.guid))
         {
             event->target = rql_db_grab(db);
             goto target;
@@ -382,7 +383,26 @@ static int rql__event_unpack(
 
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)
     {
-        if (vec_push(&event->tasks, res))
+        rql_task_t * task = rql_task_create(res, e);
+        if (!task)
+        {
+            qp_res_destroy(res);
+            return -1;  /* e is set */
+        }
+
+        if (vec_push(&event->tasks, task))
+        {
+            rql_task_destroy(task);
+            ex_set(e, RQL_PROTO_RUNT_ERR, "allocation error");
+            return -1;
+        }
+
+        if (event->client &&
+            !rql_access_check(
+                (event->target) ?
+                        event->target->access : event->events->rql->access,
+                event->client->via.user,
+                task->tp))
         {
             ex_set(e, RQL_PROTO_RUNT_ERR, "allocation error");
             return -1;

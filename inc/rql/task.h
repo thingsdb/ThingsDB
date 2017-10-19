@@ -39,15 +39,18 @@ typedef struct rql_task_s rql_task_t;
 #include <qpack.h>
 #include <rql/event.h>
 
-rql_task_stat_e rql_task(
-        qp_res_t * task,
+rql_task_t * rql_task_create(qp_res_t * res, ex_t * e);
+void rql_task_destroy(rql_task_t * task);
+rql_task_stat_e rql_task_run(
+        rql_task_t * task,
         rql_event_t * event,
         rql_task_stat_e rc);
+const char * rql_task_str(rql_task_t * task);
 
 struct rql_task_s
 {
     rql_task_e tp;
+    qp_res_t * res;
 };
-
 
 #endif /* RQL_TASK_H_ */

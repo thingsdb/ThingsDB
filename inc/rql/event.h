@@ -44,7 +44,7 @@ struct rql_event_s
     rql_events_t * events;
     rql_db_t * target; // NULL for _rql or pointer to database
     rql_node_t * node;
-    rql_sock_t * source;    // NULL or requesting client
+    rql_sock_t * client;    // NULL or requesting client
     rql_raw_t * raw;
     imap_t * refelems;
     vec_t * tasks;  /* each task is a qp_res_t */

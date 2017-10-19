@@ -95,8 +95,8 @@ if __name__ == '__main__':
     with open(cfn, "w") as f:
         f.write(CTEMPLATE.format(name=name, today=today, header=header))
 
-    with open(cfn, "w") as f:
-        f.write(HTEMPLATE.format(name=name.upper())
+    with open(hfn, "w") as f:
+        f.write(HTEMPLATE.format(name=name.upper()))
 
     st = os.stat(shfn)
     os.chmod(shfn, st.st_mode | stat.S_IEXEC)

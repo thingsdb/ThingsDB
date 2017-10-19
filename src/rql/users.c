@@ -75,6 +75,7 @@ int rql_users_store(const vec_t * users, const char * fn)
     for (vec_each(users, rql_user_t, user))
     {
         if (qp_add_array(&packer) ||
+            qp_add_int64(packer, (int64_t) user->id) ||
             qp_add_raw(packer, user->name, strlen(user->name)) ||
             qp_add_raw(packer, user->pass, strlen(user->pass)) ||
             qp_close_array(packer)) goto stop;
@@ -120,15 +121,20 @@ int rql_users_restore(vec_t ** users, const char * fn)
     for (uint32_t i = 0; i < qusers->via.array->n; i++)
     {
         qp_res_t * quser = qusers->via.array->values + i;
-        qp_res_t * name, * pass;
+        qp_res_t * id, * name, * pass;
         if (quser->tp != QP_RES_ARRAY ||
-                quser->via.array->n != 2 ||
-            !(name = quser->via.array->values) ||
-            !(pass = quser->via.array->values + 1) ||
+                quser->via.array->n != 3 ||
+            !(id = quser->via.array->values) ||
+            !(name = quser->via.array->values + 1) ||
+            !(pass = quser->via.array->values + 2) ||
+            id->tp != QP_RES_INT64 ||
             name->tp != QP_RES_STR ||
             pass->tp != QP_RES_STR) goto stop;
 
-        rql_user_t * user = rql_user_create(name->via.str, pass->via.str);
+        rql_user_t * user = rql_user_create(
+                (uint64_t) id->via.int64,
+                name->via.str,
+                pass->via.str);
         if (!user || vec_push(users, user)) goto stop;
     }
 

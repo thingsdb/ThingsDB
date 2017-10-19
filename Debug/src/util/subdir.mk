@@ -9,6 +9,7 @@ C_SRCS += \
 ../src/util/cryptx.c \
 ../src/util/ex.c \
 ../src/util/fx.c \
+../src/util/guid.c \
 ../src/util/imap.c \
 ../src/util/link.c \
 ../src/util/lock.c \
@@ -25,6 +26,7 @@ OBJS += \
 ./src/util/cryptx.o \
 ./src/util/ex.o \
 ./src/util/fx.o \
+./src/util/guid.o \
 ./src/util/imap.o \
 ./src/util/link.o \
 ./src/util/lock.o \
@@ -41,6 +43,7 @@ C_DEPS += \
 ./src/util/cryptx.d \
 ./src/util/ex.d \
 ./src/util/fx.d \
+./src/util/guid.d \
 ./src/util/imap.d \
 ./src/util/link.d \
 ./src/util/lock.d \

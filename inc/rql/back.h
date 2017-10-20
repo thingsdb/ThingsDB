@@ -11,10 +11,11 @@ typedef enum
 {
     RQL_BACK_PING,          // status
     RQL_BACK_AUTH,          // [id, version, min_version]
-    RQL_BACK_EVENT_REG,     // [id, node->id]
-    RQL_BACK_EVENT_UPD,     // [id, node->id, new_id]
-    RQL_BACK_EVENT_READY,   // [id, node->id, raw]
-    RQL_BACK_EVENT_CANCEL,  // [id, node->id]
+    RQL_BACK_EVENT_REG,     // id
+    RQL_BACK_EVENT_UPD,     // [id, new_id]
+    RQL_BACK_EVENT_READY,   // [id, raw]
+    RQL_BACK_EVENT_CANCEL,  // id
+    RQL_BACK_MAINT_REG,     // maintenance_counter
 } rql_back_req_e;
 
 typedef struct rql_back_s  rql_back_t;

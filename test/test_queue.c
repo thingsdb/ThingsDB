@@ -201,6 +201,17 @@ int main()
         }
     }
 
+    /* test value remove */
+    {
+        queue_clear(q);
+        push_entries(q);
+        for (size_t i = 0; i < num_entries; i++)
+        {
+            assert (queue_remval(q, entries[i]) == entries[i]);
+        }
+        assert (q->n == 0);
+    }
+
     /* test null values */
     {
         queue_clear(q);

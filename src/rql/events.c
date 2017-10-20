@@ -48,6 +48,11 @@ int rql_events_init(rql_events_t * events)
     return uv_async_init(&events->rql->loop, &events->loop, rql__events_loop);
 }
 
+void rql_events_close(rql_events_t * events)
+{
+    uv_close((uv_handle_t *) &events->loop, NULL);
+}
+
 int rql_events_store(rql_events_t * events, const char * fn)
 {
     int rc = -1;

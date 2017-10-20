@@ -19,7 +19,7 @@ typedef struct rql_events_s rql_events_t;
 rql_events_t * rql_events_create(rql_t * rql);
 void rql_events_destroy(rql_events_t * events);
 int rql_events_init(rql_events_t * events);
-
+void rql_events_close(rql_events_t * events);
 int rql_events_store(rql_events_t * events, const char * fn);
 int rql_events_restore(rql_events_t * events, const char * fn);
 

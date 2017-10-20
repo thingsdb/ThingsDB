@@ -19,7 +19,10 @@
 #include <util/ex.h>
 #include <util/qpx.h>
 
-const int rql_event_reg_timeout = 10;
+const int rql__event_reg_timeout = 10;
+const int rql__event_upd_timeout = 10;
+const int rql__event_ready_timeout = 30;
+const int rql__event_cancel_timeout = 5;
 
 static int rql__event_to_queue(rql_event_t * event);
 static int rql__event_reg(rql_event_t * event);
@@ -306,13 +309,10 @@ static int rql__event_reg(rql_event_t * event)
             rql->nodes->n - 1,
             event,
             rql__event_on_reg_cb);
-    qpx_packer_t * xpkg = qpx_packer_create(20);
+    qpx_packer_t * xpkg = qpx_packer_create(10);
     if (!prom ||
         !xpkg ||
-        qp_add_array(&xpkg) ||
-        qp_add_int64(xpkg, (int64_t) event->id) ||
-        qp_add_int64(xpkg, (int64_t) event->node->id) ||
-        qp_close_array(xpkg)) goto failed;
+        qp_add_int64(xpkg, (int64_t) event->id)) goto failed;
 
     event->req_pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_REG);
 
@@ -322,7 +322,7 @@ static int rql__event_reg(rql_event_t * event)
         if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
                 node,
                 event->req_pkg,
-                rql_event_reg_timeout,
+                rql__event_reg_timeout,
                 prom,
                 rql_prom_req_cb))
         {
@@ -356,7 +356,6 @@ static int rql__event_upd(rql_event_t * event, uint64_t prev_id)
         !xpkg ||
         qp_add_array(&xpkg) ||
         qp_add_int64(xpkg, (int64_t) prev_id) ||
-        qp_add_int64(xpkg, (int64_t) event->node->id) ||
         qp_add_int64(xpkg, (int64_t) event->id) ||
         qp_close_array(xpkg)) goto failed;
 
@@ -368,7 +367,7 @@ static int rql__event_upd(rql_event_t * event, uint64_t prev_id)
         if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
                 node,
                 event->req_pkg,
-                rql_event_reg_timeout,
+                rql__event_upd_timeout,
                 prom,
                 rql_prom_req_cb))
         {
@@ -387,8 +386,6 @@ failed:
     return -1;
 }
 
-
-
 static void rql__event_on_reg_cb(rql_prom_t * prom)
 {
     rql_event_t * event = (rql_event_t *) prom->data;
@@ -405,8 +402,7 @@ static void rql__event_on_reg_cb(rql_prom_t * prom)
         {
             event->status = RQL_EVENT_STAT_CACNCEL;
         }
-
-        if (req->pkg_res->tp == RQL_PROTO_REJECT)
+        else if (req->pkg_res->tp == RQL_PROTO_REJECT)
         {
             accept = 0;
         }
@@ -455,7 +451,6 @@ static int rql__event_ready(rql_event_t * event)
         !xpkg ||
         qp_add_array(&xpkg) ||
         qp_add_int64(xpkg, (int64_t) event->id) ||
-        qp_add_int64(xpkg, (int64_t) event->node->id) ||
         qp_add_raw(xpkg, (const char *) event->raw->data, event->raw->n) ||
         qp_close_array(xpkg)) goto failed;
 
@@ -478,7 +473,7 @@ static int rql__event_ready(rql_event_t * event)
         else if (rql_req(
                 node,
                 event->req_pkg,
-                rql_event_reg_timeout,
+                rql__event_ready_timeout,
                 event->prom,
                 rql_prom_req_cb))
         {
@@ -547,7 +542,7 @@ static int rql__event_cancel(rql_event_t * event)
         if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
                 node,
                 pkg,
-                rql_event_reg_timeout,
+                rql__event_cancel_timeout,
                 prom,
                 rql_prom_req_cb))
         {

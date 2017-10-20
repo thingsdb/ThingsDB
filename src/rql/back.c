@@ -82,6 +82,7 @@ const char * rql_back_req_str(rql_back_req_e tp)
     case RQL_BACK_EVENT_UPD: return "REQ_EVENT_UPD";
     case RQL_BACK_EVENT_READY: return "REQ_EVENT_READY";
     case RQL_BACK_EVENT_CANCEL: return "REQ_EVENT_CANCEL";
+    case RQL_BACK_MAINT_REG: return "REQ_MAINT_REG";
     }
     return "REQ_UNKNOWN";
 }

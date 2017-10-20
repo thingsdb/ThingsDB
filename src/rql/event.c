@@ -97,7 +97,7 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     event->client = rql_sock_grab(sock);
     event->status = RQL_EVENT_STAT_REG;
 
-    if (!rql_nodes_has_quorum(sock->rql))
+    if (!rql_nodes_has_quorum(sock->rql->nodes))
     {
         ex_set(e, RQL_PROTO_NODE_ERR,
                 "node '%s' does not have the required quorum",

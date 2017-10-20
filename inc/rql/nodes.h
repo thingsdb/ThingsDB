@@ -7,8 +7,8 @@
 #ifndef RQL_NODES_H_
 #define RQL_NODES_H_
 
-#include <rql/rql.h>
+#include <util/vec.h>
 
-_Bool rql_nodes_has_quorum(rql_t * rql);
+_Bool rql_nodes_has_quorum(vec_t * nodes);
 
 #endif /* RQL_NODES_H_ */

@@ -59,7 +59,8 @@ static void rql__maint_timer_cb(uv_timer_t * timer)
     uint64_t commit_id = rql->events->commit_id;
 
     if (maint->status != RQL_MAINT_STAT_READY ||
-        maint->last_commit == commit_id) return;
+        maint->last_commit == commit_id ||
+        rql_nodes_has_quorum(rql->nodes)) return;
 
     for (vec_each(rql->nodes, rql_node_t, node))
     {
@@ -88,10 +89,15 @@ static void rql__maint_timer_cb(uv_timer_t * timer)
         }
     }
 
+    if (rql__maint_reg(maint))
+    {
+        log_error("failed to write maintenance request");
+    }
 }
 
 static int rql__maint_reg(rql_maint_t * maint)
 {
+    maint->status = RQL_MAINT_STAT_REG;
     rql_prom_t * prom = rql_prom_new(
             maint->rql->nodes->n - 1,
             maint,
@@ -117,67 +123,44 @@ static int rql__maint_reg(rql_maint_t * maint)
         }
     }
 
-    free(!prom->sz ? pkg : NULL);
+    free(prom->sz ? NULL : pkg);
 
     rql_prom_go(prom);
 
     return 0;
 
 failed:
+    maint->status = RQL_MAINT_STAT_READY;
     free(prom);
     qpx_packer_destroy(xpkg);
-    rql_term(SIGTERM);
     return -1;
 }
 
 static void rql__maint_on_reg_cb(rql_prom_t * prom)
 {
-    rql_event_t * event = (rql_event_t *) prom->data;
-    free(event->req_pkg);
+    rql_maint_t * maint = (rql_maint_t *) prom->data;
     _Bool accept = 1;
 
     for (size_t i = 0; i < prom->n; i++)
     {
-
         rql_prom_res_t * res = &prom->res[i];
         rql_req_t * req = (rql_req_t *) res->handle;
-
-        if (res->status)
-        {
-            event->status = RQL_EVENT_STAT_CACNCEL;
-        }
-
-        if (req->pkg_res->tp == RQL_PROTO_REJECT)
+        free(i ? NULL : req->pkg_req);
+        if (res->status || req->pkg_res->tp == RQL_PROTO_REJECT)
         {
             accept = 0;
         }
-
         rql_req_destroy(req);
     }
 
     free(prom);
 
-    if (event->status == RQL_EVENT_STAT_CACNCEL)
+    if (accept)
     {
-        // remove from queue if it is still in the queue.
-        // event->status could be already set to reject in which case the
-        // event is already removed from the queue
-        rql__event_cancel(event);  /* terminates in case of failure */
-        uv_async_send(&event->events->loop);
-        return;
+        maint->rql->node->status = RQL_NODE_STAT_MAINT;
+        maint->status = RQL_MAINT_STAT_BUSY;
+        /* TODO: start work thread */
     }
-
-    if (!accept)
-    {
-        uint64_t old_id = event->id;
-        queue_remval(event->events->queue, event);
-        event->id = event->events->next_id;
-        rql__event_to_queue(event);  /* queue has room */
-        rql__event_upd(event, old_id);  /* terminates in case of failure */
-        return;
-    }
-
-    rql__event_ready(event);  /* terminates in case of failure */
 }
 
 inline static int rql__maint_cmp(uint8_t a, uint8_t b, uint8_t n, uint64_t i)

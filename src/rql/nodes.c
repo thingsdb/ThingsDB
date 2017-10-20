@@ -7,14 +7,12 @@
 #include <rql/nodes.h>
 #include <rql/node.h>
 
-_Bool rql_nodes_has_quorum(rql_t * rql)
+_Bool rql_nodes_has_quorum(vec_t * nodes)
 {
-    size_t quorum = rql->nodes->n / 2;
+    size_t quorum = (nodes->n + 1) / 2;
     size_t q = 0;
 
-    if (rql->nodes->n <= 2) return 1;
-
-    for (vec_each(rql->nodes, rql_node_t, node))
+    for (vec_each(nodes, rql_node_t, node))
     {
         if (node->status > RQL_NODE_STAT_CONNECTED && ++q == quorum) return 1;
     }

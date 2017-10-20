@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/rql/access.c \
+../src/rql/archive.c \
 ../src/rql/args.c \
 ../src/rql/auth.c \
 ../src/rql/back.c \
@@ -36,6 +37,7 @@ C_SRCS += \
 
 OBJS += \
 ./src/rql/access.o \
+./src/rql/archive.o \
 ./src/rql/args.o \
 ./src/rql/auth.o \
 ./src/rql/back.o \
@@ -67,6 +69,7 @@ OBJS += \
 
 C_DEPS += \
 ./src/rql/access.d \
+./src/rql/archive.d \
 ./src/rql/args.d \
 ./src/rql/auth.d \
 ./src/rql/back.d \

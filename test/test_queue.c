@@ -201,6 +201,22 @@ int main()
         }
     }
 
+    /* test null values */
+    {
+        queue_clear(q);
+        size_t n = 4;
+        for (size_t i = 0; i < n; i++)
+        {
+            queue_push(&q, NULL);
+        }
+        size_t i = 0;
+        for (queue_each(q, void, t), i++)
+        {
+            assert (t == NULL);
+        }
+        assert (i == n);
+    }
+
     /* test destroy */
     {
         queue_clear(q);

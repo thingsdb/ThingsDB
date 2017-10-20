@@ -12,6 +12,8 @@ _Bool rql_nodes_has_quorum(rql_t * rql)
     size_t quorum = rql->nodes->n / 2;
     size_t q = 0;
 
+    if (rql->nodes->n <= 2) return 1;
+
     for (vec_each(rql->nodes, rql_node_t, node))
     {
         if (node->status > RQL_NODE_STAT_CONNECTED && ++q == quorum) return 1;

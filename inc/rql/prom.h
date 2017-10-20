@@ -24,10 +24,9 @@ typedef struct rql_prom_res_s rql_prom_res_t;
 typedef void (*rql_prom_cb)(rql_prom_t * prom);
 
 rql_prom_t * rql_prom_new(size_t sz, void * data, rql_prom_cb cb);
-//rql_prom_t * rql_prom_grab(rql_prom_t * prom);
-//void rql_prom_destroy(rql_prom_t * prom);
 void rql_prom_go(rql_prom_t * prom);
 void rql_prom_req_cb(rql_req_t * req, ex_e status);
+void rql_prom_async_done(rql_prom_t * prom, uv_async_t * async, ex_e status);
 
 struct rql_prom_res_s
 {
@@ -38,7 +37,6 @@ struct rql_prom_res_s
 
 struct rql_prom_s
 {
-//    int64_t ref;
     size_t n;
     size_t sz;
     void * data;

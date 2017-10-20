@@ -132,7 +132,7 @@ int rql_build(rql_t * rql)
     event = rql_event_create(rql->events);
     if (!event) goto stop;
 
-    rql_event_init(event);
+    event->id = event->events->next_id;
 
     if (rql_save(rql)) goto stop;
 
@@ -195,6 +195,8 @@ int rql_run(rql_t * rql)
     {
         rql_term(SIGTERM);
     }
+
+    rql->node = RQL_NODE_STAT_READY;
 
     uv_run(&rql->loop, UV_RUN_DEFAULT);
 

@@ -30,7 +30,9 @@ rql_pkg_t * rql_pkg_new(
 
 rql_pkg_t * rql_pkg_e(ex_t * e, uint16_t id)
 {
-    assert (e && e->n && e->errnr >= RQL_PROTO_ERR && e->errnr < 255);
+    assert (e && e->n &&
+            e->errnr >= RQL_PROTO_REJECT &&
+            e->errnr <= RQL_PROTO_RUNT_ERR);
     qpx_packer_t * xpkg = qpx_packer_create(20 + e->n);
     if (!xpkg) return NULL;
 

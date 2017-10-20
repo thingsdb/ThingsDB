@@ -23,7 +23,12 @@ const int rql_event_reg_timeout = 10;
 
 static int rql__event_to_queue(rql_event_t * event);
 static int rql__event_reg(rql_event_t * event);
+static int rql__event_upd(rql_event_t * event, uint64_t prev_id);
 static void rql__event_on_reg_cb(rql_prom_t * prom);
+static int rql__event_ready(rql_event_t * event);
+static void rql__event_on_ready_cb(rql_prom_t * prom);
+static int rql__event_cancel(rql_event_t * event);
+static void rql__event_on_cancel_cb(rql_prom_t * prom);
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
 static void rql__event_unpack(
         rql_event_t * event,
@@ -43,6 +48,8 @@ rql_event_t * rql_event_create(rql_events_t * events)
     event->tasks = vec_new(1);
     event->result = qpx_packer_create(16);
     event->status = RQL_EVENT_STAT_UNINITIALIZED;
+    event->nodes = NULL;
+    event->prom = NULL;
 
     if (!event->tasks)
     {
@@ -56,15 +63,18 @@ rql_event_t * rql_event_create(rql_events_t * events)
 void rql_event_destroy(rql_event_t * event)
 {
     if (!event) return;
-    if (event->status != RQL_EVENT_STAT_DONE)
+    if (event->events)
     {
-        queue_remval(event);  /* the event might be in the queue */
+        /* the event might be in the queue */
+        queue_remval(event->events->queue, event);
     }
     rql_db_drop(event->target);
     rql_node_drop(event->node);
     rql_sock_drop(event->client);
     vec_destroy(event->tasks, (vec_destroy_cb) rql_task_destroy);
+    vec_destroy(event->nodes, (vec_destroy_cb) rql_node_drop);
     qpx_packer_destroy(event->result);
+    free(event->prom);
     free(event->raw);
     free(event);
 }
@@ -72,11 +82,17 @@ void rql_event_destroy(rql_event_t * event)
 void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
 {
     rql_event_t * event = rql_event_create(sock->rql->events);
-    if (!event)
+    if (!event || !(event->nodes = vec_new(event->events->rql->nodes->n - 1)))
     {
         ex_set_alloc(e);
         goto failed;
     }
+
+    event->id = event->events->next_id;
+    event->pid = pkg->id;
+    event->node = rql_node_grab(event->events->rql->node);
+    event->client = rql_sock_grab(sock);
+    event->status = RQL_EVENT_STAT_REG;
 
     if (!rql_nodes_has_quorum(sock->rql))
     {
@@ -86,23 +102,15 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
         goto failed;
     }
 
-    rql_event_init(event);
-
     rql_event_raw(event, pkg->data, pkg->n, e);
     if (e->errnr) goto failed;
 
-    if (rql__event_to_queue(event))
+    if (rql__event_to_queue(event) || rql__event_reg(event))
     {
         ex_set_alloc(e);
         goto failed;
     }
 
-    if (rql__event_reg(event))
-    {
-        ex_set_alloc(e);
-        rql_term(SIGTERM);
-        goto failed;
-    }
     return;  /* success */
 
 failed:
@@ -110,11 +118,13 @@ failed:
     rql_event_destroy(event);
 }
 
-void rql_event_init(rql_event_t * event)
+int rql_event_init(rql_event_t * event)
 {
     event->node = rql_node_grab(event->events->rql->node);
     event->id = event->events->next_id;
-    event->status = RQL_EVENT_STAT_WAIT_ACCEPT;
+    event->status = RQL_EVENT_STAT_REG;
+    event->nodes = vec_new(event->events->rql->nodes->n - 1);
+    return -!event->nodes;
 }
 
 //int rql_event_fill(
@@ -207,6 +217,7 @@ target:
 
 int rql_event_run(rql_event_t * event)
 {
+    if (event->status == RQL_EVENT_STAT_CACNCEL) return 0;
     int success = 0;
     rql_task_stat_e rc = RQL_TASK_SUCCESS;
     qp_add_array(&event->result);
@@ -226,18 +237,48 @@ int rql_event_run(rql_event_t * event)
     return success;
 
 failed:
-    log_critical("task failed with a critical error");
+    log_critical("at least one task failed with a critical error");
     return -1;
 }
 
-int rql_event_done(rql_event_t * event)
+void rql_event_finish(rql_event_t * event)
 {
-    if (vec_push(&event->events->done, event->raw)) return -1;
-    event->raw = NULL;
-    event->status = RQL_EVENT_STAT_DONE;
-    return 0;
+    rql_pkg_t * pkg;
+    if (event->status == RQL_EVENT_STAT_CACNCEL)
+    {
+        ex_ptr(e);
+        ex_set(e, RQL_PROTO_NODE_ERR, "event is cancelled");
+        pkg = rql_pkg_e(e, event->pid);
+        if (!pkg)
+        {
+            log_error(EX_ALLOC);
+            goto stop;
+        }
+    }
+    else
+    {
+        pkg = qpx_packer_pkg(event->result, RQL_PROTO_RESULT);
+        pkg->id = event->pid;
+        event->result = NULL;
+    }
+
+    if ((event->client) ?
+            rql_front_write(event->client, pkg) :
+            rql_node_write(event->node, pkg))
+    {
+        free(pkg);
+        log_error(EX_ALLOC);
+    }
+
+stop:
+    event->events = NULL;  /* prevent looping over queue */
+    rql_event_destroy(event);
 }
 
+/*
+ * Returns 0 when successful and can only return -1 in case the queue required
+ * allocation which has failed.
+ */
 static int rql__event_to_queue(rql_event_t * event)
 {
     rql_events_t * events = event->events;
@@ -273,9 +314,234 @@ static int rql__event_reg(rql_event_t * event)
         qp_add_int64(xpkg, (int64_t) event->node->id) ||
         qp_close_array(xpkg)) goto failed;
 
-    rql_pkg_t * pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_REG);
+    event->req_pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_REG);
 
     for (vec_each(rql->nodes, rql_node_t, node))
+    {
+        if (node == rql->node) continue;
+        if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
+                node,
+                event->req_pkg,
+                rql_event_reg_timeout,
+                prom,
+                rql_prom_req_cb))
+        {
+            prom->sz--;
+            continue;
+        }
+        assert (event->nodes->n < event->nodes->sz);
+        VEC_push(event->nodes, rql_node_grab(node));
+    }
+
+    rql_prom_go(prom);
+
+    return 0;
+
+failed:
+    free(prom);
+    qpx_packer_destroy(xpkg);
+    rql_term(SIGTERM);
+    return -1;
+}
+
+static int rql__event_upd(rql_event_t * event, uint64_t prev_id)
+{
+    rql_t * rql = event->events->rql;
+    rql_prom_t * prom = rql_prom_new(
+            event->nodes->n,
+            event,
+            rql__event_on_reg_cb);
+    qpx_packer_t * xpkg = qpx_packer_create(20);
+    if (!prom ||
+        !xpkg ||
+        qp_add_array(&xpkg) ||
+        qp_add_int64(xpkg, (int64_t) prev_id) ||
+        qp_add_int64(xpkg, (int64_t) event->node->id) ||
+        qp_add_int64(xpkg, (int64_t) event->id) ||
+        qp_close_array(xpkg)) goto failed;
+
+    event->req_pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_UPD);
+
+    for (vec_each(event->nodes, rql_node_t, node))
+    {
+        if (node == rql->node) continue;
+        if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
+                node,
+                event->req_pkg,
+                rql_event_reg_timeout,
+                prom,
+                rql_prom_req_cb))
+        {
+            prom->sz--;
+        }
+    }
+
+    rql_prom_go(prom);
+
+    return 0;
+
+failed:
+    free(prom);
+    qpx_packer_destroy(xpkg);
+    rql_term(SIGTERM);
+    return -1;
+}
+
+
+
+static void rql__event_on_reg_cb(rql_prom_t * prom)
+{
+    rql_event_t * event = (rql_event_t *) prom->data;
+    free(event->req_pkg);
+    _Bool accept = 1;
+
+    for (size_t i = 0; i < prom->n; i++)
+    {
+
+        rql_prom_res_t * res = &prom->res[i];
+        rql_req_t * req = (rql_req_t *) res->handle;
+
+        if (res->status)
+        {
+            event->status = RQL_EVENT_STAT_CACNCEL;
+        }
+
+        if (req->pkg_res->tp == RQL_PROTO_REJECT)
+        {
+            accept = 0;
+        }
+
+        rql_req_destroy(req);
+    }
+
+    free(prom);
+
+    if (event->status == RQL_EVENT_STAT_CACNCEL)
+    {
+        // remove from queue if it is still in the queue.
+        // event->status could be already set to reject in which case the
+        // event is already removed from the queue
+        rql__event_cancel(event);  /* terminates in case of failure */
+        uv_async_send(&event->events->loop);
+        return;
+    }
+
+    if (!accept)
+    {
+        uint64_t old_id = event->id;
+        queue_remval(event->events->queue, event);
+        event->id = event->events->next_id;
+        rql__event_to_queue(event);  /* queue has room */
+        rql__event_upd(event, old_id);  /* terminates in case of failure */
+        return;
+    }
+
+    rql__event_ready(event);  /* terminates in case of failure */
+}
+
+static int rql__event_ready(rql_event_t * event)
+{
+    event->status = RQL_EVENT_STAT_READY;
+
+    rql_t * rql = event->events->rql;
+
+    event->prom = rql_prom_new(
+            event->nodes->n + 1,
+            event,
+            rql__event_on_ready_cb);
+    qpx_packer_t * xpkg = qpx_packer_create(20 + event->raw->n);
+
+    if (!event->prom ||
+        !xpkg ||
+        qp_add_array(&xpkg) ||
+        qp_add_int64(xpkg, (int64_t) event->id) ||
+        qp_add_int64(xpkg, (int64_t) event->node->id) ||
+        qp_add_raw(xpkg, (const char *) event->raw->data, event->raw->n) ||
+        qp_close_array(xpkg)) goto failed;
+
+    event->req_pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_READY);
+
+    for (vec_each(rql->nodes, rql_node_t, node))
+    {
+        if (node == rql->node)
+        {
+            if (uv_async_send(&event->events->loop))
+            {
+                rql_term(SIGTERM);
+                event->prom->sz--;
+            }
+        }
+        else if (node->status <= RQL_NODE_STAT_CONNECTED)
+        {
+            event->prom->sz--;
+        }
+        else if (rql_req(
+                node,
+                event->req_pkg,
+                rql_event_reg_timeout,
+                event->prom,
+                rql_prom_req_cb))
+        {
+            log_error("failed to write to node: %s", node->addr);
+            event->prom->sz--;
+        }
+    }
+
+    rql_prom_go(event->prom);
+
+    return 0;
+
+failed:
+    qpx_packer_destroy(xpkg);
+    rql_term(SIGTERM);
+    return -1;
+}
+
+static void rql__event_on_ready_cb(rql_prom_t * prom)
+{
+    rql_event_t * event = (rql_event_t *) prom->data;
+    free(event->req_pkg);
+
+    for (size_t i = 0; i < prom->n; i++)
+    {
+        rql_prom_res_t * res = &prom->res[i];
+
+        if (res->tp == RQL_PROM_VIA_ASYNC) continue;
+
+        rql_req_t * req = (rql_req_t *) res->handle;
+
+        if (res->status || req->pkg_res->tp != RQL_PROTO_RESULT)
+        {
+            log_critical("event failed on node: %s", req->node->addr);
+        }
+
+        rql_req_destroy(req);
+    }
+
+    free(prom);
+    event->prom = NULL;
+
+    rql_event_finish(event);
+}
+
+static int rql__event_cancel(rql_event_t * event)
+{
+    rql_t * rql = event->events->rql;
+    rql_prom_t * prom = rql_prom_new(
+            event->nodes->n,
+            event,
+            rql__event_on_cancel_cb);
+    qpx_packer_t * xpkg = qpx_packer_create(20);
+    if (!prom ||
+        !xpkg ||
+        qp_add_array(&xpkg) ||
+        qp_add_int64(xpkg, (int64_t) event->id) ||
+        qp_add_int64(xpkg, (int64_t) event->node->id) ||
+        qp_close_array(xpkg)) goto failed;
+
+    rql_pkg_t * pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_CANCEL);
+
+    for (vec_each(event->nodes, rql_node_t, node))
     {
         if (node == rql->node) continue;
         if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
@@ -297,92 +563,22 @@ static int rql__event_reg(rql_event_t * event)
 failed:
     free(prom);
     qpx_packer_destroy(xpkg);
+    rql_term(SIGTERM);
     return -1;
 }
 
-static void rql__event_on_reg_cb(rql_prom_t * prom)
+static void rql__event_on_cancel_cb(rql_prom_t * prom)
 {
-    rql_event_t * event = (rql_event_t *) prom->data;
-
     for (size_t i = 0; i < prom->n; i++)
     {
-
         rql_prom_res_t * res = &prom->res[i];
         rql_req_t * req = (rql_req_t *) res->handle;
         free(i ? NULL : req->pkg_req);
-
-        if (res->status)
-        {
-            // send failed event to client  RQL_PROTO_NODE_ERR
-        }
-
-        if (req->pkg_res->tp == RQL_PROTO_REJECT)
-        {
-            event->status = RQL_EVENT_STAT_REJECTED;
-
-        }
-
         rql_req_destroy(req);
-    }
-    if (event->status == RQL_EVENT_STAT_REJECTED)
-    {
-        // remove from queue if it is still in the queue.
-        // event->status could be already set to reject in which case the
-        // event is already removed from the queue
-    }
-    else
-    {
-        // event go...
     }
     free(prom);
 }
 
-static int rql__event_go(rql_event_t * event)
-{
-    event->status = RQL_EVENT_STAT_ACCEPTED;
-
-    rql_t * rql = event->events->rql;
-
-    rql_prom_t * prom = rql_prom_new(
-            rql->nodes->n,
-            event,
-            rql__event_on_reg_cb);
-
-    qpx_packer_t * xpkg = qpx_packer_create(20 + event->raw->n);
-
-    if (qp_add_array(&xpkg) ||
-        qp_add_int64(xpkg, (int64_t) event->id) ||
-        qp_add_int64(xpkg, (int64_t) event->node->id) ||
-        qp_add_raw(xpkg, (const char *) event->raw->data, event->raw->n) ||
-        qp_close_array(xpkg)) goto failed;
-
-    rql_pkg_t * pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_GO);
-
-    for (vec_each(rql->nodes, rql_node_t, node))
-    {
-        if (node == rql->node)
-        {
-            uv_async_send(&event->events->loop);
-            continue;
-        }
-        if (node->status != RQL_NODE_STAT_READY || rql_req(
-                node,
-                pkg,
-                rql_event_reg_timeout,
-                prom,
-                rql_prom_req_cb))
-        {
-            prom->sz--;
-        }
-    }
-
-    free(prom->sz ? NULL : pkg);
-    rql_prom_go(prom);
-    return 0;
-
-failed:
-    return -1;
-}
 
 /*
  * Returns 0 when tested successful
@@ -456,7 +652,9 @@ static void rql__event_unpack(
                 event->client->via.user,
                 task->tp))
         {
-            ex_set_alloc(e);
+            ex_set(e, RQL_PROTO_AUTH_ERR,
+                    "user has no privileges for task: %s",
+                    rql_task_str(task));
             return;
         }
     }

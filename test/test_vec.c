@@ -133,6 +133,22 @@ int main()
         assert (n == num_entries - 1);
     }
 
+    /* test null values */
+    {
+        vec_clear(v);
+        size_t n = 4;
+        for (size_t i = 0; i < n; i++)
+        {
+            vec_push(&v, NULL);
+        }
+        size_t i = 0;
+        for (vec_each(v, void, t), i++)
+        {
+            assert (t == NULL);
+        }
+        assert (i == n);
+    }
+
     free(v);
 
     test_end(0);

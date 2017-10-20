@@ -38,3 +38,12 @@ void rql_prom_req_cb(rql_req_t * req, ex_e status)
     res->handle = req;
     rql_prom_go(prom);
 }
+
+void rql_prom_async_done(rql_prom_t * prom, uv_async_t * async, ex_e status)
+{
+    rql_prom_res_t * res = &prom->res[prom->n++];
+    res->tp = RQL_PROM_VIA_ASYNC;
+    res->status = status;
+    res->handle = async;
+    rql_prom_go(prom);
+}

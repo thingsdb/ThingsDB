@@ -76,12 +76,14 @@ const char * rql_back_req_str(rql_back_req_e tp)
 {
     switch (tp)
     {
-    case RQL_BACK_PING: return "PING";
-    case RQL_BACK_AUTH: return "AUTH";
-    case RQL_BACK_EVENT_REG: return "EVENT_REG";
-    case RQL_BACK_EVENT_GO: return "EVENT_GO";
+    case RQL_BACK_PING: return "REQ_PING";
+    case RQL_BACK_AUTH: return "REQ_AUTH";
+    case RQL_BACK_EVENT_REG: return "REQ_EVENT_REG";
+    case RQL_BACK_EVENT_UPD: return "REQ_EVENT_UPD";
+    case RQL_BACK_EVENT_READY: return "REQ_EVENT_READY";
+    case RQL_BACK_EVENT_CANCEL: return "REQ_EVENT_CANCEL";
     }
-    return "UNKNOWN";
+    return "REQ_UNKNOWN";
 }
 
 static void rql__back_on_connect(uv_tcp_t * tcp, int status)

@@ -192,9 +192,18 @@ static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
 {
     ex_ptr(e);
     rql_pkg_t * resp;
+
     if (!sock->via.user)
     {
         ex_set(e, RQL_PROTO_AUTH_ERR, "connection is not authenticated");
+        goto failed;
+    }
+
+    if (!sock->rql->node->status == RQL_NODE_STAT_READY)
+    {
+        ex_set(e, RQL_PROTO_NODE_ERR,
+                "node '%s' is not ready to handle events",
+                sock->rql->node->addr);
         goto failed;
     }
 

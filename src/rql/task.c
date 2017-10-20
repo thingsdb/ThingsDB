@@ -106,6 +106,17 @@ finish:
     return rc;
 }
 
+const char * rql_task_str(rql_task_t * task)
+{
+    switch(task->tp)
+    {
+    case RQL_TASK_USER_CREATE: return "TASK_USER_CREATE";
+    case RQL_TASK_GRANT: return "TASK_GRANT";
+    default:
+        return "TASK_UNKNOWN";
+    }
+}
+
 static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
         rql_event_t * event)

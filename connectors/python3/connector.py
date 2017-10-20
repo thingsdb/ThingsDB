@@ -4,12 +4,18 @@ import logging
 import qpack
 
 
-PROTO_PING = 0
-PROTO_AUTH = 1
+REQ_PING = 0
+REQ_AUTH = 1
+REQ_EVENT = 2
 
-PROTO_ACK = 0
-PROTO_ERR = 64
-PROTO_ERR_AUTH = 65
+
+RES_ACK = 0
+RES_RESULT = 1
+RES_ERR_AUTH = 65
+RES_ERR_NODE = 66
+RES_ERR_TYPE = 67
+RES_ERR_INDEX = 68
+RES_ERR_RUNTIME = 69
 
 
 class Rql:
@@ -57,8 +63,16 @@ class Rql:
         self._username = username
         self._password = password
         future = self.write_package(
-            PROTO_AUTH,
+            REQ_AUTH,
             data=(self._username, self._password),
+            timeout=timeout)
+        resp = await future
+        return resp
+
+    async def trigger(self, event, timeout=5):
+        future = self.write_package(
+            REQ_EVENT,
+            data=event,
             timeout=timeout)
         resp = await future
         return resp
@@ -169,7 +183,15 @@ class _RqlProtocol(asyncio.Protocol):
 async def test():
     rql = Rql()
     await rql.connect('localhost')
-    res = await rql.authenticate('iris', 'siri')
+    res = await rql.authenticate('iriss', 'siri')
+    print(res)
+    res = await rql.trigger({
+        '_': [{
+            '_t': 0,
+            '_u': 'iriss',
+            '_p': 'siri'
+        }]
+    })
     print(res)
 
 

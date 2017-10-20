@@ -105,18 +105,15 @@ stop:
 static void rql__events_loop(uv_async_t * handle)
 {
     rql_events_t * events = (rql_events_t *) handle->data;
+    rql_event_t * event;
 
-    while (events->queue->n)
+    while ((event = queue_last(events->queue)) &&
+            event->id == events->commit_id &&
+            event->status == RQL_EVENT_STAT_ACCEPTED)
     {
-        rql_event_t * event = (rql_event_t *) queue_get(
-                events->queue,
-                events->queue->n - 1);
-        if (event->id == events->commit_id)
-        {
-            rql_event_run(event);
-            queue_pop(events->queue);
-            rql_event_done(event);
-            rql_event_destroy(event);
-        }
+        queue_pop(event->events->queue);
+        rql_event_run(event);
+        rql_event_done(event);
+        rql_event_destroy(event);
     }
 }

@@ -12,11 +12,13 @@
 #include <rql/write.h>
 #include <rql/ref.h>
 #include <rql/proto.h>
+#include <rql/event.h>
 
 static void rql__front_on_connect(uv_tcp_t * tcp, int status);
 static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_ping(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg);
+static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_write_cb(rql_write_t * req, int status);
 
 rql_front_t * rql_front_create(rql_t * rql)
@@ -138,7 +140,7 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
         break;
     case RQL_FRONT_EVENT:
         rql__front_on_event(sock, pkg);
-        break
+        break;
     default:
         log_error("unexpected package type: %u (source: %s)",
                 pkg->tp, rql_sock_addr(sock));
@@ -186,7 +188,7 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     }
 }
 
-static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
+static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
 {
     ex_ptr(e);
     rql_pkg_t * resp;
@@ -197,7 +199,7 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     }
 
     rql_event_new(sock, pkg, e);
-    if (e.errnr) goto failed;
+    if (e->errnr) goto failed;
 
     return;
 

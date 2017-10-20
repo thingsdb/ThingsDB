@@ -7,11 +7,11 @@
 #ifndef RQL_EVENT_H_
 #define RQL_EVENT_H_
 
-#define RQL_EVENT_STAT_WAIT_ACCEPT 0
-#define RQL_EVENT_STAT_ACCEPTED 1
-
-//#define RQL_EVENT_STAT_CANCELLED 3
+#define RQL_EVENT_STAT_UNINITIALIZED 0
+#define RQL_EVENT_STAT_WAIT_ACCEPT 1
+#define RQL_EVENT_STAT_ACCEPTED 2
 #define RQL_EVENT_STAT_REJECTED 3
+#define RQL_EVENT_STAT_DONE 4
 
 
 typedef struct rql_event_s rql_event_t;
@@ -27,6 +27,7 @@ typedef struct rql_event_s rql_event_t;
 
 rql_event_t * rql_event_create(rql_events_t * events);
 void rql_event_destroy(rql_event_t * event);
+void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e);
 void rql_event_init(rql_event_t * event);
 void rql_event_raw(
         rql_event_t * event,

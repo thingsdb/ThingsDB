@@ -188,10 +188,13 @@ int rql_run(rql_t * rql)
 {
     uv_loop_init(&rql->loop);
 
-    if (rql_events_init(rql->events) || rql_signals_init(rql)) abort();
-
-    if (rql_back_listen(rql->back) ||
-        rql_front_listen(rql->front)) rql_term(SIGTERM);
+    if (rql_events_init(rql->events) ||
+        rql_signals_init(rql) ||
+        rql_back_listen(rql->back) ||
+        rql_front_listen(rql->front))
+    {
+        rql_term(SIGTERM);
+    }
 
     uv_run(&rql->loop, UV_RUN_DEFAULT);
 

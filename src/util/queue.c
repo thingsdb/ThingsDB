@@ -97,6 +97,20 @@ void * queue_remove(queue_t * queue, size_t idx)
     return data;
 }
 
+/*
+ * Removes and returns the first value in the queue. If the value is not
+ * fount than NULL is returned.
+ */
+void * queue_remval(queue_t * queue, void * data)
+{
+    size_t i = 0;
+    for (queue_each(queue, void, d), i++)
+    {
+        if (d == data) return queue_remove(queue, i);
+    }
+    return NULL;
+}
+
 void * queue_replace(queue_t * queue, size_t idx, void * data)
 {
     size_t i = queue__i(queue, idx);

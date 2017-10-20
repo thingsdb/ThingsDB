@@ -18,6 +18,7 @@ rql_node_t * rql_node_create(uint8_t id, char * addr, uint16_t port)
     node->port =port;
     node->sock = NULL;
     node->addr = strdup(addr);
+    node->status = RQL_NODE_STAT_OFFLINE;
 
     if (!node->addr)
     {

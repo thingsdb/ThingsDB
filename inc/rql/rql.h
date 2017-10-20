@@ -30,7 +30,7 @@ typedef struct rql_s rql_t;
 #include <util/vec.h>
 
 #define rql_term(signum__) {\
-    log_critical("critical error at: %s:%d (%s); raising %s", \
+    log_critical("critical error at: %s:%d,%s (%s)", \
     __FILE__, __LINE__, __func__, strsignal(signum__)); \
     raise(signum__);}
 

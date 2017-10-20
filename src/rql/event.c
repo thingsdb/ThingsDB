@@ -22,6 +22,7 @@
 const int rql_event_reg_timeout = 10;
 
 static int rql__event_to_queue(rql_event_t * event);
+static int rql__event_reg(rql_event_t * event);
 static void rql__event_on_reg_cb(rql_prom_t * prom);
 inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
 static void rql__event_unpack(
@@ -41,6 +42,7 @@ rql_event_t * rql_event_create(rql_events_t * events)
     event->refelems = NULL;
     event->tasks = vec_new(1);
     event->result = qpx_packer_create(16);
+    event->status = RQL_EVENT_STAT_UNINITIALIZED;
 
     if (!event->tasks)
     {
@@ -54,6 +56,10 @@ rql_event_t * rql_event_create(rql_events_t * events)
 void rql_event_destroy(rql_event_t * event)
 {
     if (!event) return;
+    if (event->status != RQL_EVENT_STAT_DONE)
+    {
+        queue_remval(event);  /* the event might be in the queue */
+    }
     rql_db_drop(event->target);
     rql_node_drop(event->node);
     rql_sock_drop(event->client);
@@ -65,29 +71,43 @@ void rql_event_destroy(rql_event_t * event)
 
 void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
 {
+    rql_event_t * event = rql_event_create(sock->rql->events);
+    if (!event)
+    {
+        ex_set_alloc(e);
+        goto failed;
+    }
+
     if (!rql_nodes_has_quorum(sock->rql))
     {
         ex_set(e, RQL_PROTO_NODE_ERR,
                 "node '%s' does not have the required quorum",
                 sock->rql->node->addr);
-        return;
+        goto failed;
     }
-    rql_event_t * event = rql_event_create(sock->rql->events);
-    if (!event)
-    {
-        ex_set_alloc(e);
-        return;
-    }
+
     rql_event_init(event);
+
     rql_event_raw(event, pkg->data, pkg->n, e);
-    if (e.errnr) return;
+    if (e->errnr) goto failed;
 
     if (rql__event_to_queue(event))
     {
         ex_set_alloc(e);
-        return;
+        goto failed;
     }
 
+    if (rql__event_reg(event))
+    {
+        ex_set_alloc(e);
+        rql_term(SIGTERM);
+        goto failed;
+    }
+    return;  /* success */
+
+failed:
+    assert (e->errnr);
+    rql_event_destroy(event);
 }
 
 void rql_event_init(rql_event_t * event)
@@ -214,7 +234,28 @@ int rql_event_done(rql_event_t * event)
 {
     if (vec_push(&event->events->done, event->raw)) return -1;
     event->raw = NULL;
+    event->status = RQL_EVENT_STAT_DONE;
     return 0;
+}
+
+static int rql__event_to_queue(rql_event_t * event)
+{
+    rql_events_t * events = event->events;
+    if (event->id >= events->next_id)
+    {
+        if (queue_push(&events->queue, event)) return -1;
+
+        events->next_id = event->id + 1;
+        return 0;
+    }
+
+    size_t i = 0;
+    for (queue_each(events->queue, rql_event_t, ev), i++)
+    {
+        if (ev->id >= event->id) break;
+    }
+
+    return queue_insert(&events->queue, i, event);
 }
 
 static int rql__event_reg(rql_event_t * event)
@@ -237,7 +278,7 @@ static int rql__event_reg(rql_event_t * event)
     for (vec_each(rql->nodes, rql_node_t, node))
     {
         if (node == rql->node) continue;
-        if (node->status != RQL_NODE_STAT_READY || rql_req(
+        if (node->status <= RQL_NODE_STAT_CONNECTED || rql_req(
                 node,
                 pkg,
                 rql_event_reg_timeout,
@@ -257,26 +298,6 @@ failed:
     free(prom);
     qpx_packer_destroy(xpkg);
     return -1;
-}
-
-static int rql__event_to_queue(rql_event_t * event)
-{
-    rql_events_t * events = event->events;
-    if (event->id >= events->next_id)
-    {
-        if (queue_push(&events->queue, event)) return -1;
-
-        events->next_id = event->id + 1;
-        return 0;
-    }
-
-    size_t i = 0;
-    for (queue_each(events->queue, rql_event_t, ev), i++)
-    {
-        if (ev->id >= event->id) break;
-    }
-
-    return queue_insert(&events->queue, i, event);
 }
 
 static void rql__event_on_reg_cb(rql_prom_t * prom)

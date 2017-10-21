@@ -46,6 +46,7 @@ rql_t * rql_create(void)
     rql->users = vec_new(0);
     rql->events = rql_events_create(rql);
     rql->access = vec_new(0);
+    rql->maint = rql_maint_new(rql);
 
     if (!rql->args ||
         !rql->cfg ||
@@ -55,7 +56,8 @@ rql_t * rql_create(void)
         !rql->nodes ||
         !rql->users ||
         !rql->events ||
-        !rql->access)
+        !rql->access ||
+        !rql->maint)
     {
         rql_destroy(rql);
         return NULL;
@@ -71,6 +73,7 @@ void rql_destroy(rql_t * rql)
     free(rql->fn);
     free(rql->args);
     free(rql->cfg);
+    free(rql->maint);
     rql_back_destroy(rql->back);
     rql_front_destroy(rql->front);
     rql_events_destroy(rql->events);
@@ -190,13 +193,14 @@ int rql_run(rql_t * rql)
 
     if (rql_events_init(rql->events) ||
         rql_signals_init(rql) ||
+        rql_maint_start(rql->maint) ||
         rql_back_listen(rql->back) ||
         rql_front_listen(rql->front))
     {
         rql_term(SIGTERM);
     }
 
-    rql->node = RQL_NODE_STAT_READY;
+    rql->node->status = RQL_NODE_STAT_READY;
 
     uv_run(&rql->loop, UV_RUN_DEFAULT);
 

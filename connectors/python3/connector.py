@@ -183,7 +183,7 @@ class _RqlProtocol(asyncio.Protocol):
 async def test():
     rql = Rql()
     await rql.connect('localhost')
-    res = await rql.authenticate('iriss', 'siri')
+    res = await rql.authenticate('iris', 'siri')
     print(res)
     res = await rql.trigger({
         '_': [{

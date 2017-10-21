@@ -48,6 +48,11 @@ static void rql__signals_handler(uv_signal_t * sig, int signum)
         return;
     }
 
+    if (~sig->flags & RQL_FLAG_SIGNAL)
+    {
+        rql_maint_stop(rql->maint);
+    }
+
     sig->flags |= RQL_FLAG_SIGNAL;
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)

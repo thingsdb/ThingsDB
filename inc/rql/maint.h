@@ -9,7 +9,8 @@
 
 #define RQL_MAINT_STAT_READY 0
 #define RQL_MAINT_STAT_REG 1
-#define RQL_MAINT_STAT_BUSY 2
+#define RQL_MAINT_STAT_WAIT 2
+#define RQL_MAINT_STAT_BUSY 3
 
 typedef struct rql_maint_s  rql_maint_t;
 
@@ -17,8 +18,7 @@ typedef struct rql_maint_s  rql_maint_t;
 #include <inttypes.h>
 #include <rql/rql.h>
 
-rql_maint_t * rql_maint_create(rql_t * rql);
-void rql_maint_destroy(rql_maint_t * maint);
+rql_maint_t * rql_maint_new(rql_t * rql);
 int rql_maint_start(rql_maint_t * maint);
 void rql_maint_stop(rql_maint_t * maint);
 

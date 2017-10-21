@@ -199,7 +199,7 @@ static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
         goto failed;
     }
 
-    if (!sock->rql->node->status == RQL_NODE_STAT_READY)
+    if (sock->rql->node->status != RQL_NODE_STAT_READY)
     {
         ex_set(e, RQL_PROTO_NODE_ERR,
                 "node '%s' is not ready to handle events",

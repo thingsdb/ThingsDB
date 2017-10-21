@@ -11,12 +11,12 @@ typedef struct rql_archive_s  rql_archive_t;
 
 #include <inttypes.h>
 #include <rql/event.h>
-#include <util/vec.h>
+#include <util/queue.h>
 
 struct rql_archive_s
 {
     uint64_t offset;
-    vec_t * rawev;      /* rql_raw_t */
+    queue_t * rawev;      /* rql_raw_t */
 };
 
 rql_archive_t * rql_archive_create(void);

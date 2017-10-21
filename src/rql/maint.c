@@ -4,38 +4,41 @@
  *  Created on: Oct 5, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <stdlib.h>
 #include <rql/maint.h>
+#include <rql/event.h>
+#include <rql/store.h>
+#include <rql/proto.h>
+#include <rql/nodes.h>
+#include <util/queue.h>
+#include <util/qpx.h>
 
-const int rql__maint_repeat = 3;
+const int rql__maint_repeat = 3000;
 const int rql__maint_reg_timeout = 10;
 
 static void rql__maint_timer_cb(uv_timer_t * timer);
 static int rql__maint_reg(rql_maint_t * maint);
 static void rql__maint_on_reg_cb(rql_prom_t * prom);
+static void rql__maint_wait(rql_maint_t * maint);
+static void rql__maint_work(uv_work_t * work);
+static void rql__maint_work_finish(uv_work_t * work, int status);
 inline static int rql__maint_cmp(uint8_t a, uint8_t b, uint8_t n, uint64_t i);
 
 
-rql_maint_t * rql_maint_create(rql_t * rql)
+rql_maint_t * rql_maint_new(rql_t * rql)
 {
     rql_maint_t * maint = (rql_maint_t *) malloc(sizeof(rql_maint_t));
     if (!maint) return NULL;
     maint->rql = rql;
     maint->timer.data = maint;
     maint->work.data = maint;
-    maint->status = RQL_MAINT_STAT_READY;
-    maint->last_commit = 0;
     return maint;
-}
-
-
-void rql_maint_destroy(rql_maint_t * maint)
-{
-    /* TODO: stop timer and or work ? */
-    free(maint);
 }
 
 int rql_maint_start(rql_maint_t * maint)
 {
+    maint->status = RQL_MAINT_STAT_READY;
+    maint->last_commit = maint->rql->events->commit_id;
     return (uv_timer_init(&maint->rql->loop, &maint->timer) ||
             uv_timer_start(
                 &maint->timer,
@@ -47,10 +50,8 @@ int rql_maint_start(rql_maint_t * maint)
 void rql_maint_stop(rql_maint_t * maint)
 {
     uv_timer_stop(&maint->timer);
-    uv_close((uv_handle_t *) &maint->timer);
+    uv_close((uv_handle_t *) &maint->timer, NULL);
 }
-
-
 
 static void rql__maint_timer_cb(uv_timer_t * timer)
 {
@@ -58,9 +59,15 @@ static void rql__maint_timer_cb(uv_timer_t * timer)
     rql_t * rql = maint->rql;
     uint64_t commit_id = rql->events->commit_id;
 
+    if (maint->status == RQL_MAINT_STAT_WAIT)
+    {
+        rql__maint_wait(maint);
+        return;
+    }
+
     if (maint->status != RQL_MAINT_STAT_READY ||
         maint->last_commit == commit_id ||
-        rql_nodes_has_quorum(rql->nodes)) return;
+        !rql_nodes_has_quorum(rql->nodes)) return;
 
     for (vec_each(rql->nodes, rql_node_t, node))
     {
@@ -81,7 +88,11 @@ static void rql__maint_timer_cb(uv_timer_t * timer)
             return;
         }
 
-        if (rql__maint_cmp(node->id, rql->node->id) > 0)
+        if (rql__maint_cmp(
+                node->id,
+                rql->node->id,
+                rql->nodes->n,
+                commit_id) > 0)
         {
             log_debug("node '%s' wins on the maintenance counter", node->addr);
             rql->node->maintn++;
@@ -158,8 +169,52 @@ static void rql__maint_on_reg_cb(rql_prom_t * prom)
     if (accept)
     {
         maint->rql->node->status = RQL_NODE_STAT_MAINT;
-        maint->status = RQL_MAINT_STAT_BUSY;
-        /* TODO: start work thread */
+        maint->status = RQL_MAINT_STAT_WAIT;
+        rql__maint_wait(maint);
+    }
+}
+
+static void rql__maint_wait(rql_maint_t * maint)
+{
+    if (maint->rql->events->queue->n)
+    {
+        log_debug("wait until the event queue is empty (%zd)",
+                maint->rql->events->queue->n);
+        return;
+    }
+    maint->status = RQL_MAINT_STAT_BUSY;
+    uv_queue_work(
+            &maint->rql->loop,
+            &maint->work,
+            rql__maint_work,
+            rql__maint_work_finish);
+}
+
+static void rql__maint_work(uv_work_t * work)
+{
+    rql_maint_t * maint = (rql_maint_t *) work->data;
+
+    uv_mutex_lock(&maint->rql->events->lock);
+
+    log_debug("maintenance job: start storing data");
+
+    rql_store(maint->rql);
+
+    maint->last_commit = maint->rql->events->commit_id;
+
+    log_debug("maintenance job: finished storing data");
+
+    uv_mutex_unlock(&maint->rql->events->lock);
+}
+
+static void rql__maint_work_finish(uv_work_t * work, int status)
+{
+    rql_maint_t * maint = (rql_maint_t *) work->data;
+    maint->rql->node->status = RQL_NODE_STAT_READY;
+    maint->status = RQL_MAINT_STAT_READY;
+    if (status)
+    {
+        log_error(uv_strerror(status));
     }
 }
 

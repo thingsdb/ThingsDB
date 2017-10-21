@@ -28,6 +28,7 @@ typedef struct rql_s rql_t;
 #include <rql/events.h>
 #include <util/logger.h>
 #include <util/vec.h>
+#include <rql/maint.h>
 
 #define rql_term(signum__) {\
     log_critical("raise at: %s:%d,%s (%s)", \
@@ -54,6 +55,7 @@ struct rql_s
     rql_back_t * back;
     rql_front_t * front;
     rql_events_t * events;
+    rql_maint_t * maint;
     vec_t * dbs;
     vec_t * nodes;
     vec_t * users;

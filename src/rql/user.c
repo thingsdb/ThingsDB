@@ -55,18 +55,24 @@ void rql_user_drop(rql_user_t * user)
 
 int rql_user_name_check(const char * name, ex_t * e)
 {
-    if (strlen(name) < rql_min_name)
+    size_t n = strlen(name);
+    if (n < rql_min_name)
     {
         ex_set(e, -1, "user name should be at least %u characters",
                 rql_min_name);
         return -1;
     }
 
-
-    if (strlen(name) >= rql_max_name)
+    if (n >= rql_max_name)
     {
         ex_set(e, -1, "user name should be less than %u characters",
                 rql_max_name);
+        return -1;
+    }
+
+    if (!strx_is_graph(name))
+    {
+        ex_set(e, -1, "user name should consist only of graphical characters");
         return -1;
     }
     return 0;

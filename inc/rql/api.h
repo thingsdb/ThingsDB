@@ -7,11 +7,13 @@
 #ifndef RQL_API_H_
 #define RQL_API_H_
 
+#define RQL_API_PREFIX "_"
 #define RQL_API_TASK "_t"
 #define RQL_API_USER "_u"
 #define RQL_API_PASS "_p"
 #define RQL_API_STAT "_s"
 #define RQL_API_PERM "_p"
+#define RQL_API_NAME "_n"
 
 #endif /* RQL_API_H_ */
 

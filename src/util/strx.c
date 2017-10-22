@@ -147,7 +147,7 @@ void strx_trim(char ** str, char chr)
 /*
  * returns true or false
  */
-bool strx_is_empty(const char * str)
+_Bool strx_is_empty(const char * str)
 {
     const char * test = str;
     for (; *test; test++)
@@ -160,7 +160,7 @@ bool strx_is_empty(const char * str)
     return true;
 }
 
-bool strx_is_int(const char * str)
+_Bool strx_is_int(const char * str)
 {
    // Handle negative numbers.
    if (*str == '-')
@@ -190,7 +190,7 @@ bool strx_is_int(const char * str)
    return true;
 }
 
-bool strx_is_float(const char * str)
+_Bool strx_is_float(const char * str)
 {
    // Handle negative numbers.
    if (*str == '-' || *str == '+')
@@ -224,16 +224,13 @@ bool strx_is_float(const char * str)
    return dots == 1;
 }
 
-bool strx_is_graph(const char * str)
+_Bool strx_is_graph(const char * str)
 {
     for (; *str; str++)
     {
-        if (!isgraph(*str))
-        {
-            return false;
-        }
+        if (!isgraph(*str)) return 0;
     }
-    return true;
+    return 1;
 }
 
 /*

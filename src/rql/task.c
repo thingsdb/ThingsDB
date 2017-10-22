@@ -12,8 +12,13 @@
 #include <rql/proto.h>
 #include <rql/access.h>
 #include <rql/users.h>
+#include <rql/dbs.h>
+#include <rql/auth.h>
 
 static rql_task_stat_e rql__task_user_create(
+        qp_map_t * task,
+        rql_event_t * event);
+static rql_task_stat_e rql__task_db_create(
         qp_map_t * task,
         rql_event_t * event);
 static rql_task_stat_e rql__task_grant(
@@ -83,13 +88,17 @@ rql_task_stat_e rql_task_run(
         rc = RQL_TASK_SKIPPED;
         goto finish;
     }
+    qp_map_t * map = task->res->via.map;
     switch (task->tp)
     {
     case RQL_TASK_USER_CREATE:
-        rc = rql__task_user_create(task->res->via.map, event);
+        rc = rql__task_user_create(map, event);
+        break;
+    case RQL_TASK_DB_CREATE:
+        rc = rql__task_db_create(map, event);
         break;
     case RQL_TASK_GRANT:
-        rc = rql__task_grant(task->res->via.map, event);
+        rc = rql__task_grant(map, event);
         break;
     default:
         assert (0);
@@ -161,6 +170,60 @@ static rql_task_stat_e rql__task_user_create(
     return RQL_TASK_SUCCESS;
 }
 
+static rql_task_stat_e rql__task_db_create(
+        qp_map_t * task,
+        rql_event_t * event)
+{
+    ex_ptr(e);
+    qp_res_t * quser, * qname;
+    rql_user_t * user;
+    rql_db_t * db;
+    quser = qpx_map_get(task, RQL_API_USER);
+    qname = qpx_map_get(task, RQL_API_NAME);
+    if (!quser || quser->tp != QP_RES_STR ||
+        !qname || qname->tp != QP_RES_STR)
+    {
+        return rql__task_fail(event,
+                "missing or invalid user ("RQL_API_USER") "
+                "or database name ("RQL_API_NAME")");
+    }
+
+    if (rql_db_name_check(qname->via.str, e))
+    {
+        return rql__task_failn(event, e->errmsg, e->n);
+    }
+
+    if (rql_dbs_get_by_name(event->events->rql->dbs, qname->via.str))
+    {
+        return rql__task_fail(event, "database already exists");
+    }
+
+    user = rql_users_get_by_name(event->events->rql->users, quser->via.str);
+    if (!user) return rql__task_fail(event, "user not found");
+
+    guid_t guid;
+    guid_init(&guid, rql_events_get_obj_id(event->events));
+
+    db = rql_db_create(&guid, qname->via.str);
+    if (!db || vec_push(&event->events->rql->dbs, db))
+    {
+        log_critical(EX_ALLOC);
+        rql_db_drop(db);
+        return RQL_TASK_ERR;
+    }
+
+    if (rql_access_grant(db->access, user, RQL_AUTH_MASK_FULL))
+    {
+        log_critical(EX_ALLOC);
+        return RQL_TASK_ERR;
+    }
+
+    return RQL_TASK_SUCCESS;
+}
+
+/*
+ * Grant permissions to either a database or rql.
+ */
 static rql_task_stat_e rql__task_grant(
         qp_map_t * task,
         rql_event_t * event)

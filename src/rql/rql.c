@@ -17,8 +17,9 @@
 #include <rql/misc.h>
 #include <rql/event.h>
 #include <rql/store.h>
+#include <rql/api.h>
 
-const char * rql_name = "_";
+const char * rql_name = RQL_API_PREFIX;
 const uint8_t rql_def_redundancy = 3;
 const char * rql_fn = "rql.qp";
 const int rql_fn_schema = 0;

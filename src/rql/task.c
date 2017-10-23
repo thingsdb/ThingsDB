@@ -29,6 +29,9 @@ static rql_task_stat_e rql__task_failn(
         rql_event_t * event,
         const char * msg,
         size_t n);
+static rql_task_stat_e rql__task_faile(
+        rql_event_t * event,
+        ex_t * e);
 
 rql_task_t * rql_task_create(qp_res_t * res, ex_t * e)
 {
@@ -130,7 +133,8 @@ static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
         rql_event_t * event)
 {
-    ex_ptr(e);
+    ex_t e = NULL;
+    rql_t * rql = event->events->rql;
     qp_res_t * user, * pass;
     rql_user_t * usr;
     user = qpx_map_get(task, RQL_API_USER);
@@ -143,24 +147,24 @@ static rql_task_stat_e rql__task_user_create(
                 "or password ("RQL_API_PASS")");
     }
 
-    if (rql_user_name_check(user->via.str, e) ||
-        rql_user_pass_check(pass->via.str, e))
+    if (rql_user_name_check(user->via.str, &e) ||
+        rql_user_pass_check(pass->via.str, &e))
     {
-        return rql__task_failn(event, e->errmsg, e->n);
+        return rql__task_faile(event, &e);
     }
 
-    if (rql_users_get_by_name(event->events->rql->users, user->via.str))
+    if (rql_users_get_by_name(rql->users, user->via.str))
     {
         return rql__task_fail(event, "user already exists");
     }
 
     usr = rql_user_create(
-            rql_events_get_obj_id(event->events),
+            rql_get_id(rql),
             user->via.str,
             pass->via.str);
     if (!usr ||
         rql_user_set_pass(usr, usr->pass) ||
-        vec_push(&event->events->rql->users, usr))
+        vec_push(&rql->users, usr))
     {
         log_critical(EX_ALLOC);
         rql_user_drop(usr);
@@ -174,7 +178,8 @@ static rql_task_stat_e rql__task_db_create(
         qp_map_t * task,
         rql_event_t * event)
 {
-    ex_ptr(e);
+    ex_t e = NULL;
+    rql_t * rql = event->events->rql;
     qp_res_t * quser, * qname;
     rql_user_t * user;
     rql_db_t * db;
@@ -188,31 +193,32 @@ static rql_task_stat_e rql__task_db_create(
                 "or database name ("RQL_API_NAME")");
     }
 
-    if (rql_db_name_check(qname->via.str, e))
+    if (rql_db_name_check(qname->via.str, &e))
     {
-        return rql__task_failn(event, e->errmsg, e->n);
+
+        return rql__task_fail(event, e->errmsg);
     }
 
-    if (rql_dbs_get_by_name(event->events->rql->dbs, qname->via.str))
+    if (rql_dbs_get_by_name(rql->dbs, qname->via.str))
     {
         return rql__task_fail(event, "database already exists");
     }
 
-    user = rql_users_get_by_name(event->events->rql->users, quser->via.str);
+    user = rql_users_get_by_name(rql->users, quser->via.str);
     if (!user) return rql__task_fail(event, "user not found");
 
     guid_t guid;
-    guid_init(&guid, rql_events_get_obj_id(event->events));
+    guid_init(&guid, rql_get_id(rql));
 
-    db = rql_db_create(&guid, qname->via.str);
-    if (!db || vec_push(&event->events->rql->dbs, db))
+    db = rql_db_create(rql, &guid, qname->via.str);
+    if (!db || vec_push(&rql->dbs, db))
     {
         log_critical(EX_ALLOC);
         rql_db_drop(db);
         return RQL_TASK_ERR;
     }
 
-    if (rql_access_grant(db->access, user, RQL_AUTH_MASK_FULL))
+    if (rql_access_grant(&db->access, user, RQL_AUTH_MASK_FULL))
     {
         log_critical(EX_ALLOC);
         return RQL_TASK_ERR;
@@ -275,3 +281,21 @@ static rql_task_stat_e rql__task_failn(
     }
     return RQL_TASK_FAILED;
 }
+
+static rql_task_stat_e rql__task_faile(
+        rql_event_t * event,
+        ex_t * e)
+{
+    if (event->client)
+    {
+        if (qp_add_raw(event->result, "error_msg", 9) ||
+            qp_add_raw(event->result, (*e)->errmsg, strlen((*e)->errmsg)))
+        {
+            ex_destroy(e);
+            return RQL_TASK_ERR;
+        }
+    }
+    ex_destroy(e);
+    return RQL_TASK_FAILED;
+}
+

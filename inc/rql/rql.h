@@ -10,7 +10,6 @@
 #define RQL_MAX_NODES 64
 
 #define RQL_FLAG_SIGNAL 1
-#define RQL_FLAG_SAVING 2
 
 extern const char * rql_name;
 
@@ -26,9 +25,10 @@ typedef struct rql_s rql_t;
 #include <rql/back.h>
 #include <rql/front.h>
 #include <rql/events.h>
+#include <rql/maint.h>
+#include <rql/lookup.h>
 #include <util/logger.h>
 #include <util/vec.h>
-#include <rql/maint.h>
 
 #define rql_term(signum__) {\
     log_critical("raise at: %s:%d,%s (%s)", \
@@ -45,6 +45,10 @@ int rql_run(rql_t * rql);
 int rql_save(rql_t * rql);
 int rql_lock(rql_t * rql);
 int rql_unlock(rql_t * rql);
+int rql__store(rql_t * rql, const char * fn);
+int rql__restore(rql_t * rql, const char * fn);
+static inline uint64_t rql_get_id(rql_t * rql);
+_Bool rql_has_id(rql_t * rql, uint64_t id);
 
 struct rql_s
 {
@@ -56,13 +60,27 @@ struct rql_s
     rql_front_t * front;
     rql_events_t * events;
     rql_maint_t * maint;
+    rql_lookup_t * lookup;
     vec_t * dbs;
     vec_t * nodes;
     vec_t * users;
     vec_t * access;
+    uint64_t next_id_;   /* used for assigning id's to objects */
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
     uv_loop_t loop;
 };
+
+
+static inline uint64_t rql_get_id(rql_t * rql)
+{
+    return rql->next_id_++;
+}
+
+//static inline _Bool rql_has_id(rql_t * rql, uint64_t id)
+//{
+////    return rql_lookup_node_has_id(rql->lookup, rql->node, id);
+//    return rql->lookup->mask_[id % rql->lookup->n_] & (1 << rql->node->id);
+//}
 
 #endif /* RQL_H_ */

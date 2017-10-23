@@ -22,7 +22,9 @@
 const char * rql_name = RQL_API_PREFIX;
 const uint8_t rql_def_redundancy = 3;
 const char * rql_fn = "rql.qp";
-const int rql_fn_schema = 0;
+const int rql__fn_schema = 0;
+const int rql__fn_store_schema = 0;
+
 
 static qp_packer_t * rql__pack(rql_t * rql);
 static int rql__unpack(rql_t * rql, qp_res_t * res);
@@ -118,9 +120,15 @@ int rql_init_fn(rql_t * rql)
     return (rql->fn) ? 0 : -1;
 }
 
+_Bool rql_has_id(rql_t * rql, uint64_t id)
+{
+//    return rql_lookup_node_has_id(rql->lookup, rql->node, id);
+    return rql->lookup->mask_[id % rql->lookup->n_] & (1 << rql->node->id);
+}
+
 int rql_build(rql_t * rql)
 {
-    ex_ptr(e);
+    ex_t e = NULL;
     int rc = -1;
     rql_event_t * event = NULL;
     qp_packer_t * packer = rql_misc_pack_init_event_request();
@@ -128,7 +136,7 @@ int rql_build(rql_t * rql)
 
     rql->events->commit_id = 0;
     rql->events->next_id = 0;
-    rql->events->obj_id = 0;
+    rql->next_id_ = 0;
 
     rql->node = rql_node_create(0, rql->cfg->addr, rql->cfg->port);
     if (!rql->node || vec_push(&rql->nodes, rql->node)) goto stop;
@@ -140,10 +148,10 @@ int rql_build(rql_t * rql)
 
     if (rql_save(rql)) goto stop;
 
-    rql_event_raw(event, packer->buffer, packer->len, e);
-    if (e->errnr)
+    rql_event_raw(event, packer->buffer, packer->len, &e);
+    if (e)
     {
-        log_critical(ex_log(e));
+        log_critical(e->errmsg);
         goto stop;
     }
 
@@ -152,7 +160,7 @@ int rql_build(rql_t * rql)
     rc = 0;
 
 stop:
-
+    ex_destroy(&e);
     if (rc)
     {
         fx_rmdir(rql->cfg->rql_path);
@@ -261,7 +269,69 @@ int rql_unlock(rql_t * rql)
     return 0;
 }
 
+int rql__store(rql_t * rql, const char * fn)
+{
+    int rc = -1;
+    qp_packer_t * packer = qp_packer_create(64);
+    if (!packer) return -1;
 
+    if (qp_add_map(&packer) ||
+        qp_add_raw(packer, "schema", 6) ||
+        qp_add_int64(packer, rql__fn_store_schema) ||
+        qp_add_raw(packer, "commit_id", 9) ||
+        qp_add_int64(packer, (int64_t) rql->events->commit_id) ||
+        qp_add_raw(packer, "next_id", 7) ||
+        qp_add_int64(packer, (int64_t) rql->next_id_) ||
+        qp_close_map(packer)) goto stop;
+
+    rc = fx_write(fn, packer->buffer, packer->len);
+
+stop:
+    if (rc) log_error("failed to write file: '%s'", fn);
+    qp_packer_destroy(packer);
+    return rc;
+}
+
+int rql__restore(rql_t * rql, const char * fn)
+{
+    int rcode, rc = -1;
+    ssize_t n;
+    unsigned char * data = fx_read(fn, &n);
+    if (!data) return -1;
+
+    qp_unpacker_t unpacker;
+    qp_unpacker_init(&unpacker, data, (size_t) n);
+    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
+    free(data);
+
+    if (rcode)
+    {
+        log_critical(qp_strerror(rcode));
+        return -1;
+    }
+
+    qp_res_t * schema, * commit_id, * next_id;
+
+    if (res->tp != QP_RES_MAP ||
+        !(schema = qpx_map_get(res->via.map, "schema")) ||
+        !(commit_id = qpx_map_get(res->via.map, "commit_id")) ||
+        !(next_id = qpx_map_get(res->via.map, "next_id")) ||
+        schema->tp != QP_RES_INT64 ||
+        schema->via.int64 != rql__fn_store_schema ||
+        commit_id->tp != QP_RES_INT64 ||
+        next_id->tp != QP_RES_INT64) goto stop;
+
+    rql->events->commit_id = (uint64_t) commit_id->via.int64;
+    rql->events->next_id = rql->events->commit_id;
+    rql->next_id_ = (uint64_t) next_id->via.int64;
+
+    rc = 0;
+
+stop:
+    if (rc) log_critical("failed to restore from file: '%s'", fn);
+    qp_res_destroy(res);
+    return rc;
+}
 
 static int rql__unpack(rql_t * rql, qp_res_t * res)
 {
@@ -273,7 +343,7 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
         !(node = qpx_map_get(res->via.map, "node")) ||
         !(nodes = qpx_map_get(res->via.map, "nodes")) ||
         schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != rql_fn_schema ||
+        schema->via.int64 != rql__fn_schema ||
         redundancy->tp != QP_RES_INT64 ||
         node->tp != QP_RES_INT64 ||
         nodes->tp != QP_RES_ARRAY ||
@@ -328,7 +398,7 @@ static qp_packer_t * rql__pack(rql_t * rql)
 
     /* schema */
     if (qp_add_raw(packer, "schema", 6) ||
-        qp_add_int64(packer, rql_fn_schema)) goto failed;
+        qp_add_int64(packer, rql__fn_schema)) goto failed;
 
     /* redundancy */
     if (qp_add_raw(packer, "redundancy", 10) ||

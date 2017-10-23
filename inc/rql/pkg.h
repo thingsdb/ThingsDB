@@ -19,7 +19,7 @@ rql_pkg_t * rql_pkg_new(
         uint8_t tp,
         const unsigned char * data,
         uint32_t n);
-rql_pkg_t * rql_pkg_e(ex_t * e, uint16_t id);
+rql_pkg_t * rql_pkg_err(uint16_t id, uint8_t tp, const char * errmsg);
 
 struct rql_pkg_s
 {

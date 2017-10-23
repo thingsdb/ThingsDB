@@ -10,6 +10,8 @@
 typedef struct rql_db_s  rql_db_t;
 
 #include <inttypes.h>
+#include <rql/rql.h>
+#include <rql/elem.h>
 #include <util/imap.h>
 #include <util/smap.h>
 #include <util/guid.h>
@@ -20,12 +22,15 @@ struct rql_db_s
     uint64_t ref;
     guid_t guid;
     char * name;
+    rql_t * rql;
     imap_t * elems;
     smap_t * props;
     vec_t * access;
+    uint64_t next_id;
+    rql_elem_t * root;
 };
 
-rql_db_t * rql_db_create(guid_t * guid, const char * name);
+rql_db_t * rql_db_create(rql_t * rql, guid_t * guid, const char * name);
 rql_db_t * rql_db_grab(rql_db_t * db);
 void rql_db_drop(rql_db_t * db);
 int rql_db_name_check(const char * name, ex_t * e);

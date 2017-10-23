@@ -7,8 +7,6 @@
 #ifndef EX_H_
 #define EX_H_
 
-#define EX_DEF_SZ 128
-
 #define EX_ALLOC \
     "allocation error in '%s' at %s:%d", __func__, __FILE__, __LINE__
 
@@ -20,31 +18,16 @@ typedef enum
     EX_MEMORY_ALLOCATION
 } ex_e;
 
-typedef struct ex_s ex_t;
+typedef struct ex_s * ex_t;
 
 struct ex_s
 {
     int errnr;
-    size_t sz;
-    size_t n;
     char errmsg[];
 };
 
-struct ex__s
-{
-    int errnr;
-    size_t sz;
-    size_t n;
-    char errmsg[EX_DEF_SZ];
-} ex__t;
-
-#define ex_ptr(e__) \
-    struct ex__s extmp__ = {errnr:0, sz:EX_DEF_SZ, errmsg:""}; \
-    ex_t * e__ = (ex_t *) &extmp__
-
-ex_t * ex_new(size_t sz);
 int ex_set(ex_t * e, int errnr, const char * errmsg, ...);
-
-#define ex_log(e__) "%.*s", (e__)->n, (e__)->errmsg
+void ex_destroy(ex_t * e);
 #define ex_set_alloc(e__) ex_set((e__), RQL_PROTO_RUNT_ERR, EX_ALLOC)
+
 #endif /* EX_H_ */

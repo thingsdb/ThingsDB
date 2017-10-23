@@ -7,7 +7,6 @@
 #ifndef RQL_VAL_H_
 #define RQL_VAL_H_
 
-typedef union rql_val_u rql_val_via_t;
 typedef enum
 {
     RQL_VAL_ELEM,
@@ -15,13 +14,19 @@ typedef enum
     RQL_VAL_FLOAT,
     RQL_VAL_BOOL,
     RQL_VAL_STR,
-    RQL_VAL_RAW
+    RQL_VAL_RAW,
+    RQL_VAL_ARR,
 } rql_val_e;
+typedef struct rql_val_s rql_val_t;
+typedef union rql_val_u rql_val_via_t;
 
 #include <inttypes.h>
-#include <util/vec.h>
 #include <rql/raw.h>
 #include <rql/elem.h>
+#include <util/vec.h>
+
+void rql_val_init(rql_val_t * val, rql_val_e tp, void * v);
+void rql_val_clear(rql_val_t * val);
 
 union rql_val_u
 {
@@ -34,7 +39,12 @@ union rql_val_u
     vec_t * arr_;  /* not specified by type */
 };
 
-rql_val_via_t * rql_val_create(rql_val_e tp, void * data);
-void rql_val_destroy(rql_val_e tp, rql_val_via_t * val);
+struct rql_val_s
+{
+    rql_val_e tp;
+    rql_val_via_t via;
+};
+
+
 
 #endif /* RQL_VAL_H_ */

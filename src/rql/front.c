@@ -166,13 +166,13 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     if (!qp_is_array(qp_next(&unpacker, NULL)) ||
         !qp_is_raw(qp_next(&unpacker, &name)) ||
         !qp_is_raw(qp_next(&unpacker, &pass))) return;
-    ex_ptr(e);
-    rql_user_t * user = rql_users_auth(sock->rql->users, &name, &pass, e);
-    if (e->errnr)
+    ex_t e = NULL;
+    rql_user_t * user = rql_users_auth(sock->rql->users, &name, &pass, &e);
+    if (e)
     {
         log_error("authentication failed: %s (source: %s)",
                 e->errmsg, rql_sock_addr(sock));
-        resp = rql_pkg_e(e, pkg->id);
+        resp = rql_pkg_err(pkg->id, e->errnr, e->errmsg);
     }
     else
     {
@@ -190,31 +190,31 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
 
 static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
 {
-    ex_ptr(e);
+    ex_t e = NULL;
     rql_pkg_t * resp;
 
     if (!sock->via.user)
     {
-        ex_set(e, RQL_PROTO_AUTH_ERR, "connection is not authenticated");
+        ex_set(&e, RQL_PROTO_AUTH_ERR, "connection is not authenticated");
         goto failed;
     }
 
     if (sock->rql->node->status != RQL_NODE_STAT_READY)
     {
-        ex_set(e, RQL_PROTO_NODE_ERR,
+        ex_set(&e, RQL_PROTO_NODE_ERR,
                 "node '%s' is not ready to handle events",
                 sock->rql->node->addr);
         goto failed;
     }
 
-    rql_event_new(sock, pkg, e);
-    if (e->errnr) goto failed;
+    rql_event_new(sock, pkg, &e);
+    if (e) goto failed;
 
     return;
 
 failed:
-    log_error(ex_log(e));
-    resp = rql_pkg_e(e, pkg->id);
+    log_error(e->errmsg);
+    resp = rql_pkg_err(pkg->id, e->errnr, e->errmsg);
     if (!resp || rql_front_write(sock, resp))
     {
         free(resp);

@@ -32,7 +32,7 @@ static int rql__event_ready(rql_event_t * event);
 static void rql__event_on_ready_cb(rql_prom_t * prom);
 static int rql__event_cancel(rql_event_t * event);
 static void rql__event_on_cancel_cb(rql_prom_t * prom);
-inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
+//inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b);
 static void rql__event_unpack(
         rql_event_t * event,
         qp_unpacker_t * unpacker,
@@ -106,7 +106,7 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     }
 
     rql_event_raw(event, pkg->data, pkg->n, e);
-    if (e->errnr) goto failed;
+    if (e) goto failed;
 
     if (rql__event_to_queue(event) || rql__event_reg(event))
     {
@@ -117,7 +117,7 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     return;  /* success */
 
 failed:
-    assert (e->errnr);
+    assert (e);
     rql_event_destroy(event);
 }
 
@@ -249,9 +249,10 @@ void rql_event_finish(rql_event_t * event)
     rql_pkg_t * pkg;
     if (event->status == RQL_EVENT_STAT_CACNCEL)
     {
-        ex_ptr(e);
-        ex_set(e, RQL_PROTO_NODE_ERR, "event is cancelled");
-        pkg = rql_pkg_e(e, event->pid);
+        ex_t e = NULL;
+        ex_set(&e, RQL_PROTO_NODE_ERR, "event is cancelled");
+        pkg = rql_pkg_err(event->pid, e->errnr, e->errmsg);
+        ex_destroy(&e);
         if (!pkg)
         {
             log_error(EX_ALLOC);
@@ -604,12 +605,12 @@ static void rql__event_on_cancel_cb(rql_prom_t * prom)
 /*
  * Compare two events with the same id.
  */
-inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b)
-{
-    assert (a->id == b->id && a->node->id != b->node->id);
-    return ((a->node->id + a->id) % a->events->rql->nodes->n) -
-           ((b->node->id + b->id) % b->events->rql->nodes->n);
-}
+//inline static int rql__event_cmp(rql_event_t * a, rql_event_t * b)
+//{
+//    assert (a->id == b->id && a->node->id != b->node->id);
+//    return ((a->node->id + a->id) % a->events->rql->nodes->n) -
+//           ((b->node->id + b->id) % b->events->rql->nodes->n);
+//}
 
 static void rql__event_unpack(
         rql_event_t * event,
@@ -623,6 +624,7 @@ static void rql__event_unpack(
                 "invalid event: expecting an array with tasks");
         return;
     }
+    unpacker->flags |= QP_UNPACK_FLAG_RAW;
 
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)
     {

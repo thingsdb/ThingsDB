@@ -15,7 +15,8 @@ typedef enum
     RQL_VAL_BOOL,
     RQL_VAL_STR,
     RQL_VAL_RAW,
-    RQL_VAL_ARR,
+    RQL_VAL_ELEMS,
+    RQL_VAL_PRIMITIVES,
     RQl_VAL_NIL,
 } rql_val_e;
 typedef struct rql_val_s rql_val_t;
@@ -41,7 +42,8 @@ union rql_val_u
     _Bool bool_;
     char * str_;
     rql_raw_t * raw_;
-    vec_t * arr_;
+    vec_t * elems_;
+    vec_t * primitives_;
     void * nil_;
 };
 

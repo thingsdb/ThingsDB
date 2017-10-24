@@ -64,8 +64,11 @@ void rql_val_weak_set(rql_val_t * val, rql_val_e tp, void * v)
     case RQL_VAL_RAW:
         val->via.raw_ = (rql_raw_t *) v;
         break;
-    case RQL_VAL_ARR:
-        val->via.arr_ = (vec_t *) v;
+    case RQL_VAL_ELEMS:
+        val->via.elems_ = (vec_t *) v;
+        break;
+    case RQL_VAL_PRIMITIVES:
+        val->via.primitives_ = (vec_t *) v;
         break;
     case RQl_VAL_NIL:
         val->via.nil_ = NULL;
@@ -112,9 +115,17 @@ int rql_val_set(rql_val_t * val, rql_val_e tp, void * v)
             return -1;
         }
         break;
-    case RQL_VAL_ARR:
-        val->via.arr_ = vec_dup((vec_t *) v);
-        if (!val->via.arr_)
+    case RQL_VAL_ELEMS:
+        val->via.elems_ = vec_dup((vec_t *) v);
+        if (!val->via.elems_)
+        {
+            val->tp = RQl_VAL_NIL;
+            return -1;
+        }
+        break;
+    case RQL_VAL_PRIMITIVES:
+        val->via.primitives_ = vec_dup((vec_t *) v);
+        if (!val->via.primitives_)
         {
             val->tp = RQl_VAL_NIL;
             return -1;
@@ -135,6 +146,8 @@ void rql_val_clear(rql_val_t * val)
     switch(val->tp)
     {
     case RQL_VAL_ELEM:
+        rql_elem_drop(val->via.elem_);
+        break;
     case RQL_VAL_INT:
     case RQL_VAL_FLOAT:
     case RQL_VAL_BOOL:
@@ -146,8 +159,11 @@ void rql_val_clear(rql_val_t * val)
     case RQL_VAL_RAW:
         free(val->via.raw_);
         break;
-    case RQL_VAL_ARR:
-        vec_destroy(val->via.arr_, (vec_destroy_cb) rql_val_destroy);
+    case RQL_VAL_ELEMS:
+        vec_destroy(val->via.elems_, (vec_destroy_cb) rql_elem_drop);
+        break;
+    case RQL_VAL_PRIMITIVES:
+        vec_destroy(val->via.primitives_, (vec_destroy_cb) rql_val_destroy);
         break;
     }
 }

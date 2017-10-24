@@ -9,8 +9,7 @@
 
 
 #include <inttypes.h>
-#include <rql/prop.h>
-#include <rql/val.h>
+#include <rql/elem.h>
 
 rql_elem_t * rql_elems_create(imap_t * elems, uint64_t id);
 

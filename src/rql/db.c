@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <rql/db.h>
 #include <rql/elem.h>
+#include <rql/elems.h>
 #include <rql/api.h>
 #include <rql/prop.h>
 #include <rql/props.h>
@@ -50,23 +51,25 @@ void rql_db_drop(rql_db_t * db)
     if (db && !--db->ref)
     {
         free(db->name);
-        imap_destroy(db->elems, NULL);
-        smap_destroy(db->props, NULL);
+        imap_destroy(db->elems, (imap_destroy_cb) rql_elem_drop);
+        smap_destroy(db->props, (smap_destroy_cb) rql_prop_drop);
         free(db);
     }
 }
 
 int rql_db_buid(rql_db_t * db)
 {
-    db->root = rql_elem_create(rql_get_id(db->rql));
-    if (!db->root) return -1;
+    rql_elem_t elem = rql_elems_create(rql_get_id(db->rql));
+    if (!elem) return -1;
 
-    if (rql_has_id(db->rql, db->root->id))
+    if (rql_has_id(db->rql, elem->id))
     {
         rql_prop_t * prop = rql_db_props_get(db->props, "name");
         if (!prop ||
-            rql_elem_set(db->root, prop, RQL_VAL_STR, db->name)) return -1;
+            rql_elem_set(elem, prop, RQL_VAL_STR, db->name)) return -1;
     }
+
+    db->root = rql_elem_grab(elem);
     return 0;
 }
 

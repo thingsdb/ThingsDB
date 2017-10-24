@@ -12,7 +12,8 @@ typedef struct rql_prop_s rql_prop_t;
 #include <inttypes.h>
 
 rql_prop_t * rql_prop_create(const char * name);
-void rql_prop_grab(rql_prop_t * prop);
+rql_prop_t * rql_prop_grab(rql_prop_t * prop);
+void rql_prop_drop(rql_prop_t * prop);
 
 struct rql_prop_s
 {

@@ -29,9 +29,6 @@ static rql_task_stat_e rql__task_failn(
         rql_event_t * event,
         const char * msg,
         size_t n);
-static rql_task_stat_e rql__task_faile(
-        rql_event_t * event,
-        ex_t * e);
 
 rql_task_t * rql_task_create(qp_res_t * res, ex_t * e)
 {
@@ -133,7 +130,7 @@ static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
         rql_event_t * event)
 {
-    ex_t e = NULL;
+    ex_t * e = ex_use();
     rql_t * rql = event->events->rql;
     qp_res_t * user, * pass;
     rql_user_t * usr;
@@ -147,10 +144,10 @@ static rql_task_stat_e rql__task_user_create(
                 "or password ("RQL_API_PASS")");
     }
 
-    if (rql_user_name_check(user->via.str, &e) ||
-        rql_user_pass_check(pass->via.str, &e))
+    if (rql_user_name_check(user->via.str, e) ||
+        rql_user_pass_check(pass->via.str, e))
     {
-        return rql__task_faile(event, &e);
+        return rql__task_fail(event, e->msg);
     }
 
     if (rql_users_get_by_name(rql->users, user->via.str))
@@ -178,7 +175,7 @@ static rql_task_stat_e rql__task_db_create(
         qp_map_t * task,
         rql_event_t * event)
 {
-    ex_t e = NULL;
+    ex_t * e = ex_use();
     rql_t * rql = event->events->rql;
     qp_res_t * quser, * qname;
     rql_user_t * user;
@@ -193,10 +190,9 @@ static rql_task_stat_e rql__task_db_create(
                 "or database name ("RQL_API_NAME")");
     }
 
-    if (rql_db_name_check(qname->via.str, &e))
+    if (rql_db_name_check(qname->via.str, e))
     {
-
-        return rql__task_fail(event, e->errmsg);
+        return rql__task_fail(event, e->msg);
     }
 
     if (rql_dbs_get_by_name(rql->dbs, qname->via.str))
@@ -282,20 +278,5 @@ static rql_task_stat_e rql__task_failn(
     return RQL_TASK_FAILED;
 }
 
-static rql_task_stat_e rql__task_faile(
-        rql_event_t * event,
-        ex_t * e)
-{
-    if (event->client)
-    {
-        if (qp_add_raw(event->result, "error_msg", 9) ||
-            qp_add_raw(event->result, (*e)->errmsg, strlen((*e)->errmsg)))
-        {
-            ex_destroy(e);
-            return RQL_TASK_ERR;
-        }
-    }
-    ex_destroy(e);
-    return RQL_TASK_FAILED;
-}
+
 

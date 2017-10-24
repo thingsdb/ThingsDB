@@ -18,5 +18,6 @@ struct rql_raw_s
 };
 
 rql_raw_t * rql_raw_new(const unsigned char * raw, size_t n);
+rql_raw_t * rql_raw_dup(rql_raw_t * raw);
 
 #endif /* RQL_RAW_H_ */

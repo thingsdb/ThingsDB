@@ -12,6 +12,6 @@
 #include <rql/prop.h>
 #include <util/smap.h>
 
-rql_prop_t * rql_db_props_get(smap_t * props, rql_raw_t * raw);
+rql_prop_t * rql_db_props_get(smap_t * props, const char * name);
 
 #endif /* RQL_PROPS_H_ */

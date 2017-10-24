@@ -25,6 +25,7 @@ C_SRCS += \
 ../src/rql/pkg.c \
 ../src/rql/prom.c \
 ../src/rql/prop.c \
+../src/rql/props.c \
 ../src/rql/raw.c \
 ../src/rql/ref.c \
 ../src/rql/req.c \
@@ -61,6 +62,7 @@ OBJS += \
 ./src/rql/pkg.o \
 ./src/rql/prom.o \
 ./src/rql/prop.o \
+./src/rql/props.o \
 ./src/rql/raw.o \
 ./src/rql/ref.o \
 ./src/rql/req.o \
@@ -97,6 +99,7 @@ C_DEPS += \
 ./src/rql/pkg.d \
 ./src/rql/prom.d \
 ./src/rql/prop.d \
+./src/rql/props.d \
 ./src/rql/raw.d \
 ./src/rql/ref.d \
 ./src/rql/req.d \

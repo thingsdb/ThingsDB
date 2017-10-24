@@ -117,7 +117,7 @@ int rql_users_restore(vec_t ** users, const char * fn)
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
-    qp_unpacker_init(&unpacker, data, (size_t) n);
+    qpx_unpacker_init(&unpacker, data, (size_t) n);
     qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
     free(data);
 

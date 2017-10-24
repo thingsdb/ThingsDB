@@ -14,6 +14,7 @@ typedef struct rql_item_s  rql_item_t;
 #include <rql/val.h>
 
 rql_item_t * rql_item_create(rql_prop_t * prop, rql_val_e tp, void * v);
+rql_item_t * rql_item_weak_create(rql_prop_t * prop, rql_val_e tp, void * v);
 void rql_item_destroy(rql_item_t * item);
 
 struct rql_item_s

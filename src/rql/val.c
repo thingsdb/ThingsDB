@@ -8,11 +8,39 @@
 #include <string.h>
 #include <rql/val.h>
 
-void rql_val_init(rql_val_t * val, rql_val_e tp, void * v)
+rql_val_t * rql_val_create(rql_val_e tp, void * v)
 {
+    rql_val_t * val = (rql_val_t *) malloc(sizeof(rql_val_t));
+    if (!val) return NULL;
+    if (rql_val_set(val, tp, v))
+    {
+        rql_val_destroy(val);
+        return NULL;
+    }
+    return val;
+}
+
+rql_val_t * rql_val_weak_create(rql_val_e tp, void * v)
+{
+    rql_val_t * val = (rql_val_t *) malloc(sizeof(rql_val_t));
+    if (!val) return NULL;
+    rql_val_weak_set(val, tp, v);
+    return val;
+}
+
+void rql_val_destroy(rql_val_t * val)
+{
+    if (!val) return;
+    rql_val_clear(val);
+    free(val);
+}
+
+void rql_val_weak_set(rql_val_t * val, rql_val_e tp, void * v)
+{
+    val->tp = tp;
     switch(tp)
     {
-    case RQL_VAL_ELEM:  /* a value by itself has no reference */
+    case RQL_VAL_ELEM:
         val->via.elem_ = (rql_elem_t *) v;
         break;
     case RQL_VAL_INT:
@@ -31,23 +59,72 @@ void rql_val_init(rql_val_t * val, rql_val_e tp, void * v)
         val->via.bool_ = *p;
     } break;
     case RQL_VAL_STR:
-    {
-        const char * s = (const char *) v;
-        val->via.str_ = strdup(s);
-        if (!val->via.str_)
-        {
-            free(val);
-        }
-    } break;
+        val->via.str_ = (const char *) v;
+        break;
     case RQL_VAL_RAW:
         val->via.raw_ = (rql_raw_t *) v;
         break;
-
     case RQL_VAL_ARR:
         val->via.arr_ = (vec_t *) v;
         break;
+    case RQl_VAL_NIL:
+        val->via.nil_ = NULL;
+        break;
     }
+}
 
+int rql_val_set(rql_val_t * val, rql_val_e tp, void * v)
+{
+    val->tp = tp;
+    switch(tp)
+    {
+    case RQL_VAL_ELEM:
+        val->via.elem_ = rql_elem_grab((rql_elem_t *) v);
+        break;
+    case RQL_VAL_INT:
+    {
+        int64_t * p = (int64_t *) v;
+        val->via.int_ = *p;
+    } break;
+    case RQL_VAL_FLOAT:
+    {
+        double * p = (double *) v;
+        val->via.float_ = *p;
+    } break;
+    case RQL_VAL_BOOL:
+    {
+        _Bool * p = (_Bool *) v;
+        val->via.bool_ = *p;
+    } break;
+    case RQL_VAL_STR:
+        val->via.str_ = strdup((const char *) v);
+        if (!val->via.str_)
+        {
+            val->tp = RQl_VAL_NIL;
+            return -1;
+        }
+        break;
+    case RQL_VAL_RAW:
+        val->via.raw_ = rql_raw_dup((rql_raw_t *) v);
+        if (!val->via.raw_)
+        {
+            val->tp = RQl_VAL_NIL;
+            return -1;
+        }
+        break;
+    case RQL_VAL_ARR:
+        val->via.arr_ = vec_dup((vec_t *) v);
+        if (!val->via.arr_)
+        {
+            val->tp = RQl_VAL_NIL;
+            return -1;
+        }
+        break;
+    case RQl_VAL_NIL:
+        val->via.nil_ = NULL;
+        break;
+    }
+    return 0;
 }
 
 /*
@@ -61,7 +138,8 @@ void rql_val_clear(rql_val_t * val)
     case RQL_VAL_INT:
     case RQL_VAL_FLOAT:
     case RQL_VAL_BOOL:
-        break;;
+    case RQl_VAL_NIL:
+        break;
     case RQL_VAL_STR:
         free(val->via.str_);
         break;
@@ -69,6 +147,7 @@ void rql_val_clear(rql_val_t * val)
         free(val->via.raw_);
         break;
     case RQL_VAL_ARR:
+        vec_destroy(val->via.arr_, (vec_destroy_cb) rql_val_destroy);
         break;
     }
 }

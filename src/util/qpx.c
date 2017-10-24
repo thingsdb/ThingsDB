@@ -4,6 +4,7 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <assert.h>
 #include <string.h>
 #include <util/qpx.h>
 #include <util/logger.h>
@@ -13,7 +14,8 @@ qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
     for (size_t i = 0; i < map->n; i++)
     {
         qp_res_t * k = map->keys + i;
-        if (k->tp == QP_RES_STR && strcmp(k->via.str, key) == 0)
+        assert (k->tp == QP_RES_STR);
+        if (strcmp(k->via.str, key) == 0)
         {
             return map->values + i;
         }
@@ -58,4 +60,15 @@ rql_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
     packer->buffer = NULL;
     qp_packer_destroy(packer);
     return pkg;
+}
+
+void qpx_unpacker_init(
+        qp_unpacker_t * unpacker,
+        const unsigned char * pt,
+        size_t len)
+{
+    unpacker->flags = QP_UNPACK_FLAG_KEY_STR;
+    unpacker->start = pt;
+    unpacker->pt = pt;
+    unpacker->end = pt + len;
 }

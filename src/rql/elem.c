@@ -47,8 +47,7 @@ int rql_elem_set(rql_elem_t * elem, rql_prop_t * prop, rql_val_e tp, void * v)
         if (item->prop == prop)
         {
             rql_val_clear(&item->val);
-            rql_val_init(&item->val, tp, v);
-            return 0;
+            return rql_val_set(&item->val, tp, v);
         }
     }
     rql_item_t * item = rql_item_create(prop, tp, v);

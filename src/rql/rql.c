@@ -39,6 +39,7 @@ rql_t * rql_create(void)
     rql->redundancy = rql_def_redundancy;
     rql->fn = NULL;
     rql->node = NULL;
+    rql->lookup = NULL;
 
     rql->args = rql_args_new();
     rql->cfg = rql_cfg_new();
@@ -80,6 +81,7 @@ void rql_destroy(rql_t * rql)
     rql_back_destroy(rql->back);
     rql_front_destroy(rql->front);
     rql_events_destroy(rql->events);
+    rql_lookup_destroy(rql->lookup);
     vec_destroy(rql->dbs, (vec_destroy_cb) rql_db_drop);
     vec_destroy(rql->nodes, (vec_destroy_cb) rql_node_drop);
     vec_destroy(rql->users, (vec_destroy_cb) rql_user_drop);
@@ -120,15 +122,9 @@ int rql_init_fn(rql_t * rql)
     return (rql->fn) ? 0 : -1;
 }
 
-_Bool rql_has_id(rql_t * rql, uint64_t id)
-{
-//    return rql_lookup_node_has_id(rql->lookup, rql->node, id);
-    return rql->lookup->mask_[id % rql->lookup->n_] & (1 << rql->node->id);
-}
-
 int rql_build(rql_t * rql)
 {
-    ex_t e = NULL;
+    ex_t * e = ex_use();
     int rc = -1;
     rql_event_t * event = NULL;
     qp_packer_t * packer = rql_misc_pack_init_event_request();
@@ -148,10 +144,10 @@ int rql_build(rql_t * rql)
 
     if (rql_save(rql)) goto stop;
 
-    rql_event_raw(event, packer->buffer, packer->len, &e);
-    if (e)
+    rql_event_raw(event, packer->buffer, packer->len, e);
+    if (e->nr)
     {
-        log_critical(e->errmsg);
+        log_critical(e->msg);
         goto stop;
     }
 
@@ -160,7 +156,6 @@ int rql_build(rql_t * rql)
     rc = 0;
 
 stop:
-    ex_destroy(&e);
     if (rc)
     {
         fx_rmdir(rql->cfg->rql_path);
@@ -182,7 +177,7 @@ int rql_read(rql_t * rql)
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
-    qp_unpacker_init(&unpacker, data, (size_t) n);
+    qpx_unpacker_init(&unpacker, data, (size_t) n);
     qp_res_t * res = qp_unpacker_res(&unpacker, &rc);
     free(data);
     if (rc)
@@ -193,6 +188,14 @@ int rql_read(rql_t * rql)
     rc = rql__unpack(rql, res);
     qp_res_destroy(res);
 
+    if (rc) goto stop;
+    rql->lookup = rql_lookup_create(
+            rql->nodes->n,
+            rql->redundancy,
+            rql->nodes);
+    if (!rql->lookup) return -1;
+
+stop:
     return rc;
 }
 
@@ -300,7 +303,7 @@ int rql__restore(rql_t * rql, const char * fn)
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
-    qp_unpacker_init(&unpacker, data, (size_t) n);
+    qpx_unpacker_init(&unpacker, data, (size_t) n);
     qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
     free(data);
 
@@ -381,7 +384,6 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
     return 0;
 
 failed:
-    LOGC("Here...");
     for (vec_each(rql->nodes, rql_node_t, node))
     {
         rql_node_drop(node);

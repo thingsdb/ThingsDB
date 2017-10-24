@@ -24,9 +24,9 @@ typedef struct rql_s rql_t;
 #include <rql/node.h>
 #include <rql/back.h>
 #include <rql/front.h>
+#include <rql/lookup.h>
 #include <rql/events.h>
 #include <rql/maint.h>
-#include <rql/lookup.h>
 #include <util/logger.h>
 #include <util/vec.h>
 
@@ -48,7 +48,6 @@ int rql_unlock(rql_t * rql);
 int rql__store(rql_t * rql, const char * fn);
 int rql__restore(rql_t * rql, const char * fn);
 static inline uint64_t rql_get_id(rql_t * rql);
-_Bool rql_has_id(rql_t * rql, uint64_t id);
 
 struct rql_s
 {
@@ -76,11 +75,5 @@ static inline uint64_t rql_get_id(rql_t * rql)
 {
     return rql->next_id_++;
 }
-
-//static inline _Bool rql_has_id(rql_t * rql, uint64_t id)
-//{
-////    return rql_lookup_node_has_id(rql->lookup, rql->node, id);
-//    return rql->lookup->mask_[id % rql->lookup->n_] & (1 << rql->node->id);
-//}
 
 #endif /* RQL_H_ */

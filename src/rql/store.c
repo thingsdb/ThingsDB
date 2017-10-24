@@ -53,7 +53,7 @@ int rql_store(rql_t * rql)
 stop:
     if (rc && tmp_path)
     {
-        log_erorr("storing rql has failed");
+        log_error("storing rql has failed");
         fx_rmdir(tmp_path);
     }
     free(rql_fn);
@@ -79,7 +79,7 @@ int rql_restore(rql_t * rql)
     access_fn = strx_cat(store_path, rql__store_access_fn);
 
     if (!users_fn || !rql_fn || !access_fn ||
-        rql__restore(rql->events, rql_fn) ||
+        rql__restore(rql, rql_fn) ||
         rql_users_restore(&rql->users, users_fn) ||
         rql_access_restore(&rql->access, rql->users, access_fn)) goto stop;
 

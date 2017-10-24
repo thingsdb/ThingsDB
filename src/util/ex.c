@@ -9,50 +9,23 @@
 #include <stdarg.h>
 #include <util/ex.h>
 
-static struct
-{
-    int errnr;
-    char errmsg[17];
-} ex_alloc = {-1, "allocation error"};
+static ex_t ex__e;
 
-void ex_destroy(ex_t * e)
+ex_t * ex_use(void)
 {
-    if (!*e || *e == (ex_t) &ex_alloc) return;
-    free(*e);
-    *e = NULL;
+    ex__e.nr = 0;
+    ex__e.msg[0] = '\0';
+    return &ex__e;
 }
 
 int ex_set(ex_t * e, int errnr, const char * errmsg, ...)
 {
-    int rc, sz = 128;
-    if (*e) return -1;
-
-    *e = malloc(sizeof(struct ex_s) + sz);
-    if (!*e)
-    {
-        *e = (ex_t) &ex_alloc;
-        return -1;
-    }
-
-    (*e)->errnr = errnr;
-
+    e->nr = errnr;
+    int rc;
     va_list args;
     va_start(args, errmsg);
-    rc = vsnprintf((*e)->errmsg, sz, errmsg, args);
-
-    if (rc >= sz)
-    {
-        ex_t tmp = (ex_t) realloc(*e, sizeof(struct ex_s) + rc);
-        if (!tmp)
-        {
-            free(*e);
-            *e = (ex_t) &ex_alloc;
-            return -1;
-        }
-        *e = tmp;
-    }
+    rc = vsnprintf(e->msg, EX_MSG_SZ, errmsg, args);
     va_end(args);
-
     return rc;
 }
 

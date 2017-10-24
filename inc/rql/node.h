@@ -15,11 +15,12 @@ typedef enum
     RQL_NODE_STAT_READY
 } rql_node_status_t;
 
-typedef struct rql_node_s  rql_node_t;
+typedef struct rql_node_s rql_node_t;
 
 #include <inttypes.h>
 #include <rql/sock.h>
 #include <rql/pkg.h>
+#include <rql/lookup.h>
 #include <util/imap.h>
 
 struct rql_node_s
@@ -40,5 +41,6 @@ rql_node_t * rql_node_create(uint8_t id, char * address, uint16_t port);
 rql_node_t * rql_node_grab(rql_node_t * node);
 void rql_node_drop(rql_node_t * node);
 int rql_node_write(rql_node_t * node, rql_pkg_t * pkg);
+
 
 #endif /* RQL_NODE_H_ */

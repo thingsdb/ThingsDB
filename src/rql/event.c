@@ -184,7 +184,8 @@ void rql_event_raw(
 {
     qp_obj_t target;
     qp_unpacker_t unpacker;
-    qp_unpacker_init(&unpacker, raw, sz);
+    qpx_unpacker_init(&unpacker, raw, sz);
+
     if (!qp_is_map(qp_next(&unpacker, NULL)) ||
         !qp_is_raw(qp_next(&unpacker, &target)))
     {
@@ -249,10 +250,9 @@ void rql_event_finish(rql_event_t * event)
     rql_pkg_t * pkg;
     if (event->status == RQL_EVENT_STAT_CACNCEL)
     {
-        ex_t e = NULL;
-        ex_set(&e, RQL_PROTO_NODE_ERR, "event is cancelled");
-        pkg = rql_pkg_err(event->pid, e->errnr, e->errmsg);
-        ex_destroy(&e);
+        ex_t * e = ex_use();
+        ex_set(e, RQL_PROTO_NODE_ERR, "event is cancelled");
+        pkg = rql_pkg_err(event->pid, e->nr, e->msg);
         if (!pkg)
         {
             log_error(EX_ALLOC);
@@ -624,6 +624,7 @@ static void rql__event_unpack(
                 "invalid event: expecting an array with tasks");
         return;
     }
+
     unpacker->flags |= QP_UNPACK_FLAG_RAW;
 
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)

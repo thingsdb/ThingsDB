@@ -11,6 +11,8 @@
 #include <rql/api.h>
 #include <rql/prop.h>
 #include <rql/props.h>
+#include <rql/inliners.h>
+
 #include <util/strx.h>
 
 static const size_t rql_db_min_name = 1;
@@ -57,16 +59,13 @@ void rql_db_drop(rql_db_t * db)
 int rql_db_buid(rql_db_t * db)
 {
     db->root = rql_elem_create(rql_get_id(db->rql));
+    if (!db->root) return -1;
 
     if (rql_has_id(db->rql, db->root->id))
     {
-        struct {
-            size_t n;
-            unsigned char name[4];
-        } name = {4, "name"};
-
-        rql_prop_t * prop = rql_db_props_get(db->props, (rql_raw_t *) &name);
-        rql_elem_set(db->root, prop, RQL_VAL_STR, db->name);
+        rql_prop_t * prop = rql_db_props_get(db->props, "name");
+        if (!prop ||
+            rql_elem_set(db->root, prop, RQL_VAL_STR, db->name)) return -1;
     }
     return 0;
 }

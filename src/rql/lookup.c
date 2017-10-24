@@ -37,6 +37,14 @@ void rql_lookup_destroy(rql_lookup_t * lookup)
     free(lookup);
 }
 
+_Bool rql_lookup_node_has_id(
+        rql_lookup_t * lookup,
+        rql_node_t * node,
+        uint64_t id)
+{
+    return lookup->mask_[id % lookup->n_] & (1 << node->id);
+}
+
 static void rql__lookup_calculate(rql_lookup_t * lookup, const vec_t * nodes)
 {
     /* set lookup to NULL */

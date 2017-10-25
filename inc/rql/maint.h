@@ -15,7 +15,7 @@
 typedef struct rql_maint_s  rql_maint_t;
 
 #include <uv.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/rql.h>
 
 rql_maint_t * rql_maint_new(rql_t * rql);

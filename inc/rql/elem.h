@@ -9,7 +9,7 @@
 
 typedef struct rql_elem_s  rql_elem_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/prop.h>
 #include <rql/val.h>
 #include <util/vec.h>

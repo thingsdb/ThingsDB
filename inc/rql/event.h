@@ -15,14 +15,16 @@
 
 typedef struct rql_event_s rql_event_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <qpack.h>
-#include <rql/events.h>
 #include <rql/db.h>
-#include <rql/raw.h>
+#include <rql/events.h>
+#include <rql/pkg.h>
 #include <rql/prom.h>
-#include <util/vec.h>
+#include <rql/raw.h>
+#include <rql/sock.h>
 #include <util/imap.h>
+#include <util/vec.h>
 
 rql_event_t * rql_event_create(rql_events_t * events);
 void rql_event_destroy(rql_event_t * event);

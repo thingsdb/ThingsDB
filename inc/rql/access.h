@@ -7,7 +7,7 @@
 #ifndef RQL_ACCESS_H_
 #define RQL_ACCESS_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/user.h>
 #include <util/vec.h>
 

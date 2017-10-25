@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <util/smap.h>
 
 #define SMAP_BSZ 32

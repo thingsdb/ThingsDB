@@ -7,7 +7,7 @@
 #ifndef SMAP_H_
 #define SMAP_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stddef.h>
 
 #define SMAP_ERR_ALLOC      -1

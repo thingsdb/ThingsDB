@@ -12,7 +12,7 @@
 
 typedef struct rql_cfg_s  rql_cfg_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 
 rql_cfg_t * rql_cfg_new(void);
 int rql_cfg_parse(rql_cfg_t * cfg, const char * cfg_file);

@@ -9,7 +9,7 @@
 
 typedef struct rql_lookup_s rql_lookup_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <util/vec.h>
 #include <rql/node.h>
 

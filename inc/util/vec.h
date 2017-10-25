@@ -11,7 +11,7 @@ typedef struct vec_s  vec_t;
 typedef void (*vec_destroy_cb)(void * data);
 
 #include <stdio.h>
-#include <inttypes.h>
+#include <stdint.h>
 
 vec_t * vec_new(uint32_t sz);
 void vec_destroy(vec_t * vec, vec_destroy_cb cb);

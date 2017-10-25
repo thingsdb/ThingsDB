@@ -8,7 +8,7 @@
 #define RQL_PROPS_H_
 
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/prop.h>
 #include <util/smap.h>
 

@@ -187,8 +187,11 @@ int rql_read(rql_t * rql)
     }
     rc = rql__unpack(rql, res);
     qp_res_destroy(res);
-
-    if (rc) goto stop;
+    if (rc)
+    {
+        log_critical("unpacking has failed (%s)", rql->fn);
+        goto stop;
+    }
     rql->lookup = rql_lookup_create(
             rql->nodes->n,
             rql->redundancy,
@@ -212,7 +215,10 @@ int rql_run(rql_t * rql)
         rql_term(SIGTERM);
     }
 
-    rql->node->status = RQL_NODE_STAT_READY;
+    if (rql->node)
+    {
+        rql->node->status = RQL_NODE_STAT_READY;
+    }
 
     uv_run(&rql->loop, UV_RUN_DEFAULT);
 
@@ -364,16 +370,20 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
             itm->via.array->n != 2 ||
             !(addr = itm->via.array->values) ||
             !(port = itm->via.array->values + 1) ||
-            addr->tp != QP_RES_STR ||
+            addr->tp != QP_RES_RAW ||
             port->tp != QP_RES_INT64 ||
             port->via.int64 < 1 ||
             port->via.int64 > 65535) goto failed;
 
+        char * addrstr = rql_raw_to_str(addr->via.raw);
+        if (!addrstr) goto failed;
+
         rql_node_t * node = rql_node_create(
                 (uint8_t) i,
-                addr->via.str,
+                addrstr,
                 (uint16_t) port->via.int64);
 
+        free(addrstr);
         if (!node || vec_push(&rql->nodes, node)) goto failed;
     }
 

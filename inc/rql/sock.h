@@ -22,7 +22,7 @@ typedef struct rql_sock_s  rql_sock_t;
 typedef union rql_sock_u rql_sock_via_t;
 
 #include <uv.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/rql.h>
 #include <rql/user.h>
 #include <rql/node.h>

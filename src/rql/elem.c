@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <rql/elem.h>
 #include <rql/item.h>
+#include <util/logger.h>
 
 rql_elem_t * rql_elem_create(uint64_t id)
 {

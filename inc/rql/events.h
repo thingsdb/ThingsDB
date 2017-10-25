@@ -10,7 +10,7 @@
 typedef struct rql_events_s rql_events_t;
 
 #include <uv.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/rql.h>
 #include <rql/archive.h>
 #include <util/vec.h>

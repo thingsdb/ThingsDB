@@ -7,7 +7,7 @@
 #ifndef RQL_USERS_H_
 #define RQL_USERS_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <qpack.h>
 #include <rql/user.h>
 #include <rql/raw.h>

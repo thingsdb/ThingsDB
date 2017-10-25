@@ -49,10 +49,13 @@ static void rql__signals_handler(uv_signal_t * sig, int signum)
         return;
     }
 
+    log_warning("received stop signal (%s)", strsignal(signum));
+
     if (rql->flags & RQL_FLAG_SIGNAL)
     {
         abort();
     }
+
     rql->flags |= RQL_FLAG_SIGNAL;
 
     rql_maint_stop(rql->maint);

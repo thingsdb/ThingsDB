@@ -7,7 +7,7 @@
 #ifndef RQL_INLINERS_H_
 #define RQL_INLINERS_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/node.h>
 #include <rql/lookup.h>
 

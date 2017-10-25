@@ -9,7 +9,7 @@
 
 typedef struct rql_prop_s rql_prop_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 
 rql_prop_t * rql_prop_create(const char * name);
 rql_prop_t * rql_prop_grab(rql_prop_t * prop);

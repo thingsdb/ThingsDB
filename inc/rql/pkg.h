@@ -11,7 +11,7 @@
 
 typedef struct rql_pkg_s rql_pkg_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <util/ex.h>
 
 rql_pkg_t * rql_pkg_new(

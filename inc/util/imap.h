@@ -20,7 +20,7 @@ typedef void (*imap_update_cb)(
         imap_t * imap,
         imap_destroy_cb decref_cb);
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <util/vec.h>
 

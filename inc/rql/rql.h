@@ -18,7 +18,7 @@ typedef struct rql_s rql_t;
 #include <uv.h>
 #include <signal.h>
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/args.h>
 #include <rql/cfg.h>
 #include <rql/node.h>

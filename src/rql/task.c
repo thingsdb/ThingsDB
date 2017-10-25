@@ -24,7 +24,12 @@ static rql_task_stat_e rql__task_db_create(
 static rql_task_stat_e rql__task_grant(
         qp_map_t * task,
         rql_event_t * event);
-static rql_task_stat_e rql__task_fail(rql_event_t * event, const char * msg);
+static rql_task_stat_e rql__task_props_set(
+        qp_map_t * task,
+        rql_event_t * event);
+static inline rql_task_stat_e rql__task_fail(
+        rql_event_t * event,
+        const char * msg);
 static rql_task_stat_e rql__task_failn(
         rql_event_t * event,
         const char * msg,
@@ -100,6 +105,9 @@ rql_task_stat_e rql_task_run(
     case RQL_TASK_GRANT:
         rc = rql__task_grant(map, event);
         break;
+    case RQL_TASK_PROPS_SET:
+        rc = rql__task_props_set(map, event);
+        break;
     default:
         assert (0);
     }
@@ -128,6 +136,11 @@ static rql_task_stat_e rql__task_user_create(
         rql_event_t * event)
 {
     ex_t * e = ex_use();
+    if (event->target)
+    {
+        ex_set(e, -1, "users can only be created on rql: '%s'", rql_name);
+        return rql__task_fail(event, e->msg);
+    }
     rql_t * rql = event->events->rql;
     qp_res_t * user, * pass;
     rql_user_t * usr;
@@ -152,10 +165,20 @@ static rql_task_stat_e rql__task_user_create(
         return rql__task_fail(event, "user already exists");
     }
 
+    char * passstr = rql_raw_to_str(pass->via.raw);
+    if (!passstr)
+    {
+        log_critical(EX_ALLOC);
+        return RQL_TASK_ERR;
+    }
+
     usr = rql_user_create(
             rql_get_id(rql),
-            user->via.str,
-            pass->via.str);
+            user->via.raw,
+            passstr);
+
+    free(passstr);
+
     if (!usr ||
         rql_user_set_pass(usr, usr->pass) ||
         vec_push(&rql->users, usr))
@@ -173,37 +196,42 @@ static rql_task_stat_e rql__task_db_create(
         rql_event_t * event)
 {
     ex_t * e = ex_use();
+    if (event->target)
+    {
+        ex_set(e, -1, "databases can only be created on rql: '%s'", rql_name);
+        return rql__task_fail(event, e->msg);
+    }
     rql_t * rql = event->events->rql;
     qp_res_t * quser, * qname;
     rql_user_t * user;
     rql_db_t * db;
     quser = qpx_map_get(task, RQL_API_USER);
     qname = qpx_map_get(task, RQL_API_NAME);
-    if (!quser || quser->tp != QP_RES_STR ||
-        !qname || qname->tp != QP_RES_STR)
+    if (!quser || quser->tp != QP_RES_RAW ||
+        !qname || qname->tp != QP_RES_RAW)
     {
         return rql__task_fail(event,
                 "missing or invalid user ("RQL_API_USER") "
                 "or database name ("RQL_API_NAME")");
     }
 
-    if (rql_db_name_check(qname->via.str, e))
+    if (rql_db_name_check(qname->via.raw, e))
     {
         return rql__task_fail(event, e->msg);
     }
 
-    if (rql_dbs_get_by_name(rql->dbs, qname->via.str))
+    if (rql_dbs_get_by_name(rql->dbs, qname->via.raw))
     {
         return rql__task_fail(event, "database already exists");
     }
 
-    user = rql_users_get_by_name(rql->users, quser->via.str);
+    user = rql_users_get_by_name(rql->users, quser->via.raw);
     if (!user) return rql__task_fail(event, "user not found");
 
     guid_t guid;
     guid_init(&guid, rql_get_id(rql));
 
-    db = rql_db_create(rql, &guid, qname->via.str);
+    db = rql_db_create(rql, &guid, qname->via.raw);
     if (!db || vec_push(&rql->dbs, db))
     {
         log_critical(EX_ALLOC);
@@ -211,13 +239,10 @@ static rql_task_stat_e rql__task_db_create(
         return RQL_TASK_ERR;
     }
 
-    if (rql_access_grant(&db->access, user, RQL_AUTH_MASK_FULL))
-    {
-        log_critical(EX_ALLOC);
-        return RQL_TASK_ERR;
-    }
-
-    if (rql_db_buid(db))
+    if (rql_access_grant(&db->access, user, RQL_AUTH_MASK_FULL) ||
+        rql_db_buid(db) ||
+        qp_add_raw_from_str(event->result, RQL_API_ID) ||
+        qp_add_int64(event->result, (int64_t) db->root->id))
     {
         log_critical(EX_ALLOC);
         return RQL_TASK_ERR;
@@ -236,7 +261,7 @@ static rql_task_stat_e rql__task_grant(
     qp_res_t * quser = qpx_map_get(task, RQL_API_USER);
     qp_res_t * qperm = qpx_map_get(task, RQL_API_PERM);
 
-    if (!quser || quser->tp != QP_RES_STR ||
+    if (!quser || quser->tp != QP_RES_RAW ||
         !qperm || qperm->tp != QP_RES_INT64)
     {
         return rql__task_fail(event,
@@ -246,7 +271,7 @@ static rql_task_stat_e rql__task_grant(
 
     rql_user_t * user = rql_users_get_by_name(
             event->events->rql->users,
-            quser->via.str);
+            quser->via.raw);
 
     if (!user) return rql__task_fail(event, "user not found");
 
@@ -263,7 +288,46 @@ static rql_task_stat_e rql__task_grant(
     return RQL_TASK_SUCCESS;
 }
 
-static rql_task_stat_e rql__task_fail(rql_event_t * event, const char * msg)
+
+/*
+ * Grant permissions to either a database or rql.
+ */
+static rql_task_stat_e rql__task_props_set(
+        qp_map_t * task,
+        rql_event_t * event)
+{
+    if (!event->target)
+    {
+        return rql__task_fail(event,
+            "props can only be set on elements in a database");
+    }
+    qp_res_t * qid = qpx_map_get(task, RQL_API_ID);
+
+    if (!qid || qid->tp != QP_RES_INT64)
+    {
+        return rql__task_fail(event,
+                "missing or invalid element id ("RQL_API_ID")");
+    }
+
+    uint64_t id = (uint64_t) qid->via.int64;
+    rql_elem_t * elem = imap_get(event->target->elems, id);
+
+    if (!elem)
+    {
+        ex_t * e = ex_use();
+        ex_set(e, -1, "cannot find element with id: %"PRIu64, id);
+        return rql__task_fail(event, e->msg);
+    }
+
+
+
+    return RQL_TASK_SUCCESS;
+}
+
+
+static inline rql_task_stat_e rql__task_fail(
+        rql_event_t * event,
+        const char * msg)
 {
     return rql__task_failn(event, msg, strlen(msg));
 }

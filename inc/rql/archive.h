@@ -9,7 +9,7 @@
 
 typedef struct rql_archive_s  rql_archive_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/event.h>
 #include <util/queue.h>
 

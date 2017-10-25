@@ -29,7 +29,7 @@ typedef struct argparse_parser_s argparse_t;
 typedef struct argparse_argument_s argparse_argument_t;
 typedef struct argparse_args_s argparse_args_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 
 argparse_t * argparse_create(void);
 void argparse_destroy(argparse_t * parser);

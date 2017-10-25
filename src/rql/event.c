@@ -7,17 +7,18 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <qpack.h>
-#include <rql/event.h>
-#include <rql/req.h>
 #include <rql/access.h>
-#include <rql/proto.h>
-#include <rql/task.h>
-#include <rql/rql.h>
+#include <rql/event.h>
 #include <rql/nodes.h>
-#include <util/link.h>
-#include <util/queue.h>
+#include <rql/dbs.h>
+#include <rql/proto.h>
+#include <rql/req.h>
+#include <rql/rql.h>
+#include <rql/task.h>
 #include <util/ex.h>
+#include <util/link.h>
 #include <util/qpx.h>
+#include <util/queue.h>
 
 const int rql__event_reg_timeout = 10;
 const int rql__event_upd_timeout = 10;
@@ -106,7 +107,7 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     }
 
     rql_event_raw(event, pkg->data, pkg->n, e);
-    if (e) goto failed;
+    if (e->nr) goto failed;
 
     if (rql__event_to_queue(event) || rql__event_reg(event))
     {
@@ -117,7 +118,7 @@ void rql_event_new(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     return;  /* success */
 
 failed:
-    assert (e);
+    assert (e->nr);
     rql_event_destroy(event);
 }
 
@@ -195,15 +196,13 @@ void rql_event_raw(
 
     if (event->target || qpx_obj_eq_str(&target, rql_name)) goto target;
 
-    for (vec_each(event->events->rql->dbs, rql_db_t, db))
+    event->target = rql_dbs_get_by_obj(event->events->rql->dbs, &target);
+    if (event->target)
     {
-        if (qpx_obj_eq_str(&target, db->name) ||
-            qpx_obj_eq_str(&target, db->guid.guid))
-        {
-            event->target = rql_db_grab(db);
-            goto target;
-        }
+        event->target = rql_db_grab(event->target);
+        goto target;
     }
+
     ex_set(e, RQL_PROTO_INDX_ERR,
             "invalid target: '%.*s'", target.len, target.via.raw);
     return;
@@ -646,7 +645,7 @@ static void rql__event_unpack(
                 (event->target) ?
                         event->target->access : event->events->rql->access,
                 event->client->via.user,
-                task->tp))
+                (uint64_t) 1 << task->tp))
         {
             ex_set(e, RQL_PROTO_AUTH_ERR,
                     "user has no privileges for task: %s",

@@ -9,6 +9,7 @@
 #include <rql/rql.h>
 #include <rql/user.h>
 #include <rql/users.h>
+#include <rql/dbs.h>
 #include <rql/write.h>
 #include <rql/ref.h>
 #include <rql/proto.h>
@@ -19,6 +20,7 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_ping(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg);
+static void rql__front_on_get(rql_sock_t * sock, rql_pkg_t * pkg);
 static void rql__front_write_cb(rql_write_t * req, int status);
 
 rql_front_t * rql_front_create(rql_t * rql)
@@ -141,6 +143,9 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
     case RQL_FRONT_EVENT:
         rql__front_on_event(sock, pkg);
         break;
+    case RQL_FRONT_GET:
+        rql__front_on_get(sock, pkg);
+        break;
     default:
         log_error("unexpected package type: %u (source: %s)",
                 pkg->tp, rql_sock_addr(sock));
@@ -208,6 +213,40 @@ static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
     }
 
     rql_event_new(sock, pkg, e);
+    if (e->nr) goto failed;
+
+    return;
+
+failed:
+    log_error(e->msg);
+    resp = rql_pkg_err(pkg->id, e->nr, e->msg);
+    if (!resp || rql_front_write(sock, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
+    }
+}
+
+static void rql__front_on_get(rql_sock_t * sock, rql_pkg_t * pkg)
+{
+    ex_t * e = ex_use();
+    rql_pkg_t * resp;
+
+    if (!sock->via.user)
+    {
+        ex_set(e, RQL_PROTO_AUTH_ERR, "connection is not authenticated");
+        goto failed;
+    }
+
+    if (sock->rql->node->status != RQL_NODE_STAT_READY)
+    {
+        ex_set(e, RQL_PROTO_NODE_ERR,
+                "node '%s' is not ready to handle events",
+                sock->rql->node->addr);
+        goto failed;
+    }
+
+    rql_dbs_get(sock, pkg, e);
     if (e->nr) goto failed;
 
     return;

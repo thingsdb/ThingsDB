@@ -12,7 +12,7 @@
 
 typedef struct rql_user_s  rql_user_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/raw.h>
 #include <util/ex.h>
 

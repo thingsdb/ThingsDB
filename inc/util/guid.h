@@ -9,7 +9,7 @@
 
 typedef struct guid_s guid_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void guid_init(guid_t * guid, uint64_t id);
 

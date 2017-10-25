@@ -29,7 +29,7 @@ typedef union cfgparser_u cfgparser_via_t;
 typedef struct cfgparser_option_s cfgparser_option_t;
 typedef struct cfgparser_section_s cfgparser_section_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 
 cfgparser_t * cfgparser_create(void);
 void cfgparser_destroy(cfgparser_t * cfgparser);

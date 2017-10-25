@@ -22,7 +22,7 @@ typedef enum
 typedef struct rql_val_s rql_val_t;
 typedef union rql_val_u rql_val_via_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/raw.h>
 #include <rql/elem.h>
 #include <util/vec.h>

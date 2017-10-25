@@ -5,7 +5,7 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <ctype.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>

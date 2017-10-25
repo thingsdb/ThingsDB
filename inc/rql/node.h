@@ -17,7 +17,7 @@ typedef enum
 
 typedef struct rql_node_s rql_node_t;
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/sock.h>
 #include <rql/pkg.h>
 #include <rql/lookup.h>

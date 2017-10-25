@@ -17,6 +17,20 @@ RES_ERR_TYPE = 67
 RES_ERR_INDEX = 68
 RES_ERR_RUNTIME = 69
 
+TASK_USER_CREATE = 0
+TASK_USER_DROP = 1
+TASK_USER_ALTER = 2
+TASK_DB_CREATE = 3
+TASK_DB_RENAME = 4
+TASK_DB_DROP = 5
+TASK_GRANT = 6
+TASK_REVOKE = 7
+TASK_SET_REDUNDANCY = 8
+TASK_NODE_ADD = 9
+TASK_NODE_REPLACE = 10
+TASK_SUBSCRIBE = 11
+TASK_UNSUBSCRIBE = 12
+
 
 class Rql:
     def __init__(self, loop=None):
@@ -184,16 +198,23 @@ async def test():
     rql = Rql()
     await rql.connect('localhost')
     res = await rql.authenticate('iris', 'siri')
-    print(res)
+    print('Auth result:', res)
     res = await rql.trigger({
         '_': [{
-            '_t': 0,
+            '_t': TASK_USER_CREATE,
             '_u': 'iriss',
             '_p': 'siri'
         }]
     })
-    print(res)
-
+    print('Create user result:', res)
+    res = await rql.trigger({
+        '_': [{
+            '_t': TASK_DB_CREATE,
+            '_u': 'iriss',
+            '_n': 'dbtest'
+        }]
+    })
+    print('Create user result:', res)
 
 if __name__ == '__main__':
     logger = logging.getLogger()

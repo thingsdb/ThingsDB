@@ -113,7 +113,6 @@ int rql_users_restore(vec_t ** users, const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
-    char * passstr = NULL;
     unsigned char * data = fx_read(fn, &n);
     if (!data) return -1;
 
@@ -157,6 +156,9 @@ int rql_users_restore(vec_t ** users, const char * fn)
                 (uint64_t) id->via.int64,
                 name->via.raw,
                 passstr);
+
+        free(passstr);
+
         if (!user || vec_push(users, user)) goto stop;
     }
 
@@ -165,6 +167,5 @@ int rql_users_restore(vec_t ** users, const char * fn)
 stop:
     if (rc) log_critical("failed to restore from file: '%s'", fn);
     qp_res_destroy(res);
-    free(passstr);
     return rc;
 }

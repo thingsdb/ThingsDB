@@ -8,7 +8,7 @@
 #define RQL_ELEMS_H_
 
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <rql/elem.h>
 #include <util/imap.h>
 

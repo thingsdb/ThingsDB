@@ -33,6 +33,7 @@ rql_lookup_t * rql_lookup_create(
 
 void rql_lookup_destroy(rql_lookup_t * lookup)
 {
+    if (!lookup) return;
     free(lookup->nodes_);
     free(lookup);
 }

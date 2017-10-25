@@ -193,12 +193,12 @@ void rql_event_raw(
         return;
     }
 
-    if (event->target || qpx_raw_equal(&target, rql_name)) goto target;
+    if (event->target || qpx_obj_eq_str(&target, rql_name)) goto target;
 
     for (vec_each(event->events->rql->dbs, rql_db_t, db))
     {
-        if (qpx_raw_equal(&target, db->name) ||
-            qpx_raw_equal(&target, db->guid.guid))
+        if (qpx_obj_eq_str(&target, db->name) ||
+            qpx_obj_eq_str(&target, db->guid.guid))
         {
             event->target = rql_db_grab(db);
             goto target;
@@ -452,7 +452,7 @@ static int rql__event_ready(rql_event_t * event)
         !xpkg ||
         qp_add_array(&xpkg) ||
         qp_add_int64(xpkg, (int64_t) event->id) ||
-        qp_add_raw(xpkg, (const char *) event->raw->data, event->raw->n) ||
+        qp_add_raw(xpkg, event->raw->data, event->raw->n) ||
         qp_close_array(xpkg)) goto failed;
 
     event->req_pkg = qpx_packer_pkg(xpkg, RQL_BACK_EVENT_READY);
@@ -624,8 +624,6 @@ static void rql__event_unpack(
                 "invalid event: expecting an array with tasks");
         return;
     }
-
-    unpacker->flags |= QP_UNPACK_FLAG_RAW;
 
     while ((res = qp_unpacker_res(unpacker, NULL)) && res->tp == QP_RES_MAP)
     {

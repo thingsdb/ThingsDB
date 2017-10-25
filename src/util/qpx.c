@@ -9,7 +9,7 @@
 #include <util/qpx.h>
 #include <util/logger.h>
 
-qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
+qp_res_t * qpx_map_get(const qp_map_t * map, const char * key)
 {
     for (size_t i = 0; i < map->n; i++)
     {
@@ -26,8 +26,9 @@ qp_res_t * qpx_map_get(qp_map_t * map, const char * key)
 /*
  * Compare a raw object to a null terminated string.
  */
-_Bool qpx_raw_equal(qp_obj_t * obj, const char * s)
+_Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s)
 {
+    if (obj->tp != QP_RAW) return 0;
     for (size_t i = 0; i < obj->len; i++, s++)
     {
         if (*s != obj->via.raw[i] || !*s) return 0;
@@ -67,7 +68,7 @@ void qpx_unpacker_init(
         const unsigned char * pt,
         size_t len)
 {
-    unpacker->flags = QP_UNPACK_FLAG_KEY_STR;
+    unpacker->flags = QP_UNPACK_FLAG_RAW | QP_UNPACK_FLAG_KEY_STR;
     unpacker->start = pt;
     unpacker->pt = pt;
     unpacker->end = pt + len;

@@ -26,7 +26,10 @@ int rql_elem_weak_set(
 
 struct rql_elem_s
 {
-    uint64_t ref;
+    uint32_t ref;
+    uint8_t flags;
+    uint8_t pad0;
+    uint16_t pad1;
     uint64_t id;
     vec_t * items;
 };

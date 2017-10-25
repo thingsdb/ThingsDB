@@ -72,10 +72,10 @@ int rql_access_store(const vec_t * access, const char * fn)
     if (qp_add_map(&packer)) goto stop;
 
     /* schema */
-    if (qp_add_raw(packer, "schema", 6) ||
+    if (qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, rql_access_fn_schema)) goto stop;
 
-    if (qp_add_raw(packer, "access", 6) ||
+    if (qp_add_raw_from_str(packer, "access") ||
         qp_add_array(&packer)) goto stop;
 
     for (vec_each(access, rql_auth_t, auth))

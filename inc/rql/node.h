@@ -25,13 +25,14 @@ typedef struct rql_node_s rql_node_t;
 
 struct rql_node_s
 {
-    uint64_t ref;
+    uint32_t ref;
     uint8_t id;  /* equal to the index in rql->nodes */
     uint8_t flags;
     uint8_t status;
     uint8_t maintn;
     uint16_t port;
     uint16_t req_next_id;
+    uint32_t pad0;
     imap_t * reqs;
     rql_sock_t * sock;
     char * addr;    /* can be used as name */

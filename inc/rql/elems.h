@@ -10,6 +10,7 @@
 
 #include <inttypes.h>
 #include <rql/elem.h>
+#include <util/imap.h>
 
 rql_elem_t * rql_elems_create(imap_t * elems, uint64_t id);
 

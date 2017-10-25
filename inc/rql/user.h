@@ -13,6 +13,7 @@
 typedef struct rql_user_s  rql_user_t;
 
 #include <inttypes.h>
+#include <rql/raw.h>
 #include <util/ex.h>
 
 extern const char * rql_user_def_name;
@@ -24,20 +25,20 @@ extern const unsigned int rql_max_pass;  // length including terminator
 
 rql_user_t * rql_user_create(
         uint64_t id,
-        const char * name,
+        const rql_raw_t * name,
         const char * encrpass);
 rql_user_t * rql_user_grab(rql_user_t * user);
 void rql_user_drop(rql_user_t * user);
-int rql_user_name_check(const char * name, ex_t * e);
-int rql_user_pass_check(const char * pass, ex_t * e);
-int rql_user_rename(rql_user_t * user, const char * name);
+int rql_user_name_check(const rql_raw_t * name, ex_t * e);
+int rql_user_pass_check(const rql_raw_t * pass, ex_t * e);
+int rql_user_rename(rql_user_t * user, const rql_raw_t * name);
 int rql_user_set_pass(rql_user_t * user, const char * pass);
 
 struct rql_user_s
 {
-    uint64_t ref;
+    uint32_t ref;
     uint64_t id;
-    char * name;
+    rql_raw_t * name;
     char * pass;
 };
 

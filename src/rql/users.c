@@ -38,7 +38,7 @@ rql_user_t * rql_users_auth(
 
     for (vec_each(users, rql_user_t, user))
     {
-        if (qpx_raw_equal(name, user->name))
+        if (qpx_obj_eq_raw(name, user->name))
         {
             memcpy(passbuf, pass->via.raw, pass->len);
             passbuf[pass->len] = '\0';
@@ -66,11 +66,11 @@ rql_user_t * rql_users_get_by_id(const vec_t * users, uint64_t id)
     return NULL;
 }
 
-rql_user_t * rql_users_get_by_name(const vec_t * users, const char * name)
+rql_user_t * rql_users_get_by_name(const vec_t * users, rql_raw_t * name)
 {
     for (vec_each(users, rql_user_t, user))
     {
-        if (strcmp(user->name, name) == 0) return user;
+        if (rql_raw_equal(user->name, name)) return user;
     }
     return NULL;
 }
@@ -84,18 +84,18 @@ int rql_users_store(const vec_t * users, const char * fn)
     if (qp_add_map(&packer)) goto stop;
 
     /* schema */
-    if (qp_add_raw(packer, "schema", 6) ||
+    if (qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, rql_users_fn_schema)) goto stop;
 
-    if (qp_add_raw(packer, "users", 5) ||
+    if (qp_add_raw_from_str(packer, "users") ||
         qp_add_array(&packer)) goto stop;
 
     for (vec_each(users, rql_user_t, user))
     {
         if (qp_add_array(&packer) ||
             qp_add_int64(packer, (int64_t) user->id) ||
-            qp_add_raw(packer, user->name, strlen(user->name)) ||
-            qp_add_raw(packer, user->pass, strlen(user->pass)) ||
+            qp_add_raw(packer, user->name->data, user->name->n) ||
+            qp_add_raw_from_str(packer, user->pass) ||
             qp_close_array(packer)) goto stop;
     }
 
@@ -113,6 +113,7 @@ int rql_users_restore(vec_t ** users, const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
+    char * passstr = NULL;
     unsigned char * data = fx_read(fn, &n);
     if (!data) return -1;
 
@@ -146,13 +147,16 @@ int rql_users_restore(vec_t ** users, const char * fn)
             !(name = quser->via.array->values + 1) ||
             !(pass = quser->via.array->values + 2) ||
             id->tp != QP_RES_INT64 ||
-            name->tp != QP_RES_STR ||
-            pass->tp != QP_RES_STR) goto stop;
+            name->tp != QP_RES_RAW ||
+            pass->tp != QP_RES_RAW) goto stop;
+
+        char * passstr = rql_raw_to_str(pass->via.raw);
+        if (!passstr) goto stop;
 
         rql_user_t * user = rql_user_create(
                 (uint64_t) id->via.int64,
-                name->via.str,
-                pass->via.str);
+                name->via.raw,
+                passstr);
         if (!user || vec_push(users, user)) goto stop;
     }
 
@@ -161,5 +165,6 @@ int rql_users_restore(vec_t ** users, const char * fn)
 stop:
     if (rc) log_critical("failed to restore from file: '%s'", fn);
     qp_res_destroy(res);
+    free(passstr);
     return rc;
 }

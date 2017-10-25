@@ -17,7 +17,7 @@ rql_raw_t * rql_raw_new(const unsigned char * raw, size_t n)
     return r;
 }
 
-rql_raw_t * rql_raw_dup(rql_raw_t * raw)
+rql_raw_t * rql_raw_dup(const rql_raw_t * raw)
 {
     size_t sz = sizeof(rql_raw_t) + raw->n;
     rql_raw_t * r = (rql_raw_t *) malloc(sz);
@@ -25,3 +25,14 @@ rql_raw_t * rql_raw_dup(rql_raw_t * raw)
     memcpy(r, raw, sz);
     return r;
 }
+
+char * rql_raw_to_str(const rql_raw_t * raw)
+{
+    char * str = (char *) malloc(raw->n + 1);
+    if (!str) return NULL;
+    memcpy(str, raw->data, raw->n);
+    str[raw->n] = '\0';
+    return str;
+}
+
+

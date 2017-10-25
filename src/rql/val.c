@@ -40,8 +40,8 @@ void rql_val_weak_set(rql_val_t * val, rql_val_e tp, void * v)
     val->tp = tp;
     switch(tp)
     {
-    case RQL_VAL_ELEM:
-        val->via.elem_ = (rql_elem_t *) v;
+    case RQl_VAL_NIL:
+        val->via.nil_ = NULL;
         break;
     case RQL_VAL_INT:
     {
@@ -59,19 +59,19 @@ void rql_val_weak_set(rql_val_t * val, rql_val_e tp, void * v)
         val->via.bool_ = *p;
     } break;
     case RQL_VAL_STR:
-        val->via.str_ = (const char *) v;
+        val->via.str_ = (char *) v;
         break;
     case RQL_VAL_RAW:
         val->via.raw_ = (rql_raw_t *) v;
+        break;
+    case RQL_VAL_ELEM:
+        val->via.elem_ = (rql_elem_t *) v;
         break;
     case RQL_VAL_ELEMS:
         val->via.elems_ = (vec_t *) v;
         break;
     case RQL_VAL_PRIMITIVES:
         val->via.primitives_ = (vec_t *) v;
-        break;
-    case RQl_VAL_NIL:
-        val->via.nil_ = NULL;
         break;
     }
 }
@@ -81,8 +81,8 @@ int rql_val_set(rql_val_t * val, rql_val_e tp, void * v)
     val->tp = tp;
     switch(tp)
     {
-    case RQL_VAL_ELEM:
-        val->via.elem_ = rql_elem_grab((rql_elem_t *) v);
+    case RQl_VAL_NIL:
+        val->via.nil_ = NULL;
         break;
     case RQL_VAL_INT:
     {
@@ -115,6 +115,9 @@ int rql_val_set(rql_val_t * val, rql_val_e tp, void * v)
             return -1;
         }
         break;
+    case RQL_VAL_ELEM:
+        val->via.elem_ = rql_elem_grab((rql_elem_t *) v);
+        break;
     case RQL_VAL_ELEMS:
         val->via.elems_ = vec_dup((vec_t *) v);
         if (!val->via.elems_)
@@ -131,9 +134,6 @@ int rql_val_set(rql_val_t * val, rql_val_e tp, void * v)
             return -1;
         }
         break;
-    case RQl_VAL_NIL:
-        val->via.nil_ = NULL;
-        break;
     }
     return 0;
 }
@@ -145,19 +145,19 @@ void rql_val_clear(rql_val_t * val)
 {
     switch(val->tp)
     {
-    case RQL_VAL_ELEM:
-        rql_elem_drop(val->via.elem_);
-        break;
+    case RQl_VAL_NIL:
     case RQL_VAL_INT:
     case RQL_VAL_FLOAT:
     case RQL_VAL_BOOL:
-    case RQl_VAL_NIL:
         break;
     case RQL_VAL_STR:
         free(val->via.str_);
         break;
     case RQL_VAL_RAW:
         free(val->via.raw_);
+        break;
+    case RQL_VAL_ELEM:
+        rql_elem_drop(val->via.elem_);
         break;
     case RQL_VAL_ELEMS:
         vec_destroy(val->via.elems_, (vec_destroy_cb) rql_elem_drop);

@@ -14,7 +14,7 @@ typedef struct rql_ref_s  rql_ref_t;
 
 struct rql_ref_s
 {
-    uint64_t ref;
+    uint32_t ref;
 };
 
 static inline void rql_ref_inc(rql_ref_t * ref);

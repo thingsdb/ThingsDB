@@ -19,15 +19,15 @@ typedef struct rql_db_s  rql_db_t;
 
 struct rql_db_s
 {
-    uint64_t ref;
+    uint32_t ref;
     guid_t guid;
-    char * name;
+    rql_raw_t * name;
     rql_t * rql;
     imap_t * elems;
     smap_t * props;
     vec_t * access;
-    uint64_t next_id;
     rql_elem_t * root;
+    uint64_t next_id;
 };
 
 rql_db_t * rql_db_create(rql_t * rql, guid_t * guid, const char * name);

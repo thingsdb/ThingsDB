@@ -13,6 +13,7 @@ C_SRCS += \
 ../src/rql/db.c \
 ../src/rql/dbs.c \
 ../src/rql/elem.c \
+../src/rql/elems.c \
 ../src/rql/event.c \
 ../src/rql/events.c \
 ../src/rql/front.c \
@@ -50,6 +51,7 @@ OBJS += \
 ./src/rql/db.o \
 ./src/rql/dbs.o \
 ./src/rql/elem.o \
+./src/rql/elems.o \
 ./src/rql/event.o \
 ./src/rql/events.o \
 ./src/rql/front.o \
@@ -87,6 +89,7 @@ C_DEPS += \
 ./src/rql/db.d \
 ./src/rql/dbs.d \
 ./src/rql/elem.d \
+./src/rql/elems.d \
 ./src/rql/event.d \
 ./src/rql/events.d \
 ./src/rql/front.d \

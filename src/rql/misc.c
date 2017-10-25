@@ -27,24 +27,24 @@ qp_packer_t * rql_misc_pack_init_event_request(void)
     if (!packer) return NULL;
 
     if (qp_add_map(&packer) ||
-        qp_add_raw(packer, rql_name, strlen(rql_name)) ||
+        qp_add_raw_from_str(packer, rql_name) ||
         qp_add_array(&packer) ||
         qp_add_map(&packer) ||
 
-        qp_add_raw(packer, RQL_API_TASK, strlen(RQL_API_TASK)) ||
+        qp_add_raw_from_str(packer, RQL_API_TASK) ||
         qp_add_int64(packer, RQL_TASK_USER_CREATE) ||
-        qp_add_raw(packer, RQL_API_USER, strlen(RQL_API_USER)) ||
-        qp_add_raw(packer, rql_user_def_name, strlen(rql_user_def_name)) ||
-        qp_add_raw(packer, RQL_API_PASS, strlen(RQL_API_PASS)) ||
-        qp_add_raw(packer, rql_user_def_pass, strlen(rql_user_def_pass)) ||
+        qp_add_raw_from_str(packer, RQL_API_USER) ||
+        qp_add_raw_from_str(packer, rql_user_def_name) ||
+        qp_add_raw_from_str(packer, RQL_API_PASS) ||
+        qp_add_raw_from_str(packer, rql_user_def_pass) ||
         qp_close_map(packer) ||
 
         qp_add_map(&packer) ||
-        qp_add_raw(packer, RQL_API_TASK, strlen(RQL_API_TASK)) ||
+        qp_add_raw_from_str(packer, RQL_API_TASK) ||
         qp_add_int64(packer, RQL_TASK_GRANT) ||
-        qp_add_raw(packer, RQL_API_USER, strlen(RQL_API_USER)) ||
-        qp_add_raw(packer, rql_user_def_name, strlen(rql_user_def_name)) ||
-        qp_add_raw(packer, RQL_API_PERM, strlen(RQL_API_PERM)) ||
+        qp_add_raw_from_str(packer, RQL_API_USER) ||
+        qp_add_raw_from_str(packer, rql_user_def_name) ||
+        qp_add_raw_from_str(packer, RQL_API_PERM) ||
         qp_add_int64(packer, RQL_AUTH_MASK_FULL) ||
         qp_close_map(packer) ||
 

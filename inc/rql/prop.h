@@ -17,7 +17,7 @@ void rql_prop_drop(rql_prop_t * prop);
 
 struct rql_prop_s
 {
-    uint64_t ref;
+    uint32_t ref;
     char name[];
 };
 

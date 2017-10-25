@@ -233,6 +233,15 @@ _Bool strx_is_graph(const char * str)
     return 1;
 }
 
+_Bool strx_is_graphn(const char * str, size_t n)
+{
+    for (; n--; str++)
+    {
+        if (!isgraph(*str)) return 0;
+    }
+    return 1;
+}
+
 /*
  * Returns a string to double.
  * No error checking is done, we make the following assumptions:
@@ -240,41 +249,40 @@ _Bool strx_is_graph(const char * str)
  *      - string is allowed to have one dot (.) at most but not required
  *      - string can start with a plus (+) or minus (-) sign.
  */
-double strx_to_double(const char * src, size_t len)
+double strx_to_doublen(const char * str, size_t n)
 {
-    char * pt = (char *) src;
     double d = 0;
     double convert;
 
-    switch (*pt)
+    switch (*str)
     {
     case '-':
         convert = -1.0;
-        pt++;
+        str++;
         break;
     case '+':
-        pt++;
+        str++;
         /* no break */
     default:
         convert = 1.0;
     }
 
-    uint64_t r1 = *pt - '0';
+    uint64_t r1 = *str - '0';
 
-    while (--len && isdigit(*(++pt)))
+    while (--n && isdigit(*(++str)))
     {
-        r1 = 10 * r1 + *pt - '0';
+        r1 = 10 * r1 + *str - '0';
     }
 
     d = (double) r1;
 
-    if (--len && *(pt++) == '.')
+    if (--n && *(str++) == '.')
     {
-        uint64_t r2 = *pt - '0';
+        uint64_t r2 = *str - '0';
         ssize_t i;
-        for (i = -1; --len && isdigit(*(++pt)); i--)
+        for (i = -1; --n && isdigit(*(++str)); i--)
         {
-             r2 = 10 * r2 + *pt - '0';
+             r2 = 10 * r2 + *str - '0';
         }
 
         d += pow(10, i) * (double) r2;
@@ -289,15 +297,13 @@ double strx_to_double(const char * src, size_t len)
  *      - len > 0
  *      - string can only contain characters [0..9] and no signs
  */
-uint64_t strx_to_uint64(const char * src, size_t len)
+uint64_t strx_to_uint64n(const char * str, size_t n)
 {
-    char * pt = (char *) src;
+    uint64_t i = *str - '0';
 
-    uint64_t i = *pt - '0';
-
-    while (--len && isdigit(*(++pt)))
+    while (--n && isdigit(*(++str)))
     {
-        i = 10 * i + *pt - '0';
+        i = 10 * i + *str - '0';
     }
 
     return i;

@@ -59,17 +59,19 @@ void rql_db_drop(rql_db_t * db)
 
 int rql_db_buid(rql_db_t * db)
 {
-    rql_elem_t elem = rql_elems_create(rql_get_id(db->rql));
+    rql_elem_t * elem = rql_elems_create(db->elems, rql_get_id(db->rql));
     if (!elem) return -1;
 
     if (rql_has_id(db->rql, elem->id))
     {
         rql_prop_t * prop = rql_db_props_get(db->props, "name");
-        if (!prop ||
-            rql_elem_set(elem, prop, RQL_VAL_STR, db->name)) return -1;
+        if (!prop || rql_elem_set(elem, prop, RQL_VAL_STR, db->name))
+        {
+            return -1;
+        }
     }
-
     db->root = rql_elem_grab(elem);
+
     return 0;
 }
 
@@ -100,7 +102,7 @@ int rql_db_name_check(const char * name, ex_t * e)
     if (name[0] == RQL_API_PREFIX[0])
     {
         ex_set(e, -1,
-                "database name should not start with an ''");
+                "database name should not start with an '"RQL_API_PREFIX"'");
         return -1;
     }
     return 0;

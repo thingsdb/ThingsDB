@@ -105,10 +105,7 @@ rql_task_stat_e rql_task_run(
     }
 
 finish:
-    if ((event->client && qp_add_raw(
-            event->result,
-            RQL_API_STAT,
-            strlen(RQL_API_STAT))) ||
+    if ((event->client && qp_add_raw_from_str(event->result, RQL_API_STAT)) ||
         qp_add_int64(event->result, rc) ||
         (event->client && qp_close_map(event->result))) return RQL_TASK_ERR;
 
@@ -136,21 +133,21 @@ static rql_task_stat_e rql__task_user_create(
     rql_user_t * usr;
     user = qpx_map_get(task, RQL_API_USER);
     pass = qpx_map_get(task, RQL_API_PASS);
-    if (!user || user->tp != QP_RES_STR ||
-        !pass || pass->tp != QP_RES_STR)
+    if (!user || user->tp != QP_RES_RAW ||
+        !pass || pass->tp != QP_RES_RAW)
     {
         return rql__task_fail(event,
                 "missing or invalid user ("RQL_API_USER") "
                 "or password ("RQL_API_PASS")");
     }
 
-    if (rql_user_name_check(user->via.str, e) ||
-        rql_user_pass_check(pass->via.str, e))
+    if (rql_user_name_check(user->via.raw, e) ||
+        rql_user_pass_check(pass->via.raw, e))
     {
         return rql__task_fail(event, e->msg);
     }
 
-    if (rql_users_get_by_name(rql->users, user->via.str))
+    if (rql_users_get_by_name(rql->users, user->via.raw))
     {
         return rql__task_fail(event, "user already exists");
     }
@@ -220,6 +217,12 @@ static rql_task_stat_e rql__task_db_create(
         return RQL_TASK_ERR;
     }
 
+    if (rql_db_buid(db))
+    {
+        log_critical(EX_ALLOC);
+        return RQL_TASK_ERR;
+    }
+
     return RQL_TASK_SUCCESS;
 }
 
@@ -272,8 +275,11 @@ static rql_task_stat_e rql__task_failn(
 {
     if (event->client)
     {
-        if (qp_add_raw(event->result, "error_msg", 9) ||
-            qp_add_raw(event->result, msg, n)) return RQL_TASK_ERR;
+        if (qp_add_raw(event->result, (const unsigned char *) "error_msg", 9) ||
+            qp_add_raw(event->result, (const unsigned char *) msg, n))
+        {
+            return RQL_TASK_ERR;
+        }
     }
     return RQL_TASK_FAILED;
 }

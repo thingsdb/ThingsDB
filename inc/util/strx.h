@@ -21,8 +21,9 @@ _Bool strx_is_empty(const char * str);
 _Bool strx_is_int(const char * str);
 _Bool strx_is_float(const char * str);
 _Bool strx_is_graph(const char * str);
-double strx_to_double(const char * src, size_t len);
-uint64_t strx_to_uint64(const char * src, size_t len);
+_Bool strx_is_graphn(const char * str, size_t n);
+double strx_to_doublen(const char * str, size_t n);
+uint64_t strx_to_uint64n(const char * str, size_t n);
 char * strx_cat(const char * s1, const char * s2);
 
 #endif /* RQL_STRX_H_ */

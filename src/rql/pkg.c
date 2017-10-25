@@ -35,8 +35,8 @@ rql_pkg_t * rql_pkg_err(uint16_t id, uint8_t tp, const char * errmsg)
     if (!xpkg) return NULL;
 
     qp_add_map(&xpkg);
-    qp_add_raw(xpkg, "error_msg", 9);
-    qp_add_raw(xpkg, errmsg, n);
+    qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
+    qp_add_raw(xpkg, (const unsigned char *) errmsg, n);
     qp_close_map(xpkg);
 
     rql_pkg_t * pkg = qpx_packer_pkg(xpkg, tp);

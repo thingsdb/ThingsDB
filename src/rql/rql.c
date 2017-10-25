@@ -279,11 +279,11 @@ int rql__store(rql_t * rql, const char * fn)
     if (!packer) return -1;
 
     if (qp_add_map(&packer) ||
-        qp_add_raw(packer, "schema", 6) ||
+        qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, rql__fn_store_schema) ||
-        qp_add_raw(packer, "commit_id", 9) ||
+        qp_add_raw_from_str(packer, "commit_id") ||
         qp_add_int64(packer, (int64_t) rql->events->commit_id) ||
-        qp_add_raw(packer, "next_id", 7) ||
+        qp_add_raw_from_str(packer, "next_id") ||
         qp_add_int64(packer, (int64_t) rql->next_id_) ||
         qp_close_map(packer)) goto stop;
 
@@ -399,24 +399,24 @@ static qp_packer_t * rql__pack(rql_t * rql)
     if (qp_add_map(&packer)) goto failed;
 
     /* schema */
-    if (qp_add_raw(packer, "schema", 6) ||
+    if (qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, rql__fn_schema)) goto failed;
 
     /* redundancy */
-    if (qp_add_raw(packer, "redundancy", 10) ||
+    if (qp_add_raw_from_str(packer, "redundancy") ||
         qp_add_int64(packer, (int64_t) rql->redundancy)) goto failed;
 
     /* node */
-    if (qp_add_raw(packer, "node", 4) ||
+    if (qp_add_raw_from_str(packer, "node") ||
         qp_add_int64(packer, (int64_t) rql->node->id)) goto failed;
 
     /* nodes */
-    if (qp_add_raw(packer, "nodes", 5) || qp_add_array(&packer)) goto failed;
+    if (qp_add_raw_from_str(packer, "nodes") || qp_add_array(&packer)) goto failed;
     for (uint32_t i = 0; i < rql->nodes->n; i++)
     {
         rql_node_t * node = (rql_node_t *) vec_get(rql->nodes, i);
         if (qp_add_array(&packer) ||
-            qp_add_raw(packer, node->addr, strlen(node->addr)) ||
+            qp_add_raw_from_str(packer, node->addr) ||
             qp_add_int64(packer, (int64_t) node->port) ||
             qp_close_array(packer)) goto failed;
 

@@ -6,6 +6,7 @@
  */
 #include <uv.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <rql/signals.h>
 #include <util/logger.h>
 

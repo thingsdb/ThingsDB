@@ -7,7 +7,7 @@
 #ifndef RQL_TASK_H_
 #define RQL_TASK_H_
 
-#define RQL_TASK_N 13
+#define RQL_TASK_N 15
 
 /*
  * Max 60 tasks can be defined.
@@ -25,10 +25,10 @@ typedef enum
     RQL_TASK_SET_REDUNDANCY,
     RQL_TASK_NODE_ADD,
     RQL_TASK_NODE_REPLACE,
-    RQL_TASK_PROPS_SET,
-    RQL_TASK_PROPS_DEL,
     RQL_TASK_SUBSCRIBE,
     RQL_TASK_UNSUBSCRIBE,
+    RQL_TASK_PROPS_SET,
+    RQL_TASK_PROPS_DEL,
 } rql_task_e;
 
 typedef enum

@@ -75,6 +75,7 @@ void rql_event_destroy(rql_event_t * event)
     rql_db_drop(event->target);
     rql_node_drop(event->node);
     rql_sock_drop(event->client);
+    imap_destroy(event->refelems, NULL);
     vec_destroy(event->tasks, (vec_destroy_cb) rql_task_destroy);
     vec_destroy(event->nodes, (vec_destroy_cb) rql_node_drop);
     qpx_packer_destroy(event->result);

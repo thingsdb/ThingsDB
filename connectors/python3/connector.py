@@ -7,6 +7,7 @@ import qpack
 REQ_PING = 0
 REQ_AUTH = 1
 REQ_EVENT = 2
+REQ_GET_ELEM = 3
 
 
 RES_ACK = 0
@@ -30,6 +31,8 @@ TASK_NODE_ADD = 9
 TASK_NODE_REPLACE = 10
 TASK_SUBSCRIBE = 11
 TASK_UNSUBSCRIBE = 12
+TASK_PROPS_SET = 13
+TASK_PROPS_DEL = 14
 
 
 class Rql:
@@ -87,6 +90,14 @@ class Rql:
         future = self.write_package(
             REQ_EVENT,
             data=event,
+            timeout=timeout)
+        resp = await future
+        return resp
+
+    async def get_elem(self, req, timeout=5):
+        future = self.write_package(
+            REQ_GET_ELEM,
+            data=req,
             timeout=timeout)
         resp = await future
         return resp
@@ -210,11 +221,23 @@ async def test():
     res = await rql.trigger({
         '_': [{
             '_t': TASK_DB_CREATE,
-            '_u': 'iriss',
+            '_u': 'iris',
             '_n': 'dbtest'
         }]
     })
-    print('Create user result:', res)
+    print('Create database result:', res, type(res))
+    res = await rql.trigger({
+        'dbtest': [{
+            '_t': TASK_PROPS_SET,
+            '_i': res[0][b"_i"],
+            'bla': 'bla'
+        }]
+    })
+    print('Set props result:', res, res[0][b"_i"])
+    res = await rql.get_elem({
+        'dbtest': res[0][b"_i"]
+    })
+    print('Get elem result:', res)
 
 if __name__ == '__main__':
     logger = logging.getLogger()

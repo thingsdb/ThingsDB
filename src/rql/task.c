@@ -6,14 +6,19 @@
  */
 #include <stdlib.h>
 #include <assert.h>
-#include <rql/task.h>
-#include <util/qpx.h>
-#include <rql/api.h>
-#include <rql/proto.h>
 #include <rql/access.h>
-#include <rql/users.h>
-#include <rql/dbs.h>
+#include <rql/api.h>
 #include <rql/auth.h>
+#include <rql/dbs.h>
+#include <rql/elem.h>
+#include <rql/elems.h>
+#include <rql/inliners.h>
+#include <rql/prop.h>
+#include <rql/props.h>
+#include <rql/proto.h>
+#include <rql/task.h>
+#include <rql/users.h>
+#include <util/qpx.h>
 
 static rql_task_stat_e rql__task_user_create(
         qp_map_t * task,
@@ -27,6 +32,10 @@ static rql_task_stat_e rql__task_grant(
 static rql_task_stat_e rql__task_props_set(
         qp_map_t * task,
         rql_event_t * event);
+static inline rql_elem_t * rql__task_elem_by_id(
+        rql_event_t * event,
+        int64_t sid);
+static rql_elem_t * rql__task_elem_create(rql_event_t * event, int64_t sid);
 static inline rql_task_stat_e rql__task_fail(
         rql_event_t * event,
         const char * msg);
@@ -125,7 +134,20 @@ const char * rql_task_str(rql_task_t * task)
     switch(task->tp)
     {
     case RQL_TASK_USER_CREATE: return "TASK_USER_CREATE";
+    case RQL_TASK_USER_DROP: return "TASK_USER_DROP";
+    case RQL_TASK_USER_ALTER: return "TASK_USER_ALTER";
+    case RQL_TASK_DB_CREATE: return "TASK_DB_CREATE";
+    case RQL_TASK_DB_RENAME: return "TASK_DB_RENAME";
+    case RQL_TASK_DB_DROP: return "TASK_DB_DROP";
     case RQL_TASK_GRANT: return "TASK_GRANT";
+    case RQL_TASK_REVOKE: return "TASK_REVOKE";
+    case RQL_TASK_SET_REDUNDANCY: return "TASK_SET_REDUNDANCY";
+    case RQL_TASK_NODE_ADD: return "TASK_NODE_ADD";
+    case RQL_TASK_NODE_REPLACE: return "TASK_NODE_REPLACE";
+    case RQL_TASK_SUBSCRIBE: return "TASK_SUBSCRIBE";
+    case RQL_TASK_UNSUBSCRIBE: return "TASK_UNSUBSCRIBE";
+    case RQL_TASK_PROPS_SET: return "TASK_PROPS_SET";
+    case RQL_TASK_PROPS_DEL: return "TASK_PROPS_DEL";
     default:
         return "TASK_UNKNOWN";
     }
@@ -296,6 +318,10 @@ static rql_task_stat_e rql__task_props_set(
         qp_map_t * task,
         rql_event_t * event)
 {
+    ex_t * e = ex_use();
+    rql_t * rql = event->events->rql;
+    rql_db_t * db = event->target;
+    rql_elem_t * elem;
     if (!event->target)
     {
         return rql__task_fail(event,
@@ -309,21 +335,128 @@ static rql_task_stat_e rql__task_props_set(
                 "missing or invalid element id ("RQL_API_ID")");
     }
 
-    uint64_t id = (uint64_t) qid->via.int64;
-    rql_elem_t * elem = imap_get(event->target->elems, id);
-
-    if (!elem)
+    if (qid->via.int64 < 0)
     {
-        ex_t * e = ex_use();
-        ex_set(e, -1, "cannot find element with id: %"PRIu64, id);
-        return rql__task_fail(event, e->msg);
+        elem = rql__task_elem_create(event, (uint64_t) qid->via.int64);
+        if (!elem) return RQL_TASK_ERR;
+    }
+    else
+    {
+        uint64_t id = (uint64_t) qid->via.int64;
+        elem = (rql_elem_t *) imap_get(db->elems, id);
+        if (!elem)
+        {
+            ex_set(e, -1, "cannot find element: %"PRIu64, id);
+            return rql__task_fail(event, e->msg);
+        }
     }
 
+    _Bool has_elem = rql_has_id(rql, elem->id);
 
+    void * val;
+    qp_res_t * k, * v;
+    for (size_t i = 0; i < task->n; i++)
+    {
+        k = task->keys + i;
+        if (!*k->via.str || *k->via.str == RQL_API_PREFIX[0]) continue;
+
+        rql_prop_t * prop = rql_db_props_get(db->props, k->via.str);
+        if (!prop) return RQL_TASK_ERR;
+
+        v = task->values + i;
+        if (rql_elem_res_is_id(v))
+        {
+            int64_t sid = v->via.map->values[0].via.int64;
+            rql_elem_t * el = rql__task_elem_by_id(event, sid);
+            if (!el)
+            {
+
+                ex_set(e, -1, "cannot find element: %"PRId64, sid);
+                return rql__task_fail(event, e->msg);
+            }
+            if (rql_elem_set(elem, prop, RQL_VAL_ELEM, el))
+            {
+                log_critical(EX_ALLOC);
+                return RQL_TASK_ERR;
+            }
+            continue;
+        }
+        switch (v->tp)
+        {
+        case QP_RES_MAP:
+            return rql__task_fail(event,
+                    "map must be an element {\""RQL_API_ID"\": <id>}");
+
+        case QP_RES_ARRAY:
+            assert(0);
+            continue;
+
+        case QP_RES_INT64:
+            val = &v->via.int64;
+            break;
+        case QP_RES_REAL:
+            val = &v->via.real;
+            break;
+        case QP_RES_STR:  /* we handle strings but actually we only should
+                           * receive strings as raw type */
+            val = (void *) v->via.str;
+            v->via.str = NULL;
+            break;
+        case QP_RES_RAW:
+            val = (void *) v->via.raw;
+            v->via.raw = NULL;
+            break;
+        case QP_RES_BOOL:
+            val = &v->via.boolean;
+            break;
+        case QP_RES_NULL:
+            val = NULL;
+            break;
+        }
+        if (has_elem && rql_elem_weak_set(elem, prop, v->tp, val))
+        {
+            log_critical(EX_ALLOC);
+            return RQL_TASK_ERR;
+        }
+    }
+
+    if (qp_add_raw_from_str(event->result, RQL_API_ID) ||
+        qp_add_int64(event->result, (int64_t) elem->id))
+    {
+        log_critical(EX_ALLOC);
+        return RQL_TASK_ERR;
+    }
 
     return RQL_TASK_SUCCESS;
 }
 
+static inline rql_elem_t * rql__task_elem_by_id(
+        rql_event_t * event,
+        int64_t sid)
+{
+    return (rql_elem_t *) imap_get(
+            (sid < 0) ? event->refelems : event->target->elems,
+            (uint64_t) sid);
+}
+
+static rql_elem_t * rql__task_elem_create(rql_event_t * event, int64_t sid)
+{
+    assert (sid < 0);
+    if (!event->refelems)
+    {
+        event->refelems = imap_create();
+        if (!event->refelems) return NULL;
+    }
+    rql_elem_t * elem = rql_elems_create(
+            event->target->elems,
+            rql_get_id(event->events->rql));
+    /*
+     * we are allowed to overwrite the element, the previous does hold a
+     * reference so it will be removed.
+     */
+    if (!elem || !imap_set(event->refelems, (uint64_t) sid, elem)) return NULL;
+    return elem;
+}
 
 static inline rql_task_stat_e rql__task_fail(
         rql_event_t * event,

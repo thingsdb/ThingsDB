@@ -4,9 +4,11 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <rql/val.h>
+#include <util/logger.h>
 
 rql_val_t * rql_val_create(rql_val_e tp, void * v)
 {
@@ -166,4 +168,43 @@ void rql_val_clear(rql_val_t * val)
         vec_destroy(val->via.primitives_, (vec_destroy_cb) rql_val_destroy);
         break;
     }
+}
+
+int rql_val_to_packer(rql_val_t * val, qp_packer_t * packer)
+{
+    switch (val->tp)
+    {
+    case RQl_VAL_NIL:
+        return qp_add_null(packer);
+    case RQL_VAL_INT:
+        return qp_add_int64(packer, val->via.int_);
+    case RQL_VAL_FLOAT:
+        return qp_add_double(packer, val->via.float_);
+    case RQL_VAL_BOOL:
+        return val->via.bool_ ?
+                qp_add_true(packer) : qp_add_false(packer);
+    case RQL_VAL_STR:
+        return qp_add_raw_from_str(packer, val->via.str_);
+    case RQL_VAL_RAW:
+        return qp_add_raw(packer, val->via.raw_->data, val->via.raw_->n);
+    case RQL_VAL_ELEM:
+        return rql_elem_id_to_packer(val->via.elem_, packer);
+    case RQL_VAL_ELEMS:
+        if (qp_add_array(&packer)) return -1;
+        for (vec_each(val->via.elems_, rql_elem_t, el))
+        {
+            if (rql_elem_id_to_packer(el, packer)) return -1;
+        }
+        return qp_close_array(packer);
+    case RQL_VAL_PRIMITIVES:
+        if (qp_add_array(&packer)) return -1;
+        for (vec_each(val->via.primitives_, rql_val_t, v))
+        {
+            if (rql_val_to_packer(v, packer)) return -1;
+        }
+        return qp_close_array(packer);
+    }
+
+    assert(0);
+    return -1;
 }

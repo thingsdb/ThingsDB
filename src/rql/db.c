@@ -70,7 +70,7 @@ int rql_db_buid(rql_db_t * db)
     if (rql_has_id(db->rql, elem->id))
     {
         rql_prop_t * prop = rql_db_props_get(db->props, "name");
-        if (!prop || rql_elem_set(elem, prop, RQL_VAL_STR, db->name))
+        if (!prop || rql_elem_set(elem, prop, RQL_VAL_RAW, db->name))
         {
             return -1;
         }

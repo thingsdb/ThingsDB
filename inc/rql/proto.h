@@ -11,6 +11,7 @@ typedef enum
 {
     RQL_PROTO_ACK,      // empty
     RQL_PROTO_RESULT,   // [{"_s": status, ...},...] or [status, status, status]
+    RQL_PROTO_ELEM,     // {"_i": <id>, ...}
 
     RQL_PROTO_REJECT=64,   // empty  (back-end only)
 

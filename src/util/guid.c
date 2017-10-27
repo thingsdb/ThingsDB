@@ -32,7 +32,5 @@ void guid_init(guid_t * guid, uint64_t id)
     }
     *pt = guid__map[id];
     pt++;
-    *pt = '_';
-    pt++;
     *pt = '\0';
 }

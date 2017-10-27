@@ -11,7 +11,12 @@ typedef struct rql_lookup_s rql_lookup_t;
 
 #include <stdint.h>
 #include <util/vec.h>
+
+#ifndef TESTING
 #include <rql/node.h>
+#else
+#include "../test/test_lookup.h"
+#endif
 
 rql_lookup_t * rql_lookup_create(
         uint8_t n,

@@ -23,13 +23,9 @@
 
 #define LOGGER_FLAG_COLORED 1
 
-typedef struct logger_s
-{
-    struct _LOGGER_IO_FILE * ostream;
-    int level;
-    const char * level_name;
-    int flags;
-} logger_t;
+typedef struct logger_s logger_t;
+
+#include <stdio.h>
 
 const char * LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS];
 
@@ -69,5 +65,12 @@ extern logger_t Logger;
     {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
     log_critical(fmt, ##__VA_ARGS__);}
 
+struct logger_s
+{
+    struct _LOGGER_IO_FILE * ostream;
+    int level;
+    const char * level_name;
+    int flags;
+};
 
 #endif /* LOGGER_H_ */

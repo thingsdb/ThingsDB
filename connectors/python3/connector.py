@@ -226,16 +226,27 @@ async def test():
         }]
     })
     print('Create database result:', res, type(res))
+
     res = await rql.trigger({
         'dbtest': [{
             '_t': TASK_PROPS_SET,
-            '_i': res[0][b"_i"],
+            '_i': res[0].get(b"_i"),
             'bla': 'bla'
         }]
     })
-    print('Set props result:', res, res[0][b"_i"])
+    print('Set props result:', res)
+
+    res = await rql.trigger({
+        'dbtest': [{
+            '_t': TASK_PROPS_SET,
+            '_i': -1,
+            'bla': 'bla'
+        }]
+    })
+    print('Set props result:', res, res[0].get(b"_i"))
+
     res = await rql.get_elem({
-        'dbtest': res[0][b"_i"]
+        'dbtest': res[0].get(b"_i"),
     })
     print('Get elem result:', res)
 

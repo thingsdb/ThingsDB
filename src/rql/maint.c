@@ -8,6 +8,8 @@
 #include <rql/maint.h>
 #include <rql/event.h>
 #include <rql/store.h>
+#include <rql/props.h>
+#include <rql/elems.h>
 #include <rql/proto.h>
 #include <rql/nodes.h>
 #include <util/queue.h>
@@ -195,6 +197,23 @@ static void rql__maint_work(uv_work_t * work)
     rql_maint_t * maint = (rql_maint_t *) work->data;
 
     uv_mutex_lock(&maint->rql->events->lock);
+
+    log_debug("maintenance job: start storing data");
+
+    for (vec_each(maint->rql->dbs, rql_db_t, db))
+    {
+        if (rql_elems_gc(db->elems, db->root))
+        {
+            log_error("garbage collection of elements has failed");
+            continue;
+        }
+
+        if (rql_props_gc(db->props))
+        {
+            log_error("garbage collection of props has failed");
+            continue;
+        }
+    }
 
     log_debug("maintenance job: start storing data");
 

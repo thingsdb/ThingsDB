@@ -17,8 +17,7 @@
 rql_db_t * rql_dbs_get_by_name(const vec_t * dbs, const rql_raw_t * name);
 rql_db_t * rql_dbs_get_by_obj(const vec_t * dbs, const qp_obj_t * target);
 void rql_dbs_get(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e);
-
-//int rql_dbs_store(const vec_t * dbs, const char * fn);
-//int rql_dbs_restore(vec_t ** dbs, const char * fn);
+int rql_dbs_store(const vec_t * dbs, const char * fn);
+int rql_dbs_restore(vec_t ** dbs, rql_t * rql, const char * fn);
 
 #endif /* RQL_DBS_H_ */

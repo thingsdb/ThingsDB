@@ -7,6 +7,8 @@
 #ifndef RQL_ELEM_H_
 #define RQL_ELEM_H_
 
+#define RQL_ELEM_FLAG_SWEEP 1
+
 typedef struct rql_elem_s  rql_elem_t;
 
 #include <qpack.h>
@@ -19,6 +21,7 @@ typedef struct rql_elem_s  rql_elem_t;
 rql_elem_t * rql_elem_create(uint64_t id);
 rql_elem_t * rql_elem_grab(rql_elem_t * elem);
 void rql_elem_drop(rql_elem_t * elem);
+
 int rql_elem_set(rql_elem_t * elem, rql_prop_t * prop, rql_val_e tp, void * v);
 int rql_elem_weak_set(
         rql_elem_t * elem,

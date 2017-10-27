@@ -13,6 +13,10 @@
 #include <util/imap.h>
 
 rql_elem_t * rql_elems_create(imap_t * elems, uint64_t id);
+int rql_elems_gc(imap_t * elems, rql_elem_t * root);
+int rql_elems_store(imap_t * elems, const char * fn);
+int rql_elems_restore(imap_t * elems, const char * fn);
+
 
 struct rql_elems_s
 {

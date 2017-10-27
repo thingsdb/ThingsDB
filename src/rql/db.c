@@ -4,16 +4,16 @@
  *  Created on: Sep 30, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <rql/api.h>
 #include <rql/db.h>
 #include <rql/elem.h>
 #include <rql/elems.h>
-#include <rql/api.h>
+#include <rql/inliners.h>
 #include <rql/prop.h>
 #include <rql/props.h>
-#include <rql/inliners.h>
-
 #include <util/strx.h>
 
 static const size_t rql_db_min_name = 1;
@@ -56,8 +56,10 @@ void rql_db_drop(rql_db_t * db)
         free(db->name);
         vec_destroy(db->access, free);
         rql_elem_drop(db->root);
-        imap_destroy(db->elems, (imap_destroy_cb) rql_elem_drop);
-        smap_destroy(db->props, (smap_destroy_cb) rql_prop_drop);
+        rql_elems_gc(db->elems, NULL);
+        assert (db->elems->n == 0);
+        imap_destroy(db->elems, NULL);
+        smap_destroy(db->props, free);
         free(db);
     }
 }
@@ -110,4 +112,42 @@ int rql_db_name_check(const rql_raw_t * name, ex_t * e)
         return -1;
     }
     return 0;
+}
+
+int rql_db_store(rql_db_t * db, const char * fn)
+{
+    int rc;
+    FILE * f = fopen(fn, "w");
+    if (!f) return -1;
+
+    rc = fwrite(&db->root->id, sizeof(uint64_t), 1, f) == 1;
+    return -(fclose(f) || rc);
+}
+
+int rql_db_restore(rql_db_t * db, const char * fn)
+{
+    int rc = 0;
+    ssize_t sz;
+    unsigned char * data = fx_read(fn, &sz);
+    if (!data || sz != sizeof(uint64_t)) goto failed;
+
+    uint64_t id;
+    memcpy(&id, data, sizeof(uint64_t));
+
+    db->root = imap_get(db->elems, id);
+    if (!db->root)
+    {
+        log_critical("cannot find root element: %"PRIu64, id);
+        goto failed;
+    }
+
+    db->root = rql_elem_grab(db->root);
+    goto done;
+
+failed:
+    rc = -1;
+    log_critical("failed to restore from file: '%s'", fn);
+done:
+    free(data);
+    return rc;
 }

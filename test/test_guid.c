@@ -19,17 +19,22 @@ int main()
     /* test guid */
     {
         guid_t guid;
+
+        guid_init(&guid, 1);
+        assert ( guid.guid[sizeof(guid_t) - 1] == '\0');
+
         guid_init(&guid, ((uint64_t) 1 << 63) - 1);
-        assert ( strcmp(guid.guid, "_7$$$$$$$$$$_") == 0);
+        assert ( strcmp(guid.guid, "_7$$$$$$$$$$") == 0);
 
         guid_init(&guid, 0);
-        assert ( strcmp(guid.guid, "_00000000000_") == 0);
+        assert ( strcmp(guid.guid, "_00000000000") == 0);
 
         guid_init(&guid, 63);
-        assert ( strcmp(guid.guid, "_0000000000$_") == 0);
+        assert ( strcmp(guid.guid, "_0000000000$") == 0);
 
         guid_init(&guid, 64);
-        assert ( strcmp(guid.guid, "_00000000010_") == 0);
+        assert ( strcmp(guid.guid, "_00000000010") == 0);
+
     }
 
     test_end(0);

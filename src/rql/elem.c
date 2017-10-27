@@ -17,6 +17,7 @@ rql_elem_t * rql_elem_create(uint64_t id)
     elem->ref = 1;
     elem->id = id;
     elem->items = vec_new(0);
+    elem->flags = RQL_ELEM_FLAG_SWEEP;
     if (!elem->items)
     {
         rql_elem_drop(elem);

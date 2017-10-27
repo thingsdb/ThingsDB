@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <rql/prop.h>
+#include <util/logger.h>
 
 rql_prop_t * rql_prop_create(const char * name)
 {
@@ -27,6 +28,7 @@ void rql_prop_drop(rql_prop_t * prop)
 {
     if (prop && !--prop->ref)
     {
+        LOGC("DROP prop...");
         free(prop);
     }
 }

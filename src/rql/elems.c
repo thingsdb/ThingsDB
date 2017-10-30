@@ -9,7 +9,6 @@
 #include <rql/item.h>
 #include <util/logger.h>
 
-static int rql__elems_write_cb(rql_elem_t * elem, FILE * f);
 static void rql__elems_gc_mark(rql_elem_t * elem);
 
 rql_elem_t * rql_elems_create(imap_t * elems, uint64_t id)
@@ -63,12 +62,20 @@ int rql_elems_gc(imap_t * elems, rql_elem_t * root)
 
 int rql_elems_store(imap_t * elems, const char * fn)
 {
-    int rc;
+    int rc = -1;
     FILE * f = fopen(fn, "w");
     if (!f) return -1;
 
-    rc = imap_walk(elems, (imap_cb) rql__elems_write_cb, f);
+    vec_t * elems_vec = imap_vec(elems);
+    if (!elems_vec) goto stop;
 
+    for (vec_each(elems_vec, rql_elem_t, elem))
+    {
+        if (fwrite(&elem->id, sizeof(uint64_t), 1, f) != 1) goto stop;
+    }
+    rc = 0;
+
+stop:
     return -(fclose(f) || rc);
 }
 
@@ -100,9 +107,84 @@ done:
     return rc;
 }
 
-static int rql__elems_write_cb(rql_elem_t * elem, FILE * f)
+int rql_elems_store_link(imap_t * elems, const char * fn)
 {
-    return fwrite(&elem->id, sizeof(uint64_t), 1, f) == 1;
+    intptr_t p;
+    _Bool found;
+    int rc = -1;
+    FILE * f = fopen(fn, "w");
+    if (!f) return -1;
+
+    vec_t * elems_vec = imap_vec(elems);
+    if (!elems_vec) goto stop;
+
+    if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
+
+    for (vec_each(elems_vec, rql_elem_t, elem))
+    {
+        found = 0;
+        for (vec_each(elem->items, rql_item_t, item))
+        {
+            if (item->val.tp < RQL_VAL_ELEM) continue;
+            if (!found && (
+                    qp_fadd_int64(f, (int64_t) elem->id) ||
+                    qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
+
+            found = 1;
+            p = (intptr_t) item->prop;
+
+            if (qp_fadd_int64(f, (int64_t) p) ||
+                rql_val_to_file(item->val, f)) goto stop;
+
+        }
+        if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+    }
+
+    if (qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+
+    rc = 0;
+stop:
+    return -(fclose(f) || rc);
+}
+
+int rql_elems_store_data(imap_t * elems, const char * fn)
+{
+    intptr_t p;
+    _Bool found;
+    int rc = -1;
+    FILE * f = fopen(fn, "w");
+    if (!f) return -1;
+
+    vec_t * elems_vec = imap_vec(elems);
+    if (!elems_vec) goto stop;
+
+    if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
+
+    for (vec_each(elems_vec, rql_elem_t, elem))
+    {
+        found = 0;
+        for (vec_each(elem->items, rql_item_t, item))
+        {
+            if (item->val.tp >= RQL_VAL_ELEM) continue;
+            if (!found && (
+                    qp_fadd_int64(f, (int64_t) elem->id) ||
+                    qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
+
+            found = 1;
+            p = (intptr_t) item->prop;
+
+            if (qp_fadd_int64(f, (int64_t) p) ||
+                rql_val_to_file(item->val)) goto stop;
+        }
+        if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+    }
+
+    if (qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+
+    rc = 0;
+stop:
+    return -(fclose(f) || rc);
+
 }
 
 static void rql__elems_gc_mark(rql_elem_t * elem)

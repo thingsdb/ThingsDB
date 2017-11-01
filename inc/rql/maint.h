@@ -7,10 +7,11 @@
 #ifndef RQL_MAINT_H_
 #define RQL_MAINT_H_
 
-#define RQL_MAINT_STAT_READY 0
-#define RQL_MAINT_STAT_REG 1
-#define RQL_MAINT_STAT_WAIT 2
-#define RQL_MAINT_STAT_BUSY 3
+#define RQL_MAINT_STAT_NIL 0
+#define RQL_MAINT_STAT_READY 1
+#define RQL_MAINT_STAT_REG 2
+#define RQL_MAINT_STAT_WAIT 3
+#define RQL_MAINT_STAT_BUSY 4
 
 typedef struct rql_maint_s  rql_maint_t;
 

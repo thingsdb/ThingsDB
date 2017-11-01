@@ -57,7 +57,7 @@ int rql_props_store(smap_t * props, const char * fn)
     if (!f) return -1;
 
     rc = smap_values(props, (smap_val_cb) rql__props_write_cb, f);
-
+    if (rc) log_error("saving failed: %s", fn);
     return -(fclose(f) || rc);
 }
 

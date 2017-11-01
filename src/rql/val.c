@@ -223,6 +223,8 @@ int rql_val_to_file(rql_val_t * val, FILE * f)
             if (qp_fadd_int64(f, (int64_t) elem->id)) return -1;
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);
-
     }
+
+    assert (0);
+    return -1;
 }

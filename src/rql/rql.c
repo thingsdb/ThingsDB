@@ -208,15 +208,17 @@ int rql_run(rql_t * rql)
 
     if (rql_events_init(rql->events) ||
         rql_signals_init(rql) ||
-        rql_maint_start(rql->maint) ||
-        rql_back_listen(rql->back) ||
-        rql_front_listen(rql->front))
+        rql_back_listen(rql->back))
     {
         rql_term(SIGTERM);
     }
 
     if (rql->node)
     {
+        if (rql_front_listen(rql->front) || rql_maint_start(rql->maint))
+        {
+            rql_term(SIGTERM);
+        }
         rql->node->status = RQL_NODE_STAT_READY;
     }
 

@@ -354,6 +354,8 @@ static rql_task_stat_e rql__task_props_set(
     _Bool has_elem = rql_has_id(rql, elem->id);
 
     void * val;
+    rql_val_e tp;
+
     qp_res_t * k, * v;
     for (size_t i = 0; i < task->n; i++)
     {
@@ -370,7 +372,6 @@ static rql_task_stat_e rql__task_props_set(
             rql_elem_t * el = rql__task_elem_by_id(event, sid);
             if (!el)
             {
-
                 ex_set(e, -1, "cannot find element: %"PRId64, sid);
                 return rql__task_fail(event, e->msg);
             }
@@ -388,32 +389,37 @@ static rql_task_stat_e rql__task_props_set(
                     "map must be an element {\""RQL_API_ID"\": <id>}");
 
         case QP_RES_ARRAY:
-            assert(0);
+            assert(0);  /* TODO: fix arrays */
             continue;
-
         case QP_RES_INT64:
             val = &v->via.int64;
+            tp = RQL_VAL_INT;
             break;
         case QP_RES_REAL:
             val = &v->via.real;
-            break;
-        case QP_RES_STR:  /* we handle strings but actually we only should
-                           * receive strings as raw type */
-            val = (void *) v->via.str;
-            v->via.str = NULL;
+            tp = RQL_VAL_FLOAT;
             break;
         case QP_RES_RAW:
             val = (void *) v->via.raw;
             v->via.raw = NULL;
+            tp = RQL_VAL_RAW;
             break;
         case QP_RES_BOOL:
             val = &v->via.boolean;
+            tp = RQL_VAL_BOOL;
             break;
         case QP_RES_NULL:
             val = NULL;
+            tp = RQL_VAL_NIL;
+            break;
+        case QP_RES_STR:
+            assert (0);
+            /* no break */
+        default:
+            assert (0);
             break;
         }
-        if (has_elem && rql_elem_weak_set(elem, prop, v->tp, val))
+        if (has_elem && rql_elem_weak_set(elem, prop, tp, val))
         {
             log_critical(EX_ALLOC);
             return RQL_TASK_ERR;

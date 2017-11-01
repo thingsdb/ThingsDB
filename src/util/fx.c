@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <util/fx.h>
+#include <util/logger.h>
 
 int fx_write(const char * fn, unsigned char * data, size_t n)
 {
@@ -97,4 +98,22 @@ stop:
     return rmdir(path);
 }
 
+char * fx_path_join(const char * s1, const char * s2)
+{
+    size_t n1 = strlen(s1);
+    size_t n2 = strlen(s2);
+    int add_slash = (s1[n1-1] != '/');
+    char * s = (char *) malloc(n1 + n2 + 1 + add_slash);
+    if (!s) return NULL;
+
+    memcpy(s, s1, n1);
+    memcpy(s + n1 + add_slash, s2, n2 + 1);
+
+    if (add_slash)
+    {
+        s[n1] = '/';
+    }
+
+    return s;
+}
 

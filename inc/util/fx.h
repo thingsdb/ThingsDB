@@ -15,5 +15,6 @@ unsigned char * fx_read(const char * fn, ssize_t * size);
 _Bool fx_file_exist(const char * fn);
 _Bool fx_is_dir(const char * path);
 int fx_rmdir(const char * path);
+char * fx_path_join(const char * s1, const char * s2);
 
 #endif /* RQL_FILEX_H_ */

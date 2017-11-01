@@ -13,7 +13,6 @@
 #include <rql/dbs.h>
 #include <util/fx.h>
 #include <util/imap.h>
-#include <util/strx.h>
 #include <util/logger.h>
 
 static const char * rql__store_tmp_path     = ".tmp/";
@@ -40,19 +39,19 @@ int rql_store(rql_t * rql)
     char * db_path = NULL;
     char * db_fn = NULL;
 
-    char * tmp_path = strx_cat(rql->cfg->rql_path, rql__store_tmp_path);
-    char * prev_path = strx_cat(rql->cfg->rql_path, rql__store_prev_path);
-    char * store_path = strx_cat(rql->cfg->rql_path, rql__store_path);
+    char * tmp_path = fx_path_join(rql->cfg->rql_path, rql__store_tmp_path);
+    char * prev_path = fx_path_join(rql->cfg->rql_path, rql__store_prev_path);
+    char * store_path = fx_path_join(rql->cfg->rql_path, rql__store_path);
     if (!tmp_path || !prev_path || !store_path) goto stop;
 
     /* not need for checking on errors */
     fx_rmdir(prev_path);
     mkdir(tmp_path, 0700);
 
-    rql_fn = strx_cat(tmp_path, rql__store_rql_fn);
-    users_fn = strx_cat(tmp_path, rql__store_users_fn);
-    access_fn = strx_cat(tmp_path, rql__store_access_fn);
-    dbs_fn = strx_cat(tmp_path, rql__store_dbs_fn);
+    rql_fn = fx_path_join(tmp_path, rql__store_rql_fn);
+    users_fn = fx_path_join(tmp_path, rql__store_users_fn);
+    access_fn = fx_path_join(tmp_path, rql__store_access_fn);
+    dbs_fn = fx_path_join(tmp_path, rql__store_dbs_fn);
 
     if (!rql_fn || !users_fn || !access_fn || !dbs_fn ||
         rql__store(rql, rql_fn) ||
@@ -73,13 +72,13 @@ int rql_store(rql_t * rql)
         free(db_path);
         db_path = NULL;
 
-        db_path = strx_cat(tmp_path, db->guid.guid);
+        db_path = fx_path_join(tmp_path, db->guid.guid);
         if (!db_path || mkdir(db_path, 0700)) goto stop;
 
-        access_fn = strx_cat(db_path, rql__store_access_fn);
-        props_fn = strx_cat(db_path, rql__store_props_fn);
-        elems_fn = strx_cat(db_path, rql__store_elems_fn);
-        db_fn = strx_cat(db_path, rql__store_db_fn);
+        access_fn = fx_path_join(db_path, rql__store_access_fn);
+        props_fn = fx_path_join(db_path, rql__store_props_fn);
+        elems_fn = fx_path_join(db_path, rql__store_elems_fn);
+        db_fn = fx_path_join(db_path, rql__store_db_fn);
 
         if (!access_fn || !props_fn || !elems_fn || !db_fn ||
             rql_access_store(db->access, access_fn) ||
@@ -127,13 +126,13 @@ int rql_restore(rql_t * rql)
     char * dbs_fn = NULL;
     char * db_path = NULL;
     imap_t * propsmap = NULL;
-    char * store_path = strx_cat(rql->cfg->rql_path, rql__store_path);
+    char * store_path = fx_path_join(rql->cfg->rql_path, rql__store_path);
     if (!store_path) goto stop;
 
-    users_fn = strx_cat(store_path, rql__store_users_fn);
-    rql_fn = strx_cat(store_path, rql__store_rql_fn);
-    access_fn = strx_cat(store_path, rql__store_access_fn);
-    dbs_fn = strx_cat(store_path, rql__store_dbs_fn);
+    users_fn = fx_path_join(store_path, rql__store_users_fn);
+    rql_fn = fx_path_join(store_path, rql__store_rql_fn);
+    access_fn = fx_path_join(store_path, rql__store_access_fn);
+    dbs_fn = fx_path_join(store_path, rql__store_dbs_fn);
 
     if (!users_fn || !rql_fn || !access_fn || !dbs_fn ||
         rql__restore(rql, rql_fn) ||
@@ -156,21 +155,21 @@ int rql_restore(rql_t * rql)
         free(db_path);
         db_path = NULL;
 
-        db_path = strx_cat(store_path, db->guid.guid);
+        db_path = fx_path_join(store_path, db->guid.guid);
         if (!db_path) goto stop;
 
-        access_fn = strx_cat(db_path, rql__store_access_fn);
-        props_fn = strx_cat(db_path, rql__store_props_fn);
-        elems_fn = strx_cat(db_path, rql__store_elems_fn);
-        db_fn = strx_cat(db_path, db_fn);
+        access_fn = fx_path_join(db_path, rql__store_access_fn);
+        props_fn = fx_path_join(db_path, rql__store_props_fn);
+        elems_fn = fx_path_join(db_path, rql__store_elems_fn);
+        db_fn = fx_path_join(db_path, rql__store_db_fn);
 
-        if (!access_fn || !props_fn || !elems_fn || db_fn ||
+        if (!access_fn || !props_fn || !elems_fn || !db_fn ||
             !(propsmap = rql_props_restore(db->props, props_fn)) ||
             rql_access_restore(&db->access, rql->users, access_fn) ||
             rql_elems_restore(db->elems, elems_fn) ||
             rql_db_restore(db, db_fn)) goto stop;
     }
-
+    LOGC("HERE");
     rc = 0;
 
 stop:
@@ -179,6 +178,7 @@ stop:
     free(db_path);
     free(rql_fn);
     free(props_fn);
+    free(elems_fn);
     free(users_fn);
     free(access_fn);
     free(dbs_fn);

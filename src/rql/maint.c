@@ -34,6 +34,7 @@ rql_maint_t * rql_maint_new(rql_t * rql)
     maint->rql = rql;
     maint->timer.data = maint;
     maint->work.data = maint;
+    maint->status = RQL_MAINT_STAT_NIL;
     return maint;
 }
 
@@ -51,8 +52,11 @@ int rql_maint_start(rql_maint_t * maint)
 
 void rql_maint_stop(rql_maint_t * maint)
 {
-    uv_timer_stop(&maint->timer);
-    uv_close((uv_handle_t *) &maint->timer, NULL);
+    if (maint->status > RQL_MAINT_STAT_NIL)
+    {
+        uv_timer_stop(&maint->timer);
+        uv_close((uv_handle_t *) &maint->timer, NULL);
+    }
 }
 
 static void rql__maint_timer_cb(uv_timer_t * timer)

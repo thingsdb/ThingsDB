@@ -17,6 +17,7 @@ int rql_elems_gc(imap_t * elems, rql_elem_t * root);
 int rql_elems_store(imap_t * elems, const char * fn);
 int rql_elems_restore(imap_t * elems, const char * fn);
 int rql_elems_store_link(imap_t * elems, const char * fn);
+int rql_elems_restore_link(imap_t * elems, imap_t * props, const char * fn);
 int rql_elems_store_data(imap_t * elems, const char * fn);
 
 struct rql_elems_s

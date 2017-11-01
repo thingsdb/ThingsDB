@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <rql/elems.h>
 #include <rql/item.h>
+#include <util/fx.h>
 #include <util/logger.h>
 
 static void rql__elems_gc_mark(rql_elem_t * elem);
@@ -76,6 +77,7 @@ int rql_elems_store(imap_t * elems, const char * fn)
     rc = 0;
 
 stop:
+    if (rc) log_error("saving failed: %s", fn);
     return -(fclose(f) || rc);
 }
 
@@ -89,11 +91,11 @@ int rql_elems_restore(imap_t * elems, const char * fn)
     unsigned char * pt = data;
     unsigned char * end = data + sz - sizeof(uint64_t);
 
-    for (;pt < end; pt += sizeof(uint64_t))
+    for (;pt <= end; pt += sizeof(uint64_t))
     {
         uint64_t id;
-        LOGC("Reading ID: %"PRIu64, id);
         memcpy(&id, pt, sizeof(uint64_t));
+        LOGC("Reading ID: %"PRIu64, id);
         if (!rql_elems_create(elems, id)) goto failed;
     }
 
@@ -134,7 +136,7 @@ int rql_elems_store_link(imap_t * elems, const char * fn)
             p = (intptr_t) item->prop;
 
             if (qp_fadd_int64(f, (int64_t) p) ||
-                rql_val_to_file(item->val, f)) goto stop;
+                rql_val_to_file(&item->val, f)) goto stop;
 
         }
         if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
@@ -145,6 +147,92 @@ int rql_elems_store_link(imap_t * elems, const char * fn)
     rc = 0;
 stop:
     return -(fclose(f) || rc);
+}
+
+int rql_elems_restore_link(imap_t * elems, imap_t * props, const char * fn)
+{
+    int rc = 0;
+    qp_types_t tp;
+    rql_elem_t * elem, * el;
+    rql_prop_t * prop;
+    qp_res_t elem_id, prop_id;
+    vec_t * elems_vec = NULL;
+    FILE * f = fopen(fn, "r");
+
+    if (!f) return -1;
+    if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+
+    while (qp_is_int(qp_fnext(f, &elem_id)))
+    {
+        elem = imap_get(elems, (uint64_t) elem_id.via.int64);
+        if (!elem)
+        {
+            log_critical("cannot find element with id: %"PRId64,
+                    elem_id.via.int64);
+            goto failed;
+        }
+        if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+        while (qp_is_int(qp_fnext(f, &prop_id)))
+        {
+            prop = imap_get(props, (uint64_t) prop_id.via.int64);
+            if (!prop)
+            {
+                log_critical("cannot find prop with id: %"PRId64,
+                        prop_id.via.int64);
+                goto failed;
+            }
+            tp = qp_fnext(f, &elem_id);
+            if (qp_is_int(tp))
+            {
+                el = imap_get(elems, (uint64_t) elem_id.via.int64);
+                if (!el)
+                {
+                    log_critical("cannot find element with id: %"PRId64,
+                            elem_id.via.int64);
+                    goto failed;
+                }
+                if (rql_elem_set(elem, prop, RQL_VAL_ELEM, el)) goto failed;
+            }
+            else if (qp_is_array(tp))
+            {
+                elems_vec = vec_new(0);
+                while (qp_is_int(qp_fnext(f, &elem_id)))
+                {
+                    el = imap_get(elems, (uint64_t) elem_id.via.int64);
+                    if (!el)
+                    {
+                        log_critical("cannot find element with id: %"PRId64,
+                                elem_id.via.int64);
+                        goto failed;
+                    }
+                    if (vec_push(&elems_vec, rql_elem_grab(el)))
+                    {
+                        rql_elem_drop(el);
+                        goto failed;
+                    }
+                }
+                if (rql_elem_weak_set(elem, prop, RQL_VAL_ELEMS, elems_vec))
+                {
+                    goto failed;
+                }
+                elems_vec = NULL;
+            }
+            else
+            {
+                log_critical("unexpected type: %d", elem_id.tp);
+                goto failed;
+            }
+        }
+    }
+    goto done;
+
+failed:
+    rc = -1;
+    vec_destroy(elems_vec, (vec_destroy_cb) rql_elem_drop);
+    log_critical("failed to restore from file: '%s'", fn);
+done:
+    fclose(f);
+    return rc;
 }
 
 int rql_elems_store_data(imap_t * elems, const char * fn)
@@ -174,7 +262,7 @@ int rql_elems_store_data(imap_t * elems, const char * fn)
             p = (intptr_t) item->prop;
 
             if (qp_fadd_int64(f, (int64_t) p) ||
-                rql_val_to_file(item->val)) goto stop;
+                rql_val_to_file(&item->val, f)) goto stop;
         }
         if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
     }
@@ -184,7 +272,86 @@ int rql_elems_store_data(imap_t * elems, const char * fn)
     rc = 0;
 stop:
     return -(fclose(f) || rc);
+}
 
+int rql_elems_restore_data(imap_t * elems, imap_t * props, const char * fn)
+{
+    int rc = 0;
+    qp_types_t tp;
+    rql_elem_t * elem;
+    rql_prop_t * prop;
+    qp_res_t elem_id, prop_id, obj;
+    vec_t * elems_vec = NULL;
+    FILE * f = fopen(fn, "r");
+
+    if (!f) return -1;
+    if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+
+    while (qp_is_int(qp_fnext(f, &elem_id)))
+    {
+        elem = imap_get(elems, (uint64_t) elem_id.via.int64);
+        if (!elem)
+        {
+            log_critical("cannot find element with id: %"PRId64,
+                    elem_id.via.int64);
+            goto failed;
+        }
+        if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+        while (qp_is_int(qp_fnext(f, &prop_id)))
+        {
+            prop = imap_get(props, (uint64_t) prop_id.via.int64);
+            if (!prop)
+            {
+                log_critical("cannot find prop with id: %"PRId64,
+                        prop_id.via.int64);
+                goto failed;
+            }
+            tp = qp_fnext(f, &obj);
+            switch (tp)
+            {
+            case QP_INT64:
+                if (rql_elem_set(elem, prop, RQL_VAL_INT, &obj.via.int64))
+                {
+                    goto failed;
+                }
+                break;
+            case QP_RAW:
+                if (!obj.via.raw) goto failed;
+                if (rql_elem_weak_set(elem, prop, RQL_VAL_RAW, obj.via.raw))
+                {
+                    goto failed;
+                }
+                break;
+            case QP_NULL:
+                if (rql_elem_set(elem, prop, RQL_VAL_NIL, NULL))
+                {
+                    goto failed;
+                }
+                break;
+            case QP_TRUE:
+            case QP_FALSE:
+                if (rql_elem_set(elem, prop, RQL_VAL_BOOL, &obj.via.boolean))
+                {
+                    goto failed;
+                }
+                break;
+            case QP_MAP_CLOSE:
+                break;
+            default:
+                log_critical("unexpected type: %d", tp);
+                goto failed;
+            }
+        }
+    }
+    goto done;
+
+failed:
+    rc = -1;
+    vec_destroy(elems_vec, (vec_destroy_cb) rql_elem_drop);
+    log_critical("failed to restore from file: '%s'", fn);
+done:
+    fclose(f);
+    return rc;
 }
 
 static void rql__elems_gc_mark(rql_elem_t * elem)

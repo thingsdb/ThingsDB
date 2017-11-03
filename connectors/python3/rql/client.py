@@ -7,6 +7,7 @@ from .protocol import Protocol
 from .protocol import REQ_AUTH
 from .protocol import REQ_EVENT
 from .protocol import REQ_GET_ELEM
+from .protocol import PROTOMAP
 
 
 class Client:
@@ -48,7 +49,7 @@ class Client:
         if future.cancelled():
             return
 
-        future.set_result(pkg.data)
+        PROTOMAP.get(pkg.tp)(future, pkg.data)
 
     async def authenticate(self, username, password, timeout=5):
         self._username = username
@@ -57,10 +58,13 @@ class Client:
             REQ_AUTH,
             data=(self._username, self._password),
             timeout=timeout)
-        resp = await future
-        return resp
+        await future
 
-    async def trigger(self, event, timeout=5):
+    async def get_database(self, target):
+        root = await self._req_elem({target: -1})
+
+
+    async def _req_event(self, event, timeout=5):
         future = self.write_package(
             REQ_EVENT,
             data=event,
@@ -68,7 +72,7 @@ class Client:
         resp = await future
         return resp
 
-    async def get_elem(self, req, timeout=5):
+    async def _req_elem(self, req, timeout=5):
         future = self.write_package(
             REQ_GET_ELEM,
             data=req,

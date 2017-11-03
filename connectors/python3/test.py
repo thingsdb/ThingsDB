@@ -9,8 +9,9 @@ async def test():
     await client.connect('localhost')
 
     # Authenticte
-    res = await client.authenticate('iris', 'siri')
-    print('Auth result:', res)
+    await client.authenticate('iris', 'siri')
+
+
 
     # # Create user
     # res = await client.trigger({

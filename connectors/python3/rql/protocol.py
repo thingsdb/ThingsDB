@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from .package import Package
+from .exceptions import AuthError
 
 
 REQ_PING = 0
@@ -32,6 +33,13 @@ TASK_SUBSCRIBE = 11
 TASK_UNSUBSCRIBE = 12
 TASK_PROPS_SET = 13
 TASK_PROPS_DEL = 14
+
+
+PROTOMAP = {
+    RES_ACK: lambda f, d: f.set_result(None),
+    RES_RESULT: lambda f, d: f.set_result(d),
+    RES_ERR_AUTH: lambda f, d: f.set_exception(AuthError(d['error_msg']))
+}
 
 
 class Protocol(asyncio.Protocol):

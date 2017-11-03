@@ -1,14 +1,15 @@
 import struct
+import qpack
 
 
 class Package(object):
 
-    __slots__ = ('pid', 'length', 'total', 'tipe', 'checkbit', 'data')
+    __slots__ = ('pid', 'length', 'total', 'tp', 'checkbit', 'data')
 
     struct_datapackage = struct.Struct('<IHBB')
 
     def __init__(self, barray):
-        self.length, self.pid, self.tipe, self.checkbit = \
+        self.length, self.pid, self.tp, self.checkbit = \
             self.__class__.struct_datapackage.unpack_from(barray, offset=0)
         self.total = self.__class__.struct_datapackage.size + self.length
         self.data = None
@@ -23,4 +24,4 @@ class Package(object):
             del barray[:self.total]
 
     def __repr__(self):
-        return '<id: {0.pid} size: {0.length} tp: {0.tipe}>'.format(self)
+        return '<id: {0.pid} size: {0.length} tp: {0.tp}>'.format(self)

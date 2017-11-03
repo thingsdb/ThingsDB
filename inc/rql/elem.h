@@ -8,6 +8,7 @@
 #define RQL_ELEM_H_
 
 #define RQL_ELEM_FLAG_SWEEP 1
+#define RQL_ELEM_FLAG_DATA 2
 
 typedef struct rql_elem_s  rql_elem_t;
 

@@ -25,6 +25,8 @@ static const char * rql__store_rql_fn       = "rql.qp";
 static const char * rql__store_props_fn     = "props.dat";
 static const char * rql__store_elems_fn     = "elems.dat";
 static const char * rql__store_db_fn        = "db.dat";
+static const char * rql__store_skeleton_fn  = "skeleton.qp";
+static const char * rql__store_data_fn      = "data.qp";
 
 
 int rql_store(rql_t * rql)
@@ -38,6 +40,8 @@ int rql_store(rql_t * rql)
     char * dbs_fn = NULL;
     char * db_path = NULL;
     char * db_fn = NULL;
+    char * skeleton_fn = NULL;
+    char * data_fn = NULL;
 
     char * tmp_path = fx_path_join(rql->cfg->rql_path, rql__store_tmp_path);
     char * prev_path = fx_path_join(rql->cfg->rql_path, rql__store_prev_path);
@@ -61,6 +65,10 @@ int rql_store(rql_t * rql)
 
     for (vec_each(rql->dbs, rql_db_t, db))
     {
+        free(skeleton_fn);
+        skeleton_fn = NULL;
+        free(data_fn);
+        data_fn = NULL;
         free(db_fn);
         db_fn = NULL;
         free(elems_fn);
@@ -79,12 +87,16 @@ int rql_store(rql_t * rql)
         props_fn = fx_path_join(db_path, rql__store_props_fn);
         elems_fn = fx_path_join(db_path, rql__store_elems_fn);
         db_fn = fx_path_join(db_path, rql__store_db_fn);
+        skeleton_fn = fx_path_join(db_path, rql__store_skeleton_fn);
+        data_fn = fx_path_join(db_path, rql__store_data_fn);
 
         if (!access_fn || !props_fn || !elems_fn || !db_fn ||
             rql_access_store(db->access, access_fn) ||
             rql_props_store(db->props, props_fn) ||
             rql_elems_store(db->elems, elems_fn) ||
-            rql_db_store(db, db_fn)) goto stop;
+            rql_db_store(db, db_fn) ||
+            rql_elems_store_skeleton(db->elems, skeleton_fn) ||
+            rql_elems_store_data(db->elems, data_fn)) goto stop;
     }
 
     rename(store_path, prev_path);
@@ -101,6 +113,8 @@ stop:
         fx_rmdir(tmp_path);
     }
     free(db_fn);
+    free(skeleton_fn);
+    free(data_fn);
     free(db_path);
     free(rql_fn);
     free(users_fn);
@@ -121,6 +135,8 @@ int rql_restore(rql_t * rql)
     char * users_fn = NULL;
     char * access_fn = NULL;
     char * db_fn = NULL;
+    char * skeleton_fn = NULL;
+    char * data_fn = NULL;
     char * props_fn = NULL;
     char * elems_fn = NULL;
     char * dbs_fn = NULL;
@@ -146,6 +162,10 @@ int rql_restore(rql_t * rql)
         propsmap = NULL;
         free(db_fn);
         db_fn = NULL;
+        free(skeleton_fn);
+        skeleton_fn = NULL;
+        free(data_fn);
+        data_fn = NULL;
         free(elems_fn);
         elems_fn = NULL;
         free(props_fn);
@@ -162,19 +182,25 @@ int rql_restore(rql_t * rql)
         props_fn = fx_path_join(db_path, rql__store_props_fn);
         elems_fn = fx_path_join(db_path, rql__store_elems_fn);
         db_fn = fx_path_join(db_path, rql__store_db_fn);
+        skeleton_fn = fx_path_join(db_path, rql__store_skeleton_fn);
+        data_fn = fx_path_join(db_path, rql__store_data_fn);
 
         if (!access_fn || !props_fn || !elems_fn || !db_fn ||
             !(propsmap = rql_props_restore(db->props, props_fn)) ||
             rql_access_restore(&db->access, rql->users, access_fn) ||
             rql_elems_restore(db->elems, elems_fn) ||
-            rql_db_restore(db, db_fn)) goto stop;
+            rql_db_restore(db, db_fn) ||
+            rql_elems_restore_skeleton(db->elems, propsmap, skeleton_fn) ||
+            rql_elems_restore_data(db->elems, propsmap, data_fn)) goto stop;
     }
-    LOGC("HERE");
+
     rc = 0;
 
 stop:
     imap_destroy(propsmap, NULL);
     free(db_fn);
+    free(skeleton_fn);
+    free(data_fn);
     free(db_path);
     free(rql_fn);
     free(props_fn);

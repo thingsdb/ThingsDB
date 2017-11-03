@@ -351,6 +351,7 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
     if (res->tp != QP_RES_MAP ||
         !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(redundancy = qpx_map_get(res->via.map, "redundancy")) ||
+        !(indexing = qpx_map_get(res->via.map, "indexing")) ||
         !(node = qpx_map_get(res->via.map, "node")) ||
         !(nodes = qpx_map_get(res->via.map, "nodes")) ||
         schema->tp != QP_RES_INT64 ||
@@ -423,7 +424,8 @@ static qp_packer_t * rql__pack(rql_t * rql)
         qp_add_int64(packer, (int64_t) rql->node->id)) goto failed;
 
     /* nodes */
-    if (qp_add_raw_from_str(packer, "nodes") || qp_add_array(&packer)) goto failed;
+    if (qp_add_raw_from_str(packer, "nodes") ||
+        qp_add_array(&packer)) goto failed;
     for (uint32_t i = 0; i < rql->nodes->n; i++)
     {
         rql_node_t * node = (rql_node_t *) vec_get(rql->nodes, i);

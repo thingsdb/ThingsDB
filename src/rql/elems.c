@@ -81,35 +81,7 @@ stop:
     return -(fclose(f) || rc);
 }
 
-int rql_elems_restore(imap_t * elems, const char * fn)
-{
-    int rc = 0;
-    ssize_t sz;
-    unsigned char * data = fx_read(fn, &sz);
-    if (!data) goto failed;
-
-    unsigned char * pt = data;
-    unsigned char * end = data + sz - sizeof(uint64_t);
-
-    for (;pt <= end; pt += sizeof(uint64_t))
-    {
-        uint64_t id;
-        memcpy(&id, pt, sizeof(uint64_t));
-        LOGC("Reading ID: %"PRIu64, id);
-        if (!rql_elems_create(elems, id)) goto failed;
-    }
-
-    goto done;
-
-failed:
-    rc = -1;
-    log_critical("failed to restore from file: '%s'", fn);
-done:
-    free(data);
-    return rc;
-}
-
-int rql_elems_store_link(imap_t * elems, const char * fn)
+int rql_elems_store_skeleton(imap_t * elems, const char * fn)
 {
     intptr_t p;
     _Bool found;
@@ -149,7 +121,73 @@ stop:
     return -(fclose(f) || rc);
 }
 
-int rql_elems_restore_link(imap_t * elems, imap_t * props, const char * fn)
+int rql_elems_store_data(imap_t * elems, const char * fn)
+{
+    intptr_t p;
+    _Bool found;
+    int rc = -1;
+    FILE * f = fopen(fn, "w");
+    if (!f) return -1;
+
+    vec_t * elems_vec = imap_vec(elems);
+    if (!elems_vec) goto stop;
+
+    if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
+
+    for (vec_each(elems_vec, rql_elem_t, elem))
+    {
+        found = 0;
+        for (vec_each(elem->items, rql_item_t, item))
+        {
+            if (item->val.tp >= RQL_VAL_ELEM) continue;
+            if (!found && (
+                    qp_fadd_int64(f, (int64_t) elem->id) ||
+                    qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
+
+            found = 1;
+            p = (intptr_t) item->prop;
+
+            if (qp_fadd_int64(f, (int64_t) p) ||
+                rql_val_to_file(&item->val, f)) goto stop;
+        }
+        if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+    }
+
+    if (qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
+
+    rc = 0;
+stop:
+    return -(fclose(f) || rc);
+}
+
+int rql_elems_restore(imap_t * elems, const char * fn)
+{
+    int rc = 0;
+    ssize_t sz;
+    unsigned char * data = fx_read(fn, &sz);
+    if (!data) goto failed;
+
+    unsigned char * pt = data;
+    unsigned char * end = data + sz - sizeof(uint64_t);
+
+    for (;pt <= end; pt += sizeof(uint64_t))
+    {
+        uint64_t id;
+        memcpy(&id, pt, sizeof(uint64_t));
+        if (!rql_elems_create(elems, id)) goto failed;
+    }
+
+    goto done;
+
+failed:
+    rc = -1;
+    log_critical("failed to restore from file: '%s'", fn);
+done:
+    free(data);
+    return rc;
+}
+
+int rql_elems_restore_skeleton(imap_t * elems, imap_t * props, const char * fn)
 {
     int rc = 0;
     qp_types_t tp;
@@ -159,7 +197,12 @@ int rql_elems_restore_link(imap_t * elems, imap_t * props, const char * fn)
     vec_t * elems_vec = NULL;
     FILE * f = fopen(fn, "r");
 
-    if (!f) return -1;
+    if (!f)
+    {
+        log_critical("file is missing: '%s'", fn);
+        return -1;
+    }
+
     if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
 
     while (qp_is_int(qp_fnext(f, &elem_id)))
@@ -235,45 +278,6 @@ done:
     return rc;
 }
 
-int rql_elems_store_data(imap_t * elems, const char * fn)
-{
-    intptr_t p;
-    _Bool found;
-    int rc = -1;
-    FILE * f = fopen(fn, "w");
-    if (!f) return -1;
-
-    vec_t * elems_vec = imap_vec(elems);
-    if (!elems_vec) goto stop;
-
-    if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
-
-    for (vec_each(elems_vec, rql_elem_t, elem))
-    {
-        found = 0;
-        for (vec_each(elem->items, rql_item_t, item))
-        {
-            if (item->val.tp >= RQL_VAL_ELEM) continue;
-            if (!found && (
-                    qp_fadd_int64(f, (int64_t) elem->id) ||
-                    qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
-
-            found = 1;
-            p = (intptr_t) item->prop;
-
-            if (qp_fadd_int64(f, (int64_t) p) ||
-                rql_val_to_file(&item->val, f)) goto stop;
-        }
-        if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
-    }
-
-    if (qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
-
-    rc = 0;
-stop:
-    return -(fclose(f) || rc);
-}
-
 int rql_elems_restore_data(imap_t * elems, imap_t * props, const char * fn)
 {
     int rc = 0;
@@ -284,7 +288,12 @@ int rql_elems_restore_data(imap_t * elems, imap_t * props, const char * fn)
     vec_t * elems_vec = NULL;
     FILE * f = fopen(fn, "r");
 
-    if (!f) return -1;
+    if (!f)
+    {
+        log_critical("file is missing: '%s'", fn);
+        return -1;
+    }
+
     if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
 
     while (qp_is_int(qp_fnext(f, &elem_id)))

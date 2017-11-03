@@ -63,14 +63,17 @@ void rql_dbs_get(rql_sock_t * sock, rql_pkg_t * pkg, ex_t * e)
     }
 
     uint64_t id = (uint64_t) qid.via.int64;
-    rql_elem_t * elem = (rql_elem_t *) imap_get(db->elems, id);
+
+    rql_elem_t * elem = (qid.via.int64 < 0) ?
+            db->root : (rql_elem_t *) imap_get(db->elems, id);
+
     if (!elem)
     {
         ex_set(e, RQL_PROTO_INDX_ERR, "cannot find element: %"PRIu64, id);
         return;
     }
 
-    if (rql_has_id(sock->rql, id))
+    if (rql_has_id(sock->rql, elem->id))
     {
         qpx_packer_t * packer = qpx_packer_create(64);
         if (!packer || rql_elem_to_packer(elem, packer))

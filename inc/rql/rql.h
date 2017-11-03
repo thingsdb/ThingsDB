@@ -10,6 +10,7 @@
 #define RQL_MAX_NODES 64
 
 #define RQL_FLAG_SIGNAL 1
+#define RQl_FLAG_INDEXING 2
 
 extern const char * rql_name;
 

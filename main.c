@@ -62,37 +62,42 @@ int main(int argc, char * argv[])
         }
 
         printf(
-            "Well done! You successfully initialized a new rql pool.\n"
-            "Using the default user '%s' you can connect and do stuff!\n"
+            "Well done! You successfully initialized a new rql pool.\n\n"
+            "You can now star RQL and connect by using the default user '%s'.\n"
             "..before I forget, the password is '%s'\n\n",
             rql_user_def_name,
             rql_user_def_pass);
 
         goto stop;
     }
+    else if (strlen(rql->args->secret))
+    {
+        printf(
+            "Waiting for a request to join some pool of rql nodes...\n"
+            "(if you want to create a new pool instead, press CTRL+C and "
+            "use the --init argument)\n");
+    }
+    else if (fx_file_exist(rql->fn))
+    {
+        if ((rc = rql_read(rql)))
+        {
+            printf("error reading rql pool from: '%s'\n", rql->fn);
+            goto stop;
+        }
+
+        if ((rc = rql_restore(rql)))
+        {
+            printf("error loading rql pool\n");
+            goto stop;
+        }
+    }
     else
     {
-        if (fx_file_exist(rql->fn))
-        {
-            if ((rc = rql_read(rql)))
-            {
-                printf("error reading rql pool from: '%s'\n", rql->fn);
-                goto stop;
-            }
-
-            if ((rc = rql_restore(rql)))
-            {
-                printf("error loading rql pool\n");
-                goto stop;
-            }
-        }
-        else
-        {
-            printf(
-                "Waiting for a request to join some pool of rql nodes...\n"
-                "(if you want to create a new pool instead, press CTRL+C and "
-                "use the --init argument)\n");
-        }
+        printf(
+            "You should either create a new pool using the --init argument "
+            "or set a one-time-secret using the --secret argument and wait "
+            "for a request from another node to join.\n");
+        goto stop;
     }
 
     rc = rql_run(rql);

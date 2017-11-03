@@ -62,6 +62,18 @@ int rql_args_parse(rql_args_t * args, int argc, char *argv[])
             choices: NULL,
     };
 
+    argparse_argument_t secret_ = {
+            name: "secret",
+            shortcut: 0,
+            help: "set one time secret for nodes to connect",
+            action: ARGPARSE_STORE_STRING,
+            default_int32_t: 0,
+            pt_value_int32_t: NULL,
+            str_default: "",
+            str_value: args->secret,
+            choices: NULL,
+    };
+
     argparse_argument_t version_ = {
             name: "version",
             shortcut: 'v',
@@ -100,6 +112,7 @@ int rql_args_parse(rql_args_t * args, int argc, char *argv[])
 
     if (    argparse_add_argument(parser, &config_) ||
             argparse_add_argument(parser, &init_) ||
+            argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
             argparse_add_argument(parser, &log_colorized_)) return -1;

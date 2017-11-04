@@ -11,6 +11,10 @@ async def test():
     # Authenticte
     await client.authenticate('iris', 'siri')
 
+    db = await client.get_database('dbtest')
+    print(db)
+    print(db.person)
+    print(list(db.person.__dict__.keys()))
 
 
     # # Create user

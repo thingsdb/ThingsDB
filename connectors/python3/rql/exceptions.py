@@ -1,3 +1,8 @@
+_TypeError = TypeError
+_IndexError = IndexError
+_RuntimeError = RuntimeError
+
+
 class RqlError(Exception):
     pass
 
@@ -10,10 +15,13 @@ class NodeError(RqlError):
     pass
 
 
-class IndexError(RqlError):
+class TypeError(_TypeError, RqlError):
     pass
 
 
-class RuntimeError(RqlError):
+class IndexError(_IndexError, RqlError):
     pass
 
+
+class RuntimeError(_RuntimeError, RqlError):
+    pass

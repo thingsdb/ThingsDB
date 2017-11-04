@@ -2,6 +2,10 @@ import asyncio
 import logging
 from .package import Package
 from .exceptions import AuthError
+from .exceptions import NodeError
+from .exceptions import TypeError
+from .exceptions import IndexError
+from .exceptions import RuntimeError
 
 
 REQ_PING = 0
@@ -12,6 +16,7 @@ REQ_GET_ELEM = 3
 
 RES_ACK = 0
 RES_RESULT = 1
+RES_ELEM = 2
 RES_ERR_AUTH = 65
 RES_ERR_NODE = 66
 RES_ERR_TYPE = 67
@@ -37,9 +42,18 @@ TASK_PROPS_DEL = 14
 
 PROTOMAP = {
     RES_ACK: lambda f, d: f.set_result(None),
+    RES_ELEM: lambda f, d: f.set_result(d),
     RES_RESULT: lambda f, d: f.set_result(d),
-    RES_ERR_AUTH: lambda f, d: f.set_exception(AuthError(d['error_msg']))
+    RES_ERR_AUTH: lambda f, d: f.set_exception(AuthError(d['error_msg'])),
+    RES_ERR_NODE: lambda f, d: f.set_exception(NodeError(d['error_msg'])),
+    RES_ERR_TYPE: lambda f, d: f.set_exception(TypeError(d['error_msg'])),
+    RES_ERR_TYPE: lambda f, d: f.set_exception(IndexError(d['error_msg'])),
+    RES_ERR_TYPE: lambda f, d: f.set_exception(RuntimeError(d['error_msg'])),
 }
+
+
+def proto_unkown(f, d):
+    f.set_exception(TypeError('unknown package type received ({})'.format(d)))
 
 
 class Protocol(asyncio.Protocol):

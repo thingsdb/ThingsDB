@@ -324,6 +324,12 @@ int rql_elems_restore_data(imap_t * elems, imap_t * props, const char * fn)
                     goto failed;
                 }
                 break;
+            case QP_DOUBLE:
+                if (rql_elem_set(elem, prop, RQL_VAL_FLOAT, &obj.via.real))
+                {
+                    goto failed;
+                }
+                break;
             case QP_RAW:
                 if (!obj.via.raw) goto failed;
                 if (rql_elem_weak_set(elem, prop, RQL_VAL_RAW, obj.via.raw))

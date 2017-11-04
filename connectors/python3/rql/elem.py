@@ -1,9 +1,28 @@
+from .event import Event
+from .protocol import TASK_PROPS_SET
+
+
 def elem_set_props(elem, dmap):
     for prop, val in dmap.items():
         assert (prop[0] != '_'), 'unexpected prop: {}'.format(prop)
         if isinstance(val, dict):
             val = Elem(elem._db, val)
+        if isinstance(val, (list, tuple)):
+            val = [
+                Elem(elem._db, v)
+                if isinstance(v, dict) else v for v in val]
         setattr(elem, prop, val)
+
+
+def elem_map_props(event, dmap, props):
+    for prop, val in props.items():
+        if isinstance(val, Elem):
+            val = {'_i': val._id}
+        elif isinstance(val, (list, tuple)):
+            val = [{'_i': v._id} if isinstance(v, Elem) else v for v in val]
+        elif isinstance(val, Event):
+            pass
+        dmap[prop] = val
 
 
 class ElemMeta(type):
@@ -13,9 +32,11 @@ class ElemMeta(type):
 
         db, dmap = args
         id = dmap.pop('_i')
-        elem = db._elems.get(id, super().__call__(db, id))
-        elem_set_props(elem, dmap)
+        elem = db._elems.get(id, None)
+        if elem is None:
+            elem = db._elems[id] = super().__call__(db, id)
 
+        elem_set_props(elem, dmap)
         return elem
 
 
@@ -28,12 +49,24 @@ class Elem(metaclass=ElemMeta):
     def id(self):
         return self._id
 
-    def set_props(self, *pairs):
+    def set_props(self, **props):
         event = Event(self._db)
-        event.tasks.append({
+
+        dmap = {
             '_t': TASK_PROPS_SET,
             '_i': self.id,
-        })
+        }
+        elem_map_props(event, dmap, props)
+
+        event.tasks.append(dmap)
+        return event
+
+    def _id_map(self):
+        return {}
+
+    async def fetch(self):
+        dmap = await self._db._client._req_elem({self._db._target: self._id})
+        return Elem(self._db, dmap)
 
     def __repr__(self):
         return '<{}:{} at {}>'.format(

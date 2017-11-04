@@ -351,7 +351,6 @@ static int rql__unpack(rql_t * rql, qp_res_t * res)
     if (res->tp != QP_RES_MAP ||
         !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(redundancy = qpx_map_get(res->via.map, "redundancy")) ||
-        !(indexing = qpx_map_get(res->via.map, "indexing")) ||
         !(node = qpx_map_get(res->via.map, "node")) ||
         !(nodes = qpx_map_get(res->via.map, "nodes")) ||
         schema->tp != QP_RES_INT64 ||

@@ -37,7 +37,6 @@ class Client:
         self._pid = 0
 
     def _on_package_received(self, pkg):
-        logging.debug(pkg)
         try:
             future, task = self._requests.pop(pkg.pid)
         except KeyError:

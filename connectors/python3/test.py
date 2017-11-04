@@ -14,7 +14,14 @@ async def test():
     db = await client.get_database('dbtest')
     print(db)
     print(db.person)
-    print(list(db.person.__dict__.keys()))
+    await db.person.fetch()
+    print(db.person.age)
+    print(db.person.me.age)
+
+    await db.person.set_props(friend=db.new_elem(name='Sasientje')).apply()
+    print(db.person.age)
+    print(db.person.me.age)
+
 
 
     # # Create user

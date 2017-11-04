@@ -68,14 +68,13 @@ class Protocol(asyncio.Protocol):
         '''
         override asyncio.Protocol
         '''
-
-        logging.info('made')
+        pass
 
     def connection_lost(self, exc):
         '''
         override asyncio.Protocol
         '''
-        logging.info('lost')
+        pass
 
     def data_received(self, data):
         '''

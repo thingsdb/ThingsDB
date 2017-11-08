@@ -22,8 +22,6 @@ async def test():
     print(db.person.age)
     print(db.person.me.age)
 
-
-
     # # Create user
     # res = await client.trigger({
     #     '_': [{

@@ -32,6 +32,9 @@ static rql_task_stat_e rql__task_grant(
 static rql_task_stat_e rql__task_props_set(
         qp_map_t * task,
         rql_event_t * event);
+static rql_task_stat_e rql__task_props_del(
+        qp_map_t * task,
+        rql_event_t * event);
 static inline rql_elem_t * rql__task_elem_by_id(
         rql_event_t * event,
         int64_t sid);
@@ -116,6 +119,9 @@ rql_task_stat_e rql_task_run(
         break;
     case RQL_TASK_PROPS_SET:
         rc = rql__task_props_set(map, event);
+        break;
+    case RQL_TASK_PROPS_DEL:
+        rc = rql__task_props_del(map, event);
         break;
     default:
         assert (0);
@@ -335,14 +341,14 @@ static rql_task_stat_e rql__task_props_set(
                 "missing or invalid element id ("RQL_API_ID")");
     }
 
+    uint64_t id = (uint64_t) qid->via.int64;
     if (qid->via.int64 < 0)
     {
-        elem = rql__task_elem_create(event, (uint64_t) qid->via.int64);
+        elem = rql__task_elem_create(event, id);
         if (!elem) return RQL_TASK_ERR;
     }
     else
     {
-        uint64_t id = (uint64_t) qid->via.int64;
         elem = (rql_elem_t *) imap_get(db->elems, id);
         if (!elem)
         {
@@ -356,6 +362,141 @@ static rql_task_stat_e rql__task_props_set(
     void * val;
     rql_val_e tp;
 
+    qp_res_t * k, * v;
+    for (size_t i = 0; i < task->n; i++)
+    {
+        k = task->keys + i;
+        if (!*k->via.str || *k->via.str == RQL_API_PREFIX[0]) continue;
+
+        rql_prop_t * prop = rql_db_props_get(db->props, k->via.str);
+        if (!prop) return RQL_TASK_ERR;
+
+        v = task->values + i;
+        if (rql_elem_res_is_id(v))
+        {
+            int64_t sid = v->via.map->values[0].via.int64;
+            rql_elem_t * el = rql__task_elem_by_id(event, sid);
+            if (!el)
+            {
+                ex_set(e, -1, "cannot find element: %"PRId64, sid);
+                return rql__task_fail(event, e->msg);
+            }
+            if (rql_elem_set(elem, prop, RQL_VAL_ELEM, el))
+            {
+                log_critical(EX_ALLOC);
+                return RQL_TASK_ERR;
+            }
+            continue;
+        }
+        switch (v->tp)
+        {
+        case QP_RES_MAP:
+            return rql__task_fail(event,
+                    "map must be an element {\""RQL_API_ID"\": <id>}");
+
+        case QP_RES_ARRAY:
+            assert(0);  /* TODO: fix arrays */
+            continue;
+        case QP_RES_INT64:
+            val = &v->via.int64;
+            tp = RQL_VAL_INT;
+            break;
+        case QP_RES_REAL:
+            val = &v->via.real;
+            tp = RQL_VAL_FLOAT;
+            break;
+        case QP_RES_RAW:
+            val = (void *) v->via.raw;
+            v->via.raw = NULL;
+            tp = RQL_VAL_RAW;
+            break;
+        case QP_RES_BOOL:
+            val = &v->via.boolean;
+            tp = RQL_VAL_BOOL;
+            break;
+        case QP_RES_NULL:
+            val = NULL;
+            tp = RQL_VAL_NIL;
+            break;
+        case QP_RES_STR:
+            assert (0);
+            /* no break */
+        default:
+            assert (0);
+            break;
+        }
+        if (has_elem && rql_elem_weak_set(elem, prop, tp, val))
+        {
+            log_critical(EX_ALLOC);
+            return RQL_TASK_ERR;
+        }
+    }
+
+    if (qp_add_raw_from_str(event->result, RQL_API_ID) ||
+        qp_add_int64(event->result, (int64_t) elem->id))
+    {
+        log_critical(EX_ALLOC);
+        return RQL_TASK_ERR;
+    }
+
+    return RQL_TASK_SUCCESS;
+}
+
+/*
+ * Grant permissions to either a database or rql.
+ */
+static rql_task_stat_e rql__task_props_del(
+        qp_map_t * task,
+        rql_event_t * event)
+{
+    ex_t * e = ex_use();
+    rql_t * rql = event->events->rql;
+    rql_db_t * db = event->target;
+    rql_elem_t * elem;
+    if (!event->target)
+    {
+        return rql__task_fail(event,
+            "props can only be deleted on elements in a database");
+    }
+    qp_res_t * qid = qpx_map_get(task, RQL_API_ID);
+    qp_res_t * props = qpx_map_get(task, RQL_API_PROPS);
+
+    if (!qid || qid->tp != QP_RES_INT64)
+    {
+        return rql__task_fail(event,
+                "missing or invalid element id ("RQL_API_ID")");
+    }
+    if (!props || !props->tp == QP_RES_ARRAY || !props->via.array->n)
+    {
+        return rql__task_fail(event,
+                "an array with at least one property is expected "
+                "("RQL_API_PROPS")");
+    }
+
+    qp_array_t * arr_props = props->via.array;
+    for (size_t i = 0; i < arr_props->n; i++)
+    {
+        if (arr_props->values[i].tp != QP_RES_RAW)
+        {
+            return rql__task_fail(event,
+                    "each property should be a string "
+                    "("RQL_API_PROPS")");
+        }
+    }
+
+    uint64_t id = (uint64_t) qid->via.int64;
+    elem = (rql_elem_t *) imap_get((qid->via.int64 < 0) ?
+            event->refelems : db->elems, id);
+    if (!elem)
+    {
+        ex_set(e, -1, "cannot find element: %"PRIu64, id);
+        return rql__task_fail(event, e->msg);
+    }
+
+
+
+    void * val;
+    rql_val_e tp;
     qp_res_t * k, * v;
     for (size_t i = 0; i < task->n; i++)
     {

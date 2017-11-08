@@ -15,6 +15,7 @@
 #define RQL_API_PERM "_p"
 #define RQL_API_NAME "_n"
 #define RQL_API_ID "_i"
+#define RQL_API_PROPS "_p"
 
 #endif /* RQL_API_H_ */
 

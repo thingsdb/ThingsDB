@@ -17,6 +17,7 @@ const int rql_access_fn_schema = 0;
 
 int rql_access_grant(vec_t ** access, rql_user_t * user, uint64_t mask)
 {
+    rql_auth_t * auth;
     for (vec_each(*access, rql_auth_t, auth))
     {
         if (auth->user == user)
@@ -25,7 +26,7 @@ int rql_access_grant(vec_t ** access, rql_user_t * user, uint64_t mask)
             return 0;
         }
     }
-    rql_auth_t * auth = rql_auth_new(user, mask);
+    auth = rql_auth_new(user, mask);
     if (!auth || vec_push(access, auth))
     {
         free(auth);

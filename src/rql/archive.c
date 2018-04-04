@@ -10,7 +10,7 @@
 
 rql_archive_t * rql_archive_create(void)
 {
-    rql_archive_t * archive = (rql_archive_t *) malloc(sizeof(rql_archive_t));
+    rql_archive_t * archive = malloc(sizeof(rql_archive_t));
     if (!archive) return NULL;
 
     archive->rawev = queue_new(0);

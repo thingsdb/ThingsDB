@@ -15,4 +15,3 @@ class Event:
     async def apply(self):
         await self._db._client._req_event({self._db._target: self.tasks})
 
-

@@ -16,16 +16,7 @@ class Db(Elem):
         elem_set_props(self, dmap)
 
     def new_elem(self, **props):
-        event = Event(self._db)
-
-        dmap = {
-            '_t': TASK_PROPS_SET,
-            '_i': self.new_id,
-        }
-
-        elem_map_props(dmap, props)
-        event.tasks.append(dmap)
-        return event
+        return Elem(self, self.new_id)
 
     @property
     def new_id(self):

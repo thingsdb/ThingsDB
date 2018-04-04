@@ -20,8 +20,6 @@ def elem_map_props(event, dmap, props):
             val = {'_i': val._id}
         elif isinstance(val, (list, tuple)):
             val = [{'_i': v._id} if isinstance(v, Elem) else v for v in val]
-        elif isinstance(val, Event):
-            pass
         dmap[prop] = val
 
 

@@ -22,7 +22,7 @@ static const size_t rql_db_max_name = 128;
 
 rql_db_t * rql_db_create(rql_t * rql, guid_t * guid, const rql_raw_t * name)
 {
-    rql_db_t * db = (rql_db_t *) malloc(sizeof(rql_db_t));
+    rql_db_t * db = malloc(sizeof(rql_db_t));
     if (!db) return NULL;
 
     db->ref = 1;

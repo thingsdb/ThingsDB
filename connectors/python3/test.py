@@ -1,6 +1,12 @@
 import asyncio
 import logging
+import rql.event
 from rql.client import Client
+from rql.elem import Elem
+
+
+class Person(Elem):
+    name = str
 
 
 async def test():
@@ -12,15 +18,23 @@ async def test():
     await client.authenticate('iris', 'siri')
 
     db = await client.get_database('dbtest')
-    print(db)
+    print(dir(db.person))
     print(db.person)
     await db.person.fetch()
-    print(db.person.age)
-    print(db.person.me.age)
+    print(dir(db.person))
+    # print(a.age)
 
-    await db.person.set_props(friend=db.new_elem(name='Sasientje')).apply()
+    # sasientje = db.new_elem(name='Sasientje')
+    # iriske = db.new_elem(name='Iriske')
+
+    # event = rql.event.join(
+    #     sasientje.set_props(d=iriskem),
+    #     iriske.set_props(m=sasientje))
+
+    # await db.person.set_props(friend=db.new_elem(name='Sasientje')).apply()
     print(db.person.age)
-    print(db.person.me.age)
+    print(db.person.who)
+    print(db.person.me.me.me.who)
 
     # # Create user
     # res = await client.trigger({
@@ -75,6 +89,8 @@ async def test():
     #     }]
     # })
     # print('New elem result:', res)
+    #
+    #
 
 
 if __name__ == '__main__':

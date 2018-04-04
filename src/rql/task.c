@@ -454,35 +454,27 @@ static rql_task_stat_e rql__task_props_del(
     rql_db_t * db = event->target;
     rql_elem_t * elem;
     if (!event->target)
-    {
         return rql__task_fail(event,
             "props can only be deleted on elements in a database");
-    }
+
     qp_res_t * qid = qpx_map_get(task, RQL_API_ID);
     qp_res_t * props = qpx_map_get(task, RQL_API_PROPS);
 
     if (!qid || qid->tp != QP_RES_INT64)
-    {
         return rql__task_fail(event,
                 "missing or invalid element id ("RQL_API_ID")");
-    }
+
     if (!props || !props->tp == QP_RES_ARRAY || !props->via.array->n)
-    {
         return rql__task_fail(event,
                 "an array with at least one property is expected "
                 "("RQL_API_PROPS")");
-    }
 
     qp_array_t * arr_props = props->via.array;
     for (size_t i = 0; i < arr_props->n; i++)
-    {
         if (arr_props->values[i].tp != QP_RES_RAW)
-        {
             return rql__task_fail(event,
                     "each property should be a string "
                     "("RQL_API_PROPS")");
-        }
-    }
 
     uint64_t id = (uint64_t) qid->via.int64;
     elem = (rql_elem_t *) imap_get((qid->via.int64 < 0) ?
@@ -492,8 +484,6 @@ static rql_task_stat_e rql__task_props_del(
         ex_set(e, -1, "cannot find element: %"PRIu64, id);
         return rql__task_fail(event, e->msg);
     }
-
-
 
     void * val;
     rql_val_e tp;
@@ -560,6 +550,7 @@ static rql_task_stat_e rql__task_props_del(
             assert (0);
             break;
         }
+
         if (has_elem && rql_elem_weak_set(elem, prop, tp, val))
         {
             log_critical(EX_ALLOC);
@@ -592,7 +583,8 @@ static rql_elem_t * rql__task_elem_create(rql_event_t * event, int64_t sid)
     if (!event->refelems)
     {
         event->refelems = imap_create();
-        if (!event->refelems) return NULL;
+        if (!event->refelems)
+            return NULL;
     }
     rql_elem_t * elem = rql_elems_create(
             event->target->elems,
@@ -601,7 +593,9 @@ static rql_elem_t * rql__task_elem_create(rql_event_t * event, int64_t sid)
      * we are allowed to overwrite the element, the previous does hold a
      * reference so it will be removed.
      */
-    if (!elem || !imap_set(event->refelems, (uint64_t) sid, elem)) return NULL;
+    if (!elem || !imap_set(event->refelems, (uint64_t) sid, elem))
+        return NULL;
+
     return elem;
 }
 

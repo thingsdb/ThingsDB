@@ -81,7 +81,7 @@ int rql_front_listen(rql_front_t * front)
             RQL_MAX_NODES,
             (uv_connection_cb) rql__front_on_connect)))
     {
-        log_error("error listening for nodes: %s", uv_strerror(rc));
+        log_error("error listening for nodes: `%s`", uv_strerror(rc));
         return -1;
     }
 
@@ -107,7 +107,7 @@ static void rql__front_on_connect(uv_tcp_t * tcp, int status)
 
     if (status < 0)
     {
-        log_error("client connection error: %s", uv_strerror(status));
+        log_error("client connection error: `%s`", uv_strerror(status));
         return;
     }
 
@@ -126,7 +126,7 @@ static void rql__front_on_connect(uv_tcp_t * tcp, int status)
         rql_sock_close(nsock);
         return;
     }
-    log_info("client connected: %s", rql_sock_addr(nsock));
+    log_info("client connected: `%s`", rql_sock_addr(nsock));
 }
 
 
@@ -147,7 +147,7 @@ static void rql__front_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg)
         rql__front_on_get(sock, pkg);
         break;
     default:
-        log_error("unexpected package type: %u (source: %s)",
+        log_error("unexpected package type: `%u` (source: `%s`)",
                 pkg->tp, rql_sock_addr(sock));
     }
 }
@@ -175,7 +175,7 @@ static void rql__front_on_auth(rql_sock_t * sock, rql_pkg_t * pkg)
     rql_user_t * user = rql_users_auth(sock->rql->users, &name, &pass, e);
     if (e->nr)
     {
-        log_error("authentication failed: %s (source: %s)",
+        log_error("authentication failed: `%s` (source: `%s`)",
                 e->msg, rql_sock_addr(sock));
         resp = rql_pkg_err(pkg->id, e->nr, e->msg);
     }
@@ -207,7 +207,7 @@ static void rql__front_on_event(rql_sock_t * sock, rql_pkg_t * pkg)
     if (sock->rql->node->status != RQL_NODE_STAT_READY)
     {
         ex_set(e, RQL_PROTO_NODE_ERR,
-                "node '%s' is not ready to handle events",
+                "node `%s` is not ready to handle events",
                 sock->rql->node->addr);
         goto failed;
     }
@@ -241,7 +241,7 @@ static void rql__front_on_get(rql_sock_t * sock, rql_pkg_t * pkg)
     if (sock->rql->node->status != RQL_NODE_STAT_READY)
     {
         ex_set(e, RQL_PROTO_NODE_ERR,
-                "node '%s' is not ready to handle events",
+                "node `%s` is not ready to handle events",
                 sock->rql->node->addr);
         goto failed;
     }

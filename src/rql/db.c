@@ -109,7 +109,7 @@ int rql_db_name_check(const rql_raw_t * name, ex_t * e)
     if (name->data[0] == RQL_API_PREFIX[0])
     {
         ex_set(e, -1,
-                "database name should not start with an '"RQL_API_PREFIX"'");
+                "database name should not start with an `"RQL_API_PREFIX"`");
         return -1;
     }
     return 0;
@@ -122,7 +122,7 @@ int rql_db_store(rql_db_t * db, const char * fn)
     if (!f) return -1;
 
     rc = -(fwrite(&db->root->id, sizeof(uint64_t), 1, f) != 1);
-    if (rc) log_error("saving failed: %s", fn);
+    if (rc) log_error("saving failed: `%s`", fn);
     return -(fclose(f) || rc);
 }
 
@@ -148,7 +148,7 @@ int rql_db_restore(rql_db_t * db, const char * fn)
 
 failed:
     rc = -1;
-    log_critical("failed to restore from file: '%s'", fn);
+    log_critical("failed to restore from file: `%s`", fn);
 done:
     free(data);
     return rc;

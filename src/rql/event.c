@@ -478,7 +478,7 @@ static int rql__event_ready(rql_event_t * event)
                 event->prom,
                 rql_prom_req_cb))
         {
-            log_error("failed to write to node: %s", node->addr);
+            log_error("failed to write to node: `%s`", node->addr);
             event->prom->sz--;
         }
     }
@@ -508,7 +508,7 @@ static void rql__event_on_ready_cb(rql_prom_t * prom)
 
         if (res->status || req->pkg_res->tp != RQL_PROTO_RESULT)
         {
-            log_critical("event failed on node: %s", req->node->addr);
+            log_critical("event failed on node: `%s`", req->node->addr);
         }
 
         rql_req_destroy(req);
@@ -621,7 +621,7 @@ static void rql__event_unpack(
     if (!qp_is_array(qp_next(unpacker, NULL)))
     {
         ex_set(e, RQL_PROTO_TYPE_ERR,
-                "invalid event: expecting an array with tasks");
+                "invalid event: `expecting an array with tasks`");
         return;
     }
 
@@ -649,7 +649,7 @@ static void rql__event_unpack(
                 (uint64_t) 1 << task->tp))
         {
             ex_set(e, RQL_PROTO_AUTH_ERR,
-                    "user has no privileges for task: %s",
+                    "user has no privileges for task: `%s`",
                     rql_task_str(task));
             return;
         }

@@ -272,7 +272,7 @@ int rql_elems_restore_skeleton(imap_t * elems, imap_t * props, const char * fn)
 failed:
     rc = -1;
     vec_destroy(elems_vec, (vec_destroy_cb) rql_elem_drop);
-    log_critical("failed to restore from file: '%s'", fn);
+    log_critical("failed to restore from file: `%s`", fn);
 done:
     fclose(f);
     return rc;

@@ -63,7 +63,7 @@ int main(int argc, char * argv[])
 
         printf(
             "Well done! You successfully initialized a new rql pool.\n\n"
-            "You can now star RQL and connect by using the default user '%s'.\n"
+            "You can now star RQL and connect by using the default user `%s`.\n"
             "..before I forget, the password is '%s'\n\n",
             rql_user_def_name,
             rql_user_def_pass);

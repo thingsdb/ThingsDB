@@ -126,7 +126,7 @@ int rql_dbs_store(const vec_t * dbs, const char * fn)
     rc = fx_write(fn, packer->buffer, packer->len);
 
 stop:
-    if (rc) log_error("failed to write file: '%s'", fn);
+    if (rc) log_error("failed to write file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -184,7 +184,7 @@ int rql_dbs_restore(vec_t ** dbs, rql_t * rql, const char * fn)
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: '%s'", fn);
+    if (rc) log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

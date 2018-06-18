@@ -57,7 +57,7 @@ int rql_props_store(smap_t * props, const char * fn)
     if (!f) return -1;
 
     rc = smap_values(props, (smap_val_cb) rql__props_write_cb, f);
-    if (rc) log_error("saving failed: %s", fn);
+    if (rc) log_error("saving failed: `%s`", fn);
     return -(fclose(f) || rc);
 }
 
@@ -86,7 +86,7 @@ imap_t * rql_props_restore(smap_t * props, const char * fn)
     goto done;
 
 failed:
-    log_critical("failed to restore from file: '%s'", fn);
+    log_critical("failed to restore from file: `%s`", fn);
     imap_destroy(propsmap, NULL);
     propsmap = NULL;
 done:

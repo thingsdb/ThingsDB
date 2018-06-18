@@ -92,7 +92,7 @@ int rql_access_store(const vec_t * access, const char * fn)
     rc = fx_write(fn, packer->buffer, packer->len);
 
 stop:
-    if (rc) log_error("failed to write file: '%s'", fn);
+    if (rc) log_error("failed to write file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -153,7 +153,7 @@ int rql_access_restore(vec_t ** access, const vec_t * users, const char * fn)
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: '%s'", fn);
+    if (rc) log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

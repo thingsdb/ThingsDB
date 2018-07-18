@@ -17,18 +17,22 @@ static void rql__events_loop(uv_async_t * handle);
 
 rql_events_t * rql_events_create(rql_t * rql)
 {
-    rql_events_t * events = (rql_events_t *) malloc(sizeof(rql_events_t));
-    if (!events) return NULL;
+    rql_events_t * events = malloc(sizeof(rql_events_t));
+    if (!events)
+        return NULL;
+
     if (uv_mutex_init(&events->lock))
     {
         log_critical("failed to initiate uv_mutex lock");
         free(events);
         return NULL;
     }
+
     events->rql = rql;
     events->queue = queue_new(4);
     events->archive = rql_archive_create();
     events->loop.data = events;
+
     return events;
 }
 

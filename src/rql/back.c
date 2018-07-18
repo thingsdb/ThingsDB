@@ -15,7 +15,8 @@ static void rql__back_on_pkg(rql_sock_t * sock, rql_pkg_t * pkg);
 rql_back_t * rql_back_create(rql_t * rql)
 {
     rql_back_t * back = malloc(sizeof(rql_back_t));
-    if (!back) return NULL;
+    if (!back)
+        return NULL;
 
     back->sock = rql_sock_create(RQL_SOCK_BACK, rql);
     if (!back->sock)

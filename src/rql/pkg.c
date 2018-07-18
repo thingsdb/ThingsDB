@@ -18,13 +18,18 @@ rql_pkg_t * rql_pkg_new(
         const unsigned char * data,
         uint32_t n)
 {
-    rql_pkg_t * pkg = (rql_pkg_t *) malloc(sizeof(rql_pkg_t) + n);
-    if (!pkg) return NULL;
+    rql_pkg_t * pkg = malloc(sizeof(rql_pkg_t) + n);
+
+    if (!pkg)
+        return NULL;
+
     pkg->tp = tp;
     pkg->ntp = tp ^ 255;
     pkg->n = n;
     pkg->id = id;
+
     memcpy(pkg->data, data, n);
+
     return pkg;
 }
 
@@ -32,7 +37,8 @@ rql_pkg_t * rql_pkg_err(uint16_t id, uint8_t tp, const char * errmsg)
 {
     size_t n = strlen(errmsg);
     qpx_packer_t * xpkg = qpx_packer_create(20 + n);
-    if (!xpkg) return NULL;
+    if (!xpkg)
+        return NULL;
 
     qp_add_map(&xpkg);
     qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);

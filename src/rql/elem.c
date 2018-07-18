@@ -11,8 +11,9 @@
 
 rql_elem_t * rql_elem_create(uint64_t id)
 {
-    rql_elem_t * elem = (rql_elem_t *) malloc(sizeof(rql_elem_t));
-    if (!elem) return NULL;
+    rql_elem_t * elem = malloc(sizeof(rql_elem_t));
+    if (!elem)
+        return NULL;
 
     elem->ref = 1;
     elem->id = id;
@@ -88,14 +89,16 @@ int rql_elem_weak_set(
 
 int rql_elem_to_packer(rql_elem_t * elem, qp_packer_t * packer)
 {
-    if (qp_add_map(&packer) ||
-        qp_add_raw(packer, (const unsigned char *) RQL_API_ID, 2) ||
-        qp_add_int64(packer, (int64_t) elem->id)) return -1;
+    if (    qp_add_map(&packer) ||
+            qp_add_raw(packer, (const unsigned char *) RQL_API_ID, 2) ||
+            qp_add_int64(packer, (int64_t) elem->id))
+        return -1;
 
     for (vec_each(elem->items, rql_item_t, item))
     {
-        if (qp_add_raw_from_str(packer, item->prop->name) ||
-            rql_val_to_packer(&item->val, packer)) return -1;
+        if (    qp_add_raw_from_str(packer, item->prop->name) ||
+                rql_val_to_packer(&item->val, packer))
+            return -1;
     }
     return qp_close_map(packer);
 }

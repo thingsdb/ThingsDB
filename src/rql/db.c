@@ -23,7 +23,8 @@ static const size_t rql_db_max_name = 128;
 rql_db_t * rql_db_create(rql_t * rql, guid_t * guid, const rql_raw_t * name)
 {
     rql_db_t * db = malloc(sizeof(rql_db_t));
-    if (!db) return NULL;
+    if (!db)
+        return NULL;
 
     db->ref = 1;
     db->rql = rql;
@@ -74,9 +75,7 @@ int rql_db_buid(rql_db_t * db)
     {
         rql_prop_t * prop = rql_db_props_get(db->props, "name");
         if (!prop || rql_elem_set(elem, prop, RQL_VAL_RAW, db->name))
-        {
             return -1;
-        }
     }
     db->root = rql_elem_grab(elem);
 
@@ -119,10 +118,14 @@ int rql_db_store(rql_db_t * db, const char * fn)
 {
     int rc;
     FILE * f = fopen(fn, "w");
-    if (!f) return -1;
+    if (!f)
+        return -1;
 
     rc = -(fwrite(&db->root->id, sizeof(uint64_t), 1, f) != 1);
-    if (rc) log_error("saving failed: `%s`", fn);
+
+    if (rc)
+        log_error("saving failed: `%s`", fn);
+
     return -(fclose(f) || rc);
 }
 

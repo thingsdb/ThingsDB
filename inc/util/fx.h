@@ -16,5 +16,6 @@ _Bool fx_file_exist(const char * fn);
 _Bool fx_is_dir(const char * path);
 int fx_rmdir(const char * path);
 char * fx_path_join(const char * s1, const char * s2);
+char * fx_get_exec_path(void);
 
 #endif /* RQL_FILEX_H_ */

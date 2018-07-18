@@ -41,29 +41,29 @@ void log__critical(const char * fmt, ...);
 
 extern logger_t Logger;
 
-#define log_debug(fmt, ...)                 \
-    if (Logger.level == LOGGER_DEBUG)       \
-        log__debug(fmt, ##__VA_ARGS__)      \
+#define log_debug(fmt, ...)                         \
+    do if (Logger.level == LOGGER_DEBUG)            \
+        log__debug(fmt, ##__VA_ARGS__); while(0)
 
-#define log_info(fmt, ...)                  \
-    if (Logger.level <= LOGGER_INFO)        \
-        log__info(fmt, ##__VA_ARGS__)       \
+#define log_info(fmt, ...)                          \
+    do if (Logger.level <= LOGGER_INFO)             \
+        log__info(fmt, ##__VA_ARGS__); while(0)
 
-#define log_warning(fmt, ...)               \
-    if (Logger.level <= LOGGER_WARNING)     \
-        log__warning(fmt, ##__VA_ARGS__)    \
+#define log_warning(fmt, ...)                       \
+    do if (Logger.level <= LOGGER_WARNING)          \
+        log__warning(fmt, ##__VA_ARGS__); while(0)
 
-#define log_error(fmt, ...)                 \
-    if (Logger.level <= LOGGER_ERROR)       \
-        log__error(fmt, ##__VA_ARGS__)      \
+#define log_error(fmt, ...)                         \
+    do if (Logger.level <= LOGGER_ERROR)            \
+        log__error(fmt, ##__VA_ARGS__); while(0)
 
-#define log_critical(fmt, ...)              \
-    if (Logger.level <= LOGGER_CRITICAL)    \
-        log__critical(fmt, ##__VA_ARGS__)   \
+#define log_critical(fmt, ...)                      \
+    do if (Logger.level <= LOGGER_CRITICAL)         \
+        log__critical(fmt, ##__VA_ARGS__); while(0)
 
 #define LOGC(fmt, ...) \
-    {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
-    log_critical(fmt, ##__VA_ARGS__);}
+    do {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
+    log_critical(fmt, ##__VA_ARGS__);} while(0)
 
 struct logger_s
 {

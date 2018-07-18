@@ -110,10 +110,42 @@ char * fx_path_join(const char * s1, const char * s2)
     memcpy(s + n1 + add_slash, s2, n2 + 1);
 
     if (add_slash)
-    {
         s[n1] = '/';
-    }
 
     return s;
 }
 
+char * fx_get_exec_path(void)
+{
+    int rc;
+    size_t buffer_sz = 1024;
+    char * tmp, * buffer;
+
+    buffer = (char *) malloc(buffer_sz);
+    if (!buffer)
+        goto failed;
+
+    while (1)
+    {
+        rc = readlink("/proc/self/exe", buffer, buffer_sz);
+        if (rc < 0) goto failed;
+        if (rc < (ssize_t) buffer_sz) break;
+        buffer_sz *= 2;
+        tmp = realloc(buffer, buffer_sz);
+        if (!tmp) goto failed;
+        buffer = tmp;
+    }
+
+    /* find last / in path */
+    tmp = strrchr(buffer, '/');
+    if (!tmp)
+        /* no slash found in path */
+        goto failed;
+
+    *(++tmp) = '\0';
+    return buffer;
+
+failed:
+    free(buffer);
+    return NULL;
+}

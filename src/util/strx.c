@@ -262,6 +262,7 @@ double strx_to_doublen(const char * str, size_t n)
         break;
     case '+':
         str++;
+        /* FALLTHRU */
         /* no break */
     default:
         convert = 1.0;

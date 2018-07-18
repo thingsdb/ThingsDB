@@ -450,7 +450,6 @@ static rql_task_stat_e rql__task_props_del(
         rql_event_t * event)
 {
     ex_t * e = ex_use();
-    rql_t * rql = event->events->rql;
     rql_db_t * db = event->target;
     rql_elem_t * elem;
     if (!event->target)
@@ -464,7 +463,7 @@ static rql_task_stat_e rql__task_props_del(
         return rql__task_fail(event,
                 "missing or invalid element id ("RQL_API_ID")");
 
-    if (!props || !props->tp == QP_RES_ARRAY || !props->via.array->n)
+    if (!props || props->tp != QP_RES_ARRAY || !props->via.array->n)
         return rql__task_fail(event,
                 "an array with at least one property is expected "
                 "("RQL_API_PROPS")");
@@ -551,7 +550,7 @@ static rql_task_stat_e rql__task_props_del(
             break;
         }
 
-        if (has_elem && rql_elem_weak_set(elem, prop, tp, val))
+        if (rql_elem_weak_set(elem, prop, tp, val))  // has_elem &&
         {
             log_critical(EX_ALLOC);
             return RQL_TASK_ERR;

@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -luv -lm -lqpack
+LIBS := -luv -lpython3.6m -lm -lqpack
 

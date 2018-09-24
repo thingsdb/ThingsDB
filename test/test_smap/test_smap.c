@@ -6,7 +6,7 @@
  */
 
 
-#include "test.h"
+#include "../test.h"
 #include <util/smap.h>
 
 const unsigned int num_entries = 14;

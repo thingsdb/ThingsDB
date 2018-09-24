@@ -67,3 +67,5 @@ __pycache__/
 
 # testdir
 /test/testdir/
+
+.vscode/

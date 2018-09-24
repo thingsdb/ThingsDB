@@ -7,7 +7,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include "test.h"
+#include "../test.h"
 #include <util/imap.h>
 
 

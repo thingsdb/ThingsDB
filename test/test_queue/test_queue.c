@@ -7,7 +7,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include "test.h"
+#include "../test.h"
 #include <util/queue.h>
 #include <util/vec.h>
 
@@ -101,7 +101,7 @@ int main()
 
     /* test copy */
     {
-        assert (q->n = num_entries);
+        assert (q->n == num_entries);
         vec_t * v = vec_new(q->n);
         queue_copy(q, v->data);
         v->n = q->n;
@@ -130,8 +130,8 @@ int main()
     {
         queue_t * cp;
         assert ((cp = queue_dup(q)) != NULL);
-        assert (cp->n = num_entries);
-        assert (cp->sz = num_entries);
+        assert (cp->n == num_entries);
+        assert (cp->sz == num_entries);
         for (size_t i = 0; i < num_entries; i++)
         {
             assert (queue_get(cp, i) == entries[i]);
@@ -155,14 +155,14 @@ int main()
         {
             assert (queue_get(q, i + num_entries) == entries[i]);
         }
-        assert (q->sz = num_entries * 2);
+        assert (q->sz == num_entries * 2);
     }
 
     /* test shrink */
     {
         size_t n = num_entries * 2;
-        assert (q->sz = n);
-        assert (q->n = q->sz);
+        assert (q->sz == n);
+        assert (q->n == q->sz);
         for (size_t i = 0; i < n; i++)
         {
             for (size_t j = 0; j < n - i; j++)

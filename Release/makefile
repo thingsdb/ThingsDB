@@ -42,3 +42,6 @@ clean:
 .PHONY: all clean dependents
 
 -include ../makefile.targets
+
+test:
+	@../test/run_tests.sh

@@ -5,7 +5,7 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 
-#include "test.h"
+#include "../test.h"
 #include <util/vec.h>
 
 
@@ -72,8 +72,8 @@ int main()
     {
         vec_t * cp;
         assert ((cp = vec_dup(v)) != NULL);
-        assert (cp->n = num_entries);
-        assert (cp->sz = num_entries);
+        assert (cp->n == num_entries);
+        assert (cp->sz == num_entries);
         for (size_t i = 0; i < num_entries; i++)
         {
             assert (vec_get(cp, i) == entries[i]);

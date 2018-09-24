@@ -1,7 +1,6 @@
 #include <locale.h>
 #include <stdlib.h>
 #include <time.h>
-#include <Python.h>
 #include <rql/rql.h>
 #include <rql/store.h>
 #include <rql/user.h>
@@ -9,56 +8,16 @@
 #include <util/fx.h>
 
 
-const char * pycode =
-    "import sys\n"
-    "sys.path.insert(0, './')\n";
-
-const char * pycode2 =
-    "import sys\n"
-    "print(sys.path)\n";
-
-const char * pycode3 =
-    "import fact\n"
-    "print(dir(fact))\n";
-
 
 int main(int argc, char * argv[])
 {
     int rc = 0;
 
-    Py_Initialize();
-    PyObject * main_module;
-    PyObject * main_dict;
-    PyObject * sys_module;
-    PyObject * sys_dict;
-    PyObject * version_obj;
-    char * version_string;
-
-    main_module = PyImport_ImportModule("__main__");
-    main_dict = PyModule_GetDict(main_module);
-
-    /* Fetch the sys module */
-    sys_module = PyImport_ImportModule("sys");
-    sys_dict   = PyModule_GetDict(sys_module);
-
-    /* Attach the sys module into the __main__ namespace */
-    PyDict_SetItemString(main_dict, "sys", sys_module);
-
-    /* Retrieve the Python version from sys and print it out */
-    version_obj = PyMapping_GetItemString(sys_dict, "version");
-    version_string = PyUnicode_AsUTF8(version_obj);
-    fprintf(stderr, "%s\n\n", version_string);
-    Py_XDECREF(version_obj);
-
-    PyRun_SimpleString(pycode);
-    PyRun_SimpleString(pycode2);
-    PyRun_SimpleString(pycode3);
-
     /*
      * set local to LC_ALL
      * more info at: http://www.cprogramming.com/tutorial/unicode.html
      */
-    setlocale(LC_ALL, "");
+    (void) setlocale(LC_ALL, "");
 
     /* initialize random */
     srand(time(NULL));
@@ -148,9 +107,6 @@ stop:
         rc = -1;
     }
     rql_destroy(rql);
-
-    if (Py_FinalizeEx() < 0)
-        return 120;
 
     return rc;
 }

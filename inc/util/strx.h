@@ -4,8 +4,8 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-#ifndef RQL_STRX_H_
-#define RQL_STRX_H_
+#ifndef TI_STRX_H_
+#define TI_STRX_H_
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -26,4 +26,4 @@ double strx_to_doublen(const char * str, size_t n);
 uint64_t strx_to_uint64n(const char * str, size_t n);
 char * strx_cat(const char * s1, const char * s2);
 
-#endif /* RQL_STRX_H_ */
+#endif /* TI_STRX_H_ */

@@ -1,4 +1,4 @@
-# rqldb
+# tindb
 
 
 Name:
@@ -8,7 +8,7 @@ els_
 
 
 Name:
-rql.db
-RQL.db
-rql_
+tin.db
+TIN.db
+ti_
 

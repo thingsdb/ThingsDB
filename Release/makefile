@@ -44,4 +44,4 @@ clean:
 -include ../makefile.targets
 
 test:
-	@../test/run_tests.sh
+	@cd ../test && ./run_tests.sh

@@ -14,7 +14,8 @@
 vec_t * vec_new(uint32_t sz)
 {
     vec_t * vec = (vec_t *) malloc(sizeof(vec_t) + sz * sizeof(void*));
-    if (!vec) return NULL;
+    if (!vec)
+        return NULL;
     vec->sz = sz;
     vec->n = 0;
     return vec;
@@ -49,7 +50,8 @@ vec_t * vec_dup(const vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->n * sizeof(void*);
     vec_t * v = (vec_t *) malloc(sz);
-    if (!v) return NULL;
+    if (!v)
+        return NULL;
     memcpy(v, vec, sz);
     v->sz = v->n;
     return v;
@@ -100,7 +102,7 @@ int vec_push(vec_t ** vaddr, void * data)
 }
 
 /*
- * Extends a vec with n data elements and returns the new extended vec.
+ * Extends a vec with n data thingents and returns the new extended vec.
  *
  * In case of an error NULL is returned.
  */

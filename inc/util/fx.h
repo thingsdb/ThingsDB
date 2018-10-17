@@ -4,8 +4,8 @@
  *  Created on: Sep 29, 2017
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-#ifndef RQL_FILEX_H_
-#define RQL_FILEX_H_
+#ifndef TI_FILEX_H_
+#define TI_FILEX_H_
 
 #include <stddef.h>
 #include <sys/types.h>
@@ -18,4 +18,4 @@ int fx_rmdir(const char * path);
 char * fx_path_join(const char * s1, const char * s2);
 char * fx_get_exec_path(void);
 
-#endif /* RQL_FILEX_H_ */
+#endif /* TI_FILEX_H_ */

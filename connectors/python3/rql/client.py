@@ -62,7 +62,7 @@ class Client:
         await future
 
     async def get_database(self, target):
-        root = await self._req_elem({target: -1})
+        root = await self._req_thing({target: -1})
         db = Db(self, target, root)
         return db
 
@@ -74,7 +74,7 @@ class Client:
         resp = await future
         return resp
 
-    async def _req_elem(self, req, timeout=5):
+    async def _req_thing(self, req, timeout=5):
         future = self.write_package(
             REQ_GET_ELEM,
             data=req,

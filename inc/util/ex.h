@@ -31,6 +31,6 @@ struct ex_s
 ex_t * ex_use(void);
 int ex_set(ex_t * e, int errnr, const char * errmsg, ...);
 
-#define ex_set_alloc(e__) ex_set((e__), RQL_PROTO_RUNT_ERR, EX_ALLOC)
+#define ex_set_alloc(e__) ex_set((e__), TI_PROTO_RUNT_ERR, EX_ALLOC)
 
 #endif /* EX_H_ */

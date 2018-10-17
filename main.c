@@ -1,112 +1,116 @@
 #include <locale.h>
 #include <stdlib.h>
-#include <time.h>
-#include <rql/rql.h>
-#include <rql/store.h>
-#include <rql/user.h>
-#include <rql/version.h>
+#include <thingsdb.h>
+#include <ti/store.h>
+#include <ti/user.h>
+#include <ti/version.h>
+#include <ti/store.h>
 #include <util/fx.h>
-
 
 
 int main(int argc, char * argv[])
 {
-    int rc = 0;
+    thingsdb_t * thingsdb;
+    int rc = EXIT_SUCCESS;
 
-    /*
-     * set local to LC_ALL
-     * more info at: http://www.cprogramming.com/tutorial/unicode.html
-     */
+    /* set local to LC_ALL */
     (void) setlocale(LC_ALL, "");
 
     /* initialize random */
     srand(time(NULL));
 
-    /* set threadpool size to 4 (default=4) */
+    /* set thread-pool size to 4 (default=4) */
     putenv("UV_THREADPOOL_SIZE=4");
 
-    /* set default timezone to UTC */
+    /* set default time-zone to UTC */
     putenv("TZ=:UTC");
     tzset();
 
-    rql_t * rql = rql_create();
+    rc = thingsdb_init();
+    if (!rc)
+        goto stop;
+    thingsdb = thingsdb_get();
 
-    /* check rql and parse arguments */
-    if (!rql || (rc = rql_args_parse(rql->args, argc, argv))) goto stop;
+    /* check tin and parse arguments */
+    if ((rc = ti_args_parse(thingsdb->args, argc, argv)))
+        goto stop;
 
-    if (rql->args->version)
+    if (thingsdb->args->version)
     {
-        rql_version_print();
+        ti_version_print();
         goto stop;
     }
 
-    rql_init_logger(rql);
+    things_init_logger();
 
-    if ((rc = rql_cfg_parse(rql->cfg, rql->args->config))) goto stop;
-    if ((rc = rql_lock(rql))) goto stop;
-    if ((rc = rql_init_fn(rql))) goto stop;
+    if ((rc = ti_cfg_parse(thingsdb->cfg, thingsdb->args->config)))
+        goto stop;
+    if ((rc = thingsdb_lock()))
+        goto stop;
+    if ((rc = thingsdb_init_fn()))
+        goto stop;
 
-    if (rql->args->init)
+    if (thingsdb->args->init)
     {
-        if (fx_file_exist(rql->fn))
+        if (fx_file_exist(thingsdb->fn))
         {
             printf("error: directory '%s' is already initialized\n",
-                    rql->cfg->rql_path);
+                    thingsdb->cfg->ti_path);
             rc = -1;
             goto stop;
         }
-        if ((rc = rql_build(rql)))
+        if ((rc = thingsdb_build()))
         {
             printf("error: building new pool has failed\n");
             goto stop;
         }
 
         printf(
-            "Well done! You successfully initialized a new rql pool.\n\n"
-            "You can now star RQL and connect by using the default user `%s`.\n"
+            "Well done! You successfully initialized a new tin pool.\n\n"
+            "You can now star TIN and connect by using the default user `%s`.\n"
             "..before I forget, the password is '%s'\n\n",
-            rql_user_def_name,
-            rql_user_def_pass);
+            ti_user_def_name,
+            ti_user_def_pass);
 
         goto stop;
     }
-    else if (strlen(rql->args->secret))
+    else if (strlen(thingsdb->args->secret))
     {
         printf(
-            "Waiting for a request to join some pool of rql nodes...\n"
+            "Waiting for a request to join some pool of tin nodes...\n"
             "(if you want to create a new pool instead, press CTRL+C and "
             "use the --init argument)\n");
     }
-    else if (fx_file_exist(rql->fn))
+    else if (fx_file_exist(thingsdb->fn))
     {
-        if ((rc = rql_read(rql)))
+        if ((rc = thingsdb_read()))
         {
-            printf("error reading rql pool from: '%s'\n", rql->fn);
+            printf("error reading tin pool from: '%s'\n", thingsdb->fn);
             goto stop;
         }
 
-        if ((rc = rql_restore(rql)))
+        if ((rc = thingsdb_restore()))
         {
-            printf("error loading rql pool\n");
+            printf("error loading tin pool\n");
             goto stop;
         }
     }
     else
     {
         printf(
-            "You should either create a new pool using the --init argument "
-            "or set a one-time-secret using the --secret argument and wait "
-            "for a request from another node to join.\n");
+            "The first time you should either create a new pool using "
+            "the --init argument or set a one-time-secret using the --secret "
+            "argument and wait for a request from another node to join.\n");
         goto stop;
     }
 
-    rc = rql_run(rql);
+    rc = thingsdb_run();
 stop:
-    if (!rc && rql_unlock(rql))
+    if (thingsdb_unlock() || rc)
     {
-        rc = -1;
+        rc = EXIT_FAILURE;
     }
-    rql_destroy(rql);
+    thingsdb_close();
 
     return rc;
 }

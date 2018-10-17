@@ -38,9 +38,9 @@ _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s)
 
 qpx_packer_t * qpx_packer_create(size_t sz)
 {
-    qpx_packer_t * packer =  qp_packer_create(sizeof(rql_pkg_t) + sz);
+    qpx_packer_t * packer =  qp_packer_create(sizeof(ti_pkg_t) + sz);
     if (!packer) return NULL;
-    packer->len = sizeof(rql_pkg_t);
+    packer->len = sizeof(ti_pkg_t);
     return packer;
 }
 
@@ -50,11 +50,11 @@ void qpx_packer_destroy(qpx_packer_t * xpkg)
     qp_packer_destroy(xpkg);
 }
 
-rql_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
+ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 {
-    rql_pkg_t * pkg = (rql_pkg_t *) packer->buffer;
+    ti_pkg_t * pkg = (ti_pkg_t *) packer->buffer;
 
-    pkg->n = packer->len - sizeof(rql_pkg_t);
+    pkg->n = packer->len - sizeof(ti_pkg_t);
     pkg->tp = (uint8_t) tp;
     pkg->ntp = pkg->tp ^ 255;
 

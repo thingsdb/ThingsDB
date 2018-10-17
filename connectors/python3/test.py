@@ -1,8 +1,8 @@
 import asyncio
 import logging
-import rql.event
-from rql.client import Client
-from rql.elem import Elem
+import tin.event
+from tin.client import Client
+from tin.thing import Elem
 
 
 class Person(Elem):
@@ -24,14 +24,14 @@ async def test():
     print(dir(db.person))
     # print(a.age)
 
-    # sasientje = db.new_elem(name='Sasientje')
-    # iriske = db.new_elem(name='Iriske')
+    # sasientje = db.new_thing(name='Sasientje')
+    # iriske = db.new_thing(name='Iriske')
 
-    # event = rql.event.join(
+    # event = tin.event.join(
     #     sasientje.set_props(d=iriskem),
     #     iriske.set_props(m=sasientje))
 
-    # await db.person.set_props(friend=db.new_elem(name='Sasientje')).apply()
+    # await db.person.set_props(friend=db.new_thing(name='Sasientje')).apply()
     print(db.person.age)
     print(db.person.who)
     print(db.person.me.me.me.who)
@@ -56,15 +56,15 @@ async def test():
     # })
     # print('Create database result:', res, type(res))
 
-    # # Read database root element
+    # # Read database root thingent
     # start = time.time()
-    # res = await client.get_elem({
+    # res = await client.get_thing({
     #     'dbtest': -1,
     # })
     # root = Root(res)
     # root_id = res['_i']
     # end = time.time() - start
-    # print('Get root elem result:', res, ' in ', end)
+    # print('Get root thing result:', res, ' in ', end)
 
     # # Set properties
     # res = await client.trigger({
@@ -76,7 +76,7 @@ async def test():
     # })
     # print('Set props result:', res)
 
-    # # Add an set a new element
+    # # Add an set a new thingent
     # res = await client.trigger({
     #     'dbtest': [{
     #         '_t': TASK_PROPS_SET,
@@ -88,7 +88,7 @@ async def test():
     #         'person': {'_i': -1}
     #     }]
     # })
-    # print('New elem result:', res)
+    # print('New thing result:', res)
     #
     #
 

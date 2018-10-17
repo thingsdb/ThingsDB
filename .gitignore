@@ -57,8 +57,8 @@ dkms.conf
 .settings/
 
 # Binaries
-Debug/rqldb
-Release/rqldb
+Debug/tindb
+Release/tindb
 
 # Python
 .pyc

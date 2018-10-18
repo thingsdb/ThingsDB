@@ -2,12 +2,13 @@
  * event.c
  */
 #include <assert.h>
+#include <dbs.h>
+#include <stdbool.h>
 #include <nodes.h>
 #include <stdlib.h>
 #include <qpack.h>
 #include <thingsdb.h>
 #include <ti/access.h>
-#include <ti/dbs.h>
 #include <ti/event.h>
 #include <ti/proto.h>
 #include <ti/req.h>
@@ -36,11 +37,10 @@ static void ti__event_unpack(
         qp_unpacker_t * unpacker,
         ex_t * e);
 
-ti_event_t * ti_event_create(ti_events_t * events)
+ti_event_t * ti_event_create(void)
 {
     ti_event_t * event = malloc(sizeof(ti_event_t));
     if (!event) return NULL;
-    event->events = events;
     event->target = NULL;
     event->node = NULL;
     event->raw = NULL;
@@ -63,12 +63,12 @@ ti_event_t * ti_event_create(ti_events_t * events)
 
 void ti_event_destroy(ti_event_t * event)
 {
-    if (!event) return;
-    if (event->events)
-    {
-        /* the event might be in the queue */
-        queue_remval(event->events->queue, event);
-    }
+    if (!event)
+        return;
+
+    /* the event might be in the queue */
+    (void *) thingsdb_events_rm_event(event);
+
     ti_db_drop(event->target);
     ti_node_drop(event->node);
     ti_sock_drop(event->client);
@@ -91,7 +91,7 @@ void ti_event_new(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
         goto failed;
     }
 
-    event->id = event->events->next_id;
+    event->id = thingsdb_events_get_event_id();
     event->pid = pkg->id;
     event->node = ti_node_grab(thingsdb->node);
     event->client = ti_sock_grab(sock);
@@ -125,7 +125,7 @@ int ti_event_init(ti_event_t * event)
 {
     thingsdb_t * thingsdb = thingsdb_get();
     event->node = ti_node_grab(thingsdb->node);
-    event->id = event->events->next_id;
+    event->id = thingsdb_events_get_event_id();
     event->status = TI_EVENT_STAT_REG;
     event->nodes = vec_new(thingsdb->nodes->n - 1);
     return -!event->nodes;
@@ -228,14 +228,13 @@ int ti_event_run(ti_event_t * event)
     for (vec_each(event->tasks, ti_task_t, task))
     {
         rc = ti_task_run(task, event, rc);
-        if (rc == TI_TASK_ERR) goto failed;
+        if (rc == TI_TASK_ERR)
+            goto failed;
         success += (rc == TI_TASK_SUCCESS);
     }
 
     qp_close_array(event->result);
 
-    /* update commit_id */
-    event->events->commit_id = event->id;
     log_debug("tasks success: %d (total: %"PRIu32")", success, event->tasks->n);
     return success;
 
@@ -260,7 +259,7 @@ void ti_event_finish(ti_event_t * event)
     }
     else
     {
-        pkg = qpx_packer_pkg(event->result, TI_PROTO_RESULT);
+        pkg = qpx_packer_pkg(event->result, TI_PROTO_RES);
         pkg->id = event->pid;
         event->result = NULL;
     }
@@ -274,32 +273,9 @@ void ti_event_finish(ti_event_t * event)
     }
 
 stop:
-    event->events = NULL;  /* prevent looping over queue */
+    /* TODO: prevent looping over queue;
+     *       this used to be done with setting event->events = NULL */
     ti_event_destroy(event);
-}
-
-/*
- * Returns 0 when successful and can only return -1 in case the queue required
- * allocation which has failed.
- */
-static int ti__event_to_queue(ti_event_t * event)
-{
-    ti_events_t * events = event->events;
-    if (event->id >= events->next_id)
-    {
-        if (queue_push(&events->queue, event)) return -1;
-
-        events->next_id = event->id + 1;
-        return 0;
-    }
-
-    size_t i = 0;
-    for (queue_each(events->queue, ti_event_t, ev), i++)
-    {
-        if (ev->id >= event->id) break;
-    }
-
-    return queue_insert(&events->queue, i, event);
 }
 
 static int ti__event_reg(ti_event_t * event)
@@ -390,7 +366,7 @@ static void ti__event_on_reg_cb(ti_prom_t * prom)
 {
     ti_event_t * event = (ti_event_t *) prom->data;
     free(event->req_pkg);
-    _Bool accept = 1;
+    _Bool accept = true;
 
     for (size_t i = 0; i < prom->n; i++)
     {
@@ -404,7 +380,7 @@ static void ti__event_on_reg_cb(ti_prom_t * prom)
         }
         else if (req->pkg_res->tp == TI_PROTO_REJECT)
         {
-            accept = 0;
+            accept = false;
         }
 
         ti_req_destroy(req);
@@ -418,16 +394,16 @@ static void ti__event_on_reg_cb(ti_prom_t * prom)
         // event->status could be already set to reject in which case the
         // event is already removed from the queue
         ti__event_cancel(event);  /* terminates in case of failure */
-        uv_async_send(&event->events->loop);
+        thingsdb_events_trigger();
         return;
     }
 
     if (!accept)
     {
         uint64_t old_id = event->id;
-        queue_remval(event->events->queue, event);
-        event->id = event->events->next_id;
-        ti__event_to_queue(event);  /* queue has room */
+        (void *) thingsdb_events_rm_event(event);
+        event->id = thingsdb_events_get_event_id();
+        (void) thingsdb_events_add_event(event);  /* queue has room */
         ti__event_upd(event, old_id);  /* terminates in case of failure */
         return;
     }
@@ -459,7 +435,7 @@ static int ti__event_ready(ti_event_t * event)
     {
         if (node == thingsdb->node)
         {
-            if (uv_async_send(&event->events->loop))
+            if (thingsdb_events_trigger())
             {
                 ti_term(SIGTERM);
                 event->prom->sz--;
@@ -504,7 +480,7 @@ static void ti__event_on_ready_cb(ti_prom_t * prom)
 
         ti_req_t * req = (ti_req_t *) res->handle;
 
-        if (res->status || req->pkg_res->tp != TI_PROTO_RESULT)
+        if (res->status || req->pkg_res->tp != TI_PROTO_RES)
         {
             log_critical("event failed on node: `%s`", req->node->addr);
         }

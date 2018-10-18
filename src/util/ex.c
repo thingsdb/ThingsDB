@@ -1,8 +1,5 @@
 /*
  * ex.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <stdio.h>

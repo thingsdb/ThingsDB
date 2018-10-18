@@ -3,28 +3,42 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <dbs.h>
 #include <string.h>
 #include <thingsdb.h>
 #include <ti/db.h>
-#include <ti/dbs.h>
 #include <ti/proto.h>
 #include <util/qpx.h>
 #include <util/fx.h>
+#include <util/vec.h>
 
-const int ti_dbs_fn_schema = 0;
+static vec_t ** dbs;
+static const int thingsdb__dbs_fn_schema = 0;
 
-ti_db_t * ti_dbs_get_by_name(const vec_t * dbs, const ti_raw_t * name)
+int thingsdb_dbs_create(void)
 {
-    for (vec_each(dbs, ti_db_t, db))
+    dbs = &(thingsdb_get()->dbs = vec_new(0));
+    return -(*dbs == NULL);
+}
+
+void thingsdb_dbs_destroy(void)
+{
+    vec_destroy(*dbs, (vec_destroy_cb) ti_db_drop);
+    *dbs = NULL;
+}
+
+ti_db_t * thingsdb_dbs_get_by_name(const ti_raw_t * name)
+{
+    for (vec_each(*dbs, ti_db_t, db))
     {
         if (ti_raw_equal(db->name, name)) return db;
     }
     return NULL;
 }
 
-ti_db_t * ti_dbs_get_by_obj(const vec_t * dbs, const qp_obj_t * target)
+ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
 {
-    for (vec_each(dbs, ti_db_t, db))
+    for (vec_each(*dbs, ti_db_t, db))
     {
         if (qpx_obj_eq_raw(target, db->name) ||
             qpx_obj_eq_str(target, db->guid.guid))
@@ -35,7 +49,7 @@ ti_db_t * ti_dbs_get_by_obj(const vec_t * dbs, const qp_obj_t * target)
     return NULL;
 }
 
-void ti_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
+void thingsdb_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
 {
     qp_obj_t target;
     qp_obj_t qid;
@@ -51,10 +65,10 @@ void ti_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
         return;
     }
 
-    ti_db_t * db = ti_dbs_get_by_obj(thingsdb_get()->dbs, &target);
+    ti_db_t * db = thingsdb_dbs_get_by_obj(&target);
     if (!db)
     {
-        ex_set(e, TI_PROTO_INDX_ERR, "cannot find database: '%.*s'",
+        ex_set(e, TI_PROTO_INDX_ERR, "cannot find database: `%.*s`",
                 (int) target.len, target.via.raw);
         return;
     }
@@ -66,7 +80,7 @@ void ti_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
 
     if (!thing)
     {
-        ex_set(e, TI_PROTO_INDX_ERR, "cannot find thingent: %"PRIu64, id);
+        ex_set(e, TI_PROTO_INDX_ERR, "cannot find thing: `%"PRIu64"`", id);
         return;
     }
 
@@ -94,7 +108,7 @@ void ti_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
     assert (0 && sock); /* TODO: how should a get request look like? */
 }
 
-int ti_dbs_store(const vec_t * dbs, const char * fn)
+int thingsdb_dbs_store(const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
@@ -104,12 +118,12 @@ int ti_dbs_store(const vec_t * dbs, const char * fn)
 
     /* schema */
     if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti_dbs_fn_schema)) goto stop;
+        qp_add_int64(packer, thingsdb__dbs_fn_schema)) goto stop;
 
     if (qp_add_raw_from_str(packer, "dbs") ||
         qp_add_array(&packer)) goto stop;
 
-    for (vec_each(dbs, ti_db_t, db))
+    for (vec_each(*dbs, ti_db_t, db))
     {
         if (qp_add_array(&packer) ||
             qp_add_raw(packer,
@@ -128,7 +142,7 @@ stop:
     return rc;
 }
 
-int ti_dbs_restore(vec_t ** dbs, const char * fn)
+int thingsdb_dbs_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
@@ -153,7 +167,7 @@ int ti_dbs_restore(vec_t ** dbs, const char * fn)
         !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qdbs = qpx_map_get(res->via.map, "dbs")) ||
         schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti_dbs_fn_schema ||
+        schema->via.int64 != thingsdb__dbs_fn_schema ||
         qdbs->tp != QP_RES_ARRAY) goto stop;
 
     for (uint32_t i = 0; i < qdbs->via.array->n; i++)
@@ -162,26 +176,30 @@ int ti_dbs_restore(vec_t ** dbs, const char * fn)
         ti_db_t * db;
         qp_res_t * qdb = qdbs->via.array->values + i;
         qp_res_t * qguid, * qname;
-        if (qdb->tp != QP_RES_ARRAY ||
+        if (    qdb->tp != QP_RES_ARRAY ||
                 qdb->via.array->n != 2 ||
-            !(qguid = qdb->via.array->values) ||
-            !(qname = qdb->via.array->values + 1) ||
-            qguid->tp != QP_RES_RAW ||
-            qguid->via.raw->n != sizeof(guid_t) ||
-            qname->tp != QP_RES_RAW) goto stop;
+                !(qguid = qdb->via.array->values) ||
+                !(qname = qdb->via.array->values + 1) ||
+                qguid->tp != QP_RES_RAW ||
+                qguid->via.raw->n != sizeof(guid_t) ||
+                qname->tp != QP_RES_RAW)
+            goto stop;
 
         /* copy and check guid, must be null terminated */
         memcpy(guid.guid, qguid->via.raw->data, sizeof(guid_t));
-        if (guid.guid[sizeof(guid_t) - 1]) goto stop;
+        if (guid.guid[sizeof(guid_t) - 1])
+            goto stop;
 
         db = ti_db_create(&guid, qname->via.raw);
-        if (!db || vec_push(dbs, db)) goto stop;
+        if (!db || vec_push(dbs, db))
+            goto stop;
     }
 
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: `%s`", fn);
+    if (rc)
+        log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

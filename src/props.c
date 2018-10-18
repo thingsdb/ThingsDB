@@ -13,14 +13,21 @@
 static smap_t * props;
 static int thingsdb__props_write_cb(ti_prop_t * prop, FILE * f);
 
-void thingsdb_props_init(void)
+int thingsdb_props_create(void)
 {
-    props = thingsdb_get()->props;
+    props = thingsdb_get()->props = smap_create();
+    return -(props == NULL);
+}
+
+void thingsdb_props_destroy(void)
+{
+    smap_destroy(props, free);
+    props = thingsdb_get()->props = NULL;
 }
 
 ti_prop_t * thingsdb_props_get(const char * name)
 {
-    ti_prop_t * prop = (ti_prop_t *) smap_get(props, name);
+    ti_prop_t * prop = smap_get(props, name);
     if (!prop)
     {
         prop = ti_prop_create(name);

@@ -1,8 +1,5 @@
 /*
  * argparse.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <util/argparse.h>
 #include <libgen.h>
@@ -40,8 +37,9 @@ static void fill_defaults(argparse_t * parser);
 
 argparse_t * argparse_create(void)
 {
-    argparse_t * parser = (argparse_t *) malloc(sizeof(argparse_t));
-    if (!parser) return NULL;
+    argparse_t * parser = malloc(sizeof(argparse_t));
+    if (!parser)
+        return NULL;
 
     /* set initial show help to false */
     parser->show_help = false;
@@ -69,7 +67,8 @@ argparse_t * argparse_create(void)
 
 void argparse_destroy(argparse_t * parser)
 {
-    if (!parser) return;
+    if (!parser)
+        return;
 
     argparse_args_t * current;
     argparse_args_t * next;
@@ -93,8 +92,9 @@ int argparse_add_argument(
     {
         current = current->next;
     }
-    current->next = (argparse_args_t *) malloc(sizeof(argparse_args_t));
-    if (!current->next) return -1;
+    current->next = malloc(sizeof(argparse_args_t));
+    if (!current->next)
+        return -1;
 
     current->next->argument = argument;
     current->next->next = NULL;

@@ -51,12 +51,12 @@ static void ti__signals_handler(uv_signal_t * sig, int signum)
 
     log_warning("received stop signal (%s)", strsignal(signum));
 
-    if (thingsdb->flags & TI_FLAG_SIGNAL)
+    if (thingsdb->flags & THINGSDB_FLAG_SIGNAL)
     {
         abort();
     }
 
-    thingsdb->flags |= TI_FLAG_SIGNAL;
+    thingsdb->flags |= THINGSDB_FLAG_SIGNAL;
 
     ti_maint_stop(thingsdb->maint);
 

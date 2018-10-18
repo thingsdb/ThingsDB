@@ -4,13 +4,28 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/thingsdb.c 
+../src/dbs.c \
+../src/events.c \
+../src/nodes.c \
+../src/props.c \
+../src/thingsdb.c \
+../src/users.c 
 
 OBJS += \
-./src/thingsdb.o 
+./src/dbs.o \
+./src/events.o \
+./src/nodes.o \
+./src/props.o \
+./src/thingsdb.o \
+./src/users.o 
 
 C_DEPS += \
-./src/thingsdb.d 
+./src/dbs.d \
+./src/events.d \
+./src/nodes.d \
+./src/props.d \
+./src/thingsdb.d \
+./src/users.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

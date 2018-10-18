@@ -1,8 +1,5 @@
 /*
  * guid.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef GUID_H_
 #define GUID_H_

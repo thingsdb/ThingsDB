@@ -56,7 +56,7 @@ async def test():
     # })
     # print('Create database result:', res, type(res))
 
-    # # Read database root thingent
+    # # Read database root thing
     # start = time.time()
     # res = await client.get_thing({
     #     'dbtest': -1,
@@ -76,7 +76,7 @@ async def test():
     # })
     # print('Set props result:', res)
 
-    # # Add an set a new thingent
+    # # Add an set a new thing
     # res = await client.trigger({
     #     'dbtest': [{
     #         '_t': TASK_PROPS_SET,

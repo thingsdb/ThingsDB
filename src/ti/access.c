@@ -1,19 +1,16 @@
 /*
  * access.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <qpack.h>
 #include <stdlib.h>
 #include <ti/access.h>
 #include <ti/auth.h>
-#include <ti/users.h>
+#include <users.h>
 #include <util/logger.h>
 #include <util/qpx.h>
 #include <util/fx.h>
 
-const int ti_access_fn_schema = 0;
+static const int ti__access_fn_schema = 0;
 
 int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
 {
@@ -74,7 +71,7 @@ int ti_access_store(const vec_t * access, const char * fn)
 
     /* schema */
     if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti_access_fn_schema)) goto stop;
+        qp_add_int64(packer, ti__access_fn_schema)) goto stop;
 
     if (qp_add_raw_from_str(packer, "access") ||
         qp_add_array(&packer)) goto stop;
@@ -123,7 +120,7 @@ int ti_access_restore(vec_t ** access, const vec_t * users, const char * fn)
         !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qaccess = qpx_map_get(res->via.map, "access")) ||
         schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti_access_fn_schema ||
+        schema->via.int64 != ti__access_fn_schema ||
         qaccess->tp != QP_RES_ARRAY) goto stop;
 
     for (uint32_t i = 0; i < qaccess->via.array->n; i++)

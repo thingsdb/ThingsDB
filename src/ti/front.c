@@ -1,16 +1,16 @@
 /*
  * front.c
  */
+#include <dbs.h>
 #include <stdlib.h>
 #include <thingsdb.h>
-#include <ti/dbs.h>
 #include <ti/event.h>
 #include <ti/front.h>
 #include <ti/proto.h>
 #include <ti/ref.h>
 #include <ti/user.h>
-#include <ti/users.h>
 #include <ti/write.h>
+#include <users.h>
 void ti__front_on_connect(uv_tcp_t * tcp, int status);
 static void ti__front_on_pkg(ti_sock_t * sock, ti_pkg_t * pkg);
 static void ti__front_on_ping(ti_sock_t * sock, ti_pkg_t * pkg);

@@ -5,10 +5,11 @@
  *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <assert.h>
+#include <thingsdb.h>
 #include <stdlib.h>
 #include <ti/req.h>
 #include <ti/write.h>
-tatic void ti__req_timeout(uv_timer_t * handle);
+static void ti__req_timeout(uv_timer_t * handle);
 static void ti__req_write_cb(ti_write_t * req, int status);
 
 int ti_req(
@@ -38,7 +39,7 @@ int ti_req(
         ti_req_cancel(prev);
     }
 
-    if (uv_timer_init(&node->sock->tin->loop, &req->timer) ||
+    if (uv_timer_init(thingsdb_get()->loop, &req->timer) ||
         uv_timer_start(&req->timer, ti__req_timeout, timeout, 0)
     ) goto failed;
 

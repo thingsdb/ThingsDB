@@ -1,8 +1,5 @@
 /*
  * logger.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,9 +35,9 @@ const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
 {                                                               \
     time_t t = time(NULL);                                      \
     struct tm tm = *localtime(&t);                              \
-    if (Logger.flags & LOGGER_FLAG_COLORED)                    \
+    if (Logger.flags & LOGGER_FLAG_COLORED)                     \
     {                                                           \
-        fprintf(Logger.ostream,                                \
+        fprintf(Logger.ostream,                                 \
             "%s[%c %d-%0*d-%0*d %0*d:%0*d:%0*d]" KNRM " ",      \
             LOGGER_COLOR_MAP[LEVEL],                            \
             LOGGER_CHR_MAP[LEVEL],                              \
@@ -53,7 +50,7 @@ const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
     }                                                           \
     else                                                        \
     {                                                           \
-        fprintf(Logger.ostream,                                \
+        fprintf(Logger.ostream,                                 \
         "[%c %d-%0*d-%0*d %0*d:%0*d:%0*d] ",                    \
             LOGGER_CHR_MAP[LEVEL],                              \
             tm.tm_year + 1900,                                  \
@@ -66,11 +63,11 @@ const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
     /* print the actual log line */                             \
     va_list args;                                               \
     va_start(args, fmt);                                        \
-    vfprintf(Logger.ostream, fmt, args);                       \
+    vfprintf(Logger.ostream, fmt, args);                        \
     va_end(args);                                               \
     /* write end of line and flush the stream */                \
-    fputc('\n', Logger.ostream);                               \
-    fflush(Logger.ostream);                                    \
+    fputc('\n', Logger.ostream);                                \
+    fflush(Logger.ostream);                                     \
 }
 
 /*

@@ -41,33 +41,24 @@ int thingsdb_init(void)
     thingsdb_.cfg = ti_cfg_new();
     thingsdb_.back = ti_back_create();
     thingsdb_.front = ti_front_create();
-    thingsdb_.dbs = vec_new(0);
-    thingsdb_.nodes = vec_new(0);
-    thingsdb_.users = vec_new(0);
-    thingsdb_.events = ti_events_create();
     thingsdb_.access = vec_new(0);
-    thingsdb_.props = smap_create();
-
     thingsdb_.maint = ti_maint_new();
 
-    if (!thingsdb_.args ||
+    if (!thingsdb_props_create() ||
+        !thingsdb_nodes_create() ||
+        !thingsdb_users_create() ||
+        !thingsdb_dbs_create() ||
+        !thingsdb_events_create() ||
+        !thingsdb_.args ||
         !thingsdb_.cfg ||
         !thingsdb_.back ||
         !thingsdb_.front ||
-        !thingsdb_.dbs ||
-        !thingsdb_.nodes ||
-        !thingsdb_.users ||
-        !thingsdb_.events ||
         !thingsdb_.access ||
-        !thingsdb_.props ||
         !thingsdb_.maint)
     {
         thingsdb_close();
         return -1;
     }
-
-    thingsdb_props_init();
-    thingsdb_nodes_init();
 
     return 0;
 }
@@ -80,13 +71,13 @@ void thingsdb_close(void)
     free(thingsdb_.maint);
     ti_back_destroy(thingsdb_.back);
     ti_front_destroy(thingsdb_.front);
-    ti_events_destroy(thingsdb_.events);
     ti_lookup_destroy(thingsdb_.lookup);
-    vec_destroy(thingsdb_.dbs, (vec_destroy_cb) ti_db_drop);
-    vec_destroy(thingsdb_.nodes, (vec_destroy_cb) ti_node_drop);
-    vec_destroy(thingsdb_.users, (vec_destroy_cb) ti_user_drop);
+    thingsdb_events_destroy();
+    thingsdb_dbs_destroy();
+    thingsdb_nodes_destroy();
+    thingsdb_users_destroy();
+    thingsdb_props_destroy();
     vec_destroy(thingsdb_.access, free);
-    smap_destroy(thingsdb_.props, free);
     memset(&thingsdb_, 0, sizeof(thingsdb_t));
 }
 

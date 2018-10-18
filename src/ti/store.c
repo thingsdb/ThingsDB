@@ -9,9 +9,8 @@
 #include <thingsdb.h>
 #include <ti/access.h>
 #include <ti/store.h>
-#include <ti/users.h>
-de <tin/things.h>#include <tin/things.h>
-
+#include <ti/things.h>
+#include <users.h>
 #include <util/fx.h>
 #include <util/imap.h>
 #include <util/logger.h>
@@ -67,7 +66,8 @@ int ti_store(void)
 
     if (!ti_fn || !users_fn || !access_fn || !dbs_fn ||
         thingsdb_store(ti_fn) ||
-        ti_users_store(thingsdb->users, users_fn) ||
+        thingsdb_props_store(props_fn) ||
+        thingsdb_users_store(users_fn) ||
         ti_access_store(thingsdb->access, access_fn) ||
         ti_dbs_store(thingsdb->dbs, dbs_fn))
         goto stop;
@@ -102,7 +102,6 @@ int ti_store(void)
 
         if (!access_fn || !props_fn || !things_fn || !db_fn ||
             ti_access_store(db->access, access_fn) ||
-            ti_props_store(db->props, props_fn) ||
             ti_things_store(db->things, things_fn) ||
             ti_db_store(db, db_fn) ||
             ti_things_store_skeleton(db->things, skeleton_fn) ||
@@ -165,7 +164,7 @@ int ti_restore(void)
 
     if (!users_fn || !ti_fn || !access_fn || !dbs_fn ||
         thingsdb_restore(ti_fn) ||
-        ti_users_restore(&thingsdb->users, users_fn) ||
+        thingsdb_users_restore(users_fn) ||
         ti_access_restore(&thingsdb->access, thingsdb->users, access_fn) ||
         ti_dbs_restore(&thingsdb->dbs, dbs_fn)) goto stop;
 

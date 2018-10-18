@@ -1,8 +1,5 @@
 /*
  * link.h
- *
- *  Created on: Sep 30, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef LINK_H_
 #define LINK_H_

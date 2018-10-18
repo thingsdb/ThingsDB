@@ -1,8 +1,5 @@
 /*
  * guid.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdio.h>
 #include <util/guid.h>
@@ -15,14 +12,14 @@ static const char guid__map[64] = {
     'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
     'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
     'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-    'U', 'V', 'W', 'X', 'Y', 'Z', '!', '$'
+    'U', 'V', 'W', 'X', 'Y', 'Z', '-', '_'
 };
 
 void guid_init(guid_t * guid, uint64_t id)
 {
     char * pt = guid->guid;
 
-    *pt = '_';
+    *pt = '.';
     pt++;
 
     for (uint64_t i = 60; i >= 6; i -= 6, pt++)

@@ -8,7 +8,8 @@
 #include <ti/prop.h>
 #include <util/imap.h>
 
-void thingsdb_props_init(void);
+int thingsdb_props_create(void);
+void thingsdb_props_destroy(void);
 ti_prop_t * thingsdb_props_get(const char * name);
 int thingsdb_props_store(const char * fn);
 imap_t * thingsdb_props_restore(const char * fn);

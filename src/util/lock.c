@@ -1,8 +1,5 @@
 /*
  * lock.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

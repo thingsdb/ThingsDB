@@ -1,8 +1,5 @@
 /*
  * archive.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <ti/archive.h>
@@ -11,7 +8,8 @@
 ti_archive_t * ti_archive_create(void)
 {
     ti_archive_t * archive = malloc(sizeof(ti_archive_t));
-    if (!archive) return NULL;
+    if (!archive)
+        return NULL;
 
     archive->rawev = queue_new(0);
     if (!archive->rawev)
@@ -25,7 +23,8 @@ ti_archive_t * ti_archive_create(void)
 
 void ti_archive_destroy(ti_archive_t * archive)
 {
-    if (!archive) return;
+    if (!archive)
+        return;
     queue_destroy(archive->rawev, free);
     free(archive);
 }

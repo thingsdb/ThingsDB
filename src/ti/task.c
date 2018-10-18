@@ -1,23 +1,18 @@
 /*
  * task.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <dbs.h>
 #include <props.h>
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
-#include <ti/dbs.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/task.h>
 #include <ti/thing.h>
-#include <ti/users.h>
-ude <ti/prop.h>
-#include <in/users.h>
+#include <users.h>
 #include <util/qpx.h>
 
 static ti_task_stat_e ti__task_user_create(
@@ -259,7 +254,7 @@ static ti_task_stat_e ti__task_db_create(
     guid_t guid;
     guid_init(&guid, ti_get_id(tin));
 
-    db = ti_db_create(tin, &guid, qname->via.raw);
+    db = ti_db_create(&guid, qname->via.raw);
     if (!db || vec_push(&tin->dbs, db))
     {
         log_critical(EX_ALLOC);
@@ -331,14 +326,14 @@ static ti_task_stat_e ti__task_props_set(
     if (!event->target)
     {
         return ti__task_fail(event,
-            "props can only be set on thingents in a database");
+            "props can only be set on things in a database");
     }
     qp_res_t * qid = qpx_map_get(task, TI_API_ID);
 
     if (!qid || qid->tp != QP_RES_INT64)
     {
         return ti__task_fail(event,
-                "missing or invalid thingent id ("TI_API_ID")");
+                "missing or invalid thing id ("TI_API_ID")");
     }
 
     uint64_t id = (uint64_t) qid->via.int64;
@@ -352,7 +347,7 @@ static ti_task_stat_e ti__task_props_set(
         thing = (ti_thing_t *) imap_get(db->things, id);
         if (!thing)
         {
-            ex_set(e, -1, "cannot find thingent: %"PRIu64, id);
+            ex_set(e, -1, "cannot find thing: %"PRIu64, id);
             return ti__task_fail(event, e->msg);
         }
     }
@@ -378,7 +373,7 @@ static ti_task_stat_e ti__task_props_set(
             ti_thing_t * el = ti__task_thing_by_id(event, sid);
             if (!el)
             {
-                ex_set(e, -1, "cannot find thingent: %"PRId64, sid);
+                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
                 return ti__task_fail(event, e->msg);
             }
             if (ti_thing_set(thing, prop, TI_VAL_ELEM, el))
@@ -392,7 +387,7 @@ static ti_task_stat_e ti__task_props_set(
         {
         case QP_RES_MAP:
             return ti__task_fail(event,
-                    "map must be an thingent {\""TI_API_ID"\": <id>}");
+                    "map must be an thing {\""TI_API_ID"\": <id>}");
 
         case QP_RES_ARRAY:
             assert(0);  /* TODO: fix arrays */
@@ -454,14 +449,14 @@ static ti_task_stat_e ti__task_props_del(
     ti_thing_t * thing;
     if (!event->target)
         return ti__task_fail(event,
-            "props can only be deleted on thingents in a database");
+            "props can only be deleted on things in a database");
 
     qp_res_t * qid = qpx_map_get(task, TI_API_ID);
     qp_res_t * props = qpx_map_get(task, TI_API_PROPS);
 
     if (!qid || qid->tp != QP_RES_INT64)
         return ti__task_fail(event,
-                "missing or invalid thingent id ("TI_API_ID")");
+                "missing or invalid thing id ("TI_API_ID")");
 
     if (!props || props->tp != QP_RES_ARRAY || !props->via.array->n)
         return ti__task_fail(event,
@@ -480,7 +475,7 @@ static ti_task_stat_e ti__task_props_del(
             event->refthings : db->things, id);
     if (!thing)
     {
-        ex_set(e, -1, "cannot find thingent: %"PRIu64, id);
+        ex_set(e, -1, "cannot find thing: %"PRIu64, id);
         return ti__task_fail(event, e->msg);
     }
 
@@ -502,7 +497,7 @@ static ti_task_stat_e ti__task_props_del(
             ti_thing_t * el = ti__task_thing_by_id(event, sid);
             if (!el)
             {
-                ex_set(e, -1, "cannot find thingent: %"PRId64, sid);
+                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
                 return ti__task_fail(event, e->msg);
             }
             if (ti_thing_set(thing, prop, TI_VAL_ELEM, el))
@@ -516,7 +511,7 @@ static ti_task_stat_e ti__task_props_del(
         {
         case QP_RES_MAP:
             return ti__task_fail(event,
-                    "map must be an thingent {\""TI_API_ID"\": <id>}");
+                    "map must be an thing {\""TI_API_ID"\": <id>}");
 
         case QP_RES_ARRAY:
             assert(0);  /* TODO: fix arrays */
@@ -589,7 +584,7 @@ static ti_thing_t * ti__task_thing_create(ti_event_t * event, int64_t sid)
             event->target->things,
             ti_get_id(event->events->tin));
     /*
-     * we are allowed to overwrite the thingent, the previous does hold a
+     * we are allowed to overwrite the thing, the previous does hold a
      * reference so it will be removed.
      */
     if (!thing || !imap_set(event->refthings, (uint64_t) sid, thing))

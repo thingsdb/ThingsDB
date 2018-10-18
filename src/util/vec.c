@@ -1,8 +1,5 @@
 /*
  * vec.c
- *
- *  Created on: Sep 30, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <string.h>
 #include <stdlib.h>
@@ -13,7 +10,7 @@
  */
 vec_t * vec_new(uint32_t sz)
 {
-    vec_t * vec = (vec_t *) malloc(sizeof(vec_t) + sz * sizeof(void*));
+    vec_t * vec = malloc(sizeof(vec_t) + sz * sizeof(void*));
     if (!vec)
         return NULL;
     vec->sz = sz;
@@ -49,7 +46,7 @@ void * vec_remove(vec_t * vec, uint32_t i)
 vec_t * vec_dup(const vec_t * vec)
 {
     size_t sz = sizeof(vec_t) + vec->n * sizeof(void*);
-    vec_t * v = (vec_t *) malloc(sz);
+    vec_t * v = malloc(sz);
     if (!v)
         return NULL;
     memcpy(v, vec, sz);
@@ -84,9 +81,7 @@ int vec_push(vec_t ** vaddr, void * data)
             vec->sz += 64;
         }
 
-        vec_t * tmp = (vec_t *) realloc(
-                vec,
-                sizeof(vec_t) + vec->sz * sizeof(void*));
+        vec_t * tmp = realloc(vec, sizeof(vec_t) + vec->sz * sizeof(void*));
 
         if (!tmp)
         {
@@ -102,7 +97,7 @@ int vec_push(vec_t ** vaddr, void * data)
 }
 
 /*
- * Extends a vec with n data thingents and returns the new extended vec.
+ * Extends a vec with n data things and returns the new extended vec.
  *
  * In case of an error NULL is returned.
  */
@@ -112,9 +107,7 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
     vec->n += n;
     if (vec->n > vec->sz)
     {
-        vec_t * tmp = (vec_t *) realloc(
-                vec,
-                sizeof(vec_t) + vec->n * sizeof(void*));
+        vec_t * tmp = realloc(vec, sizeof(vec_t) + vec->n * sizeof(void*));
         if (!tmp)
         {
             /* restore original length */
@@ -135,10 +128,9 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 int vec_resize(vec_t ** vaddr, uint32_t sz)
 {
     vec_t * vec = *vaddr;
-    vec_t * v = (vec_t *) realloc(
-            vec,
-            sizeof(vec_t) + sz * sizeof(void*));
-    if (!v) return -1;
+    vec_t * v = realloc(vec, sizeof(vec_t) + sz * sizeof(void*));
+    if (!v)
+        return -1;
     if (v->n > sz)
     {
         v->n = sz;
@@ -156,11 +148,11 @@ int vec_resize(vec_t ** vaddr, uint32_t sz)
 int vec_shrink(vec_t ** vaddr)
 {
     vec_t * vec = *vaddr;
-    if (vec->n == vec->sz) return 0;
-    vec_t * v = (vec_t *) realloc(
-            vec,
-            sizeof(vec_t) + vec->n * sizeof(void*));
-    if (!v) return -1;
+    if (vec->n == vec->sz)
+        return 0;
+    vec_t * v = realloc(vec, sizeof(vec_t) + vec->n * sizeof(void*));
+    if (!v)
+        return -1;
     v->sz = v->n;
     *vaddr = v;
     return 0;

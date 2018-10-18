@@ -1,8 +1,5 @@
 /*
  * cfgparser.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <util/cfgparser.h>
 #include <util/strx.h>
@@ -27,8 +24,9 @@ static cfgparser_option_t * cfgparser__new_option(
  */
 cfgparser_t * cfgparser_create(void)
 {
-    cfgparser_t * cfgparser = (cfgparser_t *) malloc(sizeof(cfgparser_t));
-    if (!cfgparser) return NULL;
+    cfgparser_t * cfgparser = malloc(sizeof(cfgparser_t));
+    if (!cfgparser)
+        return NULL;
 
     cfgparser->sections = NULL;
     return cfgparser;

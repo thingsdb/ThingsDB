@@ -1,8 +1,5 @@
 /*
  * queue.c
- *
- *  Created on: Oct 09, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <string.h>
 #include <stdlib.h>
@@ -15,8 +12,9 @@ static queue_t * queue__grow(queue_t * queue);
  */
 queue_t * queue_new(size_t sz)
 {
-    queue_t * queue = (queue_t *) malloc(sizeof(queue_t) + sz * sizeof(void*));
-    if (!queue) return NULL;
+    queue_t * queue = malloc(sizeof(queue_t) + sz * sizeof(void*));
+    if (!queue)
+        return NULL;
     queue->sz = sz;
     queue->n = 0;
     queue->s_ = 0;
@@ -42,9 +40,9 @@ void queue_destroy(queue_t * queue, queue_destroy_cb cb)
  */
 queue_t * queue_dup(const queue_t * queue)
 {
-    queue_t * q =
-            (queue_t *) malloc(sizeof(queue_t) + queue->n * sizeof(void*));
-    if (!q) return NULL;
+    queue_t * q = malloc(sizeof(queue_t) + queue->n * sizeof(void*));
+    if (!q)
+        return NULL;
 
     queue_copy(queue, q->data_);
 
@@ -70,7 +68,8 @@ void queue_copy(const queue_t * queue, void * dest[])
 
 void * queue_remove(queue_t * queue, size_t idx)
 {
-    if (idx >= queue->n) return NULL;
+    if (idx >= queue->n)
+        return NULL;
 
     size_t i = queue__i(queue, idx);
     void * data = queue->data_[i];
@@ -98,15 +97,16 @@ void * queue_remove(queue_t * queue, size_t idx)
 }
 
 /*
- * Removes and returns the first value in the queue. If the value is not
- * fount than NULL is returned.
+ * Removes and returns the first value in the queue which is equal to data.
+ * If the value is not found, than NULL is returned.
  */
-void * queue_remval(queue_t * queue, void * data)
+void * queue_rmval(queue_t * queue, void * data)
 {
     size_t i = 0;
     for (queue_each(queue, void, d), i++)
     {
-        if (d == data) return queue_remove(queue, i);
+        if (d == data)
+            return queue_remove(queue, i);
     }
     return NULL;
 }
@@ -133,9 +133,7 @@ int queue_reserve(queue_t ** qaddr, size_t n)
         size_t sz = queue->sz;
         queue->sz = (nn > (queue->sz += queue->s_)) ? nn : queue->sz;
 
-        q = (queue_t *) realloc(
-                queue,
-                sizeof(queue_t) + queue->sz * sizeof(void*));
+        q = realloc(queue, sizeof(queue_t) + queue->sz * sizeof(void*));
 
         if (!q)
         {
@@ -151,19 +149,14 @@ int queue_reserve(queue_t ** qaddr, size_t n)
     return 0;
 }
 
-/*
- * Push data to the queue and returns an address to the new queue.
- *
- * The returned queue can be equal to the original queue but there is no
- * guarantee. The return value is NULL in case of an allocation error.
- */
 int queue_push(queue_t ** qaddr, void * data)
 {
     queue_t * queue = *qaddr;
     if (queue->n == queue->sz)
     {
         queue_t * q = queue__grow(queue);
-        if (!q) return -1;
+        if (!q)
+            return -1;
         *qaddr = queue = q;
     }
     QUEUE_push(queue, data);
@@ -176,7 +169,8 @@ int queue_unshift(queue_t ** qaddr, void * data)
     if (queue->n == queue->sz)
     {
         queue_t * tmp = queue__grow(queue);
-        if (!tmp) return -1;
+        if (!tmp)
+            return -1;
         *qaddr = queue = tmp;
     }
     QUEUE_unshift(queue, data);
@@ -187,13 +181,16 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
 {
     queue_t * queue = *qaddr;
 
-    if (!idx) return queue_unshift(qaddr, data);
-    if (idx >= queue->n) return queue_push(qaddr, data);
+    if (!idx)
+        return queue_unshift(qaddr, data);
+    if (idx >= queue->n)
+        return queue_push(qaddr, data);
 
     if (queue->n == queue->sz)
     {
         queue_t * q = queue__grow(queue);
-        if (!q) return -1;
+        if (!q)
+            return -1;
         *qaddr = queue = q;
     }
 
@@ -227,7 +224,8 @@ int queue_extend(queue_t ** qaddr, void * data[], size_t n)
 {
     queue_t * q;
     size_t m, next;
-    if (queue_reserve(qaddr, n)) return -1;
+    if (queue_reserve(qaddr, n))
+        return -1;
 
     q = *qaddr;
 
@@ -249,15 +247,14 @@ int queue_extend(queue_t ** qaddr, void * data[], size_t n)
 
 /*
  * Shrinks a queue to an exact fit.
- *
- * Returns a pointer to the new queue.
  */
 int queue_shrink(queue_t ** qaddr)
 {
     queue_t * queue = *qaddr;
     size_t n;
     queue_t * q;
-    if (queue->n == queue->sz) return 0;
+    if (queue->n == queue->sz)
+        return 0;
 
     n = queue->sz - queue->s_;
     n = (n <= queue->n) ? n : queue->n;
@@ -266,10 +263,9 @@ int queue_shrink(queue_t ** qaddr)
             queue->data_ + queue->s_,
             n * sizeof(void*));
 
-    q = (queue_t *) realloc(
-            queue,
-            sizeof(queue_t) + queue->n * sizeof(void*));
-    if (!q) return -1;
+    q = realloc(queue, sizeof(queue_t) + queue->n * sizeof(void*));
+    if (!q)
+        return -1;
 
     q->sz = q->n;
     q->s_ = q->n - n;
@@ -286,10 +282,7 @@ static queue_t * queue__grow(queue_t * queue)
     queue->sz *= 2;
     queue->sz += !queue->sz;
 
-    q = (queue_t *) realloc(
-            queue,
-            sizeof(queue_t) + queue->sz * sizeof(void*));
-
+    q = realloc(queue, sizeof(queue_t) + queue->sz * sizeof(void*));
     if (!q)
     {
         /* restore original size */

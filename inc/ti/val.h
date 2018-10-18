@@ -20,7 +20,9 @@ typedef union ti_val_u ti_val_via_t;
 
 #include <qpack.h>
 #include <stdint.h>
-#include <ti/raw.h>#include <<ti/thing.h>include <util/vec.h>
+#include <ti/raw.h>
+#include <ti/thing.h>
+#include <util/vec.h>
 
 ti_val_t * ti_val_create(ti_val_e tp, void * v);
 ti_val_t * ti_val_weak_create(ti_val_e tp, void * v);
@@ -37,7 +39,6 @@ union ti_val_u
     int64_t int_;
     double float_;
     _Bool bool_;
-    char * str_;
     ti_raw_t * raw_;
     vec_t * primitives_;
     ti_thing_t * thing_;

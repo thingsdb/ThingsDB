@@ -55,7 +55,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     free(things_vec);
 
-    log_debug("garbage collection cleaned: %zd thingent(s)", n);
+    log_debug("garbage collection cleaned: %zd thing(s)", n);
 
     return 0;
 }
@@ -209,7 +209,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
         thing = imap_get(things, (uint64_t) thing_id.via.int64);
         if (!thing)
         {
-            log_critical("cannot find thingent with id: %"PRId64,
+            log_critical("cannot find thing with id: %"PRId64,
                     thing_id.via.int64);
             goto failed;
         }
@@ -229,7 +229,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
                 el = imap_get(things, (uint64_t) thing_id.via.int64);
                 if (!el)
                 {
-                    log_critical("cannot find thingent with id: %"PRId64,
+                    log_critical("cannot find thing with id: %"PRId64,
                             thing_id.via.int64);
                     goto failed;
                 }
@@ -243,7 +243,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
                     el = imap_get(things, (uint64_t) thing_id.via.int64);
                     if (!el)
                     {
-                        log_critical("cannot find thingent with id: %"PRId64,
+                        log_critical("cannot find thing with id: %"PRId64,
                                 thing_id.via.int64);
                         goto failed;
                     }
@@ -300,7 +300,7 @@ int ti_things_restore_data(imap_t * things, imap_t * props, const char * fn)
         thing = imap_get(things, (uint64_t) thing_id.via.int64);
         if (!thing)
         {
-            log_critical("cannot find thingent with id: %"PRId64,
+            log_critical("cannot find thing with id: %"PRId64,
                     thing_id.via.int64);
             goto failed;
         }

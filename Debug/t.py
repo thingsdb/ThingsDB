@@ -26,47 +26,169 @@ print(output.decode().splitlines())
 
 
 
-createdb("dbtest")
-# success: (return root thing)
-```
-[{
-    _id: 123,
-}]
+# creates a database
+{db: None, cmd: ..., blobs: []}
+create_db(dbtest)
+{
+    '$id': 123,
+    '$path': '.00000000001_'
+    '$name': 'dbtest'
+}
 
+fetch(databases)
 
-(dbtest) bla = []  # creates a primitives array
+# get all databases
+databases()
+{
+    'databases': [{
 
-
-(dbtest) bla = id(4)
-(dbtest) bla = name
-(dbtest) bla = lables[0]
-(dbtest) fetch()
-
-(dbtest) labels.map(label => label.fetch()).map(label => label.owner.fetch())
-(dbtest) labels.first(label => label.name == 'some label').customers.fetch()
-(dbtest) id(123).fetch()
-
-(dbtest) labels.push({owner: id(123), name: 'bla', })
-
-(dbtest) thing(5).fetch('age')
-
-[
-    {
-        _id: 123,
-        age: 4
-    }
-]
-
-
-dbtest.bla = dbtest.name
-
-
-elem {
-    items <item>: [{
-        prop_name: x,
-        val: null, true, false, "", [<primitives>], [<elems>], <elem>
     }]
 }
+
+# create a things array
+{db: "dbtest", cmd: ..., blobs: []}
+people = [{id: 1, name: 'iris'}]
+{
+    '$id': 123,
+    'people': [{
+        '$id': 124,
+        '$all': True,
+        'id': 1,
+        'name': 'iris'
+    }]
+}
+# watchers
+{
+    '$id': 123,
+    '$event': 26,
+    'people': [{
+        '$id': 124,
+    }]
+}
+
+# creates a things array
+labels = []
+{
+    '$id': 123,
+    'labels': []
+}
+# watchers
+{
+    '$id': 123,
+    '$event': 27,
+    'labels': []
+}
+
+# creates a thing
+settings = {color: 'blue', debugMode: true}
+{
+    '$id': 123,
+    'settings': {
+        '$id': 125,
+        '$all': True,
+        'color': 'blue',
+        'debugMode': True
+    }
+}
+# watchers
+{
+    '$id': 123,
+    '$event': 28,
+    'settings': {
+        '$id': 125,
+    }
+}
+
+# $(124) could also be something like people) and labels will be turned into a things array.
+# converting to another type array is only possible from things to primitives, but only when an array is empty.
+# All nodes are aware of things arrays, so once primitive, not all nodes are aware of the state.
+labels.push({id: 1, name: 'testlabel', owner: thing(124)})
+{
+    '$id': 123,
+    'labels': [{
+        '$id': 126,
+        '$all': True,
+        'id': 1,
+        'name': 'testlabel',
+        'owner': {
+            '$id': 124,
+        }
+    }]
+}
+# watchers
+{
+    '$id': 123,
+    '$event': 29,
+    '$arr': {
+        'labels' {
+            'push': [{
+                '$id': 126,
+            }]
+        }
+    }
+}
+
+# watch based on an id
+$id(124).watch()
+{
+    '$id': 124,
+    '$event': 30,
+    '$all': True,
+    'id': 1,
+    'name': 'iris'
+}
+
+# watch by name selecting and only one specific property
+people[0].watch(name)
+{
+    '$id': 124,
+    '$watch': ['name']
+    '$event': 31,
+    'name': 'iris'
+}
+
+
+# change settings color
+settings.color = 'red'
+{
+    '$id': 125,
+    'color': 'red'
+}
+# watchers
+{
+    '$id': 125,
+    '$event': 33,
+    'color': 'red'
+}
+
+
+people.map(person => person.badges = [])
+{
+    '$id': 123,
+    'people': [{
+        '$id': 124,
+        'bages': []
+    }]
+}
+
+
+
+
+labels.map(label => label.fetch())
+{
+    '$id': 123,
+    'labels': [{
+        '$id': 123,
+        '$all': True,
+        ...
+    }]
+}
+
+
+# fetch() is only available on things
+settings.color
+
+
 
 
 

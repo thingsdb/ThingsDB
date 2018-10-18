@@ -1,8 +1,5 @@
 /*
  * queue.h
- *
- *  Created on: Oct 09, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef QUEUE_H_
 #define QUEUE_H_
@@ -26,7 +23,7 @@ static inline void queue_clear(queue_t * queue);
 queue_t * queue_dup(const queue_t * queue);
 void queue_copy(const queue_t * queue, void * dest[]);
 void * queue_remove(queue_t * queue, size_t idx);
-void * queue_remval(queue_t * queue, void * data);
+void * queue_rmval(queue_t * queue, void * data);
 void * queue_replace(queue_t * queue, size_t idx, void * data);
 int queue_reserve(queue_t ** qaddr, size_t n);
 int queue_push(queue_t ** qaddr, void * data);

@@ -1,8 +1,5 @@
 /*
  * thing.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <ti/thing.h>
@@ -25,7 +22,6 @@ ti_thing_t * ti_thing_create(uint64_t id)
     }
     return thing;
 }
-
 
 ti_thing_t * ti_thing_grab(ti_thing_t * thing)
 {

@@ -3,20 +3,32 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <thingsdb.h>
 #include <ti/proto.h>
-#include <ti/users.h>
+#include <users.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/qpx.h>
 #include <util/logger.h>
+#include <util/vec.h>
+
+static vec_t ** users;
 
 const int ti_users_fn_schema = 0;
 
-ti_user_t * ti_users_auth(
-        vec_t * users,
-        qp_obj_t * name,
-        qp_obj_t * pass,
-        ex_t * e)
+int thingsdb_users_create(void)
+{
+    users = &(thingsdb_get()->users = vec_new(0));
+    return -(*users == NULL);
+}
+
+void thingsdb_users_destroy(void)
+{
+    vec_destroy(*users, (vec_destroy_cb) ti_user_drop);
+    *users = NULL;
+}
+
+ti_user_t * thingsdb_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 {
     char passbuf[ti_max_pass];
     char pw[CRYPTX_SZ];
@@ -33,7 +45,7 @@ ti_user_t * ti_users_auth(
         return NULL;
     }
 
-    for (vec_each(users, ti_user_t, user))
+    for (vec_each(*users, ti_user_t, user))
     {
         if (qpx_obj_eq_raw(name, user->name))
         {
@@ -54,25 +66,25 @@ ti_user_t * ti_users_auth(
     return NULL;
 }
 
-ti_user_t * ti_users_get_by_id(const vec_t * users, uint64_t id)
+ti_user_t * thingsdb_users_get_by_id(uint64_t id)
 {
-    for (vec_each(users, ti_user_t, user))
+    for (vec_each(*users, ti_user_t, user))
     {
         if (user->id == id) return user;
     }
     return NULL;
 }
 
-ti_user_t * ti_users_get_by_name(const vec_t * users, ti_raw_t * name)
+ti_user_t * thingsdb_users_get_by_name(ti_raw_t * name)
 {
-    for (vec_each(users, ti_user_t, user))
+    for (vec_each(*users, ti_user_t, user))
     {
         if (ti_raw_equal(user->name, name)) return user;
     }
     return NULL;
 }
 
-int ti_users_store(const vec_t * users, const char * fn)
+int thingsdb_users_store(const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
@@ -87,7 +99,7 @@ int ti_users_store(const vec_t * users, const char * fn)
     if (qp_add_raw_from_str(packer, "users") ||
         qp_add_array(&packer)) goto stop;
 
-    for (vec_each(users, ti_user_t, user))
+    for (vec_each(*users, ti_user_t, user))
     {
         if (qp_add_array(&packer) ||
             qp_add_int64(packer, (int64_t) user->id) ||
@@ -106,7 +118,7 @@ stop:
     return rc;
 }
 
-int ti_users_restore(vec_t ** users, const char * fn)
+int thingsdb_users_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;

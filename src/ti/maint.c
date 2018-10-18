@@ -1,8 +1,5 @@
 /*
  * maint.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <nodes.h>
 #include <props.h>
@@ -31,7 +28,8 @@ inline static int ti__maint_cmp(uint8_t a, uint8_t b, uint8_t n, uint64_t i);
 ti_maint_t * ti_maint_new(void)
 {
     ti_maint_t * maint = (ti_maint_t *) malloc(sizeof(ti_maint_t));
-    if (!maint) return NULL;
+    if (!maint)
+        return NULL;
     maint->timer.data = maint;
     maint->work.data = maint;
     maint->status = TI_MAINT_STAT_NIL;
@@ -41,7 +39,7 @@ ti_maint_t * ti_maint_new(void)
 int ti_maint_start(ti_maint_t * maint)
 {
     maint->status = TI_MAINT_STAT_READY;
-    maint->last_commit = maint->tin->events->commit_id;
+    maint->last_commit = thingsdb_get()->events->commit_id;
     return (uv_timer_init(tingsdb_loop(), &maint->timer) ||
             uv_timer_start(
                 &maint->timer,
@@ -62,8 +60,8 @@ void ti_maint_stop(ti_maint_t * maint)
 static void ti__maint_timer_cb(uv_timer_t * timer)
 {
     ti_maint_t * maint = (ti_maint_t *) timer->data;
-    ti_t * tin = maint->tin;
-    uint64_t commit_id = tin->events->commit_id;
+    thingsdb_t * thingsdb = thingsdb_get();
+    uint64_t commit_id = thingsdb->events->commit_id;
 
     if (maint->status == TI_MAINT_STAT_WAIT)
     {
@@ -73,11 +71,11 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
     if (maint->status != TI_MAINT_STAT_READY ||
         maint->last_commit == commit_id ||
-        !ti_nodes_has_quorum(tin->nodes)) return;
+        !ti_nodes_has_quorum(thingsdb->nodes)) return;
 
-    for (vec_each(tin->nodes, ti_node_t, node))
+    for (vec_each(thingsdb->nodes, ti_node_t, node))
     {
-        if (node == tin->node) continue;
+        if (node == thingsdb->node) continue;
 
         if (node->status == TI_NODE_STAT_MAINT)
         {
@@ -85,23 +83,23 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
             return;
         }
 
-        if (node->maintn < tin->node->maintn) continue;
+        if (node->maintn < thingsdb->node->maintn) continue;
 
-        if (node->maintn > tin->node->maintn)
+        if (node->maintn > thingsdb->node->maintn)
         {
             log_debug("node '%s' has a higher maintenance counter", node->addr);
-            tin->node->maintn++;
+            thingsdb->node->maintn++;
             return;
         }
 
         if (ti__maint_cmp(
                 node->id,
-                tin->node->id,
-                tin->nodes->n,
+                thingsdb->node->id,
+                thingsdb->nodes->n,
                 commit_id) > 0)
         {
             log_debug("node '%s' wins on the maintenance counter", node->addr);
-            tin->node->maintn++;
+            thingsdb->node->maintn++;
             return;
         }
     }
@@ -114,21 +112,22 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
 static int ti__maint_reg(ti_maint_t * maint)
 {
+    thingsdb_t * thingsdb = thingsdb_get();
     maint->status = TI_MAINT_STAT_REG;
     ti_prom_t * prom = ti_prom_new(
-            maint->tin->nodes->n - 1,
+            thingsdb->nodes->n - 1,
             maint,
             ti__maint_on_reg_cb);
     qpx_packer_t * xpkg = qpx_packer_create(8);
     if (!prom ||
         !xpkg ||
-        qp_add_int64(xpkg, (int64_t) maint->tin->node->maintn)) goto failed;
+        qp_add_int64(xpkg, (int64_t) thingsdb->node->maintn)) goto failed;
 
     ti_pkg_t * pkg = qpx_packer_pkg(xpkg, TI_BACK_EVENT_UPD);
 
-    for (vec_each(maint->tin->nodes, ti_node_t, node))
+    for (vec_each(thingsdb->nodes, ti_node_t, node))
     {
-        if (node == maint->tin->node) continue;
+        if (node == thingsdb->node) continue;
         if (node->status <= TI_NODE_STAT_CONNECTED || ti_req(
                 node,
                 pkg,
@@ -174,7 +173,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
     if (accept)
     {
-        maint->tin->node->status = TI_NODE_STAT_MAINT;
+        thingsdb_get()->node->status = TI_NODE_STAT_MAINT;
         maint->status = TI_MAINT_STAT_WAIT;
         ti__maint_wait(maint);
     }
@@ -182,15 +181,16 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
 static void ti__maint_wait(ti_maint_t * maint)
 {
-    if (maint->tin->events->queue->n)
+    thingsdb_t * thingsdb = thingsdb_get();
+    if (thingsdb->events->queue->n)
     {
         log_debug("wait until the event queue is empty (%zd)",
-                maint->tin->events->queue->n);
+                thingsdb->events->queue->n);
         return;
     }
     maint->status = TI_MAINT_STAT_BUSY;
     uv_queue_work(
-            &maint->tin->loop,
+            thingsdb->loop,
             &maint->work,
             ti__maint_work,
             ti__maint_work_finish);
@@ -199,41 +199,35 @@ static void ti__maint_wait(ti_maint_t * maint)
 static void ti__maint_work(uv_work_t * work)
 {
     ti_maint_t * maint = (ti_maint_t *) work->data;
-
-    uv_mutex_lock(&maint->tin->events->lock);
+    thingsdb_t * thingsdb = thingsdb_get();
+    uv_mutex_lock(&thingsdb->events->lock);
 
     log_debug("maintenance job: start storing data");
 
-    for (vec_each(maint->tin->dbs, ti_db_t, db))
+    for (vec_each(thingsdb->dbs, ti_db_t, db))
     {
         if (ti_things_gc(db->things, db->root))
         {
-            log_error("garbage collection of thingents has failed");
-            continue;
-        }
-
-        if (ti_props_gc(db->props))
-        {
-            log_error("garbage collection of props has failed");
+            log_error("garbage collection of things has failed");
             continue;
         }
     }
 
     log_debug("maintenance job: start storing data");
 
-    ti_store(maint->tin);
+    ti_store();
 
-    maint->last_commit = maint->tin->events->commit_id;
+    maint->last_commit = thingsdb->events->commit_id;
 
     log_debug("maintenance job: finished storing data");
 
-    uv_mutex_unlock(&maint->tin->events->lock);
+    uv_mutex_unlock(&thingsdb->events->lock);
 }
 
 static void ti__maint_work_finish(uv_work_t * work, int status)
 {
     ti_maint_t * maint = (ti_maint_t *) work->data;
-    maint->tin->node->status = TI_NODE_STAT_READY;
+    thingsdb_get()->node->status = TI_NODE_STAT_READY;
     maint->status = TI_MAINT_STAT_READY;
     if (status)
     {

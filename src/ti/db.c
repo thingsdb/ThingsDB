@@ -34,7 +34,7 @@ ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
 
     memcpy(&db->guid, guid, sizeof(guid_t));
 
-    if (!db->name || !db->things || !db->props || !db->access)
+    if (!db->name || !db->things || !db->access)
     {
         ti_db_drop(db);
         return NULL;
@@ -140,7 +140,7 @@ int ti_db_restore(ti_db_t * db, const char * fn)
     db->root = imap_get(db->things, id);
     if (!db->root)
     {
-        log_critical("cannot find root thingent: %"PRIu64, id);
+        log_critical("cannot find root thing: %"PRIu64, id);
         goto failed;
     }
 

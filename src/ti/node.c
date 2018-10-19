@@ -1,8 +1,5 @@
 /*
  * node.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <string.h>
 #include <stdlib.h>
@@ -43,7 +40,7 @@ void ti_node_drop(ti_node_t * node)
 {
     if (node && !--node->ref)
     {
-        ti_sock_drop(node->sock);
+        ti_stream_drop(node->sock);
         free(node->addr);
         free(node);
     }

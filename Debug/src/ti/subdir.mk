@@ -18,6 +18,7 @@ C_SRCS += \
 ../src/ti/maint.c \
 ../src/ti/misc.c \
 ../src/ti/node.c \
+../src/ti/pipe.c \
 ../src/ti/pkg.c \
 ../src/ti/prom.c \
 ../src/ti/prop.c \
@@ -25,9 +26,10 @@ C_SRCS += \
 ../src/ti/ref.c \
 ../src/ti/req.c \
 ../src/ti/signals.c \
-../src/ti/sock.c \
 ../src/ti/store.c \
+../src/ti/stream.c \
 ../src/ti/task.c \
+../src/ti/tcp.c \
 ../src/ti/thing.c \
 ../src/ti/things.c \
 ../src/ti/user.c \
@@ -50,6 +52,7 @@ OBJS += \
 ./src/ti/maint.o \
 ./src/ti/misc.o \
 ./src/ti/node.o \
+./src/ti/pipe.o \
 ./src/ti/pkg.o \
 ./src/ti/prom.o \
 ./src/ti/prop.o \
@@ -57,9 +60,10 @@ OBJS += \
 ./src/ti/ref.o \
 ./src/ti/req.o \
 ./src/ti/signals.o \
-./src/ti/sock.o \
 ./src/ti/store.o \
+./src/ti/stream.o \
 ./src/ti/task.o \
+./src/ti/tcp.o \
 ./src/ti/thing.o \
 ./src/ti/things.o \
 ./src/ti/user.o \
@@ -82,6 +86,7 @@ C_DEPS += \
 ./src/ti/maint.d \
 ./src/ti/misc.d \
 ./src/ti/node.d \
+./src/ti/pipe.d \
 ./src/ti/pkg.d \
 ./src/ti/prom.d \
 ./src/ti/prop.d \
@@ -89,9 +94,10 @@ C_DEPS += \
 ./src/ti/ref.d \
 ./src/ti/req.d \
 ./src/ti/signals.d \
-./src/ti/sock.d \
 ./src/ti/store.d \
+./src/ti/stream.d \
 ./src/ti/task.d \
+./src/ti/tcp.d \
 ./src/ti/thing.d \
 ./src/ti/things.d \
 ./src/ti/user.d \

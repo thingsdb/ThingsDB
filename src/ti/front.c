@@ -12,11 +12,11 @@
 #include <ti/write.h>
 #include <users.h>
 void ti__front_on_connect(uv_tcp_t * tcp, int status);
-static void ti__front_on_pkg(ti_sock_t * sock, ti_pkg_t * pkg);
-static void ti__front_on_ping(ti_sock_t * sock, ti_pkg_t * pkg);
-static void ti__front_on_auth(ti_sock_t * sock, ti_pkg_t * pkg);
-static void ti__front_on_event(ti_sock_t * sock, ti_pkg_t * pkg);
-static void ti__front_on_get(ti_sock_t * sock, ti_pkg_t * pkg);
+static void ti__front_on_pkg(ti_stream_t * sock, ti_pkg_t * pkg);
+static void ti__front_on_ping(ti_stream_t * sock, ti_pkg_t * pkg);
+static void ti__front_on_auth(ti_stream_t * sock, ti_pkg_t * pkg);
+static void ti__front_on_event(ti_stream_t * sock, ti_pkg_t * pkg);
+static void ti__front_on_get(ti_stream_t * sock, ti_pkg_t * pkg);
 static void ti__front_write_cb(ti_write_t * req, int status);
 
 ti_front_t * ti_front_create(void)
@@ -25,7 +25,7 @@ ti_front_t * ti_front_create(void)
     if (!front)
         return NULL;
 
-    front->sock = ti_sock_create(TI_SOCK_FRONT);
+    front->sock = ti_stream_create(TI_STREAM_FRONT);
     if (!front->sock)
     {
         ti_front_destroy(front);
@@ -39,7 +39,7 @@ void ti_front_destroy(ti_front_t * front)
 {
     if (!front)
         return;
-    ti_sock_drop(front->sock);
+    ti_stream_drop(front->sock);
     free(front);
 }
 
@@ -48,7 +48,7 @@ int ti_front_listen(ti_front_t * front)
     int rc;
     ti_cfg_t * cfg = thingsdb_get()->cfg;
 
-    if (ti_sock_init(front->sock)) return -1;
+    if (ti_stream_init(front->sock)) return -1;
     TI_ref_inc(front->sock);
 
     struct sockaddr_storage addr;
@@ -83,7 +83,7 @@ int ti_front_listen(ti_front_t * front)
     return 0;
 }
 
-int ti_front_write(ti_sock_t * sock, ti_pkg_t * pkg)
+int ti_front_write(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     return ti_write(sock, pkg, NULL, ti__front_write_cb);
 }
@@ -105,26 +105,26 @@ static void ti__front_on_connect(uv_tcp_t * tcp, int status)
         return;
     }
 
-    ti_sock_t * sock = (ti_sock_t *) tcp->data;
+    ti_stream_t * sock = (ti_stream_t *) tcp->data;
 
-    ti_sock_t * nsock = ti_sock_create(TI_SOCK_CLIENT);
-    if (!nsock || ti_sock_init(nsock)) return;
+    ti_stream_t * nsock = ti_stream_create(TI_STREAM_CLIENT);
+    if (!nsock || ti_stream_init(nsock)) return;
     nsock->cb = ti__front_on_pkg;
     if ((rc = uv_accept((uv_stream_t *) tcp, (uv_stream_t *) &nsock->tcp)) ||
         (rc = uv_read_start(
                 (uv_stream_t *) &nsock->tcp,
-                ti_sock_alloc_buf,
-                ti_sock_on_data)))
+                ti_stream_alloc_buf,
+                ti_stream_on_data)))
     {
         log_error(uv_strerror(rc));
-        ti_sock_close(nsock);
+        ti_stream_close(nsock);
         return;
     }
-    log_info("client connected: `%s`", ti_sock_addr(nsock));
+    log_info("client connected: `%s`", ti_stream_addr(nsock));
 }
 
 
-static void ti__front_on_pkg(ti_sock_t * sock, ti_pkg_t * pkg)
+static void ti__front_on_pkg(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     switch ((ti_front_req_e) pkg->tp)
     {
@@ -142,11 +142,11 @@ static void ti__front_on_pkg(ti_sock_t * sock, ti_pkg_t * pkg)
         break;
     default:
         log_error("unexpected package type: `%u` (source: `%s`)",
-                pkg->tp, ti_sock_addr(sock));
+                pkg->tp, ti_stream_addr(sock));
     }
 }
 
-static void ti__front_on_ping(ti_sock_t * sock, ti_pkg_t * pkg)
+static void ti__front_on_ping(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_ACK, NULL, 0);
     if (!resp || ti_front_write(sock, resp))
@@ -156,7 +156,7 @@ static void ti__front_on_ping(ti_sock_t * sock, ti_pkg_t * pkg)
     }
 }
 
-static void ti__front_on_auth(ti_sock_t * sock, ti_pkg_t * pkg)
+static void ti__front_on_auth(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
@@ -170,7 +170,7 @@ static void ti__front_on_auth(ti_sock_t * sock, ti_pkg_t * pkg)
     if (e->nr)
     {
         log_error("authentication failed: `%s` (source: `%s`)",
-                e->msg, ti_sock_addr(sock));
+                e->msg, ti_stream_addr(sock));
         resp = ti_pkg_err(pkg->id, e->nr, e->msg);
     }
     else
@@ -187,7 +187,7 @@ static void ti__front_on_auth(ti_sock_t * sock, ti_pkg_t * pkg)
     }
 }
 
-static void ti__front_on_event(ti_sock_t * sock, ti_pkg_t * pkg)
+static void ti__front_on_event(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp;
@@ -221,7 +221,7 @@ failed:
     }
 }
 
-static void ti__front_on_get(ti_sock_t * sock, ti_pkg_t * pkg)
+static void ti__front_on_get(ti_stream_t * sock, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp;

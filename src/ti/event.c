@@ -71,7 +71,7 @@ void ti_event_destroy(ti_event_t * event)
 
     ti_db_drop(event->target);
     ti_node_drop(event->node);
-    ti_sock_drop(event->client);
+    ti_stream_drop(event->client);
     imap_destroy(event->refthings, NULL);
     vec_destroy(event->tasks, (vec_destroy_cb) ti_task_destroy);
     vec_destroy(event->nodes, (vec_destroy_cb) ti_node_drop);
@@ -81,7 +81,7 @@ void ti_event_destroy(ti_event_t * event)
     free(event);
 }
 
-void ti_event_new(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
+void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 {
     thingsdb_t * thingsdb = thingsdb_get();
     ti_event_t * event = ti_event_create(thingsdb->events);
@@ -94,7 +94,7 @@ void ti_event_new(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
     event->id = thingsdb_events_get_event_id();
     event->pid = pkg->id;
     event->node = ti_node_grab(thingsdb->node);
-    event->client = ti_sock_grab(sock);
+    event->client = ti_stream_grab(sock);
     event->status = TI_EVENT_STAT_REG;
 
     if (!ti_nodes_has_quorum(thingsdb->nodes))

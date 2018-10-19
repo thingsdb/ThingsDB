@@ -66,6 +66,8 @@ people = [{id: 1, name: 'iris'}]
     }]
 }
 
+.thing()
+
 # creates a things array
 labels = []
 {
@@ -105,21 +107,26 @@ settings = {color: 'blue', debugMode: true}
 labels.push({id: 1, name: 'testlabel', owner: thing(124)})
 {
     '$id': 123,
-    'labels': [{
-        '$id': 126,
-        '$all': True,
-        'id': 1,
-        'name': 'testlabel',
-        'owner': {
-            '$id': 124,
+    '$event': 29,
+    '$array': {
+        'labels' {
+            'push': [{
+                '$id': 126,
+                '$all': True,
+                'id': 1,
+                'name': 'testlabel',
+                'owner': {
+                    '$id': 124,
+                }
+            }]
         }
-    }]
+    }
 }
 # watchers
 {
     '$id': 123,
     '$event': 29,
-    '$arr': {
+    '$array': {
         'labels' {
             'push': [{
                 '$id': 126,
@@ -184,7 +191,7 @@ labels.map(label => label.fetch())
     }]
 }
 
-
+hoi.map(label => label.badge[0]
 # fetch() is only available on things
 settings.color
 

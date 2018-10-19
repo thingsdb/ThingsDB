@@ -466,7 +466,7 @@ static void thingsdb__close_handles(uv_handle_t * handle, void * arg)
         uv_close(handle, NULL);
         break;
     case UV_TCP:
-        ti_sock_close((ti_sock_t *) handle->data);
+        ti_stream_close((ti_stream_t *) handle->data);
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

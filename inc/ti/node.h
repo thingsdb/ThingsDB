@@ -18,7 +18,7 @@ typedef enum
 typedef struct ti_node_s ti_node_t;
 
 #include <stdint.h>
-#include <ti/sock.h>
+#include <ti/stream.h>
 #include <ti/pkg.h>
 #include <ti/lookup.h>
 #include <util/imap.h>
@@ -34,7 +34,7 @@ struct ti_node_s
     uint16_t req_next_id;
     uint32_t pad0;
     imap_t * reqs;
-    ti_sock_t * sock;
+    ti_stream_t * sock;
     char * addr;    /* can be used as name */
 };
 

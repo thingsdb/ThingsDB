@@ -26,13 +26,13 @@ typedef struct ti_event_s ti_event_t;
 #include <ti/pkg.h>
 #include <ti/prom.h>
 #include <ti/raw.h>
-#include <ti/sock.h>
+#include <ti/stream.h>
 #include <util/imap.h>
 #include <util/vec.h>
 
 ti_event_t * ti_event_create(void);
 void ti_event_destroy(ti_event_t * event);
-void ti_event_new(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e);
+void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e);
 int ti_event_init(ti_event_t * event);
 void ti_event_raw(
         ti_event_t * event,
@@ -51,7 +51,7 @@ struct ti_event_s
     uint8_t flags;
     ti_db_t * target;       // NULL for _tin or pointer to database
     ti_node_t * node;
-    ti_sock_t * client;     // NULL or requesting client
+    ti_stream_t * client;     // NULL or requesting client
     ti_raw_t * raw;
     imap_t * refthings;
     vec_t * tasks;          /* each task is a qp_res_t */

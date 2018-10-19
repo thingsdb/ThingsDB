@@ -3,7 +3,7 @@ from pyleri import (
     Grammar,
     Keyword,
     Regex,
-    Choice,
+    Choice as Choice_,
     Sequence,
     Ref,
     Prio,
@@ -13,57 +13,81 @@ from pyleri import (
     THIS,
 )
 
+class Choice(Choice_):
+    def __init__(self, *args, most_greedy=None, **kwargs):
+        if most_greedy is None:
+            most_greedy = False
+        super().__init__(*args, most_greedy=most_greedy, **kwargs)
 
 
 class Definition(Grammar):
     RE_KEYWORDS = re.compile(r'^[$a-z][a-z_]*')
 
-
     r_single_quote_str = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote_str = Regex(r'(?:"(?:[^"]*)")+')
+    r_comment = Regex(r'\/\*.+?\*\/|\/\/.*(?=[\n\r])')
 
-    k_create_db = Keyword('create_db')
-    k_drop_db = Keyword('drop_db')
-    k_rename_db = Keyword('rename_db')
+    k_create = Keyword('create')
+    k_drop = Keyword('drop')
+    k_rename = Keyword('rename')
+    k_set = Keyword('set')
     k_fetch = Keyword('fetch')
     k_thing = Keyword('thing')
     k_map = Keyword('map')
 
+    array_idx = Regex(r'-?[0-9]+')
     thing_id = Regex(r'[0-9]+')
+
+    comment = Optional(Repeat(r_comment))
     identifier = Regex(r'^[a-z_][a-zA-Z0-9_]*')
-    string = Choice(r_single_quote_str, r_double_quote_str, most_greedy=False)
+    string = Choice(r_single_quote_str, r_double_quote_str)
     scope = Ref()
+    action = Ref()
 
-
-    f_create_db = Sequence(k_create_db, '(', identifier, ')')
-    f_drop_db = Sequence(k_drop_db, '(', identifier, ')')
-    f_rename_db = Sequence(k_rename_db, '(', identifier, ',', identifier, ')')
+    f_create = Sequence(Keyword('create'), '(', identifier, ')')
+    f_drop = Sequence(Keyword('drop'), '(', Choice(identifier, thing_id), ')')
+    f_set = Sequence(Keyword('drop'), '(', Choice(identifier, thing_id), ')')
+    f_rename = Sequence(k_rename_db, '(', Choice(identifier, thing_id), ',', identifier, ')')
     f_thing = Sequence(k_thing, '(', thing_id, ')')
     f_fetch = Sequence(k_fetch, '(', List(identifier, opt=True), ')')
     f_map = Sequence(k_map, '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
 
-    action = Prio(
+    selectors = Sequence(
+        Optional(Sequence(
+            '[',
+            Choice(identifier, array_idx),
+            ']'
+        )),
+        Optional(Sequence('.', action))
+    )
+
+    action = Choice(
         f_fetch,
+        Sequence('=', Choice(string, scope)),
         Sequence(
-            Choice(f_map, identifier, most_greedy=False),
-            Optional(Sequence('.', THIS))
+            Choice(f_map, identifier),
+            selectors,
+        ),
+    )
+
+    scope = Sequence(
+        Choice(f_thing, identifier),
+        selectors
+    )
+
+    statement = Sequence(
+        comment,
+        Choice(
+            f_create_db,
+            f_drop_db,
+            f_rename_db,
+            scope
         )
     )
 
-    scope = Choice(
-        Sequence(
-            Choice(f_thing, identifier, most_greedy=False),
-            Optional(Sequence('.', action))
-        ),
-        Sequence(identifier, '=', Choice(string, scope, most_greedy=False))
-    )
-
-    START = Choice(
-        f_create_db,
-        f_drop_db,
-        f_rename_db,
-        scope,
-        most_greedy=False,
+    START = Sequence(
+        List(statement, delimiter=';', opt=True),
+        comment
     )
 
     @classmethod
@@ -73,7 +97,88 @@ class Definition(Grammar):
         elif elem == cls.thing_id:
             return 'id'
 
+    def test(self, str):
+        print('{} : {}'.format(
+            str.strip(), self.parse(str).as_str(self.translate)))
+
 
 if __name__ == '__main__':
     definition = Definition()
-    print(definition.parse('hoi.hoi.hoi.map(a, b => thing(10))').as_str(definition.translate))
+
+    definition.test('  fetch().  ')
+
+    definition.test('''
+        /*
+         * Create a database
+         */
+        databases.create(dbtest);
+
+        /*
+         * Drop a database
+         */
+        databases.dbtest.drop();
+
+        /* Change redundancy */
+        config.set_redundancy(3)
+
+        /*
+         * Finished!
+         */
+    ''')
+
+    definition.test(' users.create(iris); ')
+    definition.test(' users.iris.drop(); ')
+
+    definition.test(' users.iris.drop(); ')
+
+
+
+
+
+    definition.test( ' databases.dbtest.drop() ')
+
+    definition.test('  drop_db( dbtest )  ')
+    definition.test('  drop_db( 123 )  ')
+    {   # RETURN
+        '$id': 123,
+        '$dropped': True
+    }
+    {   # WATCHERS $ID 0
+        '$id': 0,
+        '$arr': {
+            'databases': {
+                'rmval': [{
+                    '$id': 123,
+                }]
+            }
+        }
+    }
+    # This will also invoke the unwatchall() on all things in the dropped db
+    {   # FOR EXAMPLE: WATCHING 123
+        '$id': 123,
+        '$dropped': True
+    }
+    definition.test('  databases.create(dbtest);  ')
+    [{   # RETURN
+        '$id': 0,
+        '$array': {
+            '$databases': {
+                'push': [{
+                    '$id': 123,
+                    '$path': '.00000000001_',
+                    '$name': 'dbtest'
+                }]
+            }
+        }
+    }]
+    {   # WATCHERS $ID 0
+        '$id': 0,
+        '$array': {
+            '$databases': {
+                'push': [{
+                    '$id': 123,
+                }]
+            }
+        }
+    }
+    definition.test('  databases.create(dbtest);  ')

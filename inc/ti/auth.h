@@ -1,8 +1,5 @@
 /*
  * auth.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_AUTH_H_
 #define TI_AUTH_H_
@@ -11,8 +8,24 @@
 
 typedef enum
 {
-    /* 0.. 60 are reserved for task authorization */
-    TI_AUTH_READ=60
+    TI_AUTH_ACCESS=1,           /* root and database                        */
+    TI_AUTH_READ,               /* root and database                        */
+    TI_AUTH_MODIFY,             /* for root then means changing configuration
+                                   like set_redundancy, add/replace nodes;
+                                   for database this mean setting and removing
+                                   things etc.
+                                                                            */
+    TI_AUTH_WATCH,              /* root and database                        */
+
+    TI_AUTH_DB_CREATE,          /* root only                                */
+    TI_AUTH_DB_DROP,            /* root and database                        */
+    TI_AUTH_DB_CHANGE,          /* root and database                        */
+
+    TI_AUTH_USER_CREATE,        /* root only                                */
+    TI_AUTH_USER_DROP,          /* root only                                */
+    TI_AUTH_USER_CHANGE,        /* root only                                */
+    TI_AUTH_GRANT,              /* root and database                        */
+    TI_AUTH_REVOKE,             /* root and database                        */
 } ti_auth_e;
 
 typedef struct ti_auth_s ti_auth_t;

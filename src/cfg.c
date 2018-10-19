@@ -1,20 +1,29 @@
 /*
  * cfg.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 
+#include <cfg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <ti/cfg.h>
-#include <ti/sock.h>
+#include <ti/stream.h>
 #include <util/cfgparser.h>
 #include <util/logger.h>
 #include <util/strx.h>
+
+//[thingsdb]
+//listen_client_port = 9200,
+//listen_node_port = 9220
+//bind_client_addr = 127.0.0.1
+//bind_node_addr = 127.0.0.1
+//ip_support = ALL
+//pipe_support = 1
+//pipe_client_name = thingsdb_client.sock
+//pipe_node_name = thingsdb_node.sock
+//store_path = /home/joente/workspace/thingsdb/test/testdir/
+
 
 
 static int ti__cfg_read_ti_path(
@@ -38,17 +47,22 @@ static void ti__cfg_read_ip_support(
         uint8_t * ip_support);
 
 
-ti_cfg_t * ti_cfg_new(void)
+int thingsdb_cfg_create(void)
 {
-    ti_cfg_t * cfg = calloc(1, sizeof(ti_cfg_t));
-    if (!cfg) return NULL;
+    ti_cfg_t * cfg = malloc(sizeof(ti_cfg_t));
+    if (!cfg)
+        return NULL;
 
     /* set defaults */
     cfg->client_port = 9200;
-    cfg->port = 9220;
+    cfg->node_port = 9220;
+    cfg->pipe_support = 1;          /* TODO: should be 0 */
     cfg->ip_support = AF_UNSPEC;
+    cfg->bind_client_addr = strdup("")
+
+
     strcpy(cfg->addr, "localhost");
-    strcpy(cfg->ti_path, "/var/lib/tin/");
+    strcpy(cfg->ti_path, "/var/lib/thingsdb/");
 
     return cfg;
 }
@@ -69,21 +83,22 @@ int ti_cfg_parse(ti_cfg_t * cfg, const char * cfg_file)
         /* we could choose to continue with defaults but this is probably
          * not what users want so lets quit.
          */
-        printf("cannot not read '%s': %s\n", cfg_file, cfgparser_errmsg(rc));
+        printf("cannot not read `%s` (%s)\n", cfg_file, cfgparser_errmsg(rc));
         rc = -1;
         goto exit_parse;
     }
 
-    if ((rc = ti__cfg_read_address_port(
+    if (    (rc = ti__cfg_read_address_port(
                 parser,
                 cfg_file,
                 "node_name",
                 cfg->addr,
                 &cfg->port)) ||
-        (rc = ti__cfg_read_ti_path(
+            (rc = ti__cfg_read_ti_path(
                 parser,
                 cfg_file,
-                cfg->ti_path))) goto exit_parse;
+                cfg->ti_path)))
+        goto exit_parse;
 
     ti__cfg_read_port(
             parser,
@@ -118,8 +133,8 @@ static void ti__cfg_read_port(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%u')",
+                "missing `%s` in `%s` (%s), "
+                "using default value %u",
                 option_name,
                 cfg_file,
                 cfgparser_errmsg(rc),
@@ -128,8 +143,8 @@ static void ti__cfg_read_port(
     else if (option->tp != CFGPARSER_TP_INTEGER)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%u')",
+                "error reading `%s` in `%s` (%s), "
+                "using default value %u",
                 option_name,
                 cfg_file,
                 "expecting an integer value",
@@ -138,9 +153,9 @@ static void ti__cfg_read_port(
     else if (option->val->integer < min_ || option->val->integer > max_)
     {
         log_warning(
-                "error reading '%s' in '%s'; "
-                "value should be between %d and %d but got %d "
-                "(using default value: '%u')",
+                "error reading `%s` in `%s` "
+                "(value should be between %d and %d but got %d), "
+                "using default value %u",
                 option_name,
                 cfg_file,
                 min_,
@@ -169,22 +184,22 @@ static void ti__cfg_read_ip_support(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%s')",
+                "missing `%s` in `%s` (%s), "
+                "using default value `%s`",
                 "ip_support",
                 cfg_file,
                 cfgparser_errmsg(rc),
-                ti_sock_ip_support_str(*ip_support));
+                ti_stream_ip_support_str(*ip_support));
     }
     else if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%s')",
+                "error reading `%s` in `%s` (%s), "
+                "using default value `%s`",
                 "ip_support",
                 cfg_file,
                 "expecting a string value",
-                ti_sock_ip_support_str(*ip_support));
+                ti_stream_ip_support_str(*ip_support));
     }
     else
     {
@@ -203,13 +218,13 @@ static void ti__cfg_read_ip_support(
         else
         {
             log_warning(
-                    "error reading '%s' in '%s': "
-                    "expecting ALL, IPV4ONLY or IPV6ONLY but got '%s' "
-                    "(using default value: '%s')",
+                    "error reading `%s` in `%s` "
+                    "(expecting ALL, IPV4ONLY or IPV6ONLY but got `%s`), "
+                    "using default value `%s`",
                     "ip_support",
                     cfg_file,
                     option->val->string,
-                    ti_sock_ip_support_str(*ip_support));
+                    ti_stream_ip_support_str(*ip_support));
         }
     }
 }
@@ -230,8 +245,8 @@ static int ti__cfg_read_ti_path(
     if (rc != CFGPARSER_SUCCESS)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%s')",
+                "missing `%s` in `%s` (%s), "
+                "using default value `%s`",
                 "ti_path",
                 cfg_file,
                 cfgparser_errmsg(rc),
@@ -240,8 +255,8 @@ static int ti__cfg_read_ti_path(
     else if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
-                "error reading '%s' in '%s': %s "
-                "(using default value: '%s')",
+                "error reading `%s` in `%s` (%s), "
+                "using default value `%s`",
                 "ti_path",
                 cfg_file,
                 "error: expecting a string value",
@@ -251,7 +266,7 @@ static int ti__cfg_read_ti_path(
     if (strlen(option->val->string) >= TI_CFG_PATH_MAX -2 ||
         realpath(option->val->string, ti_path) == NULL)
     {
-        printf( "error: cannot find tin path: %s\n", option->val->string);
+        printf("cannot find ThingsDB path: %s\n", option->val->string);
         return -1;
     }
 
@@ -261,7 +276,7 @@ static int ti__cfg_read_ti_path(
     {
         log_warning(
                 "tin path exceeds %d characters, please "
-                "check your configuration file: %s",
+                "check your configuration file: `%s`",
                 TI_CFG_PATH_MAX - 3,
                 cfg_file);
     }
@@ -309,7 +324,7 @@ static int ti__cfg_read_address_port(
                 option_name);
     if (rc != CFGPARSER_SUCCESS)
     {
-        printf("error reading '%s' in '%s': %s\n",
+        printf("missing `%s` in `%s` (%s)\n",
                 option_name,
                 cfg_file,
                 cfgparser_errmsg(rc));
@@ -318,7 +333,7 @@ static int ti__cfg_read_address_port(
 
     if (option->tp != CFGPARSER_TP_STRING)
     {
-        printf("error reading '%s' in '%s': %s\n",
+        printf("error reading `%s' in `%s` (%s)\n",
                 option_name,
                 cfg_file,
                 "expecting a string value");
@@ -363,8 +378,8 @@ static int ti__cfg_read_address_port(
                     hostname,
                     TI_CFG_ADDR_MAX))
     {
-        printf("error reading '%s' in '%s': "
-                "got an unexpected value '%s:%s'\n",
+        printf("error reading `%s` in `%s` "
+                "(got unexpected value `%s:%s`)\n",
                 option_name,
                 cfg_file,
                 address,
@@ -377,8 +392,8 @@ static int ti__cfg_read_address_port(
 
         if (test_port < 1 || test_port > 65535)
         {
-            printf("error reading '%s' in '%s': "
-                    "port should be between 1 and 65535, got '%d'\n",
+            printf("error reading `%s` in `%s` "
+                    "(port should be between 1 and 65535, got %d)",
                     option_name,
                     cfg_file,
                     test_port);

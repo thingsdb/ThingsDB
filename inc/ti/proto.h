@@ -6,19 +6,44 @@
 
 typedef enum
 {
-    TI_PROTO_ACK,       // empty
-    TI_PROTO_RES,       // [{"_s": status, ...},...] or [status, status, status]
-    TI_PROTO_ELEM,      // {"_i": <id>, ...}
+    /*
+     * protocol definition for client connections
+     */
 
-    TI_PROTO_REJECT=64, // empty  (back-end only)
+    /* client requests */
+    TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                     */
+    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [username, password]      */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* {target:.. query:.. blobs: []} */
 
-    TI_PROTO_AUTH_ERR,  // {error_msg: "..."} authentication or privileges
-    TI_PROTO_NODE_ERR,  // {error_msg: "..."} node is unable to respond to the request
-    TI_PROTO_TYPE_ERR,  // {error_msg: "..."} something is wrong with the request
-    TI_PROTO_INDX_ERR,  // {error_msg: "..."} index error something cannot be found etc.
-    TI_PROTO_RUNT_ERR,  // {error_msg: "..."} runtime, anything like memory, disk errors
+    /* client responses */
+    TI_PROTO_CLIENT_RES_PING    =64,    /* empty */
+    TI_PROTO_CLIENT_RES_AUTH    =65,    /* empty */
+    TI_PROTO_CLIENT_RES_QUERY   =66,    /* [{}, {}, ...] */
+
+    /*
+     * client errors
+     */
+    /* authentication failed or request without authentication */
+    TI_PROTO_CLIENT_ERR_AUTH    =96,
+    /* node is unable to respond to the request */
+    TI_PROTO_CLIENT_ERR_NODE    =97,
+    /* query syntax error */
+    TI_PROTO_CLIENT_ERR_QUERY   =98,
+    /* target not found or no access */
+    TI_PROTO_CLIENT_ERR_TARGET  =99,
+    /* runtime error, for example allocation error */
+    TI_PROTO_CLIENT_ERR_RUNTIME =100,
+
+
+    /*
+     * protocol definition for node connections
+     */
+    TI_PROTO_NODE_REQ_PING      =128,   /* empty */
+    TI_PROTO_NODE_REQ_AUTH_REQ  =129,   /* {user:.. password:..}     */
 
 } ti_proto_e;
 
+
+const char * ti_proto_str(ti_proto_e tp);
 
 #endif /* TI_PROTO_H_ */

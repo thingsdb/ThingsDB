@@ -1,8 +1,5 @@
 /*
  * pkg.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <assert.h>
 #include <string.h>
@@ -10,7 +7,7 @@
 #include <stdlib.h>
 #include <ti/pkg.h>
 #include <ti/proto.h>
-nclude <util/qpx.h>
+#include <util/qpx.h>
 
 ti_pkg_t * ti_pkg_new(
         uint16_t id,

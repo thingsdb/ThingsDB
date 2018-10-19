@@ -10,26 +10,27 @@
 
 static void ti__write_cb(uv_write_t * req, int status);
 
-int ti_write(ti_sock_t * sock, ti_pkg_t * pkg, void * data, ti_write_cb cb)
+int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
 {
     ti_write_t * req = (ti_write_t *) malloc(sizeof(uv_write_t));
-    if (!req) return -1;
+    if (!req)
+        return -1;
 
     req->req_.data = req;
-    req->sock = ti_sock_grab(sock);
+    req->stream = ti_stream_grab(stream);
     req->pkg = pkg;
     req->data = data;
     req->cb_ = cb;
 
     uv_buf_t wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
-    uv_write(&req->req_, (uv_stream_t *) &sock->tcp, &wrbuf, 1, &ti__write_cb);
+    uv_write(&req->req_, &stream->uvstream, &wrbuf, 1, &ti__write_cb);
 
     return 0;
 }
 
 void ti_write_destroy(ti_write_t * req)
 {
-    ti_sock_drop(req->sock);
+    ti_stream_drop(req->stream);
     free(req);
 }
 
@@ -38,9 +39,11 @@ void ti_write_destroy(ti_write_t * req)
  */
 static void ti__write_cb(uv_write_t * req, int status)
 {
-    if (status) log_error(uv_strerror(status));
+    ti_write_t * ti_req;
 
-    ti_write_t * ti_req = (ti_write_t *) req->data;
+    if (status)
+        log_error(uv_strerror(status));
 
-    ti_req->cb_(ti_req, (status) ? EX_WRITE_UV : 0);
+    ti_req = req->data;
+    ti_req->cb_(ti_req, status ? EX_WRITE_UV : 0);
 }

@@ -1,14 +1,18 @@
 /*
- * filex.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
+ * fx.h
  */
-#ifndef TI_FILEX_H_
-#define TI_FILEX_H_
+#ifndef FX_H_
+#define FX_H_
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <limits.h>
+
+#ifndef PATH_MAX
+#define FX_PATH_MAX 4096
+#else
+#define FX_PATH_MAX PATH_MAX
+#endif
 
 int fx_write(const char * fn, unsigned char * data, size_t n);
 unsigned char * fx_read(const char * fn, ssize_t * size);
@@ -18,4 +22,4 @@ int fx_rmdir(const char * path);
 char * fx_path_join(const char * s1, const char * s2);
 char * fx_get_exec_path(void);
 
-#endif /* TI_FILEX_H_ */
+#endif /* FX_H_ */

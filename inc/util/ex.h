@@ -5,7 +5,7 @@
 #define EX_H_
 
 #define EX_ALLOC \
-    "allocation error in '%s' at %s:%d", __func__, __FILE__, __LINE__
+    "allocation error in `%s` at %s:%d", __func__, __FILE__, __LINE__
 
 #define EX_MSG_SZ 1024
 

@@ -49,7 +49,7 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
     return NULL;
 }
 
-void thingsdb_dbs_get(ti_sock_t * sock, ti_pkg_t * pkg, ex_t * e)
+void thingsdb_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 {
     qp_obj_t target;
     qp_obj_t qid;

@@ -17,12 +17,12 @@ typedef struct thingsdb_s thingsdb_t;
 #include <string.h>
 #include <stdint.h>
 #include <ti/args.h>
-#include <ti/cfg.h>
-#include <ti/node.h>
-#include <ti/back.h>
-#include <ti/front.h>
-#include <ti/lookup.h>
+#include <cfg.h>
 #include <events.h>
+#include <nodes.h>
+#include <clients.h>
+#include <ti/node.h>
+#include <ti/lookup.h>
 #include <ti/maint.h>
 #include <util/logger.h>
 #include <util/vec.h>
@@ -55,13 +55,13 @@ struct thingsdb_s
     ti_node_t * node;
     ti_args_t * args;
     ti_cfg_t * cfg;
-    ti_back_t * back;
     ti_front_t * front;
     ti_maint_t * maint;
     ti_lookup_t * lookup;
+    thingsdb_clients_t * clients;
     thingsdb_events_t * events;
+    thingsdb_nodes_t * nodes;
     vec_t * dbs;
-    vec_t * nodes;
     vec_t * users;
     vec_t * access;
     smap_t * props;

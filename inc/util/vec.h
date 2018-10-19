@@ -24,7 +24,7 @@ int vec_resize(vec_t ** vaddr, uint32_t sz);
 int vec_shrink(vec_t ** vaddr);
 
 /* unsafe macro for vec_push() which assumes the vector has enough space */
-#define VEC_push(vec__, data_) (vec__)->data[(vec__)->n++] = data_
+#define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)
 
 /* use vec_each in a for loop to go through all values.
  * do not change the vec while iterating over the values */

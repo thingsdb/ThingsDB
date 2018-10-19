@@ -26,13 +26,14 @@ int main(int argc, char * argv[])
     putenv("TZ=:UTC");
     tzset();
 
-    rc = thingsdb_init();
+    rc = thingsdb_create();
     if (!rc)
         goto stop;
+
     thingsdb = thingsdb_get();
 
-    /* check tin and parse arguments */
-    if ((rc = ti_args_parse(thingsdb->args, argc, argv)))
+    /* parse arguments */
+    if ((rc = thingsdb_args_parse(thingsdb->args, argc, argv)))
         goto stop;
 
     if (thingsdb->args->version)
@@ -43,19 +44,24 @@ int main(int argc, char * argv[])
 
     things_init_logger();
 
-    if ((rc = ti_cfg_parse(thingsdb->cfg, thingsdb->args->config)))
+    rc = thingsdb_cfg_parse(thingsdb->cfg, thingsdb->args->config);
+    if (rc)
         goto stop;
-    if ((rc = thingsdb_lock()))
+
+    rc = thingsdb_lock();
+    if (rc)
         goto stop;
-    if ((rc = thingsdb_init_fn()))
+
+    rc = thingsdb_init_fn();
+    if (rc)
         goto stop;
 
     if (thingsdb->args->init)
     {
         if (fx_file_exist(thingsdb->fn))
         {
-            printf("error: directory '%s' is already initialized\n",
-                    thingsdb->cfg->ti_path);
+            printf("error: directory `%s` is already initialized\n",
+                    thingsdb->cfg->store_path);
             rc = -1;
             goto stop;
         }
@@ -66,18 +72,19 @@ int main(int argc, char * argv[])
         }
 
         printf(
-            "Well done! You successfully initialized a new tin pool.\n\n"
-            "You can now star TIN and connect by using the default user `%s`.\n"
-            "..before I forget, the password is '%s'\n\n",
+            "Well done! You successfully initialized a new ThingsDB pool.\n\n"
+            "You can now start ThingsDB and connect by using the default user `%s`.\n"
+            "..before I forget, the password is `%s`\n\n",
             ti_user_def_name,
             ti_user_def_pass);
 
         goto stop;
     }
-    else if (strlen(thingsdb->args->secret))
+
+    if (strlen(thingsdb->args->secret))
     {
         printf(
-            "Waiting for a request to join some pool of tin nodes...\n"
+            "Waiting for a invite to join some pool from a ThingsDB node...\n"
             "(if you want to create a new pool instead, press CTRL+C and "
             "use the --init argument)\n");
     }
@@ -100,7 +107,7 @@ int main(int argc, char * argv[])
         printf(
             "The first time you should either create a new pool using "
             "the --init argument or set a one-time-secret using the --secret "
-            "argument and wait for a request from another node to join.\n");
+            "argument and wait for a invite from another node.\n");
         goto stop;
     }
 
@@ -110,7 +117,7 @@ stop:
     {
         rc = EXIT_FAILURE;
     }
-    thingsdb_close();
+    thingsdb_destroy();
 
     return rc;
 }

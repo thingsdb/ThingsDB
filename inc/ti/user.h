@@ -1,14 +1,8 @@
 /*
  * user.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_USER_H_
 #define TI_USER_H_
-
-#define TI_CFG_PATH_MAX 4096
-#define TI_CFG_ADDR_MAX 256
 
 typedef struct ti_user_s  ti_user_t;
 

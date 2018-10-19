@@ -35,10 +35,11 @@ static void imap__symmetric_difference_ref(
  */
 imap_t * imap_create(void)
 {
-    imap_t * imap = (imap_t *) calloc(
+    imap_t * imap = calloc(
             1,
             sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t));
-    if (!imap) return NULL;
+    if (!imap)
+        return NULL;
 
     imap->n = 0;
     imap->vec = NULL;
@@ -51,7 +52,8 @@ imap_t * imap_create(void)
  */
 void imap_destroy(imap_t * imap, imap_destroy_cb cb)
 {
-    if (!imap) return;
+    if (!imap)
+        return;
     if (imap->n)
     {
         imap_node_t * nd;
@@ -175,8 +177,10 @@ void * imap_get(imap_t * imap, uint64_t id)
     {
         id /= IMAP_NODE_SZ;
 
-        if (!id) return nd->data;
-        if (!nd->nodes) return NULL;
+        if (!id)
+            return nd->data;
+        if (!nd->nodes)
+            return NULL;
 
         nd = nd->nodes + (--id % IMAP_NODE_SZ);
     }
@@ -236,13 +240,15 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
             if (nd->data)
             {
                 rc = (*cb)(nd->data, arg);
-                if (rc) return rc;
+                if (rc)
+                    return rc;
             }
 
             if (nd->nodes)
             {
                 rc = imap__walk(nd, cb, arg);
-                if (rc) return rc;
+                if (rc)
+                    return rc;
             }
         }
     }
@@ -267,14 +273,10 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg)
             nd = imap->nodes + i;
 
             if (nd->data && !(*n -= (*cb)(nd->data, arg)))
-            {
                 return;
-            }
 
             if (nd->nodes)
-            {
                 imap__walkn(nd, cb, arg, n);
-            }
         }
     }
 }
@@ -300,14 +302,10 @@ vec_t * imap_vec(imap_t * imap)
                 nd = imap->nodes + i;
 
                 if (nd->data)
-                {
                     VEC_push(imap->vec, nd->data);
-                }
 
                 if (nd->nodes)
-                {
                     imap__vec(nd, imap->vec);
-                }
             }
         }
     }
@@ -642,11 +640,9 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 {
     if (!node->sz)
     {
-        node->nodes = (imap_node_t *) calloc(
-                IMAP_NODE_SZ,
-                sizeof(imap_node_t));
-
-        if (!node->nodes) return NULL;
+        node->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+        if (!node->nodes)
+            return NULL;
     }
 
     void * ret;
@@ -672,11 +668,9 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
 {
     if (!node->sz)
     {
-        node->nodes = (imap_node_t *) calloc(
-                IMAP_NODE_SZ,
-                sizeof(imap_node_t));
-
-        if (!node->nodes) return IMAP_ERR_ALLOC;
+        node->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+        if (!node->nodes)
+            return IMAP_ERR_ALLOC;
     }
 
     int rc;
@@ -750,13 +744,15 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
         if (nd->data)
         {
             rc = (*cb)(nd->data, arg);
-            if (rc) return rc;
+            if (rc)
+                return rc;
         }
 
         if (nd->nodes)
         {
             rc = imap__walk(nd, cb, arg);
-            if (rc) return rc;
+            if (rc)
+                return rc;
         }
     }
 

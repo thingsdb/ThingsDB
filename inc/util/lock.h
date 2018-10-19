@@ -1,8 +1,5 @@
 /*
  * lock.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef LOCK_H_
 #define LOCK_H_

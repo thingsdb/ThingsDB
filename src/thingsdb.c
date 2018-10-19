@@ -18,83 +18,80 @@
 #include <util/lock.h>
 
 static const uint8_t thingsdb__def_redundancy = 3;
-const char * thingsdb__fn = "thingsdb_.qp";
+const char * thingsdb__fn = "thingsdb.qp";
 const int thingsdb__fn_schema = 0;          /* thingsdb config */
 const int thingsdb__fn_store_schema = 0;    /* store running db */
 
 static uv_loop_t loop_;
-static thingsdb_t thingsdb_;
+static thingsdb_t thingsdb;
 
 static qp_packer_t * thingsdb__pack(void);
 static int thingsdb__unpack(qp_res_t * res);
 static void thingsdb__close_handles(uv_handle_t * handle, void * arg);
 
-int thingsdb_init(void)
+int thingsdb_create(void)
 {
-    thingsdb_.flags = 0;
-    thingsdb_.redundancy = thingsdb__def_redundancy;
-    thingsdb_.fn = NULL;
-    thingsdb_.node = NULL;
-    thingsdb_.lookup = NULL;
+    thingsdb.flags = 0;
+    thingsdb.redundancy = thingsdb__def_redundancy;
+    thingsdb.fn = NULL;
+    thingsdb.node = NULL;
+    thingsdb.lookup = NULL;
+    thingsdb.args = ti_args_new();
+    thingsdb.access = vec_new(0);
+    thingsdb.maint = ti_maint_new();
 
-    thingsdb_.args = ti_args_new();
-    thingsdb_.cfg = ti_cfg_new();
-    thingsdb_.back = ti_back_create();
-    thingsdb_.front = ti_front_create();
-    thingsdb_.access = vec_new(0);
-    thingsdb_.maint = ti_maint_new();
-
-    if (!thingsdb_props_create() ||
-        !thingsdb_nodes_create() ||
-        !thingsdb_users_create() ||
-        !thingsdb_dbs_create() ||
-        !thingsdb_events_create() ||
-        !thingsdb_.args ||
-        !thingsdb_.cfg ||
-        !thingsdb_.back ||
-        !thingsdb_.front ||
-        !thingsdb_.access ||
-        !thingsdb_.maint)
+    if (    !thingsdb_args_create() ||
+            !thingsdb_cfg_create() ||
+            !thingsdb_clients_create() ||
+            !thingsdb_nodes_create() ||
+            !thingsdb_props_create() ||
+            !thingsdb_users_create() ||
+            !thingsdb_dbs_create() ||
+            !thingsdb_events_create() ||
+            !thingsdb.args ||
+            !thingsdb.cfg ||
+            !thingsdb.access ||
+            !thingsdb.maint)
     {
-        thingsdb_close();
+        thingsdb_destroy();
         return -1;
     }
 
     return 0;
 }
 
-void thingsdb_close(void)
+void thingsdb_destroy(void)
 {
-    free(thingsdb_.fn);
-    free(thingsdb_.args);
-    free(thingsdb_.cfg);
-    free(thingsdb_.maint);
-    ti_back_destroy(thingsdb_.back);
-    ti_front_destroy(thingsdb_.front);
-    ti_lookup_destroy(thingsdb_.lookup);
+    free(thingsdb.fn);
+    free(thingsdb.maint);
+    ti_lookup_destroy(thingsdb.lookup);
+    thingsdb_args_destroy();
+    thingsdb_cfg_destroy();
+    thingsdb_clients_destroy();
+    thingsdb_nodes_destroy();
     thingsdb_events_destroy();
     thingsdb_dbs_destroy();
     thingsdb_nodes_destroy();
     thingsdb_users_destroy();
     thingsdb_props_destroy();
-    vec_destroy(thingsdb_.access, free);
-    memset(&thingsdb_, 0, sizeof(thingsdb_t));
+    vec_destroy(thingsdb.access, free);
+    memset(&thingsdb, 0, sizeof(thingsdb_t));
 }
 
-thingsdb_t * thingsdb(void)
+thingsdb_t * thingsdb_get(void)
 {
     return &thingsdb;
 }
 
-void ti_init_logger(void)
+void thingsdb_init_logger(void)
 {
     int n;
     char lname[255];
-    size_t len = strlen(thingsdb_.args->log_level);
+    size_t len = strlen(thingsdb.args->log_level);
 
 #ifdef NDEBUG
     /* force colors while debugging... */
-    if (thingsdb_.args->log_colorized)
+    if (thingsdb.args->log_colorized)
 #endif
     {
         Logger.flags |= LOGGER_FLAG_COLORED;
@@ -104,7 +101,7 @@ void ti_init_logger(void)
     {
         strcpy(lname, LOGGER_LEVEL_NAMES[n]);
         strx_lower_case(lname);
-        if (strlen(lname) == len && strcmp(thingsdb_.args->log_level, lname) == 0)
+        if (strlen(lname) == len && strcmp(thingsdb.args->log_level, lname) == 0)
         {
             logger_init(stdout, n);
             return;
@@ -113,28 +110,30 @@ void ti_init_logger(void)
     assert (0);
 }
 
-int ti_init_fn(void)
+int thingsdb_init_fn(void)
 {
-    thingsdb_.fn = strx_cat(thingsdb_.cfg->ti_path, thingsdb__fn);
-    return (thingsdb_.fn) ? 0 : -1;
+    thingsdb.fn = strx_cat(thingsdb.cfg->store_path, thingsdb__fn);
+    return (thingsdb.fn) ? 0 : -1;
 }
 
-int ti_build(void)
+int thingsdb_build(void)
 {
     ex_t * e = ex_use();
     int rc = -1;
     ti_event_t * event = NULL;
-    qp_packer_t * packer = ti_misc_pack_init_event_request();
-    if (!packer) return -1;
+    qp_packer_t * packer = ti_misc_init_query();
+    if (!packer)
+        return -1;
 
-    thingsdb_.events->commit_id = 0;
-    thingsdb_.events->next_id = 0;
-    thingsdb_.next_id_ = 0;
+    thingsdb.events->commit_id = 0;
+    thingsdb.events->next_id = 0;
+    thingsdb.next_id_ = 1;
 
-    thingsdb_.node = ti_node_create(0, thingsdb_.cfg->addr, thingsdb_.cfg->port);
-    if (!thingsdb_.node || vec_push(&thingsdb_.nodes, thingsdb_.node)) goto stop;
+    thingsdb.node = ti_node_create(0, thingsdb.clients->tcp, thingsdb.cfg->port);
+    if (!thingsdb.node || vec_push(&thingsdb.nodes, thingsdb.node))
+        goto stop;
 
-    event = ti_event_create(thingsdb_.events);
+    event = ti_event_create(thingsdb.events);
     if (!event) goto stop;
 
     event->id = event->events->next_id;
@@ -155,11 +154,11 @@ int ti_build(void)
 stop:
     if (rc)
     {
-        fx_rmdir(thingsdb_.cfg->ti_path);
-        mkdir(thingsdb_.cfg->ti_path, 0700);  /* no error checking required */
-        ti_node_drop(thingsdb_.node);
-        thingsdb_.node = NULL;
-        vec_pop(thingsdb_.nodes);
+        fx_rmdir(thingsdb.cfg->ti_path);
+        mkdir(thingsdb.cfg->ti_path, 0700);  /* no error checking required */
+        ti_node_drop(thingsdb.node);
+        thingsdb.node = NULL;
+        vec_pop(thingsdb.nodes);
     }
     qp_packer_destroy(packer);
     ti_event_destroy(event);
@@ -170,7 +169,7 @@ int thingsdb_read(void)
 {
     int rc;
     ssize_t n;
-    unsigned char * data = fx_read(thingsdb_.fn, &n);
+    unsigned char * data = fx_read(thingsdb.fn, &n);
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
@@ -186,14 +185,14 @@ int thingsdb_read(void)
     qp_res_destroy(res);
     if (rc)
     {
-        log_critical("unpacking has failed (%s)", thingsdb_.fn);
+        log_critical("unpacking has failed (%s)", thingsdb.fn);
         goto stop;
     }
-    thingsdb_.lookup = ti_lookup_create(
-            thingsdb_.nodes->n,
-            thingsdb_.redundancy,
-            thingsdb_.nodes);
-    if (!thingsdb_.lookup) return -1;
+    thingsdb.lookup = ti_lookup_create(
+            thingsdb.nodes->n,
+            thingsdb.redundancy,
+            thingsdb.nodes);
+    if (!thingsdb.lookup) return -1;
 
 stop:
     return rc;
@@ -202,31 +201,31 @@ stop:
 int thingsdb_run(void)
 {
     uv_loop_init(&loop_);
-    thingsdb_.loop = &loop_;
+    thingsdb.loop = &loop_;
 
-    if (ti_events_init(thingsdb_.events) ||
+    if (ti_events_init(thingsdb.events) ||
         ti_signals_init() ||
-        ti_back_listen(thingsdb_.back))
+        ti_back_listen(thingsdb.back))
     {
         ti_term(SIGTERM);
     }
 
-    if (thingsdb_.node)
+    if (thingsdb.node)
     {
-        if (ti_front_listen(thingsdb_.front) || ti_maint_start(thingsdb_.maint))
+        if (ti_front_listen(thingsdb.front) || ti_maint_start(thingsdb.maint))
         {
             ti_term(SIGTERM);
         }
-        thingsdb_.node->status = TI_NODE_STAT_READY;
+        thingsdb.node->status = TI_NODE_STAT_READY;
     }
 
-    uv_run(&thingsdb_.loop, UV_RUN_DEFAULT);
+    uv_run(&thingsdb.loop, UV_RUN_DEFAULT);
 
-    uv_walk(&thingsdb_.loop, thingsdb__close_handles, NULL);
+    uv_walk(&thingsdb.loop, thingsdb__close_handles, NULL);
 
-    uv_run(&thingsdb_.loop, UV_RUN_DEFAULT);
+    uv_run(&thingsdb.loop, UV_RUN_DEFAULT);
 
-    uv_loop_close(&thingsdb_.loop);
+    uv_loop_close(&thingsdb.loop);
 
     return 0;
 }
@@ -236,15 +235,15 @@ int thingsdb_save(void)
     qp_packer_t * packer = thingsdb__pack();
     if (!packer) return -1;
 
-    int rc = fx_write(thingsdb_.fn, packer->buffer, packer->len);
-    if (rc) log_error("failed to write file: '%s'", thingsdb_.fn);
+    int rc = fx_write(thingsdb.fn, packer->buffer, packer->len);
+    if (rc) log_error("failed to write file: '%s'", thingsdb.fn);
     qp_packer_destroy(packer);
     return rc;
 }
 
 int thingsdb_lock(void)
 {
-    lock_t rc = lock_lock(thingsdb_.cfg->ti_path, LOCK_FLAG_OVERWRITE);
+    lock_t rc = lock_lock(thingsdb.cfg->ti_path, LOCK_FLAG_OVERWRITE);
 
     switch (rc)
     {
@@ -253,26 +252,26 @@ int thingsdb_lock(void)
     case LOCK_WRITE_ERR:
     case LOCK_READ_ERR:
     case LOCK_MEM_ALLOC_ERR:
-        log_error("%s (%s)", lock_str(rc), thingsdb_.cfg->ti_path);
+        log_error("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
         return -1;
     case LOCK_NEW:
-        log_info("%s (%s)", lock_str(rc), thingsdb_.cfg->ti_path);
+        log_info("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
         break;
     case LOCK_OVERWRITE:
-        log_warning("%s (%s)", lock_str(rc), thingsdb_.cfg->ti_path);
+        log_warning("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
         break;
     default:
         break;
     }
-    thingsdb_.flags |= THINGSDB_FLAG_LOCKED;
+    thingsdb.flags |= THINGSDB_FLAG_LOCKED;
     return 0;
 }
 
 int thingsdb_unlock(void)
 {
-    if (thingsdb_.flags & THINGSDB_FLAG_LOCKED)
+    if (thingsdb.flags & THINGSDB_FLAG_LOCKED)
     {
-        lock_t rc = lock_unlock(thingsdb_.cfg->ti_path);
+        lock_t rc = lock_unlock(thingsdb.cfg->ti_path);
         if (rc != LOCK_REMOVED)
         {
             log_error(lock_str(rc));
@@ -292,9 +291,9 @@ int thingsdb_store(const char * fn)
         qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, thingsdb__fn_store_schema) ||
         qp_add_raw_from_str(packer, "commit_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb_.events->commit_id) ||
+        qp_add_int64(packer, (int64_t) thingsdb.events->commit_id) ||
         qp_add_raw_from_str(packer, "next_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb_.next_id_) ||
+        qp_add_int64(packer, (int64_t) thingsdb.next_id_) ||
         qp_close_map(packer)) goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
@@ -334,9 +333,9 @@ int thingsdb_restore(const char * fn)
         commit_id->tp != QP_RES_INT64 ||
         next_id->tp != QP_RES_INT64) goto stop;
 
-    thingsdb_.events->commit_id = (uint64_t) commit_id->via.int64;
-    thingsdb_.events->next_id = thingsdb_.events->commit_id;
-    thingsdb_.next_id_ = (uint64_t) next_id->via.int64;
+    thingsdb.events->commit_id = (uint64_t) commit_id->via.int64;
+    thingsdb.events->next_id = thingsdb.events->commit_id;
+    thingsdb.next_id_ = (uint64_t) next_id->via.int64;
 
     rc = 0;
 
@@ -348,12 +347,12 @@ stop:
 
 uint64_t thingsdb_get_next_id(void)
 {
-    return thingsdb_.next_id_++;
+    return thingsdb.next_id_++;
 }
 
 _Bool thingsdb_has_id(uint64_t id)
 {
-    return ti_node_has_id(thingsdb_.node, thingsdb_.lookup, id);
+    return ti_node_has_id(thingsdb.node, thingsdb.lookup, id);
 }
 
 static qp_packer_t * thingsdb__pack(void)
@@ -368,18 +367,18 @@ static qp_packer_t * thingsdb__pack(void)
 
     /* redundancy */
     if (qp_add_raw_from_str(packer, "redundancy") ||
-        qp_add_int64(packer, (int64_t) thingsdb_.redundancy)) goto failed;
+        qp_add_int64(packer, (int64_t) thingsdb.redundancy)) goto failed;
 
     /* node */
     if (qp_add_raw_from_str(packer, "node") ||
-        qp_add_int64(packer, (int64_t) thingsdb_.node->id)) goto failed;
+        qp_add_int64(packer, (int64_t) thingsdb.node->id)) goto failed;
 
     /* nodes */
     if (qp_add_raw_from_str(packer, "nodes") ||
         qp_add_array(&packer)) goto failed;
-    for (uint32_t i = 0; i < thingsdb_.nodes->n; i++)
+    for (uint32_t i = 0; i < thingsdb.nodes->n; i++)
     {
-        ti_node_t * node = (ti_node_t *) vec_get(thingsdb_.nodes, i);
+        ti_node_t * node = (ti_node_t *) vec_get(thingsdb.nodes, i);
         if (qp_add_array(&packer) ||
             qp_add_raw_from_str(packer, node->addr) ||
             qp_add_int64(packer, (int64_t) node->port) ||
@@ -413,7 +412,7 @@ static int thingsdb__unpack(qp_res_t * res)
         redundancy->via.int64 > 64 ||
         node->via.int64 < 0) goto failed;
 
-    thingsdb_.redundancy = (uint8_t) redundancy->via.int64;
+    thingsdb.redundancy = (uint8_t) redundancy->via.int64;
 
     for (uint32_t i = 0; i < nodes->via.array->n; i++)
     {
@@ -437,21 +436,21 @@ static int thingsdb__unpack(qp_res_t * res)
                 (uint16_t) port->via.int64);
 
         free(addrstr);
-        if (!node || vec_push(&thingsdb_.nodes, node)) goto failed;
+        if (!node || vec_push(&thingsdb.nodes, node)) goto failed;
     }
 
-    if (node->via.int64 >= thingsdb_.nodes->n) goto failed;
+    if (node->via.int64 >= thingsdb.nodes->n) goto failed;
 
-    thingsdb_.node = (ti_node_t *) vec_get(thingsdb_.nodes, (uint32_t) node->via.int64);
+    thingsdb.node = (ti_node_t *) vec_get(thingsdb.nodes, (uint32_t) node->via.int64);
 
     return 0;
 
 failed:
-    for (vec_each(thingsdb_.nodes, ti_node_t, node))
+    for (vec_each(thingsdb.nodes, ti_node_t, node))
     {
         ti_node_drop(node);
     }
-    thingsdb_.node = NULL;
+    thingsdb.node = NULL;
     return -1;
 }
 

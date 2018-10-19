@@ -11,20 +11,22 @@
 
 typedef enum
 {
-    EX_REQUEST_TIMEOUT=-4,
-    EX_REQUEST_CANCEL,
-    EX_WRITE_UV,
-    EX_MEMORY_ALLOCATION
+    EX_USER_AUTH            =-5,
+    EX_REQUEST_TIMEOUT      =-4,
+    EX_REQUEST_CANCEL       =-3,
+    EX_WRITE_UV             =-2,
+    EX_MEMORY_ALLOCATION    =-1,
 } ex_e;
 
 typedef struct ex_s ex_t;
 
 ex_t * ex_use(void);
-int ex_set(ex_t * e, int errnr, const char * errmsg, ...);
+void ex_set(ex_t * e, int errnr, const char * errmsg, ...);
 
 struct ex_s
 {
-    int nr;
+    ex_e nr;
+    int n;
     char msg[EX_MSG_SZ];
 };
 

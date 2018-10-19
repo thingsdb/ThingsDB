@@ -1,8 +1,5 @@
 /*
  * pkg.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_PKG_H_
 #define TI_PKG_H_
@@ -19,7 +16,7 @@ ti_pkg_t * ti_pkg_new(
         uint8_t tp,
         const unsigned char * data,
         uint32_t n);
-ti_pkg_t * ti_pkg_err(uint16_t id, uint8_t tp, const char * errmsg);
+ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e);
 
 struct ti_pkg_s
 {

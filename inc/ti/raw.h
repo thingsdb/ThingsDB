@@ -1,8 +1,5 @@
 /*
  * raw.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_RAW_H_
 #define TI_RAW_H_

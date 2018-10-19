@@ -16,7 +16,7 @@ typedef struct thingsdb_s thingsdb_t;
 #include <signal.h>
 #include <string.h>
 #include <stdint.h>
-#include <ti/args.h>
+#include <args.h>
 #include <cfg.h>
 #include <events.h>
 #include <nodes.h>
@@ -33,8 +33,8 @@ typedef struct thingsdb_s thingsdb_t;
     __FILE__, __LINE__, __func__, strsignal(signum__)); \
     raise(signum__);}
 
-int thingsdb_init(void);
-void thingsdb_close(void);
+int thingsdb_create(void);
+void thingsdb_destroy(void);
 thingsdb_t * thingsdb_get(void);
 void thingsdb_init_logger(void);
 int thingsdb_init_fn(void);
@@ -53,9 +53,8 @@ struct thingsdb_s
 {
     char * fn;
     ti_node_t * node;
-    ti_args_t * args;
+    thingsdb_args_t * args;
     ti_cfg_t * cfg;
-    ti_front_t * front;
     ti_maint_t * maint;
     ti_lookup_t * lookup;
     thingsdb_clients_t * clients;

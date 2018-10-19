@@ -1,8 +1,5 @@
 /*
  * logger.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef LOGGER_H_
 #define LOGGER_H_

@@ -1,8 +1,5 @@
 /*
  * strx.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_STRX_H_
 #define TI_STRX_H_

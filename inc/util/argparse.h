@@ -1,8 +1,5 @@
 /*
  * argparse.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef ARGPARSE_H_
 #define ARGPARSE_H_

@@ -1,8 +1,8 @@
 /*
  * cfg.h
  */
-#ifndef TI_CFG_H_
-#define TI_CFG_H_
+#ifndef THINGSDB_CFG_H_
+#define THINGSDB_CFG_H_
 
 typedef struct ti_cfg_s  ti_cfg_t;
 
@@ -22,8 +22,7 @@ struct ti_cfg_s
     char * bind_node_addr;
     char * pipe_client_name;
     char * pipe_node_name;
-    char * addr;
     char * store_path;
 };
 
-#endif /* TI_CFG_H_ */
+#endif /* THINGSDB_CFG_H_ */

@@ -6,7 +6,7 @@
 
 #define TCP_NAME_BUF_SZ 54
 
-const char * ti_tcp_ip_support_str(uint8_t ip_support)
+const char * ti_tcp_ip_support_str(int ip_support)
 {
     switch (ip_support)
     {

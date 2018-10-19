@@ -8,7 +8,7 @@
 
 static void ti__node_write_cb(ti_write_t * req, ex_e status);
 
-ti_node_t * ti_node_create(uint8_t id, char * addr, uint16_t port)
+ti_node_t * ti_node_create(uint8_t id, char * name, uint16_t port)
 {
     ti_node_t * node = (ti_node_t *) malloc(sizeof(ti_node_t));
     if (!node) return NULL;

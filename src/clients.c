@@ -8,6 +8,11 @@
 
 static thingsdb_clients_t * clients;
 
+static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status);
+static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void thingsdb__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
+static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
+static void thingsdb__clients_write_cb(ti_write_t * req, ex_e status);
 
 int thingsdb_clients_create(void)
 {
@@ -169,6 +174,9 @@ static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_PING:
         thingsdb__clients_on_ping(stream, pkg);
         break;
+    case TI_PROTO_CLIENT_REQ_AUTH:
+        thingsdb__clients_on_auth(stream, pkg);
+        break;
     default:
         log_error(
                 "unexpected package type `%u` from source `%s`)",
@@ -192,26 +200,39 @@ static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
     qp_obj_t name, pass;
-    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
-    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
-        !qp_is_raw(qp_next(&unpacker, &name)) ||
-        !qp_is_raw(qp_next(&unpacker, &pass))) return;
+    ti_user_t * user;
     ex_t * e = ex_use();
-    ti_user_t * user = ti_users_auth(thingsdb_get()->users, &name, &pass, e);
+    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
+            !qp_is_raw(qp_next(&unpacker, &name)) ||
+            !qp_is_raw(qp_next(&unpacker, &pass)))
+    {
+        ex_set(e, EX_USER_AUTH, "invalid authentication request");
+        log_error("%s from `%s`", e->msg, ti_stream_name(stream));
+        resp = ti_pkg_err(pkg->id, e);
+        goto finish;
+    }
+    user = thingsdb_users_auth(thingsdb_get()->users, &name, &pass, e);
     if (e->nr)
     {
-        log_error("authentication failed: `%s` (source: `%s`)",
-                e->msg, ti_stream_addr(sock));
+        assert (user == NULL);
+        log_warning(
+                "authentication failed: `%s` (source: `%s`)",
+                e->msg,
+                ti_stream_addr(stream));
         resp = ti_pkg_err(pkg->id, e->nr, e->msg);
     }
     else
     {
-        /* only set new authentication when successful */
-        sock->via.user = ti_user_grab(user);
-        resp = ti_pkg_new(pkg->id, TI_PROTO_ACK, NULL, 0);
+        assert (user != NULL);
+        if (stream->via.user)
+            ti_user_drop(stream->via.user);
+        stream->via.user = ti_user_grab(user);
+        resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_AUTH, NULL, 0);
     }
 
-    if (!resp || ti_front_write(sock, resp))
+finish:
+    if (!resp || ti_front_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);

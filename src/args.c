@@ -1,47 +1,55 @@
 /*
- * args.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
+ * args.c
  */
+#include <args.h>
 #include <util/argparse.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <ti/args.h>
 
 #define DEFAULT_LOG_FILE_MAX_SIZE 50000000
 #define DEFAULT_LOG_FILE_NUM_BACKUPS 6
 
-#ifdef DEBUG
+#ifndef NDEBUG
 #define DEFAULT_LOG_LEVEL "debug"
 #else
-#define DEFAULT_LOG_LEVEL "info"
+#define DEFAULT_LOG_LEVEL "warning"
 #endif
 
-ti_args_t * ti_args_new(void)
+static thingsdb_args_t * args;
+
+int thingsdb_args_create(void)
 {
-    ti_args_t * args = (ti_args_t *) calloc(1, sizeof(ti_args_t));
-    if (!args) return NULL;
+    args = calloc(1, sizeof(thingsdb_args_t));
+    if (!args)
+        return -1;
     args->version = 0;
     strcpy(args->config, "");
     strcpy(args->log_level, "");
     args->log_colorized = 0;
     args->init = 0;
-    return args;
+    thingsdb_get()->args = args;
+    return 0;
 }
 
-int ti_args_parse(ti_args_t * args, int argc, char *argv[])
+void thingsdb_args_destroy(void)
+{
+    free(args);
+    args = thingsdb_get()->args = NULL;
+}
+
+int thingsdb_args_parse(thingsdb_args_t * args, int argc, char *argv[])
 {
     int rc;
     argparse_t * parser = argparse_create();
-    if (!parser) return -1;
+    if (!parser)
+        return -1;
 
     argparse_argument_t config_ = {
             name: "config",
             shortcut: 'c',
-            help: "define which TIN configuration file to use",
+            help: "define which ThingsDB configuration file to use",
             action: ARGPARSE_STORE_STRING,
             default_int32_t: 0,
             pt_value_int32_t: NULL,
@@ -53,7 +61,7 @@ int ti_args_parse(ti_args_t * args, int argc, char *argv[])
     argparse_argument_t init_ = {
             name: "init",
             shortcut: 0,
-            help: "initialize a new TIN store",
+            help: "initialize a new ThingsDB store",
             action: ARGPARSE_STORE_TRUE,
             default_int32_t: 0,
             pt_value_int32_t: &args->init,

@@ -1,8 +1,5 @@
 /*
  * imap.h
- *
- *  Created on: Sep 30, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef IMAP_H_
 #define IMAP_H_

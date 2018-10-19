@@ -1,8 +1,5 @@
 /*
  * node.h
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_NODE_H_
 #define TI_NODE_H_
@@ -34,7 +31,7 @@ struct ti_node_s
     uint16_t req_next_id;
     uint32_t pad0;
     imap_t * reqs;
-    ti_stream_t * sock;
+    ti_stream_t * stream;
     char * addr;    /* can be used as name */
 };
 

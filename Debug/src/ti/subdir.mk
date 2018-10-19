@@ -9,7 +9,6 @@ C_SRCS += \
 ../src/ti/args.c \
 ../src/ti/auth.c \
 ../src/ti/back.c \
-../src/ti/cfg.c \
 ../src/ti/db.c \
 ../src/ti/event.c \
 ../src/ti/front.c \
@@ -22,6 +21,7 @@ C_SRCS += \
 ../src/ti/pkg.c \
 ../src/ti/prom.c \
 ../src/ti/prop.c \
+../src/ti/proto.c \
 ../src/ti/raw.c \
 ../src/ti/ref.c \
 ../src/ti/req.c \
@@ -43,7 +43,6 @@ OBJS += \
 ./src/ti/args.o \
 ./src/ti/auth.o \
 ./src/ti/back.o \
-./src/ti/cfg.o \
 ./src/ti/db.o \
 ./src/ti/event.o \
 ./src/ti/front.o \
@@ -56,6 +55,7 @@ OBJS += \
 ./src/ti/pkg.o \
 ./src/ti/prom.o \
 ./src/ti/prop.o \
+./src/ti/proto.o \
 ./src/ti/raw.o \
 ./src/ti/ref.o \
 ./src/ti/req.o \
@@ -77,7 +77,6 @@ C_DEPS += \
 ./src/ti/args.d \
 ./src/ti/auth.d \
 ./src/ti/back.d \
-./src/ti/cfg.d \
 ./src/ti/db.d \
 ./src/ti/event.d \
 ./src/ti/front.d \
@@ -90,6 +89,7 @@ C_DEPS += \
 ./src/ti/pkg.d \
 ./src/ti/prom.d \
 ./src/ti/prop.d \
+./src/ti/proto.d \
 ./src/ti/raw.d \
 ./src/ti/ref.d \
 ./src/ti/req.d \

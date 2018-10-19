@@ -4,6 +4,8 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../src/cfg.c \
+../src/clients.c \
 ../src/dbs.c \
 ../src/events.c \
 ../src/nodes.c \
@@ -12,6 +14,8 @@ C_SRCS += \
 ../src/users.c 
 
 OBJS += \
+./src/cfg.o \
+./src/clients.o \
 ./src/dbs.o \
 ./src/events.o \
 ./src/nodes.o \
@@ -20,6 +24,8 @@ OBJS += \
 ./src/users.o 
 
 C_DEPS += \
+./src/cfg.d \
+./src/clients.d \
 ./src/dbs.d \
 ./src/events.d \
 ./src/nodes.d \

@@ -30,19 +30,36 @@ ti_pkg_t * ti_pkg_new(
     return pkg;
 }
 
-ti_pkg_t * ti_pkg_err(uint16_t id, uint8_t tp, const char * errmsg)
+ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
 {
-    size_t n = strlen(errmsg);
-    qpx_packer_t * xpkg = qpx_packer_create(20 + n);
+    uint8_t tp;
+    ti_pkg_t * pkg;
+    qpx_packer_t * xpkg = qpx_packer_create(30 + e->n);
     if (!xpkg)
         return NULL;
+    switch (e->nr)
+    {
+    case EX_USER_AUTH:
+        tp = TI_PROTO_CLIENT_ERR_AUTH;
+        break;
 
-    qp_add_map(&xpkg);
-    qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
-    qp_add_raw(xpkg, (const unsigned char *) errmsg, n);
-    qp_close_map(xpkg);
+    case EX_REQUEST_TIMEOUT:
+    case EX_REQUEST_CANCEL:
+    case EX_WRITE_UV:
+    case EX_MEMORY_ALLOCATION:
+    default:
+        tp = TI_PROTO_CLIENT_ERR_RUNTIME;
+    }
 
-    ti_pkg_t * pkg = qpx_packer_pkg(xpkg, tp);
+    (void) qp_add_map(&xpkg);
+    (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
+    (void) qp_add_int64(xpkg, e->nr);
+    (void) qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
+    (void) qp_add_raw(xpkg, (const unsigned char *) e->msg, e->n);
+    (void) qp_close_map(xpkg);
+
+    pkg = qpx_packer_pkg(xpkg, tp);
     pkg->id = id;
+
     return pkg;
 }

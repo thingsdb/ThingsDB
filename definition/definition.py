@@ -27,14 +27,6 @@ class Definition(Grammar):
     r_double_quote_str = Regex(r'(?:"(?:[^"]*)")+')
     r_comment = Regex(r'\/\*.+?\*\/|\/\/.*(?=[\n\r])')
 
-    k_create = Keyword('create')
-    k_drop = Keyword('drop')
-    k_rename = Keyword('rename')
-    k_set = Keyword('set')
-    k_fetch = Keyword('fetch')
-    k_thing = Keyword('thing')
-    k_map = Keyword('map')
-
     array_idx = Regex(r'-?[0-9]+')
     thing_id = Regex(r'[0-9]+')
 
@@ -44,46 +36,38 @@ class Definition(Grammar):
     scope = Ref()
     action = Ref()
 
-    f_create = Sequence(Keyword('create'), '(', identifier, ')')
-    f_drop = Sequence(Keyword('drop'), '(', Choice(identifier, thing_id), ')')
-    f_set = Sequence(Keyword('drop'), '(', Choice(identifier, thing_id), ')')
-    f_rename = Sequence(k_rename_db, '(', Choice(identifier, thing_id), ',', identifier, ')')
-    f_thing = Sequence(k_thing, '(', thing_id, ')')
-    f_fetch = Sequence(k_fetch, '(', List(identifier, opt=True), ')')
-    f_map = Sequence(k_map, '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
+    f_thing = Sequence(Keyword('thing'), '(', Optional(thing_id), ')')
+    f_create = Sequence(Keyword('create'), '(', List(identifier, opt=True), ')')
+    f_drop = Sequence(Keyword('drop'), '(', ')')
+    f_rename = Sequence(Keyword('rename'), '(', identifier, ')')
+    f_fetch = Sequence(Keyword('fetch'), '(', List(identifier, opt=True), ')')
+    f_map = Sequence(Keyword('map'), '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
 
-    selectors = Sequence(
+    functions = Choice(
+        f_create,
+        f_drop,
+        f_rename,
+        f_thing,
+        f_fetch,
+        f_map,
+    )
+
+    action = Choice(
+        Sequence('.', Choice(functions, identifier)),
+        Sequence('=', Choice(string, scope)),
+    )
+
+    scope = Sequence(
+        Choice(f_thing, identifier),
         Optional(Sequence(
             '[',
             Choice(identifier, array_idx),
             ']'
         )),
-        Optional(Sequence('.', action))
+        Optional(action)
     )
 
-    action = Choice(
-        f_fetch,
-        Sequence('=', Choice(string, scope)),
-        Sequence(
-            Choice(f_map, identifier),
-            selectors,
-        ),
-    )
-
-    scope = Sequence(
-        Choice(f_thing, identifier),
-        selectors
-    )
-
-    statement = Sequence(
-        comment,
-        Choice(
-            f_create_db,
-            f_drop_db,
-            f_rename_db,
-            scope
-        )
-    )
+    statement = Sequence(comment, scope)
 
     START = Sequence(
         List(statement, delimiter=';', opt=True),
@@ -105,7 +89,7 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('  fetch().  ')
+    definition.test('users.create(iris, siri)')
 
     definition.test('''
         /*
@@ -119,7 +103,7 @@ if __name__ == '__main__':
         databases.dbtest.drop();
 
         /* Change redundancy */
-        config.set_redundancy(3)
+        config.redundancy = 3
 
         /*
          * Finished!

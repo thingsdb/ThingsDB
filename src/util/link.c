@@ -10,7 +10,8 @@ static struct link__s * link__new(void * data, struct link__s * next);
 link_t * link_create(void)
 {
     link_t * link = (link_t *) malloc(sizeof(link_t));
-    if (!link) return NULL;
+    if (!link)
+        return NULL;
     link->next_ = NULL;
     link->n = 0;
 
@@ -19,7 +20,8 @@ link_t * link_create(void)
 
 void link_destroy(link_t * link, link_destroy_cb cb)
 {
-    if (!link) return;
+    if (!link)
+        return;
     struct link__s * cur = (struct link__s *) link;
 
     for (struct link__s * tmp; (tmp = cur->next_); cur = tmp)

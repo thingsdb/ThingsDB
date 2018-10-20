@@ -21,7 +21,6 @@ struct ti_cfg_s
     char * bind_client_addr;
     char * bind_node_addr;
     char * pipe_client_name;
-    char * pipe_node_name;
     char * store_path;
 };
 

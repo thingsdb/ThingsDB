@@ -65,7 +65,7 @@ struct thingsdb_s
     vec_t * access;
     smap_t * props;
     uv_loop_t * loop;
-    uint64_t next_id_;   /* used for assigning id's to objects */
+    uint64_t next_thing_id;   /* used for assigning id's to objects */
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
 };

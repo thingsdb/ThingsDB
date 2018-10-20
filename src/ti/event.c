@@ -40,7 +40,8 @@ static void ti__event_unpack(
 ti_event_t * ti_event_create(void)
 {
     ti_event_t * event = malloc(sizeof(ti_event_t));
-    if (!event) return NULL;
+    if (!event)
+        return NULL;
     event->target = NULL;
     event->node = NULL;
     event->raw = NULL;

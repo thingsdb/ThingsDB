@@ -3,11 +3,12 @@
  */
 #include <nodes.h>
 #include <thingsdb.h>
-#include <ti/node.h>
 #include <stdbool.h>
 
 static thingsdb_nodes_t * nodes;
 
+static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status);
+static void thingsdb__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int thingsdb_nodes_create(void)
 {
@@ -23,6 +24,8 @@ int thingsdb_nodes_create(void)
 
 void thingsdb_nodes_destroy(void)
 {
+    if (!nodes)
+        return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes);
     nodes = thingsdb_get()->nodes = NULL;
@@ -41,17 +44,63 @@ _Bool thingsdb_nodes_has_quorum(void)
     return 0;
 }
 
+int thingsdb_nodes_to_packer(qp_packer_t ** packer)
+{
+    if (qp_add_array(packer))
+        return -1;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (qp_add_raw(*packer, &node->addr, sizeof(struct sockaddr_storage)))
+            return -1;
+    }
+
+    return qp_close_array(*packer);
+}
+
+int thingsdb_nodes_from_qpres(qp_res_t * qpnodes)
+{
+    for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
+    {
+        struct sockaddr_storage * addr;
+        qp_res_t * qpaddr = qpnodes->via.array->values + i;
+        if (    qpaddr->tp != QP_RES_RAW ||
+                qpaddr->via.raw->n != sizeof(struct sockaddr_storage))
+           return -1;
+
+        addr = (struct sockaddr_storage *) qpaddr->via.raw->data;
+        if (!thingsdb_nodes_create_node(addr))
+            return -1;
+    }
+}
+
+
+ti_node_t * thingsdb_nodes_create_node(struct sockaddr_storage * addr)
+{
+    ti_node_t * node = ti_node_create(nodes->vec->n, addr);
+    if (!node || vec_push(nodes->vec, node))
+    {
+        ti_node_drop(node);
+        return NULL;
+    }
+    assert (node->id == nodes->vec->n - 1);
+    return node;
+}
+
+ti_node_t * thingsdb_nodes_node_by_id(uint8_t * node_id)
+{
+    return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);
+}
+
 int thingsdb_nodes_listen(void)
 {
     int rc;
     thingsdb_t * thingsdb = thingsdb_get();
     ti_cfg_t * cfg = thingsdb->cfg;
-    struct sockaddr_storage addr;
     _Bool is_ipv6 = false;
     char * ip;
 
     uv_tcp_init(thingsdb->loop, &nodes->tcp);
-    uv_pipe_init(thingsdb->loop, &nodes->pipe, 0);
 
     if (cfg->bind_node_addr != NULL)
     {
@@ -74,16 +123,16 @@ int thingsdb_nodes_listen(void)
 
     if (is_ipv6)
     {
-        uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
+        uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &nodes->addr);
     }
     else
     {
-        uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
+        uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &nodes->addr);
     }
 
     if ((rc = uv_tcp_bind(
             &nodes->tcp,
-            (const struct sockaddr *) &addr,
+            (const struct sockaddr *) &nodes->addr,
             (cfg->ip_support == AF_INET6) ?
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
@@ -96,22 +145,6 @@ int thingsdb_nodes_listen(void)
     }
 
     log_info("start listening for TCP nodes on port %d", cfg->node_port);
-
-    if (!cfg->pipe_support)
-        return 0;
-
-    if ((rc = uv_pipe_bind(&nodes->pipe, cfg->pipe_node_name)) ||
-        (rc = uv_listen(
-                (uv_stream_t *) &nodes->pipe,
-                THINGSDB_MAX_NODES,
-                thingsdb__nodes_pipe_connection)))
-    {
-        log_error("error listening for PIPE nodes: `%s`", uv_strerror(rc));
-        return -1;
-    }
-
-    log_info("start listening for PIPE nodes connections on `%s`",
-            cfg->pipe_node_name);
 
     return 0;
 }
@@ -135,34 +168,6 @@ static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status)
         return;
 
     uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) stream->uvstream);
-    if (uv_accept(uvstream, stream->uvstream) == 0)
-    {
-        uv_read_start(stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
-    }
-    else
-    {
-        ti_stream_drop(stream);
-    }
-}
-
-static void thingsdb__nodes_pipe_connection(uv_stream_t * uvstream, int status)
-{
-    ti_stream_t * stream;
-
-    if (status < 0)
-    {
-        log_error("node connection error: `%s`", uv_strerror(status));
-        return;
-    }
-
-    log_debug("received a PIPE node connection");
-
-    stream = ti_stream_create(TI_STREAM_PIPE_IN_NODE, &thingsdb__nodes_pkg_cb);
-
-    if (!stream)
-        return;
-
-    uv_pipe_init(thingsdb_get()->loop, (uv_pipe_t *) stream->uvstream, 0);
     if (uv_accept(uvstream, stream->uvstream) == 0)
     {
         uv_read_start(stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);

@@ -12,25 +12,31 @@ ti_lookup_t * ti_lookup_create(
         uint8_t redundancy,
         const vec_t * nodes)
 {
+    ti_lookup_t * lookup;
     assert (n <= nodes->n);
-    ti_lookup_t * lookup = (ti_lookup_t *) malloc(
-            sizeof(ti_lookup_t) + n * sizeof(uint64_t));
-    if (!lookup) return NULL;
+
+    lookup = malloc(sizeof(ti_lookup_t) + n * sizeof(uint64_t));
+    if (!lookup)
+        return NULL;
+
     lookup->n_ = n;
     lookup->r_ = (n < redundancy) ? n : redundancy;
     lookup->nodes_ = vec_new(lookup->r_ * n);
+
     if (!lookup->nodes_)
     {
         ti_lookup_destroy(lookup);
         return NULL;
     }
+
     ti__lookup_calculate(lookup, nodes);
     return lookup;
 }
 
 void ti_lookup_destroy(ti_lookup_t * lookup)
 {
-    if (!lookup) return;
+    if (!lookup)
+        return;
     free(lookup->nodes_);
     free(lookup);
 }
@@ -62,9 +68,8 @@ static void ti__lookup_calculate(ti_lookup_t * lookup, const vec_t * nodes)
         for (int i = 0; i < n; i++)
         {
             if ((i - offset) % n < r)
-            {
                 found = 1;
-            }
+
             if (found)
             {
                 for (int p = 0; p < r; p++)
@@ -77,9 +82,7 @@ static void ti__lookup_calculate(ti_lookup_t * lookup, const vec_t * nodes)
                     }
                 }
                 if (found)
-                {
                     offset++;
-                }
             }
         }
     }

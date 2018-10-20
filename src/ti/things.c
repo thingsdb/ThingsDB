@@ -19,8 +19,6 @@ ti_thing_t * ti_things_create(imap_t * things, uint64_t id)
     return thing;
 }
 
-
-
 int ti_things_gc(imap_t * things, ti_thing_t * root)
 {
     size_t n = 0;
@@ -173,7 +171,8 @@ int ti_things_restore(imap_t * things, const char * fn)
     {
         uint64_t id;
         memcpy(&id, pt, sizeof(uint64_t));
-        if (!ti_things_create(things, id)) goto failed;
+        if (!ti_things_create(things, id))
+            goto failed;
     }
 
     goto done;

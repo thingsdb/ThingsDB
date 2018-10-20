@@ -42,7 +42,6 @@ int thingsdb_cfg_create(void)
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");
     cfg->pipe_client_name = NULL;
-    cfg->pipe_node_name = NULL;
     cfg->store_path = strdup("/var/lib/thingsdb/");
 
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->store_path)
@@ -59,7 +58,6 @@ void thingsdb_cfg_destroy(void)
     free(cfg->bind_client_addr);
     free(cfg->bind_node_addr);
     free(cfg->pipe_client_name);
-    free(cfg->pipe_node_name);
     free(cfg->store_path);
     free(cfg);
     cfg = thingsdb_get()->cfg = NULL;
@@ -101,12 +99,7 @@ int ti_cfg_parse(ti_cfg_t * cfg, const char * cfg_file)
                     parser,
                     cfg_file,
                     "pipe_client_name",
-                    cfg->pipe_client_name)) ||
-            (rc = ti__cfg_str(
-                    parser,
-                    cfg_file,
-                    "pipe_node_name",
-                    cfg->pipe_node_name)))
+                    cfg->pipe_client_name)))
         goto exit_parse;
 
     ti__cfg_port(parser, cfg_file, "listen_client_port", &cfg->client_port);

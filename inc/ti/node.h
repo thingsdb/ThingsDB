@@ -23,19 +23,20 @@ typedef struct ti_node_s ti_node_t;
 struct ti_node_s
 {
     uint32_t ref;
-    uint8_t id;  /* equal to the index in tin->nodes */
+    uint8_t id;  /* node id, equal to the index in tin->nodes and each node
+                    contains the same order since the lookup is based on this
+                    id. */
     uint8_t flags;
     uint8_t status;
     uint8_t maintn;
-    uint16_t port;
-    uint16_t req_next_id;
+    uint32_t req_next_id;  /* TODO, what is thins?? was uint16_t*/
     uint32_t pad0;
     imap_t * reqs;
     ti_stream_t * stream;
-    char * addr;    /* can be used as name */
+    struct sockaddr_storage addr;
 };
 
-ti_node_t * ti_node_create(uint8_t id, char * address, uint16_t port);
+ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
 ti_node_t * ti_node_grab(ti_node_t * node);
 void ti_node_drop(ti_node_t * node);
 int ti_node_write(ti_node_t * node, ti_pkg_t * pkg);

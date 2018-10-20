@@ -27,7 +27,7 @@ print(output.decode().splitlines())
 
 
 # creates a database
-{db: None, cmd: ..., blobs: []}
+{target: None, query: ..., blobs: []}
 create_db(dbtest)
 {
     '$id': 123,

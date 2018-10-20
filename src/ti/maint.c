@@ -83,7 +83,8 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
             return;
         }
 
-        if (node->maintn < thingsdb->node->maintn) continue;
+        if (node->maintn < thingsdb->node->maintn)
+            continue;
 
         if (node->maintn > thingsdb->node->maintn)
         {

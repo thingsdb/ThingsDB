@@ -125,16 +125,17 @@ int thingsdb_build(void)
     if (!packer)
         return -1;
 
-    thingsdb.events->commit_id = 0;
-    thingsdb.events->next_id = 0;
-    thingsdb.next_id_ = 1;
+    thingsdb.events->commit_event_id = 0;
+    thingsdb.events->next_event_id = 1;
+    thingsdb.next_thing_id = 1;
 
-    thingsdb.node = ti_node_create(0, thingsdb.clients->tcp, thingsdb.cfg->port);
-    if (!thingsdb.node || vec_push(&thingsdb.nodes, thingsdb.node))
+    thingsdb.node = thingsdb_nodes_create_node(thingsdb.nodes->addr);
+    if (!thingsdb.node)
         goto stop;
 
     event = ti_event_create(thingsdb.events);
-    if (!event) goto stop;
+    if (!event)
+        goto stop;
 
     event->id = event->events->next_id;
 
@@ -232,11 +233,15 @@ int thingsdb_run(void)
 
 int thingsdb_save(void)
 {
+    int rc;
     qp_packer_t * packer = thingsdb__pack();
-    if (!packer) return -1;
+    if (!packer)
+        return -1;
 
-    int rc = fx_write(thingsdb.fn, packer->buffer, packer->len);
-    if (rc) log_error("failed to write file: '%s'", thingsdb.fn);
+    rc = fx_write(thingsdb.fn, packer->buffer, packer->len);
+    if (rc)
+        log_error("failed to write file: '%s'", thingsdb.fn);
+
     qp_packer_destroy(packer);
     return rc;
 }
@@ -358,98 +363,79 @@ _Bool thingsdb_has_id(uint64_t id)
 static qp_packer_t * thingsdb__pack(void)
 {
     qp_packer_t * packer = qp_packer_create(1024);
-    if (!packer) return NULL;
-    if (qp_add_map(&packer)) goto failed;
+    if (!packer || qp_add_map(&packer))
+        goto failed;
 
     /* schema */
-    if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, thingsdb__fn_schema)) goto failed;
+    if (    qp_add_raw_from_str(packer, "schema") ||
+            qp_add_int64(packer, thingsdb__fn_schema))
+        goto failed;
 
     /* redundancy */
-    if (qp_add_raw_from_str(packer, "redundancy") ||
-        qp_add_int64(packer, (int64_t) thingsdb.redundancy)) goto failed;
+    if (    qp_add_raw_from_str(packer, "redundancy") ||
+            qp_add_int64(packer, (int64_t) thingsdb.redundancy))
+        goto failed;
 
     /* node */
-    if (qp_add_raw_from_str(packer, "node") ||
-        qp_add_int64(packer, (int64_t) thingsdb.node->id)) goto failed;
+    if (    qp_add_raw_from_str(packer, "node") ||
+            qp_add_int64(packer, (int64_t) thingsdb.node->id))
+        goto failed;
 
     /* nodes */
-    if (qp_add_raw_from_str(packer, "nodes") ||
-        qp_add_array(&packer)) goto failed;
-    for (uint32_t i = 0; i < thingsdb.nodes->n; i++)
-    {
-        ti_node_t * node = (ti_node_t *) vec_get(thingsdb.nodes, i);
-        if (qp_add_array(&packer) ||
-            qp_add_raw_from_str(packer, node->addr) ||
-            qp_add_int64(packer, (int64_t) node->port) ||
-            qp_close_array(packer)) goto failed;
+    if (    qp_add_raw_from_str(packer, "nodes") ||
+            thingsdb_nodes_to_packer(&packer))
+        goto failed;
 
-    }
-    if (qp_close_array(packer) || qp_close_map(packer)) goto failed;
+    if (qp_close_map(packer))
+        goto failed;
 
     return packer;
 
 failed:
-    qp_packer_destroy(packer);
+    if (packer)
+        qp_packer_destroy(packer);
     return NULL;
 }
 
 static int thingsdb__unpack(qp_res_t * res)
 {
-    qp_res_t * schema, * redundancy, * node, * nodes;
+    uint8_t node_id;
+    qp_res_t * schema, * qpredundancy, * qpnode, * qpnodes;
 
-    if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
-        !(redundancy = qpx_map_get(res->via.map, "redundancy")) ||
-        !(node = qpx_map_get(res->via.map, "node")) ||
-        !(nodes = qpx_map_get(res->via.map, "nodes")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != thingsdb__fn_schema ||
-        redundancy->tp != QP_RES_INT64 ||
-        node->tp != QP_RES_INT64 ||
-        nodes->tp != QP_RES_ARRAY ||
-        redundancy->via.int64 < 1 ||
-        redundancy->via.int64 > 64 ||
-        node->via.int64 < 0) goto failed;
+    if (    res->tp != QP_RES_MAP ||
+            !(schema = qpx_map_get(res->via.map, "schema")) ||
+            !(qpredundancy = qpx_map_get(res->via.map, "redundancy")) ||
+            !(qpnode = qpx_map_get(res->via.map, "node")) ||
+            !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
+            schema->tp != QP_RES_INT64 ||
+            schema->via.int64 != thingsdb__fn_schema ||
+            qpredundancy->tp != QP_RES_INT64 ||
+            qpnode->tp != QP_RES_INT64 ||
+            qpnodes->tp != QP_RES_ARRAY ||
+            qpredundancy->via.int64 < 1 ||
+            qpredundancy->via.int64 > 64 ||
+            qpnode->via.int64 < 0)
+        goto failed;
 
-    thingsdb.redundancy = (uint8_t) redundancy->via.int64;
+    thingsdb.redundancy = (uint8_t) qpredundancy->via.int64;
+    node_id = (uint8_t) qpnode->via.int64;
 
-    for (uint32_t i = 0; i < nodes->via.array->n; i++)
-    {
-        qp_res_t * itm = nodes->via.array->values + i;
-        qp_res_t * addr, * port;
-        if (itm->tp != QP_RES_ARRAY ||
-            itm->via.array->n != 2 ||
-            !(addr = itm->via.array->values) ||
-            !(port = itm->via.array->values + 1) ||
-            addr->tp != QP_RES_RAW ||
-            port->tp != QP_RES_INT64 ||
-            port->via.int64 < 1 ||
-            port->via.int64 > 65535) goto failed;
+    if (thingsdb_nodes_from_qpres(qpnodes))
+        goto failed;
 
-        char * addrstr = ti_raw_to_str(addr->via.raw);
-        if (!addrstr) goto failed;
+    if (node_id >= thingsdb.nodes->vec->n)
+        goto failed;
 
-        ti_node_t * node = ti_node_create(
-                (uint8_t) i,
-                addrstr,
-                (uint16_t) port->via.int64);
+    thingsdb.node = thingsdb_nodes_node_by_id(node_id);
+    if (!thingsdb.node)
+        goto failed;
 
-        free(addrstr);
-        if (!node || vec_push(&thingsdb.nodes, node)) goto failed;
-    }
-
-    if (node->via.int64 >= thingsdb.nodes->n) goto failed;
-
-    thingsdb.node = (ti_node_t *) vec_get(thingsdb.nodes, (uint32_t) node->via.int64);
+    assert (thingsdb.node->id == node_id);
 
     return 0;
 
 failed:
-    for (vec_each(thingsdb.nodes, ti_node_t, node))
-    {
-        ti_node_drop(node);
-    }
+    log_critical("unpacking has failed (%s)", thingsdb.fn);
     thingsdb.node = NULL;
     return -1;
 }

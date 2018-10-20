@@ -27,9 +27,10 @@ uint64_t thingsdb_events_get_event_id(void);
 struct thingsdb_events_s
 {
     uv_mutex_t lock;
-    uint64_t commit_id;      /* last event id which s commited */
-    uint64_t next_id;        /* next event id */
-    queue_t * queue;         /* queued events */
+    uint64_t commit_event_id;      /* last event id which is committed or 0
+                                      if not event is committed yet */
+    uint64_t next_event_id;        /* next event id, starts at 1 */
+    queue_t * queue;            /* queued events */
     uint64_t archive_offset;
     ti_archive_t * archive;  /* archived (raw) events) */
     uv_async_t evloop_;

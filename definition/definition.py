@@ -1,4 +1,6 @@
 import re
+import sys
+sys.path.insert(0, '../../pyleri')
 from pyleri import (
     Grammar,
     Keyword,
@@ -13,6 +15,8 @@ from pyleri import (
     THIS,
 )
 
+RE_IDENTIFIER = r'^[a-zA-Z_][a-zA-Z0-9_]*'
+
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
         if most_greedy is None:
@@ -21,40 +25,76 @@ class Choice(Choice_):
 
 
 class Definition(Grammar):
-    RE_KEYWORDS = re.compile(r'^[$a-z][a-z_]*')
+    RE_KEYWORDS = re.compile(RE_IDENTIFIER)
 
     r_single_quote_str = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote_str = Regex(r'(?:"(?:[^"]*)")+')
-    r_comment = Regex(r'\/\*.+?\*\/|\/\/.*(?=[\n\r])')
 
-    array_idx = Regex(r'-?[0-9]+')
+    r_int = Regex(r'[-+]?[0-9]+')
+    r_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
+
+    r_comment = Regex(r'(?s)/\\*.*?\\*/')
+
+    array_idx = Regex(r'[-+]?[0-9]+')
     thing_id = Regex(r'[0-9]+')
 
     comment = Optional(Repeat(r_comment))
-    identifier = Regex(r'^[a-z_][a-zA-Z0-9_]*')
+    identifier = Regex(RE_IDENTIFIER)
     string = Choice(r_single_quote_str, r_double_quote_str)
     scope = Ref()
-    action = Ref()
+    chain = Ref()
 
+    primitives = Choice(
+        Keyword('nil'),
+        Keyword('false'),
+        Keyword('true'),
+        r_int,
+        r_float,
+        string
+    )
+
+    auth_flags = List(Choice(
+        Keyword('FULL'),
+        Keyword('ACCCESS'),
+        Keyword('READ'),
+        Keyword('MODIFY'),
+        Regex(r'[0-9]+')), delimiter='|'
+    )
+
+    f_blob = Sequence(Keyword('blob'), '(', Optional(array_idx), ')')
     f_thing = Sequence(Keyword('thing'), '(', Optional(thing_id), ')')
     f_create = Sequence(Keyword('create'), '(', List(identifier, opt=True), ')')
+    f_grant = Sequence(Keyword('grant'), '(', auth_flags, ')')
+    f_revoke = Sequence(Keyword('revoke'), '(', auth_flags, ')')
     f_drop = Sequence(Keyword('drop'), '(', ')')
+    f_delete = Sequence(Keyword('delete'), '(', ')')
     f_rename = Sequence(Keyword('rename'), '(', identifier, ')')
     f_fetch = Sequence(Keyword('fetch'), '(', List(identifier, opt=True), ')')
     f_map = Sequence(Keyword('map'), '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
 
-    functions = Choice(
-        f_create,
-        f_drop,
-        f_rename,
-        f_thing,
-        f_fetch,
-        f_map,
+    action = Choice(
+        Sequence('.', chain),
+        Sequence('=', Choice(primitives, f_blob, scope)),
     )
 
-    action = Choice(
-        Sequence('.', Choice(functions, identifier)),
-        Sequence('=', Choice(string, scope)),
+    chain = Sequence(
+        Choice(
+            f_create,
+            f_drop,
+            f_rename,
+            f_fetch,
+            f_grant,
+            f_revoke,
+            f_delete,
+            f_map,
+            identifier
+        ),
+        Optional(Sequence(
+            '[',
+            Choice(identifier, array_idx),
+            ']'
+        )),
+        Optional(action)
     )
 
     scope = Sequence(
@@ -89,8 +129,7 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('users.create(iris, siri)')
-
+    definition.test('users.create(iris);users.iris.grant(FULL)')
     definition.test('''
         /*
          * Create a database
@@ -103,7 +142,7 @@ if __name__ == '__main__':
         databases.dbtest.drop();
 
         /* Change redundancy */
-        config.redundancy = 3
+        config.redundancy = 3;
 
         /*
          * Finished!
@@ -114,10 +153,6 @@ if __name__ == '__main__':
     definition.test(' users.iris.drop(); ')
 
     definition.test(' users.iris.drop(); ')
-
-
-
-
 
     definition.test( ' databases.dbtest.drop() ')
 
@@ -166,3 +201,11 @@ if __name__ == '__main__':
         }
     }
     definition.test('  databases.create(dbtest);  ')
+
+    c, h = definition.export_c(target='definition', headerf='<definition.h>')
+    with open('../src/definition.c', 'w') as cfile:
+        cfile.write(c)
+
+    with open('../inc/definition.h', 'w') as hfile:
+        hfile.write(h)
+

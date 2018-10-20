@@ -5,19 +5,21 @@
 #include <ti/things.h>
 #include <util/fx.h>
 #include <util/logger.h>
+#include <ti/item.h>
 
 static void ti__things_gc_mark(ti_thing_t * thing);
 
-ti_thing_t * ti_things_create(imap_t * things, uint64_t id)
+ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
 {
-    ti_thing_t * thing = ti_thing_create(id);
+    ti_thing_t * thing = ti_thing_create(id, things);
     if (!thing || imap_add(things, id, thing))
     {
-        ti_things_drop_thing(things, thing);
+        ti_thing_drop(thing);
         return NULL;
     }
     return thing;
 }
+
 
 int ti_things_gc(imap_t * things, ti_thing_t * root)
 {
@@ -171,7 +173,7 @@ int ti_things_restore(imap_t * things, const char * fn)
     {
         uint64_t id;
         memcpy(&id, pt, sizeof(uint64_t));
-        if (!ti_things_create(things, id))
+        if (!ti_things_create_thing(things, id))
             goto failed;
     }
 
@@ -248,7 +250,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
                     }
                     if (vec_push(&things_vec, ti_thing_grab(el)))
                     {
-                        ti_things_drop_thing(things, el);
+                        ti_thing_drop(el);
                         goto failed;
                     }
                 }
@@ -360,7 +362,7 @@ int ti_things_restore_data(imap_t * things, imap_t * props, const char * fn)
 
 failed:
     rc = -1;
-    vec_destroy(things_vec, (vec_destroy_cb) ti_things_drop_thing);
+    vec_destroy(things_vec, (vec_destroy_cb) ti_thing_drop);
     log_critical("failed to restore from file: '%s'", fn);
 done:
     fclose(f);

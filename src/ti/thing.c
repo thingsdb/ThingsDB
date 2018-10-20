@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <ti/thing.h>
 #include <util/logger.h>
+#include <ti/item.h>
 
-ti_thing_t * ti_thing_create(uint64_t id)
+ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
@@ -13,6 +14,7 @@ ti_thing_t * ti_thing_create(uint64_t id)
 
     thing->ref = 1;
     thing->id = id;
+    thing->things = things;
     thing->items = vec_new(0);
     thing->flags = TI_ELEM_FLAG_SWEEP;
     if (!thing->items)
@@ -33,7 +35,7 @@ void ti_thing_drop(ti_thing_t * thing)
 {
     if (thing && !--thing->ref)
     {
-        (void *) imap_pop(things, thing->id);
+        (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->items, (vec_destroy_cb) ti_item_destroy);
         free(thing);
     }

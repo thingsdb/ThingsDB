@@ -165,6 +165,53 @@ void ** smap_getaddr(smap_t * smap, const char * key)
 }
 
 /*
+ * Returns an item or NULL if the key does not exist.
+ */
+void * smap_getn(smap_t * smap, const char * key, size_t n)
+{
+    size_t diff = 1;
+    smap_node_t * nd;
+    uint8_t k = (uint8_t) *key;
+    uint8_t pos = k / SMAP_BSZ;
+
+    if (!n || pos < smap->offset || pos >= smap->offset + smap->n)
+    {
+        return NULL;
+    }
+
+    nd = (*smap->nodes)[k - smap->offset * SMAP_BSZ];
+
+    while (nd)
+    {
+        key += diff;
+        n -= diff;
+
+        if (n < nd->n || memcmp(nd->key, key, nd->n))
+        {
+            return NULL;
+        }
+
+        if (nd->n == n)
+            return nd->data;
+        if (!nd->nodes)
+            return NULL;
+
+        k = (uint8_t) key[nd->n];
+        pos = k / SMAP_BSZ;
+
+        if (pos < nd->offset || pos >= nd->offset + nd->n)
+        {
+            return NULL;
+        }
+
+        diff = nd->n + 1; /* n - diff is at least 0 */
+        nd = (*nd->nodes)[k - nd->offset * SMAP_BSZ];
+    }
+
+    return NULL;
+}
+
+/*
  * Removes and returns an item from the tree or NULL when not found.
  *
  * (re-allocation might fail but this is not critical)

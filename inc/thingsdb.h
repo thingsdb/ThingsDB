@@ -46,8 +46,8 @@ int thingsdb_lock(void);
 int thingsdb_unlock(void);
 int thingsdb_store(const char * fn);
 int thingsdb_restore(const char * fn);
-uint64_t thingsdb_get_next_id(void);
-_Bool thingsdb_has_id(uint64_t id);
+uint64_t thingsdb_next_thing_id(void);
+_Bool thingsdb_manages_id(uint64_t id);
 
 struct thingsdb_s
 {

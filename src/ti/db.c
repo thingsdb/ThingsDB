@@ -8,6 +8,7 @@
 #include <thingsdb.h>
 #include <ti/api.h>
 #include <ti/db.h>
+#include <ti/things.h>
 #include <ti/prop.h>
 #include <ti/thing.h>
 #include <ti/prop.h>
@@ -62,18 +63,11 @@ void ti_db_drop(ti_db_t * db)
 
 int ti_db_buid(ti_db_t * db)
 {
-    ti_thing_t * thing = ti_things_create(db->things, thingsdb_get_next_id());
+    ti_thing_t * thing = ti_things_create_thing(db, thingsdb_next_thing_id());
     if (!thing)
         return -1;
 
-    if (thingsdb_has_id(thing->id))
-    {
-        ti_prop_t * prop = ti_props_get(thingsdb_get()->props, "name");
-        if (!prop || ti_thing_set(thing, prop, TI_VAL_RAW, db->name))
-            return -1;
-    }
-    db->root = ti_thing_grab(thing);
-
+    db->root = thing;
     return 0;
 }
 

@@ -8,6 +8,7 @@ typedef struct ti_db_s  ti_db_t;
 
 #include <stdint.h>
 #include <ti/thing.h>
+#include <ti/raw.h>
 #include <util/imap.h>
 #include <util/guid.h>
 #include <util/ex.h>
@@ -17,7 +18,7 @@ struct ti_db_s
     uint32_t ref;
     guid_t guid;
     ti_raw_t * name;
-    imap_t * things;
+    imap_t * things;        /* weak mapping for things */
     vec_t * access;
     ti_thing_t * root;
 };

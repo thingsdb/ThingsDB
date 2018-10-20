@@ -15,10 +15,11 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/api.h>
 #include <ti/val.h>
 #include <util/vec.h>
+#include <util/imap.h>
 
-ti_thing_t * ti_thing_create(uint64_t id);
+ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
 ti_thing_t * ti_thing_grab(ti_thing_t * thing);
-void ti_thing_destroy(ti_thing_t * thing);
+void ti_thing_drop(ti_thing_t * thing);
 
 int ti_thing_set(ti_thing_t * thing, ti_prop_t * prop, ti_val_e tp, void * v);
 int ti_thing_weak_set(
@@ -37,8 +38,9 @@ struct ti_thing_s
     uint32_t ref;
     uint8_t flags;
     uint8_t pad0;
-    uint16_t db_idx;  /* internal idx in thingsdb->dbs */
+    uint16_t pad1;
     uint64_t id;
+    imap_t * things;       /* thing is added to this map */
     vec_t * items;
 };
 

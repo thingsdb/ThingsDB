@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 void strx_upper_case(char * sptr);
 void strx_lower_case(char * sptr);

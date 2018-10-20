@@ -72,6 +72,7 @@ int thingsdb_nodes_from_qpres(qp_res_t * qpnodes)
         if (!thingsdb_nodes_create_node(addr))
             return -1;
     }
+    return 0;
 }
 
 

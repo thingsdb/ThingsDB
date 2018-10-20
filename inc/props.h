@@ -10,7 +10,7 @@
 
 int thingsdb_props_create(void);
 void thingsdb_props_destroy(void);
-ti_prop_t * thingsdb_props_get(const char * name);
+ti_prop_t * thingsdb_props_get(const char * name, size_t n);
 int thingsdb_props_store(const char * fn);
 imap_t * thingsdb_props_restore(const char * fn);
 #endif /* TI_PROPS_H_ */

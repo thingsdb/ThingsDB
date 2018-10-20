@@ -10,6 +10,7 @@
 #include <ti/access.h>
 #include <ti/store.h>
 #include <ti/things.h>
+#include <dbs.h>
 #include <users.h>
 #include <util/fx.h>
 #include <util/imap.h>
@@ -45,13 +46,13 @@ int ti_store(void)
     char * data_fn = NULL;
 
     char * tmp_path = fx_path_join(
-            thingsdb->cfg->ti_path,
+            thingsdb->cfg->store_path,
             ti__store_tmp_path);
     char * prev_path = fx_path_join(
-            thingsdb->cfg->ti_path,
+            thingsdb->cfg->store_path,
             ti__store_prev_path);
     char * store_path = fx_path_join(
-            thingsdb->cfg->ti_path,
+            thingsdb->cfg->store_path,
             ti__store_path);
     if (!tmp_path || !prev_path || !store_path) goto stop;
 
@@ -69,7 +70,7 @@ int ti_store(void)
         thingsdb_props_store(props_fn) ||
         thingsdb_users_store(users_fn) ||
         ti_access_store(thingsdb->access, access_fn) ||
-        ti_dbs_store(thingsdb->dbs, dbs_fn))
+        thingsdb_dbs_store(dbs_fn))
         goto stop;
 
     for (vec_each(thingsdb->dbs, ti_db_t, db))
@@ -154,7 +155,7 @@ int ti_restore(void)
     char * dbs_fn = NULL;
     char * db_path = NULL;
     imap_t * propsmap = NULL;
-    char * store_path = fx_path_join(thingsdb->cfg->ti_path, ti__store_path);
+    char * store_path = fx_path_join(thingsdb->cfg->store_path, ti__store_path);
     if (!store_path) goto stop;
 
     users_fn = fx_path_join(store_path, ti__store_users_fn);
@@ -162,11 +163,12 @@ int ti_restore(void)
     access_fn = fx_path_join(store_path, ti__store_access_fn);
     dbs_fn = fx_path_join(store_path, ti__store_dbs_fn);
 
-    if (!users_fn || !ti_fn || !access_fn || !dbs_fn ||
-        thingsdb_restore(ti_fn) ||
-        thingsdb_users_restore(users_fn) ||
-        ti_access_restore(&thingsdb->access, thingsdb->users, access_fn) ||
-        ti_dbs_restore(&thingsdb->dbs, dbs_fn)) goto stop;
+    if (    !users_fn || !ti_fn || !access_fn || !dbs_fn ||
+            thingsdb_restore(ti_fn) ||
+            thingsdb_users_restore(users_fn) ||
+            ti_access_restore(&thingsdb->access, access_fn) ||
+            thingsdb_dbs_restore(dbs_fn))
+        goto stop;
 
     for (vec_each(thingsdb->dbs, ti_db_t, db))
     {
@@ -198,8 +200,8 @@ int ti_restore(void)
         data_fn = fx_path_join(db_path, ti__store_data_fn);
 
         if (!access_fn || !props_fn || !things_fn || !db_fn ||
-            !(propsmap = ti_props_restore(db->props, props_fn)) ||
-            ti_access_restore(&db->access, thingsdb->users, access_fn) ||
+            !(propsmap = thingsdb_props_restore(props_fn)) ||
+            ti_access_restore(&db->access, access_fn) ||
             ti_things_restore(db->things, things_fn) ||
             ti_db_restore(db, db_fn) ||
             ti_things_restore_skeleton(db->things, propsmap, skeleton_fn) ||

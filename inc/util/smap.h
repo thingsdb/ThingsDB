@@ -28,6 +28,7 @@ void smap_destroy(smap_t * smap, smap_destroy_cb cb);
 int smap_add(smap_t * smap, const char * key, void * data);
 void * smap_get(smap_t * node, const char * key);
 void ** smap_getaddr(smap_t * smap, const char * key);
+void * smap_getn(smap_t * smap, const char * key, size_t n);
 void * smap_pop(smap_t * smap, const char * key);
 size_t smap_longest_key_size(smap_t * smap);
 int smap_items(smap_t * smap, char * buf, smap_item_cb cb, void * arg);

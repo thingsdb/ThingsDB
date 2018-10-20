@@ -1,8 +1,5 @@
 /*
  * req.h
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #ifndef TI_REQ_H_
 #define TI_REQ_H_
@@ -10,7 +7,9 @@
 typedef struct ti_req_s ti_req_t;
 
 #include <uv.h>
-#include <ti/node.h>#include <<ti/pkg.h>include <util/ex.h>
+#include <ti/node.h>
+#include <ti/pkg.h>
+#include <util/ex.h>
 
 typedef void (*ti_req_cb)(ti_req_t * req, ex_e status);
 

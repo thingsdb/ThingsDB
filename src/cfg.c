@@ -12,6 +12,8 @@
 #include <util/cfgparser.h>
 #include <util/logger.h>
 #include <util/strx.h>
+#include <thingsdb.h>
+#include <ti/tcp.h>
 
 static ti_cfg_t * cfg;
 static const char * ti__cfg_section = "thingsdb";
@@ -89,17 +91,17 @@ int ti_cfg_parse(ti_cfg_t * cfg, const char * cfg_file)
                     parser,
                     cfg_file,
                     "bind_client_addr",
-                    cfg->bind_client_addr)) ||
+                    &cfg->bind_client_addr)) ||
             (rc = ti__cfg_str(
                     parser,
                     cfg_file,
                     "bind_node_addr",
-                    cfg->bind_node_addr)) ||
+                    &cfg->bind_node_addr)) ||
             (rc = ti__cfg_str(
                     parser,
                     cfg_file,
                     "pipe_client_name",
-                    cfg->pipe_client_name)))
+                    &cfg->pipe_client_name)))
         goto exit_parse;
 
     ti__cfg_port(parser, cfg_file, "listen_client_port", &cfg->client_port);
@@ -280,7 +282,6 @@ static int ti__cfg_str(
 {
     cfgparser_option_t * option;
     cfgparser_return_t rc;
-    size_t len;
     rc = cfgparser_get_option(&option, parser, ti__cfg_section, option_name);
     if (rc != CFGPARSER_SUCCESS)
     {

@@ -95,7 +95,7 @@ stop:
     return rc;
 }
 
-int ti_access_restore(vec_t ** access, const vec_t * users, const char * fn)
+int ti_access_restore(vec_t ** access, const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
@@ -135,7 +135,7 @@ int ti_access_restore(vec_t ** access, const vec_t * users, const char * fn)
             user_id->tp != QP_RES_INT64 ||
             mask->tp != QP_RES_INT64) goto stop;
 
-        user = ti_users_get_by_id(users, (uint64_t) user_id->via.int64);
+        user = thingsdb_users_get_by_id((uint64_t) user_id->via.int64);
         if (!user)
         {
             log_critical("missing user id: %"PRId64, user_id->via.int64);

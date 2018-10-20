@@ -6,7 +6,6 @@
 C_SRCS += \
 ../src/ti/access.c \
 ../src/ti/archive.c \
-../src/ti/args.c \
 ../src/ti/auth.c \
 ../src/ti/back.c \
 ../src/ti/db.c \
@@ -40,7 +39,6 @@ C_SRCS += \
 OBJS += \
 ./src/ti/access.o \
 ./src/ti/archive.o \
-./src/ti/args.o \
 ./src/ti/auth.o \
 ./src/ti/back.o \
 ./src/ti/db.o \
@@ -74,7 +72,6 @@ OBJS += \
 C_DEPS += \
 ./src/ti/access.d \
 ./src/ti/archive.d \
-./src/ti/args.d \
 ./src/ti/auth.d \
 ./src/ti/back.d \
 ./src/ti/db.d \

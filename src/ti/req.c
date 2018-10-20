@@ -40,7 +40,7 @@ int ti_req(
         uv_timer_start(&req->timer, ti__req_timeout, timeout, 0)
     ) goto failed;
 
-    if (ti_write(node->sock, pkg, req, ti__req_write_cb)) goto cancel;
+    if (ti_write(node->stream, pkg, req, ti__req_write_cb)) goto cancel;
 
     return 0;
 

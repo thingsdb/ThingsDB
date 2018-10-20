@@ -12,8 +12,6 @@ typedef enum
     TI_STREAM_TCP_OUT_NODE,     /* TCP connection to other node */
     TI_STREAM_TCP_IN_NODE,      /* TCP connection from other node */
     TI_STREAM_TCP_IN_CLIENT,    /* TCP connection from client */
-    TI_STREAM_PIPE_OUT_NODE,    /* PIPE connection to other node */
-    TI_STREAM_PIPE_IN_NODE,     /* PIPE connection from other node */
     TI_STREAM_PIPE_IN_CLIENT,   /* PIPE connection from client */
 } ti_stream_e;
 

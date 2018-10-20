@@ -39,7 +39,7 @@ ti_maint_t * ti_maint_new(void)
 int ti_maint_start(ti_maint_t * maint)
 {
     maint->status = TI_MAINT_STAT_READY;
-    maint->last_commit = thingsdb_get()->events->commit_id;
+    maint->last_commit = thingsdb_get()->events->commit_event_id;
     return (uv_timer_init(tingsdb_loop(), &maint->timer) ||
             uv_timer_start(
                 &maint->timer,
@@ -61,7 +61,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 {
     ti_maint_t * maint = (ti_maint_t *) timer->data;
     thingsdb_t * thingsdb = thingsdb_get();
-    uint64_t commit_id = thingsdb->events->commit_id;
+    uint64_t commit_id = thingsdb->events->commit_event_id;
 
     if (maint->status == TI_MAINT_STAT_WAIT)
     {
@@ -73,7 +73,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
         maint->last_commit == commit_id ||
         !ti_nodes_has_quorum(thingsdb->nodes)) return;
 
-    for (vec_each(thingsdb->nodes, ti_node_t, node))
+    for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
         if (node == thingsdb->node) continue;
 
@@ -96,7 +96,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
         if (ti__maint_cmp(
                 node->id,
                 thingsdb->node->id,
-                thingsdb->nodes->n,
+                thingsdb->nodes->vec->n,
                 commit_id) > 0)
         {
             log_debug("node '%s' wins on the maintenance counter", node->addr);
@@ -116,7 +116,7 @@ static int ti__maint_reg(ti_maint_t * maint)
     thingsdb_t * thingsdb = thingsdb_get();
     maint->status = TI_MAINT_STAT_REG;
     ti_prom_t * prom = ti_prom_new(
-            thingsdb->nodes->n - 1,
+            thingsdb->nodes->vec->n - 1,
             maint,
             ti__maint_on_reg_cb);
     qpx_packer_t * xpkg = qpx_packer_create(8);
@@ -124,9 +124,9 @@ static int ti__maint_reg(ti_maint_t * maint)
         !xpkg ||
         qp_add_int64(xpkg, (int64_t) thingsdb->node->maintn)) goto failed;
 
-    ti_pkg_t * pkg = qpx_packer_pkg(xpkg, TI_BACK_EVENT_UPD);
+    ti_pkg_t * pkg = qpx_packer_pkg(xpkg, 0);  /* TODO: TI_BACK_EVENT_UPD */
 
-    for (vec_each(thingsdb->nodes, ti_node_t, node))
+    for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
         if (node == thingsdb->node) continue;
         if (node->status <= TI_NODE_STAT_CONNECTED || ti_req(
@@ -163,7 +163,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
         ti_prom_res_t * res = &prom->res[i];
         ti_req_t * req = (ti_req_t *) res->handle;
         free(i ? NULL : req->pkg_req);
-        if (res->status || req->pkg_res->tp == TI_PROTO_REJECT)
+        if (res->status || req->pkg_res->tp == 0)  /* TODO: TI_PROTO_REJECT */
         {
             accept = 0;
         }
@@ -218,7 +218,7 @@ static void ti__maint_work(uv_work_t * work)
 
     ti_store();
 
-    maint->last_commit = thingsdb->events->commit_id;
+    maint->last_commit = thingsdb->events->commit_event_id;
 
     log_debug("maintenance job: finished storing data");
 

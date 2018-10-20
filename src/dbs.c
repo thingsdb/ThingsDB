@@ -49,64 +49,64 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
     return NULL;
 }
 
-void thingsdb_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
-{
-    qp_obj_t target;
-    qp_obj_t qid;
-    qp_unpacker_t unpacker;
-
-    qpx_unpacker_init(&unpacker, pkg->data, pkg->n);
-
-    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
-        !qp_is_raw(qp_next(&unpacker, &target)) ||
-        !qp_is_int(qp_next(&unpacker, &qid)))
-    {
-        ex_set(e, TI_PROTO_TYPE_ERR, "invalid get request");
-        return;
-    }
-
-    ti_db_t * db = thingsdb_dbs_get_by_obj(&target);
-    if (!db)
-    {
-        ex_set(e, TI_PROTO_INDX_ERR, "cannot find database: `%.*s`",
-                (int) target.len, target.via.raw);
-        return;
-    }
-
-    uint64_t id = (uint64_t) qid.via.int64;
-
-    ti_thing_t * thing = (qid.via.int64 < 0) ?
-            db->root : (ti_thing_t *) imap_get(db->things, id);
-
-    if (!thing)
-    {
-        ex_set(e, TI_PROTO_INDX_ERR, "cannot find thing: `%"PRIu64"`", id);
-        return;
-    }
-
-    if (thingsdb_has_id(thing->id))
-    {
-        qpx_packer_t * packer = qpx_packer_create(64);
-        if (!packer || ti_thing_to_packer(thing, packer))
-        {
-            ex_set_alloc(e);
-            return;
-        }
-
-        ti_pkg_t * resp = qpx_packer_pkg(packer, TI_PROTO_ELEM);
-        resp->id = pkg->id;
-
-        if (!resp || ti_front_write(sock, resp))
-        {
-            free(resp);
-            log_error(EX_ALLOC);
-        }
-
-        return;
-    }
-
-    assert (0 && sock); /* TODO: how should a get request look like? */
-}
+//void thingsdb_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
+//{
+//    qp_obj_t target;
+//    qp_obj_t qid;
+//    qp_unpacker_t unpacker;
+//
+//    qpx_unpacker_init(&unpacker, pkg->data, pkg->n);
+//
+//    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
+//        !qp_is_raw(qp_next(&unpacker, &target)) ||
+//        !qp_is_int(qp_next(&unpacker, &qid)))
+//    {
+//        ex_set(e, TI_PROTO_TYPE_ERR, "invalid get request");
+//        return;
+//    }
+//
+//    ti_db_t * db = thingsdb_dbs_get_by_obj(&target);
+//    if (!db)
+//    {
+//        ex_set(e, TI_PROTO_INDX_ERR, "cannot find database: `%.*s`",
+//                (int) target.len, target.via.raw);
+//        return;
+//    }
+//
+//    uint64_t id = (uint64_t) qid.via.int64;
+//
+//    ti_thing_t * thing = (qid.via.int64 < 0) ?
+//            db->root : (ti_thing_t *) imap_get(db->things, id);
+//
+//    if (!thing)
+//    {
+//        ex_set(e, TI_PROTO_INDX_ERR, "cannot find thing: `%"PRIu64"`", id);
+//        return;
+//    }
+//
+//    if (thingsdb_manages_id(thing->id))
+//    {
+//        qpx_packer_t * packer = qpx_packer_create(64);
+//        if (!packer || ti_thing_to_packer(thing, packer))
+//        {
+//            ex_set_alloc(e);
+//            return;
+//        }
+//
+//        ti_pkg_t * resp = qpx_packer_pkg(packer, TI_PROTO_ELEM);
+//        resp->id = pkg->id;
+//
+//        if (!resp || ti_front_write(sock, resp))
+//        {
+//            free(resp);
+//            log_error(EX_ALLOC);
+//        }
+//
+//        return;
+//    }
+//
+//    assert (0 && sock); /* TODO: how should a get request look like? */
+//}
 
 int thingsdb_dbs_store(const char * fn)
 {

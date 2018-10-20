@@ -39,7 +39,9 @@ typedef enum
      * protocol definition for node connections
      */
     TI_PROTO_NODE_REQ_PING      =128,   /* empty */
-    TI_PROTO_NODE_REQ_AUTH_REQ  =129,   /* {user:.. password:..}     */
+    TI_PROTO_NODE_REQ_AUTH      =129,   /* {user:.. password:..}     */
+
+    TI_PROTO_NODE_ERR_REJECT    =192,
 
 } ti_proto_e;
 

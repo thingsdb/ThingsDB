@@ -25,13 +25,13 @@ void thingsdb_props_destroy(void)
     props = thingsdb_get()->props = NULL;
 }
 
-ti_prop_t * thingsdb_props_get(const char * name)
+ti_prop_t * thingsdb_props_get(const char * name, size_t n)
 {
-    ti_prop_t * prop = smap_get(props, name);
+    ti_prop_t * prop = smap_getn(props, name, n);
     if (!prop)
     {
-        prop = ti_prop_create(name);
-        if (!prop || smap_add(props, name, prop))
+        prop = ti_prop_create(name, n);
+        if (!prop || smap_add(props, prop->name, prop))
         {
             ti_prop_destroy(prop);
             return NULL;

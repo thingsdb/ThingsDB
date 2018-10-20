@@ -11,6 +11,7 @@
 
 typedef enum
 {
+    EX_TYPE_ERROR           =-6,
     EX_USER_AUTH            =-5,
     EX_REQUEST_TIMEOUT      =-4,
     EX_REQUEST_CANCEL       =-3,
@@ -30,6 +31,6 @@ struct ex_s
     char msg[EX_MSG_SZ];
 };
 
-#define ex_set_alloc(e__) ex_set((e__), TI_PROTO_RUNT_ERR, EX_ALLOC)
+#define ex_set_alloc(e__) ex_set((e__), EX_MEMORY_ALLOCATION, EX_ALLOC)
 
 #endif /* EX_H_ */

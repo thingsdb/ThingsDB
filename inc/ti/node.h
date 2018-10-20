@@ -40,12 +40,12 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
 ti_node_t * ti_node_grab(ti_node_t * node);
 void ti_node_drop(ti_node_t * node);
 int ti_node_write(ti_node_t * node, ti_pkg_t * pkg);
-static inline _Bool ti_node_has_id(
+static inline _Bool ti_node_manages_id(
         ti_node_t * node,
         ti_lookup_t * lookup,
         uint64_t id);
 
-static inline _Bool ti_node_has_id(
+static inline _Bool ti_node_manages_id(
         ti_node_t * node,
         ti_lookup_t * lookup,
         uint64_t id)

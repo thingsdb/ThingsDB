@@ -6,6 +6,8 @@
 
 #include <util/vec.h>
 #include <uv.h>
+#include <ti/stream.h>
+#include <ti/pkg.h>
 
 typedef struct thingsdb_clients_s thingsdb_clients_t;
 

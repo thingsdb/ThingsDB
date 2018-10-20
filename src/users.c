@@ -34,16 +34,10 @@ ti_user_t * thingsdb_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
     char pw[CRYPTX_SZ];
 
     if (name->len < ti_min_name || name->len >= ti_max_name)
-    {
-        ex_set(e, TI_PROTO_AUTH_ERR, "invalid user");
-        return NULL;
-    }
+        goto failed;
 
     if (pass->len < ti_min_pass || pass->len >= ti_max_pass)
-    {
-        ex_set(e, TI_PROTO_AUTH_ERR, "invalid password");
-        return NULL;
-    }
+        goto failed;
 
     for (vec_each(*users, ti_user_t, user))
     {
@@ -54,15 +48,13 @@ ti_user_t * thingsdb_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 
             cryptx(passbuf, user->pass, pw);
             if (strcmp(pw, user->pass))
-            {
-                ex_set(e, TI_PROTO_AUTH_ERR, "incorrect password");
-                return NULL;
-            }
+                goto failed;
             return user;
         }
     }
 
-    ex_set(e, TI_PROTO_AUTH_ERR, "user not found");
+failed:
+    ex_set(e, EX_USER_AUTH, "invalid user or password");
     return NULL;
 }
 

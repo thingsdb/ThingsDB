@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <util/cryptx.h>
 #include <util/strx.h>
+#include <ti/user.h>
 
 const char * ti_user_def_name = "iris";
 const char * ti_user_def_pass = "siri";
@@ -17,13 +18,15 @@ ti_user_t * ti_user_create(
         const ti_raw_t * name,
         const char * encrpass)
 {
-    ti_user_t * user = (ti_user_t *) malloc(sizeof(ti_user_t));
-    if (!user) return NULL;
+    ti_user_t * user = malloc(sizeof(ti_user_t));
+    if (!user)
+        return NULL;
 
     user->id = id;
     user->ref = 1;
     user->name = ti_raw_dup(name);
     user->pass = strdup(encrpass);
+    user->data = NULL;
 
     if (!user->name || !user->pass)
     {
@@ -46,6 +49,7 @@ void ti_user_drop(ti_user_t * user)
     {
         free(user->pass);
         free(user->name);
+        /* TODO: free  user->data */
         free(user);
     }
 }
@@ -116,7 +120,8 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
 
     /* replace user password with encrypted password */
     password = strdup(encrypted);
-    if (!password) return -1;
+    if (!password)
+        return -1;
     free(user->pass);
     user->pass = password;
 

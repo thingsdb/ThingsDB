@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <thingsdb.h>
 
 #define DEFAULT_LOG_FILE_MAX_SIZE 50000000
 #define DEFAULT_LOG_FILE_NUM_BACKUPS 6

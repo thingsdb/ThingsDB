@@ -120,7 +120,6 @@ int thingsdb_build(void)
 {
     ex_t * e = ex_use();
     int rc = -1;
-    ti_event_t * event = NULL;
     qp_packer_t * packer = ti_misc_init_query();
     if (!packer)
         return -1;
@@ -133,36 +132,31 @@ int thingsdb_build(void)
     if (!thingsdb.node)
         goto stop;
 
-    event = ti_event_create(thingsdb.events);
-    if (!event)
+    if (thingsdb_save())
         goto stop;
 
-    event->id = event->events->next_id;
-
-    if (thingsdb_save()) goto stop;
-
-    ti_event_raw(event, packer->buffer, packer->len, e);
-    if (e->nr)
-    {
-        log_critical(e->msg);
-        goto stop;
-    }
-
-    if (ti_event_run(event) != 2 || ti_store()) goto stop;
+//    ti_event_raw(event, packer->buffer, packer->len, e);
+//    if (e->nr)
+//    {
+//        log_critical(e->msg);
+//        goto stop;
+//    }
+//
+//    if (ti_event_run(event) != 2 || ti_store())
+//        goto stop;
 
     rc = 0;
 
 stop:
     if (rc)
     {
-        fx_rmdir(thingsdb.cfg->ti_path);
-        mkdir(thingsdb.cfg->ti_path, 0700);  /* no error checking required */
+        fx_rmdir(thingsdb.cfg->store_path);
+        mkdir(thingsdb.cfg->store_path, 0700); /* no error checking required */
         ti_node_drop(thingsdb.node);
         thingsdb.node = NULL;
         vec_pop(thingsdb.nodes);
     }
     qp_packer_destroy(packer);
-    ti_event_destroy(event);
     return rc;
 }
 
@@ -190,7 +184,7 @@ int thingsdb_read(void)
         goto stop;
     }
     thingsdb.lookup = ti_lookup_create(
-            thingsdb.nodes->n,
+            thingsdb.nodes->vec->n,
             thingsdb.redundancy,
             thingsdb.nodes);
     if (!thingsdb.lookup) return -1;
@@ -206,14 +200,14 @@ int thingsdb_run(void)
 
     if (ti_events_init(thingsdb.events) ||
         ti_signals_init() ||
-        ti_back_listen(thingsdb.back))
+        thingsdb_nodes_listen())
     {
         ti_term(SIGTERM);
     }
 
     if (thingsdb.node)
     {
-        if (ti_front_listen(thingsdb.front) || ti_maint_start(thingsdb.maint))
+        if (thingsdb_clients_listen() || ti_maint_start(thingsdb.maint))
         {
             ti_term(SIGTERM);
         }
@@ -248,7 +242,7 @@ int thingsdb_save(void)
 
 int thingsdb_lock(void)
 {
-    lock_t rc = lock_lock(thingsdb.cfg->ti_path, LOCK_FLAG_OVERWRITE);
+    lock_t rc = lock_lock(thingsdb.cfg->store_path, LOCK_FLAG_OVERWRITE);
 
     switch (rc)
     {
@@ -257,13 +251,13 @@ int thingsdb_lock(void)
     case LOCK_WRITE_ERR:
     case LOCK_READ_ERR:
     case LOCK_MEM_ALLOC_ERR:
-        log_error("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
+        log_error("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
         return -1;
     case LOCK_NEW:
-        log_info("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
+        log_info("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
         break;
     case LOCK_OVERWRITE:
-        log_warning("%s (%s)", lock_str(rc), thingsdb.cfg->ti_path);
+        log_warning("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
         break;
     default:
         break;
@@ -276,7 +270,7 @@ int thingsdb_unlock(void)
 {
     if (thingsdb.flags & THINGSDB_FLAG_LOCKED)
     {
-        lock_t rc = lock_unlock(thingsdb.cfg->ti_path);
+        lock_t rc = lock_unlock(thingsdb.cfg->store_path);
         if (rc != LOCK_REMOVED)
         {
             log_error(lock_str(rc));
@@ -295,10 +289,10 @@ int thingsdb_store(const char * fn)
     if (qp_add_map(&packer) ||
         qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, thingsdb__fn_store_schema) ||
-        qp_add_raw_from_str(packer, "commit_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb.events->commit_id) ||
-        qp_add_raw_from_str(packer, "next_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb.next_id_) ||
+        qp_add_raw_from_str(packer, "commit_event_id") ||
+        qp_add_int64(packer, (int64_t) thingsdb.events->commit_event_id) ||
+        qp_add_raw_from_str(packer, "next_thing_id") ||
+        qp_add_int64(packer, (int64_t) thingsdb.next_thing_id) ||
         qp_close_map(packer)) goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
@@ -327,20 +321,21 @@ int thingsdb_restore(const char * fn)
         return -1;
     }
 
-    qp_res_t * schema, * commit_id, * next_id;
+    qp_res_t * schema, * qpcommit_event_id, * qpnext_thing_id;
 
     if (res->tp != QP_RES_MAP ||
         !(schema = qpx_map_get(res->via.map, "schema")) ||
-        !(commit_id = qpx_map_get(res->via.map, "commit_id")) ||
-        !(next_id = qpx_map_get(res->via.map, "next_id")) ||
+        !(qpcommit_event_id = qpx_map_get(res->via.map, "commit_event_id")) ||
+        !(qpnext_thing_id = qpx_map_get(res->via.map, "next_thing_id")) ||
         schema->tp != QP_RES_INT64 ||
         schema->via.int64 != thingsdb__fn_store_schema ||
-        commit_id->tp != QP_RES_INT64 ||
-        next_id->tp != QP_RES_INT64) goto stop;
+        qpcommit_event_id->tp != QP_RES_INT64 ||
+        qpnext_thing_id->tp != QP_RES_INT64)
+        goto stop;
 
-    thingsdb.events->commit_id = (uint64_t) commit_id->via.int64;
-    thingsdb.events->next_id = thingsdb.events->commit_id;
-    thingsdb.next_id_ = (uint64_t) next_id->via.int64;
+    thingsdb.events->commit_event_id = (uint64_t) qpcommit_event_id->via.int64;
+    thingsdb.events->next_event_id = thingsdb.events->commit_event_id + 1;
+    thingsdb.next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
 
     rc = 0;
 
@@ -350,14 +345,14 @@ stop:
     return rc;
 }
 
-uint64_t thingsdb_get_next_id(void)
+uint64_t thingsdb_next_thing_id(void)
 {
-    return thingsdb.next_id_++;
+    return thingsdb.next_thing_id++;
 }
 
-_Bool thingsdb_has_id(uint64_t id)
+_Bool thingsdb_manages_id(uint64_t id)
 {
-    return ti_node_has_id(thingsdb.node, thingsdb.lookup, id);
+    return ti_node_manages_id(thingsdb.node, thingsdb.lookup, id);
 }
 
 static qp_packer_t * thingsdb__pack(void)

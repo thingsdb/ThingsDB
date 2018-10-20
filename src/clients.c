@@ -4,10 +4,16 @@
 #include <clients.h>
 #include <thingsdb.h>
 #include <ti/node.h>
+#include <ti/write.h>
+#include <ti/proto.h>
+#include <users.h>
 #include <stdbool.h>
+#include <thingsdb.h>
+#include <assert.h>
 
 static thingsdb_clients_t * clients;
 
+static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status);
 static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status);
 static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 static void thingsdb__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
@@ -123,15 +129,15 @@ static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP client connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &thingsdb__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &thingsdb__clients_pkg_cb);
 
     if (!stream)
         return;
 
-    uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) stream->uvstream);
-    if (uv_accept(uvstream, stream->uvstream) == 0)
+    uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
     }
     else
     {
@@ -151,15 +157,15 @@ static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status
 
     log_debug("received a PIPE client connection");
 
-    stream = ti_stream_create(TI_STREAM_PIPE_IN_NODE, &thingsdb__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &thingsdb__clients_pkg_cb);
 
     if (!stream)
         return;
 
-    uv_pipe_init(thingsdb_get()->loop, (uv_pipe_t *) stream->uvstream, 0);
-    if (uv_accept(uvstream, stream->uvstream) == 0)
+    uv_pipe_init(thingsdb_get()->loop, (uv_pipe_t *) &stream->uvstream, 0);
+    if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
     }
     else
     {
@@ -188,7 +194,7 @@ static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 static void thingsdb__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
-    if (!resp || ti_fthingsdb_write(stream, resp))
+    if (!resp || thingsdb_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);
@@ -212,15 +218,15 @@ static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
         resp = ti_pkg_err(pkg->id, e);
         goto finish;
     }
-    user = thingsdb_users_auth(thingsdb_get()->users, &name, &pass, e);
+    user = thingsdb_users_auth(&name, &pass, e);
     if (e->nr)
     {
         assert (user == NULL);
         log_warning(
                 "authentication failed: `%s` (source: `%s`)",
                 e->msg,
-                ti_stream_addr(stream));
-        resp = ti_pkg_err(pkg->id, e->nr, e->msg);
+                ti_stream_name(stream));
+        resp = ti_pkg_err(pkg->id, e);
     }
     else
     {
@@ -232,7 +238,7 @@ static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
 finish:
-    if (!resp || ti_front_write(stream, resp))
+    if (!resp || thingsdb_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);

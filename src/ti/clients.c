@@ -42,7 +42,7 @@ int ti_clients_listen(void)
     int rc;
     ti_t * thingsdb = ti_get();
     ti_cfg_t * cfg = thingsdb->cfg;
-    struct sockaddr_storage addr;
+    struct sockaddr_storage addr = {0};
     _Bool is_ipv6 = false;
     char * ip;
 
@@ -213,7 +213,7 @@ static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_raw(qp_next(&unpacker, &name)) ||
             !qp_is_raw(qp_next(&unpacker, &pass)))
     {
-        ex_set(e, EX_USER_AUTH, "invalid authentication request");
+        ex_set(e, EX_INVALID_DATA, "invalid authentication request");
         log_error("%s from `%s`", e->msg, ti_stream_name(stream));
         resp = ti_pkg_err(pkg->id, e);
         goto finish;

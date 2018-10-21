@@ -15,10 +15,12 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_CLIENT_RES_AUTH:      return "CLIENT_RES_AUTH";
     case TI_PROTO_CLIENT_RES_QUERY:     return "CLIENT_RES_QUERY";
     case TI_PROTO_CLIENT_ERR_AUTH:      return "CLIENT_ERR_AUTH";
-    case TI_PROTO_CLIENT_ERR_NODE:      return "CLIENT_ERR_NODE";
+    case TI_PROTO_CLIENT_ERR_FORBIDDEN: return "CLIENT_ERR_FORBIDDEN";
+    case TI_PROTO_CLIENT_ERR_INDEX:     return "CLIENT_ERR_INDEX";
+    case TI_PROTO_CLIENT_ERR_INVALID:   return "CLIENT_ERR_INVALID";
     case TI_PROTO_CLIENT_ERR_QUERY:     return "CLIENT_ERR_QUERY";
-    case TI_PROTO_CLIENT_ERR_TARGET:    return "CLIENT_ERR_TARGET";
-    case TI_PROTO_CLIENT_ERR_RUNTIME:   return "CLIENT_ERR_RUNTIME";
+    case TI_PROTO_CLIENT_ERR_NODE:      return "CLIENT_ERR_NODE";
+    case TI_PROTO_CLIENT_ERR_INTERNAL:  return "CLIENT_ERR_INTERNAL";
     case TI_PROTO_NODE_REQ_PING:        return "NODE_REQ_PING";
     case TI_PROTO_NODE_REQ_AUTH:        return "NODE_REQ_AUTH";
     case TI_PROTO_NODE_ERR_REJECT:      return "NODE_ERR_REJECT";

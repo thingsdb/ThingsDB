@@ -27,7 +27,7 @@ int main(int argc, char * argv[])
     tzset();
 
     rc = ti_create();
-    if (!rc)
+    if (rc)
         goto stop;
 
     ti = ti_get();
@@ -98,7 +98,7 @@ int main(int argc, char * argv[])
 
         if ((rc = ti_store_restore()))
         {
-            printf("error loading tin pool\n");
+            printf("error loading ThingsDB pool\n");
             goto stop;
         }
     }

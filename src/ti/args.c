@@ -25,15 +25,13 @@ int ti_args_create(void)
     args = calloc(1, sizeof(ti_args_t));
     if (!args)
         return -1;
-    printf("!!!!\n\n HERE%s \n\n", args->config);
     args->version = 0;
-    strcpy(args->config, "a");
+    strcpy(args->config, "");
     strcpy(args->log_level, "");
     args->log_colorized = 0;
     args->init = 0;
     ti_get()->args = args;
 
-    printf("!!!!\n\n HERE%s \n\n", args->config);
     return 0;
 }
 
@@ -49,8 +47,6 @@ int ti_args_parse(int argc, char *argv[])
     argparse_t * parser = argparse_create();
     if (!parser)
         return -1;
-
-    printf("!!!!\n\n HERE%s \n\n", ti_get()->args->config);
 
     argparse_argument_t config_ = {
             name: "config",

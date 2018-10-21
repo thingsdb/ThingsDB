@@ -1,28 +1,28 @@
-///*
-// * event.c
-// */
-//#include <assert.h>
-//#include <dbs.h>
-//#include <stdbool.h>
-//#include <nodes.h>
-//#include <stdlib.h>
-//#include <qpack.h>
-//#include <thingsdb.h>
-//#include <ti/access.h>
-//#include <ti/event.h>
-//#include <ti/proto.h>
-//#include <ti/req.h>
-//#include <ti/task.h>
-//#include <util/ex.h>
-//#include <util/link.h>
-//#include <util/qpx.h>
-//#include <util/queue.h>
-//
+/*
+ * event.c
+ */
+#include <assert.h>
+#include <ti/dbs.h>
+#include <stdbool.h>
+#include <ti/nodes.h>
+#include <stdlib.h>
+#include <qpack.h>
+#include <ti/db.h>
+#include <ti/access.h>
+#include <ti/event.h>
+#include <ti/proto.h>
+#include <ti/req.h>
+#include <ti/task.h>
+#include <util/ex.h>
+#include <util/link.h>
+#include <util/qpx.h>
+#include <util/queue.h>
+
 //const int ti__event_reg_timeout = 10;
 //const int ti__event_upd_timeout = 10;
 //const int ti__event_ready_timeout = 30;
 //const int ti__event_cancel_timeout = 5;
-//
+
 //static int ti__event_to_queue(ti_event_t * event);
 //static int ti__event_reg(ti_event_t * event);
 //static int ti__event_upd(ti_event_t * event, uint64_t prev_id);
@@ -36,57 +36,57 @@
 //        ti_event_t * event,
 //        qp_unpacker_t * unpacker,
 //        ex_t * e);
-//
-//ti_event_t * ti_event_create(void)
-//{
-//    ti_event_t * event = malloc(sizeof(ti_event_t));
-//    if (!event)
-//        return NULL;
-//    event->target = NULL;
-//    event->node = NULL;
-//    event->raw = NULL;
-//    event->client = NULL;
-//    event->refthings = NULL;
-//    event->tasks = vec_new(1);
-//    event->result = qpx_packer_create(16);
-//    event->status = TI_EVENT_STAT_UNINITIALIZED;
-//    event->nodes = NULL;
-//    event->prom = NULL;
-//
-//    if (!event->tasks)
-//    {
-//        ti_event_destroy(event);
-//        return NULL;
-//    }
-//
-//    return event;
-//}
-//
-//void ti_event_destroy(ti_event_t * event)
-//{
-//    if (!event)
-//        return;
-//
-//    /* the event might be in the queue */
+
+ti_event_t * ti_event_create(void)
+{
+    ti_event_t * event = malloc(sizeof(ti_event_t));
+    if (!event)
+        return NULL;
+    event->target = NULL;
+    event->node = NULL;
+    event->raw = NULL;
+    event->client = NULL;
+    event->refthings = NULL;
+    event->tasks = vec_new(1);
+    event->result = qpx_packer_create(16);
+    event->status = TI_EVENT_STAT_UNINITIALIZED;
+    event->nodes = NULL;
+    event->prom = NULL;
+
+    if (!event->tasks)
+    {
+        ti_event_destroy(event);
+        return NULL;
+    }
+
+    return event;
+}
+
+void ti_event_destroy(ti_event_t * event)
+{
+    if (!event)
+        return;
+
+    /* the event might be in the queue */
 //    (void *) ti_events_rm_event(event);
-//
-//    ti_db_drop(event->target);
-//    ti_node_drop(event->node);
-//    ti_stream_drop(event->client);
-//    imap_destroy(event->refthings, NULL);
+
+    ti_db_drop(event->target);
+    ti_node_drop(event->node);
+    ti_stream_drop(event->client);
+    imap_destroy(event->refthings, NULL);
 //    vec_destroy(event->tasks, (vec_destroy_cb) ti_task_destroy);
-//    vec_destroy(event->nodes, (vec_destroy_cb) ti_node_drop);
-//    qpx_packer_destroy(event->result);
-//    free(event->prom);
-//    free(event->raw);
-//    free(event);
-//}
-//
+    vec_destroy(event->nodes, (vec_destroy_cb) ti_node_drop);
+    qpx_packer_destroy(event->result);
+    free(event->prom);
+    free(event->raw);
+    free(event);
+}
+
 //void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 //{
 //    ti_t * thingsdb = ti_get();
 //    ti_event_t * event = ti_event_create(thingsdb->events);
-//    if (!event || !(event->nodes = vec_new(thingsdb->nodes->n - 1)))
+//    if (!event || !(event->nodes = vec_new(thingsdb->nodes->vec->n - 1)))
 //    {
 //        ex_set_alloc(e);
 //        goto failed;
@@ -100,7 +100,7 @@
 //
 //    if (!ti_nodes_has_quorum(thingsdb->nodes))
 //    {
-//        ex_set(e, TI_PROTO_NODE_ERR,
+//        ex_set(e, EX_NODE_ERROR,
 //                "node '%s' does not have the required quorum",
 //                thingsdb->node->addr);
 //        goto failed;
@@ -131,53 +131,53 @@
 //    event->nodes = vec_new(thingsdb->nodes->n - 1);
 //    return -!event->nodes;
 //}
+
+//int ti_event_fill(
+//        ti_event_t * event,
+//        uint64_t id,
+//        ti_node_t * node,
+//        ti_db_t * target)
+//{
+//    ti_t * tin = event->tin;
+//    if (id > tin->event_max_id)
+//    {
+//        if (link_unshift(tin->queue, event))
+//        {
+//            log_error(EX_ALLOC);
+//            return -1;
+//        }
+//        tin->event_max_id = id;;
+//        goto accept;
+//    }
 //
-////int ti_event_fill(
-////        ti_event_t * event,
-////        uint64_t id,
-////        ti_node_t * node,
-////        ti_db_t * target)
-////{
-////    ti_t * tin = event->tin;
-////    if (id > tin->event_max_id)
-////    {
-////        if (link_unshift(tin->queue, event))
-////        {
-////            log_error(EX_ALLOC);
-////            return -1;
-////        }
-////        tin->event_max_id = id;;
-////        goto accept;
-////    }
-////
-////    if (id <= tin->event_cur_id)
-////    {
-////        log_warning("reject event id: %"PRIu64" (current id: %"PRIu64")",
-////                id, tin->event_cur_id);
-////        return -1;
-////    }
-////
-////    for (link_each(event->tin->queue, ti_event_t, ev))
-////    {
-////        if (id ev->target != target) continue;
-////        assert (ev->id > event->id)
-////        if (ev->id < event->id) goto accept;
-////        if (ti__event_cmp(event, ev) < 0) return -1;
-////
-////        assert (ev->status <= TI_EVENT_STAT_WAIT_ACCEPT);
-////
-////        link_pop_current(event->tin->queue);
-////        ti_event_destroy(ev);
-////    }
-////
-////accept:
-////    //    *ti__event_max_id(event) = event->id;
-////    event->id = id;
-////    event->target = (target) ? ti_db_grab(target) : NULL;
-////    event->node = ti_node_grab(node);
-////    return 0;
-////}
+//    if (id <= tin->event_cur_id)
+//    {
+//        log_warning("reject event id: %"PRIu64" (current id: %"PRIu64")",
+//                id, tin->event_cur_id);
+//        return -1;
+//    }
 //
+//    for (link_each(event->tin->queue, ti_event_t, ev))
+//    {
+//        if (id ev->target != target) continue;
+//        assert (ev->id > event->id)
+//        if (ev->id < event->id) goto accept;
+//        if (ti__event_cmp(event, ev) < 0) return -1;
+//
+//        assert (ev->status <= TI_EVENT_STAT_WAIT_ACCEPT);
+//
+//        link_pop_current(event->tin->queue);
+//        ti_event_destroy(ev);
+//    }
+//
+//accept:
+//    //    *ti__event_max_id(event) = event->id;
+//    event->id = id;
+//    event->target = (target) ? ti_db_grab(target) : NULL;
+//    event->node = ti_node_grab(node);
+//    return 0;
+//}
+
 //void ti_event_raw(
 //        ti_event_t * event,
 //        const unsigned char * raw,
@@ -191,7 +191,7 @@
 //    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
 //        !qp_is_raw(qp_next(&unpacker, &target)))
 //    {
-//        ex_set(e, TI_PROTO_TYPE_ERR, "invalid event");
+//        ex_set(e, EX_TYPE_ERROR, "invalid event");
 //        return;
 //    }
 //
@@ -204,7 +204,7 @@
 //        goto target;
 //    }
 //
-//    ex_set(e, TI_PROTO_INDX_ERR,
+//    ex_set(e, TI_PROTO_CLIENT_ERR_INDEX,
 //            "invalid target: '%.*s'", target.len, target.via.raw);
 //    return;
 //
@@ -250,7 +250,7 @@
 //    if (event->status == TI_EVENT_STAT_CACNCEL)
 //    {
 //        ex_t * e = ex_use();
-//        ex_set(e, TI_PROTO_NODE_ERR, "event is cancelled");
+//        ex_set(e, EX_NODE_ERROR, "event is cancelled");
 //        pkg = ti_pkg_err(event->pid, e->nr, e->msg);
 //        if (!pkg)
 //        {
@@ -283,7 +283,7 @@
 //{
 //    ti_t * thingsdb = ti_get();
 //    ti_prom_t * prom = ti_prom_new(
-//            thingsdb->nodes->n - 1,
+//            thingsdb->nodes->vec->n - 1,
 //            event,
 //            ti__event_on_reg_cb);
 //    qpx_packer_t * xpkg = qpx_packer_create(10);
@@ -637,4 +637,4 @@
 //        return;
 //    }
 //}
-//
+

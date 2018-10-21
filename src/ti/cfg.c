@@ -43,8 +43,8 @@ int ti_cfg_create(void)
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");
-    cfg->pipe_client_name = NULL;
     cfg->store_path = strdup("/var/lib/thingsdb/");
+    cfg->pipe_client_name = NULL;
 
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->store_path)
         ti_cfg_destroy();
@@ -116,6 +116,7 @@ exit_parse:
 static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
 {
     const char * option_name = "store_path";
+    char * store_path;
     cfgparser_option_t * option;
     cfgparser_return_t rc;
     size_t len;
@@ -129,10 +130,9 @@ static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
                 cfg_file,
                 cfgparser_errmsg(rc),
                 cfg->store_path);
-        return 0;
+        store_path = cfg->store_path;
     }
-
-    if (option->tp != CFGPARSER_TP_STRING)
+    else if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
                 "error reading `%s` in `%s` (%s), "
@@ -141,17 +141,24 @@ static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
                 cfg_file,
                 "expecting a string value",
                 cfg->store_path);
-        return 0;
+        store_path = cfg->store_path;
+    }
+    else
+    {
+        free(cfg->store_path);
+        store_path = option->val->string;
     }
 
-    free(cfg->store_path);
-    cfg->store_path = NULL;
-    if (!realpath(option->val->string, cfg->store_path))
+    if (!fx_is_dir(store_path))
+        (void) mkdir(store_path, 0700);
+
+    cfg->store_path = realpath(store_path, NULL);
+
+    if (!cfg->store_path)
     {
-        printf("cannot find storage path `%s`\n", option->val->string);
+        printf("cannot find storage path `%s`\n", store_path);
         return -1;
     }
-
 
     /* add trailing slash (/) if its not already there */
     len = strlen(cfg->store_path);

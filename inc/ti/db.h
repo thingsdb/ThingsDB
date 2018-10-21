@@ -12,6 +12,8 @@ typedef struct ti_db_s  ti_db_t;
 #include <util/imap.h>
 #include <util/guid.h>
 #include <util/ex.h>
+#include <ti/limits.h>
+
 
 struct ti_db_s
 {
@@ -21,6 +23,7 @@ struct ti_db_s
     imap_t * things;        /* weak mapping for things */
     vec_t * access;
     ti_thing_t * root;
+    ti_limits_t * limits;
 };
 
 ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name);

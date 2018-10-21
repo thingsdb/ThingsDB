@@ -39,16 +39,30 @@ ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
         return NULL;
     switch (e->nr)
     {
-    case EX_USER_AUTH:
+    case EX_AUTH_ERROR:
         tp = TI_PROTO_CLIENT_ERR_AUTH;
         break;
-
+    case EX_FORBIDDEN:
+        tp = TI_PROTO_CLIENT_ERR_FORBIDDEN;
+        break;
+    case EX_INDEX_ERROR:
+        tp = TI_PROTO_CLIENT_ERR_INDEX;
+        break;
+    case EX_INVALID_DATA:
+        tp = TI_PROTO_CLIENT_ERR_INVALID;
+        break;
+    case EX_QUERY_ERROR:
+        tp = TI_PROTO_CLIENT_ERR_QUERY;
+        break;
+    case EX_NODE_ERROR:
+        tp = TI_PROTO_CLIENT_ERR_NODE;
+        break;
     case EX_REQUEST_TIMEOUT:
     case EX_REQUEST_CANCEL:
     case EX_WRITE_UV:
     case EX_MEMORY_ALLOCATION:
     default:
-        tp = TI_PROTO_CLIENT_ERR_RUNTIME;
+        tp = TI_PROTO_CLIENT_ERR_INTERNAL;
     }
 
     (void) qp_add_map(&xpkg);

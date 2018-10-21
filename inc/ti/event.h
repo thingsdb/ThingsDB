@@ -7,14 +7,9 @@
 enum
 {
     TI_EVENT_STAT_UNINITIALIZED,
-    TI_EVENT_STAT_REG, /* as long as it is not accepted by all */
+    TI_EVENT_STAT_REQUESTING, /* as long as it is not accepted by all */
     TI_EVENT_STAT_CACNCEL,  /* only in case of an error */
     TI_EVENT_STAT_READY, /* all nodes accept the id */
-};
-
-enum
-{
-    TI_EVENT_FLAG
 };
 
 typedef struct ti_event_s ti_event_t;
@@ -32,15 +27,15 @@ typedef struct ti_event_s ti_event_t;
 
 ti_event_t * ti_event_create(void);
 void ti_event_destroy(ti_event_t * event);
-void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e);
-int ti_event_init(ti_event_t * event);
-void ti_event_raw(
-        ti_event_t * event,
-        const unsigned char * raw,
-        size_t sz,
-        ex_t * e);
-int ti_event_run(ti_event_t * event);
-void ti_event_finish(ti_event_t * event);
+//void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e);
+//int ti_event_init(ti_event_t * event);
+//void ti_event_raw(
+//        ti_event_t * event,
+//        const unsigned char * raw,
+//        size_t sz,
+//        ex_t * e);
+//int ti_event_run(ti_event_t * event);
+//void ti_event_finish(ti_event_t * event);
 
 
 struct ti_event_s

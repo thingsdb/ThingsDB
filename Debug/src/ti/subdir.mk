@@ -17,6 +17,7 @@ C_SRCS += \
 ../src/ti/events.c \
 ../src/ti/front.c \
 ../src/ti/item.c \
+../src/ti/limits.c \
 ../src/ti/lookup.c \
 ../src/ti/maint.c \
 ../src/ti/misc.c \
@@ -58,6 +59,7 @@ OBJS += \
 ./src/ti/events.o \
 ./src/ti/front.o \
 ./src/ti/item.o \
+./src/ti/limits.o \
 ./src/ti/lookup.o \
 ./src/ti/maint.o \
 ./src/ti/misc.o \
@@ -99,6 +101,7 @@ C_DEPS += \
 ./src/ti/events.d \
 ./src/ti/front.d \
 ./src/ti/item.d \
+./src/ti/limits.d \
 ./src/ti/lookup.d \
 ./src/ti/maint.d \
 ./src/ti/misc.d \

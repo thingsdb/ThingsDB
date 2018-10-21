@@ -29,10 +29,11 @@ ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
     db->name = ti_raw_dup(name);
     db->things = imap_create();
     db->access = vec_new(1);
+    db->limits = ti_limits_create();
 
     memcpy(&db->guid, guid, sizeof(guid_t));
 
-    if (!db->name || !db->things || !db->access)
+    if (!db->name || !db->things || !db->access || !db->limits)
     {
         ti_db_drop(db);
         return NULL;
@@ -57,6 +58,7 @@ void ti_db_drop(ti_db_t * db)
         ti_things_gc(db->things, NULL);
         assert (db->things->n == 0);
         imap_destroy(db->things, NULL);
+        ti_limits_destroy(db->limits);
         free(db);
     }
 }

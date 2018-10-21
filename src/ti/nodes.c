@@ -18,6 +18,7 @@ int ti_nodes_create(void)
         return -1;
 
     nodes->vec = vec_new(0);
+    memset(&nodes->addr, 0, sizeof(struct sockaddr_storage));
     ti_get()->nodes = nodes;
 
     return -(nodes == NULL);
@@ -52,7 +53,10 @@ int ti_nodes_to_packer(qp_packer_t ** packer)
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        if (qp_add_raw(*packer, &node->addr, sizeof(struct sockaddr_storage)))
+        if (qp_add_raw(
+                *packer,
+                (const unsigned char *) &node->addr,
+                sizeof(struct sockaddr_storage)))
             return -1;
     }
 

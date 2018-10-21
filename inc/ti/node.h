@@ -25,7 +25,9 @@ struct ti_node_s
     uint32_t ref;
     uint8_t id;  /* node id, equal to the index in tin->nodes and each node
                     contains the same order since the lookup is based on this
-                    id. */
+                    id. When deciding which node wins over an equal event id
+                    request, the higher ((node->id + event->id) % n-nodes)
+                    is the winner. */
     uint8_t flags;
     uint8_t status;
     uint8_t maintn;

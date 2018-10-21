@@ -24,15 +24,19 @@ typedef enum
      * client errors
      */
     /* authentication failed or request without authentication */
-    TI_PROTO_CLIENT_ERR_AUTH    =96,
-    /* node is unable to respond to the request */
-    TI_PROTO_CLIENT_ERR_NODE    =97,
+    TI_PROTO_CLIENT_ERR_AUTH        =96,
+    /* no access for the requested task */
+    TI_PROTO_CLIENT_ERR_FORBIDDEN   =97,
     /* query syntax error */
-    TI_PROTO_CLIENT_ERR_QUERY   =98,
-    /* target not found or no access */
-    TI_PROTO_CLIENT_ERR_TARGET  =99,
-    /* runtime error, for example allocation error */
-    TI_PROTO_CLIENT_ERR_RUNTIME =100,
+    TI_PROTO_CLIENT_ERR_INDEX       =98,
+    /* invalid request, incorrect package type, invalid QPack data */
+    TI_PROTO_CLIENT_ERR_INVALID     =99,
+    /* node is (currently) unable to respond to the request */
+    TI_PROTO_CLIENT_ERR_QUERY       =100,
+    /* not found, maybe because due to no access */
+    TI_PROTO_CLIENT_ERR_NODE        =101,
+    /* internal server error, for example allocation error */
+    TI_PROTO_CLIENT_ERR_INTERNAL    =102,
 
 
     /*

@@ -72,7 +72,6 @@ imap_t * ti_props_restore(const char * fn)
     while (qp_is_array(qp_next(&unpacker, NULL)))
     {
         ti_prop_t * prop;
-        intptr_t p;
         if (    !qp_is_int(qp_next(&unpacker, &qpiptr)) ||
                 !qp_is_raw(qp_next(&unpacker, &qpname)))
             goto failed;
@@ -98,5 +97,5 @@ static int ti__props_write_cb(ti_prop_t * prop, FILE * f)
     intptr_t p = (intptr_t) prop;
     return (qp_fadd_type(f, QP_ARRAY2) ||
             qp_fadd_int64(f, p) ||
-            qp_fadd_raw(f, prop->name, prop->n));
+            qp_fadd_raw(f, (const unsigned char *) prop->name, prop->n));
 }

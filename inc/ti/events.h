@@ -31,7 +31,6 @@ struct ti_events_s
                                       if not event is committed yet */
     uint64_t next_event_id;        /* next event id, starts at 1 */
     queue_t * queue;            /* queued events */
-    uint64_t archive_offset;
     ti_archive_t * archive;  /* archived (raw) events) */
     uv_async_t evloop_;
 };

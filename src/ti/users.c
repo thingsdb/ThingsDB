@@ -57,7 +57,7 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
     }
 
 failed:
-    ex_set(e, EX_USER_AUTH, "invalid user or password");
+    ex_set(e, EX_AUTH_ERROR, "invalid user or password");
     return NULL;
 }
 

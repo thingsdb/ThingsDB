@@ -23,8 +23,7 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)
     node->id = id;
     node->stream = NULL;
     node->status = TI_NODE_STAT_OFFLINE;
-
-    memcpy(&node->addr, addr, sizeof(struct sockaddr_storage));
+    node->addr = *addr;
 
     return node;
 }

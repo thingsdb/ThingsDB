@@ -27,7 +27,7 @@ inline static int ti__maint_cmp(uint8_t a, uint8_t b, uint8_t n, uint64_t i);
 
 ti_maint_t * ti_maint_new(void)
 {
-    ti_maint_t * maint = (ti_maint_t *) malloc(sizeof(ti_maint_t));
+    ti_maint_t * maint = malloc(sizeof(ti_maint_t));
     if (!maint)
         return NULL;
     maint->timer.data = maint;

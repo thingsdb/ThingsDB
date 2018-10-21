@@ -20,9 +20,13 @@
 #include <util/lock.h>
 
 static const uint8_t ti__def_redundancy = 3;
+
+/* settings, nodes etc. */
 const char * ti__fn = "thingsdb.qp";
-const int ti__fn_schema = 0;          /* thingsdb config */
-const int ti__fn_store_schema = 0;    /* store running db */
+const int ti__fn_schema = 0;
+
+/* status of event id, thing id */
+const int ti__stat_fn_schema = 0;
 
 static uv_loop_t loop_;
 static ti_t thingsdb;
@@ -41,13 +45,13 @@ int ti_create(void)
     thingsdb.access = vec_new(0);
     thingsdb.maint = ti_maint_new();
 
-    if (    !ti_args_create() ||
-            !ti_cfg_create() ||
-            !ti_clients_create() ||
-            !ti_nodes_create() ||
-            !ti_props_create() ||
-            !ti_users_create() ||
-            !ti_dbs_create() ||
+    if (    ti_args_create() ||
+            ti_cfg_create() ||
+            ti_clients_create() ||
+            ti_nodes_create() ||
+            ti_props_create() ||
+            ti_users_create() ||
+            ti_dbs_create() ||
 //            !ti_events_create() ||
             !thingsdb.access ||
             !thingsdb.maint)
@@ -70,7 +74,6 @@ void ti_destroy(void)
     ti_nodes_destroy();
 //    ti_events_destroy();
     ti_dbs_destroy();
-    ti_nodes_destroy();
     ti_users_destroy();
     ti_props_destroy();
     vec_destroy(thingsdb.access, free);
@@ -117,14 +120,13 @@ int ti_init_fn(void)
 
 int ti_build(void)
 {
-    ex_t * e = ex_use();
     int rc = -1;
     qp_packer_t * packer = ti_misc_init_query();
     if (!packer)
         return -1;
 
-    thingsdb.events->commit_event_id = 0;
-    thingsdb.events->next_event_id = 1;
+//    thingsdb.events->commit_event_id = 0;
+//    thingsdb.events->next_event_id = 1;
     thingsdb.next_thing_id = 1;
 
     thingsdb.node = ti_nodes_create_node(&thingsdb.nodes->addr);
@@ -234,7 +236,7 @@ int ti_save(void)
 
     rc = fx_write(thingsdb.fn, packer->buffer, packer->len);
     if (rc)
-        log_error("failed to write file: '%s'", thingsdb.fn);
+        log_error("failed to write file: `%s`", thingsdb.fn);
 
     qp_packer_destroy(packer);
     return rc;
@@ -288,7 +290,7 @@ int ti_store(const char * fn)
 
     if (qp_add_map(&packer) ||
         qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti__fn_store_schema) ||
+        qp_add_int64(packer, ti__stat_fn_schema) ||
         qp_add_raw_from_str(packer, "commit_event_id") ||
         qp_add_int64(packer, (int64_t) thingsdb.events->commit_event_id) ||
         qp_add_raw_from_str(packer, "next_thing_id") ||
@@ -298,7 +300,7 @@ int ti_store(const char * fn)
     rc = fx_write(fn, packer->buffer, packer->len);
 
 stop:
-    if (rc) log_error("failed to write file: '%s'", fn);
+    if (rc) log_error("failed to write file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -308,7 +310,11 @@ int ti_restore(const char * fn)
     int rcode, rc = -1;
     ssize_t n;
     unsigned char * data = fx_read(fn, &n);
-    if (!data) return -1;
+    if (!data)
+    {
+        log_critical("failed to restore from file: `%s`", fn);
+        return -1;
+    }
 
     qp_unpacker_t unpacker;
     qpx_unpacker_init(&unpacker, data, (size_t) n);
@@ -328,7 +334,7 @@ int ti_restore(const char * fn)
         !(qpcommit_event_id = qpx_map_get(res->via.map, "commit_event_id")) ||
         !(qpnext_thing_id = qpx_map_get(res->via.map, "next_thing_id")) ||
         schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti__fn_store_schema ||
+        schema->via.int64 != ti__stat_fn_schema ||
         qpcommit_event_id->tp != QP_RES_INT64 ||
         qpnext_thing_id->tp != QP_RES_INT64)
         goto stop;
@@ -340,7 +346,8 @@ int ti_restore(const char * fn)
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: '%s'", fn);
+    if (rc)
+        log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

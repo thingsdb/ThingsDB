@@ -11,8 +11,12 @@
 
 typedef enum
 {
-    EX_TYPE_ERROR           =-6,
-    EX_USER_AUTH            =-5,
+    EX_AUTH_ERROR           =-10,
+    EX_FORBIDDEN            =-9,
+    EX_INDEX_ERROR          =-8,
+    EX_INVALID_DATA         =-7,
+    EX_QUERY_ERROR          =-6,
+    EX_NODE_ERROR           =-5,
     EX_REQUEST_TIMEOUT      =-4,
     EX_REQUEST_CANCEL       =-3,
     EX_WRITE_UV             =-2,

@@ -1,14 +1,14 @@
 /*
- * definition.c
+ * langdef.c
  *
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-20 23:01:46
+ * Created at: 2018-10-21 16:31:53
  */
 
-#include <definition.h>
+#include <langdef/langdef.h>
 #include <stdio.h>
 
 #define CLERI_CASE_SENSITIVE 0
@@ -17,7 +17,7 @@
 #define CLERI_FIRST_MATCH 0
 #define CLERI_MOST_GREEDY 1
 
-cleri_grammar_t * compile_definition(void)
+cleri_grammar_t * compile_langdef(void)
 {
     cleri_t * r_single_quote_str = cleri_regex(CLERI_GID_R_SINGLE_QUOTE_STR, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote_str = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE_STR, "^(?:\"(?:[^\"]*)\")+");

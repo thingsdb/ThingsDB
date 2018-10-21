@@ -1,18 +1,18 @@
 /*
- * definition.h
+ * langdef.h
  *
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-20 23:01:46
+ * Created at: 2018-10-21 16:31:53
  */
-#ifndef CLERI_EXPORT_DEFINITION_H_
-#define CLERI_EXPORT_DEFINITION_H_
+#ifndef CLERI_EXPORT_LANGDEF_H_
+#define CLERI_EXPORT_LANGDEF_H_
 
 #include <cleri/cleri.h>
 
-cleri_grammar_t * compile_definition(void);
+cleri_grammar_t * compile_langdef(void);
 
 enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name
@@ -46,5 +46,5 @@ enum cleri_grammar_ids {
     CLERI_END // can be used to get the enum length
 };
 
-#endif /* CLERI_EXPORT_DEFINITION_H_ */
+#endif /* CLERI_EXPORT_LANGDEF_H_ */
 

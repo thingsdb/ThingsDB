@@ -1,18 +1,18 @@
 /*
  * args.h
  */
-#ifndef THINGSDB_ARGS_H_
-#define THINGSDB_ARGS_H_
+#ifndef TI_ARGS_H_
+#define TI_ARGS_H_
 
-typedef struct thingsdb_args_s  thingsdb_args_t;
+typedef struct ti_args_s  ti_args_t;
 
 #include <util/argparse.h>
 
-int thingsdb_args_create(void);
-void thingsdb_args_destroy(void);
-int thingsdb_args_parse(thingsdb_args_t * args, int argc, char *argv[]);
+int ti_args_create(void);
+void ti_args_destroy(void);
+int ti_args_parse(int argc, char *argv[]);
 
-struct thingsdb_args_s
+struct ti_args_s
 {
     /* true/false props */
     int32_t version;
@@ -25,6 +25,6 @@ struct thingsdb_args_s
     char secret[ARGPARSE_MAX_LEN_ARG];
 };
 
-#endif /* THINGSDB_ARGS_H_ */
+#endif /* TI_ARGS_H_ */
 
 

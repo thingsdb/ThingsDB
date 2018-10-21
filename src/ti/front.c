@@ -46,7 +46,7 @@
 //int ti_front_listen(ti_front_t * front)
 //{
 //    int rc;
-//    ti_cfg_t * cfg = thingsdb_get()->cfg;
+//    ti_cfg_t * cfg = ti_get()->cfg;
 //
 //    if (ti_stream_init(front->sock)) return -1;
 //    TI_ref_inc(front->sock);
@@ -72,7 +72,7 @@
 //
 //        (rc = uv_listen(
 //            (uv_stream_t *) &front->sock->tcp,
-//            THINGSDB_MAX_NODES,
+//            TI_MAX_NODES,
 //            (uv_connection_cb) ti__front_on_connect)))
 //    {
 //        log_error("error listening for nodes: `%s`", uv_strerror(rc));
@@ -166,7 +166,7 @@
 //        !qp_is_raw(qp_next(&unpacker, &name)) ||
 //        !qp_is_raw(qp_next(&unpacker, &pass))) return;
 //    ex_t * e = ex_use();
-//    ti_user_t * user = ti_users_auth(thingsdb_get()->users, &name, &pass, e);
+//    ti_user_t * user = ti_users_auth(ti_get()->users, &name, &pass, e);
 //    if (e->nr)
 //    {
 //        log_error("authentication failed: `%s` (source: `%s`)",
@@ -198,11 +198,11 @@
 //        goto failed;
 //    }
 //
-//    if (thingsdb_get()->node->status != TI_NODE_STAT_READY)
+//    if (ti_get()->node->status != TI_NODE_STAT_READY)
 //    {
 //        ex_set(e, TI_PROTO_NODE_ERR,
 //                "node `%s` is not ready to handle events",
-//                thingsdb_get()->node->addr);
+//                ti_get()->node->addr);
 //        goto failed;
 //    }
 //
@@ -232,11 +232,11 @@
 //        goto failed;
 //    }
 //
-//    if (thingsdb_get()->node->status != TI_NODE_STAT_READY)
+//    if (ti_get()->node->status != TI_NODE_STAT_READY)
 //    {
 //        ex_set(e, TI_PROTO_NODE_ERR,
 //                "node `%s` is not ready to handle events",
-//                thingsdb_get()->node->addr);
+//                ti_get()->node->addr);
 //        goto failed;
 //    }
 //

@@ -202,10 +202,10 @@ if __name__ == '__main__':
     }
     definition.test('  databases.create(dbtest);  ')
 
-    c, h = definition.export_c(target='definition', headerf='<definition.h>')
-    with open('../src/definition.c', 'w') as cfile:
+    c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
+    with open('../src/langdef/langdef.c', 'w') as cfile:
         cfile.write(c)
 
-    with open('../inc/definition.h', 'w') as hfile:
+    with open('../inc/langdef/langdef.h', 'w') as hfile:
         hfile.write(h)
 

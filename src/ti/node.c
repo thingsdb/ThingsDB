@@ -9,7 +9,7 @@
 static void ti__node_write_cb(ti_write_t * req, ex_e status);
 
 /*
- * Nodes are created thingsdb_nodes_create_node() to ensure a correct id
+ * Nodes are created ti_nodes_create_node() to ensure a correct id
  * is generated for each node.
  */
 ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)

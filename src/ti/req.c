@@ -2,10 +2,12 @@
  * req.c
  */
 #include <assert.h>
-#include <thingsdb.h>
 #include <stdlib.h>
 #include <ti/req.h>
 #include <ti/write.h>
+#include <ti/proto.h>
+#include <ti.h>
+
 static void ti__req_timeout(uv_timer_t * handle);
 static void ti__req_write_cb(ti_write_t * req, int status);
 
@@ -36,7 +38,7 @@ int ti_req(
         ti_req_cancel(prev);
     }
 
-    if (uv_timer_init(thingsdb_get()->loop, &req->timer) ||
+    if (uv_timer_init(ti_get()->loop, &req->timer) ||
         uv_timer_start(&req->timer, ti__req_timeout, timeout, 0)
     ) goto failed;
 
@@ -82,8 +84,10 @@ static void ti__req_timeout(uv_timer_t * handle)
 
     imap_pop(req->node->reqs, req->id);
 
-    log_warning("timeout received on '%s' req to node: '%s'",
-            ti_back_req_str(req->pkg_req->tp), req->node->addr);
+    log_warning(
+            "timeout received on '%s' req to node: '%s'",
+            ti_proto_str(req->pkg_req->tp),
+            req->node->addr);
 
     uv_close((uv_handle_t *) &req->timer, NULL);
 

@@ -1,37 +1,38 @@
 /*
  * nodes.c
  */
-#include <nodes.h>
-#include <thingsdb.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <ti/nodes.h>
+#include <ti.h>
 
-static thingsdb_nodes_t * nodes;
+static ti_nodes_t * nodes;
 
-static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status);
-static void thingsdb__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status);
+static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 
-int thingsdb_nodes_create(void)
+int ti_nodes_create(void)
 {
-    nodes = malloc(sizeof(thingsdb_nodes_t));
+    nodes = malloc(sizeof(ti_nodes_t));
     if (!nodes)
         return -1;
 
     nodes->vec = vec_new(0);
-    thingsdb_get()->nodes = nodes;
+    ti_get()->nodes = nodes;
 
     return -(nodes == NULL);
 }
 
-void thingsdb_nodes_destroy(void)
+void ti_nodes_destroy(void)
 {
     if (!nodes)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes);
-    nodes = thingsdb_get()->nodes = NULL;
+    nodes = ti_get()->nodes = NULL;
 }
 
-_Bool thingsdb_nodes_has_quorum(void)
+_Bool ti_nodes_has_quorum(void)
 {
     size_t quorum = (nodes->vec->n + 1) / 2;
     size_t q = 0;
@@ -44,7 +45,7 @@ _Bool thingsdb_nodes_has_quorum(void)
     return 0;
 }
 
-int thingsdb_nodes_to_packer(qp_packer_t ** packer)
+int ti_nodes_to_packer(qp_packer_t ** packer)
 {
     if (qp_add_array(packer))
         return -1;
@@ -58,7 +59,7 @@ int thingsdb_nodes_to_packer(qp_packer_t ** packer)
     return qp_close_array(*packer);
 }
 
-int thingsdb_nodes_from_qpres(qp_res_t * qpnodes)
+int ti_nodes_from_qpres(qp_res_t * qpnodes)
 {
     for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
     {
@@ -69,17 +70,17 @@ int thingsdb_nodes_from_qpres(qp_res_t * qpnodes)
            return -1;
 
         addr = (struct sockaddr_storage *) qpaddr->via.raw->data;
-        if (!thingsdb_nodes_create_node(addr))
+        if (!ti_nodes_create_node(addr))
             return -1;
     }
     return 0;
 }
 
 
-ti_node_t * thingsdb_nodes_create_node(struct sockaddr_storage * addr)
+ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)
 {
     ti_node_t * node = ti_node_create(nodes->vec->n, addr);
-    if (!node || vec_push(nodes->vec, node))
+    if (!node || vec_push(&nodes->vec, node))
     {
         ti_node_drop(node);
         return NULL;
@@ -88,15 +89,15 @@ ti_node_t * thingsdb_nodes_create_node(struct sockaddr_storage * addr)
     return node;
 }
 
-ti_node_t * thingsdb_nodes_node_by_id(uint8_t * node_id)
+ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
 {
     return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);
 }
 
-int thingsdb_nodes_listen(void)
+int ti_nodes_listen(void)
 {
     int rc;
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     ti_cfg_t * cfg = thingsdb->cfg;
     _Bool is_ipv6 = false;
     char * ip;
@@ -138,8 +139,8 @@ int thingsdb_nodes_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &nodes->tcp,
-            THINGSDB_MAX_NODES,
-            thingsdb__nodes_tcp_connection)))
+            TI_MAX_NODES,
+            ti__nodes_tcp_connection)))
     {
         log_error("error listening for TCP nodes: `%s`", uv_strerror(rc));
         return -1;
@@ -151,7 +152,7 @@ int thingsdb_nodes_listen(void)
 }
 
 
-static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status)
+static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -163,15 +164,15 @@ static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP node connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &thingsdb__nodes_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &ti__nodes_pkg_cb);
 
     if (!stream)
         return;
 
-    uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) stream->uvstream);
-    if (uv_accept(uvstream, stream->uvstream) == 0)
+    uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
     }
     else
     {
@@ -179,7 +180,7 @@ static void thingsdb__nodes_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void thingsdb__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
 
 }

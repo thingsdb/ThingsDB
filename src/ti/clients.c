@@ -1,46 +1,46 @@
 /*
  * clients.c
  */
-#include <clients.h>
-#include <thingsdb.h>
 #include <ti/node.h>
 #include <ti/write.h>
 #include <ti/proto.h>
-#include <users.h>
 #include <stdbool.h>
-#include <thingsdb.h>
 #include <assert.h>
+#include <ti/clients.h>
+#include <ti/users.h>
+#include <ti.h>
+#include <ti.h>
 
-static thingsdb_clients_t * clients;
+static ti_clients_t * clients;
 
-static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status);
-static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status);
-static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
-static void thingsdb__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
-static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
-static void thingsdb__clients_write_cb(ti_write_t * req, ex_e status);
+static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status);
+static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status);
+static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
+static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
+static void ti__clients_write_cb(ti_write_t * req, ex_e status);
 
-int thingsdb_clients_create(void)
+int ti_clients_create(void)
 {
-    clients = malloc(sizeof(thingsdb_clients_t));
+    clients = malloc(sizeof(ti_clients_t));
     if (!clients)
         return -1;
 
-    thingsdb_get()->clients = clients;
+    ti_get()->clients = clients;
 
     return -(clients == NULL);
 }
 
-void thingsdb_clients_destroy(void)
+void ti_clients_destroy(void)
 {
     free(clients);
-    clients = thingsdb_get()->clients = NULL;
+    clients = ti_get()->clients = NULL;
 }
 
-int thingsdb_clients_listen(void)
+int ti_clients_listen(void)
 {
     int rc;
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     ti_cfg_t * cfg = thingsdb->cfg;
     struct sockaddr_storage addr;
     _Bool is_ipv6 = false;
@@ -84,8 +84,8 @@ int thingsdb_clients_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &clients->tcp,
-            THINGSDB_MAX_NODES,
-            thingsdb__clients_tcp_connection)))
+            TI_MAX_NODES,
+            ti__clients_tcp_connection)))
     {
         log_error("error listening for TCP clients: `%s`", uv_strerror(rc));
         return -1;
@@ -99,8 +99,8 @@ int thingsdb_clients_listen(void)
     if ((rc = uv_pipe_bind(&clients->pipe, cfg->pipe_client_name)) ||
         (rc = uv_listen(
                 (uv_stream_t *) &clients->pipe,
-                THINGSDB_MAX_NODES,
-                thingsdb__clients_pipe_connection)))
+                TI_MAX_NODES,
+                ti__clients_pipe_connection)))
     {
         log_error("error listening for PIPE clients: `%s`", uv_strerror(rc));
         return -1;
@@ -112,12 +112,12 @@ int thingsdb_clients_listen(void)
     return 0;
 }
 
-int thingsdb_clients_write(ti_stream_t * stream, ti_pkg_t * pkg)
+int ti_clients_write(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    return ti_write(stream, pkg, NULL, thingsdb__clients_write_cb);
+    return ti_write(stream, pkg, NULL, ti__clients_write_cb);
 }
 
-static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status)
+static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -129,12 +129,12 @@ static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP client connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &thingsdb__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &ti__clients_pkg_cb);
 
     if (!stream)
         return;
 
-    uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
         uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
@@ -145,7 +145,7 @@ static void thingsdb__clients_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status)
+static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -157,12 +157,12 @@ static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status
 
     log_debug("received a PIPE client connection");
 
-    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &thingsdb__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &ti__clients_pkg_cb);
 
     if (!stream)
         return;
 
-    uv_pipe_init(thingsdb_get()->loop, (uv_pipe_t *) &stream->uvstream, 0);
+    uv_pipe_init(ti_get()->loop, (uv_pipe_t *) &stream->uvstream, 0);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
         uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
@@ -173,15 +173,15 @@ static void thingsdb__clients_pipe_connection(uv_stream_t * uvstream, int status
     }
 }
 
-static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
     {
     case TI_PROTO_CLIENT_REQ_PING:
-        thingsdb__clients_on_ping(stream, pkg);
+        ti__clients_on_ping(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_AUTH:
-        thingsdb__clients_on_auth(stream, pkg);
+        ti__clients_on_auth(stream, pkg);
         break;
     default:
         log_error(
@@ -191,17 +191,17 @@ static void thingsdb__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void thingsdb__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
+static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
-    if (!resp || thingsdb_clients_write(stream, resp))
+    if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);
     }
 }
 
-static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
+static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
@@ -218,7 +218,7 @@ static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
         resp = ti_pkg_err(pkg->id, e);
         goto finish;
     }
-    user = thingsdb_users_auth(&name, &pass, e);
+    user = ti_users_auth(&name, &pass, e);
     if (e->nr)
     {
         assert (user == NULL);
@@ -238,14 +238,14 @@ static void thingsdb__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
 finish:
-    if (!resp || thingsdb_clients_write(stream, resp))
+    if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);
     }
 }
 
-static void thingsdb__clients_write_cb(ti_write_t * req, ex_e status)
+static void ti__clients_write_cb(ti_write_t * req, ex_e status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->pkg);

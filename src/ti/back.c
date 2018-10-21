@@ -38,7 +38,7 @@
 //int ti_back_listen(ti_back_t * back)
 //{
 //    int rc;
-//    ti_cfg_t * cfg = thingsdb_get()->cfg;
+//    ti_cfg_t * cfg = ti_get()->cfg;
 //
 //    if (ti_stream_init(back->sock)) return -1;
 //    TI_ref_inc(back->sock);
@@ -62,7 +62,7 @@
 //
 //        (rc = uv_listen(
 //            (uv_stream_t *) &back->sock->tcp,
-//            THINGSDB_MAX_NODES,
+//            TI_MAX_NODES,
 //            (uv_connection_cb) ti__back_on_connect)))
 //    {
 //        log_error("error listening for nodes: %s", uv_strerror(rc));

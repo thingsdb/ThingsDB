@@ -2,18 +2,18 @@
  * cfg.c
  */
 
-#include <cfg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <ti/cfg.h>
 #include <ti/stream.h>
 #include <util/cfgparser.h>
 #include <util/logger.h>
 #include <util/strx.h>
-#include <thingsdb.h>
 #include <ti/tcp.h>
+#include <ti.h>
 
 static ti_cfg_t * cfg;
 static const char * ti__cfg_section = "thingsdb";
@@ -31,7 +31,7 @@ static int ti__cfg_str(
         const char * option_name,
         char ** str);
 
-int thingsdb_cfg_create(void)
+int ti_cfg_create(void)
 {
     cfg = malloc(sizeof(ti_cfg_t));
     if (!cfg)
@@ -47,13 +47,13 @@ int thingsdb_cfg_create(void)
     cfg->store_path = strdup("/var/lib/thingsdb/");
 
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->store_path)
-        thingsdb_cfg_destroy();
+        ti_cfg_destroy();
 
-    thingsdb_get()->cfg = cfg;
+    ti_get()->cfg = cfg;
     return 0;
 }
 
-void thingsdb_cfg_destroy(void)
+void ti_cfg_destroy(void)
 {
     if (!cfg)
         return;
@@ -62,10 +62,10 @@ void thingsdb_cfg_destroy(void)
     free(cfg->pipe_client_name);
     free(cfg->store_path);
     free(cfg);
-    cfg = thingsdb_get()->cfg = NULL;
+    cfg = ti_get()->cfg = NULL;
 }
 
-int ti_cfg_parse(ti_cfg_t * cfg, const char * cfg_file)
+int ti_cfg_parse(const char * cfg_file)
 {
     int rc;
     cfgparser_t * parser = cfgparser_create();

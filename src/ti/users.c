@@ -3,32 +3,35 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include <thingsdb.h>
 #include <ti/proto.h>
-#include <users.h>
+#include <ti/users.h>
+#include <ti.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/qpx.h>
 #include <util/logger.h>
 #include <util/vec.h>
 
-static vec_t ** users;
+static vec_t ** users = NULL;
 
 const int ti_users_fn_schema = 0;
 
-int thingsdb_users_create(void)
+int ti_users_create(void)
 {
-    users = &(thingsdb_get()->users = vec_new(0));
+    ti_get()->users = vec_new(0);
+    users = &ti_get()->users;
     return -(*users == NULL);
 }
 
-void thingsdb_users_destroy(void)
+void ti_users_destroy(void)
 {
+    if (!users)
+        return;
     vec_destroy(*users, (vec_destroy_cb) ti_user_drop);
     *users = NULL;
 }
 
-ti_user_t * thingsdb_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
+ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 {
     char passbuf[ti_max_pass];
     char pw[CRYPTX_SZ];
@@ -58,7 +61,7 @@ failed:
     return NULL;
 }
 
-ti_user_t * thingsdb_users_get_by_id(uint64_t id)
+ti_user_t * ti_users_get_by_id(uint64_t id)
 {
     for (vec_each(*users, ti_user_t, user))
     {
@@ -67,7 +70,7 @@ ti_user_t * thingsdb_users_get_by_id(uint64_t id)
     return NULL;
 }
 
-ti_user_t * thingsdb_users_get_by_name(ti_raw_t * name)
+ti_user_t * ti_users_get_by_name(ti_raw_t * name)
 {
     for (vec_each(*users, ti_user_t, user))
     {
@@ -76,7 +79,7 @@ ti_user_t * thingsdb_users_get_by_name(ti_raw_t * name)
     return NULL;
 }
 
-int thingsdb_users_store(const char * fn)
+int ti_users_store(const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
@@ -110,7 +113,7 @@ stop:
     return rc;
 }
 
-int thingsdb_users_restore(const char * fn)
+int ti_users_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;

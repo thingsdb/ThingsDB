@@ -7,9 +7,9 @@
 #include <sys/socket.h>
 #include <ti/stream.h>
 #include <util/logger.h>
-#include <thingsdb.h>
 #include <ti/tcp.h>
 #include <ti/pipe.h>
+#include <ti.h>
 
 static void ti__stream_stop(uv_handle_t * uvstream);
 static const char * ti__stream_name_unresolved = "unresolved";
@@ -55,7 +55,7 @@ void ti_stream_drop(ti_stream_t * stream)
 
 int ti_stream_init(ti_stream_t * stream)
 {
-    int rc = uv_tcp_init(thingsdb_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    int rc = uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
     if (!rc)
     {
         stream->flags |= TI_STREAM_FLAG_INIT;
@@ -187,7 +187,7 @@ static void ti__stream_stop(uv_handle_t * uvstream)
         break;
     case TI_STREAM_TCP_IN_CLIENT:
     case TI_STREAM_PIPE_IN_CLIENT:
-        log_info("client disconnected: %s", ti_stream_addr(stream));
+        log_info("client disconnected: %s", ti_stream_name(stream));
         ti_user_drop(stream->via.user);
         break;
     }

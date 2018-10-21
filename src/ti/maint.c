@@ -1,15 +1,15 @@
 /*
  * maint.c
  */
-#include <nodes.h>
-#include <props.h>
 #include <stdlib.h>
-#include <thingsdb.h>
 #include <ti/event.h>
 #include <ti/maint.h>
+#include <ti/nodes.h>
+#include <ti/props.h>
 #include <ti/proto.h>
 #include <ti/store.h>
 #include <ti/things.h>
+#include <ti.h>
 #include <util/queue.h>
 #include <util/qpx.h>
 
@@ -39,8 +39,8 @@ ti_maint_t * ti_maint_new(void)
 int ti_maint_start(ti_maint_t * maint)
 {
     maint->status = TI_MAINT_STAT_READY;
-    maint->last_commit = thingsdb_get()->events->commit_event_id;
-    return (uv_timer_init(tingsdb_loop(), &maint->timer) ||
+    maint->last_commit = ti_get()->events->commit_event_id;
+    return (uv_timer_init(ti_get()->loop, &maint->timer) ||
             uv_timer_start(
                 &maint->timer,
                 ti__maint_timer_cb,
@@ -60,7 +60,7 @@ void ti_maint_stop(ti_maint_t * maint)
 static void ti__maint_timer_cb(uv_timer_t * timer)
 {
     ti_maint_t * maint = (ti_maint_t *) timer->data;
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     uint64_t commit_id = thingsdb->events->commit_event_id;
 
     if (maint->status == TI_MAINT_STAT_WAIT)
@@ -71,7 +71,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
     if (maint->status != TI_MAINT_STAT_READY ||
         maint->last_commit == commit_id ||
-        !ti_nodes_has_quorum(thingsdb->nodes)) return;
+        !ti_nodes_has_quorum()) return;
 
     for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
@@ -113,7 +113,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
 static int ti__maint_reg(ti_maint_t * maint)
 {
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     maint->status = TI_MAINT_STAT_REG;
     ti_prom_t * prom = ti_prom_new(
             thingsdb->nodes->vec->n - 1,
@@ -174,7 +174,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
     if (accept)
     {
-        thingsdb_get()->node->status = TI_NODE_STAT_MAINT;
+        ti_get()->node->status = TI_NODE_STAT_MAINT;
         maint->status = TI_MAINT_STAT_WAIT;
         ti__maint_wait(maint);
     }
@@ -182,7 +182,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
 static void ti__maint_wait(ti_maint_t * maint)
 {
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     if (thingsdb->events->queue->n)
     {
         log_debug("wait until the event queue is empty (%zd)",
@@ -200,7 +200,7 @@ static void ti__maint_wait(ti_maint_t * maint)
 static void ti__maint_work(uv_work_t * work)
 {
     ti_maint_t * maint = (ti_maint_t *) work->data;
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     uv_mutex_lock(&thingsdb->events->lock);
 
     log_debug("maintenance job: start storing data");
@@ -216,7 +216,7 @@ static void ti__maint_work(uv_work_t * work)
 
     log_debug("maintenance job: start storing data");
 
-    ti_store();
+    ti_store_store();
 
     maint->last_commit = thingsdb->events->commit_event_id;
 
@@ -228,7 +228,7 @@ static void ti__maint_work(uv_work_t * work)
 static void ti__maint_work_finish(uv_work_t * work, int status)
 {
     ti_maint_t * maint = (ti_maint_t *) work->data;
-    thingsdb_get()->node->status = TI_NODE_STAT_READY;
+    ti_get()->node->status = TI_NODE_STAT_READY;
     maint->status = TI_MAINT_STAT_READY;
     if (status)
     {

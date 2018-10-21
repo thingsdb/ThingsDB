@@ -1,10 +1,10 @@
 /*
  * events.h
  */
-#ifndef THINGSDB_EVENTS_H_
-#define THINGSDB_EVENTS_H_
+#ifndef TI_EVENTS_H_
+#define TI_EVENTS_H_
 
-typedef struct thingsdb_events_s thingsdb_events_t;
+typedef struct ti_events_s ti_events_t;
 
 #include <uv.h>
 #include <stdint.h>
@@ -12,19 +12,19 @@ typedef struct thingsdb_events_s thingsdb_events_t;
 #include <util/vec.h>
 #include <util/queue.h>
 
-int thingsdb_events_create(void);
-void thingsdb_events_destroy(void);
-int thingsdb_events_init(void);
-void thingsdb_events_close(void);
-ti_event_t * thingsdb_events_rm_event(ti_event_t * event);
-int thingsdb_events_trigger(void);
-int thingsdb_events_add_event(ti_event_t * event);
-uint64_t thingsdb_events_get_event_id(void);
+int ti_events_create(void);
+void ti_events_destroy(void);
+int ti_events_init(void);
+void ti_events_close(void);
+ti_event_t * ti_events_rm_event(ti_event_t * event);
+int ti_events_trigger(void);
+int ti_events_add_event(ti_event_t * event);
+uint64_t ti_events_get_event_id(void);
 
 /*
  * Changes to commit_id, archive require the lock.
  */
-struct thingsdb_events_s
+struct ti_events_s
 {
     uv_mutex_t lock;
     uint64_t commit_event_id;      /* last event id which is committed or 0
@@ -37,4 +37,4 @@ struct thingsdb_events_s
 };
 
 
-#endif /* THINGSDB_EVENTS_H_ */
+#endif /* TI_EVENTS_H_ */

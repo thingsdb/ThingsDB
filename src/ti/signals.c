@@ -1,14 +1,11 @@
 /*
  * signals.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <uv.h>
-#include <thingsdb.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <ti/signals.h>
+#include <ti.h>
 #include <util/logger.h>
 
 static void ti__signals_handler(uv_signal_t * sig, int signum);
@@ -30,7 +27,7 @@ int ti_signals_init(void)
     /* bind signals to the event loop */
     for (int i = 0; i < nsigs; i++)
     {
-        if (uv_signal_init(thingsdb_loop(), &signals[i]) ||
+        if (uv_signal_init(ti_get()->loop, &signals[i]) ||
             uv_signal_start(&signals[i], ti__signals_handler, signms[i]))
         {
             return -1;
@@ -41,7 +38,7 @@ int ti_signals_init(void)
 
 static void ti__signals_handler(uv_signal_t * sig, int signum)
 {
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
 
     if (signum == SIGPIPE)
     {
@@ -51,12 +48,12 @@ static void ti__signals_handler(uv_signal_t * sig, int signum)
 
     log_warning("received stop signal (%s)", strsignal(signum));
 
-    if (thingsdb->flags & THINGSDB_FLAG_SIGNAL)
+    if (thingsdb->flags & TI_FLAG_SIGNAL)
     {
         abort();
     }
 
-    thingsdb->flags |= THINGSDB_FLAG_SIGNAL;
+    thingsdb->flags |= TI_FLAG_SIGNAL;
 
     ti_maint_stop(thingsdb->maint);
 

@@ -3,31 +3,34 @@
  */
 #include <stdlib.h>
 #include <assert.h>
-#include <dbs.h>
 #include <string.h>
-#include <thingsdb.h>
 #include <ti/db.h>
+#include <ti/dbs.h>
 #include <ti/proto.h>
+#include <ti.h>
 #include <util/qpx.h>
 #include <util/fx.h>
 #include <util/vec.h>
 
-static vec_t ** dbs;
-static const int thingsdb__dbs_fn_schema = 0;
+static vec_t ** dbs = NULL;
+static const int ti__dbs_fn_schema = 0;
 
-int thingsdb_dbs_create(void)
+int ti_dbs_create(void)
 {
-    dbs = &(thingsdb_get()->dbs = vec_new(0));
+    ti_get()->dbs = vec_new(0);
+    dbs = &ti_get()->dbs;
     return -(*dbs == NULL);
 }
 
-void thingsdb_dbs_destroy(void)
+void ti_dbs_destroy(void)
 {
+    if (!dbs)
+        return;
     vec_destroy(*dbs, (vec_destroy_cb) ti_db_drop);
     *dbs = NULL;
 }
 
-ti_db_t * thingsdb_dbs_get_by_name(const ti_raw_t * name)
+ti_db_t * ti_dbs_get_by_name(const ti_raw_t * name)
 {
     for (vec_each(*dbs, ti_db_t, db))
     {
@@ -36,7 +39,7 @@ ti_db_t * thingsdb_dbs_get_by_name(const ti_raw_t * name)
     return NULL;
 }
 
-ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
+ti_db_t * ti_dbs_get_by_obj(const qp_obj_t * target)
 {
     for (vec_each(*dbs, ti_db_t, db))
     {
@@ -49,7 +52,7 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
     return NULL;
 }
 
-//void thingsdb_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
+//void ti_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 //{
 //    qp_obj_t target;
 //    qp_obj_t qid;
@@ -65,7 +68,7 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
 //        return;
 //    }
 //
-//    ti_db_t * db = thingsdb_dbs_get_by_obj(&target);
+//    ti_db_t * db = ti_dbs_get_by_obj(&target);
 //    if (!db)
 //    {
 //        ex_set(e, TI_PROTO_INDX_ERR, "cannot find database: `%.*s`",
@@ -84,7 +87,7 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
 //        return;
 //    }
 //
-//    if (thingsdb_manages_id(thing->id))
+//    if (ti_manages_id(thing->id))
 //    {
 //        qpx_packer_t * packer = qpx_packer_create(64);
 //        if (!packer || ti_thing_to_packer(thing, packer))
@@ -108,7 +111,7 @@ ti_db_t * thingsdb_dbs_get_by_obj(const qp_obj_t * target)
 //    assert (0 && sock); /* TODO: how should a get request look like? */
 //}
 
-int thingsdb_dbs_store(const char * fn)
+int ti_dbs_store(const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
@@ -118,7 +121,7 @@ int thingsdb_dbs_store(const char * fn)
 
     /* schema */
     if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, thingsdb__dbs_fn_schema)) goto stop;
+        qp_add_int64(packer, ti__dbs_fn_schema)) goto stop;
 
     if (qp_add_raw_from_str(packer, "dbs") ||
         qp_add_array(&packer)) goto stop;
@@ -142,7 +145,7 @@ stop:
     return rc;
 }
 
-int thingsdb_dbs_restore(const char * fn)
+int ti_dbs_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
@@ -167,7 +170,7 @@ int thingsdb_dbs_restore(const char * fn)
         !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qdbs = qpx_map_get(res->via.map, "dbs")) ||
         schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != thingsdb__dbs_fn_schema ||
+        schema->via.int64 != ti__dbs_fn_schema ||
         qdbs->tp != QP_RES_ARRAY) goto stop;
 
     for (uint32_t i = 0; i < qdbs->via.array->n; i++)

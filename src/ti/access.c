@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <ti/access.h>
 #include <ti/auth.h>
-#include <users.h>
+#include <ti/users.h>
 #include <util/logger.h>
 #include <util/qpx.h>
 #include <util/fx.h>
@@ -135,7 +135,7 @@ int ti_access_restore(vec_t ** access, const char * fn)
             user_id->tp != QP_RES_INT64 ||
             mask->tp != QP_RES_INT64) goto stop;
 
-        user = thingsdb_users_get_by_id((uint64_t) user_id->via.int64);
+        user = ti_users_get_by_id((uint64_t) user_id->via.int64);
         if (!user)
         {
             log_critical("missing user id: %"PRId64, user_id->via.int64);

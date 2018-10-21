@@ -68,7 +68,7 @@
 //        return;
 //
 //    /* the event might be in the queue */
-//    (void *) thingsdb_events_rm_event(event);
+//    (void *) ti_events_rm_event(event);
 //
 //    ti_db_drop(event->target);
 //    ti_node_drop(event->node);
@@ -84,7 +84,7 @@
 //
 //void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    ti_event_t * event = ti_event_create(thingsdb->events);
 //    if (!event || !(event->nodes = vec_new(thingsdb->nodes->n - 1)))
 //    {
@@ -92,7 +92,7 @@
 //        goto failed;
 //    }
 //
-//    event->id = thingsdb_events_get_event_id();
+//    event->id = ti_events_get_event_id();
 //    event->pid = pkg->id;
 //    event->node = ti_node_grab(thingsdb->node);
 //    event->client = ti_stream_grab(sock);
@@ -124,9 +124,9 @@
 //
 //int ti_event_init(ti_event_t * event)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    event->node = ti_node_grab(thingsdb->node);
-//    event->id = thingsdb_events_get_event_id();
+//    event->id = ti_events_get_event_id();
 //    event->status = TI_EVENT_STAT_REG;
 //    event->nodes = vec_new(thingsdb->nodes->n - 1);
 //    return -!event->nodes;
@@ -197,7 +197,7 @@
 //
 //    if (event->target || qpx_obj_eq_str(&target, "_")) goto target;
 //
-//    event->target = ti_dbs_get_by_obj(thingsdb_get()->dbs, &target);
+//    event->target = ti_dbs_get_by_obj(ti_get()->dbs, &target);
 //    if (event->target)
 //    {
 //        event->target = ti_db_grab(event->target);
@@ -281,7 +281,7 @@
 //
 //static int ti__event_reg(ti_event_t * event)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    ti_prom_t * prom = ti_prom_new(
 //            thingsdb->nodes->n - 1,
 //            event,
@@ -323,7 +323,7 @@
 //
 //static int ti__event_upd(ti_event_t * event, uint64_t prev_id)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    ti_prom_t * prom = ti_prom_new(
 //            event->nodes->n,
 //            event,
@@ -395,16 +395,16 @@
 //        // event->status could be already set to reject in which case the
 //        // event is already removed from the queue
 //        ti__event_cancel(event);  /* terminates in case of failure */
-//        thingsdb_events_trigger();
+//        ti_events_trigger();
 //        return;
 //    }
 //
 //    if (!accept)
 //    {
 //        uint64_t old_id = event->id;
-//        (void *) thingsdb_events_rm_event(event);
-//        event->id = thingsdb_events_get_event_id();
-//        (void) thingsdb_events_add_event(event);  /* queue has room */
+//        (void *) ti_events_rm_event(event);
+//        event->id = ti_events_get_event_id();
+//        (void) ti_events_add_event(event);  /* queue has room */
 //        ti__event_upd(event, old_id);  /* terminates in case of failure */
 //        return;
 //    }
@@ -414,7 +414,7 @@
 //
 //static int ti__event_ready(ti_event_t * event)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    event->status = TI_EVENT_STAT_READY;
 //
 //    event->prom = ti_prom_new(
@@ -436,7 +436,7 @@
 //    {
 //        if (node == thingsdb->node)
 //        {
-//            if (thingsdb_events_trigger())
+//            if (ti_events_trigger())
 //            {
 //                ti_term(SIGTERM);
 //                event->prom->sz--;
@@ -497,7 +497,7 @@
 //
 //static int ti__event_cancel(ti_event_t * event)
 //{
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    ti_prom_t * prom = ti_prom_new(
 //            event->nodes->n,
 //            event,
@@ -593,7 +593,7 @@
 //        ex_t * e)
 //{
 //    qp_res_t * res;
-//    thingsdb_t * thingsdb = thingsdb_get();
+//    ti_t * thingsdb = ti_get();
 //    if (!qp_is_array(qp_next(unpacker, NULL)))
 //    {
 //        ex_set(e, EX_TYPE_ERROR,

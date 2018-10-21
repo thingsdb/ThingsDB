@@ -1,16 +1,16 @@
 /*
  * cfg.h
  */
-#ifndef THINGSDB_CFG_H_
-#define THINGSDB_CFG_H_
+#ifndef TI_CFG_H_
+#define TI_CFG_H_
 
 typedef struct ti_cfg_s  ti_cfg_t;
 
 #include <stdint.h>
 
-int thingsdb_cfg_create(void);
-void thingsdb_cfg_destroy(void);
-int thingsdb_cfg_parse(const char * cfg_file);
+int ti_cfg_create(void);
+void ti_cfg_destroy(void);
+int ti_cfg_parse(const char * cfg_file);
 
 struct ti_cfg_s
 {
@@ -24,4 +24,4 @@ struct ti_cfg_s
     char * store_path;
 };
 
-#endif /* THINGSDB_CFG_H_ */
+#endif /* TI_CFG_H_ */

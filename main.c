@@ -1,16 +1,16 @@
 #include <locale.h>
 #include <stdlib.h>
-#include <thingsdb.h>
 #include <ti/store.h>
 #include <ti/user.h>
 #include <ti/version.h>
 #include <ti/store.h>
+#include <ti.h>
 #include <util/fx.h>
 
 
 int main(int argc, char * argv[])
 {
-    thingsdb_t * thingsdb;
+    ti_t * ti;
     int rc = EXIT_SUCCESS;
 
     /* set local to LC_ALL */
@@ -26,46 +26,46 @@ int main(int argc, char * argv[])
     putenv("TZ=:UTC");
     tzset();
 
-    rc = thingsdb_create();
+    rc = ti_create();
     if (!rc)
         goto stop;
 
-    thingsdb = thingsdb_get();
+    ti = ti_get();
 
     /* parse arguments */
-    if ((rc = thingsdb_args_parse(thingsdb->args, argc, argv)))
+    if ((rc = ti_args_parse(argc, argv)))
         goto stop;
 
-    if (thingsdb->args->version)
+    if (ti->args->version)
     {
         ti_version_print();
         goto stop;
     }
 
-    things_init_logger();
+    ti_init_logger();
 
-    rc = thingsdb_cfg_parse(thingsdb->cfg, thingsdb->args->config);
+    rc = ti_cfg_parse(ti->args->config);
     if (rc)
         goto stop;
 
-    rc = thingsdb_lock();
+    rc = ti_lock();
     if (rc)
         goto stop;
 
-    rc = thingsdb_init_fn();
+    rc = ti_init_fn();
     if (rc)
         goto stop;
 
-    if (thingsdb->args->init)
+    if (ti->args->init)
     {
-        if (fx_file_exist(thingsdb->fn))
+        if (fx_file_exist(ti->fn))
         {
             printf("error: directory `%s` is already initialized\n",
-                    thingsdb->cfg->store_path);
+                    ti->cfg->store_path);
             rc = -1;
             goto stop;
         }
-        if ((rc = thingsdb_build()))
+        if ((rc = ti_build()))
         {
             printf("error: building new pool has failed\n");
             goto stop;
@@ -81,22 +81,22 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    if (strlen(thingsdb->args->secret))
+    if (strlen(ti->args->secret))
     {
         printf(
             "Waiting for a invite to join some pool from a ThingsDB node...\n"
             "(if you want to create a new pool instead, press CTRL+C and "
             "use the --init argument)\n");
     }
-    else if (fx_file_exist(thingsdb->fn))
+    else if (fx_file_exist(ti->fn))
     {
-        if ((rc = thingsdb_read()))
+        if ((rc = ti_read()))
         {
-            printf("error reading tin pool from: '%s'\n", thingsdb->fn);
+            printf("error reading tin pool from: '%s'\n", ti->fn);
             goto stop;
         }
 
-        if ((rc = thingsdb_restore()))
+        if ((rc = ti_store_restore()))
         {
             printf("error loading tin pool\n");
             goto stop;
@@ -111,13 +111,13 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    rc = thingsdb_run();
+    rc = ti_run();
 stop:
-    if (thingsdb_unlock() || rc)
+    if (ti_unlock() || rc)
     {
         rc = EXIT_FAILURE;
     }
-    thingsdb_destroy();
+    ti_destroy();
 
     return rc;
 }

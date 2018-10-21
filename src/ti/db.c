@@ -2,16 +2,16 @@
  * db.c
  */
 #include <assert.h>
-#include <props.h>
 #include <string.h>
 #include <stdlib.h>
-#include <thingsdb.h>
 #include <ti/api.h>
 #include <ti/db.h>
 #include <ti/things.h>
 #include <ti/prop.h>
 #include <ti/thing.h>
 #include <ti/prop.h>
+#include <ti/props.h>
+#include <ti.h>
 #include <util/strx.h>
 #include <util/fx.h>
 
@@ -63,7 +63,7 @@ void ti_db_drop(ti_db_t * db)
 
 int ti_db_buid(ti_db_t * db)
 {
-    ti_thing_t * thing = ti_things_create_thing(db, thingsdb_next_thing_id());
+    ti_thing_t * thing = ti_things_create_thing(db, ti_next_thing_id());
     if (!thing)
         return -1;
 

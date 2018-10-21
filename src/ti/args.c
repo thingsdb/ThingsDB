@@ -1,13 +1,13 @@
 /*
  * args.c
  */
-#include <args.h>
 #include <util/argparse.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <thingsdb.h>
+#include <ti/args.h>
+#include <ti.h>
 
 #define DEFAULT_LOG_FILE_MAX_SIZE 50000000
 #define DEFAULT_LOG_FILE_NUM_BACKUPS 6
@@ -18,34 +18,39 @@
 #define DEFAULT_LOG_LEVEL "warning"
 #endif
 
-static thingsdb_args_t * args;
+static ti_args_t * args;
 
-int thingsdb_args_create(void)
+int ti_args_create(void)
 {
-    args = calloc(1, sizeof(thingsdb_args_t));
+    args = calloc(1, sizeof(ti_args_t));
     if (!args)
         return -1;
+    printf("!!!!\n\n HERE%s \n\n", args->config);
     args->version = 0;
-    strcpy(args->config, "");
+    strcpy(args->config, "a");
     strcpy(args->log_level, "");
     args->log_colorized = 0;
     args->init = 0;
-    thingsdb_get()->args = args;
+    ti_get()->args = args;
+
+    printf("!!!!\n\n HERE%s \n\n", args->config);
     return 0;
 }
 
-void thingsdb_args_destroy(void)
+void ti_args_destroy(void)
 {
     free(args);
-    args = thingsdb_get()->args = NULL;
+    args = ti_get()->args = NULL;
 }
 
-int thingsdb_args_parse(thingsdb_args_t * args, int argc, char *argv[])
+int ti_args_parse(int argc, char *argv[])
 {
     int rc;
     argparse_t * parser = argparse_create();
     if (!parser)
         return -1;
+
+    printf("!!!!\n\n HERE%s \n\n", ti_get()->args->config);
 
     argparse_argument_t config_ = {
             name: "config",
@@ -54,7 +59,7 @@ int thingsdb_args_parse(thingsdb_args_t * args, int argc, char *argv[])
             action: ARGPARSE_STORE_STRING,
             default_int32_t: 0,
             pt_value_int32_t: NULL,
-            str_default: "/etc/tin/tin.conf",
+            str_default: "/etc/thingsdb/thingsdb.conf",
             str_value: args->config,
             choices: NULL
     };
@@ -124,7 +129,8 @@ int thingsdb_args_parse(thingsdb_args_t * args, int argc, char *argv[])
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
-            argparse_add_argument(parser, &log_colorized_)) return -1;
+            argparse_add_argument(parser, &log_colorized_))
+        return -1;
 
     /* this will parse and free the parser from memory */
     rc = argparse_parse(parser, argc, argv);

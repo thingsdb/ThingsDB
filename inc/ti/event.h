@@ -22,7 +22,7 @@ typedef struct ti_event_s ti_event_t;
 #include <stdint.h>
 #include <qpack.h>
 #include <ti/db.h>
-#include <events.h>
+#include <ti/events.h>
 #include <ti/pkg.h>
 #include <ti/prom.h>
 #include <ti/raw.h>

@@ -1,8 +1,5 @@
 /*
  * version.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,7 +36,7 @@ void ti_version_print(void)
             "ThingsDB Server %s\n"
             "Maintainer: %s\n"
             "Home-page: %s\n",
-            THINGSDB_VERSION,
-            THINGSDB_MAINTAINER,
-            THINGSDB_HOME_PAGE);
+            TI_VERSION,
+            TI_MAINTAINER,
+            TI_HOME_PAGE);
 }

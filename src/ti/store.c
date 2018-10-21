@@ -1,17 +1,14 @@
 /*
  * store.c
- *
- *  Created on: Sep 29, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
-#include <props.h>
 #include <stdlib.h>
-#include <thingsdb.h>
 #include <ti/access.h>
+#include <ti/dbs.h>
+#include <ti/props.h>
 #include <ti/store.h>
 #include <ti/things.h>
-#include <dbs.h>
-#include <users.h>
+#include <ti/users.h>
+#include <ti.h>
 #include <util/fx.h>
 #include <util/imap.h>
 #include <util/logger.h>
@@ -30,9 +27,9 @@ static const char * ti__store_skeleton_fn  = "skeleton.qp";
 static const char * ti__store_data_fn      = "data.qp";
 
 
-int ti_store(void)
+int ti_store_store(void)
 {
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     int rc = -1;
     char * ti_fn = NULL;
     char * users_fn = NULL;
@@ -66,11 +63,11 @@ int ti_store(void)
     dbs_fn = fx_path_join(tmp_path, ti__store_dbs_fn);
 
     if (!ti_fn || !users_fn || !access_fn || !dbs_fn ||
-        thingsdb_store(ti_fn) ||
-        thingsdb_props_store(props_fn) ||
-        thingsdb_users_store(users_fn) ||
+        ti_store(ti_fn) ||
+        ti_props_store(props_fn) ||
+        ti_users_store(users_fn) ||
         ti_access_store(thingsdb->access, access_fn) ||
-        thingsdb_dbs_store(dbs_fn))
+        ti_dbs_store(dbs_fn))
         goto stop;
 
     for (vec_each(thingsdb->dbs, ti_db_t, db))
@@ -140,9 +137,9 @@ stop:
     return rc;
 }
 
-int ti_restore(void)
+int ti_store_restore(void)
 {
-    thingsdb_t * thingsdb = thingsdb_get();
+    ti_t * thingsdb = ti_get();
     int rc = -1;
     char * ti_fn = NULL;
     char * users_fn = NULL;
@@ -164,10 +161,10 @@ int ti_restore(void)
     dbs_fn = fx_path_join(store_path, ti__store_dbs_fn);
 
     if (    !users_fn || !ti_fn || !access_fn || !dbs_fn ||
-            thingsdb_restore(ti_fn) ||
-            thingsdb_users_restore(users_fn) ||
+            ti_restore(ti_fn) ||
+            ti_users_restore(users_fn) ||
             ti_access_restore(&thingsdb->access, access_fn) ||
-            thingsdb_dbs_restore(dbs_fn))
+            ti_dbs_restore(dbs_fn))
         goto stop;
 
     for (vec_each(thingsdb->dbs, ti_db_t, db))
@@ -200,7 +197,7 @@ int ti_restore(void)
         data_fn = fx_path_join(db_path, ti__store_data_fn);
 
         if (!access_fn || !props_fn || !things_fn || !db_fn ||
-            !(propsmap = thingsdb_props_restore(props_fn)) ||
+            !(propsmap = ti_props_restore(props_fn)) ||
             ti_access_restore(&db->access, access_fn) ||
             ti_things_restore(db->things, things_fn) ||
             ti_db_restore(db, db_fn) ||

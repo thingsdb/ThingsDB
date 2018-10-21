@@ -3,16 +3,16 @@
  */
 #include <stdlib.h>
 #include <assert.h>
-#include <dbs.h>
-#include <props.h>
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
+#include <ti/dbs.h>
 #include <ti/prop.h>
+#include <ti/props.h>
 #include <ti/proto.h>
 #include <ti/task.h>
 #include <ti/thing.h>
-#include <users.h>
+#include <ti/users.h>
 #include <util/qpx.h>
 //
 //static ti_task_stat_e ti__task_user_create(

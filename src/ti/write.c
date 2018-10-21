@@ -1,12 +1,10 @@
 /*
  * write.c
- *
- *  Created on: Oct 5, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
  */
 #include <stdlib.h>
 #include <ti/ref.h>
 #include <ti/write.h>
+#include <util/logger.h>
 
 static void ti__write_cb(uv_write_t * req, int status);
 

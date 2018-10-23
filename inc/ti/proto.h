@@ -42,15 +42,30 @@ typedef enum
     /*
      * protocol definition for node connections
      */
-    TI_PROTO_NODE_REQ_PING      =128,   /* empty */
-    TI_PROTO_NODE_REQ_AUTH      =129,   /* [node_id]     */
-    TI_PROTO_NODE_REQ_QUERY     =130,   /* [user_id, {query...}] */
+    TI_PROTO_NODE_REQ_PING      =160,   /* empty */
+    TI_PROTO_NODE_REQ_AUTH      =161,   /* [node_id]     */
+    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, {query...}] */
 
-    TI_PROTO_NODE_RES_PING      =160,   /* empty */
-    TI_PROTO_NODE_RES_AUTH      =161,   /* empty */
-    TI_PROTO_NODE_RES_QUERY     =162,   /* [{}, {}, ...] */
+    TI_PROTO_NODE_RES_PING      =192,   /* empty */
+    TI_PROTO_NODE_RES_AUTH      =193,   /* empty */
+    TI_PROTO_NODE_RES_QUERY     =194,   /* [{}, {}, ...] */
 
-    TI_PROTO_NODE_ERR_REJECT    =192,
+    /* authentication failed or request without authentication */
+    TI_PROTO_NODE_ERR_AUTH          =224,
+    /* no access for the requested task */
+    TI_PROTO_NODE_ERR_FORBIDDEN     =225,
+    /* query syntax error */
+    TI_PROTO_NODE_ERR_INDEX         =226,
+    /* invalid request, incorrect package type, invalid QPack data */
+    TI_PROTO_NODE_ERR_BAD_REQUEST   =227,
+    /* node is (currently) unable to respond to the request */
+    TI_PROTO_NODE_ERR_QUERY         =228,
+    /* not found, maybe because due to no access */
+    TI_PROTO_NODE_ERR_NODE          =229,
+    /* internal server error, for example allocation error */
+    TI_PROTO_NODE_ERR_INTERNAL      =230,
+
+    TI_PROTO_NODE_ERR_REJECT        =240,
 
 } ti_proto_e;
 

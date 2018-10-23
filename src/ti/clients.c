@@ -402,7 +402,7 @@ static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status)
     req->pkg_res = NULL;
 
     resp->id = fwd->orig_pkg_id;
-    resp->tp = TI_PROTO_CLIENT_RES_QUERY;
+    resp->tp = resp->tp - 0x80;
     resp->ntp = resp->tp ^ 255;
 
 finish:

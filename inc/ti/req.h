@@ -11,11 +11,11 @@ typedef struct ti_req_s ti_req_t;
 #include <ti/pkg.h>
 #include <ti/ex.h>
 
-typedef void (*ti_req_cb)(ti_req_t * req, ex_e status);
+typedef void (*ti_req_cb)(ti_req_t * req, ex_enum status);
 
-ti_req_t * ti_req_create(
+int ti_req_create(
         ti_stream_t * stream,
-        ti_pkg_t * pkg,
+        ti_pkg_t * pkg_req,
         uint32_t timeout,
         ti_req_cb cb,
         void * data);

@@ -8,7 +8,8 @@ typedef enum
 {
     TI_NODE_STAT_OFFLINE,
     TI_NODE_STAT_CONNECTING,
-    TI_NODE_STAT_MAINT,
+    TI_NODE_STAT_AWAY,
+    TI_NODE_STAT_AWAY_SOON,  /* few seconds before going away, back-end still accepts queries */
     TI_NODE_STAT_READY
 } ti_node_status_t;
 
@@ -31,9 +32,6 @@ struct ti_node_s
     uint8_t flags;
     uint8_t status;
     uint8_t maintn;
-    uint32_t req_next_id;  /* TODO, what is thins?? was uint16_t*/
-    uint32_t pad0;
-    imap_t * reqs;
     ti_stream_t * stream;
     struct sockaddr_storage addr;
 };

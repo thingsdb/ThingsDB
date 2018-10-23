@@ -4,7 +4,13 @@
 #ifndef TI_STREAM_H_
 #define TI_STREAM_H_
 
-#define TI_STREAM_FLAG_INIT 1
+enum
+{
+    TI_STREAM_FLAG_AUTH     =1<<0,
+    TI_STREAM_FLAG_CLOSED   =1<<1,
+};
+
+#define TI_STREAM_FLAG_OPEN 1
 #define TI_STREAM_FLAG_AUTH 2
 
 typedef enum
@@ -13,7 +19,7 @@ typedef enum
     TI_STREAM_TCP_IN_NODE,      /* TCP connection from other node */
     TI_STREAM_TCP_IN_CLIENT,    /* TCP connection from client */
     TI_STREAM_PIPE_IN_CLIENT,   /* PIPE connection from client */
-} ti_stream_e;
+} ti_stream_enum;
 
 typedef struct ti_stream_s  ti_stream_t;
 typedef union ti_stream_u ti_stream_via_t;
@@ -23,9 +29,10 @@ typedef union ti_stream_u ti_stream_via_t;
 #include <ti/user.h>
 #include <ti/node.h>
 #include <ti/pkg.h>
+#include <util/imap.h>
 typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 
-ti_stream_t * ti_stream_create(ti_stream_e tp, ti_stream_pkg_cb cb);
+ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb);
 void ti_stream_drop(ti_stream_t * sock);
 int ti_stream_init(ti_stream_t * sock);
 void ti_stream_close(ti_stream_t * sock);
@@ -42,16 +49,17 @@ union ti_stream_u
 struct ti_stream_s
 {
     uint32_t ref;
-    uint32_t n;     /* buffer n */
-    uint32_t sz;    /* buffer sz */
-    ti_stream_e tp;
+    uint32_t n;             /* buffer n */
+    uint32_t sz;            /* buffer size */
+    uint16_t next_pkg_id;
+    uint8_t tp;
     uint8_t flags;
     ti_stream_via_t via;
     ti_stream_pkg_cb pkg_cb;
     char * buf;
     char * name_;
     uv_stream_t uvstream;
-    link_t * reqs_;     /* requests waiting for response */
+    imap_t * reqmap;        /* requests waiting for response */
 };
 
 struct ti_stream_req_s

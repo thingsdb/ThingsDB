@@ -26,7 +26,7 @@ ti_user_t * ti_user_create(
     user->ref = 1;
     user->name = ti_raw_dup(name);
     user->pass = strdup(encrpass);
-    user->data = NULL;
+    user->qpdata = NULL;
 
     if (!user->name || !user->pass)
     {
@@ -39,6 +39,7 @@ ti_user_t * ti_user_create(
 
 void ti_user_drop(ti_user_t * user)
 {
+    assert(user);
     if (user && !--user->ref)
     {
         free(user->pass);

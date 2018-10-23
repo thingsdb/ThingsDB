@@ -13,6 +13,8 @@
 #include <ti/auth.h>
 #include <ti/ex.h>
 #include <ti/access.h>
+#include <ti/req.h>
+#include <ti/fwd.h>
 
 #define TI__CLIENTS_UV_BACKLOG 64
 
@@ -24,7 +26,7 @@ static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg);
-static void ti__clients_write_cb(ti_write_t * req, ex_e status);
+static void ti__clients_write_cb(ti_write_t * req, ex_enum status);
 
 int ti_clients_create(void)
 {
@@ -277,6 +279,7 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (node->status < TI_NODE_STAT_READY)
     {
+
         node = ti_nodes_random_ready_node();
         if (!node)
         {
@@ -285,9 +288,12 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
                     ti_get()->hostname);
             goto finish;
         }
-        ti_node_send()
-    }
+        /* TODO: forward to other node */
+        ex_set_internal(e);
+        goto finish;
 
+        return;
+    }
 
     query = ti_query_create(pkg->data, pkg->n);
     if (!query)
@@ -327,9 +333,86 @@ finish:
     }
 }
 
-static void ti__clients_write_cb(ti_write_t * req, ex_e status)
+static void ti__clients_write_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->pkg);
     ti_write_destroy(req);
+}
+
+
+static int ti__clients_fwd_query(
+        ti_node_t * to_node,
+        ti_stream_t * src_stream,
+        ti_pkg_t * orig_pkg)
+{
+    qpx_packer_t * packer;
+    ti_fwd_t * fwd;
+    ti_pkg_t * pkg_req;
+
+    packer = qpx_packer_create(orig_pkg->n + 19, 1);
+    if (!packer)
+        goto fail0;
+
+    fwd = ti_fwd_create(orig_pkg->id, src_stream);
+    if (!fwd)
+        goto fail1;
+
+    (void) qp_add_array(&packer);
+    (void) qp_add_int64(packer, src_stream->via.user->id);
+    (void) qp_add_raw(packer, orig_pkg->data, orig_pkg->n);
+    (void) qp_close_array(packer);
+
+    /* this cannot fail */
+    pkg_req = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_QUERY);
+
+    if (ti_req_create(
+            to_node->stream,
+            pkg_req,
+            TI_PROTO_NODE_REQ_QUERY_TIMEOUT,
+            ti__clients_fwd_query_cb,
+            fwd))
+        goto fail1;
+
+    return 0;
+
+fail1:
+    ti_fwd_destroy(fwd);
+    qp_packer_destroy(packer);
+fail0:
+    return -1;
+}
+
+
+static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status)
+{
+    ti_pkg_t * resp;
+    ti_fwd_t * fwd = req->data;
+    if (status)
+    {
+        ex_t * e = ex_use();
+        ex_set(e, status, ex_str(status));
+        resp = ti_pkg_err(fwd->orig_pkg_id, e);
+        if (!resp)
+            log_error(EX_ALLOC_S);
+        goto finish;
+    }
+
+    resp = req->pkg_res;
+    req->pkg_res = NULL;
+
+    resp->id = fwd->orig_pkg_id;
+    resp->tp = TI_PROTO_CLIENT_RES_QUERY;
+    resp->ntp = resp->tp ^ 255;
+
+finish:
+    free(req->pkg_res);
+    if (resp && ti_clients_write(fwd->stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
+    }
+
+    ti_fwd_destroy(fwd);
+    ti_req_destroy(req);
 }

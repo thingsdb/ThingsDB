@@ -381,7 +381,12 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         uv_close(handle, NULL);
         break;
     case UV_TCP:
+    case UV_NAMED_PIPE:
         ti_stream_close((ti_stream_t *) handle->data);
+        break;
+    case UV_TIMER:
+        LOGC("non closing timer found");
+        assert(0);
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

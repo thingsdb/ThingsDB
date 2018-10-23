@@ -57,10 +57,11 @@ ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
     case EX_NODE_ERROR:
         tp = TI_PROTO_CLIENT_ERR_NODE;
         break;
+    case EX_INTERNAL:
     case EX_REQUEST_TIMEOUT:
     case EX_REQUEST_CANCEL:
     case EX_WRITE_UV:
-    case EX_MEMORY_ALLOCATION:
+    case EX_ALLOC:
     default:
         tp = TI_PROTO_CLIENT_ERR_INTERNAL;
     }

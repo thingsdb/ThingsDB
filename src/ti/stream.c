@@ -15,7 +15,7 @@ static void ti__stream_stop(uv_handle_t * uvstream);
 static const char * ti__stream_name_unresolved = "unresolved";
 
 
-ti_stream_t * ti_stream_create(ti_stream_e tp, ti_stream_pkg_cb cb)
+ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
 {
     ti_stream_t * stream = malloc(sizeof(ti_stream_t));
     if (!stream)
@@ -30,41 +30,35 @@ ti_stream_t * ti_stream_create(ti_stream_e tp, ti_stream_pkg_cb cb)
     stream->pkg_cb = cb;
     stream->buf = NULL;
     stream->name_ = NULL;
-
+    stream->reqmap = imap_create();
     stream->uvstream.data = stream;
+    stream->next_pkg_id = 0;
+    if (!stream->reqmap)
+    {
+        ti_stream_drop(stream);
+    }
 
     return stream;
 }
 
 void ti_stream_drop(ti_stream_t * stream)
 {
+    assert(stream);
     if (stream && !--stream->ref)
     {
-        assert (~stream->flags & TI_STREAM_FLAG_INIT);
+        assert (stream->reqmap == NULL);
         free(stream->buf);
         free(stream->name_);
         free(stream);
     }
 }
 
-int ti_stream_init(ti_stream_t * stream)
-{
-    int rc = uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
-    if (!rc)
-    {
-        stream->flags |= TI_STREAM_FLAG_INIT;
-    }
-    return rc;
-}
-
-/*
- * Call tinstream_closr
- */
 void ti_stream_close(ti_stream_t * stream)
 {
-    assert (stream->flags & TI_STREAM_FLAG_INIT);
+    stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
-    stream->flags &= ~TI_STREAM_FLAG_INIT;
+    imap_destroy(stream->reqmap, ti_req_cancel);
+    stream->reqmap = NULL;
     uv_close((uv_handle_t *) &stream->uvstream, ti__stream_stop);
 }
 
@@ -72,7 +66,7 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
 {
     ti_stream_t * stream  = (ti_stream_t *) handle->data;
 
-    if (stream->n == 0 && stream->sz != sugsz)
+    if (!stream->n && stream->sz != sugsz)
     {
         free(stream->buf);
         stream->buf = (char *) malloc(sugsz);
@@ -97,17 +91,25 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     ti_pkg_t * pkg;
     size_t total_sz;
 
-    if (~stream->flags & TI_STREAM_FLAG_INIT) return;
+    if (stream->flags & TI_STREAM_FLAG_CLOSED)
+    {
+        log_error(
+                "received %zd bytes from `%s` but the stream is closed",
+                n, ti_stream_name(stream));
+        return;
+    }
 
     if (n < 0)
     {
-        if (n != UV_EOF) log_error(uv_strerror(n));
+        if (n != UV_EOF)
+            log_error(uv_strerror(n));
         ti_stream_close(stream);
         return;
     }
 
     stream->n += n;
-    if (stream->n < sizeof(ti_pkg_t)) return;
+    if (stream->n < sizeof(ti_pkg_t))
+        return;
 
     pkg = (ti_pkg_t *) stream->buf;
     if (!ti_pkg_check(pkg))
@@ -172,7 +174,7 @@ const char * ti_stream_name(ti_stream_t * stream)
 static void ti__stream_stop(uv_handle_t * uvstream)
 {
     ti_stream_t * stream = uvstream->data;
-    switch (stream->tp)
+    switch ((ti_stream_enum) stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:

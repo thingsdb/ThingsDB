@@ -45,9 +45,11 @@ char * qpx_obj_raw_to_str(const qp_obj_t * obj)
     return str;
 }
 
-qpx_packer_t * qpx_packer_create(size_t sz)
+qpx_packer_t * qpx_packer_create(size_t alloc_size, size_t init_nest_size)
 {
-    qpx_packer_t * packer =  qp_packer_create(sizeof(ti_pkg_t) + sz);
+    qpx_packer_t * packer = qp_packer_create2(
+            sizeof(ti_pkg_t) + alloc_size,
+            init_nest_size);
     if (!packer)
         return NULL;
     packer->len = sizeof(ti_pkg_t);
@@ -61,10 +63,13 @@ void qpx_packer_destroy(qpx_packer_t * xpkg)
     qp_packer_destroy(xpkg);
 }
 
+/*
+ * If the input is valid, this function cannot fail
+ */
 ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 {
     ti_pkg_t * pkg = (ti_pkg_t *) packer->buffer;
-
+    pkg->id = 0;
     pkg->n = packer->len - sizeof(ti_pkg_t);
     pkg->tp = (uint8_t) tp;
     pkg->ntp = pkg->tp ^ 255;

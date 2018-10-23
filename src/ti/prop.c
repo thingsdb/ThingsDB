@@ -1,37 +1,37 @@
 /*
  * prop.c
  */
-#include <string.h>
 #include <stdlib.h>
-#include <ti/prop.h>
 #include <ti.h>
-#include <util/logger.h>
+#include <ti/prop.h>
 
-ti_prop_t * ti_prop_create(const char * name, size_t n)
+ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_e tp, void * v)
 {
-    size_t sz = n + 1;
-    ti_prop_t * prop = malloc(sizeof(ti_prop_t) + sz);
+    ti_prop_t * prop = malloc(sizeof(ti_prop_t));
+    if (!prop || ti_val_set(&prop->val, tp, v))
+    {
+        ti_prop_destroy(prop);
+        return NULL;
+    }
+    prop->name = ti_grab(name);
+    return prop;
+}
+
+ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_e tp, void * v)
+{
+    ti_prop_t * prop = malloc(sizeof(ti_prop_t));
     if (!prop)
         return NULL;
-
-    memcpy(prop->name, name, n);
-    prop->name[sz] = '\0';
-    prop->n = n;
-    prop->ref = 1;
+    ti_val_weak_set(&prop->val, tp, v);
+    prop->name = ti_grab(name);
     return prop;
 }
 
-ti_prop_t * ti_prop_grab(ti_prop_t * prop)
+void ti_prop_destroy(ti_prop_t * prop)
 {
-    prop->ref++;
-    return prop;
-}
-
-void ti_prop_drop(ti_prop_t * prop)
-{
-    if (prop && !--prop->ref)
-    {
-        smap_pop(ti_get()->props, prop->name);
-        ti_prop_destroy(prop);
-    }
+    if (!prop)
+        return;
+    ti_name_drop(prop->name);
+    ti_val_clear(&prop->val);
+    free(prop);
 }

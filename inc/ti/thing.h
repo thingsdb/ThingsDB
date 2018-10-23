@@ -11,20 +11,19 @@ typedef struct ti_thing_s  ti_thing_t;
 
 #include <qpack.h>
 #include <stdint.h>
-#include <ti/prop.h>
+#include <ti/name.h>
 #include <ti/api.h>
 #include <ti/val.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
-ti_thing_t * ti_thing_grab(ti_thing_t * thing);
 void ti_thing_drop(ti_thing_t * thing);
 
-int ti_thing_set(ti_thing_t * thing, ti_prop_t * prop, ti_val_e tp, void * v);
+int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_e tp, void * v);
 int ti_thing_weak_set(
         ti_thing_t * thing,
-        ti_prop_t * prop,
+        ti_name_t * name,
         ti_val_e tp,
         void * v);
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t * packer);
@@ -41,7 +40,7 @@ struct ti_thing_s
     uint16_t pad1;
     uint64_t id;
     imap_t * things;       /* thing is added to this map */
-    vec_t * items;
+    vec_t * props;
 };
 
 static inline _Bool ti_thing_res_is_id(qp_res_t * res)

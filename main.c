@@ -33,7 +33,8 @@ int main(int argc, char * argv[])
     ti = ti_get();
 
     /* parse arguments */
-    if ((rc = ti_args_parse(argc, argv)))
+    rc = ti_args_parse(argc, argv);
+    if (rc)
         goto stop;
 
     if (ti->args->version)

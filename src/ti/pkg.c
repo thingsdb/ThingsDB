@@ -48,8 +48,8 @@ ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
     case EX_INDEX_ERROR:
         tp = TI_PROTO_CLIENT_ERR_INDEX;
         break;
-    case EX_INVALID_DATA:
-        tp = TI_PROTO_CLIENT_ERR_INVALID;
+    case EX_BAD_DATA:
+        tp = TI_PROTO_CLIENT_ERR_BAD_REQUEST;
         break;
     case EX_QUERY_ERROR:
         tp = TI_PROTO_CLIENT_ERR_QUERY;

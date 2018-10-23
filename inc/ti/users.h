@@ -6,9 +6,9 @@
 
 #include <stdint.h>
 #include <qpack.h>
+#include <ti/ex.h>
 #include <ti/raw.h>
 #include <ti/user.h>
-#include <util/ex.h>
 
 int ti_users_create(void);
 void ti_users_destroy(void);

@@ -6,6 +6,9 @@
 
 #define TI_TASK_N 15
 
+#include <qpack.h>
+
+
 /*
  * Max 60 tasks can be defined.
  */
@@ -38,8 +41,8 @@ typedef enum
 
 typedef struct ti_task_s ti_task_t;
 
-#include <qpack.h>
-#include <ti/event.h>#include <util/ex.h>
+#include <ti/event.h>
+#include <ti/ex.h>
 
 ti_task_t * ti_task_create(qp_res_t * res, ex_t * e);
 void ti_task_destroy(ti_task_t * task);

@@ -36,12 +36,6 @@ ti_stream_t * ti_stream_create(ti_stream_e tp, ti_stream_pkg_cb cb)
     return stream;
 }
 
-ti_stream_t * ti_stream_grab(ti_stream_t * stream)
-{
-    stream->ref++;
-    return stream;
-}
-
 void ti_stream_drop(ti_stream_t * stream)
 {
     if (stream && !--stream->ref)

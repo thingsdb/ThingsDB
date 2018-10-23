@@ -30,26 +30,80 @@ void ti_dbs_destroy(void)
     *dbs = NULL;
 }
 
-ti_db_t * ti_dbs_get_by_name(const ti_raw_t * name)
+ti_db_t * ti_dbs_get_by_raw(const ti_raw_t * raw)
 {
     for (vec_each(*dbs, ti_db_t, db))
     {
-        if (ti_raw_equal(db->name, name)) return db;
+        if (ti_raw_equal(db->name, raw))
+            return db;
     }
     return NULL;
 }
 
-ti_db_t * ti_dbs_get_by_obj(const qp_obj_t * target)
+ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n)
 {
     for (vec_each(*dbs, ti_db_t, db))
     {
-        if (qpx_obj_eq_raw(target, db->name) ||
-            qpx_obj_eq_str(target, db->guid.guid))
-        {
+        if (ti_raw_equal_strn(db->name, str, n))
             return db;
-        }
     }
     return NULL;
+}
+
+ti_db_t * ti_dbs_get_by_id(const uint64_t id)
+{
+    for (vec_each(*dbs, ti_db_t, db))
+    {
+        if (id == db->root->id)
+            return db;
+    }
+    return NULL;
+}
+
+/*
+ * Returns a database based on a QPack object. If the database is not found,
+ * then e will contain the reason why.
+ */
+ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
+{
+    ti_db_t * db = NULL;
+    switch (obj->tp)
+    {
+    case QP_RAW:
+        {
+            db = ti_dbs_get_by_strn((char *) obj->via.raw, obj->len);
+            if (!db)
+                ex_set(
+                    e,
+                    EX_INDEX_ERROR,
+                    "database with name `%.*s` is not found",
+                    obj->len,
+                    (char *) obj->via.raw);
+        }
+        break;
+    case QP_INT64:
+        if (!obj->via.int64)
+        {
+            ex_set(e, EX_SUCCESS, "database target is root");
+        }
+        else
+        {
+            uint64_t id = (uint64_t) obj->via.int64;
+            db = ti_dbs_get_by_id(id);
+            if (!db)
+            {
+                ex_set(
+                    e,
+                    EX_INDEX_ERROR,
+                    "database with id `%"PRIu64"` is not found",
+                    id);
+            }
+        }
+        break;
+    default:
+        ex_set(e, EX_BAD_DATA, "expecting a `name` or `id` as target");
+    }
+    return db;
 }
 
 //void ti_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)

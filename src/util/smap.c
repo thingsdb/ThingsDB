@@ -539,7 +539,7 @@ static void smap__merge_node(smap_node_t * node)
      * needs cleaning */
     free(node->nodes);
 
-    /* bind child nodes properties to the current node */
+    /* bind child nodes nameerties to the current node */
     node->nodes = child_node->nodes;
     node->size = child_node->size;
     node->offset = child_node->offset;

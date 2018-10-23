@@ -12,7 +12,4 @@ int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask);
 void ti_access_revoke(vec_t * access, ti_user_t * user, uint64_t mask);
 _Bool ti_access_check(const vec_t * access, ti_user_t * user, uint64_t mask);
 
-int ti_access_store(const vec_t * access, const char * fn);
-int ti_access_restore(vec_t ** access, const char * fn);
-
 #endif /* TI_ACCESS_H_ */

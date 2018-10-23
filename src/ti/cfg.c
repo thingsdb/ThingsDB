@@ -14,6 +14,7 @@
 #include <util/strx.h>
 #include <ti/tcp.h>
 #include <ti.h>
+#include <util/fx.h>
 
 static ti_cfg_t * cfg;
 static const char * ti__cfg_section = "thingsdb";

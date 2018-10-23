@@ -7,8 +7,8 @@
 #include <ti/api.h>
 #include <ti/auth.h>
 #include <ti/dbs.h>
-#include <ti/prop.h>
-#include <ti/props.h>
+#include <ti/name.h>
+#include <ti/names.h>
 #include <ti/proto.h>
 #include <ti/task.h>
 #include <ti/thing.h>
@@ -24,10 +24,10 @@
 //static ti_task_stat_e ti__task_grant(
 //        qp_map_t * task,
 //        ti_event_t * event);
-//static ti_task_stat_e ti__task_props_set(
+//static ti_task_stat_e ti__task_names_set(
 //        qp_map_t * task,
 //        ti_event_t * event);
-//static ti_task_stat_e ti__task_props_del(
+//static ti_task_stat_e ti__task_names_del(
 //        qp_map_t * task,
 //        ti_event_t * event);
 //static inline ti_thing_t * ti__task_thing_by_id(
@@ -113,10 +113,10 @@
 //        rc = ti__task_grant(map, event);
 //        break;
 //    case TI_TASK_PROPS_SET:
-//        rc = ti__task_props_set(map, event);
+//        rc = ti__task_names_set(map, event);
 //        break;
 //    case TI_TASK_PROPS_DEL:
-//        rc = ti__task_props_del(map, event);
+//        rc = ti__task_names_del(map, event);
 //        break;
 //    default:
 //        assert (0);
@@ -315,7 +315,7 @@
 ///*
 // * Grant permissions to either a database or tin.
 // */
-//static ti_task_stat_e ti__task_props_set(
+//static ti_task_stat_e ti__task_names_set(
 //        qp_map_t * task,
 //        ti_event_t * event)
 //{
@@ -326,7 +326,7 @@
 //    if (!event->target)
 //    {
 //        return ti__task_fail(event,
-//            "props can only be set on things in a database");
+//            "names can only be set on things in a database");
 //    }
 //    qp_res_t * qid = qpx_map_get(task, TI_API_ID);
 //
@@ -363,8 +363,8 @@
 //        k = task->keys + i;
 //        if (!*k->via.str || *k->via.str == TI_API_PREFIX[0]) continue;
 //
-//        ti_prop_t * prop = ti_db_props_get(db->props, k->via.str);
-//        if (!prop) return TI_TASK_ERR;
+//        ti_name_t * name = ti_db_names_get(db->names, k->via.str);
+//        if (!name) return TI_TASK_ERR;
 //
 //        v = task->values + i;
 //        if (ti_thing_res_is_id(v))
@@ -376,7 +376,7 @@
 //                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
 //                return ti__task_fail(event, e->msg);
 //            }
-//            if (ti_thing_set(thing, prop, TI_VAL_ELEM, el))
+//            if (ti_thing_set(thing, name, TI_VAL_ELEM, el))
 //            {
 //                log_critical(EX_ALLOC);
 //                return TI_TASK_ERR;
@@ -420,7 +420,7 @@
 //            assert (0);
 //            break;
 //        }
-//        if (has_thing && ti_thing_weak_set(thing, prop, tp, val))
+//        if (has_thing && ti_thing_weak_set(thing, name, tp, val))
 //        {
 //            log_critical(EX_ALLOC);
 //            return TI_TASK_ERR;
@@ -440,7 +440,7 @@
 ///*
 // * Grant permissions to either a database or tin.
 // */
-//static ti_task_stat_e ti__task_props_del(
+//static ti_task_stat_e ti__task_names_del(
 //        qp_map_t * task,
 //        ti_event_t * event)
 //{
@@ -449,25 +449,25 @@
 //    ti_thing_t * thing;
 //    if (!event->target)
 //        return ti__task_fail(event,
-//            "props can only be deleted on things in a database");
+//            "names can only be deleted on things in a database");
 //
 //    qp_res_t * qid = qpx_map_get(task, TI_API_ID);
-//    qp_res_t * props = qpx_map_get(task, TI_API_PROPS);
+//    qp_res_t * names = qpx_map_get(task, TI_API_PROPS);
 //
 //    if (!qid || qid->tp != QP_RES_INT64)
 //        return ti__task_fail(event,
 //                "missing or invalid thing id ("TI_API_ID")");
 //
-//    if (!props || props->tp != QP_RES_ARRAY || !props->via.array->n)
+//    if (!names || names->tp != QP_RES_ARRAY || !names->via.array->n)
 //        return ti__task_fail(event,
-//                "an array with at least one property is expected "
+//                "an array with at least one nameerty is expected "
 //                "("TI_API_PROPS")");
 //
-//    qp_array_t * arr_props = props->via.array;
-//    for (size_t i = 0; i < arr_props->n; i++)
-//        if (arr_props->values[i].tp != QP_RES_RAW)
+//    qp_array_t * arr_names = names->via.array;
+//    for (size_t i = 0; i < arr_names->n; i++)
+//        if (arr_names->values[i].tp != QP_RES_RAW)
 //            return ti__task_fail(event,
-//                    "each property should be a string "
+//                    "each nameerty should be a string "
 //                    "("TI_API_PROPS")");
 //
 //    uint64_t id = (uint64_t) qid->via.int64;
@@ -487,8 +487,8 @@
 //        k = task->keys + i;
 //        if (!*k->via.str || *k->via.str == TI_API_PREFIX[0]) continue;
 //
-//        ti_prop_t * prop = ti_db_props_get(db->props, k->via.str);
-//        if (!prop) return TI_TASK_ERR;
+//        ti_name_t * name = ti_db_names_get(db->names, k->via.str);
+//        if (!name) return TI_TASK_ERR;
 //
 //        v = task->values + i;
 //        if (ti_thing_res_is_id(v))
@@ -500,7 +500,7 @@
 //                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
 //                return ti__task_fail(event, e->msg);
 //            }
-//            if (ti_thing_set(thing, prop, TI_VAL_ELEM, el))
+//            if (ti_thing_set(thing, name, TI_VAL_ELEM, el))
 //            {
 //                log_critical(EX_ALLOC);
 //                return TI_TASK_ERR;
@@ -545,7 +545,7 @@
 //            break;
 //        }
 //
-//        if (ti_thing_weak_set(thing, prop, tp, val))  // has_thing &&
+//        if (ti_thing_weak_set(thing, name, tp, val))  // has_thing &&
 //        {
 //            log_critical(EX_ALLOC);
 //            return TI_TASK_ERR;

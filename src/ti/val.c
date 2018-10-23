@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti/val.h>
+#include <ti.h>
 #include <util/logger.h>
 
 ti_val_t * ti_val_create(ti_val_e tp, void * v)
@@ -118,7 +119,7 @@ int ti_val_set(ti_val_t * val, ti_val_e tp, void * v)
         }
         break;
     case TI_VAL_ELEM:
-        val->via.thing_ = ti_thing_grab((ti_thing_t *) v);
+        val->via.thing_ = ti_grab((ti_thing_t *) v);
         break;
     case TI_VAL_ELEMS:
         val->via.things_ = vec_dup((vec_t *) v);

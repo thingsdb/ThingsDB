@@ -10,10 +10,10 @@
 #include <ti/db.h>
 #include <ti/access.h>
 #include <ti/event.h>
+#include <ti/ex.h>
 #include <ti/proto.h>
 #include <ti/req.h>
 #include <ti/task.h>
-#include <util/ex.h>
 #include <util/link.h>
 #include <util/qpx.h>
 #include <util/queue.h>

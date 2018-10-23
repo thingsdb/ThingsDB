@@ -5,7 +5,8 @@
 #include <ti/things.h>
 #include <util/fx.h>
 #include <util/logger.h>
-#include <ti/item.h>
+#include <ti/prop.h>
+#include <ti.h>
 
 static void ti__things_gc_mark(ti_thing_t * thing);
 
@@ -37,7 +38,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     {
         if (thing->flags & TI_ELEM_FLAG_SWEEP)
         {
-            vec_destroy(thing->items, (vec_destroy_cb) ti_item_destroy);
+            vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         }
     }
 
@@ -96,18 +97,18 @@ int ti_things_store_skeleton(imap_t * things, const char * fn)
     for (vec_each(things_vec, ti_thing_t, thing))
     {
         found = 0;
-        for (vec_each(thing->items, ti_item_t, item))
+        for (vec_each(thing->props, ti_prop_t, prop))
         {
-            if (item->val.tp < TI_VAL_ELEM) continue;
+            if (prop->val.tp < TI_VAL_ELEM) continue;
             if (!found && (
                     qp_fadd_int64(f, (int64_t) thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
 
             found = 1;
-            p = (intptr_t) item->prop;
+            p = (intptr_t) prop->name;
 
             if (qp_fadd_int64(f, (int64_t) p) ||
-                ti_val_to_file(&item->val, f)) goto stop;
+                ti_val_to_file(&prop->val, f)) goto stop;
 
         }
         if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
@@ -136,18 +137,18 @@ int ti_things_store_data(imap_t * things, const char * fn)
     for (vec_each(things_vec, ti_thing_t, thing))
     {
         found = 0;
-        for (vec_each(thing->items, ti_item_t, item))
+        for (vec_each(thing->props, ti_prop_t, prop))
         {
-            if (item->val.tp >= TI_VAL_ELEM) continue;
+            if (prop->val.tp >= TI_VAL_ELEM) continue;
             if (!found && (
                     qp_fadd_int64(f, (int64_t) thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
 
             found = 1;
-            p = (intptr_t) item->prop;
+            p = (intptr_t) prop->name;
 
             if (qp_fadd_int64(f, (int64_t) p) ||
-                ti_val_to_file(&item->val, f)) goto stop;
+                ti_val_to_file(&prop->val, f)) goto stop;
         }
         if (found && qp_fadd_type(f, QP_MAP_CLOSE)) goto stop;
     }
@@ -187,13 +188,13 @@ done:
     return rc;
 }
 
-int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
+int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
 {
     int rc = 0;
     qp_types_t tp;
     ti_thing_t * thing, * el;
-    ti_prop_t * prop;
-    qp_res_t thing_id, prop_id;
+    ti_name_t * name;
+    qp_res_t thing_id, name_id;
     vec_t * things_vec = NULL;
     FILE * f = fopen(fn, "r");
 
@@ -215,13 +216,13 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
             goto failed;
         }
         if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
-        while (qp_is_int(qp_fnext(f, &prop_id)))
+        while (qp_is_int(qp_fnext(f, &name_id)))
         {
-            prop = imap_get(props, (uint64_t) prop_id.via.int64);
-            if (!prop)
+            name = imap_get(names, (uint64_t) name_id.via.int64);
+            if (!name)
             {
-                log_critical("cannot find prop with id: %"PRId64,
-                        prop_id.via.int64);
+                log_critical("cannot find name with id: %"PRId64,
+                        name_id.via.int64);
                 goto failed;
             }
             tp = qp_fnext(f, &thing_id);
@@ -234,7 +235,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
                             thing_id.via.int64);
                     goto failed;
                 }
-                if (ti_thing_set(thing, prop, TI_VAL_ELEM, el)) goto failed;
+                if (ti_thing_set(thing, name, TI_VAL_ELEM, el)) goto failed;
             }
             else if (qp_is_array(tp))
             {
@@ -248,13 +249,13 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn)
                                 thing_id.via.int64);
                         goto failed;
                     }
-                    if (vec_push(&things_vec, ti_thing_grab(el)))
+                    if (vec_push(&things_vec, ti_grab(el)))
                     {
                         ti_thing_drop(el);
                         goto failed;
                     }
                 }
-                if (ti_thing_weak_set(thing, prop, TI_VAL_ELEMS, things_vec))
+                if (ti_thing_weak_set(thing, name, TI_VAL_ELEMS, things_vec))
                 {
                     goto failed;
                 }
@@ -278,13 +279,13 @@ done:
     return rc;
 }
 
-int ti_things_restore_data(imap_t * things, imap_t * props, const char * fn)
+int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
 {
     int rc = 0;
     qp_types_t tp;
     ti_thing_t * thing;
-    ti_prop_t * prop;
-    qp_res_t thing_id, prop_id, obj;
+    ti_name_t * name;
+    qp_res_t thing_id, name_id, obj;
     vec_t * things_vec = NULL;
     FILE * f = fopen(fn, "r");
 
@@ -306,46 +307,46 @@ int ti_things_restore_data(imap_t * things, imap_t * props, const char * fn)
             goto failed;
         }
         if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
-        while (qp_is_int(qp_fnext(f, &prop_id)))
+        while (qp_is_int(qp_fnext(f, &name_id)))
         {
-            prop = imap_get(props, (uint64_t) prop_id.via.int64);
-            if (!prop)
+            name = imap_get(names, (uint64_t) name_id.via.int64);
+            if (!name)
             {
-                log_critical("cannot find prop with id: %"PRId64,
-                        prop_id.via.int64);
+                log_critical("cannot find name with id: %"PRId64,
+                        name_id.via.int64);
                 goto failed;
             }
             tp = qp_fnext(f, &obj);
             switch (tp)
             {
             case QP_INT64:
-                if (ti_thing_set(thing, prop, TI_VAL_INT, &obj.via.int64))
+                if (ti_thing_set(thing, name, TI_VAL_INT, &obj.via.int64))
                 {
                     goto failed;
                 }
                 break;
             case QP_DOUBLE:
-                if (ti_thing_set(thing, prop, TI_VAL_FLOAT, &obj.via.real))
+                if (ti_thing_set(thing, name, TI_VAL_FLOAT, &obj.via.real))
                 {
                     goto failed;
                 }
                 break;
             case QP_RAW:
                 if (!obj.via.raw) goto failed;
-                if (ti_thing_weak_set(thing, prop, TI_VAL_RAW, obj.via.raw))
+                if (ti_thing_weak_set(thing, name, TI_VAL_RAW, obj.via.raw))
                 {
                     goto failed;
                 }
                 break;
             case QP_NULL:
-                if (ti_thing_set(thing, prop, TI_VAL_NIL, NULL))
+                if (ti_thing_set(thing, name, TI_VAL_NIL, NULL))
                 {
                     goto failed;
                 }
                 break;
             case QP_TRUE:
             case QP_FALSE:
-                if (ti_thing_set(thing, prop, TI_VAL_BOOL, &obj.via.boolean))
+                if (ti_thing_set(thing, name, TI_VAL_BOOL, &obj.via.boolean))
                 {
                     goto failed;
                 }
@@ -372,18 +373,18 @@ done:
 static void ti__things_gc_mark(ti_thing_t * thing)
 {
     thing->flags &= ~TI_ELEM_FLAG_SWEEP;
-    for (vec_each(thing->items, ti_item_t, item))
+    for (vec_each(thing->props, ti_prop_t, prop))
     {
-        switch (item->val.tp)
+        switch (prop->val.tp)
         {
         case TI_VAL_ELEM:
-            if (item->val.via.thing_->flags & TI_ELEM_FLAG_SWEEP)
+            if (prop->val.via.thing_->flags & TI_ELEM_FLAG_SWEEP)
             {
-                ti__things_gc_mark(item->val.via.thing_);
+                ti__things_gc_mark(prop->val.via.thing_);
             }
             continue;
         case TI_VAL_ELEMS:
-            for (vec_each(item->val.via.things_, ti_thing_t, el))
+            for (vec_each(prop->val.via.things_, ti_thing_t, el))
             {
                 if (el->flags & TI_ELEM_FLAG_SWEEP)
                 {

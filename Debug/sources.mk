@@ -16,6 +16,7 @@ SUBDIRS := \
 . \
 src/langdef \
 src/ti \
+src/ti/store \
 src \
 src/util \
 

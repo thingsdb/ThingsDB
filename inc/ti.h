@@ -4,7 +4,23 @@
 #ifndef TI_H_
 #define TI_H_
 
-#define TI_MAX_NODES 64
+#define TI_URL "https://thinkdb.net"
+#define TI_DOCS TI_URL"/docs/"
+
+#ifdef UNUSED
+#elif defined(__GNUC__)
+# define UNUSED(x) UNUSED_ ## x __attribute__((unused))
+#elif defined(__LCLINT__)
+# define UNUSED(x) /*@unused@*/ x
+#else
+# define UNUSED(x) x
+#endif
+
+#define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
+
+/* SUSv2 guarantees that "Host names are limited to 255 bytes,
+ * excluding terminating null byte" */
+#define TI_MAX_HOSTNAME_SZ 256
 
 #define TI_FLAG_SIGNAL 1
 #define TI_FLAG_INDEXING 2
@@ -13,6 +29,7 @@
 typedef struct ti_s ti_t;
 
 #include <uv.h>
+#include <cleri/cleri.h>
 #include <signal.h>
 #include <string.h>
 #include <stdint.h>
@@ -28,6 +45,8 @@ typedef struct ti_s ti_t;
 #include <util/vec.h>
 #include <util/smap.h>
 
+extern ti_t ti_;
+
 #define ti_term(signum__) do {\
     log_critical("raise at: %s:%d,%s (%s)", \
     __FILE__, __LINE__, __func__, strsignal(signum__)); \
@@ -35,7 +54,7 @@ typedef struct ti_s ti_t;
 
 int ti_create(void);
 void ti_destroy(void);
-ti_t * ti_get(void);
+static inline ti_t * ti_get(void);
 void ti_init_logger(void);
 int ti_init_fn(void);
 int ti_build(void);
@@ -44,8 +63,6 @@ int ti_run(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
-int ti_store(const char * fn);      /* call ti_store_store() for storing */
-int ti_restore(const char * fn);    /* call ti_store_restore() for restoring */
 uint64_t ti_next_thing_id(void);
 _Bool ti_manages_id(uint64_t id);
 
@@ -63,11 +80,19 @@ struct ti_s
     vec_t * dbs;
     vec_t * users;
     vec_t * access;
-    smap_t * props;
+    smap_t * names;
     uv_loop_t * loop;
+    cleri_grammar_t * langdef;
     uint64_t next_thing_id;   /* used for assigning id's to objects */
     uint8_t redundancy;     /* value 1..64 */
     uint8_t flags;
+
+    char hostname[256];
 };
+
+static inline ti_t * ti_get(void)
+{
+    return &ti_;
+}
 
 #endif /* TI_H_ */

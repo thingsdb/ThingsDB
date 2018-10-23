@@ -28,12 +28,6 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)
     return node;
 }
 
-ti_node_t * ti_node_grab(ti_node_t * node)
-{
-    node->ref++;
-    return node;
-}
-
 void ti_node_drop(ti_node_t * node)
 {
     if (node && !--node->ref)

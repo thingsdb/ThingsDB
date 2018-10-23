@@ -30,7 +30,7 @@ typedef enum
     /* query syntax error */
     TI_PROTO_CLIENT_ERR_INDEX       =98,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_CLIENT_ERR_INVALID     =99,
+    TI_PROTO_CLIENT_ERR_BAD_REQUEST =99,
     /* node is (currently) unable to respond to the request */
     TI_PROTO_CLIENT_ERR_QUERY       =100,
     /* not found, maybe because due to no access */

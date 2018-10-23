@@ -6,6 +6,8 @@
 #include <ti/nodes.h>
 #include <ti.h>
 
+#define TI__NODES_UV_BACKLOG 64
+
 static ti_nodes_t * nodes;
 
 static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status);
@@ -40,7 +42,7 @@ _Bool ti_nodes_has_quorum(void)
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        if (node->status > TI_NODE_STAT_CONNECTED && ++q == quorum) return 1;
+        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum) return 1;
     }
 
     return 0;
@@ -143,7 +145,7 @@ int ti_nodes_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &nodes->tcp,
-            TI_MAX_NODES,
+            TI__NODES_UV_BACKLOG,
             ti__nodes_tcp_connection)))
     {
         log_error("error listening for TCP nodes: `%s`", uv_strerror(rc));
@@ -153,6 +155,25 @@ int ti_nodes_listen(void)
     log_info("start listening for TCP nodes on port %d", cfg->node_port);
 
     return 0;
+}
+
+/*
+ * Returns another node with status READY.
+ */
+ti_node_t * ti_nodes_random_ready_node(void)
+{
+    ti_node_t * this_node = ti_get()->node;
+    ti_node_t * online_nodes[nodes->vec->n-1];
+    uint32_t i = 0, n = 0;
+    for (vec_each(nodes->vec, ti_node_t, node), i++)
+    {
+        if (node == this_node || node->status != TI_NODE_STAT_READY)
+            continue;
+        online_nodes[n++] = node;
+    }
+    if (!n)
+        return NULL;
+    return online_nodes[rand() % n];
 }
 
 
@@ -184,7 +205,7 @@ static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void ti__nodes_pkg_cb(ti_stream_t * UNUSED(stream), ti_pkg_t * UNUSED(pkg))
 {
 
 }

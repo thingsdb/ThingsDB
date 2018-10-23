@@ -7,7 +7,7 @@
 typedef enum
 {
     TI_NODE_STAT_OFFLINE,
-    TI_NODE_STAT_CONNECTED,
+    TI_NODE_STAT_CONNECTING,
     TI_NODE_STAT_MAINT,
     TI_NODE_STAT_READY
 } ti_node_status_t;
@@ -39,7 +39,6 @@ struct ti_node_s
 };
 
 ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
-ti_node_t * ti_node_grab(ti_node_t * node);
 void ti_node_drop(ti_node_t * node);
 int ti_node_write(ti_node_t * node, ti_pkg_t * pkg);
 static inline _Bool ti_node_manages_id(

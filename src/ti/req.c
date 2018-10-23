@@ -11,24 +11,24 @@
 static void ti__req_timeout(uv_timer_t * handle);
 static void ti__req_write_cb(ti_write_t * req, int status);
 
-int ti_req(
-        ti_node_t * node,
+ti_req_t * ti_req(
+        ti_stream_t * stream,
         ti_pkg_t * pkg,
         uint32_t timeout,
-        void * data,
-        ti_req_cb cb)
+        ti_req_cb cb,
+        void * data)
 {
-    assert (timeout); // timeout is not allowed to be 0 */
+    ti_req_t * req = malloc(sizeof(ti_req_t));
+    if (!req)
+        return NULL;
 
-    ti_req_t * req = (ti_req_t *) malloc(sizeof(ti_req_t));
-    if (!req) return -1;
-
-    req->node = ti_node_grab(node);
-    req->data = data;
+    req->stream = ti_grab(stream);
     req->pkg_req = pkg;
+    req->pkg_res = NULL;
+    req->data = data;
     req->cb_ = cb;
-    while (!++node->req_next_id);
-    req->id = node->req_next_id;
+    uv_timer_init(ti_get()->loop, &req->timer);
+
 
     ti_req_t * prev = imap_set(node->reqs, req->id, req);
     if (!prev) goto failed;
@@ -49,7 +49,7 @@ int ti_req(
 cancel:
     imap_pop(node->reqs, req->id);
     uv_timer_stop(&req->timer);
-    uv_close((uv_handle_t *) &req->timer, NULL);
+
 
 failed:
     ti_node_drop(node);
@@ -60,7 +60,8 @@ failed:
 
 void ti_req_destroy(ti_req_t * req)
 {
-    ti_node_drop(req->node);
+    uv_close((uv_handle_t *) req->timer, free);
+    ti_stream_drop(req->stream);
     free(req);
 }
 

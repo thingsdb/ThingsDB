@@ -5,7 +5,7 @@
 #include <ti/event.h>
 #include <ti/maint.h>
 #include <ti/nodes.h>
-#include <ti/props.h>
+#include <ti/names.h>
 #include <ti/proto.h>
 #include <ti/store.h>
 #include <ti/things.h>
@@ -59,7 +59,7 @@ void ti_maint_stop(ti_maint_t * maint)
 
 static void ti__maint_timer_cb(uv_timer_t * timer)
 {
-    ti_maint_t * maint = (ti_maint_t *) timer->data;
+    ti_maint_t * maint = timer->data;
     ti_t * thingsdb = ti_get();
     uint64_t commit_id = thingsdb->events->commit_event_id;
 
@@ -129,7 +129,7 @@ static int ti__maint_reg(ti_maint_t * maint)
     for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
         if (node == thingsdb->node) continue;
-        if (node->status <= TI_NODE_STAT_CONNECTED || ti_req(
+        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req(
                 node,
                 pkg,
                 ti__maint_reg_timeout,
@@ -199,7 +199,7 @@ static void ti__maint_wait(ti_maint_t * maint)
 
 static void ti__maint_work(uv_work_t * work)
 {
-    ti_maint_t * maint = (ti_maint_t *) work->data;
+    ti_maint_t * maint = work->data;
     ti_t * thingsdb = ti_get();
     uv_mutex_lock(&thingsdb->events->lock);
 

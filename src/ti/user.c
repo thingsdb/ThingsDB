@@ -37,12 +37,6 @@ ti_user_t * ti_user_create(
     return user;
 }
 
-ti_user_t * ti_user_grab(ti_user_t * user)
-{
-    user->ref++;
-    return user;
-}
-
 void ti_user_drop(ti_user_t * user)
 {
     if (user && !--user->ref)

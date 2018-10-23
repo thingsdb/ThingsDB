@@ -13,6 +13,7 @@ typedef struct ti_limits_s ti_limits_t;
 struct ti_limits_s
 {
     size_t max_things;
+    size_t max_props;           /* max props per thing */
     size_t max_array_size;
     size_t max_raw_size;
 };

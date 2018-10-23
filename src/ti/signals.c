@@ -36,7 +36,7 @@ int ti_signals_init(void)
     return 0;
 }
 
-static void ti__signals_handler(uv_signal_t * sig, int signum)
+static void ti__signals_handler(uv_signal_t * UNUSED(sig), int signum)
 {
     ti_t * thingsdb = ti_get();
 
@@ -46,21 +46,23 @@ static void ti__signals_handler(uv_signal_t * sig, int signum)
         return;
     }
 
-    log_warning("received stop signal (%s)", strsignal(signum));
-
     if (thingsdb->flags & TI_FLAG_SIGNAL)
     {
+        log_error("received second signal (%s), abort", strsignal(signum));
         abort();
     }
-
     thingsdb->flags |= TI_FLAG_SIGNAL;
-
-    ti_maint_stop(thingsdb->maint);
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
     {
         log_warning("received stop signal (%s)", strsignal(signum));
     }
+    else
+    {
+        log_critical("received stop signal (%s)", strsignal(signum));
+    }
+
+    ti_maint_stop(thingsdb->maint);
 
     uv_stop(thingsdb->loop);
 }

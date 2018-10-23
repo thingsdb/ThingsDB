@@ -27,7 +27,7 @@ print(output.decode().splitlines())
 
 
 # creates a database
-{target: None, query: ..., blobs: []}
+{'target': None, 'query': ..., 'blobs': []}
 create_db(dbtest)
 {
     '$id': 123,
@@ -46,7 +46,7 @@ databases()
 }
 
 # create a things array
-{db: "dbtest", cmd: ..., blobs: []}
+{'target': 'dbtest', 'query': ..., blobs: []}
 people = [{id: 1, name: 'iris'}]
 {
     '$id': 123,

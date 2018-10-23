@@ -16,7 +16,7 @@ typedef struct ti_prom_res_s ti_prom_res_t;
 #include <uv.h>
 #include <ti/req.h>
 #include <util/vec.h>
-#include <util/ex.h>
+#include <ti/ex.h>
 
 typedef void (*ti_prom_cb)(ti_prom_t * prom);
 

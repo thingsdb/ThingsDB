@@ -5,6 +5,7 @@
 #include <string.h>
 #include <util/qpx.h>
 #include <util/logger.h>
+#include <stdlib.h>
 
 qp_res_t * qpx_map_get(const qp_map_t * map, const char * key)
 {
@@ -33,6 +34,17 @@ _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s)
     return !*s;
 }
 
+char * qpx_obj_raw_to_str(const qp_obj_t * obj)
+{
+    assert (obj->tp == QP_RAW);
+    char * str = malloc(obj->len + 1);
+    if (!str)
+        return NULL;
+    memcpy(str, obj->via.raw, obj->len);
+    str[obj->len] = '\0';
+    return str;
+}
+
 qpx_packer_t * qpx_packer_create(size_t sz)
 {
     qpx_packer_t * packer =  qp_packer_create(sizeof(ti_pkg_t) + sz);
@@ -51,7 +63,7 @@ void qpx_packer_destroy(qpx_packer_t * xpkg)
 
 ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 {
-    ti_pkg_t * pkg = packer->buffer;
+    ti_pkg_t * pkg = (ti_pkg_t *) packer->buffer;
 
     pkg->n = packer->len - sizeof(ti_pkg_t);
     pkg->tp = (uint8_t) tp;

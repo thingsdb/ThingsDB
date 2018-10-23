@@ -15,8 +15,8 @@ int ti_things_store(imap_t * things, const char * fn);
 int ti_things_store_skeleton(imap_t * things, const char * fn);
 int ti_things_store_data(imap_t * things, const char * fn);
 int ti_things_restore(imap_t * things, const char * fn);
-int ti_things_restore_skeleton(imap_t * things, imap_t * props, const char * fn);
-int ti_things_restore_data(imap_t * things, imap_t * props, const char * fn);
+int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn);
+int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn);
 
 
 #endif /* TI_THINGS_H_ */

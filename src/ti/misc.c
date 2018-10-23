@@ -18,7 +18,7 @@ qp_packer_t * ti_misc_init_query(void)
                 ti_user_def_name,
                 ti_user_def_pass,
                 ti_user_def_name,
-                TI_AUTH_FULL);
+                TI_AUTH_MASK_FULL);
     (void) qp_close_map(packer);
 
     return packer;

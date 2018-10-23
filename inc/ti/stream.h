@@ -26,7 +26,6 @@ typedef union ti_stream_u ti_stream_via_t;
 typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 
 ti_stream_t * ti_stream_create(ti_stream_e tp, ti_stream_pkg_cb cb);
-ti_stream_t * ti_stream_grab(ti_stream_t * sock);
 void ti_stream_drop(ti_stream_t * sock);
 int ti_stream_init(ti_stream_t * sock);
 void ti_stream_close(ti_stream_t * sock);
@@ -52,6 +51,7 @@ struct ti_stream_s
     char * buf;
     char * name_;
     uv_stream_t uvstream;
+    link_t * reqs_;     /* requests waiting for response */
 };
 
 struct ti_stream_req_s

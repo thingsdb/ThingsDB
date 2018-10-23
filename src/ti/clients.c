@@ -9,7 +9,12 @@
 #include <ti/clients.h>
 #include <ti/users.h>
 #include <ti.h>
-#include <ti.h>
+#include <ti/query.h>
+#include <ti/auth.h>
+#include <ti/ex.h>
+#include <ti/access.h>
+
+#define TI__CLIENTS_UV_BACKLOG 64
 
 static ti_clients_t * clients;
 
@@ -18,6 +23,7 @@ static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status);
 static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
+static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_write_cb(ti_write_t * req, ex_e status);
 
 int ti_clients_create(void)
@@ -84,7 +90,7 @@ int ti_clients_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &clients->tcp,
-            TI_MAX_NODES,
+            TI__CLIENTS_UV_BACKLOG,
             ti__clients_tcp_connection)))
     {
         log_error("error listening for TCP clients: `%s`", uv_strerror(rc));
@@ -99,7 +105,7 @@ int ti_clients_listen(void)
     if ((rc = uv_pipe_bind(&clients->pipe, cfg->pipe_client_name)) ||
         (rc = uv_listen(
                 (uv_stream_t *) &clients->pipe,
-                TI_MAX_NODES,
+                TI__CLIENTS_UV_BACKLOG,
                 ti__clients_pipe_connection)))
     {
         log_error("error listening for PIPE clients: `%s`", uv_strerror(rc));
@@ -183,6 +189,9 @@ static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_AUTH:
         ti__clients_on_auth(stream, pkg);
         break;
+    case TI_PROTO_CLIENT_REQ_QUERY:
+        ti__clients_on_query(stream, pkg);
+        break;
     default:
         log_error(
                 "unexpected package type `%u` from source `%s`)",
@@ -213,7 +222,7 @@ static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_raw(qp_next(&unpacker, &name)) ||
             !qp_is_raw(qp_next(&unpacker, &pass)))
     {
-        ex_set(e, EX_INVALID_DATA, "invalid authentication request");
+        ex_set(e, EX_BAD_DATA, "invalid authentication request");
         log_error("%s from `%s`", e->msg, ti_stream_name(stream));
         resp = ti_pkg_err(pkg->id, e);
         goto finish;
@@ -233,12 +242,85 @@ static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
         assert (user != NULL);
         if (stream->via.user)
             ti_user_drop(stream->via.user);
-        stream->via.user = ti_user_grab(user);
+        stream->via.user = ti_grab(user);
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_AUTH, NULL, 0);
     }
 
 finish:
     if (!resp || ti_clients_write(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC);
+    }
+}
+
+static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_pkg_t * resp;
+    ti_query_t * query = NULL;
+    ex_t * e = ex_use();
+    ti_node_t * node = ti_get()->node;
+
+    if (!stream->via.user)
+    {
+        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    if (node->status <= TI_NODE_STAT_CONNECTING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti_get()->hostname);
+        goto finish;
+    }
+
+    if (node->status < TI_NODE_STAT_READY)
+    {
+        node = ti_nodes_random_ready_node();
+        if (!node)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                    "node `%s` is unable to handle query requests",
+                    ti_get()->hostname);
+            goto finish;
+        }
+        ti_node_send()
+    }
+
+
+    query = ti_query_create(pkg->data, pkg->n);
+    if (!query)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (ti_query_unpack(query, e))
+        goto finish;
+
+    if (!ti_access_check(
+            query->target ? query->target->access : ti_get()->access,
+            stream->via.user,
+            TI_AUTH_ACCESS))
+    {
+        ex_set(e, EX_FORBIDDEN,
+                "access denied, missing `%`",
+                ti_auth_mask_to_str(TI_AUTH_ACCESS));
+        goto finish;
+    }
+
+    if (ti_query_parse(query, e))
+        goto finish;
+
+finish:
+    if (e->nr)
+    {
+        ti_query_destroy(query);
+        resp = ti_pkg_err(pkg->id, e);
+    }
+
+    if (resp && ti_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC);

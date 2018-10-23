@@ -4,26 +4,20 @@
 #ifndef TI_PROP_H_
 #define TI_PROP_H_
 
-typedef struct ti_prop_s ti_prop_t;
+typedef struct ti_prop_s  ti_prop_t;
 
 #include <stdint.h>
-#include <stdlib.h>
+#include <ti/name.h>
+#include <ti/val.h>
 
-ti_prop_t * ti_prop_create(const char * name, size_t n);
-ti_prop_t * ti_prop_grab(ti_prop_t * prop);
-void ti_prop_drop(ti_prop_t * prop);
-static inline void ti_prop_destroy(ti_prop_t * prop);
+ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_e tp, void * v);
+ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_e tp, void * v);
+void ti_prop_destroy(ti_prop_t * prop);
 
 struct ti_prop_s
 {
-    uint32_t ref;
-    uint32_t n;             /* strlen(prop->name) */
-    char name[];            /* null terminated string */
+    ti_name_t * name;
+    ti_val_t val;
 };
-
-static inline void ti_prop_destroy(ti_prop_t * prop)
-{
-    free(prop);
-}
 
 #endif /* TI_PROP_H_ */

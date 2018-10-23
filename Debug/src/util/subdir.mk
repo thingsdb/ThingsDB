@@ -7,7 +7,6 @@ C_SRCS += \
 ../src/util/argparse.c \
 ../src/util/cfgparser.c \
 ../src/util/cryptx.c \
-../src/util/ex.c \
 ../src/util/fx.c \
 ../src/util/guid.c \
 ../src/util/imap.c \
@@ -24,7 +23,6 @@ OBJS += \
 ./src/util/argparse.o \
 ./src/util/cfgparser.o \
 ./src/util/cryptx.o \
-./src/util/ex.o \
 ./src/util/fx.o \
 ./src/util/guid.o \
 ./src/util/imap.o \
@@ -41,7 +39,6 @@ C_DEPS += \
 ./src/util/argparse.d \
 ./src/util/cfgparser.d \
 ./src/util/cryptx.d \
-./src/util/ex.d \
 ./src/util/fx.d \
 ./src/util/guid.d \
 ./src/util/imap.d \

@@ -1,5 +1,5 @@
 /*
- * thingsdb.c
+ * ti_.c
  */
 #include <assert.h>
 #include <stdlib.h>
@@ -7,7 +7,7 @@
 #include <ti/db.h>
 #include <ti/event.h>
 #include <ti/misc.h>
-#include <ti/props.h>
+#include <ti/names.h>
 #include <ti/signals.h>
 #include <ti/store.h>
 #include <ti/user.h>
@@ -18,18 +18,17 @@
 #include <util/strx.h>
 #include <util/qpx.h>
 #include <util/lock.h>
+#include <langdef/langdef.h>
+
+ti_t ti_;
 
 static const uint8_t ti__def_redundancy = 3;
 
 /* settings, nodes etc. */
-const char * ti__fn = "thingsdb.qp";
+const char * ti__fn = "ti_.qp";
 const int ti__fn_schema = 0;
 
-/* status of event id, thing id */
-const int ti__stat_fn_schema = 0;
-
 static uv_loop_t loop_;
-static ti_t thingsdb;
 
 static qp_packer_t * ti__pack(void);
 static int ti__unpack(qp_res_t * res);
@@ -37,24 +36,27 @@ static void ti__close_handles(uv_handle_t * handle, void * arg);
 
 int ti_create(void)
 {
-    thingsdb.flags = 0;
-    thingsdb.redundancy = ti__def_redundancy;
-    thingsdb.fn = NULL;
-    thingsdb.node = NULL;
-    thingsdb.lookup = NULL;
-    thingsdb.access = vec_new(0);
-    thingsdb.maint = ti_maint_new();
+    ti_.flags = 0;
+    ti_.redundancy = ti__def_redundancy;
+    ti_.fn = NULL;
+    ti_.node = NULL;
+    ti_.lookup = NULL;
+    ti_.access = vec_new(0);
+    ti_.maint = ti_maint_new();
+    ti_.langdef = compile_langdef();
 
-    if (    ti_args_create() ||
+    if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+            ti_args_create() ||
             ti_cfg_create() ||
             ti_clients_create() ||
             ti_nodes_create() ||
-            ti_props_create() ||
+            ti_names_create() ||
             ti_users_create() ||
             ti_dbs_create() ||
-//            !ti_events_create() ||
-            !thingsdb.access ||
-            !thingsdb.maint)
+            !ti_events_create() ||
+            !ti_.access ||
+            !ti_.maint ||
+            !ti_.langdef)
     {
         ti_destroy();
         return -1;
@@ -65,35 +67,31 @@ int ti_create(void)
 
 void ti_destroy(void)
 {
-    free(thingsdb.fn);
-    free(thingsdb.maint);
-    ti_lookup_destroy(thingsdb.lookup);
+    free(ti_.fn);
+    free(ti_.maint);
+    ti_lookup_destroy(ti_.lookup);
     ti_args_destroy();
     ti_cfg_destroy();
     ti_clients_destroy();
     ti_nodes_destroy();
-//    ti_events_destroy();
+    ti_events_destroy();
     ti_dbs_destroy();
     ti_users_destroy();
-    ti_props_destroy();
-    vec_destroy(thingsdb.access, free);
-    memset(&thingsdb, 0, sizeof(ti_t));
-}
-
-ti_t * ti_get(void)
-{
-    return &thingsdb;
+    ti_names_destroy();
+    vec_destroy(ti_.access, free);
+    cleri_grammar_free(ti_.langdef);
+    memset(&ti_, 0, sizeof(ti_t));
 }
 
 void ti_init_logger(void)
 {
     int n;
     char lname[255];
-    size_t len = strlen(thingsdb.args->log_level);
+    size_t len = strlen(ti_.args->log_level);
 
 #ifdef NDEBUG
     /* force colors while debugging... */
-    if (thingsdb.args->log_colorized)
+    if (ti_.args->log_colorized)
 #endif
     {
         Logger.flags |= LOGGER_FLAG_COLORED;
@@ -103,7 +101,7 @@ void ti_init_logger(void)
     {
         strcpy(lname, LOGGER_LEVEL_NAMES[n]);
         strx_lower_case(lname);
-        if (strlen(lname) == len && strcmp(thingsdb.args->log_level, lname) == 0)
+        if (strlen(lname) == len && strcmp(ti_.args->log_level, lname) == 0)
         {
             logger_init(stdout, n);
             return;
@@ -114,8 +112,8 @@ void ti_init_logger(void)
 
 int ti_init_fn(void)
 {
-    thingsdb.fn = strx_cat(thingsdb.cfg->store_path, ti__fn);
-    return (thingsdb.fn) ? 0 : -1;
+    ti_.fn = strx_cat(ti_.cfg->store_path, ti__fn);
+    return (ti_.fn) ? 0 : -1;
 }
 
 int ti_build(void)
@@ -125,16 +123,14 @@ int ti_build(void)
     if (!packer)
         return -1;
 
-//    thingsdb.events->commit_event_id = 0;
-//    thingsdb.events->next_event_id = 1;
-    thingsdb.next_thing_id = 1;
+    ti_.events->commit_event_id = 0;
+    ti_.events->next_event_id = 1;
+    ti_.next_thing_id = 1;
 
-    thingsdb.node = ti_nodes_create_node(&thingsdb.nodes->addr);
-    if (!thingsdb.node)
+    ti_.node = ti_nodes_create_node(&ti_.nodes->addr);
+    if (!ti_.node || ti_save())
         goto stop;
 
-    if (ti_save())
-        goto stop;
 
 //    ti_event_raw(event, packer->buffer, packer->len, e);
 //    if (e->nr)
@@ -151,11 +147,11 @@ int ti_build(void)
 stop:
     if (rc)
     {
-        fx_rmdir(thingsdb.cfg->store_path);
-        mkdir(thingsdb.cfg->store_path, 0700); /* no error checking required */
-        ti_node_drop(thingsdb.node);
-        thingsdb.node = NULL;
-        vec_pop(thingsdb.nodes->vec);
+        fx_rmdir(ti_.cfg->store_path);
+        mkdir(ti_.cfg->store_path, 0700); /* no error checking required */
+        ti_node_drop(ti_.node);
+        ti_.node = NULL;
+        vec_pop(ti_.nodes->vec);
     }
     qp_packer_destroy(packer);
     return rc;
@@ -165,7 +161,7 @@ int ti_read(void)
 {
     int rc;
     ssize_t n;
-    unsigned char * data = fx_read(thingsdb.fn, &n);
+    unsigned char * data = fx_read(ti_.fn, &n);
     if (!data) return -1;
 
     qp_unpacker_t unpacker;
@@ -181,14 +177,14 @@ int ti_read(void)
     qp_res_destroy(res);
     if (rc)
     {
-        log_critical("unpacking has failed (%s)", thingsdb.fn);
+        log_critical("unpacking has failed (%s)", ti_.fn);
         goto stop;
     }
-    thingsdb.lookup = ti_lookup_create(
-            thingsdb.nodes->vec->n,
-            thingsdb.redundancy,
-            thingsdb.nodes->vec);
-    if (!thingsdb.lookup)
+    ti_.lookup = ti_lookup_create(
+            ti_.nodes->vec->n,
+            ti_.redundancy,
+            ti_.nodes->vec);
+    if (!ti_.lookup)
         return -1;
 
 stop:
@@ -198,31 +194,31 @@ stop:
 int ti_run(void)
 {
     uv_loop_init(&loop_);
-    thingsdb.loop = &loop_;
+    ti_.loop = &loop_;
 
-//    if (ti_events_init(thingsdb.events) ||
+//    if (ti_events_init(ti_.events) ||
 //        ti_signals_init() ||
 //        ti_nodes_listen())
 //    {
 //        ti_term(SIGTERM);
 //    }
 
-    if (thingsdb.node)
+    if (ti_.node)
     {
-        if (ti_clients_listen() || ti_maint_start(thingsdb.maint))
+        if (ti_clients_listen() || ti_maint_start(ti_.maint))
         {
             ti_term(SIGTERM);
         }
-        thingsdb.node->status = TI_NODE_STAT_READY;
+        ti_.node->status = TI_NODE_STAT_READY;
     }
 
-    uv_run(thingsdb.loop, UV_RUN_DEFAULT);
+    uv_run(ti_.loop, UV_RUN_DEFAULT);
 
-    uv_walk(thingsdb.loop, ti__close_handles, NULL);
+    uv_walk(ti_.loop, ti__close_handles, NULL);
 
-    uv_run(thingsdb.loop, UV_RUN_DEFAULT);
+    uv_run(ti_.loop, UV_RUN_DEFAULT);
 
-    uv_loop_close(thingsdb.loop);
+    uv_loop_close(ti_.loop);
 
     return 0;
 }
@@ -234,9 +230,9 @@ int ti_save(void)
     if (!packer)
         return -1;
 
-    rc = fx_write(thingsdb.fn, packer->buffer, packer->len);
+    rc = fx_write(ti_.fn, packer->buffer, packer->len);
     if (rc)
-        log_error("failed to write file: `%s`", thingsdb.fn);
+        log_error("failed to write file: `%s`", ti_.fn);
 
     qp_packer_destroy(packer);
     return rc;
@@ -244,7 +240,7 @@ int ti_save(void)
 
 int ti_lock(void)
 {
-    lock_t rc = lock_lock(thingsdb.cfg->store_path, LOCK_FLAG_OVERWRITE);
+    lock_t rc = lock_lock(ti_.cfg->store_path, LOCK_FLAG_OVERWRITE);
 
     switch (rc)
     {
@@ -253,26 +249,26 @@ int ti_lock(void)
     case LOCK_WRITE_ERR:
     case LOCK_READ_ERR:
     case LOCK_MEM_ALLOC_ERR:
-        log_error("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
+        log_error("%s (%s)", lock_str(rc), ti_.cfg->store_path);
         return -1;
     case LOCK_NEW:
-        log_info("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
+        log_info("%s (%s)", lock_str(rc), ti_.cfg->store_path);
         break;
     case LOCK_OVERWRITE:
-        log_warning("%s (%s)", lock_str(rc), thingsdb.cfg->store_path);
+        log_warning("%s (%s)", lock_str(rc), ti_.cfg->store_path);
         break;
     default:
         break;
     }
-    thingsdb.flags |= TI_FLAG_LOCKED;
+    ti_.flags |= TI_FLAG_LOCKED;
     return 0;
 }
 
 int ti_unlock(void)
 {
-    if (thingsdb.flags & TI_FLAG_LOCKED)
+    if (ti_.flags & TI_FLAG_LOCKED)
     {
-        lock_t rc = lock_unlock(thingsdb.cfg->store_path);
+        lock_t rc = lock_unlock(ti_.cfg->store_path);
         if (rc != LOCK_REMOVED)
         {
             log_error(lock_str(rc));
@@ -282,84 +278,14 @@ int ti_unlock(void)
     return 0;
 }
 
-int ti_store(const char * fn)
-{
-    int rc = -1;
-    qp_packer_t * packer = qp_packer_create(64);
-    if (!packer) return -1;
-
-    if (qp_add_map(&packer) ||
-        qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti__stat_fn_schema) ||
-        qp_add_raw_from_str(packer, "commit_event_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb.events->commit_event_id) ||
-        qp_add_raw_from_str(packer, "next_thing_id") ||
-        qp_add_int64(packer, (int64_t) thingsdb.next_thing_id) ||
-        qp_close_map(packer)) goto stop;
-
-    rc = fx_write(fn, packer->buffer, packer->len);
-
-stop:
-    if (rc) log_error("failed to write file: `%s`", fn);
-    qp_packer_destroy(packer);
-    return rc;
-}
-
-int ti_restore(const char * fn)
-{
-    int rcode, rc = -1;
-    ssize_t n;
-    unsigned char * data = fx_read(fn, &n);
-    if (!data)
-    {
-        log_critical("failed to restore from file: `%s`", fn);
-        return -1;
-    }
-
-    qp_unpacker_t unpacker;
-    qpx_unpacker_init(&unpacker, data, (size_t) n);
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
-    free(data);
-
-    if (rcode)
-    {
-        log_critical(qp_strerror(rcode));
-        return -1;
-    }
-
-    qp_res_t * schema, * qpcommit_event_id, * qpnext_thing_id;
-
-    if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
-        !(qpcommit_event_id = qpx_map_get(res->via.map, "commit_event_id")) ||
-        !(qpnext_thing_id = qpx_map_get(res->via.map, "next_thing_id")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti__stat_fn_schema ||
-        qpcommit_event_id->tp != QP_RES_INT64 ||
-        qpnext_thing_id->tp != QP_RES_INT64)
-        goto stop;
-
-    thingsdb.events->commit_event_id = (uint64_t) qpcommit_event_id->via.int64;
-    thingsdb.events->next_event_id = thingsdb.events->commit_event_id + 1;
-    thingsdb.next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
-
-    rc = 0;
-
-stop:
-    if (rc)
-        log_critical("failed to restore from file: `%s`", fn);
-    qp_res_destroy(res);
-    return rc;
-}
-
 uint64_t ti_next_thing_id(void)
 {
-    return thingsdb.next_thing_id++;
+    return ti_.next_thing_id++;
 }
 
 _Bool ti_manages_id(uint64_t id)
 {
-    return ti_node_manages_id(thingsdb.node, thingsdb.lookup, id);
+    return ti_node_manages_id(ti_.node, ti_.lookup, id);
 }
 
 static qp_packer_t * ti__pack(void)
@@ -375,12 +301,12 @@ static qp_packer_t * ti__pack(void)
 
     /* redundancy */
     if (    qp_add_raw_from_str(packer, "redundancy") ||
-            qp_add_int64(packer, (int64_t) thingsdb.redundancy))
+            qp_add_int64(packer, (int64_t) ti_.redundancy))
         goto failed;
 
     /* node */
     if (    qp_add_raw_from_str(packer, "node") ||
-            qp_add_int64(packer, (int64_t) thingsdb.node->id))
+            qp_add_int64(packer, (int64_t) ti_.node->id))
         goto failed;
 
     /* nodes */
@@ -419,30 +345,31 @@ static int ti__unpack(qp_res_t * res)
             qpnode->via.int64 < 0)
         goto failed;
 
-    thingsdb.redundancy = (uint8_t) qpredundancy->via.int64;
+    ti_.redundancy = (uint8_t) qpredundancy->via.int64;
     node_id = (uint8_t) qpnode->via.int64;
 
     if (ti_nodes_from_qpres(qpnodes))
         goto failed;
 
-    if (node_id >= thingsdb.nodes->vec->n)
+    if (node_id >= ti_.nodes->vec->n)
         goto failed;
 
-    thingsdb.node = ti_nodes_node_by_id(node_id);
-    if (!thingsdb.node)
+    ti_.node = ti_nodes_node_by_id(node_id);
+    if (!ti_.node)
         goto failed;
 
-    assert (thingsdb.node->id == node_id);
+    assert (ti_.node->id == node_id);
 
     return 0;
 
 failed:
-    log_critical("unpacking has failed (%s)", thingsdb.fn);
-    thingsdb.node = NULL;
+    log_critical("unpacking has failed (%s)", ti_.fn);
+    ti_.node = NULL;
     return -1;
 }
 
-static void ti__close_handles(uv_handle_t * handle, void * arg)
+
+static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
 {
     if (uv_is_closing(handle))
         return;

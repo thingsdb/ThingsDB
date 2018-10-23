@@ -2,6 +2,7 @@
  * write.c
  */
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/ref.h>
 #include <ti/write.h>
 #include <util/logger.h>
@@ -15,7 +16,7 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
         return -1;
 
     req->req_.data = req;
-    req->stream = ti_stream_grab(stream);
+    req->stream = ti_grab(stream);
     req->pkg = pkg;
     req->data = data;
     req->cb_ = cb;

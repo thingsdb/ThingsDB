@@ -8,7 +8,7 @@ typedef struct ti_user_s  ti_user_t;
 
 #include <stdint.h>
 #include <ti/raw.h>
-#include <util/ex.h>
+#include <ti/ex.h>
 
 extern const char * ti_user_def_name;
 extern const char * ti_user_def_pass;
@@ -21,7 +21,6 @@ ti_user_t * ti_user_create(
         uint64_t id,
         const ti_raw_t * name,
         const char * encrpass);
-ti_user_t * ti_user_grab(ti_user_t * user);
 void ti_user_drop(ti_user_t * user);
 int ti_user_name_check(const ti_raw_t * name, ex_t * e);
 int ti_user_pass_check(const ti_raw_t * pass, ex_t * e);

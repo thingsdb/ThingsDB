@@ -17,11 +17,10 @@ struct ti_cfg_s
     uint16_t client_port;
     uint16_t node_port;
     int ip_support;
-    _Bool pipe_support;
     char * bind_client_addr;
     char * bind_node_addr;
     char * pipe_client_name;
-    char * store_path;
+    char * storage_path;
 };
 
 #endif /* TI_CFG_H_ */

@@ -19,6 +19,9 @@ int ti_nodes_create(void)
     if (!nodes)
         return -1;
 
+    /* make sure data is set to null, we use this on close */
+    nodes->tcp.data = NULL;
+
     nodes->vec = vec_new(0);
     memset(&nodes->addr, 0, sizeof(struct sockaddr_storage));
     ti_get()->nodes = nodes;
@@ -148,11 +151,13 @@ int ti_nodes_listen(void)
             TI__NODES_UV_BACKLOG,
             ti__nodes_tcp_connection)))
     {
-        log_error("error listening for TCP nodes: `%s`", uv_strerror(rc));
+        log_error("error listening for node connections on TCP port %d: `%s`",
+                cfg->node_port,
+                uv_strerror(rc));
         return -1;
     }
 
-    log_info("start listening for TCP nodes on port %d", cfg->node_port);
+    log_info("start listening for node connections on TCP port %d", cfg->node_port);
 
     return 0;
 }
@@ -205,7 +210,16 @@ static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void ti__nodes_pkg_cb(ti_stream_t * UNUSED(stream), ti_pkg_t * UNUSED(pkg))
+static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    switch (pkg->id)
+    {
+    case 1:
+        LOGC("1...");
+        break;
+    default:
+        LOGC("def...%s", ti_stream_name(stream));
 
+
+    }
 }

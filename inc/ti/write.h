@@ -11,7 +11,7 @@ typedef struct ti_write_s ti_write_t;
 #include <ti/pkg.h>
 #include <ti/ex.h>
 
-typedef void (*ti_write_cb)(ti_write_t * req, ex_e status);
+typedef void (*ti_write_cb)(ti_write_t * req, ex_enum status);
 
 int ti_write(
         ti_stream_t * stream,

@@ -34,7 +34,7 @@ ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
 {
     uint8_t tp;
     ti_pkg_t * pkg;
-    qpx_packer_t * xpkg = qpx_packer_create(30 + e->n);
+    qpx_packer_t * xpkg = qpx_packer_create(30 + e->n, 1);
     if (!xpkg)
         return NULL;
     switch (e->nr)

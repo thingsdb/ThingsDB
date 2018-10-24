@@ -53,7 +53,7 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
-    rc = ti_init_fn();
+    rc = ti_init();
     if (rc)
         goto stop;
 
@@ -62,7 +62,7 @@ int main(int argc, char * argv[])
         if (fx_file_exist(ti->fn))
         {
             printf("error: directory `%s` is already initialized\n",
-                    ti->cfg->store_path);
+                    ti->cfg->storage_path);
             rc = -1;
             goto stop;
         }
@@ -93,7 +93,7 @@ int main(int argc, char * argv[])
     {
         if ((rc = ti_read()))
         {
-            printf("error reading tin pool from: '%s'\n", ti->fn);
+            printf("error reading ThingsDB from `%s`\n", ti->fn);
             goto stop;
         }
 
@@ -113,6 +113,7 @@ int main(int argc, char * argv[])
     }
 
     rc = ti_run();
+
 stop:
     if (ti_unlock() || rc)
     {

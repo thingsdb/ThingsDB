@@ -48,7 +48,7 @@ ti_event_t * ti_event_create(void)
     event->client = NULL;
     event->refthings = NULL;
     event->tasks = vec_new(1);
-    event->result = qpx_packer_create(16);
+    event->result = qpx_packer_create(16, 4);
     event->status = TI_EVENT_STAT_UNINITIALIZED;
     event->nodes = NULL;
     event->prom = NULL;

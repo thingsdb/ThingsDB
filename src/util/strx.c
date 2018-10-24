@@ -234,9 +234,10 @@ _Bool strx_is_graphn(const char * str, size_t n)
 {
     for (; n--; str++)
     {
-        if (!isgraph(*str)) return 0;
+        if (!isgraph(*str))
+            return false;
     }
-    return 1;
+    return true;
 }
 
 /*

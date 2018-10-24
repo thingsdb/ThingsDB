@@ -77,9 +77,9 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
     {
         if (node == thingsdb->node) continue;
 
-        if (node->status == TI_NODE_STAT_MAINT)
+        if (node->status == TI_NODE_STAT_AWAY)
         {
-            log_debug("node '%s' is in maintenance mode", node->addr);
+            log_debug("node `%s` is in maintenance mode", node->addr);
             return;
         }
 
@@ -88,7 +88,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
         if (node->maintn > thingsdb->node->maintn)
         {
-            log_debug("node '%s' has a higher maintenance counter", node->addr);
+            log_debug("node `%s` has a higher maintenance counter", node->addr);
             thingsdb->node->maintn++;
             return;
         }
@@ -99,7 +99,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
                 thingsdb->nodes->vec->n,
                 commit_id) > 0)
         {
-            log_debug("node '%s' wins on the maintenance counter", node->addr);
+            log_debug("node `%s` wins on the maintenance counter", node->addr);
             thingsdb->node->maintn++;
             return;
         }
@@ -119,7 +119,7 @@ static int ti__maint_reg(ti_maint_t * maint)
             thingsdb->nodes->vec->n - 1,
             maint,
             ti__maint_on_reg_cb);
-    qpx_packer_t * xpkg = qpx_packer_create(8);
+    qpx_packer_t * xpkg = qpx_packer_create(8, 2);
     if (!prom ||
         !xpkg ||
         qp_add_int64(xpkg, (int64_t) thingsdb->node->maintn)) goto failed;
@@ -129,7 +129,7 @@ static int ti__maint_reg(ti_maint_t * maint)
     for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
         if (node == thingsdb->node) continue;
-        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req(
+        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
                 node,
                 pkg,
                 ti__maint_reg_timeout,
@@ -174,7 +174,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
     if (accept)
     {
-        ti_get()->node->status = TI_NODE_STAT_MAINT;
+        ti_get()->node->status = TI_NODE_STAT_AWAY;
         maint->status = TI_MAINT_STAT_WAIT;
         ti__maint_wait(maint);
     }

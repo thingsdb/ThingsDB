@@ -1,5 +1,5 @@
 /*
- * thingsdb.h
+ * ti.h
  */
 #ifndef TI_H_
 #define TI_H_
@@ -37,6 +37,7 @@ typedef struct ti_s ti_t;
 #include <ti/cfg.h>
 #include <ti/events.h>
 #include <ti/nodes.h>
+#include <ti/store.h>
 #include <ti/clients.h>
 #include <ti/node.h>
 #include <ti/lookup.h>
@@ -56,7 +57,7 @@ int ti_create(void);
 void ti_destroy(void);
 static inline ti_t * ti_get(void);
 void ti_init_logger(void);
-int ti_init_fn(void);
+int ti_init(void);
 int ti_build(void);
 int ti_read(void);
 int ti_run(void);
@@ -77,6 +78,7 @@ struct ti_s
     ti_clients_t * clients;
     ti_events_t * events;
     ti_nodes_t * nodes;
+    ti_store_t * store;
     vec_t * dbs;
     vec_t * users;
     vec_t * access;

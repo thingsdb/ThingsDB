@@ -6,6 +6,6 @@
 
 #include <uv.h>
 
-char * ti_pipe_name(uv_pipe_t * client);
+char * ti_pipe_name(const char * prefix, uv_pipe_t * client);
 
 #endif /* TI_PIPE_H_ */

@@ -5,6 +5,7 @@
 #include <util/cryptx.h>
 #include <util/strx.h>
 #include <ti/user.h>
+#include <ti.h>
 
 const char * ti_user_def_name = "iris";
 const char * ti_user_def_pass = "siri";
@@ -15,7 +16,8 @@ const unsigned int ti_max_pass = 128;
 
 ti_user_t * ti_user_create(
         uint64_t id,
-        const ti_raw_t * name,
+        const char * name,
+        size_t n,
         const char * encrpass)
 {
     ti_user_t * user = malloc(sizeof(ti_user_t));
@@ -24,11 +26,11 @@ ti_user_t * ti_user_create(
 
     user->id = id;
     user->ref = 1;
-    user->name = ti_raw_dup(name);
-    user->pass = strdup(encrpass);
+    user->name = ti_raw_new((unsigned char *) name, n);
+    user->encpass = strdup(encrpass);
     user->qpdata = NULL;
 
-    if (!user->name || !user->pass)
+    if (!user->name || !user->encpass)
     {
         ti_user_drop(user);
         return NULL;
@@ -39,63 +41,74 @@ ti_user_t * ti_user_create(
 
 void ti_user_drop(ti_user_t * user)
 {
-    assert(user);
     if (user && !--user->ref)
     {
-        free(user->pass);
+        free(user->encpass);
         free(user->name);
-        /* TODO: free  user->data */
+        /* TODO: free  user->qpdata */
         free(user);
     }
 }
 
-int ti_user_name_check(const ti_raw_t * name, ex_t * e)
+_Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
 {
-    if (name->n < ti_min_name)
+    if (n < ti_min_name)
     {
-        ex_set(e, -1, "user name should be at least %u characters",
+        ex_set(e, EX_BAD_DATA, "username should be at least %u characters",
                 ti_min_name);
-        return -1;
+        return false;
     }
 
-    if (name->n >= ti_max_name)
+    if (n >= ti_max_name)
     {
-        ex_set(e, -1, "user name should be less than %u characters",
+        ex_set(e, EX_BAD_DATA, "username should be less than %u characters",
                 ti_max_name);
-        return -1;
+        return false;
     }
 
-    if (!strx_is_graphn((const char *) name->data, name->n))
+    if (!ti_name_is_valid_strn(name, n))
     {
-        ex_set(e, -1, "user name should consist only of graphical characters");
-        return -1;
+        ex_set(e, EX_BAD_DATA,
+                "username should be a valid identifier, "
+                "see "TI_DOCS"#identifiers");
+        return false;
     }
-    return 0;
+
+    return true;
 }
 
-int ti_user_pass_check(const ti_raw_t * pass, ex_t * e)
+_Bool ti_user_pass_check(const char * passstr, ex_t * e)
 {
-    if (pass->n < ti_min_pass)
+    size_t n = strlen(passstr);
+    if (n < ti_min_pass)
     {
-        ex_set(e, -1, "password should be at least %u characters",
+        ex_set(e, EX_BAD_DATA, "password should be at least %u characters",
                 ti_min_pass);
-        return -1;
+        return false;
     }
 
-
-    if (pass->n >= ti_max_pass)
+    if (n >= ti_max_pass)
     {
-        ex_set(e, -1, "password should be less than %u characters",
+        ex_set(e, EX_BAD_DATA, "password should be less than %u characters",
                 ti_max_pass);
-        return -1;
+        return false;
     }
-    return 0;
+
+    if (!strx_is_graph(passstr))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "password should only contain graphical characters");
+        return false;
+    }
+    return true;
 }
 
 int ti_user_rename(ti_user_t * user, const ti_raw_t * name)
 {
     ti_raw_t * username = ti_raw_dup(name);
-    if (!username) return -1;
+    if (!username)
+        return -1;
+    /* free the old user name */
     free(user->name);
     user->name = username;
     return 0;
@@ -117,8 +130,10 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     password = strdup(encrypted);
     if (!password)
         return -1;
-    free(user->pass);
-    user->pass = password;
+
+    /* free the old password */
+    free(user->encpass);
+    user->encpass = password;
 
     return 0;
 }

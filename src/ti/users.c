@@ -1,6 +1,7 @@
 /*
  * users.h
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ti/proto.h>
@@ -31,6 +32,38 @@ void ti_users_destroy(void)
     *users = NULL;
 }
 
+int ti_users_create_user(
+        const char * name,
+        size_t n,
+        const char * passstr,
+        ex_t * e)
+{
+    ti_user_t * user;
+    assert (e->nr == 0);
+
+    if (    !ti_user_name_check(name, n, e) ||
+            !ti_user_pass_check(passstr, e))
+        goto done;
+
+    if (ti_users_get_by_namestrn(name, n))
+    {
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` already exists", (int) n, name);
+        goto done;
+    }
+
+    user = ti_user_create(ti_next_thing_id(), name, n, "");
+
+    if (!user || ti_user_set_pass(user, passstr) || vec_push(users, user))
+    {
+        ti_user_drop(user);
+        ex_set_alloc(e);
+        goto done;
+    }
+
+done:
+    return e->nr;
+}
+
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 {
     char passbuf[ti_max_pass];
@@ -49,15 +82,15 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
             memcpy(passbuf, pass->via.raw, pass->len);
             passbuf[pass->len] = '\0';
 
-            cryptx(passbuf, user->pass, pw);
-            if (strcmp(pw, user->pass))
+            cryptx(passbuf, user->encpass, pw);
+            if (strcmp(pw, user->encpass))
                 goto failed;
             return user;
         }
     }
 
 failed:
-    ex_set(e, EX_AUTH_ERROR, "invalid user or password");
+    ex_set(e, EX_AUTH_ERROR, "invalid username or password");
     return NULL;
 }
 
@@ -70,11 +103,12 @@ ti_user_t * ti_users_get_by_id(uint64_t id)
     return NULL;
 }
 
-ti_user_t * ti_users_get_by_name(ti_raw_t * name)
+ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 {
     for (vec_each(*users, ti_user_t, user))
     {
-        if (ti_raw_equal(user->name, name)) return user;
+        if (ti_raw_equal_strn(user->name, name, n))
+            return user;
     }
     return NULL;
 }
@@ -99,7 +133,7 @@ int ti_users_store(const char * fn)
         if (qp_add_array(&packer) ||
             qp_add_int64(packer, (int64_t) user->id) ||
             qp_add_raw(packer, user->name->data, user->name->n) ||
-            qp_add_raw_from_str(packer, user->pass) ||
+            qp_add_raw_from_str(packer, user->encpass) ||
             qp_close_array(packer)) goto stop;
     }
 
@@ -108,7 +142,8 @@ int ti_users_store(const char * fn)
     rc = fx_write(fn, packer->buffer, packer->len);
 
 stop:
-    if (rc) log_error("failed to write file: '%s'", fn);
+    if (rc)
+        log_error("failed to write file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -143,33 +178,40 @@ int ti_users_restore(const char * fn)
     for (uint32_t i = 0; i < qusers->via.array->n; i++)
     {
         qp_res_t * quser = qusers->via.array->values + i;
-        qp_res_t * id, * name, * pass;
+        qp_res_t * qid, * qname, * qpass;
+        ti_user_t * user;
+        char * passstr, * name;
+        uint64_t user_id, namelen;
+
         if (quser->tp != QP_RES_ARRAY ||
                 quser->via.array->n != 3 ||
-            !(id = quser->via.array->values) ||
-            !(name = quser->via.array->values + 1) ||
-            !(pass = quser->via.array->values + 2) ||
-            id->tp != QP_RES_INT64 ||
-            name->tp != QP_RES_RAW ||
-            pass->tp != QP_RES_RAW) goto stop;
+            !(qid = quser->via.array->values) ||
+            !(qname = quser->via.array->values + 1) ||
+            !(qpass = quser->via.array->values + 2) ||
+            qid->tp != QP_RES_INT64 ||
+            qname->tp != QP_RES_RAW ||
+            qpass->tp != QP_RES_RAW) goto stop;
 
-        char * passstr = ti_raw_to_str(pass->via.raw);
-        if (!passstr) goto stop;
+        user_id = (uint64_t) qid->via.int64;
+        name = (char *) qname->via.raw->data;
+        namelen = qname->via.raw->n;
+        passstr = ti_raw_to_str(qpass->via.raw);
+        if (!passstr)
+            goto stop;
 
-        ti_user_t * user = ti_user_create(
-                (uint64_t) id->via.int64,
-                name->via.raw,
-                passstr);
+        user = ti_user_create(user_id, name, namelen, passstr);
 
         free(passstr);
 
-        if (!user || vec_push(users, user)) goto stop;
+        if (!user || vec_push(users, user))
+            goto stop;
     }
 
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: '%s'", fn);
+    if (rc)
+        log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

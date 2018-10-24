@@ -43,7 +43,6 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
 
 void ti_stream_drop(ti_stream_t * stream)
 {
-    assert(stream);
     if (stream && !--stream->ref)
     {
         assert (stream->reqmap == NULL);
@@ -57,8 +56,9 @@ void ti_stream_close(ti_stream_t * stream)
 {
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
-    imap_destroy(stream->reqmap, ti_req_cancel);
+    imap_destroy(stream->reqmap, (imap_destroy_cb) &ti_req_cancel);
     stream->reqmap = NULL;
+    log_info("closing stream `%s`", ti_stream_name(stream));
     uv_close((uv_handle_t *) &stream->uvstream, ti__stream_stop);
 }
 
@@ -69,10 +69,10 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
     if (!stream->n && stream->sz != sugsz)
     {
         free(stream->buf);
-        stream->buf = (char *) malloc(sugsz);
+        stream->buf = malloc(sugsz);
         if (stream->buf == NULL)
         {
-            log_error(EX_ALLOC);
+            log_error(EX_ALLOC_S);
             buf->base = NULL;
             buf->len = 0;
             return;
@@ -115,7 +115,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     if (!ti_pkg_check(pkg))
     {
         log_error(
-                "invalid package from '%s'; closing connection",
+                "invalid package from `%s`, closing connection",
                 ti_stream_name(stream));
         ti_stream_close(stream);
         return;
@@ -130,7 +130,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
             char * tmp = realloc(stream->buf, total_sz);
             if (!tmp)
             {
-                log_error(EX_ALLOC);
+                log_error(EX_ALLOC_S);
                 ti_stream_close(stream);
                 return;
             }
@@ -159,12 +159,24 @@ const char * ti_stream_name(ti_stream_t * stream)
     switch (stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
+        stream->name_ = ti_tcp_name(
+                "<node-out> ",
+                (uv_tcp_t *) &stream->uvstream);
+        break;
     case TI_STREAM_TCP_IN_NODE:
+        stream->name_ = ti_tcp_name(
+                "<node-in> ",
+                (uv_tcp_t *) &stream->uvstream);
+        break;
     case TI_STREAM_TCP_IN_CLIENT:
-        stream->name_ = ti_tcp_name((uv_tcp_t *) &stream->uvstream);
+        stream->name_ = ti_tcp_name(
+                "<client> ",
+                (uv_tcp_t *) &stream->uvstream);
         break;
     case TI_STREAM_PIPE_IN_CLIENT:
-        stream->name_ = ti_pipe_name((uv_pipe_t *) &stream->uvstream);
+        stream->name_ = ti_pipe_name(
+                "<client> ",
+                (uv_pipe_t *) &stream->uvstream);
         break;
     }
 
@@ -178,15 +190,14 @@ static void ti__stream_stop(uv_handle_t * uvstream)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
-        log_info("node disconnected: %s", ti_stream_name(stream));
         ti_node_drop(stream->via.node);
         break;
     case TI_STREAM_TCP_IN_CLIENT:
     case TI_STREAM_PIPE_IN_CLIENT:
-        log_info("client disconnected: %s", ti_stream_name(stream));
         ti_user_drop(stream->via.user);
         break;
     }
+    log_debug("disconnected `%s`", ti_stream_name(stream));
     ti_stream_drop(stream);
 }
 

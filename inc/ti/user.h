@@ -19,11 +19,12 @@ extern const unsigned int ti_max_pass;  // length including terminator
 
 ti_user_t * ti_user_create(
         uint64_t id,
-        const ti_raw_t * name,
+        const char * name,
+        size_t n,
         const char * encrpass);
 void ti_user_drop(ti_user_t * user);
-int ti_user_name_check(const ti_raw_t * name, ex_t * e);
-int ti_user_pass_check(const ti_raw_t * pass, ex_t * e);
+_Bool ti_user_name_check(const char * name, size_t n, ex_t * e);
+_Bool ti_user_pass_check(const char * passstr, ex_t * e);
 int ti_user_rename(ti_user_t * user, const ti_raw_t * name);
 int ti_user_set_pass(ti_user_t * user, const char * pass);
 
@@ -32,7 +33,7 @@ struct ti_user_s
     uint32_t ref;
     uint64_t id;
     ti_raw_t * name;
-    char * pass;
+    char * encpass;
     unsigned char * qpdata;       /* qp_map with properties */
 };
 

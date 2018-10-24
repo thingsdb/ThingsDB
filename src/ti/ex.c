@@ -1,6 +1,7 @@
 /*
  * ti/ex.c
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -36,7 +37,7 @@ const char * ex_str(ex_enum errnr)
     case EX_INDEX_ERROR:
         return "requested resource not found";
     case EX_BAD_DATA:
-        return "bad request or invalid data";
+        return "unable to handle request due to invalid data";
     case EX_QUERY_ERROR:
         return "syntax error in query";
     case EX_NODE_ERROR:

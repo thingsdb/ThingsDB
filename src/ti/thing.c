@@ -27,7 +27,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
 void ti_thing_drop(ti_thing_t * thing)
 {
-    assert(thing);
+    assert_log(thing, "may only happen in case of a previous failure");
     if (thing && !--thing->ref)
     {
         (void *) imap_pop(thing->things, thing->id);

@@ -2,6 +2,7 @@
  * tcp.c
  */
 #include <stdlib.h>
+#include <string.h>
 #include <ti/tcp.h>
 
 #define TCP_NAME_BUF_SZ 54
@@ -26,15 +27,18 @@ const char * ti_tcp_ip_support_str(int ip_support)
  *
  * The returned value is malloced and should be freed.
  */
-char * ti_tcp_name(uv_tcp_t * client)
+char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
 {
-    char * buffer = malloc(TCP_NAME_BUF_SZ);
+    size_t n = strlen(prefix);
+    char * buffer = malloc(TCP_NAME_BUF_SZ + n);
     struct sockaddr_storage name;
     int namelen = sizeof(name);
 
     if (    buffer == NULL ||
             uv_tcp_getpeername(client, (struct sockaddr *) &name, &namelen))
         goto failed;
+
+    memcpy(buffer, prefix, n);
 
     switch (name.ss_family)
     {
@@ -47,7 +51,7 @@ char * ti_tcp_name(uv_tcp_t * client)
                     addr,
                     sizeof(addr));
             snprintf(
-                    buffer,
+                    buffer + n,
                     TCP_NAME_BUF_SZ,
                     "%s:%d",
                     addr,
@@ -64,7 +68,7 @@ char * ti_tcp_name(uv_tcp_t * client)
                     addr,
                     sizeof(addr));
             snprintf(
-                    buffer,
+                    buffer + n,
                     TCP_NAME_BUF_SZ,
                     "[%s]:%d",
                     addr,

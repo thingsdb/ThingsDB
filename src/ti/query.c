@@ -125,5 +125,9 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     /* TODO: WILL UPDATE should be placed if the query will update */
     query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
 
+    LOGC("Root GID: %d", query->parseres->tree->cl_obj->gid);
+
+//    while (query->parseres->tree->cl_obj->gid)
+
     return e->nr;
 }

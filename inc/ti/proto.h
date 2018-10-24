@@ -4,6 +4,12 @@
 #ifndef TI_PROTO_H_
 #define TI_PROTO_H_
 
+/*
+ * TODO: make tests for checking if `node-responses-128` still map to client
+ *       requests. this is required when we forward a query, and alter the
+ *       response when returning data to the client.
+ */
+
 typedef enum
 {
     /*

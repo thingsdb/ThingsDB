@@ -23,9 +23,23 @@ ti_name_t * ti_name_create(const char * str, size_t n)
 
 void ti_name_drop(ti_name_t * name)
 {
+    assert_log(name, "may only happen in case of a previous failure");
     if (name && !--name->ref)
     {
         smap_pop(ti_get()->names, name->str);
         ti_name_destroy(name);
     }
+}
+
+_Bool * ti_name_is_valid_strn(const char * str, size_t n)
+{
+    if (!n || (!isalpha(str[0]) && str[0] != '_'))
+        return false;
+
+    while(--n)
+    {
+        if (!isalnum(str[n]) && str[n] != '_')
+            return false;
+    }
+    return true;
 }

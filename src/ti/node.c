@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <ti/node.h>
 #include <ti/write.h>
+#include <util/logger.h>
 
-static void ti__node_write_cb(ti_write_t * req, ex_e status);
+static void ti__node_write_cb(ti_write_t * req, ex_enum status);
 
 /*
  * Nodes are created ti_nodes_create_node() to ensure a correct id
@@ -42,7 +43,7 @@ int ti_node_write(ti_node_t * node, ti_pkg_t * pkg)
     return ti_write(node->stream, pkg, NULL, ti__node_write_cb);
 }
 
-static void ti__node_write_cb(ti_write_t * req, ex_e status)
+static void ti__node_write_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);
     free(req->pkg);

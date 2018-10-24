@@ -25,7 +25,7 @@ void ti_prom_go(ti_prom_t * prom)
     }
 }
 
-void ti_prom_req_cb(ti_req_t * req, ex_e status)
+void ti_prom_req_cb(ti_req_t * req, ex_enum status)
 {
     ti_prom_t * prom = (ti_prom_t *) req->data;
     ti_prom_res_t * res = &prom->res[prom->n++];
@@ -35,7 +35,7 @@ void ti_prom_req_cb(ti_req_t * req, ex_e status)
     ti_prom_go(prom);
 }
 
-void ti_prom_async_done(ti_prom_t * prom, uv_async_t * async, ex_e status)
+void ti_prom_async_done(ti_prom_t * prom, uv_async_t * async, ex_enum status)
 {
     ti_prom_res_t * res = &prom->res[prom->n++];
     res->tp = TI_PROM_VIA_ASYNC;

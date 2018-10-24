@@ -44,17 +44,18 @@ ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
 
 void ti_db_drop(ti_db_t * db)
 {
-    if (!db || --db->ref)
-        return;
-
-    free(db->name);
-    vec_destroy(db->access, free);
-    ti_thing_drop(db->root);
-    ti_things_gc(db->things, NULL);
-    assert (db->things->n == 0);
-    imap_destroy(db->things, NULL);
-    ti_limits_destroy(db->limits);
-    free(db);
+    assert_log(db, "may only happen in case of a previous failure");
+    if (db && !--db->ref)
+    {
+        free(db->name);
+        vec_destroy(db->access, free);
+        ti_thing_drop(db->root);
+        ti_things_gc(db->things, NULL);
+        assert (db->things->n == 0);
+        imap_destroy(db->things, NULL);
+        ti_limits_destroy(db->limits);
+        free(db);
+    }
 }
 
 int ti_db_buid(ti_db_t * db)

@@ -182,7 +182,7 @@ int ti_things_restore(imap_t * things, const char * fn)
 
 failed:
     rc = -1;
-    log_critical("failed to restore from file: '%s'", fn);
+    log_critical("failed to restore from file: `%s`", fn);
 done:
     free(data);
     return rc;
@@ -200,7 +200,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
 
     if (!f)
     {
-        log_critical("file is missing: '%s'", fn);
+        log_critical("file is missing: `%s`", fn);
         return -1;
     }
 
@@ -291,7 +291,7 @@ int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
 
     if (!f)
     {
-        log_critical("file is missing: '%s'", fn);
+        log_critical("file is missing: `%s`", fn);
         return -1;
     }
 
@@ -364,7 +364,7 @@ int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
 failed:
     rc = -1;
     vec_destroy(things_vec, (vec_destroy_cb) ti_thing_drop);
-    log_critical("failed to restore from file: '%s'", fn);
+    log_critical("failed to restore from file: `%s`", fn);
 done:
     fclose(f);
     return rc;

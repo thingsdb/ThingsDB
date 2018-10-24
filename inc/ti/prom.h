@@ -1,5 +1,5 @@
 /*
- * prom.h
+ * ti/prom.h
  */
 #ifndef TI_PROM_H_
 #define TI_PROM_H_
@@ -22,13 +22,13 @@ typedef void (*ti_prom_cb)(ti_prom_t * prom);
 
 ti_prom_t * ti_prom_new(size_t sz, void * data, ti_prom_cb cb);
 void ti_prom_go(ti_prom_t * prom);
-void ti_prom_req_cb(ti_req_t * req, ex_e status);
-void ti_prom_async_done(ti_prom_t * prom, uv_async_t * async, ex_e status);
+void ti_prom_req_cb(ti_req_t * req, ex_enum status);
+void ti_prom_async_done(ti_prom_t * prom, uv_async_t * async, ex_enum status);
 
 struct ti_prom_res_s
 {
     ti_prom_e tp;
-    ex_e status;
+    ex_enum status;
     void * handle;
 };
 

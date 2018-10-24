@@ -19,7 +19,7 @@
 static ti_cfg_t * cfg;
 static const char * ti__cfg_section = "thingsdb";
 
-static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file);
+static int ti__cfg_storage_path(cfgparser_t * parser, const char * cfg_file);
 static void ti__cfg_port(
         cfgparser_t * parser,
         const char * cfg_file,
@@ -44,10 +44,10 @@ int ti_cfg_create(void)
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");
-    cfg->store_path = strdup("/var/lib/thingsdb/");
+    cfg->storage_path = strdup("/var/lib/thingsdb/");
     cfg->pipe_client_name = NULL;
 
-    if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->store_path)
+    if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->storage_path)
         ti_cfg_destroy();
 
     ti_get()->cfg = cfg;
@@ -61,7 +61,7 @@ void ti_cfg_destroy(void)
     free(cfg->bind_client_addr);
     free(cfg->bind_node_addr);
     free(cfg->pipe_client_name);
-    free(cfg->store_path);
+    free(cfg->storage_path);
     free(cfg);
     cfg = ti_get()->cfg = NULL;
 }
@@ -87,7 +87,7 @@ int ti_cfg_parse(const char * cfg_file)
         goto exit_parse;
     }
 
-    if (    (rc = ti__cfg_store_path(parser, cfg_file)) ||
+    if (    (rc = ti__cfg_storage_path(parser, cfg_file)) ||
             (rc = ti__cfg_str(
                     parser,
                     cfg_file,
@@ -114,10 +114,10 @@ exit_parse:
     return rc;
 }
 
-static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
+static int ti__cfg_storage_path(cfgparser_t * parser, const char * cfg_file)
 {
-    const char * option_name = "store_path";
-    char * store_path;
+    const char * option_name = "storage_path";
+    char * storage_path;
     cfgparser_option_t * option;
     cfgparser_return_t rc;
     size_t len;
@@ -130,8 +130,8 @@ static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
                 option_name,
                 cfg_file,
                 cfgparser_errmsg(rc),
-                cfg->store_path);
-        store_path = cfg->store_path;
+                cfg->storage_path);
+        storage_path = cfg->storage_path;
     }
     else if (option->tp != CFGPARSER_TP_STRING)
     {
@@ -141,29 +141,29 @@ static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
                 option_name,
                 cfg_file,
                 "expecting a string value",
-                cfg->store_path);
-        store_path = cfg->store_path;
+                cfg->storage_path);
+        storage_path = cfg->storage_path;
     }
     else
     {
-        free(cfg->store_path);
-        store_path = option->val->string;
+        free(cfg->storage_path);
+        storage_path = option->val->string;
     }
 
-    if (!fx_is_dir(store_path))
-        (void) mkdir(store_path, 0700);
+    if (!fx_is_dir(storage_path))
+        (void) mkdir(storage_path, 0700);
 
-    cfg->store_path = realpath(store_path, NULL);
+    cfg->storage_path = realpath(storage_path, NULL);
 
-    if (!cfg->store_path)
+    if (!cfg->storage_path)
     {
-        printf("cannot find storage path `%s`\n", store_path);
+        printf("cannot find storage path `%s`\n", storage_path);
         return -1;
     }
 
     /* add trailing slash (/) if its not already there */
-    len = strlen(cfg->store_path);
-    if (cfg->store_path[len - 1] != '/')
+    len = strlen(cfg->storage_path);
+    if (cfg->storage_path[len - 1] != '/')
     {
         char * tmp = malloc(len + 2);
         if (!tmp)
@@ -171,11 +171,11 @@ static int ti__cfg_store_path(cfgparser_t * parser, const char * cfg_file)
             printf("allocation error\n");
             return -1;
         }
-        memcpy(tmp, cfg->store_path, len);
+        memcpy(tmp, cfg->storage_path, len);
         tmp[len] = '/';
         tmp[len + 1] = '\0';
-        free(cfg->store_path);
-        cfg->store_path = tmp;
+        free(cfg->storage_path);
+        cfg->storage_path = tmp;
     }
 
     return 0;

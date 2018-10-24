@@ -20,4 +20,4 @@ struct ti_fwd_s
     ti_stream_t * stream;
 };
 
-#endif TI_FWD_H_
+#endif  /* TI_FWD_H_ */

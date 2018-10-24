@@ -62,6 +62,18 @@ extern logger_t Logger;
     do {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
     log_critical(fmt, ##__VA_ARGS__);} while(0)
 
+#ifndef NDEBUG
+#define assert_log(x, fmt, ...) \
+    do if (!(x)) LOGC(fmt, ##__VA_ARGS__); while(0)
+#else
+#define assert_log(x, fmt, ...) ((const char *) 0)
+#endif
+
+#define LOGC(fmt, ...) \
+    do {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
+    log_critical(fmt, ##__VA_ARGS__);} while(0)
+
+
 struct logger_s
 {
     struct _LOGGER_IO_FILE * ostream;

@@ -1,5 +1,5 @@
 /*
- * node.h
+ * ti/node.h
  */
 #ifndef TI_NODE_H_
 #define TI_NODE_H_

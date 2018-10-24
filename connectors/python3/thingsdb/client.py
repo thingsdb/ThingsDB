@@ -5,8 +5,6 @@ import qpack
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
-from .protocol import REQ_EVENT
-from .protocol import REQ_GET_ELEM
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .db import Db
@@ -61,27 +59,6 @@ class Client:
             timeout=timeout)
         await future
 
-    async def get_database(self, target):
-        root = await self._req_thing({target: -1})
-        db = Db(self, target, root)
-        return db
-
-    async def _req_event(self, event, timeout=5):
-        future = self.write_package(
-            REQ_EVENT,
-            data=event,
-            timeout=timeout)
-        resp = await future
-        return resp
-
-    async def _req_thing(self, req, timeout=5):
-        future = self.write_package(
-            REQ_GET_ELEM,
-            data=req,
-            timeout=timeout)
-        resp = await future
-        return resp
-
     async def _timeout_request(self, pid, timeout):
         await asyncio.sleep(timeout)
         if not self._requests[pid][0].cancelled():
@@ -108,5 +85,3 @@ class Client:
         future = asyncio.Future()
         self._requests[self._pid] = (future, task)
         return future
-
-

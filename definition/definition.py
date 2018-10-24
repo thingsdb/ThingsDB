@@ -61,32 +61,34 @@ class Definition(Grammar):
         Regex(r'[0-9]+')), delimiter='|'
     )
 
-    f_blob = Sequence(Keyword('blob'), '(', Optional(array_idx), ')')
-    f_thing = Sequence(Keyword('thing'), '(', Optional(thing_id), ')')
-    f_create = Sequence(Keyword('create'), '(', List(identifier, opt=True), ')')
-    f_grant = Sequence(Keyword('grant'), '(', auth_flags, ')')
-    f_revoke = Sequence(Keyword('revoke'), '(', auth_flags, ')')
-    f_drop = Sequence(Keyword('drop'), '(', ')')
-    f_delete = Sequence(Keyword('delete'), '(', ')')
-    f_rename = Sequence(Keyword('rename'), '(', identifier, ')')
-    f_fetch = Sequence(Keyword('fetch'), '(', List(identifier, opt=True), ')')
-    f_map = Sequence(Keyword('map'), '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
+    g_f_blob = Sequence(Keyword('blob'), '(', Optional(array_idx), ')')
+    g_f_fetch = Sequence(Keyword('fetch'), '(', List(identifier, opt=True), ')')
+    g_f_map = Sequence(Keyword('map'), '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
+    g_f_thing = Sequence(Keyword('thing'), '(', Optional(thing_id), ')')
+
+    u_f_create = Sequence(Keyword('create'), '(', List(identifier, opt=True), ')')
+    u_f_delete = Sequence(Keyword('delete'), '(', ')')
+    u_f_drop = Sequence(Keyword('drop'), '(', ')')
+    u_f_grant = Sequence(Keyword('grant'), '(', auth_flags, ')')
+    u_f_rename = Sequence(Keyword('rename'), '(', identifier, ')')
+    u_f_revoke = Sequence(Keyword('revoke'), '(', auth_flags, ')')
+    u_assignment = Sequence('=', Choice(primitives, g_f_blob, scope))
 
     action = Choice(
         Sequence('.', chain),
-        Sequence('=', Choice(primitives, f_blob, scope)),
+        u_assignment,
     )
 
     chain = Sequence(
         Choice(
-            f_create,
-            f_drop,
-            f_rename,
-            f_fetch,
-            f_grant,
-            f_revoke,
-            f_delete,
-            f_map,
+            g_f_fetch,
+            g_f_map,
+            u_f_create,
+            u_f_delete,
+            u_f_drop,
+            u_f_grant,
+            u_f_rename,
+            u_f_revoke,
             identifier
         ),
         Optional(Sequence(
@@ -98,7 +100,7 @@ class Definition(Grammar):
     )
 
     scope = Sequence(
-        Choice(f_thing, identifier),
+        Choice(g_f_thing, identifier),
         Optional(Sequence(
             '[',
             Choice(identifier, array_idx),

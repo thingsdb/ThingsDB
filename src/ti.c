@@ -19,6 +19,7 @@
 #include <util/qpx.h>
 #include <util/lock.h>
 #include <langdef/langdef.h>
+#include <unistd.h>
 
 ti_t ti_;
 
@@ -41,10 +42,10 @@ int ti_create(void)
     ti_.fn = NULL;
     ti_.node = NULL;
     ti_.lookup = NULL;
+    ti_.store = NULL;
     ti_.access = vec_new(0);
     ti_.maint = ti_maint_new();
     ti_.langdef = compile_langdef();
-
     if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
             ti_args_create() ||
             ti_cfg_create() ||
@@ -53,7 +54,7 @@ int ti_create(void)
             ti_names_create() ||
             ti_users_create() ||
             ti_dbs_create() ||
-            !ti_events_create() ||
+            ti_events_create() ||
             !ti_.access ||
             !ti_.maint ||
             !ti_.langdef)
@@ -78,8 +79,10 @@ void ti_destroy(void)
     ti_dbs_destroy();
     ti_users_destroy();
     ti_names_destroy();
+    ti_store_destroy();
     vec_destroy(ti_.access, free);
-    cleri_grammar_free(ti_.langdef);
+    if (ti_.langdef)
+        cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
 }
 
@@ -110,10 +113,10 @@ void ti_init_logger(void)
     assert (0);
 }
 
-int ti_init_fn(void)
+int ti_init(void)
 {
-    ti_.fn = strx_cat(ti_.cfg->store_path, ti__fn);
-    return (ti_.fn) ? 0 : -1;
+    ti_.fn = strx_cat(ti_.cfg->storage_path, ti__fn);
+    return (ti_.fn) ? ti_store_create() : -1;
 }
 
 int ti_build(void)
@@ -121,38 +124,33 @@ int ti_build(void)
     int rc = -1;
     qp_packer_t * packer = ti_misc_init_query();
     if (!packer)
-        return -1;
+        return rc;
 
     ti_.events->commit_event_id = 0;
     ti_.events->next_event_id = 1;
     ti_.next_thing_id = 1;
 
+    {
+        /* TODO: should be done by a query inside the packer */
+        ex_t * e = ex_use();
+        assert (ti_users_create_user("iris", 4, "siri", e) == 0);
+    }
+
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);
-    if (!ti_.node || ti_save())
-        goto stop;
-
-
-//    ti_event_raw(event, packer->buffer, packer->len, e);
-//    if (e->nr)
-//    {
-//        log_critical(e->msg);
-//        goto stop;
-//    }
-//
-//    if (ti_event_run(event) != 2 || ti_store())
-//        goto stop;
+    if (!ti_.node || ti_save() || ti_store_store())
+        goto failed;
 
     rc = 0;
+    goto done;
 
-stop:
-    if (rc)
-    {
-        fx_rmdir(ti_.cfg->store_path);
-        mkdir(ti_.cfg->store_path, 0700); /* no error checking required */
-        ti_node_drop(ti_.node);
-        ti_.node = NULL;
-        vec_pop(ti_.nodes->vec);
-    }
+failed:
+    (void) fx_rmdir(ti_.cfg->storage_path);
+    (void) mkdir(ti_.cfg->storage_path, 0700);
+    ti_node_drop(ti_.node);
+    ti_.node = NULL;
+    (void *) vec_pop(ti_.nodes->vec);
+
+done:
     qp_packer_destroy(packer);
     return rc;
 }
@@ -193,34 +191,40 @@ stop:
 
 int ti_run(void)
 {
-    uv_loop_init(&loop_);
+    int rc;
+    if (uv_loop_init(&loop_))
+        return -1;
+
     ti_.loop = &loop_;
 
-//    if (ti_events_init(ti_.events) ||
-//        ti_signals_init() ||
-//        ti_nodes_listen())
-//    {
-//        ti_term(SIGTERM);
-//    }
+    if (ti_signals_init())
+        goto failed;
 
     if (ti_.node)
     {
         if (ti_clients_listen() || ti_maint_start(ti_.maint))
-        {
-            ti_term(SIGTERM);
-        }
+            goto failed;
         ti_.node->status = TI_NODE_STAT_READY;
     }
 
-    uv_run(ti_.loop, UV_RUN_DEFAULT);
+    if (ti_nodes_listen())
+        goto failed;
 
-    uv_walk(ti_.loop, ti__close_handles, NULL);
+    rc = uv_run(ti_.loop, UV_RUN_DEFAULT);
+    goto finish;
 
-    uv_run(ti_.loop, UV_RUN_DEFAULT);
+failed:
+    rc = -1;
+    uv_stop(ti_.loop);
 
-    uv_loop_close(ti_.loop);
-
-    return 0;
+finish:
+    if (uv_loop_close(ti_.loop))
+    {
+        uv_walk(ti_.loop, ti__close_handles, NULL);
+        (void) uv_run(ti_.loop, UV_RUN_DEFAULT);
+        return -(uv_loop_close(ti_.loop) || rc);
+    }
+    return rc;
 }
 
 int ti_save(void)
@@ -240,7 +244,7 @@ int ti_save(void)
 
 int ti_lock(void)
 {
-    lock_t rc = lock_lock(ti_.cfg->store_path, LOCK_FLAG_OVERWRITE);
+    lock_t rc = lock_lock(ti_.cfg->storage_path, LOCK_FLAG_OVERWRITE);
 
     switch (rc)
     {
@@ -249,13 +253,13 @@ int ti_lock(void)
     case LOCK_WRITE_ERR:
     case LOCK_READ_ERR:
     case LOCK_MEM_ALLOC_ERR:
-        log_error("%s (%s)", lock_str(rc), ti_.cfg->store_path);
+        log_error("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
         return -1;
     case LOCK_NEW:
-        log_info("%s (%s)", lock_str(rc), ti_.cfg->store_path);
+        log_info("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
         break;
     case LOCK_OVERWRITE:
-        log_warning("%s (%s)", lock_str(rc), ti_.cfg->store_path);
+        log_warning("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
         break;
     default:
         break;
@@ -268,7 +272,7 @@ int ti_unlock(void)
 {
     if (ti_.flags & TI_FLAG_LOCKED)
     {
-        lock_t rc = lock_unlock(ti_.cfg->store_path);
+        lock_t rc = lock_unlock(ti_.cfg->storage_path);
         if (rc != LOCK_REMOVED)
         {
             log_error(lock_str(rc));
@@ -382,7 +386,10 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         break;
     case UV_TCP:
     case UV_NAMED_PIPE:
-        ti_stream_close((ti_stream_t *) handle->data);
+        if (handle->data)
+            ti_stream_close((ti_stream_t *) handle->data);
+        else
+            uv_close(handle, NULL);
         break;
     case UV_TIMER:
         LOGC("non closing timer found");

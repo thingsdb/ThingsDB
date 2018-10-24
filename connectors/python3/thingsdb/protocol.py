@@ -2,53 +2,49 @@ import asyncio
 import logging
 from .package import Package
 from .exceptions import AuthError
-from .exceptions import NodeError
-from .exceptions import TypeError
+from .exceptions import ForbiddenError
 from .exceptions import IndexError
-from .exceptions import RuntimeError
+from .exceptions import BadRequestError
+from .exceptions import QueryError
+from .exceptions import NodeError
+from .exceptions import InternalError
 
 
-REQ_PING = 0
-REQ_AUTH = 1
-REQ_EVENT = 2
-REQ_GET_ELEM = 3
+REQ_PING = 32
+REQ_AUTH = 33
+REQ_QUERY = 34
 
+RES_PING = 64
+RES_AUTH = 65
+RES_QUERY = 66
 
-RES_ACK = 0
-RES_RESULT = 1
-RES_ELEM = 2
-RES_ERR_AUTH = 65
-RES_ERR_NODE = 66
-RES_ERR_TYPE = 67
-RES_ERR_INDEX = 68
-RES_ERR_RUNTIME = 69
-
-TASK_USER_CREATE = 0
-TASK_USER_DROP = 1
-TASK_USER_ALTER = 2
-TASK_DB_CREATE = 3
-TASK_DB_RENAME = 4
-TASK_DB_DROP = 5
-TASK_GRANT = 6
-TASK_REVOKE = 7
-TASK_SET_REDUNDANCY = 8
-TASK_NODE_ADD = 9
-TASK_NODE_REPLACE = 10
-TASK_SUBSCRIBE = 11
-TASK_UNSUBSCRIBE = 12
-TASK_PROPS_SET = 13
-TASK_PROPS_DEL = 14
+RES_ERR_AUTH = 96
+RES_ERR_FORBIDDEN = 97
+RES_ERR_INDEX = 98
+RES_ERR_BAD_REQUEST = 99
+RES_ERR_QUERY = 100
+RES_ERR_NODE = 101
+RES_ERR_INTERNAL = 102
 
 
 PROTOMAP = {
-    RES_ACK: lambda f, d: f.set_result(None),
-    RES_ELEM: lambda f, d: f.set_result(d),
-    RES_RESULT: lambda f, d: f.set_result(d),
-    RES_ERR_AUTH: lambda f, d: f.set_exception(AuthError(d['error_msg'])),
-    RES_ERR_NODE: lambda f, d: f.set_exception(NodeError(d['error_msg'])),
-    RES_ERR_TYPE: lambda f, d: f.set_exception(TypeError(d['error_msg'])),
-    RES_ERR_TYPE: lambda f, d: f.set_exception(IndexError(d['error_msg'])),
-    RES_ERR_TYPE: lambda f, d: f.set_exception(RuntimeError(d['error_msg'])),
+    RES_PING: lambda f, d: f.set_result(None),
+    RES_AUTH: lambda f, d: f.set_result(None),
+    RES_QUERY: lambda f, d: f.set_result(d),
+    RES_ERR_AUTH:
+        lambda f, d: f.set_exception(AuthError(errdata=d)),
+    RES_ERR_FORBIDDEN:
+        lambda f, d: f.set_exception(ForbiddenError(errdata=d)),
+    RES_ERR_INDEX:
+        lambda f, d: f.set_exception(IndexError(errdata=d)),
+    RES_ERR_BAD_REQUEST:
+        lambda f, d: f.set_exception(BadRequestError(errdata=d)),
+    RES_ERR_QUERY:
+        lambda f, d: f.set_exception(QueryError(errdata=d)),
+    RES_ERR_NODE:
+        lambda f, d: f.set_exception(NodeError(errdata=d)),
+    RES_ERR_INTERNAL:
+        lambda f, d: f.set_exception(InternalError(errdata=d)),
 }
 
 

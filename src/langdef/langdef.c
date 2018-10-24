@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-22 13:59:55
+ * Created at: 2018-10-24 09:25:34
  */
 
 #include <langdef/langdef.h>
@@ -58,78 +58,24 @@ cleri_grammar_t * compile_langdef(void)
         cleri_keyword(CLERI_NONE, "MODIFY", CLERI_CASE_SENSITIVE),
         cleri_regex(CLERI_NONE, "^[0-9]+")
     ), cleri_token(CLERI_NONE, "|"), 0, 0, 0);
-    cleri_t * f_blob = cleri_sequence(
-        CLERI_GID_F_BLOB,
+    cleri_t * g_f_blob = cleri_sequence(
+        CLERI_GID_G_F_BLOB,
         4,
         cleri_keyword(CLERI_NONE, "blob", CLERI_CASE_SENSITIVE),
         cleri_token(CLERI_NONE, "("),
         cleri_optional(CLERI_NONE, array_idx),
         cleri_token(CLERI_NONE, ")")
     );
-    cleri_t * f_thing = cleri_sequence(
-        CLERI_GID_F_THING,
-        4,
-        cleri_keyword(CLERI_NONE, "thing", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_optional(CLERI_NONE, thing_id),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_create = cleri_sequence(
-        CLERI_GID_F_CREATE,
-        4,
-        cleri_keyword(CLERI_NONE, "create", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 0, 0, 1),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_grant = cleri_sequence(
-        CLERI_GID_F_GRANT,
-        4,
-        cleri_keyword(CLERI_NONE, "grant", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        auth_flags,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_revoke = cleri_sequence(
-        CLERI_GID_F_REVOKE,
-        4,
-        cleri_keyword(CLERI_NONE, "revoke", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        auth_flags,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_drop = cleri_sequence(
-        CLERI_GID_F_DROP,
-        3,
-        cleri_keyword(CLERI_NONE, "drop", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_delete = cleri_sequence(
-        CLERI_GID_F_DELETE,
-        3,
-        cleri_keyword(CLERI_NONE, "delete", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_rename = cleri_sequence(
-        CLERI_GID_F_RENAME,
-        4,
-        cleri_keyword(CLERI_NONE, "rename", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        identifier,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * f_fetch = cleri_sequence(
-        CLERI_GID_F_FETCH,
+    cleri_t * g_f_fetch = cleri_sequence(
+        CLERI_GID_G_F_FETCH,
         4,
         cleri_keyword(CLERI_NONE, "fetch", CLERI_CASE_SENSITIVE),
         cleri_token(CLERI_NONE, "("),
         cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
-    cleri_t * f_map = cleri_sequence(
-        CLERI_GID_F_MAP,
+    cleri_t * g_f_map = cleri_sequence(
+        CLERI_GID_G_F_MAP,
         6,
         cleri_keyword(CLERI_NONE, "map", CLERI_CASE_SENSITIVE),
         cleri_token(CLERI_NONE, "("),
@@ -137,6 +83,73 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, "=>"),
         scope,
         cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * g_f_thing = cleri_sequence(
+        CLERI_GID_G_F_THING,
+        4,
+        cleri_keyword(CLERI_NONE, "thing", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        cleri_optional(CLERI_NONE, thing_id),
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_create = cleri_sequence(
+        CLERI_GID_U_F_CREATE,
+        4,
+        cleri_keyword(CLERI_NONE, "create", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_delete = cleri_sequence(
+        CLERI_GID_U_F_DELETE,
+        3,
+        cleri_keyword(CLERI_NONE, "delete", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_drop = cleri_sequence(
+        CLERI_GID_U_F_DROP,
+        3,
+        cleri_keyword(CLERI_NONE, "drop", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_grant = cleri_sequence(
+        CLERI_GID_U_F_GRANT,
+        4,
+        cleri_keyword(CLERI_NONE, "grant", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        auth_flags,
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_rename = cleri_sequence(
+        CLERI_GID_U_F_RENAME,
+        4,
+        cleri_keyword(CLERI_NONE, "rename", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        identifier,
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_f_revoke = cleri_sequence(
+        CLERI_GID_U_F_REVOKE,
+        4,
+        cleri_keyword(CLERI_NONE, "revoke", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        auth_flags,
+        cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * u_assignment = cleri_sequence(
+        CLERI_GID_U_ASSIGNMENT,
+        2,
+        cleri_token(CLERI_NONE, "="),
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            3,
+            primitives,
+            g_f_blob,
+            scope
+        )
     );
     cleri_t * action = cleri_choice(
         CLERI_GID_ACTION,
@@ -148,19 +161,7 @@ cleri_grammar_t * compile_langdef(void)
             cleri_token(CLERI_NONE, "."),
             chain
         ),
-        cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, "="),
-            cleri_choice(
-                CLERI_NONE,
-                CLERI_FIRST_MATCH,
-                3,
-                primitives,
-                f_blob,
-                scope
-            )
-        )
+        u_assignment
     );
     cleri_t * statement = cleri_sequence(
         CLERI_GID_STATEMENT,
@@ -181,7 +182,7 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_NONE,
             CLERI_FIRST_MATCH,
             2,
-            f_thing,
+            g_f_thing,
             identifier
         ),
         cleri_optional(CLERI_NONE, cleri_sequence(
@@ -206,14 +207,14 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_NONE,
             CLERI_FIRST_MATCH,
             9,
-            f_create,
-            f_drop,
-            f_rename,
-            f_fetch,
-            f_grant,
-            f_revoke,
-            f_delete,
-            f_map,
+            g_f_fetch,
+            g_f_map,
+            u_f_create,
+            u_f_delete,
+            u_f_drop,
+            u_f_grant,
+            u_f_rename,
+            u_f_revoke,
             identifier
         ),
         cleri_optional(CLERI_NONE, cleri_sequence(

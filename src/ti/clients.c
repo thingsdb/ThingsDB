@@ -15,6 +15,9 @@
 #include <ti/access.h>
 #include <ti/req.h>
 #include <ti/fwd.h>
+#include <ti/write.h>
+#include <util/qpx.h>
+
 
 #define TI__CLIENTS_UV_BACKLOG 64
 
@@ -27,12 +30,22 @@ static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void ti__clients_write_cb(ti_write_t * req, ex_enum status);
+static int ti__clients_fwd_query(
+        ti_node_t * to_node,
+        ti_stream_t * src_stream,
+        ti_pkg_t * orig_pkg);
+static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status);
+
 
 int ti_clients_create(void)
 {
     clients = malloc(sizeof(ti_clients_t));
     if (!clients)
         return -1;
+
+    /* make sure data is set to null, we use this on close */
+    clients->tcp.data = NULL;
+    clients->pipe.data = NULL;
 
     ti_get()->clients = clients;
 
@@ -95,13 +108,17 @@ int ti_clients_listen(void)
             TI__CLIENTS_UV_BACKLOG,
             ti__clients_tcp_connection)))
     {
-        log_error("error listening for TCP clients: `%s`", uv_strerror(rc));
+        log_error(
+                "error listening for client connections on TCP port %d: `%s`",
+                cfg->client_port,
+                uv_strerror(rc));
         return -1;
     }
 
-    log_info("start listening for TCP clients on port %d", cfg->client_port);
+    log_info("start listening for client connections on TCP port %d",
+            cfg->client_port);
 
-    if (!cfg->pipe_support)
+    if (!cfg->pipe_client_name)
         return 0;
 
     if ((rc = uv_pipe_bind(&clients->pipe, cfg->pipe_client_name)) ||
@@ -110,11 +127,14 @@ int ti_clients_listen(void)
                 TI__CLIENTS_UV_BACKLOG,
                 ti__clients_pipe_connection)))
     {
-        log_error("error listening for PIPE clients: `%s`", uv_strerror(rc));
+        log_error(
+            "error listening for client connections on named pipe `%s`: `%s`",
+            cfg->pipe_client_name,
+            uv_strerror(rc));
         return -1;
     }
 
-    log_info("start listening for PIPE clients connections on `%s`",
+    log_info("start listening for client connections on named pipe `%s`",
             cfg->pipe_client_name);
 
     return 0;
@@ -196,7 +216,7 @@ static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     default:
         log_error(
-                "unexpected package type `%u` from source `%s`)",
+                "unexpected package type `%u` from `%s`)",
                 pkg->tp,
                 ti_stream_name(stream));
     }
@@ -208,7 +228,7 @@ static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC);
+        log_error(EX_ALLOC_S);
     }
 }
 
@@ -234,7 +254,7 @@ static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         assert (user == NULL);
         log_warning(
-                "authentication failed: `%s` (source: `%s`)",
+                "authentication failed `%s` from `%s`)",
                 e->msg,
                 ti_stream_name(stream));
         resp = ti_pkg_err(pkg->id, e);
@@ -252,7 +272,7 @@ finish:
     if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC);
+        log_error(EX_ALLOC_S);
     }
 }
 
@@ -288,10 +308,15 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
                     ti_get()->hostname);
             goto finish;
         }
-        /* TODO: forward to other node */
-        ex_set_internal(e);
-        goto finish;
 
+        if (ti__clients_fwd_query(node, stream, pkg))
+        {
+            ex_set_internal(e);
+            goto finish;
+        }
+        /* the response to the client will be done on a callback on the
+         * query forward so we simply return;
+         */
         return;
     }
 
@@ -329,7 +354,7 @@ finish:
     if (resp && ti_clients_write(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC);
+        log_error(EX_ALLOC_S);
     }
 }
 
@@ -383,7 +408,6 @@ fail0:
     return -1;
 }
 
-
 static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status)
 {
     ti_pkg_t * resp;
@@ -410,7 +434,7 @@ finish:
     if (resp && ti_clients_write(fwd->stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC);
+        log_error(EX_ALLOC_S);
     }
 
     ti_fwd_destroy(fwd);

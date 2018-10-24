@@ -60,7 +60,7 @@ int ti_req_create(
 fail5:
     uv_timer_stop(req->timer);
 fail4:
-    uv_close((uv_handle_t *) req->timer, free);
+    uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
     req->timer = NULL;
 fail3:
     imap_pop(stream->reqmap, pkg_req->id);
@@ -91,7 +91,7 @@ void ti_req_cancel(ti_req_t * req)
     if (!uv_is_closing((uv_handle_t *) req->timer))
     {
         uv_timer_stop(req->timer);
-        uv_close((uv_handle_t *) req->timer, free);
+        uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
         req->timer = NULL;
     }
     req->cb_(req, EX_REQUEST_CANCEL);
@@ -104,11 +104,11 @@ static void ti__req_timeout(uv_timer_t * handle)
     (void *) imap_pop(req->stream->reqmap, req->pkg_req->id);
 
     log_warning(
-            "timeout received on `%s` request to node `%s`",
+            "timeout received on `%s` request to `%s`",
             ti_proto_str(req->pkg_req->tp),
             ti_stream_name(req->stream));
 
-    uv_close((uv_handle_t *) req->timer, free);
+    uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
     req->timer = NULL;
     req->cb_(req, EX_REQUEST_TIMEOUT);
 }
@@ -122,8 +122,8 @@ static void ti__req_write_cb(ti_write_t * wreq, ex_enum status)
     {
         ti_req_t * req = wreq->data;
         (void *) imap_pop(req->stream->reqmap, req->pkg_req->id);
-        uv_timer_stop(&req->timer);
-        uv_close((uv_handle_t *) req->timer, free);
+        uv_timer_stop(req->timer);
+        uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
         req->timer = NULL;
         req->cb_(req, status);
     }

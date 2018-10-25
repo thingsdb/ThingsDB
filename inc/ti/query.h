@@ -1,5 +1,5 @@
 /*
- * query.h
+ * ti/query.h
  */
 #ifndef TI_QUERY_H_
 #define TI_QUERY_H_

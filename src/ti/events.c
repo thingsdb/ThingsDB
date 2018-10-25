@@ -16,7 +16,7 @@ static void ti__events_loop(uv_async_t * handle);
 
 int ti_events_create(void)
 {
-    events = ti_get()->events = malloc(sizeof(ti_events_t));
+    events = ti()->events = malloc(sizeof(ti_events_t));
     if (!events)
         goto failed;
 
@@ -47,12 +47,12 @@ void ti_events_destroy(void)
     ti_archive_destroy(events->archive);
     uv_mutex_destroy(&events->lock);
     free(events);
-    events = ti_get()->events = NULL;
+    events = ti()->events = NULL;
 }
 
 //int ti_events_init(void)
 //{
-//    return uv_async_init(ti_get()->loop, &events->evloop_, ti__events_loop);
+//    return uv_async_init(ti()->loop, &events->evloop_, ti__events_loop);
 //}
 //
 //void ti_events_close(void)

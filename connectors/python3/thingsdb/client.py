@@ -5,6 +5,7 @@ import qpack
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
+from .protocol import REQ_QUERY
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .db import Db
@@ -20,6 +21,7 @@ class Client:
         self._transport = None
         self._protocol = None
         self._requests = {}
+        self._target = 0  # root target
 
     async def connect(self, host, port=9200, timeout=5):
         self._host = host
@@ -34,42 +36,67 @@ class Client:
         self._protocol.on_package_received = self._on_package_received
         self._pid = 0
 
+    async def authenticate(self, username, password, timeout=5):
+        self._username = username
+        self._password = password
+        future = self._write_package(
+            REQ_AUTH,
+            data=(self._username, self._password),
+            timeout=timeout)
+        await future
+
+    def use(self, target):
+        assert isinstance(target, (int, str))
+
+        self._target = target
+
+    async def query(self, query, blobs=None, target=None, timeout=None):
+        assert isinstance(query, str)
+        assert blobs is None or isinstance(blobs, (list, tuple))
+        assert target is None or isinstance(target, (int, str))
+
+        target = self._target if target is None else target
+        data = {'query': query}
+        if target:
+            data['target'] = target
+        if blobs:
+            data['blobs'] = blobs
+        future = self._write_package(REQ_QUERY, data, timeout=timeout)
+        result = await future
+        return result
+
     def _on_package_received(self, pkg):
         try:
             future, task = self._requests.pop(pkg.pid)
         except KeyError:
-            logging.error('package ID not found: {}'.format(
+            logging.error('received package id not found: {}'.format(
                     self._data_package.pid))
             return None
 
         # cancel the timeout task
-        task.cancel()
+        if task is not None:
+            task.cancel()
 
         if future.cancelled():
             return
 
         PROTOMAP.get(pkg.tp, proto_unkown)(future, pkg.data)
 
-    async def authenticate(self, username, password, timeout=5):
-        self._username = username
-        self._password = password
-        future = self.write_package(
-            REQ_AUTH,
-            data=(self._username, self._password),
-            timeout=timeout)
-        await future
-
-    async def _timeout_request(self, pid, timeout):
+    async def _timer(self, pid, timeout):
         await asyncio.sleep(timeout)
-        if not self._requests[pid][0].cancelled():
-            self._requests[pid][0].set_exception(TimeoutError(
-                'request timed out on package id {} ({})'
-                .format(pid)))
-        del self._requests[pid]
+        try:
+            future, task = self._requests.pop(pid)
+        except KeyError:
+            logging.error('timed out package id not found: {}'.format(
+                    self._data_package.pid))
+            return None
 
-    def write_package(self, tp, data=None, is_bin=False, timeout=3600):
+        future.set_exception(TimeoutError(
+            'request timed out on package id {}'.format(pid)))
+
+    def _write_package(self, tp, data=None, is_bin=False, timeout=None):
         self._pid += 1
-        self._pid %= 65536  # pid is handled as uint16_t
+        self._pid %= 0x10000  # pid is handled as uint16_t
 
         data = data if is_bin else b'' if data is None else qpack.packb(data)
 
@@ -77,11 +104,13 @@ class Client:
             len(data),
             self._pid,
             tp,
-            tp ^ 255)
+            tp ^ 0xff)
 
         self._transport.write(header + data)
 
-        task = asyncio.ensure_future(self._timeout_request(self._pid, timeout))
+        task = asyncio.ensure_future(
+            self._timer(self._pid, timeout)) if timeout else None
+
         future = asyncio.Future()
         self._requests[self._pid] = (future, task)
         return future

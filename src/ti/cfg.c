@@ -50,7 +50,7 @@ int ti_cfg_create(void)
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->storage_path)
         ti_cfg_destroy();
 
-    ti_get()->cfg = cfg;
+    ti()->cfg = cfg;
     return 0;
 }
 
@@ -63,7 +63,7 @@ void ti_cfg_destroy(void)
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
     free(cfg);
-    cfg = ti_get()->cfg = NULL;
+    cfg = ti()->cfg = NULL;
 }
 
 int ti_cfg_parse(const char * cfg_file)

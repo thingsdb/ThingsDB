@@ -15,7 +15,7 @@ static int ti__names_write_cb(ti_name_t * name, FILE * f);
 
 int ti_names_create(void)
 {
-    names = ti_get()->names = smap_create();
+    names = ti()->names = smap_create();
     return -(names == NULL);
 }
 
@@ -24,7 +24,7 @@ void ti_names_destroy(void)
     if (!names)
         return;
     smap_destroy(names, free);
-    names = ti_get()->names = NULL;
+    names = ti()->names = NULL;
 }
 
 ti_name_t * ti_names_get(const char * str, size_t n)

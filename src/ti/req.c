@@ -46,7 +46,7 @@ int ti_req_create(
         ti_req_cancel(prev);
     }
 
-    if (uv_timer_init(ti_get()->loop, req->timer))
+    if (uv_timer_init(ti()->loop, req->timer))
         goto fail3;
 
     if (uv_timer_start(req->timer, ti__req_timeout, timeout, 0))

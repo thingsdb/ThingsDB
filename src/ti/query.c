@@ -99,7 +99,7 @@ finish:
 int ti_query_parse(ti_query_t * query, ex_t * e)
 {
     assert (e->nr == 0);
-    query->parseres = cleri_parse(ti_get()->langdef, query->querystr);
+    query->parseres = cleri_parse(ti()->langdef, query->querystr);
     if (!query->parseres)
     {
         ex_set_alloc(e);

@@ -12,7 +12,6 @@ const int ti__stat_fn_schema = 0;
 
 int ti_store_status_store(const char * fn)
 {
-    ti_t * ti = ti_get();
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(64);
     if (!packer) return -1;
@@ -21,9 +20,9 @@ int ti_store_status_store(const char * fn)
         qp_add_raw_from_str(packer, "schema") ||
         qp_add_int64(packer, ti__stat_fn_schema) ||
         qp_add_raw_from_str(packer, "commit_event_id") ||
-        qp_add_int64(packer, (int64_t) ti->events->commit_event_id) ||
+        qp_add_int64(packer, (int64_t) ti()->events->commit_event_id) ||
         qp_add_raw_from_str(packer, "next_thing_id") ||
-        qp_add_int64(packer, (int64_t) ti->next_thing_id) ||
+        qp_add_int64(packer, (int64_t) ti()->next_thing_id) ||
         qp_close_map(packer)) goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
@@ -36,7 +35,6 @@ stop:
 
 int ti_store_status_restore(const char * fn)
 {
-    ti_t * ti = ti_get();
     int rcode, rc = -1;
     ssize_t n;
     unsigned char * data = fx_read(fn, &n);
@@ -69,9 +67,9 @@ int ti_store_status_restore(const char * fn)
         qpnext_thing_id->tp != QP_RES_INT64)
         goto stop;
 
-    ti->events->commit_event_id = (uint64_t) qpcommit_event_id->via.int64;
-    ti->events->next_event_id = ti->events->commit_event_id + 1;
-    ti->next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
+    ti()->events->commit_event_id = (uint64_t) qpcommit_event_id->via.int64;
+    ti()->events->next_event_id = ti()->events->commit_event_id + 1;
+    ti()->next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
 
     rc = 0;
 

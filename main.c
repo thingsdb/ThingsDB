@@ -1,3 +1,10 @@
+/*
+ * main.c - ThingsDB
+ *
+ * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
+ * home page         : https://thingsdb.net
+ * copyright         : 2018, Transceptor Technology
+ */
 #include <locale.h>
 #include <stdlib.h>
 #include <ti/store.h>
@@ -10,7 +17,6 @@
 
 int main(int argc, char * argv[])
 {
-    ti_t * ti;
     int rc = EXIT_SUCCESS;
 
     /* set local to LC_ALL */
@@ -30,14 +36,12 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
-    ti = ti_get();
-
     /* parse arguments */
     rc = ti_args_parse(argc, argv);
     if (rc)
         goto stop;
 
-    if (ti->args->version)
+    if (ti()->args->version)
     {
         ti_version_print();
         goto stop;
@@ -45,7 +49,7 @@ int main(int argc, char * argv[])
 
     ti_init_logger();
 
-    rc = ti_cfg_parse(ti->args->config);
+    rc = ti_cfg_parse(ti()->args->config);
     if (rc)
         goto stop;
 
@@ -57,12 +61,12 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
-    if (ti->args->init)
+    if (ti()->args->init)
     {
-        if (fx_file_exist(ti->fn))
+        if (fx_file_exist(ti()->fn))
         {
             printf("error: directory `%s` is already initialized\n",
-                    ti->cfg->storage_path);
+                    ti()->cfg->storage_path);
             rc = -1;
             goto stop;
         }
@@ -82,18 +86,18 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    if (strlen(ti->args->secret))
+    if (strlen(ti()->args->secret))
     {
         printf(
             "Waiting for a invite to join some pool from a ThingsDB node...\n"
             "(if you want to create a new pool instead, press CTRL+C and "
             "use the --init argument)\n");
     }
-    else if (fx_file_exist(ti->fn))
+    else if (fx_file_exist(ti()->fn))
     {
         if ((rc = ti_read()))
         {
-            printf("error reading ThingsDB from `%s`\n", ti->fn);
+            printf("error reading ThingsDB from `%s`\n", ti()->fn);
             goto stop;
         }
 

@@ -30,7 +30,7 @@ int ti_args_create(void)
     strcpy(args->log_level, "");
     args->log_colorized = 0;
     args->init = 0;
-    ti_get()->args = args;
+    ti()->args = args;
 
     return 0;
 }
@@ -38,7 +38,7 @@ int ti_args_create(void)
 void ti_args_destroy(void)
 {
     free(args);
-    args = ti_get()->args = NULL;
+    args = ti()->args = NULL;
 }
 
 int ti_args_parse(int argc, char *argv[])

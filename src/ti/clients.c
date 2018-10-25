@@ -19,22 +19,22 @@
 #include <util/qpx.h>
 
 
-#define TI__CLIENTS_UV_BACKLOG 64
+#define CLIENTS__UV_BACKLOG 64
 
 static ti_clients_t * clients;
 
-static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status);
-static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status);
-static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
-static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
-static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
-static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg);
-static void ti__clients_write_cb(ti_write_t * req, ex_enum status);
-static int ti__clients_fwd_query(
+static void clients__tcp_connection(uv_stream_t * uvstream, int status);
+static void clients__pipe_connection(uv_stream_t * uvstream, int status);
+static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__write_cb(ti_write_t * req, ex_enum status);
+static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
         ti_pkg_t * orig_pkg);
-static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status);
+static void clients__fwd_query_cb(ti_req_t * req, ex_enum status);
 
 
 int ti_clients_create(void)
@@ -47,7 +47,7 @@ int ti_clients_create(void)
     clients->tcp.data = NULL;
     clients->pipe.data = NULL;
 
-    ti_get()->clients = clients;
+    ti()->clients = clients;
 
     return -(clients == NULL);
 }
@@ -55,20 +55,19 @@ int ti_clients_create(void)
 void ti_clients_destroy(void)
 {
     free(clients);
-    clients = ti_get()->clients = NULL;
+    clients = ti()->clients = NULL;
 }
 
 int ti_clients_listen(void)
 {
     int rc;
-    ti_t * thingsdb = ti_get();
-    ti_cfg_t * cfg = thingsdb->cfg;
+    ti_cfg_t * cfg = ti()->cfg;
     struct sockaddr_storage addr = {0};
     _Bool is_ipv6 = false;
     char * ip;
 
-    uv_tcp_init(thingsdb->loop, &clients->tcp);
-    uv_pipe_init(thingsdb->loop, &clients->pipe, 0);
+    uv_tcp_init(ti()->loop, &clients->tcp);
+    uv_pipe_init(ti()->loop, &clients->pipe, 0);
 
     if (cfg->bind_node_addr != NULL)
     {
@@ -105,8 +104,8 @@ int ti_clients_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &clients->tcp,
-            TI__CLIENTS_UV_BACKLOG,
-            ti__clients_tcp_connection)))
+            CLIENTS__UV_BACKLOG,
+            clients__tcp_connection)))
     {
         log_error(
                 "error listening for client connections on TCP port %d: `%s`",
@@ -124,8 +123,8 @@ int ti_clients_listen(void)
     if ((rc = uv_pipe_bind(&clients->pipe, cfg->pipe_client_name)) ||
         (rc = uv_listen(
                 (uv_stream_t *) &clients->pipe,
-                TI__CLIENTS_UV_BACKLOG,
-                ti__clients_pipe_connection)))
+                CLIENTS__UV_BACKLOG,
+                clients__pipe_connection)))
     {
         log_error(
             "error listening for client connections on named pipe `%s`: `%s`",
@@ -142,10 +141,10 @@ int ti_clients_listen(void)
 
 int ti_clients_write(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    return ti_write(stream, pkg, NULL, ti__clients_write_cb);
+    return ti_write(stream, pkg, NULL, clients__write_cb);
 }
 
-static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status)
+static void clients__tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -157,12 +156,12 @@ static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP client connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &ti__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &clients__pkg_cb);
 
     if (!stream)
         return;
 
-    uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
         uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
@@ -173,7 +172,7 @@ static void ti__clients_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status)
+static void clients__pipe_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -185,12 +184,12 @@ static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a PIPE client connection");
 
-    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &ti__clients_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &clients__pkg_cb);
 
     if (!stream)
         return;
 
-    uv_pipe_init(ti_get()->loop, (uv_pipe_t *) &stream->uvstream, 0);
+    uv_pipe_init(ti()->loop, (uv_pipe_t *) &stream->uvstream, 0);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
         uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
@@ -201,18 +200,18 @@ static void ti__clients_pipe_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
     {
     case TI_PROTO_CLIENT_REQ_PING:
-        ti__clients_on_ping(stream, pkg);
+        clients__on_ping(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_AUTH:
-        ti__clients_on_auth(stream, pkg);
+        clients__on_auth(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_QUERY:
-        ti__clients_on_query(stream, pkg);
+        clients__on_query(stream, pkg);
         break;
     default:
         log_error(
@@ -222,7 +221,7 @@ static void ti__clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
     if (!resp || ti_clients_write(stream, resp))
@@ -232,7 +231,7 @@ static void ti__clients_on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void ti__clients_on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
@@ -276,12 +275,12 @@ finish:
     }
 }
 
-static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_pkg_t * resp;
+    ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ex_t * e = ex_use();
-    ti_node_t * node = ti_get()->node;
+    ti_node_t * node = ti()->node;
 
     if (!stream->via.user)
     {
@@ -293,7 +292,7 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
-                ti_get()->hostname);
+                ti()->hostname);
         goto finish;
     }
 
@@ -305,11 +304,11 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         {
             ex_set(e, EX_NODE_ERROR,
                     "node `%s` is unable to handle query requests",
-                    ti_get()->hostname);
+                    ti()->hostname);
             goto finish;
         }
 
-        if (ti__clients_fwd_query(node, stream, pkg))
+        if (clients__fwd_query(node, stream, pkg))
         {
             ex_set_internal(e);
             goto finish;
@@ -331,12 +330,12 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     if (!ti_access_check(
-            query->target ? query->target->access : ti_get()->access,
+            query->target ? query->target->access : ti()->access,
             stream->via.user,
             TI_AUTH_ACCESS))
     {
         ex_set(e, EX_FORBIDDEN,
-                "access denied, missing `%`",
+                "access denied (requires `%s` flag)",
                 ti_auth_mask_to_str(TI_AUTH_ACCESS));
         goto finish;
     }
@@ -345,11 +344,10 @@ static void ti__clients_on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
 finish:
+    ti_query_destroy(query);
+
     if (e->nr)
-    {
-        ti_query_destroy(query);
         resp = ti_pkg_err(pkg->id, e);
-    }
 
     if (resp && ti_clients_write(stream, resp))
     {
@@ -358,7 +356,7 @@ finish:
     }
 }
 
-static void ti__clients_write_cb(ti_write_t * req, ex_enum status)
+static void clients__write_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->pkg);
@@ -366,7 +364,7 @@ static void ti__clients_write_cb(ti_write_t * req, ex_enum status)
 }
 
 
-static int ti__clients_fwd_query(
+static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
         ti_pkg_t * orig_pkg)
@@ -395,7 +393,7 @@ static int ti__clients_fwd_query(
             to_node->stream,
             pkg_req,
             TI_PROTO_NODE_REQ_QUERY_TIMEOUT,
-            ti__clients_fwd_query_cb,
+            clients__fwd_query_cb,
             fwd))
         goto fail1;
 
@@ -408,7 +406,7 @@ fail0:
     return -1;
 }
 
-static void ti__clients_fwd_query_cb(ti_req_t * req, ex_enum status)
+static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
 {
     ti_pkg_t * resp;
     ti_fwd_t * fwd = req->data;

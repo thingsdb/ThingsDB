@@ -11,7 +11,7 @@ typedef struct ti_name_s ti_name_t;
 
 ti_name_t * ti_name_create(const char * str, size_t n);
 void ti_name_drop(ti_name_t * name);
-_Bool * ti_name_is_valid_strn(const char * str, size_t n);
+_Bool ti_name_is_valid_strn(const char * str, size_t n);
 static inline void ti_name_destroy(ti_name_t * name);
 
 

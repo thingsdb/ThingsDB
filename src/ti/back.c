@@ -38,7 +38,7 @@
 //int ti_back_listen(ti_back_t * back)
 //{
 //    int rc;
-//    ti_cfg_t * cfg = ti_get()->cfg;
+//    ti_cfg_t * cfg = ti()->cfg;
 //
 //    if (ti_stream_init(back->sock)) return -1;
 //    TI_ref_inc(back->sock);

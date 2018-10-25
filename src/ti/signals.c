@@ -8,10 +8,10 @@
 #include <ti.h>
 #include <util/logger.h>
 
-static void ti__signals_handler(uv_signal_t * sig, int signum);
+static void signals__handler(uv_signal_t * sig, int signum);
 
-#define nsigs 6
-static const int signms[nsigs] = {
+#define signals__nsigs 6
+static const int signals__signms[signals__nsigs] = {
         SIGHUP,
         SIGINT,
         SIGTERM,
@@ -20,15 +20,15 @@ static const int signms[nsigs] = {
         SIGPIPE
 };
 
-static uv_signal_t signals[nsigs] = {0};
+static uv_signal_t signals[signals__nsigs] = {0};
 
 int ti_signals_init(void)
 {
     /* bind signals to the event loop */
-    for (int i = 0; i < nsigs; i++)
+    for (int i = 0; i < signals__nsigs; i++)
     {
-        if (uv_signal_init(ti_get()->loop, &signals[i]) ||
-            uv_signal_start(&signals[i], ti__signals_handler, signms[i]))
+        if (uv_signal_init(ti()->loop, &signals[i]) ||
+            uv_signal_start(&signals[i], signals__handler, signals__signms[i]))
         {
             return -1;
         }
@@ -36,22 +36,20 @@ int ti_signals_init(void)
     return 0;
 }
 
-static void ti__signals_handler(uv_signal_t * UNUSED(sig), int signum)
+static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 {
-    ti_t * thingsdb = ti_get();
-
     if (signum == SIGPIPE)
     {
         log_warning("signal (%d) received, probably a connection was lost");
         return;
     }
 
-    if (thingsdb->flags & TI_FLAG_SIGNAL)
+    if (ti()->flags & TI_FLAG_SIGNAL)
     {
         log_error("received second signal (%s), abort", strsignal(signum));
         abort();
     }
-    thingsdb->flags |= TI_FLAG_SIGNAL;
+    ti()->flags |= TI_FLAG_SIGNAL;
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
     {
@@ -62,7 +60,7 @@ static void ti__signals_handler(uv_signal_t * UNUSED(sig), int signum)
         log_critical("received stop signal (%s)", strsignal(signum));
     }
 
-    ti_maint_stop(thingsdb->maint);
+    ti_maint_stop(ti()->maint);
 
-    uv_stop(thingsdb->loop);
+    uv_stop(ti()->loop);
 }

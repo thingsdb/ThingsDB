@@ -35,9 +35,9 @@ static inline int ti_thing_id_to_packer(
 struct ti_thing_s
 {
     uint32_t ref;
+    uint16_t pad0;
     uint8_t flags;
-    uint8_t pad0;
-    uint16_t pad1;
+    uint8_t pad1;
     uint64_t id;
     imap_t * things;       /* thing is added to this map */
     vec_t * props;

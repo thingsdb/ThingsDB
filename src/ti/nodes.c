@@ -6,12 +6,12 @@
 #include <ti/nodes.h>
 #include <ti.h>
 
-#define TI__NODES_UV_BACKLOG 64
+#define NODES__UV_BACKLOG 64
 
 static ti_nodes_t * nodes;
 
-static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status);
-static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
+static void nodes__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
 {
@@ -24,7 +24,7 @@ int ti_nodes_create(void)
 
     nodes->vec = vec_new(0);
     memset(&nodes->addr, 0, sizeof(struct sockaddr_storage));
-    ti_get()->nodes = nodes;
+    ti()->nodes = nodes;
 
     return -(nodes == NULL);
 }
@@ -35,7 +35,7 @@ void ti_nodes_destroy(void)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes);
-    nodes = ti_get()->nodes = NULL;
+    nodes = ti()->nodes = NULL;
 }
 
 _Bool ti_nodes_has_quorum(void)
@@ -106,12 +106,11 @@ ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
 int ti_nodes_listen(void)
 {
     int rc;
-    ti_t * thingsdb = ti_get();
-    ti_cfg_t * cfg = thingsdb->cfg;
+    ti_cfg_t * cfg = ti()->cfg;
     _Bool is_ipv6 = false;
     char * ip;
 
-    uv_tcp_init(thingsdb->loop, &nodes->tcp);
+    uv_tcp_init(ti()->loop, &nodes->tcp);
 
     if (cfg->bind_node_addr != NULL)
     {
@@ -148,8 +147,8 @@ int ti_nodes_listen(void)
                     UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
             (uv_stream_t *) &nodes->tcp,
-            TI__NODES_UV_BACKLOG,
-            ti__nodes_tcp_connection)))
+            NODES__UV_BACKLOG,
+            nodes__tcp_connection)))
     {
         log_error("error listening for node connections on TCP port %d: `%s`",
                 cfg->node_port,
@@ -167,7 +166,7 @@ int ti_nodes_listen(void)
  */
 ti_node_t * ti_nodes_random_ready_node(void)
 {
-    ti_node_t * this_node = ti_get()->node;
+    ti_node_t * this_node = ti()->node;
     ti_node_t * online_nodes[nodes->vec->n-1];
     uint32_t i = 0, n = 0;
     for (vec_each(nodes->vec, ti_node_t, node), i++)
@@ -182,7 +181,7 @@ ti_node_t * ti_nodes_random_ready_node(void)
 }
 
 
-static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
+static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
 
@@ -194,12 +193,12 @@ static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP node connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &ti__nodes_pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &nodes__pkg_cb);
 
     if (!stream)
         return;
 
-    uv_tcp_init(ti_get()->loop, (uv_tcp_t *) &stream->uvstream);
+    uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
         uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
@@ -210,7 +209,7 @@ static void ti__nodes_tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void ti__nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->id)
     {

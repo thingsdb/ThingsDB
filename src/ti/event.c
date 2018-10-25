@@ -84,7 +84,7 @@ void ti_event_destroy(ti_event_t * event)
 
 //void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    ti_event_t * event = ti_event_create(thingsdb->events);
 //    if (!event || !(event->nodes = vec_new(thingsdb->nodes->vec->n - 1)))
 //    {
@@ -124,7 +124,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //int ti_event_init(ti_event_t * event)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    event->node = ti_node_grab(thingsdb->node);
 //    event->id = ti_events_get_event_id();
 //    event->status = TI_EVENT_STAT_REG;
@@ -197,7 +197,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //    if (event->target || qpx_obj_eq_str(&target, "_")) goto target;
 //
-//    event->target = ti_dbs_get_by_obj(ti_get()->dbs, &target);
+//    event->target = ti_dbs_get_by_obj(ti()->dbs, &target);
 //    if (event->target)
 //    {
 //        event->target = ti_db_grab(event->target);
@@ -281,7 +281,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //static int ti__event_reg(ti_event_t * event)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    ti_prom_t * prom = ti_prom_new(
 //            thingsdb->nodes->vec->n - 1,
 //            event,
@@ -323,7 +323,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //static int ti__event_upd(ti_event_t * event, uint64_t prev_id)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    ti_prom_t * prom = ti_prom_new(
 //            event->nodes->n,
 //            event,
@@ -414,7 +414,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //static int ti__event_ready(ti_event_t * event)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    event->status = TI_EVENT_STAT_READY;
 //
 //    event->prom = ti_prom_new(
@@ -497,7 +497,7 @@ void ti_event_destroy(ti_event_t * event)
 //
 //static int ti__event_cancel(ti_event_t * event)
 //{
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    ti_prom_t * prom = ti_prom_new(
 //            event->nodes->n,
 //            event,
@@ -593,7 +593,7 @@ void ti_event_destroy(ti_event_t * event)
 //        ex_t * e)
 //{
 //    qp_res_t * res;
-//    ti_t * thingsdb = ti_get();
+//    ti_t * thingsdb = ti();
 //    if (!qp_is_array(qp_next(unpacker, NULL)))
 //    {
 //        ex_set(e, EX_TYPE_ERROR,

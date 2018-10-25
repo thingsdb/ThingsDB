@@ -17,8 +17,8 @@ static const int ti__dbs_fn_schema = 0;
 
 int ti_dbs_create(void)
 {
-    ti_get()->dbs = vec_new(0);
-    dbs = &ti_get()->dbs;
+    ti()->dbs = vec_new(0);
+    dbs = &ti()->dbs;
     return -(*dbs == NULL);
 }
 

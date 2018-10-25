@@ -55,7 +55,6 @@ extern ti_t ti_;
 
 int ti_create(void);
 void ti_destroy(void);
-static inline ti_t * ti_get(void);
 void ti_init_logger(void);
 int ti_init(void);
 int ti_build(void);
@@ -66,6 +65,7 @@ int ti_lock(void);
 int ti_unlock(void);
 uint64_t ti_next_thing_id(void);
 _Bool ti_manages_id(uint64_t id);
+static inline ti_t * ti(void);
 
 struct ti_s
 {
@@ -92,7 +92,7 @@ struct ti_s
     char hostname[256];
 };
 
-static inline ti_t * ti_get(void)
+static inline ti_t * ti(void)
 {
     return &ti_;
 }

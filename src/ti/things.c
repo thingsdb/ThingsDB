@@ -1,5 +1,5 @@
 /*
- * things.c
+ * ti/things.c
  */
 #include <stdlib.h>
 #include <ti/things.h>
@@ -8,7 +8,7 @@
 #include <ti/prop.h>
 #include <ti.h>
 
-static void ti__things_gc_mark(ti_thing_t * thing);
+static void things__gc_mark(ti_thing_t * thing);
 
 ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
 {
@@ -31,7 +31,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     if (root)
     {
-        ti__things_gc_mark(root);
+        things__gc_mark(root);
     }
 
     for (vec_each(things_vec, ti_thing_t, thing))
@@ -370,7 +370,7 @@ done:
     return rc;
 }
 
-static void ti__things_gc_mark(ti_thing_t * thing)
+static void things__gc_mark(ti_thing_t * thing)
 {
     thing->flags &= ~TI_ELEM_FLAG_SWEEP;
     for (vec_each(thing->props, ti_prop_t, prop))
@@ -380,7 +380,7 @@ static void ti__things_gc_mark(ti_thing_t * thing)
         case TI_VAL_ELEM:
             if (prop->val.via.thing_->flags & TI_ELEM_FLAG_SWEEP)
             {
-                ti__things_gc_mark(prop->val.via.thing_);
+                things__gc_mark(prop->val.via.thing_);
             }
             continue;
         case TI_VAL_ELEMS:
@@ -388,7 +388,7 @@ static void ti__things_gc_mark(ti_thing_t * thing)
             {
                 if (el->flags & TI_ELEM_FLAG_SWEEP)
                 {
-                    ti__things_gc_mark(el);
+                    things__gc_mark(el);
                 }
             }
             continue;

@@ -1,6 +1,5 @@
 import re
 import sys
-sys.path.insert(0, '../../pyleri')
 from pyleri import (
     Grammar,
     Keyword,
@@ -16,6 +15,7 @@ from pyleri import (
 )
 
 RE_IDENTIFIER = r'^[a-zA-Z_][a-zA-Z0-9_]*'
+
 
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
@@ -145,6 +145,15 @@ if __name__ == '__main__':
 
         /* Change redundancy */
         config.redundancy = 3;
+
+        prototypes().create(User, {
+            name: str().required(),
+            age: int().required(),
+            owner: User.required(),
+            schools: []School.required(),
+            scores: array(),
+            other: things()
+        })
 
         /*
          * Finished!

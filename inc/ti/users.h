@@ -12,7 +12,7 @@
 
 int ti_users_create(void);
 void ti_users_destroy(void);
-int ti_users_create_user(
+ti_user_t * ti_users_create_user(
         const char * name,
         size_t n,
         const char * passstr,

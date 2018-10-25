@@ -1,5 +1,5 @@
 /*
- * store.c
+ * ti/store.c
  */
 #include <assert.h>
 #include <stdlib.h>
@@ -17,44 +17,44 @@
 #include <util/logger.h>
 
 /* path names */
-static const char * ti__store_path          = ".store/";
-static const char * ti__store_prev_path     = ".prev_/";
-static const char * ti__store_tmp_path      = ".tmp__/";
+static const char * store__path          = ".store/";
+static const char * store__prev_path     = ".prev_/";
+static const char * store__tmp_path      = ".tmp__/";
 /* file names */
-static const char * ti__store_access_fn     = "access.qp";
-static const char * ti__store_dbs_fn        = "dbs.qp";
-static const char * ti__store_id_stat_fn    = "idstat.qp";
-static const char * ti__store_names_fn      = "names.qp";
-static const char * ti__store_users_fn      = "users.qp";
+static const char * store__access_fn     = "access.qp";
+static const char * store__dbs_fn        = "dbs.qp";
+static const char * store__id_stat_fn    = "idstat.qp";
+static const char * store__names_fn      = "names.qp";
+static const char * store__users_fn      = "users.qp";
 
-static void ti__store_set_filename(_Bool use_tmp);
+static void store__set_filename(_Bool use_tmp);
 
 static ti_store_t * store;
 
 int ti_store_create(void)
 {
-    char * storage_path = ti_get()->cfg->storage_path;
+    char * storage_path = ti()->cfg->storage_path;
     assert (storage_path);
     store = malloc(sizeof(ti_store_t));
     if (!store)
         goto fail0;
 
     /* path names */
-    store->tmp_path = fx_path_join(storage_path, ti__store_tmp_path);
+    store->tmp_path = fx_path_join(storage_path, store__tmp_path);
     if (!store->tmp_path)
         goto fail0;
 
-    store->fn_offset = strlen(store->tmp_path) - strlen(ti__store_tmp_path);
+    store->fn_offset = strlen(store->tmp_path) - strlen(store__tmp_path);
 
-    store->prev_path = fx_path_join(storage_path, ti__store_prev_path);
-    store->store_path = fx_path_join(storage_path, ti__store_path);
+    store->prev_path = fx_path_join(storage_path, store__prev_path);
+    store->store_path = fx_path_join(storage_path, store__path);
 
     /* file names */
-    store->access_fn = fx_path_join(store->tmp_path, ti__store_access_fn);
-    store->dbs_fn = fx_path_join(store->tmp_path, ti__store_dbs_fn);
-    store->id_stat_fn = fx_path_join(store->tmp_path, ti__store_id_stat_fn);
-    store->names_fn = fx_path_join(store->tmp_path, ti__store_names_fn);
-    store->users_fn = fx_path_join(store->tmp_path, ti__store_users_fn);
+    store->access_fn = fx_path_join(store->tmp_path, store__access_fn);
+    store->dbs_fn = fx_path_join(store->tmp_path, store__dbs_fn);
+    store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
+    store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
+    store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
 
     if (    !store->prev_path ||
             !store->store_path ||
@@ -65,7 +65,7 @@ int ti_store_create(void)
             !store->users_fn)
         goto fail1;
 
-    ti_get()->store = store;
+    ti()->store = store;
     return 0;
 fail1:
     ti_store_destroy();
@@ -95,22 +95,21 @@ void ti_store_destroy(void)
 int ti_store_store(void)
 {
     assert (store);
-    ti_t * ti = ti_get();
 
     /* not need for checking on errors */
     fx_rmdir(store->prev_path);
     mkdir(store->tmp_path, 0700);
 
-    ti__store_set_filename(true);
+    store__set_filename(true);
 
     if (    ti_store_status_store(store->id_stat_fn) ||
             ti_names_store(store->names_fn) ||
             ti_users_store(store->users_fn) ||
-            ti_store_access_store(ti->access, store->access_fn) ||
+            ti_store_access_store(ti()->access, store->access_fn) ||
             ti_dbs_store(store->dbs_fn))
         goto failed;
 
-    for (vec_each(ti->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs, ti_db_t, db))
     {
         int rc;
         ti_store_db_t * store_db = ti_store_db_create(store->tmp_path, db);
@@ -146,22 +145,21 @@ failed:
 int ti_store_restore(void)
 {
     assert (store);
-    ti_t * ti = ti_get();
 
-    ti__store_set_filename(false);
+    store__set_filename(false);
 
     imap_t * namesmap = ti_names_restore(store->names_fn);
     int rc = (
             -(!namesmap) ||
             ti_store_status_restore(store->id_stat_fn) ||
             ti_users_restore(store->users_fn) ||
-            ti_store_access_restore(&ti->access, store->access_fn) ||
+            ti_store_access_restore(&ti()->access, store->access_fn) ||
             ti_dbs_restore(store->dbs_fn));
 
     if (rc)
         goto stop;
 
-    for (vec_each(ti->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs, ti_db_t, db))
     {
         ti_store_db_t * store_db = ti_store_db_create(store->store_path, db);
         rc = (  -(!store_db) ||
@@ -180,9 +178,9 @@ stop:
     return rc;
 }
 
-static void ti__store_set_filename(_Bool use_tmp)
+static void store__set_filename(_Bool use_tmp)
 {
-    const char * path = use_tmp ? ti__store_tmp_path : ti__store_path;
+    const char * path = use_tmp ? store__tmp_path : store__path;
     size_t n = strlen(path);
     memcpy(store->access_fn + store->fn_offset, path, n);
     memcpy(store->dbs_fn + store->fn_offset, path, n);

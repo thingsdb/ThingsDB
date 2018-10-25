@@ -5,7 +5,7 @@
 #include <string.h>
 #include <ti/tcp.h>
 
-#define TCP_NAME_BUF_SZ 54
+static const size_t tcp__name_buf_sz = 54;
 
 const char * ti_tcp_ip_support_str(int ip_support)
 {
@@ -30,7 +30,7 @@ const char * ti_tcp_ip_support_str(int ip_support)
 char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
 {
     size_t n = strlen(prefix);
-    char * buffer = malloc(TCP_NAME_BUF_SZ + n);
+    char * buffer = malloc(tcp__name_buf_sz + n);
     struct sockaddr_storage name;
     int namelen = sizeof(name);
 
@@ -52,7 +52,7 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
                     sizeof(addr));
             snprintf(
                     buffer + n,
-                    TCP_NAME_BUF_SZ,
+                    tcp__name_buf_sz,
                     "%s:%d",
                     addr,
                     ntohs(((struct sockaddr_in *) &name)->sin_port));
@@ -69,7 +69,7 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
                     sizeof(addr));
             snprintf(
                     buffer + n,
-                    TCP_NAME_BUF_SZ,
+                    tcp__name_buf_sz,
                     "[%s]:%d",
                     addr,
                     ntohs(((struct sockaddr_in6 *) &name)->sin6_port));

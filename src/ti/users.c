@@ -19,8 +19,8 @@ const int ti_users_fn_schema = 0;
 
 int ti_users_create(void)
 {
-    ti_get()->users = vec_new(0);
-    users = &ti_get()->users;
+    ti()->users = vec_new(0);
+    users = &ti()->users;
     return -(*users == NULL);
 }
 
@@ -32,13 +32,13 @@ void ti_users_destroy(void)
     *users = NULL;
 }
 
-int ti_users_create_user(
+ti_user_t * ti_users_create_user(
         const char * name,
         size_t n,
         const char * passstr,
         ex_t * e)
 {
-    ti_user_t * user;
+    ti_user_t * user = NULL;
     assert (e->nr == 0);
 
     if (    !ti_user_name_check(name, n, e) ||
@@ -56,12 +56,13 @@ int ti_users_create_user(
     if (!user || ti_user_set_pass(user, passstr) || vec_push(users, user))
     {
         ti_user_drop(user);
+        user = NULL;
         ex_set_alloc(e);
         goto done;
     }
 
 done:
-    return e->nr;
+    return user;
 }
 
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)

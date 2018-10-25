@@ -10,9 +10,11 @@
 #include <ti/names.h>
 #include <ti/signals.h>
 #include <ti/store.h>
+#include <ti/auth.h>
 #include <ti/user.h>
 #include <ti/users.h>
 #include <ti/dbs.h>
+#include <ti/access.h>
 #include <ti.h>
 #include <util/fx.h>
 #include <util/strx.h>
@@ -133,7 +135,9 @@ int ti_build(void)
     {
         /* TODO: should be done by a query inside the packer */
         ex_t * e = ex_use();
-        assert (ti_users_create_user("iris", 4, "siri", e) == 0);
+        ti_user_t * user;
+        assert ((user = ti_users_create_user("iris", 4, "siri", e)));
+        assert (ti_access_grant(&ti_.access, user, TI_AUTH_MASK_FULL) == 0);
     }
 
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);

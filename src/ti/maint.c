@@ -39,8 +39,8 @@ ti_maint_t * ti_maint_new(void)
 int ti_maint_start(ti_maint_t * maint)
 {
     maint->status = TI_MAINT_STAT_READY;
-    maint->last_commit = ti_get()->events->commit_event_id;
-    return (uv_timer_init(ti_get()->loop, &maint->timer) ||
+    maint->last_commit = ti()->events->commit_event_id;
+    return (uv_timer_init(ti()->loop, &maint->timer) ||
             uv_timer_start(
                 &maint->timer,
                 ti__maint_timer_cb,
@@ -60,7 +60,7 @@ void ti_maint_stop(ti_maint_t * maint)
 static void ti__maint_timer_cb(uv_timer_t * timer)
 {
     ti_maint_t * maint = timer->data;
-    ti_t * thingsdb = ti_get();
+    ti_t * thingsdb = ti();
     uint64_t commit_id = thingsdb->events->commit_event_id;
 
     if (maint->status == TI_MAINT_STAT_WAIT)
@@ -113,7 +113,7 @@ static void ti__maint_timer_cb(uv_timer_t * timer)
 
 static int ti__maint_reg(ti_maint_t * maint)
 {
-    ti_t * thingsdb = ti_get();
+    ti_t * thingsdb = ti();
     maint->status = TI_MAINT_STAT_REG;
     ti_prom_t * prom = ti_prom_new(
             thingsdb->nodes->vec->n - 1,
@@ -174,7 +174,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
     if (accept)
     {
-        ti_get()->node->status = TI_NODE_STAT_AWAY;
+        ti()->node->status = TI_NODE_STAT_AWAY;
         maint->status = TI_MAINT_STAT_WAIT;
         ti__maint_wait(maint);
     }
@@ -182,7 +182,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
 
 static void ti__maint_wait(ti_maint_t * maint)
 {
-    ti_t * thingsdb = ti_get();
+    ti_t * thingsdb = ti();
     if (thingsdb->events->queue->n)
     {
         log_debug("wait until the event queue is empty (%zd)",
@@ -200,7 +200,7 @@ static void ti__maint_wait(ti_maint_t * maint)
 static void ti__maint_work(uv_work_t * work)
 {
     ti_maint_t * maint = work->data;
-    ti_t * thingsdb = ti_get();
+    ti_t * thingsdb = ti();
     uv_mutex_lock(&thingsdb->events->lock);
 
     log_debug("maintenance job: start storing data");
@@ -228,7 +228,7 @@ static void ti__maint_work(uv_work_t * work)
 static void ti__maint_work_finish(uv_work_t * work, int status)
 {
     ti_maint_t * maint = (ti_maint_t *) work->data;
-    ti_get()->node->status = TI_NODE_STAT_READY;
+    ti()->node->status = TI_NODE_STAT_READY;
     maint->status = TI_MAINT_STAT_READY;
     if (status)
     {

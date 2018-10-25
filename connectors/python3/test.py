@@ -15,6 +15,10 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
+    client.use(0)
+
+    await client.query('databases.create(dbtest)', timeout=2)
+
     # await asyncio.sleep(3)
 
 

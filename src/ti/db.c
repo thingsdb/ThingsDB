@@ -44,7 +44,6 @@ ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
 
 void ti_db_drop(ti_db_t * db)
 {
-    assert_log(db, "may only happen in case of a previous failure");
     if (db && !--db->ref)
     {
         free(db->name);

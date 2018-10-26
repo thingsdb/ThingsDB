@@ -17,7 +17,7 @@ async def test():
 
     client.use(0)
 
-    await client.query('databases.create(dbtest)', timeout=2)
+    await client.query('databases.fetch(dbtest)', timeout=2)
 
     # await asyncio.sleep(3)
 

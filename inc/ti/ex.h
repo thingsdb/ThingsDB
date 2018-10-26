@@ -1,8 +1,8 @@
 /*
  * ti/ex.h
  */
-#ifndef EX_H_
-#define EX_H_
+#ifndef TI_EX_H_
+#define TI_EX_H_
 
 #define EX_ALLOC_S \
     "allocation error in `%s` at %s:%d", __func__, __FILE__, __LINE__
@@ -46,4 +46,4 @@ struct ex_s
 #define ex_set_alloc(e__) ex_set((e__), EX_ALLOC, EX_ALLOC_S)
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
 
-#endif /* EX_H_ */
+#endif /* TI_EX_H_ */

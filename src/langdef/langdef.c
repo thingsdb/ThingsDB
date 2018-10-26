@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-24 09:25:34
+ * Created at: 2018-10-26 12:05:19
  */
 
 #include <langdef/langdef.h>
@@ -19,149 +19,121 @@
 
 cleri_grammar_t * compile_langdef(void)
 {
-    cleri_t * r_single_quote_str = cleri_regex(CLERI_GID_R_SINGLE_QUOTE_STR, "^(?:\'(?:[^\']*)\')+");
-    cleri_t * r_double_quote_str = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE_STR, "^(?:\"(?:[^\"]*)\")+");
-    cleri_t * r_int = cleri_regex(CLERI_GID_R_INT, "^[-+]?[0-9]+");
-    cleri_t * r_float = cleri_regex(CLERI_GID_R_FLOAT, "^[-+]?[0-9]*\\.?[0-9]+");
-    cleri_t * r_comment = cleri_regex(CLERI_GID_R_COMMENT, "^(?s)/\\\\*.*?\\\\*/");
-    cleri_t * array_idx = cleri_regex(CLERI_GID_ARRAY_IDX, "^[-+]?[0-9]+");
-    cleri_t * thing_id = cleri_regex(CLERI_GID_THING_ID, "^[0-9]+");
-    cleri_t * comment = cleri_optional(CLERI_GID_COMMENT, cleri_repeat(CLERI_NONE, r_comment, 0, 0));
-    cleri_t * identifier = cleri_regex(CLERI_GID_IDENTIFIER, "^[a-zA-Z_][a-zA-Z0-9_]*");
-    cleri_t * string = cleri_choice(
-        CLERI_GID_STRING,
+    cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
+    cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
+    cleri_t * t_string = cleri_choice(
+        CLERI_GID_T_STRING,
         CLERI_FIRST_MATCH,
         2,
-        r_single_quote_str,
-        r_double_quote_str
+        r_single_quote,
+        r_double_quote
     );
-    cleri_t * scope = cleri_ref();
-    cleri_t * chain = cleri_ref();
+    cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
+    cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
+    cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
+    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?[0-9]+");
+    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?[0-9]*\\.?[0-9]+");
+    cleri_t * comment = cleri_optional(CLERI_GID_COMMENT, cleri_repeat(CLERI_NONE, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0));
+    cleri_t * identifier = cleri_regex(CLERI_GID_IDENTIFIER, "^[a-zA-Z_][a-zA-Z0-9_]*");
+    cleri_t * index = cleri_sequence(
+        CLERI_GID_INDEX,
+        3,
+        cleri_token(CLERI_NONE, "["),
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            identifier,
+            t_int
+        ),
+        cleri_token(CLERI_NONE, "]")
+    );
+    cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
+    cleri_t * f_fetch = cleri_keyword(CLERI_GID_F_FETCH, "fetch", CLERI_CASE_SENSITIVE);
+    cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
+    cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
+    cleri_t * f_create = cleri_keyword(CLERI_GID_F_CREATE, "create", CLERI_CASE_SENSITIVE);
+    cleri_t * f_delete = cleri_keyword(CLERI_GID_F_DELETE, "delete", CLERI_CASE_SENSITIVE);
+    cleri_t * f_drop = cleri_keyword(CLERI_GID_F_DROP, "drop", CLERI_CASE_SENSITIVE);
+    cleri_t * f_grant = cleri_keyword(CLERI_GID_F_GRANT, "grant", CLERI_CASE_SENSITIVE);
+    cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
+    cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
+    cleri_t * f_revoke = cleri_keyword(CLERI_GID_F_REVOKE, "revoke", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_FIRST_MATCH,
         6,
-        cleri_keyword(CLERI_NONE, "nil", CLERI_CASE_SENSITIVE),
-        cleri_keyword(CLERI_NONE, "false", CLERI_CASE_SENSITIVE),
-        cleri_keyword(CLERI_NONE, "true", CLERI_CASE_SENSITIVE),
-        r_int,
-        r_float,
-        string
+        t_nil,
+        t_false,
+        t_true,
+        t_int,
+        t_float,
+        t_string
     );
-    cleri_t * auth_flags = cleri_list(CLERI_GID_AUTH_FLAGS, cleri_choice(
-        CLERI_NONE,
-        CLERI_FIRST_MATCH,
-        5,
-        cleri_keyword(CLERI_NONE, "FULL", CLERI_CASE_SENSITIVE),
-        cleri_keyword(CLERI_NONE, "ACCCESS", CLERI_CASE_SENSITIVE),
-        cleri_keyword(CLERI_NONE, "READ", CLERI_CASE_SENSITIVE),
-        cleri_keyword(CLERI_NONE, "MODIFY", CLERI_CASE_SENSITIVE),
-        cleri_regex(CLERI_NONE, "^[0-9]+")
-    ), cleri_token(CLERI_NONE, "|"), 0, 0, 0);
-    cleri_t * g_f_blob = cleri_sequence(
-        CLERI_GID_G_F_BLOB,
-        4,
-        cleri_keyword(CLERI_NONE, "blob", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_optional(CLERI_NONE, array_idx),
-        cleri_token(CLERI_NONE, ")")
+    cleri_t * scope = cleri_ref();
+    cleri_t * value = cleri_ref();
+    cleri_t * thing = cleri_sequence(
+        CLERI_GID_THING,
+        3,
+        cleri_token(CLERI_NONE, "{"),
+        cleri_list(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            3,
+            identifier,
+            cleri_token(CLERI_NONE, ":"),
+            value
+        ), cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_token(CLERI_NONE, "}")
     );
-    cleri_t * g_f_fetch = cleri_sequence(
-        CLERI_GID_G_F_FETCH,
-        4,
-        cleri_keyword(CLERI_NONE, "fetch", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 0, 0, 1),
-        cleri_token(CLERI_NONE, ")")
+    cleri_t * array = cleri_sequence(
+        CLERI_GID_ARRAY,
+        3,
+        cleri_token(CLERI_NONE, "["),
+        cleri_list(CLERI_NONE, value, cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_token(CLERI_NONE, "]")
     );
-    cleri_t * g_f_map = cleri_sequence(
-        CLERI_GID_G_F_MAP,
-        6,
-        cleri_keyword(CLERI_NONE, "map", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
+    cleri_t * iterator = cleri_sequence(
+        CLERI_GID_ITERATOR,
+        3,
         cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 1, 2, 0),
         cleri_token(CLERI_NONE, "=>"),
-        scope,
-        cleri_token(CLERI_NONE, ")")
+        scope
     );
-    cleri_t * g_f_thing = cleri_sequence(
-        CLERI_GID_G_F_THING,
-        4,
-        cleri_keyword(CLERI_NONE, "thing", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_optional(CLERI_NONE, thing_id),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_create = cleri_sequence(
-        CLERI_GID_U_F_CREATE,
-        4,
-        cleri_keyword(CLERI_NONE, "create", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 0, 0, 1),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_delete = cleri_sequence(
-        CLERI_GID_U_F_DELETE,
-        3,
-        cleri_keyword(CLERI_NONE, "delete", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_drop = cleri_sequence(
-        CLERI_GID_U_F_DROP,
-        3,
-        cleri_keyword(CLERI_NONE, "drop", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_grant = cleri_sequence(
-        CLERI_GID_U_F_GRANT,
-        4,
-        cleri_keyword(CLERI_NONE, "grant", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        auth_flags,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_rename = cleri_sequence(
-        CLERI_GID_U_F_RENAME,
-        4,
-        cleri_keyword(CLERI_NONE, "rename", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        identifier,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_f_revoke = cleri_sequence(
-        CLERI_GID_U_F_REVOKE,
-        4,
-        cleri_keyword(CLERI_NONE, "revoke", CLERI_CASE_SENSITIVE),
-        cleri_token(CLERI_NONE, "("),
-        auth_flags,
-        cleri_token(CLERI_NONE, ")")
-    );
-    cleri_t * u_assignment = cleri_sequence(
-        CLERI_GID_U_ASSIGNMENT,
+    cleri_t * assignment = cleri_sequence(
+        CLERI_GID_ASSIGNMENT,
         2,
         cleri_token(CLERI_NONE, "="),
+        value
+    );
+    cleri_t * function = cleri_sequence(
+        CLERI_GID_FUNCTION,
+        4,
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            3,
-            primitives,
-            g_f_blob,
-            scope
-        )
-    );
-    cleri_t * action = cleri_choice(
-        CLERI_GID_ACTION,
-        CLERI_FIRST_MATCH,
-        2,
-        cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, "."),
-            chain
+            12,
+            f_blob,
+            f_fetch,
+            f_map,
+            f_thing,
+            f_create,
+            f_delete,
+            f_drop,
+            f_grant,
+            f_push,
+            f_rename,
+            f_revoke,
+            identifier
         ),
-        u_assignment
+        cleri_token(CLERI_NONE, "("),
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            iterator,
+            cleri_list(CLERI_NONE, value, cleri_token(CLERI_NONE, ","), 0, 0, 1)
+        ),
+        cleri_token(CLERI_NONE, ")")
     );
     cleri_t * statement = cleri_sequence(
         CLERI_GID_STATEMENT,
@@ -182,55 +154,31 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_NONE,
             CLERI_FIRST_MATCH,
             2,
-            g_f_thing,
+            function,
             identifier
         ),
-        cleri_optional(CLERI_NONE, cleri_sequence(
-            CLERI_NONE,
-            3,
-            cleri_token(CLERI_NONE, "["),
-            cleri_choice(
-                CLERI_NONE,
-                CLERI_FIRST_MATCH,
-                2,
-                identifier,
-                array_idx
-            ),
-            cleri_token(CLERI_NONE, "]")
-        )),
-        cleri_optional(CLERI_NONE, action)
-    ));
-    cleri_ref_set(chain, cleri_sequence(
-        CLERI_GID_CHAIN,
-        3,
-        cleri_choice(
+        cleri_optional(CLERI_NONE, index),
+        cleri_optional(CLERI_NONE, cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            9,
-            g_f_fetch,
-            g_f_map,
-            u_f_create,
-            u_f_delete,
-            u_f_drop,
-            u_f_grant,
-            u_f_rename,
-            u_f_revoke,
-            identifier
-        ),
-        cleri_optional(CLERI_NONE, cleri_sequence(
-            CLERI_NONE,
-            3,
-            cleri_token(CLERI_NONE, "["),
-            cleri_choice(
+            2,
+            cleri_sequence(
                 CLERI_NONE,
-                CLERI_FIRST_MATCH,
                 2,
-                identifier,
-                array_idx
+                cleri_token(CLERI_NONE, "."),
+                scope
             ),
-            cleri_token(CLERI_NONE, "]")
-        )),
-        cleri_optional(CLERI_NONE, action)
+            assignment
+        ))
+    ));
+    cleri_ref_set(value, cleri_choice(
+        CLERI_GID_VALUE,
+        CLERI_FIRST_MATCH,
+        4,
+        primitives,
+        thing,
+        array,
+        scope
     ));
 
     cleri_grammar_t * grammar = cleri_grammar(START, "^[a-zA-Z_][a-zA-Z0-9_]*");

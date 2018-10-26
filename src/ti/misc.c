@@ -14,7 +14,7 @@ qp_packer_t * ti_misc_init_query(void)
     (void) qp_add_raw_from_str(packer, "query");
     (void) qp_add_raw_from_fmt(
                 packer,
-                "users.create(%s,%s);grant(%s,%u)",
+                "users.create(%s).password='%s';grant(%s,%u)",
                 ti_user_def_name,
                 ti_user_def_pass,
                 ti_user_def_name,

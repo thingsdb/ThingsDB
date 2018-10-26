@@ -27,13 +27,17 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
 void ti_thing_drop(ti_thing_t * thing)
 {
-    assert_log(thing, "may only happen in case of a previous failure");
-    if (thing && !--thing->ref)
+    if (thing && thing->id && !--thing->ref)
     {
         (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         free(thing);
     }
+}
+
+void ti_thing_destroy(ti_thing_t * thing)
+{
+
 }
 
 int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_e tp, void * v)

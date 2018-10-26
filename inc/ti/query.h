@@ -29,7 +29,9 @@ struct ti_query_s
     ti_raw_t * raw;
     ti_db_t * target;   /* target NULL means root */
     char * querystr;
+    size_t nstatements;
     cleri_parse_t * parseres;
+    ti_scope_t * scope;
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

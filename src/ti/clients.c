@@ -343,6 +343,9 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_query_parse(query, e))
         goto finish;
 
+    if (ti_query_investigate(query, e))
+        goto finish;
+
 finish:
     ti_query_destroy(query);
 

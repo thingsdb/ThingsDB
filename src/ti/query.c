@@ -8,7 +8,10 @@
 #include <stdlib.h>
 #include <qpack.h>
 #include <langdef/translate.h>
+#include <langdef/nd.h>
 #include <util/qpx.h>
+
+static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
 
 ti_query_t * ti_query_create(const unsigned char * data, size_t n)
 {
@@ -107,11 +110,16 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
     }
     if (!query->parseres->is_valid)
     {
-        (void) cleri_parse_strn(
+        int i = cleri_parse_strn(
                 e->msg,
                 EX_MAX_SZ,
                 query->parseres,
                 &langdef_translate);
+
+        assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
+
+        /* we will certainly not hit the max size, but just to be safe */
+        e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
         e->nr = EX_QUERY_ERROR;
         goto finish;
     }
@@ -121,13 +129,132 @@ finish:
 
 int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
+    cleri_children_t * child;
+
     assert (e->nr == 0);
-    /* TODO: WILL UPDATE should be placed if the query will update */
-    query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
 
-    LOGC("Root GID: %d", query->parseres->tree->cl_obj->gid);
+    child = query->parseres->tree   /* root */
+            ->children->node        /* sequence <list, closing-comment> */
+            ->children->node        /* list */
+            ->children;             /* first child or NULL */
 
-//    while (query->parseres->tree->cl_obj->gid)
+    query->nstatements = 0;
+
+    while(child)
+    {
+        ++query->nstatements;
+        query__investigate_recursive(
+                query,
+                child->node                     /* sequence <comment, scope> */
+                    ->children->next->node      /* scope */
+        );
+
+        if (!child->next)
+            break;
+        child = child->next->next;
+    }
+
+    LOGC("query flags: %d", query->flags);
 
     return e->nr;
 }
+
+int ti_query_run(ti_query_t * query, ex_t * e)
+{
+    query->target;
+}
+
+typedef enum
+{
+    TI_ROOT_UNDEFINED,
+    TI_ROOT_ROOT,
+    TI_ROOT_DATABASES,
+    TI_ROOT_DATABASES_CREATE,
+    TI_ROOT_DATABASES_DATABASE,
+    TI_ROOT_USERS,
+    TI_ROOT_CONFIG_REDUNDANCY,
+    TI_ROOT_CONFIG,
+} ti_root_enum;
+
+ti_root_enum * ti_root_by_strn(const char * str, const size_t n)
+{
+    if (strncmp("databases", str, n) == 0)
+        return TI_ROOT_DATABASES;
+
+    if (strncmp("users", str, n) == 0)
+        return TI_ROOT_USERS;
+
+    if (strncmp("config", str, n) == 0)
+        return TI_ROOT_CONFIG;
+
+    return TI_ROOT_UNDEFINED;
+}
+
+static ex_enum query__root(ti_query_t * query, ti_root_enum scope, cleri_node_t * nd, ex_t * e)
+{
+    cleri_children_t * child;
+    cleri_t * obj = nd->cl_obj;
+
+    switch (obj->tp)
+    {
+    case CLERI_GID_IDENTIFIER:
+        switch (scope)
+        {
+        case TI_ROOT_ROOT:
+            switch ((scope = ti_root_by_strn(nd->str, nd->len)))
+            {
+            case TI_ROOT_DATABASES:
+            case TI_ROOT_USERS:
+            case TI_ROOT_CONFIG:
+                break;
+            default:
+                ex_set(e, EX_INDEX_ERROR,
+                        "`ThingsDB` has no property `%.*s`",
+                        nd->len,
+                        nd->str);
+                return e->nr;
+            }
+            break;
+        case TI_ROOT_DATABASES:
+            ex_set(e, EX_INDEX_ERROR,
+                    "`ThingsDB.databases` has no property `%.*s`",
+                    nd->len,
+                    nd->str);
+            return e->nr;
+        }
+        break;
+    case CLERI_GID_FUNCTION:
+        switch (scope)
+        {
+        case TI_ROOT_ROOT:
+            break;
+        case TI_ROOT_DATABASES:
+
+
+        }
+        }
+    }
+
+    for (child = nd->children; child; child = child->next)
+        if (query__root(query, scope, child->node, e))
+            break;
+}
+
+
+static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
+{
+    /*
+     * TODO: this is not optimized in any way, but we will do this later since
+     *       we might want to perform 'other' tasks at this point.
+     */
+    cleri_children_t * child;
+
+    if (langdef_nd_is_update_function(nd))
+        query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
+
+    for (child = nd->children; child; child = child->next)
+        query__investigate_recursive(query, child->node);
+}
+
+
+

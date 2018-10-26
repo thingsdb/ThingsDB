@@ -14,6 +14,12 @@ typedef struct ti_db_s  ti_db_t;
 #include <ti/ex.h>
 #include <ti/limits.h>
 
+ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name);
+void ti_db_drop(ti_db_t * db);
+int ti_db_buid(ti_db_t * db);
+int ti_db_name_check(const ti_raw_t * name, ex_t * e);
+int ti_db_store(ti_db_t * db, const char * fn);
+int ti_db_restore(ti_db_t * db, const char * fn);
 
 struct ti_db_s
 {
@@ -25,12 +31,5 @@ struct ti_db_s
     ti_thing_t * root;
     ti_limits_t * limits;
 };
-
-ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name);
-void ti_db_drop(ti_db_t * db);
-int ti_db_buid(ti_db_t * db);
-int ti_db_name_check(const ti_raw_t * name, ex_t * e);
-int ti_db_store(ti_db_t * db, const char * fn);
-int ti_db_restore(ti_db_t * db, const char * fn);
 
 #endif /* TI_DB_H_ */

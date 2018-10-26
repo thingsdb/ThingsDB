@@ -12,6 +12,7 @@ static void things__gc_mark(ti_thing_t * thing);
 
 ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
 {
+    assert (id);
     ti_thing_t * thing = ti_thing_create(id, things);
     if (!thing || imap_add(things, id, thing))
     {

@@ -9,7 +9,7 @@ from pyleri import (
     Ref,
     Prio,
     Repeat,
-    List,
+    List as List_,
     Optional,
     THIS,
 )
@@ -24,95 +24,97 @@ class Choice(Choice_):
         super().__init__(*args, most_greedy=most_greedy, **kwargs)
 
 
+class List(List_):
+    def __init__(self, *args, opt=None, **kwargs):
+        if opt is None:
+            opt = True
+        super().__init__(*args, opt=opt, **kwargs)
+
+
 class Definition(Grammar):
     RE_KEYWORDS = re.compile(RE_IDENTIFIER)
 
-    r_single_quote_str = Regex(r"(?:'(?:[^']*)')+")
-    r_double_quote_str = Regex(r'(?:"(?:[^"]*)")+')
+    r_single_quote = Regex(r"(?:'(?:[^']*)')+")
+    r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
-    r_int = Regex(r'[-+]?[0-9]+')
-    r_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
+    t_string = Choice(r_single_quote, r_double_quote)
+    t_nil = Keyword('nil')
+    t_false = Keyword('false')
+    t_true = Keyword('true')
+    t_int = Regex(r'[-+]?[0-9]+')
+    t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
 
-    r_comment = Regex(r'(?s)/\\*.*?\\*/')
+    comment = Optional(Repeat(Regex(r'(?s)/\\*.*?\\*/')))
 
-    array_idx = Regex(r'[-+]?[0-9]+')
-    thing_id = Regex(r'[0-9]+')
-
-    comment = Optional(Repeat(r_comment))
     identifier = Regex(RE_IDENTIFIER)
-    string = Choice(r_single_quote_str, r_double_quote_str)
-    scope = Ref()
-    chain = Ref()
+    index = Sequence('[', Choice(identifier, t_int), ']')
+
+    # build-in get functions
+    f_blob = Keyword('blob')
+    f_fetch = Keyword('fetch')
+    f_map = Keyword('map')
+    f_thing = Keyword('thing')
+
+    # build-in update functions
+    f_create = Keyword('create')
+    f_delete = Keyword('delete')
+    f_drop = Keyword('drop')
+    f_grant = Keyword('grant')
+    f_push = Keyword('push')
+    f_rename = Keyword('rename')
+    f_revoke = Keyword('revoke')
 
     primitives = Choice(
-        Keyword('nil'),
-        Keyword('false'),
-        Keyword('true'),
-        r_int,
-        r_float,
-        string
+        t_nil,
+        t_false,
+        t_true,
+        t_int,
+        t_float,
+        t_string
     )
 
-    auth_flags = List(Choice(
-        Keyword('FULL'),
-        Keyword('ACCCESS'),
-        Keyword('READ'),
-        Keyword('MODIFY'),
-        Regex(r'[0-9]+')), delimiter='|'
-    )
+    scope = Ref()
+    value = Ref()
 
-    g_f_blob = Sequence(Keyword('blob'), '(', Optional(array_idx), ')')
-    g_f_fetch = Sequence(Keyword('fetch'), '(', List(identifier, opt=True), ')')
-    g_f_map = Sequence(Keyword('map'), '(', List(identifier, mi=1, ma=2), '=>', scope, ')')
-    g_f_thing = Sequence(Keyword('thing'), '(', Optional(thing_id), ')')
-
-    u_f_create = Sequence(Keyword('create'), '(', List(identifier, opt=True), ')')
-    u_f_delete = Sequence(Keyword('delete'), '(', ')')
-    u_f_drop = Sequence(Keyword('drop'), '(', ')')
-    u_f_grant = Sequence(Keyword('grant'), '(', auth_flags, ')')
-    u_f_rename = Sequence(Keyword('rename'), '(', identifier, ')')
-    u_f_revoke = Sequence(Keyword('revoke'), '(', auth_flags, ')')
-    u_assignment = Sequence('=', Choice(primitives, g_f_blob, scope))
-
-    action = Choice(
-        Sequence('.', chain),
-        u_assignment,
-    )
-
-    chain = Sequence(
-        Choice(
-            g_f_fetch,
-            g_f_map,
-            u_f_create,
-            u_f_delete,
-            u_f_drop,
-            u_f_grant,
-            u_f_rename,
-            u_f_revoke,
-            identifier
-        ),
-        Optional(Sequence(
-            '[',
-            Choice(identifier, array_idx),
-            ']'
-        )),
-        Optional(action)
-    )
+    thing = Sequence('{', List(Sequence(identifier, ':', value)), '}')
+    array = Sequence('[', List(value), ']')
+    value = Choice(primitives, thing, array, scope)
+    iterator = Sequence(List(identifier, mi=1, ma=2, opt=False), '=>', scope)
+    assignment = Sequence('=', value)
+    function = Sequence(Choice(
+        # build-in get functions
+        f_blob,
+        f_fetch,
+        f_map,
+        f_thing,
+        # build-in update functions
+        f_create,
+        f_delete,
+        f_drop,
+        f_grant,
+        f_push,
+        f_rename,
+        f_revoke,
+        # any identifier
+        identifier,
+    ), '(', Choice(
+        iterator,
+        List(value)
+    ), ')')
 
     scope = Sequence(
-        Choice(g_f_thing, identifier),
-        Optional(Sequence(
-            '[',
-            Choice(identifier, array_idx),
-            ']'
-        )),
-        Optional(action)
+        Choice(function, identifier),
+        Optional(index),
+        Optional(Choice(
+            Sequence('.', scope),
+            assignment,
+        ))
     )
 
     statement = Sequence(comment, scope)
 
     START = Sequence(
-        List(statement, delimiter=';', opt=True),
+        List(statement, delimiter=';'),
         comment
     )
 
@@ -120,8 +122,6 @@ class Definition(Grammar):
     def translate(cls, elem):
         if elem == cls.identifier:
             return 'identifier'
-        elif elem == cls.thing_id:
-            return 'id'
 
     def test(self, str):
         print('{} : {}'.format(
@@ -131,7 +131,7 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('users.create(iris);users.iris.grant(FULL)')
+    definition.test('users.create(iris);grant(iris,FULL)')
     definition.test('''
         /*
          * Create a database
@@ -150,7 +150,7 @@ if __name__ == '__main__':
             name: str().required(),
             age: int().required(),
             owner: User.required(),
-            schools: []School.required(),
+            schools: School.required(),
             scores: array(),
             other: things()
         })

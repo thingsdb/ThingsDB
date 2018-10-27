@@ -319,7 +319,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    query = ti_query_create(pkg->data, pkg->n);
+    query = ti_query_create(stream, pkg);
     if (!query)
     {
         ex_set_alloc(e);

@@ -26,11 +26,10 @@ int ti_thing_weak_set(
         ti_name_t * name,
         ti_val_e tp,
         void * v);
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t * packer);
-static inline _Bool ti_thing_res_is_id(qp_res_t * res);
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
-        qp_packer_t * packer);
+        qp_packer_t ** packer);
 
 struct ti_thing_s
 {
@@ -39,24 +38,16 @@ struct ti_thing_s
     uint8_t flags;
     uint8_t pad1;
     uint64_t id;
-    imap_t * things;       /* thing is added to this map */
     vec_t * props;
+    imap_t * things;       /* thing is added to this map */
 };
-
-static inline _Bool ti_thing_res_is_id(qp_res_t * res)
-{
-    return  res->tp == QP_RES_MAP &&
-            res->via.map->n == 1 &&
-            !strcmp(res->via.map->keys[0].via.str, TI_API_ID) &&
-            res->via.map->values[0].tp == QP_RES_INT64;
-}
 
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
-        qp_packer_t * packer)
+        qp_packer_t ** packer)
 {
     return (qp_add_map(&packer) ||
-            qp_add_raw(packer, (const unsigned char *) TI_API_ID, 2) ||
+            qp_add_raw(packer, (const unsigned char *) "$id", 3) ||
             qp_add_int64(packer, (int64_t) thing->id) ||
             qp_close_map(packer));
 }

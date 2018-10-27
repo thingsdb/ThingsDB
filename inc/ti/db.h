@@ -14,7 +14,7 @@ typedef struct ti_db_s  ti_db_t;
 #include <ti/ex.h>
 #include <ti/limits.h>
 
-ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name);
+ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n);
 void ti_db_drop(ti_db_t * db);
 int ti_db_buid(ti_db_t * db);
 int ti_db_name_check(const ti_raw_t * name, ex_t * e);

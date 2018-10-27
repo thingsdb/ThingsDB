@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-26 12:05:19
+ * Created at: 2018-10-27 22:45:16
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -18,14 +18,17 @@ enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name
     CLERI_GID_ARRAY,
     CLERI_GID_ASSIGNMENT,
+    CLERI_GID_CHAIN,
+    CLERI_GID_CMP_OPERATORS,
     CLERI_GID_COMMENT,
+    CLERI_GID_COMPARE,
     CLERI_GID_FUNCTION,
     CLERI_GID_F_BLOB,
     CLERI_GID_F_CREATE,
     CLERI_GID_F_DELETE,
     CLERI_GID_F_DROP,
-    CLERI_GID_F_FETCH,
     CLERI_GID_F_GRANT,
+    CLERI_GID_F_ID,
     CLERI_GID_F_MAP,
     CLERI_GID_F_PUSH,
     CLERI_GID_F_RENAME,
@@ -39,7 +42,6 @@ enum cleri_grammar_ids {
     CLERI_GID_R_SINGLE_QUOTE,
     CLERI_GID_SCOPE,
     CLERI_GID_START,
-    CLERI_GID_STATEMENT,
     CLERI_GID_THING,
     CLERI_GID_T_FALSE,
     CLERI_GID_T_FLOAT,
@@ -47,7 +49,7 @@ enum cleri_grammar_ids {
     CLERI_GID_T_NIL,
     CLERI_GID_T_STRING,
     CLERI_GID_T_TRUE,
-    CLERI_GID_VALUE,
+    CLERI_GID_T_UNDEFINED,
     CLERI_END // can be used to get the enum length
 };
 

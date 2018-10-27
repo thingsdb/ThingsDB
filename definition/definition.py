@@ -8,6 +8,7 @@ from pyleri import (
     Sequence,
     Ref,
     Prio,
+    Tokens,
     Repeat,
     List as List_,
     Optional,
@@ -37,21 +38,22 @@ class Definition(Grammar):
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
-    t_string = Choice(r_single_quote, r_double_quote)
-    t_nil = Keyword('nil')
     t_false = Keyword('false')
+    t_nil = Keyword('nil')
     t_true = Keyword('true')
+    t_undefined = Keyword('undefined')
     t_int = Regex(r'[-+]?[0-9]+')
     t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
+    t_string = Choice(r_single_quote, r_double_quote)
 
-    comment = Optional(Repeat(Regex(r'(?s)/\\*.*?\\*/')))
+    comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
 
     identifier = Regex(RE_IDENTIFIER)
-    index = Sequence('[', Choice(identifier, t_int), ']')
+
 
     # build-in get functions
     f_blob = Keyword('blob')
-    f_fetch = Keyword('fetch')
+    f_id = Keyword('id')
     f_map = Keyword('map')
     f_thing = Keyword('thing')
 
@@ -65,26 +67,28 @@ class Definition(Grammar):
     f_revoke = Keyword('revoke')
 
     primitives = Choice(
-        t_nil,
         t_false,
+        t_nil,
         t_true,
+        t_undefined,
         t_int,
         t_float,
-        t_string
+        t_string,
     )
 
     scope = Ref()
-    value = Ref()
+    chain = Ref()
 
-    thing = Sequence('{', List(Sequence(identifier, ':', value)), '}')
-    array = Sequence('[', List(value), ']')
-    value = Choice(primitives, thing, array, scope)
+    thing = Sequence('{', List(Sequence(identifier, ':', scope)), '}')
+    array = Sequence('[', List(scope), ']')
     iterator = Sequence(List(identifier, mi=1, ma=2, opt=False), '=>', scope)
-    assignment = Sequence('=', value)
+    assignment = Sequence('=', scope)
+    index = Optional(Sequence('[', t_int, ']'))
+
     function = Sequence(Choice(
         # build-in get functions
         f_blob,
-        f_fetch,
+        f_id,
         f_map,
         f_thing,
         # build-in update functions
@@ -99,23 +103,44 @@ class Definition(Grammar):
         identifier,
     ), '(', Choice(
         iterator,
-        List(value)
+        List(scope)
     ), ')')
 
-    scope = Sequence(
+    cmp_operators = Tokens('< > == != <= >= ~ !~')
+
+    compare = Sequence(
+        '(',
+        Prio(
+            Sequence(scope, cmp_operators, scope),
+            Sequence('(', THIS, ')'),
+            Sequence(THIS, '&&', THIS),  # we could add here + - * / etc.
+            Sequence(THIS, '||', THIS)
+        ),
+        ')',
+    )
+
+    chain = Sequence(
+        '.',
         Choice(function, identifier),
-        Optional(index),
+        index,
         Optional(Choice(
-            Sequence('.', scope),
+            chain,
             assignment,
         ))
     )
 
-    statement = Sequence(comment, scope)
+    scope = Sequence(
+        Choice(primitives, function, identifier, thing, array, compare),
+        Optional(index),
+        Optional(Choice(
+            chain,
+            assignment,
+        ))
+    )
 
     START = Sequence(
-        List(statement, delimiter=';'),
-        comment
+        comment,
+        List(scope, delimiter=Sequence(';', comment)),
     )
 
     @classmethod
@@ -130,8 +155,11 @@ class Definition(Grammar):
 
 if __name__ == '__main__':
     definition = Definition()
-
-    definition.test('users.create(iris);grant(iris,FULL)')
+    definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
+    definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
+    # exit(0)
+    definition.test('users.create("iris");grant(users.iris,FULL)')
+    definition.test('labels.map(label => label.id()')
     definition.test('''
         /*
          * Create a database
@@ -146,14 +174,16 @@ if __name__ == '__main__':
         /* Change redundancy */
         config.redundancy = 3;
 
-        prototypes().create(User, {
+        types().create(User, {
             name: str().required(),
             age: int().required(),
             owner: User.required(),
             schools: School.required(),
-            scores: array(),
-            other: things()
-        })
+            scores: thing,
+            other: int
+        });
+
+        type().add(users, User.isRequired);
 
         /*
          * Finished!
@@ -165,7 +195,7 @@ if __name__ == '__main__':
 
     definition.test(' users.iris.drop(); ')
 
-    definition.test( ' databases.dbtest.drop() ')
+    definition.test(' databases.dbtest.drop() ')
 
     definition.test('  drop_db( dbtest )  ')
     definition.test('  drop_db( 123 )  ')
@@ -219,4 +249,6 @@ if __name__ == '__main__':
 
     with open('../inc/langdef/langdef.h', 'w') as hfile:
         hfile.write(h)
+
+    print('Finished export to c')
 

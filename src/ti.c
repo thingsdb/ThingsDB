@@ -82,7 +82,7 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_names_destroy();
     ti_store_destroy();
-    vec_destroy(ti_.access, free);
+    vec_destroy(ti_.access, ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
@@ -136,8 +136,12 @@ int ti_build(void)
         /* TODO: should be done by a query inside the packer */
         ex_t * e = ex_use();
         ti_user_t * user;
-        assert ((user = ti_users_create_user("iris", 4, "siri", e)));
+        assert ((user = ti_users_create_user(
+                ti_user_def_name,
+                strlen(ti_user_def_name),
+                ti_user_def_pass, e)));
         assert (ti_access_grant(&ti_.access, user, TI_AUTH_MASK_FULL) == 0);
+        assert (ti_dbs_create_db("dbtest", 6, user, e));
     }
 
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);

@@ -3,7 +3,6 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/dbs.h>
 #include <ti/names.h>
 #include <ti/store.h>
 #include <ti/things.h>
@@ -11,6 +10,7 @@
 #include <ti/store/status.h>
 #include <ti/store/access.h>
 #include <ti/store/db.h>
+#include <ti/store/dbs.h>
 #include <ti.h>
 #include <util/fx.h>
 #include <util/imap.h>
@@ -106,7 +106,7 @@ int ti_store_store(void)
             ti_names_store(store->names_fn) ||
             ti_users_store(store->users_fn) ||
             ti_store_access_store(ti()->access, store->access_fn) ||
-            ti_dbs_store(store->dbs_fn))
+            ti_store_dbs_store(store->dbs_fn))
         goto failed;
 
     for (vec_each(ti()->dbs, ti_db_t, db))
@@ -154,7 +154,7 @@ int ti_store_restore(void)
             ti_store_status_restore(store->id_stat_fn) ||
             ti_users_restore(store->users_fn) ||
             ti_store_access_restore(&ti()->access, store->access_fn) ||
-            ti_dbs_restore(store->dbs_fn));
+            ti_store_dbs_restore(store->dbs_fn));
 
     if (rc)
         goto stop;

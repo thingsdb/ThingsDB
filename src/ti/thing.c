@@ -27,17 +27,12 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
 void ti_thing_drop(ti_thing_t * thing)
 {
-    if (thing && thing->id && !--thing->ref)
+    if (thing && !--thing->ref)
     {
         (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         free(thing);
     }
-}
-
-void ti_thing_destroy(ti_thing_t * thing)
-{
-
 }
 
 int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_e tp, void * v)
@@ -84,16 +79,16 @@ int ti_thing_weak_set(
     return 0;
 }
 
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t * packer)
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer)
 {
-    if (    qp_add_map(&packer) ||
-            qp_add_raw(packer, (const unsigned char *) TI_API_ID, 2) ||
-            qp_add_int64(packer, (int64_t) thing->id))
+    if (    qp_add_map(packer) ||
+            qp_add_raw(*packer, (const unsigned char *) TI_API_ID, 2) ||
+            qp_add_int64(*packer, (int64_t) thing->id))
         return -1;
 
     for (vec_each(thing->props, ti_prop_t, prop))
     {
-        if (    qp_add_raw_from_str(packer, prop->name->str) ||
+        if (    qp_add_raw_from_str(*packer, prop->name->str) ||
                 ti_val_to_packer(&prop->val, packer))
             return -1;
     }

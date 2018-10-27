@@ -6,14 +6,16 @@
 
 typedef enum
 {
+    /* undefined can result in NULL or raw to store temporary property name */
+    TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_RAW,
     TI_VAL_PRIMITIVES,
-    TI_VAL_ELEM,
-    TI_VAL_ELEMS,
+    TI_VAL_THING,
+    TI_VAL_THINGS,
 } ti_val_e;
 typedef struct ti_val_s ti_val_t;
 typedef union ti_val_u ti_val_via_t;
@@ -30,8 +32,10 @@ void ti_val_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_e tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_e tp, void * v);
 void ti_val_clear(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t * packer);
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer);
 int ti_val_to_file(ti_val_t * val, FILE * f);
+const char * ti_val_to_str(ti_val_t * val);
+
 
 union ti_val_u
 {

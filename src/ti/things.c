@@ -100,7 +100,7 @@ int ti_things_store_skeleton(imap_t * things, const char * fn)
         found = 0;
         for (vec_each(thing->props, ti_prop_t, prop))
         {
-            if (prop->val.tp < TI_VAL_ELEM) continue;
+            if (prop->val.tp < TI_VAL_THING) continue;
             if (!found && (
                     qp_fadd_int64(f, (int64_t) thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
@@ -140,7 +140,7 @@ int ti_things_store_data(imap_t * things, const char * fn)
         found = 0;
         for (vec_each(thing->props, ti_prop_t, prop))
         {
-            if (prop->val.tp >= TI_VAL_ELEM) continue;
+            if (prop->val.tp >= TI_VAL_THING) continue;
             if (!found && (
                     qp_fadd_int64(f, (int64_t) thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
@@ -236,7 +236,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                             thing_id.via.int64);
                     goto failed;
                 }
-                if (ti_thing_set(thing, name, TI_VAL_ELEM, el)) goto failed;
+                if (ti_thing_set(thing, name, TI_VAL_THING, el)) goto failed;
             }
             else if (qp_is_array(tp))
             {
@@ -256,7 +256,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                         goto failed;
                     }
                 }
-                if (ti_thing_weak_set(thing, name, TI_VAL_ELEMS, things_vec))
+                if (ti_thing_weak_set(thing, name, TI_VAL_THINGS, things_vec))
                 {
                     goto failed;
                 }
@@ -378,13 +378,13 @@ static void things__gc_mark(ti_thing_t * thing)
     {
         switch (prop->val.tp)
         {
-        case TI_VAL_ELEM:
+        case TI_VAL_THING:
             if (prop->val.via.thing_->flags & TI_ELEM_FLAG_SWEEP)
             {
                 things__gc_mark(prop->val.via.thing_);
             }
             continue;
-        case TI_VAL_ELEMS:
+        case TI_VAL_THINGS:
             for (vec_each(prop->val.via.things_, ti_thing_t, el))
             {
                 if (el->flags & TI_ELEM_FLAG_SWEEP)

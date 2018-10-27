@@ -14,13 +14,16 @@
 
 int ti_dbs_create(void);
 void ti_dbs_destroy(void);
+ti_db_t * ti_dbs_create_db(
+        const char * name,
+        size_t n,
+        ti_user_t * user,
+        ex_t * e);
 ti_db_t * ti_dbs_get_by_raw(const ti_raw_t * raw);
 ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n);
 ti_db_t * ti_dbs_get_by_id(const uint64_t id);
 ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e);
 void ti_dbs_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e);
-int ti_dbs_store(const char * fn);
-int ti_dbs_restore(const char * fn);
 
 
 #endif /* TI_DBS_H_ */

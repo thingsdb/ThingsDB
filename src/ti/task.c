@@ -376,7 +376,7 @@
 //                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
 //                return ti__task_fail(event, e->msg);
 //            }
-//            if (ti_thing_set(thing, name, TI_VAL_ELEM, el))
+//            if (ti_thing_set(thing, name, TI_VAL_THING, el))
 //            {
 //                log_critical(EX_ALLOC);
 //                return TI_TASK_ERR;
@@ -500,7 +500,7 @@
 //                ex_set(e, -1, "cannot find thing: %"PRId64, sid);
 //                return ti__task_fail(event, e->msg);
 //            }
-//            if (ti_thing_set(thing, name, TI_VAL_ELEM, el))
+//            if (ti_thing_set(thing, name, TI_VAL_THING, el))
 //            {
 //                log_critical(EX_ALLOC);
 //                return TI_TASK_ERR;

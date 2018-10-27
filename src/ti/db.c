@@ -8,6 +8,7 @@
 #include <ti/db.h>
 #include <ti/things.h>
 #include <ti/name.h>
+#include <ti/auth.h>
 #include <ti/thing.h>
 #include <ti/name.h>
 #include <ti/names.h>
@@ -18,7 +19,7 @@
 static const size_t ti_db_min_name = 1;
 static const size_t ti_db_max_name = 128;
 
-ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
+ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n)
 {
     ti_db_t * db = malloc(sizeof(ti_db_t));
     if (!db)
@@ -26,7 +27,7 @@ ti_db_t * ti_db_create(guid_t * guid, const ti_raw_t * name)
 
     db->ref = 1;
     db->root = NULL;
-    db->name = ti_raw_dup(name);
+    db->name = ti_raw_new((unsigned char *) name, n);
     db->things = imap_create();
     db->access = vec_new(1);
     db->limits = ti_limits_create();
@@ -47,7 +48,7 @@ void ti_db_drop(ti_db_t * db)
     if (db && !--db->ref)
     {
         free(db->name);
-        vec_destroy(db->access, free);
+        vec_destroy(db->access, ti_auth_destroy);
         ti_thing_drop(db->root);
         ti_things_gc(db->things, NULL);
         assert (db->things->n == 0);

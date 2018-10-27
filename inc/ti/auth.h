@@ -45,7 +45,8 @@ typedef struct ti_auth_s ti_auth_t;
 #include <ti/user.h>
 
 
-ti_auth_t * ti_auth_new(ti_user_t * user, uint16_t mask);
+ti_auth_t * ti_auth_create(ti_user_t * user, uint16_t mask);
+void ti_auth_destroy(ti_auth_t * auth);
 const char * ti_auth_mask_to_str(uint16_t mask);
 
 

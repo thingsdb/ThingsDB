@@ -19,10 +19,10 @@ int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
             return 0;
         }
     }
-    auth = ti_auth_new(user, mask);
+    auth = ti_auth_create(user, mask);
     if (!auth || vec_push(access, auth))
     {
-        free(auth);
+        ti_auth_destroy(auth);
         return -1;
     }
 
@@ -38,9 +38,8 @@ void ti_access_revoke(vec_t * access, ti_user_t * user, uint64_t mask)
         {
             auth->mask &= ~mask;
             if (!auth->mask)
-            {
-                vec_remove(access, i);
-            }
+                ti_auth_destroy(vec_remove(access, i));
+            return;
         }
     }
 }

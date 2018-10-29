@@ -35,18 +35,18 @@ void ti_val_clear(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_to_str(ti_val_t * val);
-
+static inline _Bool ti_val_is_array(ti_val_t * val);
 
 union ti_val_u
 {
-    void * nil_;
+    void * nil;
     int64_t int_;
     double float_;
     _Bool bool_;
-    ti_raw_t * raw_;
-    vec_t * primitives_;
-    ti_thing_t * thing_;
-    vec_t * things_;
+    ti_raw_t * raw;
+    vec_t * primitives;
+    ti_thing_t * thing;
+    vec_t * things;
 };
 
 struct ti_val_s
@@ -54,5 +54,14 @@ struct ti_val_s
     ti_val_e tp;
     ti_val_via_t via;
 };
+
+static inline _Bool ti_val_is_subscriptable(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_PRIMITIVES ||
+        val->tp == TI_VAL_THINGS
+    );
+}
 
 #endif /* TI_VAL_H_ */

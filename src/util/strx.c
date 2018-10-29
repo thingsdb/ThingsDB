@@ -1,6 +1,7 @@
 /*
  * strx.h
  */
+#include <assert.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <math.h>
@@ -249,60 +250,73 @@ _Bool strx_is_graphn(const char * str, size_t n)
  */
 double strx_to_doublen(const char * str, size_t n)
 {
+    assert (n);
     double d = 0;
     double convert;
+    uint64_t r1 = 0;
 
     switch (*str)
     {
     case '-':
+        assert (n > 1);
         convert = -1.0;
-        str++;
+        ++str;
+        --n;
         break;
     case '+':
-        str++;
-        /* FALLTHRU */
-        /* no break */
+        assert (n > 1);
+        convert = 1.0;
+        ++str;
+        --n;
+        break;
     default:
         convert = 1.0;
     }
 
-    uint64_t r1 = *str - '0';
-
-    while (--n && isdigit(*(++str)))
-    {
-        r1 = 10 * r1 + *str - '0';
-    }
+    for (; n && isdigit(*str); --n)
+        r1 = 10 * r1 + *(++str) - '0';
 
     d = (double) r1;
 
-    if (--n && *(str++) == '.')
+    if (n && --n)
     {
         uint64_t r2 = *str - '0';
-        ssize_t i;
-        for (i = -1; --n && isdigit(*(++str)); i--)
-        {
+        double power;
+        for (power = -1.0f; --n && isdigit(*(++str)); power--)
              r2 = 10 * r2 + *str - '0';
-        }
 
-        d += pow(10, i) * (double) r2;
+        d += pow(10.0f, power) * (double) r2;
     }
 
     return convert * d;
 }
 
 /*
- * Returns a string to uint64_t.
- * No error checking is done, we make the following assumptions:
- *      - len > 0
- *      - string can only contain characters [0..9] and no signs
+ * Requires a match with the following expression:   [-+]?[0-9]+
  */
-uint64_t strx_to_uint64n(const char * str, size_t n)
+int64_t strx_to_int64n(const char * str, size_t n)
 {
-    uint64_t i = *str - '0';
+    assert (n);
+    int64_t i;
 
-    while (--n && isdigit(*(++str)))
+    switch (*str)
     {
-        i = 10 * i + *str - '0';
+    case '-':
+        assert (n > 1);
+        i = -(*(++str) - '0');
+        break;
+    case '+':
+        assert (n > 1);
+        i = *(++str) - '0';
+        break;
+    default:
+        i = *str - '0';
+    }
+
+    while (--n)
+    {
+        i = 10 * i + *(++str) - '0';
+        assert (isdigit(*str));
     }
 
     return i;

@@ -2,7 +2,6 @@
  * vec.c
  */
 #include <string.h>
-#include <stdlib.h>
 #include <util/vec.h>
 
 /*

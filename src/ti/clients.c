@@ -346,13 +346,16 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_query_investigate(query, e))
         goto finish;
 
+    ti_query_run(query);
+    return;
+
 finish:
     ti_query_destroy(query);
 
     if (e->nr)
         resp = ti_pkg_err(pkg->id, e);
 
-    if (resp && ti_clients_write(stream, resp))
+    if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);

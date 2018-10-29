@@ -50,7 +50,6 @@ class Definition(Grammar):
 
     identifier = Regex(RE_IDENTIFIER)
 
-
     # build-in get functions
     f_blob = Keyword('blob')
     f_id = Keyword('id')
@@ -81,16 +80,16 @@ class Definition(Grammar):
 
     thing = Sequence('{', List(Sequence(identifier, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
+
     iterator = Sequence(List(identifier, mi=1, ma=2, opt=False), '=>', scope)
-    assignment = Sequence('=', scope)
-    index = Optional(Sequence('[', t_int, ']'))
+    arguments = List(scope)
 
     function = Sequence(Choice(
         # build-in get functions
-        f_blob,
-        f_id,
-        f_map,
-        f_thing,
+        f_blob,     # (int inx_in_blobs) -> raw
+        f_id,       # () -> int
+        f_map,      # (iterator) -> [return values]
+        f_thing,    # (int thing_id) -> thing
         # build-in update functions
         f_create,
         f_delete,
@@ -103,7 +102,7 @@ class Definition(Grammar):
         identifier,
     ), '(', Choice(
         iterator,
-        List(scope)
+        arguments,
     ), ')')
 
     cmp_operators = Tokens('< > == != <= >= ~ !~')
@@ -119,6 +118,11 @@ class Definition(Grammar):
         ')',
     )
 
+    assignment = Sequence('=', scope)
+    index = Optional(
+        Sequence('[', List(t_int, mi=1, ma=3, delimiter=':'), ']')
+    )
+
     chain = Sequence(
         '.',
         Choice(function, identifier),
@@ -131,7 +135,7 @@ class Definition(Grammar):
 
     scope = Sequence(
         Choice(primitives, function, identifier, thing, array, compare),
-        Optional(index),
+        index,
         Optional(Choice(
             chain,
             assignment,

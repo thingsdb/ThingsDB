@@ -23,6 +23,8 @@ void ti_query_destroy(ti_query_t * query);
 int ti_query_unpack(ti_query_t * query, ex_t * e);
 int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
+void ti_query_run(ti_query_t * query);
+void ti_query_send(ti_query_t * query, ex_t * e);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 
 struct ti_query_s
@@ -32,9 +34,9 @@ struct ti_query_s
     ti_raw_t * raw;
     ti_db_t * target;   /* target NULL means root */
     char * querystr;
-    size_t nstatements;
     cleri_parse_t * parseres;
     ti_stream_t * stream;
+    vec_t * res_statements;     /* ti_res_t for each statement */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

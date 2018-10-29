@@ -5,6 +5,7 @@
 #include <ti/query.h>
 #include <ti.h>
 #include <ti/dbs.h>
+#include <ti/res.h>
 #include <stdlib.h>
 #include <qpack.h>
 #include <langdef/translate.h>
@@ -25,6 +26,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
     query->parseres = NULL;
     query->raw = ti_raw_new(pkg->data, pkg->n);
     query->stream = ti_grab(stream);
+    query->res_statements = NULL;
 
     if (!query->raw)
     {
@@ -133,6 +135,7 @@ finish:
 int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
     cleri_children_t * child;
+    int nstatements = 0;
 
     assert (e->nr == 0);
 
@@ -141,11 +144,9 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
             ->children->next->node  /* list */
             ->children;             /* first child or NULL */
 
-    query->nstatements = 0;
-
     while(child)
     {
-        ++query->nstatements;
+        ++nstatements;
         query__investigate_recursive(child->node);  /* scope */
 
         if (!child->next)
@@ -153,23 +154,17 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
-    LOGC("query flags: %d", query->flags);
+    query->res_statements = vec_new(nstatements);
+    if (!query->res_statements)
+        ex_set_alloc(e);
 
     return e->nr;
 }
 
-int ti_query_run(ti_query_t * query, ex_t * e)
+void ti_query_run(ti_query_t * query)
 {
-    ti_pkg_t * resp;
     cleri_children_t * child;
-    qp_packer_t * packer;
-
-    assert (e->nr == 0);
-
-    /* TODO: we can probably make a better guess about the required size */
-    packer = qpx_packer_create(65536, 8);
-    if (!packer)
-        return -1;
+    ex_t * e = ex_use();
 
     child = query->parseres->tree   /* root */
             ->children->node        /* sequence <comment, list> */
@@ -180,214 +175,85 @@ int ti_query_run(ti_query_t * query, ex_t * e)
     {
         while (child)
         {
-            ex_t * e = ex_use();
             ti_res_t * res = ti_res_create(query->target);
+            if (!res)
+            {
+                ex_set_alloc(e);
+                goto send;
+            }
 
-            res__scope(res, child->node, e);
+            res_parse_scope(res, child->node, e);
+            if (e->nr)
+                goto send;
 
             /* TODO: handle res->collect->n which means we first need to
              *       fetch things */
             assert_log(res->collect->n == 0, "collecting is not implemented");
 
-            if (e->nr)
-            {
-                resp = ti_pkg_err(query->pkg_id, e);
-            }
-            else
-            {
-                if (ti_val_to_packer(res->val, packer))
-                {
-                    /* TODO: cleanup etc ?? */
-                    return -1;
-                }
-                pkg_req = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_QUERY);
-
-            }
-            query->stream
+            VEC_push(query->res_statements, res);
 
             if (!child->next)
                 break;
             child = child->next->next;                  /* skip delimiter */
         }
-
     }
     else
     {
         /* TODO: implement root */
         assert_log(0, "root queries not implemented yet");
     }
+
+send:
+    ti_query_send(query, e);
 }
 
-static ti_res_t * res__f_fetch(ti_scope_t * scope, cleri_node_t ** nd, ex_t * e)
+void ti_query_send(ti_query_t * query, ex_t * e)
 {
-    assert (e->nr == 0);
+    ti_pkg_t * pkg;
+    qp_packer_t * packer;
+    if (e->nr)
+        goto pkg_err;
 
-    cleri_node_t * fname;
-    ti_res_t * res;
+    /* TODO: we can probably make an educated guess about the required size */
+    packer = qpx_packer_create(65536, 8);
+    if (!packer)
+        goto alloc_err;
 
-    fname = (*nd)                   /* sequence */
-            ->children->node        /* choice */
-            ->children->node;       /* keyword or identifier node */
+    (void) qp_add_array(&packer);
 
-    switch (scope->parent->tp)
+    /* we should have a result for each statement */
+    assert (query->res_statements->n == query->res_statements->sz);
+
+    for (vec_each(query->res_statements, ti_res_t, res))
     {
-    case TI_VAL_THING:
-        ti_manages_id(scope->parent->via.thing_->id)
-    }
-    ex_set(e, EX_INDEX_ERROR,
-            "type `%s` has no function `%.*s`",
-            ti_val_to_str(scope->parent),
-            fname->len,
-            fname->str);
-    return NULL;
-}
-
-static ti_res_t * res__function(ti_scope_t * scope, cleri_node_t ** nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert(langdef_nd_is_function(*nd));
-
-    cleri_node_t * fname;
-    ti_res_t * res;
-
-    fname = (*nd)                   /* sequence */
-            ->children->node        /* choice */
-            ->children->node;       /* keyword or identifier node */
-
-    switch (fname->cl_obj->gid)
-    {
-    case CLERI_GID_F_FETCH:
-        return res__f_fetch(scope, nd, e);
+        assert (res);
+        assert (res->val);
+        if (ti_val_to_packer(res->val, &packer))
+            goto alloc_err;
     }
 
-    ex_set(e, EX_INDEX_ERROR,
-            "type `%s` has no function `%.*s`",
-            ti_val_to_str(scope->parent),
-            fname->len,
-            fname->str);
-    return NULL;
-}
+    if (qp_close_array(packer))
+        goto alloc_err;
 
-static ti_res_t * res__scope(ti_res_t * res, cleri_node_t ** nd, ex_t * e)
-{
-    assert ((*nd)->cl_obj->gid == CLERI_GID_SCOPE);
+    goto finish;
 
-    cleri_node_t * node;
-    cleri_children_t * child = (*nd)        /* sequence */
-                    ->children;
-    node = child->node                      /* choice */
-            ->children->node;               /* primitives, function, identifier,
-                                               thing, array, compare */
+alloc_err:
+    if (packer)
+        qp_packer_destroy(packer);
+    ex_set_alloc(e);
 
-    switch (node->cl_obj->gid)
-    {
-    case CLERI_GID_PRIMITIVES:
-        /*
-         * res->thing = Set to NULL
-         * res->tp = NIL / BOOL / STRING / INT / FLOAT
-         * res->value = union (actual value)
-         */
-
-    case CLERI_GID_FUNCTION:
-        /*
-         *
-         */
-        break;
-    case CLERI_GID_IDENTIFIER:
-        /*
-         * res->thing = parent or null
-         * res->tp = undefined if not found in parent
-         * res->value = union (actual value)
-         *
-         */
-
-        break;
-    case CLERI_GID_THING:
-        /*
-         *
-         */
-        break;
-    case CLERI_GID_ARRAY:
-        /*
-         *
-         */
-        break;
-    case CLERI_GID_ARRAY:
-        /*
-         *
-         */
-        break;
-    default:
-        assert (0);
-        return NULL;
-    }
-
-    child = child->next;
-    if (!child)
-        goto finish;
-
-    node = child->node;
-    if (node->cl_obj->gid == CLERI_GID_INDEX)
-    {
-        /* handle index */
-        child = child->next;
-        if (!child)
-            goto finish;
-
-        node = child->node;
-    }
-
-    /* handle follow-up */
-    node = node                     /* optional */
-            ->children->node        /* choice */
-            ->children->node;       /* chain or assignment */
-
-    switch (node->cl_obj->gid)
-    {
-    case CLERI_GID_CHAIN:
-        break;
-    case CLERI_GID_ASSIGNMENT:
-        break;
-    default:
-        assert (0);
-        return NULL;
-    }
+pkg_err:
+    pkg = ti_pkg_err(query->pkg_id, e);
 
 finish:
-    return NULL;
-}
-
-static ti_res_t * res__walk(ti_val_t * parent, cleri_node_t ** nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    cleri_children_t * child;
-    cleri_t * obj = (*nd)->cl_obj;
-    switch (obj->gid)
+    if (!pkg || ti_clients_write(query->stream, pkg))
     {
-    case CLERI_GID_IDENTIFIER:
-        if (parent->tp == TI_VAL_THING)
-        {
-
-        }
-        break;
-    case CLERI_GID_FUNCTION:
-        if (parent->tp == TI_VAL_THING)
-        {
-            // allow drop etc.
-        }
-        else if (parent->tp == TI_VAL_THINGS)
-        {
-            // allow push etc.
-        }
+        free(pkg);
+        log_critical(EX_ALLOC_S);
     }
+    ti_query_destroy(query);
 
-
-    for (child = (*nd)->children; child; child = child->next)
-    {
-        res__walk(parent, child->node);
-    }
 }
-
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 {

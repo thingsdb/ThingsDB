@@ -5,9 +5,11 @@
 #define VEC_H_
 
 typedef struct vec_s  vec_t;
-typedef void (*vec_destroy_cb)(void * data);
+typedef void (*vec_destroy_cb)(void *);
+typedef int (*vec_cmp_cb) (const void *, const void *);
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 vec_t * vec_new(uint32_t sz);
@@ -22,6 +24,7 @@ int vec_push(vec_t ** vaddr, void * data);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);
 int vec_resize(vec_t ** vaddr, uint32_t sz);
 int vec_shrink(vec_t ** vaddr);
+static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
 
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)
@@ -60,6 +63,11 @@ static inline void * vec_pop(vec_t * vec)
 static inline void vec_clear(vec_t * vec)
 {
     vec->n = 0;
+}
+
+static inline void vec_sort(vec_t * vec, vec_cmp_cb compare)
+{
+    qsort(vec->data, vec->n, sizeof(void *), compare);
 }
 
 #endif /* VEC_H_ */

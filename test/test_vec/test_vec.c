@@ -1,16 +1,9 @@
-/*
- * test_vec.c
- *
- *  Created on: Oct 09, 2017
- *      Author: Jeroen van der Heijden <jeroen@transceptor.technology>
- */
-
 #include "../test.h"
 #include <util/vec.h>
 
 
-const unsigned int num_entries = 8;
-char * entries[] = {
+static const unsigned int num_entries = 8;
+static char * entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -26,7 +19,7 @@ static void push_entries(vec_t ** v)
 {
     for (size_t i = 0; i < num_entries; i++)
     {
-        assert (vec_push(v, entries[i]) == 0);
+        _assert (vec_push(v, entries[i]) == 0);
     }
 }
 
@@ -37,56 +30,58 @@ int main()
 
     vec_t * v = vec_new(0);
 
+    _assert (v);
+
     /* test initial values */
     {
-        assert (v->sz == 0);
-        assert (v->n == 0);
-        assert (sizeof(*v) == sizeof(vec_t));
+        _assert (v->sz == 0);
+        _assert (v->n == 0);
+        _assert (sizeof(*v) == sizeof(vec_t));
     }
 
     /* test push */
     {
         for (size_t i = 0; i < num_entries; i++)
         {
-            assert (vec_push(&v, entries[i]) == 0);
+            _assert (vec_push(&v, entries[i]) == 0);
         }
     }
 
     /* test length */
     {
-        assert (v->n == num_entries);
+        _assert (v->n == num_entries);
     }
 
     /* test pop */
     {
         for (size_t i = 0; i < num_entries && ++i;)
         {
-            assert (vec_pop(v) == entries[num_entries - i]);
+            _assert (vec_pop(v) == entries[num_entries - i]);
         }
 
-        assert (v->n == 0);
+        _assert (v->n == 0);
         push_entries(&v);  /* restore entries */
     }
 
     /* test dup */
     {
         vec_t * cp;
-        assert ((cp = vec_dup(v)) != NULL);
-        assert (cp->n == num_entries);
-        assert (cp->sz == num_entries);
+        _assert ((cp = vec_dup(v)) != NULL);
+        _assert (cp->n == num_entries);
+        _assert (cp->sz == num_entries);
         for (size_t i = 0; i < num_entries; i++)
         {
-            assert (vec_get(cp, i) == entries[i]);
+            _assert (vec_get(cp, i) == entries[i]);
         }
         free(cp);
     }
 
     /* test extend */
     {
-        assert (vec_extend(&v, (void **) entries, num_entries) == 0);
+        _assert (vec_extend(&v, (void **) entries, num_entries) == 0);
         for (size_t i = 0; i < num_entries * 2; i++)
         {
-            assert (vec_get(v, i) == entries[i % num_entries]);
+            _assert (vec_get(v, i) == entries[i % num_entries]);
         }
     }
 
@@ -95,9 +90,9 @@ int main()
         size_t n = v->n;
         for (size_t i = 0; i < n; i++)
         {
-            assert (vec_pop(v) == entries[num_entries - (i % 8) - 1]);
-            assert (vec_shrink(&v) == 0);
-            assert (v->n == v->sz);
+            _assert (vec_pop(v) == entries[num_entries - (i % 8) - 1]);
+            _assert (vec_shrink(&v) == 0);
+            _assert (v->n == v->sz);
         }
     }
 
@@ -108,9 +103,9 @@ int main()
         size_t n = 0;
         for (vec_each(v, char, s), n++, e++)
         {
-            assert (s == *e);
+            _assert (s == *e);
         }
-        assert (n == num_entries); /* make sure we have hit all entries */
+        _assert (n == num_entries); /* make sure we have hit all entries */
     }
 
     /* test vec_remove loop */
@@ -119,7 +114,7 @@ int main()
         char ** e = entries;
         size_t n = 0;
 
-        assert (v->n == num_entries - 1);
+        _assert (v->n == num_entries - 1);
 
         for (vec_each(v, char, s), n++, e++)
         {
@@ -127,10 +122,10 @@ int main()
             {
                 e++;
             }
-            assert (s == *e);
+            _assert (s == *e);
         }
 
-        assert (n == num_entries - 1);
+        _assert (n == num_entries - 1);
     }
 
     /* test null values */
@@ -144,13 +139,12 @@ int main()
         size_t i = 0;
         for (vec_each(v, void, t), i++)
         {
-            assert (t == NULL);
+            _assert (t == NULL);
         }
-        assert (i == n);
+        _assert (i == n);
     }
 
     free(v);
 
-    test_end(0);
-    return 0;
+    return test_end();
 }

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-30 00:33:23
+ * Created at: 2018-10-31 15:28:33
  */
 
 #include <langdef/langdef.h>
@@ -160,17 +160,18 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * assignment = cleri_sequence(
         CLERI_GID_ASSIGNMENT,
-        2,
+        3,
+        identifier,
         cleri_token(CLERI_NONE, "="),
         scope
     );
-    cleri_t * index = cleri_optional(CLERI_GID_INDEX, cleri_sequence(
+    cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(
         CLERI_NONE,
         3,
         cleri_token(CLERI_NONE, "["),
-        cleri_list(CLERI_NONE, t_int, cleri_token(CLERI_NONE, ":"), 1, 3, 1),
+        t_int,
         cleri_token(CLERI_NONE, "]")
-    ));
+    ), 0, 0);
     cleri_t * START = cleri_sequence(
         CLERI_GID_START,
         2,
@@ -188,22 +189,17 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            6,
+            7,
             primitives,
             function,
+            assignment,
             identifier,
             thing,
             array,
             compare
         ),
         index,
-        cleri_optional(CLERI_NONE, cleri_choice(
-            CLERI_NONE,
-            CLERI_FIRST_MATCH,
-            2,
-            chain,
-            assignment
-        ))
+        cleri_optional(CLERI_NONE, chain)
     ));
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
@@ -212,18 +208,13 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            2,
+            3,
             function,
+            assignment,
             identifier
         ),
         index,
-        cleri_optional(CLERI_NONE, cleri_choice(
-            CLERI_NONE,
-            CLERI_FIRST_MATCH,
-            2,
-            chain,
-            assignment
-        ))
+        cleri_optional(CLERI_NONE, chain)
     ));
 
     cleri_grammar_t * grammar = cleri_grammar(START, "^[a-zA-Z_][a-zA-Z0-9_]*");

@@ -82,7 +82,7 @@ struct ti_s
     vec_t * dbs;
     vec_t * users;
     vec_t * access;
-    smap_t * names;
+    smap_t * names;         /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     uint64_t next_thing_id;   /* used for assigning id's to objects */

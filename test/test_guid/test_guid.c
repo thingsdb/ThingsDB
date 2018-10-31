@@ -1,11 +1,4 @@
-/*
- * test_guid.c
- */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #include "../test.h"
-#include "test_guid.h"
 #include <util/guid.h>
 
 
@@ -18,22 +11,21 @@ int main()
         guid_t guid;
 
         guid_init(&guid, 1);
-        assert ( guid.guid[sizeof(guid_t) - 1] == '\0');
+        _assert ( guid.guid[sizeof(guid_t) - 1] == '\0');
 
         guid_init(&guid, ((uint64_t) 1 << 63) - 1);
-        assert ( strcmp(guid.guid, "_7$$$$$$$$$$") == 0);
+        _assert ( strcmp(guid.guid, ".7__________") == 0);
 
         guid_init(&guid, 0);
-        assert ( strcmp(guid.guid, "_00000000000") == 0);
+        _assert ( strcmp(guid.guid, ".00000000000") == 0);
 
         guid_init(&guid, 63);
-        assert ( strcmp(guid.guid, "_0000000000$") == 0);
+        _assert ( strcmp(guid.guid, ".0000000000_") == 0);
 
         guid_init(&guid, 64);
-        assert ( strcmp(guid.guid, "_00000000010") == 0);
+        _assert ( strcmp(guid.guid, ".00000000010") == 0);
 
     }
 
-    test_end(0);
-    return 0;
+    return test_end();
 }

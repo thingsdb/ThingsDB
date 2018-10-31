@@ -1,6 +1,7 @@
 /*
  * ti/things.c
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <ti/things.h>
 #include <util/fx.h>
@@ -22,7 +23,6 @@ ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
     return thing;
 }
 
-
 int ti_things_gc(imap_t * things, ti_thing_t * root)
 {
     size_t n = 0;
@@ -37,7 +37,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        if (thing->flags & TI_ELEM_FLAG_SWEEP)
+        if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         }
@@ -45,14 +45,14 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        if (thing->flags & TI_ELEM_FLAG_SWEEP)
+        if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             ++n;
             imap_pop(things, thing->id);
             free(thing);
             continue;
         }
-        thing->flags |= TI_ELEM_FLAG_SWEEP;
+        thing->flags |= TI_THING_FLAG_SWEEP;
     }
 
     free(things_vec);
@@ -66,19 +66,22 @@ int ti_things_store(imap_t * things, const char * fn)
 {
     int rc = -1;
     FILE * f = fopen(fn, "w");
-    if (!f) return -1;
+    if (!f)
+        return -1;
 
     vec_t * things_vec = imap_vec(things);
     if (!things_vec) goto stop;
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        if (fwrite(&thing->id, sizeof(uint64_t), 1, f) != 1) goto stop;
+        if (fwrite(&thing->id, sizeof(uint64_t), 1, f) != 1)
+            goto stop;
     }
     rc = 0;
 
 stop:
-    if (rc) log_error("saving failed: %s", fn);
+    if (rc)
+        log_error("save failed: %s", fn);
     return -(fclose(f) || rc);
 }
 
@@ -91,7 +94,8 @@ int ti_things_store_skeleton(imap_t * things, const char * fn)
     if (!f) return -1;
 
     vec_t * things_vec = imap_vec(things);
-    if (!things_vec) goto stop;
+    if (!things_vec)
+        goto stop;
 
     if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
 
@@ -193,7 +197,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
 {
     int rc = 0;
     qp_types_t tp;
-    ti_thing_t * thing, * el;
+    ti_thing_t * thing, * ting;
     ti_name_t * name;
     qp_res_t thing_id, name_id;
     vec_t * things_vec = NULL;
@@ -205,7 +209,8 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
         return -1;
     }
 
-    if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+    if (!qp_is_map(qp_fnext(f, NULL)))
+        goto failed;
 
     while (qp_is_int(qp_fnext(f, &thing_id)))
     {
@@ -216,7 +221,9 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                     thing_id.via.int64);
             goto failed;
         }
-        if (!qp_is_map(qp_fnext(f, NULL))) goto failed;
+        if (!qp_is_map(qp_fnext(f, NULL)))
+            goto failed;
+
         while (qp_is_int(qp_fnext(f, &name_id)))
         {
             name = imap_get(names, (uint64_t) name_id.via.int64);
@@ -229,30 +236,32 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
             tp = qp_fnext(f, &thing_id);
             if (qp_is_int(tp))
             {
-                el = imap_get(things, (uint64_t) thing_id.via.int64);
-                if (!el)
+                ting = imap_get(things, (uint64_t) thing_id.via.int64);
+                if (!ting)
                 {
                     log_critical("cannot find thing with id: %"PRId64,
                             thing_id.via.int64);
                     goto failed;
                 }
-                if (ti_thing_set(thing, name, TI_VAL_THING, el)) goto failed;
+                if (ti_thing_set(thing, name, TI_VAL_THING, ting))
+                    goto failed;
             }
             else if (qp_is_array(tp))
             {
                 things_vec = vec_new(0);
                 while (qp_is_int(qp_fnext(f, &thing_id)))
                 {
-                    el = imap_get(things, (uint64_t) thing_id.via.int64);
-                    if (!el)
+                    ting = imap_get(things, (uint64_t) thing_id.via.int64);
+                    if (!ting)
                     {
                         log_critical("cannot find thing with id: %"PRId64,
                                 thing_id.via.int64);
                         goto failed;
                     }
-                    if (vec_push(&things_vec, ti_grab(el)))
+                    ti_grab(ting);
+                    if (vec_push(&things_vec, ting))
                     {
-                        ti_thing_drop(el);
+                        ti_thing_drop(ting);
                         goto failed;
                     }
                 }
@@ -373,23 +382,23 @@ done:
 
 static void things__gc_mark(ti_thing_t * thing)
 {
-    thing->flags &= ~TI_ELEM_FLAG_SWEEP;
+    thing->flags &= ~TI_THING_FLAG_SWEEP;
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         switch (prop->val.tp)
         {
         case TI_VAL_THING:
-            if (prop->val.via.thing_->flags & TI_ELEM_FLAG_SWEEP)
+            if (prop->val.via.thing->flags & TI_THING_FLAG_SWEEP)
             {
-                things__gc_mark(prop->val.via.thing_);
+                things__gc_mark(prop->val.via.thing);
             }
             continue;
         case TI_VAL_THINGS:
-            for (vec_each(prop->val.via.things_, ti_thing_t, el))
+            for (vec_each(prop->val.via.things, ti_thing_t, thing))
             {
-                if (el->flags & TI_ELEM_FLAG_SWEEP)
+                if (thing->flags & TI_THING_FLAG_SWEEP)
                 {
-                    things__gc_mark(el);
+                    things__gc_mark(thing);
                 }
             }
             continue;

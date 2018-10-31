@@ -26,7 +26,7 @@ struct ti_db_s
     uint32_t ref;
     guid_t guid;
     ti_raw_t * name;
-    imap_t * things;        /* weak mapping for things */
+    imap_t * things;        /* weak map for ti_thing_t */
     vec_t * access;
     ti_thing_t * root;
     ti_limits_t * limits;

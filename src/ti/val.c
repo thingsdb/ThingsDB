@@ -8,7 +8,7 @@
 #include <ti.h>
 #include <util/logger.h>
 
-ti_val_t * ti_val_create(ti_val_e tp, void * v)
+ti_val_t * ti_val_create(ti_val_enum tp, void * v)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
@@ -21,7 +21,7 @@ ti_val_t * ti_val_create(ti_val_e tp, void * v)
     return val;
 }
 
-ti_val_t * ti_val_weak_create(ti_val_e tp, void * v)
+ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
@@ -38,49 +38,46 @@ void ti_val_destroy(ti_val_t * val)
     free(val);
 }
 
-void ti_val_weak_set(ti_val_t * val, ti_val_e tp, void * v)
+void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
     switch(tp)
     {
     case TI_VAL_UNDEFINED:
-        if (v)
-            val->via.raw = (ti_raw_t *) v;
-        else
-            val->via.nil = NULL;
+        val->via.undefined = NULL;
         break;
     case TI_VAL_NIL:
         val->via.nil = NULL;
         break;
     case TI_VAL_INT:
         {
-            int64_t * p = (int64_t *) v;
+            int64_t * p = v;
             val->via.int_ = *p;
         }
         break;
     case TI_VAL_FLOAT:
         {
-            double * p = (double *) v;
+            double * p = v;
             val->via.float_ = *p;
         }
         break;
     case TI_VAL_BOOL:
         {
-            _Bool * p = (_Bool *) v;
+            _Bool * p = v;
             val->via.bool_ = *p;
         }
         break;
     case TI_VAL_RAW:
-        val->via.raw = (ti_raw_t *) v;
+        val->via.raw = v;
         break;
     case TI_VAL_PRIMITIVES:
-        val->via.primitives = (vec_t *) v;
+        val->via.primitives = v;
         break;
     case TI_VAL_THING:
-        val->via.thing = (ti_thing_t *) v;
+        val->via.thing = v;
         break;
     case TI_VAL_THINGS:
-        val->via.things = (vec_t *) v;
+        val->via.things = v;
         break;
     default:
         log_critical("unknown type: %d", tp);
@@ -88,30 +85,32 @@ void ti_val_weak_set(ti_val_t * val, ti_val_e tp, void * v)
     }
 }
 
-int ti_val_set(ti_val_t * val, ti_val_e tp, void * v)
+int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
     switch(tp)
     {
     case TI_VAL_UNDEFINED:
+        val->via.undefined = NULL;
+        break;
     case TI_VAL_NIL:
         val->via.nil = NULL;
         break;
     case TI_VAL_INT:
         {
-            int64_t * p = (int64_t *) v;
+            int64_t * p = v;
             val->via.int_ = *p;
         }
         break;
     case TI_VAL_FLOAT:
         {
-            double * p = (double *) v;
+            double * p = v;
             val->via.float_ = *p;
         }
         break;
     case TI_VAL_BOOL:
         {
-            _Bool * p = (_Bool *) v;
+            _Bool * p = v;
             val->via.bool_ = *p;
         }
         break;
@@ -161,10 +160,10 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
-        break;
     case TI_VAL_UNDEFINED:
+        break;
     case TI_VAL_RAW:
-        free(val->via.raw);
+        ti_raw_free(val->via.raw);
         break;
     case TI_VAL_PRIMITIVES:
         vec_destroy(val->via.primitives, (vec_destroy_cb) ti_val_destroy);
@@ -202,7 +201,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer)
             return -1;
         for (vec_each(val->via.primitives, ti_val_t, v))
         {
-            if (ti_val_to_packer(v, *packer))
+            if (ti_val_to_packer(v, packer))
                 return -1;
         }
         return qp_close_array(*packer);

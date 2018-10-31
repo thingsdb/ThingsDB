@@ -27,17 +27,20 @@ void ti_names_destroy(void)
     names = ti()->names = NULL;
 }
 
+/*
+ * returns a name with a new reference or NULL in case of an error
+ */
 ti_name_t * ti_names_get(const char * str, size_t n)
 {
     ti_name_t * name = smap_getn(names, str, n);
-    if (!name)
+    if (name)
+        return ti_grab(name);
+
+    name = ti_name_create(str, n);
+    if (!name || smap_add(names, name->str, name))
     {
-        name = ti_name_create(str, n);
-        if (!name || smap_add(names, name->str, name))
-        {
-            ti_name_destroy(name);
-            return NULL;
-        }
+        ti_name_destroy(name);
+        return NULL;
     }
     return name;
 }

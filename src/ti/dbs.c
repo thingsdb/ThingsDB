@@ -6,7 +6,9 @@
 #include <string.h>
 #include <ti/db.h>
 #include <ti/dbs.h>
+#include <ti/auth.h>
 #include <ti/proto.h>
+#include <ti/access.h>
 #include <ti.h>
 #include <util/vec.h>
 
@@ -110,16 +112,14 @@ ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
     switch (obj->tp)
     {
     case QP_RAW:
-        {
-            db = ti_dbs_get_by_strn((char *) obj->via.raw, obj->len);
-            if (!db)
-                ex_set(
-                    e,
-                    EX_INDEX_ERROR,
-                    "database with name `%.*s` is not found",
-                    obj->len,
-                    (char *) obj->via.raw);
-        }
+        db = ti_dbs_get_by_strn((char *) obj->via.raw, obj->len);
+        if (!db)
+            ex_set(
+                e,
+                EX_INDEX_ERROR,
+                "database with name `%.*s` is not found",
+                obj->len,
+                (char *) obj->via.raw);
         break;
     case QP_INT64:
         if (!obj->via.int64)

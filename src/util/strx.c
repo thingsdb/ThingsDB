@@ -10,31 +10,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-void strx_lower_case(char * sptr)
+void strx_lower_case(char * str)
 {
-   for (; *sptr != '\0'; sptr++)
-   {
-       *sptr = tolower( (unsigned char) * sptr);
-   }
+   for (; *str; str++)
+       *str = tolower(*str);
 }
 
-void strx_upper_case(char * sptr)
+void strx_upper_case(char * str)
 {
-   for (; *sptr != '\0'; sptr++)
-   {
-       *sptr = toupper( (unsigned char) * sptr);
-   }
+   for (; *str; str++)
+       *str = toupper(*str);
 }
 
-void strx_replace_char(char * sptr, char orig, char repl)
+void strx_replace_char(char * str, char find, char replace)
 {
-    for (; *sptr != '\0'; sptr++)
-    {
-        if (*sptr == orig)
-        {
-            *sptr = repl;
-        }
-    }
+    for (; *str; str++)
+        if (*str == find)
+            *str = replace;
 }
 
 /*
@@ -147,77 +139,48 @@ void strx_trim(char ** str, char chr)
  */
 _Bool strx_is_empty(const char * str)
 {
-    const char * test = str;
-    for (; *test; test++)
-    {
-        if (!isspace(*test))
-        {
+    for (; *str; str++)
+        if (!isspace(*str))
             return false;
-        }
-    }
     return true;
 }
 
 _Bool strx_is_int(const char * str)
 {
-   // Handle negative numbers.
-   if (*str == '-')
-   {
+   // Handle signed numbers.
+   if (*str == '-' || *str == '+')
        ++str;
-   }
 
-   // Handle empty string or just "-".
+   // Handle empty string or only signed.
    if (!*str)
-   {
        return false;
-   }
 
    // Check for non-digit chars in the rest of the string.
-   while (*str)
-   {
+   for (; *str; ++str)
        if (!isdigit(*str))
-       {
            return false;
-       }
-       else
-       {
-           ++str;
-       }
-   }
 
    return true;
 }
 
 _Bool strx_is_float(const char * str)
 {
-   // Handle negative numbers.
-   if (*str == '-' || *str == '+')
-   {
-       ++str;
-   }
-
    size_t dots = 0;
 
-   // Handle empty string or just "-".
+   // Handle signed float numbers.
+   if (*str == '-' || *str == '+')
+       ++str;
+
+   // Handle empty string or only signed.
    if (!*str)
-   {
        return false;
-   }
 
    // Check for non-digit chars in the rest of the string.
-   while (*str)
-   {
+   for (; *str; ++str)
        if (*str == '.')
-       {
            ++dots;
-       }
        else if (!isdigit(*str))
-       {
            return false;
-       }
-
-       ++str;
-   }
 
    return dots == 1;
 }
@@ -225,28 +188,21 @@ _Bool strx_is_float(const char * str)
 _Bool strx_is_graph(const char * str)
 {
     for (; *str; str++)
-    {
-        if (!isgraph(*str)) return 0;
-    }
-    return 1;
+        if (!isgraph(*str))
+            return false;
+    return true;
 }
 
 _Bool strx_is_graphn(const char * str, size_t n)
 {
     for (; n--; str++)
-    {
         if (!isgraph(*str))
             return false;
-    }
     return true;
 }
 
 /*
- * Returns a string to double.
- * No error checking is done, we make the following assumptions:
- *      - len > 0
- *      - string is allowed to have one dot (.) at most but not required
- *      - string can start with a plus (+) or minus (-) sign.
+ * Requires a match with regular expression: [-+]?[0-9]*\.?[0-9]+
  */
 double strx_to_doublen(const char * str, size_t n)
 {
@@ -273,15 +229,17 @@ double strx_to_doublen(const char * str, size_t n)
         convert = 1.0;
     }
 
-    for (; n && isdigit(*str); --n)
-        r1 = 10 * r1 + *(++str) - '0';
+    for (; n && isdigit(*str); --n, ++str)
+        r1 = 10 * r1 + *str - '0';
 
     d = (double) r1;
 
     if (n && --n)
     {
-        uint64_t r2 = *str - '0';
+        uint64_t r2;
         double power;
+        ++str;
+        r2 = *str - '0';
         for (power = -1.0f; --n && isdigit(*(++str)); power--)
              r2 = 10 * r2 + *str - '0';
 
@@ -292,7 +250,7 @@ double strx_to_doublen(const char * str, size_t n)
 }
 
 /*
- * Requires a match with the following expression:   [-+]?[0-9]+
+ * Requires a match with regular expression:   [-+]?[0-9]+
  */
 int64_t strx_to_int64n(const char * str, size_t n)
 {
@@ -328,7 +286,8 @@ char * strx_cat(const char * s1, const char * s2)
     size_t n2 = strlen(s2);
 
     char * s = (char *) malloc(n1 + n2 + 1);
-    if (!s) return NULL;
+    if (!s)
+        return NULL;
 
     memcpy(s, s1, n1);
     memcpy(s + n1, s2, n2 + 1);

@@ -10,13 +10,12 @@
 
 ti_name_t * ti_name_create(const char * str, size_t n)
 {
-    size_t sz = n + 1;
-    ti_name_t * name = malloc(sizeof(ti_name_t) + sz);
+    ti_name_t * name = malloc(sizeof(ti_name_t) + n + 1);
     if (!name)
         return NULL;
 
     memcpy(name->str, str, n);
-    name->str[sz] = '\0';
+    name->str[n] = '\0';
     name->n = n;
     name->ref = 1;
     return name;

@@ -15,9 +15,12 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
-    client.use(0)
+    client.use('dbtest')
 
-    await client.query('databases.fetch(dbtest)', timeout=2)
+    start = time.time()
+    res = await client.query('id()', timeout=2)
+    print(time.time() - start)
+    print(res)
 
     # await asyncio.sleep(3)
 

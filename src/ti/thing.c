@@ -16,7 +16,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->id = id;
     thing->things = things;
     thing->props = vec_new(0);
-    thing->flags = TI_ELEM_FLAG_SWEEP;
+    thing->flags = TI_THING_FLAG_SWEEP;
     if (!thing->props)
     {
         ti_thing_drop(thing);
@@ -35,7 +35,11 @@ void ti_thing_drop(ti_thing_t * thing)
     }
 }
 
-int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_e tp, void * v)
+int ti_thing_set(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_enum tp,
+        void * v)
 {
     for (vec_each(thing->props, ti_prop_t, prop))
     {
@@ -58,7 +62,7 @@ int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_e tp, void * v)
 int ti_thing_weak_set(
         ti_thing_t * thing,
         ti_name_t * name,
-        ti_val_e tp,
+        ti_val_enum tp,
         void * v)
 {
     for (vec_each(thing->props, ti_prop_t, prop))
@@ -92,5 +96,5 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer)
                 ti_val_to_packer(&prop->val, packer))
             return -1;
     }
-    return qp_close_map(packer);
+    return qp_close_map(*packer);
 }

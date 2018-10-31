@@ -118,28 +118,30 @@ class Definition(Grammar):
         ')',
     )
 
-    assignment = Sequence('=', scope)
-    index = Optional(
-        Sequence('[', List(t_int, mi=1, ma=3, delimiter=':'), ']')
+    assignment = Sequence(identifier, '=', scope)
+    index = Repeat(
+        Sequence('[', t_int, ']')
     )
 
     chain = Sequence(
         '.',
-        Choice(function, identifier),
+        Choice(function, assignment, identifier),
         index,
-        Optional(Choice(
-            chain,
-            assignment,
-        ))
+        Optional(chain),
     )
 
     scope = Sequence(
-        Choice(primitives, function, identifier, thing, array, compare),
-        index,
-        Optional(Choice(
-            chain,
+        Choice(
+            primitives,
+            function,
             assignment,
-        ))
+            identifier,
+            thing,
+            array,
+            compare
+        ),
+        index,
+        Optional(chain),
     )
 
     START = Sequence(
@@ -176,7 +178,7 @@ if __name__ == '__main__':
         databases.dbtest.drop();
 
         /* Change redundancy */
-        config.redundancy = 3;
+        config.redundancy = 3[0][0];
 
         types().create(User, {
             name: str().required(),

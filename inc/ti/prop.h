@@ -10,8 +10,8 @@ typedef struct ti_prop_s  ti_prop_t;
 #include <ti/name.h>
 #include <ti/val.h>
 
-ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_e tp, void * v);
-ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_e tp, void * v);
+ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_enum tp, void * v);
+ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_enum tp, void * v);
 void ti_prop_destroy(ti_prop_t * prop);
 
 struct ti_prop_s

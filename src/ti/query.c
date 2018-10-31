@@ -6,6 +6,7 @@
 #include <ti.h>
 #include <ti/dbs.h>
 #include <ti/res.h>
+#include <ti/proto.h>
 #include <stdlib.h>
 #include <qpack.h>
 #include <langdef/translate.h>
@@ -43,7 +44,8 @@ void ti_query_destroy(ti_query_t * query)
         return;
     if (query->parseres)
         cleri_parse_free(query->parseres);
-    ti_drop_stream(query->stream);
+    vec_destroy(query->res_statements, (vec_destroy_cb) ti_res_destroy);
+    ti_stream_drop(query->stream);
     ti_db_drop(query->target);
     free(query->querystr);
     free(query->raw);
@@ -86,7 +88,8 @@ int ti_query_unpack(ti_query_t * query, ex_t * e)
         if (qp_is_raw_equal_str(&key, "target"))
         {
             (void) qp_next(&unpacker, &val);
-            query->target = ti_grab(ti_dbs_get_by_qp_obj(&val, e));
+            query->target = ti_dbs_get_by_qp_obj(&val, e);
+            ti_grab(query->target);
             if (e->nr)
                 goto finish;
             /* query->target maybe NULL in case when the target is root */
@@ -147,7 +150,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     while(child)
     {
         ++nstatements;
-        query__investigate_recursive(child->node);  /* scope */
+        query__investigate_recursive(query, child->node);  /* scope */
 
         if (!child->next)
             break;
@@ -175,6 +178,8 @@ void ti_query_run(ti_query_t * query)
     {
         while (child)
         {
+            assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
             ti_res_t * res = ti_res_create(query->target);
             if (!res)
             {
@@ -182,7 +187,7 @@ void ti_query_run(ti_query_t * query)
                 goto send;
             }
 
-            res_parse_scope(res, child->node, e);
+            res_scope(res, child->node, e);
             if (e->nr)
                 goto send;
 
@@ -210,7 +215,7 @@ send:
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
-    qp_packer_t * packer;
+    qpx_packer_t * packer;
     if (e->nr)
         goto pkg_err;
 
@@ -235,6 +240,9 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (qp_close_array(packer))
         goto alloc_err;
 
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);
+    pkg->id = query->pkg_id;
+
     goto finish;
 
 alloc_err:
@@ -246,6 +254,7 @@ pkg_err:
     pkg = ti_pkg_err(query->pkg_id, e);
 
 finish:
+
     if (!pkg || ti_clients_write(query->stream, pkg))
     {
         free(pkg);

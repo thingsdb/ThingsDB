@@ -16,6 +16,7 @@ C_SRCS += \
 ../src/ti/event.c \
 ../src/ti/events.c \
 ../src/ti/ex.c \
+../src/ti/fetch.c \
 ../src/ti/front.c \
 ../src/ti/fwd.c \
 ../src/ti/limits.c \
@@ -35,7 +36,8 @@ C_SRCS += \
 ../src/ti/raw.c \
 ../src/ti/ref.c \
 ../src/ti/req.c \
-../src/ti/scope.c \
+../src/ti/res.c \
+../src/ti/root.c \
 ../src/ti/signals.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
@@ -62,6 +64,7 @@ OBJS += \
 ./src/ti/event.o \
 ./src/ti/events.o \
 ./src/ti/ex.o \
+./src/ti/fetch.o \
 ./src/ti/front.o \
 ./src/ti/fwd.o \
 ./src/ti/limits.o \
@@ -81,7 +84,8 @@ OBJS += \
 ./src/ti/raw.o \
 ./src/ti/ref.o \
 ./src/ti/req.o \
-./src/ti/scope.o \
+./src/ti/res.o \
+./src/ti/root.o \
 ./src/ti/signals.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
@@ -108,6 +112,7 @@ C_DEPS += \
 ./src/ti/event.d \
 ./src/ti/events.d \
 ./src/ti/ex.d \
+./src/ti/fetch.d \
 ./src/ti/front.d \
 ./src/ti/fwd.d \
 ./src/ti/limits.d \
@@ -127,7 +132,8 @@ C_DEPS += \
 ./src/ti/raw.d \
 ./src/ti/ref.d \
 ./src/ti/req.d \
-./src/ti/scope.d \
+./src/ti/res.d \
+./src/ti/root.d \
 ./src/ti/signals.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \

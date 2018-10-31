@@ -15,6 +15,7 @@
 #include <ti/users.h>
 #include <ti/dbs.h>
 #include <ti/access.h>
+#include <ti/things.h>
 #include <ti.h>
 #include <util/fx.h>
 #include <util/strx.h>
@@ -82,7 +83,7 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_names_destroy();
     ti_store_destroy();
-    vec_destroy(ti_.access, ti_auth_destroy);
+    vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
@@ -136,12 +137,32 @@ int ti_build(void)
         /* TODO: should be done by a query inside the packer */
         ex_t * e = ex_use();
         ti_user_t * user;
+        ti_db_t * db;
+        ti_name_t * name;
+        vec_t * vec_people;
+        ti_thing_t * iris;
+        ti_raw_t * raw_iris;
+        int64_t age_iris = 5;
+
         assert ((user = ti_users_create_user(
                 ti_user_def_name,
                 strlen(ti_user_def_name),
                 ti_user_def_pass, e)));
         assert (ti_access_grant(&ti_.access, user, TI_AUTH_MASK_FULL) == 0);
-        assert (ti_dbs_create_db("dbtest", 6, user, e));
+
+        /* TODO: this is just some test stuff */
+
+        assert ((db = ti_dbs_create_db("dbtest", 6, user, e)));
+        assert ((name = ti_names_get("people", 6)));
+        assert ((vec_people = vec_new(0)));
+        assert ((iris = ti_things_create_thing(db->things, ti_next_thing_id())));
+        assert (vec_push(&vec_people, iris) == 0);
+        ti_thing_weak_set(db->root, name, TI_VAL_THINGS, vec_people);
+        assert ((name = ti_names_get("name", 4)));
+        assert ((raw_iris = ti_raw_new((unsigned char *) "iris", 4)));
+        ti_thing_weak_set(iris, name, TI_VAL_RAW, raw_iris);
+        assert ((name = ti_names_get("age", 3)));
+        ti_thing_weak_set(iris, name, TI_VAL_INT, &age_iris);
     }
 
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);

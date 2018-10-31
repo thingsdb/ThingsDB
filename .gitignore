@@ -68,4 +68,10 @@ __pycache__/
 # testdir
 /test/testdir/
 
+# Visual Studio Code
 .vscode/
+
+# Build
+Debug/thingsdb
+Release/thingsdb
+

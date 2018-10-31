@@ -5,7 +5,7 @@
 #include <ti.h>
 #include <ti/prop.h>
 
-ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_e tp, void * v)
+ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_enum tp, void * v)
 {
     ti_prop_t * prop = malloc(sizeof(ti_prop_t));
     if (!prop || ti_val_set(&prop->val, tp, v))
@@ -17,7 +17,7 @@ ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_e tp, void * v)
     return prop;
 }
 
-ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_e tp, void * v)
+ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_enum tp, void * v)
 {
     ti_prop_t * prop = malloc(sizeof(ti_prop_t));
     if (!prop)

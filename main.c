@@ -13,7 +13,7 @@
 #include <ti/store.h>
 #include <ti.h>
 #include <util/fx.h>
-
+#include <cleri/version.h>
 
 int main(int argc, char * argv[])
 {
@@ -48,6 +48,8 @@ int main(int argc, char * argv[])
     }
 
     ti_init_logger();
+
+    LOGC(cleri_version());
 
     rc = ti_cfg_parse(ti()->args->config);
     if (rc)

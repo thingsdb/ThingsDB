@@ -10,9 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 static const int ti__dbs_fn_schema = 0;
 
-int ti_dbs_store(const char * fn)
+int ti_store_dbs_store(const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
@@ -46,7 +47,7 @@ stop:
     return rc;
 }
 
-int ti_dbs_restore(const char * fn)
+int ti_store_dbs_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
@@ -67,12 +68,13 @@ int ti_dbs_restore(const char * fn)
 
     qp_res_t * schema, * qdbs;
 
-    if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
-        !(qdbs = qpx_map_get(res->via.map, "dbs")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti__dbs_fn_schema ||
-        qdbs->tp != QP_RES_ARRAY) goto stop;
+    if (    res->tp != QP_RES_MAP ||
+            !(schema = qpx_map_get(res->via.map, "schema")) ||
+            !(qdbs = qpx_map_get(res->via.map, "dbs")) ||
+            schema->tp != QP_RES_INT64 ||
+            schema->via.int64 != ti__dbs_fn_schema ||
+            qdbs->tp != QP_RES_ARRAY)
+        goto stop;
 
     for (uint32_t i = 0; i < qdbs->via.array->n; i++)
     {

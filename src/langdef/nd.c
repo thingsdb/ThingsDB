@@ -8,7 +8,6 @@
 _Bool langdef_nd_is_update_function(cleri_node_t * nd)
 {
     cleri_t * function;
-    assert (nd->cl_obj);
 
     if (!langdef_nd_is_function(nd))
         return false;

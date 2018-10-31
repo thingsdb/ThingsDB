@@ -2,7 +2,6 @@
  * raw.c
  */
 #include <string.h>
-#include <stdlib.h>
 #include <ti/raw.h>
 
 ti_raw_t * ti_raw_new(const unsigned char * raw, size_t n)

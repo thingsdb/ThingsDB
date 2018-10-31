@@ -27,6 +27,7 @@ static const char * store__id_stat_fn    = "idstat.qp";
 static const char * store__names_fn      = "names.qp";
 static const char * store__users_fn      = "users.qp";
 
+static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg));
 static void store__set_filename(_Bool use_tmp);
 
 static ti_store_t * store;
@@ -168,14 +169,28 @@ int ti_store_restore(void)
                 ti_db_restore(db, store_db->db_fn) ||
                 ti_things_restore_skeleton(db->things, namesmap, store_db->skeleton_fn) ||
                 ti_things_restore_data(db->things, namesmap, store_db->data_fn));
+
+        ti_store_db_destroy(store_db);
+
+        assert (db->root);
+
         if (rc)
             goto stop;
+
+        (void) imap_walk(db->things, (imap_cb) store__thing_drop, NULL);
     }
 
 stop:
     if (namesmap)
         imap_destroy(namesmap, NULL);
     return rc;
+}
+
+static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
+{
+    assert (thing->ref > 1);
+    --thing->ref;
+    return 0;
 }
 
 static void store__set_filename(_Bool use_tmp)

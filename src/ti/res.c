@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <ti/res.h>
+#include <ti/names.h>
 #include <ti.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
@@ -12,6 +13,9 @@
 
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
 ti_res_t * ti_res_create(ti_db_t * db)
@@ -60,8 +64,8 @@ int res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
          */
         break;
     case CLERI_GID_FUNCTION:
-        res__scope_function(res, node, e);
-
+        if (res__scope_function(res, node, e))
+            return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
         /*
@@ -71,18 +75,12 @@ int res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
         break;
     case CLERI_GID_IDENTIFIER:
-        /*
-         * res->thing = parent or null
-         * res->tp = undefined if not found in parent
-         * res->value = union (actual value)
-         *
-         */
-
+        if (res__scope_identifier(res, node, e))
+            return e->nr;
         break;
     case CLERI_GID_THING:
-        /*
-         *
-         */
+        if (res__scope_thing(res, node, e))
+            return e->nr;
         break;
     case CLERI_GID_ARRAY:
         /*
@@ -234,6 +232,148 @@ static int res__scope_function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    /*
+     * Sequence('{', List(Sequence(identifier, ':', scope)), '}')
+     */
+    assert (e->nr == 0);
+    /*
+     * if the parent is not a 'thing' then ti_val_copy(&main, res->val)
+     * must also be checked
+     */
+    assert (nd->cl_obj->gid == CLERI_GID_THING);
+
+    cleri_children_t * child;
+    ti_thing_t * thing;
+    ti_val_t local;
+
+    (void) ti_val_copy(&local, res->val);
+
+    thing = ti_thing_create(0, NULL);
+    if (!thing)
+        goto alloc_err;
+
+    child = nd                                  /* sequence */
+            ->children->next->node              /* list */
+            ->children;                         /* list items */
+
+    for (; child; child = child->next->next)
+    {
+        cleri_node_t * identifier = child->node     /* sequence */
+                ->children->node;                   /* identifier */
+
+        cleri_node_t * scope = child->node          /* sequence */
+                ->children->next->next->node;       /* scope */
+
+        ti_name_t * name = ti_names_get(identifier->str, identifier->len);
+        if (!name)
+            goto alloc_err;
+
+        if (res_scope(res, scope, e))
+            goto err;
+
+        ti_thing_weak_setv(thing, name, res->val);
+        (void) ti_val_copy(res->val, &local);
+
+        if (!child->next)
+            break;
+    }
+
+    ti_val_clear(res->val);
+    ti_val_weak_set(res->val, TI_VAL_THING, thing);
+
+    goto done;
+
+alloc_err:
+    ex_set_alloc(e);
+err:
+    ti_thing_drop(thing);
+done:
+    ti_val_clear(&local);
+    return e->nr;
+}
+
+static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->gid == CLERI_GID_IDENTIFIER);
+    assert (ti_name_is_valid_strn(nd->str, nd->len));
+
+    ti_name_t * name;
+    ti_val_t * val;
+    ti_thing_t * thing;
+
+    /* not sure, i think res->val should always contain a thing, but we might
+     * just want to look at db->root and skip looking at res->val
+     */
+    assert (res->val->tp == TI_VAL_THING);
+
+    thing = res->val->via.thing;
+
+    name = ti_names_weak_get(nd->str, nd->len);
+    val = name ? ti_thing_get(thing, name) : NULL;
+
+    if (!val && name && res->db->root != thing)
+        val = ti_thing_get(res->db->root, name);
+
+    if (!val)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "property `%.*s` is undefined",
+                (int) nd->len, nd->str);
+        return e->nr;
+    }
+
+    ti_val_clear(res->val);
+
+    if (ti_val_copy(res->val, val))
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
+static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->gid == CLERI_GID_IDENTIFIER);
+    assert (ti_name_is_valid_strn(nd->str, nd->len));
+
+    ti_name_t * name;
+    ti_val_t * val;
+    ti_thing_t * thing;
+
+    if (res->val->tp != TI_VAL_THING)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no property `%.*s`",
+                ti_val_to_str(res->val),
+                (int) nd->len, nd->str);
+        return e->nr;
+    }
+
+    thing = res->val->via.thing;
+
+    name = ti_names_weak_get(nd->str, nd->len);
+    val = name ? ti_thing_get(thing, name) : NULL;
+
+    if (!val)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "thing `id:%"PRIu64"` has no property `%.*s`",
+                thing->id,
+                (int) nd->len, nd->str);
+        return e->nr;
+    }
+
+    ti_val_clear(res->val);
+
+    if (ti_val_copy(res->val, val))
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -261,10 +401,9 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     thing_id = res->val->via.thing->id;
 
     ti_val_clear(res->val);
+
     if (ti_val_set(res->val, TI_VAL_INT, &thing_id))
-    {
         ex_set_alloc(e);
-    }
 
     return e->nr;
 }

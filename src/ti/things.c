@@ -245,6 +245,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                 }
                 if (ti_thing_set(thing, name, TI_VAL_THING, ting))
                     goto failed;
+                ti_grab(name);
             }
             else if (qp_is_array(tp))
             {
@@ -266,9 +267,8 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                     }
                 }
                 if (ti_thing_weak_set(thing, name, TI_VAL_THINGS, things_vec))
-                {
                     goto failed;
-                }
+                ti_grab(name);
                 things_vec = NULL;
             }
             else
@@ -331,35 +331,26 @@ int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
             {
             case QP_INT64:
                 if (ti_thing_set(thing, name, TI_VAL_INT, &obj.via.int64))
-                {
                     goto failed;
-                }
                 break;
             case QP_DOUBLE:
                 if (ti_thing_set(thing, name, TI_VAL_FLOAT, &obj.via.real))
-                {
                     goto failed;
-                }
                 break;
             case QP_RAW:
-                if (!obj.via.raw) goto failed;
-                if (ti_thing_weak_set(thing, name, TI_VAL_RAW, obj.via.raw))
-                {
+                if (!obj.via.raw)
                     goto failed;
-                }
+                if (ti_thing_weak_set(thing, name, TI_VAL_RAW, obj.via.raw))
+                    goto failed;
                 break;
             case QP_NULL:
                 if (ti_thing_set(thing, name, TI_VAL_NIL, NULL))
-                {
                     goto failed;
-                }
                 break;
             case QP_TRUE:
             case QP_FALSE:
                 if (ti_thing_set(thing, name, TI_VAL_BOOL, &obj.via.boolean))
-                {
                     goto failed;
-                }
                 break;
             case QP_MAP_CLOSE:
                 break;
@@ -367,6 +358,7 @@ int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
                 log_critical("unexpected type: %d", tp);
                 goto failed;
             }
+            ti_grab(name);
         }
     }
     goto done;

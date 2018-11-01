@@ -20,16 +20,20 @@ typedef struct ti_thing_s  ti_thing_t;
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
 void ti_thing_drop(ti_thing_t * thing);
 
+ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_set(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_enum tp,
         void * v);
+int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 int ti_thing_weak_set(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_enum tp,
         void * v);
+int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
+
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,

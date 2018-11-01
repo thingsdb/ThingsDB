@@ -187,6 +187,8 @@ void ti_query_run(ti_query_t * query)
                 goto send;
             }
 
+            VEC_push(query->res_statements, res);
+
             res_scope(res, child->node, e);
             if (e->nr)
                 goto send;
@@ -194,8 +196,6 @@ void ti_query_run(ti_query_t * query)
             /* TODO: handle res->collect->n which means we first need to
              *       fetch things */
             assert_log(res->collect->n == 0, "collecting is not implemented");
-
-            VEC_push(query->res_statements, res);
 
             if (!child->next)
                 break;
@@ -272,11 +272,14 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
      */
     cleri_children_t * child;
 
-    if (langdef_nd_is_update_function(nd))
-        query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
-
     for (child = nd->children; child; child = child->next)
-        query__investigate_recursive(query, child->node);
+    {
+        if (langdef_nd_is_update_function(child->node))
+            query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
+
+        if (child->node->children)
+            query__investigate_recursive(query, child->node);
+    }
 }
 
 

@@ -66,7 +66,7 @@ __pycache__/
 /tmp/
 
 # testdir
-/test/testdir/
+/itest/testdir/
 
 # Visual Studio Code
 .vscode/

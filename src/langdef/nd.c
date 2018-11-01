@@ -41,8 +41,11 @@ int langdef_nd_n_function_params(cleri_node_t * nd)
     if (nd->cl_obj->gid == CLERI_GID_ITERATOR)
         return 1;
 
-    for (n = 0, child = nd->children; child; child = child->next)
+    for (n = 0, child = nd->children; child; child = child->next->next)
+    {
         ++n;
-
+        if (!child->next)
+            break;
+    }
     return n;
 }

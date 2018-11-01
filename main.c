@@ -49,7 +49,7 @@ int main(int argc, char * argv[])
 
     ti_init_logger();
 
-    LOGC(cleri_version());
+    log_debug("running with cleri version: %s", cleri_version());
 
     rc = ti_cfg_parse(ti()->args->config);
     if (rc)

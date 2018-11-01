@@ -13,7 +13,19 @@ ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_enum tp, void * v)
         ti_prop_destroy(prop);
         return NULL;
     }
-    prop->name = ti_grab(name);
+    prop->name = name;
+    return prop;
+}
+
+ti_prop_t * ti_prop_createv(ti_name_t * name, ti_val_t * val)
+{
+    ti_prop_t * prop = malloc(sizeof(ti_prop_t));
+    if (!prop || ti_val_copy(&prop->val, val))
+    {
+        ti_prop_destroy(prop);
+        return NULL;
+    }
+    prop->name = name;
     return prop;
 }
 
@@ -23,7 +35,17 @@ ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_enum tp, void * v)
     if (!prop)
         return NULL;
     ti_val_weak_set(&prop->val, tp, v);
-    prop->name = ti_grab(name);
+    prop->name = name;
+    return prop;
+}
+
+ti_prop_t * ti_prop_weak_createv(ti_name_t * name, ti_val_t * val)
+{
+    ti_prop_t * prop = malloc(sizeof(ti_prop_t));
+    if (!prop)
+        return NULL;
+    ti_val_weak_copy(&prop->val, val);
+    prop->name = name;
     return prop;
 }
 

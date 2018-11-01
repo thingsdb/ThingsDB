@@ -45,6 +45,15 @@ ti_name_t * ti_names_get(const char * str, size_t n)
     return name;
 }
 
+/*
+ * returns a name when the name exists and with a borrowed reference, if the
+ * name does not exists, NULL will be the return value.
+ */
+ti_name_t * ti_names_weak_get(const char * str, size_t n)
+{
+    return smap_getn(names, str, n);
+}
+
 int ti_names_store(const char * fn)
 {
     int rc;

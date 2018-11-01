@@ -149,6 +149,59 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     return 0;
 }
 
+void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
+{
+    to->tp = from->tp;
+    to->via = from->via;
+}
+
+int ti_val_copy(ti_val_t * to, ti_val_t * from)
+{
+    to->tp = from->tp;
+    switch(to->tp)
+    {
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+        to->via = from->via;
+        break;
+    case TI_VAL_RAW:
+        to->via.raw = ti_raw_dup(from->via.raw);
+        if (!to->via.raw)
+        {
+            to->tp = TI_VAL_NIL;
+            return -1;
+        }
+        break;
+    case TI_VAL_PRIMITIVES:
+        to->via.primitives = vec_dup(from->via.primitives);
+        if (!to->via.primitives)
+        {
+            to->tp = TI_VAL_NIL;
+            return -1;
+        }
+        break;
+    case TI_VAL_THING:
+        to->via.thing = ti_grab(from->via.thing);
+        break;
+    case TI_VAL_THINGS:
+        to->via.things = vec_dup(from->via.things);
+        if (!to->via.things)
+        {
+            to->tp = TI_VAL_NIL;
+            return -1;
+        }
+        for (vec_each(to->via.things, ti_thing_t, thing))
+        {
+            ti_grab(thing);
+        }
+        break;
+    }
+    return 0;
+}
+
 /*
  * Clear value
  */

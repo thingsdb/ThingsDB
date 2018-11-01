@@ -30,6 +30,8 @@ ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
 void ti_val_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
+void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
+int ti_val_copy(ti_val_t * to, ti_val_t * from);
 void ti_val_clear(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer);
 int ti_val_to_file(ti_val_t * val, FILE * f);

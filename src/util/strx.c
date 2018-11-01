@@ -262,10 +262,12 @@ int64_t strx_to_int64n(const char * str, size_t n)
     case '-':
         assert (n > 1);
         i = -(*(++str) - '0');
+        --n;
         break;
     case '+':
         assert (n > 1);
         i = *(++str) - '0';
+        --n;
         break;
     default:
         i = *str - '0';

@@ -18,7 +18,7 @@ async def test():
     client.use('dbtest')
 
     start = time.time()
-    res = await client.query('id()', timeout=2)
+    res = await client.query(r'people[0]', timeout=2)
     print(time.time() - start)
     print(res)
 

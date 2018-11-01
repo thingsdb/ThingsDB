@@ -1,6 +1,7 @@
 /*
  * thing.c
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <ti/thing.h>
 #include <util/logger.h>
@@ -8,6 +9,8 @@
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
+    assert (( !id && !things ) || ( id && things ));
+
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
         return NULL;
@@ -29,10 +32,19 @@ void ti_thing_drop(ti_thing_t * thing)
 {
     if (thing && !--thing->ref)
     {
-        (void *) imap_pop(thing->things, thing->id);
+        if (thing->things)
+            (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         free(thing);
     }
+}
+
+ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name)
+{
+    for (vec_each(thing->props, ti_prop_t, prop))
+        if (prop->name == name)
+            return &prop->val;
+    return NULL;
 }
 
 int ti_thing_set(
@@ -41,6 +53,8 @@ int ti_thing_set(
         ti_val_enum tp,
         void * v)
 {
+    ti_prop_t * prop;
+
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (prop->name == name)
@@ -49,7 +63,31 @@ int ti_thing_set(
             return ti_val_set(&prop->val, tp, v);
         }
     }
-    ti_prop_t * prop = ti_prop_create(name, tp, v);
+
+    prop = ti_prop_create(name, tp, v);
+    if (!prop || vec_push(&thing->props, prop))
+    {
+        ti_prop_destroy(prop);
+        return -1;
+    }
+
+    return 0;
+}
+
+int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+{
+    ti_prop_t * prop;
+
+    for (vec_each(thing->props, ti_prop_t, prop))
+    {
+        if (prop->name == name)
+        {
+            ti_val_clear(&prop->val);
+            return ti_val_copy(&prop->val, val);
+        }
+    }
+
+    prop = ti_prop_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
         ti_prop_destroy(prop);
@@ -65,6 +103,8 @@ int ti_thing_weak_set(
         ti_val_enum tp,
         void * v)
 {
+    ti_prop_t * prop;
+
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (prop->name == name)
@@ -74,7 +114,31 @@ int ti_thing_weak_set(
             return 0;
         }
     }
-    ti_prop_t * prop = ti_prop_weak_create(name, tp, v);
+
+    prop = ti_prop_weak_create(name, tp, v);
+    if (!prop || vec_push(&thing->props, prop))
+    {
+        ti_prop_destroy(prop);
+        return -1;
+    }
+    return 0;
+}
+
+int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+{
+    ti_prop_t * prop;
+
+    for (vec_each(thing->props, ti_prop_t, prop))
+    {
+        if (prop->name == name)
+        {
+            ti_val_clear(&prop->val);
+            ti_val_weak_copy(&prop->val, val);
+            return 0;
+        }
+    }
+
+    prop = ti_prop_weak_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
         ti_prop_destroy(prop);

@@ -14,6 +14,7 @@
 
 typedef enum
 {
+    EX_MAX_QUOTA            =-106,
     EX_AUTH_ERROR           =-105,
     EX_FORBIDDEN            =-104,
     EX_INDEX_ERROR          =-103,

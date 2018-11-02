@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <ti/access.h>
-#include <ti/api.h>
 #include <ti/auth.h>
 #include <ti/dbs.h>
 #include <ti/name.h>

@@ -3,7 +3,6 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/api.h>
 #include <ti/db.h>
 #include <ti/event.h>
 #include <ti/misc.h>

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from .package import Package
+from .exceptions import MaxQuotaError
 from .exceptions import AuthError
 from .exceptions import ForbiddenError
 from .exceptions import IndexError
@@ -18,19 +19,22 @@ RES_PING = 64
 RES_AUTH = 65
 RES_QUERY = 66
 
-RES_ERR_AUTH = 96
-RES_ERR_FORBIDDEN = 97
-RES_ERR_INDEX = 98
-RES_ERR_BAD_REQUEST = 99
-RES_ERR_QUERY = 100
-RES_ERR_NODE = 101
-RES_ERR_INTERNAL = 102
+RES_ERR_MAX_QUOTA = 96
+RES_ERR_AUTH = 97
+RES_ERR_FORBIDDEN = 98
+RES_ERR_INDEX = 99
+RES_ERR_BAD_REQUEST = 100
+RES_ERR_QUERY = 101
+RES_ERR_NODE = 102
+RES_ERR_INTERNAL = 103
 
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
     RES_AUTH: lambda f, d: f.set_result(None),
     RES_QUERY: lambda f, d: f.set_result(d),
+    RES_ERR_MAX_QUOTA:
+        lambda f, d: f.set_exception(MaxQuotaError(errdata=d)),
     RES_ERR_AUTH:
         lambda f, d: f.set_exception(AuthError(errdata=d)),
     RES_ERR_FORBIDDEN:

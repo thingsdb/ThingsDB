@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ti/api.h>
 #include <ti/db.h>
 #include <ti/things.h>
 #include <ti/name.h>
@@ -30,11 +29,11 @@ ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n)
     db->name = ti_raw_new((unsigned char *) name, n);
     db->things = imap_create();
     db->access = vec_new(1);
-    db->limits = ti_limits_create();
+    db->quota = ti_quota_create();
 
     memcpy(&db->guid, guid, sizeof(guid_t));
 
-    if (!db->name || !db->things || !db->access || !db->limits)
+    if (!db->name || !db->things || !db->access || !db->quota)
     {
         ti_db_drop(db);
         return NULL;
@@ -53,7 +52,7 @@ void ti_db_drop(ti_db_t * db)
         ti_things_gc(db->things, NULL);
         assert (db->things->n == 0);
         imap_destroy(db->things, NULL);
-        ti_limits_destroy(db->limits);
+        ti_quota_destroy(db->quota);
         free(db);
     }
 }
@@ -70,36 +69,26 @@ int ti_db_buid(ti_db_t * db)
     return 0;
 }
 
-int ti_db_name_check(const ti_raw_t * name, ex_t * e)
+_Bool ti_db_name_check(const char * name, size_t n, ex_t * e)
 {
-    if (name->n < ti_db_min_name)
+    if (n < ti_db_min_name || n >= ti_db_max_name)
     {
-        ex_set(e, -1, "database name should be at least %u characters",
-                ti_db_min_name);
-        return -1;
-    }
-
-    if (name->n >= ti_db_max_name)
-    {
-        ex_set(e, -1, "database name should be less than %u characters",
+        ex_set(e, EX_BAD_DATA,
+                "database name must be between %u and %u characters",
+                ti_db_min_name,
                 ti_db_max_name);
-        return -1;
+        return false;
     }
 
-    if (!strx_is_graphn((const char *) name->data, name->n))
+    if (!ti_name_is_valid_strn(name, n))
     {
-        ex_set(e, -1,
-                "database name should consist only of graphical characters");
-        return -1;
+        ex_set(e, EX_BAD_DATA,
+                "database name should be a valid identifier, "
+                "see "TI_DOCS"#identifiers");
+        return false;
     }
 
-    if (name->data[0] == TI_API_PREFIX[0])
-    {
-        ex_set(e, -1,
-                "database name should not start with an `"TI_API_PREFIX"`");
-        return -1;
-    }
-    return 0;
+    return true;
 }
 
 int ti_db_store(ti_db_t * db, const char * fn)

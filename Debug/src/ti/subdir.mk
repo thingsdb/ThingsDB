@@ -19,7 +19,6 @@ C_SRCS += \
 ../src/ti/fetch.c \
 ../src/ti/front.c \
 ../src/ti/fwd.c \
-../src/ti/limits.c \
 ../src/ti/lookup.c \
 ../src/ti/maint.c \
 ../src/ti/misc.c \
@@ -33,6 +32,7 @@ C_SRCS += \
 ../src/ti/prop.c \
 ../src/ti/proto.c \
 ../src/ti/query.c \
+../src/ti/quota.c \
 ../src/ti/raw.c \
 ../src/ti/ref.c \
 ../src/ti/req.c \
@@ -67,7 +67,6 @@ OBJS += \
 ./src/ti/fetch.o \
 ./src/ti/front.o \
 ./src/ti/fwd.o \
-./src/ti/limits.o \
 ./src/ti/lookup.o \
 ./src/ti/maint.o \
 ./src/ti/misc.o \
@@ -81,6 +80,7 @@ OBJS += \
 ./src/ti/prop.o \
 ./src/ti/proto.o \
 ./src/ti/query.o \
+./src/ti/quota.o \
 ./src/ti/raw.o \
 ./src/ti/ref.o \
 ./src/ti/req.o \
@@ -115,7 +115,6 @@ C_DEPS += \
 ./src/ti/fetch.d \
 ./src/ti/front.d \
 ./src/ti/fwd.d \
-./src/ti/limits.d \
 ./src/ti/lookup.d \
 ./src/ti/maint.d \
 ./src/ti/misc.d \
@@ -129,6 +128,7 @@ C_DEPS += \
 ./src/ti/prop.d \
 ./src/ti/proto.d \
 ./src/ti/query.d \
+./src/ti/quota.d \
 ./src/ti/raw.d \
 ./src/ti/ref.d \
 ./src/ti/req.d \

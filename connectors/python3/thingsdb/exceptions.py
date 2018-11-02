@@ -8,6 +8,10 @@ class ThingsDBError(Exception):
         super().__init__(*args)
 
 
+class MaxQuotaError(ThingsDBError):
+    pass
+
+
 class AuthError(ThingsDBError):
     pass
 

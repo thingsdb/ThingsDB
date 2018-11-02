@@ -12,7 +12,6 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <qpack.h>
 #include <stdint.h>
 #include <ti/name.h>
-#include <ti/api.h>
 #include <ti/val.h>
 #include <util/vec.h>
 #include <util/imap.h>

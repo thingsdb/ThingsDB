@@ -16,6 +16,12 @@ typedef enum
     TI_VAL_THING,
     TI_VAL_THINGS,
 } ti_val_enum;
+
+typedef enum
+{
+    TI_VAL_FLAG_FETCH  =1<<0,
+} ti_val_flags;
+
 typedef struct ti_val_s ti_val_t;
 typedef union ti_val_u ti_val_via_t;
 
@@ -37,6 +43,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_to_str(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
+static inline void ti_val_mark_fetch(ti_val_t * val);
 
 union ti_val_u
 {
@@ -54,7 +61,8 @@ union ti_val_u
 
 struct ti_val_s
 {
-    ti_val_enum tp;
+    uint8_t tp;
+    uint8_t flags;
     ti_val_via_t via;
 };
 
@@ -65,6 +73,11 @@ static inline _Bool ti_val_is_indexable(ti_val_t * val)
         val->tp == TI_VAL_PRIMITIVES ||
         val->tp == TI_VAL_THINGS
     );
+}
+
+static inline void ti_val_mark_fetch(ti_val_t * val)
+{
+    val->flags |= TI_VAL_FLAG_FETCH;
 }
 
 #endif /* TI_VAL_H_ */

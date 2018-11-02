@@ -30,6 +30,8 @@ const char * ex_str(ex_enum errnr)
 {
     switch (errnr)
     {
+    case EX_MAX_QUOTA:
+        return "max quota is reached";
     case EX_AUTH_ERROR:
         return "authentication error";
     case EX_FORBIDDEN:

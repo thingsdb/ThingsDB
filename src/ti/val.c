@@ -13,6 +13,7 @@ ti_val_t * ti_val_create(ti_val_enum tp, void * v)
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
         return NULL;
+    val->flags = 0;
     if (ti_val_set(val, tp, v))
     {
         ti_val_destroy(val);
@@ -26,6 +27,7 @@ ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v)
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
         return NULL;
+    val->flags = 0;
     ti_val_weak_set(val, tp, v);
     return val;
 }
@@ -41,6 +43,7 @@ void ti_val_destroy(ti_val_t * val)
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
+    val->flags = 0;
     switch(tp)
     {
     case TI_VAL_UNDEFINED:
@@ -88,6 +91,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
+    val->flags = 0;
     switch(tp)
     {
     case TI_VAL_UNDEFINED:
@@ -152,12 +156,14 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
+    to->flags = from->flags;;
     to->via = from->via;
 }
 
 int ti_val_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
+    to->flags = from->flags;
     switch(to->tp)
     {
     case TI_VAL_UNDEFINED:
@@ -228,6 +234,7 @@ void ti_val_clear(ti_val_t * val)
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
     }
+    val->flags = 0;
     val->tp = TI_VAL_UNDEFINED;
 }
 
@@ -259,13 +266,15 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer)
         }
         return qp_close_array(*packer);
     case TI_VAL_THING:
-        return ti_thing_id_to_packer(val->via.thing, packer);
+        return val->flags & TI_VAL_FLAG_FETCH
+                ? ti_thing_to_packer(val->via.thing, packer)
+                : ti_thing_id_to_packer(val->via.thing, packer);
     case TI_VAL_THINGS:
         if (qp_add_array(packer))
             return -1;
-        for (vec_each(val->via.things, ti_thing_t, el))
+        for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (ti_thing_id_to_packer(el, packer))
+            if (ti_thing_id_to_packer(thing, packer))
                 return -1;
         }
         return qp_close_array(*packer);

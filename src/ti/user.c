@@ -52,16 +52,10 @@ void ti_user_drop(ti_user_t * user)
 
 _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
 {
-    if (n < ti_min_name)
+    if (n < ti_min_name || n >= ti_max_name)
     {
-        ex_set(e, EX_BAD_DATA, "username should be at least %u characters",
-                ti_min_name);
-        return false;
-    }
-
-    if (n >= ti_max_name)
-    {
-        ex_set(e, EX_BAD_DATA, "username should be less than %u characters",
+        ex_set(e, EX_BAD_DATA, "username must be between %u and %u characters",
+                ti_min_name,
                 ti_max_name);
         return false;
     }

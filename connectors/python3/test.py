@@ -18,9 +18,13 @@ async def test():
     client.use('dbtest')
 
     start = time.time()
-    res = await client.query(r'people[0]', timeout=2)
-    print(time.time() - start)
-    print(res)
+    try:
+        res = await client.query(r'{a: id(), b: id(), c: id()}', timeout=2)
+    except ThingsDBError as e:
+        print(f"{e.__class__.__name__}: {e}")
+    else:
+        print(time.time() - start)
+        print(res)
 
     # await asyncio.sleep(3)
 

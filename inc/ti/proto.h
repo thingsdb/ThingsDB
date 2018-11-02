@@ -48,20 +48,22 @@ typedef enum
      * 96..111 client errors mapping to node errors
      */
 
+    /* max quota is reached */
+    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =96,
     /* authentication failed or request without authentication */
-    TI_PROTO_CLIENT_ERR_AUTH        =96,
+    TI_PROTO_CLIENT_ERR_AUTH        =97,
     /* no access for the requested task */
-    TI_PROTO_CLIENT_ERR_FORBIDDEN   =97,
+    TI_PROTO_CLIENT_ERR_FORBIDDEN   =98,
     /* query syntax error */
-    TI_PROTO_CLIENT_ERR_INDEX       =98,
+    TI_PROTO_CLIENT_ERR_INDEX       =99,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_CLIENT_ERR_BAD_REQUEST =99,
+    TI_PROTO_CLIENT_ERR_BAD_REQUEST =100,
     /* node is (currently) unable to respond to the request */
-    TI_PROTO_CLIENT_ERR_QUERY       =100,
+    TI_PROTO_CLIENT_ERR_QUERY       =101,
     /* not found, maybe because due to no access */
-    TI_PROTO_CLIENT_ERR_NODE        =101,
+    TI_PROTO_CLIENT_ERR_NODE        =102,
     /* internal server error, for example allocation error */
-    TI_PROTO_CLIENT_ERR_INTERNAL    =102,
+    TI_PROTO_CLIENT_ERR_INTERNAL    =103,
 
     /*
      * 112..127 client errors only
@@ -103,20 +105,22 @@ typedef enum
      * 224..239 node errors mapping to client errors
      */
 
+    /* max quota is reached */
+    TI_PROTO_NODE_ERR_MAX_QUOTA     =224,
     /* authentication failed or request without authentication */
-    TI_PROTO_NODE_ERR_AUTH          =224,
+    TI_PROTO_NODE_ERR_AUTH          =225,
     /* no access for the requested task */
-    TI_PROTO_NODE_ERR_FORBIDDEN     =225,
+    TI_PROTO_NODE_ERR_FORBIDDEN     =226,
     /* query syntax error */
-    TI_PROTO_NODE_ERR_INDEX         =226,
+    TI_PROTO_NODE_ERR_INDEX         =227,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_NODE_ERR_BAD_REQUEST   =227,
+    TI_PROTO_NODE_ERR_BAD_REQUEST   =228,
     /* node is (currently) unable to respond to the request */
-    TI_PROTO_NODE_ERR_QUERY         =228,
+    TI_PROTO_NODE_ERR_QUERY         =229,
     /* not found, maybe because due to no access */
-    TI_PROTO_NODE_ERR_NODE          =229,
+    TI_PROTO_NODE_ERR_NODE          =230,
     /* internal server error, for example allocation error */
-    TI_PROTO_NODE_ERR_INTERNAL      =230,
+    TI_PROTO_NODE_ERR_INTERNAL      =231,
 
     /*
      * 240..255 node only errors

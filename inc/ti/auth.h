@@ -13,7 +13,7 @@ enum
     TI_AUTH_READ        =1<<1,  /* root and database                         */
     TI_AUTH_MODIFY      =1<<2,  /* for root then means changing configuration
                                    like set_redundancy, add/replace nodes and
-                                   changing database limits;
+                                   changing database quota;
                                    for database this mean setting and removing
                                    things etc.
                                                                              */

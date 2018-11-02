@@ -1,5 +1,5 @@
 /*
- * limits.h
+ * quota.h
  */
 #ifndef TI_LIMITS_H_
 #define TI_LIMITS_H_
@@ -7,10 +7,10 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-typedef struct ti_limits_s ti_limits_t;
+typedef struct ti_quota_s ti_quota_t;
 
 
-struct ti_limits_s
+struct ti_quota_s
 {
     size_t max_things;
     size_t max_props;           /* max props per thing */
@@ -18,13 +18,13 @@ struct ti_limits_s
     size_t max_raw_size;
 };
 
-ti_limits_t * ti_limits_create(void);
-inline static void ti_limits_destroy(ti_limits_t * limits);
+ti_quota_t * ti_quota_create(void);
+inline static void ti_quota_destroy(ti_quota_t * quota);
 
 
-inline static void ti_limits_destroy(ti_limits_t * limits)
+inline static void ti_quota_destroy(ti_quota_t * quota)
 {
-    free(limits);
+    free(quota);
 }
 
 #endif  /* TI_LIMITS_H_ */

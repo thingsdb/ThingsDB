@@ -150,7 +150,7 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer)
 {
     if (    qp_add_map(packer) ||
-            qp_add_raw(*packer, (const unsigned char *) TI_API_ID, 2) ||
+            qp_add_raw(*packer, (const unsigned char *) "$id", 3) ||
             qp_add_int64(*packer, (int64_t) thing->id))
         return -1;
 

@@ -12,7 +12,8 @@
 
 
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__scope_function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -51,8 +52,9 @@ int res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     ->children;             /* first child, choice */
 
     cleri_node_t * node = child->node       /* choice */
-            ->children->node;               /* primitives, function, identifier,
-                                               thing, array, compare */
+            ->children->node;               /* primitives, function,
+                                               assignment, identifier, thing,
+                                               array, compare */
 
     switch (node->cl_obj->gid)
     {
@@ -64,7 +66,7 @@ int res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
          */
         break;
     case CLERI_GID_FUNCTION:
-        if (res__scope_function(res, node, e))
+        if (res__function(res, node, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
@@ -104,16 +106,20 @@ int res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     child = child->next;
     if (!child)
+    {
+        ti_val_mark_fetch(res->val);
         goto finish;
+    }
 
     node = child->node              /* optional */
             ->children->node;       /* chain */
 
     assert (node->cl_obj->gid == CLERI_GID_CHAIN);
 
+    (void) res__chain(res, node, e);
 
 finish:
-    return 0;
+    return e->nr;
 }
 
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
@@ -201,7 +207,63 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int res__scope_function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+
+    cleri_children_t * child = nd           /* sequence */
+                    ->children->next;       /* first is .(dot), next choice */
+
+    cleri_node_t * node = child->node       /* choice */
+            ->children->node;               /* function, assignment,
+                                               identifier */
+
+    switch (node->cl_obj->gid)
+    {
+    case CLERI_GID_FUNCTION:
+        if (res__function(res, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_ASSIGNMENT:
+        /*
+         * assignment
+         */
+        break;
+    case CLERI_GID_IDENTIFIER:
+        if (res__chain_identifier(res, node, e))
+            return e->nr;
+        break;
+    default:
+        assert (0);  /* all possible should be handled */
+        return -1;
+    }
+
+    child = child->next;
+
+    assert (child);
+
+    node = child->node;
+    assert (node->cl_obj->gid == CLERI_GID_INDEX);
+
+    if (res__index(res, node, e))
+        return e->nr;
+
+    child = child->next;
+    if (!child)
+        goto finish;
+
+    node = child->node              /* optional */
+            ->children->node;       /* chain */
+
+    assert (node->cl_obj->gid == CLERI_GID_CHAIN);
+
+    (void) res__chain(res, node, e);
+
+finish:
+    return e->nr;
+}
+
+static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert(langdef_nd_is_function(nd));
@@ -247,6 +309,7 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child;
     ti_thing_t * thing;
     ti_val_t local;
+    size_t max_props = res->db->quota->max_props;
 
     (void) ti_val_copy(&local, res->val);
 
@@ -260,6 +323,13 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
+        if (thing->props->n == max_props)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                    "maximum properties quota of %u has been reached, "
+                    "see "TI_DOCS"#quotas", max_props);
+            goto err;
+        }
         cleri_node_t * identifier = child->node     /* sequence */
                 ->children->node;                   /* identifier */
 
@@ -272,6 +342,7 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
         if (res_scope(res, scope, e))
             goto err;
+
 
         ti_thing_weak_setv(thing, name, res->val);
         (void) ti_val_copy(res->val, &local);
@@ -360,7 +431,7 @@ static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "thing `id:%"PRIu64"` has no property `%.*s`",
+                "thing `$id:%"PRIu64"` has no property `%.*s`",
                 thing->id,
                 (int) nd->len, nd->str);
         return e->nr;

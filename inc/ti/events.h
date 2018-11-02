@@ -9,30 +9,33 @@ typedef struct ti_events_s ti_events_t;
 #include <uv.h>
 #include <stdint.h>
 #include <ti/archive.h>
+#include <ti/query.h>
 #include <util/vec.h>
 #include <util/queue.h>
 
 int ti_events_create(void);
-void ti_events_destroy(void);
+int ti_events_start(void);
+void ti_events_stop(void);
+int ti_events_create_new_event(ti_query_t * query, ex_t * e);
 int ti_events_init(void);
 void ti_events_close(void);
 ti_event_t * ti_events_rm_event(ti_event_t * event);
 int ti_events_trigger(void);
 int ti_events_add_event(ti_event_t * event);
-uint64_t ti_events_get_event_id(void);
 
 /*
  * Changes to commit_id, archive require the lock.
  */
 struct ti_events_s
 {
+    _Bool is_started;
     uv_mutex_t lock;
     uint64_t commit_event_id;      /* last event id which is committed or 0
-                                      if not event is committed yet */
+                                      if no event is committed yet */
     uint64_t next_event_id;        /* next event id, starts at 1 */
     queue_t * queue;            /* queued events */
     ti_archive_t * archive;  /* archived (raw) events) */
-    uv_async_t evloop_;
+    uv_async_t * evloop;
 };
 
 

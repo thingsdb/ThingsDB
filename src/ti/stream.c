@@ -183,6 +183,22 @@ const char * ti_stream_name(ti_stream_t * stream)
     return stream->name_ ? stream->name_ : ti__stream_name_unresolved;
 }
 
+void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_req_t * req = imap_pop(stream->reqmap, pkg->id);
+    if (!req)
+    {
+        log_warning(
+                "received a response from `%s` on package id %u "
+                "but no corresponding request is found "
+                "(most likely the request has timed out)",
+                ti_stream_name(stream), pkg->id);
+        return;
+    }
+
+    ti_req_result(req);
+}
+
 static void ti__stream_stop(uv_handle_t * uvstream)
 {
     ti_stream_t * stream = uvstream->data;
@@ -190,6 +206,8 @@ static void ti__stream_stop(uv_handle_t * uvstream)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
+        stream->via.node->status = TI_NODE_STAT_OFFLINE;
+        stream->via.node->stream = NULL;
         ti_node_drop(stream->via.node);
         break;
     case TI_STREAM_TCP_IN_CLIENT:

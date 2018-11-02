@@ -16,6 +16,8 @@ ti_pkg_t * ti_pkg_new(
         uint8_t tp,
         const unsigned char * data,
         uint32_t n);
+ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg);
+
 ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e);
 
 struct ti_pkg_s

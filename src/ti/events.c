@@ -1,17 +1,21 @@
 /*
  * events.c
  */
-#include <ti/events.h>
 #include <assert.h>
-#include <stdlib.h>
 #include <qpack.h>
+#include <stdlib.h>
 #include <ti.h>
 #include <ti/event.h>
+#include <ti/events.h>
+#include <ti/prom.h>
+#include <ti/proto.h>
 #include <util/fx.h>
-#include <util/qpx.h>
 #include <util/logger.h>
+#include <util/qpx.h>
+#include <util/vec.h>
 
 static ti_events_t * events;
+
 static void ti__events_loop(uv_async_t * handle);
 
 int ti_events_create(void)
@@ -28,6 +32,7 @@ int ti_events_create(void)
 
     events->queue = queue_new(4);
     events->archive = ti_archive_create();
+    events->evloop = malloc(sizeof(uv_async_t));
 
     if (!events->queue || !events->archive)
         goto failed;
@@ -39,21 +44,230 @@ failed:
     return -1;
 }
 
-void ti_events_destroy(void)
+int ti_events_start(void)
+{
+    if (uv_async_init(ti()->loop, events->evloop, ti__events_loop))
+        return -1;
+    events->is_started = true;
+    return 0;
+}
+
+void ti_events_stop(void)
+{
+    if (!events)
+        return;
+
+    if (events->is_started)
+        uv_close((uv_handle_t *) events->evloop, events__destroy);
+    else
+        events__destroy(NULL);
+}
+
+int ti_events_create_new_event(ti_query_t * query, ex_t * e)
+{
+    ti_event_t * ev;
+
+    if (!ti_nodes_has_quorum())
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` does not have the required quorum "
+                "of at least %u connected nodes",
+                ti_node_name(ti()->node),
+                ti_nodes_quorum());
+        return e->nr;
+    }
+
+    if (queue_reserve(&events->queue, 1))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    ev = ti_event_create(TI_EVENT_TP_MASTER);
+    if (!ev)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    ev->via.query = query;
+    ev->target = ti_grab(query->target);
+
+    return events__req_event_id(ev, e);
+}
+
+static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)
         return;
     queue_destroy(events->queue, (queue_destroy_cb) ti_event_destroy);
     ti_archive_destroy(events->archive);
     uv_mutex_destroy(&events->lock);
+    free(events->evloop);
     free(events);
     events = ti()->events = NULL;
 }
 
-//int ti_events_init(void)
+
+static int events__req_event_id(ti_event_t * ev, ex_t * e)
+{
+    assert (queue_space(events->queue) > 0);
+
+    vec_t * vec_nodes = ti()->nodes->vec;
+    ti_prom_t * prom;
+    qpx_packer_t * packer;
+    ti_pkg_t * pkg;
+
+    prom = ti_prom_new(vec_nodes->n - 1, events__on_req_event_id, ev);
+    if (!prom)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    packer = qpx_packer_create(9, 0);
+    if (!packer)
+    {
+        ti_prom_destroy(prom);
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    (void) qp_add_int64(packer, ev->id);
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
+
+    ev->id = events->next_event_id;
+    ++events->next_event_id;
+
+    QUEUE_push(events->queue, ev);
+
+    for (vec_each(vec_nodes, ti_node_t, node))
+    {
+        if (node == ti()->node)
+            continue;
+
+        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
+                node->stream,
+                pkg,
+                TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT,
+                ti_prom_req_cb,
+                prom))
+            prom->sz--;
+    }
+
+    if (!prom->sz)
+        free(pkg);
+
+    ti_prom_go(prom);
+
+    return 0;
+}
+
+static int events__new_id(ti_event_t * ev, ex_t * e)
+{
+    (void *) queue_rmval(events->queue, ev);
+    return events__req_event_id(ev, e);
+}
+
+static void events__on_req_event_id(ti_prom_t * prom)
+{
+    assert (prom->n == prom->sz);
+
+    _Bool accepted = true;
+    ti_event_t * ev = prom->data;
+    ex_enum exnr = EX_SUCCESS;
+
+    for (size_t i = 0; i < prom->n; ++i)
+    {
+        ti_prom_res_t * res = &prom->res[i];
+        ti_req_t * req = res->via.req;
+
+        assert (res->tp == TI_PROM_VIA_REQ);
+
+        if (res->status)
+        {
+            ev->status = TI_EVENT_STAT_CACNCEL;
+            exnr = res->status;
+        }
+        else if (req->pkg_res->tp != TI_PROTO_NODE_RES_EVENT_ID)
+        {
+            accepted = false;
+        }
+
+        ti_req_destroy(req);
+    }
+
+    if (ev->status == TI_EVENT_STAT_CACNCEL)
+    {
+        ex_t * e = ex_use();
+        ex_set(e, EX_NODE_ERROR, ex_str(exnr));
+        ti_query_send(ev->via.query, e);
+        ti_event_cancel(ev);
+        return;
+    }
+
+    if (!accepted)
+    {
+        ex_t * e = ex_use();
+        if (events__new_id(ev, e))
+        {
+            ti_query_send(ev->via.query, e);
+            ti_event_cancel(ev);
+        }
+        return;
+    }
+
+}
 //{
-//    return uv_async_init(ti()->loop, &events->evloop_, ti__events_loop);
+//    ti_event_t * event = (ti_event_t *) prom->data;
+//    free(event->req_pkg);
+//    _Bool accept = true;
+//
+//    for (size_t i = 0; i < prom->n; i++)
+//    {
+//
+//        ti_prom_res_t * res = &prom->res[i];
+//        ti_req_t * req = (ti_req_t *) res->handle;
+//
+//        if (res->status)
+//        {
+//            event->status = TI_EVENT_STAT_CACNCEL;
+//        }
+//        else if (req->pkg_res->tp == TI_PROTO_REJECT)
+//        {
+//            accept = false;
+//        }
+//
+//        ti_req_destroy(req);
+//    }
+//
+//    free(prom);
+//
+//    if (event->status == TI_EVENT_STAT_CACNCEL)
+//    {
+//        // remove from queue if it is still in the queue.
+//        // event->status could be already set to reject in which case the
+//        // event is already removed from the queue
+//        ti__event_cancel(event);  /* terminates in case of failure */
+//        ti_events_trigger();
+//        return;
+//    }
+//
+//    if (!accept)
+//    {
+//        uint64_t old_id = event->id;
+//        (void *) ti_events_rm_event(event);
+//        event->id = ti_events_get_event_id();
+//        (void) ti_events_add_event(event);  /* queue has room */
+//        ti__event_upd(event, old_id);  /* terminates in case of failure */
+//        return;
+//    }
+//
+//    ti__event_ready(event);  /* terminates in case of failure */
 //}
+
+
 //
 //void ti_events_close(void)
 //{

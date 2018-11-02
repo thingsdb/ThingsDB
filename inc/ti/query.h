@@ -6,7 +6,7 @@
 
 enum
 {
-    TI_QUERY_FLAG_WILL_UPDATE=1<<0
+    TI_QUERY_FLAG_EVENT=1<<0
 };
 
 typedef struct ti_query_s ti_query_t;
@@ -37,11 +37,12 @@ struct ti_query_s
     cleri_parse_t * parseres;
     ti_stream_t * stream;
     vec_t * res_statements;     /* ti_res_t for each statement */
+    ti_event_t * event;         /* only when an event is required */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)
 {
-    return query->flags & TI_QUERY_FLAG_WILL_UPDATE;
+    return query->flags & TI_QUERY_FLAG_EVENT;
 }
 
 #endif /* TI_QUERY_H_ */

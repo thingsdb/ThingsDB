@@ -28,6 +28,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
     query->raw = ti_raw_new(pkg->data, pkg->n);
     query->stream = ti_grab(stream);
     query->res_statements = NULL;
+    query->event = NULL;
 
     if (!query->raw)
     {
@@ -275,8 +276,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
     for (child = nd->children; child; child = child->next)
     {
         if (    langdef_nd_is_update_function(child->node) ||
-                child->node == CLERI_GID_ASSIGNMENT)
-            query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
+                child->node->cl_obj->gid == CLERI_GID_ASSIGNMENT)
+            query->flags |= TI_QUERY_FLAG_EVENT;
 
         if (child->node->children)
             query__investigate_recursive(query, child->node);

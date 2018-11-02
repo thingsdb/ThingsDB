@@ -30,7 +30,11 @@ int ti_req_create(
     assert (timeout > 0);
     assert (pkg_req->id == 0);
 
-    pkg_req->id = stream->next_pkg_id++;
+    /* we use package id 0 for fire-and-forget writes */
+    pkg_req->id = ++stream->next_pkg_id
+            ? stream->next_pkg_id
+            : ++stream->next_pkg_id;
+
     req->stream = ti_grab(stream);
     req->pkg_req = pkg_req;
     req->pkg_res = NULL;
@@ -66,7 +70,6 @@ fail3:
     imap_pop(stream->reqmap, pkg_req->id);
 fail2:
     ti_stream_drop(stream);
-    stream->next_pkg_id--;
     free(req->timer);
 fail1:
     free(req);
@@ -95,6 +98,17 @@ void ti_req_cancel(ti_req_t * req)
         req->timer = NULL;
     }
     req->cb_(req, EX_REQUEST_CANCEL);
+}
+
+void ti_req_result(ti_req_t * req)
+{
+    if (!uv_is_closing((uv_handle_t *) req->timer))
+    {
+        uv_timer_stop(req->timer);
+        uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
+        req->timer = NULL;
+    }
+    req->cb_(req, EX_SUCCESS);
 }
 
 static void ti__req_timeout(uv_timer_t * handle)

@@ -49,7 +49,7 @@ int ti_clients_create(void)
 
     ti()->clients = clients;
 
-    return -(clients == NULL);
+    return 0;
 }
 
 void ti_clients_destroy(void)
@@ -345,6 +345,13 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_query_investigate(query, e))
         goto finish;
+
+    if (ti_query_will_update(query))
+    {
+        if (ti_events_create_new_event(query, e))
+            goto finish;
+        return;
+    }
 
     ti_query_run(query);
     return;

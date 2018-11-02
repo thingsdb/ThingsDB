@@ -247,6 +247,14 @@ if __name__ == '__main__':
             }
         }
     }
+
+    {
+        '$ev': 0,
+        '$id': 4,
+        'age': 5
+
+    }
+
     definition.test('  databases.create(dbtest);  ')
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')

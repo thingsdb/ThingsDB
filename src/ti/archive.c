@@ -31,16 +31,16 @@ void ti_archive_destroy(ti_archive_t * archive)
 
 int ti_archive_event(ti_archive_t * archive, ti_event_t * event)
 {
-    if (!archive->rawev->n)
-    {
-        archive->offset = event->id;
-    }
-    if (queue_push(&archive->rawev, (event->status == TI_EVENT_STAT_CACNCEL) ?
-            NULL : event->raw))
-    {
-        log_critical("failed to archive event id: %"PRIu64, event->id);
-        return -1;
-    }
-    event->raw = NULL;
+//    if (!archive->rawev->n)
+//    {
+//        archive->offset = event->id;
+//    }
+//    if (queue_push(&archive->rawev, (event->status == TI_EVENT_STAT_CACNCEL) ?
+//            NULL : event->raw))
+//    {
+//        log_critical("failed to archive event id: %"PRIu64, event->id);
+//        return -1;
+//    }
+//    event->raw = NULL;
     return 0;
 }

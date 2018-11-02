@@ -74,32 +74,37 @@ typedef enum
      */
 
     /*
-     * 128..159 UNUSED
+     * 128..159 Node fire and forgets
      */
+
+    TI_PROTO_NODE_EVENT_CANCEL  =158,   /* event id */
+    TI_PROTO_NODE_STATS         =159,   /* {key: value ...} */
 
     /*
      * 160..175 node requests mapping to client requests
      */
 
-    TI_PROTO_NODE_REQ_PING      =160,   /* empty */
-    TI_PROTO_NODE_REQ_AUTH      =161,   /* [node_id]     */
     TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, {query...}] */
 
     /*
      * 176..191 node only requests
      */
 
+    TI_PROTO_NODE_REQ_CONNECT   =176,   /* [node_id, status, version, ...] */
+    TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
+
     /*
      * 192..207 node responses mapping to client responses
      */
 
-    TI_PROTO_NODE_RES_PING      =192,   /* empty */
-    TI_PROTO_NODE_RES_AUTH      =193,   /* empty */
     TI_PROTO_NODE_RES_QUERY     =194,   /* [{}, {}, ...] */
 
     /*
      * 208..223 node only responses
      */
+
+    TI_PROTO_NODE_RES_CONNECT   =208,   /* [node_id, status] */
+    TI_PROTO_NODE_RES_EVENT_ID  =209,   /* empty, event id accepted */
 
     /*
      * 224..239 node errors mapping to client errors
@@ -125,12 +130,15 @@ typedef enum
     /*
      * 240..255 node only errors
      */
+    TI_PROTO_NODE_ERR_CONNECT       =240,
+    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* empty, event is is rejected */
 
-    TI_PROTO_NODE_ERR_REJECT        =240,
 
 } ti_proto_e;
 
 #define TI_PROTO_NODE_REQ_QUERY_TIMEOUT 120
+#define TI_PROTO_NODE_REQ_CONNECT_TIMEOUT 5
+#define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
 
 const char * ti_proto_str(ti_proto_e tp);
 

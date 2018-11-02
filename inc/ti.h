@@ -42,6 +42,7 @@ typedef struct ti_s ti_t;
 #include <ti/node.h>
 #include <ti/lookup.h>
 #include <ti/maint.h>
+#include <ti/connect.h>
 #include <util/logger.h>
 #include <util/vec.h>
 #include <util/smap.h>
@@ -79,6 +80,7 @@ struct ti_s
     ti_events_t * events;
     ti_nodes_t * nodes;
     ti_store_t * store;
+    ti_connect_t * connect_loop;
     vec_t * dbs;
     vec_t * users;
     vec_t * access;

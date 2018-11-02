@@ -30,6 +30,16 @@ ti_pkg_t * ti_pkg_new(
     return pkg;
 }
 
+ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg)
+{
+    size_t sz = sizeof(ti_pkg_t) + pkg->n;
+    ti_pkg_t * dup = malloc(sz);
+    if (!dup)
+        return NULL;
+    memcpy(dup, pkg, sz);
+    return dup;
+}
+
 ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
 {
     uint8_t tp;

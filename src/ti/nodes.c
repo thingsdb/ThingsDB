@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <ti/nodes.h>
+#include <ti/proto.h>
 #include <ti.h>
 
 #define NODES__UV_BACKLOG 64
@@ -11,7 +12,9 @@
 static ti_nodes_t * nodes;
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
-static void nodes__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_stats(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
 {
@@ -38,17 +41,21 @@ void ti_nodes_destroy(void)
     nodes = ti()->nodes = NULL;
 }
 
+size_t ti_nodes_quorum(void)
+{
+    return (nodes->vec->n + 1) / 2;
+}
+
 _Bool ti_nodes_has_quorum(void)
 {
-    size_t quorum = (nodes->vec->n + 1) / 2;
+    size_t quorum = ti_nodes_quorum();
     size_t q = 0;
 
     for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum) return 1;
-    }
+        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
+            return true;
 
-    return 0;
+    return false;
 }
 
 int ti_nodes_to_packer(qp_packer_t ** packer)
@@ -84,7 +91,6 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
     }
     return 0;
 }
-
 
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)
 {
@@ -156,7 +162,10 @@ int ti_nodes_listen(void)
         return -1;
     }
 
-    log_info("start listening for node connections on TCP port %d", cfg->node_port);
+    log_info("start listening for node connections on TCP port %d",
+            cfg->node_port);
+
+    ti()->node->status = TI_NODE_STAT_READY;
 
     return 0;
 }
@@ -180,6 +189,38 @@ ti_node_t * ti_nodes_random_ready_node(void)
     return online_nodes[rand() % n];
 }
 
+void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    switch (pkg->tp)
+    {
+    case TI_PROTO_NODE_STATS:
+        nodes__on_stats(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_QUERY:
+        nodes__on_req_query(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_CONNECT:
+        nodes__on_req_connect(stream, pkg);
+        break;
+    case TI_PROTO_NODE_RES_QUERY:
+    case TI_PROTO_NODE_RES_CONNECT:
+    case TI_PROTO_NODE_ERR_MAX_QUOTA:
+    case TI_PROTO_NODE_ERR_AUTH:
+    case TI_PROTO_NODE_ERR_FORBIDDEN:
+    case TI_PROTO_NODE_ERR_INDEX:
+    case TI_PROTO_NODE_ERR_BAD_REQUEST:
+    case TI_PROTO_NODE_ERR_QUERY:
+    case TI_PROTO_NODE_ERR_NODE:
+    case TI_PROTO_NODE_ERR_INTERNAL:
+        ti_stream_on_response(stream, pkg);
+        break;
+    default:
+        log_error(
+                "got an unexpected package type %u from `%s`",
+                pkg->tp,
+                ti_stream_name(stream));
+    }
+}
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
@@ -193,7 +234,7 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP node connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &nodes__pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &ti_nodes_pkg_cb);
 
     if (!stream)
         return;
@@ -209,16 +250,17 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void nodes__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_stats(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    switch (pkg->id)
-    {
-    case 1:
-        LOGC("1...");
-        break;
-    default:
-        LOGC("def...%s", ti_stream_name(stream));
 
+}
 
-    }
+static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+
+}
+
+static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+
 }

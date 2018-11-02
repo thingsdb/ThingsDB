@@ -6,12 +6,9 @@
 
 enum
 {
-    TI_STREAM_FLAG_AUTH     =1<<0,
-    TI_STREAM_FLAG_CLOSED   =1<<1,
+    TI_STREAM_FLAG_CLOSED   =1<<0,
 };
 
-#define TI_STREAM_FLAG_OPEN 1
-#define TI_STREAM_FLAG_AUTH 2
 
 typedef enum
 {
@@ -39,6 +36,7 @@ void ti_stream_close(ti_stream_t * sock);
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf);
 const char * ti_stream_name(ti_stream_t * stream);
+void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
 
 union ti_stream_u
 {

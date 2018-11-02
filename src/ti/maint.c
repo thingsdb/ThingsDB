@@ -129,15 +129,15 @@ static int ti__maint_reg(ti_maint_t * maint)
     for (vec_each(thingsdb->nodes->vec, ti_node_t, node))
     {
         if (node == thingsdb->node) continue;
-        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
-                node,
-                pkg,
-                ti__maint_reg_timeout,
-                prom,
-                ti_prom_req_cb))
-        {
-            prom->sz--;
-        }
+//        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
+//                node->stream,
+//                pkg,
+//                ti__maint_reg_timeout,
+//                prom,
+//                ti_prom_req_cb))
+//        {
+//            prom->sz--;
+//        }
     }
 
     free(prom->sz ? NULL : pkg);

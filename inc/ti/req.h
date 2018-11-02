@@ -21,6 +21,7 @@ int ti_req_create(
         void * data);
 void ti_req_destroy(ti_req_t * req);
 void ti_req_cancel(ti_req_t * req);
+void ti_req_result(ti_req_t * req);
 
 struct ti_req_s
 {

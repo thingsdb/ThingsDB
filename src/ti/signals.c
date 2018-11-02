@@ -4,6 +4,8 @@
 #include <uv.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <ti/connect.h>
+#include <ti/events.h>
 #include <ti/signals.h>
 #include <ti.h>
 #include <util/logger.h>
@@ -49,18 +51,17 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         log_error("received second signal (%s), abort", strsignal(signum));
         abort();
     }
+
     ti()->flags |= TI_FLAG_SIGNAL;
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
-    {
         log_warning("received stop signal (%s)", strsignal(signum));
-    }
     else
-    {
         log_critical("received stop signal (%s)", strsignal(signum));
-    }
 
     ti_maint_stop(ti()->maint);
+    ti_connect_stop();
+    ti_events_stop();
 
     uv_stop(ti()->loop);
 }

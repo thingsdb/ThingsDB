@@ -18,68 +18,68 @@
 #include <util/qpx.h>
 #include <util/queue.h>
 
-//const int ti__event_reg_timeout = 10;
-//const int ti__event_upd_timeout = 10;
-//const int ti__event_ready_timeout = 30;
-//const int ti__event_cancel_timeout = 5;
 
-//static int ti__event_to_queue(ti_event_t * event);
-//static int ti__event_reg(ti_event_t * event);
-//static int ti__event_upd(ti_event_t * event, uint64_t prev_id);
-//static void ti__event_on_reg_cb(ti_prom_t * prom);
-//static int ti__event_ready(ti_event_t * event);
-//static void ti__event_on_ready_cb(ti_prom_t * prom);
-//static int ti__event_cancel(ti_event_t * event);
-//static void ti__event_on_cancel_cb(ti_prom_t * prom);
-////inline static int ti__event_cmp(ti_event_t * a, ti_event_t * b);
-//static void ti__event_unpack(
-//        ti_event_t * event,
-//        qp_unpacker_t * unpacker,
-//        ex_t * e);
-
-ti_event_t * ti_event_create(void)
+ti_event_t * ti_event_create(ti_event_tp_enum tp)
 {
-    ti_event_t * event = malloc(sizeof(ti_event_t));
-    if (!event)
+    ti_event_t * ev = malloc(sizeof(ti_event_t));
+    if (!ev)
         return NULL;
-    event->target = NULL;
-    event->node = NULL;
-    event->raw = NULL;
-    event->client = NULL;
-    event->refthings = NULL;
-    event->tasks = vec_new(1);
-    event->result = qpx_packer_create(16, 4);
-    event->status = TI_EVENT_STAT_UNINITIALIZED;
-    event->nodes = NULL;
-    event->prom = NULL;
 
-    if (!event->tasks)
-    {
-        ti_event_destroy(event);
-        return NULL;
-    }
+    ev->status = TI_EVENT_STAT_NEW;
+    ev->target = NULL;
+    ev->tp = tp;
 
-    return event;
+    return ev;
 }
 
-void ti_event_destroy(ti_event_t * event)
+void ti_event_destroy(ti_event_t * ev)
 {
-    if (!event)
+    if (!ev)
         return;
 
-    /* the event might be in the queue */
-//    (void *) ti_events_rm_event(event);
+    ti_db_drop(ev->target);
 
-    ti_db_drop(event->target);
-    ti_node_drop(event->node);
-    ti_stream_drop(event->client);
-    imap_destroy(event->refthings, NULL);
-//    vec_destroy(event->tasks, (vec_destroy_cb) ti_task_destroy);
-    vec_destroy(event->nodes, (vec_destroy_cb) ti_node_drop);
-    qpx_packer_destroy(event->result);
-    free(event->prom);
-    free(event->raw);
-    free(event);
+    if (ev->tp == TI_EVENT_TP_SLAVE)
+        ti_drop_node(ev->via.node);
+
+    free(ev);
+}
+
+void ti_event_cancel(ti_event_t * ev)
+{
+    ti_pkg_t * pkg;
+    vec_t * vec_nodes = ti()->nodes->vec;
+    qpx_packer_t * packer = qp_packer_create(9, 0);
+    if (!packer)
+    {
+        log_error(EX_ALLOC_S);
+        return;
+    }
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT_CANCEL);
+
+    for (vec_each(vec_nodes, ti_node_t, node))
+    {
+        ti_pkg_t * dup;
+
+        if (node == ti()->node || node->status <= TI_NODE_STAT_CONNECTING)
+            continue;
+
+        dup = ti_pkg_dup(pkg);
+        if (!dup)
+        {
+            log_error(EX_ALLOC_S);
+            continue;
+        }
+
+        if (ti_node_write(node, dup))
+        {
+            log_error(EX_INTERNAL_S);
+            free(dup);
+        }
+    }
+
+    free(pkg);
 }
 
 //void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)

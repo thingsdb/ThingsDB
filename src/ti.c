@@ -57,6 +57,7 @@ int ti_create(void)
             ti_users_create() ||
             ti_dbs_create() ||
             ti_events_create() ||
+            ti_connect_create() ||
             !ti_.access ||
             !ti_.maint ||
             !ti_.langdef)
@@ -72,12 +73,17 @@ void ti_destroy(void)
 {
     free(ti_.fn);
     free(ti_.maint);
+
+    /* usually the signal handler will make the stop calls,
+     * but not if ti_run() is never called */
+    ti_events_stop();
+    ti_connect_stop();
+
     ti_lookup_destroy(ti_.lookup);
     ti_args_destroy();
     ti_cfg_destroy();
     ti_clients_destroy();
     ti_nodes_destroy();
-    ti_events_destroy();
     ti_dbs_destroy();
     ti_users_destroy();
     ti_names_destroy();
@@ -238,6 +244,12 @@ int ti_run(void)
     if (ti_nodes_listen())
         goto failed;
 
+    if (ti_connect_start())
+        goto failed;
+
+    if (ti_events_start())
+        goto failed;
+
     rc = uv_run(ti_.loop, UV_RUN_DEFAULT);
     goto finish;
 
@@ -284,7 +296,7 @@ int ti_lock(void)
         log_error("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
         return -1;
     case LOCK_NEW:
-        log_info("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
+        log_debug("%s (%s)", lock_str(rc), ti_.cfg->storage_path);
         break;
     case LOCK_OVERWRITE:
         log_warning("%s (%s)", lock_str(rc), ti_.cfg->storage_path);

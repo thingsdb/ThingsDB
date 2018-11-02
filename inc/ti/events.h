@@ -16,12 +16,8 @@ typedef struct ti_events_s ti_events_t;
 int ti_events_create(void);
 int ti_events_start(void);
 void ti_events_stop(void);
-int ti_events_create_new_event(ti_query_t * query, ex_t * e);
-int ti_events_init(void);
-void ti_events_close(void);
-ti_event_t * ti_events_rm_event(ti_event_t * event);
 int ti_events_trigger(void);
-int ti_events_add_event(ti_event_t * event);
+int ti_events_create_new_event(ti_query_t * query, ex_t * e);
 
 /*
  * Changes to commit_id, archive require the lock.

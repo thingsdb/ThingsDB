@@ -16,7 +16,11 @@
 
 static ti_events_t * events;
 
-static void ti__events_loop(uv_async_t * handle);
+static void events__destroy(uv_handle_t * UNUSED(handle));
+static void events__new_id(ti_event_t * ev);
+static int events__req_event_id(ti_event_t * ev, ex_t * e);
+static void events__on_req_event_id(ti_prom_t * prom);
+static void events__loop(uv_async_t * handle);
 
 int ti_events_create(void)
 {
@@ -30,6 +34,7 @@ int ti_events_create(void)
         goto failed;
     }
 
+    events->is_started = false;
     events->queue = queue_new(4);
     events->archive = ti_archive_create();
     events->evloop = malloc(sizeof(uv_async_t));
@@ -40,16 +45,21 @@ int ti_events_create(void)
     return 0;
 
 failed:
-    ti_events_destroy();
+    ti_events_stop();
     return -1;
 }
 
 int ti_events_start(void)
 {
-    if (uv_async_init(ti()->loop, events->evloop, ti__events_loop))
+    if (uv_async_init(ti()->loop, events->evloop, events__loop))
         return -1;
     events->is_started = true;
     return 0;
+}
+
+int ti_events_trigger(void)
+{
+    return uv_async_send(events->evloop);
 }
 
 void ti_events_stop(void)
@@ -96,6 +106,43 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
     return events__req_event_id(ev, e);
 }
 
+_Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
+{
+    ti_event_t * ev;
+    ti_node_t * prev_node;
+
+    if (event_id == events->next_event_id)
+        return true;
+
+    if (event_id > events->next_event_id)
+    {
+        log_debug(
+                "next expected event id is `%"PRIu64"` but received "
+                "id `%"PRIu64"`", events->next_event_id, event_id);
+        return true;
+    }
+
+    ev = queue_last(events->queue);
+
+    if (ev->id != event_id)
+        return false;
+
+    prev_node = ev->tp == TI_EVENT_TP_MASTER ? ti()->node : ev->via.node;
+
+    if (ti_node_winner(node, prev_node, event_id) == prev_node)
+        return false;
+
+    if (ev->tp == TI_EVENT_TP_MASTER)
+        events__new_id(ev);
+    else
+    {
+        (void *) queue_pop(events->queue);
+        ti_event_destroy(ev);
+    }
+
+    return true;
+}
+
 static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)
@@ -108,6 +155,22 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     events = ti()->events = NULL;
 }
 
+static void events__new_id(ti_event_t * ev)
+{
+    ex_t * e = ex_use();
+
+    /* we probably get here twice, when the request is not accepted and when
+     * we receive "the" another conflicting event id
+     */
+    if (!queue_rmval(events->queue, ev))
+        return;
+
+    if (events__req_event_id(ev, e))
+    {
+        ti_query_send(ev->via.query, e);
+        ti_event_cancel(ev);
+    }
+}
 
 static int events__req_event_id(ti_event_t * ev, ex_t * e)
 {
@@ -164,11 +227,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     return 0;
 }
 
-static int events__new_id(ti_event_t * ev, ex_t * e)
-{
-    (void *) queue_rmval(events->queue, ev);
-    return events__req_event_id(ev, e);
-}
+
 
 static void events__on_req_event_id(ti_prom_t * prom)
 {
@@ -209,16 +268,51 @@ static void events__on_req_event_id(ti_prom_t * prom)
 
     if (!accepted)
     {
-        ex_t * e = ex_use();
-        if (events__new_id(ev, e))
-        {
-            ti_query_send(ev->via.query, e);
-            ti_event_cancel(ev);
-        }
+        events__new_id(ev);
         return;
     }
-
 }
+
+static void events__loop(uv_async_t * handle)
+{
+    ti_event_t * ev;
+
+    if (uv_mutex_trylock(&events->lock))
+        return;
+
+    while ((ev = queue_last(events->queue)) &&
+            ev->id == (events->commit_event_id + 1) &&
+            ev->status > TI_EVENT_STAT_NEW)
+    {
+        if (ev->status == TI_EVENT_STAT_PREPARE)
+        {
+            ti_query_run(ev->via.query);
+            goto stop;
+        }
+
+        (void *) queue_pop(events->queue);
+
+        if (ev->status == TI_EVENT_STAT_CACNCEL)
+            ti_event_destroy(ev);
+        else
+        {
+            /* TODO: run event tasks */
+        }
+//
+//        if (ti_event_run(event) < 0 ||
+//            ti_archive_event(events->archive, event))
+//        {
+//            ti_event_destroy(event);
+//            continue;
+//        }
+
+        events->commit_event_id = ev->id;
+    }
+
+stop:
+    uv_mutex_unlock(&events->lock);
+}
+
 //{
 //    ti_event_t * event = (ti_event_t *) prom->data;
 //    free(event->req_pkg);

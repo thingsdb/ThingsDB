@@ -11,12 +11,13 @@ enum
 
 typedef struct ti_query_s ti_query_t;
 
-#include <ti/raw.h>
-#include <ti/db.h>
-#include <ti/ex.h>
-#include <ti/stream.h>
-#include <ti/pkg.h>
 #include <cleri/cleri.h>
+#include <ti/db.h>
+#include <ti/event.h>
+#include <ti/ex.h>
+#include <ti/pkg.h>
+#include <ti/raw.h>
+#include <ti/stream.h>
 
 ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg);
 void ti_query_destroy(ti_query_t * query);

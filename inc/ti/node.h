@@ -43,6 +43,7 @@ const char * ti_node_name(ti_node_t * node);
 int ti_node_connect(ti_node_t * node);
 int ti_node_write_stats(ti_node_t * node);
 int ti_node_write(ti_node_t * node, ti_pkg_t * pkg);
+ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 static inline _Bool ti_node_manages_id(
         ti_node_t * node,
         ti_lookup_t * lookup,

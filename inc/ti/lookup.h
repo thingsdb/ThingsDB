@@ -1,5 +1,5 @@
 /*
- * lookup.h
+ * ti/lookup.h
  */
 #ifndef TI_LOOKUP_H_
 #define TI_LOOKUP_H_
@@ -14,21 +14,17 @@ struct ti_lookup_s
     uint8_t n_;         /* equal to nodes->n */
     uint8_t r_;         /* equal to min(n, redundancy) */
     vec_t * nodes_;     /* length is equal to r_ * n */
+    uint8_t * cache_;
+    uint8_t * tmp_;
+    uint64_t factorial_;
     uint64_t mask_[];
 };
 
 #include <ti/node.h>
 
-ti_lookup_t * ti_lookup_create(
-        uint8_t n,
-        uint8_t redundancy,
-        const vec_t * nodes);
-void ti_lookup_destroy(ti_lookup_t * lookup);
-_Bool ti_lookup_node_has_id(
-        ti_lookup_t * lookup,
-        ti_node_t * node,
-        uint64_t id);
-
-
+int ti_lookup_create(uint8_t redundancy, const vec_t * vec_nodes);
+void ti_lookup_destroy(void);
+_Bool ti_lookup_node_has_id(ti_node_t * node, uint64_t id);
+_Bool ti_lookup_node_is_ordered(uint8_t a, uint8_t b, uint64_t u);
 
 #endif /* TI_LOOKUP_H_ */

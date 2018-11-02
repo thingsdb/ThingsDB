@@ -2,19 +2,22 @@
  * event.c
  */
 #include <assert.h>
-#include <ti/dbs.h>
-#include <stdbool.h>
-#include <ti/nodes.h>
-#include <stdlib.h>
 #include <qpack.h>
-#include <ti/db.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <ti.h>
 #include <ti/access.h>
+#include <ti/db.h>
+#include <ti/dbs.h>
 #include <ti/event.h>
 #include <ti/ex.h>
+#include <ti/nodes.h>
 #include <ti/proto.h>
 #include <ti/req.h>
+#include <ti/node.h>
 #include <ti/task.h>
 #include <util/link.h>
+#include <util/logger.h>
 #include <util/qpx.h>
 #include <util/queue.h>
 
@@ -40,7 +43,7 @@ void ti_event_destroy(ti_event_t * ev)
     ti_db_drop(ev->target);
 
     if (ev->tp == TI_EVENT_TP_SLAVE)
-        ti_drop_node(ev->via.node);
+        ti_node_drop(ev->via.node);
 
     free(ev);
 }
@@ -49,12 +52,14 @@ void ti_event_cancel(ti_event_t * ev)
 {
     ti_pkg_t * pkg;
     vec_t * vec_nodes = ti()->nodes->vec;
-    qpx_packer_t * packer = qp_packer_create(9, 0);
+    qpx_packer_t * packer = qpx_packer_create(9, 0);
     if (!packer)
     {
         log_error(EX_ALLOC_S);
         return;
     }
+
+    (void) qp_add_int64(packer, ev->id);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT_CANCEL);
 
@@ -78,9 +83,10 @@ void ti_event_cancel(ti_event_t * ev)
             free(dup);
         }
     }
-
     free(pkg);
 }
+
+
 
 //void ti_event_new(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e)
 //{

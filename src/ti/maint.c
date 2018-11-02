@@ -161,7 +161,7 @@ static void ti__maint_on_reg_cb(ti_prom_t * prom)
     for (size_t i = 0; i < prom->n; i++)
     {
         ti_prom_res_t * res = &prom->res[i];
-        ti_req_t * req = (ti_req_t *) res->handle;
+        ti_req_t * req = (ti_req_t *) res->via.req;
         free(i ? NULL : req->pkg_req);
         if (res->status || req->pkg_res->tp == 0)  /* TODO: TI_PROTO_REJECT */
         {

@@ -79,7 +79,7 @@ void ti_destroy(void)
     ti_events_stop();
     ti_connect_stop();
 
-    ti_lookup_destroy(ti_.lookup);
+    ti_lookup_destroy();
     ti_args_destroy();
     ti_cfg_destroy();
     ti_clients_destroy();
@@ -212,11 +212,8 @@ int ti_read(void)
         log_critical("unpacking has failed (%s)", ti_.fn);
         goto stop;
     }
-    ti_.lookup = ti_lookup_create(
-            ti_.nodes->vec->n,
-            ti_.redundancy,
-            ti_.nodes->vec);
-    if (!ti_.lookup)
+
+    if (ti_lookup_create(ti_.redundancy, ti_.nodes->vec))
         return -1;
 
 stop:

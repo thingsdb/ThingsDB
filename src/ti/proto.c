@@ -25,15 +25,18 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_CLIENT_ERR_NODE:          return "CLIENT_ERR_NODE";
     case TI_PROTO_CLIENT_ERR_INTERNAL:      return "CLIENT_ERR_INTERNAL";
 
+    case TI_PROTO_NODE_EVENT_CANCEL:        return "NODE_EVENT_CANCEL";
     case TI_PROTO_NODE_STATS:               return "NODE_STATS";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
 
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
+    case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
 
     case TI_PROTO_NODE_RES_QUERY:           return "NODE_RES_QUERY";
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
+    case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
 
     case TI_PROTO_NODE_ERR_MAX_QUOTA:       return "NODE_ERR_MAX_QUOTA";
     case TI_PROTO_NODE_ERR_AUTH:            return "NODE_ERR_AUTH";
@@ -45,6 +48,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_ERR_INTERNAL:        return "NODE_ERR_INTERNAL";
 
     case TI_PROTO_NODE_ERR_CONNECT:         return "NODE_ERR_CONNECT";
+    case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";
 
     }
     log_error("asking a string for an unexpected protocol type: `%d`", tp);

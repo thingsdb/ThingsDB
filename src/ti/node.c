@@ -2,17 +2,18 @@
  * node.c
  */
 #include <assert.h>
-#include <string.h>
 #include <stdlib.h>
-#include <ti/node.h>
+#include <string.h>
 #include <ti.h>
+#include <ti/lookup.h>
+#include <ti/node.h>
 #include <ti/nodes.h>
-#include <ti/req.h>
 #include <ti/proto.h>
+#include <ti/req.h>
+#include <ti/version.h>
 #include <ti/write.h>
 #include <util/logger.h>
 #include <util/qpx.h>
-#include <ti/version.h>
 
 static void node__write_cb(ti_write_t * req, ex_enum status);
 static void node__on_connect(uv_connect_t * req, int status);
@@ -117,6 +118,14 @@ int ti_node_write_stats(ti_node_t * node)
 int ti_node_write(ti_node_t * node, ti_pkg_t * pkg)
 {
     return ti_write(node->stream, pkg, NULL, node__write_cb);
+}
+
+ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u)
+{
+    ti_node_t * min = node_a->id < node_b->id ? node_a : node_b;
+    ti_node_t * max = node_a->id > node_b->id ? node_a : node_b;
+
+    return ti_lookup_node_is_ordered(min->id, max->id, u) ? min : max;
 }
 
 static void node__write_cb(ti_write_t * req, ex_enum status)

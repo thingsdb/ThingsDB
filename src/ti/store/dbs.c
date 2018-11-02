@@ -16,10 +16,12 @@ static const int ti__dbs_fn_schema = 0;
 int ti_store_dbs_store(const char * fn)
 {
     int rc = -1;
-    qp_packer_t * packer = qp_packer_create(1024);
-    if (!packer) return -1;
+    qp_packer_t * packer = qp_packer_create2(1024, 4);
+    if (!packer)
+        return -1;
 
-    if (qp_add_map(&packer)) goto stop;
+    if (qp_add_map(&packer))
+        goto stop;
 
     /* schema */
     if (qp_add_raw_from_str(packer, "schema") ||
@@ -30,19 +32,30 @@ int ti_store_dbs_store(const char * fn)
 
     for (vec_each(ti()->dbs, ti_db_t, db))
     {
-        if (qp_add_array(&packer) ||
-            qp_add_raw(packer,
-                    (const unsigned char *) db->guid.guid, sizeof(guid_t)) ||
-            qp_add_raw(packer, db->name->data, db->name->n) ||
-            qp_close_array(packer)) goto stop;
+        if (    qp_add_array(&packer) ||
+                qp_add_raw(
+                        packer,
+                        (const unsigned char *) db->guid.guid,
+                        sizeof(guid_t)) ||
+                qp_add_raw(packer, db->name->data, db->name->n) ||
+                qp_add_array(&packer) ||
+                qp_add_int64(packer, db->quota->max_things) ||
+                qp_add_int64(packer, db->quota->max_props) ||
+                qp_add_int64(packer, db->quota->max_array_size) ||
+                qp_add_int64(packer, db->quota->max_raw_size) ||
+                qp_close_array(packer) ||
+                qp_close_array(packer))
+            goto stop;
     }
 
-    if (qp_close_array(packer) || qp_close_map(packer)) goto stop;
+    if (qp_close_array(packer) || qp_close_map(packer))
+        goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
 
 stop:
-    if (rc) log_error("failed to write file: `%s`", fn);
+    if (rc)
+        log_error("failed to write file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -81,16 +94,29 @@ int ti_store_dbs_restore(const char * fn)
         guid_t guid;
         ti_db_t * db;
         qp_res_t * qdb = qdbs->via.array->values + i;
-        qp_res_t * qguid, * qname;
+        qp_res_t
+            * qguid, * qname, * q_quota,
+            * qq_things, * qq_props, * qq_arrsz, * qq_rawsz;
         char * name;
         size_t n;
         if (    qdb->tp != QP_RES_ARRAY ||
-                qdb->via.array->n != 2 ||
+                qdb->via.array->n != 3 ||
                 !(qguid = qdb->via.array->values) ||
                 !(qname = qdb->via.array->values + 1) ||
+                !(q_quota = qdb->via.array->values + 2) ||
                 qguid->tp != QP_RES_RAW ||
                 qguid->via.raw->n != sizeof(guid_t) ||
-                qname->tp != QP_RES_RAW)
+                qname->tp != QP_RES_RAW ||
+                q_quota->tp != QP_RES_ARRAY ||
+                q_quota->via.array->n != 4 ||
+                !(qq_things = q_quota->via.array->values) ||
+                !(qq_props = q_quota->via.array->values + 1) ||
+                !(qq_arrsz = q_quota->via.array->values + 2) ||
+                !(qq_rawsz = q_quota->via.array->values + 3) ||
+                qq_things->tp != QP_RES_INT64 ||
+                qq_props->tp != QP_RES_INT64 ||
+                qq_arrsz->tp != QP_RES_INT64 ||
+                qq_rawsz->tp != QP_RES_INT64)
             goto stop;
 
         /* copy and check guid, must be null terminated */
@@ -104,6 +130,11 @@ int ti_store_dbs_restore(const char * fn)
         db = ti_db_create(&guid, name, n);
         if (!db || vec_push(&ti()->dbs, db))
             goto stop;
+
+        db->quota->max_things = qq_things->via.int64;
+        db->quota->max_props = qq_props->via.int64;
+        db->quota->max_array_size = qq_arrsz->via.int64;
+        db->quota->max_raw_size = qq_rawsz->via.int64;
     }
 
     rc = 0;

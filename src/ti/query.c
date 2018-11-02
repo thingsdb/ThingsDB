@@ -274,7 +274,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 
     for (child = nd->children; child; child = child->next)
     {
-        if (langdef_nd_is_update_function(child->node))
+        if (    langdef_nd_is_update_function(child->node) ||
+                child->node == CLERI_GID_ASSIGNMENT)
             query->flags |= TI_QUERY_FLAG_WILL_UPDATE;
 
         if (child->node->children)

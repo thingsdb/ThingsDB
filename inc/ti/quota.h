@@ -1,8 +1,8 @@
 /*
  * quota.h
  */
-#ifndef TI_LIMITS_H_
-#define TI_LIMITS_H_
+#ifndef TI_QUOTA_H_
+#define TI_QUOTA_H_
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -27,4 +27,4 @@ inline static void ti_quota_destroy(ti_quota_t * quota)
     free(quota);
 }
 
-#endif  /* TI_LIMITS_H_ */
+#endif  /* TI_QUOTA_H_ */

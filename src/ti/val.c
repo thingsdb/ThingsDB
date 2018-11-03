@@ -46,7 +46,9 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch(tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        val->via.val = v;
+        break;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
         break;
@@ -95,7 +97,15 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch(tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        val->via.val = malloc(sizeof(ti_val_t));
+        if (    !val->via.val ||
+                ti_val_copy(val->via.val, ((ti_val_t *) v)->via.val))
+        {
+            val->tp = TI_VAL_UNDEFINED;
+            return -1;
+        }
+        break;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
         break;
@@ -124,7 +134,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
         val->via.raw = ti_raw_dup((ti_raw_t *) v);
         if (!val->via.raw)
         {
-            val->tp = TI_VAL_NIL;
+            val->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         break;
@@ -132,7 +142,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
         val->via.primitives = vec_dup((vec_t *) v);
         if (!val->via.primitives)
         {
-            val->tp = TI_VAL_NIL;
+            val->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         break;
@@ -143,7 +153,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
         val->via.things = vec_dup((vec_t *) v);
         if (!val->via.things)
         {
-            val->tp = TI_VAL_NIL;
+            val->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         for (vec_each(val->via.things, ti_thing_t, thing))
@@ -164,9 +174,17 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
     to->flags = from->flags;
-    switch(to->tp)
+    switch(from->tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        to->via.val = malloc(sizeof(ti_val_t));
+        if (    !to->via.val ||
+                ti_val_copy(to->via.val, ((ti_val_t *) from)->via.val))
+        {
+            to->tp = TI_VAL_UNDEFINED;
+            return -1;
+        }
+        break;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -178,7 +196,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
         to->via.raw = ti_raw_dup(from->via.raw);
         if (!to->via.raw)
         {
-            to->tp = TI_VAL_NIL;
+            to->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         break;
@@ -186,7 +204,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
         to->via.primitives = vec_dup(from->via.primitives);
         if (!to->via.primitives)
         {
-            to->tp = TI_VAL_NIL;
+            to->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         break;
@@ -197,12 +215,41 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
         to->via.things = vec_dup(from->via.things);
         if (!to->via.things)
         {
-            to->tp = TI_VAL_NIL;
+            to->tp = TI_VAL_UNDEFINED;
             return -1;
         }
         for (vec_each(to->via.things, ti_thing_t, thing))
             ti_incref(thing);
         break;
+    }
+    return 0;
+}
+
+int ti_val_gen_ids(ti_val_t * val)
+{
+    switch (val->tp)
+    {
+    case TI_VAL_THING:
+        /* no new things can be assigned 'under' an existing thing, so break */
+        if (val->via.thing->id)
+        {
+            ti_thing_unmark_new(val->via.thing);
+            break;
+        }
+        if (ti_thing_gen_id(val->via.thing))
+            return -1;
+        break;
+    case TI_VAL_THINGS:
+        for (vec_each(val->via.things, ti_thing_t, thing))
+        {
+            if (val->via.thing->id)
+            {
+                ti_thing_unmark_new(val->via.thing);
+                continue;
+            }
+            if (ti_thing_gen_id(val->via.thing))
+                return -1;
+        }
     }
     return 0;
 }
@@ -214,7 +261,9 @@ void ti_val_clear(ti_val_t * val)
 {
     switch(val->tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        ti_val_destroy(val->via.val);
+        break;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -238,11 +287,12 @@ void ti_val_clear(ti_val_t * val)
     val->tp = TI_VAL_UNDEFINED;
 }
 
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer)
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
 {
     switch (val->tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        return ti_val_to_packer(val->via.val, packer, pack);
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -262,19 +312,31 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer)
             return -1;
         for (vec_each(val->via.primitives, ti_val_t, v))
         {
-            if (ti_val_to_packer(v, packer))
+            if (ti_val_to_packer(v, packer, pack))
                 return -1;
         }
         return qp_close_array(*packer);
     case TI_VAL_THING:
-        return val->flags & TI_VAL_FLAG_FETCH
-                ? ti_thing_to_packer(val->via.thing, packer)
-                : ti_thing_id_to_packer(val->via.thing, packer);
+        return pack == TI_VAL_PACK_NEW
+                ? (val->via.thing->flags & TI_THING_FLAG_NEW
+                    ? ti_thing_to_packer(val->via.thing, packer, pack)
+                    : ti_thing_id_to_packer(val->via.thing, packer))
+                : (val->flags & TI_VAL_FLAG_FETCH
+                    ? ti_thing_to_packer(val->via.thing, packer, pack)
+                    : ti_thing_id_to_packer(val->via.thing, packer));
     case TI_VAL_THINGS:
         if (qp_add_array(packer))
             return -1;
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
+            if (    pack == TI_VAL_PACK_NEW &&
+                    (val->via.thing->flags & TI_THING_FLAG_NEW))
+            {
+                if (ti_thing_to_packer(val->via.thing, packer, pack))
+                    return -1;
+                continue;
+            }
+
             if (ti_thing_id_to_packer(thing, packer))
                 return -1;
         }
@@ -291,7 +353,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch (val->tp)
     {
-    case TI_VAL_UNKNOWN:
+    case TI_VAL_VAL:
+        return ti_val_to_file(val->via.val, f);
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -335,7 +398,7 @@ const char * ti_val_to_str(ti_val_t * val)
 {
     switch (val->tp)
     {
-    case TI_VAL_UNKNOWN:            return "unknown";
+    case TI_VAL_VAL:                return ti_val_to_str(val->via.val);
     case TI_VAL_UNDEFINED:          return "undefined";
     case TI_VAL_NIL:                return "nil";
     case TI_VAL_INT:                return "int";

@@ -79,6 +79,16 @@ ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
     return pkg;
 }
 
+unsigned char * qpx_get_and_destroy(qpx_packer_t * packer)
+{
+    unsigned char * tmp = realloc(packer->buffer, packer->len);
+    if (!tmp)
+        return NULL;
+    packer->buffer = NULL;
+    qp_packer_destroy(packer);
+    return tmp;
+}
+
 void qpx_unpacker_init(
         qp_unpacker_t * unpacker,
         const unsigned char * pt,

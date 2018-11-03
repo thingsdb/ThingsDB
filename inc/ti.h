@@ -23,9 +23,12 @@
  * excluding terminating null byte" */
 #define TI_MAX_HOSTNAME_SZ 256
 
-#define TI_FLAG_SIGNAL 1
-#define TI_FLAG_INDEXING 2
-#define TI_FLAG_LOCKED 4
+enum
+{
+    TI_FLAG_SIGNAL      =1<<0,
+    TI_FLAG_INDEXING    =1<<1,
+    TI_FLAG_LOCKED      =1<<2,
+};
 
 typedef struct ti_s ti_t;
 
@@ -65,9 +68,9 @@ int ti_run(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
-uint64_t ti_next_thing_id(void);
 static inline ti_t * ti(void);
 static inline _Bool ti_manages_id(uint64_t id);
+static inline uint64_t ti_next_thing_id(void);
 
 struct ti_s
 {
@@ -103,6 +106,11 @@ static inline ti_t * ti(void)
 static inline _Bool ti_manages_id(uint64_t id)
 {
     return ti_node_manages_id(ti_.node, ti_.lookup, id);
+}
+
+static inline uint64_t ti_next_thing_id(void)
+{
+    return ti_.next_thing_id++;
 }
 
 #endif /* TI_H_ */

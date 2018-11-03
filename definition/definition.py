@@ -52,18 +52,21 @@ class Definition(Grammar):
 
     # build-in get functions
     f_blob = Keyword('blob')
+    f_get = Keyword('get')
     f_id = Keyword('id')
     f_map = Keyword('map')
     f_thing = Keyword('thing')
 
     # build-in update functions
     f_create = Keyword('create')
-    f_delete = Keyword('delete')
-    f_drop = Keyword('drop')
+    f_del = Keyword('del')
+    f_drop = Keyword('create')
     f_grant = Keyword('grant')
     f_push = Keyword('push')
     f_rename = Keyword('rename')
     f_revoke = Keyword('revoke')
+    f_set = Keyword('set')
+    f_unset = Keyword('unset')
 
     primitives = Choice(
         t_false,
@@ -87,17 +90,20 @@ class Definition(Grammar):
     function = Sequence(Choice(
         # build-in get functions
         f_blob,     # (int inx_in_blobs) -> raw
+        f_get,      #
         f_id,       # () -> int
         f_map,      # (iterator) -> [return values]
         f_thing,    # (int thing_id) -> thing
         # build-in update functions
         f_create,
-        f_delete,
+        f_del,
         f_drop,
         f_grant,
         f_push,
         f_rename,
         f_revoke,
+        f_set,
+        f_unset,
         # any identifier
         identifier,
     ), '(', Choice(
@@ -249,11 +255,23 @@ if __name__ == '__main__':
     }
 
     {
-        '$ev': 0,
+        'ev': 0,
         '$id': 4,
-        'age': 5
-
+        'tasks': [
+            {'assign': {'age': 5}},
+            {'del': 'age'},
+            {'set': {'name': 'iris'}},
+            {'unset': 'name'},
+            {'push': {'people': [{'$id': 123}]}}
+        ]
     }
+
+    {
+        'ev': 0,
+        'id': 4,
+        'set': ['age', 5]
+    }
+
 
     definition.test('  databases.create(dbtest);  ')
 

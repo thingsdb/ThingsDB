@@ -24,9 +24,7 @@ vec_t * vec_new(uint32_t sz)
 void vec_destroy(vec_t * vec, vec_destroy_cb cb)
 {
     if (vec && cb)
-    {
         for (vec_each(vec, void, obj), (*cb)(obj));
-    }
     free(vec);
 }
 
@@ -48,6 +46,7 @@ vec_t * vec_dup(const vec_t * vec)
     vec_t * v = malloc(sz);
     if (!v)
         return NULL;
+
     memcpy(v, vec, sz);
     v->sz = v->n;
     return v;
@@ -68,17 +67,11 @@ int vec_push(vec_t ** vaddr, void * data)
         size_t sz = vec->sz;
 
         if (sz < 4)
-        {
             vec->sz++;
-        }
         else if (sz < 64)
-        {
             vec->sz *= 2;
-        }
         else
-        {
             vec->sz += 64;
-        }
 
         vec_t * tmp = realloc(vec, sizeof(vec_t) + vec->sz * sizeof(void*));
 
@@ -130,10 +123,10 @@ int vec_resize(vec_t ** vaddr, uint32_t sz)
     vec_t * v = realloc(vec, sizeof(vec_t) + sz * sizeof(void*));
     if (!v)
         return -1;
+
     if (v->n > sz)
-    {
         v->n = sz;
-    }
+
     v->sz = sz;
     *vaddr = v;
     return 0;
@@ -149,9 +142,11 @@ int vec_shrink(vec_t ** vaddr)
     vec_t * vec = *vaddr;
     if (vec->n == vec->sz)
         return 0;
+
     vec_t * v = realloc(vec, sizeof(vec_t) + vec->n * sizeof(void*));
     if (!v)
         return -1;
+
     v->sz = v->n;
     *vaddr = v;
     return 0;

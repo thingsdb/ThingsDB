@@ -4,8 +4,13 @@
 #ifndef TI_THING_H_
 #define TI_THING_H_
 
-#define TI_THING_FLAG_SWEEP 1
-#define TI_THING_FLAG_DATA 2
+enum
+{
+    TI_THING_FLAG_SWEEP     =1<<0,
+    TI_THING_FLAG_DATA      =1<<1,
+    TI_THING_FLAG_NEW       =1<<2,
+};
+
 
 typedef struct ti_thing_s  ti_thing_t;
 
@@ -32,11 +37,15 @@ int ti_thing_weak_set(
         ti_val_enum tp,
         void * v);
 int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
-
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer);
+int ti_thing_gen_id(ti_thing_t * thing);
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
         qp_packer_t ** packer);
+static inline int ti_thing_to_map(ti_thing_t * thing);
+static inline _Bool ti_thing_is_new(ti_thing_t * thing);
+static inline void ti_thing_mark_new(ti_thing_t * thing);
+static inline void ti_thing_unmark_new(ti_thing_t * thing);
 
 struct ti_thing_s
 {
@@ -46,6 +55,7 @@ struct ti_thing_s
     uint8_t pad1;
     uint64_t id;
     vec_t * props;
+    vec_t * set_props;     /* NULL if not managed */
     imap_t * things;       /* thing is added to this map */
 };
 
@@ -59,4 +69,22 @@ static inline int ti_thing_id_to_packer(
             qp_close_map(*packer));
 }
 
+/* returns IMAP_ERR_EXIST if the thing is already in the map */
+static inline int ti_thing_to_map(ti_thing_t * thing)
+{
+    return imap_add(thing->things, thing->id, thing);
+}
+
+static inline _Bool ti_thing_is_new(ti_thing_t * thing)
+{
+    return thing->flags & TI_THING_FLAG_NEW;
+}
+static inline void ti_thing_mark_new(ti_thing_t * thing)
+{
+    thing->flags |= TI_THING_FLAG_NEW;
+}
+static inline void ti_thing_unmark_new(ti_thing_t * thing)
+{
+    thing->flags &= ~TI_THING_FLAG_NEW;
+}
 #endif /* TI_THING_H_ */

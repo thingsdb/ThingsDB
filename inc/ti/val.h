@@ -6,7 +6,7 @@
 
 typedef enum
 {
-    TI_VAL_UNKNOWN,         /* undecided, requires collect */
+    TI_VAL_VAL,             /* stores a value from `set_props` */
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
@@ -21,8 +21,13 @@ typedef enum
 typedef enum
 {
     TI_VAL_FLAG_FETCH   =1<<0,
-    TI_VAL_SEARCHABLE   =1<<1,
 } ti_val_flags;
+
+enum
+{
+    TI_VAL_PACK_FETCH,
+    TI_VAL_PACK_NEW,
+};
 
 typedef struct ti_val_s ti_val_t;
 typedef union ti_val_u ti_val_via_t;
@@ -40,15 +45,18 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
 int ti_val_copy(ti_val_t * to, ti_val_t * from);
+int ti_val_gen_ids(ti_val_t * val);
 void ti_val_clear(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer);
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_to_str(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
 static inline void ti_val_mark_fetch(ti_val_t * val);
+static inline void ti_val_unmark_fetch(ti_val_t * val);
 
 union ti_val_u
 {
+    ti_val_t * val;
     void * undefined;
     void * nil;
     int64_t int_;
@@ -80,6 +88,11 @@ static inline _Bool ti_val_is_indexable(ti_val_t * val)
 static inline void ti_val_mark_fetch(ti_val_t * val)
 {
     val->flags |= TI_VAL_FLAG_FETCH;
+}
+
+static inline void ti_val_unmark_fetch(ti_val_t * val)
+{
+    val->flags &= ~TI_VAL_FLAG_FETCH;
 }
 
 #endif /* TI_VAL_H_ */

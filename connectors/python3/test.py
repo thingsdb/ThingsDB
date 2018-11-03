@@ -19,7 +19,7 @@ async def test():
 
     start = time.time()
     try:
-        res = await client.query(r'{a: id(), b: id(), c: id()}', timeout=2)
+        res = await client.query(r'{a: {b: id()}}', timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:

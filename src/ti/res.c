@@ -28,9 +28,12 @@ ti_res_t * ti_res_create(ti_db_t * db)
     ti_res_t * res = malloc(sizeof(ti_res_t));
     if (!res)
         return NULL;
+
     res->db = db;  /* a borrowed reference since the query has one */
     res->collect = imap_create();
     res->val = ti_val_create(TI_VAL_THING, db->root);
+    res->ev = NULL;
+
     if (!res->val || !res->collect)
     {
         ti_res_destroy(res);
@@ -41,7 +44,7 @@ ti_res_t * ti_res_create(ti_db_t * db)
 
 void ti_res_destroy(ti_res_t * res)
 {
-    imap_destroy(res->collect, NULL);  /* TODO: maybe we do need a callback? */
+    imap_destroy(res->collect, (imap_destroy_cb) res_destroy_collect_cb);
     ti_val_destroy(res->val);
     free(res);
 }
@@ -373,9 +376,11 @@ static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
     assert (res->val->tp == TI_VAL_THING);
+    assert (res->ev);
 
     ti_name_t * name;
     ti_thing_t * parent;
+    ti_task_t * task;
     cleri_node_t * identifier = nd              /* sequence */
             ->children->node;                   /* identifier */
 
@@ -386,22 +391,35 @@ static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     res->val->via.thing = ti_grab(res->db->root);
     if (ti_res_scope(res, scope, e))
-        goto err;
+        goto done;
 
     name = ti_names_get(identifier->str, identifier->len);
     if (!name)
         goto alloc_err;
 
-    /* TODO: here we can create tasks */
+    task = res_get_task(res->ev, parent, e);
+    if (!task)
+        goto done;
 
+    if (ti_task_add_assign(task, name, res->val))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `res->ev->tasks` */
+
+    if (ti_thing_weak_setv(parent, name, res->val))
+    {
+        free(vec_pop(task->subtasks));
+        goto alloc_err;
+    }
+
+    ti_val_weak_set(res->val, TI_VAL_NIL, NULL);
 
     goto done;
 
 alloc_err:
     ex_set_alloc(e);
-err:
-    ti_thing_drop(parent);
+
 done:
+    ti_thing_drop(parent);
     return e->nr;
 }
 
@@ -427,9 +445,6 @@ static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (!val && name && res->db->root != thing)
         val = ti_thing_get(res->db->root, name);
-
-    if (!ti_manages_id(thing->id))
-        return res_set_unknown(res, thing, e);
 
     if (!val)
     {
@@ -466,7 +481,7 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     (void) ti_val_copy(&local, res->val);
 
-    thing = ti_thing_create(0, NULL);
+    thing = ti_thing_create(0, res->db->things);
     if (!thing)
         goto alloc_err;
 

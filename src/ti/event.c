@@ -31,6 +31,13 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     ev->status = TI_EVENT_STAT_NEW;
     ev->target = NULL;
     ev->tp = tp;
+    ev->tasks = vec_new(1);
+
+    if (!ev->tasks)
+    {
+        free(ev);
+        return NULL;
+    }
 
     return ev;
 }
@@ -44,6 +51,8 @@ void ti_event_destroy(ti_event_t * ev)
 
     if (ev->tp == TI_EVENT_TP_SLAVE)
         ti_node_drop(ev->via.node);
+
+    vec_destroy(ev->tasks, NULL);  /* TODO: we probable want some callback */
 
     free(ev);
 }

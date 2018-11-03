@@ -56,7 +56,7 @@ void ti_query_destroy(ti_query_t * query)
 int ti_query_unpack(ti_query_t * query, ex_t * e)
 {
     assert (e->nr == 0);
-    const char * ebad = "invalid query request, see "TI_DOCS"#query_request";
+    const char * ebad = "invalid query request, see "TI_DOCS"#query";
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
 
@@ -170,7 +170,7 @@ void ti_query_run(ti_query_t * query)
     cleri_children_t * child;
     ex_t * e = ex_use();
 
-    child = query->parseres->tree   /* root */
+        child = query->parseres->tree   /* root */
             ->children->node        /* sequence <comment, list> */
             ->children->next->node  /* list */
             ->children;             /* first child or NULL */
@@ -188,14 +188,14 @@ void ti_query_run(ti_query_t * query)
                 goto send;
             }
 
+            res->ev = query->ev;  /* NULL if no update is required */
+
             VEC_push(query->res_statements, res);
 
             ti_res_scope(res, child->node, e);
             if (e->nr)
                 goto send;
 
-            /* TODO: handle res->collect->n which means we first need to
-             *       fetch things */
             assert_log(res->collect->n == 0, "collecting is not implemented");
 
             if (!child->next)
@@ -234,7 +234,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     {
         assert (res);
         assert (res->val);
-        if (ti_val_to_packer(res->val, &packer))
+        if (ti_val_to_packer(res->val, &packer, TI_VAL_PACK_FETCH))
             goto alloc_err;
     }
 

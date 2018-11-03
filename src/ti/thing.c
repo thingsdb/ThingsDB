@@ -147,8 +147,55 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     return 0;
 }
 
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer)
+int ti_thing_gen_id(ti_thing_t * thing)
 {
+    assert (!thing->id);
+
+    thing->id = ti_next_thing_id();
+    ti_thing_mark_new(thing);
+
+    if (ti_thing_to_map(thing))
+        return -1;
+
+    for (vec_each(thing->props, ti_prop_t, prop))
+    {
+        ti_val_t * val = prop->val;
+
+        if (val->tp == TI_VAL_THING)
+        {
+            if (val->via.thing->id)
+            {
+                ti_thing_unmark_new(val->via.thing);
+                continue;
+            }
+
+            if (ti_thing_gen_id(val->via.thing))
+                return -1;
+
+            continue;
+        }
+
+        if (val->tp != TI_VAL_THINGS)
+            continue;
+
+        for (vec_each(val->via.things, ti_thing_t, tthing))
+        {
+            if (tthing->id)
+            {
+                ti_thing_unmark_new(tthing);
+                continue;
+            }
+            if (ti_thing_gen_id(tthing))
+                return -1;
+        }
+    }
+    return 0;
+}
+
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack)
+{
+    assert (pack == TI_VAL_PACK_FETCH || pack == TI_VAL_PACK_NEW);
+
     if (    qp_add_map(packer) ||
             qp_add_raw(*packer, (const unsigned char *) "$id", 3) ||
             qp_add_int64(*packer, (int64_t) thing->id))
@@ -157,7 +204,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer)
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                ti_val_to_packer(&prop->val, packer))
+                ti_val_to_packer(&prop->val, packer, pack))
             return -1;
     }
     return qp_close_map(*packer);

@@ -25,6 +25,8 @@ _Bool langdef_nd_is_update_function(cleri_node_t * nd)
     case CLERI_GID_F_PUSH:
     case CLERI_GID_F_RENAME:
     case CLERI_GID_F_REVOKE:
+    case CLERI_GID_F_SET:
+    case CLERI_GID_F_UNSET:
         return true;
     default:
         return false;

@@ -30,7 +30,6 @@ typedef union ti_event_u ti_event_via_t;
 #include <ti/raw.h>
 #include <ti/stream.h>
 #include <util/imap.h>
-#include <util/vec.h>
 #include <ti/query.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
@@ -50,6 +49,7 @@ struct ti_event_s
     uint8_t tp;             /* master or slave */
     ti_event_via_t via;
     ti_db_t * target;       /* NULL for root or pointer to database */
+    imap_t * tasks;         /* event_id : ti_task_t */
 };
 
 #endif /* TI_EVENT_H_ */

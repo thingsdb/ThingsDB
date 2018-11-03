@@ -15,6 +15,7 @@ C_SRCS += \
 ../src/util/logger.c \
 ../src/util/qpx.c \
 ../src/util/queue.c \
+../src/util/res.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
 ../src/util/vec.c 
@@ -31,6 +32,7 @@ OBJS += \
 ./src/util/logger.o \
 ./src/util/qpx.o \
 ./src/util/queue.o \
+./src/util/res.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
 ./src/util/vec.o 
@@ -47,6 +49,7 @@ C_DEPS += \
 ./src/util/logger.d \
 ./src/util/qpx.d \
 ./src/util/queue.d \
+./src/util/res.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
 ./src/util/vec.d 

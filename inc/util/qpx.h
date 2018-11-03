@@ -17,11 +17,11 @@ static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw);
 qpx_packer_t * qpx_packer_create(size_t alloc_size, size_t init_nest_size);
 void qpx_packer_destroy(qpx_packer_t * xpkg);
 ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp);
+unsigned char * qpx_get_and_destroy(qpx_packer_t * packer);
 void qpx_unpacker_init(
         qp_unpacker_t * unpacker,
         const unsigned char * pt,
         size_t len);
-
 
 static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
 {

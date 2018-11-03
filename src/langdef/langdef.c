@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-10-31 15:28:33
+ * Created at: 2018-11-03 19:45:37
  */
 
 #include <langdef/langdef.h>
@@ -37,16 +37,20 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * identifier = cleri_regex(CLERI_GID_IDENTIFIER, "^[a-zA-Z_][a-zA-Z0-9_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
+    cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
     cleri_t * f_create = cleri_keyword(CLERI_GID_F_CREATE, "create", CLERI_CASE_SENSITIVE);
     cleri_t * f_delete = cleri_keyword(CLERI_GID_F_DELETE, "delete", CLERI_CASE_SENSITIVE);
-    cleri_t * f_drop = cleri_keyword(CLERI_GID_F_DROP, "drop", CLERI_CASE_SENSITIVE);
+    cleri_t * f_drop = cleri_keyword(CLERI_GID_F_DROP, "create", CLERI_CASE_SENSITIVE);
     cleri_t * f_grant = cleri_keyword(CLERI_GID_F_GRANT, "grant", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
+    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
     cleri_t * f_revoke = cleri_keyword(CLERI_GID_F_REVOKE, "revoke", CLERI_CASE_SENSITIVE);
+    cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
+    cleri_t * f_unset = cleri_keyword(CLERI_GID_F_UNSET, "unset", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_FIRST_MATCH,
@@ -95,18 +99,22 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            12,
+            16,
             f_blob,
+            f_get,
             f_id,
             f_map,
             f_thing,
             f_create,
             f_delete,
+            f_remove,
             f_drop,
             f_grant,
             f_push,
             f_rename,
             f_revoke,
+            f_set,
+            f_unset,
             identifier
         ),
         cleri_token(CLERI_NONE, "("),

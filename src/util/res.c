@@ -1,30 +1,35 @@
 /*
  * util/res.c
  */
-
-#include <ti.h>
-#include <ti/val.h>
-#include <util/res.h>
+#include <ti/name.h>
 #include <util/imap.h>
+#include <util/res.h>
 
-int res_set_unknown(ti_res_t * res, ti_thing_t * thing, ex_t * e)
+
+void res_destroy_collect_cb(vec_t * names)
 {
-    int rc = imap_add(res->collect, thing->id, thing);
-
-    switch (rc)
-    {
-    case IMAP_SUCCESS:
-        ti_incref(thing);
-        break;
-    case IMAP_ERR_ALLOC:
-        ex_set_alloc(e);
-        return e->nr;
-    case IMAP_ERR_EXIST:
-        break;
-    }
-
-    ti_val_clear(res->val);
-    ti_val_weak_set(res->val, TI_VAL_UNKNOWN, NULL);
-
-    return e->nr;
+    vec_destroy(names, (vec_destroy_cb) ti_name_drop);
 }
+
+ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
+{
+    ti_task_t * task = imap_get(ev->tasks, thing->id);
+    if (task)
+        return task;
+
+    task = ti_task_create(ev->id, thing);
+    if (!task)
+        goto failed;
+
+    if (imap_add(ev->tasks, thing->id, task))
+        goto failed;
+
+    return task;
+
+failed:
+    ti_task_destroy(task);
+    ex_set_alloc(e);
+    return NULL;
+}
+
+

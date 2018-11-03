@@ -319,10 +319,7 @@ int ti_unlock(void)
     return 0;
 }
 
-uint64_t ti_next_thing_id(void)
-{
-    return ti_.next_thing_id++;
-}
+
 
 //_Bool ti_manages_id(uint64_t id)
 //{

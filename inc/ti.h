@@ -17,6 +17,7 @@
 #endif
 
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
+#define ti_incref(x) (++(x)->ref)
 
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */
@@ -65,8 +66,8 @@ int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
 uint64_t ti_next_thing_id(void);
-_Bool ti_manages_id(uint64_t id);
 static inline ti_t * ti(void);
+static inline _Bool ti_manages_id(uint64_t id);
 
 struct ti_s
 {
@@ -97,6 +98,11 @@ struct ti_s
 static inline ti_t * ti(void)
 {
     return &ti_;
+}
+
+static inline _Bool ti_manages_id(uint64_t id)
+{
+    return ti_node_manages_id(ti_.node, ti_.lookup, id);
 }
 
 #endif /* TI_H_ */

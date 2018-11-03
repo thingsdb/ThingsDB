@@ -46,6 +46,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch(tp)
     {
+    case TI_VAL_UNKNOWN:
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
         break;
@@ -94,6 +95,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch(tp)
     {
+    case TI_VAL_UNKNOWN:
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
         break;
@@ -145,9 +147,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             return -1;
         }
         for (vec_each(val->via.things, ti_thing_t, thing))
-        {
-            ti_grab(thing);
-        }
+            ti_incref(thing);
         break;
     }
     return 0;
@@ -166,6 +166,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     to->flags = from->flags;
     switch(to->tp)
     {
+    case TI_VAL_UNKNOWN:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -200,9 +201,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             return -1;
         }
         for (vec_each(to->via.things, ti_thing_t, thing))
-        {
-            ti_grab(thing);
-        }
+            ti_incref(thing);
         break;
     }
     return 0;
@@ -215,11 +214,12 @@ void ti_val_clear(ti_val_t * val)
 {
     switch(val->tp)
     {
+    case TI_VAL_UNKNOWN:
+    case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
-    case TI_VAL_UNDEFINED:
         break;
     case TI_VAL_RAW:
         ti_raw_free(val->via.raw);
@@ -242,6 +242,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer)
 {
     switch (val->tp)
     {
+    case TI_VAL_UNKNOWN:
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -290,6 +291,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch (val->tp)
     {
+    case TI_VAL_UNKNOWN:
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -333,6 +335,7 @@ const char * ti_val_to_str(ti_val_t * val)
 {
     switch (val->tp)
     {
+    case TI_VAL_UNKNOWN:            return "unknown";
     case TI_VAL_UNDEFINED:          return "undefined";
     case TI_VAL_NIL:                return "nil";
     case TI_VAL_INT:                return "int";

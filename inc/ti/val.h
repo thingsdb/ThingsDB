@@ -6,6 +6,7 @@
 
 typedef enum
 {
+    TI_VAL_UNKNOWN,         /* undecided, requires collect */
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
@@ -19,7 +20,8 @@ typedef enum
 
 typedef enum
 {
-    TI_VAL_FLAG_FETCH  =1<<0,
+    TI_VAL_FLAG_FETCH   =1<<0,
+    TI_VAL_SEARCHABLE   =1<<1,
 } ti_val_flags;
 
 typedef struct ti_val_s ti_val_t;

@@ -245,7 +245,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                 }
                 if (ti_thing_set(thing, name, TI_VAL_THING, ting))
                     goto failed;
-                ti_grab(name);
+                ti_incref(name);
             }
             else if (qp_is_array(tp))
             {
@@ -259,7 +259,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                                 thing_id.via.int64);
                         goto failed;
                     }
-                    ti_grab(ting);
+                    ti_incref(ting);
                     if (vec_push(&things_vec, ting))
                     {
                         ti_thing_drop(ting);
@@ -268,7 +268,7 @@ int ti_things_restore_skeleton(imap_t * things, imap_t * names, const char * fn)
                 }
                 if (ti_thing_weak_set(thing, name, TI_VAL_THINGS, things_vec))
                     goto failed;
-                ti_grab(name);
+                ti_incref(name);
                 things_vec = NULL;
             }
             else
@@ -358,7 +358,7 @@ int ti_things_restore_data(imap_t * things, imap_t * names, const char * fn)
                 log_critical("unexpected type: %d", tp);
                 goto failed;
             }
-            ti_grab(name);
+            ti_incref(name);
         }
     }
     goto done;

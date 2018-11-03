@@ -190,7 +190,7 @@ void ti_query_run(ti_query_t * query)
 
             VEC_push(query->res_statements, res);
 
-            res_scope(res, child->node, e);
+            ti_res_scope(res, child->node, e);
             if (e->nr)
                 goto send;
 

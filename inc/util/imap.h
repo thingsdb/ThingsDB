@@ -4,8 +4,12 @@
 #ifndef IMAP_H_
 #define IMAP_H_
 
-#define IMAP_ERR_ALLOC -1
-#define IMAP_ERR_EXIST -2
+enum
+{
+    IMAP_ERR_EXIST  =-2,
+    IMAP_ERR_ALLOC  =-1,
+    IMAP_SUCCESS    =0
+};
 
 typedef struct imap_node_s imap_node_t;
 typedef struct imap_s imap_t;

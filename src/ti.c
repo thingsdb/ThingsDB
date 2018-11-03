@@ -324,10 +324,10 @@ uint64_t ti_next_thing_id(void)
     return ti_.next_thing_id++;
 }
 
-_Bool ti_manages_id(uint64_t id)
-{
-    return ti_node_manages_id(ti_.node, ti_.lookup, id);
-}
+//_Bool ti_manages_id(uint64_t id)
+//{
+//    return ti_node_manages_id(ti_.node, ti_.lookup, id);
+//}
 
 static qp_packer_t * ti__pack(void)
 {

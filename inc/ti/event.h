@@ -8,7 +8,6 @@ enum
 {
     TI_EVENT_STAT_NEW,      /* as long as it is not accepted by all */
     TI_EVENT_STAT_CACNCEL,  /* event is cancelled due to an error */
-    TI_EVENT_STAT_PREPARE,  /* done on master, created the abstract tasks */
     TI_EVENT_STAT_READY,    /* all nodes accepted the id */
 };
 

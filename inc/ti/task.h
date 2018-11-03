@@ -17,6 +17,8 @@ typedef struct ti_task_s ti_task_t;
 
 #include <inttypes.h>
 #include <ti/thing.h>
+#include <ti/name.h>
+#include <ti/val.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);

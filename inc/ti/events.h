@@ -16,7 +16,6 @@ typedef struct ti_events_s ti_events_t;
 int ti_events_create(void);
 int ti_events_start(void);
 void ti_events_stop(void);
-int ti_events_trigger(void);
 int ti_events_create_new_event(ti_query_t * query, ex_t * e);
 
 /*

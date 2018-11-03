@@ -28,7 +28,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
     query->raw = ti_raw_new(pkg->data, pkg->n);
     query->stream = ti_grab(stream);
     query->res_statements = NULL;
-    query->event = NULL;
+    query->ev = NULL;
 
     if (!query->raw)
     {

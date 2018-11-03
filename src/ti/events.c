@@ -21,6 +21,7 @@ static void events__new_id(ti_event_t * ev);
 static int events__req_event_id(ti_event_t * ev, ex_t * e);
 static void events__on_req_event_id(ti_prom_t * prom);
 static void events__loop(uv_async_t * handle);
+static inline int events__trigger(void);
 
 int ti_events_create(void)
 {
@@ -55,11 +56,6 @@ int ti_events_start(void)
         return -1;
     events->is_started = true;
     return 0;
-}
-
-int ti_events_trigger(void)
-{
-    return uv_async_send(events->evloop);
 }
 
 void ti_events_stop(void)
@@ -101,6 +97,7 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
     }
 
     ev->via.query = query;
+    query->ev = ev;
     ev->target = ti_grab(query->target);
 
     return events__req_event_id(ev, e);
@@ -196,12 +193,11 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         return e->nr;
     }
 
-    (void) qp_add_int64(packer, ev->id);
-
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
-
     ev->id = events->next_event_id;
     ++events->next_event_id;
+
+    (void) qp_add_int64(packer, ev->id);
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 
     QUEUE_push(events->queue, ev);
 
@@ -226,8 +222,6 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 
     return 0;
 }
-
-
 
 static void events__on_req_event_id(ti_prom_t * prom)
 {
@@ -263,17 +257,28 @@ static void events__on_req_event_id(ti_prom_t * prom)
         ex_set(e, EX_NODE_ERROR, ex_str(exnr));
         ti_query_send(ev->via.query, e);
         ti_event_cancel(ev);
-        return;
+        goto done;
     }
 
     if (!accepted)
     {
         events__new_id(ev);
-        return;
+        goto done;
     }
+
+    ev->status = TI_EVENT_STAT_READY;
+
+    if (events__trigger())
+    {
+        log_error("cannot trigger the events loop");
+        /* do nothing, it could be triggered later */
+    }
+
+done:
+    ti_prom_destroy(prom);
 }
 
-static void events__loop(uv_async_t * handle)
+static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
 
@@ -284,33 +289,35 @@ static void events__loop(uv_async_t * handle)
             ev->id == (events->commit_event_id + 1) &&
             ev->status > TI_EVENT_STAT_NEW)
     {
-        if (ev->status == TI_EVENT_STAT_PREPARE)
-        {
-            ti_query_run(ev->via.query);
-            goto stop;
-        }
-
         (void *) queue_pop(events->queue);
 
         if (ev->status == TI_EVENT_STAT_CACNCEL)
-            ti_event_destroy(ev);
+        {
+            /* nothing */
+        }
+        else if (ev->tp == TI_EVENT_TP_MASTER)
+        {
+            assert (ev->status == TI_EVENT_STAT_READY);
+
+            ti_query_run(ev->via.query);
+        }
         else
         {
+            assert (ev->tp == TI_EVENT_TP_SLAVE);
+            assert (ev->status == TI_EVENT_STAT_READY);
             /* TODO: run event tasks */
         }
-//
-//        if (ti_event_run(event) < 0 ||
-//            ti_archive_event(events->archive, event))
-//        {
-//            ti_event_destroy(event);
-//            continue;
-//        }
 
         events->commit_event_id = ev->id;
+        ti_event_destroy(ev);
     }
 
-stop:
     uv_mutex_unlock(&events->lock);
+}
+
+static inline int events__trigger(void)
+{
+    return uv_async_send(events->evloop);
 }
 
 //{

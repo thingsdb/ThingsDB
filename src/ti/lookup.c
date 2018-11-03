@@ -60,6 +60,7 @@ _Bool ti_lookup_node_has_id(ti_node_t * node, uint64_t id)
     return lookup->mask_[id % lookup->n_] & (1 << node->id);
 }
 
+/* TODO: need testing */
 _Bool ti_lookup_node_is_ordered(uint8_t a, uint8_t b, uint64_t u)
 {
     uint8_t i, n = lookup->n_;

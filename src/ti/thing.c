@@ -3,14 +3,14 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/thing.h>
-#include <util/logger.h>
+#include <ti.h>
 #include <ti/prop.h>
+#include <ti/thing.h>
+#include <ti/val.h>
+#include <util/logger.h>
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
-    assert (( !id && !things ) || ( id && things ));
-
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
         return NULL;
@@ -32,7 +32,7 @@ void ti_thing_drop(ti_thing_t * thing)
 {
     if (thing && !--thing->ref)
     {
-        if (thing->things)
+        if (thing->id)
             (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         free(thing);
@@ -159,7 +159,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
 
     for (vec_each(thing->props, ti_prop_t, prop))
     {
-        ti_val_t * val = prop->val;
+        ti_val_t * val = &prop->val;
 
         if (val->tp == TI_VAL_THING)
         {

@@ -9,6 +9,7 @@ typedef struct ti_res_s ti_res_t;
 #include <ti/db.h>
 #include <ti/val.h>
 #include <ti/ex.h>
+#include <ti/event.h>
 #include <util/imap.h>
 #include <cleri/cleri.h>
 

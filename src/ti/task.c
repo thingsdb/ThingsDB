@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <qpack.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/task.h>
 #include <util/qpx.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
@@ -46,7 +48,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     (void) qp_add_raw_from_str(packer, "assign");
     (void) qp_add_map(&packer);
 
-    if (qp_add_raw(packer, (const unsigned char) name->str, name->n))
+    if (qp_add_raw(packer, (const unsigned char *) name->str, name->n))
         goto failed;
 
     if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW))

@@ -13,10 +13,13 @@ struct ti_lookup_s
 {
     uint8_t n_;         /* equal to nodes->n */
     uint8_t r_;         /* equal to min(n, redundancy) */
-    vec_t * nodes_;     /* length is equal to r_ * n */
+
+    /* the three below are used for ti_lookup_node_is_ordered() */
     uint8_t * cache_;
     uint8_t * tmp_;
     uint64_t factorial_;
+
+    vec_t * nodes_;     /* length is equal to r_ * n */
     uint64_t mask_[];
 };
 

@@ -59,6 +59,8 @@ void ti_maint_stop(ti_maint_t * maint)
 
 static void ti__maint_timer_cb(uv_timer_t * timer)
 {
+    return;
+
     ti_maint_t * maint = timer->data;
     ti_t * thingsdb = ti();
     uint64_t commit_id = thingsdb->events->commit_event_id;

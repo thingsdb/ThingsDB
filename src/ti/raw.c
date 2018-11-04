@@ -1,6 +1,7 @@
 /*
  * raw.c
  */
+#include <assert.h>
 #include <string.h>
 #include <ti/raw.h>
 
@@ -24,6 +25,44 @@ ti_raw_t * ti_raw_dup(const ti_raw_t * raw)
     return r;
 }
 
+ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
+{
+    assert (n >= 2);  /* at least "" or '' */
+
+    size_t i = 0;
+    size_t sz = n - 2;
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + sz);
+    if (!r)
+        return NULL;
+
+    /* take the first character, this is " or ' */
+    char chr = *src;
+
+    /* we need to loop till len-2 so take 2 */
+    for (n -= 2; i < n; i++)
+    {
+        src++;
+        if (*src == chr)
+        {
+            /* this is the character, skip one and take the next */
+            src++;
+            n--;
+        }
+        r->data[i] = *src;
+    }
+
+    r->n = i;
+
+    if (r->n < sz)
+    {
+        ti_raw_t * tmp = realloc(r, sizeof(ti_raw_t) + r->n);
+        if (tmp)
+            r = tmp;
+    }
+
+    return r;
+}
+
 char * ti_raw_to_str(const ti_raw_t * raw)
 {
     char * str = malloc(raw->n + 1);
@@ -33,5 +72,7 @@ char * ti_raw_to_str(const ti_raw_t * raw)
     str[raw->n] = '\0';
     return str;
 }
+
+
 
 

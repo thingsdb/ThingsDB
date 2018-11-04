@@ -59,7 +59,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
     else
         log_critical("received stop signal (%s)", strsignal(signum));
 
-    ti_maint_stop(ti()->maint);
+//    ti_maint_stop(ti()->maint);
     ti_connect_stop();
     ti_events_stop();
 

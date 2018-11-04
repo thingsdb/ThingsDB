@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <ti/prom.h>
+
 ti_prom_t * ti_prom_new(size_t sz, ti_prom_cb cb, void * data)
 {
     ti_prom_t * prom = malloc(sizeof(ti_prom_t) + sz * sizeof(ti_prom_res_t));

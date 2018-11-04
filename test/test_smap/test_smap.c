@@ -1,8 +1,8 @@
 #include "../test.h"
 #include <util/smap.h>
 
-const unsigned int num_entries = 14;
-char * entries[] = {
+static const unsigned int num_entries = 15;
+static char * entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -16,7 +16,8 @@ char * entries[] = {
     "entry 10",
     "entry 11",
     "entry 12",
-    "entry-last"
+    "entry-last",
+    "age",
 };
 
 static int test_item_cb(
@@ -89,6 +90,18 @@ int main()
         for (unsigned int i = 0; i < num_entries; i++)
         {
             _assert (smap_add(smap, entries[i], entries[i]) == 0);
+        }
+    }
+
+    /* test getn */
+    {
+        unsigned int i;
+        for (i = 0; i < num_entries; i++)
+        {
+            _assert (smap_getn(
+                smap,
+                entries[i],
+                strlen(entries[i])) == entries[i]);
         }
     }
 

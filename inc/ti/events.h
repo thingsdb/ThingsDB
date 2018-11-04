@@ -25,11 +25,11 @@ struct ti_events_s
 {
     _Bool is_started;
     uv_mutex_t lock;
-    uint64_t commit_event_id;      /* last event id which is committed or 0
-                                      if no event is committed yet */
-    uint64_t next_event_id;        /* next event id, starts at 1 */
-    queue_t * queue;            /* queued events */
-    ti_archive_t * archive;  /* archived (raw) events) */
+    uint64_t commit_event_id;       /* last event id which is committed or 0
+                                       if no event is committed yet */
+    uint64_t next_event_id;         /* next event id, starts at 1 */
+    queue_t * queue;                /* queued events */
+    ti_archive_t * archive;         /* archived (raw) events) */
     uv_async_t * evloop;
 };
 

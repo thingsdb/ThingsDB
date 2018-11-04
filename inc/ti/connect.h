@@ -16,6 +16,7 @@ struct ti_connect_s
 {
     _Bool is_started;
     size_t interval;
+    uint32_t n_loops;   /* count number of loops */
     uv_timer_t * timer;
 };
 

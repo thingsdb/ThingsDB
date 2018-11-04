@@ -116,7 +116,7 @@ class Definition(Grammar):
     compare = Sequence(
         '(',
         Prio(
-            Sequence(scope, cmp_operators, scope),
+            Sequence(scope, Optional(Sequence(cmp_operators, scope))),
             Sequence('(', THIS, ')'),
             Sequence(THIS, '&&', THIS),  # we could add here + - * / etc.
             Sequence(THIS, '||', THIS)
@@ -272,7 +272,6 @@ if __name__ == '__main__':
         'set': ['age', 5]
     }
 
-
     definition.test('  databases.create(dbtest);  ')
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
@@ -283,4 +282,3 @@ if __name__ == '__main__':
         hfile.write(h)
 
     print('Finished export to c')
-

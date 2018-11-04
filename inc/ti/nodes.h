@@ -14,7 +14,7 @@ typedef struct ti_nodes_s ti_nodes_t;
 int ti_nodes_create(void);
 void ti_nodes_destroy(void);
 int ti_nodes_listen(void);
-size_t ti_nodes_quorum(void);
+uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
 int ti_nodes_to_packer(qp_packer_t ** packer);
 int ti_nodes_from_qpres(qp_res_t * qpnodes);

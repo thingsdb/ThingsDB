@@ -26,6 +26,8 @@ typedef struct ti_node_s ti_node_t;
 struct ti_node_s
 {
     uint32_t ref;
+    uint32_t next_retry;            /* retry connect when >= to next retry */
+    uint32_t retry_counter;         /* connection retry counter */
     uint8_t id;  /* node id, equal to the index in tin->nodes and each node
                     contains the same order since the lookup is based on this
                     id. When deciding which node wins over an equal event id

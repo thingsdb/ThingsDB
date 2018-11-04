@@ -41,7 +41,7 @@ int ti_req_create(
     req->data = data;
     req->cb_ = cb;
 
-    prev = imap_set(stream->reqmap, pkg_req->id, req);
+    prev = omap_set(stream->reqmap, pkg_req->id, req);
     if (!prev)
         goto fail2;
 
@@ -67,7 +67,7 @@ fail4:
     uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
     req->timer = NULL;
 fail3:
-    imap_pop(stream->reqmap, pkg_req->id);
+    (void *) omap_rm(stream->reqmap, pkg_req->id);
 fail2:
     ti_stream_drop(stream);
     free(req->timer);
@@ -81,7 +81,6 @@ void ti_req_destroy(ti_req_t * req)
 {
     assert (req->timer == NULL);
     ti_stream_drop(req->stream);
-    free(req->pkg_req);
     free(req);
 }
 
@@ -115,7 +114,7 @@ static void ti__req_timeout(uv_timer_t * handle)
 {
     ti_req_t * req = handle->data;
 
-    (void *) imap_pop(req->stream->reqmap, req->pkg_req->id);
+    (void *) omap_rm(req->stream->reqmap, req->pkg_req->id);
 
     log_warning(
             "timeout received on `%s` request to `%s`",
@@ -135,7 +134,7 @@ static void ti__req_write_cb(ti_write_t * wreq, ex_enum status)
     if (status)
     {
         ti_req_t * req = wreq->data;
-        (void *) imap_pop(req->stream->reqmap, req->pkg_req->id);
+        (void *) omap_rm(req->stream->reqmap, req->pkg_req->id);
         uv_timer_stop(req->timer);
         uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
         req->timer = NULL;

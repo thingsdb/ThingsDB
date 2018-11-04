@@ -2,7 +2,7 @@
  * util/res.c
  */
 #include <ti/name.h>
-#include <util/imap.h>
+#include <util/omap.h>
 #include <util/res.h>
 
 
@@ -13,7 +13,7 @@ void res_destroy_collect_cb(vec_t * names)
 
 ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
 {
-    ti_task_t * task = imap_get(ev->tasks, thing->id);
+    ti_task_t * task = omap_get(ev->tasks, thing->id);
     if (task)
         return task;
 
@@ -21,7 +21,7 @@ ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
     if (!task)
         goto failed;
 
-    if (imap_add(ev->tasks, thing->id, task))
+    if (omap_add(ev->tasks, thing->id, task))
         goto failed;
 
     return task;

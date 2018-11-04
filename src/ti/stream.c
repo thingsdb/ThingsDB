@@ -30,7 +30,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->pkg_cb = cb;
     stream->buf = NULL;
     stream->name_ = NULL;
-    stream->reqmap = imap_create();
+    stream->reqmap = omap_create();
     stream->uvstream.data = stream;
     stream->next_pkg_id = 0;
     if (!stream->reqmap)
@@ -56,7 +56,7 @@ void ti_stream_close(ti_stream_t * stream)
 {
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
-    imap_destroy(stream->reqmap, (imap_destroy_cb) &ti_req_cancel);
+    omap_destroy(stream->reqmap, (omap_destroy_cb) &ti_req_cancel);
     stream->reqmap = NULL;
     log_info("closing stream `%s`", ti_stream_name(stream));
     uv_close((uv_handle_t *) &stream->uvstream, ti__stream_stop);
@@ -153,6 +153,9 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
 
 const char * ti_stream_name(ti_stream_t * stream)
 {
+    if (!stream)
+        return "disconnected";
+
     if (stream->name_)
         return stream->name_;
 
@@ -185,7 +188,7 @@ const char * ti_stream_name(ti_stream_t * stream)
 
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_req_t * req = imap_pop(stream->reqmap, pkg->id);
+    ti_req_t * req = omap_rm(stream->reqmap, pkg->id);
     if (!req)
     {
         log_warning(

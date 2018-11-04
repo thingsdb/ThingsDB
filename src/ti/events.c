@@ -7,7 +7,7 @@
 #include <ti.h>
 #include <ti/event.h>
 #include <ti/events.h>
-#include <ti/prom.h>
+#include <ti/quorum.h>
 #include <ti/proto.h>
 #include <util/fx.h>
 #include <util/logger.h>
@@ -19,7 +19,7 @@ static ti_events_t * events;
 static void events__destroy(uv_handle_t * UNUSED(handle));
 static void events__new_id(ti_event_t * ev);
 static int events__req_event_id(ti_event_t * ev, ex_t * e);
-static void events__on_req_event_id(ti_prom_t * prom);
+static void events__on_req_event_id(ti_event_t * ev, _Bool accepted);
 static void events__loop(uv_async_t * handle);
 static inline int events__trigger(void);
 
@@ -78,7 +78,7 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` does not have the required quorum "
                 "of at least %u connected nodes",
-                ti_node_name(ti()->node),
+                ti()->hostname,
                 ti_nodes_quorum());
         return e->nr;
     }
@@ -174,12 +174,12 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     assert (queue_space(events->queue) > 0);
 
     vec_t * vec_nodes = ti()->nodes->vec;
-    ti_prom_t * prom;
+    ti_quorum_t * quorum;
     qpx_packer_t * packer;
     ti_pkg_t * pkg;
 
-    prom = ti_prom_new(vec_nodes->n - 1, events__on_req_event_id, ev);
-    if (!prom)
+    quorum = ti_quorum_new((ti_quorum_cb) events__on_req_event_id, ev);
+    if (!quorum)
     {
         ex_set_alloc(e);
         return e->nr;
@@ -188,7 +188,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     packer = qpx_packer_create(9, 0);
     if (!packer)
     {
-        ti_prom_destroy(prom);
+        ti_quorum_destroy(quorum);
         ex_set_alloc(e);
         return e->nr;
     }
@@ -196,6 +196,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     ev->id = events->next_event_id;
     ++events->next_event_id;
 
+    ti_quorum_set_id(quorum, ev->id);
     (void) qp_add_int64(packer, ev->id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 
@@ -210,72 +211,50 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
                 node->stream,
                 pkg,
                 TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT,
-                ti_prom_req_cb,
-                prom))
-            prom->sz--;
+                ti_quorum_req_cb,
+                quorum))
+        {
+            if (ti_quorum_shrink_one(quorum))
+                log_error("failed to reach quorum while the previous check"
+                        "was successful");
+        }
     }
 
-    if (!prom->sz)
+    if (!quorum->sz)
         free(pkg);
 
-    ti_prom_go(prom);
+    ti_quorum_go(quorum);
 
     return 0;
 }
 
-static void events__on_req_event_id(ti_prom_t * prom)
+static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
 {
-    assert (prom->n == prom->sz);
-
-    _Bool accepted = true;
-    ti_event_t * ev = prom->data;
-    ex_enum exnr = EX_SUCCESS;
-
-    for (size_t i = 0; i < prom->n; ++i)
-    {
-        ti_prom_res_t * res = &prom->res[i];
-        ti_req_t * req = res->via.req;
-
-        assert (res->tp == TI_PROM_VIA_REQ);
-
-        if (res->status)
-        {
-            ev->status = TI_EVENT_STAT_CACNCEL;
-            exnr = res->status;
-        }
-        else if (req->pkg_res->tp != TI_PROTO_NODE_RES_EVENT_ID)
-        {
-            accepted = false;
-        }
-
-        ti_req_destroy(req);
-    }
-
-    if (ev->status == TI_EVENT_STAT_CACNCEL)
-    {
-        ex_t * e = ex_use();
-        ex_set(e, EX_NODE_ERROR, ex_str(exnr));
-        ti_query_send(ev->via.query, e);
-        ti_event_cancel(ev);
-        goto done;
-    }
-
     if (!accepted)
     {
+        if (!ti_nodes_has_quorum())
+        {
+            ex_t * e = ex_use();
+            ev->status = TI_EVENT_STAT_CACNCEL;
+
+            ex_set(e, EX_NODE_ERROR,
+                    "node `%s` does not have the required quorum "
+                    "of at least %u connected nodes",
+                    ti_node_name(ti()->node),
+                    ti_nodes_quorum());
+            ti_query_send(ev->via.query, e);
+
+            ti_event_cancel(ev);
+            return;
+        }
+
         events__new_id(ev);
-        goto done;
+        return;
     }
 
     ev->status = TI_EVENT_STAT_READY;
-
     if (events__trigger())
-    {
         log_error("cannot trigger the events loop");
-        /* do nothing, it could be triggered later */
-    }
-
-done:
-    ti_prom_destroy(prom);
 }
 
 static void events__loop(uv_async_t * UNUSED(handle))

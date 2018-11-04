@@ -17,6 +17,7 @@ static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -30,7 +31,7 @@ ti_res_t * ti_res_create(ti_db_t * db)
         return NULL;
 
     res->db = db;  /* a borrowed reference since the query has one */
-    res->collect = imap_create();
+    res->collect = omap_create();
     res->val = ti_val_create(TI_VAL_THING, db->root);
     res->ev = NULL;
 
@@ -44,7 +45,7 @@ ti_res_t * ti_res_create(ti_db_t * db)
 
 void ti_res_destroy(ti_res_t * res)
 {
-    imap_destroy(res->collect, (imap_destroy_cb) res_destroy_collect_cb);
+    omap_destroy(res->collect, (omap_destroy_cb) res_destroy_collect_cb);
     ti_val_destroy(res->val);
     free(res);
 }
@@ -64,11 +65,9 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_PRIMITIVES:
-        /*
-         * res->thing = Set to NULL
-         * res->tp = NIL / BOOL / STRING / INT / FLOAT
-         * res->value = union (actual value)
-         */
+        if (res__primitives(res, node, e))
+            return e->nr;
+        break;
         break;
     case CLERI_GID_FUNCTION:
         if (res__function(res, node, e))
@@ -249,9 +248,7 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     thing_id = res->val->via.thing->id;
 
     ti_val_clear(res->val);
-
-    if (ti_val_set(res->val, TI_VAL_INT, &thing_id))
-        ex_set_alloc(e);
+    ti_val_set_int(res->val, thing_id);
 
     return e->nr;
 }
@@ -340,8 +337,7 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             {
                 int64_t c = val->via.raw->data[idx];
                 ti_val_clear(val);
-                if (ti_val_set(val, TI_VAL_INT, &c))
-                    ex_set_alloc(e);
+                ti_val_set_int(val, c);
             }
             break;
         case TI_VAL_PRIMITIVES:
@@ -369,6 +365,57 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         }
     }
 
+    return e->nr;
+}
+
+static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_PRIMITIVES);
+    assert (!e->nr);
+
+    cleri_node_t * node = nd            /* choice */
+            ->children->node;           /* false, nil, true, undefined,
+                                           int, float, string */
+
+    switch (node->cl_obj->gid)
+    {
+    case CLERI_GID_T_FALSE:
+        ti_val_clear(res->val);
+        ti_val_set_bool(res->val, false);
+        break;
+    case CLERI_GID_T_NIL:
+        ti_val_clear(res->val);
+        ti_val_set_nil(res->val);
+        break;
+    case CLERI_GID_T_TRUE:
+        ti_val_clear(res->val);
+        ti_val_set_bool(res->val, true);
+        break;
+    case CLERI_GID_T_UNDEFINED:
+        ti_val_clear(res->val);
+        ti_val_set_undefined(res->val);
+        break;
+    case CLERI_GID_T_INT:
+        ti_val_clear(res->val);
+        ti_val_set_int(res->val, strx_to_int64n(node->str, node->len));
+        break;
+    case CLERI_GID_T_FLOAT:
+        ti_val_clear(res->val);
+        ti_val_set_float(res->val, strx_to_doublen(node->str, node->len));
+        break;
+    case CLERI_GID_T_STRING:
+        {
+            ti_raw_t * r = ti_raw_from_ti_string(node->str, node->len);
+            if (!r)
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+            ti_val_clear(res->val);
+            ti_val_weak_set(res->val, TI_VAL_RAW, r);
+        }
+        break;
+    }
     return e->nr;
 }
 
@@ -411,7 +458,7 @@ static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         goto alloc_err;
     }
 
-    ti_val_weak_set(res->val, TI_VAL_NIL, NULL);
+    ti_val_set_nil(res->val);
 
     goto done;
 

@@ -26,7 +26,7 @@ typedef union ti_stream_u ti_stream_via_t;
 #include <ti/user.h>
 #include <ti/node.h>
 #include <ti/pkg.h>
-#include <util/imap.h>
+#include <util/omap.h>
 typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb);
@@ -57,7 +57,7 @@ struct ti_stream_s
     char * buf;
     char * name_;
     uv_stream_t uvstream;
-    imap_t * reqmap;        /* requests waiting for response */
+    omap_t * reqmap;        /* requests waiting for response */
 };
 
 struct ti_stream_req_s

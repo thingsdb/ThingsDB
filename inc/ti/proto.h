@@ -131,7 +131,8 @@ typedef enum
      * 240..255 node only errors
      */
     TI_PROTO_NODE_ERR_CONNECT       =240,
-    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* empty, event is is rejected */
+    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* uint8_t node_id with the
+                                               conflicting event id */
 
 
 } ti_proto_e;

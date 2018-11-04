@@ -19,7 +19,7 @@ _Bool langdef_nd_is_update_function(cleri_node_t * nd)
     switch (function->gid)
     {
     case CLERI_GID_F_CREATE:
-    case CLERI_GID_F_DELETE:
+    case CLERI_GID_F_DEL:
     case CLERI_GID_F_DROP:
     case CLERI_GID_F_GRANT:
     case CLERI_GID_F_PUSH:

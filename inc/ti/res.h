@@ -10,7 +10,7 @@ typedef struct ti_res_s ti_res_t;
 #include <ti/val.h>
 #include <ti/ex.h>
 #include <ti/event.h>
-#include <util/imap.h>
+#include <util/omap.h>
 #include <cleri/cleri.h>
 
 
@@ -23,7 +23,7 @@ struct ti_res_s
     ti_db_t * db;       /* this is using a borrowed reference, this is good
                            because the query has one */
     ti_val_t * val;
-    imap_t * collect;   /* stores a vec_t with referenced names to collect,
+    omap_t * collect;   /* stores a vec_t with referenced names to collect,
                            and the key is the thing id */
     ti_event_t * ev;    /* NULL if no updates are required */
 };

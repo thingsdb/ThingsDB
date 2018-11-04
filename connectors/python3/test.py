@@ -19,7 +19,19 @@ async def test():
 
     start = time.time()
     try:
-        res = await client.query(r'a', timeout=2)
+        res = await client.query(r'''
+        /*
+         * test query
+         */
+
+        a = {
+            name: 'iris',
+            age: 5
+        };
+
+        a
+
+        ''', timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:

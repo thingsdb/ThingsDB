@@ -46,7 +46,6 @@ int ti_create(void)
     ti_.lookup = NULL;
     ti_.store = NULL;
     ti_.access = vec_new(0);
-    ti_.maint = ti_maint_new();
     ti_.langdef = compile_langdef();
     if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
             ti_args_create() ||
@@ -59,7 +58,6 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             !ti_.access ||
-            !ti_.maint ||
             !ti_.langdef)
     {
         ti_destroy();
@@ -72,7 +70,6 @@ int ti_create(void)
 void ti_destroy(void)
 {
     free(ti_.fn);
-    free(ti_.maint);
 
     /* usually the signal handler will make the stop calls,
      * but not if ti_run() is never called */
@@ -233,7 +230,7 @@ int ti_run(void)
 
     if (ti_.node)
     {
-        if (ti_clients_listen() || ti_maint_start(ti_.maint))
+        if (ti_clients_listen())
             goto failed;
         ti_.node->status = TI_NODE_STAT_READY;
     }
@@ -318,7 +315,6 @@ int ti_unlock(void)
     }
     return 0;
 }
-
 
 
 //_Bool ti_manages_id(uint64_t id)

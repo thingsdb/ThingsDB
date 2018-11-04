@@ -19,8 +19,9 @@ int ti_connect_create(void)
         goto failed;
 
     connect_loop->is_started = false;
-    connect_loop->interval = 30000;      /* 30 seconds */
+    connect_loop->interval = 2000;                      /* 2 seconds */
     connect_loop->timer = malloc(sizeof(uv_timer_t));
+    connect_loop->n_loops = 0;
 
     if (!connect_loop->timer)
         goto failed;
@@ -78,15 +79,26 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
 
 static void connect__cb(uv_timer_t * UNUSED(handle))
 {
+    uint32_t n = ++connect_loop->n_loops;
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
     {
+        uint32_t step;
         if (node->status == TI_NODE_STAT_OFFLINE)
         {
+            if (n < node->next_retry)
+                continue;
+
+            ++node->retry_counter;
+            step = node->retry_counter * 2;
+            /* max step will be 60 * 2 seconds */
+            node->next_retry = n + (step < 60 ? step : 60);
+
             if (ti_node_connect(node))
                 log_error(EX_INTERNAL_S);
         }
-        else if (node != ti()->node)
+        else if (node != ti()->node && !((n + node->id) % 15))
         {
+            /* every 15 loops of 2 seconds we write our status */
             if (ti_node_write_stats(node))
                 log_error(EX_INTERNAL_S);
         }

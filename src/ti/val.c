@@ -225,6 +225,41 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     return 0;
 }
 
+void ti_val_set_bool(ti_val_t * val, _Bool bool_)
+{
+    val->tp = TI_VAL_BOOL;
+    val->flags = 0;
+    val->via.bool_ = bool_;
+}
+
+void ti_val_set_nil(ti_val_t * val)
+{
+    val->tp = TI_VAL_NIL;
+    val->flags = 0;
+    val->via.nil = NULL;
+}
+
+void ti_val_set_undefined(ti_val_t * val)
+{
+    val->tp = TI_VAL_UNDEFINED;
+    val->flags = 0;
+    val->via.undefined = NULL;
+}
+
+void ti_val_set_int(ti_val_t * val, int64_t i)
+{
+    val->tp = TI_VAL_INT;
+    val->flags = 0;
+    val->via.int_ = i;
+}
+
+void ti_val_set_float(ti_val_t * val, double d)
+{
+    val->tp = TI_VAL_FLOAT;
+    val->flags = 0;
+    val->via.float_ = d;
+}
+
 int ti_val_gen_ids(ti_val_t * val)
 {
     switch (val->tp)

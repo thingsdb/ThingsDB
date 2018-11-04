@@ -9,7 +9,10 @@ RM := rm -rf
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include src/util/subdir.mk
--include src/rql/subdir.mk
+-include src/ti/store/subdir.mk
+-include src/ti/subdir.mk
+-include src/langdef/subdir.mk
+-include src/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -24,24 +27,21 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: rqldb
+all: thingsdb
 
 # Tool invocations
-rqldb: $(OBJS) $(USER_OBJS)
+thingsdb: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: Cross GCC Linker'
-	gcc  -o "rqldb" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc  -o "thingsdb" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(EXECUTABLES)$(OBJS)$(C_DEPS) rqldb
+	-$(RM) $(EXECUTABLES)$(OBJS)$(C_DEPS) thingsdb
 	-@echo ' '
 
 .PHONY: all clean dependents
 
 -include ../makefile.targets
-
-test:
-	@cd ../test && ./run_tests.sh

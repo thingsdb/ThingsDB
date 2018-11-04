@@ -12,7 +12,7 @@
 #include <ti/node.h>
 #include <ti/proto.h>
 #include <ti/task.h>
-#include <util/imap.h>
+#include <util/omap.h>
 #include <util/logger.h>
 #include <util/qpx.h>
 
@@ -26,7 +26,7 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     ev->status = TI_EVENT_STAT_NEW;
     ev->target = NULL;
     ev->tp = tp;
-    ev->tasks = imap_create();
+    ev->tasks = omap_create();
 
     if (!ev->tasks)
     {
@@ -47,7 +47,7 @@ void ti_event_destroy(ti_event_t * ev)
     if (ev->tp == TI_EVENT_TP_SLAVE)
         ti_node_drop(ev->via.node);
 
-    imap_destroy(ev->tasks, (imap_destroy_cb) ti_task_destroy);
+    omap_destroy(ev->tasks, (omap_destroy_cb) ti_task_destroy);
 
     free(ev);
 }

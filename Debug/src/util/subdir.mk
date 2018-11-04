@@ -13,6 +13,7 @@ C_SRCS += \
 ../src/util/link.c \
 ../src/util/lock.c \
 ../src/util/logger.c \
+../src/util/omap.c \
 ../src/util/qpx.c \
 ../src/util/queue.c \
 ../src/util/res.c \
@@ -30,6 +31,7 @@ OBJS += \
 ./src/util/link.o \
 ./src/util/lock.o \
 ./src/util/logger.o \
+./src/util/omap.o \
 ./src/util/qpx.o \
 ./src/util/queue.o \
 ./src/util/res.o \
@@ -47,6 +49,7 @@ C_DEPS += \
 ./src/util/link.d \
 ./src/util/lock.d \
 ./src/util/logger.d \
+./src/util/omap.d \
 ./src/util/qpx.d \
 ./src/util/queue.d \
 ./src/util/res.d \
@@ -59,7 +62,7 @@ C_DEPS += \
 src/util/%.o: ../src/util/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross GCC Compiler'
-	gcc -DDEBUG -I../inc -I/usr/include/python3.6m/ -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -I../inc -I/usr/include/python3.6m/ -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

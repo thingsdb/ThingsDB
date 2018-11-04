@@ -41,9 +41,9 @@ void ti_nodes_destroy(void)
     nodes = ti()->nodes = NULL;
 }
 
-size_t ti_nodes_quorum(void)
+uint8_t ti_nodes_quorum(void)
 {
-    return (nodes->vec->n + 1) / 2;
+    return nodes->vec->n / 2;
 }
 
 _Bool ti_nodes_has_quorum(void)
@@ -51,8 +51,8 @@ _Bool ti_nodes_has_quorum(void)
     size_t quorum = ti_nodes_quorum();
     size_t q = 0;
 
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
+    for (vec_each(nodes->vec, ti_node_t, node), ++q)
+        if (node->status > TI_NODE_STAT_CONNECTING && q == quorum)
             return true;
 
     return false;

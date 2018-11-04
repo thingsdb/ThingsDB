@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <util/smap.h>
+#include <util/logger.h>
 
 #define SMAP_BSZ 32
 
@@ -147,6 +148,7 @@ void ** smap_getaddr(smap_t * smap, const char * key)
 
         if (!*key)
             return &nd->data;
+
         if (!nd->nodes)
             return NULL;
 
@@ -154,9 +156,7 @@ void ** smap_getaddr(smap_t * smap, const char * key)
         pos = k / SMAP_BSZ;
 
         if (pos < nd->offset || pos >= nd->offset + nd->sz)
-        {
             return NULL;
-        }
 
         nd = (*nd->nodes)[k - nd->offset * SMAP_BSZ];
     }
@@ -174,10 +174,8 @@ void * smap_getn(smap_t * smap, const char * key, size_t n)
     uint8_t k = (uint8_t) *key;
     uint8_t pos = k / SMAP_BSZ;
 
-    if (!n || pos < smap->offset || pos >= smap->offset + smap->n)
-    {
+    if (!n || pos < smap->offset || pos >= smap->offset + smap->sz)
         return NULL;
-    }
 
     nd = (*smap->nodes)[k - smap->offset * SMAP_BSZ];
 
@@ -187,22 +185,19 @@ void * smap_getn(smap_t * smap, const char * key, size_t n)
         n -= diff;
 
         if (n < nd->n || memcmp(nd->key, key, nd->n))
-        {
             return NULL;
-        }
 
         if (nd->n == n)
             return nd->data;
+
         if (!nd->nodes)
             return NULL;
 
         k = (uint8_t) key[nd->n];
         pos = k / SMAP_BSZ;
 
-        if (pos < nd->offset || pos >= nd->offset + nd->n)
-        {
+        if (pos < nd->offset || pos >= nd->offset + nd->sz)
             return NULL;
-        }
 
         diff = nd->n + 1; /* n - diff is at least 0 */
         nd = (*nd->nodes)[k - nd->offset * SMAP_BSZ];

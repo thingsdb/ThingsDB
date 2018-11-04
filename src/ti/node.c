@@ -10,6 +10,7 @@
 #include <ti/nodes.h>
 #include <ti/proto.h>
 #include <ti/req.h>
+#include <ti/tcp.h>
 #include <ti/version.h>
 #include <ti/write.h>
 #include <util/logger.h>
@@ -35,6 +36,8 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)
     node->stream = NULL;
     node->status = TI_NODE_STAT_OFFLINE;
     node->addr = *addr;
+    node->next_retry = 0;
+    node->retry_counter = 0;
 
     return node;
 }
@@ -50,7 +53,7 @@ void ti_node_drop(ti_node_t * node)
 
 const char * ti_node_name(ti_node_t * node)
 {
-    return ti_stream_name(node->stream);
+    return ti()->node == node ? ti()->hostname : ti_stream_name(node->stream);
 }
 
 int ti_node_connect(ti_node_t * node)
@@ -217,6 +220,10 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     }
 
     node->status = qp_status.via.int64;
+
+    /* reset the connection retry counters */
+    node->next_retry = 0;
+    node->retry_counter = 0;
 
     goto done;
 

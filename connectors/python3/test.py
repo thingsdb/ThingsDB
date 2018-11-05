@@ -1,6 +1,7 @@
 import time
 import asyncio
 import logging
+import pprint
 from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
 
@@ -26,17 +27,20 @@ async def test():
 
         a = {
             name: 'iris',
-            age: 5
+            age: 3,
         };
 
-        a
+        a;
+
+        b = thing(id());
+
 
         ''', timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:
         print(time.time() - start)
-        print(res)
+        pprint.pprint(res)
 
     # await asyncio.sleep(3)
 

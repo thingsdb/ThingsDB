@@ -39,7 +39,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     {
         if (thing->flags & TI_THING_FLAG_SWEEP)
         {
-            vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
+            thing->ref = 0;
         }
     }
 
@@ -48,7 +48,8 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
         if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             ++n;
-            imap_pop(things, thing->id);
+            vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
+            (void *) imap_pop(things, thing->id);
             free(thing);
             continue;
         }

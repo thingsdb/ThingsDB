@@ -33,7 +33,11 @@ _Bool langdef_nd_is_update_function(cleri_node_t * nd)
     }
 }
 
-int langdef_nd_n_function_params(cleri_node_t * nd)
+/*
+ * Returns a negative value when the argument is an iterator, or 0 when no
+ * arguments are used, or the number of arguments.
+ */
+int langdef_nd_info_function_params(cleri_node_t * nd)
 {
     assert (langdef_nd_is_function_params(nd));
 
@@ -41,7 +45,7 @@ int langdef_nd_n_function_params(cleri_node_t * nd)
     cleri_children_t * child;
 
     if (nd->cl_obj->gid == CLERI_GID_ITERATOR)
-        return 1;
+        return -1;
 
     for (n = 0, child = nd->children; child; child = child->next->next)
     {

@@ -15,6 +15,7 @@
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -238,10 +239,10 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (langdef_nd_has_function_params(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int n = langdef_nd_info_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `id()` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `id` takes 0 arguments but %d %s given",
+                abs(n), n == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -250,6 +251,106 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_val_clear(res->val);
     ti_val_set_int(res->val, thing_id);
 
+    return e->nr;
+}
+
+static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (langdef_nd_is_function_params(nd));
+
+    int n;
+    _Bool force_as_array = true;
+    vec_t * things;
+    ti_thing_t * thing;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+
+    if (res->val->via.thing != res->db->root)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `thing`",
+                ti_val_to_str(res->val));
+        return e->nr;
+    }
+
+    n = langdef_nd_info_function_params(nd);
+    if (n <= 0)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `thing` requires at least one argument but %s",
+                n ? "an `iterator` was given" : "none were given");
+        return e->nr;
+    }
+
+    things = vec_new(n);
+    if (!things)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    assert (child);
+
+    for (n = 0; child; child = child->next->next)
+    {
+        ++n;
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        ti_val_clear(res->val);
+        (void) ti_val_set(res->val, TI_VAL_THING, res->db->root);
+
+        if (ti_res_scope(res, child->node, e))
+            goto failed;
+
+        if (res->val->tp != TI_VAL_INT)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `thing` only accepts `int` arguments, but "
+                    "argument %d is of type `%s`", n, ti_val_to_str(res->val));
+            goto failed;
+        }
+
+        thing = ti_db_thing_by_id(res->db, res->val->via.int_);
+        if (!thing)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "database `%.*s` has no `thing` with id `%"PRId64"`",
+                    (int) res->db->name->n,
+                    (char *) res->db->name->data,
+                    res->val->via.int_);
+            goto failed;
+        }
+
+        ti_incref(thing);
+        VEC_push(things, thing);
+
+        if (!child->next)
+        {
+            force_as_array = false;
+            break;
+        }
+    }
+
+    assert (things->n >= 1);
+
+    ti_val_clear(res->val);
+
+    if (n > 1 || force_as_array)
+    {
+        ti_val_weak_set(res->val, TI_VAL_THINGS, things);
+        goto done;
+    }
+
+    ti_val_weak_set(res->val, TI_VAL_THING, vec_pop(things));
+    /* bubble down to failed for vec cleanup */
+
+    assert (!e->nr);
+    assert (!things->n);
+
+failed:
+    vec_destroy(things, (vec_destroy_cb) ti_thing_drop);
+
+done:
     return e->nr;
 }
 
@@ -273,6 +374,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     {
     case CLERI_GID_F_ID:
         return res__f_id(res, params, e);
+    case CLERI_GID_F_THING:
+        return res__f_thing(res, params, e);
     }
 
     ex_set(e, EX_INDEX_ERROR,

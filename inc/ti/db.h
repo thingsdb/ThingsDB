@@ -20,6 +20,7 @@ int ti_db_buid(ti_db_t * db);
 _Bool ti_db_name_check(const char * name, size_t n, ex_t * e);
 int ti_db_store(ti_db_t * db, const char * fn);
 int ti_db_restore(ti_db_t * db, const char * fn);
+static inline void * ti_db_thing_by_id(ti_db_t * db, uint64_t thing_id);
 
 struct ti_db_s
 {
@@ -32,4 +33,9 @@ struct ti_db_s
     ti_quota_t * quota;
 };
 
+/* returns a borrowed reference */
+static inline void * ti_db_thing_by_id(ti_db_t * db, uint64_t thing_id)
+{
+    return imap_get(db->things, thing_id);
+}
 #endif /* TI_DB_H_ */

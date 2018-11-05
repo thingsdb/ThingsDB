@@ -281,8 +281,10 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ex_t * e = ex_use();
     ti_node_t * node = ti()->node;
+    ti_user_t * user = stream->via.user;
+    vec_t * access_;
 
-    if (!stream->via.user)
+    if (!user)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
         goto finish;
@@ -329,14 +331,12 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_query_unpack(query, e))
         goto finish;
 
-    if (!ti_access_check(
-            query->target ? query->target->access : ti()->access,
-            stream->via.user,
-            TI_AUTH_ACCESS))
+    access_ = query->target ? query->target->access : ti()->access;
+    if (!ti_access_check(access_, user, TI_AUTH_ACCESS|TI_AUTH_READ))
     {
         ex_set(e, EX_FORBIDDEN,
-                "access denied (requires `%s` flag)",
-                ti_auth_mask_to_str(TI_AUTH_ACCESS));
+                "access denied (requires `%s`)",
+                ti_auth_mask_to_str(TI_AUTH_ACCESS|TI_AUTH_READ));
         goto finish;
     }
 
@@ -348,8 +348,17 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_query_will_update(query))
     {
+        if (!ti_access_check(access_, user, TI_AUTH_MODIFY))
+        {
+            ex_set(e, EX_FORBIDDEN,
+                    "access denied (requires `%s`)",
+                    ti_auth_mask_to_str(TI_AUTH_MODIFY));
+            goto finish;
+        }
+
         if (ti_events_create_new_event(query, e))
             goto finish;
+
         return;
     }
 
@@ -375,7 +384,6 @@ static void clients__write_cb(ti_write_t * req, ex_enum status)
     free(req->pkg);
     ti_write_destroy(req);
 }
-
 
 static int clients__fwd_query(
         ti_node_t * to_node,

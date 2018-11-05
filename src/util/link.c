@@ -56,7 +56,7 @@ void * link_pop(link_t * link)
     struct link__s * cur;
     for (cur = link->next_; cur->next_; cur = cur->next_);
 
-    return link__pop__(link, &cur);
+    return link__pop__(link, &cur);  /* TODO: wrong, see omap */
 }
 
 void * link__pop__(link_t * link, struct link__s ** link_)

@@ -12,6 +12,7 @@ enum
 };
 
 typedef struct omap_s omap_t;
+typedef struct omap__s omap__t;
 
 #include <inttypes.h>
 
@@ -20,8 +21,8 @@ typedef void (*omap_destroy_cb)(void * data);
 /* private */
 struct omap__s
 {
-    struct omap__s * next_;
-    uint64_t id;
+    omap__t * next_;
+    uint64_t id_;
     void * data_;
 };
 
@@ -34,7 +35,7 @@ void * omap_rm(omap_t * omap, uint64_t id);
 
 struct omap_s
 {
-    struct omap__s * next_;
+    omap__t * next_;
     size_t n;
 };
 

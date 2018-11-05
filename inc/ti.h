@@ -35,22 +35,22 @@ typedef struct ti_s ti_t;
 #include <uv.h>
 #include <cleri/cleri.h>
 #include <signal.h>
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
+#include <ti/clients.h>
+#include <ti/connect.h>
 #include <ti/events.h>
+#include <ti/lookup.h>
+#include <ti/maint.h>
+#include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
-#include <ti/clients.h>
-#include <ti/node.h>
-#include <ti/lookup.h>
 #include <ti/tcp.h>
-#include <ti/maint.h>
-#include <ti/connect.h>
 #include <util/logger.h>
-#include <util/vec.h>
 #include <util/smap.h>
+#include <util/vec.h>
 
 extern ti_t ti_;
 
@@ -89,11 +89,17 @@ struct ti_s
     vec_t * dbs;
     vec_t * users;
     vec_t * access;
-    smap_t * names;         /* weak map for ti_name_t */
+    imap_t * watchers;          /* lookup thing_id -> ti_watch_t
+                                    ti_watch_t should be a linked list type,
+                                    so a stream can unregister itself
+                                    from this list. This should be a weak map
+                                    for both things and stream and cleanup
+                                    should be done when Ref 0 is reached.  */
+    smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
-    uint64_t next_thing_id;   /* used for assigning id's to objects */
-    uint8_t redundancy;     /* value 1..64 */
+    uint64_t next_thing_id;     /* used for assigning id's to objects */
+    uint8_t redundancy;         /* value 1..64 */
     uint8_t flags;
 
     char hostname[256];

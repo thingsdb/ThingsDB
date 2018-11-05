@@ -31,14 +31,10 @@ enum
                                                                              */
     TI_AUTH_GRANT       =1<<11, /* root and database                         */
     TI_AUTH_REVOKE      =1<<12, /* root and database                         */
+
+    TI_AUTH_MASK_FULL   =UINT16_MAX
 };
 
-enum
-{
-    TI_AUTH_MASK_READ=(TI_AUTH_ACCESS | TI_AUTH_READ | TI_AUTH_USER_CHANGE),
-    TI_AUTH_MASK_MODIFY=(TI_AUTH_MASK_READ | TI_AUTH_MODIFY),
-    TI_AUTH_MASK_FULL=UINT16_MAX
-};
 
 typedef struct ti_auth_s ti_auth_t;
 

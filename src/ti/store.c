@@ -11,6 +11,7 @@
 #include <ti/store/access.h>
 #include <ti/store/db.h>
 #include <ti/store/dbs.h>
+#include <ti/store/things.h>
 #include <ti.h>
 #include <util/fx.h>
 #include <util/imap.h>
@@ -119,10 +120,12 @@ int ti_store_store(void)
 
         rc = (  mkdir(store_db->db_path, 0700) ||
                 ti_store_access_store(db->access, store_db->access_fn) ||
-                ti_things_store(db->things, store_db->things_fn) ||
+                ti_store_things_store(db->things, store_db->things_fn) ||
                 ti_db_store(db, store_db->db_fn) ||
-                ti_things_store_skeleton(db->things, store_db->skeleton_fn) ||
-                ti_things_store_data(db->things, store_db->data_fn));
+                ti_store_things_store_skeleton(
+                        db->things,
+                        store_db->skeleton_fn) ||
+                ti_store_things_store_data(db->things, store_db->data_fn));
 
         ti_store_db_destroy(store_db);
         if (rc)
@@ -165,10 +168,16 @@ int ti_store_restore(void)
         ti_store_db_t * store_db = ti_store_db_create(store->store_path, db);
         rc = (  -(!store_db) ||
                 ti_store_access_restore(&db->access, store_db->access_fn) ||
-                ti_things_restore(db->things, store_db->things_fn) ||
+                ti_store_things_restore(db->things, store_db->things_fn) ||
                 ti_db_restore(db, store_db->db_fn) ||
-                ti_things_restore_skeleton(db->things, namesmap, store_db->skeleton_fn) ||
-                ti_things_restore_data(db->things, namesmap, store_db->data_fn));
+                ti_store_things_restore_skeleton(
+                        db->things,
+                        namesmap,
+                        store_db->skeleton_fn) ||
+                ti_store_things_restore_data(
+                        db->things,
+                        namesmap,
+                        store_db->data_fn));
 
         ti_store_db_destroy(store_db);
 

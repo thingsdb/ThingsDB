@@ -24,15 +24,18 @@ async def test():
         /*
          * test query
          */
-
         a = {
             name: 'iris',
-            age: 3,
+            age: 5,
         };
 
         a;
 
         b = thing(id());
+
+        b.a.t = 3;
+
+        b.a.t.x = 3;
 
 
         ''', timeout=2)

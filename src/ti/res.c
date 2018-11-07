@@ -11,7 +11,7 @@
 #include <util/strx.h>
 #include <util/res.h>
 
-
+static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -19,7 +19,6 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_identifier(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
@@ -75,9 +74,8 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
-        if (res__scope_assignment(res, node, e))
+        if (res__assignment(res, node, e))
             return e->nr;
-        break;
         break;
     case CLERI_GID_IDENTIFIER:
         if (res__scope_identifier(res, node, e))
@@ -125,6 +123,63 @@ finish:
     return e->nr;
 }
 
+static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
+    assert (res->ev);
+
+    ti_name_t * name;
+    ti_thing_t * parent;
+    ti_task_t * task;
+    cleri_node_t * identifier = nd              /* sequence */
+            ->children->node;                   /* identifier */
+
+    cleri_node_t * scope = nd                   /* sequence */
+            ->children->next->next->node;       /* scope */
+
+    if (res->val->tp != TI_VAL_THING)
+    {
+        ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
+                ti_val_to_str(res->val));
+        return e->nr;
+    }
+
+    parent = res->val->via.thing;
+
+    res->val->via.thing = ti_grab(res->db->root);
+    if (ti_res_scope(res, scope, e))
+        goto done;
+
+    name = ti_names_get(identifier->str, identifier->len);
+    if (!name)
+        goto alloc_err;
+
+    task = res_get_task(res->ev, parent, e);
+    if (!task)
+        goto done;
+
+    if (ti_task_add_assign(task, name, res->val))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `res->ev->tasks` */
+
+    if (ti_thing_weak_setv(parent, name, res->val))
+    {
+        free(vec_pop(task->subtasks));
+        goto alloc_err;
+    }
+
+    ti_val_set_nil(res->val);
+
+    goto done;
+
+alloc_err:
+    ex_set_alloc(e);
+
+done:
+    ti_thing_drop(parent);
+    return e->nr;
+}
+
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
@@ -143,9 +198,8 @@ static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
-        /*
-         * assignment
-         */
+        if (res__assignment(res, node, e))
+            return e->nr;
         break;
     case CLERI_GID_IDENTIFIER:
         if (res__chain_identifier(res, node, e))
@@ -354,10 +408,97 @@ done:
     return e->nr;
 }
 
+static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (langdef_nd_is_function_params(nd));
+
+    int n;
+    uint32_t current_n;
+    ti_val_t tmp_val, * val = res->val;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+
+    if (!ti_val_is_array(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `push`",
+                ti_val_to_str(val));
+        return e->nr;
+    }
+
+    n = langdef_nd_info_function_params(nd);
+    if (n <= 0)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `push` requires at least one argument but %s",
+                n ? "an `iterator` was given" : "none were given");
+        return e->nr;
+    }
+
+    current_n = val->via.things->n;
+
+    /* doesn't matter, take either things or primitives */
+    if (vec_resize(&val->via.things, current_n + n))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    res->val = &tmp_val;
+    (void) ti_val_set(&tmp_val, TI_VAL_THING, res->db->root);
+
+    assert (child);
+
+    for (n = 0; child; child = child->next->next)
+    {
+        ++n;
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        ti_val_clear(res->val);
+        (void) ti_val_set(res->val, TI_VAL_THING, res->db->root);
+
+        if (ti_res_scope(res, child->node, e))
+            goto failed;
+
+        /* we can turn things into primitives if necessary */
+        if (res->val->tp == TI_VAL_THINGS && !res->val->via.things->n)
+            res->val->tp = TI_VAL_PRIMITIVES;
+
+        if (res->val->tp == TI_VAL_THINGS)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "argument %d is of type `%s` and cannot be "
+                    "nested into into another array",
+                    n, ti_val_to_str(res->val));
+            goto failed;
+        }
+
+        if (res->val->tp == TI_VAL_THING)
+        {
+            if (val->tp == TI_VAL_PRIMITIVES)
+            {
+                ex_set(e, EX_BAD_DATA,
+                    "argument %d is of type `%s` and cannot be mixed into an"
+                    "array with other types", n, ti_val_to_str(res->val));
+            }
+        }
+
+
+        VEC_push(val->via.things, thing);
+
+        if (!child->next)
+        {
+            force_as_array = false;
+            break;
+        }
+    }
+
+}
+
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert(langdef_nd_is_function(nd));
+    assert (langdef_nd_is_function(nd));
 
     cleri_node_t * fname, * params;
 
@@ -376,6 +517,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_id(res, params, e);
     case CLERI_GID_F_THING:
         return res__f_thing(res, params, e);
+    case CLERI_GID_F_PUSH:
+        return res__f_push(res, params, e);
     }
 
     ex_set(e, EX_INDEX_ERROR,
@@ -519,57 +662,6 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         }
         break;
     }
-    return e->nr;
-}
-
-static int res__scope_assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
-{
-    assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
-    assert (res->val->tp == TI_VAL_THING);
-    assert (res->ev);
-
-    ti_name_t * name;
-    ti_thing_t * parent;
-    ti_task_t * task;
-    cleri_node_t * identifier = nd              /* sequence */
-            ->children->node;                   /* identifier */
-
-    cleri_node_t * scope = nd                   /* sequence */
-            ->children->next->next->node;       /* scope */
-
-    parent = res->val->via.thing;
-
-    res->val->via.thing = ti_grab(res->db->root);
-    if (ti_res_scope(res, scope, e))
-        goto done;
-
-    name = ti_names_get(identifier->str, identifier->len);
-    if (!name)
-        goto alloc_err;
-
-    task = res_get_task(res->ev, parent, e);
-    if (!task)
-        goto done;
-
-    if (ti_task_add_assign(task, name, res->val))
-        goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `res->ev->tasks` */
-
-    if (ti_thing_weak_setv(parent, name, res->val))
-    {
-        free(vec_pop(task->subtasks));
-        goto alloc_err;
-    }
-
-    ti_val_set_nil(res->val);
-
-    goto done;
-
-alloc_err:
-    ex_set_alloc(e);
-
-done:
-    ti_thing_drop(parent);
     return e->nr;
 }
 

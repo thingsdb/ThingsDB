@@ -74,12 +74,12 @@ int main(int argc, char * argv[])
         }
         if ((rc = ti_build()))
         {
-            printf("error: building new pool has failed\n");
+            printf("error: building new ThingsDB cluster has failed\n");
             goto stop;
         }
 
         printf(
-            "Well done! You successfully initialized a new ThingsDB pool.\n\n"
+            "Well done! You successfully initialized a new ThingsDB cluster.\n\n"
             "You can now start ThingsDB and connect by using the default user `%s`.\n"
             "..before I forget, the password is `%s`\n\n",
             ti_user_def_name,
@@ -91,8 +91,8 @@ int main(int argc, char * argv[])
     if (strlen(ti()->args->secret))
     {
         printf(
-            "Waiting for a invite to join some pool from a ThingsDB node...\n"
-            "(if you want to create a new pool instead, press CTRL+C and "
+            "Waiting for a invite to join some cluster from a ThingsDB node...\n"
+            "(if you want to create a new cluster instead, press CTRL+C and "
             "use the --init argument)\n");
     }
     else if (fx_file_exist(ti()->fn))
@@ -105,14 +105,14 @@ int main(int argc, char * argv[])
 
         if ((rc = ti_store_restore()))
         {
-            printf("error loading ThingsDB pool\n");
+            printf("error loading ThingsDB cluster\n");
             goto stop;
         }
     }
     else
     {
         printf(
-            "The first time you should either create a new pool using "
+            "The first time you should either create a new cluster using "
             "the --init argument or set a one-time-secret using the --secret "
             "argument and wait for a invite from another node.\n");
         goto stop;

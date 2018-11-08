@@ -15,7 +15,7 @@ from pyleri import (
     THIS,
 )
 
-RE_IDENTIFIER = r'^[a-zA-Z_][a-zA-Z0-9_]*'
+RE_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*'
 
 
 class Choice(Choice_):
@@ -33,7 +33,7 @@ class List(List_):
 
 
 class Definition(Grammar):
-    RE_KEYWORDS = re.compile(RE_IDENTIFIER)
+    RE_KEYWORDS = re.compile(RE_NAME)
 
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
@@ -48,7 +48,7 @@ class Definition(Grammar):
 
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
 
-    identifier = Regex(RE_IDENTIFIER)
+    name = Regex(RE_NAME)
 
     # build-in get functions
     f_blob = Keyword('blob')
@@ -81,10 +81,10 @@ class Definition(Grammar):
     scope = Ref()
     chain = Ref()
 
-    thing = Sequence('{', List(Sequence(identifier, ':', scope)), '}')
+    thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    iterator = Sequence(List(identifier, mi=1, ma=2, opt=False), '=>', scope)
+    iterator = Sequence(List(name, mi=1, ma=2, opt=False), '=>', scope)
     arguments = List(scope)
 
     function = Sequence(Choice(
@@ -104,8 +104,8 @@ class Definition(Grammar):
         f_revoke,
         f_set,
         f_unset,
-        # any identifier
-        identifier,
+        # any name
+        name,
     ), '(', Choice(
         iterator,
         arguments,
@@ -124,14 +124,14 @@ class Definition(Grammar):
         ')',
     )
 
-    assignment = Sequence(identifier, '=', scope)
+    assignment = Sequence(name, '=', scope)
     index = Repeat(
         Sequence('[', t_int, ']')
     )
 
     chain = Sequence(
         '.',
-        Choice(function, assignment, identifier),
+        Choice(function, assignment, name),
         index,
         Optional(chain),
     )
@@ -141,7 +141,7 @@ class Definition(Grammar):
             primitives,
             function,
             assignment,
-            identifier,
+            name,
             thing,
             array,
             compare
@@ -157,8 +157,8 @@ class Definition(Grammar):
 
     @classmethod
     def translate(cls, elem):
-        if elem == cls.identifier:
-            return 'identifier'
+        if elem == cls.name:
+            return 'name'
 
     def test(self, str):
         print('{} : {}'.format(
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         'ev': 0,
         '$id': 4,
         'tasks': [
-            {'assign': {'age': 5}},
+            {'assign': {'age', 5}},
             {'del': 'age'},
             {'set': {'name': 'iris'}},
             {'unset': 'name'},
@@ -271,8 +271,6 @@ if __name__ == '__main__':
         'id': 4,
         'set': ['age', 5]
     }
-
-    definition.test('  databases.create(dbtest);  ')
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:

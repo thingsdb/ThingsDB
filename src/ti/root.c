@@ -29,7 +29,7 @@
 //{
 //    cleri_t * function = nd                 /* sequence */
 //            ->children->node                /* choice */
-//            ->children->node->cl_obj;       /* keyword or identifier */
+//            ->children->node->cl_obj;       /* keyword or name */
 //
 //    switch (scope)
 //    {
@@ -50,7 +50,7 @@
 //
 //    switch (obj->tp)
 //    {
-//    case CLERI_GID_IDENTIFIER:
+//    case CLERI_GID_NAME:
 //        switch (scope)
 //        {
 //        case TI_ROOT_ROOT:

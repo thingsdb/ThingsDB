@@ -24,19 +24,9 @@ async def test():
         /*
          * test query
          */
-        a = {
-            name: 'iris',
-            age: 5,
-        };
+        people.push({a: 3});
 
-        a;
-
-        b = thing(id());
-
-        b.a.t = 3;
-
-        b.a.t.x = 3;
-
+        people;
 
         ''', timeout=2)
     except ThingsDBError as e:

@@ -13,9 +13,9 @@ typedef enum
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_RAW,
-    TI_VAL_PRIMITIVES,  /* NEVER turn back to TI_VAL_THINGS */
+    TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
     TI_VAL_THING,
-    TI_VAL_THINGS,  /* when empty, this can be turned into TI_VAL_PRIMITIVES */
+    TI_VAL_THINGS,  /* when empty, this can be turned into TI_VAL_ARRAY */
 } ti_val_enum;
 
 typedef enum
@@ -40,7 +40,9 @@ typedef union ti_val_u ti_val_via_t;
 
 ti_val_t * ti_val_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
+ti_val_t * ti_val_weak_dup(ti_val_t * val);
 void ti_val_destroy(ti_val_t * val);
+void ti_val_weak_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
@@ -69,10 +71,10 @@ union ti_val_u
     double float_;
     _Bool bool_;
     ti_raw_t * raw;
-    vec_t * primitives;     /* ti_val_t*        */
+    vec_t * array;          /* ti_val_t*        */
     ti_thing_t * thing;
     vec_t * things;         /* ti_thing_t*      */
-    vec_t * arr;            /* placeholder for primitives and things */
+    vec_t * arr;            /* placeholder for array and things */
 };
 
 struct ti_val_s
@@ -85,7 +87,7 @@ struct ti_val_s
 static inline _Bool ti_val_is_array(ti_val_t * val)
 {
     return (
-        val->tp == TI_VAL_PRIMITIVES ||
+        val->tp == TI_VAL_ARRAY ||
         val->tp == TI_VAL_THINGS
     );
 }
@@ -94,7 +96,7 @@ static inline _Bool ti_val_is_indexable(ti_val_t * val)
 {
     return (
         val->tp == TI_VAL_RAW ||
-        val->tp == TI_VAL_PRIMITIVES ||
+        val->tp == TI_VAL_ARRAY ||
         val->tp == TI_VAL_THINGS
     );
 }

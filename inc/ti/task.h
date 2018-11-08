@@ -24,6 +24,11 @@ typedef struct ti_task_s ti_task_t;
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_push(
+        ti_task_t * task,
+        ti_name_t * name,
+        ti_val_t * val,             /* array or things */
+        size_t n);                  /* the last n items are pushed */
 
 struct ti_task_s
 {

@@ -14,7 +14,7 @@ _Bool langdef_nd_is_update_function(cleri_node_t * nd)
 
     function = nd                           /* sequence */
             ->children->node                /* choice */
-            ->children->node->cl_obj;       /* keyword or identifier */
+            ->children->node->cl_obj;       /* keyword or name */
 
     switch (function->gid)
     {

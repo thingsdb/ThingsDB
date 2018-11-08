@@ -32,11 +32,27 @@ ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v)
     return val;
 }
 
+ti_val_t * ti_val_weak_dup(ti_val_t * val)
+{
+    ti_val_t * dup = malloc(sizeof(ti_val_t));
+    if (!dup)
+        return NULL;
+    memcpy(dup, val, sizeof(ti_val_t));
+    return dup;
+}
+
 void ti_val_destroy(ti_val_t * val)
 {
     if (!val)
         return;
     ti_val_clear(val);
+    free(val);
+}
+
+void ti_val_weak_destroy(ti_val_t * val)
+{
+    if (!val)
+        return;
     free(val);
 }
 
@@ -76,8 +92,8 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     case TI_VAL_RAW:
         val->via.raw = v;
         break;
-    case TI_VAL_PRIMITIVES:
-        val->via.primitives = v;
+    case TI_VAL_ARRAY:
+        val->via.array = v;
         break;
     case TI_VAL_THING:
         val->via.thing = v;
@@ -138,9 +154,9 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             return -1;
         }
         break;
-    case TI_VAL_PRIMITIVES:
-        val->via.primitives = vec_dup((vec_t *) v);
-        if (!val->via.primitives)
+    case TI_VAL_ARRAY:
+        val->via.array = vec_dup((vec_t *) v);
+        if (!val->via.array)
         {
             val->tp = TI_VAL_UNDEFINED;
             return -1;
@@ -200,9 +216,9 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             return -1;
         }
         break;
-    case TI_VAL_PRIMITIVES:
-        to->via.primitives = vec_dup(from->via.primitives);
-        if (!to->via.primitives)
+    case TI_VAL_ARRAY:
+        to->via.array = vec_dup(from->via.array);
+        if (!to->via.array)
         {
             to->tp = TI_VAL_UNDEFINED;
             return -1;
@@ -265,7 +281,8 @@ int ti_val_gen_ids(ti_val_t * val)
     switch (val->tp)
     {
     case TI_VAL_THING:
-        /* no new things can be assigned 'under' an existing thing, so break */
+        /* new things 'under' an existing thing will get their own event,
+         * so break */
         if (val->via.thing->id)
         {
             ti_thing_unmark_new(val->via.thing);
@@ -308,8 +325,8 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_RAW:
         ti_raw_free(val->via.raw);
         break;
-    case TI_VAL_PRIMITIVES:
-        vec_destroy(val->via.primitives, (vec_destroy_cb) ti_val_destroy);
+    case TI_VAL_ARRAY:
+        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
         break;
     case TI_VAL_THING:
         ti_thing_drop(val->via.thing);
@@ -342,10 +359,10 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
                 qp_add_true(*packer) : qp_add_false(*packer);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
-    case TI_VAL_PRIMITIVES:
+    case TI_VAL_ARRAY:
         if (qp_add_array(packer))
             return -1;
-        for (vec_each(val->via.primitives, ti_val_t, v))
+        for (vec_each(val->via.array, ti_val_t, v))
         {
             if (ti_val_to_packer(v, packer, pack))
                 return -1;
@@ -403,7 +420,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
-    case TI_VAL_PRIMITIVES:
+    case TI_VAL_ARRAY:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
         for (vec_each(val->via.things, ti_val_t, v))
@@ -440,7 +457,7 @@ const char * ti_val_to_str(ti_val_t * val)
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
     case TI_VAL_RAW:                return "raw";
-    case TI_VAL_PRIMITIVES:
+    case TI_VAL_ARRAY:
     case TI_VAL_THINGS:             return "array";
     case TI_VAL_THING:              return "thing";
     }

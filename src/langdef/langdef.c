@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-04 23:15:32
+ * Created at: 2018-11-08 21:33:04
  */
 
 #include <langdef/langdef.h>
@@ -35,7 +35,7 @@ cleri_grammar_t * compile_langdef(void)
         r_double_quote
     );
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
-    cleri_t * identifier = cleri_regex(CLERI_GID_IDENTIFIER, "^[a-zA-Z_][a-zA-Z0-9_]*");
+    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[a-zA-Z_][a-zA-Z0-9_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
     cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
@@ -71,7 +71,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, cleri_sequence(
             CLERI_NONE,
             3,
-            identifier,
+            name,
             cleri_token(CLERI_NONE, ":"),
             scope
         ), cleri_token(CLERI_NONE, ","), 0, 0, 1),
@@ -87,7 +87,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * iterator = cleri_sequence(
         CLERI_GID_ITERATOR,
         3,
-        cleri_list(CLERI_NONE, identifier, cleri_token(CLERI_NONE, ","), 1, 2, 0),
+        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 1, 2, 0),
         cleri_token(CLERI_NONE, "=>"),
         scope
     );
@@ -113,7 +113,7 @@ cleri_grammar_t * compile_langdef(void)
             f_revoke,
             f_set,
             f_unset,
-            identifier
+            name
         ),
         cleri_token(CLERI_NONE, "("),
         cleri_choice(
@@ -171,7 +171,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * assignment = cleri_sequence(
         CLERI_GID_ASSIGNMENT,
         3,
-        identifier,
+        name,
         cleri_token(CLERI_NONE, "="),
         scope
     );
@@ -203,7 +203,7 @@ cleri_grammar_t * compile_langdef(void)
             primitives,
             function,
             assignment,
-            identifier,
+            name,
             thing,
             array,
             compare
@@ -221,7 +221,7 @@ cleri_grammar_t * compile_langdef(void)
             3,
             function,
             assignment,
-            identifier
+            name
         ),
         index,
         cleri_optional(CLERI_NONE, chain)

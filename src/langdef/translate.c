@@ -12,8 +12,8 @@ const char * langdef_translate(cleri_t * elem)
         return "<string>";
     case CLERI_GID_T_INT:
         return "<int>";
-    case CLERI_GID_IDENTIFIER:
-        return "<identifier>";
+    case CLERI_GID_NAME:
+        return "<name>";
     }
     return NULL;
 }

@@ -63,8 +63,8 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
     if (!ti_name_is_valid_strn(name, n))
     {
         ex_set(e, EX_BAD_DATA,
-                "username should be a valid identifier, "
-                "see "TI_DOCS"#identifiers");
+                "username should be a valid name, "
+                "see "TI_DOCS"#names");
         return false;
     }
 

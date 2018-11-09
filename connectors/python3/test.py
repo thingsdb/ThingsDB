@@ -24,12 +24,7 @@ async def test():
         /*
          * test query
          */
-        /* people.push(thing(id()))[-1]; */
-
-        /* a = 5; */
-        b = true;
-
-        thing(5).c = 'bla';
+        people.filter();
 
 
 

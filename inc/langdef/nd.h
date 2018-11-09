@@ -11,6 +11,7 @@ _Bool langdef_nd_is_update_function(cleri_node_t * nd);
 static inline _Bool langdef_nd_is_function(cleri_node_t * nd);
 static inline _Bool langdef_nd_is_function_params(cleri_node_t * nd);
 static inline _Bool langdef_nd_has_function_params(cleri_node_t * nd);
+static inline _Bool langdef_nd_is_iterator_param(cleri_node_t * nd);
 int langdef_nd_info_function_params(cleri_node_t * nd);
 
 
@@ -33,6 +34,11 @@ static inline _Bool langdef_nd_has_function_params(cleri_node_t * nd)
         nd->cl_obj->gid == CLERI_GID_ITERATOR ||
         nd->children         /* List <scope> */
     );
+}
+
+static inline _Bool langdef_nd_is_iterator_param(cleri_node_t * nd)
+{
+    return nd->cl_obj->gid == CLERI_GID_ITERATOR;
 }
 
 

@@ -67,7 +67,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
     val->flags = 0;
-    switch(tp)
+    switch((ti_val_enum) tp)
     {
     case TI_VAL_PROP:
         val->via.prop = v;
@@ -95,6 +95,9 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
             _Bool * p = v;
             val->via.bool_ = *p;
         }
+        break;
+    case TI_VAL_NAME:
+        val->via.name = v;
         break;
     case TI_VAL_RAW:
         val->via.raw = v;
@@ -119,7 +122,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
     val->flags = 0;
-    switch(tp)
+    switch((ti_val_enum) tp)
     {
     case TI_VAL_PROP:
         val->via.prop = v;
@@ -147,6 +150,9 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             _Bool * p = v;
             val->via.bool_ = *p;
         }
+        break;
+    case TI_VAL_NAME:
+        val->via.name = ti_grab((ti_name_t *) v);
         break;
     case TI_VAL_RAW:
         val->via.raw = ti_raw_dup((ti_raw_t *) v);
@@ -193,7 +199,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
     to->flags = 0;
-    switch(from->tp)
+    switch((ti_val_enum) from->tp)
     {
     case TI_VAL_PROP:
         to->via.prop = from->via.prop;  /* this is a reference */
@@ -204,6 +210,9 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
         to->via = from->via;
+        break;
+    case TI_VAL_NAME:
+        to->via.name = ti_grab(from->via.name);
         break;
     case TI_VAL_RAW:
         to->via.raw = ti_raw_dup(from->via.raw);
@@ -285,6 +294,52 @@ void ti_val_set_float(ti_val_t * val, double d)
     val->via.float_ = d;
 }
 
+_Bool ti_val_as_bool(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_PROP:
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_NIL:
+        return false;
+    case TI_VAL_INT:
+        return !!val->via.int_;
+    case TI_VAL_FLOAT:
+        return !!val->via.float_;
+    case TI_VAL_BOOL:
+        return val->via.bool_;
+    case TI_VAL_NAME:
+        return !!val->via.name->n;
+    case TI_VAL_RAW:
+        return !!val->via.raw->n;
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THINGS:
+        return !!val->via.arr->n;
+    case TI_VAL_THING:
+        return true;
+    }
+    assert (0);
+    return false;
+}
+
+size_t ti_val_iterator_n(ti_val_t * val)
+{
+    switch (val->tp)
+    {
+    case TI_VAL_RAW:
+        return val->via.raw->n;
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THINGS:
+        return val->via.arr->n;
+    case TI_VAL_THING:
+        return val->via.thing->props->n;
+    }
+    assert (0);
+    return 0;
+}
+
 int ti_val_gen_ids(ti_val_t * val)
 {
     switch (val->tp)
@@ -320,7 +375,7 @@ int ti_val_gen_ids(ti_val_t * val)
  */
 void ti_val_clear(ti_val_t * val)
 {
-    switch(val->tp)
+    switch((ti_val_enum) val->tp)
     {
     case TI_VAL_PROP:  /* props are destroyed by res */
     case TI_VAL_UNDEFINED:
@@ -328,6 +383,9 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+        break;
+    case TI_VAL_NAME:
+        ti_name_drop(val->via.name);
         break;
     case TI_VAL_RAW:
         ti_raw_free(val->via.raw);
@@ -349,7 +407,7 @@ void ti_val_clear(ti_val_t * val)
 
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
 {
-    switch (val->tp)
+    switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_PROP:
         if (pack == TI_VAL_PACK_NEW)
@@ -370,6 +428,11 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
     case TI_VAL_BOOL:
         return val->via.bool_ ?
                 qp_add_true(*packer) : qp_add_false(*packer);
+    case TI_VAL_NAME:
+        return qp_add_raw(
+                *packer,
+                (unsigned char *) val->via.name->str,
+                val->via.name->n);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
     case TI_VAL_TUPLE:
@@ -417,7 +480,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 {
     assert (val && f);
 
-    switch (val->tp)
+    switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_PROP:
     case TI_VAL_UNDEFINED:
@@ -431,6 +494,11 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_double(f, val->via.float_);
     case TI_VAL_BOOL:
         return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
+    case TI_VAL_NAME:
+        return qp_fadd_raw(
+                f,
+                (unsigned char *) val->via.name->str,
+                val->via.name->n);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
     case TI_VAL_TUPLE:
@@ -470,6 +538,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_INT:                return "int";
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
+    case TI_VAL_NAME:
     case TI_VAL_RAW:                return "raw";
     case TI_VAL_TUPLE:              return "tuple";
     case TI_VAL_ARRAY:

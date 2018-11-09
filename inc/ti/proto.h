@@ -1,5 +1,5 @@
 /*
- * proto.h
+ * ti/proto.h
  */
 #ifndef TI_PROTO_H_
 #define TI_PROTO_H_

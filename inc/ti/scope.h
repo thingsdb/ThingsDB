@@ -6,9 +6,12 @@
 
 typedef struct ti_scope_s ti_scope_t;
 
+#include <cleri/cleri.h>
 #include <ti/name.h>
 #include <ti/thing.h>
 #include <ti/val.h>
+#include <ti/iter.h>
+#include <ti/ex.h>
 
 ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing);
 void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until);
@@ -19,7 +22,9 @@ _Bool ti_scope_in_use_name(
         ti_scope_t * scope,
         ti_thing_t * thing,
         ti_name_t * name);
-
+static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
+int ti_scope_set_iter_names(ti_scope_t * scope, cleri_node_t * nd, ex_t * e);
+ti_val_t *  ti_scope_iter_val(ti_scope_t * scope, ti_name_t * name);
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope);
 
 struct ti_scope_s
@@ -28,11 +33,20 @@ struct ti_scope_s
     ti_thing_t * thing; /* with reference */
     ti_name_t * name;   /* weak reference to name or NULL */
     ti_val_t * val;     /* weak value, always the thing->name value */
+    ti_iter_t * iter;
 };
 
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope)
 {
     return scope->thing && !scope->name;
 }
+
+static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope)
+{
+    return !scope->val
+            ? false
+            : ti_scope_in_use_name(scope->prev, scope->thing, scope->name);
+}
+
 
 #endif  /* TI_SCOPE_H_ */

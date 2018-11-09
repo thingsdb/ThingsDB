@@ -2,9 +2,9 @@
  * util/res.c
  */
 #include <ti/name.h>
+#include <langdef/nd.h>
 #include <util/omap.h>
 #include <util/res.h>
-
 
 void res_destroy_collect_cb(vec_t * names)
 {
@@ -54,6 +54,9 @@ void res_rval_weak_destroy(ti_res_t * res)
     ti_val_weak_destroy(res->rval);
     res->rval = NULL;
 }
+
+
+
 
 
 

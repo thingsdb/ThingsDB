@@ -12,6 +12,7 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
+    TI_VAL_NAME,
     TI_VAL_RAW,
     TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
     TI_VAL_TUPLE,   /* nested arrays are of tuple type */
@@ -38,6 +39,7 @@ typedef union ti_val_u ti_val_via_t;
 #include <stdint.h>
 #include <ti/raw.h>
 #include <ti/thing.h>
+#include <ti/name.h>
 #include <util/vec.h>
 
 ti_val_t * ti_val_create(ti_val_enum tp, void * v);
@@ -55,6 +57,8 @@ void ti_val_set_nil(ti_val_t * val);
 void ti_val_set_undefined(ti_val_t * val);
 void ti_val_set_int(ti_val_t * val, int64_t i);
 void ti_val_set_float(ti_val_t * val, double d);
+_Bool ti_val_as_bool(ti_val_t * val);
+size_t ti_val_iterator_n(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 void ti_val_clear(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack);
@@ -64,6 +68,7 @@ static inline const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_mutable_arr(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
+static inline _Bool ti_val_is_iterable(ti_val_t * val);
 static inline void ti_val_mark_fetch(ti_val_t * val);
 static inline void ti_val_unmark_fetch(ti_val_t * val);
 
@@ -75,6 +80,7 @@ union ti_val_u
     int64_t int_;
     double float_;
     _Bool bool_;
+    ti_name_t * name;
     ti_raw_t * raw;
     vec_t * array;          /* ti_val_t*        */
     vec_t * tuple;          /* ti_val_t*        */
@@ -123,6 +129,17 @@ static inline _Bool ti_val_is_indexable(ti_val_t * val)
         val->tp == TI_VAL_RAW ||
         val->tp == TI_VAL_ARRAY ||
         val->tp == TI_VAL_TUPLE ||
+        val->tp == TI_VAL_THINGS
+    );
+}
+
+static inline _Bool ti_val_is_iterable(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_ARRAY ||
+        val->tp == TI_VAL_TUPLE ||
+        val->tp == TI_VAL_THING ||
         val->tp == TI_VAL_THINGS
     );
 }

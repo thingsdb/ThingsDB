@@ -37,7 +37,6 @@ ti_res_t * ti_res_create(ti_db_t * db)
     res->ev = NULL;
     res->scope = NULL;
     res->rval = NULL;
-
     if (!res->collect)
     {
         ti_res_destroy(res);
@@ -49,6 +48,17 @@ ti_res_t * ti_res_create(ti_db_t * db)
 void ti_res_destroy(ti_res_t * res)
 {
     omap_destroy(res->collect, (omap_destroy_cb) res_destroy_collect_cb);
+//    TODO : do we need to destroy the val ?
+//    for (int i = 0; i < 2; ++i)
+//    {
+//        if (res->iterprops[i].name)
+//        {
+//            ti_name_drop(res->iterprops[i].name);
+//            ti_val_clear()
+//        }
+//    }
+
+
     ti_scope_leave(&res->scope, NULL);
     ti_val_destroy(res->rval);
     free(res);
@@ -182,7 +192,9 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!name)
         goto alloc_err;
 
-    if (ti_scope_in_use_name(res->scope, thing, name))
+    /* should also work in chain because then iter must be NULL */
+    if (    ti_iter_in_use_name(res->scope->iter, name) ||
+            ti_scope_in_use_name(res->scope, thing, name))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot assign a new value to `%.*s` while the property is in use",
@@ -325,7 +337,138 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
+    assert (e->nr == 0);
+    assert (langdef_nd_is_function_params(nd));
 
+    ti_iter_t * iter;
+    ti_val_t * retval;
+    ti_val_t * val = res_get_val(res);
+    cleri_node_t * scope_nd = nd            /* sequence  <list => scope> */
+            ->children->next->next->node;   /* scope */
+
+    if (!val || !ti_val_is_iterable(val) || val->tp == TI_VAL_RAW)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `filter`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    if (ti_scope_set_iter_names(res->scope, nd, e))
+        return e->nr;
+
+    iter = res->scope->iter;
+
+    switch (val->tp)
+    {
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+        {
+            int64_t idx = 0;
+            vec_t * retvec = vec_new(val->via.arr->n);
+            if (!retvec)
+                goto alloc_err;
+
+            retval = ti_val_weak_create(TI_VAL_ARRAY, retvec);
+            if (!retval)
+            {
+                vec_destroy(retvec, NULL);
+                goto alloc_err;
+            }
+
+            for (vec_each(val->via.arr, ti_val_t, v), ++idx)
+            {
+                ti_val_weak_copy(&iter[0]->val, v);
+                ti_val_set_int(&iter[1]->val, idx);
+
+                if (ti_res_scope(res, scope_nd, e))
+                    goto failed;
+
+                if (ti_val_as_bool(res->rval))
+                {
+                    ti_val_t * dup = ti_val_dup(v);
+                    if (!dup)
+                        goto failed;
+                    VEC_push(retvec, dup);
+                }
+                res_rval_weak_destroy(res);
+            }
+        }
+        break;
+    case TI_VAL_THINGS:
+        {
+            int64_t idx = 0;
+            vec_t * retvec = vec_new(val->via.arr->n);
+            if (!retvec)
+                goto alloc_err;
+
+            retval = ti_val_weak_create(TI_VAL_THINGS, retvec);
+            if (!retval)
+            {
+                vec_destroy(retvec, NULL);
+                goto alloc_err;
+            }
+
+            for (vec_each(val->via.things, ti_thing_t, t), ++idx)
+            {
+                ti_val_weak_set(&iter[0]->val, TI_VAL_THING, t);
+                ti_val_set_int(&iter[1]->val, idx);
+
+                if (ti_res_scope(res, scope_nd, e))
+                    goto failed;
+
+                if (ti_val_as_bool(res->rval))
+                {
+                    ti_incref(t);
+                    VEC_push(retvec, t);
+                }
+                res_rval_weak_destroy(res);
+            }
+        }
+        break;
+    case TI_VAL_THING:
+        {
+            ti_thing_t * thing = ti_thing_create(0, res->db->things);
+            if (!thing)
+                goto alloc_err;
+
+            retval = ti_val_weak_create(TI_VAL_THING, thing);
+            if (!retval)
+            {
+                ti_thing_drop(thing);
+                goto alloc_err;
+            }
+
+            for (vec_each(val->via.thing->props, ti_prop_t, p))
+            {
+                ti_val_weak_set(&iter[0]->val, TI_VAL_NAME, p->name);
+                ti_val_weak_copy(&iter[1]->val, &p->val);
+
+                if (ti_res_scope(res, scope_nd, e))
+                    goto failed;
+
+                if (ti_val_as_bool(res->rval))
+                {
+                    ti_incref(p->name);
+                    if (ti_thing_setv(thing, p->name, &p->val))
+                        goto failed;
+                }
+
+                res_rval_weak_destroy(res);
+            }
+        }
+    }
+
+failed:
+    ti_val_destroy(retval);
+    assert (e->nr);
+    goto done;
+
+alloc_err:
+    ex_set_alloc(e);
+
+done:
+    return e->nr;
 }
 
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
@@ -505,6 +648,13 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least one argument but %s",
                 n ? "an `iterator` was given" : "none were given");
+        return e->nr;
+    }
+
+    if (!from_rval && ti_scope_current_val_in_use(res->scope))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "cannot use function `push` while the array is in use");
         return e->nr;
     }
 
@@ -822,14 +972,10 @@ static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_val_t * val;
 
-    /* not sure, i think res->val should always contain a thing, but we might
-     * just want to look at db->root and skip looking at res->val
-     */
-
     name = ti_names_weak_get(nd->str, nd->len);
-    val = name ? ti_thing_get(res->scope->thing, name) : NULL;
+    val = name ? ti_scope_iter_val(res->scope, name) : NULL;
 
-    if (!val && name && res->db->root != res->scope->thing)
+    if (!val && name)
         val = ti_thing_get(res->db->root, name);
 
     if (!val)

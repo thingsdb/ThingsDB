@@ -2,18 +2,20 @@
  * query.c
  */
 #include <assert.h>
-#include <ti/query.h>
+#include <langdef/nd.h>
+#include <langdef/translate.h>
+#include <qpack.h>
+#include <stdlib.h>
 #include <ti.h>
 #include <ti/dbs.h>
-#include <ti/res.h>
 #include <ti/proto.h>
-#include <stdlib.h>
-#include <qpack.h>
-#include <langdef/translate.h>
-#include <langdef/nd.h>
+#include <ti/query.h>
+#include <ti/res.h>
+#include <ti/task.h>
 #include <util/qpx.h>
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
+static void query__task_to_watchers(ti_query_t * query);
 
 ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
 {
@@ -185,7 +187,7 @@ void ti_query_run(ti_query_t * query)
             if (!res)
             {
                 ex_set_alloc(e);
-                goto send;
+                goto done;
             }
 
             res->ev = query->ev;  /* NULL if no update is required */
@@ -194,7 +196,7 @@ void ti_query_run(ti_query_t * query)
 
             ti_res_scope(res, child->node, e);
             if (e->nr)
-                goto send;
+                goto done;
 
             assert_log(res->collect->n == 0, "collecting is not implemented");
 
@@ -209,7 +211,10 @@ void ti_query_run(ti_query_t * query)
         assert_log(0, "root queries not implemented yet");
     }
 
-send:
+done:
+    if (query->ev)
+        query__task_to_watchers(query);
+
     ti_query_send(query, e);
 }
 
@@ -233,8 +238,8 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     for (vec_each(query->res_statements, ti_res_t, res))
     {
         assert (res);
-        assert (res->val);
-        if (ti_val_to_packer(res->val, &packer, TI_VAL_PACK_FETCH))
+        assert (res->rval);
+        if (ti_val_to_packer(res->rval, &packer, TI_VAL_PACK_FETCH))
             goto alloc_err;
     }
 
@@ -284,5 +289,13 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
     }
 }
 
-
-
+static void query__task_to_watchers(ti_query_t * query)
+{
+    omap_iter_t iter = omap_iter(query->ev->tasks);
+    for (omap_each(iter, ti_task_t, task))
+    {
+        omap_iter_id(iter);
+        ti_pkg_t * pkg = ti_task_watch(task);
+        free(pkg);
+    }
+}

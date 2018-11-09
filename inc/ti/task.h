@@ -19,10 +19,12 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/thing.h>
 #include <ti/name.h>
 #include <ti/val.h>
+#include <ti/pkg.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
+ti_pkg_t * ti_task_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_push(
         ti_task_t * task,
@@ -33,8 +35,8 @@ int ti_task_add_push(
 struct ti_task_s
 {
     uint64_t event_id;
-    ti_thing_t * thing;
-    vec_t * subtasks;   /* q-pack (unsigned char *) */
+    ti_thing_t * thing;     /* with reference */
+    vec_t * jobs;           /* q-pack (unsigned char *) */
 };
 
 #endif /* TI_TASK_H_ */

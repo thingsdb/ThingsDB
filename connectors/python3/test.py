@@ -24,9 +24,16 @@ async def test():
         /*
          * test query
          */
-        people.push({a: 3});
+        /* people.push(thing(id()))[-1]; */
 
-        people;
+        /* a = 5; */
+        b = true;
+
+        thing(5).c = 'bla';
+
+
+
+
 
         ''', timeout=2)
     except ThingsDBError as e:

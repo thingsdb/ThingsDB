@@ -39,6 +39,7 @@ C_SRCS += \
 ../src/ti/req.c \
 ../src/ti/res.c \
 ../src/ti/root.c \
+../src/ti/scope.c \
 ../src/ti/signals.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
@@ -88,6 +89,7 @@ OBJS += \
 ./src/ti/req.o \
 ./src/ti/res.o \
 ./src/ti/root.o \
+./src/ti/scope.o \
 ./src/ti/signals.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
@@ -137,6 +139,7 @@ C_DEPS += \
 ./src/ti/req.d \
 ./src/ti/res.d \
 ./src/ti/root.d \
+./src/ti/scope.d \
 ./src/ti/signals.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \

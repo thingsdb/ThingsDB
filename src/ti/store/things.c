@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/prop.h>
+#include <ti/things.h>
 #include <ti/store/things.h>
 #include <util/fx.h>
 

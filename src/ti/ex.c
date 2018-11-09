@@ -44,8 +44,6 @@ const char * ex_str(ex_enum errnr)
         return "syntax error in query";
     case EX_NODE_ERROR:
         return "node is temporary unable to handle the request";
-    case EX_INTERNAL:
-        return "undefined internal error";
     case EX_REQUEST_TIMEOUT:
         return "request timed out";
     case EX_REQUEST_CANCEL:
@@ -54,6 +52,8 @@ const char * ex_str(ex_enum errnr)
         return "cannot write to socket";
     case EX_ALLOC:
         return "memory allocation error";
+    case EX_INTERNAL:
+        return "internal error";
     case EX_SUCCESS:
         return "success";
     }

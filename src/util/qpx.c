@@ -68,7 +68,14 @@ void qpx_packer_destroy(qpx_packer_t * xpkg)
  */
 ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 {
-    ti_pkg_t * pkg = (ti_pkg_t *) packer->buffer;
+    ti_pkg_t * pkg;
+    if (packer->buffer_size > packer->len)
+    {
+        unsigned char * tmp = realloc(packer->buffer, packer->len);
+        if (tmp)
+            packer->buffer = tmp;
+    }
+    pkg = (ti_pkg_t *) packer->buffer;
     pkg->id = 0;
     pkg->n = packer->len - sizeof(ti_pkg_t);
     pkg->tp = (uint8_t) tp;
@@ -77,16 +84,6 @@ ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
     packer->buffer = NULL;
     qp_packer_destroy(packer);
     return pkg;
-}
-
-unsigned char * qpx_get_and_destroy(qpx_packer_t * packer)
-{
-    unsigned char * tmp = realloc(packer->buffer, packer->len);
-    if (!tmp)
-        return NULL;
-    packer->buffer = NULL;
-    qp_packer_destroy(packer);
-    return tmp;
 }
 
 void qpx_unpacker_init(

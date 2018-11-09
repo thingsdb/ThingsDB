@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti/val.h>
+#include <ti/prop.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -32,6 +33,19 @@ ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v)
     return val;
 }
 
+ti_val_t * ti_val_dup(ti_val_t * val)
+{
+    ti_val_t * dup = malloc(sizeof(ti_val_t));
+    if (!dup)
+        return NULL;
+    if (ti_val_copy(dup, val))
+    {
+        free(dup);
+        return NULL;
+    }
+    return dup;
+}
+
 ti_val_t * ti_val_weak_dup(ti_val_t * val)
 {
     ti_val_t * dup = malloc(sizeof(ti_val_t));
@@ -49,21 +63,14 @@ void ti_val_destroy(ti_val_t * val)
     free(val);
 }
 
-void ti_val_weak_destroy(ti_val_t * val)
-{
-    if (!val)
-        return;
-    free(val);
-}
-
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
     val->flags = 0;
     switch(tp)
     {
-    case TI_VAL_VAL:
-        val->via.val = v;
+    case TI_VAL_PROP:
+        val->via.prop = v;
         break;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
@@ -92,6 +99,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     case TI_VAL_RAW:
         val->via.raw = v;
         break;
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         val->via.array = v;
         break;
@@ -113,14 +121,8 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch(tp)
     {
-    case TI_VAL_VAL:
-        val->via.val = malloc(sizeof(ti_val_t));
-        if (    !val->via.val ||
-                ti_val_copy(val->via.val, ((ti_val_t *) v)->via.val))
-        {
-            val->tp = TI_VAL_UNDEFINED;
-            return -1;
-        }
+    case TI_VAL_PROP:
+        val->via.prop = v;
         break;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
@@ -154,6 +156,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             return -1;
         }
         break;
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         val->via.array = vec_dup((vec_t *) v);
         if (!val->via.array)
@@ -182,24 +185,18 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
-    to->flags = from->flags;;
+    to->flags = 0;
     to->via = from->via;
 }
 
 int ti_val_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
-    to->flags = from->flags;
+    to->flags = 0;
     switch(from->tp)
     {
-    case TI_VAL_VAL:
-        to->via.val = malloc(sizeof(ti_val_t));
-        if (    !to->via.val ||
-                ti_val_copy(to->via.val, ((ti_val_t *) from)->via.val))
-        {
-            to->tp = TI_VAL_UNDEFINED;
-            return -1;
-        }
+    case TI_VAL_PROP:
+        to->via.prop = from->via.prop;  /* this is a reference */
         break;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
@@ -216,12 +213,24 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             return -1;
         }
         break;
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
-        to->via.array = vec_dup(from->via.array);
+        to->via.array = vec_new(from->via.array->n);
         if (!to->via.array)
         {
             to->tp = TI_VAL_UNDEFINED;
             return -1;
+        }
+        for (vec_each(from->via.array, ti_val_t, val))
+        {
+            ti_val_t * dup = ti_val_dup(val);
+            if (!dup)
+            {
+                vec_destroy(to->via.array, (vec_destroy_cb) ti_val_destroy);
+                to->tp = TI_VAL_UNDEFINED;
+                return -1;
+            }
+            VEC_push(to->via.array, dup);
         }
         break;
     case TI_VAL_THING:
@@ -294,12 +303,12 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_THINGS:
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (val->via.thing->id)
+            if (thing->id)
             {
-                ti_thing_unmark_new(val->via.thing);
+                ti_thing_unmark_new(thing);
                 continue;
             }
-            if (ti_thing_gen_id(val->via.thing))
+            if (ti_thing_gen_id(thing))
                 return -1;
         }
     }
@@ -313,9 +322,7 @@ void ti_val_clear(ti_val_t * val)
 {
     switch(val->tp)
     {
-    case TI_VAL_VAL:
-        ti_val_destroy(val->via.val);
-        break;
+    case TI_VAL_PROP:  /* props are destroyed by res */
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -325,6 +332,7 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_RAW:
         ti_raw_free(val->via.raw);
         break;
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
         break;
@@ -343,8 +351,13 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
 {
     switch (val->tp)
     {
-    case TI_VAL_VAL:
-        return ti_val_to_packer(val->via.val, packer, pack);
+    case TI_VAL_PROP:
+        if (pack == TI_VAL_PACK_NEW)
+            return qp_add_null(*packer);
+        ti_prop_t ** prop = (ti_prop_t **) val->via.prop;
+        assert ((*prop)->val.tp != TI_VAL_UNDEFINED);
+        return ti_val_to_packer(&(*prop)->val, packer, pack);
+        break;
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -359,6 +372,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
                 qp_add_true(*packer) : qp_add_false(*packer);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         if (qp_add_array(packer))
             return -1;
@@ -405,11 +419,10 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch (val->tp)
     {
-    case TI_VAL_VAL:
-        return ti_val_to_file(val->via.val, f);
+    case TI_VAL_PROP:
     case TI_VAL_UNDEFINED:
         assert (0);
-        return 0;
+        return -1;
     case TI_VAL_NIL:
         return qp_fadd_type(f, QP_NULL);
     case TI_VAL_INT:
@@ -420,6 +433,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
+    case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
@@ -446,17 +460,18 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     return -1;
 }
 
-const char * ti_val_to_str(ti_val_t * val)
+const char * ti_val_tp_str(ti_val_enum tp)
 {
-    switch (val->tp)
+    switch (tp)
     {
-    case TI_VAL_VAL:                return ti_val_to_str(val->via.val);
+    case TI_VAL_PROP:               return "nil";
     case TI_VAL_UNDEFINED:          return "undefined";
     case TI_VAL_NIL:                return "nil";
     case TI_VAL_INT:                return "int";
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
     case TI_VAL_RAW:                return "raw";
+    case TI_VAL_TUPLE:              return "tuple";
     case TI_VAL_ARRAY:
     case TI_VAL_THINGS:             return "array";
     case TI_VAL_THING:              return "thing";

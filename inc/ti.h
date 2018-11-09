@@ -18,6 +18,7 @@
 
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
+#define ti_decref(x) (--(x)->ref)  /* only use when x->ref > 1 */
 
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */

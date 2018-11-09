@@ -25,6 +25,17 @@ ti_raw_t * ti_raw_dup(const ti_raw_t * raw)
     return r;
 }
 
+ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
+{
+    size_t sz = sizeof(ti_raw_t) + packer->len;
+    ti_raw_t * r = malloc(sz);
+    if (!r)
+        return NULL;
+    r->n = packer->len;
+    memcpy(r->data, packer->buffer, packer->len);
+    return r;
+}
+
 ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
 {
     assert (n >= 2);  /* at least "" or '' */

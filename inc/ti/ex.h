@@ -22,11 +22,11 @@ typedef enum
     EX_QUERY_ERROR          =-101,
     EX_NODE_ERROR           =-100,
 
-    EX_INTERNAL             =-13,
-    EX_REQUEST_TIMEOUT      =-4,
-    EX_REQUEST_CANCEL       =-3,
-    EX_WRITE_UV             =-2,
-    EX_ALLOC                =-1,
+    EX_REQUEST_TIMEOUT      =-5,
+    EX_REQUEST_CANCEL       =-4,
+    EX_WRITE_UV             =-3,
+    EX_ALLOC                =-2,
+    EX_INTERNAL             =-1,
 
     EX_SUCCESS              =0  /* not an error */
 } ex_enum;

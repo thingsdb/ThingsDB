@@ -52,6 +52,7 @@ class Definition(Grammar):
 
     # build-in get functions
     f_blob = Keyword('blob')
+    f_filter = Keyword('filter')
     f_get = Keyword('get')
     f_id = Keyword('id')
     f_map = Keyword('map')
@@ -90,6 +91,7 @@ class Definition(Grammar):
     function = Sequence(Choice(
         # build-in get functions
         f_blob,     # (int inx_in_blobs) -> raw
+        f_filter,   # (iterator) -> [return values where return is true]
         f_get,      #
         f_id,       # () -> int
         f_map,      # (iterator) -> [return values]
@@ -210,7 +212,7 @@ if __name__ == '__main__':
     definition.test(' databases.dbtest.drop() ')
 
     definition.test('  drop_db( dbtest )  ')
-    definition.test('  drop_db( 123 )  ')
+    definition.test('  {a: "123"}.b = 4  ')
     {   # RETURN
         '$id': 123,
         '$dropped': True
@@ -255,12 +257,13 @@ if __name__ == '__main__':
     }
 
     {
-        'ev': 0,
+        '$ev': 0,
         '$id': 4,
-        'tasks': [
+        '$jobs': [
             {'assign': {'age', 5}},
             {'del': 'age'},
             {'set': {'name': 'iris'}},
+            {'set': {'image': '<bin_data>'}},
             {'unset': 'name'},
             {'push': {'people': [{'$id': 123}]}}
         ]

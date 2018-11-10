@@ -6,6 +6,8 @@
 
 #define TI_URL "https://thinkdb.net"
 #define TI_DOCS TI_URL"/docs/"
+#define TI_THING_ID "`#%"PRIu64"`"
+typedef unsigned char uchar;
 
 #ifdef UNUSED
 #elif defined(__GNUC__)

@@ -197,7 +197,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack)
     assert (pack == TI_VAL_PACK_FETCH || pack == TI_VAL_PACK_NEW);
 
     if (    qp_add_map(packer) ||
-            qp_add_raw(*packer, (const unsigned char *) "$id", 3) ||
+            qp_add_raw(*packer, (const uchar *) "#", 1) ||
             qp_add_int64(*packer, (int64_t) thing->id))
         return -1;
 

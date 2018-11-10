@@ -52,22 +52,25 @@ class Definition(Grammar):
 
     # build-in get functions
     f_blob = Keyword('blob')
+    f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
     f_get = Keyword('get')
     f_id = Keyword('id')
     f_map = Keyword('map')
+    f_ret = Keyword('ret')
+    f_startswith = Keyword('startswith')
     f_thing = Keyword('thing')
 
     # build-in update functions
-    f_create = Keyword('create')
     f_del = Keyword('del')
-    f_drop = Keyword('create')
-    f_grant = Keyword('grant')
     f_push = Keyword('push')
+    f_remove = Keyword('remove')
     f_rename = Keyword('rename')
-    f_revoke = Keyword('revoke')
     f_set = Keyword('set')
+    f_splice = Keyword('splice')
     f_unset = Keyword('unset')
+    f_unwatch = Keyword('unwatch')
+    f_watch = Keyword('watch')
 
     primitives = Choice(
         t_false,
@@ -85,35 +88,34 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    iterator = Sequence(List(name, mi=1, ma=2, opt=False), '=>', scope)
-    arguments = List(scope)
+    arrow = Sequence(List(name, opt=False), '=>', scope)
 
     function = Sequence(Choice(
         # build-in get functions
-        f_blob,     # (int inx_in_blobs) -> raw
-        f_filter,   # (iterator) -> [return values where return is true]
-        f_get,      #
-        f_id,       # () -> int
-        f_map,      # (iterator) -> [return values]
-        f_thing,    # (int thing_id) -> thing
+        f_blob,         # (int inx_in_blobs) -> raw
+        f_endswith,     # (str) -> bool
+        f_filter,       # (arrow) -> [return values where return is true]
+        f_get,          # (str,..) -> attribute val
+        f_id,           # () -> int
+        f_map,          # (arrow) -> [return values]
+        f_ret,          # () -> nil
+        f_startswith,   # (str) -> bool
+        f_thing,        # (int thing_id) -> thing
+        f_unwatch,      # (#id) -> nil
+        f_watch,        # (#id) -> nil
         # build-in update functions
-        f_create,
         f_del,
-        f_drop,
-        f_grant,
         f_push,
+        f_remove,
         f_rename,
-        f_revoke,
         f_set,
+        f_splice,
         f_unset,
         # any name
         name,
-    ), '(', Choice(
-        iterator,
-        arguments,
-    ), ')')
+    ), '(', List(scope), ')')
 
-    cmp_operators = Tokens('< > == != <= >= ~ !~')
+    cmp_operators = Tokens('< > == != <= >=')
 
     compare = Sequence(
         '(',
@@ -129,7 +131,7 @@ class Definition(Grammar):
     assignment = Sequence(name, '=', scope)
     index = Repeat(
         Sequence('[', t_int, ']')
-    )
+    )       # we skip index in the investigate, (in case we want to use scope)
 
     chain = Sequence(
         '.',
@@ -143,6 +145,7 @@ class Definition(Grammar):
             primitives,
             function,
             assignment,
+            arrow,
             name,
             thing,
             array,
@@ -173,7 +176,7 @@ if __name__ == '__main__':
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     # exit(0)
     definition.test('users.create("iris");grant(users.iris,FULL)')
-    definition.test('labels.map(label => label.id()')
+    definition.test('labels.map(label => label.id())')
     definition.test('''
         /*
          * Create a database
@@ -205,75 +208,25 @@ if __name__ == '__main__':
     ''')
 
     definition.test(' users.create(iris); ')
-    definition.test(' users.iris.drop(); ')
-
-    definition.test(' users.iris.drop(); ')
-
     definition.test(' databases.dbtest.drop() ')
 
-    definition.test('  drop_db( dbtest )  ')
-    definition.test('  {a: "123"}.b = 4  ')
-    {   # RETURN
-        '$id': 123,
-        '$dropped': True
-    }
-    {   # WATCHERS $ID 0
-        '$id': 0,
-        '$arr': {
-            'databases': {
-                'rmval': [{
-                    '$id': 123,
-                }]
-            }
-        }
-    }
-    # This will also invoke the unwatchall() on all things in the dropped db
-    {   # FOR EXAMPLE: WATCHING 123
-        '$id': 123,
-        '$dropped': True
-    }
-    definition.test('  databases.create(dbtest);  ')
-    [{   # RETURN
-        '$id': 0,
-        '$array': {
-            '$databases': {
-                'push': [{
-                    '$id': 123,
-                    '$path': '.00000000001_',
-                    '$name': 'dbtest'
-                }]
-            }
-        }
-    }]
-    {   # WATCHERS $ID 0
-        '$id': 0,
-        '$array': {
-            '$databases': {
-                'push': [{
-                    '$id': 123,
-                }]
-            }
-        }
-    }
+    definition.test('a.b = name, item => name.item.filter(x, y => (x.i > 5))')
+
 
     {
         '$ev': 0,
-        '$id': 4,
+        '#': 4,
         '$jobs': [
             {'assign': {'age', 5}},
             {'del': 'age'},
             {'set': {'name': 'iris'}},
             {'set': {'image': '<bin_data>'}},
             {'unset': 'name'},
-            {'push': {'people': [{'$id': 123}]}}
+            {'push': {'people': [{'#': 123}]}}
         ]
     }
 
-    {
-        'ev': 0,
-        'id': 4,
-        'set': ['age', 5]
-    }
+
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:

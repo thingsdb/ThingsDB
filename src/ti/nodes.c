@@ -67,7 +67,7 @@ int ti_nodes_to_packer(qp_packer_t ** packer)
     {
         if (qp_add_raw(
                 *packer,
-                (const unsigned char *) &node->addr,
+                (const uchar *) &node->addr,
                 sizeof(struct sockaddr_storage)))
             return -1;
     }

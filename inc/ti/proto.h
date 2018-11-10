@@ -24,7 +24,7 @@ typedef enum
      * 16..32 fire and forgets from node to client
      */
 
-    TI_PROTO_CLIENT_CHANGE      =16,    /* {$id:x, event:x. jobs:[] etc } */
+    TI_PROTO_CLIENT_CHANGE      =16,    /* {#:x, event:x. jobs:[] etc } */
 
     /*
      * 32..47 client requests mapping to node requests

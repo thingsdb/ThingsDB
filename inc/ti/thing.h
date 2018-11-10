@@ -55,8 +55,8 @@ struct ti_thing_s
     uint8_t pad1;
     uint64_t id;
     vec_t * props;
-    vec_t * set_props;     /* NULL if not managed */
-    imap_t * things;       /* thing is added to this map */
+    vec_t * attrs;          /* NULL if not managed */
+    imap_t * things;        /* thing is added to this map */
 };
 
 static inline int ti_thing_id_to_packer(
@@ -64,7 +64,7 @@ static inline int ti_thing_id_to_packer(
         qp_packer_t ** packer)
 {
     return (qp_add_map(packer) ||
-            qp_add_raw(*packer, (const unsigned char *) "$id", 3) ||
+            qp_add_raw(*packer, (const unsigned char *) "#", 1) ||
             qp_add_int64(*packer, (int64_t) thing->id) ||
             qp_close_map(*packer));
 }

@@ -75,7 +75,7 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node = child->node       /* choice */
             ->children->node;               /* primitives, function,
                                                assignment, name, thing,
-                                               array, compare */
+                                               array, compare, arrow */
     ti_scope_t * current_scope = res->scope;
     ti_scope_t * scope = ti_scope_enter(current_scope, res->db->root);
     if (!scope)
@@ -88,30 +88,31 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     switch (node->cl_obj->gid)
     {
-    case CLERI_GID_PRIMITIVES:
-        if (res__primitives(res, node, e))
-            return e->nr;
+    case CLERI_GID_ARRAY:
         break;
-    case CLERI_GID_FUNCTION:
-        if (res__function(res, node, e))
+    case CLERI_GID_ARROW:
+        if (res__arrow(res, node, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
         if (res__assignment(res, node, e))
             return e->nr;
         break;
+    case CLERI_GID_FUNCTION:
+        if (res__function(res, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_NAME:
         if (res__scope_name(res, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_PRIMITIVES:
+        if (res__primitives(res, node, e))
             return e->nr;
         break;
     case CLERI_GID_THING:
         if (res__scope_thing(res, node, e))
             return e->nr;
-        break;
-    case CLERI_GID_ARRAY:
-        /*
-         *
-         */
         break;
     default:
         assert (0);  /* all possible should be handled */
@@ -155,6 +156,12 @@ finish:
 
     ti_scope_leave(&res->scope, current_scope);
     return e->nr;
+}
+
+static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_ARROW);
+    nd->ref;
 }
 
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
@@ -321,7 +328,7 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "property `%.*s` on thing `$id:%"PRIu64"` is undefined",
+                "property `%.*s` on thing "TI_THING_ID" is undefined",
                 (int) nd->len, nd->str,
                 thing->id);
         return e->nr;
@@ -779,8 +786,7 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             ->children->node;       /* keyword or name node */
 
     params = nd                             /* sequence */
-            ->children->next->next->node    /* choice */
-            ->children->node;               /* iterator or arguments */
+            ->children->next->next->node;   /* list of scope (arguments) */
 
 
     switch (fname->cl_obj->gid)

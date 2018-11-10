@@ -73,7 +73,7 @@ imap_t * ti_names_restore(const char * fn)
     ssize_t sz;
     qp_unpacker_t unpacker;
     qp_obj_t qpiptr, qpname;
-    unsigned char * data = fx_read(fn, &sz);
+    uchar * data = fx_read(fn, &sz);
     imap_t * namesmap = imap_create();
     if (!data || !namesmap)
         goto failed;
@@ -110,5 +110,5 @@ static int ti__names_write_cb(ti_name_t * name, FILE * f)
     intptr_t p = (intptr_t) name;
     return (qp_fadd_type(f, QP_ARRAY2) ||
             qp_fadd_int64(f, p) ||
-            qp_fadd_raw(f, (const unsigned char *) name->str, name->n));
+            qp_fadd_raw(f, (const uchar *) name->str, name->n));
 }

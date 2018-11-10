@@ -26,7 +26,7 @@ ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n)
 
     db->ref = 1;
     db->root = NULL;
-    db->name = ti_raw_new((unsigned char *) name, n);
+    db->name = ti_raw_new((uchar *) name, n);
     db->things = imap_create();
     db->access = vec_new(1);
     db->quota = ti_quota_create();
@@ -112,7 +112,7 @@ int ti_db_restore(ti_db_t * db, const char * fn)
 {
     int rc = 0;
     ssize_t sz;
-    unsigned char * data = fx_read(fn, &sz);
+    uchar * data = fx_read(fn, &sz);
     if (!data || sz != sizeof(uint64_t)) goto failed;
 
     uint64_t id;

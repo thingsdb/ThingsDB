@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-09 20:22:04
+ * Created at: 2018-11-10 20:18:17
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -16,8 +16,8 @@ cleri_grammar_t * compile_langdef(void);
 
 enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name
-    CLERI_GID_ARGUMENTS,
     CLERI_GID_ARRAY,
+    CLERI_GID_ARROW,
     CLERI_GID_ASSIGNMENT,
     CLERI_GID_CHAIN,
     CLERI_GID_CMP_OPERATORS,
@@ -25,22 +25,24 @@ enum cleri_grammar_ids {
     CLERI_GID_COMPARE,
     CLERI_GID_FUNCTION,
     CLERI_GID_F_BLOB,
-    CLERI_GID_F_CREATE,
     CLERI_GID_F_DEL,
-    CLERI_GID_F_DROP,
+    CLERI_GID_F_ENDSWITH,
     CLERI_GID_F_FILTER,
     CLERI_GID_F_GET,
-    CLERI_GID_F_GRANT,
     CLERI_GID_F_ID,
     CLERI_GID_F_MAP,
     CLERI_GID_F_PUSH,
+    CLERI_GID_F_REMOVE,
     CLERI_GID_F_RENAME,
-    CLERI_GID_F_REVOKE,
+    CLERI_GID_F_RET,
     CLERI_GID_F_SET,
+    CLERI_GID_F_SPLICE,
+    CLERI_GID_F_STARTSWITH,
     CLERI_GID_F_THING,
     CLERI_GID_F_UNSET,
+    CLERI_GID_F_UNWATCH,
+    CLERI_GID_F_WATCH,
     CLERI_GID_INDEX,
-    CLERI_GID_ITERATOR,
     CLERI_GID_NAME,
     CLERI_GID_PRIMITIVES,
     CLERI_GID_R_DOUBLE_QUOTE,

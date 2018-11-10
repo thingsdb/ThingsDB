@@ -37,7 +37,7 @@ int ti_store_status_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
-    unsigned char * data = fx_read(fn, &n);
+    uchar * data = fx_read(fn, &n);
     if (!data)
     {
         log_critical("failed to restore from file: `%s`", fn);

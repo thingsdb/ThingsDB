@@ -117,11 +117,11 @@ int ti_store_things_restore(imap_t * things, const char * fn)
 {
     int rc = 0;
     ssize_t sz;
-    unsigned char * data = fx_read(fn, &sz);
+    uchar * data = fx_read(fn, &sz);
     if (!data) goto failed;
 
-    unsigned char * pt = data;
-    unsigned char * end = data + sz - sizeof(uint64_t);
+    uchar * pt = data;
+    uchar * end = data + sz - sizeof(uint64_t);
 
     for (;pt <= end; pt += sizeof(uint64_t))
     {

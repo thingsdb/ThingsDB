@@ -26,7 +26,7 @@ ti_user_t * ti_user_create(
 
     user->id = id;
     user->ref = 1;
-    user->name = ti_raw_new((unsigned char *) name, n);
+    user->name = ti_raw_new((uchar *) name, n);
     user->encpass = strdup(encrpass);
     user->qpdata = NULL;
 

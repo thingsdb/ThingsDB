@@ -43,14 +43,14 @@ void ti_task_destroy(ti_task_t * task)
 /*
  *
     {
-        '$id': 4,
+        '#': 4,
         'event': 0,
         'jobs': [
             {'assign': {'age', 5}},
             {'del': 'age'},
             {'set': {'name': 'iris'}},
             {'unset': 'name'},
-            {'push': {'people': [{'$id': 123}]}}
+            {'push': {'people': [{'#': 123}]}}
         ]
     }
  */
@@ -63,7 +63,7 @@ ti_pkg_t * ti_task_watch(ti_task_t * task)
     if (!packer)
         return NULL;
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "$id");
+    (void) qp_add_raw(packer, (const uchar *) "#", 1);
     (void) qp_add_int64(packer, task->thing->id);
     (void) qp_add_raw_from_str(packer, "event");
     (void) qp_add_int64(packer, task->event_id);
@@ -97,7 +97,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     (void) qp_add_raw_from_str(packer, "assign");
     (void) qp_add_map(&packer);
 
-    if (qp_add_raw(packer, (const unsigned char *) name->str, name->n))
+    if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto failed;
 
     if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW))
@@ -148,7 +148,7 @@ int ti_task_add_push(
     (void) qp_add_raw_from_str(packer, "push");
     (void) qp_add_map(&packer);
 
-    if (qp_add_raw(packer, (const unsigned char *) name->str, name->n) ||
+    if (qp_add_raw(packer, (const uchar *) name->str, name->n) ||
         qp_add_array(&packer))
         goto failed;
 
@@ -204,11 +204,9 @@ static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing)
 
 static size_t task__approx_watch_size(ti_task_t * task)
 {
-    size_t sz = 39;  /* maximum overhead */
+    size_t sz = 37;  /* maximum overhead */
     for (vec_each(task->jobs, ti_raw_t, raw))
-    {
         sz += raw->n;
-    }
     return sz;
 }
 

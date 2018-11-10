@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-09 20:22:04
+ * Created at: 2018-11-10 20:18:17
  */
 
 #include <langdef/langdef.h>
@@ -37,20 +37,23 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[a-zA-Z_][a-zA-Z0-9_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
+    cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
     cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
+    cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
+    cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
-    cleri_t * f_create = cleri_keyword(CLERI_GID_F_CREATE, "create", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
-    cleri_t * f_drop = cleri_keyword(CLERI_GID_F_DROP, "create", CLERI_CASE_SENSITIVE);
-    cleri_t * f_grant = cleri_keyword(CLERI_GID_F_GRANT, "grant", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
+    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
-    cleri_t * f_revoke = cleri_keyword(CLERI_GID_F_REVOKE, "revoke", CLERI_CASE_SENSITIVE);
     cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
+    cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
     cleri_t * f_unset = cleri_keyword(CLERI_GID_F_UNSET, "unset", CLERI_CASE_SENSITIVE);
+    cleri_t * f_unwatch = cleri_keyword(CLERI_GID_F_UNWATCH, "unwatch", CLERI_CASE_SENSITIVE);
+    cleri_t * f_watch = cleri_keyword(CLERI_GID_F_WATCH, "watch", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_FIRST_MATCH,
@@ -85,49 +88,45 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "]")
     );
-    cleri_t * iterator = cleri_sequence(
-        CLERI_GID_ITERATOR,
+    cleri_t * arrow = cleri_sequence(
+        CLERI_GID_ARROW,
         3,
-        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 1, 2, 0),
+        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 0),
         cleri_token(CLERI_NONE, "=>"),
         scope
     );
-    cleri_t * arguments = cleri_list(CLERI_GID_ARGUMENTS, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1);
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
         4,
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            16,
+            19,
             f_blob,
+            f_endswith,
             f_filter,
             f_get,
             f_id,
             f_map,
+            f_ret,
+            f_startswith,
             f_thing,
-            f_create,
+            f_unwatch,
+            f_watch,
             f_del,
-            f_drop,
-            f_grant,
             f_push,
+            f_remove,
             f_rename,
-            f_revoke,
             f_set,
+            f_splice,
             f_unset,
             name
         ),
         cleri_token(CLERI_NONE, "("),
-        cleri_choice(
-            CLERI_NONE,
-            CLERI_FIRST_MATCH,
-            2,
-            iterator,
-            arguments
-        ),
+        cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
-    cleri_t * cmp_operators = cleri_tokens(CLERI_GID_CMP_OPERATORS, "== != <= >= !~ < > ~");
+    cleri_t * cmp_operators = cleri_tokens(CLERI_GID_CMP_OPERATORS, "== != <= >= < >");
     cleri_t * compare = cleri_sequence(
         CLERI_GID_COMPARE,
         3,
@@ -201,10 +200,11 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            7,
+            8,
             primitives,
             function,
             assignment,
+            arrow,
             name,
             thing,
             array,

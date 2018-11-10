@@ -27,7 +27,7 @@ struct ti_res_s
     ti_val_t * rval;            /* new return value or NULL when point to
                                    scope */
     ti_scope_t * scope;         /* keep the scope */
-    omap_t * collect;           /* stores a vec_t with stored props to collect,
+    omap_t * collect;           /* contains a vec_t with attributes to collect,
                                    and the key is the thing id. */
     ti_event_t * ev;            /* NULL if no updates are required */
 };

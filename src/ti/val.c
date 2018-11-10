@@ -71,51 +71,53 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     {
     case TI_VAL_PROP:
         val->via.prop = v;
-        break;
+        return;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
-        break;
+        return;
     case TI_VAL_NIL:
         val->via.nil = NULL;
-        break;
+        return;
     case TI_VAL_INT:
         {
             int64_t * p = v;
             val->via.int_ = *p;
         }
-        break;
+        return;
     case TI_VAL_FLOAT:
         {
             double * p = v;
             val->via.float_ = *p;
         }
-        break;
+        return;
     case TI_VAL_BOOL:
         {
             _Bool * p = v;
             val->via.bool_ = *p;
         }
-        break;
+        return;
     case TI_VAL_NAME:
         val->via.name = v;
-        break;
+        return;
     case TI_VAL_RAW:
         val->via.raw = v;
-        break;
+        return;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         val->via.array = v;
-        break;
+        return;
     case TI_VAL_THING:
         val->via.thing = v;
-        break;
+        return;
     case TI_VAL_THINGS:
         val->via.things = v;
-        break;
-    default:
-        log_critical("unknown type: %d", tp);
-        assert (0);
+        return;
+    case TI_VAL_ARROW:
+        val->via.arrow = v;
+        return;
     }
+    log_critical("unknown type: %d", tp);
+    assert (0);
 }
 
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
@@ -126,34 +128,34 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     {
     case TI_VAL_PROP:
         val->via.prop = v;
-        break;
+        return 0;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
-        break;
+        return 0;
     case TI_VAL_NIL:
         val->via.nil = NULL;
-        break;
+        return 0;
     case TI_VAL_INT:
         {
             int64_t * p = v;
             val->via.int_ = *p;
         }
-        break;
+        return 0;
     case TI_VAL_FLOAT:
         {
             double * p = v;
             val->via.float_ = *p;
         }
-        break;
+        return 0;
     case TI_VAL_BOOL:
         {
             _Bool * p = v;
             val->via.bool_ = *p;
         }
-        break;
+        return 0;
     case TI_VAL_NAME:
         val->via.name = ti_grab((ti_name_t *) v);
-        break;
+        return 0;
     case TI_VAL_RAW:
         val->via.raw = ti_raw_dup((ti_raw_t *) v);
         if (!val->via.raw)
@@ -161,7 +163,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             val->tp = TI_VAL_UNDEFINED;
             return -1;
         }
-        break;
+        return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         val->via.array = vec_dup((vec_t *) v);
@@ -170,10 +172,10 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             val->tp = TI_VAL_UNDEFINED;
             return -1;
         }
-        break;
+        return 0;
     case TI_VAL_THING:
         val->via.thing = ti_grab((ti_thing_t *) v);
-        break;
+        return 0;
     case TI_VAL_THINGS:
         val->via.things = vec_dup((vec_t *) v);
         if (!val->via.things)
@@ -183,9 +185,15 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
         }
         for (vec_each(val->via.things, ti_thing_t, thing))
             ti_incref(thing);
-        break;
+        return 0;
+    case TI_VAL_ARROW:
+        val->via.arrow = v;
+        ++val->via.arrow->ref;
+        return 0;
     }
-    return 0;
+    log_critical("unknown type: %d", tp);
+    assert (0);
+    return -1;
 }
 
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
@@ -203,17 +211,17 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     {
     case TI_VAL_PROP:
         to->via.prop = from->via.prop;  /* this is a reference */
-        break;
+        return 0;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
         to->via = from->via;
-        break;
+        return 0;
     case TI_VAL_NAME:
         to->via.name = ti_grab(from->via.name);
-        break;
+        return 0;
     case TI_VAL_RAW:
         to->via.raw = ti_raw_dup(from->via.raw);
         if (!to->via.raw)
@@ -221,7 +229,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             to->tp = TI_VAL_UNDEFINED;
             return -1;
         }
-        break;
+        return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         to->via.array = vec_new(from->via.array->n);
@@ -241,10 +249,10 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             }
             VEC_push(to->via.array, dup);
         }
-        break;
+        return 0;
     case TI_VAL_THING:
         to->via.thing = ti_grab(from->via.thing);
-        break;
+        return 0;
     case TI_VAL_THINGS:
         to->via.things = vec_dup(from->via.things);
         if (!to->via.things)
@@ -254,9 +262,23 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
         }
         for (vec_each(to->via.things, ti_thing_t, thing))
             ti_incref(thing);
-        break;
+        return 0;
+    case TI_VAL_ARROW:
+        to->via.arrow = from->via.arrow;
+        ++to->via.arrow->ref;
+        return 0;
     }
-    return 0;
+    log_critical("unknown type: %d", from->tp);
+    assert (0);
+    return -1;
+}
+
+void ti_val_set_arrow(ti_val_t * val, cleri_node_t * arrow_nd)
+{
+    val->tp = TI_VAL_ARROW;
+    val->flags = 0;
+    val->via.arrow = arrow_nd;
+    ++arrow_nd->ref;
 }
 
 void ti_val_set_bool(ti_val_t * val, _Bool bool_)
@@ -317,6 +339,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_THINGS:
         return !!val->via.arr->n;
     case TI_VAL_THING:
+    case TI_VAL_ARROW:
         return true;
     }
     assert (0);
@@ -400,6 +423,16 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_THINGS:
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
+    case TI_VAL_ARROW:
+        if (val->via.arrow->ref == 1)
+        {
+            /* the reference for nodes, part of the query are always higher
+             * so data must contain the query string */
+            assert (val->via.arrow->str == val->via.arrow->data);
+            free(val->via.arrow->data);
+        }
+        cleri__node_free(val->via.arrow);
+        break;
     }
     val->flags = 0;
     val->tp = TI_VAL_UNDEFINED;
@@ -431,7 +464,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
     case TI_VAL_NAME:
         return qp_add_raw(
                 *packer,
-                (unsigned char *) val->via.name->str,
+                (uchar *) val->via.name->str,
                 val->via.name->n);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
@@ -470,6 +503,16 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
                 return -1;
         }
         return qp_close_array(*packer);
+    case TI_VAL_ARROW:
+        if (val->via.arrow->ref == 1)
+        {
+            /* the reference for nodes, part of the query are always higher
+             * so data must contain the query string */
+            assert (val->via.arrow->str == val->via.arrow->data);
+            free(val->via.arrow->data);
+        }
+        cleri__node_free(val->via.arrow);
+        break;
     }
 
     assert(0);
@@ -497,7 +540,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_NAME:
         return qp_fadd_raw(
                 f,
-                (unsigned char *) val->via.name->str,
+                (uchar *) val->via.name->str,
                 val->via.name->n);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);

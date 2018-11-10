@@ -6,7 +6,7 @@
 
 typedef enum
 {
-    TI_VAL_PROP,  /* stored property */
+    TI_VAL_PROP,    /* attribute */
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
@@ -18,6 +18,7 @@ typedef enum
     TI_VAL_TUPLE,   /* nested arrays are of tuple type */
     TI_VAL_THING,
     TI_VAL_THINGS,  /* when empty, this can be turned into TI_VAL_ARRAY */
+    TI_VAL_ARROW,
 } ti_val_enum;
 
 typedef enum
@@ -36,6 +37,7 @@ typedef struct ti_val_s ti_val_t;
 typedef union ti_val_u ti_val_via_t;
 
 #include <qpack.h>
+#include <cleri/cleri.h>
 #include <stdint.h>
 #include <ti/raw.h>
 #include <ti/thing.h>
@@ -75,6 +77,7 @@ static inline void ti_val_unmark_fetch(ti_val_t * val);
 union ti_val_u
 {
     void ** prop;
+    cleri_node_t * arrow;
     void * undefined;
     void * nil;
     int64_t int_;

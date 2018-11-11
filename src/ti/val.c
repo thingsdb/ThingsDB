@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti/val.h>
+#include <ti/arrow.h>
 #include <ti/prop.h>
 #include <ti.h>
 #include <util/logger.h>
@@ -504,15 +505,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
         }
         return qp_close_array(*packer);
     case TI_VAL_ARROW:
-        if (val->via.arrow->ref == 1)
-        {
-            /* the reference for nodes, part of the query are always higher
-             * so data must contain the query string */
-            assert (val->via.arrow->str == val->via.arrow->data);
-            free(val->via.arrow->data);
-        }
-        cleri__node_free(val->via.arrow);
-        break;
+        return ti_arrow_to_packer(val->via.arrow, *packer);
     }
 
     assert(0);
@@ -565,8 +558,9 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
                 return -1;
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);
+    case TI_VAL_ARROW:
+        return ti_arrow_to_file(val->via.arrow, f);
     }
-
     assert (0);
     return -1;
 }
@@ -587,6 +581,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_ARRAY:
     case TI_VAL_THINGS:             return "array";
     case TI_VAL_THING:              return "thing";
+    case TI_VAL_ARROW:              return "arrow";
     }
     assert (0);
     return "unknown";

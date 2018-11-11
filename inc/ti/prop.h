@@ -14,8 +14,8 @@ ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_enum tp, void * v);
 ti_prop_t * ti_prop_createv(ti_name_t * name, ti_val_t * val);
 ti_prop_t * ti_prop_weak_create(ti_name_t * name, ti_val_enum tp, void * v);
 ti_prop_t * ti_prop_weak_createv(ti_name_t * name, ti_val_t * val);
-
 void ti_prop_destroy(ti_prop_t * prop);
+void ti_prop_weak_destroy(ti_prop_t * prop);
 
 struct ti_prop_s
 {

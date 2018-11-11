@@ -11,6 +11,7 @@
 #include <ti/proto.h>
 #include <ti/query.h>
 #include <ti/res.h>
+#include <ti/arrow.h>
 #include <ti/task.h>
 #include <util/qpx.h>
 
@@ -288,15 +289,19 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 
             switch (nd->cl_obj->gid)
             {
+            case CLERI_GID_F_ID:
+            case CLERI_GID_F_RET:
+                continue;  /* arguments will be ignored */
             case CLERI_GID_F_DEL:
-            case CLERI_GID_F_PUSH:
             case CLERI_GID_F_REMOVE:
+                query->flags |= TI_QUERY_FLAG_EVENT;
+                continue;  /* arguments will be ignored */
             case CLERI_GID_F_RENAME:
-            case CLERI_GID_F_SET:
             case CLERI_GID_F_UNSET:
+            case CLERI_GID_F_PUSH:
+            case CLERI_GID_F_SET:
                 query->flags |= TI_QUERY_FLAG_EVENT;
             }
-
             /* skip to arguments */
             query__investigate_recursive(
                     query,
@@ -319,8 +324,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 
                 langdef_nd_flag(child->node,
                         query->flags & TI_QUERY_FLAG_EVENT
-                        ? LANGDEF_ND_FLAG_ARROW|LANGDEF_ND_FLAG_ARROW_WSE
-                        : LANGDEF_ND_FLAG_ARROW);
+                        ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
+                        : TI_ARROW_FLAG);
 
                 query->flags |= flags;
             }

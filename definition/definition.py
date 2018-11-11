@@ -131,7 +131,7 @@ class Definition(Grammar):
     assignment = Sequence(name, '=', scope)
     index = Repeat(
         Sequence('[', t_int, ']')
-    )       # we skip index in the investigate, (in case we want to use scope)
+    )       # we skip index in query investigate (in case we want to use scope)
 
     chain = Sequence(
         '.',

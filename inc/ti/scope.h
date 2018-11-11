@@ -24,7 +24,7 @@ _Bool ti_scope_in_use_name(
         ti_name_t * name);
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
 int ti_scope_set_iter_names(ti_scope_t * scope, cleri_node_t * nd, ex_t * e);
-ti_val_t *  ti_scope_iter_val(ti_scope_t * scope, ti_name_t * name);
+ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name);
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope);
 
 struct ti_scope_s
@@ -33,7 +33,7 @@ struct ti_scope_s
     ti_thing_t * thing; /* with reference */
     ti_name_t * name;   /* weak reference to name or NULL */
     ti_val_t * val;     /* weak value, always the thing->name value */
-    ti_iter_t * iter;
+    vec_t * local;      /* ti_prop_t (local props arrow functions */
 };
 
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope)

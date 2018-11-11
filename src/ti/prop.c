@@ -57,3 +57,11 @@ void ti_prop_destroy(ti_prop_t * prop)
     ti_val_clear(&prop->val);
     free(prop);
 }
+
+void ti_prop_weak_destroy(ti_prop_t * prop)
+{
+    if (!prop)
+        return;
+    ti_name_drop(prop->name);
+    free(prop);
+}

@@ -11,6 +11,7 @@
 #include <util/strx.h>
 #include <util/res.h>
 
+static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -161,7 +162,12 @@ finish:
 static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARROW);
-    nd->ref;
+
+    if (res_rval_clear(res))
+        ex_set_alloc(e);
+    else
+        ti_val_set_arrow(res->rval, nd);
+    return e->nr;
 }
 
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
@@ -213,6 +219,9 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         goto done;
 
     assert (res->rval);
+
+    if (res_assign_val(res, false, e))
+        goto done;
 
     if (thing->id)
     {
@@ -345,7 +354,7 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (langdef_nd_is_function_params(nd));
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     ti_iter_t * iter;
     ti_val_t * retval;
@@ -481,7 +490,7 @@ done:
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (langdef_nd_is_function_params(nd));
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     int64_t thing_id;
     ti_thing_t * thing;
@@ -497,10 +506,10 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (langdef_nd_has_function_params(nd))
     {
-        int n = langdef_nd_info_function_params(nd);
+        int n = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
                 "function `id` takes 0 arguments but %d %s given",
-                abs(n), n == 1 ? "was" : "were");
+                n, n == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -517,7 +526,7 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (langdef_nd_is_function_params(nd));
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     int n;
     _Bool force_as_array = true;
@@ -533,12 +542,11 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    n = langdef_nd_info_function_params(nd);
-    if (n <= 0)
+    if (!langdef_nd_has_function_params(nd))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `thing` requires at least one argument but %s",
-                n ? "an `iterator` was given" : "none were given");
+                "function `thing` requires at least one argument but none "
+                "were given");
         return e->nr;
     }
 
@@ -632,7 +640,7 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (res->ev);
-    assert (langdef_nd_is_function_params(nd));
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     int n;
     cleri_children_t * child = nd->children;    /* first in argument list */
@@ -649,12 +657,11 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    n = langdef_nd_info_function_params(nd);
-    if (n <= 0)
+    if (!langdef_nd_has_function_params(nd))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `push` requires at least one argument but %s",
-                n ? "an `iterator` was given" : "none were given");
+                "function `push` requires at least one argument but none "
+                "were given");
         return e->nr;
     }
 

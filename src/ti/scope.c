@@ -19,8 +19,7 @@ ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing)
     nscope->thing = ti_grab(thing);
     nscope->name = NULL;
     nscope->val = NULL;
-    nscope->iter = NULL;
-
+    nscope->local = NULL;
     return nscope;
 }
 
@@ -32,7 +31,7 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
         ti_scope_t * prev = cur->prev;
 
         ti_thing_drop(cur->thing);
-        ti_iter_destroy(cur->iter);
+        vec_destroy(cur->local, (vec_destroy_cb) ti_prop_weak_destroy);
         free(cur);
 
         cur = prev;
@@ -144,13 +143,14 @@ done:
     return e->nr;
 }
 
-ti_val_t *  ti_scope_iter_val(ti_scope_t * scope, ti_name_t * name)
+ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
 {
     while (scope)
     {
-        ti_val_t * val = ti_iter_get_val(scope->iter, name);
-        if (val)
-            return val;
+        if (scope->local)
+            for (vec_each(scope->local, ti_prop_t, prop))
+                if (prop->name == name)
+                    return prop->val;
         scope = scope->prev;
     }
     return NULL;

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <langdef/nd.h>
 #include <ti/scope.h>
+#include <ti/prop.h>
 #include <ti/names.h>
 #include <ti.h>
 #include <util/logger.h>
@@ -39,7 +40,11 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
     *scope = until;
 }
 
-ti_val_t * ti_scope_to_val(ti_scope_t * scope)
+/*
+ * Returns a new referenced value.
+ * In case of an error the return value is NULL.
+ */
+ti_val_t * ti_scope_global_to_val(ti_scope_t * scope)
 {
     if (ti_scope_is_thing(scope))
         return ti_val_create(TI_VAL_THING, scope->thing);
@@ -91,67 +96,80 @@ _Bool ti_scope_in_use_name(
     return false;
 }
 
-int ti_scope_set_iter_names(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
+int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 {
-    assert (langdef_nd_is_function_params(nd));
-    assert (scope->iter == NULL);
+    assert (nd->cl_obj->gid == CLERI_GID_ARROW);
+    size_t n;
+    cleri_children_t * child, * first;
 
-    cleri_children_t * child;
-    int n;
-    scope->iter = ti_iter_create();
-    if (!scope->iter)
+    if (scope->local)
     {
-        ex_set_alloc(e);
-        return e->nr;
+        /* cleanup existing local */
+        vec_destroy(scope->local, (vec_destroy_cb) ti_prop_weak_destroy);
+        scope->local = NULL;
     }
 
-    if (!langdef_nd_is_iterator_param(nd))
-    {
-        int n = langdef_nd_info_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
-                "function `filter` expects an `iterator` but %d %s given, "
-                "see "TI_DOCS"#iterating",
-                n, n == 1 ? "positional argument was" : "were");
-        return e->nr;
-    }
-
-    child = nd                          /* sequence */
+    first = nd                          /* sequence */
             ->children->node            /* list */
             ->children;                 /* first child */
 
-    for (n = 0;; child = child->next->next, ++n)
+    for (n = 0, child = first; child && ++n; child = child->next->next)
+        if (!child->next)
+            break;
+
+    scope->local = vec_new(n);
+    if (!scope->local)
+        goto alloc_err;
+
+    for (child = first; child; child = child->next->next)
     {
-        assert (child);
+        ti_prop_t * prop;
         ti_name_t * name = ti_names_get(child->node->str, child->node->len);
         if (!name)
             goto alloc_err;
 
-        scope->iter[n]->name = name;
-
+        prop = ti_prop_create(name, TI_VAL_UNDEFINED, NULL);
+        if (!prop)
+        {
+            ti_name_drop(name);
+            goto alloc_err;
+        }
+        VEC_push(scope->local, prop);
         if (!child->next)
             break;
     }
-
-    assert (n);
-    assert (n <= 2);
 
     goto done;
 
 alloc_err:
     ex_set_alloc(e);
+
 done:
     return e->nr;
 }
 
-ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
+/* find local value in the total scope */
+ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name)
 {
     while (scope)
     {
         if (scope->local)
             for (vec_each(scope->local, ti_prop_t, prop))
                 if (prop->name == name)
-                    return prop->val;
+                    return &prop->val;
         scope = scope->prev;
     }
+    return NULL;
+}
+
+/* local value in the current scope */
+ti_val_t * ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
+{
+    /* we have to look one level up since there the local scope is polluted */
+    if (!scope->prev || !scope->prev->local)
+        return NULL;
+    for (vec_each(scope->prev->local, ti_prop_t, prop))
+        if (prop->name == name)
+            return &prop->val;
     return NULL;
 }

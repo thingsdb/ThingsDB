@@ -21,3 +21,15 @@ int langdef_nd_n_function_params(cleri_node_t * nd)
     }
     return n;
 }
+
+/* flag LANGDEF_ND_FLAG_UNIQUE should not be used */
+void langdef_nd_flag(cleri_node_t * nd, int flags)
+{
+    nd->data = (void *) ((intptr_t) flags);
+    if (nd->data == nd->str)
+    {
+        assert ( !(flags & LANGDEF_ND_FLAG_UNIQUE));
+        flags |= LANGDEF_ND_FLAG_UNIQUE;
+        nd->data = (void *) ((intptr_t) flags);
+    }
+}

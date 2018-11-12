@@ -2,6 +2,7 @@
  * util/res.c
  */
 #include <ti/name.h>
+#include <ti/arrow.h>
 #include <langdef/nd.h>
 #include <util/omap.h>
 #include <util/res.h>

@@ -8,6 +8,7 @@ from pyleri import (
     Sequence,
     Ref,
     Prio,
+    Token,
     Tokens,
     Repeat,
     List as List_,
@@ -46,6 +47,7 @@ class Definition(Grammar):
     t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
     t_string = Choice(r_single_quote, r_double_quote)
 
+    o_not = Repeat(Token('!'))
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
 
     name = Regex(RE_NAME)
@@ -141,6 +143,7 @@ class Definition(Grammar):
     )
 
     scope = Sequence(
+        o_not,
         Choice(
             primitives,
             function,

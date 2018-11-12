@@ -20,7 +20,6 @@ C_SRCS += \
 ../src/ti/ex.c \
 ../src/ti/fetch.c \
 ../src/ti/fwd.c \
-../src/ti/iter.c \
 ../src/ti/lookup.c \
 ../src/ti/maint.c \
 ../src/ti/misc.c \
@@ -72,7 +71,6 @@ OBJS += \
 ./src/ti/ex.o \
 ./src/ti/fetch.o \
 ./src/ti/fwd.o \
-./src/ti/iter.o \
 ./src/ti/lookup.o \
 ./src/ti/maint.o \
 ./src/ti/misc.o \
@@ -124,7 +122,6 @@ C_DEPS += \
 ./src/ti/ex.d \
 ./src/ti/fetch.d \
 ./src/ti/fwd.d \
-./src/ti/iter.d \
 ./src/ti/lookup.d \
 ./src/ti/maint.d \
 ./src/ti/misc.d \

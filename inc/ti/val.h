@@ -54,6 +54,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
 int ti_val_copy(ti_val_t * to, ti_val_t * from);
+void ti_val_set_arrow(ti_val_t * val, cleri_node_t * arrow_nd);
 void ti_val_set_bool(ti_val_t * val, _Bool bool_);
 void ti_val_set_nil(ti_val_t * val);
 void ti_val_set_undefined(ti_val_t * val);

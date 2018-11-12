@@ -94,7 +94,7 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     case TI_VAL_BOOL:
         {
             _Bool * p = v;
-            val->via.bool_ = *p;
+            val->via.bool_ = !!*p;
         }
         return;
     case TI_VAL_NAME:
@@ -151,7 +151,7 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     case TI_VAL_BOOL:
         {
             _Bool * p = v;
-            val->via.bool_ = *p;
+            val->via.bool_ = !!*p;
         }
         return 0;
     case TI_VAL_NAME:
@@ -286,7 +286,7 @@ void ti_val_set_bool(ti_val_t * val, _Bool bool_)
 {
     val->tp = TI_VAL_BOOL;
     val->flags = 0;
-    val->via.bool_ = bool_;
+    val->via.bool_ = !!bool_;
 }
 
 void ti_val_set_nil(ti_val_t * val)
@@ -425,13 +425,8 @@ void ti_val_clear(ti_val_t * val)
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
     case TI_VAL_ARROW:
-        if (val->via.arrow->ref == 1)
-        {
-            /* the reference for nodes, part of the query are always higher
-             * so data must contain the query string */
-            assert (val->via.arrow->str == val->via.arrow->data);
+        if (val->via.arrow->str == val->via.arrow->data)
             free(val->via.arrow->data);
-        }
         cleri__node_free(val->via.arrow);
         break;
     }
@@ -505,7 +500,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
         }
         return qp_close_array(*packer);
     case TI_VAL_ARROW:
-        return ti_arrow_to_packer(val->via.arrow, *packer);
+        return ti_arrow_to_packer(val->via.arrow, packer);
     }
 
     assert(0);
@@ -581,7 +576,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_ARRAY:
     case TI_VAL_THINGS:             return "array";
     case TI_VAL_THING:              return "thing";
-    case TI_VAL_ARROW:              return "arrow";
+    case TI_VAL_ARROW:              return "arrow-function";
     }
     assert (0);
     return "unknown";

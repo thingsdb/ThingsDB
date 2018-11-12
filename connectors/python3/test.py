@@ -24,11 +24,12 @@ async def test():
         /*
          * test query
          */
-        people.filter();
 
+        a = x => !!true;
 
+        a;
 
-
+        people.filter(a);
 
         ''', timeout=2)
     except ThingsDBError as e:

@@ -3,6 +3,8 @@
  */
 #include <assert.h>
 #include <ti/res.h>
+#include <ti/prop.h>
+#include <ti/arrow.h>
 #include <ti/names.h>
 #include <ti.h>
 #include <langdef/langdef.h>
@@ -15,6 +17,7 @@ static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__compare(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -49,17 +52,6 @@ ti_res_t * ti_res_create(ti_db_t * db)
 void ti_res_destroy(ti_res_t * res)
 {
     omap_destroy(res->collect, (omap_destroy_cb) res_destroy_collect_cb);
-//    TODO : do we need to destroy the val ?
-//    for (int i = 0; i < 2; ++i)
-//    {
-//        if (res->iterprops[i].name)
-//        {
-//            ti_name_drop(res->iterprops[i].name);
-//            ti_val_clear()
-//        }
-//    }
-
-
     ti_scope_leave(&res->scope, NULL);
     ti_val_destroy(res->rval);
     free(res);
@@ -70,15 +62,22 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
     _Bool mark_fetch = false;
-    cleri_children_t * child = nd           /* sequence */
-                    ->children;             /* first child, choice */
+    int nots = 0;
+    cleri_node_t * node;
+    cleri_children_t * nchild, * child = nd           /* sequence */
+                    ->children;             /* first child, not */
+    ti_scope_t * current_scope, * scope;
 
-    cleri_node_t * node = child->node       /* choice */
+    for (nchild = child->node->children; nchild; nchild = nchild->next)
+        ++nots;
+
+    child = child->next;
+    node = child->node                      /* choice */
             ->children->node;               /* primitives, function,
                                                assignment, name, thing,
                                                array, compare, arrow */
-    ti_scope_t * current_scope = res->scope;
-    ti_scope_t * scope = ti_scope_enter(current_scope, res->db->root);
+    current_scope = res->scope;
+    scope = ti_scope_enter(current_scope, res->db->root);
     if (!scope)
     {
         ex_set_alloc(e);
@@ -98,6 +97,11 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_ASSIGNMENT:
         if (res__assignment(res, node, e))
             return e->nr;
+        break;
+    case CLERI_GID_COMPARE:
+        if (res__compare(res, node, e))
+            return e->nr;
+        break;
         break;
     case CLERI_GID_FUNCTION:
         if (res__function(res, node, e))
@@ -145,16 +149,27 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     (void) res__chain(res, node, e);
 
 finish:
+
     if (!res->rval)
     {
-        res->rval = ti_scope_to_val(res->scope);
+        res->rval = ti_scope_global_to_val(res->scope);
         if (!res->rval)
+        {
             ex_set_alloc(e);
+            goto done;
+        }
     }
 
-    if (mark_fetch)
+    if (nots)
+    {
+        _Bool b = ti_val_as_bool(res->rval);
+        ti_val_clear(res->rval);
+        ti_val_set_bool(res->rval, (nots & 1) ^ (b & 1));
+    }
+    else if (mark_fetch)
         ti_val_mark_fetch(res->rval);
 
+done:
     ti_scope_leave(&res->scope, current_scope);
     return e->nr;
 }
@@ -205,8 +220,8 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!name)
         goto alloc_err;
 
-    /* should also work in chain because then iter must be NULL */
-    if (    ti_iter_in_use_name(res->scope->iter, name) ||
+    /* should also work in chain because then scope->local must be NULL */
+    if (    ti_scope_has_local_name(res->scope, name) ||
             ti_scope_in_use_name(res->scope, thing, name))
     {
         ex_set(e, EX_BAD_DATA,
@@ -351,18 +366,22 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int res__compare(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    return e->nr;
+}
+
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_iter_t * iter;
-    ti_val_t * retval;
-    ti_val_t * val = res_get_val(res);
-    cleri_node_t * scope_nd = nd            /* sequence  <list => scope> */
-            ->children->next->next->node;   /* scope */
+    ti_val_t * retval = NULL;
+    ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
+    cleri_node_t * arrow_nd;
+    _Bool from_rval = iterval == res->rval;
 
-    if (!val || !ti_val_is_iterable(val) || val->tp == TI_VAL_RAW)
+    if (!iterval || !ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `filter`",
@@ -370,34 +389,73 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_set_iter_names(res->scope, nd, e))
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `filter` takes 1 argument but %d were given", n);
         return e->nr;
+    }
 
-    iter = res->scope->iter;
+    /* clear res->rval (bug keep the value)
+     * from here need need to clean iterval in case of an error */
+    res->rval = NULL;
+    if (ti_res_scope(res, nd->children->node, e))
+        goto failed;
 
-    switch (val->tp)
+    if (res->rval->tp != TI_VAL_ARROW)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `filter` expects an `%s` but got type `%s` instead",
+                ti_val_tp_str(TI_VAL_ARROW),
+                ti_val_tp_str(res->rval->tp));
+        goto failed;
+    }
+
+    arrowval = res->rval;
+    res->rval = NULL;
+
+    if (ti_scope_local_from_arrow(res->scope, arrowval->via.arrow, e))
+        goto failed;
+
+    arrow_nd = arrowval->via.arrow;
+
+    switch (iterval->tp)
     {
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
         {
             int64_t idx = 0;
-            vec_t * retvec = vec_new(val->via.arr->n);
+            vec_t * retvec = vec_new(iterval->via.arr->n);
             if (!retvec)
-                goto alloc_err;
+                goto failed;
 
             retval = ti_val_weak_create(TI_VAL_ARRAY, retvec);
             if (!retval)
             {
                 vec_destroy(retvec, NULL);
-                goto alloc_err;
+                goto failed;
             }
 
-            for (vec_each(val->via.arr, ti_val_t, v), ++idx)
+            for (vec_each(iterval->via.arr, ti_val_t, v), ++idx)
             {
-                ti_val_weak_copy(&iter[0]->val, v);
-                ti_val_set_int(&iter[1]->val, idx);
+                size_t n = 0;
+                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+                {
+                    switch (n)
+                    {
+                    case 0:
+                        ti_val_weak_copy(&prop->val, v);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_undefined(&prop->val);
+                    }
+                }
 
-                if (ti_res_scope(res, scope_nd, e))
+                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
                 if (ti_val_as_bool(res->rval))
@@ -409,28 +467,42 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 }
                 res_rval_weak_destroy(res);
             }
+            (void) vec_shrink(&retval->via.array);
         }
         break;
     case TI_VAL_THINGS:
         {
             int64_t idx = 0;
-            vec_t * retvec = vec_new(val->via.arr->n);
+            vec_t * retvec = vec_new(iterval->via.arr->n);
             if (!retvec)
-                goto alloc_err;
+                goto failed;
 
             retval = ti_val_weak_create(TI_VAL_THINGS, retvec);
             if (!retval)
             {
                 vec_destroy(retvec, NULL);
-                goto alloc_err;
+                goto failed;
             }
 
-            for (vec_each(val->via.things, ti_thing_t, t), ++idx)
+            for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
             {
-                ti_val_weak_set(&iter[0]->val, TI_VAL_THING, t);
-                ti_val_set_int(&iter[1]->val, idx);
+                size_t n = 0;
+                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+                {
+                    switch (n)
+                    {
+                    case 0:
+                        ti_val_weak_set(&prop->val, TI_VAL_THING, t);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_undefined(&prop->val);
+                    }
+                }
 
-                if (ti_res_scope(res, scope_nd, e))
+                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
                 if (ti_val_as_bool(res->rval))
@@ -440,27 +512,41 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 }
                 res_rval_weak_destroy(res);
             }
+            (void) vec_shrink(&retval->via.array);
         }
         break;
     case TI_VAL_THING:
         {
             ti_thing_t * thing = ti_thing_create(0, res->db->things);
             if (!thing)
-                goto alloc_err;
+                goto failed;
 
             retval = ti_val_weak_create(TI_VAL_THING, thing);
             if (!retval)
             {
                 ti_thing_drop(thing);
-                goto alloc_err;
+                goto failed;
             }
 
-            for (vec_each(val->via.thing->props, ti_prop_t, p))
+            for (vec_each(iterval->via.thing->props, ti_prop_t, p))
             {
-                ti_val_weak_set(&iter[0]->val, TI_VAL_NAME, p->name);
-                ti_val_weak_copy(&iter[1]->val, &p->val);
+                size_t n = 0;
+                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+                {
+                    switch (n)
+                    {
+                    case 0:
+                        ti_val_weak_set(&prop->val, TI_VAL_NAME, p->name);
+                        break;
+                    case 1:
+                        ti_val_weak_copy(&prop->val, &p->val);
+                        break;
+                    default:
+                        ti_val_set_undefined(&prop->val);
+                    }
+                }
 
-                if (ti_res_scope(res, scope_nd, e))
+                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
                 if (ti_val_as_bool(res->rval))
@@ -475,15 +561,20 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         }
     }
 
-failed:
-    ti_val_destroy(retval);
-    assert (e->nr);
+    assert (res->rval == NULL);
+    res->rval = retval;
+
     goto done;
 
-alloc_err:
-    ex_set_alloc(e);
+failed:
+    ti_val_destroy(retval);
+    if (!e->nr)  /* all not set errors are allocation errors */
+        ex_set_alloc(e);
 
+    if (from_rval)
+        ti_val_destroy(iterval);
 done:
+    ti_val_destroy(arrowval);
     return e->nr;
 }
 
@@ -504,7 +595,7 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
     thing = res_get_thing(res);
 
-    if (langdef_nd_has_function_params(nd))
+    if (langdef_nd_fun_has_zero_params(nd))
     {
         int n = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
@@ -542,7 +633,8 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (!langdef_nd_has_function_params(nd))
+    n = langdef_nd_n_function_params(nd);
+    if (!n)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `thing` requires at least one argument but none "
@@ -657,7 +749,8 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (!langdef_nd_has_function_params(nd))
+    n = langdef_nd_n_function_params(nd);
+    if (!n)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least one argument but none "
@@ -731,8 +824,8 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 goto failed;
             }
 
-            if (res->rval->tp == TI_VAL_ARRAY)
-                res->rval->tp = TI_VAL_TUPLE;   /* convert to tuple */
+            if (res_assign_val(res, true, e))
+                goto failed;
 
             VEC_push(val->via.array, res->rval);
             res->rval = NULL;
@@ -986,7 +1079,7 @@ static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_val_t * val;
 
     name = ti_names_weak_get(nd->str, nd->len);
-    val = name ? ti_scope_iter_val(res->scope, name) : NULL;
+    val = name ? ti_scope_find_local_val(res->scope, name) : NULL;
 
     if (!val && name)
         val = ti_thing_get(res->db->root, name);

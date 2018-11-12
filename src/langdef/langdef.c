@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-10 20:18:17
+ * Created at: 2018-11-12 17:53:14
  */
 
 #include <langdef/langdef.h>
@@ -34,6 +34,7 @@ cleri_grammar_t * compile_langdef(void)
         r_single_quote,
         r_double_quote
     );
+    cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[a-zA-Z_][a-zA-Z0-9_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
@@ -196,7 +197,8 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_ref_set(scope, cleri_sequence(
         CLERI_GID_SCOPE,
-        3,
+        4,
+        o_not,
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,

@@ -276,77 +276,70 @@ finish:
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 {
-    cleri_children_t * child;
-
-    for (child = nd->children; child; child = child->next)
+    switch (nd->cl_obj->gid)
     {
-        switch (child->node->cl_obj->gid)
-        {
-        case CLERI_GID_FUNCTION:
-            child->node = child->node           /* sequence */
+    case CLERI_GID_FUNCTION:
+        switch (nd                              /* sequence */
                 ->children->node                /* choice */
-                ->children->node;               /* keyword or name */
-
-            switch (nd->cl_obj->gid)
-            {
-            case CLERI_GID_F_ID:
-            case CLERI_GID_F_RET:
-                continue;  /* arguments will be ignored */
-            case CLERI_GID_F_DEL:
-            case CLERI_GID_F_REMOVE:
-                query->flags |= TI_QUERY_FLAG_EVENT;
-                continue;  /* arguments will be ignored */
-            case CLERI_GID_F_RENAME:
-            case CLERI_GID_F_UNSET:
-            case CLERI_GID_F_PUSH:
-            case CLERI_GID_F_SET:
-                query->flags |= TI_QUERY_FLAG_EVENT;
-            }
-            /* skip to arguments */
-            query__investigate_recursive(
-                    query,
-                    child->node->children->next->next->node);
-            continue;
-        case CLERI_GID_ASSIGNMENT:
+                ->children->node->cl_obj->gid)  /* keyword or name */
+        {
+        case CLERI_GID_F_ID:
+        case CLERI_GID_F_RET:
+            return;  /* arguments will be ignored */
+        case CLERI_GID_F_DEL:
+        case CLERI_GID_F_REMOVE:
             query->flags |= TI_QUERY_FLAG_EVENT;
-            /* skip to scope */
-            query__investigate_recursive(
-                    query,
-                    child->node->children->next->next->node);
-            continue;
-        case CLERI_GID_ARROW:
-            {
-                uint8_t flags = query->flags;
-                query->flags = 0;
-                query__investigate_recursive(
-                        query,
-                        child->node->children->next->next->node);
-
-                langdef_nd_flag(child->node,
-                        query->flags & TI_QUERY_FLAG_EVENT
-                        ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
-                        : TI_ARROW_FLAG);
-
-                query->flags |= flags;
-            }
-            continue;
-        case CLERI_GID_COMMENT:
-        case CLERI_GID_INDEX:
-        case CLERI_GID_T_STRING:
-        case CLERI_GID_PRIMITIVES:
-            /* all with children we can skip */
-            continue;
-        case CLERI_GID_COMPARE:
-            /* skip to prio */
-            query__investigate_recursive(
-                    query,
-                    child->node->children->next->node);
-            continue;
+            return;  /* arguments will be ignored */
+        case CLERI_GID_F_RENAME:
+        case CLERI_GID_F_UNSET:
+        case CLERI_GID_F_PUSH:
+        case CLERI_GID_F_SET:
+            query->flags |= TI_QUERY_FLAG_EVENT;
         }
+        /* skip to arguments */
+        query__investigate_recursive(
+                query,
+                nd->children->next->next->node);
+        return;
+    case CLERI_GID_ASSIGNMENT:
+        query->flags |= TI_QUERY_FLAG_EVENT;
+        /* skip to scope */
+        query__investigate_recursive(
+                query,
+                nd->children->next->next->node);
+        return;
+    case CLERI_GID_ARROW:
+        {
+            uint8_t flags = query->flags;
+            query->flags = 0;
+            query__investigate_recursive(
+                    query,
+                    nd->children->next->next->node);
 
-        if (child->node->children)
-            query__investigate_recursive(query, child->node);
+            langdef_nd_flag(nd,
+                    query->flags & TI_QUERY_FLAG_EVENT
+                    ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
+                    : TI_ARROW_FLAG);
+
+            query->flags |= flags;
+        }
+        return;
+    case CLERI_GID_COMMENT:
+    case CLERI_GID_INDEX:
+    case CLERI_GID_T_STRING:
+    case CLERI_GID_PRIMITIVES:
+        /* all with children we can skip */
+        return;
+    case CLERI_GID_COMPARE:
+        /* skip to prio */
+        query__investigate_recursive(
+                query,
+                nd->children->next->node);
+        return;
     }
+
+    for (cleri_children_t * child = nd->children; child; child = child->next)
+        query__investigate_recursive(query, child->node);
 }
 
 static void query__task_to_watchers(ti_query_t * query)

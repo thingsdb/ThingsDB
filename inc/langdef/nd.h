@@ -7,26 +7,30 @@
 #include <cleri/cleri.h>
 #include <langdef/langdef.h>
 
+#define LANGDEF_ND_FLAG_UNIQUE 1<<15
 
 static inline _Bool langdef_nd_is_function(cleri_node_t * nd);
-static inline _Bool langdef_nd_has_function_params(cleri_node_t * nd);
+static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd);
+static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd);
 int langdef_nd_n_function_params(cleri_node_t * nd);
-static inline void langdef_nd_flag(cleri_node_t * nd, int flags);
+void langdef_nd_flag(cleri_node_t * nd, int flags);
 
 static inline _Bool langdef_nd_is_function(cleri_node_t * nd)
 {
     return nd->cl_obj->gid == CLERI_GID_FUNCTION;
 }
 
-static inline _Bool langdef_nd_has_function_params(cleri_node_t * nd)
+static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd)
 {
-    return nd->children;
+    return !nd->children;
 }
 
-static inline void langdef_nd_flag(cleri_node_t * nd, int flags)
+static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd)
 {
-    nd->data = (void *) ((intptr_t) flags);
+    return nd->children && !nd->children->next;
 }
+
+
 
 
 #endif  /* LANGDEF_ND_H_ */

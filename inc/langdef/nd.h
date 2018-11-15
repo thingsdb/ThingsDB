@@ -30,7 +30,4 @@ static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd)
     return nd->children && !nd->children->next;
 }
 
-
-
-
 #endif  /* LANGDEF_ND_H_ */

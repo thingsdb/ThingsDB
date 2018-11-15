@@ -319,7 +319,6 @@ int ti_unlock(void)
     return 0;
 }
 
-
 //_Bool ti_manages_id(uint64_t id)
 //{
 //    return ti_node_manages_id(ti_.node, ti_.lookup, id);

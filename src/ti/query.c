@@ -1,5 +1,5 @@
 /*
- * query.c
+ * ti/query.c
  */
 #include <assert.h>
 #include <langdef/nd.h>
@@ -16,6 +16,10 @@
 #include <util/qpx.h>
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
+static _Bool query__swap_opr(
+        ti_query_t * query,
+        cleri_children_t * parent,
+        uint32_t parent_gid);
 static void query__task_to_watchers(ti_query_t * query);
 
 ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -330,16 +334,61 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
     case CLERI_GID_PRIMITIVES:
         /* all with children we can skip */
         return;
-    case CLERI_GID_COMPARE:
-        /* skip to prio */
-        query__investigate_recursive(
-                query,
-                nd->children->next->node);
+    case CLERI_GID_OPERATIONS:
+        (void) query__swap_opr(query, nd->children->next, 0);
         return;
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
         query__investigate_recursive(query, child->node);
+}
+
+static _Bool query__swap_opr(
+        ti_query_t * query,
+        cleri_children_t * parent,
+        uint32_t parent_gid)
+{
+    cleri_node_t * node;
+    cleri_node_t * nd = parent->node;
+    cleri_children_t * childb;
+    uint32_t gid;
+
+    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
+            nd->cl_obj->tp == CLERI_TP_PRIO ||
+            nd->cl_obj->tp == CLERI_TP_THIS);
+
+    node = nd->cl_obj->tp == CLERI_TP_PRIO ?
+            nd->children->node :
+            nd->children->node->children->node;
+
+    if (node->cl_obj->gid == CLERI_GID_SCOPE)
+    {
+        query__investigate_recursive(query, node);
+        return false;
+    }
+
+    assert (node->cl_obj->tp == CLERI_TP_SEQUENCE);
+
+    gid = node->cl_obj->gid;
+    childb = node->children->next->next;
+
+    (void) query__swap_opr(query, node->children, gid);
+    if (query__swap_opr(query, childb, gid))
+    {
+        cleri_node_t * tmp;
+        cleri_children_t * bchilda;
+        parent->node = childb->node;
+        tmp = childb->node->cl_obj->tp == CLERI_TP_PRIO ?
+                childb->node->children->node :
+                childb->node->children->node->children->node;
+        bchilda = tmp->children;
+        gid = tmp->cl_obj->gid;
+        tmp = bchilda->node;
+        bchilda->node = nd;
+        childb->node = tmp;
+    }
+
+    return gid > parent_gid;
 }
 
 static void query__task_to_watchers(ti_query_t * query)

@@ -27,6 +27,7 @@ C_SRCS += \
 ../src/ti/names.c \
 ../src/ti/node.c \
 ../src/ti/nodes.c \
+../src/ti/opr.c \
 ../src/ti/pipe.c \
 ../src/ti/pkg.c \
 ../src/ti/prom.c \
@@ -78,6 +79,7 @@ OBJS += \
 ./src/ti/names.o \
 ./src/ti/node.o \
 ./src/ti/nodes.o \
+./src/ti/opr.o \
 ./src/ti/pipe.o \
 ./src/ti/pkg.o \
 ./src/ti/prom.o \
@@ -129,6 +131,7 @@ C_DEPS += \
 ./src/ti/names.d \
 ./src/ti/node.d \
 ./src/ti/nodes.d \
+./src/ti/opr.d \
 ./src/ti/pipe.d \
 ./src/ti/pkg.d \
 ./src/ti/prom.d \

@@ -6,6 +6,7 @@
 #include <ti/prop.h>
 #include <ti/arrow.h>
 #include <ti/names.h>
+#include <ti/opr.h>
 #include <ti.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
@@ -17,13 +18,13 @@ static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__compare(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -98,8 +99,9 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         if (res__assignment(res, node, e))
             return e->nr;
         break;
-    case CLERI_GID_COMPARE:
-        if (res__compare(res, node, e))
+    case CLERI_GID_OPERATIONS:
+        /* skip the sequence , jump to the priority list */
+        if (res__operations(res, node->children->next->node, e))
             return e->nr;
         break;
         break;
@@ -366,10 +368,9 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int res__compare(ti_res_t * res, cleri_node_t * nd, ex_t * e)
-{
-    return e->nr;
-}
+
+
+
 
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
@@ -1013,6 +1014,62 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         }
         val = res->rval;
     }
+    return e->nr;
+}
+
+static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a_val;
+    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
+            nd->cl_obj->tp == CLERI_TP_PRIO ||
+            nd->cl_obj->tp == CLERI_TP_THIS);
+
+    nd = nd->cl_obj->tp == CLERI_TP_PRIO ?
+            nd                          /* prio */
+            ->children->node :          /* compare sequence */
+            nd                          /* rule/this */
+            ->children->node            /* prio */
+            ->children->node;           /* compare sequence */
+
+    assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
+    assert (res->rval == NULL);
+
+    switch (nd->cl_obj->gid)
+    {
+    case CLERI_GID_OPR2_COMPARE:
+        if (res__operations(res, nd->children->node, e))
+            return e->nr;
+        a_val = res->rval;
+        res->rval = NULL;
+        if (res__operations(res, nd->children->next->next->node, e))
+            break;
+        (void) ti_opr_a_to_b(a_val, nd->children->next->node, res->rval, e);
+        break;
+    case CLERI_GID_OPR3_CMP_AND:
+//        LOGC("AND");
+        if (    res__operations(res, nd->children->node, e) ||
+                !ti_val_as_bool(res->rval))
+            return e->nr;
+
+        res_rval_destroy(res);
+        return res__operations(res, nd->children->next->next->node, e);
+
+    case CLERI_GID_OPR4_CMP_OR:
+//        LOGC("OR");
+        if (    res__operations(res, nd->children->node, e) ||
+                ti_val_as_bool(res->rval))
+            return e->nr;
+
+        res_rval_destroy(res);
+        return res__operations(res, nd->children->next->next->node, e);
+    case CLERI_GID_SCOPE:
+        return ti_res_scope(res, nd, e);
+    default:
+        LOGC("GID: %d", nd->cl_obj->gid);
+        assert (0);
+    }
+
+    ti_val_destroy(a_val);
     return e->nr;
 }
 

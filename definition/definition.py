@@ -16,7 +16,7 @@ from pyleri import (
     THIS,
 )
 
-RE_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*'
+RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
 
 
 class Choice(Choice_):
@@ -40,12 +40,12 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
+    t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
+    t_int = Regex(r'[-+]?[0-9]+')
     t_nil = Keyword('nil')
+    t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
     t_undefined = Keyword('undefined')
-    t_int = Regex(r'[-+]?[0-9]+')
-    t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
-    t_string = Choice(r_single_quote, r_double_quote)
 
     o_not = Repeat(Token('!'))
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
@@ -79,8 +79,8 @@ class Definition(Grammar):
         t_nil,
         t_true,
         t_undefined,
-        t_int,
         t_float,
+        t_int,
         t_string,
     )
 
@@ -117,15 +117,21 @@ class Definition(Grammar):
         name,
     ), '(', List(scope), ')')
 
-    cmp_operators = Tokens('< > == != <= >=')
+    opr0_mul_div_mod = Sequence(THIS, Tokens('* / %'), THIS)
+    opr1_add_sub = Sequence(THIS, Tokens('+ -'), THIS)
+    opr2_compare = Sequence(THIS, Tokens('< > == != <= >='), THIS)
+    opr3_cmp_and = Sequence(THIS, '&&', THIS)
+    opr4_cmp_or = Sequence(THIS, '||', THIS)
 
-    compare = Sequence(
+    operations = Sequence(
         '(',
         Prio(
-            Sequence(scope, Optional(Sequence(cmp_operators, scope))),
-            Sequence('(', THIS, ')'),
-            Sequence(THIS, '&&', THIS),  # we could add here + - * / etc.
-            Sequence(THIS, '||', THIS)
+            scope,
+            opr0_mul_div_mod,
+            opr1_add_sub,
+            opr2_compare,
+            opr3_cmp_and,  # we could add here + - * / etc.
+            opr4_cmp_or,
         ),
         ')',
     )
@@ -152,7 +158,7 @@ class Definition(Grammar):
             name,
             thing,
             array,
-            compare
+            operations,
         ),
         index,
         Optional(chain),
@@ -213,8 +219,7 @@ if __name__ == '__main__':
     definition.test(' users.create(iris); ')
     definition.test(' databases.dbtest.drop() ')
 
-    definition.test('a.b = name, item => name.item.filter(x, y => (x.i > 5))')
-
+    definition.test('2.1')
 
     {
         '$ev': 0,
@@ -228,8 +233,6 @@ if __name__ == '__main__':
             {'push': {'people': [{'#': 123}]}}
         ]
     }
-
-
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:

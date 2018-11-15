@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-12 17:53:14
+ * Created at: 2018-11-15 22:36:33
  */
 
 #include <langdef/langdef.h>
@@ -22,11 +22,9 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
-    cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
-    cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
-    cleri_t * t_undefined = cleri_keyword(CLERI_GID_T_UNDEFINED, "undefined", CLERI_CASE_SENSITIVE);
-    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?[0-9]+");
     cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?[0-9]*\\.?[0-9]+");
+    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?[0-9]+");
+    cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
     cleri_t * t_string = cleri_choice(
         CLERI_GID_T_STRING,
         CLERI_FIRST_MATCH,
@@ -34,9 +32,11 @@ cleri_grammar_t * compile_langdef(void)
         r_single_quote,
         r_double_quote
     );
+    cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
+    cleri_t * t_undefined = cleri_keyword(CLERI_GID_T_UNDEFINED, "undefined", CLERI_CASE_SENSITIVE);
     cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
-    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[a-zA-Z_][a-zA-Z0-9_]*");
+    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
     cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
@@ -63,8 +63,8 @@ cleri_grammar_t * compile_langdef(void)
         t_nil,
         t_true,
         t_undefined,
-        t_int,
         t_float,
+        t_int,
         t_string
     );
     cleri_t * scope = cleri_ref();
@@ -127,46 +127,54 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
-    cleri_t * cmp_operators = cleri_tokens(CLERI_GID_CMP_OPERATORS, "== != <= >= < >");
-    cleri_t * compare = cleri_sequence(
-        CLERI_GID_COMPARE,
+    cleri_t * opr0_mul_div_mod = cleri_sequence(
+        CLERI_GID_OPR0_MUL_DIV_MOD,
+        3,
+        CLERI_THIS,
+        cleri_tokens(CLERI_NONE, "* / %"),
+        CLERI_THIS
+    );
+    cleri_t * opr1_add_sub = cleri_sequence(
+        CLERI_GID_OPR1_ADD_SUB,
+        3,
+        CLERI_THIS,
+        cleri_tokens(CLERI_NONE, "+ -"),
+        CLERI_THIS
+    );
+    cleri_t * opr2_compare = cleri_sequence(
+        CLERI_GID_OPR2_COMPARE,
+        3,
+        CLERI_THIS,
+        cleri_tokens(CLERI_NONE, "== != <= >= < >"),
+        CLERI_THIS
+    );
+    cleri_t * opr3_cmp_and = cleri_sequence(
+        CLERI_GID_OPR3_CMP_AND,
+        3,
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, "&&"),
+        CLERI_THIS
+    );
+    cleri_t * opr4_cmp_or = cleri_sequence(
+        CLERI_GID_OPR4_CMP_OR,
+        3,
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, "||"),
+        CLERI_THIS
+    );
+    cleri_t * operations = cleri_sequence(
+        CLERI_GID_OPERATIONS,
         3,
         cleri_token(CLERI_NONE, "("),
         cleri_prio(
             CLERI_NONE,
-            4,
-            cleri_sequence(
-                CLERI_NONE,
-                2,
-                scope,
-                cleri_optional(CLERI_NONE, cleri_sequence(
-                    CLERI_NONE,
-                    2,
-                    cmp_operators,
-                    scope
-                ))
-            ),
-            cleri_sequence(
-                CLERI_NONE,
-                3,
-                cleri_token(CLERI_NONE, "("),
-                CLERI_THIS,
-                cleri_token(CLERI_NONE, ")")
-            ),
-            cleri_sequence(
-                CLERI_NONE,
-                3,
-                CLERI_THIS,
-                cleri_token(CLERI_NONE, "&&"),
-                CLERI_THIS
-            ),
-            cleri_sequence(
-                CLERI_NONE,
-                3,
-                CLERI_THIS,
-                cleri_token(CLERI_NONE, "||"),
-                CLERI_THIS
-            )
+            6,
+            scope,
+            opr0_mul_div_mod,
+            opr1_add_sub,
+            opr2_compare,
+            opr3_cmp_and,
+            opr4_cmp_or
         ),
         cleri_token(CLERI_NONE, ")")
     );
@@ -210,7 +218,7 @@ cleri_grammar_t * compile_langdef(void)
             name,
             thing,
             array,
-            compare
+            operations
         ),
         index,
         cleri_optional(CLERI_NONE, chain)
@@ -231,7 +239,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, chain)
     ));
 
-    cleri_grammar_t * grammar = cleri_grammar(START, "^[a-zA-Z_][a-zA-Z0-9_]*");
+    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]*");
 
     return grammar;
 }

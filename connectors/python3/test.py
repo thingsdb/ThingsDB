@@ -25,11 +25,8 @@ async def test():
          * test query
          */
 
-        a = x => !!true;
 
-        a;
-
-        people.filter(a);
+        people.filter(x => !(-1 > -1.1));
 
         ''', timeout=2)
     except ThingsDBError as e:

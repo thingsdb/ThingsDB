@@ -1,10 +1,11 @@
 /*
  * ti/root.c
  */
-
 #include <assert.h>
-#include <ti/root.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/dbs.h>
+#include <ti/root.h>
 
 ti_root_t * ti_root_create(void)
 {
@@ -18,12 +19,16 @@ ti_root_t * ti_root_create(void)
     return root;
 }
 
-
 void ti_root_destroy(ti_root_t * root)
 {
     if (!root)
         return;
     ti_val_destroy(root->rval);
+    switch (root->tp)
+    {
+    case TI_ROOT_DATABASE:
+        ti_db_drop(root->via.db);
+    }
     free(root);
 }
 
@@ -71,7 +76,7 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_NAME:
-        if (root__scope_name(root, node, e))
+        if (root__name(root, node, e))
             return e->nr;
         break;
     case CLERI_GID_PRIMITIVES:
@@ -117,8 +122,61 @@ finish:
 static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (nd-> == 0);
+    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+
+    cleri_children_t * child = nd           /* sequence */
+                    ->children->next;       /* first is .(dot), next choice */
+
+    cleri_node_t * node = child->node       /* choice */
+            ->children->node;               /* function, assignment,
+                                               name */
+
+    switch (node->cl_obj->gid)
+    {
+    case CLERI_GID_FUNCTION:
+        if (root__function(root, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_ASSIGNMENT:
+        if (root__assignment(root, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_NAME:
+        if (root__name(root, node, e))
+            return e->nr;
+        break;
+    default:
+        assert (0);  /* all possible should be handled */
+        return -1;
+    }
+
+    child = child->next;
+
+    assert (child);
+
+    node = child->node;
+    assert (node->cl_obj->gid == CLERI_GID_INDEX);
+
+    if (node->children)
+    {
+        ex_set(e, EX_BAD_DATA, "indexing is not supported at root");
+        return e->nr;
+    }
+
+    child = child->next;
+    if (!child)
+        goto finish;
+
+    node = child->node              /* optional */
+            ->children->node;       /* chain */
+
+    assert (node->cl_obj->gid == CLERI_GID_CHAIN);
+
+    (void) root__chain(root, node, e);
+
+finish:
     return e->nr;
+
 }
 
 static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
@@ -136,37 +194,144 @@ static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
             ->children->next->next->node;   /* list of scope (arguments) */
 
 
-    switch (fname->cl_obj->gid)
+    switch (root->tp)
     {
-
+    case TI_ROOT_DATABASES:
+        if (fname->cl_obj->gid == CLERI_GID_F_NEW)
+            return root__new_database(root, params, e);
     }
     ex_set(e, EX_INDEX_ERROR,
             "`%.*s` is undefined",
             fname->len,
             fname->str);
+
     return e->nr;
 }
 
-static int root__scope_name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (root->tp == TI_ROOT_DATABASES);
+    assert (root->ev);
+
+    cleri_children_t * child;
+    cleri_node_t * value_nd = NULL;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `new` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    nd = nd                         /* list parameters */
+        ->children->node            /* first parameter scope */
+        ->children                  /* repeat nots */
+        ->next->node                /* choice */
+        ->children->node;           /* thing or something else */
+
+    if (nd->cl_obj->gid != CLERI_GID_THING)
+    {
+        LOGC("TP: %d GID: %d", nd->cl_obj->tp, nd->cl_obj->gid);
+        ex_set(e, EX_BAD_DATA,
+                "function `new` expects argument 1 to be a new `thing`");
+        return e->nr;
+    }
+
+    child = nd                                      /* sequence */
+                ->children->next->node              /* list */
+                ->children;                         /* list items */
+
+    for (; child; child = child->next->next)
+    {
+        cleri_node_t * name_nd = child->node        /* sequence */
+                ->children->node;                   /* name */
+
+        if (value_nd || !langdef_nd_match_str(name_nd, "name"))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "unexpected property `%.*s`",
+                    (int) name_nd->len, name_nd->str);
+            return e->nr;
+        }
+
+        value_nd = child->node                      /* sequence */
+                ->children->next->next->node        /* scope */
+                ->children                          /* repeat not's */
+                ->next->node                        /* choice */
+                ->children->node;                   /* primitives? */
+
+        if (    value_nd->cl_obj->gid != CLERI_GID_PRIMITIVES ||
+                value_nd->children->node->cl_obj->gid != CLERI_GID_T_STRING)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "unexpected property `%.*s`",
+                    (int) name_nd->len, name_nd->str);
+            return e->nr;
+        }
+        if (name_nd
+        ti_name_t * name = ti_names_get(name_nd->str, name_nd->len);
+        if (!name)
+            goto alloc_err;
+
+        if (ti_res_scope(res, scope, e))
+            goto err;
+
+        assert (res->rval);
+
+        ti_thing_weak_setv(thing, name, res->rval);
+        res_rval_weak_destroy(res);
+
+        if (!child->next)
+            break;
+    }
+
+    if (!child || child->next || !langdef_nd_match_str(child->node, "name"))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting%s a `name` property",
+                child->next ? " only" : "");
+        return e->nr;
+    }
+
+
+    return e->nr;
+}
+
+static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
 
-    if (langdef_nd_match_str(nd, "databases"))
-        root->tp = TI_ROOT_DATABASES;
-    else if (langdef_nd_match_str(nd, "users"))
-        root->tp = TI_ROOT_USERS;
-    else if (langdef_nd_match_str(nd, "nodes"))
-        root->tp = TI_ROOT_NODES;
-    else if (langdef_nd_match_str(nd, "configuration"))
-        root->tp = TI_ROOT_CONFIG;
-    else
+    switch (root->tp)
     {
-        ex_set(e, EX_INDEX_ERROR,
-                "property `%.*s` is undefined",
-                (int) nd->len, nd->str);
-        return e->nr;
+    case TI_ROOT_UNDEFINED:
+        if (langdef_nd_match_str(nd, "databases"))
+            root->tp = TI_ROOT_DATABASES;
+        else if (langdef_nd_match_str(nd, "users"))
+            root->tp = TI_ROOT_USERS;
+        else if (langdef_nd_match_str(nd, "nodes"))
+            root->tp = TI_ROOT_NODES;
+        else if (langdef_nd_match_str(nd, "configuration"))
+            root->tp = TI_ROOT_CONFIG;
+        else
+            ex_set(e, EX_INDEX_ERROR,
+                    "property `%.*s` is undefined",
+                    (int) nd->len, nd->str);
+        break;
+    case TI_ROOT_DATABASES:
+        root->via.db = ti_dbs_get_by_strn();
+        if (!root->via.db)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "database `%.*s` does not exist",
+                    (int) nd->len, nd->str);
+            break;
+        }
+        ti_incref(root->via.db);
+        root->tp = TI_ROOT_DATABASE;
     }
 
     return e->nr;

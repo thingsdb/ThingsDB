@@ -37,7 +37,7 @@ struct ti_query_s
     char * querystr;
     cleri_parse_t * parseres;
     ti_stream_t * stream;
-    vec_t * res_statements;     /* ti_res_t for each statement */
+    vec_t * statements;         /* ti_res_t or ti_root_t for each statement */
     ti_event_t * ev;            /* only when an event is required */
 };
 

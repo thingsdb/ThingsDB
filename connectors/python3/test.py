@@ -24,11 +24,12 @@ async def test():
         /*
          * test query
          */
+        people.filter(x => !x);
 
-
-        people.filter(x => (1 && 0 + 1) );
-
-        (10 // 3);
+        /*
+        people[0].age += 1;
+        people[0].age;
+        */
 
         ''', timeout=2)
     except ThingsDBError as e:

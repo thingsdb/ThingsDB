@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-16 10:40:26
+ * Created at: 2018-11-16 16:03:15
  */
 
 #include <langdef/langdef.h>
@@ -46,15 +46,16 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
+    cleri_t * f_unwatch = cleri_keyword(CLERI_GID_F_UNWATCH, "unwatch", CLERI_CASE_SENSITIVE);
+    cleri_t * f_watch = cleri_keyword(CLERI_GID_F_WATCH, "watch", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
+    cleri_t * f_new = cleri_keyword(CLERI_GID_F_NEW, "new", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
     cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
     cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
     cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
     cleri_t * f_unset = cleri_keyword(CLERI_GID_F_UNSET, "unset", CLERI_CASE_SENSITIVE);
-    cleri_t * f_unwatch = cleri_keyword(CLERI_GID_F_UNWATCH, "unwatch", CLERI_CASE_SENSITIVE);
-    cleri_t * f_watch = cleri_keyword(CLERI_GID_F_WATCH, "watch", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_MOST_GREEDY,
@@ -102,7 +103,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            19,
+            20,
             f_blob,
             f_endswith,
             f_filter,
@@ -115,6 +116,7 @@ cleri_grammar_t * compile_langdef(void)
             f_unwatch,
             f_watch,
             f_del,
+            f_new,
             f_push,
             f_remove,
             f_rename,
@@ -182,7 +184,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_ASSIGNMENT,
         3,
         name,
-        cleri_token(CLERI_NONE, "="),
+        cleri_tokens(CLERI_NONE, "+= -= *= /= %= ="),
         scope
     );
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(

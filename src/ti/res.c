@@ -104,7 +104,6 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         if (res__operations(res, node->children->next->node, e))
             return e->nr;
         break;
-        break;
     case CLERI_GID_FUNCTION:
         if (res__function(res, node, e))
             return e->nr;
@@ -148,7 +147,8 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     assert (node->cl_obj->gid == CLERI_GID_CHAIN);
 
-    (void) res__chain(res, node, e);
+    if (res__chain(res, node, e))
+        goto done;
 
 finish:
 
@@ -195,10 +195,12 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_name_t * name;
     ti_task_t * task;
+    ti_val_t * left_val = NULL;     /* assign to prevent warning */
     size_t max_props = res->db->quota->max_props;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
-
+    cleri_node_t * assign_nd = nd               /* sequence */
+            ->children->next->node;             /* assign tokens */
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
@@ -210,17 +212,32 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
     thing = res_get_thing(res);
 
-    if (thing->props->n == max_props)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-                "maximum properties quota of %u has been reached, "
-                "see "TI_DOCS"#quotas", max_props);
-        return e->nr;
-    }
-
     name = ti_names_get(name_nd->str, name_nd->len);
     if (!name)
         goto alloc_err;
+
+    if (assign_nd->len == 1)
+    {
+        if (thing->props->n == max_props)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                    "maximum properties quota of %u has been reached, "
+                    "see "TI_DOCS"#quotas", max_props);
+            return e->nr;
+        }
+    }
+    else
+    {
+        assert (assign_nd->len == 2);
+        assert (assign_nd->str[1] == '=');
+        left_val = ti_thing_get(thing, name);
+        if (!left_val)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "`%.*s` is undefined", (int) name->n, name->str);
+            return e->nr;
+        }
+    }
 
     /* should also work in chain because then scope->local must be NULL */
     if (    ti_scope_has_local_name(res->scope, name) ||
@@ -237,7 +254,13 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     assert (res->rval);
 
-    if (res_assign_val(res, false, e))
+    if (assign_nd->len == 2)
+    {
+        assert (left_val);
+        if (ti_opr_a_to_b(left_val, assign_nd, res->rval, e))
+            goto done;
+    }
+    else if (res_assign_val(res, false, e))
         goto done;
 
     if (thing->id)
@@ -368,10 +391,6 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-
-
-
-
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -466,7 +485,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                         goto failed;
                     VEC_push(retvec, dup);
                 }
-                res_rval_weak_destroy(res);
+                res_rval_destroy(res);
             }
             (void) vec_shrink(&retval->via.array);
         }
@@ -511,7 +530,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     ti_incref(t);
                     VEC_push(retvec, t);
                 }
-                res_rval_weak_destroy(res);
+                res_rval_destroy(res);
             }
             (void) vec_shrink(&retval->via.array);
         }
@@ -999,7 +1018,8 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             {
                 ti_thing_t * thing = vec_get(val->via.things, idx);
                 ti_incref(thing);
-                if (res_rval_clear(res))
+                if (    res_rval_clear(res) ||
+                        ti_scope_push_thing(&res->scope, thing))
                 {
                     ex_set_alloc(e);
                     return e->nr;

@@ -33,3 +33,4 @@ void langdef_nd_flag(cleri_node_t * nd, int flags)
         nd->data = (void *) ((intptr_t) flags);
     }
 }
+

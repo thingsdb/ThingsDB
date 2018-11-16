@@ -62,17 +62,18 @@ class Definition(Grammar):
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_thing = Keyword('thing')
+    f_unwatch = Keyword('unwatch')
+    f_watch = Keyword('watch')
 
     # build-in update functions
     f_del = Keyword('del')
+    f_new = Keyword('new')
     f_push = Keyword('push')
     f_remove = Keyword('remove')
     f_rename = Keyword('rename')
     f_set = Keyword('set')
     f_splice = Keyword('splice')
     f_unset = Keyword('unset')
-    f_unwatch = Keyword('unwatch')
-    f_watch = Keyword('watch')
 
     primitives = Choice(
         t_false,
@@ -108,6 +109,7 @@ class Definition(Grammar):
         f_watch,        # (#id) -> nil
         # build-in update functions
         f_del,
+        f_new,
         f_push,
         f_remove,
         f_rename,
@@ -137,7 +139,7 @@ class Definition(Grammar):
         ')',
     )
 
-    assignment = Sequence(name, '=', scope)
+    assignment = Sequence(name, Tokens('= += -= *= /= %='), scope)
     index = Repeat(
         Sequence('[', t_int, ']')
     )       # we skip index in query investigate (in case we want to use scope)
@@ -209,6 +211,9 @@ if __name__ == '__main__':
             scores: thing,
             other: int
         });
+        users.new({
+            name: 'iris'
+        });
 
         type().add(users, User.isRequired);
 
@@ -217,7 +222,7 @@ if __name__ == '__main__':
          */
     ''')
 
-    definition.test(' users.create(iris); ')
+    definition.test(' users.new({name: "iris"}); ')
     definition.test(' databases.dbtest.drop() ')
 
     definition.test('2.1')

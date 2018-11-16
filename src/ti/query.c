@@ -34,7 +34,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
     query->parseres = NULL;
     query->raw = ti_raw_new(pkg->data, pkg->n);
     query->stream = ti_grab(stream);
-    query->res_statements = NULL;
+    query->statements = NULL;
     query->ev = NULL;
 
     if (!query->raw)
@@ -52,7 +52,9 @@ void ti_query_destroy(ti_query_t * query)
         return;
     if (query->parseres)
         cleri_parse_free(query->parseres);
-    vec_destroy(query->res_statements, (vec_destroy_cb) ti_res_destroy);
+    vec_destroy(
+            query->statements,
+            (vec_destroy_cb) query->target ? ti_res_destroy : ti_root_destroy);
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
     free(query->querystr);
@@ -168,8 +170,8 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
-    query->res_statements = vec_new(nstatements);
-    if (!query->res_statements)
+    query->statements = vec_new(nstatements);
+    if (!query->statements)
         ex_set_alloc(e);
 
     return e->nr;
@@ -200,7 +202,7 @@ void ti_query_run(ti_query_t * query)
 
             res->ev = query->ev;  /* NULL if no update is required */
 
-            VEC_push(query->res_statements, res);
+            VEC_push(query->statements, res);
 
             ti_res_scope(res, child->node, e);
             if (e->nr)
@@ -215,8 +217,29 @@ void ti_query_run(ti_query_t * query)
     }
     else
     {
-        /* TODO: implement root */
-        assert_log(0, "root queries not implemented yet");
+        while (child)
+        {
+            assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+            ti_root_t * root = ti_root_create();
+            if (!root)
+            {
+                ex_set_alloc(e);
+                goto done;
+            }
+
+            root->ev = query->ev;  /* NULL if no update is required */
+
+            VEC_push(query->statements, root);
+
+            ti_root_scope(root, child->node, e);
+            if (e->nr)
+                goto done;
+
+            if (!child->next)
+                break;
+            child = child->next->next;                  /* skip delimiter */
+        }
     }
 
 done:
@@ -241,9 +264,10 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     (void) qp_add_array(&packer);
 
     /* we should have a result for each statement */
-    assert (query->res_statements->n == query->res_statements->sz);
+    assert (query->statements->n == query->statements->sz);
 
-    for (vec_each(query->res_statements, ti_res_t, res))
+    /* ti_res_t or ti_root_t */
+    for (vec_each(query->statements, ti_res_t, res))
     {
         assert (res);
         assert (res->rval);
@@ -292,6 +316,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
             return;  /* arguments will be ignored */
         case CLERI_GID_F_DEL:
         case CLERI_GID_F_REMOVE:
+        case CLERI_GID_F_NEW:
             query->flags |= TI_QUERY_FLAG_EVENT;
             return;  /* arguments will be ignored */
         case CLERI_GID_F_RENAME:

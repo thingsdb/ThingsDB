@@ -59,8 +59,21 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t * b, ex_t * e)
             assert (nd->str[1] == '=');
             return opr__ne(a, b, e);
         case '/':
-            assert (nd->str[1] == '/');
-            return opr__idiv(a, b, e);
+            return nd->str[1] == '=' && a->tp == TI_VAL_FLOAT
+                ? opr__div(a, b, e)
+                : opr__idiv(a, b, e);
+        case '+':
+            assert (nd->str[1] == '=');
+            return opr__add(a, b, e);
+        case '-':
+            assert (nd->str[1] == '=');
+            return opr__sub(a, b, e);
+        case '*':
+            assert (nd->str[1] == '=');
+            return opr__mul(a, b, e);
+        case '%':
+            assert (nd->str[1] == '=');
+            return opr__mod(a, b, e);
         }
     }
     assert (0);
@@ -245,7 +258,6 @@ type_err:
 
 static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
@@ -406,7 +418,6 @@ type_err:
 
 static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
@@ -567,7 +578,6 @@ type_err:
 
 static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
@@ -728,7 +738,6 @@ type_err:
 
 static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
@@ -1608,7 +1617,6 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-
     ti_val_clear(b);
     ti_val_set_float(b, float_);
 
@@ -1736,7 +1744,6 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-
     ti_val_clear(b);
     ti_val_set_int(b, int_);
 
@@ -1747,8 +1754,6 @@ type_err:
         ti_val_str(a), ti_val_str(b));
     return e->nr;
 }
-
-
 
 static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
 {

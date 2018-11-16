@@ -22,10 +22,11 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
 struct ti_res_s
 {
+    ti_val_t * rval;            /* must be on top (matches ti_root_t)
+                                   new return value or NULL when point to
+                                   scope */
     ti_db_t * db;               /* this is using a borrowed reference, this is
                                    good because the query has one */
-    ti_val_t * rval;            /* new return value or NULL when point to
-                                   scope */
     ti_scope_t * scope;         /* keep the scope */
     omap_t * collect;           /* contains a vec_t with attributes to collect,
                                    and the key is the thing id. */

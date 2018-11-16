@@ -564,7 +564,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
 {
     switch (tp)
     {
-    case TI_VAL_PROP:               return "nil";
+    case TI_VAL_PROP:               return "attribute";
     case TI_VAL_UNDEFINED:          return "undefined";
     case TI_VAL_NIL:                return "nil";
     case TI_VAL_INT:                return "int";

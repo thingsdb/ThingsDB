@@ -49,6 +49,9 @@ ti_pkg_t * ti_pkg_err(uint16_t id, ex_t * e)
         return NULL;
     switch (e->nr)
     {
+    case EX_ZERO_DIV:
+        tp = TI_PROTO_CLIENT_ERR_ZERO_DIV;
+        break;
     case EX_MAX_QUOTA:
         tp = TI_PROTO_CLIENT_ERR_MAX_QUOTA;
         break;

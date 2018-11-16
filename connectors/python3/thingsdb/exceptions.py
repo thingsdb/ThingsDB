@@ -1,4 +1,5 @@
 _IndexError = IndexError
+_ZeroDivisionError = ZeroDivisionError
 
 
 class ThingsDBError(Exception):
@@ -6,6 +7,10 @@ class ThingsDBError(Exception):
         if isinstance(errdata, dict):
             args = ('{error_msg} ({error_code})'.format_map(errdata), )
         super().__init__(*args)
+
+
+class ZeroDivisionError(ThingsDBError, _ZeroDivisionError):
+    pass
 
 
 class MaxQuotaError(ThingsDBError):

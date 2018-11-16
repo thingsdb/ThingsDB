@@ -166,7 +166,7 @@ finish:
     {
         _Bool b = ti_val_as_bool(res->rval);
         ti_val_clear(res->rval);
-        ti_val_set_bool(res->rval, (nots & 1) ^ (b & 1));
+        ti_val_set_bool(res->rval, (nots & 1) ^ b);
     }
     else if (mark_fetch)
         ti_val_mark_fetch(res->rval);
@@ -596,7 +596,7 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
     thing = res_get_thing(res);
 
-    if (langdef_nd_fun_has_zero_params(nd))
+    if (!langdef_nd_fun_has_zero_params(nd))
     {
         int n = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
@@ -1036,6 +1036,8 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     switch (nd->cl_obj->gid)
     {
+    case CLERI_GID_OPR0_MUL_DIV_MOD:
+    case CLERI_GID_OPR1_ADD_SUB:
     case CLERI_GID_OPR2_COMPARE:
         if (res__operations(res, nd->children->node, e))
             return e->nr;
@@ -1045,8 +1047,8 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             break;
         (void) ti_opr_a_to_b(a_val, nd->children->next->node, res->rval, e);
         break;
+
     case CLERI_GID_OPR3_CMP_AND:
-//        LOGC("AND");
         if (    res__operations(res, nd->children->node, e) ||
                 !ti_val_as_bool(res->rval))
             return e->nr;
@@ -1055,15 +1057,16 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__operations(res, nd->children->next->next->node, e);
 
     case CLERI_GID_OPR4_CMP_OR:
-//        LOGC("OR");
         if (    res__operations(res, nd->children->node, e) ||
                 ti_val_as_bool(res->rval))
             return e->nr;
 
         res_rval_destroy(res);
         return res__operations(res, nd->children->next->next->node, e);
+
     case CLERI_GID_SCOPE:
         return ti_res_scope(res, nd, e);
+
     default:
         LOGC("GID: %d", nd->cl_obj->gid);
         assert (0);

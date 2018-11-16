@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from .package import Package
+from .exceptions import ZeroDivisionError
 from .exceptions import MaxQuotaError
 from .exceptions import AuthError
 from .exceptions import ForbiddenError
@@ -19,20 +20,23 @@ RES_PING = 64
 RES_AUTH = 65
 RES_QUERY = 66
 
-RES_ERR_MAX_QUOTA = 96
-RES_ERR_AUTH = 97
-RES_ERR_FORBIDDEN = 98
-RES_ERR_INDEX = 99
-RES_ERR_BAD_REQUEST = 100
-RES_ERR_QUERY = 101
-RES_ERR_NODE = 102
-RES_ERR_INTERNAL = 103
+RES_ERR_ZERO_DIV = 96
+RES_ERR_MAX_QUOTA = 97
+RES_ERR_AUTH = 98
+RES_ERR_FORBIDDEN = 99
+RES_ERR_INDEX = 100
+RES_ERR_BAD_REQUEST = 101
+RES_ERR_QUERY = 102
+RES_ERR_NODE = 103
+RES_ERR_INTERNAL = 104
 
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
     RES_AUTH: lambda f, d: f.set_result(None),
     RES_QUERY: lambda f, d: f.set_result(d),
+    RES_ERR_ZERO_DIV:
+        lambda f, d: f.set_exception(ZeroDivisionError(errdata=d)),
     RES_ERR_MAX_QUOTA:
         lambda f, d: f.set_exception(MaxQuotaError(errdata=d)),
     RES_ERR_AUTH:

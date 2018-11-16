@@ -62,13 +62,9 @@ int res_assign_val(ti_res_t * res, _Bool to_array, ex_t * e)
     switch (res->rval->tp)
     {
     case TI_VAL_PROP:
-        if (res_rval_clear(res))
-            ex_set_alloc(e);
-        else
-            ti_val_set_nil(res->rval);
-        break;
     case TI_VAL_UNDEFINED:
-        ex_set(e, EX_BAD_DATA, "type `undefined` cannot be assigned");
+        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
+                ti_val_tp_str(res->rval->tp));
         break;
     case TI_VAL_ARROW:
         if (ti_arrow_wse(res->rval->via.arrow))

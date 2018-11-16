@@ -84,6 +84,72 @@ char * ti_raw_to_str(const ti_raw_t * raw)
     return str;
 }
 
+int ti_raw_cmp(const ti_raw_t * a, const ti_raw_t * b)
+{
+    int rc = memcmp(a->data, b->data, a->n < b->n ? a->n : b->n);
+    return (rc || a->n == b->n) ? rc : (a->n > b->n
+            ? (int) a->data[b->n]
+            : -((int) b->data[a->n])
+    );
+}
 
+int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n)
+{
+    int rc = memcmp(a->data, s, a->n < n ? a->n : n);
+    return (rc || a->n == n) ? rc : (a->n > n
+            ? (int) a->data[n]
+            : -((int) ((unsigned char) s[a->n]))
+    );
+}
 
+ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
+{
+    size_t n = a->n + b->n;
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    if (!r)
+        return NULL;
+    r->n = n;
+    memcpy(r->data, a->data, a->n);
+    memcpy(r->data + a->n, b->data, b->n);
+    return r;
+}
 
+ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
+{
+    size_t nn = a->n + n;
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    if (!r)
+        return NULL;
+    r->n = nn;
+    memcpy(r->data, a->data, a->n);
+    memcpy(r->data + a->n, s, n);
+    return r;
+}
+
+ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
+{
+    size_t nn = n + b->n;
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    if (!r)
+        return NULL;
+    r->n = nn;
+    memcpy(r->data, s, n);
+    memcpy(r->data + n, b->data, b->n);
+    return r;
+}
+
+ti_raw_t * ti_raw_cat_strn_strn(
+        const char * as,
+        size_t an,
+        const char * bs,
+        size_t bn)
+{
+    size_t nn = an + bn;
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    if (!r)
+        return NULL;
+    r->n = nn;
+    memcpy(r->data, as, an);
+    memcpy(r->data + an, bs, bn);
+    return r;
+}

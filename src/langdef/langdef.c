@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-15 22:36:33
+ * Created at: 2018-11-16 10:40:26
  */
 
 #include <langdef/langdef.h>
@@ -57,14 +57,14 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_watch = cleri_keyword(CLERI_GID_F_WATCH, "watch", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
-        CLERI_FIRST_MATCH,
+        CLERI_MOST_GREEDY,
         7,
         t_false,
         t_nil,
         t_true,
         t_undefined,
-        t_float,
         t_int,
+        t_float,
         t_string
     );
     cleri_t * scope = cleri_ref();
@@ -131,7 +131,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_OPR0_MUL_DIV_MOD,
         3,
         CLERI_THIS,
-        cleri_tokens(CLERI_NONE, "* / %"),
+        cleri_tokens(CLERI_NONE, "// * / %"),
         CLERI_THIS
     );
     cleri_t * opr1_add_sub = cleri_sequence(

@@ -26,7 +26,9 @@ async def test():
          */
 
 
-        people.filter(x => !(-1 > -1.1));
+        people.filter(x => (1 && 0 + 1) );
+
+        (10 // 3);
 
         ''', timeout=2)
     except ThingsDBError as e:

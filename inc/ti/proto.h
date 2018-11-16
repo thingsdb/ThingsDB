@@ -54,22 +54,24 @@ typedef enum
      * 96..111 client errors mapping to node errors
      */
 
+    /* zero division error */
+    TI_PROTO_CLIENT_ERR_ZERO_DIV    =96,
     /* max quota is reached */
-    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =96,
+    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =97,
     /* authentication failed or request without authentication */
-    TI_PROTO_CLIENT_ERR_AUTH        =97,
+    TI_PROTO_CLIENT_ERR_AUTH        =98,
     /* no access for the requested task */
-    TI_PROTO_CLIENT_ERR_FORBIDDEN   =98,
+    TI_PROTO_CLIENT_ERR_FORBIDDEN   =99,
     /* query syntax error */
-    TI_PROTO_CLIENT_ERR_INDEX       =99,
+    TI_PROTO_CLIENT_ERR_INDEX       =100,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_CLIENT_ERR_BAD_REQUEST =100,
+    TI_PROTO_CLIENT_ERR_BAD_REQUEST =101,
     /* node is (currently) unable to respond to the request */
-    TI_PROTO_CLIENT_ERR_QUERY       =101,
+    TI_PROTO_CLIENT_ERR_QUERY       =102,
     /* not found, maybe because due to no access */
-    TI_PROTO_CLIENT_ERR_NODE        =102,
+    TI_PROTO_CLIENT_ERR_NODE        =103,
     /* internal server error, for example allocation error */
-    TI_PROTO_CLIENT_ERR_INTERNAL    =103,
+    TI_PROTO_CLIENT_ERR_INTERNAL    =104,
 
     /*
      * 112..127 client errors only
@@ -116,22 +118,24 @@ typedef enum
      * 224..239 node errors mapping to client errors
      */
 
+    /* zero division error */
+    TI_PROTO_NODE_ERR_ZERO_DIV      =224,
     /* max quota is reached */
-    TI_PROTO_NODE_ERR_MAX_QUOTA     =224,
+    TI_PROTO_NODE_ERR_MAX_QUOTA     =225,
     /* authentication failed or request without authentication */
-    TI_PROTO_NODE_ERR_AUTH          =225,
+    TI_PROTO_NODE_ERR_AUTH          =226,
     /* no access for the requested task */
-    TI_PROTO_NODE_ERR_FORBIDDEN     =226,
+    TI_PROTO_NODE_ERR_FORBIDDEN     =227,
     /* query syntax error */
-    TI_PROTO_NODE_ERR_INDEX         =227,
+    TI_PROTO_NODE_ERR_INDEX         =228,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_NODE_ERR_BAD_REQUEST   =228,
+    TI_PROTO_NODE_ERR_BAD_REQUEST   =229,
     /* node is (currently) unable to respond to the request */
-    TI_PROTO_NODE_ERR_QUERY         =229,
+    TI_PROTO_NODE_ERR_QUERY         =230,
     /* not found, maybe because due to no access */
-    TI_PROTO_NODE_ERR_NODE          =230,
+    TI_PROTO_NODE_ERR_NODE          =231,
     /* internal server error, for example allocation error */
-    TI_PROTO_NODE_ERR_INTERNAL      =231,
+    TI_PROTO_NODE_ERR_INTERNAL      =232,
 
     /*
      * 240..255 node only errors

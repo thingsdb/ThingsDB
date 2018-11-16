@@ -18,6 +18,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";
     case TI_PROTO_CLIENT_RES_QUERY:         return "CLIENT_RES_QUERY";
 
+    case TI_PROTO_CLIENT_ERR_ZERO_DIV:      return "CLIENT_ERR_ZERO_DIV";
     case TI_PROTO_CLIENT_ERR_MAX_QUOTA:     return "CLIENT_ERR_MAX_QUOTA";
     case TI_PROTO_CLIENT_ERR_AUTH:          return "CLIENT_ERR_AUTH";
     case TI_PROTO_CLIENT_ERR_FORBIDDEN:     return "CLIENT_ERR_FORBIDDEN";
@@ -40,6 +41,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
     case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
 
+    case TI_PROTO_NODE_ERR_ZERO_DIV:        return "NODE_ERR_ZERO_DIV";
     case TI_PROTO_NODE_ERR_MAX_QUOTA:       return "NODE_ERR_MAX_QUOTA";
     case TI_PROTO_NODE_ERR_AUTH:            return "NODE_ERR_AUTH";
     case TI_PROTO_NODE_ERR_FORBIDDEN:       return "NODE_ERR_FORBIDDEN";

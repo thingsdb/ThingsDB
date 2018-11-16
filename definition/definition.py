@@ -79,9 +79,10 @@ class Definition(Grammar):
         t_nil,
         t_true,
         t_undefined,
-        t_float,
         t_int,
+        t_float,
         t_string,
+        most_greedy=True,
     )
 
     scope = Ref()
@@ -117,7 +118,7 @@ class Definition(Grammar):
         name,
     ), '(', List(scope), ')')
 
-    opr0_mul_div_mod = Sequence(THIS, Tokens('* / %'), THIS)
+    opr0_mul_div_mod = Sequence(THIS, Tokens('* / % //'), THIS)
     opr1_add_sub = Sequence(THIS, Tokens('+ -'), THIS)
     opr2_compare = Sequence(THIS, Tokens('< > == != <= >='), THIS)
     opr3_cmp_and = Sequence(THIS, '&&', THIS)

@@ -58,6 +58,7 @@ struct ti_stream_s
     char * name_;
     uv_stream_t uvstream;
     omap_t * reqmap;        /* requests waiting for response */
+    vec_t * watching;       /* weak reference to ti_watch_t */
 };
 
 struct ti_stream_req_s

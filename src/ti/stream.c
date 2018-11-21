@@ -33,10 +33,12 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->reqmap = omap_create();
     stream->uvstream.data = stream;
     stream->next_pkg_id = 0;
+    stream->watching = NULL;
     if (!stream->reqmap)
     {
         ti_stream_drop(stream);
     }
+
 
     return stream;
 }
@@ -46,6 +48,7 @@ void ti_stream_drop(ti_stream_t * stream)
     if (stream && !--stream->ref)
     {
         assert (stream->reqmap == NULL);
+        vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_destroy);
         free(stream->buf);
         free(stream->name_);
         free(stream);

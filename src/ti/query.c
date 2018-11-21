@@ -13,6 +13,7 @@
 #include <ti/res.h>
 #include <ti/arrow.h>
 #include <ti/task.h>
+#include <ti/root.h>
 #include <util/qpx.h>
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);

@@ -61,7 +61,7 @@ int res_assign_val(ti_res_t * res, _Bool to_array, ex_t * e)
 {
     switch (res->rval->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
         ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
                 ti_val_tp_str(res->rval->tp));
@@ -78,6 +78,7 @@ int res_assign_val(ti_res_t * res, _Bool to_array, ex_t * e)
     }
     return e->nr;
 }
+
 
 
 

@@ -16,7 +16,6 @@ typedef struct ti_db_s  ti_db_t;
 
 ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n);
 void ti_db_drop(ti_db_t * db);
-int ti_db_buid(ti_db_t * db);
 _Bool ti_db_name_check(const char * name, size_t n, ex_t * e);
 int ti_db_store(ti_db_t * db, const char * fn);
 int ti_db_restore(ti_db_t * db, const char * fn);

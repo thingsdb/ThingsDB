@@ -89,6 +89,7 @@ struct ti_s
     ti_nodes_t * nodes;
     ti_store_t * store;
     ti_connect_t * connect_loop;
+    ti_thing_t * thing0;        /* thing with id 0 */
     vec_t * dbs;
     vec_t * users;
     vec_t * access;

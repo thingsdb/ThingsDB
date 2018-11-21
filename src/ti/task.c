@@ -125,6 +125,49 @@ done:
     return rc;
 }
 
+int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(512, 8);
+    if (!packer)
+        goto failed;
+
+    if (ti_val_gen_ids(val))
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "set");
+    (void) qp_add_map(&packer);
+
+    if (qp_add_raw(packer, (const uchar *) name->str, name->n))
+        goto failed;
+
+    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW))
+        goto failed;
+
+    if (qp_close_map(packer) || qp_close_map(packer))
+        goto failed;
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    goto done;
+
+failed:
+    ti_raw_free(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,
@@ -174,6 +217,50 @@ int ti_task_add_push(
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
         goto failed;
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    goto done;
+
+failed:
+    ti_raw_free(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(
+            128 + db->name->n + user->name->n, 4);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "new");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "databases");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw(packer, db->name->data, db->name->n);
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_raw_from_str(packer, "root");
+    (void) ti_thing_id_to_packer(ti()->thing0, &packer);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
     if (!job)

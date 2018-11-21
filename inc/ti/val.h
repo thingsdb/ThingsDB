@@ -6,7 +6,7 @@
 
 typedef enum
 {
-    TI_VAL_PROP,    /* attribute */
+    TI_VAL_ATTR,    /* attribute ti_prop_t */
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
@@ -61,6 +61,7 @@ void ti_val_set_undefined(ti_val_t * val);
 void ti_val_set_int(ti_val_t * val, int64_t i);
 void ti_val_set_float(ti_val_t * val, double d);
 _Bool ti_val_as_bool(ti_val_t * val);
+_Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_iterator_n(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 void ti_val_clear(ti_val_t * val);
@@ -69,6 +70,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_tp_str(ti_val_enum tp);
 static inline const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
+static inline _Bool ti_val_is_raw(ti_val_t * val);
+static inline _Bool ti_val_is_settable(ti_val_t * val);
 static inline _Bool ti_val_is_mutable_arr(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
 static inline _Bool ti_val_is_iterable(ti_val_t * val);
@@ -77,7 +80,7 @@ static inline void ti_val_unmark_fetch(ti_val_t * val);
 
 union ti_val_u
 {
-    void ** prop;
+    void * attr;
     cleri_node_t * arrow;
     void * undefined;
     void * nil;
@@ -119,6 +122,26 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
     );
 }
 
+static inline _Bool ti_val_is_raw(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_NAME
+    );
+}
+
+static inline _Bool ti_val_is_settable(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_INT ||
+        val->tp == TI_VAL_FLOAT ||
+        val->tp == TI_VAL_BOOL ||
+        val->tp == TI_VAL_NAME ||
+        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_ARRAY ||
+        val->tp == TI_VAL_TUPLE);
+}
+
 static inline _Bool ti_val_is_mutable_arr(ti_val_t * val)
 {
     return (
@@ -157,8 +180,5 @@ static inline void ti_val_unmark_fetch(ti_val_t * val)
 {
     val->flags &= ~TI_VAL_FLAG_FETCH;
 }
-
-
-
 
 #endif /* TI_VAL_H_ */

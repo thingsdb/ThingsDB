@@ -59,18 +59,6 @@ void ti_db_drop(ti_db_t * db)
     }
 }
 
-int ti_db_buid(ti_db_t * db)
-{
-    ti_thing_t * thing = ti_things_create_thing(
-            db->things,
-            ti_next_thing_id());
-    if (!thing)
-        return -1;
-
-    db->root = thing;
-    return 0;
-}
-
 _Bool ti_db_name_check(const char * name, size_t n, ex_t * e)
 {
     if (n < ti_db_min_name || n >= ti_db_max_name)

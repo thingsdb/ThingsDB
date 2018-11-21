@@ -9,6 +9,7 @@
 #include <ti/auth.h>
 #include <ti/proto.h>
 #include <ti/access.h>
+#include <ti/things.h>
 #include <ti.h>
 #include <util/vec.h>
 
@@ -38,6 +39,7 @@ ti_db_t * ti_dbs_create_db(
     guid_t guid;
     uint64_t database_id;
     ti_db_t * db = NULL;
+
     if (ti_dbs_get_by_strn(name, n))
     {
         ex_set(e, EX_INDEX_ERROR,
@@ -55,8 +57,9 @@ ti_db_t * ti_dbs_create_db(
         goto fail0;
     }
 
-    if (ti_access_grant(&db->access, user, TI_AUTH_MASK_FULL) ||
-        ti_db_buid(db))
+    db->root = ti_things_create_thing(db->things, database_id);
+
+    if (!db->root || ti_access_grant(&db->access, user, TI_AUTH_MASK_FULL))
     {
         ex_set_alloc(e);
         goto fail1;

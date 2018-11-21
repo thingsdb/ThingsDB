@@ -18,10 +18,13 @@ static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -391,6 +394,35 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int n;
+    vec_t * things;
+    ti_thing_t * thing;
+
+    if (res_get_thing(res) != res->db->root)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `thing`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `blob` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+
+    return e->nr;
+}
+
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -598,6 +630,161 @@ done:
     return e->nr;
 }
 
+static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int n;
+    _Bool force_as_array = true;
+    ti_thing_t * thing;
+    ti_val_t * value;
+    vec_t * ret_array;
+    ti_name_t * name;
+    ti_prop_t * prop;
+    vec_t * collect_attrs = NULL;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+
+    if (!res_is_thing(res))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `get`",
+                res_tp_str(res));
+        return e->nr;
+    }
+    thing = res_get_thing(res);
+
+    n = langdef_nd_n_function_params(nd);
+    if (!n)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `get` requires at least 1 argument but 0 "
+                "were given");
+        return e->nr;
+    }
+
+    if (!ti_manages_id(thing->id))
+    {
+        collect_attrs = omap_get(res->collect, thing->id);
+        if (!collect_attrs)
+        {
+            collect_attrs = vec_new(1);
+            if (!collect_attrs ||
+                omap_add(res->collect, thing->id, collect_attrs))
+            {
+                vec_destroy(collect_attrs, NULL);
+                ex_set_alloc(e);
+                return e->nr;
+            }
+        }
+    }
+
+    ret_array = vec_new(n);
+    if (!ret_array)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    assert (child);
+    res_rval_destroy(res);
+
+    for (n = 0; child; child = child->next->next)
+    {
+        ++n;
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        if (ti_res_scope(res, child->node, e))
+            goto failed;
+
+        assert (res->rval);
+
+        if (!ti_val_is_valid_name(res->rval))
+        {
+            if (ti_val_is_raw(res->rval))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "argument %d to function `get` is not a valid name, "
+                        "see "TI_DOCS"#names",
+                        n);
+            }
+            else
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "function `get` only accepts `%s` arguments, but "
+                        "argument %d is of type `%s`",
+                        ti_val_tp_str(TI_VAL_RAW), n, res_tp_str(res));
+            }
+            goto failed;
+        }
+
+        name = res->rval->tp == TI_VAL_RAW
+            ? ti_names_get(
+                (const char *) res->rval->via.raw->data,
+                res->rval->via.raw->n)
+            : ti_grab(res->rval->via.name);
+
+        ti_val_clear(res->rval);
+
+        if (collect_attrs)
+        {
+            prop = ti_prop_create(name, TI_VAL_NIL, NULL);
+            if (!prop || vec_push(&collect_attrs, prop))
+            {
+                ti_prop_destroy(prop);
+                ex_set_alloc(e);
+                goto failed;
+            }
+            ti_val_weak_set(res->rval, TI_VAL_ATTR, prop);
+        }
+        else
+        {
+            prop = ti_thing_attr_get(thing, name);
+            if (!prop)
+                ti_val_set_nil(res->rval);
+            else
+                ti_val_weak_set(res->rval, TI_VAL_ATTR, prop);
+        }
+
+        VEC_push(ret_array, res->rval);
+        res->rval = NULL;
+
+        if (!child->next)
+        {
+            force_as_array = false;
+            break;
+        }
+    }
+
+    assert (ret_array->n >= 1);
+
+    if (n > 1 || force_as_array)
+    {
+        if (res_rval_clear(res))
+        {
+            ex_set_alloc(e);
+            goto failed;
+        }
+
+        ti_val_weak_set(res->rval, TI_VAL_TUPLE, ret_array);
+        goto done;
+    }
+
+    res_rval_destroy(res);
+    value = vec_pop(ret_array);
+    res->rval = value;
+
+    /* bubble down to failed for vec cleanup */
+    assert (!e->nr);
+    assert (!ret_array->n);
+
+failed:
+    vec_destroy(ret_array, (vec_destroy_cb) ti_val_destroy);
+
+done:
+    return e->nr;
+}
+
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -657,7 +844,7 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!n)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `thing` requires at least one argument but none "
+                "function `thing` requires at least 1 argument but 0 "
                 "were given");
         return e->nr;
     }
@@ -773,7 +960,7 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!n)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `push` requires at least one argument but none "
+                "function `push` requires at least 1 argument but 0 "
                 "were given");
         return e->nr;
     }
@@ -869,7 +1056,6 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                                 is added to `res->ev->tasks` */
     }
 
-
     assert (e->nr == 0);
 
     goto done;
@@ -894,6 +1080,120 @@ done:
     return e->nr;
 }
 
+static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (res->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    cleri_node_t * name_nd, * value_nd;
+    ti_val_t * name_val;
+    ti_task_t * task;
+    ti_name_t * name;
+
+    int n;
+    ti_thing_t * thing;
+
+    if (!res_is_thing(res))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `set`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    thing = res_get_thing(res);
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `set` requires a thing to be assigned, "
+                "`set` should therefore be used in a separate statement");
+        return e->nr;
+    }
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `set` expects 2 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    name_nd = nd
+            ->children->node;
+    value_nd = nd
+            ->children->next->next->node;
+
+    if (ti_res_scope(res, name_nd, e))
+        return e->nr;
+
+    if (!ti_val_is_valid_name(res->rval))
+    {
+        if (ti_val_is_raw(res->rval))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `set` expects argument 1 to be a valid name, "
+                    "see "TI_DOCS"#names");
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `set` expects argument 1 to be of type `%s` "
+                    "but got `%s`",
+                    ti_val_tp_str(TI_VAL_RAW),
+                    ti_val_str(res->rval));
+        }
+        return e->nr;
+    }
+
+    name_val = res->rval;
+    res->rval = NULL;
+
+    if (ti_res_scope(res, value_nd, e))
+        goto finish;
+
+    if (!ti_val_is_settable(res->rval))
+    {
+        ex_set(e, EX_BAD_DATA, "type `%s` is not settable",
+                ti_val_str(res->rval));
+        goto finish;
+    }
+
+    task = res_get_task(res->ev, thing, e);
+    if (!task)
+        goto finish;
+
+    name = name_val->tp == TI_VAL_RAW
+        ? ti_names_get(
+            (const char *) name_val->via.raw->data,
+            name_val->via.raw->n)
+        : ti_grab(name_val->via.name);
+
+    if (ti_task_add_set(task, name, res->rval))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `res->ev->tasks` */
+
+    if (ti_manages_id(thing->id))
+    {
+        if (ti_thing_attr_weak_setv(thing, name, res->rval))
+            goto alloc_err;
+        res_rval_weak_destroy(res);
+    }
+
+    goto finish;
+
+alloc_err:
+    /* we happen to require cleanup of name when alloc_err is used */
+    ti_name_drop(name);
+    ex_set_alloc(e);
+
+finish:
+    ti_val_destroy(name_val);
+
+    return e->nr;
+}
+
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -911,14 +1211,21 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     switch (fname->cl_obj->gid)
     {
+    case CLERI_GID_F_BLOB:
+        return res__f_blob(res, params, e);
     case CLERI_GID_F_FILTER:
         return res__f_filter(res, params, e);
+    case CLERI_GID_F_GET:
+        return res__f_get(res, params, e);
     case CLERI_GID_F_ID:
         return res__f_id(res, params, e);
     case CLERI_GID_F_THING:
         return res__f_thing(res, params, e);
     case CLERI_GID_F_PUSH:
         return res__f_push(res, params, e);
+    case CLERI_GID_F_SET:
+        return res__f_set(res, params, e);
+
     }
 
     ex_set(e, EX_INDEX_ERROR,
@@ -1211,7 +1518,7 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     "see "TI_DOCS"#quotas", max_props);
             goto err;
         }
-        cleri_node_t * name_nd = child->node     /* sequence */
+        cleri_node_t * name_nd = child->node        /* sequence */
                 ->children->node;                   /* name */
 
         cleri_node_t * scope = child->node          /* sequence */

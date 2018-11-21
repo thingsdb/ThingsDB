@@ -19,6 +19,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->id = id;
     thing->things = things;
     thing->props = vec_new(0);
+    thing->attrs = NULL;
     thing->flags = TI_THING_FLAG_SWEEP;
     if (!thing->props)
     {
@@ -35,6 +36,7 @@ void ti_thing_drop(ti_thing_t * thing)
         if (thing->id)
             (void *) imap_pop(thing->things, thing->id);
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
+        vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
         free(thing);
     }
 }
@@ -44,6 +46,14 @@ ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name)
     for (vec_each(thing->props, ti_prop_t, prop))
         if (prop->name == name)
             return &prop->val;
+    return NULL;
+}
+
+void * ti_thing_attr_get(ti_thing_t * thing, ti_name_t * name)
+{
+    for (vec_each(thing->attrs, ti_prop_t, attr))
+        if (attr->name == name)
+            return attr;
     return NULL;
 }
 
@@ -118,7 +128,7 @@ int ti_thing_weak_set(
     prop = ti_prop_weak_create(name, tp, v);
     if (!prop || vec_push(&thing->props, prop))
     {
-        ti_prop_destroy(prop);
+        ti_prop_weak_destroy(prop);
         return -1;
     }
     return 0;
@@ -141,7 +151,39 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     prop = ti_prop_weak_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
-        ti_prop_destroy(prop);
+        ti_prop_weak_destroy(prop);
+        return -1;
+    }
+    return 0;
+}
+
+int ti_thing_attr_weak_setv(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val)
+{
+    ti_prop_t * prop;
+
+    if (!thing->attrs)
+    {
+        thing->attrs = vec_new(1);
+        if (!thing->attrs)
+            return -1;
+    }
+    else for (vec_each(thing->attrs, ti_prop_t, prop))
+    {
+        if (prop->name == name)
+        {
+            ti_val_clear(&prop->val);
+            ti_val_weak_copy(&prop->val, val);
+            return 0;
+        }
+    }
+
+    prop = ti_prop_weak_createv(name, val);
+    if (!prop || vec_push(&thing->attrs, prop))
+    {
+        ti_prop_weak_destroy(prop);
         return -1;
     }
     return 0;

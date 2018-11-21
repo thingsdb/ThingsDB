@@ -85,7 +85,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
         goto type_err;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
@@ -94,7 +94,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -121,7 +121,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -148,7 +148,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -175,7 +175,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -203,7 +203,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -261,14 +261,14 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -294,7 +294,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -320,7 +320,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -346,7 +346,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -373,7 +373,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -421,14 +421,14 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -454,7 +454,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -480,7 +480,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -506,7 +506,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -533,7 +533,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -581,14 +581,14 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -614,7 +614,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -640,7 +640,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -666,7 +666,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -693,7 +693,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -741,14 +741,14 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -774,7 +774,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -800,7 +800,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -826,7 +826,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -853,7 +853,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -901,7 +901,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     _Bool bool_ = true;
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
         goto type_err;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
@@ -910,7 +910,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -937,7 +937,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -964,7 +964,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -991,7 +991,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -1019,7 +1019,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
             goto type_err;
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
@@ -1080,14 +1080,14 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1113,7 +1113,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1139,7 +1139,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1165,7 +1165,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NAME:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -1196,7 +1196,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
         case TI_VAL_INT:
@@ -1266,14 +1266,14 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1299,7 +1299,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1325,7 +1325,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1387,14 +1387,14 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1420,7 +1420,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1446,7 +1446,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1507,14 +1507,14 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1546,7 +1546,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1578,7 +1578,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1634,14 +1634,14 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1673,7 +1673,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1705,7 +1705,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1761,14 +1761,14 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
 
     switch ((ti_val_enum) a->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1800,7 +1800,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;
@@ -1832,7 +1832,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_BOOL:
         switch ((ti_val_enum) b->tp)
         {
-        case TI_VAL_PROP:
+        case TI_VAL_ATTR:
         case TI_VAL_UNDEFINED:
         case TI_VAL_NIL:
             goto type_err;

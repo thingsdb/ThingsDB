@@ -70,8 +70,8 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch((ti_val_enum) tp)
     {
-    case TI_VAL_PROP:
-        val->via.prop = v;
+    case TI_VAL_ATTR:
+        val->via.attr = v;
         return;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
@@ -127,8 +127,8 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     val->flags = 0;
     switch((ti_val_enum) tp)
     {
-    case TI_VAL_PROP:
-        val->via.prop = v;
+    case TI_VAL_ATTR:
+        val->via.attr = v;
         return 0;
     case TI_VAL_UNDEFINED:
         val->via.undefined = NULL;
@@ -210,8 +210,8 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     to->flags = 0;
     switch((ti_val_enum) from->tp)
     {
-    case TI_VAL_PROP:
-        to->via.prop = from->via.prop;  /* this is a reference */
+    case TI_VAL_ATTR:
+        to->via.attr = from->via.attr;  /* this is a reference */
         return 0;
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
@@ -321,7 +321,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
         return false;
@@ -345,6 +345,15 @@ _Bool ti_val_as_bool(ti_val_t * val)
     }
     assert (0);
     return false;
+}
+
+_Bool ti_val_is_valid_name(ti_val_t * val)
+{
+    return val->tp == TI_VAL_RAW
+        ? ti_name_is_valid_strn(
+                (const char *) val->via.raw->data,
+                val->via.raw->n)
+        : val->tp == TI_VAL_NAME;
 }
 
 size_t ti_val_iterator_n(ti_val_t * val)
@@ -401,7 +410,7 @@ void ti_val_clear(ti_val_t * val)
 {
     switch((ti_val_enum) val->tp)
     {
-    case TI_VAL_PROP:  /* props are destroyed by res */
+    case TI_VAL_ATTR:  /* attributes are destroyed by res */
     case TI_VAL_UNDEFINED:
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -438,13 +447,12 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
         if (pack == TI_VAL_PACK_NEW)
             return qp_add_null(*packer);
-        ti_prop_t ** prop = (ti_prop_t **) val->via.prop;
-        assert ((*prop)->val.tp != TI_VAL_UNDEFINED);
-        return ti_val_to_packer(&(*prop)->val, packer, pack);
-        break;
+        ti_prop_t * attr = (ti_prop_t *) val->via.attr;
+        assert (attr->val.tp != TI_VAL_UNDEFINED);
+        return ti_val_to_packer(&attr->val, packer, pack);
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -513,7 +521,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_PROP:
+    case TI_VAL_ATTR:
     case TI_VAL_UNDEFINED:
         assert (0);
         return -1;
@@ -564,7 +572,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
 {
     switch (tp)
     {
-    case TI_VAL_PROP:               return "attribute";
+    case TI_VAL_ATTR:               return "attribute";
     case TI_VAL_UNDEFINED:          return "undefined";
     case TI_VAL_NIL:                return "nil";
     case TI_VAL_INT:                return "int";

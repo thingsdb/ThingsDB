@@ -217,6 +217,8 @@ if __name__ == '__main__':
 
         type().add(users, User.isRequired);
 
+        bla.set('x', 4);
+
         /*
          * Finished!
          */
@@ -237,6 +239,17 @@ if __name__ == '__main__':
             {'set': {'image': '<bin_data>'}},
             {'unset': 'name'},
             {'push': {'people': [{'#': 123}]}}
+        ]
+    }
+
+    {
+        '$ev': 1,
+        '#': 0,
+        '$jobs': [
+            {'new': {'Database', {
+                'name': 'testdb',
+                'user': 'iris'
+            }}}
         ]
     }
 

@@ -6,6 +6,17 @@
 #include <ti.h>
 #include <ti/dbs.h>
 #include <ti/root.h>
+#include <ti/auth.h>
+#include <ti/access.h>
+#include <ti/task.h>
+#include <util/res.h>
+#include <langdef/langdef.h>
+#include <langdef/nd.h>
+
+static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 
 ti_root_t * ti_root_create(void)
 {
@@ -40,7 +51,6 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd           /* sequence */
                     ->children;             /* first child, not */
-    ti_scope_t * current_scope, * scope;
 
     for (nchild = child->node->children; nchild; nchild = nchild->next)
         ++nots;
@@ -138,8 +148,8 @@ static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
-        if (root__assignment(root, node, e))
-            return e->nr;
+//        if (root__assignment(root, node, e))
+//            return e->nr;
         break;
     case CLERI_GID_NAME:
         if (root__name(root, node, e))
@@ -216,6 +226,19 @@ static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     cleri_children_t * child;
     cleri_node_t * value_nd = NULL;
+    ti_raw_t * db_name;
+    ti_db_t * db;
+    ti_task_t * task;
+    ti_user_t * user = root->ev->via.query->stream->via.user;
+
+    if (!ti_access_check(ti()->access, user, TI_AUTH_DB_CREATE))
+    {
+        ex_set(e, EX_FORBIDDEN,
+                "access denied (requires `%s`)",
+                ti_auth_mask_to_str(TI_AUTH_DB_CREATE));
+        return e->nr;
+    }
+
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
@@ -266,36 +289,50 @@ static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
                 value_nd->children->node->cl_obj->gid != CLERI_GID_T_STRING)
         {
             ex_set(e, EX_BAD_DATA,
-                    "unexpected property `%.*s`",
-                    (int) name_nd->len, name_nd->str);
+                    "expected `name` to be a plain `string` property");
             return e->nr;
         }
-        if (name_nd
-        ti_name_t * name = ti_names_get(name_nd->str, name_nd->len);
-        if (!name)
-            goto alloc_err;
 
-        if (ti_res_scope(res, scope, e))
-            goto err;
-
-        assert (res->rval);
-
-        ti_thing_weak_setv(thing, name, res->rval);
-        res_rval_weak_destroy(res);
+        value_nd = value_nd->children->node;
 
         if (!child->next)
             break;
     }
 
-    if (!child || child->next || !langdef_nd_match_str(child->node, "name"))
+    if (!value_nd)
     {
-        ex_set(e, EX_BAD_DATA,
-                "expecting%s a `name` property",
-                child->next ? " only" : "");
+        ex_set(e, EX_BAD_DATA, "expecting a `name` property");
         return e->nr;
     }
 
+    db_name = ti_raw_from_ti_string(value_nd->str, value_nd->len);
+    if (!db_name)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
 
+    if (!ti_name_is_valid_strn((const char *) db_name->data, db_name->n))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "database name is invalid, see "TI_DOCS"#names");
+        goto finish;
+    }
+
+    db = ti_dbs_create_db((const char *) db_name->data, db_name->n, user, e);
+    if (!db)
+        goto finish;
+
+    task = res_get_task(root->ev, ti()->thing0, e);
+
+    if (!task)
+        goto finish;
+
+    if (ti_task_add_new_database(task, db, user))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+finish:
+    ti_raw_free(db_name);
     return e->nr;
 }
 
@@ -322,7 +359,7 @@ static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
                     (int) nd->len, nd->str);
         break;
     case TI_ROOT_DATABASES:
-        root->via.db = ti_dbs_get_by_strn();
+        root->via.db = ti_dbs_get_by_strn(nd->str, nd->len);
         if (!root->via.db)
         {
             ex_set(e, EX_INDEX_ERROR,

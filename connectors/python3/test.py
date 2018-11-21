@@ -25,10 +25,11 @@ async def test():
          * test query
          */
 
-        a.get('x',)
+        set('b', blob(-1));
+        get('b');
 
 
-        ''', timeout=2)
+        ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:

@@ -23,26 +23,19 @@ static _Bool query__swap_opr(
         uint32_t parent_gid);
 static void query__task_to_watchers(ti_query_t * query);
 
-ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg)
+ti_query_t * ti_query_create(ti_stream_t * stream)
 {
     ti_query_t * query = malloc(sizeof(ti_query_t));
     if (!query)
         return NULL;
 
-    query->pkg_id = pkg->id;
     query->flags = 0;
     query->target = NULL;  /* root */
     query->parseres = NULL;
-    query->raw = ti_raw_new(pkg->data, pkg->n);
     query->stream = ti_grab(stream);
     query->statements = NULL;
     query->ev = NULL;
-
-    if (!query->raw)
-    {
-        ti_query_destroy(query);
-        return NULL;
-    }
+    query->blobs = NULL;
 
     return query;
 }
@@ -55,22 +48,26 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
     vec_destroy(
             query->statements,
-            (vec_destroy_cb) query->target ? ti_res_destroy : ti_root_destroy);
+            query->target
+                ? (vec_destroy_cb) ti_res_destroy
+                : (vec_destroy_cb) ti_root_destroy);
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
+    vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_free);
     free(query->querystr);
-    free(query->raw);
     free(query);
 }
 
-int ti_query_unpack(ti_query_t * query, ex_t * e)
+int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
 {
     assert (e->nr == 0);
     const char * ebad = "invalid query request, see "TI_DOCS"#query";
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
 
-    qp_unpacker_init2(&unpacker, query->raw->data, query->raw->n, 0);
+    query->pkg_id = pkg->id;
+
+    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
@@ -104,6 +101,38 @@ int ti_query_unpack(ti_query_t * query, ex_t * e)
             if (e->nr)
                 goto finish;
             /* query->target maybe NULL in case when the target is root */
+            continue;
+        }
+
+        if (qp_is_raw_equal_str(&key, "blobs"))
+        {
+            ssize_t n;
+            qp_types_t tp = qp_next(&unpacker, NULL);
+
+            if (!qp_is_array(tp))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
+            n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
+
+            query->blobs = vec_new(n < 0 ? 8 : n);
+            if (!query->blobs)
+            {
+                ex_set_alloc(e);
+                goto finish;
+            }
+
+            while(n-- && qp_is_raw(qp_next(&unpacker, &val)))
+            {
+                ti_raw_t * blob = ti_raw_new(val.via.raw, val.len);
+                if (!blob || vec_push(&query->blobs, blob))
+                {
+                    ex_set_alloc(e);
+                    goto finish;
+                }
+            }
             continue;
         }
 
@@ -194,7 +223,7 @@ void ti_query_run(ti_query_t * query)
         {
             assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-            ti_res_t * res = ti_res_create(query->target);
+            ti_res_t * res = ti_res_create(query->target, query->blobs);
             if (!res)
             {
                 ex_set_alloc(e);

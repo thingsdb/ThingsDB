@@ -19,9 +19,9 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/raw.h>
 #include <ti/stream.h>
 
-ti_query_t * ti_query_create(ti_stream_t * stream, ti_pkg_t * pkg);
+ti_query_t * ti_query_create(ti_stream_t * stream);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_unpack(ti_query_t * query, ex_t * e);
+int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e);
 int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
@@ -32,11 +32,11 @@ struct ti_query_s
 {
     uint8_t flags;
     uint64_t pkg_id;
-    ti_raw_t * raw;
     ti_db_t * target;   /* target NULL means root */
     char * querystr;
     cleri_parse_t * parseres;
     ti_stream_t * stream;
+    vec_t * blobs;              /* ti_raw_t */
     vec_t * statements;         /* ti_res_t or ti_root_t for each statement */
     ti_event_t * ev;            /* only when an event is required */
 };

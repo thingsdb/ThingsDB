@@ -32,7 +32,7 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
-ti_res_t * ti_res_create(ti_db_t * db)
+ti_res_t * ti_res_create(ti_db_t * db, vec_t * blobs)
 {
     assert (db && db->root);
 
@@ -45,6 +45,7 @@ ti_res_t * ti_res_create(ti_db_t * db)
     res->ev = NULL;
     res->scope = NULL;
     res->rval = NULL;
+    res->blobs = blobs;  /* may be NULL */
     if (!res->collect)
     {
         ti_res_destroy(res);
@@ -399,14 +400,13 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n;
-    vec_t * things;
-    ti_thing_t * thing;
+    int n_blobs = res->blobs ? res->blobs->n : 0;
+    int64_t idx;
 
     if (res_get_thing(res) != res->db->root)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `thing`",
+                "type `%s` has no function `blob`",
                 res_tp_str(res));
         return e->nr;
     }
@@ -419,6 +419,31 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (ti_res_scope(res, nd->children->node, e))
+        return e->nr;
+
+    if (res->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `blob` expects argument 1 to be of type `%s` "
+                "but got `%s`", ti_val_tp_str(TI_VAL_INT), res_tp_str(res));
+        return e->nr;
+    }
+
+    idx = res->rval->via.int_;
+
+    if (idx < 0)
+        idx += n_blobs;
+
+    if (idx < 0 || idx >= n_blobs)
+    {
+        ex_set(e, EX_INDEX_ERROR, "blob index out of range");
+        return e->nr;
+    }
+
+    /* clearing the previous value is not required since this was an integer */
+    if (ti_val_set(res->rval, TI_VAL_RAW, vec_get(res->blobs, idx)))
+        ex_set_alloc(e);
 
     return e->nr;
 }
@@ -1178,8 +1203,11 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     {
         if (ti_thing_attr_weak_setv(thing, name, res->rval))
             goto alloc_err;
-        res_rval_weak_destroy(res);
     }
+    else
+        ti_val_clear(res->rval);
+
+    ti_val_set_nil(res->rval);
 
     goto finish;
 

@@ -6,6 +6,7 @@
 
 #include <cleri/cleri.h>
 #include <langdef/langdef.h>
+#include <string.h>
 
 #define LANGDEF_ND_FLAG_UNIQUE 1<<15
 

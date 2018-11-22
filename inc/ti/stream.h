@@ -38,6 +38,7 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf);
 const char * ti_stream_name(ti_stream_t * stream);
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
+static inline _Bool ti_stream_is_closed(ti_stream_t * stream);
 
 union ti_stream_u
 {
@@ -67,6 +68,11 @@ struct ti_stream_req_s
     ti_stream_t * sock;
     ti_pkg_t * pkg;
 };
+
+static inline _Bool ti_stream_is_closed(ti_stream_t * stream)
+{
+    return stream->flags & TI_STREAM_FLAG_CLOSED;
+}
 
 #endif /* TI_STREAM_H_ */
 

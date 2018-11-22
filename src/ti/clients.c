@@ -425,22 +425,23 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
+
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
     if (!resp)
         ex_set_alloc(e);
 
 finish:
     if (e->nr)
-    {
-        ti_wareq_destroy(wareq);
         resp = ti_pkg_err(pkg->id, e);
-    }
 
     if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
     }
+
+    if (e->nr || ti_wareq_run(wareq))
+        ti_wareq_destroy(wareq);
 }
 
 static void clients__write_cb(ti_write_t * req, ex_enum status)

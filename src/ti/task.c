@@ -76,7 +76,7 @@ ti_pkg_t * ti_task_watch(ti_task_t * task)
     (void) qp_close_array(packer);
     (void) qp_close_map(packer);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_CHANGE);
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_UPD);
     qp_print(pkg->data, pkg->n);
 
     return pkg;

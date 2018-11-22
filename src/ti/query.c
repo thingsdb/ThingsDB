@@ -36,6 +36,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     query->statements = NULL;
     query->ev = NULL;
     query->blobs = NULL;
+    query->querystr = NULL;
 
     return query;
 }

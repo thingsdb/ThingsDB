@@ -16,9 +16,19 @@ REQ_PING = 32
 REQ_AUTH = 33
 REQ_QUERY = 34
 
+REQ_WATCH = 48
+REQ_UNWATCH = 49
+
 RES_PING = 64
 RES_AUTH = 65
 RES_QUERY = 66
+
+RES_WATCH = 80
+RES_UNWATCH = 81
+
+ON_WATCH_INI = 16
+ON_WATCH_UPD = 17
+ON_WATCH_DEL = 18
 
 RES_ERR_ZERO_DIV = 96
 RES_ERR_MAX_QUOTA = 97
@@ -30,11 +40,12 @@ RES_ERR_QUERY = 102
 RES_ERR_NODE = 103
 RES_ERR_INTERNAL = 104
 
-
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
     RES_AUTH: lambda f, d: f.set_result(None),
     RES_QUERY: lambda f, d: f.set_result(d),
+    RES_WATCH: lambda f, d: f.set_result(None),
+    RES_UNWATCH: lambda f, d: f.set_result(None),
     RES_ERR_ZERO_DIV:
         lambda f, d: f.set_exception(ZeroDivisionError(errdata=d)),
     RES_ERR_MAX_QUOTA:

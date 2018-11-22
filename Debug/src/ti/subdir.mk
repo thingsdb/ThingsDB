@@ -53,6 +53,7 @@ C_SRCS += \
 ../src/ti/users.c \
 ../src/ti/val.c \
 ../src/ti/version.c \
+../src/ti/wareq.c \
 ../src/ti/watch.c \
 ../src/ti/write.c 
 
@@ -106,6 +107,7 @@ OBJS += \
 ./src/ti/users.o \
 ./src/ti/val.o \
 ./src/ti/version.o \
+./src/ti/wareq.o \
 ./src/ti/watch.o \
 ./src/ti/write.o 
 
@@ -159,6 +161,7 @@ C_DEPS += \
 ./src/ti/users.d \
 ./src/ti/val.d \
 ./src/ti/version.d \
+./src/ti/wareq.d \
 ./src/ti/watch.d \
 ./src/ti/write.d 
 

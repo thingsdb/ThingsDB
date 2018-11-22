@@ -20,10 +20,19 @@ async def test():
 
     start = time.time()
     try:
+        res = await client.watch([3])
+    except ThingsDBError as e:
+        print(f"{e.__class__.__name__}: {e}")
+    else:
+        print(time.time() - start)
+        pprint.pprint(res)
+
+    try:
         res = await client.query(r'''
         /*
          * test query
          */
+
 
         set('b', blob(-1));
         get('b');
@@ -36,7 +45,8 @@ async def test():
         print(time.time() - start)
         pprint.pprint(res)
 
-    # await asyncio.sleep(3)
+    await asyncio.sleep(1)
+
 
 
 if __name__ == '__main__':

@@ -6,6 +6,8 @@ from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
 from .protocol import REQ_QUERY
+from .protocol import REQ_WATCH
+from .protocol import ON_WATCH_INI
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .db import Db
@@ -65,7 +67,23 @@ class Client:
         result = await future
         return result
 
+    async def watch(self, ids, target=None, timeout=None):
+        thing_ids = []
+        for id in ids:
+            assert isinstance(id, int)
+            thing_ids.append(id)
+        assert target is None or isinstance(target, (int, str))
+        target = self._target if target is None else target
+        data = {'things': thing_ids}
+        if target:
+            data['target'] = target
+        future = self._write_package(REQ_WATCH, data, timeout=timeout)
+
     def _on_package_received(self, pkg):
+        if pkg.tp == ON_WATCH_INI:
+            print(pkg.data)
+            return
+
         try:
             future, task = self._requests.pop(pkg.pid)
         except KeyError:

@@ -8,15 +8,23 @@ const char * ti_proto_str(ti_proto_e tp)
 {
     switch (tp)
     {
-    case TI_PROTO_CLIENT_CHANGE:            return "CLIENT_CHANGE";
+    case TI_PROTO_CLIENT_WATCH_INI:         return "CLIENT_WATCH_INI";
+    case TI_PROTO_CLIENT_WATCH_UPD:         return "CLIENT_WATCH_UPD";
+    case TI_PROTO_CLIENT_WATCH_DEL:         return "CLIENT_WATCH_DEL";
 
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
     case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
     case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
 
+    case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
+    case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
+
     case TI_PROTO_CLIENT_RES_PING:          return "CLIENT_RES_PING";
     case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";
     case TI_PROTO_CLIENT_RES_QUERY:         return "CLIENT_RES_QUERY";
+
+    case TI_PROTO_CLIENT_RES_WATCH:         return "CLIENT_RES_WATCH";
+    case TI_PROTO_CLIENT_RES_UNWATCH:       return "CLIENT_RES_UNWATCH";
 
     case TI_PROTO_CLIENT_ERR_ZERO_DIV:      return "CLIENT_ERR_ZERO_DIV";
     case TI_PROTO_CLIENT_ERR_MAX_QUOTA:     return "CLIENT_ERR_MAX_QUOTA";

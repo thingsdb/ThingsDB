@@ -24,19 +24,25 @@ typedef enum
      * 16..32 fire and forgets from node to client
      */
 
-    TI_PROTO_CLIENT_CHANGE      =16,    /* {#:x, event:x. jobs:[] etc } */
+    TI_PROTO_CLIENT_WATCH_INI   =16,    /* {event:x, thing: {#:x, ...}      */
+    TI_PROTO_CLIENT_WATCH_UPD   =17,    /* {event:x. #:x, jobs:[] etc }     */
+    TI_PROTO_CLIENT_WATCH_DEL   =18,    /* {#:x}                            */
 
     /*
      * 32..47 client requests mapping to node requests
      */
 
-    TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                     */
-    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [username, password]      */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* {target:.. query:.. blobs: []} */
+    TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
+    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [username, password]             */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* {target:.. query:.. blobs: []}   */
 
     /*
      * 48..63 client only requests
      */
+
+    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {target:.. things: []}           */
+    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {target:.. things: []}           */
+
 
     /*
      * 64..79 client responses mapping to node responses
@@ -49,6 +55,9 @@ typedef enum
     /*
      * 80..95 client only responses
      */
+
+    TI_PROTO_CLIENT_RES_WATCH   =80,    /* empty */
+    TI_PROTO_CLIENT_RES_UNWATCH =81,    /* empty */
 
     /*
      * 96..111 client errors mapping to node errors

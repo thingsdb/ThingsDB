@@ -93,12 +93,6 @@ struct ti_s
     vec_t * dbs;
     vec_t * users;
     vec_t * access;
-    imap_t * watchers;          /* lookup thing_id -> ti_watch_t
-                                    ti_watch_t should be a linked list type,
-                                    so a stream can unregister itself
-                                    from this list. This should be a weak map
-                                    for both things and stream and cleanup
-                                    should be done when Ref 0 is reached.  */
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;

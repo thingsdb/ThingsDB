@@ -18,6 +18,8 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <stdint.h>
 #include <ti/name.h>
 #include <ti/val.h>
+#include <ti/watch.h>
+#include <ti/stream.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
@@ -43,6 +45,7 @@ int ti_thing_attr_weak_setv(
         ti_name_t * name,
         ti_val_t * val);
 int ti_thing_gen_id(ti_thing_t * thing);
+ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
@@ -59,9 +62,12 @@ struct ti_thing_s
     uint8_t flags;
     uint8_t pad1;
     uint64_t id;
-    vec_t * props;
-    vec_t * attrs;          /* NULL if no attributes or if not managed */
+    vec_t * props;          /* vec contains ti_prop_t */
     imap_t * things;        /* thing is added to this map */
+    vec_t * watchers;       /* vec contains ti_watch_t,
+                               NULL if no watchers,  */
+    vec_t * attrs;          /* vec contains ti_prop_t,
+                               NULL if no attributes or if not managed */
 };
 
 static inline int ti_thing_id_to_packer(

@@ -21,6 +21,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->props = vec_new(0);
     thing->attrs = NULL;
     thing->flags = TI_THING_FLAG_SWEEP;
+    thing->watchers = NULL;
     if (!thing->props)
     {
         ti_thing_drop(thing);
@@ -232,6 +233,40 @@ int ti_thing_gen_id(ti_thing_t * thing)
         }
     }
     return 0;
+}
+
+ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
+{
+    ti_watch_t * watch;
+    if (!thing->watchers)
+    {
+        thing->watchers = vec_new(1);
+        if (!thing->watchers)
+            return NULL;
+        watch = ti_watch_create(stream);
+        if (!watch)
+            return NULL;
+        VEC_push(thing->watchers, watch);
+        return watch;
+    }
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+    {
+        if (!watch->stream)
+        {
+            watch->stream = stream;
+            return watch;
+        }
+    }
+    watch = ti_watch_create(stream);
+    if (!watch)
+        return NULL;
+
+    if (vec_push(&thing->watchers, watch))
+    {
+        ti_watch_free(watch);
+        return NULL;
+    }
+    return watch;
 }
 
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack)

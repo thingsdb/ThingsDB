@@ -10,6 +10,7 @@
 #include <ti/users.h>
 #include <ti.h>
 #include <ti/query.h>
+#include <ti/wareq.h>
 #include <ti/auth.h>
 #include <ti/ex.h>
 #include <ti/access.h>
@@ -29,6 +30,7 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__write_cb(ti_write_t * req, ex_enum status);
 static int clients__fwd_query(
         ti_node_t * to_node,
@@ -213,6 +215,9 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_QUERY:
         clients__on_query(stream, pkg);
         break;
+    case TI_PROTO_CLIENT_REQ_WATCH:
+        clients__on_watch(stream, pkg);
+        break;
     default:
         log_error(
                 "unexpected package type `%u` from `%s`)",
@@ -370,6 +375,66 @@ finish:
 
     if (e->nr)
         resp = ti_pkg_err(pkg->id, e);
+
+    if (!resp || ti_clients_write(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
+static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_node_t * node = ti()->node;
+    ti_user_t * user = stream->via.user;
+    ti_wareq_t * wareq = NULL;
+    ex_t * e = ex_use();
+    vec_t * access_;
+    ti_pkg_t * resp = NULL;
+
+    if (!user)
+    {
+        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    if (node->status <= TI_NODE_STAT_CONNECTING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+    wareq = ti_wareq_create(stream);
+    if (!wareq)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (ti_wareq_unpack(wareq, pkg, e))
+        goto finish;
+
+    access_ = wareq->target ? wareq->target->access : ti()->access;
+    if (!ti_access_check(access_, user, TI_AUTH_WATCH))
+    {
+        ex_set(e, EX_FORBIDDEN,
+                "access denied (requires `%s`)",
+                ti_auth_mask_to_str(TI_AUTH_WATCH));
+        goto finish;
+    }
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
+    if (!resp)
+        ex_set_alloc(e);
+
+finish:
+    if (e->nr)
+    {
+        ti_wareq_destroy(wareq);
+        resp = ti_pkg_err(pkg->id, e);
+    }
 
     if (!resp || ti_clients_write(stream, resp))
     {

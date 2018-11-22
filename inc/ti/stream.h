@@ -27,6 +27,7 @@ typedef union ti_stream_u ti_stream_via_t;
 #include <ti/node.h>
 #include <ti/pkg.h>
 #include <util/omap.h>
+#include <util/vec.h>
 typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb);

@@ -85,6 +85,7 @@ ti_db_t * ti_dbs_get_by_raw(const ti_raw_t * raw)
     return NULL;
 }
 
+/* returns a weak reference */
 ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n)
 {
     for (vec_each(*dbs, ti_db_t, db))
@@ -95,6 +96,7 @@ ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n)
     return NULL;
 }
 
+/* returns a weak reference */
 ti_db_t * ti_dbs_get_by_id(const uint64_t id)
 {
     for (vec_each(*dbs, ti_db_t, db))
@@ -106,8 +108,8 @@ ti_db_t * ti_dbs_get_by_id(const uint64_t id)
 }
 
 /*
- * Returns a database based on a QPack object. If the database is not found,
- * then e will contain the reason why.
+ * Returns a weak reference database based on a QPack object.
+ * If the database is not found, then e will contain the reason why.
  */
 ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
 {

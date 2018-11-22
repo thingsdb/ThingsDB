@@ -48,7 +48,7 @@ void ti_stream_drop(ti_stream_t * stream)
     if (stream && !--stream->ref)
     {
         assert (stream->reqmap == NULL);
-        vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_destroy);
+        vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_stop);
         free(stream->buf);
         free(stream->name_);
         free(stream);

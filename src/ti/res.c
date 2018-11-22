@@ -24,6 +24,7 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -1105,6 +1106,28 @@ done:
     return e->nr;
 }
 
+static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `ret` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (res_rval_clear(res))
+        ex_set_alloc(e);
+    else
+        ti_val_set_nil(res->rval);
+
+    return e->nr;
+}
+
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1251,6 +1274,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_thing(res, params, e);
     case CLERI_GID_F_PUSH:
         return res__f_push(res, params, e);
+    case CLERI_GID_F_RET:
+        return res__f_ret(res, params, e);
     case CLERI_GID_F_SET:
         return res__f_set(res, params, e);
 

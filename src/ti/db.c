@@ -30,10 +30,13 @@ ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n)
     db->things = imap_create();
     db->access = vec_new(1);
     db->quota = ti_quota_create();
+    db->lock = malloc(sizeof(uv_mutex_t));
+
 
     memcpy(&db->guid, guid, sizeof(guid_t));
 
-    if (!db->name || !db->things || !db->access || !db->quota)
+    if (!db->name || !db->things || !db->access ||
+        !db->quota || !db->lock || uv_mutex_init(db->lock))
     {
         ti_db_drop(db);
         return NULL;
@@ -55,6 +58,8 @@ void ti_db_drop(ti_db_t * db)
         assert (db->things->n == 0);
         imap_destroy(db->things, NULL);
         ti_quota_destroy(db->quota);
+        uv_mutex_destroy(db->lock);
+        free(db->lock);
         free(db);
     }
 }

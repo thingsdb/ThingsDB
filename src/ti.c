@@ -46,7 +46,6 @@ int ti_create(void)
     ti_.lookup = NULL;
     ti_.store = NULL;
     ti_.access = vec_new(0);
-    ti_.watchers = imap_create();
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
@@ -60,7 +59,6 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             !ti_.access ||
-            !ti_.watchers ||
             !ti_.langdef)
     {
         ti_destroy();
@@ -89,7 +87,6 @@ void ti_destroy(void)
     ti_names_destroy();
     ti_store_destroy();
     ti_thing_drop(ti_.thing0);
-    imap_destroy(ti_.watchers, NULL);  /* TODO: add destroy watch cb */
     vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);

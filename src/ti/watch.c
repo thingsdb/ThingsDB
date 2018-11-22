@@ -6,36 +6,35 @@
 #include <assert.h>
 #include <stdlib.h>
 
-ti_watch_t * ti_watch_create(uint64_t id, ti_stream_t * stream)
+ti_watch_t * ti_watch_create(ti_stream_t * stream)
 {
-    ti_watch_t * watchers, * watch = malloc(sizeof(ti_watch_t));
+    ti_watch_t * watch = malloc(sizeof(ti_watch_t));
     if (!watch)
         return NULL;
-
     watch->stream = stream;
-    watchers = imap_get(ti()->watchers, id);
-    if (watchers)
-    {
-        ti_watch_t * tmp = watchers->next;
-        watchers->next = watch;
-        watch->prev = watchers;
-        watch->next = tmp;
-        if (tmp)
-            tmp->prev = watch;
-        return watch;
-    }
-
-    if (imap_add(ti()->watchers, id, watch))
-    {
-        free(watch);
-        return NULL;
-    }
-    watch->prev = NULL;
-    watch->next = NULL;
     return watch;
 }
 
-void ti_watch_destroy(ti_watch_t * watch)
+
+
+
+
+static void watch__init(ti_db_t * db, vec_t * thing_ids)
 {
-    if (watch->)
+    int rc = -1;
+    uv_mutex_lock(db->lock);
+
+    for (uint32_t i = 0; i < thing_ids->n; ++i)
+    {
+        qpx_packer_t * packer = qpx_packer_create(512, 4);
+
+        uintptr_t id = (uintptr_t) vec_get(thing_ids, i);
+        ti_thing_t * thing = imap_get(db->things, id);
+
+    }
+
+
+done:
+    uv_mutex_unlock(db->lock);
+    return rc;
 }

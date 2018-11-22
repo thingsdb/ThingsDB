@@ -30,6 +30,7 @@ struct ti_db_s
     vec_t * access;
     ti_thing_t * root;
     ti_quota_t * quota;
+    uv_mutex_t * lock;      /* only for watch/unwatch/away-mode */
 };
 
 /* returns a borrowed reference */

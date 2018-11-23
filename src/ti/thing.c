@@ -6,8 +6,12 @@
 #include <ti.h>
 #include <ti/prop.h>
 #include <ti/thing.h>
+#include <ti/proto.h>
 #include <ti/val.h>
+#include <util/qpx.h>
 #include <util/logger.h>
+
+static void thing__watch_del(ti_thing_t * thing);
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
@@ -36,8 +40,13 @@ void ti_thing_drop(ti_thing_t * thing)
     {
         if (thing->id)
             (void *) imap_pop(thing->things, thing->id);
+
+        if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
+            thing__watch_del(thing);
+
         vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
         vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
+        vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_free);
         free(thing);
     }
 }
@@ -267,6 +276,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
 ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
 {
     ti_watch_t * watch;
+    ti_watch_t ** empty_watch = NULL;
     if (!thing->watchers)
     {
         thing->watchers = vec_new(1);
@@ -276,37 +286,47 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
         if (!watch)
             return NULL;
         VEC_push(thing->watchers, watch);
-        return watch;
+        goto finish;
     }
     for (vec_each(thing->watchers, ti_watch_t, watch))
     {
-        if (!watch->stream)
-        {
-            watch->stream = stream;
+        if (watch->stream == stream)
             return watch;
-        }
+        if (!watch->stream)
+            empty_watch = &watch;
     }
+
+    if (empty_watch)
+    {
+        watch = *empty_watch;
+        watch->stream = stream;
+        goto finish;
+    }
+
     watch = ti_watch_create(stream);
     if (!watch)
         return NULL;
 
+    if (vec_push(&thing->watchers, watch))
+        goto fail0;
+
+
+finish:
     if (!stream->watching)
     {
         stream->watching = vec_new(1);
         if (!stream->watching)
-            goto fail0;
+            goto fail1;
         VEC_push(stream->watching, watch);
     }
     else if (vec_push(&stream->watching, watch))
-        goto fail0;
-
-    if (vec_push(&thing->watchers, watch))
         goto fail1;
 
     return watch;
 
 fail1:
-    (void *) vec_pop(stream->watching);
+    (void *) vec_pop(thing->watchers);
+
 fail0:
     ti_watch_free(watch);
     return NULL;
@@ -328,7 +348,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
             return -1;
     }
 
-    if (flags & TI_VAL_PACK_ATTR)
+    if ((flags & TI_VAL_PACK_ATTR) && thing->attrs && thing->attrs->n)
     {
         assert (ti_manages_id(thing->id));
 
@@ -358,4 +378,39 @@ _Bool ti_thing_has_watchers(ti_thing_t * thing)
         if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
             return true;
     return false;
+}
+
+static void thing__watch_del(ti_thing_t * thing)
+{
+    assert (thing->watchers);
+
+    ti_pkg_t * pkg;
+    ti_rpkg_t * rpkg;
+    qpx_packer_t * packer = qpx_packer_create(12, 8);
+    if (!packer)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
+    (void) ti_thing_id_to_packer(thing, &packer);
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_DEL);
+
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
+
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+    {
+        if (!watch->stream || ti_stream_is_closed(watch->stream))
+            continue;
+
+        if (ti_stream_write_rpkg(watch->stream, rpkg))
+            log_critical(EX_INTERNAL_S);
+    }
+
+    ti_rpkg_drop(rpkg);
 }

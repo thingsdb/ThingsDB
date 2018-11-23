@@ -163,7 +163,7 @@ int ti_build(void)
         assert (vec_push(&vec_people, iris) == 0);
         ti_thing_weak_set(db->root, name, TI_VAL_THINGS, vec_people);
         assert ((name = ti_names_get("name", 4)));
-        assert ((raw_iris = ti_raw_new((uchar *) "iris", 4)));
+        assert ((raw_iris = ti_raw_create((uchar *) "iris", 4)));
         ti_thing_weak_set(iris, name, TI_VAL_RAW, raw_iris);
         assert ((name = ti_names_get("age", 3)));
         ti_thing_weak_set(iris, name, TI_VAL_INT, &age_iris);

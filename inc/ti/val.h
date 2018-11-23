@@ -12,7 +12,6 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_NAME,
     TI_VAL_RAW,
     TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
     TI_VAL_TUPLE,   /* nested arrays are of tuple type */
@@ -70,6 +69,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_tp_str(ti_val_enum tp);
 _Bool ti_val_startswith(ti_val_t * a, ti_val_t * b);
+_Bool ti_val_endswith(ti_val_t * a, ti_val_t * b);
 static inline const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
@@ -89,7 +89,6 @@ union ti_val_u
     int64_t int_;
     double float_;
     _Bool bool_;
-    ti_name_t * name;
     ti_raw_t * raw;
     vec_t * array;          /* ti_val_t*        */
     vec_t * tuple;          /* ti_val_t*        */
@@ -126,10 +125,7 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
 
 static inline _Bool ti_val_is_raw(ti_val_t * val)
 {
-    return (
-        val->tp == TI_VAL_RAW ||
-        val->tp == TI_VAL_NAME
-    );
+    return val->tp == TI_VAL_RAW;
 }
 
 static inline _Bool ti_val_is_settable(ti_val_t * val)
@@ -138,7 +134,6 @@ static inline _Bool ti_val_is_settable(ti_val_t * val)
         val->tp == TI_VAL_INT ||
         val->tp == TI_VAL_FLOAT ||
         val->tp == TI_VAL_BOOL ||
-        val->tp == TI_VAL_NAME ||
         val->tp == TI_VAL_RAW ||
         val->tp == TI_VAL_ARRAY ||
         val->tp == TI_VAL_TUPLE);

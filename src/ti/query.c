@@ -54,7 +54,7 @@ void ti_query_destroy(ti_query_t * query)
                 : (vec_destroy_cb) ti_root_destroy);
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
-    vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_free);
+    vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
     free(query->querystr);
     free(query);
 }
@@ -127,7 +127,7 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
 
             while(n-- && qp_is_raw(qp_next(&unpacker, &val)))
             {
-                ti_raw_t * blob = ti_raw_new(val.via.raw, val.len);
+                ti_raw_t * blob = ti_raw_create(val.via.raw, val.len);
                 if (!blob || vec_push(&query->blobs, blob))
                 {
                     ex_set_alloc(e);
@@ -324,7 +324,7 @@ pkg_err:
 
 finish:
 
-    if (!pkg || ti_clients_write(query->stream, pkg))
+    if (!pkg || ti_stream_write_pkg(query->stream, pkg))
     {
         free(pkg);
         log_critical(EX_ALLOC_S);
@@ -346,7 +346,6 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_RET:
             return;  /* arguments will be ignored */
         case CLERI_GID_F_DEL:
-        case CLERI_GID_F_REMOVE:
         case CLERI_GID_F_NEW:
             query->flags |= TI_QUERY_FLAG_EVENT;
             return;  /* arguments will be ignored */

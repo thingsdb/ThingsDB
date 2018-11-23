@@ -193,13 +193,15 @@ static void wareq__task_cb(uv_async_t * task)
             pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_INI);
 
             if (    ti_stream_is_closed(wareq->stream) ||
-                    ti_clients_write(wareq->stream, pkg))
+                    ti_stream_write_pkg(wareq->stream, pkg))
             {
                 free(pkg);
             }
 
             continue;
         }
+
+        (void) wareq__fwd_wareq(wareq, id);
     }
 
     uv_mutex_unlock(wareq->target->lock);
@@ -237,7 +239,7 @@ static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
             node->stream,
             pkg,
             TI_PROTO_NODE_REQ_QUERY_TIMEOUT,
-            clients__fwd_query_cb,
+            wareq__fwd_wareq_cb,
             fwd))
         goto fail1;
 
@@ -277,7 +279,7 @@ static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status)
 
 finish:
     free(req->pkg_res);
-    if (resp && ti_clients_write(fwd->stream, resp))
+    if (resp && ti_stream_write_pkg(fwd->stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);

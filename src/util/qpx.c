@@ -96,3 +96,13 @@ void qpx_unpacker_init(
     unpacker->pt = pt;
     unpacker->end = pt + len;
 }
+
+char * qpx_raw_to_str(const qp_raw_t * raw)
+{
+    char * str = malloc(raw->n + 1);
+    if (!str)
+        return NULL;
+    memcpy(str, raw->data, raw->n);
+    str[raw->n] = '\0';
+    return str;
+}

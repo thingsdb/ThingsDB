@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-16 16:03:15
+ * Created at: 2018-11-23 21:44:48
  */
 
 #include <langdef/langdef.h>
@@ -42,16 +42,15 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
     cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
+    cleri_t * f_lower = cleri_keyword(CLERI_GID_F_LOWER, "lower", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
-    cleri_t * f_unwatch = cleri_keyword(CLERI_GID_F_UNWATCH, "unwatch", CLERI_CASE_SENSITIVE);
-    cleri_t * f_watch = cleri_keyword(CLERI_GID_F_WATCH, "watch", CLERI_CASE_SENSITIVE);
+    cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
     cleri_t * f_new = cleri_keyword(CLERI_GID_F_NEW, "new", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
-    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
     cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
     cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
@@ -103,22 +102,21 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            20,
+            19,
             f_blob,
             f_endswith,
             f_filter,
             f_get,
             f_id,
+            f_lower,
             f_map,
             f_ret,
             f_startswith,
             f_thing,
-            f_unwatch,
-            f_watch,
+            f_upper,
             f_del,
             f_new,
             f_push,
-            f_remove,
             f_rename,
             f_set,
             f_splice,

@@ -8,6 +8,8 @@ from .protocol import REQ_AUTH
 from .protocol import REQ_QUERY
 from .protocol import REQ_WATCH
 from .protocol import ON_WATCH_INI
+from .protocol import ON_WATCH_UPD
+from .protocol import ON_WATCH_DEL
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .db import Db
@@ -80,15 +82,14 @@ class Client:
         future = self._write_package(REQ_WATCH, data, timeout=timeout)
 
     def _on_package_received(self, pkg):
-        if pkg.tp == ON_WATCH_INI:
-            print(pkg.data)
+        if not pkg.pid:
+            print(pkg.tp, pkg.data)
             return
 
         try:
             future, task = self._requests.pop(pkg.pid)
         except KeyError:
-            logging.error('received package id not found: {}'.format(
-                    self._data_package.pid))
+            logging.error('received package id not found: {}'.format(pkg.pid))
             return None
 
         # cancel the timeout task
@@ -115,6 +116,8 @@ class Client:
     def _write_package(self, tp, data=None, is_bin=False, timeout=None):
         self._pid += 1
         self._pid %= 0x10000  # pid is handled as uint16_t
+        if not self._pid:
+            self._pid += 1
 
         data = data if is_bin else b'' if data is None else qpack.packb(data)
 

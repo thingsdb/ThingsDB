@@ -97,9 +97,6 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
             val->via.bool_ = !!*p;
         }
         return;
-    case TI_VAL_NAME:
-        val->via.name = v;
-        return;
     case TI_VAL_RAW:
         val->via.raw = v;
         return;
@@ -154,16 +151,8 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
             val->via.bool_ = !!*p;
         }
         return 0;
-    case TI_VAL_NAME:
-        val->via.name = ti_grab((ti_name_t *) v);
-        return 0;
     case TI_VAL_RAW:
-        val->via.raw = ti_raw_dup((ti_raw_t *) v);
-        if (!val->via.raw)
-        {
-            val->tp = TI_VAL_UNDEFINED;
-            return -1;
-        }
+        val->via.raw = ti_grab((ti_raw_t *) v);
         return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
@@ -220,16 +209,8 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     case TI_VAL_BOOL:
         to->via = from->via;
         return 0;
-    case TI_VAL_NAME:
-        to->via.name = ti_grab(from->via.name);
-        return 0;
     case TI_VAL_RAW:
-        to->via.raw = ti_raw_dup(from->via.raw);
-        if (!to->via.raw)
-        {
-            to->tp = TI_VAL_UNDEFINED;
-            return -1;
-        }
+        to->via.raw = ti_grab(from->via.raw);
         return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
@@ -331,8 +312,6 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return !!val->via.float_;
     case TI_VAL_BOOL:
         return val->via.bool_;
-    case TI_VAL_NAME:
-        return !!val->via.name->n;
     case TI_VAL_RAW:
         return !!val->via.raw->n;
     case TI_VAL_ARRAY:
@@ -349,11 +328,9 @@ _Bool ti_val_as_bool(ti_val_t * val)
 
 _Bool ti_val_is_valid_name(ti_val_t * val)
 {
-    return val->tp == TI_VAL_RAW
-        ? ti_name_is_valid_strn(
+    return val->tp == TI_VAL_RAW && ti_name_is_valid_strn(
                 (const char *) val->via.raw->data,
-                val->via.raw->n)
-        : val->tp == TI_VAL_NAME;
+                val->via.raw->n);
 }
 
 size_t ti_val_iterator_n(ti_val_t * val)
@@ -417,11 +394,8 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
         break;
-    case TI_VAL_NAME:
-        ti_name_drop(val->via.name);
-        break;
     case TI_VAL_RAW:
-        ti_raw_free(val->via.raw);
+        ti_raw_drop(val->via.raw);
         break;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
@@ -470,11 +444,6 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
     case TI_VAL_BOOL:
         return val->via.bool_ ?
                 qp_add_true(*packer) : qp_add_false(*packer);
-    case TI_VAL_NAME:
-        return qp_add_raw(
-                *packer,
-                (uchar *) val->via.name->str,
-                val->via.name->n);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
     case TI_VAL_TUPLE:
@@ -538,11 +507,6 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_double(f, val->via.float_);
     case TI_VAL_BOOL:
         return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
-    case TI_VAL_NAME:
-        return qp_fadd_raw(
-                f,
-                (uchar *) val->via.name->str,
-                val->via.name->n);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
     case TI_VAL_TUPLE:
@@ -583,7 +547,6 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_INT:                return "int";
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
-    case TI_VAL_NAME:
     case TI_VAL_RAW:                return "raw";
     case TI_VAL_TUPLE:              return "tuple";
     case TI_VAL_ARRAY:
@@ -597,77 +560,38 @@ const char * ti_val_tp_str(ti_val_enum tp)
 
 _Bool ti_val_startswith(ti_val_t * a, ti_val_t * b)
 {
-    switch (a->tp)
+    uchar * au, * bu;
+
+    if (a->tp != TI_VAL_RAW ||
+        b->tp != TI_VAL_RAW ||
+        a->via.raw->n < b->via.raw->n)
+        return false;
+
+    au = a->via.raw->data;
+    bu = b->via.raw->data;
+    for (size_t n = b->via.raw->n; n; --n, ++au, ++bu)
+        if (*au != *bu)
+            return false;
+    return true;
+}
+
+_Bool ti_val_endswith(ti_val_t * a, ti_val_t * b)
+{
+    uchar * au, * bu;
+
+    if (a->tp != TI_VAL_RAW ||
+        b->tp != TI_VAL_RAW ||
+        a->via.raw->n < b->via.raw->n)
+        return false;
+
+    au = a->via.raw->data + a->via.raw->n;
+    bu = b->via.raw->data + b->via.raw->n;
+
+    for (size_t n = b->via.raw->n; n; --n)
     {
-    case TI_VAL_NAME:
-        {
-            ti_name_t * an = a->via.name;
-            switch (b->tp)
-            {
-            case TI_VAL_NAME:
-                {
-                    ti_name_t * bn = b->via.name;
-                    char * ai, *bi;
-                    if (an->n < bn->n)
-                        return false;
-
-                    ai = an->str;
-                    bi = bn->str;
-                    for (uint32_t n = bn->n; n; --n, ++ai, ++bi)
-                        if (*ai != *bi)
-                            return false;
-                    return true;
-                }
-            case TI_VAL_RAW:
-                {
-                    ti_raw_t * br = b->via.raw;
-                    uchar * au, * bu;
-                    if (an->n < br->n)
-                        return false;
-                    au = (uchar *) an->str;
-                    bu = br->data;
-                    for (size_t n = br->n; n; --n, ++au, ++bu)
-                        if (*au != *bu)
-                            return false;
-                    return true;
-                }
-            }
-        }
-        break;
-    case TI_VAL_RAW:
-        {
-            ti_raw_t * ar = a->via.name;
-            switch (b->tp)
-            {
-            case TI_VAL_NAME:
-                {
-                    ti_name_t * bn = b->via.name;
-                    uchar * au, * bu;
-                    if (ar->n < bn->n)
-                        return false;
-
-                    au = ar->data;
-                    bu = (uchar *) bn->str;
-                    for (uint32_t n = bn->n; n; --n, ++au, ++bu)
-                        if (*au != *bu)
-                            return false;
-                    return true;
-                }
-            case TI_VAL_RAW:
-                {
-                    ti_raw_t * br = b->via.raw;
-                    uchar * au, * bu;
-                    if (ar->n < br->n)
-                        return false;
-                    au = ar->data;
-                    bu = br->data;
-                    for (size_t n = br->n; n; --n, ++au, ++bu)
-                        if (*au != *bu)
-                            return false;
-                    return true;
-                }
-            }
-        }
+        if (*--au != *--bu)
+            return false;
     }
-    return false;
+
+    return true;
 }

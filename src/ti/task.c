@@ -117,7 +117,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     goto done;
 
 failed:
-    ti_raw_free(job);
+    ti_raw_drop(job);
     rc = -1;
 done:
     if (packer)
@@ -157,7 +157,7 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     goto done;
 
 failed:
-    ti_raw_free(job);
+    ti_raw_drop(job);
     rc = -1;
 done:
     if (packer)
@@ -189,7 +189,7 @@ int ti_task_add_unset(ti_task_t * task, ti_name_t * name)
     goto done;
 
 failed:
-    ti_raw_free(job);
+    ti_raw_drop(job);
     rc = -1;
 done:
     if (packer)
@@ -258,7 +258,7 @@ int ti_task_add_push(
     goto done;
 
 failed:
-    ti_raw_free(job);
+    ti_raw_drop(job);
     rc = -1;
 done:
     if (packer)
@@ -302,7 +302,7 @@ int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user)
     goto done;
 
 failed:
-    ti_raw_free(job);
+    ti_raw_drop(job);
     rc = -1;
 done:
     if (packer)

@@ -256,7 +256,6 @@ static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     if (nd->cl_obj->gid != CLERI_GID_THING)
     {
-        LOGC("TP: %d GID: %d", nd->cl_obj->tp, nd->cl_obj->gid);
         ex_set(e, EX_BAD_DATA,
                 "function `new` expects argument 1 to be a new `thing`");
         return e->nr;
@@ -332,7 +331,7 @@ static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
 finish:
-    ti_raw_free(db_name);
+    ti_raw_drop(db_name);
     return e->nr;
 }
 

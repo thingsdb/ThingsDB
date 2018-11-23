@@ -15,4 +15,3 @@ ti_watch_t * ti_watch_create(ti_stream_t * stream)
     watch->stream = stream;
     return watch;
 }
-

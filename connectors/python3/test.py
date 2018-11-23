@@ -27,15 +27,23 @@ async def test():
         print(time.time() - start)
         pprint.pprint(res)
 
+    start = time.time()
     try:
         res = await client.query(r'''
         /*
          * test query
          */
 
+        people.filter(x => x.name.lower().endswith('ris'));
 
-        set('b', blob(-1));
-        get('b');
+        a = {name: 'Iris', age: 5};
+
+        a.filter(k, v => (v == 'Iris'));
+
+        people;
+
+
+
 
 
         ''', blobs=["bla"], timeout=2)
@@ -43,6 +51,17 @@ async def test():
         print(f"{e.__class__.__name__}: {e}")
     else:
         print(time.time() - start)
+        pprint.pprint(res)
+
+    start = time.time()
+    try:
+        res = await client.query(r'''
+        c.del();
+        ''', blobs=["bla"], timeout=2)
+    except ThingsDBError as e:
+        print(f"{e.__class__.__name__}: {e}")
+    else:
+        # print(time.time() - start)
         pprint.pprint(res)
 
     await asyncio.sleep(1)

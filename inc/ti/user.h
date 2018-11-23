@@ -25,7 +25,7 @@ ti_user_t * ti_user_create(
 void ti_user_drop(ti_user_t * user);
 _Bool ti_user_name_check(const char * name, size_t n, ex_t * e);
 _Bool ti_user_pass_check(const char * passstr, ex_t * e);
-int ti_user_rename(ti_user_t * user, const ti_raw_t * name);
+int ti_user_rename(ti_user_t * user, ti_raw_t * name);
 int ti_user_set_pass(ti_user_t * user, const char * pass);
 
 struct ti_user_s

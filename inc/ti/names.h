@@ -24,7 +24,7 @@ static inline ti_name_t * ti_names_get_from_val(ti_val_t * val)
             ? ti_names_get(
                 (const char *) val->via.raw->data,
                 val->via.raw->n)
-            : ti_grab(val->via.name);
+            : NULL;
 }
 
 #endif /* TI_NAMES_H_ */

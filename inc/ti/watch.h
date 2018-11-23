@@ -10,6 +10,7 @@ typedef struct ti_watch_s ti_watch_t;
 #include <ti/ex.h>
 #include <ti/user.h>
 #include <ti/stream.h>
+#include <util/logger.h>
 
 ti_watch_t * ti_watch_create(ti_stream_t * stream);
 static inline void ti_watch_stop(ti_watch_t * watch);

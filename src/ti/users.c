@@ -198,7 +198,7 @@ int ti_users_restore(const char * fn)
         user_id = (uint64_t) qid->via.int64;
         name = (char *) qname->via.raw->data;
         namelen = qname->via.raw->n;
-        passstr = ti_raw_to_str(qpass->via.raw);
+        passstr = qpx_raw_to_str(qpass->via.raw);
         if (!passstr)
             goto stop;
 

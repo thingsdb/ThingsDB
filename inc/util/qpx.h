@@ -21,6 +21,7 @@ void qpx_unpacker_init(
         qp_unpacker_t * unpacker,
         const unsigned char * pt,
         size_t len);
+char * qpx_raw_to_str(const qp_raw_t * raw);
 
 static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
 {

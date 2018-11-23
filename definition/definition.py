@@ -58,18 +58,17 @@ class Definition(Grammar):
     f_filter = Keyword('filter')
     f_get = Keyword('get')
     f_id = Keyword('id')
+    f_lower = Keyword('lower')
     f_map = Keyword('map')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_thing = Keyword('thing')
-    f_unwatch = Keyword('unwatch')
-    f_watch = Keyword('watch')
+    f_upper = Keyword('upper')
 
     # build-in update functions
     f_del = Keyword('del')
     f_new = Keyword('new')
     f_push = Keyword('push')
-    f_remove = Keyword('remove')
     f_rename = Keyword('rename')
     f_set = Keyword('set')
     f_splice = Keyword('splice')
@@ -101,17 +100,16 @@ class Definition(Grammar):
         f_filter,       # (arrow) -> [return values where return is true]
         f_get,          # (str,..) -> attribute val
         f_id,           # () -> int
+        f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_thing,        # (int thing_id) -> thing
-        f_unwatch,      # (#id) -> nil
-        f_watch,        # (#id) -> nil
+        f_upper,        # () -> str
         # build-in update functions
         f_del,
         f_new,
         f_push,
-        f_remove,
         f_rename,
         f_set,
         f_splice,
@@ -246,7 +244,7 @@ if __name__ == '__main__':
         '$ev': 1,
         '#': 0,
         '$jobs': [
-            {'new': {'Database', {
+            {'new': {'Database': {
                 'name': 'testdb',
                 'user': 'iris'
             }}}

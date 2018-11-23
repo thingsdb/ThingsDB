@@ -234,7 +234,7 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
     }
 
-    if (!resp || ti_clients_write(stream, resp))
+    if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
@@ -288,7 +288,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
 finish:
-    if (!resp || ti_clients_write(stream, resp))
+    if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
@@ -397,7 +397,7 @@ finish:
     if (e->nr)
         resp = ti_pkg_err(pkg->id, e);
 
-    if (!resp || ti_clients_write(stream, resp))
+    if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
@@ -461,7 +461,7 @@ finish:
     if (e->nr)
         resp = ti_pkg_err(pkg->id, e);
 
-    if (!resp || ti_clients_write(stream, resp))
+    if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
@@ -536,7 +536,7 @@ static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
 
 finish:
     free(req->pkg_res);
-    if (resp && ti_clients_write(fwd->stream, resp))
+    if (resp && ti_stream_write_pkg(fwd->stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);

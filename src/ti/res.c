@@ -19,15 +19,18 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -69,7 +72,6 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
-    _Bool mark_fetch = false;
     int nots = 0;
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd           /* sequence */
@@ -144,10 +146,7 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     child = child->next;
     if (!child)
-    {
-        mark_fetch = true;
-        goto finish;
-    }
+        goto finish;  /* TODO:  mark_fetch = true */
 
     node = child->node              /* optional */
             ->children->node;       /* chain */
@@ -175,8 +174,7 @@ finish:
         ti_val_clear(res->rval);
         ti_val_set_bool(res->rval, (nots & 1) ^ b);
     }
-    else if (mark_fetch)
-        ti_val_mark_fetch(res->rval);
+    else ti_val_mark_fetch(res->rval);  /* TODO:  if (mark_fetch) */
 
 done:
     ti_scope_leave(&res->scope, current_scope);
@@ -451,6 +449,58 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = res_get_val(res);
+    _Bool from_rval = val == res->rval;
+    _Bool endswith;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `endswith` %p !!!",
+                res_tp_str(res), val);
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `endswith` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    res->rval = NULL;
+
+    if (ti_res_scope(res, nd->children->node, e))
+        goto done;
+
+    if (!ti_val_is_raw(res->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `endswith` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_RAW),
+                ti_val_str(res->rval));
+        goto done;
+    }
+
+    endswith = ti_val_endswith(val, res->rval);
+
+    (void) res_rval_clear(res);
+
+    ti_val_set_bool(res->rval, endswith);
+
+done:
+    if (from_rval)
+        ti_val_destroy(val);
+    return e->nr;
+}
+
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -460,12 +510,13 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
     cleri_node_t * arrow_nd;
     _Bool from_rval = iterval == res->rval;
+    ti_thing_t * iter_thing = iterval ? NULL : res_get_thing(res);
 
-    if (!iterval || !ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW)
+    if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `filter`",
-                res_tp_str(res));
+                "type `%s` has no function `filter` %p",
+                res_tp_str(res), iterval);
         return e->nr;
     }
 
@@ -500,7 +551,52 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     arrow_nd = arrowval->via.arrow;
 
-    switch (iterval->tp)
+    if (iter_thing)
+    {
+        ti_thing_t * thing = ti_thing_create(0, res->db->things);
+        if (!thing)
+            goto failed;
+
+        retval = ti_val_weak_create(TI_VAL_THING, thing);
+        if (!retval)
+        {
+            ti_thing_drop(thing);
+            goto failed;
+        }
+
+        for (vec_each(iter_thing->props, ti_prop_t, p))
+        {
+            size_t n = 0;
+            for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+            {
+                switch (n)
+                {
+                case 0:
+                    /* use name as raw */
+                    ti_val_weak_set(&prop->val, TI_VAL_RAW, p->name);
+                    break;
+                case 1:
+                    ti_val_weak_copy(&prop->val, &p->val);
+                    break;
+                default:
+                    ti_val_set_undefined(&prop->val);
+                }
+            }
+
+            if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                goto failed;
+
+            if (ti_val_as_bool(res->rval))
+            {
+                ti_incref(p->name);
+                if (ti_thing_setv(thing, p->name, &p->val))
+                    goto failed;
+            }
+
+            res_rval_weak_destroy(res);
+        }
+    }
+    else switch (iterval->tp)
     {
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
@@ -593,51 +689,6 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 res_rval_destroy(res);
             }
             (void) vec_shrink(&retval->via.array);
-        }
-        break;
-    case TI_VAL_THING:
-        {
-            ti_thing_t * thing = ti_thing_create(0, res->db->things);
-            if (!thing)
-                goto failed;
-
-            retval = ti_val_weak_create(TI_VAL_THING, thing);
-            if (!retval)
-            {
-                ti_thing_drop(thing);
-                goto failed;
-            }
-
-            for (vec_each(iterval->via.thing->props, ti_prop_t, p))
-            {
-                size_t n = 0;
-                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
-                {
-                    switch (n)
-                    {
-                    case 0:
-                        ti_val_weak_set(&prop->val, TI_VAL_NAME, p->name);
-                        break;
-                    case 1:
-                        ti_val_weak_copy(&prop->val, &p->val);
-                        break;
-                    default:
-                        ti_val_set_undefined(&prop->val);
-                    }
-                }
-
-                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
-                    goto failed;
-
-                if (ti_val_as_bool(res->rval))
-                {
-                    ti_incref(p->name);
-                    if (ti_thing_setv(thing, p->name, &p->val))
-                        goto failed;
-                }
-
-                res_rval_weak_destroy(res);
-            }
         }
     }
 
@@ -746,11 +797,9 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             goto failed;
         }
 
-        name = res->rval->tp == TI_VAL_RAW
-            ? ti_names_get(
-                (const char *) res->rval->via.raw->data,
-                res->rval->via.raw->n)
-            : ti_grab(res->rval->via.name);
+        name = ti_names_get_from_val(res->rval);
+        if (!name)
+            goto failed;
 
         ti_val_clear(res->rval);
 
@@ -845,6 +894,40 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);
     else
         ti_val_set_int(res->rval, thing_id);
+
+    return e->nr;
+}
+
+static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = res_get_val(res);
+    ti_raw_t * lower;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `lower` %p !!!",
+                res_tp_str(res), val);
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `lower` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    lower = ti_raw_lower(val->via.raw);
+    if (!lower || res_rval_clear(res))
+        ex_set_alloc(e);
+    else
+        ti_val_weak_set(res->rval, TI_VAL_RAW, lower);
 
     return e->nr;
 }
@@ -1253,6 +1336,7 @@ static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
     ti_val_t * val = res_get_val(res);
     _Bool from_rval = val == res->rval;
     _Bool startswith;
@@ -1260,8 +1344,8 @@ static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `startswith`",
-                res_tp_str(res));
+                "type `%s` has no function `startswith` %p !!!",
+                res_tp_str(res), val);
         return e->nr;
     }
 
@@ -1387,6 +1471,40 @@ finish:
     return e->nr;
 }
 
+static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = res_get_val(res);
+    ti_raw_t * upper;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `upper` %p !!!",
+                res_tp_str(res), val);
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `upper` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    upper = ti_raw_upper(val->via.raw);
+    if (!upper || res_rval_clear(res))
+        ex_set_alloc(e);
+    else
+        ti_val_weak_set(res->rval, TI_VAL_RAW, upper);
+
+    return e->nr;
+}
+
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1406,12 +1524,16 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     {
     case CLERI_GID_F_BLOB:
         return res__f_blob(res, params, e);
+    case CLERI_GID_F_ENDSWITH:
+        return res__f_endswith(res, params, e);
     case CLERI_GID_F_FILTER:
         return res__f_filter(res, params, e);
     case CLERI_GID_F_GET:
         return res__f_get(res, params, e);
     case CLERI_GID_F_ID:
         return res__f_id(res, params, e);
+    case CLERI_GID_F_LOWER:
+        return res__f_lower(res, params, e);
     case CLERI_GID_F_THING:
         return res__f_thing(res, params, e);
     case CLERI_GID_F_PUSH:
@@ -1424,6 +1546,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_startswith(res, params, e);
     case CLERI_GID_F_UNSET:
         return res__f_unset(res, params, e);
+    case CLERI_GID_F_UPPER:
+        return res__f_upper(res, params, e);
     }
 
     ex_set(e, EX_INDEX_ERROR,
@@ -1593,7 +1717,6 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return ti_res_scope(res, nd, e);
 
     default:
-        LOGC("GID: %d", nd->cl_obj->gid);
         assert (0);
     }
 

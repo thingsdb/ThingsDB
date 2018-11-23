@@ -26,7 +26,7 @@ ti_db_t * ti_db_create(guid_t * guid, const char * name, size_t n)
 
     db->ref = 1;
     db->root = NULL;
-    db->name = ti_raw_new((uchar *) name, n);
+    db->name = ti_raw_create((uchar *) name, n);
     db->things = imap_create();
     db->access = vec_new(1);
     db->quota = ti_quota_create();

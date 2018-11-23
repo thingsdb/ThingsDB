@@ -248,6 +248,7 @@ int ti_store_things_restore_data(
     int rc = 0;
     qp_types_t tp;
     ti_thing_t * thing;
+    ti_raw_t * raw;
     ti_name_t * name;
     qp_res_t thing_id, name_id, obj;
     vec_t * things_vec = NULL;
@@ -295,7 +296,11 @@ int ti_store_things_restore_data(
             case QP_RAW:
                 if (!obj.via.raw)
                     goto failed;
-                if (ti_thing_weak_set(thing, name, TI_VAL_RAW, obj.via.raw))
+                raw = ti_raw_create(obj.via.raw->data, obj.via.raw->n);
+                free(obj.via.raw);
+                if (!raw)
+                    goto failed;
+                if (ti_thing_weak_set(thing, name, TI_VAL_RAW, raw))
                     goto failed;
                 break;
             case QP_NULL:

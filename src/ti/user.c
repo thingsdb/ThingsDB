@@ -26,7 +26,7 @@ ti_user_t * ti_user_create(
 
     user->id = id;
     user->ref = 1;
-    user->name = ti_raw_new((uchar *) name, n);
+    user->name = ti_raw_create((uchar *) name, n);
     user->encpass = strdup(encrpass);
     user->qpdata = NULL;
 
@@ -97,9 +97,9 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
     return true;
 }
 
-int ti_user_rename(ti_user_t * user, const ti_raw_t * name)
+int ti_user_rename(ti_user_t * user, ti_raw_t * name)
 {
-    ti_raw_t * username = ti_raw_dup(name);
+    ti_raw_t * username = ti_grab(name);
     if (!username)
         return -1;
     /* free the old user name */

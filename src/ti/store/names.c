@@ -3,6 +3,7 @@
  */
 #include <qpack.h>
 #include <ti.h>
+#include <ti/names.h>
 #include <ti/store/names.h>
 #include <util/fx.h>
 #include <util/logger.h>

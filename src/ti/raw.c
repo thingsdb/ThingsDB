@@ -2,8 +2,9 @@
  * raw.c
  */
 #include <assert.h>
-#include <string.h>
+#include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ti/raw.h>
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)

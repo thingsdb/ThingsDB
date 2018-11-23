@@ -30,6 +30,8 @@ const char * ex_str(ex_enum errnr)
 {
     switch (errnr)
     {
+    case EX_ZERO_DIV:
+        return "division or module by zero";
     case EX_MAX_QUOTA:
         return "max quota is reached";
     case EX_AUTH_ERROR:

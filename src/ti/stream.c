@@ -9,8 +9,11 @@
 #include <util/logger.h>
 #include <ti/tcp.h>
 #include <ti/pipe.h>
+#include <ti/write.h>
 #include <ti.h>
 
+static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
+static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
 static void ti__stream_stop(uv_handle_t * uvstream);
 static const char * ti__stream_name_unresolved = "unresolved";
 
@@ -203,6 +206,35 @@ void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     ti_req_result(req);
+}
+
+int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    return ti_write(stream, pkg, NULL, stream__write_pkg_cb);
+}
+
+/* uses a reference as long as required */
+int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
+{
+    if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb))
+        return -1;
+
+    ti_incref(rpkg);
+    return 0;
+}
+
+static void stream__write_pkg_cb(ti_write_t * req, ex_enum status)
+{
+    (void)(status);     /* errors are logged by ti__write_cb() */
+    free(req->pkg);
+    ti_write_destroy(req);
+}
+
+static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
+{
+    (void)(status);     /* errors are logged by ti__write_cb() */
+    ti_rpkg_drop(req->data);
+    ti_write_destroy(req);
 }
 
 static void ti__stream_stop(uv_handle_t * uvstream)

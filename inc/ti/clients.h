@@ -14,7 +14,6 @@ typedef struct ti_clients_s ti_clients_t;
 int ti_clients_create(void);
 void ti_clients_destroy(void);
 int ti_clients_listen(void);
-int ti_clients_write(ti_stream_t * stream, ti_pkg_t * pkg);
 
 struct ti_clients_s
 {

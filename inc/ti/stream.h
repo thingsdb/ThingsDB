@@ -1,5 +1,5 @@
 /*
- * stream.h
+ * ti/stream.h
  */
 #ifndef TI_STREAM_H_
 #define TI_STREAM_H_
@@ -26,6 +26,7 @@ typedef union ti_stream_u ti_stream_via_t;
 #include <ti/user.h>
 #include <ti/node.h>
 #include <ti/pkg.h>
+#include <ti/rpkg.h>
 #include <util/omap.h>
 #include <util/vec.h>
 typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
@@ -38,6 +39,9 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf);
 const char * ti_stream_name(ti_stream_t * stream);
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
+int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg);
+int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg);
+
 static inline _Bool ti_stream_is_closed(ti_stream_t * stream);
 
 union ti_stream_u

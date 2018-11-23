@@ -29,6 +29,7 @@ void ti_task_destroy(ti_task_t * task);
 ti_pkg_t * ti_task_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,

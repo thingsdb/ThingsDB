@@ -44,9 +44,13 @@ int ti_thing_attr_weak_setv(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
+void ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
+void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack);
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags);
+_Bool ti_thing_has_watchers(ti_thing_t * thing);
+
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
         qp_packer_t ** packer);

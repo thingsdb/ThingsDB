@@ -26,6 +26,8 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -1029,11 +1031,17 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
         if (res->rval->tp == TI_VAL_THING)
         {
+            /* TODO: I think we can convert back, not sure why I first thought
+             * this was not possible. Maybe because of nesting? but that is
+             * solved because nested are tuple and therefore not mutable */
+            if (val->tp == TI_VAL_ARRAY  && !val->via.array->n)
+                val->tp = TI_VAL_THINGS;
+
             if (val->tp == TI_VAL_ARRAY)
             {
                 ex_set(e, EX_BAD_DATA,
                     "argument %d is of type `%s` and cannot be added into an "
-                    "array once it is used for other types",
+                    "array with other types",
                     n,
                     ti_val_str(res->rval));
                 goto failed;
@@ -1212,13 +1220,9 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto finish;
 
-    name = name_val->tp == TI_VAL_RAW
-        ? ti_names_get(
-            (const char *) name_val->via.raw->data,
-            name_val->via.raw->n)
-        : ti_grab(name_val->via.name);
+    name = ti_names_get_from_val(name_val);
 
-    if (ti_task_add_set(task, name, res->rval))
+    if (!name || ti_task_add_set(task, name, res->rval))
         goto alloc_err;  /* we do not need to cleanup task, since the task
                             is added to `res->ev->tasks` */
 
@@ -1242,6 +1246,144 @@ alloc_err:
 finish:
     ti_val_destroy(name_val);
 
+    return e->nr;
+}
+
+static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    ti_val_t * val = res_get_val(res);
+    _Bool from_rval = val == res->rval;
+    _Bool startswith;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `startswith`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `startswith` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    res->rval = NULL;
+
+    if (ti_res_scope(res, nd->children->node, e))
+        goto done;
+
+    if (!ti_val_is_raw(res->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `startswith` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_RAW),
+                ti_val_str(res->rval));
+        goto done;
+    }
+
+    startswith = ti_val_startswith(val, res->rval);
+
+    (void) res_rval_clear(res);
+
+    ti_val_set_bool(res->rval, startswith);
+
+done:
+    if (from_rval)
+        ti_val_destroy(val);
+    return e->nr;
+}
+
+static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (res->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    cleri_node_t * name_nd;
+    ti_task_t * task;
+    ti_name_t * name;
+    ti_thing_t * thing;
+
+    if (!res_is_thing(res))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `unset`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    thing = res_get_thing(res);
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `unset` requires a thing to be assigned, "
+                "`unset` should therefore be used in a separate statement");
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `unset` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    name_nd = nd
+            ->children->node;
+
+    if (ti_res_scope(res, name_nd, e))
+        return e->nr;
+
+    if (!ti_val_is_valid_name(res->rval))
+    {
+        if (ti_val_is_raw(res->rval))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `unset` expects argument 1 to be a valid name, "
+                    "see "TI_DOCS"#names");
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `unset` expects argument 1 to be of type `%s` "
+                    "but got `%s`",
+                    ti_val_tp_str(TI_VAL_RAW),
+                    ti_val_str(res->rval));
+        }
+        return e->nr;
+    }
+
+    task = res_get_task(res->ev, thing, e);
+    if (!task)
+        goto finish;
+
+    name = ti_names_get_from_val(res->rval);
+
+    if (!name || ti_task_add_unset(task, name))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `res->ev->tasks` */
+
+    if (ti_manages_id(thing->id))
+        ti_thing_attr_unset(thing, name);
+
+    ti_val_clear(res->rval);
+    ti_val_set_nil(res->rval);
+
+    goto finish;
+
+alloc_err:
+    ex_set_alloc(e);
+
+finish:
+    ti_name_drop(name);
     return e->nr;
 }
 
@@ -1278,7 +1420,10 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_ret(res, params, e);
     case CLERI_GID_F_SET:
         return res__f_set(res, params, e);
-
+    case CLERI_GID_F_STARTSWITH:
+        return res__f_startswith(res, params, e);
+    case CLERI_GID_F_UNSET:
+        return res__f_unset(res, params, e);
     }
 
     ex_set(e, EX_INDEX_ERROR,

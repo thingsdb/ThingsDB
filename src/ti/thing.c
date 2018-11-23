@@ -190,6 +190,35 @@ int ti_thing_attr_weak_setv(
     return 0;
 }
 
+void ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
+{
+    uint32_t i = 0;
+    for (vec_each(thing->props, ti_prop_t, prop), ++i)
+    {
+        if (prop->name == name)
+        {
+            ti_prop_destroy(vec_remove(thing->props, i));
+            return;
+        }
+    }
+}
+
+void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name)
+{
+    uint32_t i = 0;
+    if (!thing->attrs)
+        return;
+
+    for (vec_each(thing->attrs, ti_prop_t, attr), ++i)
+    {
+        if (attr->name == name)
+        {
+            ti_prop_destroy(vec_remove(thing->attrs, i));
+            return;
+        }
+    }
+}
+
 int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
@@ -261,17 +290,31 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
     if (!watch)
         return NULL;
 
-    if (vec_push(&thing->watchers, watch))
+    if (!stream->watching)
     {
-        ti_watch_free(watch);
-        return NULL;
+        stream->watching = vec_new(1);
+        if (!stream->watching)
+            goto fail0;
+        VEC_push(stream->watching, watch);
     }
+    else if (vec_push(&stream->watching, watch))
+        goto fail0;
+
+    if (vec_push(&thing->watchers, watch))
+        goto fail1;
+
     return watch;
+
+fail1:
+    (void *) vec_pop(stream->watching);
+fail0:
+    ti_watch_free(watch);
+    return NULL;
 }
 
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack)
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
 {
-    assert (pack == TI_VAL_PACK_FETCH || pack == TI_VAL_PACK_NEW);
+    flags |= TI_VAL_PACK_THING;
 
     if (    qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar *) "#", 1) ||
@@ -281,8 +324,38 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int pack)
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                ti_val_to_packer(&prop->val, packer, pack))
+                ti_val_to_packer(&prop->val, packer, flags))
             return -1;
     }
+
+    if (flags & TI_VAL_PACK_ATTR)
+    {
+        assert (ti_manages_id(thing->id));
+
+        if (qp_add_raw(*packer, (const uchar *) "$", 1) || qp_add_map(packer))
+            return -1;
+
+        for (vec_each(thing->attrs, ti_prop_t, prop))
+        {
+            if (    qp_add_raw_from_str(*packer, prop->name->str) ||
+                    ti_val_to_packer(&prop->val, packer, flags))
+                return -1;
+        }
+
+        if (qp_close_map(*packer))
+            return -1;
+    }
+
+
     return qp_close_map(*packer);
+}
+
+_Bool ti_thing_has_watchers(ti_thing_t * thing)
+{
+    if (!thing->watchers)
+        return false;
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+        if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
+            return true;
+    return false;
 }

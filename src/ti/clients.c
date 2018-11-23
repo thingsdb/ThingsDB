@@ -31,7 +31,6 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg);
-static void clients__write_cb(ti_write_t * req, ex_enum status);
 static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
@@ -141,11 +140,6 @@ int ti_clients_listen(void)
     return 0;
 }
 
-int ti_clients_write(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    return ti_write(stream, pkg, NULL, clients__write_cb);
-}
-
 static void clients__tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
@@ -228,7 +222,18 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
+    ti_pkg_t * resp;
+    if (!pkg->id)
+    {
+        ex_t * e = ex_use();
+        ex_set(e, EX_BAD_DATA, "ping request requires a package id > 0");
+        resp = ti_pkg_err(pkg->id, e);
+    }
+    else
+    {
+        resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
+    }
+
     if (!resp || ti_clients_write(stream, resp))
     {
         free(resp);
@@ -243,7 +248,17 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_obj_t name, pass;
     ti_user_t * user;
     ex_t * e = ex_use();
+
+    if (!pkg->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "authentication request requires a package id > 0");
+        resp = ti_pkg_err(pkg->id, e);
+        goto finish;
+    }
+
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
             !qp_is_raw(qp_next(&unpacker, &name)) ||
             !qp_is_raw(qp_next(&unpacker, &pass)))
@@ -288,6 +303,12 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * node = ti()->node;
     ti_user_t * user = stream->via.user;
     vec_t * access_;
+
+    if (!pkg->id)
+    {
+        ex_set(e, EX_BAD_DATA, "query request requires a package id > 0");
+        goto finish;
+    }
 
     if (!user)
     {
@@ -392,6 +413,12 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     vec_t * access_;
     ti_pkg_t * resp = NULL;
 
+    if (!pkg->id)
+    {
+        ex_set(e, EX_BAD_DATA, "watch request requires a package id > 0");
+        goto finish;
+    }
+
     if (!user)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
@@ -442,13 +469,6 @@ finish:
 
     if (e->nr || ti_wareq_run(wareq))
         ti_wareq_destroy(wareq);
-}
-
-static void clients__write_cb(ti_write_t * req, ex_enum status)
-{
-    (void)(status);     /* errors are logged by ti__write_cb() */
-    free(req->pkg);
-    ti_write_destroy(req);
 }
 
 static int clients__fwd_query(

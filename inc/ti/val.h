@@ -29,8 +29,9 @@ typedef enum
 
 enum
 {
-    TI_VAL_PACK_FETCH,
-    TI_VAL_PACK_NEW,
+    TI_VAL_PACK_NEW     =1<<0,
+    TI_VAL_PACK_THING   =1<<1,
+    TI_VAL_PACK_ATTR    =1<<2,
 };
 
 typedef struct ti_val_s ti_val_t;
@@ -65,9 +66,10 @@ _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_iterator_n(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 void ti_val_clear(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack);
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_tp_str(ti_val_enum tp);
+_Bool ti_val_startswith(ti_val_t * a, ti_val_t * b);
 static inline const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);

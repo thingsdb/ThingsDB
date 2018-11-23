@@ -443,16 +443,21 @@ void ti_val_clear(ti_val_t * val)
     val->tp = TI_VAL_UNDEFINED;
 }
 
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
 {
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_ATTR:
-        if (pack == TI_VAL_PACK_NEW)
-            return qp_add_null(*packer);
-        ti_prop_t * attr = (ti_prop_t *) val->via.attr;
-        assert (attr->val.tp != TI_VAL_UNDEFINED);
-        return ti_val_to_packer(&attr->val, packer, pack);
+        /* this is for value packing when the parent is not a `thing` */
+        assert (~flags & TI_VAL_PACK_THING);
+
+        return flags & TI_VAL_PACK_NEW
+            ? qp_add_null(*packer)
+            : ti_val_to_packer(
+                &((ti_prop_t *) val->via.attr)->val,
+                packer,
+                flags
+            );
     case TI_VAL_UNDEFINED:
         assert (0);
         return 0;
@@ -478,27 +483,27 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int pack)
             return -1;
         for (vec_each(val->via.array, ti_val_t, v))
         {
-            if (ti_val_to_packer(v, packer, pack))
+            if (ti_val_to_packer(v, packer, flags))
                 return -1;
         }
         return qp_close_array(*packer);
     case TI_VAL_THING:
-        return pack == TI_VAL_PACK_NEW
+        return flags & TI_VAL_PACK_NEW
                 ? (val->via.thing->flags & TI_THING_FLAG_NEW
-                    ? ti_thing_to_packer(val->via.thing, packer, pack)
+                    ? ti_thing_to_packer(val->via.thing, packer, flags)
                     : ti_thing_id_to_packer(val->via.thing, packer))
                 : (val->flags & TI_VAL_FLAG_FETCH
-                    ? ti_thing_to_packer(val->via.thing, packer, pack)
+                    ? ti_thing_to_packer(val->via.thing, packer, flags)
                     : ti_thing_id_to_packer(val->via.thing, packer));
     case TI_VAL_THINGS:
         if (qp_add_array(packer))
             return -1;
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (    pack == TI_VAL_PACK_NEW &&
+            if (    flags == TI_VAL_PACK_NEW &&
                     (val->via.thing->flags & TI_THING_FLAG_NEW))
             {
-                if (ti_thing_to_packer(val->via.thing, packer, pack))
+                if (ti_thing_to_packer(val->via.thing, packer, flags))
                     return -1;
                 continue;
             }
@@ -588,4 +593,81 @@ const char * ti_val_tp_str(ti_val_enum tp)
     }
     assert (0);
     return "unknown";
+}
+
+_Bool ti_val_startswith(ti_val_t * a, ti_val_t * b)
+{
+    switch (a->tp)
+    {
+    case TI_VAL_NAME:
+        {
+            ti_name_t * an = a->via.name;
+            switch (b->tp)
+            {
+            case TI_VAL_NAME:
+                {
+                    ti_name_t * bn = b->via.name;
+                    char * ai, *bi;
+                    if (an->n < bn->n)
+                        return false;
+
+                    ai = an->str;
+                    bi = bn->str;
+                    for (uint32_t n = bn->n; n; --n, ++ai, ++bi)
+                        if (*ai != *bi)
+                            return false;
+                    return true;
+                }
+            case TI_VAL_RAW:
+                {
+                    ti_raw_t * br = b->via.raw;
+                    uchar * au, * bu;
+                    if (an->n < br->n)
+                        return false;
+                    au = (uchar *) an->str;
+                    bu = br->data;
+                    for (size_t n = br->n; n; --n, ++au, ++bu)
+                        if (*au != *bu)
+                            return false;
+                    return true;
+                }
+            }
+        }
+        break;
+    case TI_VAL_RAW:
+        {
+            ti_raw_t * ar = a->via.name;
+            switch (b->tp)
+            {
+            case TI_VAL_NAME:
+                {
+                    ti_name_t * bn = b->via.name;
+                    uchar * au, * bu;
+                    if (ar->n < bn->n)
+                        return false;
+
+                    au = ar->data;
+                    bu = (uchar *) bn->str;
+                    for (uint32_t n = bn->n; n; --n, ++au, ++bu)
+                        if (*au != *bu)
+                            return false;
+                    return true;
+                }
+            case TI_VAL_RAW:
+                {
+                    ti_raw_t * br = b->via.raw;
+                    uchar * au, * bu;
+                    if (ar->n < br->n)
+                        return false;
+                    au = ar->data;
+                    bu = br->data;
+                    for (size_t n = br->n; n; --n, ++au, ++bu)
+                        if (*au != *bu)
+                            return false;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }

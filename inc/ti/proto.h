@@ -109,6 +109,7 @@ typedef enum
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [node_id, status, version, ...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
+    TI_PROTO_NODE_REQ_WATCH_ID  =178,   /* thing id */
 
     /*
      * 192..207 node responses mapping to client responses

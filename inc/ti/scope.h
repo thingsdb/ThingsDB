@@ -26,6 +26,7 @@ ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name);
 ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name);
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope);
+static inline _Bool ti_scope_is_raw(ti_scope_t * scope);
 static inline _Bool ti_scope_has_local_name(
         ti_scope_t * scope,
         ti_name_t * name);
@@ -42,6 +43,11 @@ struct ti_scope_s
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope)
 {
     return scope->thing && !scope->name;
+}
+
+static inline _Bool ti_scope_is_raw(ti_scope_t * scope)
+{
+    return scope->name && ti_val_is_raw(scope->val);
 }
 
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope)

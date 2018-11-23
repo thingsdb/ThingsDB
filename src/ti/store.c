@@ -3,16 +3,16 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/names.h>
+#include <ti.h>
 #include <ti/store.h>
-#include <ti/things.h>
-#include <ti/users.h>
-#include <ti/store/status.h>
 #include <ti/store/access.h>
 #include <ti/store/db.h>
 #include <ti/store/dbs.h>
+#include <ti/store/names.h>
+#include <ti/store/status.h>
 #include <ti/store/things.h>
-#include <ti.h>
+#include <ti/things.h>
+#include <ti/users.h>
 #include <util/fx.h>
 #include <util/imap.h>
 #include <util/logger.h>
@@ -105,7 +105,7 @@ int ti_store_store(void)
     store__set_filename(true);
 
     if (    ti_store_status_store(store->id_stat_fn) ||
-            ti_names_store(store->names_fn) ||
+            ti_store_names_store(store->names_fn) ||
             ti_users_store(store->users_fn) ||
             ti_store_access_store(ti()->access, store->access_fn) ||
             ti_store_dbs_store(store->dbs_fn))
@@ -152,7 +152,7 @@ int ti_store_restore(void)
 
     store__set_filename(false);
 
-    imap_t * namesmap = ti_names_restore(store->names_fn);
+    imap_t * namesmap = ti_store_names_restore(store->names_fn);
     int rc = (
             -(!namesmap) ||
             ti_store_status_restore(store->id_stat_fn) ||

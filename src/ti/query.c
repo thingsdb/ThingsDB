@@ -302,7 +302,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     {
         assert (res);
         assert (res->rval);
-        if (ti_val_to_packer(res->rval, &packer, TI_VAL_PACK_FETCH))
+        if (ti_val_to_packer(res->rval, &packer, 0))
             goto alloc_err;
     }
 
@@ -452,8 +452,33 @@ static void query__task_to_watchers(ti_query_t * query)
     omap_iter_t iter = omap_iter(query->ev->tasks);
     for (omap_each(iter, ti_task_t, task))
     {
-        omap_iter_id(iter);
-        ti_pkg_t * pkg = ti_task_watch(task);
-        free(pkg);
+        if (ti_thing_has_watchers(task->thing))
+        {
+            ti_rpkg_t * rpkg;
+            ti_pkg_t * pkg = ti_task_watch(task);
+            if (!pkg)
+            {
+                log_critical(EX_ALLOC_S);
+                break;
+            }
+
+            rpkg = ti_rpkg_create(pkg);
+            if (!rpkg)
+            {
+                log_critical(EX_ALLOC_S);
+                break;
+            }
+
+            for (vec_each(task->thing->watchers, ti_watch_t, watch))
+            {
+                if (!watch->stream || ti_stream_is_closed(watch->stream))
+                    continue;
+
+                if (ti_stream_write_rpkg(watch->stream, rpkg))
+                    log_critical(EX_INTERNAL_S);
+            }
+
+            ti_rpkg_drop(rpkg);
+        }
     }
 }

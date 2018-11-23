@@ -189,6 +189,27 @@ ti_node_t * ti_nodes_random_ready_node(void)
     return online_nodes[rand() % n];
 }
 
+/*
+ * Returns another node which manages id with status READY.
+ */
+ti_node_t * ti_nodes_random_ready_node_for_id(uint64_t id)
+{
+    ti_node_t * this_node = ti()->node;
+    ti_node_t * online_nodes[nodes->vec->n-1];
+    uint32_t i = 0, n = 0;
+    for (vec_each(nodes->vec, ti_node_t, node), i++)
+    {
+        if (    node == this_node ||
+                node->status != TI_NODE_STAT_READY ||
+                !ti_node_manages_id(node, ti()->lookup, id))
+            continue;
+        online_nodes[n++] = node;
+    }
+    if (!n)
+        return NULL;
+    return online_nodes[rand() % n];
+}
+
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)

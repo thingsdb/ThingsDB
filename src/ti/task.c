@@ -46,11 +46,11 @@ void ti_task_destroy(ti_task_t * task)
         '#': 4,
         'event': 0,
         'jobs': [
-            {'assign': {'age', 5}},
-            {'del': 'age'},
-            {'set': {'name': 'iris'}},
-            {'unset': 'name'},
-            {'push': {'people': [{'#': 123}]}}
+            {'assign': {<prop name>, <value>}},
+            {'del': <prop name>},
+            {'set': {<attr name>: <value>}},
+            {'unset': <attr name>},
+            {'push': {<prop name>: [{'#': 123}]}}
         ]
     }
  */
@@ -133,9 +133,6 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     if (!packer)
         goto failed;
 
-    if (ti_val_gen_ids(val))
-        goto failed;
-
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "set");
     (void) qp_add_map(&packer);
@@ -148,6 +145,38 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
 
     if (qp_close_map(packer) || qp_close_map(packer))
         goto failed;
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    goto done;
+
+failed:
+    ti_raw_free(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_unset(ti_task_t * task, ti_name_t * name)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(20 + name->n, 8);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "unset");
+    (void) qp_add_raw(packer, (const uchar *) name->str, name->n);
+    (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
     if (!job)

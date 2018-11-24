@@ -53,11 +53,11 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
 
     if (!regex->code)
     {
-        ex_set(e, EX_BAD_DATA, "cannot compile regular expression '%.*s': ",
+        ex_set(e, EX_BAD_DATA, "cannot compile regular expression '%.*s', ",
                 (int) regex->pattern->n,
                 (char *) regex->pattern->data);
 
-        pcre2_get_error_message(
+        e->n += pcre2_get_error_message(
                 pcre_error_num,
                 (PCRE2_UCHAR *) e->msg + e->n,
                 EX_MAX_SZ - e->n);
@@ -96,4 +96,5 @@ void ti_regex_drop(ti_regex_t * regex)
         free(regex);
     }
 }
+
 

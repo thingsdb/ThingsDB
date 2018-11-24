@@ -23,12 +23,20 @@ static _Bool query__swap_opr(
         uint32_t parent_gid);
 static void query__task_to_watchers(ti_query_t * query);
 static void query__nd_cache_cleanup(cleri_node_t * node);
+static void query__collect_destroy_cb(vec_t * names);
 
 ti_query_t * ti_query_create(ti_stream_t * stream)
 {
     ti_query_t * query = malloc(sizeof(ti_query_t));
     if (!query)
         return NULL;
+
+    query->collect = omap_create();
+    if (!query->collect)
+    {
+        free(query);
+        return NULL;
+    }
 
     query->flags = 0;
     query->target = NULL;  /* root */
@@ -39,6 +47,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     query->blobs = NULL;
     query->querystr = NULL;
     query->nd_cache_count = 0;
+    query->nd_cache = NULL;
 
     return query;
 }
@@ -47,8 +56,12 @@ void ti_query_destroy(ti_query_t * query)
 {
     if (!query)
         return;
+    /* must destroy nd_cache before clearing the parse result */
+    vec_destroy(query->nd_cache, (vec_destroy_cb) query__nd_cache_cleanup);
+
     if (query->parseres)
         cleri_parse_free(query->parseres);
+
     vec_destroy(
             query->statements,
             query->target
@@ -57,8 +70,9 @@ void ti_query_destroy(ti_query_t * query)
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
-    vec_destroy(query->nd_cache, (vec_destroy_cb) query__nd_cache_cleanup);
     free(query->querystr);
+    omap_destroy(query->collect, (omap_destroy_cb) query__collect_destroy_cb);
+
     free(query);
 }
 
@@ -205,8 +219,11 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     }
 
     query->statements = vec_new(nstatements);
-    query->nd_cache = vec_new(query->nd_cache_count);
-    if (!query->statements || !query->nd_cache)
+    if (!query->statements || (
+            query->nd_cache_count && !(
+                    query->nd_cache = vec_new(query->nd_cache_count)
+            )
+    ))
         ex_set_alloc(e);
 
     return e->nr;
@@ -217,10 +234,18 @@ void ti_query_run(ti_query_t * query)
     cleri_children_t * child;
     ex_t * e = ex_use();
 
-        child = query->parseres->tree   /* root */
-            ->children->node        /* sequence <comment, list> */
-            ->children->next->node  /* list */
-            ->children;             /* first child or NULL */
+    child = query->parseres->tree   /* root */
+        ->children->node        /* sequence <comment, list> */
+        ->children->next->node  /* list */
+        ->children;             /* first child or NULL */
+
+    log_debug(
+        "\n  query     : \x1B[33m%s\x1B[0m"
+        "\n  event     : %s"
+        "\n  node cache: %lu",
+        query->querystr,
+        query->ev ? "true" : "false",
+        query->nd_cache_count);
 
     if (query->target)
     {
@@ -228,22 +253,23 @@ void ti_query_run(ti_query_t * query)
         {
             assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-            ti_res_t * res = ti_res_create(query->target, query->blobs);
+            ti_res_t * res = ti_res_create(
+                    query->target,
+                    query->ev,
+                    query->blobs,
+                    query->nd_cache,
+                    query->collect);
             if (!res)
             {
                 ex_set_alloc(e);
                 goto done;
             }
 
-            res->ev = query->ev;  /* NULL if no update is required */
-
             VEC_push(query->statements, res);
 
             ti_res_scope(res, child->node, e);
             if (e->nr)
                 goto done;
-
-            assert_log(res->collect->n == 0, "collecting is not implemented");
 
             if (!child->next)
                 break;
@@ -505,4 +531,10 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
         ti_regex_drop(node->data);
         return;
     }
+}
+
+
+static void query__collect_destroy_cb(vec_t * names)
+{
+    vec_destroy(names, (vec_destroy_cb) ti_name_drop);
 }

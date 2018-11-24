@@ -61,6 +61,7 @@ class Definition(Grammar):
     f_id = Keyword('id')
     f_lower = Keyword('lower')
     f_map = Keyword('map')
+    f_match = Keyword('match')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_thing = Keyword('thing')
@@ -103,6 +104,7 @@ class Definition(Grammar):
         f_id,           # () -> int
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
+        f_match,        # (regex) -> bool
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_thing,        # (int thing_id) -> thing

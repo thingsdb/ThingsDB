@@ -26,6 +26,7 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_match(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -40,7 +41,12 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
-ti_res_t * ti_res_create(ti_db_t * db, vec_t * blobs)
+ti_res_t * ti_res_create(
+        ti_db_t * db,
+        ti_event_t * ev,
+        vec_t * blobs,
+        vec_t * nd_cache,
+        omap_t * collect)
 {
     assert (db && db->root);
 
@@ -48,23 +54,18 @@ ti_res_t * ti_res_create(ti_db_t * db, vec_t * blobs)
     if (!res)
         return NULL;
 
-    res->db = db;  /* a borrowed reference since the query has one */
-    res->collect = omap_create();
-    res->ev = NULL;
+    res->db = db;   /* a borrowed reference since the query has one */
+    res->ev = ev;   /* may be NULL */
+    res->blobs = blobs;  /* may be NULL */
+    res->nd_cache = nd_cache;   /* may be NULL */
+    res->collect = collect;
     res->scope = NULL;
     res->rval = NULL;
-    res->blobs = blobs;  /* may be NULL */
-    if (!res->collect)
-    {
-        ti_res_destroy(res);
-        return NULL;
-    }
     return res;
 }
 
 void ti_res_destroy(ti_res_t * res)
 {
-    omap_destroy(res->collect, (omap_destroy_cb) res_destroy_collect_cb);
     ti_scope_leave(&res->scope, NULL);
     ti_val_destroy(res->rval);
     free(res);
@@ -464,8 +465,8 @@ static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `endswith` %p !!!",
-                res_tp_str(res), val);
+                "type `%s` has no function `endswith`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -522,8 +523,8 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `filter` %p",
-                res_tp_str(res), iterval);
+                "type `%s` has no function `filter`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -916,8 +917,8 @@ static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `lower` %p !!!",
-                res_tp_str(res), val);
+                "type `%s` has no function `lower`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -959,8 +960,8 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `map` %p",
-                res_tp_str(res), iterval);
+                "type `%s` has no function `map`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -1118,6 +1119,58 @@ failed:
         ti_val_destroy(iterval);
 done:
     ti_val_destroy(arrowval);
+    return e->nr;
+}
+
+static int res__f_match(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = res_get_val(res);
+    _Bool from_rval = val == res->rval;
+    _Bool match;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `match`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `match` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    res->rval = NULL;
+
+    if (ti_res_scope(res, nd->children->node, e))
+        goto done;
+
+    if (res->rval->tp != TI_VAL_REGEX)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `match` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_REGEX),
+                ti_val_str(res->rval));
+        goto done;
+    }
+
+    match = ti_regex_match(res->rval->via.regex, val->via.raw);
+
+    (void) res_rval_clear(res);
+
+    ti_val_set_bool(res->rval, match);
+
+done:
+    if (from_rval)
+        ti_val_destroy(val);
     return e->nr;
 }
 
@@ -1372,8 +1425,8 @@ static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `startswith` %p !!!",
-                res_tp_str(res), val);
+                "type `%s` has no function `startswith`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -1624,8 +1677,8 @@ static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `upper` %p !!!",
-                res_tp_str(res), val);
+                "type `%s` has no function `upper`",
+                res_tp_str(res));
         return e->nr;
     }
 
@@ -1678,6 +1731,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_lower(res, params, e);
     case CLERI_GID_F_MAP:
         return res__f_map(res, params, e);
+    case CLERI_GID_F_MATCH:
+        return res__f_match(res, params, e);
     case CLERI_GID_F_PUSH:
         return res__f_push(res, params, e);
     case CLERI_GID_F_RET:
@@ -1902,10 +1957,9 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         {
             node->data = ti_regex_from_strn(node->str, node->len, e);
             if (!node->data)
-            {
-                ex_set_alloc(e);
                 return e->nr;
-            }
+            assert (vec_space(res->nd_cache));
+            VEC_push(res->nd_cache, node);
         }
         (void) ti_val_set(res->rval, TI_VAL_REGEX, node->data);
         break;
@@ -1918,6 +1972,8 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
+            assert (vec_space(res->nd_cache));
+            VEC_push(res->nd_cache, node);
         }
         (void) ti_val_set(res->rval, TI_VAL_RAW, node->data);
         break;

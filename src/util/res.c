@@ -7,11 +7,6 @@
 #include <util/omap.h>
 #include <util/res.h>
 
-void res_destroy_collect_cb(vec_t * names)
-{
-    vec_destroy(names, (vec_destroy_cb) ti_name_drop);
-}
-
 ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
 {
     ti_task_t * task = omap_get(ev->tasks, thing->id);

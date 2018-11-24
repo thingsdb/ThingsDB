@@ -37,7 +37,9 @@ async def test():
          * test query
          */
 
-        people.map(x => (x.name.startswith(/bla/)));
+        re = /ir.*/;
+
+        people.map(x => people = 5 );
 
         ''', timeout=2)
     except ThingsDBError as e:

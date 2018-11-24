@@ -17,6 +17,8 @@ typedef struct ti_regex_s ti_regex_t;
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
 void ti_regex_drop(ti_regex_t * regex);
 static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer);
+static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f);
+static inline _Bool ti_regex_match(ti_regex_t * regex, ti_raw_t * raw);
 
 struct ti_regex_s
 {
@@ -34,6 +36,27 @@ static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer)
         qp_add_raw(*packer, regex->pattern->data, regex->pattern->n) ||
         qp_close_map(*packer)
     );
+}
+
+static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f)
+{
+    return -(
+        qp_fadd_type(f, QP_MAP1) ||
+        qp_fadd_raw(f, (const uchar * ) "*", 1) ||
+        qp_fadd_raw(f, regex->pattern->data, regex->pattern->n)
+    );
+}
+
+static inline _Bool ti_regex_match(ti_regex_t * regex, ti_raw_t * raw)
+{
+    return pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) raw->data,
+            raw->n,
+            0,                     // start looking at this point
+            0,                     // OPTIONS
+            regex->match_data,
+            NULL) >= 0;
 }
 
 #endif  /* TI_REGEX_H_ */

@@ -1,5 +1,5 @@
 /*
- * vec.h
+ * util/vec.h
  */
 #ifndef VEC_H_
 #define VEC_H_

@@ -7,6 +7,7 @@
 #include <ti/arrow.h>
 #include <ti/names.h>
 #include <ti/opr.h>
+#include <ti/regex.h>
 #include <ti.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
@@ -24,11 +25,12 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -199,7 +201,7 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     ti_thing_t * thing;
     ti_name_t * name;
-    ti_task_t * task;
+    ti_task_t * task = NULL;
     ti_val_t * left_val = NULL;     /* assign to prevent warning */
     size_t max_props = res->db->quota->max_props;
     cleri_node_t * name_nd = nd                 /* sequence */
@@ -265,7 +267,7 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         if (ti_opr_a_to_b(left_val, assign_nd, res->rval, e))
             goto done;
     }
-    else if (res_assign_val(res, false, e))
+    else if (ti_val_check_assignable(res->rval, false, e))
         goto done;
 
     if (thing->id)
@@ -285,7 +287,8 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
      */
     if (ti_thing_weak_setv(thing, name, res->rval))
     {
-        free(vec_pop(task->jobs));
+        if (task)
+            free(vec_pop(task->jobs));
         goto alloc_err;
     }
 
@@ -510,7 +513,11 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
     cleri_node_t * arrow_nd;
     _Bool from_rval = iterval == res->rval;
-    ti_thing_t * iter_thing = iterval ? NULL : res_get_thing(res);
+    ti_thing_t * iter_thing = iterval
+            ? (iterval->tp == TI_VAL_THING
+                    ? iterval->via.thing
+                    : NULL)
+            : res_get_thing(res);
 
     if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
@@ -932,117 +939,185 @@ static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n;
-    _Bool force_as_array = true;
-    vec_t * things;
-    ti_thing_t * thing;
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    size_t n;
+    vec_t * retvec;
+    ti_val_t * retval = NULL;
+    ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
+    cleri_node_t * arrow_nd;
+    _Bool from_rval = iterval == res->rval;
+    ti_thing_t * iter_thing = iterval
+            ? (iterval->tp == TI_VAL_THING
+                    ? iterval->via.thing
+                    : NULL)
+            : res_get_thing(res);
 
-    if (res_get_thing(res) != res->db->root)
+    if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `thing`",
-                res_tp_str(res));
+                "type `%s` has no function `map` %p",
+                res_tp_str(res), iterval);
         return e->nr;
     }
 
-    n = langdef_nd_n_function_params(nd);
-    if (!n)
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `map` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    /* clear res->rval (bug keep the value)
+     * from here need need to clean iterval in case of an error */
+    res->rval = NULL;
+    if (ti_res_scope(res, nd->children->node, e))
+        goto failed;
+
+    if (res->rval->tp != TI_VAL_ARROW)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `thing` requires at least 1 argument but 0 "
-                "were given");
-        return e->nr;
-    }
-
-    things = vec_new(n);
-    if (!things)
-    {
-        ex_set_alloc(e);
-        return e->nr;
-    }
-
-    assert (child);
-
-    for (n = 0; child; child = child->next->next)
-    {
-        ++n;
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-
-        res_rval_destroy(res);
-        if (ti_res_scope(res, child->node, e))
-            goto failed;
-
-        assert (res->rval);
-
-        if (res->rval->tp != TI_VAL_INT)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `thing` only accepts `int` arguments, but "
-                    "argument %d is of type `%s`", n, res_tp_str(res));
-            goto failed;
-        }
-
-        thing = ti_db_thing_by_id(res->db, res->rval->via.int_);
-        if (!thing)
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "database `%.*s` has no `thing` with id `%"PRId64"`",
-                    (int) res->db->name->n,
-                    (char *) res->db->name->data,
-                    res->rval->via.int_);
-            goto failed;
-        }
-
-        ti_incref(thing);
-        VEC_push(things, thing);
-
-        if (!child->next)
-        {
-            force_as_array = false;
-            break;
-        }
-    }
-
-    assert (things->n >= 1);
-
-    if (n > 1 || force_as_array)
-    {
-        if (res_rval_clear(res))
-        {
-            ex_set_alloc(e);
-            goto failed;
-        }
-
-        ti_val_weak_set(res->rval, TI_VAL_THINGS, things);
-        goto done;
-    }
-
-    res_rval_destroy(res);
-    thing = vec_pop(things);
-
-    assert (thing->ref > 1);
-    ti_decref(thing);
-
-    if (ti_scope_push_thing(&res->scope, thing))
-    {
-        ex_set_alloc(e);
+                "function `map` expects an `%s` but got type `%s` instead",
+                ti_val_tp_str(TI_VAL_ARROW),
+                ti_val_tp_str(res->rval->tp));
         goto failed;
     }
 
-    /* bubble down to failed for vec cleanup */
-    assert (!e->nr);
-    assert (!things->n);
+    n = iter_thing ? iter_thing->props->n : iterval->via.arr->n;
+    arrowval = res->rval;
+    res->rval = NULL;
+
+    if (ti_scope_local_from_arrow(res->scope, arrowval->via.arrow, e))
+        goto failed;
+
+    arrow_nd = arrowval->via.arrow;
+
+    retvec = vec_new(n);
+    if (!retvec)
+        goto failed;
+
+    retval = ti_val_weak_create(TI_VAL_THINGS, retvec);
+    if (!retval)
+    {
+        vec_destroy(retvec, NULL);
+        goto failed;
+    }
+
+    if (iter_thing)
+    {
+        for (vec_each(iter_thing->props, ti_prop_t, p))
+        {
+            size_t paramn = 0;
+            for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+            {
+                switch (paramn)
+                {
+                case 0:
+                    /* use name as raw */
+                    ti_val_weak_set(&prop->val, TI_VAL_RAW, p->name);
+                    break;
+                case 1:
+                    ti_val_weak_copy(&prop->val, &p->val);
+                    break;
+                default:
+                    ti_val_set_undefined(&prop->val);
+                }
+            }
+
+            if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                goto failed;
+
+            if (ti_val_move_to_arr(retval, res->rval, e))
+                goto failed;
+
+            res->rval = NULL;
+        }
+    }
+    else switch (iterval->tp)
+    {
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+        {
+            int64_t idx = 0;
+            for (vec_each(iterval->via.arr, ti_val_t, v), ++idx)
+            {
+                size_t paramn = 0;
+                for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+                {
+                    switch (paramn)
+                    {
+                    case 0:
+                        ti_val_weak_copy(&prop->val, v);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_undefined(&prop->val);
+                    }
+                }
+
+                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                    goto failed;
+
+                if (ti_val_move_to_arr(retval, res->rval, e))
+                    goto failed;
+
+                res->rval = NULL;
+            }
+        }
+        break;
+    case TI_VAL_THINGS:
+        {
+            int64_t idx = 0;
+            for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
+            {
+                size_t paramn = 0;
+                for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+                {
+                    switch (paramn)
+                    {
+                    case 0:
+                        ti_val_weak_set(&prop->val, TI_VAL_THING, t);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_undefined(&prop->val);
+                    }
+                }
+
+                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                    goto failed;
+
+                if (ti_val_move_to_arr(retval, res->rval, e))
+                    goto failed;
+
+                res->rval = NULL;
+            }
+        }
+    }
+
+    assert (res->rval == NULL);
+    assert (retvec->n == n);
+    res->rval = retval;
+
+    goto done;
 
 failed:
-    vec_destroy(things, (vec_destroy_cb) ti_thing_drop);
+    ti_val_destroy(retval);
+    if (!e->nr)  /* all not set errors are allocation errors */
+        ex_set_alloc(e);
 
+    if (from_rval)
+        ti_val_destroy(iterval);
 done:
+    ti_val_destroy(arrowval);
     return e->nr;
 }
 
@@ -1103,57 +1178,10 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         if (ti_res_scope(res, child->node, e))
             goto failed;
 
-        if (res->rval->tp == TI_VAL_THINGS)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "argument %d is of type `%s` and cannot be "
-                    "nested into into another array",
-                    n, ti_val_str(res->rval));
+        if (ti_val_move_to_arr(val, res->rval, e))
             goto failed;
-        }
 
-        if (res->rval->tp == TI_VAL_THING)
-        {
-            /* TODO: I think we can convert back, not sure why I first thought
-             * this was not possible. Maybe because of nesting? but that is
-             * solved because nested are tuple and therefore not mutable */
-            if (val->tp == TI_VAL_ARRAY  && !val->via.array->n)
-                val->tp = TI_VAL_THINGS;
-
-            if (val->tp == TI_VAL_ARRAY)
-            {
-                ex_set(e, EX_BAD_DATA,
-                    "argument %d is of type `%s` and cannot be added into an "
-                    "array with other types",
-                    n,
-                    ti_val_str(res->rval));
-                goto failed;
-            }
-
-            VEC_push(val->via.things, res->rval->via.thing);
-            res_rval_weak_destroy(res);
-        }
-        else
-        {
-            if (val->tp == TI_VAL_THINGS  && !val->via.things->n)
-                val->tp = TI_VAL_ARRAY;
-
-            if (val->tp == TI_VAL_THINGS)
-            {
-                ex_set(e, EX_BAD_DATA,
-                    "argument %d is of type `%s` and cannot be added into an "
-                    "array with `things`",
-                    n,
-                    ti_val_str(res->rval));
-                goto failed;
-            }
-
-            if (res_assign_val(res, true, e))
-                goto failed;
-
-            VEC_push(val->via.array, res->rval);
-            res->rval = NULL;
-        }
+        res->rval = NULL;
 
         if (!child->next)
             break;
@@ -1384,6 +1412,120 @@ done:
     return e->nr;
 }
 
+static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int n;
+    _Bool force_as_array = true;
+    vec_t * things;
+    ti_thing_t * thing;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+
+    if (res_get_thing(res) != res->db->root)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `thing`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    n = langdef_nd_n_function_params(nd);
+    if (!n)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `thing` requires at least 1 argument but 0 "
+                "were given");
+        return e->nr;
+    }
+
+    things = vec_new(n);
+    if (!things)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    assert (child);
+
+    for (n = 0; child; child = child->next->next)
+    {
+        ++n;
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        res_rval_destroy(res);
+        if (ti_res_scope(res, child->node, e))
+            goto failed;
+
+        assert (res->rval);
+
+        if (res->rval->tp != TI_VAL_INT)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `thing` only accepts `int` arguments, but "
+                    "argument %d is of type `%s`", n, res_tp_str(res));
+            goto failed;
+        }
+
+        thing = ti_db_thing_by_id(res->db, res->rval->via.int_);
+        if (!thing)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "database `%.*s` has no `thing` with id `%"PRId64"`",
+                    (int) res->db->name->n,
+                    (char *) res->db->name->data,
+                    res->rval->via.int_);
+            goto failed;
+        }
+
+        ti_incref(thing);
+        VEC_push(things, thing);
+
+        if (!child->next)
+        {
+            force_as_array = false;
+            break;
+        }
+    }
+
+    assert (things->n >= 1);
+
+    if (n > 1 || force_as_array)
+    {
+        if (res_rval_clear(res))
+        {
+            ex_set_alloc(e);
+            goto failed;
+        }
+
+        ti_val_weak_set(res->rval, TI_VAL_THINGS, things);
+        goto done;
+    }
+
+    res_rval_destroy(res);
+    thing = vec_pop(things);
+
+    assert (thing->ref > 1);
+    ti_decref(thing);
+
+    if (ti_scope_push_thing(&res->scope, thing))
+    {
+        ex_set_alloc(e);
+        goto failed;
+    }
+
+    /* bubble down to failed for vec cleanup */
+    assert (!e->nr);
+    assert (!things->n);
+
+failed:
+    vec_destroy(things, (vec_destroy_cb) ti_thing_drop);
+
+done:
+    return e->nr;
+}
+
 static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1392,7 +1534,7 @@ static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     cleri_node_t * name_nd;
     ti_task_t * task;
-    ti_name_t * name;
+    ti_name_t * name = NULL;
     ti_thing_t * thing;
 
     if (!res_is_thing(res))
@@ -1534,8 +1676,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_id(res, params, e);
     case CLERI_GID_F_LOWER:
         return res__f_lower(res, params, e);
-    case CLERI_GID_F_THING:
-        return res__f_thing(res, params, e);
+    case CLERI_GID_F_MAP:
+        return res__f_map(res, params, e);
     case CLERI_GID_F_PUSH:
         return res__f_push(res, params, e);
     case CLERI_GID_F_RET:
@@ -1544,6 +1686,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_set(res, params, e);
     case CLERI_GID_F_STARTSWITH:
         return res__f_startswith(res, params, e);
+    case CLERI_GID_F_THING:
+        return res__f_thing(res, params, e);
     case CLERI_GID_F_UNSET:
         return res__f_unset(res, params, e);
     case CLERI_GID_F_UPPER:
@@ -1668,7 +1812,7 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
 static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
-    ti_val_t * a_val;
+    ti_val_t * a_val = NULL;
     assert( nd->cl_obj->tp == CLERI_TP_RULE ||
             nd->cl_obj->tp == CLERI_TP_PRIO ||
             nd->cl_obj->tp == CLERI_TP_THIS);
@@ -1744,8 +1888,38 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_FALSE:
         ti_val_set_bool(res->rval, false);
         break;
+    case CLERI_GID_T_FLOAT:
+        ti_val_set_float(res->rval, strx_to_doublen(node->str, node->len));
+        break;
+    case CLERI_GID_T_INT:
+        ti_val_set_int(res->rval, strx_to_int64n(node->str, node->len));
+        break;
     case CLERI_GID_T_NIL:
         ti_val_set_nil(res->rval);
+        break;
+    case CLERI_GID_T_REGEX:
+        if (!node->data)
+        {
+            node->data = ti_regex_from_strn(node->str, node->len, e);
+            if (!node->data)
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+        }
+        (void) ti_val_set(res->rval, TI_VAL_REGEX, node->data);
+        break;
+    case CLERI_GID_T_STRING:
+        if (!node->data)
+        {
+            node->data = ti_raw_from_ti_string(node->str, node->len);
+            if (!node->data)
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+        }
+        (void) ti_val_set(res->rval, TI_VAL_RAW, node->data);
         break;
     case CLERI_GID_T_TRUE:
         ti_val_set_bool(res->rval, true);
@@ -1753,23 +1927,7 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_UNDEFINED:
         ti_val_set_undefined(res->rval);
         break;
-    case CLERI_GID_T_INT:
-        ti_val_set_int(res->rval, strx_to_int64n(node->str, node->len));
-        break;
-    case CLERI_GID_T_FLOAT:
-        ti_val_set_float(res->rval, strx_to_doublen(node->str, node->len));
-        break;
-    case CLERI_GID_T_STRING:
-        {
-            ti_raw_t * r = ti_raw_from_ti_string(node->str, node->len);
-            if (!r)
-            {
-                ex_set_alloc(e);
-                return e->nr;
-            }
-            ti_val_weak_set(res->rval, TI_VAL_RAW, r);
-        }
-        break;
+
     }
     return e->nr;
 }

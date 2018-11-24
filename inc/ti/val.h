@@ -1,5 +1,5 @@
 /*
- * val.h
+ * ti/val.h
  */
 #ifndef TI_VAL_H_
 #define TI_VAL_H_
@@ -13,6 +13,7 @@ typedef enum
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_RAW,
+    TI_VAL_REGEX,
     TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
     TI_VAL_TUPLE,   /* nested arrays are of tuple type */
     TI_VAL_THING,
@@ -42,6 +43,8 @@ typedef union ti_val_u ti_val_via_t;
 #include <ti/raw.h>
 #include <ti/thing.h>
 #include <ti/name.h>
+#include <ti/regex.h>
+#include <ti/ex.h>
 #include <util/vec.h>
 
 ti_val_t * ti_val_create(ti_val_enum tp, void * v);
@@ -70,6 +73,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_tp_str(ti_val_enum tp);
 _Bool ti_val_startswith(ti_val_t * a, ti_val_t * b);
 _Bool ti_val_endswith(ti_val_t * a, ti_val_t * b);
+int ti_val_move_to_arr(ti_val_t * to_arr, ti_val_t * val, ex_t * e);
+int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e);
 static inline const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
@@ -90,6 +95,7 @@ union ti_val_u
     double float_;
     _Bool bool_;
     ti_raw_t * raw;
+    ti_regex_t * regex;
     vec_t * array;          /* ti_val_t*        */
     vec_t * tuple;          /* ti_val_t*        */
     ti_thing_t * thing;

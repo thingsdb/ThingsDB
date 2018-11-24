@@ -109,6 +109,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ == b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -135,6 +136,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ == b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -161,6 +163,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ == b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -183,6 +186,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = ti_raw_equal(a->via.raw, b->via.raw);
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -190,6 +194,9 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_ARROW:
             break;  /* false */
         }
+        break;
+    case TI_VAL_REGEX:
+        bool_ = b->tp == TI_VAL_REGEX && a->via.regex == b->via.regex;
         break;
     case TI_VAL_ARRAY:
         bool_ = ti_val_is_arr(b) && a->via.array == b->via.array;
@@ -245,6 +252,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ >= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -270,6 +278,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ >= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -295,6 +304,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ >= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -316,6 +326,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = ti_raw_cmp(a->via.raw, b->via.raw) >= 0;
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -324,6 +335,7 @@ static int opr__ge(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         }
         break;
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -369,6 +381,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ > b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -394,6 +407,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ > b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -419,6 +433,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ > b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -440,6 +455,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = ti_raw_cmp(a->via.raw, b->via.raw) > 0;
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -448,6 +464,7 @@ static int opr__gt(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         }
         break;
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -493,6 +510,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ <= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -518,6 +536,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ <= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -543,6 +562,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ <= b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -564,6 +584,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = ti_raw_cmp(a->via.raw, b->via.raw) <= 0;
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -572,6 +593,7 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         }
         break;
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -617,6 +639,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ < b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -642,6 +665,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ < b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -667,6 +691,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ < b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -688,6 +713,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = ti_raw_cmp(a->via.raw, b->via.raw) < 0;
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -696,6 +722,7 @@ static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         }
         break;
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -744,6 +771,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.int_ != b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -770,6 +798,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.float_ != b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -796,6 +825,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
             bool_ = a->via.bool_ != b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -818,6 +848,7 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             bool_ = !ti_raw_equal(a->via.raw, b->via.raw);
             break;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -825,6 +856,9 @@ static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_ARROW:
             break;  /* true */
         }
+        break;
+    case TI_VAL_REGEX:
+        bool_ = b->tp != TI_VAL_REGEX || a->via.regex != b->via.regex;
         break;
     case TI_VAL_ARRAY:
         bool_ = !ti_val_is_arr(b) || a->via.array != b->via.array;
@@ -883,6 +917,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ + b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -908,6 +943,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = a->via.float_ + b->via.bool_;
             goto type_float;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -933,6 +969,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ + b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -954,6 +991,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_RAW:
             raw = ti_raw_cat(a->via.raw, b->via.raw);
             goto type_raw;
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -962,6 +1000,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         }
         break;
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -1029,6 +1068,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ - b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1054,6 +1094,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = a->via.float_ - b->via.bool_;
             goto type_float;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1079,6 +1120,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ - b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1088,6 +1130,7 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -1146,6 +1189,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ * b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1171,6 +1215,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = a->via.float_ * b->via.bool_;
             goto type_float;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1196,6 +1241,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ * b->via.bool_;
             goto type_int;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1205,6 +1251,7 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -1268,6 +1315,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = (double) a->via.int_ / (double) b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1299,6 +1347,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = a->via.float_ / (double) b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1330,6 +1379,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
             float_ = (double) a->via.bool_ / (double) b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1339,6 +1389,7 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -1391,6 +1442,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ / b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1422,6 +1474,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.float_ / b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1453,6 +1506,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ / b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1462,6 +1516,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:
@@ -1514,6 +1569,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ % b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1545,6 +1601,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = (int64_t) a->via.float_ % b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1576,6 +1633,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ % b->via.bool_;
             break;
         case TI_VAL_RAW:
+        case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
         case TI_VAL_TUPLE:
         case TI_VAL_THING:
@@ -1585,6 +1643,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
+    case TI_VAL_REGEX:
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THING:

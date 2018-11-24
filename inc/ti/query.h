@@ -30,7 +30,9 @@ static inline _Bool ti_query_will_update(ti_query_t * query);
 
 struct ti_query_s
 {
+    uint32_t nd_cache_count;  /* count while investigate */
     uint8_t flags;
+
     uint64_t pkg_id;
     ti_db_t * target;   /* target NULL means root */
     char * querystr;
@@ -39,6 +41,7 @@ struct ti_query_s
     vec_t * blobs;              /* ti_raw_t */
     vec_t * statements;         /* ti_res_t or ti_root_t for each statement */
     ti_event_t * ev;            /* only when an event is required */
+    vec_t * nd_cache;           /* cleri_node_t, for node cache cleanup */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

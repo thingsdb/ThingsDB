@@ -22,6 +22,7 @@ static _Bool query__swap_opr(
         cleri_children_t * parent,
         uint32_t parent_gid);
 static void query__task_to_watchers(ti_query_t * query);
+static void query__nd_cache_cleanup(cleri_node_t * node);
 
 ti_query_t * ti_query_create(ti_stream_t * stream)
 {
@@ -37,6 +38,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     query->ev = NULL;
     query->blobs = NULL;
     query->querystr = NULL;
+    query->nd_cache_count = 0;
 
     return query;
 }
@@ -55,6 +57,7 @@ void ti_query_destroy(ti_query_t * query)
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
+    vec_destroy(query->nd_cache, (vec_destroy_cb) query__nd_cache_cleanup);
     free(query->querystr);
     free(query);
 }
@@ -202,7 +205,8 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     }
 
     query->statements = vec_new(nstatements);
-    if (!query->statements)
+    query->nd_cache = vec_new(query->nd_cache_count);
+    if (!query->statements || !query->nd_cache)
         ex_set_alloc(e);
 
     return e->nr;
@@ -385,13 +389,21 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         return;
     case CLERI_GID_COMMENT:
     case CLERI_GID_INDEX:
-    case CLERI_GID_T_STRING:
-    case CLERI_GID_PRIMITIVES:
         /* all with children we can skip */
+        return;
+    case CLERI_GID_PRIMITIVES:
+        switch (nd->children->node->cl_obj->gid)
+        {
+            case CLERI_GID_T_STRING:
+            case CLERI_GID_T_REGEX:
+                ++query->nd_cache_count;
+                nd->children->node->data = NULL;    /* init data to null */
+        }
         return;
     case CLERI_GID_OPERATIONS:
         (void) query__swap_opr(query, nd->children->next, 0);
         return;
+
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
@@ -479,5 +491,18 @@ static void query__task_to_watchers(ti_query_t * query)
 
             ti_rpkg_drop(rpkg);
         }
+    }
+}
+
+static void query__nd_cache_cleanup(cleri_node_t * node)
+{
+    switch (node->cl_obj->gid)
+    {
+    case CLERI_GID_T_STRING:
+        ti_raw_drop(node->data);
+        return;
+    case CLERI_GID_T_REGEX:
+        ti_regex_drop(node->data);
+        return;
     }
 }

@@ -56,33 +56,3 @@ void res_rval_weak_destroy(ti_res_t * res)
     res->rval = NULL;
 }
 
-/* checks PROP, UNDEFINED, ARROW and ARRAY/TUPLE */
-int res_assign_val(ti_res_t * res, _Bool to_array, ex_t * e)
-{
-    switch (res->rval->tp)
-    {
-    case TI_VAL_ATTR:
-    case TI_VAL_UNDEFINED:
-        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
-                ti_val_tp_str(res->rval->tp));
-        break;
-    case TI_VAL_ARROW:
-        if (ti_arrow_wse(res->rval->via.arrow))
-            ex_set(e, EX_BAD_DATA,
-                    "an arrow function with side effects cannot be assigned");
-        break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        res->rval->tp = to_array ? TI_VAL_TUPLE : TI_VAL_ARRAY;
-        break;
-    }
-    return e->nr;
-}
-
-
-
-
-
-
-
-

@@ -40,9 +40,10 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
-    t_float = Regex(r'[-+]?[0-9]*\.?[0-9]+')
+    t_float = Regex(r'[-+]?[0-9]*\.[0-9]+')
     t_int = Regex(r'[-+]?[0-9]+')
     t_nil = Keyword('nil')
+    t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
     t_undefined = Keyword('undefined')
@@ -78,11 +79,11 @@ class Definition(Grammar):
         t_false,
         t_nil,
         t_true,
-        t_undefined,
-        t_int,
         t_float,
+        t_int,
         t_string,
-        most_greedy=True,
+        t_regex,
+        t_undefined,
     )
 
     scope = Ref()
@@ -241,9 +242,9 @@ if __name__ == '__main__':
     }
 
     {
-        '$ev': 1,
+        'event': 1,
         '#': 0,
-        '$jobs': [
+        'jobs': [
             {'new': {'Database': {
                 'name': 'testdb',
                 'user': 'iris'

@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -luv -lm -lcleri -lqpack
+LIBS := -luv -lpcre2-8 -lm -lcleri -lqpack
 

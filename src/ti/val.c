@@ -100,6 +100,9 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
     case TI_VAL_RAW:
         val->via.raw = v;
         return;
+    case TI_VAL_REGEX:
+        val->via.regex = v;
+        return;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         val->via.array = v;
@@ -153,6 +156,9 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
         return 0;
     case TI_VAL_RAW:
         val->via.raw = ti_grab((ti_raw_t *) v);
+        return 0;
+    case TI_VAL_REGEX:
+        val->via.regex = ti_grab((ti_regex_t *) v);
         return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
@@ -211,6 +217,9 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
         return 0;
     case TI_VAL_RAW:
         to->via.raw = ti_grab(from->via.raw);
+        return 0;
+    case TI_VAL_REGEX:
+        to->via.regex = ti_grab(from->via.regex);
         return 0;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
@@ -314,6 +323,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return val->via.bool_;
     case TI_VAL_RAW:
         return !!val->via.raw->n;
+    case TI_VAL_REGEX:
+        return true;
     case TI_VAL_ARRAY:
     case TI_VAL_TUPLE:
     case TI_VAL_THINGS:
@@ -397,6 +408,9 @@ void ti_val_clear(ti_val_t * val)
     case TI_VAL_RAW:
         ti_raw_drop(val->via.raw);
         break;
+    case TI_VAL_REGEX:
+        ti_regex_drop(val->via.regex);
+        break;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
@@ -446,6 +460,8 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
                 qp_add_true(*packer) : qp_add_false(*packer);
     case TI_VAL_RAW:
         return qp_add_raw(*packer, val->via.raw->data, val->via.raw->n);
+    case TI_VAL_REGEX:
+        return ti_regex_to_packer(val->via.regex, packer);
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         if (qp_add_array(packer))
@@ -509,6 +525,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
+    case TI_VAL_REGEX:
+        return ti_regex_to_file(val->via.regex, f);
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
@@ -548,6 +566,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
     case TI_VAL_RAW:                return "raw";
+    case TI_VAL_REGEX:              return "regex";
     case TI_VAL_TUPLE:              return "tuple";
     case TI_VAL_ARRAY:
     case TI_VAL_THINGS:             return "array";
@@ -594,4 +613,83 @@ _Bool ti_val_endswith(ti_val_t * a, ti_val_t * b)
     }
 
     return true;
+}
+
+/* The destination array should have enough space to hold the new value.
+ * Note that 'val' will be moved so should not be used after calling thing
+ * function.
+ */
+int ti_val_move_to_arr(ti_val_t * to_arr, ti_val_t * val, ex_t * e)
+{
+    assert (ti_val_is_mutable_arr(to_arr));
+    assert (vec_space(to_arr->via.arr));
+
+    if (val->tp == TI_VAL_THINGS)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "type `%s` cannot be nested into into another array",
+                ti_val_str(val));
+        return e->nr;
+    }
+
+    if (val->tp == TI_VAL_THING)
+    {
+        /* TODO: I think we can convert back, not sure why I first thought
+         * this was not possible. Maybe because of nesting? but that is
+         * solved because nested are tuple and therefore not mutable */
+        if (to_arr->tp == TI_VAL_ARRAY  && !to_arr->via.array->n)
+            to_arr->tp = TI_VAL_THINGS;
+
+        if (to_arr->tp == TI_VAL_ARRAY)
+        {
+            ex_set(e, EX_BAD_DATA,
+                "type `%s` cannot be added into an array with other types",
+                ti_val_str(val));
+            return e->nr;
+        }
+
+        VEC_push(to_arr->via.things, val->via.thing);
+        ti_val_weak_destroy(val);
+        return 0;
+    }
+
+    if (to_arr->tp == TI_VAL_THINGS  && !to_arr->via.things->n)
+        to_arr->tp = TI_VAL_ARRAY;
+
+    if (to_arr->tp == TI_VAL_THINGS)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "type `%s` cannot be added into an array with `things`",
+            ti_val_str(val));
+        return e->nr;
+    }
+
+    if (ti_val_check_assignable(val, true, e))
+        return e->nr;
+
+    VEC_push(to_arr->via.array, val);
+    return 0;
+}
+
+/* checks PROP, UNDEFINED, ARROW and ARRAY/TUPLE */
+int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
+{
+    switch (val->tp)
+    {
+    case TI_VAL_ATTR:
+    case TI_VAL_UNDEFINED:
+        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
+                ti_val_tp_str(val->tp));
+        break;
+    case TI_VAL_ARROW:
+        if (ti_arrow_wse(val->via.arrow))
+            ex_set(e, EX_BAD_DATA,
+                    "an arrow function with side effects cannot be assigned");
+        break;
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
+        val->tp = to_array ? TI_VAL_TUPLE : TI_VAL_ARRAY;
+        break;
+    }
+    return e->nr;
 }

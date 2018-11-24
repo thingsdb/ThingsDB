@@ -38,6 +38,7 @@ C_SRCS += \
 ../src/ti/quota.c \
 ../src/ti/raw.c \
 ../src/ti/ref.c \
+../src/ti/regex.c \
 ../src/ti/req.c \
 ../src/ti/res.c \
 ../src/ti/root.c \
@@ -93,6 +94,7 @@ OBJS += \
 ./src/ti/quota.o \
 ./src/ti/raw.o \
 ./src/ti/ref.o \
+./src/ti/regex.o \
 ./src/ti/req.o \
 ./src/ti/res.o \
 ./src/ti/root.o \
@@ -148,6 +150,7 @@ C_DEPS += \
 ./src/ti/quota.d \
 ./src/ti/raw.d \
 ./src/ti/ref.d \
+./src/ti/regex.d \
 ./src/ti/req.d \
 ./src/ti/res.d \
 ./src/ti/root.d \

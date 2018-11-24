@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-23 21:44:48
+ * Created at: 2018-11-24 15:21:02
  */
 
 #include <langdef/langdef.h>
@@ -22,9 +22,10 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
-    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?[0-9]*\\.?[0-9]+");
+    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?[0-9]*\\.[0-9]+");
     cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?[0-9]+");
     cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
+    cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)");
     cleri_t * t_string = cleri_choice(
         CLERI_GID_T_STRING,
         CLERI_FIRST_MATCH,
@@ -57,15 +58,16 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_unset = cleri_keyword(CLERI_GID_F_UNSET, "unset", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
-        CLERI_MOST_GREEDY,
-        7,
+        CLERI_FIRST_MATCH,
+        8,
         t_false,
         t_nil,
         t_true,
-        t_undefined,
-        t_int,
         t_float,
-        t_string
+        t_int,
+        t_string,
+        t_regex,
+        t_undefined
     );
     cleri_t * scope = cleri_ref();
     cleri_t * chain = cleri_ref();

@@ -7,6 +7,7 @@ C_SRCS += \
 ../src/ti/access.c \
 ../src/ti/archive.c \
 ../src/ti/args.c \
+../src/ti/arrow.c \
 ../src/ti/auth.c \
 ../src/ti/back.c \
 ../src/ti/cfg.c \
@@ -26,6 +27,7 @@ C_SRCS += \
 ../src/ti/names.c \
 ../src/ti/node.c \
 ../src/ti/nodes.c \
+../src/ti/opr.c \
 ../src/ti/pipe.c \
 ../src/ti/pkg.c \
 ../src/ti/prom.c \
@@ -39,6 +41,8 @@ C_SRCS += \
 ../src/ti/req.c \
 ../src/ti/res.c \
 ../src/ti/root.c \
+../src/ti/rpkg.c \
+../src/ti/scope.c \
 ../src/ti/signals.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
@@ -50,12 +54,15 @@ C_SRCS += \
 ../src/ti/users.c \
 ../src/ti/val.c \
 ../src/ti/version.c \
+../src/ti/wareq.c \
+../src/ti/watch.c \
 ../src/ti/write.c 
 
 OBJS += \
 ./src/ti/access.o \
 ./src/ti/archive.o \
 ./src/ti/args.o \
+./src/ti/arrow.o \
 ./src/ti/auth.o \
 ./src/ti/back.o \
 ./src/ti/cfg.o \
@@ -75,6 +82,7 @@ OBJS += \
 ./src/ti/names.o \
 ./src/ti/node.o \
 ./src/ti/nodes.o \
+./src/ti/opr.o \
 ./src/ti/pipe.o \
 ./src/ti/pkg.o \
 ./src/ti/prom.o \
@@ -88,6 +96,8 @@ OBJS += \
 ./src/ti/req.o \
 ./src/ti/res.o \
 ./src/ti/root.o \
+./src/ti/rpkg.o \
+./src/ti/scope.o \
 ./src/ti/signals.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
@@ -99,12 +109,15 @@ OBJS += \
 ./src/ti/users.o \
 ./src/ti/val.o \
 ./src/ti/version.o \
+./src/ti/wareq.o \
+./src/ti/watch.o \
 ./src/ti/write.o 
 
 C_DEPS += \
 ./src/ti/access.d \
 ./src/ti/archive.d \
 ./src/ti/args.d \
+./src/ti/arrow.d \
 ./src/ti/auth.d \
 ./src/ti/back.d \
 ./src/ti/cfg.d \
@@ -124,6 +137,7 @@ C_DEPS += \
 ./src/ti/names.d \
 ./src/ti/node.d \
 ./src/ti/nodes.d \
+./src/ti/opr.d \
 ./src/ti/pipe.d \
 ./src/ti/pkg.d \
 ./src/ti/prom.d \
@@ -137,6 +151,8 @@ C_DEPS += \
 ./src/ti/req.d \
 ./src/ti/res.d \
 ./src/ti/root.d \
+./src/ti/rpkg.d \
+./src/ti/scope.d \
 ./src/ti/signals.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \
@@ -148,6 +164,8 @@ C_DEPS += \
 ./src/ti/users.d \
 ./src/ti/val.d \
 ./src/ti/version.d \
+./src/ti/wareq.d \
+./src/ti/watch.d \
 ./src/ti/write.d 
 
 

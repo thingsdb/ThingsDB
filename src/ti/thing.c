@@ -352,7 +352,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
     {
         assert (ti_manages_id(thing->id));
 
-        if (qp_add_raw(*packer, (const uchar *) "$", 1) || qp_add_map(packer))
+        if (qp_add_raw(*packer, (const uchar *) ".", 1) || qp_add_map(packer))
             return -1;
 
         for (vec_each(thing->attrs, ti_prop_t, prop))

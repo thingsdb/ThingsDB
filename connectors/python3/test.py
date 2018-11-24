@@ -24,8 +24,11 @@ async def test():
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:
-        print(time.time() - start)
+        print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
+
+    await asyncio.sleep(0.5)
+    print('-----------------------------------------------------------------')
 
     start = time.time()
     try:
@@ -34,24 +37,17 @@ async def test():
          * test query
          */
 
-        people.filter(x => x.name.lower().endswith('ris'));
+        people.map(x => (x.name.startswith(/bla/)));
 
-        a = {name: 'Iris', age: 5};
-
-        a.filter(k, v => (v == 'Iris'));
-
-        people;
-
-
-
-
-
-        ''', blobs=["bla"], timeout=2)
+        ''', timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:
-        print(time.time() - start)
+        print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
+
+    await asyncio.sleep(0.5)
+    print('-----------------------------------------------------------------')
 
     start = time.time()
     try:
@@ -61,11 +57,11 @@ async def test():
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:
-        # print(time.time() - start)
+        print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    await asyncio.sleep(1)
-
+    await asyncio.sleep(0.5)
+    print('-----------------------------------------------------------------')
 
 
 if __name__ == '__main__':

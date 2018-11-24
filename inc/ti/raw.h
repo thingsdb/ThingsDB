@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 typedef struct ti_raw_s ti_raw_t;
+typedef unsigned char uchar;
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n);
 void ti_raw_drop(ti_raw_t * raw);

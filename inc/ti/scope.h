@@ -17,6 +17,7 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until);
 ti_val_t * ti_scope_global_to_val(ti_scope_t * scope);
 int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val);
 int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing);
+_Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing);
 _Bool ti_scope_in_use_name(
         ti_scope_t * scope,
         ti_thing_t * thing,

@@ -171,7 +171,18 @@ int ti_nodes_listen(void)
 }
 
 /*
- * Returns another node with status READY.
+ * Returns a borrowed node in away mode or NULL if none is found
+ */
+ti_node_t * ti_nodes_get_away(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status == TI_NODE_STAT_AWAY)
+            return node;
+    return NULL;
+}
+
+/*
+ * Returns another borrowed node with status READY.
  */
 ti_node_t * ti_nodes_random_ready_node(void)
 {
@@ -190,7 +201,7 @@ ti_node_t * ti_nodes_random_ready_node(void)
 }
 
 /*
- * Returns another node which manages id with status READY.
+ * Returns another borrowed node which manages id with status READY.
  */
 ti_node_t * ti_nodes_random_ready_node_for_id(uint64_t id)
 {

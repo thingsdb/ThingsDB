@@ -377,12 +377,10 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
             return;  /* arguments will be ignored */
         case CLERI_GID_F_DEL:
         case CLERI_GID_F_NEW:
-            query->flags |= TI_QUERY_FLAG_EVENT;
-            return;  /* arguments will be ignored */
-        case CLERI_GID_F_RENAME:
-        case CLERI_GID_F_UNSET:
         case CLERI_GID_F_PUSH:
+        case CLERI_GID_F_RENAME:
         case CLERI_GID_F_SET:
+        case CLERI_GID_F_UNSET:
             query->flags |= TI_QUERY_FLAG_EVENT;
         }
         /* skip to arguments */

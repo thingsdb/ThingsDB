@@ -39,7 +39,13 @@ async def test():
 
         re = /ir.*/;
 
-        people.map(x => people = 5 );
+        people.map(x => x);
+
+        a = {
+            name: 'Iris'
+        };
+
+        map(x => x);
 
         ''', timeout=2)
     except ThingsDBError as e:

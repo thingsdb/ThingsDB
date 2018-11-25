@@ -199,7 +199,8 @@ int ti_thing_attr_weak_setv(
     return 0;
 }
 
-void ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
+/* Returns true if the property is removed, false if not found */
+_Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
 {
     uint32_t i = 0;
     for (vec_each(thing->props, ti_prop_t, prop), ++i)
@@ -207,9 +208,25 @@ void ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
         if (prop->name == name)
         {
             ti_prop_destroy(vec_remove(thing->props, i));
-            return;
+            return true;
         }
     }
+    return false;
+}
+
+/* Returns true if the attribute is removed, false if not found */
+_Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
+{
+    uint32_t i = 0;
+    for (vec_each(thing->attrs, ti_prop_t, attr), ++i)
+    {
+        if (attr->name == name)
+        {
+            ti_prop_destroy(vec_remove(thing->attrs, i));
+            return true;
+        }
+    }
+    return false;
 }
 
 void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name)

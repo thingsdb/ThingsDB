@@ -20,6 +20,7 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
@@ -450,6 +451,98 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (ti_val_set(res->rval, TI_VAL_RAW, vec_get(res->blobs, idx)))
         ex_set_alloc(e);
 
+    return e->nr;
+}
+
+static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (res->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    cleri_node_t * name_nd;
+    ti_task_t * task;
+    ti_name_t * name = NULL;
+    ti_thing_t * thing;
+    ti_raw_t * rname;
+
+    if (!res_is_thing(res))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `del`",
+                res_tp_str(res));
+        return e->nr;
+    }
+
+    thing = res_get_thing(res);
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `del` requires a thing to be assigned, "
+                "`del` should therefore be used in a separate statement");
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `del` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    if (res_in_use_thing(res))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "cannot use `del` while thing "TI_THING_ID" is in use");
+        return e->nr;
+    }
+
+    name_nd = nd
+            ->children->node;
+
+    if (ti_res_scope(res, name_nd, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(res->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `del` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_RAW),
+                ti_val_str(res->rval));
+        return e->nr;
+    }
+
+    rname = res->rval->via.raw;
+    name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    if (!name || !ti_thing_del(thing, name))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id,
+                (int) rname->n, (const char *) rname->data);
+        return e->nr;
+    }
+
+    task = res_get_task(res->ev, thing, e);
+    if (!task)
+        goto finish;
+
+    if (ti_task_add_del(task, name))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `res->ev->tasks` */
+
+    ti_val_clear(res->rval);
+    ti_val_set_nil(res->rval);
+
+    goto finish;
+
+alloc_err:
+    ex_set_alloc(e);
+
+finish:
     return e->nr;
 }
 
@@ -1721,6 +1814,8 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return res__f_blob(res, params, e);
     case CLERI_GID_F_ENDSWITH:
         return res__f_endswith(res, params, e);
+    case CLERI_GID_F_DEL:
+        return res__f_del(res, params, e);
     case CLERI_GID_F_FILTER:
         return res__f_filter(res, params, e);
     case CLERI_GID_F_GET:

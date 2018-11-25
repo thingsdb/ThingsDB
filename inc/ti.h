@@ -46,7 +46,7 @@ typedef struct ti_s ti_t;
 #include <ti/connect.h>
 #include <ti/events.h>
 #include <ti/lookup.h>
-#include <ti/maint.h>
+#include <ti/away.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
@@ -82,7 +82,7 @@ struct ti_s
     ti_node_t * node;
     ti_args_t * args;
     ti_cfg_t * cfg;
-//    ti_maint_t * maint;
+    ti_away_t * away;
     ti_lookup_t * lookup;
     ti_clients_t * clients;
     ti_events_t * events;

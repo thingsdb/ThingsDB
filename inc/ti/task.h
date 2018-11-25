@@ -28,13 +28,14 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
 ti_pkg_t * ti_task_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
-int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
-int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
+int ti_task_add_del(ti_task_t * task, ti_name_t * name);
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,
         ti_val_t * val,             /* array or things */
         size_t n);                  /* the last n items are pushed */
+int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
 int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user);
 
 struct ti_task_s

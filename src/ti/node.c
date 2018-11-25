@@ -93,49 +93,12 @@ fail0:
     return -1;
 }
 
-int ti_node_write_stats(ti_node_t * node)
-{
-    assert (node->stream);
-    assert (node->status != TI_NODE_STAT_OFFLINE);
-
-    ti_pkg_t * pkg;
-    qpx_packer_t * packer = qpx_packer_create(1024, 1);
-
-    if (!packer)
-        return -1;
-
-    (void) qp_add_map(&packer);
-    (void) qp_close_map(packer);
-
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATS);
-
-    if (ti_node_write(node, pkg))
-    {
-        free(pkg);
-        return -1;
-    }
-
-    return 0;
-}
-
-int ti_node_write(ti_node_t * node, ti_pkg_t * pkg)
-{
-    return ti_write(node->stream, pkg, NULL, node__write_cb);
-}
-
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u)
 {
     ti_node_t * min = node_a->id < node_b->id ? node_a : node_b;
     ti_node_t * max = node_a->id > node_b->id ? node_a : node_b;
 
     return ti_lookup_node_is_ordered(min->id, max->id, u) ? min : max;
-}
-
-static void node__write_cb(ti_write_t * req, ex_enum status)
-{
-    (void)(status);
-    free(req->pkg);
-    ti_write_destroy(req);
 }
 
 static void node__on_connect(uv_connect_t * req, int status)

@@ -1,14 +1,15 @@
 /*
  * signals.c
  */
-#include <uv.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/away.h>
 #include <ti/connect.h>
 #include <ti/events.h>
 #include <ti/signals.h>
-#include <ti.h>
 #include <util/logger.h>
+#include <uv.h>
 
 static void signals__handler(uv_signal_t * sig, int signum);
 
@@ -59,7 +60,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
     else
         log_critical("received stop signal (%s)", strsignal(signum));
 
-//    ti_maint_stop(ti()->maint);
+    ti_away_stop();
     ti_connect_stop();
     ti_events_stop();
 

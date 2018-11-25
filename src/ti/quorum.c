@@ -99,9 +99,11 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
         switch (req->pkg_res->tp)
         {
         case TI_PROTO_NODE_RES_EVENT_ID:
+        case TI_PROTO_NODE_RES_AWAY_ID:
             ++quorum->accepted;
             break;
         case TI_PROTO_NODE_ERR_EVENT_ID:
+        case TI_PROTO_NODE_ERR_AWAY_ID:
             if (req->pkg_res->n == sizeof(uint8_t))
             {
                 uint8_t * node_id = (uint8_t *) req->pkg_res->data;

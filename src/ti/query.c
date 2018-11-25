@@ -506,7 +506,7 @@ static void query__task_to_watchers(ti_query_t * query)
 
             for (vec_each(task->thing->watchers, ti_watch_t, watch))
             {
-                if (!watch->stream || ti_stream_is_closed(watch->stream))
+                if (ti_stream_is_closed(watch->stream))
                     continue;
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))

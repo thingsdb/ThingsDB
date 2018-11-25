@@ -72,6 +72,8 @@ int ti_run(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
+ti_rpkg_t * ti_status_rpkg(void);  /* returns package with ti->node->status */
+void ti_set_and_send_node_status(ti_node_status_t status);
 static inline ti_t * ti(void);
 static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);

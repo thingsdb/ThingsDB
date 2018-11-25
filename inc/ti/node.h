@@ -20,6 +20,7 @@ typedef struct ti_node_s ti_node_t;
 #include <stdint.h>
 #include <ti/stream.h>
 #include <ti/pkg.h>
+#include <ti/rpkg.h>
 #include <ti/lookup.h>
 #include <util/imap.h>
 
@@ -43,8 +44,6 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
 void ti_node_drop(ti_node_t * node);
 const char * ti_node_name(ti_node_t * node);
 int ti_node_connect(ti_node_t * node);
-int ti_node_write_stats(ti_node_t * node);
-int ti_node_write(ti_node_t * node, ti_pkg_t * pkg);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 static inline _Bool ti_node_manages_id(
         ti_node_t * node,

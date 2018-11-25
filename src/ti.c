@@ -49,6 +49,7 @@ int ti_create(void)
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+            ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
             ti_clients_create() ||
@@ -76,6 +77,7 @@ void ti_destroy(void)
      * but not if ti_run() is never called */
     ti_events_stop();
     ti_connect_stop();
+    ti_away_stop();
 
     ti_lookup_destroy();
     ti_args_destroy();
@@ -230,6 +232,9 @@ int ti_run(void)
     if (ti_signals_init())
         goto failed;
 
+    /* TODO: this is probably not right yet, not all things should start
+     *       when only listening for joining a pool
+     */
     if (ti_.node)
     {
         if (ti_clients_listen())
@@ -318,10 +323,32 @@ int ti_unlock(void)
     return 0;
 }
 
-//_Bool ti_manages_id(uint64_t id)
-//{
-//    return ti_node_manages_id(ti_.node, ti_.lookup, id);
-//}
+ti_rpkg_t * ti_status_rpkg(void)
+{
+    ti_pkg_t * pkg;
+    ti_rpkg_t * rpkg;
+    qpx_packer_t * packer = qpx_packer_create(1, 0);
+
+    if (!packer)
+        return NULL;
+
+    (void) qp_add_int64(packer, ti()->node->status);
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+    {
+        free(pkg);
+        return NULL;
+    }
+    return rpkg;
+}
+
+void ti_set_and_send_node_status(ti_node_status_t status)
+{
+    ti()->node->status = status;
+    ti_nodes_write_status();
+}
 
 static qp_packer_t * ti__pack(void)
 {

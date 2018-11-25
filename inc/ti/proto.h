@@ -95,7 +95,7 @@ typedef enum
      */
 
     TI_PROTO_NODE_EVENT_CANCEL  =158,   /* event id */
-    TI_PROTO_NODE_STATS         =159,   /* {key: value ...} */
+    TI_PROTO_NODE_STATUS        =159,   /* node->status */
 
     /*
      * 160..175 node requests mapping to client requests
@@ -109,7 +109,8 @@ typedef enum
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [node_id, status, version, ...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
-    TI_PROTO_NODE_REQ_WATCH_ID  =178,   /* thing id */
+    TI_PROTO_NODE_REQ_AWAY_ID   =178,   /* away id  */
+    TI_PROTO_NODE_REQ_WATCH_ID  =179,   /* thing id */
 
     /*
      * 192..207 node responses mapping to client responses
@@ -123,6 +124,7 @@ typedef enum
 
     TI_PROTO_NODE_RES_CONNECT   =208,   /* [node_id, status] */
     TI_PROTO_NODE_RES_EVENT_ID  =209,   /* empty, event id accepted */
+    TI_PROTO_NODE_RES_AWAY_ID   =210,   /* empty, away id accepted */
 
     /*
      * 224..239 node errors mapping to client errors
@@ -153,13 +155,14 @@ typedef enum
     TI_PROTO_NODE_ERR_CONNECT       =240,
     TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* uint8_t node_id with the
                                                conflicting event id */
-
+    TI_PROTO_NODE_ERR_AWAY_ID       =242,   /* empty */
 
 } ti_proto_e;
 
 #define TI_PROTO_NODE_REQ_QUERY_TIMEOUT 120
 #define TI_PROTO_NODE_REQ_CONNECT_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
+#define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
 
 const char * ti_proto_str(ti_proto_e tp);
 

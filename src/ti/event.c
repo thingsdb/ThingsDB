@@ -71,7 +71,9 @@ void ti_event_cancel(ti_event_t * ev)
     {
         ti_pkg_t * dup;
 
-        if (node == ti()->node || node->status <= TI_NODE_STAT_CONNECTING)
+        if (node == ti()->node ||
+            node->status <= TI_NODE_STAT_CONNECTING ||
+            ti_stream_is_closed(node->stream))
             continue;
 
         dup = ti_pkg_dup(pkg);
@@ -81,7 +83,7 @@ void ti_event_cancel(ti_event_t * ev)
             continue;
         }
 
-        if (ti_node_write(node, dup))
+        if (ti_stream_write(node->stream, dup))
         {
             log_error(EX_INTERNAL_S);
             free(dup);

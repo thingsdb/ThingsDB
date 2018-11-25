@@ -12,9 +12,9 @@
 static ti_nodes_t * nodes;
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
-static void nodes__on_stats(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_status(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
 {
@@ -56,6 +56,27 @@ _Bool ti_nodes_has_quorum(void)
             return true;
 
     return false;
+}
+
+void ti_nodes_write_status(void)
+{
+    ti_rpkg_t * rpkg = ti_status_rpkg();
+    if (!rpkg)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
+
+    for (vec_each(ti()->nodes->vec, ti_node_t, node))
+    {
+        if (node != ti()->node && !ti_stream_is_closed(node->stream))
+        {
+            if (ti_stream_write_rpkg(node->stream, rpkg))
+                log_error(EX_INTERNAL_S);
+        }
+    }
+
+    ti_rpkg_drop(rpkg);
 }
 
 int ti_nodes_to_packer(qp_packer_t ** packer)
@@ -165,8 +186,6 @@ int ti_nodes_listen(void)
     log_info("start listening for node connections on TCP port %d",
             cfg->node_port);
 
-    ti()->node->status = TI_NODE_STAT_READY;
-
     return 0;
 }
 
@@ -177,6 +196,18 @@ ti_node_t * ti_nodes_get_away(void)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_AWAY)
+            return node;
+    return NULL;
+}
+
+/*
+ * Returns a borrowed node in away or soon mode or NULL if none is found
+ */
+ti_node_t * ti_nodes_get_away_or_soon(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status == TI_NODE_STAT_AWAY ||
+            node->status == TI_NODE_STAT_AWAY_SOON)
             return node;
     return NULL;
 }
@@ -225,8 +256,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
     {
-    case TI_PROTO_NODE_STATS:
-        nodes__on_stats(stream, pkg);
+    case TI_PROTO_NODE_STATUS:
+        nodes__on_status(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);
@@ -282,17 +313,17 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     }
 }
 
-static void nodes__on_stats(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-
-}
-
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
 
 }
 
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+
+}
+
+static void nodes__on_status(ti_stream_t * stream, ti_pkg_t * pkg)
 {
 
 }

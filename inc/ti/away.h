@@ -14,9 +14,11 @@ void ti_away_destroy(void);
 struct ti_away_s
 {
     uv_work_t * work;
-    uv_timer_t * timer;
+    uv_timer_t * repeat;
+    uv_timer_t * waiter;
     _Bool is_started;
     _Bool is_running;
+    _Bool is_waiting;
     uint8_t id;    /* id in the node range */
 };
 

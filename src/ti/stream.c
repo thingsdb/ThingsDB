@@ -213,7 +213,7 @@ int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
     return ti_write(stream, pkg, NULL, stream__write_pkg_cb);
 }
 
-/* uses a reference as long as required */
+/* increases with a new reference as long as required */
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 {
     if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb))

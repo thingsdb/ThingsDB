@@ -422,7 +422,7 @@ static void thing__watch_del(ti_thing_t * thing)
 
     for (vec_each(thing->watchers, ti_watch_t, watch))
     {
-        if (!watch->stream || ti_stream_is_closed(watch->stream))
+        if (ti_stream_is_closed(watch->stream))
             continue;
 
         if (ti_stream_write_rpkg(watch->stream, rpkg))

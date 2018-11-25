@@ -235,7 +235,23 @@ static void away__waiter_cb(uv_timer_t * waiter)
 
 static void away__work(uv_work_t * UNUSED(work))
 {
+    assert (ti()->node->status == TI_NODE_STAT_AWAY);
+    assert (away->is_started == true);
+    assert (away->is_running == true);
+    assert (away->is_waiting == false);
 
+    for (vec_each(ti()->dbs, ti_db_t, db))
+    {
+        uv_mutex_lock(db->lock);
+
+        if (ti_things_gc(db->things, db->root))
+        {
+            log_error("garbage collection for database `%.*s` has failed",
+                    (int) db->name->n, (char *) db->name->data);
+        }
+
+        uv_mutex_unlock(db->lock);
+    }
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)

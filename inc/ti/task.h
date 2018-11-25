@@ -26,7 +26,7 @@ typedef struct ti_task_s ti_task_t;
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
-ti_pkg_t * ti_task_watch(ti_task_t * task);
+ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_del(ti_task_t * task, ti_name_t * name);
 int ti_task_add_push(
@@ -41,6 +41,7 @@ int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user);
 struct ti_task_s
 {
     uint64_t event_id;
+    size_t * approx_sz;
     ti_thing_t * thing;     /* with reference */
     vec_t * jobs;           /* q-pack (unsigned char *) */
 };

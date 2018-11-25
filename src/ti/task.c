@@ -11,7 +11,7 @@
 #include <util/qpx.h>
 
 static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing);
-static size_t task__approx_watch_size(ti_task_t * task);
+static void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw);
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
 {
@@ -54,11 +54,10 @@ void ti_task_destroy(ti_task_t * task)
         ]
     }
  */
-ti_pkg_t * ti_task_watch(ti_task_t * task)
+ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
 {
     ti_pkg_t * pkg;
-    size_t approx_size = task__approx_watch_size(task);
-    qp_packer_t * packer = qpx_packer_create(approx_size, 2);
+    qp_packer_t * packer = qpx_packer_create(task->approx_sz, 2);
     if (!packer)
         return NULL;
     (void) qp_add_map(&packer);
@@ -113,6 +112,8 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
         goto failed;
 
     rc = 0;
+
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -145,6 +146,7 @@ int ti_task_add_del(ti_task_t * task, ti_name_t * name)
         goto failed;
 
     rc = 0;
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -214,6 +216,7 @@ int ti_task_add_push(
         goto failed;
 
     rc = 0;
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -254,6 +257,7 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
         goto failed;
 
     rc = 0;
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -286,6 +290,7 @@ int ti_task_add_unset(ti_task_t * task, ti_name_t * name)
         goto failed;
 
     rc = 0;
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -330,6 +335,7 @@ int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user)
         goto failed;
 
     rc = 0;
+    task__upd_approx_sz(task, job);
     goto done;
 
 failed:
@@ -349,11 +355,8 @@ static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing)
     return ti_thing_id_to_packer(thing, packer);
 }
 
-static size_t task__approx_watch_size(ti_task_t * task)
+static inline void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw)
 {
-    size_t sz = 37;  /* maximum overhead */
-    for (vec_each(task->jobs, ti_raw_t, raw))
-        sz += raw->n;
-    return sz;
+    task->approx_sz += (37 + raw->n);
 }
 

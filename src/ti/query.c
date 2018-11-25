@@ -305,7 +305,10 @@ void ti_query_run(ti_query_t * query)
 
 done:
     if (query->ev)
+    {
         query__task_to_watchers(query);
+        query__event_handle(query);
+    }
 
     ti_query_send(query, e);
 }
@@ -482,6 +485,12 @@ static _Bool query__swap_opr(
     return gid > parent_gid;
 }
 
+static void query__event_handle(ti_query_t * query)
+{
+    ti_rpkg_t * rpkg;
+
+}
+
 static void query__task_to_watchers(ti_query_t * query)
 {
     omap_iter_t iter = omap_iter(query->ev->tasks);
@@ -490,7 +499,7 @@ static void query__task_to_watchers(ti_query_t * query)
         if (ti_thing_has_watchers(task->thing))
         {
             ti_rpkg_t * rpkg;
-            ti_pkg_t * pkg = ti_task_watch(task);
+            ti_pkg_t * pkg = ti_task_pkg_watch(task);
             if (!pkg)
             {
                 log_critical(EX_ALLOC_S);

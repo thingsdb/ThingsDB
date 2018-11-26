@@ -9,17 +9,17 @@ typedef struct ti_away_s ti_away_t;
 #include <uv.h>
 
 int ti_away_create(void);
-void ti_away_destroy(void);
+int ti_away_start(void);
+_Bool ti_away_cancel(void);
+void ti_away_stop(void);
 
 struct ti_away_s
 {
     uv_work_t * work;
     uv_timer_t * repeat;
     uv_timer_t * waiter;
-    _Bool is_started;
-    _Bool is_running;
-    _Bool is_waiting;
-    uint8_t id;    /* id in the node range */
+    uint8_t flags;      /* internal state flags */
+    uint8_t id;         /* id in the node range */
 };
 
 #endif  /* TI_AWAY_H_ */

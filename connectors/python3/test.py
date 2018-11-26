@@ -39,7 +39,7 @@ async def test():
 
         re = /ir.*/;
 
-        people.map(x => x);
+        people.map(x => x.match(re));
 
         a = {
             name: 'Iris'

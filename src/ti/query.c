@@ -7,13 +7,14 @@
 #include <qpack.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/arrow.h>
 #include <ti/dbs.h>
+#include <ti/epkg.h>
 #include <ti/proto.h>
 #include <ti/query.h>
 #include <ti/res.h>
-#include <ti/arrow.h>
-#include <ti/task.h>
 #include <ti/root.h>
+#include <ti/task.h>
 #include <util/qpx.h>
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
@@ -21,6 +22,8 @@ static _Bool query__swap_opr(
         ti_query_t * query,
         cleri_children_t * parent,
         uint32_t parent_gid);
+static void query__event_handle(ti_query_t * query);
+static ti_epkg_t * query__epkg_event(ti_query_t * query);
 static void query__task_to_watchers(ti_query_t * query);
 static void query__nd_cache_cleanup(cleri_node_t * node);
 static void query__collect_destroy_cb(vec_t * names);
@@ -305,13 +308,13 @@ void ti_query_run(ti_query_t * query)
 
 done:
     if (query->ev)
-    {
-        query__task_to_watchers(query);
-        query__event_handle(query);
-    }
+        query__event_handle(query);  /* error here will be logged only */
 
     ti_query_send(query, e);
 }
+
+
+
 
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
@@ -487,8 +490,71 @@ static _Bool query__swap_opr(
 
 static void query__event_handle(ti_query_t * query)
 {
-    ti_rpkg_t * rpkg;
+    ti_epkg_t * epkg = query__epkg_event(query);
+    if (!epkg)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
 
+    /* send tasks to watchers if required */
+    query__task_to_watchers(query);
+
+    /* store event package in archive */
+    if (ti_archive_push(epkg))
+        log_critical(EX_ALLOC_S);
+    else
+        ti_incref(epkg);
+
+    ti_nodes_write_rpkg((ti_rpkg_t *) epkg);
+    ti_epkg_drop(epkg);
+}
+
+/*
+ *  tasks are ordered for low to high thing ids
+ *   { 0: {4: [ {'job':...} ] } }
+ */
+static ti_epkg_t * query__epkg_event(ti_query_t * query)
+{
+    ti_epkg_t * epkg;
+    ti_pkg_t * pkg;
+    qpx_packer_t * packer;
+    size_t sz = 0;
+    omap_iter_t iter = omap_iter(query->ev->tasks);
+
+    for (omap_each(iter, ti_task_t, task))
+        sz += task->approx_sz;
+
+    /* nest size 3 is sufficient since jobs are already raw */
+    packer = qpx_packer_create(sz, 3);
+    if (!packer)
+        return NULL;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_int64(packer, query->ev->id);
+
+    (void) qp_add_map(&packer);
+    for (omap_each(iter, ti_task_t, task))
+    {
+        (void) qp_add_int64(packer, task->thing->id);
+        (void) qp_add_array(&packer);
+        for (vec_each(task->jobs, ti_raw_t, raw))
+        {
+            (void) qp_add_qp(packer, raw->data, raw->n);
+        }
+        (void) qp_close_array(packer);
+    }
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_UPD);
+    epkg = ti_epkg_create(pkg, query->ev->id);
+    if (!epkg)
+    {
+        free(pkg);
+        return NULL;
+    }
+    return epkg;
 }
 
 static void query__task_to_watchers(ti_query_t * query)

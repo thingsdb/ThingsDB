@@ -45,17 +45,20 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
     if (!things_vec)
         goto stop;
 
-    if (qp_fadd_type(f, QP_MAP_OPEN)) goto stop;
+    if (qp_fadd_type(f, QP_MAP_OPEN))
+        goto stop;
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
         found = 0;
         for (vec_each(thing->props, ti_prop_t, prop))
         {
-            if (prop->val.tp < TI_VAL_THING) continue;
+            if (prop->val.tp < TI_VAL_THING)
+                continue;
             if (!found && (
                     qp_fadd_int64(f, (int64_t) thing->id) ||
-                    qp_fadd_type(f, QP_MAP_OPEN))) goto stop;
+                    qp_fadd_type(f, QP_MAP_OPEN)))
+                goto stop;
 
             found = 1;
             p = (intptr_t) prop->name;

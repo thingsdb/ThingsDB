@@ -58,15 +58,9 @@ _Bool ti_nodes_has_quorum(void)
     return false;
 }
 
-void ti_nodes_write_status(void)
+/* increases with a new reference as long as required */
+void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {
-    ti_rpkg_t * rpkg = ti_status_rpkg();
-    if (!rpkg)
-    {
-        log_critical(EX_ALLOC_S);
-        return;
-    }
-
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
     {
         if (node != ti()->node && !ti_stream_is_closed(node->stream))
@@ -75,8 +69,6 @@ void ti_nodes_write_status(void)
                 log_error(EX_INTERNAL_S);
         }
     }
-
-    ti_rpkg_drop(rpkg);
 }
 
 int ti_nodes_to_packer(qp_packer_t ** packer)
@@ -111,6 +103,17 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
             return -1;
     }
     return 0;
+}
+
+uint64_t ti_nodes_lowest_commit_event_id(void)
+{
+    uint64_t m = *ti()->events->commit_event_id;
+
+    for (vec_each(ti()->nodes->vec, ti_node_t, node))
+        if (node->commit_event_id < m)
+            m = node->commit_event_id;
+
+    return m;
 }
 
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)

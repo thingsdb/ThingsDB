@@ -4,14 +4,31 @@
 #include <assert.h>
 #include <ti/away.h>
 #include <ti/proto.h>
+#include <ti/quorum.h>
+#include <ti/things.h>
 #include <ti.h>
 #include <util/logger.h>
+#include <util/qpx.h>
+#include <util/util.h>
+#include <uv.h>
 
 static ti_away_t * away;
 
+enum
+{
+    AWAY__FLAG_IS_STARTED       =1<<0,
+    AWAY__FLAG_IS_RUNNING       =1<<1,
+    AWAY__FLAG_IS_WAITING       =1<<2,
+    AWAY__FLAG_CAN_CANCELLED    =1<<3,
+};
+
 static void away__destroy(uv_handle_t * handle);
 static void away__repeat_cb(uv_timer_t * repeat);
+static void away__req_away_id(void);
+static void away__on_req_away_id(void * UNUSED(data), _Bool accepted);
 static void away__waiter_cb(uv_timer_t * timer);
+static void away__work(uv_work_t * UNUSED(work));
+static void away__work_finish(uv_work_t * UNUSED(work), int status);
 static inline uint64_t away__calc_sleep(void);
 
 int ti_away_create(void)
@@ -23,9 +40,7 @@ int ti_away_create(void)
     away->work = malloc(sizeof(uv_work_t));
     away->repeat = malloc(sizeof(uv_timer_t));
     away->waiter = malloc(sizeof(uv_timer_t));
-    away->is_started = false;
-    away->is_running = false;
-    away->is_waiting = false;
+    away->flags = 0;
     away->id = 0;
 
     if (!away->work || !away->repeat || !away->waiter)
@@ -41,7 +56,7 @@ int ti_away_create(void)
 
 int ti_away_start(void)
 {
-    assert (away->is_started == false);
+    assert (away->flags == 0);
 
     if (uv_timer_init(ti()->loop, away->repeat))
         goto fail0;
@@ -52,7 +67,7 @@ int ti_away_start(void)
             away__calc_sleep()))
         goto fail1;
 
-    away->is_started = true;
+    away->flags |= AWAY__FLAG_IS_STARTED;
     return 0;
 
 fail1:
@@ -61,21 +76,29 @@ fail0:
     return -1;
 }
 
+/* Returns true if away mode is cancelled, false if thread was not running */
+_Bool ti_away_cancel(void)
+{
+    return away->flags & AWAY__FLAG_CAN_CANCELLED
+            ? uv_cancel((uv_req_t *) away->work)
+            : 0;
+}
+
 void ti_away_stop(void)
 {
     if (!away)
         return;
 
-    if (!away->is_started)
+    if (~away->flags & AWAY__FLAG_IS_STARTED)
         away__destroy(NULL);
     else
     {
-        if (!away->is_waiting)
+        if (~away->flags & AWAY__FLAG_IS_WAITING)
             free(away->waiter);
         else
         {
             uv_timer_stop(away->waiter);
-            uv_close((uv_handle_t *) away->waiter, free);
+            uv_close((uv_handle_t *) away->waiter, (uv_close_cb) free);
         }
 
         uv_timer_stop(away->repeat);
@@ -99,14 +122,12 @@ static void away__destroy(uv_handle_t * handle)
     away = ti()->away = NULL;
 }
 
-static void away__repeat_cb(uv_timer_t * repeat)
+static void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 {
-    if (away->is_running || ti_nodes_get_away_or_soon())
+    if ((away->flags & AWAY__FLAG_IS_RUNNING) || ti_nodes_get_away_or_soon())
         return;
 
-
-    away->is_running = true;
-
+    away->flags |= AWAY__FLAG_IS_RUNNING;
     away__req_away_id();
 }
 
@@ -124,6 +145,9 @@ static void away__req_away_id(void)
     packer = qpx_packer_create(2, 0);
     if (!packer)
         goto failed;
+
+    away->id++;
+    away->id %= vec_nodes->n;
 
     /* this is used in case of an equal result and should be a value > 0 */
     ti_quorum_set_id(quorum, 1);
@@ -158,7 +182,7 @@ static void away__req_away_id(void)
 failed:
     ti_quorum_destroy(quorum);
     log_critical(EX_ALLOC_S);
-    away->is_running = false;
+    away->flags &= ~AWAY__FLAG_IS_RUNNING;
 }
 
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
@@ -172,9 +196,11 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail0;;
     }
 
-    assert (away->is_started == true);
-    assert (away->is_running == true);
-    assert (away->is_waiting == false);
+    assert (away->flags & AWAY__FLAG_IS_STARTED);
+    assert (away->flags & AWAY__FLAG_IS_RUNNING);
+    assert (~away->flags & AWAY__FLAG_IS_WAITING);
+
+    uv_timer_set_repeat(away->repeat, away__calc_sleep());
 
     if (uv_timer_init(ti()->loop, away->waiter))
         goto fail1;
@@ -188,7 +214,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail2;
 
     ti_set_and_send_node_status(TI_NODE_STAT_AWAY_SOON);
-    away->is_waiting = true;
+    away->flags |= AWAY__FLAG_IS_WAITING;
     return;
 
 fail2:
@@ -196,15 +222,15 @@ fail2:
 fail1:
     log_critical(EX_INTERNAL_S);
 fail0:
-    away->is_running = false;
+    away->flags &= ~AWAY__FLAG_IS_RUNNING;
 }
 
 static void away__waiter_cb(uv_timer_t * waiter)
 {
     assert (ti()->node->status == TI_NODE_STAT_AWAY_SOON);
-    assert (away->is_started == true);
-    assert (away->is_running == true);
-    assert (away->is_waiting == true);
+    assert (away->flags & AWAY__FLAG_IS_STARTED);
+    assert (away->flags & AWAY__FLAG_IS_RUNNING);
+    assert (away->flags & AWAY__FLAG_IS_WAITING);
 
     if (ti()->events->queue->n)
     {
@@ -217,7 +243,7 @@ static void away__waiter_cb(uv_timer_t * waiter)
     (void) uv_timer_stop(waiter);
     uv_close((uv_handle_t *) waiter, NULL);
 
-    away->is_waiting = false;
+    away->flags &= ~AWAY__FLAG_IS_WAITING;
 
     if (uv_queue_work(
             ti()->loop,
@@ -225,26 +251,28 @@ static void away__waiter_cb(uv_timer_t * waiter)
             away__work,
             away__work_finish))
     {
-        away->is_running = false;
+        away->flags &= ~AWAY__FLAG_IS_RUNNING;
         ti_set_and_send_node_status(TI_NODE_STAT_READY);
         return;
     }
-
+    away->flags |= AWAY__FLAG_CAN_CANCELLED;
     ti_set_and_send_node_status(TI_NODE_STAT_AWAY);
 }
 
 static void away__work(uv_work_t * UNUSED(work))
 {
+    (void) util_sleep(500);
+
     assert (ti()->node->status == TI_NODE_STAT_AWAY);
-    assert (away->is_started == true);
-    assert (away->is_running == true);
-    assert (away->is_waiting == false);
+    assert (away->flags & AWAY__FLAG_IS_STARTED);
+    assert (away->flags & AWAY__FLAG_IS_RUNNING);
+    assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
     for (vec_each(ti()->dbs, ti_db_t, db))
     {
         uv_mutex_lock(db->lock);
 
-        if (ti_things_gc(db->things, db->root))
+        if (ti_things_gc(db->things, db->root, true))
         {
             log_error("garbage collection for database `%.*s` has failed",
                     (int) db->name->n, (char *) db->name->data);
@@ -252,23 +280,37 @@ static void away__work(uv_work_t * UNUSED(work))
 
         uv_mutex_unlock(db->lock);
     }
+
+    if (ti_archive_to_disk(true))
+        log_critical("failed writing archived events to disk");
+
+    ti_archive_cleanup(true);
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
 {
-    assert (away->is_started == true);
-    assert (away->is_running == true);
-    assert (away->is_waiting == false);
+    assert (away->flags & AWAY__FLAG_IS_STARTED);
+    assert (away->flags & AWAY__FLAG_IS_RUNNING);
+    assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
-    if (status)
+    LOGC("Status: %d", status);
+
+    if (status == UV_ECANCELED)
+    {
+        ti_stop();
+        return;
+    }
+    else if (status)
     {
         log_error(uv_strerror(status));
     }
     ti_set_and_send_node_status(TI_NODE_STAT_READY);
-    away->is_running = false;
+    away->flags &= ~AWAY__FLAG_IS_RUNNING;
 }
 
 static inline uint64_t away__calc_sleep(void)
 {
-    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;
+    return ti()->nodes->vec->n == 1 ?
+            12000L :   /* 120000L */
+            ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;
 }

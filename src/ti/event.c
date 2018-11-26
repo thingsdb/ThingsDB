@@ -54,6 +54,7 @@ void ti_event_destroy(ti_event_t * ev)
 
 void ti_event_cancel(ti_event_t * ev)
 {
+    ti_rpkg_t * rpkg;
     ti_pkg_t * pkg;
     vec_t * vec_nodes = ti()->nodes->vec;
     qpx_packer_t * packer = qpx_packer_create(9, 0);
@@ -66,28 +67,23 @@ void ti_event_cancel(ti_event_t * ev)
     (void) qp_add_int64(packer, ev->id);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT_CANCEL);
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+    {
+        free(pkg);
+        log_error(EX_ALLOC_S);
+        return;
+    }
 
     for (vec_each(vec_nodes, ti_node_t, node))
     {
-        ti_pkg_t * dup;
-
         if (node == ti()->node ||
             node->status <= TI_NODE_STAT_CONNECTING ||
             ti_stream_is_closed(node->stream))
             continue;
 
-        dup = ti_pkg_dup(pkg);
-        if (!dup)
-        {
-            log_error(EX_ALLOC_S);
-            continue;
-        }
-
-        if (ti_stream_write(node->stream, dup))
-        {
+        if (ti_stream_write_rpkg(node->stream, rpkg))
             log_error(EX_INTERNAL_S);
-            free(dup);
-        }
     }
-    free(pkg);
+    ti_rpkg_drop(rpkg);
 }

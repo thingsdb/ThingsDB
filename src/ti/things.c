@@ -7,6 +7,7 @@
 #include <ti/prop.h>
 #include <ti/things.h>
 #include <util/logger.h>
+#include <util/util.h>
 
 static void things__gc_mark(ti_thing_t * thing);
 
@@ -22,19 +23,28 @@ ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
     return thing;
 }
 
-int ti_things_gc(imap_t * things, ti_thing_t * root)
+int ti_things_gc(imap_t * things, ti_thing_t * root, _Bool with_sleep)
 {
     size_t n = 0;
     vec_t * things_vec = imap_vec_pop(things);
     if (!things_vec)
         return -1;
 
+    if (with_sleep)
+        (void) util_sleep(100);
+
     if (root)
         things__gc_mark(root);
+
+    if (with_sleep)
+        (void) util_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
         if (thing->flags & TI_THING_FLAG_SWEEP)
             thing->ref = 0;
+
+    if (with_sleep)
+        (void) util_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {

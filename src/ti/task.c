@@ -22,6 +22,7 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     task->event_id = event_id;
     task->thing = ti_grab(thing);
     task->jobs = vec_new(1);
+    task->approx_sz = 0;
     if (!task->jobs)
     {
         ti_task_destroy(task);

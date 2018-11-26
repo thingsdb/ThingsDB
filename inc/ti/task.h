@@ -41,7 +41,7 @@ int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user);
 struct ti_task_s
 {
     uint64_t event_id;
-    size_t * approx_sz;
+    size_t approx_sz;
     ti_thing_t * thing;     /* with reference */
     vec_t * jobs;           /* q-pack (unsigned char *) */
 };

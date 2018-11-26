@@ -53,7 +53,7 @@ void ti_db_drop(ti_db_t * db)
         vec_destroy(db->access, (vec_destroy_cb) ti_auth_destroy);
 
         ti_thing_drop(db->root);
-        ti_things_gc(db->things, NULL);
+        ti_things_gc(db->things, NULL, false);
 
         assert (db->things->n == 0);
         imap_destroy(db->things, NULL);

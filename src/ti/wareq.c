@@ -179,7 +179,7 @@ static void wareq__task_cb(uv_async_t * task)
 
             (void) qp_add_map(&packer);
             (void) qp_add_raw_from_str(packer, "event");
-            (void) qp_add_int64(packer, ti()->events->commit_event_id);
+            (void) qp_add_int64(packer, *ti()->events->commit_event_id);
             (void) qp_add_raw_from_str(packer, "thing");
 
             if (    ti_thing_to_packer(thing, &packer, TI_VAL_PACK_ATTR) ||

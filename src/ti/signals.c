@@ -60,9 +60,8 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
     else
         log_critical("received stop signal (%s)", strsignal(signum));
 
-    ti_away_stop();
-    ti_connect_stop();
-    ti_events_stop();
+    ti_set_and_send_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
-    uv_stop(ti()->loop);
+    if (!ti_away_cancel())
+        ti_stop();
 }

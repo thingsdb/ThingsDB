@@ -37,10 +37,9 @@ int ti_events_create(void)
 
     events->is_started = false;
     events->queue = queue_new(4);
-    events->archive = ti_archive_create();
     events->evloop = malloc(sizeof(uv_async_t));
 
-    if (!events->queue || !events->archive)
+    if (!events->queue)
         goto failed;
 
     return 0;
@@ -145,7 +144,6 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     if (!events)
         return;
     queue_destroy(events->queue, (queue_destroy_cb) ti_event_destroy);
-    ti_archive_destroy(events->archive);
     uv_mutex_destroy(&events->lock);
     free(events->evloop);
     free(events);
@@ -261,11 +259,12 @@ static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
 
+    /* TODO: is this lock still required ??? depends... */
     if (uv_mutex_trylock(&events->lock))
         return;
 
     while ((ev = queue_last(events->queue)) &&
-            ev->id == (events->commit_event_id + 1) &&
+            ev->id == ((*events->commit_event_id) + 1) &&
             ev->status > TI_EVENT_STAT_NEW)
     {
         (void *) queue_pop(events->queue);
@@ -287,7 +286,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
             /* TODO: run event tasks */
         }
 
-        events->commit_event_id = ev->id;
+        *events->commit_event_id = ev->id;
         ti_event_destroy(ev);
     }
 
@@ -298,133 +297,3 @@ static inline int events__trigger(void)
 {
     return uv_async_send(events->evloop);
 }
-
-//{
-//    ti_event_t * event = (ti_event_t *) prom->data;
-//    free(event->req_pkg);
-//    _Bool accept = true;
-//
-//    for (size_t i = 0; i < prom->n; i++)
-//    {
-//
-//        ti_prom_res_t * res = &prom->res[i];
-//        ti_req_t * req = (ti_req_t *) res->handle;
-//
-//        if (res->status)
-//        {
-//            event->status = TI_EVENT_STAT_CACNCEL;
-//        }
-//        else if (req->pkg_res->tp == TI_PROTO_REJECT)
-//        {
-//            accept = false;
-//        }
-//
-//        ti_req_destroy(req);
-//    }
-//
-//    free(prom);
-//
-//    if (event->status == TI_EVENT_STAT_CACNCEL)
-//    {
-//        // remove from queue if it is still in the queue.
-//        // event->status could be already set to reject in which case the
-//        // event is already removed from the queue
-//        ti__event_cancel(event);  /* terminates in case of failure */
-//        ti_events_trigger();
-//        return;
-//    }
-//
-//    if (!accept)
-//    {
-//        uint64_t old_id = event->id;
-//        (void *) ti_events_rm_event(event);
-//        event->id = ti_events_get_event_id();
-//        (void) ti_events_add_event(event);  /* queue has room */
-//        ti__event_upd(event, old_id);  /* terminates in case of failure */
-//        return;
-//    }
-//
-//    ti__event_ready(event);  /* terminates in case of failure */
-//}
-
-
-//
-//void ti_events_close(void)
-//{
-//    uv_close((uv_handle_t *) &events->evloop_, NULL);
-//}
-
-//ti_event_t * ti_events_rm_event(ti_event_t * event)
-//{
-//    return queue_rmval(events->queue, event);
-//}
-//
-//int ti_events_trigger(void)
-//{
-//    return uv_async_send(&events->evloop_);
-//}
-
-//int ti_events_add_event(ti_event_t * event)
-//{
-//    size_t i = 0;
-//
-//    if (event->id >= events->next_event_id)
-//    {
-//        if (queue_push(&events->queue, event))
-//            return -1;
-//
-//        events->next_event_id = event->id + 1;
-//        return 0;
-//    }
-//
-//    for (queue_each(events->queue, ti_event_t, ev), i++)
-//    {
-//        if (ev->id >= event->id)
-//            break;
-//    }
-//
-//    return queue_insert(&events->queue, i, event);
-//}
-//
-//uint64_t ti_events_get_event_id(void)
-//{
-//    /* next_id will be incremented as soon as an event is added to the queue */
-//    return events->next_event_id;
-//}
-
-//static void ti__events_loop(uv_async_t * handle)
-//{
-//    ti_event_t * event;
-//
-//    if (uv_mutex_trylock(&events->lock))
-//        return;
-//
-//    while ((event = queue_last(events->queue)) &&
-//            event->id == events->commit_event_id &&
-//            event->status > TI_EVENT_STAT_REG)
-//    {
-//        queue_pop(events->queue);
-//
-//        if (ti_event_run(event) < 0 ||
-//            ti_archive_event(events->archive, event))
-//        {
-//            ti_term(SIGTERM);
-//            ti_event_destroy(event);
-//            continue;
-//        }
-//        events->commit_event_id = event->id;
-//
-//        events->commit_event_id++;
-//
-//        if (event->prom)
-//        {
-//            assert (event->status == TI_EVENT_STAT_READY);
-//            ti_prom_async_done(event->prom, NULL, 0);
-//            continue;
-//        }
-//
-//        ti_event_finish(event);
-//    }
-//
-//    uv_mutex_unlock(&events->lock);
-//}

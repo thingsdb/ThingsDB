@@ -6,6 +6,7 @@
 
 #include <uv.h>
 #include <ti/node.h>
+#include <ti/rpkg.h>
 #include <util/vec.h>
 #include <qpack.h>
 
@@ -16,9 +17,10 @@ void ti_nodes_destroy(void);
 int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
-void ti_nodes_write_status(void);
+void ti_nodes_write_rpkg(ti_rpkg_t * rpkg);
 int ti_nodes_to_packer(qp_packer_t ** packer);
 int ti_nodes_from_qpres(qp_res_t * qpnodes);
+uint64_t ti_nodes_lowest_commit_event_id(void);
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr);
 ti_node_t * ti_nodes_node_by_id(uint8_t node_id);
 ti_node_t * ti_nodes_get_away(void);

@@ -16,7 +16,6 @@
 #include <util/logger.h>
 #include <util/qpx.h>
 
-static void node__write_cb(ti_write_t * req, ex_enum status);
 static void node__on_connect(uv_connect_t * req, int status);
 static void node__on_connect_req(ti_req_t * req, ex_enum status);
 
@@ -31,7 +30,8 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)
         return NULL;
 
     node->ref = 1;
-    node->maintn = 0;
+    node->commit_event_id = 0;
+    node->next_thing_id = 0;
     node->id = id;
     node->stream = NULL;
     node->status = TI_NODE_STAT_OFFLINE;
@@ -54,6 +54,20 @@ void ti_node_drop(ti_node_t * node)
 const char * ti_node_name(ti_node_t * node)
 {
     return ti()->node == node ? ti()->hostname : ti_stream_name(node->stream);
+}
+
+const char * ti_node_status_str(ti_node_status_t status)
+{
+    switch (status)
+    {
+    case TI_NODE_STAT_OFFLINE:          return "OFFLINE";
+    case TI_NODE_STAT_SHUTTING_DOWN:    return "SHUTTING_DOWN";
+    case TI_NODE_STAT_CONNECTING:       return "CONNECTING";
+    case TI_NODE_STAT_AWAY:             return "AWAY";
+    case TI_NODE_STAT_AWAY_SOON:        return "AWAY_SOON";
+    case TI_NODE_STAT_READY:            return "READY";
+    }
+    return "UNKNOWN";
 }
 
 int ti_node_connect(ti_node_t * node)

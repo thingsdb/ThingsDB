@@ -19,6 +19,7 @@ C_SRCS += \
 ../src/util/res.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
+../src/util/util.c \
 ../src/util/vec.c 
 
 OBJS += \
@@ -37,6 +38,7 @@ OBJS += \
 ./src/util/res.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
+./src/util/util.o \
 ./src/util/vec.o 
 
 C_DEPS += \
@@ -55,6 +57,7 @@ C_DEPS += \
 ./src/util/res.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
+./src/util/util.d \
 ./src/util/vec.d 
 
 

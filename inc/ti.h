@@ -40,6 +40,7 @@ typedef struct ti_s ti_t;
 #include <signal.h>
 #include <stdint.h>
 #include <string.h>
+#include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
@@ -69,6 +70,7 @@ int ti_init(void);
 int ti_build(void);
 int ti_read(void);
 int ti_run(void);
+void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
@@ -81,6 +83,7 @@ static inline uint64_t ti_next_thing_id(void);
 struct ti_s
 {
     char * fn;
+    ti_archive_t * archive;     /* committed events archive */
     ti_node_t * node;
     ti_args_t * args;
     ti_cfg_t * cfg;
@@ -98,7 +101,8 @@ struct ti_s
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
-    uint64_t next_thing_id;     /* used for assigning id's to objects */
+    uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
+                                   for assigning id's to objects */
     uint8_t redundancy;         /* value 1..64 */
     uint8_t flags;
 
@@ -117,7 +121,7 @@ static inline _Bool ti_manages_id(uint64_t id)
 
 static inline uint64_t ti_next_thing_id(void)
 {
-    return ti_.next_thing_id++;
+    return (*ti_.next_thing_id)++;
 }
 
 #endif /* TI_H_ */

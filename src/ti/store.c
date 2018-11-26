@@ -189,6 +189,9 @@ int ti_store_restore(void)
         (void) imap_walk(db->things, (imap_cb) store__thing_drop, NULL);
     }
 
+    if (!rc)
+        rc = ti_archive_load();
+
 stop:
     if (namesmap)
         imap_destroy(namesmap, NULL);

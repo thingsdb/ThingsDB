@@ -512,7 +512,7 @@ static void query__event_handle(ti_query_t * query)
 
 /*
  *  tasks are ordered for low to high thing ids
- *   { 0: {4: [ {'job':...} ] } }
+ *   { [0, 0]: {0: [ {'job':...} ] } }
  */
 static ti_epkg_t * query__epkg_event(ti_query_t * query)
 {
@@ -531,7 +531,11 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
         return NULL;
 
     (void) qp_add_map(&packer);
+
+    (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, query->ev->id);
+    (void) qp_add_int64(packer, query->target ? query->target->root->id : 0);
+    (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);
     for (omap_each(iter, ti_task_t, task))

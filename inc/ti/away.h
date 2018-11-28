@@ -10,8 +10,8 @@ typedef struct ti_away_s ti_away_t;
 
 int ti_away_create(void);
 int ti_away_start(void);
-_Bool ti_away_cancel(void);
 void ti_away_stop(void);
+_Bool ti_away_is_working(void);
 
 struct ti_away_s
 {

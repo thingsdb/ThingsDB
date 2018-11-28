@@ -14,6 +14,17 @@
 #include <util/qpx.h>
 #include <util/vec.h>
 
+/*
+ * If an event is in the queue for this time, continue regardless of the event
+ * status.
+ */
+#define EVENTS__TIMEOUT 5.0f
+
+/*
+ * Avoid extreme gaps between event id's
+ */
+#define EVENTS__MAX_ID_GAP  100
+
 static ti_events_t * events;
 
 static void events__destroy(uv_handle_t * UNUSED(handle));
@@ -22,6 +33,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e);
 static void events__on_req_event_id(ti_event_t * ev, _Bool accepted);
 static void events__loop(uv_async_t * handle);
 static inline int events__trigger(void);
+static inline _Bool events__max_id_gap(uint64_t event_id);
 
 int ti_events_create(void)
 {
@@ -29,17 +41,19 @@ int ti_events_create(void)
     if (!events)
         goto failed;
 
-    if (uv_mutex_init(&events->lock))
+    events->lock = malloc(sizeof(uv_mutex_t));
+    if (!events->lock || uv_mutex_init(events->lock))
     {
         log_critical("failed to initiate uv_mutex lock");
         goto failed;
     }
 
+    events->cevid = NULL;
     events->is_started = false;
     events->queue = queue_new(4);
     events->evloop = malloc(sizeof(uv_async_t));
 
-    if (!events->queue)
+    if (!events->queue || !events->lock)
         goto failed;
 
     return 0;
@@ -61,6 +75,8 @@ void ti_events_stop(void)
 {
     if (!events)
         return;
+
+    free(events->lock);
 
     if (events->is_started)
         uv_close((uv_handle_t *) events->evloop, events__destroy);
@@ -102,6 +118,86 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
     return events__req_event_id(ev, e);
 }
 
+int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
+{
+    qp_unpacker_t unpacker;
+    ti_event_t * ev;
+
+    if (events__max_id_gap(epkg->event_id))
+    {
+        log_critical(
+                "event id `%"PRIu64"` is too high compared to "
+                "the next expected event id `%"PRIu64"`",
+                epkg->event_id,
+                events->next_event_id);
+        return -1;
+    }
+
+    for (queue_each(events->queue, ti_event_t, event))
+        if (event->id == epkg->event_id)
+            ev = event;
+
+    if (!ev)
+    {
+        if (queue_reserve(&events->queue, 1))
+            return -1;
+
+        ev = ti_event_create(TI_EVENT_TP_EPKG);
+        if (!ev)
+            return -1;
+
+        ev->via.epkg = ti_grab(epkg);
+        ev->id = epkg->event_id;
+    }
+    else if (ev->status == TI_EVENT_STAT_READY)
+    {
+        assert (ev->tp != TI_EVENT_TP_SLAVE);
+
+        log_critical(
+            "event id `%"PRIu64"` is being processed and "
+            "can not be reused for node `%s`",
+            ev->id,
+            ti_node_name(node)
+        );
+        return -1;
+    }
+    else
+    {
+        assert (ev->tp != TI_EVENT_TP_EPKG);
+
+        if (ev->tp == TI_EVENT_TP_SLAVE)
+        {
+            log_info(
+                "event id `%"PRIu64"` was create for node `%s` but is now "
+                "reused by an event from node `%s`",
+                ev->id,
+                ev->tp == TI_EVENT_TP_MASTER
+                    ? ti_name()
+                    : ti_node_name(ev->via.node),
+                ti_node_name(node)
+            );
+
+            ti_node_drop(ev->via.node);
+        }
+        ev->tp = TI_EVENT_TP_EPKG;
+        ev->via.epkg = ti_grab(epkg);
+    }
+
+    assert (ev->tasks->n == 0);
+    assert (ev->tp == TI_EVENT_TP_EPKG);
+    assert (ev->status != TI_EVENT_STAT_READY);
+
+    ev->status = TI_EVENT_STAT_READY;
+
+    /* we have space so this function always succeeds */
+    (void) events__push(ev);
+
+    if (events__trigger())
+        log_error("cannot trigger the events loop");
+
+    return 0;
+}
+
 _Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
 {
     ti_event_t * ev;
@@ -128,9 +224,7 @@ _Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
     if (ti_node_winner(node, prev_node, event_id) == prev_node)
         return false;
 
-    if (ev->tp == TI_EVENT_TP_MASTER)
-        events__new_id(ev);
-    else
+    if (ev->tp != TI_EVENT_TP_MASTER)
     {
         (void *) queue_pop(events->queue);
         ti_event_destroy(ev);
@@ -154,16 +248,13 @@ static void events__new_id(ti_event_t * ev)
 {
     ex_t * e = ex_use();
 
-    /* we probably get here twice, when the request is not accepted and when
-     * we receive "the" another conflicting event id
-     */
-    if (!queue_rmval(events->queue, ev))
-        return;
+    /* remove the event from the queue */
+    (void *) queue_rmval(events->queue, ev);
 
     if (events__req_event_id(ev, e))
     {
         ti_query_send(ev->via.query, e);
-        ti_event_cancel(ev);
+        ev->status = TI_EVENT_STAT_CACNCEL;
     }
 }
 
@@ -198,7 +289,8 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     (void) qp_add_int64(packer, ev->id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 
-    QUEUE_push(events->queue, ev);
+    /* we have space so this function always succeeds */
+    (void) events__push(events->queue, ev);
 
     for (vec_each(vec_nodes, ti_node_t, node))
     {
@@ -230,6 +322,8 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
 {
     if (!accepted)
     {
+        ++ti()->counters->events_quorum_lost;
+
         if (!ti_nodes_has_quorum())
         {
             ex_t * e = ex_use();
@@ -241,8 +335,6 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
                     ti_node_name(ti()->node),
                     ti_nodes_quorum());
             ti_query_send(ev->via.query, e);
-
-            ti_event_cancel(ev);
             return;
         }
 
@@ -255,25 +347,84 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
         log_error("cannot trigger the events loop");
 }
 
+static int events__push(ti_event_t * ev)
+{
+    size_t idx = 0;
+    ti_event_t * last_ev = queue_last(events->queue);
+
+    if (!last_ev || ev->id > last_ev->id)
+        return queue_push(&events->queue, ev);
+
+    ++ti()->counters->events_unaligned;
+    for (queue_each(events->queue, ti_event_t, event), ++idx)
+        if (event->id > ev->id)
+            break;
+
+    return queue_insert(&events->queue, idx, ev);
+}
+
 static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
+    struct timespec timing;
 
     /* TODO: is this lock still required ??? depends... */
-    if (uv_mutex_trylock(&events->lock))
+    if (uv_mutex_trylock(events->lock))
         return;
 
-    while ((ev = queue_last(events->queue)) &&
-            ev->id == ((*events->commit_event_id) + 1) &&
-            ev->status > TI_EVENT_STAT_NEW)
-    {
-        (void *) queue_pop(events->queue);
+    if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
+        goto stop;
 
-        if (ev->status == TI_EVENT_STAT_CACNCEL)
+
+    while ((ev = queue_first(events->queue)))
+    {
+        if (ev->id <= *events->cevid)
         {
-            /* nothing */
+            /* This is event should have been parsed */
+            ++ti()->counters->events_skipped;
+
+            /* TODO : move event to ti_skipped_t */
+            (void *) queue_shift(events->queue);
+            continue;
         }
-        else if (ev->tp == TI_EVENT_TP_MASTER)
+
+        if (ev->id > (*events->cevid) + 1)
+        {
+            /* We expect at least one event before this one */
+            if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+                break;
+
+            /* Reached time-out, continue */
+        }
+
+        if (    ev->status == TI_EVENT_STAT_CACNCEL ||
+                ev->status == TI_EVENT_STAT_NEW)
+        {
+            /* An event must have status READY before we can continue */
+            if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+                break;
+
+            if (ev->tp == TI_EVENT_TP_MASTER)
+            {
+                log_error(
+                        "waiting for event `%"PRIu64"` on node `%s` "
+                        "for approximately %f seconds",
+                        ev->id,
+                        ti_name(),
+                        util_time_diff(&ev->time, &timing));
+                break;
+            }
+
+            /* Reached time-out, kill the event */
+            ++ti()->counters->events_killed;
+            (void *) queue_shift(events->queue);
+            ti_event_destroy(ev);
+            continue;
+        }
+
+        assert (ev->status == TI_EVENT_STAT_READY);
+
+        if (ev->tp == TI_EVENT_TP_MASTER)
         {
             assert (ev->status == TI_EVENT_STAT_READY);
 
@@ -281,19 +432,30 @@ static void events__loop(uv_async_t * UNUSED(handle))
         }
         else
         {
-            assert (ev->tp == TI_EVENT_TP_SLAVE);
-            assert (ev->status == TI_EVENT_STAT_READY);
+            assert (ev->tp == TI_EVENT_TP_EPKG);
             /* TODO: run event tasks */
         }
 
-        *events->commit_event_id = ev->id;
+        /* update counters */
+        ti_counters_upd_commit_event(&ev->time);
+
+        *events->cevid = ev->id;
         ti_event_destroy(ev);
     }
 
-    uv_mutex_unlock(&events->lock);
+stop:
+    uv_mutex_unlock(events->lock);
 }
 
 static inline int events__trigger(void)
 {
     return uv_async_send(events->evloop);
+}
+
+static inline _Bool events__max_id_gap(uint64_t event_id)
+{
+    return (
+        event_id > events->next_event_id &&
+        event_id - events->next_event_id > EVENTS__MAX_ID_GAP
+    );
 }

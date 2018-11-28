@@ -18,6 +18,13 @@ typedef unsigned char uchar;
 # define UNUSED(x) x
 #endif
 
+/* Use CLOCK_MONOTONIC_RAW if available */
+#ifdef CLOCK_MONOTONIC_RAW
+#define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
+#else
+#define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC
+#endif
+
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
 #define ti_decref(x) (--(x)->ref)  /* only use when x->ref > 1 */
@@ -35,26 +42,29 @@ enum
 
 typedef struct ti_s ti_t;
 
-#include <uv.h>
+#include <assert.h>
 #include <cleri/cleri.h>
 #include <signal.h>
 #include <stdint.h>
 #include <string.h>
 #include <ti/archive.h>
 #include <ti/args.h>
+#include <ti/away.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
 #include <ti/connect.h>
+#include <ti/counters.h>
 #include <ti/events.h>
 #include <ti/lookup.h>
-#include <ti/away.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/tcp.h>
+#include <unistd.h>
 #include <util/logger.h>
 #include <util/smap.h>
 #include <util/vec.h>
+#include <uv.h>
 
 extern ti_t ti_;
 
@@ -79,11 +89,15 @@ void ti_set_and_send_node_status(ti_node_status_t status);
 static inline ti_t * ti(void);
 static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);
+static inline int ti_sleep(int ms);
+static inline const char * ti_name(void);
+static inline double ti_timeit(struct timespec * start);
 
 struct ti_s
 {
     char * fn;
     ti_archive_t * archive;     /* committed events archive */
+    ti_counters_t * counters;   /* counters for statistics */
     ti_node_t * node;
     ti_args_t * args;
     ti_cfg_t * cfg;
@@ -101,12 +115,13 @@ struct ti_s
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
+    uint64_t stored_event_id;   /* last stored event id (excluding archive) */
     uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
                                    for assigning id's to objects */
     uint8_t redundancy;         /* value 1..64 */
     uint8_t flags;
-
     char hostname[256];
+
 };
 
 static inline ti_t * ti(void)
@@ -122,6 +137,20 @@ static inline _Bool ti_manages_id(uint64_t id)
 static inline uint64_t ti_next_thing_id(void)
 {
     return (*ti_.next_thing_id)++;
+}
+
+/* sleep in milliseconds (value must be between 0 and 999 */
+static inline int ti_sleep(int ms)
+{
+    assert (ms < 1000);
+    return (ti_.flags & TI_FLAG_SIGNAL)
+            ? -2
+            : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);
+}
+
+static inline const char * ti_name(void)
+{
+    return ti_.hostname;
 }
 
 #endif /* TI_H_ */

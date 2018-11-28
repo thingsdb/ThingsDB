@@ -1,5 +1,5 @@
 /*
- * queue.c
+ * util/queue.c
  */
 #include <string.h>
 #include <stdlib.h>

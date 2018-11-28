@@ -40,20 +40,23 @@ static void ti__close_handles(uv_handle_t * handle, void * arg);
 
 int ti_create(void)
 {
+    ti_.stored_event_id = 0;
     ti_.flags = 0;
     ti_.redundancy = ti__def_redundancy;
     ti_.fn = NULL;
     ti_.node = NULL;
     ti_.lookup = NULL;
     ti_.store = NULL;
+    ti_.next_thing_id = NULL;
     ti_.access = vec_new(0);
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+            ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
-            ti_archive_create() ||      /* requires cfg */
+            ti_archive_create() ||
             ti_clients_create() ||
             ti_nodes_create() ||
             ti_names_create() ||
@@ -92,6 +95,7 @@ void ti_destroy(void)
     ti_names_destroy();
     ti_store_destroy();
     ti_thing_drop(ti_.thing0);
+    ti_counters_destroy();  /* very last since counters can be updated */
     vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
@@ -142,11 +146,11 @@ int ti_build(void)
     if (!ti_.node || ti_save() || ti_store_store())
         goto failed;
 
-    ti_.node->commit_event_id = 0;
+    ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
 
     ti_.events->next_event_id = 1;
-    ti_.events->commit_event_id = &ti_.node->commit_event_id;
+    ti_.events->cevid = &ti_.node->cevid;
 
     ti_.next_thing_id = &ti_.node->next_thing_id;
 
@@ -280,6 +284,7 @@ finish:
 
 void ti_stop(void)
 {
+    ti_archive_to_disk();
     ti_away_stop();
     ti_connect_stop();
     ti_events_stop();
@@ -353,7 +358,7 @@ ti_rpkg_t * ti_status_rpkg(void)
 
     (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, *ti()->next_thing_id);
-    (void) qp_add_int64(packer, *ti()->events->commit_event_id);
+    (void) qp_add_int64(packer, *ti()->events->cevid);
     (void) qp_add_int64(packer, ti()->node->status);
     (void) qp_close_array(packer);
 

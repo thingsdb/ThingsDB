@@ -121,7 +121,8 @@ int ti_store_things_restore(imap_t * things, const char * fn)
     int rc = 0;
     ssize_t sz;
     uchar * data = fx_read(fn, &sz);
-    if (!data) goto failed;
+    if (!data)
+        goto failed;
 
     uchar * pt = data;
     uchar * end = data + sz - sizeof(uint64_t);

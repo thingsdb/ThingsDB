@@ -62,6 +62,6 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 
     ti_set_and_send_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
-    if (!ti_away_cancel())
+    if (!ti_away_is_working())
         ti_stop();
 }

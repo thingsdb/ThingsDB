@@ -78,10 +78,8 @@ fail0:
 ti_db_t * ti_dbs_get_by_raw(const ti_raw_t * raw)
 {
     for (vec_each(*dbs, ti_db_t, db))
-    {
         if (ti_raw_equal(db->name, raw))
             return db;
-    }
     return NULL;
 }
 
@@ -89,10 +87,8 @@ ti_db_t * ti_dbs_get_by_raw(const ti_raw_t * raw)
 ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n)
 {
     for (vec_each(*dbs, ti_db_t, db))
-    {
         if (ti_raw_equal_strn(db->name, str, n))
             return db;
-    }
     return NULL;
 }
 
@@ -100,10 +96,8 @@ ti_db_t * ti_dbs_get_by_strn(const char * str, size_t n)
 ti_db_t * ti_dbs_get_by_id(const uint64_t id)
 {
     for (vec_each(*dbs, ti_db_t, db))
-    {
         if (id == db->root->id)
             return db;
-    }
     return NULL;
 }
 

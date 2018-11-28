@@ -24,7 +24,7 @@ static inline void * ti_db_thing_by_id(ti_db_t * db, uint64_t thing_id);
 struct ti_db_s
 {
     uint32_t ref;
-    guid_t guid;
+    guid_t guid;            /* derived from db->root->id */
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
     vec_t * access;

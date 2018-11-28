@@ -24,6 +24,7 @@ int ti_nodes_create(void)
 
     /* make sure data is set to null, we use this on close */
     nodes->tcp.data = NULL;
+    nodes->cevid = 0;
 
     nodes->vec = vec_new(0);
     memset(&nodes->addr, 0, sizeof(struct sockaddr_storage));
@@ -105,15 +106,18 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
     return 0;
 }
 
-uint64_t ti_nodes_lowest_commit_event_id(void)
+uint64_t ti_nodes_cevid(void)
 {
-    uint64_t m = *ti()->events->commit_event_id;
+    uint64_t m = *ti()->events->cevid;
 
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
-        if (node->commit_event_id < m)
-            m = node->commit_event_id;
+        if (node->cevid < m)
+            m = node->cevid;
 
-    return m;
+    if (m > nodes->cevid)
+        nodes->cevid = m;
+
+    return nodes->cevid;
 }
 
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)

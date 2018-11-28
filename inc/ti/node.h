@@ -9,6 +9,7 @@ typedef enum
     TI_NODE_STAT_OFFLINE,
     TI_NODE_STAT_SHUTTING_DOWN,
     TI_NODE_STAT_CONNECTING,
+    TI_NODE_STAT_SYNCHRONIZING,
     TI_NODE_STAT_AWAY,
     TI_NODE_STAT_AWAY_SOON,  /* few seconds before going away,
                                 back-end still accepts queries */
@@ -37,7 +38,7 @@ struct ti_node_s
                     request, the higher ((node->id + event->id) % n-nodes)
                     is the winner. */
     uint8_t status;
-    uint64_t commit_event_id;
+    uint64_t cevid;
     uint64_t next_thing_id;
     ti_stream_t * stream;
     struct sockaddr_storage addr;

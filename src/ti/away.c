@@ -19,7 +19,7 @@ enum
     AWAY__FLAG_IS_STARTED       =1<<0,
     AWAY__FLAG_IS_RUNNING       =1<<1,
     AWAY__FLAG_IS_WAITING       =1<<2,
-    AWAY__FLAG_CAN_CANCELLED    =1<<3,
+    AWAY__FLAG_IS_WORKING       =1<<3,
 };
 
 static void away__destroy(uv_handle_t * handle);
@@ -76,14 +76,6 @@ fail0:
     return -1;
 }
 
-/* Returns true if away mode is cancelled, false if thread was not running */
-_Bool ti_away_cancel(void)
-{
-    return away->flags & AWAY__FLAG_CAN_CANCELLED
-            ? uv_cancel((uv_req_t *) away->work)
-            : 0;
-}
-
 void ti_away_stop(void)
 {
     if (!away)
@@ -104,6 +96,11 @@ void ti_away_stop(void)
         uv_timer_stop(away->repeat);
         uv_close((uv_handle_t *) away->repeat, away__destroy);
     }
+}
+
+_Bool ti_away_is_working(void)
+{
+    return away->flags & AWAY__FLAG_IS_WORKING;
 }
 
 static void away__destroy(uv_handle_t * handle)
@@ -235,13 +232,16 @@ static void away__waiter_cb(uv_timer_t * waiter)
     if (ti()->events->queue->n)
     {
         log_warning(
-                "waiting for %zu events to finish before going to away mode",
-                ti()->events->queue->n);
+                "waiting for %zu %s to finish before going to away mode",
+                ti()->events->queue->n,
+                ti()->events->queue->n == 1 ? "event" : "events");
         return;
     }
 
     (void) uv_timer_stop(waiter);
     uv_close((uv_handle_t *) waiter, NULL);
+
+    uv_mutex_lock(ti()->events->lock);
 
     away->flags &= ~AWAY__FLAG_IS_WAITING;
 
@@ -253,17 +253,22 @@ static void away__waiter_cb(uv_timer_t * waiter)
     {
         away->flags &= ~AWAY__FLAG_IS_RUNNING;
         ti_set_and_send_node_status(TI_NODE_STAT_READY);
+        uv_mutex_unlock(ti()->events->lock);
         return;
     }
-    away->flags |= AWAY__FLAG_CAN_CANCELLED;
+
     ti_set_and_send_node_status(TI_NODE_STAT_AWAY);
 }
 
 static void away__work(uv_work_t * UNUSED(work))
 {
-    (void) util_sleep(500);
+    away->flags |= AWAY__FLAG_IS_WORKING;
 
-    assert (ti()->node->status == TI_NODE_STAT_AWAY);
+    if (ti_sleep(250) == 0)
+    {
+        /* this small sleep gives the system time to set away mode */
+        assert (ti()->node->status == TI_NODE_STAT_AWAY);
+    }
     assert (away->flags & AWAY__FLAG_IS_STARTED);
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
@@ -272,7 +277,7 @@ static void away__work(uv_work_t * UNUSED(work))
     {
         uv_mutex_lock(db->lock);
 
-        if (ti_things_gc(db->things, db->root, true))
+        if (ti_things_gc(db->things, db->root))
         {
             log_error("garbage collection for database `%.*s` has failed",
                     (int) db->name->n, (char *) db->name->data);
@@ -281,10 +286,15 @@ static void away__work(uv_work_t * UNUSED(work))
         uv_mutex_unlock(db->lock);
     }
 
-    if (ti_archive_to_disk(true))
+    if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 
-    ti_archive_cleanup(true);
+    (void) ti_nodes_cevid();
+
+    if (ti_archive_write_nodes_cevid())
+        log_warning("failed writing last nodes committed event id to disk");
+
+    ti_archive_cleanup();
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
@@ -293,19 +303,23 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
-    LOGC("Status: %d", status);
+    away->flags &= ~AWAY__FLAG_IS_WORKING;
+    away->flags &= ~AWAY__FLAG_IS_RUNNING;
 
-    if (status == UV_ECANCELED)
+    uv_mutex_unlock(ti()->events->lock);
+
+    if (status)
+    {
+        log_error(uv_strerror(status));
+    }
+
+    if (ti()->flags & TI_FLAG_SIGNAL)
     {
         ti_stop();
         return;
     }
-    else if (status)
-    {
-        log_error(uv_strerror(status));
-    }
+
     ti_set_and_send_node_status(TI_NODE_STAT_READY);
-    away->flags &= ~AWAY__FLAG_IS_RUNNING;
 }
 
 static inline uint64_t away__calc_sleep(void)

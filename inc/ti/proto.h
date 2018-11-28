@@ -96,7 +96,7 @@ typedef enum
 
     TI_PROTO_NODE_EVENT_CANCEL  =158,   /* event id */
     TI_PROTO_NODE_STATUS        =159,   /* [*ti->next_thing_id,
-                                            *ev->commit_event_id,
+                                            *ev->cevid,
                                             nd->status] */
     TI_PROTO_NODE_EVENT         =160,   /* node->status */
 

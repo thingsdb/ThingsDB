@@ -1,5 +1,5 @@
 /*
- * events.h
+ * ti/events.h
  */
 #ifndef TI_EVENTS_H_
 #define TI_EVENTS_H_
@@ -24,8 +24,8 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e);
 struct ti_events_s
 {
     _Bool is_started;
-    uv_mutex_t lock;
-    uint64_t * commit_event_id;     /* pointer to ti->node->commit_event_id
+    uv_mutex_t * lock;
+    uint64_t * cevid;               /* pointer to ti->node->cevid
                                        representing the last event id which is
                                        committed or 0 if no event is committed
                                        yet */

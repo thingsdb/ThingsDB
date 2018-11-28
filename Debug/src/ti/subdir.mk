@@ -14,6 +14,7 @@ C_SRCS += \
 ../src/ti/cfg.c \
 ../src/ti/clients.c \
 ../src/ti/connect.c \
+../src/ti/counters.c \
 ../src/ti/db.c \
 ../src/ti/dbs.c \
 ../src/ti/epkg.c \
@@ -46,6 +47,7 @@ C_SRCS += \
 ../src/ti/rpkg.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
+../src/ti/skipped.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
 ../src/ti/task.c \
@@ -71,6 +73,7 @@ OBJS += \
 ./src/ti/cfg.o \
 ./src/ti/clients.o \
 ./src/ti/connect.o \
+./src/ti/counters.o \
 ./src/ti/db.o \
 ./src/ti/dbs.o \
 ./src/ti/epkg.o \
@@ -103,6 +106,7 @@ OBJS += \
 ./src/ti/rpkg.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
+./src/ti/skipped.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
 ./src/ti/task.o \
@@ -128,6 +132,7 @@ C_DEPS += \
 ./src/ti/cfg.d \
 ./src/ti/clients.d \
 ./src/ti/connect.d \
+./src/ti/counters.d \
 ./src/ti/db.d \
 ./src/ti/dbs.d \
 ./src/ti/epkg.d \
@@ -160,6 +165,7 @@ C_DEPS += \
 ./src/ti/rpkg.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \
+./src/ti/skipped.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \
 ./src/ti/task.d \

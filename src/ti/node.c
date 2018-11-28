@@ -63,6 +63,7 @@ const char * ti_node_status_str(ti_node_status_t status)
     case TI_NODE_STAT_OFFLINE:          return "OFFLINE";
     case TI_NODE_STAT_SHUTTING_DOWN:    return "SHUTTING_DOWN";
     case TI_NODE_STAT_CONNECTING:       return "CONNECTING";
+    case TI_NODE_STAT_SYNCHRONIZING:    return "SYNCHRONIZING";
     case TI_NODE_STAT_AWAY:             return "AWAY";
     case TI_NODE_STAT_AWAY_SOON:        return "AWAY_SOON";
     case TI_NODE_STAT_READY:            return "READY";

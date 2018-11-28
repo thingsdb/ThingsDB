@@ -94,11 +94,10 @@ typedef enum
      * 128..159 Node fire and forgets
      */
 
-    TI_PROTO_NODE_EVENT_CANCEL  =158,   /* event id */
+    TI_PROTO_NODE_EVENT         =158,   /* event */
     TI_PROTO_NODE_STATUS        =159,   /* [*ti->next_thing_id,
                                             *ev->cevid,
                                             nd->status] */
-    TI_PROTO_NODE_EVENT         =160,   /* node->status */
 
     /*
      * 160..175 node requests mapping to client requests

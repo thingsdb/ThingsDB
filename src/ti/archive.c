@@ -2,6 +2,7 @@
  * ti/archive.c
  */
 #include <assert.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <ti/epkg.h>
 #include <ti.h>
@@ -83,13 +84,13 @@ ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg)
 
     if (!qp_is_map(qp_next(&unpacker, NULL)) ||
         !qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, qp_event_id)))
+        !qp_is_int(qp_next(&unpacker, &qp_event_id)))
     {
         log_error("invalid archive package");
         return NULL;
     }
 
-    event_id = (uint64_t) qp_event_id->via.int64;
+    event_id = (uint64_t) qp_event_id.via.int64;
 
     epkg = ti_epkg_create(pkg, event_id);
     if (!epkg)
@@ -102,7 +103,7 @@ int ti_archive_load(void)
 {
     struct stat st;
     struct dirent ** file_list;
-    int n, total, rc = 0;
+    int n, total;
     char * storage_path = ti()->cfg->storage_path;
 
     assert (storage_path);
@@ -235,7 +236,7 @@ void ti_archive_cleanup(void)
 
 static int archive__init_queue(void)
 {
-
+    return 0;
 }
 
 static _Bool archive__is_file(const char * fn)
@@ -258,7 +259,7 @@ static int archive__load_file(const char * archive_fn)
     uint64_t cevid = ti()->nodes->cevid;
     char * fn = fx_path_join(archive->path, archive_fn);
     if (!fn)
-        return NULL;
+        return -1;
 
     f = fopen(fn, "r");
     free(fn);       /* we no longer need to file name */

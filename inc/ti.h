@@ -91,7 +91,6 @@ static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline const char * ti_name(void);
-static inline double ti_timeit(struct timespec * start);
 
 struct ti_s
 {

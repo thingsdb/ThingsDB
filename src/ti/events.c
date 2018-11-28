@@ -13,6 +13,7 @@
 #include <util/logger.h>
 #include <util/qpx.h>
 #include <util/vec.h>
+#include <util/util.h>
 
 /*
  * If an event is in the queue for this time, continue regardless of the event
@@ -31,6 +32,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle));
 static void events__new_id(ti_event_t * ev);
 static int events__req_event_id(ti_event_t * ev, ex_t * e);
 static void events__on_req_event_id(ti_event_t * ev, _Bool accepted);
+static int events__push(ti_event_t * ev);
 static void events__loop(uv_async_t * handle);
 static inline int events__trigger(void);
 static inline _Bool events__max_id_gap(uint64_t event_id);
@@ -290,7 +292,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 
     /* we have space so this function always succeeds */
-    (void) events__push(events->queue, ev);
+    (void) events__push(ev);
 
     for (vec_each(vec_nodes, ti_node_t, node))
     {
@@ -366,7 +368,7 @@ static int events__push(ti_event_t * ev)
 static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
-    struct timespec timing;
+    util_time_t timing;
 
     /* TODO: is this lock still required ??? depends... */
     if (uv_mutex_trylock(events->lock))

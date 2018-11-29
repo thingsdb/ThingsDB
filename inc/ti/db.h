@@ -6,6 +6,7 @@
 
 typedef struct ti_db_s  ti_db_t;
 
+#include <uv.h>
 #include <stdint.h>
 #include <ti/thing.h>
 #include <ti/raw.h>

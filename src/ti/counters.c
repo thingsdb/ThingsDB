@@ -33,6 +33,7 @@ void ti_counters_reset(void)
     counters->events_skipped = 0;
     counters->events_killed = 0;
     counters->events_committed = 0;
+    counters->events_failed = 0;
     counters->garbage_collected = 0;
     counters->longest_event_duration = 0.0f;
     counters->total_event_duration = 0.0f;
@@ -41,7 +42,7 @@ void ti_counters_reset(void)
 void ti_counters_upd_commit_event(struct timespec * start)
 {
     struct timespec timing;
-    double duration, average;
+    double duration;
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         return;

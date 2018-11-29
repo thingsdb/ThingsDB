@@ -35,6 +35,7 @@ typedef union ti_event_u ti_event_via_t;
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
 void ti_event_destroy(ti_event_t * ev);
+int ti_event_run(ti_event_t * ev);
 
 union ti_event_u
 {

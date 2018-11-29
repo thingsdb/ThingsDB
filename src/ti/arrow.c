@@ -4,8 +4,54 @@
 #include <assert.h>
 #include <ti/arrow.h>
 #include <util/logger.h>
+#include <langdef/langdef.h>
 
 static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
+
+cleri_node_t * ti_arrow_from_strn(const char * str, size_t n)
+{
+    cleri_parse_t * res;
+    cleri_node_t * node;
+    char * query = strndup(str, n);
+    if (!query)
+        return NULL;
+
+    res = cleri_parse2(
+            ti()->langdef,
+            query,
+            CLERI_FLAG_EXPECTING_DISABLED); /* only error position */
+    if (!res || !res->is_valid)
+        goto fail;
+
+    node = res->tree->children->node        /* Sequence (START) */
+            ->children->next->node;         /* List of statements */
+
+    /* we should have exactly one statement */
+    if (!node->children || node->children->next)
+        goto fail;
+
+    node = node                             /* List of statements */
+            ->children->node                /* Sequence - scope */
+            ->children->next->node          /* Choice */
+            ->children->node;               /* arrow */
+
+    if (node->cl_obj->gid != CLERI_GID_ARROW)
+        goto fail;
+
+    node->data = query;
+    ++node->ref;
+
+    cleri_parse_free(res);
+
+    return node;
+
+fail:
+    if (res)
+        cleri_parse_free(res);
+    free(query);
+    return NULL;
+}
+
 
 int ti_arrow_to_packer(cleri_node_t * arrow, qp_packer_t ** packer)
 {

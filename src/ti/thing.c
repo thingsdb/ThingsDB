@@ -79,6 +79,7 @@ int ti_thing_set(
     {
         if (prop->name == name)
         {
+            ti_decref(name);
             ti_val_clear(&prop->val);
             return ti_val_set(&prop->val, tp, v);
         }
@@ -87,6 +88,7 @@ int ti_thing_set(
     prop = ti_prop_create(name, tp, v);
     if (!prop || vec_push(&thing->props, prop))
     {
+        ti_incref(name);
         ti_prop_destroy(prop);
         return -1;
     }
@@ -102,6 +104,7 @@ int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     {
         if (prop->name == name)
         {
+            ti_decref(name);
             ti_val_clear(&prop->val);
             return ti_val_copy(&prop->val, val);
         }
@@ -110,6 +113,7 @@ int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     prop = ti_prop_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
+        ti_incref(name);
         ti_prop_destroy(prop);
         return -1;
     }
@@ -129,6 +133,7 @@ int ti_thing_weak_set(
     {
         if (prop->name == name)
         {
+            ti_decref(name);
             ti_val_clear(&prop->val);
             ti_val_weak_set(&prop->val, tp, v);
             return 0;
@@ -138,6 +143,7 @@ int ti_thing_weak_set(
     prop = ti_prop_weak_create(name, tp, v);
     if (!prop || vec_push(&thing->props, prop))
     {
+        ti_incref(name);
         ti_prop_weak_destroy(prop);
         return -1;
     }
@@ -152,6 +158,7 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     {
         if (prop->name == name)
         {
+            ti_decref(name);
             ti_val_clear(&prop->val);
             ti_val_weak_copy(&prop->val, val);
             return 0;
@@ -161,6 +168,7 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     prop = ti_prop_weak_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
+        ti_incref(name);
         ti_prop_weak_destroy(prop);
         return -1;
     }
@@ -180,12 +188,13 @@ int ti_thing_attr_weak_setv(
         if (!thing->attrs)
             return -1;
     }
-    else for (vec_each(thing->attrs, ti_prop_t, prop))
+    else for (vec_each(thing->attrs, ti_prop_t, attr))
     {
-        if (prop->name == name)
+        if (attr->name == name)
         {
-            ti_val_clear(&prop->val);
-            ti_val_weak_copy(&prop->val, val);
+            ti_decref(name);
+            ti_val_clear(&attr->val);
+            ti_val_weak_copy(&attr->val, val);
             return 0;
         }
     }
@@ -193,6 +202,7 @@ int ti_thing_attr_weak_setv(
     prop = ti_prop_weak_createv(name, val);
     if (!prop || vec_push(&thing->attrs, prop))
     {
+        ti_incref(name);
         ti_prop_weak_destroy(prop);
         return -1;
     }

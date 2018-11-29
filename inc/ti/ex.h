@@ -42,7 +42,7 @@ struct ex_s
 {
     ex_enum nr;
     int n;
-    char msg[EX_MAX_SZ];
+    char msg[EX_MAX_SZ];    /* 0 terminated message */
 };
 
 #define ex_set_alloc(e__) ex_set((e__), EX_ALLOC, EX_ALLOC_S)

@@ -22,6 +22,11 @@ struct ti_counters_s
     uint64_t events_skipped;        /* events which are skipped because a
                                        higher event id was already processed
                                     */
+    uint64_t events_failed;         /* events failed which are processed from
+                                       EPKG, this is a critical counter since
+                                       the EPKG events should proceed without
+                                       errors.
+                                    */
     uint64_t events_killed;         /* event killed because it took too long
                                        before the event got the READY status.
                                        these events could later be received

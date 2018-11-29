@@ -18,12 +18,7 @@ typedef unsigned char uchar;
 # define UNUSED(x) x
 #endif
 
-/* Use CLOCK_MONOTONIC_RAW if available */
-#ifdef CLOCK_MONOTONIC_RAW
 #define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
-#else
-#define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC
-#endif
 
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)

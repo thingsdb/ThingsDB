@@ -10,6 +10,10 @@
 #include <ti.h>
 #include <util/logger.h>
 
+static int val__unp_map(ti_val_t *, qp_unpacker_t *, ti_db_t *);
+static int val__push(ti_val_t *, ti_val_t *);
+static ti_val_t * val__from_unp(qp_obj_t *, qp_unpacker_t *, ti_db_t *);
+
 ti_val_t * ti_val_create(ti_val_enum tp, void * v)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
@@ -54,6 +58,15 @@ ti_val_t * ti_val_weak_dup(ti_val_t * val)
         return NULL;
     memcpy(dup, val, sizeof(ti_val_t));
     return dup;
+}
+
+
+
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_db_t * db)
+{
+    qp_obj_t qp_val;
+    qp_next(unp, &qp_val);
+    return val__from_unp(&qp_val, unp, db);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -692,4 +705,205 @@ int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
         break;
     }
     return e->nr;
+}
+
+static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, ti_db_t * db)
+{
+    const uchar * pt = unp->pt;
+    qp_obj_t qp_kind, qp_tmp;
+    ssize_t sz = qp_next(unp, NULL);
+
+    assert (qp_is_map(sz));
+
+    sz -= QP_MAP0;
+    if (!sz || !qp_is_raw(qp_next(unp, &qp_kind)) || qp_kind.len != 1)
+        return -1;
+
+    switch ((ti_val_kind) *qp_kind.via.raw)
+    {
+    case TI_VAL_KIND_THING:
+        unp->pt = pt;
+        dest->tp = TI_VAL_THING;
+        dest->via.thing = NULL;
+        break;
+    case TI_VAL_KIND_ARROW:
+        if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
+            return -1;
+        dest->tp = TI_VAL_ARROW;
+        dest->via.arrow = ti_arrow_from_strn(
+                (char *) qp_tmp.via.raw,
+                qp_tmp.len);
+        if (!dest->via.arrow)
+            return -1;
+        break;
+    case TI_VAL_KIND_REGEX:
+    {
+        ex_t * e = ex_use();
+
+        if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
+            return -1;
+        dest->tp = TI_VAL_REGEX;
+        dest->via.regex = ti_regex_from_strn(
+                (const char *) qp_tmp.via.raw,
+                qp_tmp.len,
+                e);
+        if (!dest->via.regex)
+        {
+            log_error(e->msg);
+            return -1;
+        }
+        break;
+    }
+    }
+
+    return 0;
+}
+
+static int val__push(ti_val_t * arr, ti_val_t * val)
+{
+    if (    val->tp == TI_VAL_ARRAY || (
+            val->tp == TI_VAL_THINGS && !val->via.things->n))
+        val->tp = TI_VAL_TUPLE;
+
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:
+        if (arr->tp != TI_VAL_THINGS ||
+                vec_push(&arr->via.things, val->via.thing))
+            return -1;
+        ti_val_weak_destroy(val);
+        return 0;
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARROW:
+        if (arr->tp != TI_VAL_ARRAY)
+        {
+            assert (arr->tp == TI_VAL_THINGS);
+            if (arr->via.things->n)
+                return -1;
+            arr->tp = TI_VAL_ARRAY;
+        }
+        return vec_push(&arr->via.array, val);
+    case TI_VAL_ATTR:
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_ARRAY:
+    case TI_VAL_THINGS:
+        return -1;
+    }
+    return -1;
+}
+
+static ti_val_t * val__from_unp(
+        qp_obj_t * qp_val,
+        qp_unpacker_t * unp,
+        ti_db_t * db)
+{
+    ti_val_t * val = malloc(sizeof(ti_val_t));
+    if (!val)
+        return NULL;
+
+    switch(qp_val->tp)
+    {
+    case QP_RAW:
+        val->tp = TI_VAL_RAW;
+        val->via.raw = ti_raw_create(qp_val->via.raw, qp_val->len);
+        if (!val->via.raw)
+            goto fail;
+        break;
+    case QP_INT64:
+        val->tp = TI_VAL_INT;
+        val->via.int_ = qp_val->via.int64;
+        break;
+    case QP_DOUBLE:
+        val->tp = TI_VAL_FLOAT;
+        val->via.float_ = qp_val->via.real;
+        break;
+    case QP_ARRAY0:
+    case QP_ARRAY1:
+    case QP_ARRAY2:
+    case QP_ARRAY3:
+    case QP_ARRAY4:
+    case QP_ARRAY5:
+    {
+        qp_obj_t qp_v;
+        ti_val_t * v;
+        size_t sz = qp_val->tp - QP_ARRAY0;
+        val->tp = TI_VAL_THINGS;
+        val->via.arr = vec_new(sz);
+        if (!val->via.raw)
+            goto fail;
+
+        while (sz--)
+        {
+            qp_next(unp, &qp_v);
+            v = val__from_unp(&qp_v, unp, db);
+            if (val__push(val, v))
+            {
+                ti_val_clear(v);
+                goto fail;
+            }
+        }
+
+        break;
+    }
+    case QP_MAP1:
+    case QP_MAP2:
+    case QP_MAP3:
+    case QP_MAP4:
+    case QP_MAP5:
+        --unp->pt;  /* reset to map */
+        if (val__unp_map(val, unp, db))
+            goto fail;
+        break;
+    case QP_TRUE:
+    case QP_FALSE:
+        val->tp = TI_VAL_BOOL;
+        val->via.bool_ = qp_val->tp == QP_TRUE;
+        break;
+    case QP_NULL:
+        val->tp = TI_VAL_NIL;
+        val->via.nil = NULL;
+        break;
+    case QP_ARRAY_OPEN:
+    {
+        qp_obj_t qp_v;
+        ti_val_t * v;
+        val->tp = TI_VAL_THINGS;
+        val->via.arr = vec_new(6);  /* most likely we have at least 6 items */
+        if (!val->via.raw)
+            goto fail;
+
+        while (1)
+        {
+            if (qp_is_close(qp_next(unp, &qp_v)))
+                break;
+
+            v = val__from_unp(&qp_v, unp, db);
+            if (val__push(val, v))
+            {
+                ti_val_clear(v);
+                goto fail;
+            }
+        }
+        break;
+    }
+    case QP_MAP_OPEN:
+        --unp->pt;  /* reset to map */
+        if (val__unp_map(val, unp, db))
+            goto fail;
+        break;
+    default:
+        goto fail;
+    }
+
+    return val;
+
+fail:
+    ti_val_destroy(val);
+    return NULL;
 }

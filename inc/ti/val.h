@@ -27,6 +27,13 @@ typedef enum
     TI_VAL_FLAG_STATIC  =1<<1,
 } ti_val_flags;
 
+typedef enum
+{
+    TI_VAL_KIND_THING   ='#',
+    TI_VAL_KIND_ARROW   ='$',
+    TI_VAL_KIND_REGEX   ='*',
+} ti_val_kind;
+
 enum
 {
     TI_VAL_PACK_NEW     =1<<0,
@@ -43,6 +50,7 @@ typedef union ti_val_u ti_val_via_t;
 #include <ti/raw.h>
 #include <ti/thing.h>
 #include <ti/name.h>
+#include <ti/db.h>
 #include <ti/regex.h>
 #include <ti/ex.h>
 #include <util/vec.h>
@@ -51,6 +59,7 @@ ti_val_t * ti_val_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_dup(ti_val_t * val);
 ti_val_t * ti_val_weak_dup(ti_val_t * val);
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_db_t * db);
 void ti_val_destroy(ti_val_t * val);
 static inline void ti_val_weak_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);

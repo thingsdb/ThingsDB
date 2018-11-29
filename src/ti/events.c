@@ -122,7 +122,6 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 
 int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 {
-    qp_unpacker_t unpacker;
     ti_event_t * ev;
 
     if (events__max_id_gap(epkg->event_id))
@@ -185,7 +184,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         ev->via.epkg = ti_grab(epkg);
     }
 
-    assert (ev->tasks->n == 0);
+    assert (!ev->tasks || ev->tasks->n == 0);
     assert (ev->tp == TI_EVENT_TP_EPKG);
     assert (ev->status != TI_EVENT_STAT_READY);
 
@@ -240,7 +239,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     if (!events)
         return;
     queue_destroy(events->queue, (queue_destroy_cb) ti_event_destroy);
-    uv_mutex_destroy(&events->lock);
+    uv_mutex_destroy(events->lock);
     free(events->evloop);
     free(events);
     events = ti()->events = NULL;
@@ -426,16 +425,22 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
         assert (ev->status == TI_EVENT_STAT_READY);
 
-        if (ev->tp == TI_EVENT_TP_MASTER)
+        switch ((ti_event_tp_enum) ev->tp)
         {
+        case TI_EVENT_TP_MASTER:
             assert (ev->status == TI_EVENT_STAT_READY);
-
             ti_query_run(ev->via.query);
-        }
-        else
-        {
+            break;
+        case TI_EVENT_TP_EPKG:
             assert (ev->tp == TI_EVENT_TP_EPKG);
-            /* TODO: run event tasks */
+            if (ti_event_run(ev))
+            {
+                /* logging is done, but we increment the failed counter */
+                ++ti()->counters->events_failed;
+            }
+            break;
+        case TI_EVENT_TP_SLAVE:
+            assert (0);
         }
 
         /* update counters */

@@ -14,6 +14,7 @@
 static const char * archive__path           = ".archive/";
 static const char * archive__nodes_cevid    = ".nodes_cevid.dat";
 
+static int archive__init_queue(void);
 static _Bool archive__is_file(const char * fn);
 static int archive__load_file(const char * fn);
 static int archive__read_nodes_cevid(void);

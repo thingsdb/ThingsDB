@@ -10,9 +10,12 @@
 #include <ti.h>
 #include <util/logger.h>
 
-static int val__unp_map(ti_val_t *, qp_unpacker_t *, ti_db_t *);
-static int val__push(ti_val_t *, ti_val_t *);
-static ti_val_t * val__from_unp(qp_obj_t *, qp_unpacker_t *, ti_db_t *);
+static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
+static int val__push(ti_val_t * arr, ti_val_t * val);
+static ti_val_t * val__from_unp(
+        qp_obj_t * qp_val,
+        qp_unpacker_t * unp,
+        imap_t * things);
 
 ti_val_t * ti_val_create(ti_val_enum tp, void * v)
 {
@@ -62,11 +65,11 @@ ti_val_t * ti_val_weak_dup(ti_val_t * val)
 
 
 
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_db_t * db)
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 {
     qp_obj_t qp_val;
     qp_next(unp, &qp_val);
-    return val__from_unp(&qp_val, unp, db);
+    return val__from_unp(&qp_val, unp, things);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -435,6 +438,8 @@ void ti_val_clear(ti_val_t * val)
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
     case TI_VAL_ARROW:
+        if (!val->via.arrow)
+            break;
         if (val->via.arrow->str == val->via.arrow->data)
             free(val->via.arrow->data);
         cleri__node_free(val->via.arrow);
@@ -707,25 +712,32 @@ int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
     return e->nr;
 }
 
-static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, ti_db_t * db)
+static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
 {
-    const uchar * pt = unp->pt;
     qp_obj_t qp_kind, qp_tmp;
     ssize_t sz = qp_next(unp, NULL);
 
     assert (qp_is_map(sz));
 
-    sz -= QP_MAP0;
+    sz = QP_MAP_OPEN ? -1 : sz - QP_MAP0;
+
     if (!sz || !qp_is_raw(qp_next(unp, &qp_kind)) || qp_kind.len != 1)
         return -1;
 
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
     case TI_VAL_KIND_THING:
-        unp->pt = pt;
+    {
+        uint64_t thing_id;
+        if (!qp_is_int(qp_next(unp, &qp_tmp)))
+            return -1;
+        thing_id = (uint64_t) qp_tmp.via.int64;
         dest->tp = TI_VAL_THING;
-        dest->via.thing = NULL;
+        dest->via.thing = ti_things_thing_from_unp(things, thing_id, unp, sz);
+        if (!dest->via.thing)
+            return -1;
         break;
+    }
     case TI_VAL_KIND_ARROW:
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
             return -1;
@@ -801,7 +813,7 @@ static int val__push(ti_val_t * arr, ti_val_t * val)
 static ti_val_t * val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
-        ti_db_t * db)
+        imap_t * things)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
@@ -841,7 +853,7 @@ static ti_val_t * val__from_unp(
         while (sz--)
         {
             qp_next(unp, &qp_v);
-            v = val__from_unp(&qp_v, unp, db);
+            v = val__from_unp(&qp_v, unp, things);
             if (val__push(val, v))
             {
                 ti_val_clear(v);
@@ -857,7 +869,7 @@ static ti_val_t * val__from_unp(
     case QP_MAP4:
     case QP_MAP5:
         --unp->pt;  /* reset to map */
-        if (val__unp_map(val, unp, db))
+        if (val__unp_map(val, unp, things))
             goto fail;
         break;
     case QP_TRUE:
@@ -883,7 +895,7 @@ static ti_val_t * val__from_unp(
             if (qp_is_close(qp_next(unp, &qp_v)))
                 break;
 
-            v = val__from_unp(&qp_v, unp, db);
+            v = val__from_unp(&qp_v, unp, things);
             if (val__push(val, v))
             {
                 ti_val_clear(v);
@@ -894,7 +906,7 @@ static ti_val_t * val__from_unp(
     }
     case QP_MAP_OPEN:
         --unp->pt;  /* reset to map */
-        if (val__unp_map(val, unp, db))
+        if (val__unp_map(val, unp, things))
             goto fail;
         break;
     default:

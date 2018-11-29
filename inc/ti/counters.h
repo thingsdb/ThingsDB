@@ -19,8 +19,10 @@ struct ti_counters_s
     uint64_t queries_received;      /* queries where this node acted as
                                        MASTER
                                     */
-    uint64_t events_skipped;        /* events which are skipped because a
-                                       higher event id was already processed
+    uint64_t events_out_of_order;   /* events which should have parsed earlier
+                                       because a higher event id was already
+                                       processed, an error is logged with these
+                                       events
                                     */
     uint64_t events_failed;         /* events failed which are processed from
                                        EPKG, this is a critical counter since

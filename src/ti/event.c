@@ -10,6 +10,7 @@
 #include <ti/job.h>
 #include <ti/event.h>
 #include <ti/ex.h>
+#include <ti/dbs.h>
 #include <ti/node.h>
 #include <ti/proto.h>
 #include <ti/task.h>

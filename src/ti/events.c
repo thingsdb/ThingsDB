@@ -19,7 +19,7 @@
  * If an event is in the queue for this time, continue regardless of the event
  * status.
  */
-#define EVENTS__TIMEOUT 5.0f
+#define EVENTS__TIMEOUT 42.0f
 
 /*
  * Avoid extreme gaps between event id's
@@ -382,14 +382,27 @@ static void events__loop(uv_async_t * UNUSED(handle))
         if (ev->id <= *events->cevid)
         {
             /* This is event should have been parsed */
-            ++ti()->counters->events_skipped;
+            if (ev->status == TI_EVENT_STAT_READY)
+            {
+                ++ti()->counters->events_out_of_order;
 
-            /* TODO : move event to ti_skipped_t */
-            (void *) queue_shift(events->queue);
-            continue;
+                log_error(
+                    "event `%"PRIu64"` will be processed but `%"PRIu64"` "
+                    "is already committed",
+                    ev->id, *events->cevid);
+
+                if (ev->tp == TI_EVENT_TP_EPKG)
+                {
+                    /* log the full event */
+                    ti_pkg_t * pkg = ev->via.epkg->pkg;
+
+                    (void) fprintf(Logger.ostream, "\n\n");
+                    qp_fprint(Logger.ostream, pkg->data, pkg->n);
+                    (void) fprintf(Logger.ostream, "\n\n");
+                }
+            }
         }
-
-        if (ev->id > (*events->cevid) + 1)
+        else if (ev->id > (*events->cevid) + 1)
         {
             /* We expect at least one event before this one */
             if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)

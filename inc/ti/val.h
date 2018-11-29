@@ -50,16 +50,16 @@ typedef union ti_val_u ti_val_via_t;
 #include <ti/raw.h>
 #include <ti/thing.h>
 #include <ti/name.h>
-#include <ti/db.h>
 #include <ti/regex.h>
 #include <ti/ex.h>
 #include <util/vec.h>
+#include <util/imap.h>
 
 ti_val_t * ti_val_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_dup(ti_val_t * val);
 ti_val_t * ti_val_weak_dup(ti_val_t * val);
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_db_t * db);
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things);
 void ti_val_destroy(ti_val_t * val);
 static inline void ti_val_weak_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);

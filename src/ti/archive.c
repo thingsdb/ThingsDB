@@ -11,6 +11,9 @@
 #include <util/util.h>
 #include <unistd.h>
 
+#define ARCHIVE__FILE_FMT "%020"PRIu64".qp"
+#define ARCHIVE__FILE_LEN 23
+
 static const char * archive__path           = ".archive/";
 static const char * archive__nodes_cevid    = ".nodes_cevid.dat";
 
@@ -177,7 +180,7 @@ int ti_archive_to_disk(void)
     /* last event id in queue should be equal to cevid */
     assert (*ti()->events->cevid == last_epkg->event_id);
 
-    sprintf(buf, "%020"PRIu64".qp", last_epkg->event_id);
+    sprintf(buf, ARCHIVE__FILE_FMT, last_epkg->event_id);
 
     fn = fx_path_join(archive->path, buf);
     if (!fn)
@@ -237,15 +240,23 @@ void ti_archive_cleanup(void)
 
 static int archive__init_queue(void)
 {
+    for (queue_each(archive->queue, ti_epkg_t, epkg))
+    {
+        if (epkg->event_id > *ti()->events->cevid)
+        {
+
+        }
+    }
     return 0;
 }
 
 static _Bool archive__is_file(const char * fn)
 {
     size_t len = strlen(fn);
-    if (len != 23)
+    if (len != ARCHIVE__FILE_LEN)
         return false;
 
+    /* twenty digits followed by three for the file extension (.qp) */
     for (size_t i = 0; i < 20; ++i, ++fn)
         if (!isdigit(*fn))
             return false;

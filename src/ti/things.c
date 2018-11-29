@@ -7,6 +7,8 @@
 #include <ti/prop.h>
 #include <ti/things.h>
 #include <util/logger.h>
+#include <qpack.h>
+#include <ti/val.h>
 
 static void things__gc_mark(ti_thing_t * thing);
 
@@ -20,6 +22,57 @@ ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
         return NULL;
     }
     return thing;
+}
+
+/* Returns a thing with a new reference or NULL in case of an error */
+ti_thing_t * ti_things_thing_from_unp(
+        imap_t * things,
+        uint64_t thing_id,
+        qp_unpacker_t * unp,
+        ssize_t sz)
+{
+    ti_thing_t * thing = imap_get(things, thing_id);
+    if (thing)
+        /* an existing thing cannot have properties inside the data and
+         * therefore the length must be equal to one */
+        return sz == 1 ? ti_grab(thing) : NULL;
+
+    thing = ti_things_create_thing(things, thing_id);
+    if (!thing)
+        return NULL;
+
+    if (thing_id >= *ti()->next_thing_id)
+        *ti()->next_thing_id = thing_id + 1;
+
+    while (--sz)
+    {
+        ti_val_t * val;
+        ti_name_t * name;
+        qp_obj_t qp_prop;
+        if (qp_is_close(qp_next(unp, &qp_prop)))
+            break;
+
+        if (!qp_is_raw(qp_prop.tp) || !ti_name_is_valid_strn(
+                (const char *) qp_prop.via.raw,
+                qp_prop.len))
+            goto failed;
+
+        name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
+        val = ti_val_from_unp(unp, things);
+
+        if (!name || !val || ti_thing_weak_setv(thing, name, val))
+        {
+            ti_val_destroy(val);
+            ti_name_drop(name);
+            goto failed;
+        }
+    }
+
+    return thing;
+
+failed:
+    ti_thing_drop(thing);
+    return NULL;
 }
 
 int ti_things_gc(imap_t * things, ti_thing_t * root)

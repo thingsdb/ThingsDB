@@ -243,7 +243,7 @@ void ti_query_run(ti_query_t * query)
         ->children;             /* first child or NULL */
 
     log_debug(
-        "\n  query     : \x1B[33m%s\x1B[0m"
+        "\n  query     : %s"
         "\n  event     : %s"
         "\n  node cache: %lu",
         query->querystr,

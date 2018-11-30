@@ -383,7 +383,6 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_RET:
             return;  /* arguments will be ignored */
         case CLERI_GID_F_DEL:
-        case CLERI_GID_F_NEW:
         case CLERI_GID_F_PUSH:
         case CLERI_GID_F_RENAME:
         case CLERI_GID_F_SET:

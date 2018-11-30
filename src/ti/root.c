@@ -207,8 +207,7 @@ static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     switch (root->tp)
     {
     case TI_ROOT_DATABASES:
-        if (fname->cl_obj->gid == CLERI_GID_F_NEW)
-            return root__new_database(root, params, e);
+        return root__new_database(root, params, e);
     }
     ex_set(e, EX_INDEX_ERROR,
             "`%.*s` is undefined",

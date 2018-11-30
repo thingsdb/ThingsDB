@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <ti/epkg.h>
+#include <ti/events.h>
 #include <ti.h>
 #include <util/logger.h>
 #include <util/fx.h>

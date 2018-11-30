@@ -143,7 +143,7 @@ int ti_build(void)
         return rc;
 
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);
-    if (!ti_.node || ti_save() || ti_store_store())
+    if (!ti_.node || ti_save())
         goto failed;
 
     ti_.node->cevid = 0;
@@ -184,6 +184,10 @@ int ti_build(void)
         ti_thing_weak_set(iris, name, TI_VAL_RAW, raw_iris);
         name = ti_names_get("age", 3);
         ti_thing_weak_set(iris, name, TI_VAL_INT, &age_iris);
+
+        (*ti_.events->cevid)++;
+
+        ti_store_store();
     }
 
     rc = 0;
@@ -243,6 +247,15 @@ int ti_run(void)
     if (ti_signals_init())
         goto failed;
 
+    if (ti_events_start())
+        goto failed;
+
+    if (ti_archive_load())
+        goto failed;
+
+    if (ti_away_start())
+        goto failed;
+
     /* TODO: this is probably not right yet, not all things should start
      *       when only listening for joining a pool
      */
@@ -257,12 +270,6 @@ int ti_run(void)
         goto failed;
 
     if (ti_connect_start())
-        goto failed;
-
-    if (ti_away_start())
-        goto failed;
-
-    if (ti_events_start())
         goto failed;
 
     rc = uv_run(ti_.loop, UV_RUN_DEFAULT);

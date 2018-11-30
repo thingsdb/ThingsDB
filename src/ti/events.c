@@ -89,8 +89,6 @@ void ti_events_stop(void)
     if (!events)
         return;
 
-    free(events->lock);
-
     if (events->is_started)
         uv_close((uv_handle_t *) events->evloop, events__destroy);
     else
@@ -269,6 +267,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
         return;
     queue_destroy(events->queue, (queue_destroy_cb) ti_event_drop);
     uv_mutex_destroy(events->lock);
+    free(events->lock);
     free(events->evloop);
     free(events);
     events = ti()->events = NULL;

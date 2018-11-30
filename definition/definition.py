@@ -65,6 +65,7 @@ class Definition(Grammar):
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_thing = Keyword('thing')
+    f_time = Keyword('time')
     f_upper = Keyword('upper')
 
     # build-in update functions
@@ -107,6 +108,7 @@ class Definition(Grammar):
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_thing,        # (int thing_id) -> thing
+        f_time,         # () -> time
         f_upper,        # () -> str
         # build-in update functions
         f_del,

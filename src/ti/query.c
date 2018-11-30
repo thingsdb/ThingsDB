@@ -538,6 +538,9 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);
+
+    /* reset iterator */
+    iter = omap_iter(query->ev->tasks);
     for (omap_each(iter, ti_task_t, task))
     {
         (void) qp_add_int64(packer, task->thing->id);
@@ -551,7 +554,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_UPD);
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT);
     epkg = ti_epkg_create(pkg, query->ev->id);
     if (!epkg)
     {

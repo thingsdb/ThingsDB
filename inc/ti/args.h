@@ -19,6 +19,9 @@ struct ti_args_s
     int32_t log_colorized;
     int32_t init;
 
+    /* integer props */
+    int32_t redundancy;                 /* only on init */
+
     /* string props */
     char config[ARGPARSE_MAX_LEN_ARG];
     char log_level[ARGPARSE_MAX_LEN_ARG];

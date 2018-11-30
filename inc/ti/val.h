@@ -10,6 +10,7 @@ typedef enum
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
+    TI_VAL_TIME,    /* stored as uint64_t UTC timestamp */
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_RAW,
@@ -101,6 +102,7 @@ union ti_val_u
     void * undefined;
     void * nil;
     int64_t int_;
+    uint64_t time;
     double float_;
     _Bool bool_;
     ti_raw_t * raw;

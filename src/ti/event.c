@@ -103,6 +103,7 @@ int ti_event_run(ti_event_t * ev)
                     target_id, ev->id);
             return -1;
         }
+        ti_incref(ev->target);
     }
 
     qp_next(&unpacker, &thing_or_map);

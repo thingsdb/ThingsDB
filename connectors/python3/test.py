@@ -37,15 +37,7 @@ async def test():
          * test query
          */
 
-        re = /ir.*/;
-
-        people.map(x => x.match(re));
-
-        a = {
-            name: 'Iris'
-        };
-
-        map(x => x);
+        re;
 
         ''', timeout=2)
     except ThingsDBError as e:

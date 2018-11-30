@@ -34,6 +34,7 @@ int ti_archive_create(void)
 
     archive->queue = queue_new(0);
     archive->path = NULL;
+    archive->nodes_cevid_fn = NULL;
     archive->events_in_achive = 0;
     archive->last_on_disk = 0;
 
@@ -53,6 +54,7 @@ void ti_archive_destroy(void)
         return;
     queue_destroy(archive->queue, (queue_destroy_cb) ti_epkg_drop);
     free(archive->path);
+    free(archive->nodes_cevid_fn);
     free(archive);
     archive = ti()->archive = NULL;
 }
@@ -64,7 +66,7 @@ int ti_archive_write_nodes_cevid(void)
     if (!f)
         return -1;
 
-    if (fwrite(&cevid, sizeof(uint64_t), 1, f))
+    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1)
         goto failed;
 
     return fclose(f);
@@ -270,7 +272,11 @@ static int archive__init_queue(void)
 
     /* remove events from queue */
     while ((epkg = queue_last(archive->queue)) && epkg->event_id > cevid)
+    {
         (void *) queue_pop(archive->queue);
+        assert (epkg->ref > 1); /* add event has created a new reference */
+        ti_decref(epkg);
+    }
 
     rc = 0;
 stop:
@@ -297,6 +303,7 @@ static int archive__load_file(const char * archive_fn)
 {
     FILE * f;
     qp_res_t pkg_qp;
+    qp_types_t qp_tp;
     uint64_t cevid = ti()->nodes->cevid;
     char * fn = fx_path_join(archive->path, archive_fn);
     if (!fn)
@@ -310,12 +317,14 @@ static int archive__load_file(const char * archive_fn)
     if (!qp_is_array(qp_fnext(f, NULL)))
         goto failed;
 
-    while (qp_is_raw(qp_fnext(f, &pkg_qp)))
+    while (qp_is_raw((qp_tp = qp_fnext(f, &pkg_qp))))
     {
         ti_epkg_t * epkg;
         ti_pkg_t * pkg = ti_pkg_dup((ti_pkg_t *) pkg_qp.via.raw->data);
         if (!pkg)
             goto failed;
+
+        qp_res_clear(&pkg_qp);
 
         epkg = ti_archive_epkg_from_pkg(pkg);
         if (!epkg || (
@@ -324,6 +333,9 @@ static int archive__load_file(const char * archive_fn)
 
         ++archive->events_in_achive;
     }
+
+    if (qp_tp == QP_ERR)
+        goto failed;
 
     return fclose(f);
 

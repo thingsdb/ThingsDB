@@ -44,7 +44,7 @@ void ti_user_drop(ti_user_t * user)
     if (user && !--user->ref)
     {
         free(user->encpass);
-        free(user->name);
+        ti_raw_drop(user->name);
         /* TODO: free  user->qpdata */
         free(user);
     }

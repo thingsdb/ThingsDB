@@ -44,6 +44,7 @@ typedef struct ti_s ti_t;
 #include <string.h>
 #include <ti/archive.h>
 #include <ti/args.h>
+#include <ti/dbs.h>
 #include <ti/away.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
@@ -103,7 +104,7 @@ struct ti_s
     ti_store_t * store;
     ti_connect_t * connect_loop;
     ti_thing_t * thing0;        /* thing with id 0 */
-    vec_t * dbs;
+    ti_dbs_t * dbs;
     vec_t * users;
     vec_t * access;
     smap_t * names;             /* weak map for ti_name_t */

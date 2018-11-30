@@ -49,7 +49,7 @@ void ti_db_drop(ti_db_t * db)
 {
     if (db && !--db->ref)
     {
-        free(db->name);
+        ti_raw_drop(db->name);
         vec_destroy(db->access, (vec_destroy_cb) ti_auth_destroy);
 
         ti_thing_drop(db->root);

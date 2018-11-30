@@ -9,8 +9,7 @@
 #include <ti/args.h>
 #include <ti.h>
 
-#define DEFAULT_LOG_FILE_MAX_SIZE 50000000
-#define DEFAULT_LOG_FILE_NUM_BACKUPS 6
+#define DEFAULT_REDUNDANCY 4
 
 #ifndef NDEBUG
 #define DEFAULT_LOG_LEVEL "debug"
@@ -28,6 +27,7 @@ int ti_args_create(void)
     args->version = 0;
     strcpy(args->config, "");
     strcpy(args->log_level, "");
+    args->redundancy = 0;
     args->log_colorized = 0;
     args->init = 0;
     ti()->args = args;
@@ -67,6 +67,18 @@ int ti_args_parse(int argc, char *argv[])
             action: ARGPARSE_STORE_TRUE,
             default_int32_t: 0,
             pt_value_int32_t: &args->init,
+            str_default: NULL,
+            str_value: NULL,
+            choices: NULL,
+    };
+
+    argparse_argument_t redundancy_ = {
+            name: "redundancy",
+            shortcut: 0,
+            help: "set the initial redundancy (only together with --init)",
+            action: ARGPARSE_STORE_INT,
+            default_int32_t: DEFAULT_REDUNDANCY,
+            pt_value_int32_t: &args->redundancy,
             str_default: NULL,
             str_value: NULL,
             choices: NULL,
@@ -122,6 +134,7 @@ int ti_args_parse(int argc, char *argv[])
 
     if (    argparse_add_argument(parser, &config_) ||
             argparse_add_argument(parser, &init_) ||
+            argparse_add_argument(parser, &redundancy_) ||
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
@@ -130,6 +143,27 @@ int ti_args_parse(int argc, char *argv[])
 
     /* this will parse and free the parser from memory */
     rc = argparse_parse(parser, argc, argv);
+
+    if (rc == 0)
+    {
+        if (!args->init && args->redundancy)
+        {
+            printf("redundancy can only be set together with --init\n"
+                   "see "TI_DOCS"#redundancy for more info\n");
+            rc = -1;
+        }
+
+        if (args->init)
+        {
+            if (!args->redundancy)
+                args->redundancy = DEFAULT_REDUNDANCY;
+            else if (args->redundancy < 1 || args->redundancy > 64)
+            {
+                printf("redundancy must be a value between 1 and 64\n");
+                rc = -1;
+            }
+        }
+    }
 
     argparse_destroy(parser);
 

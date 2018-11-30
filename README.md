@@ -12,7 +12,7 @@
         - [x] `string`
         - [x] `regex`
         - [x] `undefined`
-        - [ ] Introduce a Date type ?
+        - [ ] Introduce a Time type ?
     - [x] Thing
     - [ ] Array
     - [ ] Functions:
@@ -26,6 +26,11 @@
         - [x] `lower`
         - [x] `map`
         - [x] `match`
+        - [ ] `time`
+            - [ ] No arguments should return Time `now`
+        - [ ] `ts` Time -> returns UTC timestamp in ms
+        - [ ] `unix` Time -> returns UTC timestamp in seconds
+        - [ ] `fmt` Time -> returns timestamp in format (requires local)
         - [x] `ret`
         - [x] `startswith`
         - [x] `thing`
@@ -36,7 +41,7 @@
         - [x] `set`
         - [ ] `splice`
         - [x] `unset`
-- [ ] Redundancy as initial argument together with --init ?
+- [x] Redundancy as initial argument together with --init ?
 - [ ] Task generating
     - [x] `assign`
     - [x] `del`
@@ -46,7 +51,7 @@
     - [ ] `splice`
     - [x] `unset`
 - [ ] Jobs processing from `EPKG`
-    - [ ] `assign`
+    - [x] `assign`
     - [ ] `del`
     - [ ] `push`
     - [ ] `rename`
@@ -62,6 +67,10 @@
     - [x] Array
     - [x] Tuple
     - [x] Things
+    - [x] Regex
+    - [x] Arrow
+    - [x] Raw
+    - [ ] Time
 - [ ] Storing
     - [ ] Full storage on disk
         - [x] Status

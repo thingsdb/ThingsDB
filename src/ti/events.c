@@ -137,11 +137,12 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 /*
  * Returns 0 on success
  * - function performs logging on failure
- * - `node` is only required for logging
+ * - `node` is required but only used for logging
+ * - increments a reference for `epkg` on success
  */
 int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 {
-    ti_event_t * ev;
+    ti_event_t * ev = NULL;
 
     if (events__max_id_gap(epkg->event_id))
     {
@@ -481,6 +482,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
                  * log the full event */
                 ++ti()->counters->events_failed;
                 ti_event_log("failed", ev);
+            }
+            else if (Logger.level == LOGGER_DEBUG)
+            {
+                ti_event_log("success", ev);
             }
             break;
         case TI_EVENT_TP_SLAVE:

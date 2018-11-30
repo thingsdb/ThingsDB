@@ -273,7 +273,7 @@ static void away__work(uv_work_t * UNUSED(work))
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
-    for (vec_each(ti()->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs->vec, ti_db_t, db))
     {
         uv_mutex_lock(db->lock);
 
@@ -325,6 +325,6 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
 static inline uint64_t away__calc_sleep(void)
 {
     return ti()->nodes->vec->n == 1 ?
-            12000L :   /* 120000L */
+            3600000L :   /* once an hour: 3600000L */
             ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;
 }

@@ -30,7 +30,7 @@ int ti_store_dbs_store(const char * fn)
     if (qp_add_raw_from_str(packer, "dbs") ||
         qp_add_array(&packer)) goto stop;
 
-    for (vec_each(ti()->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs->vec, ti_db_t, db))
     {
         if (    qp_add_array(&packer) ||
                 qp_add_raw(
@@ -128,7 +128,7 @@ int ti_store_dbs_restore(const char * fn)
         n = qname->via.raw->n;
 
         db = ti_db_create(&guid, name, n);
-        if (!db || vec_push(&ti()->dbs, db))
+        if (!db || vec_push(&ti()->dbs->vec, db))
             goto stop;
 
         db->quota->max_things = qq_things->via.int64;

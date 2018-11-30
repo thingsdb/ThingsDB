@@ -26,8 +26,6 @@
 
 ti_t ti_;
 
-static const uint8_t ti__def_redundancy = 3;
-
 /* settings, nodes etc. */
 const char * ti__fn = "ti_.qp";
 const int ti__fn_schema = 0;
@@ -42,7 +40,7 @@ int ti_create(void)
 {
     ti_.stored_event_id = 0;
     ti_.flags = 0;
-    ti_.redundancy = ti__def_redundancy;
+    ti_.redundancy = 0;     /* initially from --init --redundancy x     */
     ti_.fn = NULL;
     ti_.node = NULL;
     ti_.lookup = NULL;
@@ -142,6 +140,8 @@ int ti_build(void)
     if (!packer)
         return rc;
 
+    ti_.redundancy = ti_.args->redundancy;
+
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);
     if (!ti_.node || ti_save())
         goto failed;
@@ -153,6 +153,7 @@ int ti_build(void)
     ti_.events->cevid = &ti_.node->cevid;
 
     ti_.next_thing_id = &ti_.node->next_thing_id;
+
 
     {
         /* TODO: should be done by a query inside the packer */

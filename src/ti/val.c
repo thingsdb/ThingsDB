@@ -102,6 +102,12 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
             val->via.int_ = *p;
         }
         return;
+    case TI_VAL_TIME:
+        {
+            uint64_t * p = v;
+            val->via.time = *p;
+        }
+        return;
     case TI_VAL_FLOAT:
         {
             double * p = v;

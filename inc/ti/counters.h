@@ -16,6 +16,7 @@ void ti_counters_upd_commit_event(struct timespec * start);
 
 struct ti_counters_s
 {
+    struct timespec reset_time;     /* time when counters were reset */
     uint64_t queries_received;      /* queries where this node acted as the
                                        master node
                                     */

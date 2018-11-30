@@ -111,7 +111,7 @@ int ti_store_store(void)
             ti_store_dbs_store(store->dbs_fn))
         goto failed;
 
-    for (vec_each(ti()->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs->vec, ti_db_t, db))
     {
         int rc;
         ti_store_db_t * store_db = ti_store_db_create(store->tmp_path, db);
@@ -163,7 +163,7 @@ int ti_store_restore(void)
     if (rc)
         goto stop;
 
-    for (vec_each(ti()->dbs, ti_db_t, db))
+    for (vec_each(ti()->dbs->vec, ti_db_t, db))
     {
         ti_store_db_t * store_db = ti_store_db_create(store->store_path, db);
         rc = (  -(!store_db) ||

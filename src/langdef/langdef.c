@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-30 15:21:46
+ * Created at: 2018-11-30 23:13:53
  */
 
 #include <langdef/langdef.h>
@@ -45,11 +45,11 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_lower = cleri_keyword(CLERI_GID_F_LOWER, "lower", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
+    cleri_t * f_now = cleri_keyword(CLERI_GID_F_NOW, "now", CLERI_CASE_SENSITIVE);
     cleri_t * f_match = cleri_keyword(CLERI_GID_F_MATCH, "match", CLERI_CASE_SENSITIVE);
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
-    cleri_t * f_time = cleri_keyword(CLERI_GID_F_TIME, "time", CLERI_CASE_SENSITIVE);
     cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
@@ -114,10 +114,10 @@ cleri_grammar_t * compile_langdef(void)
             f_lower,
             f_map,
             f_match,
+            f_now,
             f_ret,
             f_startswith,
             f_thing,
-            f_time,
             f_upper,
             f_del,
             f_push,

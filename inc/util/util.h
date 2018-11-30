@@ -9,7 +9,7 @@
 typedef struct timespec util_time_t;
 
 
-
+double util_now(void);
 static inline double util_time_diff(util_time_t * start, util_time_t * end);
 
 

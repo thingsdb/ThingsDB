@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-30 15:21:46
+ * Created at: 2018-11-30 23:13:53
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -31,6 +31,7 @@ enum cleri_grammar_ids {
     CLERI_GID_F_LOWER,
     CLERI_GID_F_MAP,
     CLERI_GID_F_MATCH,
+    CLERI_GID_F_NOW,
     CLERI_GID_F_PUSH,
     CLERI_GID_F_RENAME,
     CLERI_GID_F_RET,
@@ -38,7 +39,6 @@ enum cleri_grammar_ids {
     CLERI_GID_F_SPLICE,
     CLERI_GID_F_STARTSWITH,
     CLERI_GID_F_THING,
-    CLERI_GID_F_TIME,
     CLERI_GID_F_UNSET,
     CLERI_GID_F_UPPER,
     CLERI_GID_INDEX,

@@ -47,7 +47,7 @@ ti_thing_t * ti_things_thing_from_unp(
 
     while (--sz)
     {
-        ti_val_t * val;
+        ti_val_t val;
         ti_name_t * name;
         qp_obj_t qp_prop;
         if (qp_is_close(qp_next(unp, &qp_prop)))
@@ -59,11 +59,11 @@ ti_thing_t * ti_things_thing_from_unp(
             goto failed;
 
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
-        val = ti_val_from_unp(unp, things);
+        ti_val_from_unp(&val, unp, things);
 
-        if (!name || !val || ti_thing_weak_setv(thing, name, val))
+        if (!name || ti_thing_weak_setv(thing, name, &val))
         {
-            ti_val_destroy(val);
+            ti_val_clear(&val);
             ti_name_drop(name);
             goto failed;
         }

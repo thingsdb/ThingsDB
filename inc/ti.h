@@ -90,6 +90,7 @@ static inline const char * ti_name(void);
 
 struct ti_s
 {
+    struct timespec boottime;
     char * fn;
     ti_archive_t * archive;     /* committed events archive */
     ti_counters_t * counters;   /* counters for statistics */

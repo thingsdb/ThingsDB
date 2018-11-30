@@ -30,7 +30,7 @@ void ti_counters_destroy(void)
 
 void ti_counters_reset(void)
 {
-    clock_gettime(TI_CLOCK_MONOTONIC, &counters->reset_time);
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &counters->reset_time);
     counters->queries_received = 0;
     counters->events_with_gap = 0;
     counters->events_skipped = 0;
@@ -49,8 +49,7 @@ void ti_counters_upd_commit_event(struct timespec * start)
     struct timespec timing;
     double duration;
 
-    if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
-        return;
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
 
     duration = util_time_diff(start, &timing);
 

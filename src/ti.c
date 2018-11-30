@@ -49,7 +49,8 @@ int ti_create(void)
     ti_.access = vec_new(0);
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
-    if (    gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+    if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
+            gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||

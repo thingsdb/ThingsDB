@@ -10,7 +10,6 @@ typedef enum
     TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
-    TI_VAL_TIME,    /* stored as uint64_t UTC timestamp */
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_RAW,
@@ -60,7 +59,7 @@ ti_val_t * ti_val_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
 ti_val_t * ti_val_dup(ti_val_t * val);
 ti_val_t * ti_val_weak_dup(ti_val_t * val);
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things);
+int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
 void ti_val_destroy(ti_val_t * val);
 static inline void ti_val_weak_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
@@ -102,7 +101,6 @@ union ti_val_u
     void * undefined;
     void * nil;
     int64_t int_;
-    uint64_t time;
     double float_;
     _Bool bool_;
     ti_raw_t * raw;

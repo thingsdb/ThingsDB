@@ -379,6 +379,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 ->children->node                /* choice */
                 ->children->node->cl_obj->gid)  /* keyword or name */
         {
+        case CLERI_GID_F_NOW:
         case CLERI_GID_F_ID:
         case CLERI_GID_F_RET:
             return;  /* arguments will be ignored */

@@ -42,7 +42,7 @@ static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
 {
     assert (db);
 
-    ti_val_t * val;
+    ti_val_t val;
     ti_name_t * name;
     qp_obj_t qp_prop;
     if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_prop)))
@@ -72,8 +72,7 @@ static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    val = ti_val_from_unp(unp, db->things);
-    if (!val)
+    if (ti_val_from_unp(&val, unp, db->things))
     {
         log_critical("job `assign` on "TI_THING_ID": "
                 "error reading value for property: `%s`",
@@ -82,21 +81,21 @@ static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
         goto fail;
     }
 
-    if (ti_thing_weak_setv(thing, name, val))
+    if (ti_thing_weak_setv(thing, name, &val))
     {
         log_critical(
                 "job `assign` on "TI_THING_ID": "
                 "error setting property: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
-                ti_val_str(val));
+                ti_val_str(&val));
         goto fail;
     }
 
     return 0;
 
 fail:
-    ti_val_destroy(val);
+    ti_val_clear(&val);
     ti_name_drop(name);
     return -1;
 }

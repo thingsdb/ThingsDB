@@ -12,7 +12,6 @@
         - [x] `string`
         - [x] `regex`
         - [x] `undefined`
-        - [ ] Introduce a Time type ?
     - [x] Thing
     - [ ] Array
     - [ ] Functions:
@@ -26,11 +25,6 @@
         - [x] `lower`
         - [x] `map`
         - [x] `match`
-        - [ ] `time`
-            - [ ] No arguments should return Time `now`
-        - [ ] `ts` Time -> returns UTC timestamp in ms
-        - [ ] `unix` Time -> returns UTC timestamp in seconds
-        - [ ] `fmt` Time -> returns timestamp in format (requires local)
         - [x] `ret`
         - [x] `startswith`
         - [x] `thing`

@@ -41,11 +41,14 @@ struct ti_query_s
     ti_stream_t * stream;       /* with reference */
     vec_t * blobs;              /* ti_raw_t */
     vec_t * statements;         /* ti_res_t or ti_root_t for each statement */
-    ti_event_t * ev;            /* only when an event is required */
+    ti_event_t * ev;            /* with reference, only when an event is
+                                   required
+                                */
     vec_t * nd_cache;           /* cleri_node_t, for node cache cleanup */
     omap_t * collect;           /* contains a vec_t with attributes
                                    to collect (or type ti_name_t),
-                                   and the key is the thing id. */
+                                   and the key is the thing id.
+                                */
 
 };
 

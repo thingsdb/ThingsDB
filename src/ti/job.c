@@ -40,6 +40,8 @@ int ti_job_run(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
 
 static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
 {
+    assert (db);
+
     ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_prop;
@@ -70,7 +72,7 @@ static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    val = ti_val_from_unp(unp, db);
+    val = ti_val_from_unp(unp, db->things);
     if (!val)
     {
         log_critical("job `assign` on "TI_THING_ID": "

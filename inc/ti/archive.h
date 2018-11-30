@@ -19,7 +19,7 @@ struct ti_archive_s
     char * path;
     char * nodes_cevid_fn;          /* this file contains the last cevid
                                        by ALL nodes, saved at cleanup */
-    queue_t * queue;                /* ti_rpkg_t */
+    queue_t * queue;                /* ordered ti_epkg_t on event_id */
 };
 
 int ti_archive_create(void);

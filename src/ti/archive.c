@@ -157,11 +157,18 @@ int ti_archive_load(void)
 
     free(file_list);
 
-    return 0;
+    return archive__init_queue();
 }
 
 int ti_archive_push(ti_epkg_t * epkg)
 {
+    /* queue is either empty or the received event_id > any event id inside the
+     * queue
+     */
+    assert (
+        !queue_last(archive->queue) ||
+        epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id
+    );
     int rc = queue_push(&archive->queue, epkg);
     if (!rc)
         ++archive->events_in_achive;
@@ -172,7 +179,7 @@ int ti_archive_to_disk(void)
 {
     FILE * f;
     char * fn;
-    char buf[24];
+    char buf[ARCHIVE__FILE_LEN + 1];
     ti_epkg_t * last_epkg = queue_last(archive->queue);
     if (!last_epkg || last_epkg->event_id == archive->last_on_disk)
         return 0;       /* nothing to save to disk */
@@ -185,6 +192,9 @@ int ti_archive_to_disk(void)
     fn = fx_path_join(archive->path, buf);
     if (!fn)
         goto fail0;
+
+    if (fx_file_exist(fn))
+        log_error("archive file `%s` will be overwritten", fn);
 
     log_debug("saving event changes to: `%s`", fn);
 
@@ -240,14 +250,32 @@ void ti_archive_cleanup(void)
 
 static int archive__init_queue(void)
 {
-    for (queue_each(archive->queue, ti_epkg_t, epkg))
-    {
-        if (epkg->event_id > *ti()->events->cevid)
-        {
+    assert (ti()->node);
+    assert (*ti()->events->cevid);
+    int rc = -1;
+    ti_epkg_t * epkg;
+    uint64_t cevid = *ti()->events->cevid;
+    /*
+     * The cleanest way is to take all events through the whole loop so error
+     * checking is done properly, we take a lock to prevent events being
+     * processed and added to the queue.
+     */
+    uv_mutex_lock(ti()->events->lock);
 
-        }
-    }
-    return 0;
+    for (queue_each(archive->queue, ti_epkg_t, epkg))
+        if (epkg->event_id > cevid)
+            if (ti_events_add_event(ti()->node, epkg))
+                goto stop;
+
+    /* remove events from queue */
+    while ((epkg = queue_last(archive->queue)) && epkg->event_id > cevid)
+        (void *) queue_pop(archive->queue);
+
+    rc = 0;
+stop:
+    uv_mutex_unlock(ti()->events->lock);
+
+    return rc ? rc : ti_events_trigger_loop();
 }
 
 static _Bool archive__is_file(const char * fn)

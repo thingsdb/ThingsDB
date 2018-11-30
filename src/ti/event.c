@@ -25,6 +25,7 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     if (!ev)
         return NULL;
 
+    ev->ref = 1;
     ev->status = TI_EVENT_STAT_NEW;
     ev->target = NULL;
     ev->tp = tp;
@@ -40,9 +41,9 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     return ev;
 }
 
-void ti_event_destroy(ti_event_t * ev)
+void ti_event_drop(ti_event_t * ev)
 {
-    if (!ev)
+    if (!ev || --ev->ref)
         return;
 
     ti_db_drop(ev->target);
@@ -146,7 +147,40 @@ int ti_event_run(ti_event_t * ev)
     return 0;
 }
 
+void ti_event_log(const char * prefix, ti_event_t * ev)
+{
+    (void) fprintf(
+            Logger.ostream, "\n  %s event `%"PRIu64"` (", prefix, ev->id);
 
+    switch ((ti_event_tp_enum) ev->tp)
+    {
+    case TI_EVENT_TP_MASTER:
+        (void) fprintf(Logger.ostream, "scheduled tasks: %zu", ev->tasks->n);
+        break;
+    case TI_EVENT_TP_SLAVE:
+        (void) fprintf(Logger.ostream, "status: %s", ti_event_status_str(ev));
+        break;
+    case TI_EVENT_TP_EPKG:
+        qp_fprint(
+                Logger.ostream,
+                ev->via.epkg->pkg->data,
+                ev->via.epkg->pkg->n);
+        break;
+    }
+
+    (void) fprintf(Logger.ostream, ")\n");
+}
+
+const char * ti_event_status_str(ti_event_t * ev)
+{
+    switch ((ti_event_tp_enum) ev->status)
+    {
+    case TI_EVENT_STAT_NEW:         return "NEW";
+    case TI_EVENT_STAT_CACNCEL:     return "CANCEL";
+    case TI_EVENT_STAT_READY:       return "READY";
+    }
+    return "UNKNOWN";
+}
 //void ti_event_cancel(ti_event_t * ev)
 //{
 //    ti_rpkg_t * rpkg;

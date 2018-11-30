@@ -17,6 +17,8 @@ int ti_events_create(void);
 int ti_events_start(void);
 void ti_events_stop(void);
 int ti_events_create_new_event(ti_query_t * query, ex_t * e);
+//int ti_events_new_event(ti_node_t * node, ti_epkg_t * epkg);
+int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg);
 
 /*
  * Changes to commit_id, archive require the lock.
@@ -30,7 +32,9 @@ struct ti_events_s
                                        committed or 0 if no event is committed
                                        yet */
     uint64_t next_event_id;         /* next event id, starts at 1 */
-    queue_t * queue;                /* queued events */
+    queue_t * queue;                /* queued events (ti_event_t), usually an
+                                       event has only one reference which is
+                                       hold by this queue */
     uv_async_t * evloop;
 };
 

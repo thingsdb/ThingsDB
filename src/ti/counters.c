@@ -30,10 +30,14 @@ void ti_counters_destroy(void)
 
 void ti_counters_reset(void)
 {
-    counters->events_out_of_order = 0;
+    counters->queries_received = 0;
+    counters->events_with_gap = 0;
+    counters->events_skipped = 0;
+    counters->events_failed = 0;
     counters->events_killed = 0;
     counters->events_committed = 0;
-    counters->events_failed = 0;
+    counters->events_quorum_lost = 0;
+    counters->events_unaligned = 0;
     counters->garbage_collected = 0;
     counters->longest_event_duration = 0.0f;
     counters->total_event_duration = 0.0f;

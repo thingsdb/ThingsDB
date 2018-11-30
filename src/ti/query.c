@@ -72,6 +72,7 @@ void ti_query_destroy(ti_query_t * query)
                 : (vec_destroy_cb) ti_root_destroy);
     ti_stream_drop(query->stream);
     ti_db_drop(query->target);
+    ti_event_drop(query->ev);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
     free(query->querystr);
     omap_destroy(query->collect, (omap_destroy_cb) query__collect_destroy_cb);

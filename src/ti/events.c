@@ -37,25 +37,29 @@ static void events__loop(uv_async_t * handle);
 static inline int events__trigger(void);
 static inline _Bool events__max_id_gap(uint64_t event_id);
 
+/*
+ * Returns 0 on success
+ * - creates singleton `events`
+ */
 int ti_events_create(void)
 {
     events = ti()->events = malloc(sizeof(ti_events_t));
     if (!events)
         goto failed;
 
+    events->cevid = NULL;
+    events->is_started = false;
+    events->queue = queue_new(4);
+    events->evloop = malloc(sizeof(uv_async_t));
     events->lock = malloc(sizeof(uv_mutex_t));
+
     if (!events->lock || uv_mutex_init(events->lock))
     {
         log_critical("failed to initiate uv_mutex lock");
         goto failed;
     }
 
-    events->cevid = NULL;
-    events->is_started = false;
-    events->queue = queue_new(4);
-    events->evloop = malloc(sizeof(uv_async_t));
-
-    if (!events->queue || !events->lock)
+    if (!events->queue || !events->evloop)
         goto failed;
 
     return 0;
@@ -65,6 +69,10 @@ failed:
     return -1;
 }
 
+/*
+ * Returns 0 on success
+ * - initialize and start `events`
+ */
 int ti_events_start(void)
 {
     if (uv_async_init(ti()->loop, events->evloop, events__loop))
@@ -73,6 +81,9 @@ int ti_events_start(void)
     return 0;
 }
 
+/*
+ * Stop and destroy `events`
+ */
 void ti_events_stop(void)
 {
     if (!events)
@@ -84,6 +95,11 @@ void ti_events_stop(void)
         uv_close((uv_handle_t *) events->evloop, events__destroy);
     else
         events__destroy(NULL);
+}
+
+int ti_events_trigger_loop(void)
+{
+    return events__trigger();
 }
 
 int ti_events_create_new_event(ti_query_t * query, ex_t * e)
@@ -114,12 +130,17 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
     }
 
     ev->via.query = query;
-    query->ev = ev;
+    query->ev = ti_grab(ev);
     ev->target = ti_grab(query->target);
 
     return events__req_event_id(ev, e);
 }
 
+/*
+ * Returns 0 on success
+ * - function performs logging on failure
+ * - `node` is only required for logging
+ */
 int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 {
     ti_event_t * ev;
@@ -133,6 +154,13 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
                 events->next_event_id);
         return -1;
     }
+
+    /*
+     * Update the event id in an early stage, this should be done even if
+     * something else fails
+     */
+    if (epkg->event_id >= events->next_event_id)
+        events->next_event_id = epkg->event_id + 1;
 
     for (queue_each(events->queue, ti_event_t, event))
         if (event->id == epkg->event_id)
@@ -199,6 +227,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     return 0;
 }
 
+/* OBSOLETE, must be re-written */
 _Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
 {
     ti_event_t * ev;
@@ -228,7 +257,7 @@ _Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
     if (ev->tp != TI_EVENT_TP_MASTER)
     {
         (void *) queue_pop(events->queue);
-        ti_event_destroy(ev);
+        ti_event_drop(ev);
     }
 
     return true;
@@ -238,7 +267,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)
         return;
-    queue_destroy(events->queue, (queue_destroy_cb) ti_event_destroy);
+    queue_destroy(events->queue, (queue_destroy_cb) ti_event_drop);
     uv_mutex_destroy(events->lock);
     free(events->evloop);
     free(events);
@@ -283,6 +312,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         return e->nr;
     }
 
+    ti_incref(ev);
     ev->id = events->next_event_id;
     ++events->next_event_id;
 
@@ -336,16 +366,19 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
                     ti_node_name(ti()->node),
                     ti_nodes_quorum());
             ti_query_send(ev->via.query, e);
-            return;
+            goto done;
         }
 
         events__new_id(ev);
-        return;
+        goto done;
     }
 
     ev->status = TI_EVENT_STAT_READY;
     if (events__trigger())
         log_error("cannot trigger the events loop");
+
+done:
+    ti_event_drop(ev);
 }
 
 static int events__push(ti_event_t * ev)
@@ -376,31 +409,25 @@ static void events__loop(uv_async_t * UNUSED(handle))
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
 
-
     while ((ev = queue_first(events->queue)))
     {
         if (ev->id <= *events->cevid)
         {
-            /* This is event should have been parsed */
-            if (ev->status == TI_EVENT_STAT_READY)
+            /* cancelled events which are `skipped` can be removed */
+            if (ev->status != TI_EVENT_STAT_CACNCEL)
             {
-                ++ti()->counters->events_out_of_order;
-
                 log_error(
-                    "event `%"PRIu64"` will be processed but `%"PRIu64"` "
-                    "is already committed",
-                    ev->id, *events->cevid);
+                        "event `%"PRIu64"` will be skipped because an event"
+                        "with id `%"PRIu64"` is already committed",
+                        ev->id, *events->cevid);
+                ti_event_log("skipped", ev);
 
-                if (ev->tp == TI_EVENT_TP_EPKG)
-                {
-                    /* log the full event */
-                    ti_pkg_t * pkg = ev->via.epkg->pkg;
-
-                    (void) fprintf(Logger.ostream, "\n\n");
-                    qp_fprint(Logger.ostream, pkg->data, pkg->n);
-                    (void) fprintf(Logger.ostream, "\n\n");
-                }
+                ++ti()->counters->events_skipped;
             }
+
+            (void *) queue_shift(events->queue);
+
+            continue;
         }
         else if (ev->id > (*events->cevid) + 1)
         {
@@ -408,20 +435,24 @@ static void events__loop(uv_async_t * UNUSED(handle))
             if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
 
+            ++ti()->counters->events_with_gap;
             /* Reached time-out, continue */
         }
 
         if (    ev->status == TI_EVENT_STAT_CACNCEL ||
                 ev->status == TI_EVENT_STAT_NEW)
         {
-            /* An event must have status READY before we can continue */
+            /* An event must have status READY before we can continue,
+             * cancelled events can be replaced with valid events so wait for
+             * those too
+             */
             if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
 
-            if (ev->tp == TI_EVENT_TP_MASTER)
+            if (ev->status == TI_EVENT_STAT_NEW)
             {
                 log_error(
-                        "waiting for event `%"PRIu64"` on node `%s` "
+                        "kill event `%"PRIu64"` on node `%s` "
                         "for approximately %f seconds",
                         ev->id,
                         ti_name(),
@@ -431,9 +462,8 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
             /* Reached time-out, kill the event */
             ++ti()->counters->events_killed;
-            (void *) queue_shift(events->queue);
-            ti_event_destroy(ev);
-            continue;
+
+            goto shift_drop_loop;
         }
 
         assert (ev->status == TI_EVENT_STAT_READY);
@@ -448,8 +478,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
             assert (ev->tp == TI_EVENT_TP_EPKG);
             if (ti_event_run(ev))
             {
-                /* logging is done, but we increment the failed counter */
+                /* logging is done, but we increment the failed counter and
+                 * log the full event */
                 ++ti()->counters->events_failed;
+                ti_event_log("failed", ev);
             }
             break;
         case TI_EVENT_TP_SLAVE:
@@ -459,8 +491,12 @@ static void events__loop(uv_async_t * UNUSED(handle))
         /* update counters */
         ti_counters_upd_commit_event(&ev->time);
 
+        /* update committed event id */
         *events->cevid = ev->id;
-        ti_event_destroy(ev);
+
+shift_drop_loop:
+        (void *) queue_shift(events->queue);
+        ti_event_drop(ev);
     }
 
 stop:

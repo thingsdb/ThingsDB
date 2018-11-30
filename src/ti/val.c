@@ -7,6 +7,7 @@
 #include <ti/val.h>
 #include <ti/arrow.h>
 #include <ti/prop.h>
+#include <ti/things.h>
 #include <ti.h>
 #include <util/logger.h>
 

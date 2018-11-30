@@ -69,7 +69,6 @@ class Definition(Grammar):
 
     # build-in update functions
     f_del = Keyword('del')
-    f_new = Keyword('new')
     f_push = Keyword('push')
     f_rename = Keyword('rename')
     f_set = Keyword('set')
@@ -111,11 +110,10 @@ class Definition(Grammar):
         f_upper,        # () -> str
         # build-in update functions
         f_del,
-        f_new,
         f_push,
-        f_rename,
+        f_rename,       # TODO : implement
         f_set,
-        f_splice,
+        f_splice,       # TODO : implement
         f_unset,
         # any name
         name,

@@ -4,12 +4,12 @@
 #ifndef TI_EVENT_H_
 #define TI_EVENT_H_
 
-enum
+typedef enum
 {
     TI_EVENT_STAT_NEW,      /* as long as it is not accepted by all */
     TI_EVENT_STAT_CACNCEL,  /* event is cancelled due to an error */
     TI_EVENT_STAT_READY,    /* all nodes accepted the id */
-};
+} ti_event_status_enum;
 
 typedef enum
 {
@@ -34,8 +34,10 @@ typedef union ti_event_u ti_event_via_t;
 #include <util/omap.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
-void ti_event_destroy(ti_event_t * ev);
+void ti_event_drop(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);
+void ti_event_log(const char * prefix, ti_event_t * ev);
+const char * ti_event_status_str(ti_event_t * ev);
 
 union ti_event_u
 {
@@ -46,9 +48,11 @@ union ti_event_u
 
 struct ti_event_s
 {
+    uint32_t ref;           /* reference counting */
+    uint16_t pad0;
+    uint8_t status;         /* NEW / CANCEL / READY */
+    uint8_t tp;             /* MASTER / SLAVE / EPKG */
     uint64_t id;
-    uint8_t status;
-    uint8_t tp;             /* master or slave */
     ti_event_via_t via;
     ti_db_t * target;       /* NULL for root or database with reference */
     omap_t * tasks;         /* thing_id : ti_task_t */

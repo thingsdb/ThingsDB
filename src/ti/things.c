@@ -5,9 +5,10 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/prop.h>
+#include <ti/names.h>
 #include <ti/things.h>
 #include <util/logger.h>
-#include <qpack.h>
+
 #include <ti/val.h>
 
 static void things__gc_mark(ti_thing_t * thing);

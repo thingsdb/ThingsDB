@@ -25,6 +25,7 @@
         - [x] `lower`
         - [x] `map`
         - [x] `match`
+        - [x] `now`
         - [x] `ret`
         - [x] `startswith`
         - [x] `thing`

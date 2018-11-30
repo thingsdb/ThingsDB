@@ -65,7 +65,6 @@
     - [x] Regex
     - [x] Arrow
     - [x] Raw
-    - [ ] Time
 - [ ] Storing
     - [ ] Full storage on disk
         - [x] Status

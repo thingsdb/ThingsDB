@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <util/strx.h>
 #include <util/res.h>
+#include <util/util.h>
 
 static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);

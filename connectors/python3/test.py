@@ -37,7 +37,7 @@ async def test():
          * test query
          */
 
-        re;
+        now();
 
         ''', timeout=2)
     except ThingsDBError as e:

@@ -28,7 +28,6 @@ ti_user_t * ti_user_create(
     user->ref = 1;
     user->name = ti_raw_create((uchar *) name, n);
     user->encpass = strdup(encrpass);
-    user->qpdata = NULL;
 
     if (!user->name || !user->encpass)
     {
@@ -45,7 +44,6 @@ void ti_user_drop(ti_user_t * user)
     {
         free(user->encpass);
         ti_raw_drop(user->name);
-        /* TODO: free  user->qpdata */
         free(user);
     }
 }

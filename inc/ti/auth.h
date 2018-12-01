@@ -9,29 +9,25 @@
 
 enum
 {
-    TI_AUTH_ACCESS      =1<<0,  /* root and database                         */
-    TI_AUTH_READ        =1<<1,  /* root and database                         */
-    TI_AUTH_MODIFY      =1<<2,  /* for root then means changing configuration
-                                   like set_redundancy, add/replace nodes and
-                                   changing database quota;
-                                   for database this mean setting and removing
-                                   things etc.
-                                                                             */
-    TI_AUTH_WATCH       =1<<3,  /* root and database                         */
-
-    TI_AUTH_DB_CREATE   =1<<4,  /* root only                                 */
-    TI_AUTH_DB_DROP     =1<<5,  /* root and database                         */
-    TI_AUTH_DB_RENAME   =1<<6,  /* root and database                         */
-
-    TI_AUTH_USER_CREATE =1<<7,  /* root only                                 */
-    TI_AUTH_USER_DROP   =1<<8,  /* root only                                 */
-    TI_AUTH_USER_CHANGE =1<<9,  /* root only                                 */
-    TI_AUTH_USER_OTHER  =1<<10, /* when not set, user flags are forbidden
-                                   on other account then your own.
-                                                                             */
-    TI_AUTH_PERMISSIONS =1<<11, /* root and database                         */
-
-    TI_AUTH_MASK_FULL   =UINT16_MAX
+    TI_AUTH_NO_ACCESS   =0,     /* default */
+    TI_AUTH_READ        =1<<0,  /* root and database, allow queries without
+                                   events
+                                */
+    TI_AUTH_MODIFY      =1<<0|  /* READ   */
+                         1<<1,  /* root and database, allow all queries
+                                   including queries with events, for root
+                                   anything `access` related is excluded and
+                                   requires the `GRANT` flag
+                                */
+    TI_AUTH_WATCH       =1<<2,  /* (root? and) database */
+    TI_AUTH_GRANT       =1<<0|  /* READ   */
+                         1<<1|  /* MODIFY */
+                         1<<3,  /* root and database, grant/revoke */
+    TI_AUTH_FULL        =1<<0|  /* READ   */
+                         1<<1|  /* MODIFY */
+                         1<<2|  /* WATCH  */
+                         1<<3|  /* GRANT  */
+                         1<<4,  /* full access */
 };
 
 

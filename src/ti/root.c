@@ -14,6 +14,7 @@
 #include <langdef/nd.h>
 
 static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e);
@@ -166,15 +167,6 @@ static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_user_t * user = root->ev->via.query->stream->via.user;
 
-    if (!ti_access_check(ti()->access, user, TI_AUTH_DB_CREATE))
-    {
-        ex_set(e, EX_FORBIDDEN,
-                "access denied (requires `%s`)",
-                ti_auth_mask_to_str(TI_AUTH_DB_CREATE));
-        return e->nr;
-    }
-
-
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int n = langdef_nd_n_function_params(nd);
@@ -270,7 +262,7 @@ finish:
     return e->nr;
 }
 
-static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (root->ev);
@@ -278,16 +270,36 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     assert (root->ev->via.query->stream->via.user);
 
     int n;
-    ti_user_t * user = root->ev->via.query->stream->via.user;
-    ti_raw_t * rawname;
 
-    if (!ti_access_check(ti()->access, user, TI_AUTH_DB_CREATE))
+    n = langdef_nd_n_function_params(nd);
+    if (n != 3)
     {
-        ex_set(e, EX_FORBIDDEN,
-                "access denied (requires `%s`)",
-                ti_auth_mask_to_str(TI_AUTH_USER_CREATE));
+        ex_set(e, EX_BAD_DATA,
+            "function `grant` requires 3 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
         return e->nr;
     }
+
+    if (ti_root_scope(root, nd->children->node, e))
+        return e->nr;
+
+
+
+    return e->nr;
+}
+
+static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (root->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (root->ev->via.query->stream->via.user);
+
+    char * passstr = NULL;
+    int n;
+    ti_user_t * nuser, * user = root->ev->via.query->stream->via.user;
+    ti_raw_t * rname;
+    ti_task_t * task;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 2)
@@ -311,16 +323,46 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    rawname = root->rval->via.raw;
-    ti_val_weak_clear(root->rval);
+    rname = root->rval->via.raw;
+    ti_val_set_undefined(root->rval);
 
-    if (!ti_user_name_check(
-            (const char *) root->rval->via.raw->data),
-            root->rval->via.raw->n,
-            e)
-        return e->nr;
+    if (ti_root_scope(root, nd->children->next->node, e))
+        goto done;
 
+    if (!ti_val_is_raw(root->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `user_new` expects argument 2 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(root->rval));
+        goto done;
+    }
 
+    char * passstr = ti_raw_to_str(root->rval->via.raw);
+    if (!passstr)
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
+
+    task = ti_task_get_task(root->ev, ti()->thing0, e);
+    if (!task)
+        goto done;
+
+    nuser = ti_users_create_user(
+            (const char *) rname->data, rname->n,
+            passstr, e);
+
+    if (!nuser)
+        goto done;
+
+    if (ti_task_add_user_new(task, nuser))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+done:
+    free(passstr);
+    ti_raw_drop(rname);
 
     return e->nr;
 }
@@ -363,11 +405,11 @@ static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     }
 
     int flags
-        = langdef_nd_match_str(nd, "FULL") ? TI_AUTH_MASK_FULL
-        : langdef_nd_match_str(nd, "ACCESS") ? TI_AUTH_ACCESS
-        : langdef_nd_match_str(nd, "READ") ? TI_AUTH_READ
+        = langdef_nd_match_str(nd, "READ") ? TI_AUTH_READ
         : langdef_nd_match_str(nd, "MODIFY") ? TI_AUTH_MODIFY
         : langdef_nd_match_str(nd, "WATCH") ? TI_AUTH_WATCH
+        : langdef_nd_match_str(nd, "GRANT") ? TI_AUTH_GRANT
+        : langdef_nd_match_str(nd, "FULL") ? TI_AUTH_FULL
         : 0;
 
     if (flags)

@@ -291,15 +291,16 @@ void ti_query_run(ti_query_t * query)
         while (child)
         {
             assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+            assert (query->stream->via.user);
 
-            ti_root_t * root = ti_root_create();
+            ti_root_t * root = ti_root_create(
+                    query->ev,
+                    query->stream->via.user);
             if (!root)
             {
                 ex_set_alloc(e);
                 goto done;
             }
-
-            root->ev = query->ev;  /* NULL if no update is required */
 
             VEC_push(query->statements, root);
 
@@ -631,11 +632,13 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
 static inline _Bool query__requires_root_event(cleri_node_t * name_nd)
 {
     return (
-        langdef_nd_match_str(name_nd, "user_new") ||
+        langdef_nd_match_str(name_nd, "database_del") ||
         langdef_nd_match_str(name_nd, "database_new") ||
-        langdef_nd_match_str(name_nd, "node_new") ||
         langdef_nd_match_str(name_nd, "grant") ||
-        langdef_nd_match_str(name_nd, "revoke")
+        langdef_nd_match_str(name_nd, "node_new") ||
+        langdef_nd_match_str(name_nd, "revoke") ||
+        langdef_nd_match_str(name_nd, "user_del") ||
+        langdef_nd_match_str(name_nd, "user_new")
     );
 }
 

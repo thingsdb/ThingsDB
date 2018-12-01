@@ -34,7 +34,6 @@ struct ti_user_s
     uint64_t id;
     ti_raw_t * name;
     char * encpass;
-    unsigned char * qpdata;       /* qp_map with properties */
 };
 
 #endif /* TI_USER_H_ */

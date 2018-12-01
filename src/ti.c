@@ -171,7 +171,7 @@ int ti_build(void)
                 ti_user_def_name,
                 strlen(ti_user_def_name),
                 ti_user_def_pass, e);
-        ti_access_grant(&ti_.access, user, TI_AUTH_MASK_FULL);
+        ti_access_grant(&ti_.access, user, TI_AUTH_FULL);
 
         /* TODO: this is just some test stuff */
 

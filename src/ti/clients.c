@@ -358,11 +358,12 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access;
-    if (!ti_access_check(access_, user, TI_AUTH_ACCESS|TI_AUTH_READ))
+    if (!ti_access_check(access_, user, TI_AUTH_READ))
     {
         ex_set(e, EX_FORBIDDEN,
-                "access denied (requires `%s`)",
-                ti_auth_mask_to_str(TI_AUTH_ACCESS|TI_AUTH_READ));
+                "user `%.*s` is missing the required privileges (`%s`)",
+                (int) user->name->n, (char *) user->name->data,
+                ti_auth_mask_to_str(TI_AUTH_READ));
         goto finish;
     }
 
@@ -377,7 +378,8 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         if (!ti_access_check(access_, user, TI_AUTH_MODIFY))
         {
             ex_set(e, EX_FORBIDDEN,
-                    "access denied (requires `%s`)",
+                    "user `%.*s` is missing the required privileges (`%s`)",
+                    (int) user->name->n, (char *) user->name->data,
                     ti_auth_mask_to_str(TI_AUTH_MODIFY));
             goto finish;
         }
@@ -447,7 +449,8 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!ti_access_check(access_, user, TI_AUTH_WATCH))
     {
         ex_set(e, EX_FORBIDDEN,
-                "access denied (requires `%s`)",
+                "user `%.*s` is missing the required privileges (`%s`)",
+                (int) user->name->n, (char *) user->name->data,
                 ti_auth_mask_to_str(TI_AUTH_WATCH));
         goto finish;
     }

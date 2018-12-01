@@ -26,11 +26,10 @@ qp_res_t * qpx_map_get(const qp_map_t * map, const char * key)
  */
 _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s)
 {
-    if (obj->tp != QP_RAW) return 0;
+    assert (obj->tp == QP_RAW);
     for (size_t i = 0; i < obj->len; i++, s++)
-    {
-        if (*s != obj->via.raw[i] || !*s) return 0;
-    }
+        if (*s != obj->via.raw[i] || !*s)
+            return false;
     return !*s;
 }
 

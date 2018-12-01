@@ -133,6 +133,48 @@ done:
     return rc;
 }
 
+int ti_task_add_database_new(ti_task_t * task, ti_db_t * db, ti_user_t * user)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(
+            40 + db->name->n + user->name->n, 3);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "database_new");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw(packer, db->name->data, db->name->n);
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_raw_from_str(packer, "root");
+    (void) ti_thing_id_to_packer(db->root, &packer);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_del(ti_task_t * task, ti_name_t * name)
 {
     int rc;
@@ -144,6 +186,50 @@ int ti_task_add_del(ti_task_t * task, ti_name_t * name)
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "del");
     (void) qp_add_raw(packer, (const uchar *) name->str, name->n);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_grant(
+        ti_task_t * task,
+        uint64_t target_id,
+        ti_user_t * user,
+        int flags)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(50 + user->name->n, 2);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "grant");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "target");
+    (void) qp_add_int64(packer, target_id);
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_raw_from_str(packer, "flags");
+    (void) qp_add_int64(packer, flags);
+    (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
@@ -310,28 +396,22 @@ done:
     return rc;
 }
 
-int ti_task_add_new_database(ti_task_t * task, ti_db_t * db, ti_user_t * user)
+int ti_task_add_user_new(ti_task_t * task, ti_user_t * user, char * passstr)
 {
     int rc;
     ti_raw_t * job = NULL;
-    qp_packer_t * packer = qp_packer_create2(
-            128 + db->name->n + user->name->n, 4);
+    qp_packer_t * packer = qp_packer_create2(40 + user->name->n, 2);
 
     if (!packer)
         goto failed;
 
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "new");
+    (void) qp_add_raw_from_str(packer, "user_new");
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "databases");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "name");
-    (void) qp_add_raw(packer, db->name->data, db->name->n);
-    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
-    (void) qp_add_raw_from_str(packer, "root");
-    (void) ti_thing_id_to_packer(ti()->thing0, &packer);
-    (void) qp_close_map(packer);
+    (void) qp_add_raw_from_str(packer, "password");
+    (void) qp_add_raw_from_str(packer, passstr);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -354,6 +434,7 @@ done:
         qp_packer_destroy(packer);
     return rc;
 }
+
 
 
 static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing)

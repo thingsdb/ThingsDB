@@ -32,9 +32,6 @@ void ti_users_destroy(void)
     *users = NULL;
 }
 
-/*
- * `passstr` is not checked here so we can create a user with empty password!
- */
 ti_user_t * ti_users_create_user(
         const char * name,
         size_t n,
@@ -45,6 +42,9 @@ ti_user_t * ti_users_create_user(
     assert (e->nr == 0);
 
     if (!ti_user_name_check(name, n, e))
+        goto done;
+
+    if (!ti_user_pass_check(passstr, e))
         goto done;
 
     if (ti_users_get_by_namestrn(name, n))

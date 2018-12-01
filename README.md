@@ -83,28 +83,9 @@
         - [x] Load on startup (Required Jobs implementation for full coverage)
 - [ ] Multi node
 - [ ] Root functions
-    - [ ] Create a way to perform root function, maybe all commands with
-          functions ?
-          user_new('iris', 'password');
-          user_del('iris');
-          user_set_password('iris', 'new_password');
-          grant('iris', 'dbname_or_id', (ACCESS_FLAGS));
-          revoke('iris', 'dbname_or_id', (ACCESS_FLAGS));
-          database_add('dbtest')
-          database_del('dbtest')
-          node_new('address:port', 'secret')
-          users()
-          databases()
-          nodes()
-          user('iris')
-          node(node_id)
-          database('name_or_id')
-          counters_reset(node_id)
-
-
-
-
-          'unew'
-          'udel'
-          'usp'
-
+    - [ ] `user_new`
+    - [ ] `user_del`
+    - [ ] `user`
+    - [ ] `users`
+    - [ ] `grant`
+    - [ ] `revoke`

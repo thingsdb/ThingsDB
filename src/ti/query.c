@@ -396,7 +396,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_NAME:
             if (query__requires_root_event(nd->children->node->children->node))
                 query->flags |= TI_QUERY_FLAG_ROOT_EVENT;
-            return;  /* arguments can be ignored *
+            return;  /* arguments can be ignored */
         }
         /* skip to arguments */
         query__investigate_recursive(

@@ -24,7 +24,7 @@ ti_root_t * ti_root_create(void)
     if (!root)
         return NULL;
 
-    root->tp = TI_ROOT_UNDEFINED;
+    root->flags = 0;
     root->rval = NULL;
 
     return root;
@@ -34,12 +34,8 @@ void ti_root_destroy(ti_root_t * root)
 {
     if (!root)
         return;
+
     ti_val_destroy(root->rval);
-    switch (root->tp)
-    {
-    case TI_ROOT_DATABASE:
-        ti_db_drop(root->via.db);
-    }
     free(root);
 }
 
@@ -47,19 +43,17 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
+    _Bool nested = root->flags & TI_ROOT_FLAG_NESTED;
     int nots = 0;
     cleri_node_t * node;
-    cleri_children_t * nchild, * child = nd           /* sequence */
-                    ->children;             /* first child, not */
+    cleri_children_t * nchild, * child = nd         /* sequence */
+                    ->children;                     /* first child, not */
+    ti_scope_t * current_scope, * scope;
+
+    root->flags |= TI_ROOT_FLAG_NESTED;
 
     for (nchild = child->node->children; nchild; nchild = nchild->next)
         ++nots;
-
-    if (nots)
-    {
-        ex_set(e, EX_BAD_DATA, "cannot use `not` expressions at root");
-        return e->nr;
-    }
 
     child = child->next;
     node = child->node                      /* choice */
@@ -70,31 +64,37 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
-        ex_set(e, EX_BAD_DATA, "cannot create `array` at root");
-        return e->nr;
+        ex_set(e, EX_BAD_DATA, "arrays are not supported at root");
+        break;
     case CLERI_GID_ARROW:
-        ex_set(e, EX_BAD_DATA, "cannot create `arrow-function` at root");
-        return e->nr;
+        if (res__arrow(res, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_ASSIGNMENT:
-        ex_set(e, EX_BAD_DATA, "cannot assign properties to root");
-        return e->nr;
+        if (res__assignment(res, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_OPERATIONS:
-        ex_set(e, EX_BAD_DATA, "cannot use operators at root");
-        return e->nr;
+        /* skip the sequence , jump to the priority list */
+        if (res__operations(res, node->children->next->node, e))
+            return e->nr;
+        break;
     case CLERI_GID_FUNCTION:
-        if (root__function(root, node, e))
+        if (res__function(res, node, e))
             return e->nr;
         break;
     case CLERI_GID_NAME:
-        if (root__name(root, node, e))
+        if (res__scope_name(res, node, e))
             return e->nr;
         break;
     case CLERI_GID_PRIMITIVES:
-        ex_set(e, EX_BAD_DATA, "cannot create `primitives` at root");
-        return e->nr;
+        if (res__primitives(res, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_THING:
-        ex_set(e, EX_BAD_DATA, "cannot create `thing` at root");
-        return e->nr;
+        if (res__scope_thing(res, node, e))
+            return e->nr;
+        break;
     default:
         assert (0);  /* all possible should be handled */
         return -1;
@@ -107,25 +107,43 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     node = child->node;
     assert (node->cl_obj->gid == CLERI_GID_INDEX);
 
-    if (node->children)
-    {
-        ex_set(e, EX_BAD_DATA, "indexing is not supported at root");
+    if (node->children && res__index(res, node, e))
         return e->nr;
-    }
 
     child = child->next;
     if (!child)
-        goto finish;
+        goto finish;  /* TODO:  mark_fetch = true */
 
     node = child->node              /* optional */
             ->children->node;       /* chain */
 
     assert (node->cl_obj->gid == CLERI_GID_CHAIN);
 
-    if (root__chain(root, node, e))
-        goto finish;
+    if (res__chain(res, node, e))
+        goto done;
 
 finish:
+
+    if (!res->rval)
+    {
+        res->rval = ti_scope_global_to_val(res->scope);
+        if (!res->rval)
+        {
+            ex_set_alloc(e);
+            goto done;
+        }
+    }
+
+    if (nots)
+    {
+        _Bool b = ti_val_as_bool(res->rval);
+        ti_val_clear(res->rval);
+        ti_val_set_bool(res->rval, (nots & 1) ^ b);
+    }
+    else ti_val_mark_fetch(res->rval);  /* TODO:  if (mark_fetch) */
+
+done:
+    ti_scope_leave(&res->scope, current_scope);
     return e->nr;
 }
 
@@ -369,5 +387,61 @@ static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         root->tp = TI_ROOT_DATABASE;
     }
 
+    return e->nr;
+}
+
+static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_PRIMITIVES);
+    assert (!e->nr);
+
+    cleri_node_t * node = nd            /* choice */
+            ->children->node;           /* false, nil, true, undefined,
+                                           int, float, string */
+
+    if (res_rval_clear(root))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    switch (node->cl_obj->gid)
+    {
+    case CLERI_GID_T_FALSE:
+        ti_val_set_bool(root->rval, false);
+        break;
+    case CLERI_GID_T_FLOAT:
+        ti_val_set_float(root->rval, strx_to_doublen(node->str, node->len));
+        break;
+    case CLERI_GID_T_INT:
+        ti_val_set_int(root->rval, strx_to_int64n(node->str, node->len));
+        break;
+    case CLERI_GID_T_NIL:
+        ti_val_set_nil(root->rval);
+        break;
+    case CLERI_GID_T_REGEX:
+    {
+        ti_regex_t * regex = ti_regex_from_strn(node->str, node->len, e);
+        if (!regex)
+            return e->nr;
+        ti_val_weak_set(root->rval, TI_VAL_REGEX, node->data);
+        break;
+    }
+    case CLERI_GID_T_STRING:
+    {
+        ti_raw_t * raw = ti_raw_from_ti_string(node->str, node->len);
+        if (!raw)
+        {
+            ex_set_alloc(e);
+            return e->nr;
+        }
+        ti_val_weak_set(root->rval, TI_VAL_RAW, node->data);
+        break;
+    }
+    case CLERI_GID_T_TRUE:
+        ti_val_set_bool(root->rval, true);
+        break;
+
+    }
     return e->nr;
 }

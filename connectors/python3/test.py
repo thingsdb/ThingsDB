@@ -37,7 +37,7 @@ async def test():
          * test query
          */
 
-        a = (4 | 8);
+        undefined;
         a;
         ''', timeout=2)
     except ThingsDBError as e:

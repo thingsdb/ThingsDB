@@ -80,7 +80,7 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     int nots = 0;
     cleri_node_t * node;
-    cleri_children_t * nchild, * child = nd           /* sequence */
+    cleri_children_t * nchild, * child = nd /* sequence */
                     ->children;             /* first child, not */
     ti_scope_t * current_scope, * scope;
 
@@ -693,7 +693,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     ti_val_weak_copy(&prop->val, &p->val);
                     break;
                 default:
-                    ti_val_set_undefined(&prop->val);
+                    ti_val_set_nil(&prop->val);
                 }
             }
 
@@ -741,7 +741,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                         ti_val_set_int(&prop->val, idx);
                         break;
                     default:
-                        ti_val_set_undefined(&prop->val);
+                        ti_val_set_nil(&prop->val);
                     }
                 }
 
@@ -788,7 +788,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                         ti_val_set_int(&prop->val, idx);
                         break;
                     default:
-                        ti_val_set_undefined(&prop->val);
+                        ti_val_set_nil(&prop->val);
                     }
                 }
 
@@ -1131,7 +1131,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     ti_val_weak_copy(&prop->val, &p->val);
                     break;
                 default:
-                    ti_val_set_undefined(&prop->val);
+                    ti_val_set_nil(&prop->val);
                 }
             }
 
@@ -1164,7 +1164,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                         ti_val_set_int(&prop->val, idx);
                         break;
                     default:
-                        ti_val_set_undefined(&prop->val);
+                        ti_val_set_nil(&prop->val);
                     }
                 }
 
@@ -1195,7 +1195,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                         ti_val_set_int(&prop->val, idx);
                         break;
                     default:
-                        ti_val_set_undefined(&prop->val);
+                        ti_val_set_nil(&prop->val);
                     }
                 }
 
@@ -2120,9 +2120,6 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_T_TRUE:
         ti_val_set_bool(res->rval, true);
-        break;
-    case CLERI_GID_T_UNDEFINED:
-        ti_val_set_undefined(res->rval);
         break;
 
     }

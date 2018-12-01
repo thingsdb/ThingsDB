@@ -46,7 +46,6 @@ class Definition(Grammar):
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
-    t_undefined = Keyword('undefined')
 
     o_not = Repeat(Token('!'))
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
@@ -84,7 +83,6 @@ class Definition(Grammar):
         t_int,
         t_string,
         t_regex,
-        t_undefined,
     )
 
     scope = Ref()
@@ -196,7 +194,7 @@ if __name__ == '__main__':
     definition = Definition()
 
     definition.test('a = (5 + 7);')
-    exit(0)
+    # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

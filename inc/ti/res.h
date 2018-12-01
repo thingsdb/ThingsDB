@@ -26,16 +26,18 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e);
 
 struct ti_res_s
 {
-    ti_db_t * db;               /* this is using a borrowed reference, this is
-                                   good because the query has one */
-    ti_event_t * ev;            /* NULL if no updates are required */
+    ti_val_t * rval;            /* must be on top (matches ti_root_t)
+                                   new return value or NULL when point to
+                                   scope
+                                */
+    ti_db_t * db;               /* borrowed reference, the query has one */
+    ti_event_t * ev;            /* borrowed reference or NULL if no updates are
+                                   required (the query has a reference)
+                                */
     vec_t * blobs;              /* pointer to query->blobs, may be NULL */
     vec_t * nd_cache;           /* pointer to query->nd_cache, may be NULL */
     omap_t * collect;           /* pointer to query->collect */
     ti_scope_t * scope;         /* keep the scope */
-    ti_val_t * rval;            /* must be on top (matches ti_root_t)
-                                   new return value or NULL when point to
-                                   scope */
 };
 
 

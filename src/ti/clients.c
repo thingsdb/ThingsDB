@@ -452,7 +452,6 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
     if (!resp)
         ex_set_alloc(e);

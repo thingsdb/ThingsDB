@@ -276,7 +276,7 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        task = res_get_task(res->ev, thing, e);
+        task = ti_task_get_task(res->ev, thing, e);
 
         if (!task)
             goto done;
@@ -538,7 +538,7 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         goto finish;
     }
 
-    task = res_get_task(res->ev, thing, e);
+    task = ti_task_get_task(res->ev, thing, e);
     if (!task)
         goto finish;
 
@@ -1373,7 +1373,7 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         ti_task_t * task;
         assert (res->scope->thing);
         assert (res->scope->name);
-        task = res_get_task(res->ev, res->scope->thing, e);
+        task = ti_task_get_task(res->ev, res->scope->thing, e);
         if (!task)
             goto failed;
 
@@ -1508,7 +1508,7 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         goto finish;
     }
 
-    task = res_get_task(res->ev, thing, e);
+    task = ti_task_get_task(res->ev, thing, e);
     if (!task)
         goto finish;
 
@@ -1768,7 +1768,7 @@ static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = res_get_task(res->ev, thing, e);
+    task = ti_task_get_task(res->ev, thing, e);
     if (!task)
         goto finish;
 
@@ -2019,9 +2019,6 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return ti_res_scope(res, nd, e);
 
     gid = nd->children->next->node->children->node->cl_obj->gid;
-
-    LOGC("tp: %u", nd->children->next->node->children->node->cl_obj->tp);
-    LOGC("gid: %u", gid);
 
     switch (gid)
     {

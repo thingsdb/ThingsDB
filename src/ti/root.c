@@ -13,19 +13,25 @@
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
 
-static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e);
-static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__operations(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+int root__rval_clear(ti_root_t * root);
+static void root__rval_destroy(ti_root_t * root);
 
-ti_root_t * ti_root_create(void)
+ti_root_t * ti_root_create(ti_event_t * ev, ti_user_t * user)
 {
     ti_root_t * root = malloc(sizeof(ti_root_t));
     if (!root)
         return NULL;
 
-    root->flags = 0;
     root->rval = NULL;
+    root->ev = ev;  /* may be NULL */
+    root->user = user;
+    root->flags = 0;
 
     return root;
 }
@@ -48,7 +54,6 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
                     ->children;                     /* first child, not */
-    ti_scope_t * current_scope, * scope;
 
     root->flags |= TI_ROOT_FLAG_NESTED;
 
@@ -65,113 +70,38 @@ int ti_root_scope(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     {
     case CLERI_GID_ARRAY:
         ex_set(e, EX_BAD_DATA, "arrays are not supported at root");
-        break;
+        return e->nr;
     case CLERI_GID_ARROW:
-        if (res__arrow(res, node, e))
-            return e->nr;
-        break;
+        ex_set(e, EX_BAD_DATA, "arrow functions are not supported at root");
+        return e->nr;
     case CLERI_GID_ASSIGNMENT:
-        if (res__assignment(res, node, e))
-            return e->nr;
-        break;
+        ex_set(e, EX_BAD_DATA, "assignments are not supported at root");
+        return e->nr;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
-        if (res__operations(res, node->children->next->node, e))
+        if (root__operations(root, node->children->next->node, e))
             return e->nr;
         break;
     case CLERI_GID_FUNCTION:
-        if (res__function(res, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_NAME:
-        if (res__scope_name(res, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_PRIMITIVES:
-        if (res__primitives(res, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_THING:
-        if (res__scope_thing(res, node, e))
-            return e->nr;
-        break;
-    default:
-        assert (0);  /* all possible should be handled */
-        return -1;
-    }
-
-    child = child->next;
-
-    assert (child);
-
-    node = child->node;
-    assert (node->cl_obj->gid == CLERI_GID_INDEX);
-
-    if (node->children && res__index(res, node, e))
-        return e->nr;
-
-    child = child->next;
-    if (!child)
-        goto finish;  /* TODO:  mark_fetch = true */
-
-    node = child->node              /* optional */
-            ->children->node;       /* chain */
-
-    assert (node->cl_obj->gid == CLERI_GID_CHAIN);
-
-    if (res__chain(res, node, e))
-        goto done;
-
-finish:
-
-    if (!res->rval)
-    {
-        res->rval = ti_scope_global_to_val(res->scope);
-        if (!res->rval)
+        if (nested)
         {
-            ex_set_alloc(e);
-            goto done;
+            ex_set(e, EX_BAD_DATA,
+                    "root functions are not allowed as arguments");
+            return e->nr;
         }
-    }
-
-    if (nots)
-    {
-        _Bool b = ti_val_as_bool(res->rval);
-        ti_val_clear(res->rval);
-        ti_val_set_bool(res->rval, (nots & 1) ^ b);
-    }
-    else ti_val_mark_fetch(res->rval);  /* TODO:  if (mark_fetch) */
-
-done:
-    ti_scope_leave(&res->scope, current_scope);
-    return e->nr;
-}
-
-static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
-
-    cleri_children_t * child = nd           /* sequence */
-                    ->children->next;       /* first is .(dot), next choice */
-
-    cleri_node_t * node = child->node       /* choice */
-            ->children->node;               /* function, assignment,
-                                               name */
-
-    switch (node->cl_obj->gid)
-    {
-    case CLERI_GID_FUNCTION:
         if (root__function(root, node, e))
             return e->nr;
-        break;
-    case CLERI_GID_ASSIGNMENT:
-//        if (root__assignment(root, node, e))
-//            return e->nr;
         break;
     case CLERI_GID_NAME:
         if (root__name(root, node, e))
             return e->nr;
+        break;
+    case CLERI_GID_PRIMITIVES:
+        if (root__primitives(root, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_THING:
+        ex_set(e, EX_BAD_DATA, "things are not supported at root");
         break;
     default:
         assert (0);  /* all possible should be handled */
@@ -191,55 +121,43 @@ static int root__chain(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+
     child = child->next;
     if (!child)
         goto finish;
 
-    node = child->node              /* optional */
-            ->children->node;       /* chain */
-
-    assert (node->cl_obj->gid == CLERI_GID_CHAIN);
-
-    (void) root__chain(root, node, e);
+    ex_set(e, EX_BAD_DATA, "chaining is not supported at root");
+    return e->nr;
 
 finish:
-    return e->nr;
 
+    if (!root->rval)
+    {
+        root->rval = ti_val_create(TI_VAL_NIL, NULL);
+        if (!root->rval)
+        {
+            ex_set_alloc(e);
+            goto done;
+        }
+    }
+
+    if (nots)
+    {
+        _Bool b = ti_val_as_bool(root->rval);
+        ti_val_clear(root->rval);
+        ti_val_set_bool(root->rval, (nots & 1) ^ b);
+    }
+
+done:
+    return e->nr;
 }
 
-static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (langdef_nd_is_function(nd));
-
-    cleri_node_t * fname, * params;
-
-    fname = nd                      /* sequence */
-            ->children->node        /* choice */
-            ->children->node;       /* keyword or name node */
-
-    params = nd                             /* sequence */
-            ->children->next->next->node;   /* list of scope (arguments) */
-
-
-    switch (root->tp)
-    {
-    case TI_ROOT_DATABASES:
-        return root__new_database(root, params, e);
-    }
-    ex_set(e, EX_INDEX_ERROR,
-            "`%.*s` is undefined",
-            fname->len,
-            fname->str);
-
-    return e->nr;
-}
-
-static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
-{
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (root->tp == TI_ROOT_DATABASES);
     assert (root->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (root->ev->via.query->stream->via.user);
 
     cleri_children_t * child;
     cleri_node_t * value_nd = NULL;
@@ -339,7 +257,7 @@ static int root__new_database(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     if (!db)
         goto finish;
 
-    task = res_get_task(root->ev, ti()->thing0, e);
+    task = ti_task_get_task(root->ev, ti()->thing0, e);
 
     if (!task)
         goto finish;
@@ -352,41 +270,177 @@ finish:
     return e->nr;
 }
 
+static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (root->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (root->ev->via.query->stream->via.user);
+
+    int n;
+    ti_user_t * user = root->ev->via.query->stream->via.user;
+    ti_raw_t * rawname;
+
+    if (!ti_access_check(ti()->access, user, TI_AUTH_DB_CREATE))
+    {
+        ex_set(e, EX_FORBIDDEN,
+                "access denied (requires `%s`)",
+                ti_auth_mask_to_str(TI_AUTH_USER_CREATE));
+        return e->nr;
+    }
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `user_new` requires 2 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (ti_root_scope(root, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(root->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `user_new` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(root->rval));
+        return e->nr;
+    }
+
+    rawname = root->rval->via.raw;
+    ti_val_weak_clear(root->rval);
+
+    if (!ti_user_name_check(
+            (const char *) root->rval->via.raw->data),
+            root->rval->via.raw->n,
+            e)
+        return e->nr;
+
+
+
+    return e->nr;
+}
+
+static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (langdef_nd_is_function(nd));
+
+    cleri_node_t * fname, * params;
+
+    fname = nd                      /* sequence */
+            ->children->node        /* choice */
+            ->children->node;       /* keyword or name node */
+
+    params = nd                             /* sequence */
+            ->children->next->next->node;   /* list of scope (arguments) */
+
+    if (langdef_nd_match_str(fname, "user_new"))
+        return root__f_user_new(root, params, e);
+
+    ex_set(e, EX_INDEX_ERROR,
+            "`%.*s` is undefined",
+            fname->len,
+            fname->str);
+
+    return e->nr;
+}
+
 static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
 
-    switch (root->tp)
+    if (root__rval_clear(root))
     {
-    case TI_ROOT_UNDEFINED:
-        if (langdef_nd_match_str(nd, "databases"))
-            root->tp = TI_ROOT_DATABASES;
-        else if (langdef_nd_match_str(nd, "users"))
-            root->tp = TI_ROOT_USERS;
-        else if (langdef_nd_match_str(nd, "nodes"))
-            root->tp = TI_ROOT_NODES;
-        else if (langdef_nd_match_str(nd, "configuration"))
-            root->tp = TI_ROOT_CONFIG;
-        else
-            ex_set(e, EX_INDEX_ERROR,
-                    "property `%.*s` is undefined",
-                    (int) nd->len, nd->str);
-        break;
-    case TI_ROOT_DATABASES:
-        root->via.db = ti_dbs_get_by_strn(nd->str, nd->len);
-        if (!root->via.db)
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "database `%.*s` does not exist",
-                    (int) nd->len, nd->str);
-            break;
-        }
-        ti_incref(root->via.db);
-        root->tp = TI_ROOT_DATABASE;
+        ex_set_alloc(e);
+        return e->nr;
     }
 
+    int flags
+        = langdef_nd_match_str(nd, "FULL") ? TI_AUTH_MASK_FULL
+        : langdef_nd_match_str(nd, "ACCESS") ? TI_AUTH_ACCESS
+        : langdef_nd_match_str(nd, "READ") ? TI_AUTH_READ
+        : langdef_nd_match_str(nd, "MODIFY") ? TI_AUTH_MODIFY
+        : langdef_nd_match_str(nd, "WATCH") ? TI_AUTH_WATCH
+        : 0;
+
+    if (flags)
+        ti_val_set_int(root->rval, flags);
+    else
+        ex_set(e, EX_INDEX_ERROR,
+                "property `%.*s` is undefined",
+                (int) nd->len, nd->str);
+
+    return e->nr;
+}
+
+static int root__operations(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    uint32_t gid;
+    ti_val_t * a_val = NULL;
+    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
+            nd->cl_obj->tp == CLERI_TP_PRIO ||
+            nd->cl_obj->tp == CLERI_TP_THIS);
+
+    nd = nd->cl_obj->tp == CLERI_TP_PRIO ?
+            nd                          /* prio */
+            ->children->node :          /* compare sequence */
+            nd                          /* rule/this */
+            ->children->node            /* prio */
+            ->children->node;           /* compare sequence */
+
+    assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
+    assert (root->rval == NULL);
+
+    if (nd->cl_obj->gid == CLERI_GID_SCOPE)
+        return ti_root_scope(root, nd, e);
+
+    gid = nd->children->next->node->children->node->cl_obj->gid;
+
+    switch (gid)
+    {
+    case CLERI_GID_OPR0_MUL_DIV_MOD:
+    case CLERI_GID_OPR1_ADD_SUB:
+    case CLERI_GID_OPR2_BITWISE_AND:
+    case CLERI_GID_OPR3_BITWISE_XOR:
+    case CLERI_GID_OPR4_BITWISE_OR:
+    case CLERI_GID_OPR5_COMPARE:
+        if (root__operations(root, nd->children->node, e))
+            return e->nr;
+        a_val = root->rval;
+        root->rval = NULL;
+        if (root__operations(root, nd->children->next->next->node, e))
+            break;
+        (void) ti_opr_a_to_b(a_val, nd->children->next->node, root->rval, e);
+        break;
+
+    case CLERI_GID_OPR6_CMP_AND:
+        if (    root__operations(root, nd->children->node, e) ||
+                !ti_val_as_bool(root->rval))
+            return e->nr;
+
+        root__rval_destroy(root);
+        return root__operations(root, nd->children->next->next->node, e);
+
+    case CLERI_GID_OPR7_CMP_OR:
+        if (    root__operations(root, nd->children->node, e) ||
+                ti_val_as_bool(root->rval))
+            return e->nr;
+
+        root__rval_destroy(root);
+        return root__operations(root, nd->children->next->next->node, e);
+
+    default:
+        assert (0);
+    }
+
+    ti_val_destroy(a_val);
     return e->nr;
 }
 
@@ -399,7 +453,7 @@ static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e)
             ->children->node;           /* false, nil, true, undefined,
                                            int, float, string */
 
-    if (res_rval_clear(root))
+    if (root__rval_clear(root))
     {
         ex_set_alloc(e);
         return e->nr;
@@ -444,4 +498,21 @@ static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     }
     return e->nr;
+}
+
+int root__rval_clear(ti_root_t * root)
+{
+    if (root->rval)
+    {
+        ti_val_clear(root->rval);
+        return 0;
+    }
+    root->rval = ti_val_create(TI_VAL_UNDEFINED, NULL);
+    return root->rval ? 0 : -1;
+}
+
+static void root__rval_destroy(ti_root_t * root)
+{
+    ti_val_destroy(root->rval);
+    root->rval = NULL;
 }

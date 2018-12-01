@@ -25,6 +25,7 @@ typedef struct ti_task_s ti_task_t;
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
+ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e);
 void ti_task_destroy(ti_task_t * task);
 ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);

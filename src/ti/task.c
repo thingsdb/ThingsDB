@@ -32,6 +32,27 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     return task;
 }
 
+ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
+{
+    ti_task_t * task = omap_get(ev->tasks, thing->id);
+    if (task)
+        return task;
+
+    task = ti_task_create(ev->id, thing);
+    if (!task)
+        goto failed;
+
+    if (omap_add(ev->tasks, thing->id, task))
+        goto failed;
+
+    return task;
+
+failed:
+    ti_task_destroy(task);
+    ex_set_alloc(e);
+    return NULL;
+}
+
 void ti_task_destroy(ti_task_t * task)
 {
     if (!task)
@@ -41,20 +62,6 @@ void ti_task_destroy(ti_task_t * task)
     free(task);
 }
 
-/*
- *
-    {
-        '#': 4,
-        'event': 0,
-        'jobs': [
-            {'assign': {<prop name>, <value>}},
-            {'del': <prop name>},
-            {'set': {<attr name>: <value>}},
-            {'unset': <attr name>},
-            {'push': {<prop name>: [{'#': 123}]}}
-        ]
-    }
- */
 ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
 {
     ti_pkg_t * pkg;

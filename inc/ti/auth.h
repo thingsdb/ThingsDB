@@ -29,8 +29,7 @@ enum
     TI_AUTH_USER_OTHER  =1<<10, /* when not set, user flags are forbidden
                                    on other account then your own.
                                                                              */
-    TI_AUTH_GRANT       =1<<11, /* root and database                         */
-    TI_AUTH_REVOKE      =1<<12, /* root and database                         */
+    TI_AUTH_PERMISSIONS =1<<11, /* root and database                         */
 
     TI_AUTH_MASK_FULL   =UINT16_MAX
 };

@@ -15,7 +15,6 @@
 #include <ti/ex.h>
 #include <util/vec.h>
 
-ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e);
 static inline ti_val_enum res_tp(ti_res_t * res);
 static inline const char * res_tp_str(ti_res_t * res);
 static inline _Bool res_is_thing(ti_res_t * res);

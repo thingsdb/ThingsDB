@@ -7,27 +7,6 @@
 #include <util/omap.h>
 #include <util/res.h>
 
-ti_task_t * res_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
-{
-    ti_task_t * task = omap_get(ev->tasks, thing->id);
-    if (task)
-        return task;
-
-    task = ti_task_create(ev->id, thing);
-    if (!task)
-        goto failed;
-
-    if (omap_add(ev->tasks, thing->id, task))
-        goto failed;
-
-    return task;
-
-failed:
-    ti_task_destroy(task);
-    ex_set_alloc(e);
-    return NULL;
-}
-
 int res_rval_clear(ti_res_t * res)
 {
     if (res->rval)

@@ -535,7 +535,10 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
 
     (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, query->ev->id);
-    (void) qp_add_int64(packer, query->target ? query->target->root->id : 0);
+    /* store `no tasks` as target 0, this will save space and a lookup */
+    (void) qp_add_int64(packer, query->target && query->ev->tasks->n
+            ? query->target->root->id
+            : 0);
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);

@@ -357,7 +357,7 @@ static int archive__read_nodes_cevid(void)
     if (fread(&cevid, sizeof(uint64_t), 1, f))
         goto failed;
 
-    log_debug("known committed event id on all nodes: `%"PRIu64"`", cevid);
+    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
 
     ti()->nodes->cevid = cevid;
 

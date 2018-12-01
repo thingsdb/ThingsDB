@@ -86,7 +86,7 @@ int ti_event_run(ti_event_t * ev)
             !qp_is_map(qp_next(&unpacker, NULL)))           /* map with
                                                                thing_id:task */
     {
-        log_critical("invalid or corrupt event: `"PRIu64"`", ev->id);
+        log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
         return -1;
     }
 
@@ -99,7 +99,7 @@ int ti_event_run(ti_event_t * ev)
         if (!ev->target)
         {
             log_critical(
-                    "target `%"PRIu64"` for event `%"PRIu64"` is not found",
+                    "target "TI_DB_ID" for "TI_EVENT_ID" is not found",
                     target_id, ev->id);
             return -1;
         }
@@ -119,10 +119,10 @@ int ti_event_run(ti_event_t * ev)
 
         if (!thing)
         {
+            /* can only happen if we have a database */
             assert (ev->target);
-
             log_critical(
-                    "thing "TI_THING_ID" in event `%"PRIu64"` "
+                    "thing "TI_THING_ID" in "TI_EVENT_ID
                     "is not found in database `%.*s`",
                     thing_id, ev->id,
                     (int) ev->target->name->n,
@@ -131,12 +131,13 @@ int ti_event_run(ti_event_t * ev)
             return -1;
         }
 
+        /* TODO: here we can make a distinction between database and root */
         while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
             if (ti_job_run(ev->target, thing, &unpacker))
                 if (ev->target)
                     log_critical(
                             "job for thing "TI_THING_ID" in "
-                            "event `%"PRIu64"` for database `%.*s` failed",
+                            TI_EVENT_ID" for database `%.*s` failed",
                             thing_id, ev->id,
                             (int) ev->target->name->n,
                             (const char *) ev->target->name->data);
@@ -151,7 +152,7 @@ int ti_event_run(ti_event_t * ev)
 void ti_event_log(const char * prefix, ti_event_t * ev)
 {
     (void) fprintf(
-            Logger.ostream, "\n  %s event `%"PRIu64"` (", prefix, ev->id);
+            Logger.ostream, "\n  %s "TI_EVENT_ID" (", prefix, ev->id);
 
     switch ((ti_event_tp_enum) ev->tp)
     {

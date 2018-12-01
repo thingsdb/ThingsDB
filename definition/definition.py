@@ -121,26 +121,35 @@ class Definition(Grammar):
         name,
     ), '(', List(scope), ')')
 
-    opr0_mul_div_mod = Sequence(THIS, Tokens('* / % //'), THIS)
-    opr1_add_sub = Sequence(THIS, Tokens('+ -'), THIS)
-    opr2_compare = Sequence(THIS, Tokens('< > == != <= >='), THIS)
-    opr3_cmp_and = Sequence(THIS, '&&', THIS)
-    opr4_cmp_or = Sequence(THIS, '||', THIS)
+    opr0_mul_div_mod = Tokens('* / % //')
+    opr1_add_sub = Tokens('+ -')
+    opr2_bitwise_and = Tokens('&')
+    opr3_bitwise_xor = Tokens('^')
+    opr4_bitwise_or = Tokens('|')
+    opr5_compare = Tokens('< > == != <= >=')
+    opr6_cmp_and = Token('&&')
+    opr7_cmp_or = Token('||')
 
     operations = Sequence(
         '(',
         Prio(
             scope,
-            opr0_mul_div_mod,
-            opr1_add_sub,
-            opr2_compare,
-            opr3_cmp_and,  # we could add here + - * / etc.
-            opr4_cmp_or,
+            Sequence(THIS, Choice(
+                opr0_mul_div_mod,
+                opr1_add_sub,
+                opr2_bitwise_and,
+                opr3_bitwise_xor,
+                opr4_bitwise_or,
+                opr5_compare,
+                opr6_cmp_and,
+                opr7_cmp_or,
+                most_greedy=True,
+            ), THIS)
         ),
         ')',
     )
 
-    assignment = Sequence(name, Tokens('= += -= *= /= %='), scope)
+    assignment = Sequence(name, Tokens('= += -= *= /= %= &= ^= |='), scope)
     index = Repeat(
         Sequence('[', t_int, ']')
     )       # we skip index in query investigate (in case we want to use scope)

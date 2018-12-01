@@ -8,6 +8,8 @@
 #define TI_DOCS TI_URL"/docs/"
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
+#define TI_DB_ID "`database:%"PRIu64"`"
+
 typedef unsigned char uchar;
 
 #ifdef UNUSED

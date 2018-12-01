@@ -164,7 +164,8 @@ static void away__req_away_id(void)
                 quorum))
         {
             if (ti_quorum_shrink_one(quorum))
-                log_error("failed to reach quorum while the previous check"
+                log_error(
+                        "failed to reach quorum while the previous check"
                         "was successful");
         }
     }
@@ -186,10 +187,11 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 {
     if (!accepted)
     {
-        log_error("node `%s` does not have the required quorum "
-                    "of at least %u connected nodes for going into away mode",
-                    ti_node_name(ti()->node),
-                    ti_nodes_quorum());
+        log_error(
+                "node `%s` does not have the required quorum "
+                "of at least %u connected nodes for going into away mode",
+                ti_node_name(ti()->node),
+                ti_nodes_quorum());
         goto fail0;;
     }
 
@@ -292,7 +294,9 @@ static void away__work(uv_work_t * UNUSED(work))
     (void) ti_nodes_cevid();
 
     if (ti_archive_write_nodes_cevid())
-        log_warning("failed writing last nodes committed event id to disk");
+        log_warning(
+                "failed writing last nodes committed to disk: "TI_EVENT_ID,
+                ti()->events->cevid);
 
     ti_archive_cleanup();
 }

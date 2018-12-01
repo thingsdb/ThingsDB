@@ -519,13 +519,23 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     rname = res->rval->via.raw;
     name = ti_names_weak_get((const char *) rname->data, rname->n);
 
-    if (!name || !ti_thing_del(thing, name))
+    /* we do need a name reference since ti_thing_del might remove one */
+    if (!ti_grab(name) || !ti_thing_del(thing, name))
     {
-        ex_set(e, EX_INDEX_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
-                thing->id,
-                (int) rname->n, (const char *) rname->data);
-        return e->nr;
+        if (ti_name_is_valid_strn((const char *) rname->data, rname->n))
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "thing "TI_THING_ID" has no property `%.*s`",
+                    thing->id,
+                    (int) rname->n, (const char *) rname->data);
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `del` expects argument 1 to be a valid name, "
+                    "see "TI_DOCS"#names");
+        }
+        goto finish;
     }
 
     task = res_get_task(res->ev, thing, e);
@@ -545,6 +555,7 @@ alloc_err:
     ex_set_alloc(e);
 
 finish:
+    ti_name_drop(name);
     return e->nr;
 }
 

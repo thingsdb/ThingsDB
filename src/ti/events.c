@@ -147,8 +147,8 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     if (events__max_id_gap(epkg->event_id))
     {
         log_critical(
-                "event id `%"PRIu64"` is too high compared to "
-                "the next expected event id `%"PRIu64"`",
+                TI_EVENT_ID" is too high compared to "
+                "the next expected "TI_EVENT_ID,
                 epkg->event_id,
                 events->next_event_id);
         return -1;
@@ -182,7 +182,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         assert (ev->tp != TI_EVENT_TP_SLAVE);
 
         log_critical(
-            "event id `%"PRIu64"` is being processed and "
+            TI_EVENT_ID" is being processed and "
             "can not be reused for node `%s`",
             ev->id,
             ti_node_name(node)
@@ -196,7 +196,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         if (ev->tp == TI_EVENT_TP_SLAVE)
         {
             log_info(
-                "event id `%"PRIu64"` was create for node `%s` but is now "
+                TI_EVENT_ID" was create for node `%s` but is now "
                 "reused by an event from node `%s`",
                 ev->id,
                 ev->tp == TI_EVENT_TP_MASTER
@@ -238,8 +238,8 @@ _Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
     if (event_id > events->next_event_id)
     {
         log_debug(
-                "next expected event id is `%"PRIu64"` but received "
-                "id `%"PRIu64"`", events->next_event_id, event_id);
+                "next expected is "TI_EVENT_ID" but received "TI_EVENT_ID,
+                events->next_event_id, event_id);
         return true;
     }
 
@@ -417,8 +417,8 @@ static void events__loop(uv_async_t * UNUSED(handle))
             if (ev->status != TI_EVENT_STAT_CACNCEL)
             {
                 log_error(
-                        "event `%"PRIu64"` will be skipped because an event"
-                        "with id `%"PRIu64"` is already committed",
+                        TI_EVENT_ID" will be skipped because "TI_EVENT_ID
+                        " is already committed",
                         ev->id, *events->cevid);
                 ti_event_log("skipped", ev);
 
@@ -452,7 +452,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
             if (ev->status == TI_EVENT_STAT_NEW)
             {
                 log_error(
-                        "kill event `%"PRIu64"` on node `%s` "
+                        "kill "TI_EVENT_ID" on node `%s` "
                         "for approximately %f seconds",
                         ev->id,
                         ti_name(),

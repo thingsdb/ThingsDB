@@ -45,6 +45,7 @@
     - [x] `set`
     - [ ] `splice`
     - [x] `unset`
+- [x] Events without tasks could be saved smaller
 - [ ] Jobs processing from `EPKG`
     - [x] `assign`
     - [ ] `del`
@@ -84,3 +85,19 @@
 - [ ] Root functions
     - [ ] Create a way to perform root function, maybe all commands with
           functions ?
+          user_new('iris', 'password');
+          user_del('iris');
+          user_set_password('iris', 'new_password');
+          grant('iris', 'dbname_or_id', ACCESS_FLAGS);
+          revoke('iris', 'dbname_or_id', ACCESS_FLAGS);
+          database_new('dbtest')
+          database_del('dbtest')
+          node_new('address:port', 'secret')
+          users()
+
+
+
+          'unew'
+          'udel'
+          'usp'
+

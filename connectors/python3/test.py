@@ -37,8 +37,8 @@ async def test():
          * test query
          */
 
-        re;
-
+        a = (4 | 8);
+        a;
         ''', timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")

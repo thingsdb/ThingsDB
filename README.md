@@ -88,12 +88,19 @@
           user_new('iris', 'password');
           user_del('iris');
           user_set_password('iris', 'new_password');
-          grant('iris', 'dbname_or_id', ACCESS_FLAGS);
-          revoke('iris', 'dbname_or_id', ACCESS_FLAGS);
-          database_new('dbtest')
+          grant('iris', 'dbname_or_id', (ACCESS_FLAGS));
+          revoke('iris', 'dbname_or_id', (ACCESS_FLAGS));
+          database_add('dbtest')
           database_del('dbtest')
           node_new('address:port', 'secret')
           users()
+          databases()
+          nodes()
+          user('iris')
+          node(node_id)
+          database('name_or_id')
+          counters_reset(node_id)
+
 
 
 

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-11-30 23:13:53
+ * Created at: 2018-12-01 10:02:10
  */
 
 #include <langdef/langdef.h>
@@ -131,54 +131,41 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
-    cleri_t * opr0_mul_div_mod = cleri_sequence(
-        CLERI_GID_OPR0_MUL_DIV_MOD,
-        3,
-        CLERI_THIS,
-        cleri_tokens(CLERI_NONE, "// * / %"),
-        CLERI_THIS
-    );
-    cleri_t * opr1_add_sub = cleri_sequence(
-        CLERI_GID_OPR1_ADD_SUB,
-        3,
-        CLERI_THIS,
-        cleri_tokens(CLERI_NONE, "+ -"),
-        CLERI_THIS
-    );
-    cleri_t * opr2_compare = cleri_sequence(
-        CLERI_GID_OPR2_COMPARE,
-        3,
-        CLERI_THIS,
-        cleri_tokens(CLERI_NONE, "== != <= >= < >"),
-        CLERI_THIS
-    );
-    cleri_t * opr3_cmp_and = cleri_sequence(
-        CLERI_GID_OPR3_CMP_AND,
-        3,
-        CLERI_THIS,
-        cleri_token(CLERI_NONE, "&&"),
-        CLERI_THIS
-    );
-    cleri_t * opr4_cmp_or = cleri_sequence(
-        CLERI_GID_OPR4_CMP_OR,
-        3,
-        CLERI_THIS,
-        cleri_token(CLERI_NONE, "||"),
-        CLERI_THIS
-    );
+    cleri_t * opr0_mul_div_mod = cleri_tokens(CLERI_GID_OPR0_MUL_DIV_MOD, "// * / %");
+    cleri_t * opr1_add_sub = cleri_tokens(CLERI_GID_OPR1_ADD_SUB, "+ -");
+    cleri_t * opr2_bitwise_and = cleri_tokens(CLERI_GID_OPR2_BITWISE_AND, "&");
+    cleri_t * opr3_bitwise_xor = cleri_tokens(CLERI_GID_OPR3_BITWISE_XOR, "^");
+    cleri_t * opr4_bitwise_or = cleri_tokens(CLERI_GID_OPR4_BITWISE_OR, "|");
+    cleri_t * opr5_compare = cleri_tokens(CLERI_GID_OPR5_COMPARE, "== != <= >= < >");
+    cleri_t * opr6_cmp_and = cleri_token(CLERI_GID_OPR6_CMP_AND, "&&");
+    cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR7_CMP_OR, "||");
     cleri_t * operations = cleri_sequence(
         CLERI_GID_OPERATIONS,
         3,
         cleri_token(CLERI_NONE, "("),
         cleri_prio(
             CLERI_NONE,
-            6,
+            2,
             scope,
-            opr0_mul_div_mod,
-            opr1_add_sub,
-            opr2_compare,
-            opr3_cmp_and,
-            opr4_cmp_or
+            cleri_sequence(
+                CLERI_NONE,
+                3,
+                CLERI_THIS,
+                cleri_choice(
+                    CLERI_NONE,
+                    CLERI_MOST_GREEDY,
+                    8,
+                    opr0_mul_div_mod,
+                    opr1_add_sub,
+                    opr2_bitwise_and,
+                    opr3_bitwise_xor,
+                    opr4_bitwise_or,
+                    opr5_compare,
+                    opr6_cmp_and,
+                    opr7_cmp_or
+                ),
+                CLERI_THIS
+            )
         ),
         cleri_token(CLERI_NONE, ")")
     );
@@ -186,7 +173,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_ASSIGNMENT,
         3,
         name,
-        cleri_tokens(CLERI_NONE, "+= -= *= /= %= ="),
+        cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
         scope
     );
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(

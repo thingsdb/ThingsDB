@@ -18,6 +18,9 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e);
+static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e);
+static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e);
+static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__is_zero_div(double val, ex_t * e);
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t * b, ex_t * e)
@@ -27,53 +30,68 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t * b, ex_t * e)
     case 1:
         switch (*nd->str)
         {
-        case '>':
-            return opr__gt(a, b, e);
-        case '<':
-            return opr__lt(a, b, e);
+        case '%':
+            return opr__mod(a, b, e);
+        case '&':
+            return opr__and(a, b, e);
+        case '*':
+            return opr__mul(a, b, e);
         case '+':
             return opr__add(a, b, e);
         case '-':
             return opr__sub(a, b, e);
-        case '*':
-            return opr__mul(a, b, e);
         case '/':
             return opr__div(a, b, e);
-        case '%':
-            return opr__mod(a, b, e);
+        case '<':
+            return opr__lt(a, b, e);
+        case '>':
+            return opr__gt(a, b, e);
+        case '^':
+            return opr__xor(a, b, e);
+        case '|':
+            return opr__or(a, b, e);
         }
         break;
     case 2:
         switch (*nd->str)
         {
-        case '>':
+        case '!':
             assert (nd->str[1] == '=');
-            return opr__ge(a, b, e);
+            return opr__ne(a, b, e);
+        case '%':
+            assert (nd->str[1] == '=');
+            return opr__mod(a, b, e);
+        case '&':
+            assert (nd->str[1] == '=');
+            return opr__and(a, b, e);
+        case '*':
+            assert (nd->str[1] == '=');
+            return opr__mul(a, b, e);
+        case '+':
+            assert (nd->str[1] == '=');
+            return opr__add(a, b, e);
+        case '-':
+            assert (nd->str[1] == '=');
+            return opr__sub(a, b, e);
+        case '/':
+            return nd->str[1] == '=' && a->tp == TI_VAL_FLOAT
+                ? opr__div(a, b, e)
+                : opr__idiv(a, b, e);
         case '<':
             assert (nd->str[1] == '=');
             return opr__le(a, b, e);
         case '=':
             assert (nd->str[1] == '=');
             return opr__eq(a, b, e);
-        case '!':
+        case '>':
             assert (nd->str[1] == '=');
-            return opr__ne(a, b, e);
-        case '/':
-            return nd->str[1] == '=' && a->tp == TI_VAL_FLOAT
-                ? opr__div(a, b, e)
-                : opr__idiv(a, b, e);
-        case '+':
+            return opr__ge(a, b, e);
+        case '^':
             assert (nd->str[1] == '=');
-            return opr__add(a, b, e);
-        case '-':
+            return opr__xor(a, b, e);
+        case '|':
             assert (nd->str[1] == '=');
-            return opr__sub(a, b, e);
-        case '*':
-            assert (nd->str[1] == '=');
-            return opr__mul(a, b, e);
-        case '%':
-            assert (nd->str[1] == '=');
-            return opr__mod(a, b, e);
+            return opr__or(a, b, e);
         }
     }
     assert (0);
@@ -1659,6 +1677,255 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`%` not supported between `%s` and `%s`",
+        ti_val_str(a), ti_val_str(b));
+    return e->nr;
+}
+
+static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e)
+{
+    int64_t int_ = 0;       /* set to 0 only to prevent warning */
+
+    switch ((ti_val_enum) a->tp)
+    {
+    case TI_VAL_ATTR:
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_NIL:
+        goto type_err;
+    case TI_VAL_INT:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.int_ & b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.int_ & b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_FLOAT:
+        goto type_err;
+    case TI_VAL_BOOL:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.bool_ & b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.bool_ & b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        goto type_err;
+    }
+
+    ti_val_clear(b);
+    ti_val_set_int(b, int_);
+
+    return e->nr;
+
+type_err:
+    ex_set(e, EX_BAD_DATA, "bitwise `&` not supported between `%s` and `%s`",
+        ti_val_str(a), ti_val_str(b));
+    return e->nr;
+}
+
+static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e)
+{
+    int64_t int_ = 0;       /* set to 0 only to prevent warning */
+
+    switch ((ti_val_enum) a->tp)
+    {
+    case TI_VAL_ATTR:
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_NIL:
+        goto type_err;
+    case TI_VAL_INT:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.int_ ^ b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.int_ ^ b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_FLOAT:
+        goto type_err;
+    case TI_VAL_BOOL:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.bool_ ^ b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.bool_ ^ b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        goto type_err;
+    }
+
+    ti_val_clear(b);
+    ti_val_set_int(b, int_);
+
+    return e->nr;
+
+type_err:
+    ex_set(e, EX_BAD_DATA, "bitwise `^` not supported between `%s` and `%s`",
+        ti_val_str(a), ti_val_str(b));
+    return e->nr;
+}
+
+static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e)
+{
+    int64_t int_ = 0;       /* set to 0 only to prevent warning */
+
+    switch ((ti_val_enum) a->tp)
+    {
+    case TI_VAL_ATTR:
+    case TI_VAL_UNDEFINED:
+    case TI_VAL_NIL:
+        goto type_err;
+    case TI_VAL_INT:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.int_ | b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.int_ | b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_FLOAT:
+        goto type_err;
+    case TI_VAL_BOOL:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_ATTR:
+        case TI_VAL_UNDEFINED:
+        case TI_VAL_NIL:
+            goto type_err;
+        case TI_VAL_INT:
+            int_ = a->via.bool_ | b->via.int_;
+            break;
+        case TI_VAL_FLOAT:
+            goto type_err;
+        case TI_VAL_BOOL:
+            int_ = a->via.bool_ | b->via.bool_;
+            break;
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_ARRAY:
+        case TI_VAL_TUPLE:
+        case TI_VAL_THING:
+        case TI_VAL_THINGS:
+        case TI_VAL_ARROW:
+            goto type_err;
+        }
+        break;
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        goto type_err;
+    }
+
+    ti_val_clear(b);
+    ti_val_set_int(b, int_);
+
+    return e->nr;
+
+type_err:
+    ex_set(e, EX_BAD_DATA, "bitwise `|` not supported between `%s` and `%s`",
         ti_val_str(a), ti_val_str(b));
     return e->nr;
 }

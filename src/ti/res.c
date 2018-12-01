@@ -1999,6 +1999,7 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
 static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 {
+    uint32_t gid;
     ti_val_t * a_val = NULL;
     assert( nd->cl_obj->tp == CLERI_TP_RULE ||
             nd->cl_obj->tp == CLERI_TP_PRIO ||
@@ -2014,11 +2015,22 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
     assert (res->rval == NULL);
 
-    switch (nd->cl_obj->gid)
+    if (nd->cl_obj->gid == CLERI_GID_SCOPE)
+        return ti_res_scope(res, nd, e);
+
+    gid = nd->children->next->node->children->node->cl_obj->gid;
+
+    LOGC("tp: %u", nd->children->next->node->children->node->cl_obj->tp);
+    LOGC("gid: %u", gid);
+
+    switch (gid)
     {
     case CLERI_GID_OPR0_MUL_DIV_MOD:
     case CLERI_GID_OPR1_ADD_SUB:
-    case CLERI_GID_OPR2_COMPARE:
+    case CLERI_GID_OPR2_BITWISE_AND:
+    case CLERI_GID_OPR3_BITWISE_XOR:
+    case CLERI_GID_OPR4_BITWISE_OR:
+    case CLERI_GID_OPR5_COMPARE:
         if (res__operations(res, nd->children->node, e))
             return e->nr;
         a_val = res->rval;
@@ -2028,7 +2040,7 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         (void) ti_opr_a_to_b(a_val, nd->children->next->node, res->rval, e);
         break;
 
-    case CLERI_GID_OPR3_CMP_AND:
+    case CLERI_GID_OPR6_CMP_AND:
         if (    res__operations(res, nd->children->node, e) ||
                 !ti_val_as_bool(res->rval))
             return e->nr;
@@ -2036,16 +2048,13 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         res_rval_destroy(res);
         return res__operations(res, nd->children->next->next->node, e);
 
-    case CLERI_GID_OPR4_CMP_OR:
+    case CLERI_GID_OPR7_CMP_OR:
         if (    res__operations(res, nd->children->node, e) ||
                 ti_val_as_bool(res->rval))
             return e->nr;
 
         res_rval_destroy(res);
         return res__operations(res, nd->children->next->next->node, e);
-
-    case CLERI_GID_SCOPE:
-        return ti_res_scope(res, nd, e);
 
     default:
         assert (0);

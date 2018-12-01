@@ -26,7 +26,8 @@ static void query__event_handle(ti_query_t * query);
 static ti_epkg_t * query__epkg_event(ti_query_t * query);
 static void query__task_to_watchers(ti_query_t * query);
 static void query__nd_cache_cleanup(cleri_node_t * node);
-static void query__collect_destroy_cb(vec_t * names);
+static inline _Bool query__requires_root_event(cleri_node_t * name_nd);
+static inline void query__collect_destroy_cb(vec_t * names);
 
 ti_query_t * ti_query_create(ti_stream_t * stream)
 {
@@ -230,6 +231,11 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     ))
         ex_set_alloc(e);
 
+    /* remove flag which is not applicable */
+    query->flags &= query->target
+            ? ~TI_QUERY_FLAG_ROOT_EVENT
+            : ~TI_QUERY_FLAG_DB_EVENT;
+
     return e->nr;
 }
 
@@ -314,9 +320,6 @@ done:
     ti_query_send(query, e);
 }
 
-
-
-
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
@@ -388,7 +391,12 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_RENAME:
         case CLERI_GID_F_SET:
         case CLERI_GID_F_UNSET:
-            query->flags |= TI_QUERY_FLAG_EVENT;
+            query->flags |= TI_QUERY_FLAG_DB_EVENT;
+            break;
+        case CLERI_GID_NAME:
+            if (query__requires_root_event(nd->children->node->children->node))
+                query->flags |= TI_QUERY_FLAG_ROOT_EVENT;
+            return;  /* arguments can be ignored *
         }
         /* skip to arguments */
         query__investigate_recursive(
@@ -396,7 +404,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 nd->children->next->next->node);
         return;
     case CLERI_GID_ASSIGNMENT:
-        query->flags |= TI_QUERY_FLAG_EVENT;
+        query->flags |= TI_QUERY_FLAG_DB_EVENT;
         /* skip to scope */
         query__investigate_recursive(
                 query,
@@ -411,7 +419,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                     nd->children->next->next->node);
 
             langdef_nd_flag(nd,
-                    query->flags & TI_QUERY_FLAG_EVENT
+                    query->flags & TI_QUERY_FLAG_DB_EVENT
                     ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
                     : TI_ARROW_FLAG);
 
@@ -620,8 +628,18 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
     }
 }
 
+static inline _Bool query__requires_root_event(cleri_node_t * name_nd)
+{
+    return (
+        langdef_nd_match_str(name_nd, "user_new") ||
+        langdef_nd_match_str(name_nd, "database_new") ||
+        langdef_nd_match_str(name_nd, "node_new") ||
+        langdef_nd_match_str(name_nd, "grant") ||
+        langdef_nd_match_str(name_nd, "revoke")
+    );
+}
 
-static void query__collect_destroy_cb(vec_t * names)
+static inline void query__collect_destroy_cb(vec_t * names)
 {
     vec_destroy(names, (vec_destroy_cb) ti_name_drop);
 }

@@ -118,7 +118,7 @@ class Definition(Grammar):
         f_splice,       # TODO : implement
         f_unset,
         # any name
-        name,
+        name,           # used for `root` functions
     ), '(', List(scope), ')')
 
     opr0_mul_div_mod = Tokens('* / % //')

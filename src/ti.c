@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <ti/db.h>
 #include <ti/event.h>
-#include <ti/misc.h>
 #include <ti/names.h>
 #include <ti/signals.h>
 #include <ti/store.h>
@@ -137,8 +136,8 @@ int ti_init(void)
 int ti_build(void)
 {
     int rc = -1;
-    qp_packer_t * packer = ti_misc_init_query();
-    if (!packer)
+    ti_event_t * ev = ti_event_initial();
+    if (!ev)
         return rc;
 
     ti_.redundancy = ti_.args->redundancy;
@@ -149,48 +148,18 @@ int ti_build(void)
 
     ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
-
     ti_.events->next_event_id = 1;
-    ti_.events->cevid = &ti_.node->cevid;
 
+    ti_.events->cevid = &ti_.node->cevid;
     ti_.next_thing_id = &ti_.node->next_thing_id;
 
+    if (ti_event_run(ev))
+        goto failed;
 
-    {
-        /* TODO: should be done by a query inside the packer */
-        ex_t * e = ex_use();
-        ti_user_t * user;
-        ti_db_t * db;
-        ti_name_t * name;
-        vec_t * vec_people;
-        ti_thing_t * iris;
-        ti_raw_t * raw_iris;
-        int64_t age_iris = 5;
+    ti_.node->cevid = ev->id;
 
-        user = ti_users_create_user(
-                ti_user_def_name,
-                strlen(ti_user_def_name),
-                ti_user_def_pass, e);
-        ti_access_grant(&ti_.access, user, TI_AUTH_FULL);
-
-        /* TODO: this is just some test stuff */
-
-        db = ti_dbs_create_db("dbtest", 6, user, e);
-        name = ti_names_get("people", 6);
-        vec_people = vec_new(0);
-        iris = ti_things_create_thing(db->things, ti_next_thing_id());
-        vec_push(&vec_people, iris);
-        ti_thing_weak_set(db->root, name, TI_VAL_THINGS, vec_people);
-        name = ti_names_get("name", 4);
-        raw_iris = ti_raw_create((uchar *) "iris", 4);
-        ti_thing_weak_set(iris, name, TI_VAL_RAW, raw_iris);
-        name = ti_names_get("age", 3);
-        ti_thing_weak_set(iris, name, TI_VAL_INT, &age_iris);
-
-        (*ti_.events->cevid)++;
-
-        ti_store_store();
-    }
+    if (ti_store_store())
+        goto failed;
 
     rc = 0;
     goto done;
@@ -203,7 +172,7 @@ failed:
     (void *) vec_pop(ti_.nodes->vec);
 
 done:
-    qp_packer_destroy(packer);
+    ti_event_drop(ev);
     return rc;
 }
 

@@ -21,18 +21,6 @@ qp_res_t * qpx_map_get(const qp_map_t * map, const char * key)
     return NULL;
 }
 
-/*
- * Compare a raw object to a null terminated string.
- */
-_Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s)
-{
-    assert (obj->tp == QP_RAW);
-    for (size_t i = 0; i < obj->len; i++, s++)
-        if (*s != obj->via.raw[i] || !*s)
-            return false;
-    return !*s;
-}
-
 char * qpx_obj_raw_to_str(const qp_obj_t * obj)
 {
     assert (obj->tp == QP_RAW);

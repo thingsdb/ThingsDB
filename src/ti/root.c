@@ -7,9 +7,12 @@
 #include <ti/dbs.h>
 #include <ti/root.h>
 #include <ti/auth.h>
+#include <ti/users.h>
 #include <ti/access.h>
 #include <ti/task.h>
+#include <ti/opr.h>
 #include <util/res.h>
+#include <util/strx.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
 
@@ -254,7 +257,7 @@ static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto finish;
 
-    if (ti_task_add_new_database(task, db, user))
+    if (ti_task_add_database_new(task, db, user))
         ex_set_alloc(e);  /* task cleanup is not required */
 
 finish:
@@ -266,24 +269,96 @@ static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (root->ev);
+    assert (root->user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (root->ev->via.query->stream->via.user);
 
     int n;
+    ti_db_t * target;
+    ti_user_t * user;
+    ti_task_t * task;
+    uint64_t mask;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `grant` requires 3 arguments but %d %s given",
+            "function `grant` requires 3 arguments but %d %s given, "
+            "see: "TI_DOCS"#grant",
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
 
+    /* grant target, target maybe NULL for root */
     if (ti_root_scope(root, nd->children->node, e))
         return e->nr;
 
+    assert (e->nr == 0);
+    target = ti_dbs_get_by_val(root->rval, e);
+    if (e->nr)
+        return e->nr;
 
+    /* check for privileges */
+    if (ti_access_check_err(
+            target ? target->access : ti()->access,
+            root->user, TI_AUTH_GRANT, e))
+        return e->nr;
+
+    /* grant user */
+    ti_val_clear(root->rval);
+    if (ti_root_scope(root, nd->children->next->node, e))
+        return e->nr;
+
+    if (root->rval->tp != TI_VAL_RAW)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `grant` expects argument 2 to be of type `%s` "
+            "but got `%s`, see: "TI_DOCS"#grant",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(root->rval));
+        return e->nr;
+    }
+
+    user = ti_users_get_by_namestrn(
+            (const char *) root->rval->via.raw->data,
+            root->rval->via.raw->n);
+    if (!user)
+    {
+        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+                (int) root->rval->via.raw->n,
+                (char *) root->rval->via.raw->data);
+        return e->nr;
+    }
+
+    /* grant mask */
+    ti_val_clear(root->rval);
+    if (ti_root_scope(root, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (root->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `grant` expects argument 3 to be of type `%s` "
+            "but got `%s`, see: "TI_DOCS"#grant",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_str(root->rval));
+        return e->nr;
+    }
+
+    mask = (uint64_t) root->rval->via.int_;
+
+    task = ti_task_get_task(root->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
+
+    if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    if (ti_task_add_grant(task, target ? target->root->id : 0, user, mask))
+        ex_set_alloc(e);  /* task cleanup is not required */
 
     return e->nr;
 }
@@ -297,7 +372,7 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     char * passstr = NULL;
     int n;
-    ti_user_t * nuser, * user = root->ev->via.query->stream->via.user;
+    ti_user_t * nuser;
     ti_raw_t * rname;
     ti_task_t * task;
 
@@ -339,7 +414,7 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    char * passstr = ti_raw_to_str(root->rval->via.raw);
+    passstr = ti_raw_to_str(root->rval->via.raw);
     if (!passstr)
     {
         ex_set_alloc(e);
@@ -357,7 +432,7 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     if (!nuser)
         goto done;
 
-    if (ti_task_add_user_new(task, nuser))
+    if (ti_task_add_user_new(task, nuser, passstr))
         ex_set_alloc(e);  /* task cleanup is not required */
 
 done:
@@ -381,8 +456,15 @@ static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     params = nd                             /* sequence */
             ->children->next->next->node;   /* list of scope (arguments) */
 
+    if (langdef_nd_match_str(fname, "database_new"))
+        return root__f_database_new(root, params, e);
+
+    if (langdef_nd_match_str(fname, "grant"))
+        return root__f_grant(root, params, e);
+
     if (langdef_nd_match_str(fname, "user_new"))
         return root__f_user_new(root, params, e);
+
 
     ex_set(e, EX_INDEX_ERROR,
             "`%.*s` is undefined",

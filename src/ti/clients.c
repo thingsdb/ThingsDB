@@ -358,14 +358,8 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access;
-    if (!ti_access_check(access_, user, TI_AUTH_READ))
-    {
-        ex_set(e, EX_FORBIDDEN,
-                "user `%.*s` is missing the required privileges (`%s`)",
-                (int) user->name->n, (char *) user->name->data,
-                ti_auth_mask_to_str(TI_AUTH_READ));
+    if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
         goto finish;
-    }
 
     if (ti_query_parse(query, e))
         goto finish;
@@ -375,14 +369,8 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_query_will_update(query))
     {
-        if (!ti_access_check(access_, user, TI_AUTH_MODIFY))
-        {
-            ex_set(e, EX_FORBIDDEN,
-                    "user `%.*s` is missing the required privileges (`%s`)",
-                    (int) user->name->n, (char *) user->name->data,
-                    ti_auth_mask_to_str(TI_AUTH_MODIFY));
+        if (ti_access_check_err(access_, user, TI_AUTH_MODIFY, e))
             goto finish;
-        }
 
         if (ti_events_create_new_event(query, e))
             goto finish;
@@ -446,14 +434,8 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = wareq->target ? wareq->target->access : ti()->access;
-    if (!ti_access_check(access_, user, TI_AUTH_WATCH))
-    {
-        ex_set(e, EX_FORBIDDEN,
-                "user `%.*s` is missing the required privileges (`%s`)",
-                (int) user->name->n, (char *) user->name->data,
-                ti_auth_mask_to_str(TI_AUTH_WATCH));
+    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
-    }
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
     if (!resp)

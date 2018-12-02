@@ -116,6 +116,8 @@ ti_db_t * ti_dbs_get_by_id(const uint64_t id)
 /*
  * Returns a weak reference database based on a QPack object.
  * If the database is not found, then e will contain the reason why.
+ * - if the database target is `root`, then the return value is NULL and
+ *   e->nr is EX_SUCCESS
  */
 ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
 {
@@ -128,27 +130,23 @@ ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
             ex_set(
                 e,
                 EX_INDEX_ERROR,
-                "database with name `%.*s` is not found",
+                "database `%.*s` not found",
                 obj->len,
                 (char *) obj->via.raw);
         break;
     case QP_INT64:
         if (!obj->via.int64)
-        {
             ex_set(e, EX_SUCCESS, "database target is root");
-        }
         else
         {
             uint64_t id = (uint64_t) obj->via.int64;
             db = ti_dbs_get_by_id(id);
             if (!db)
-            {
                 ex_set(
                     e,
                     EX_INDEX_ERROR,
-                    "database with id `%"PRIu64"` is not found",
+                    TI_DB_ID" not found",
                     id);
-            }
         }
         break;
     default:
@@ -156,3 +154,48 @@ ti_db_t * ti_dbs_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
     }
     return db;
 }
+
+/*
+ * Returns a weak reference database based on a ti_val_t.
+ * If the database is not found, then e will contain the reason why.
+ * - if the database target is `root`, then the return value is NULL and
+ *   e->nr is EX_SUCCESS
+ */
+ti_db_t * ti_dbs_get_by_val(ti_val_t * val, ex_t * e)
+{
+    ti_db_t * db = NULL;
+    switch (val->tp)
+    {
+    case TI_VAL_RAW:
+        db = ti_dbs_get_by_strn(
+                (const char *) val->via.raw->data, val->via.raw->n);
+        if (!db)
+            ex_set(
+                e,
+                EX_INDEX_ERROR,
+                "database `%.*s` not found",
+                val->via.raw->n,
+                (char *) val->via.raw->data);
+        break;
+    case TI_VAL_INT:
+        if (val->via.int_ == 0)
+            ex_set(e, EX_SUCCESS, "database target is root");
+        else
+        {
+            uint64_t id = (uint64_t) val->via.int_;
+            db = ti_dbs_get_by_id(id);
+            if (!db)
+                ex_set(
+                    e,
+                    EX_INDEX_ERROR,
+                    TI_DB_ID" not found",
+                    id);
+        }
+        break;
+    default:
+        ex_set(e, EX_BAD_DATA, "expecting type `%s` or `%s` as target",
+                ti_val_tp_str(TI_VAL_RAW), ti_val_tp_str(TI_VAL_INT));
+    }
+    return db;
+}
+

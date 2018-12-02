@@ -34,6 +34,7 @@ typedef union ti_event_u ti_event_via_t;
 #include <util/omap.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
+ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);
 void ti_event_log(const char * prefix, ti_event_t * ev);

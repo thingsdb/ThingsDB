@@ -35,7 +35,7 @@ int ti_task_add_grant(
         ti_task_t * task,
         uint64_t target_id,
         ti_user_t * user,
-        int flags);
+        uint64_t mask);
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,

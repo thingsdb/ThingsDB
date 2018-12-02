@@ -212,7 +212,7 @@ int ti_task_add_grant(
         ti_task_t * task,
         uint64_t target_id,
         ti_user_t * user,
-        int flags)
+        uint64_t mask)
 {
     int rc;
     ti_raw_t * job = NULL;
@@ -227,8 +227,8 @@ int ti_task_add_grant(
     (void) qp_add_int64(packer, target_id);
     (void) qp_add_raw_from_str(packer, "user");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
-    (void) qp_add_raw_from_str(packer, "flags");
-    (void) qp_add_int64(packer, flags);
+    (void) qp_add_raw_from_str(packer, "mask");
+    (void) qp_add_int64(packer, mask);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

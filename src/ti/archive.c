@@ -131,10 +131,14 @@ int ti_archive_load(void)
 
     archive__read_nodes_cevid();
 
-    if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
+    if (!fx_is_dir(archive->path))
     {
-        log_critical("cannot create archive directory: `%s`", archive->path);
-        return -1;
+        if (mkdir(archive->path, 0700))
+        {
+            log_critical("cannot create archive directory: `%s`", archive->path);
+            return -1;
+        }
+        return 0;
     }
 
     total = scandir(archive->path, &file_list, NULL, alphasort);

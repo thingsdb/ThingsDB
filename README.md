@@ -66,6 +66,7 @@
     - [x] Regex
     - [x] Arrow
     - [x] Raw
+- [x] Build first event on init
 - [ ] Storing
     - [ ] Full storage on disk
         - [x] Status
@@ -83,9 +84,18 @@
         - [x] Load on startup (Required Jobs implementation for full coverage)
 - [ ] Multi node
 - [ ] Root functions
-    - [ ] `user_new`
+    - [x] `user_new`
     - [ ] `user_del`
     - [ ] `user`
     - [ ] `users`
-    - [ ] `grant`
+    - [ ] `database_new`
+    - [ ] `database_del`
+    - [ ] `database`
+    - [ ] `databases`
+    - [ ] `node_new`
+    - [ ] `node_del` ?? -> very hard
+    - [ ] `node`
+    - [ ] `nodes`
+    - [ ] `counter_reset`
+    - [x] `grant`
     - [ ] `revoke`

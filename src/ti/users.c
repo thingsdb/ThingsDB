@@ -97,22 +97,21 @@ failed:
     return NULL;
 }
 
+/* Returns a borrowed reference */
 ti_user_t * ti_users_get_by_id(uint64_t id)
 {
     for (vec_each(*users, ti_user_t, user))
-    {
-        if (user->id == id) return user;
-    }
+        if (user->id == id)
+            return user;
     return NULL;
 }
 
+/* Returns a borrowed reference */
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 {
     for (vec_each(*users, ti_user_t, user))
-    {
         if (ti_raw_equal_strn(user->name, name, n))
             return user;
-    }
     return NULL;
 }
 

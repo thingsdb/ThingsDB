@@ -8,6 +8,7 @@
 #include <ti.h>
 #include <ti/db.h>
 #include <ti/job.h>
+#include <ti/rjob.h>
 #include <ti/event.h>
 #include <ti/ex.h>
 #include <ti/dbs.h>
@@ -38,6 +39,24 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
         return NULL;
     }
 
+    return ev;
+}
+
+ti_event_t * ti_event_initial(void)
+{
+    ti_event_t * ev;
+    ti_epkg_t * epkg = ti_epkg_initial();
+    if (!epkg)
+        return NULL;
+    ev = ti_event_create(TI_EVENT_TP_EPKG);
+    if (!ev)
+    {
+        ti_epkg_drop(epkg);
+        return NULL;
+    }
+    ev->status = TI_EVENT_STAT_READY;
+    ev->via.epkg = epkg;
+    ev->id = epkg->event_id;
     return ev;
 }
 
@@ -99,7 +118,7 @@ int ti_event_run(ti_event_t * ev)
         if (!ev->target)
         {
             log_critical(
-                    "target "TI_DB_ID" for "TI_EVENT_ID" is not found",
+                    "target "TI_DB_ID" for "TI_EVENT_ID" not found",
                     target_id, ev->id);
             return -1;
         }
@@ -123,7 +142,7 @@ int ti_event_run(ti_event_t * ev)
             assert (ev->target);
             log_critical(
                     "thing "TI_THING_ID" in "TI_EVENT_ID
-                    "is not found in database `%.*s`",
+                    "not found in database `%.*s`",
                     thing_id, ev->id,
                     (int) ev->target->name->n,
                     (const char *) ev->target->name->data);
@@ -131,16 +150,25 @@ int ti_event_run(ti_event_t * ev)
             return -1;
         }
 
-        /* TODO: here we can make a distinction between database and root */
-        while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
-            if (ti_job_run(ev->target, thing, &unpacker))
-                if (ev->target)
+        if (ev->target)
+        {
+            while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
+                if (ti_job_run(ev->target, thing, &unpacker))
                     log_critical(
                             "job for thing "TI_THING_ID" in "
                             TI_EVENT_ID" for database `%.*s` failed",
                             thing_id, ev->id,
                             (int) ev->target->name->n,
                             (const char *) ev->target->name->data);
+        }
+        else
+        {
+            while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
+                if (ti_rjob_run(&unpacker))
+                    log_critical(
+                            "job for `root` in "TI_EVENT_ID" failed",
+                            ev->id);
+        }
 
         if (qp_is_close(thing_or_map.tp))
             qp_next(&unpacker, &thing_or_map);

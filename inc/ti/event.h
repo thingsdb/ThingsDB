@@ -24,7 +24,7 @@ typedef union ti_event_u ti_event_via_t;
 #include <qpack.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <ti/db.h>
+#include <ti/collection.h>
 #include <ti/events.h>
 #include <ti/pkg.h>
 #include <ti/prom.h>
@@ -55,9 +55,11 @@ struct ti_event_s
     uint8_t tp;             /* MASTER / SLAVE / EPKG */
     uint64_t id;
     ti_event_via_t via;
-    ti_db_t * target;       /* NULL for root or database with reference */
-    omap_t * tasks;         /* thing_id : ti_task_t */
-    struct timespec time;   /* timing an event, used for elapsed time etc. */
+    ti_collection_t * target;   /* NULL for root or collection with reference
+                                */
+    omap_t * tasks;             /* thing_id : ti_task_t */
+    struct timespec time;       /* timing an event, used for elapsed time etc.
+                                */
 };
 
 #endif /* TI_EVENT_H_ */

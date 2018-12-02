@@ -203,14 +203,14 @@ if __name__ == '__main__':
     definition.test('labels.map(label => label.id())')
     definition.test('''
         /*
-         * Create a database
+         * Create a collection
          */
-        databases.create(dbtest);
+        collections.create(dbtest);
 
         /*
-         * Drop a database
+         * Drop a collection
          */
-        databases.dbtest.drop();
+        collections.dbtest.drop();
 
         /* Change redundancy */
         config.redundancy = 3[0][0];
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     ''')
 
     definition.test(' users.new({name: "iris"}); ')
-    definition.test(' databases.dbtest.drop() ')
+    definition.test(' collections.dbtest.drop() ')
 
     definition.test('2.1')
 

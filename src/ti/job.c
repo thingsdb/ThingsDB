@@ -7,14 +7,20 @@
 #include <ti/name.h>
 #include <ti/names.h>
 
-static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp);
-static int job__del(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp);
+static int job__assign(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp);
+static int job__del(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp);
 
 /*
  * (Log function)
  * Unpacker should be at point 'job': ...
  */
-int ti_job_run(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
+int ti_job_run(ti_collection_t * collection, ti_thing_t * thing, qp_unpacker_t * unp)
 {
     qp_obj_t qp_job_name;
     const uchar * raw;
@@ -31,9 +37,9 @@ int ti_job_run(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
     switch (*raw)
     {
     case 'a':
-        return job__assign(db, thing, unp);
+        return job__assign(collection, thing, unp);
     case 'd':
-        return job__del(db, thing, unp);
+        return job__del(collection, thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
@@ -44,9 +50,12 @@ int ti_job_run(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'prop':value}
  */
-static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__assign(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
 {
-    assert (db);
+    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -80,7 +89,7 @@ static int job__assign(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    if (ti_val_from_unp(&val, unp, db->things))
+    if (ti_val_from_unp(&val, unp, collection->things))
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
@@ -113,9 +122,12 @@ fail:
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int job__del(ti_db_t * db, ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__del(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
 {
-    assert (db);
+    assert (collection);
     assert (thing);
     assert (unp);
 

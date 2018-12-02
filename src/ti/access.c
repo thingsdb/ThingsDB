@@ -66,7 +66,7 @@ int ti_access_check_err(
         ex_set(e, EX_FORBIDDEN,
                 "user `%.*s` is missing the required privileges (`%s`)",
                 (int) user->name->n, (char *) user->name->data,
-                ti_auth_mask_to_str(TI_AUTH_READ));
+                ti_auth_mask_to_str(mask));
     return e->nr;
 }
 

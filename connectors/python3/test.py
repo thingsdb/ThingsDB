@@ -16,7 +16,7 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
-    client.use('dbtest')
+    client.use('test_collection')
 
     start = time.time()
     try:
@@ -37,7 +37,7 @@ async def test():
          * test query
          */
 
-        user_new('sasha', 'siri');
+        new_user('sasha', 'iris');
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:

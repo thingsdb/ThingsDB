@@ -101,7 +101,7 @@ lock_t lock_lock(const char * path, int flags)
 
         /*
          * If the process id in the lock file does not exist or if the
-         * process id is in use by another program than siridb we can
+         * process id is in use by another program than siricollection we can
          * assume the lock is not valid.
          */
         is_locked = (pproc_name != NULL && strcmp(proc_name, pproc_name) == 0);

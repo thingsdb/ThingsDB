@@ -275,17 +275,18 @@ static void away__work(uv_work_t * UNUSED(work))
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
-    for (vec_each(ti()->dbs->vec, ti_db_t, db))
+    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
-        uv_mutex_lock(db->lock);
+        uv_mutex_lock(collection->lock);
 
-        if (ti_things_gc(db->things, db->root))
+        if (ti_things_gc(collection->things, collection->root))
         {
-            log_error("garbage collection for database `%.*s` has failed",
-                    (int) db->name->n, (char *) db->name->data);
+            log_error("garbage collection for collection `%.*s` has failed",
+                    (int) collection->name->n,
+                    (char *) collection->name->data);
         }
 
-        uv_mutex_unlock(db->lock);
+        uv_mutex_unlock(collection->lock);
     }
 
     if (ti_archive_to_disk())

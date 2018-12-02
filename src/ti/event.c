@@ -6,12 +6,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/db.h>
+#include <ti/collection.h>
 #include <ti/job.h>
 #include <ti/rjob.h>
 #include <ti/event.h>
 #include <ti/ex.h>
-#include <ti/dbs.h>
+#include <ti/collections.h>
 #include <ti/node.h>
 #include <ti/proto.h>
 #include <ti/task.h>
@@ -65,7 +65,7 @@ void ti_event_drop(ti_event_t * ev)
     if (!ev || --ev->ref)
         return;
 
-    ti_db_drop(ev->target);
+    ti_collection_drop(ev->target);
 
     if (ev->tp == TI_EVENT_TP_SLAVE)
         ti_node_drop(ev->via.node);
@@ -114,11 +114,11 @@ int ti_event_run(ti_event_t * ev)
         ev->target = NULL;      /* target 0 is root */
     else
     {
-        ev->target = ti_dbs_get_by_id(target_id);
+        ev->target = ti_collections_get_by_id(target_id);
         if (!ev->target)
         {
             log_critical(
-                    "target "TI_DB_ID" for "TI_EVENT_ID" not found",
+                    "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
                     target_id, ev->id);
             return -1;
         }
@@ -134,15 +134,15 @@ int ti_event_run(ti_event_t * ev)
 
         thing = ev->target == NULL
                 ? ti()->thing0
-                : ti_db_thing_by_id(ev->target, thing_id);
+                : ti_collection_thing_by_id(ev->target, thing_id);
 
         if (!thing)
         {
-            /* can only happen if we have a database */
+            /* can only happen if we have a collection */
             assert (ev->target);
             log_critical(
                     "thing "TI_THING_ID" in "TI_EVENT_ID
-                    "not found in database `%.*s`",
+                    "not found in collection `%.*s`",
                     thing_id, ev->id,
                     (int) ev->target->name->n,
                     (const char *) ev->target->name->data);
@@ -156,7 +156,7 @@ int ti_event_run(ti_event_t * ev)
                 if (ti_job_run(ev->target, thing, &unpacker))
                     log_critical(
                             "job for thing "TI_THING_ID" in "
-                            TI_EVENT_ID" for database `%.*s` failed",
+                            TI_EVENT_ID" for collection `%.*s` failed",
                             thing_id, ev->id,
                             (int) ev->target->name->n,
                             (const char *) ev->target->name->data);

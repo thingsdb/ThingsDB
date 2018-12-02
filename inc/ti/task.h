@@ -20,7 +20,7 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/name.h>
 #include <ti/val.h>
 #include <ti/pkg.h>
-#include <ti/db.h>
+#include <ti/collection.h>
 #include <ti/user.h>
 #include <util/vec.h>
 
@@ -29,13 +29,17 @@ ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e);
 void ti_task_destroy(ti_task_t * task);
 ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
-int ti_task_add_database_new(ti_task_t * task, ti_db_t * db, ti_user_t * user);
 int ti_task_add_del(ti_task_t * task, ti_name_t * name);
 int ti_task_add_grant(
         ti_task_t * task,
         uint64_t target_id,
         ti_user_t * user,
         uint64_t mask);
+int ti_task_add_new_collection(
+        ti_task_t * task,
+        ti_collection_t * collection,
+        ti_user_t * user);
+int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,
@@ -48,7 +52,6 @@ int ti_task_add_revoke(
         uint64_t mask);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
-int ti_task_add_user_new(ti_task_t * task, ti_user_t * user);
 
 
 struct ti_task_s

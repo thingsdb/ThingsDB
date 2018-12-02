@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/dbs.h>
+#include <ti/collections.h>
 #include <ti/proto.h>
 #include <ti/fwd.h>
 #include <util/qpx.h>
@@ -65,7 +65,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         if (qp_is_raw_equal_str(&key, "target"))
         {
             (void) qp_next(&unpacker, &val);
-            wareq->target = ti_dbs_get_by_qp_obj(&val, e);
+            wareq->target = ti_collections_get_by_qp_obj(&val, e);
             if (wareq->target)
                 ti_incref(wareq->target);
             if (e->nr)
@@ -125,7 +125,7 @@ static void wareq__destroy(ti_wareq_t * wareq)
 {
     vec_destroy(wareq->thing_ids, NULL);
     ti_stream_drop(wareq->stream);
-    ti_db_drop(wareq->target);
+    ti_collection_drop(wareq->target);
     free(wareq->task);
     free(wareq);
 }

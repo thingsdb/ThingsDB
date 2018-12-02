@@ -55,7 +55,7 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_array(&packer);
 
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "user_new");
+    (void) qp_add_raw_from_str(packer, "new_user");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
     (void) qp_add_int64(packer, ti_next_thing_id());

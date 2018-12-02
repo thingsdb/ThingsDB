@@ -2,10 +2,10 @@
 
 ## TODO list
 
-- [ ] Refactor
-    - [ ] database -> collection
-    - [ ] user_new etc -> new_user ??
-    - [ ] ti_res_t / ti_root_t  -> ti_query_t ? with dquery_ and cquery_ functions
+- [x] Refactor
+    - [x] database -> collection
+    - [x] user_new etc -> new_user
+    - [x] ti_res_t & ti_root_t  -> ti_query_t
 - [ ] Language
     - [ ] Primitives
         - [x] `false`
@@ -82,24 +82,33 @@
             - [ ] Data
             - [ ] Attributes
         - [x] Users
-            - [ ] Additional user properties like email ?
     - [x] Archive storing
         - [x] Store in away mode
         - [x] Load on startup (Required Jobs implementation for full coverage)
 - [ ] Multi node
-- [ ] Root functions
-    - [x] `user_new`
-    - [ ] `user_del`
-    - [ ] `user`
-    - [ ] `users`
-    - [ ] `database_new`
-    - [ ] `database_del`
-    - [ ] `database`
-    - [ ] `databases`
-    - [ ] `node_new`
-    - [ ] `node_del` ?? -> very hard
-    - [ ] `node`
-    - [ ] `nodes`
-    - [ ] `counter_reset`
-    - [x] `grant`
-    - [x] `revoke`
+- [ ] Root
+    - [ ] functions
+        - [ ] `collection`
+        - [ ] `collections`
+        - [ ] `del_collection`
+        - [ ] `del_node` ?? -> very hard
+        - [ ] `del_user`
+        - [x] `grant`
+        - [ ] `new_collection`
+        - [ ] `new_node`
+        - [x] `new_user`
+        - [ ] `node`
+        - [ ] `nodes`
+        - [ ] `reset_counters`
+        - [x] `revoke`
+        - [ ] `user`
+        - [ ] `users`
+    - [ ] jobs
+        - [ ] `del_collection`
+        - [ ] `del_node`
+        - [ ] `del_user`
+        - [x] `grant`
+        - [ ] `new_collection`
+        - [ ] `new_node`
+        - [x] `new_user`
+        - [x] `revoke`

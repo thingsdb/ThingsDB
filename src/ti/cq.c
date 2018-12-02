@@ -1,80 +1,50 @@
 /*
- * ti/res.c
+ * ti/cq.c
  */
 #include <assert.h>
-#include <ti/res.h>
-#include <ti/prop.h>
-#include <ti/arrow.h>
-#include <ti/names.h>
-#include <ti/opr.h>
-#include <ti/regex.h>
-#include <ti.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/arrow.h>
+#include <ti/cq.h>
+#include <ti/names.h>
+#include <ti/opr.h>
+#include <ti/prop.h>
+#include <ti/regex.h>
+#include <util/query.h>
 #include <util/strx.h>
-#include <util/res.h>
 #include <util/util.h>
 
-static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_match(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_now(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e);
-static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e);
+static int cq__arrow(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
-ti_res_t * ti_res_create(
-        ti_db_t * db,
-        ti_event_t * ev,
-        vec_t * blobs,
-        vec_t * nd_cache,
-        omap_t * collect)
-{
-    assert (db && db->root);
-
-    ti_res_t * res = malloc(sizeof(ti_res_t));
-    if (!res)
-        return NULL;
-
-    res->db = db;   /* a borrowed reference since the query has one */
-    res->ev = ev;   /* may be NULL */
-    res->blobs = blobs;  /* may be NULL */
-    res->nd_cache = nd_cache;   /* may be NULL */
-    res->collect = collect;
-    res->scope = NULL;
-    res->rval = NULL;
-    return res;
-}
-
-void ti_res_destroy(ti_res_t * res)
-{
-    ti_scope_leave(&res->scope, NULL);
-    ti_val_destroy(res->rval);
-    free(res);
-}
-
-int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
@@ -92,14 +62,14 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             ->children->node;               /* primitives, function,
                                                assignment, name, thing,
                                                array, compare, arrow */
-    current_scope = res->scope;
-    scope = ti_scope_enter(current_scope, res->db->root);
+    current_scope = query->scope;
+    scope = ti_scope_enter(current_scope, query->target->root);
     if (!scope)
     {
         ex_set_alloc(e);
         return e->nr;
     }
-    res->scope = scope;
+    query->scope = scope;
 
 
     switch (node->cl_obj->gid)
@@ -107,32 +77,32 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_ARRAY:
         break;
     case CLERI_GID_ARROW:
-        if (res__arrow(res, node, e))
+        if (cq__arrow(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
-        if (res__assignment(res, node, e))
+        if (cq__assignment(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
-        if (res__operations(res, node->children->next->node, e))
+        if (cq__operations(query, node->children->next->node, e))
             return e->nr;
         break;
     case CLERI_GID_FUNCTION:
-        if (res__function(res, node, e))
+        if (cq__function(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_NAME:
-        if (res__scope_name(res, node, e))
+        if (cq__scope_name(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_PRIMITIVES:
-        if (res__primitives(res, node, e))
+        if (cq__primitives(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_THING:
-        if (res__scope_thing(res, node, e))
+        if (cq__scope_thing(query, node, e))
             return e->nr;
         break;
     default:
@@ -147,27 +117,27 @@ int ti_res_scope(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     node = child->node;
     assert (node->cl_obj->gid == CLERI_GID_INDEX);
 
-    if (node->children && res__index(res, node, e))
+    if (node->children && cq__index(query, node, e))
         return e->nr;
 
     child = child->next;
     if (!child)
-        goto finish;  /* TODO:  mark_fetch = true */
+        goto finish;
 
     node = child->node              /* optional */
             ->children->node;       /* chain */
 
     assert (node->cl_obj->gid == CLERI_GID_CHAIN);
 
-    if (res__chain(res, node, e))
+    if (cq__chain(query, node, e))
         goto done;
 
 finish:
 
-    if (!res->rval)
+    if (!query->rval)
     {
-        res->rval = ti_scope_global_to_val(res->scope);
-        if (!res->rval)
+        query->rval = ti_scope_global_to_val(query->scope);
+        if (!query->rval)
         {
             ex_set_alloc(e);
             goto done;
@@ -176,38 +146,38 @@ finish:
 
     if (nots)
     {
-        _Bool b = ti_val_as_bool(res->rval);
-        ti_val_clear(res->rval);
-        ti_val_set_bool(res->rval, (nots & 1) ^ b);
+        _Bool b = ti_val_as_bool(query->rval);
+        ti_val_clear(query->rval);
+        ti_val_set_bool(query->rval, (nots & 1) ^ b);
     }
-    else ti_val_mark_fetch(res->rval);  /* TODO:  if (mark_fetch) */
+    else ti_val_mark_fetch(query->rval);
 
 done:
-    ti_scope_leave(&res->scope, current_scope);
+    ti_scope_leave(&query->scope, current_scope);
     return e->nr;
 }
 
-static int res__arrow(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__arrow(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARROW);
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_set_arrow(res->rval, nd);
+        ti_val_set_arrow(query->rval, nd);
     return e->nr;
 }
 
-static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
-    assert (res->ev);
+    assert (query->ev);
 
     ti_thing_t * thing;
     ti_name_t * name;
     ti_task_t * task = NULL;
     ti_val_t * left_val = NULL;     /* assign to prevent warning */
-    size_t max_props = res->db->quota->max_props;
+    size_t max_props = query->target->quota->max_props;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
     cleri_node_t * assign_nd = nd               /* sequence */
@@ -215,13 +185,13 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
 
     name = ti_names_get(name_nd->str, name_nd->len);
     if (!name)
@@ -251,8 +221,8 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
 
     /* should also work in chain because then scope->local must be NULL */
-    if (    ti_scope_has_local_name(res->scope, name) ||
-            ti_scope_in_use_name(res->scope, thing, name))
+    if (    ti_scope_has_local_name(query->scope, name) ||
+            ti_scope_in_use_name(query->scope, thing, name))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot assign a new value to `%.*s` while the property is in use",
@@ -260,43 +230,43 @@ static int res__assignment(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_res_scope(res, scope_nd, e))
+    if (ti_cq_scope(query, scope_nd, e))
         goto done;
 
-    assert (res->rval);
+    assert (query->rval);
 
     if (assign_nd->len == 2)
     {
         assert (left_val);
-        if (ti_opr_a_to_b(left_val, assign_nd, res->rval, e))
+        if (ti_opr_a_to_b(left_val, assign_nd, query->rval, e))
             goto done;
     }
-    else if (ti_val_check_assignable(res->rval, false, e))
+    else if (ti_val_check_assignable(query->rval, false, e))
         goto done;
 
     if (thing->id)
     {
-        task = ti_task_get_task(res->ev, thing, e);
+        task = ti_task_get_task(query->ev, thing, e);
 
         if (!task)
             goto done;
 
-        if (ti_task_add_assign(task, name, res->rval))
+        if (ti_task_add_assign(task, name, query->rval))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `res->ev->tasks` */
+                                is added to `query->ev->tasks` */
     }
     /*
      * In case we really want the assigned value, we can copy the value
      * although this is not preferred since we then have to make a copy
      */
-    if (ti_thing_weak_setv(thing, name, res->rval))
+    if (ti_thing_weak_setv(thing, name, query->rval))
     {
         if (task)
             free(vec_pop(task->jobs));
         goto alloc_err;
     }
 
-    ti_val_set_nil(res->rval);
+    ti_val_set_nil(query->rval);
 
     goto done;
 
@@ -307,7 +277,7 @@ done:
     return e->nr;
 }
 
-static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
 
@@ -321,15 +291,15 @@ static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_FUNCTION:
-        if (res__function(res, node, e))
+        if (cq__function(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
-        if (res__assignment(res, node, e))
+        if (cq__assignment(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_NAME:
-        if (res__chain_name(res, node, e))
+        if (cq__chain_name(query, node, e))
             return e->nr;
         break;
     default:
@@ -344,7 +314,7 @@ static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     node = child->node;
     assert (node->cl_obj->gid == CLERI_GID_INDEX);
 
-    if (node->children && res__index(res, node, e))
+    if (node->children && cq__index(query, node, e))
         return e->nr;
 
     child = child->next;
@@ -356,13 +326,13 @@ static int res__chain(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     assert (node->cl_obj->gid == CLERI_GID_CHAIN);
 
-    (void) res__chain(res, node, e);
+    (void) cq__chain(query, node, e);
 
 finish:
     return e->nr;
 }
 
-static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
@@ -372,16 +342,16 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_val_t * val;
     ti_thing_t * thing;
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no property `%.*s`",
-                res_tp_str(res),
+                query_tp_str(query),
                 (int) nd->len, nd->str);
         return e->nr;
     }
 
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
 
     name = ti_names_weak_get(nd->str, nd->len);
     val = name ? ti_thing_get(thing, name) : NULL;
@@ -395,27 +365,27 @@ static int res__chain_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_push_name(&res->scope, name, val))
+    if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);
 
-    res_rval_destroy(res);
+    query_rval_destroy(query);
 
     return e->nr;
 }
 
-static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n_blobs = res->blobs ? res->blobs->n : 0;
+    int n_blobs = query->blobs ? query->blobs->n : 0;
     int64_t idx;
 
-    if (res_get_thing(res) != res->db->root)
+    if (query_get_thing(query) != query->target->root)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `blob`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -427,18 +397,18 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_res_scope(res, nd->children->node, e))
+    if (ti_cq_scope(query, nd->children->node, e))
         return e->nr;
 
-    if (res->rval->tp != TI_VAL_INT)
+    if (query->rval->tp != TI_VAL_INT)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `blob` expects argument 1 to be of type `%s` "
-                "but got `%s`", ti_val_tp_str(TI_VAL_INT), res_tp_str(res));
+                "but got `%s`", ti_val_tp_str(TI_VAL_INT), query_tp_str(query));
         return e->nr;
     }
 
-    idx = res->rval->via.int_;
+    idx = query->rval->via.int_;
 
     if (idx < 0)
         idx += n_blobs;
@@ -450,16 +420,16 @@ static int res__f_blob(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
 
     /* clearing the previous value is not required since this was an integer */
-    if (ti_val_set(res->rval, TI_VAL_RAW, vec_get(res->blobs, idx)))
+    if (ti_val_set(query->rval, TI_VAL_RAW, vec_get(query->blobs, idx)))
         ex_set_alloc(e);
 
     return e->nr;
 }
 
-static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (res->ev);
+    assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     cleri_node_t * name_nd;
@@ -468,15 +438,15 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_raw_t * rname;
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `del`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
     if (!thing->id)
     {
         ex_set(e, EX_BAD_DATA,
@@ -493,7 +463,7 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (res_in_use_thing(res))
+    if (query_in_use_thing(query))
     {
         ex_set(e, EX_BAD_DATA,
                 "cannot use `del` while thing "TI_THING_ID" is in use");
@@ -503,20 +473,20 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     name_nd = nd
             ->children->node;
 
-    if (ti_res_scope(res, name_nd, e))
+    if (ti_cq_scope(query, name_nd, e))
         return e->nr;
 
-    if (!ti_val_is_raw(res->rval))
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `del` expects argument 1 to be of type `%s` "
                 "but got `%s`",
                 ti_val_tp_str(TI_VAL_RAW),
-                ti_val_str(res->rval));
+                ti_val_str(query->rval));
         return e->nr;
     }
 
-    rname = res->rval->via.raw;
+    rname = query->rval->via.raw;
     name = ti_names_weak_get((const char *) rname->data, rname->n);
 
     /* we do need a name reference since ti_thing_del might remove one */
@@ -538,16 +508,16 @@ static int res__f_del(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         goto finish;
     }
 
-    task = ti_task_get_task(res->ev, thing, e);
+    task = ti_task_get_task(query->ev, thing, e);
     if (!task)
         goto finish;
 
     if (ti_task_add_del(task, name))
         goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `res->ev->tasks` */
+                            is added to `query->ev->tasks` */
 
-    ti_val_clear(res->rval);
-    ti_val_set_nil(res->rval);
+    ti_val_clear(query->rval);
+    ti_val_set_nil(query->rval);
 
     goto finish;
 
@@ -559,20 +529,20 @@ finish:
     return e->nr;
 }
 
-static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = res_get_val(res);
-    _Bool from_rval = val == res->rval;
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
     _Bool endswith;
 
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `endswith`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -584,26 +554,26 @@ static int res__f_endswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    res->rval = NULL;
+    query->rval = NULL;
 
-    if (ti_res_scope(res, nd->children->node, e))
+    if (ti_cq_scope(query, nd->children->node, e))
         goto done;
 
-    if (!ti_val_is_raw(res->rval))
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `endswith` expects argument 1 to be of type `%s` "
                 "but got `%s`",
                 ti_val_tp_str(TI_VAL_RAW),
-                ti_val_str(res->rval));
+                ti_val_str(query->rval));
         goto done;
     }
 
-    endswith = ti_val_endswith(val, res->rval);
+    endswith = ti_val_endswith(val, query->rval);
 
-    (void) res_rval_clear(res);
+    (void) query_rval_clear(query);
 
-    ti_val_set_bool(res->rval, endswith);
+    ti_val_set_bool(query->rval, endswith);
 
 done:
     if (from_rval)
@@ -611,26 +581,26 @@ done:
     return e->nr;
 }
 
-static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     ti_val_t * retval = NULL;
-    ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
+    ti_val_t * arrowval = NULL, * iterval = query_get_val(query);
     cleri_node_t * arrow_nd;
-    _Bool from_rval = iterval == res->rval;
+    _Bool from_rval = iterval == query->rval;
     ti_thing_t * iter_thing = iterval
             ? (iterval->tp == TI_VAL_THING
                     ? iterval->via.thing
                     : NULL)
-            : res_get_thing(res);
+            : query_get_thing(query);
 
     if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `filter`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -642,32 +612,32 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    /* clear res->rval (bug keep the value)
+    /* clear query->rval (bug keep the value)
      * from here need need to clean iterval in case of an error */
-    res->rval = NULL;
-    if (ti_res_scope(res, nd->children->node, e))
+    query->rval = NULL;
+    if (ti_cq_scope(query, nd->children->node, e))
         goto failed;
 
-    if (res->rval->tp != TI_VAL_ARROW)
+    if (query->rval->tp != TI_VAL_ARROW)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `filter` expects an `%s` but got type `%s` instead",
                 ti_val_tp_str(TI_VAL_ARROW),
-                ti_val_tp_str(res->rval->tp));
+                ti_val_tp_str(query->rval->tp));
         goto failed;
     }
 
-    arrowval = res->rval;
-    res->rval = NULL;
+    arrowval = query->rval;
+    query->rval = NULL;
 
-    if (ti_scope_local_from_arrow(res->scope, arrowval->via.arrow, e))
+    if (ti_scope_local_from_arrow(query->scope, arrowval->via.arrow, e))
         goto failed;
 
     arrow_nd = arrowval->via.arrow;
 
     if (iter_thing)
     {
-        ti_thing_t * thing = ti_thing_create(0, res->db->things);
+        ti_thing_t * thing = ti_thing_create(0, query->target->things);
         if (!thing)
             goto failed;
 
@@ -681,7 +651,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         for (vec_each(iter_thing->props, ti_prop_t, p))
         {
             size_t n = 0;
-            for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+            for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
             {
                 switch (n)
                 {
@@ -697,17 +667,17 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 }
             }
 
-            if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+            if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                 goto failed;
 
-            if (ti_val_as_bool(res->rval))
+            if (ti_val_as_bool(query->rval))
             {
                 ti_incref(p->name);
                 if (ti_thing_setv(thing, p->name, &p->val))
                     goto failed;
             }
 
-            res_rval_weak_destroy(res);
+            query_rval_weak_destroy(query);
         }
     }
     else switch (iterval->tp)
@@ -730,7 +700,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             for (vec_each(iterval->via.arr, ti_val_t, v), ++idx)
             {
                 size_t n = 0;
-                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
                 {
                     switch (n)
                     {
@@ -745,17 +715,17 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     }
                 }
 
-                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
-                if (ti_val_as_bool(res->rval))
+                if (ti_val_as_bool(query->rval))
                 {
                     ti_val_t * dup = ti_val_dup(v);
                     if (!dup)
                         goto failed;
                     VEC_push(retvec, dup);
                 }
-                res_rval_destroy(res);
+                query_rval_destroy(query);
             }
             (void) vec_shrink(&retval->via.array);
         }
@@ -777,7 +747,7 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
             {
                 size_t n = 0;
-                for (vec_each(res->scope->local, ti_prop_t, prop), ++n)
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
                 {
                     switch (n)
                     {
@@ -792,22 +762,22 @@ static int res__f_filter(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     }
                 }
 
-                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
-                if (ti_val_as_bool(res->rval))
+                if (ti_val_as_bool(query->rval))
                 {
                     ti_incref(t);
                     VEC_push(retvec, t);
                 }
-                res_rval_destroy(res);
+                query_rval_destroy(query);
             }
             (void) vec_shrink(&retval->via.array);
         }
     }
 
-    assert (res->rval == NULL);
-    res->rval = retval;
+    assert (query->rval == NULL);
+    query->rval = retval;
 
     goto done;
 
@@ -823,7 +793,7 @@ done:
     return e->nr;
 }
 
-static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -838,14 +808,14 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     vec_t * collect_attrs = NULL;
     cleri_children_t * child = nd->children;    /* first in argument list */
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `get`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
 
     n = langdef_nd_n_function_params(nd);
     if (!n)
@@ -858,12 +828,12 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (!ti_manages_id(thing->id))
     {
-        collect_attrs = omap_get(res->collect, thing->id);
+        collect_attrs = omap_get(query->collect, thing->id);
         if (!collect_attrs)
         {
             collect_attrs = vec_new(1);
             if (!collect_attrs ||
-                omap_add(res->collect, thing->id, collect_attrs))
+                omap_add(query->collect, thing->id, collect_attrs))
             {
                 vec_destroy(collect_attrs, NULL);
                 ex_set_alloc(e);
@@ -880,21 +850,21 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
 
     assert (child);
-    res_rval_destroy(res);
+    query_rval_destroy(query);
 
     for (n = 0; child; child = child->next->next)
     {
         ++n;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        if (ti_res_scope(res, child->node, e))
+        if (ti_cq_scope(query, child->node, e))
             goto failed;
 
-        assert (res->rval);
+        assert (query->rval);
 
-        if (!ti_val_is_valid_name(res->rval))
+        if (!ti_val_is_valid_name(query->rval))
         {
-            if (ti_val_is_raw(res->rval))
+            if (ti_val_is_raw(query->rval))
             {
                 ex_set(e, EX_BAD_DATA,
                         "argument %d to function `get` is not a valid name, "
@@ -906,16 +876,16 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 ex_set(e, EX_BAD_DATA,
                         "function `get` only accepts `%s` arguments, but "
                         "argument %d is of type `%s`",
-                        ti_val_tp_str(TI_VAL_RAW), n, res_tp_str(res));
+                        ti_val_tp_str(TI_VAL_RAW), n, query_tp_str(query));
             }
             goto failed;
         }
 
-        name = ti_names_get_from_val(res->rval);
+        name = ti_names_get_from_val(query->rval);
         if (!name)
             goto failed;
 
-        ti_val_clear(res->rval);
+        ti_val_clear(query->rval);
 
         if (collect_attrs)
         {
@@ -926,19 +896,19 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 goto failed;
             }
-            ti_val_weak_set(res->rval, TI_VAL_ATTR, prop);
+            ti_val_weak_set(query->rval, TI_VAL_ATTR, prop);
         }
         else
         {
             prop = ti_thing_attr_get(thing, name);
             if (!prop)
-                ti_val_set_nil(res->rval);
+                ti_val_set_nil(query->rval);
             else
-                ti_val_weak_set(res->rval, TI_VAL_ATTR, prop);
+                ti_val_weak_set(query->rval, TI_VAL_ATTR, prop);
         }
 
-        VEC_push(ret_array, res->rval);
-        res->rval = NULL;
+        VEC_push(ret_array, query->rval);
+        query->rval = NULL;
 
         if (!child->next)
         {
@@ -951,19 +921,19 @@ static int res__f_get(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (n > 1 || force_as_array)
     {
-        if (res_rval_clear(res))
+        if (query_rval_clear(query))
         {
             ex_set_alloc(e);
             goto failed;
         }
 
-        ti_val_weak_set(res->rval, TI_VAL_TUPLE, ret_array);
+        ti_val_weak_set(query->rval, TI_VAL_TUPLE, ret_array);
         goto done;
     }
 
-    res_rval_destroy(res);
+    query_rval_destroy(query);
     value = vec_pop(ret_array);
-    res->rval = value;
+    query->rval = value;
 
     /* bubble down to failed for vec cleanup */
     assert (!e->nr);
@@ -976,7 +946,7 @@ done:
     return e->nr;
 }
 
-static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -984,14 +954,14 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     int64_t thing_id;
     ti_thing_t * thing;
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `id`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
@@ -1004,27 +974,27 @@ static int res__f_id(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     thing_id = thing->id;
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_set_int(res->rval, thing_id);
+        ti_val_set_int(query->rval, thing_id);
 
     return e->nr;
 }
 
-static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = res_get_val(res);
+    ti_val_t * val = query_get_val(query);
     ti_raw_t * lower;
 
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `lower`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1038,15 +1008,15 @@ static int res__f_lower(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
 
     lower = ti_raw_lower(val->via.raw);
-    if (!lower || res_rval_clear(res))
+    if (!lower || query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_weak_set(res->rval, TI_VAL_RAW, lower);
+        ti_val_weak_set(query->rval, TI_VAL_RAW, lower);
 
     return e->nr;
 }
 
-static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -1054,20 +1024,20 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     size_t n;
     vec_t * retvec;
     ti_val_t * retval = NULL;
-    ti_val_t * arrowval = NULL, * iterval = res_get_val(res);
+    ti_val_t * arrowval = NULL, * iterval = query_get_val(query);
     cleri_node_t * arrow_nd;
-    _Bool from_rval = iterval == res->rval;
+    _Bool from_rval = iterval == query->rval;
     ti_thing_t * iter_thing = iterval
             ? (iterval->tp == TI_VAL_THING
                     ? iterval->via.thing
                     : NULL)
-            : res_get_thing(res);
+            : query_get_thing(query);
 
     if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `map`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1079,26 +1049,26 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    /* clear res->rval (bug keep the value)
+    /* clear query->rval (bug keep the value)
      * from here need need to clean iterval in case of an error */
-    res->rval = NULL;
-    if (ti_res_scope(res, nd->children->node, e))
+    query->rval = NULL;
+    if (ti_cq_scope(query, nd->children->node, e))
         goto failed;
 
-    if (res->rval->tp != TI_VAL_ARROW)
+    if (query->rval->tp != TI_VAL_ARROW)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `map` expects an `%s` but got type `%s` instead",
                 ti_val_tp_str(TI_VAL_ARROW),
-                ti_val_tp_str(res->rval->tp));
+                ti_val_tp_str(query->rval->tp));
         goto failed;
     }
 
     n = iter_thing ? iter_thing->props->n : iterval->via.arr->n;
-    arrowval = res->rval;
-    res->rval = NULL;
+    arrowval = query->rval;
+    query->rval = NULL;
 
-    if (ti_scope_local_from_arrow(res->scope, arrowval->via.arrow, e))
+    if (ti_scope_local_from_arrow(query->scope, arrowval->via.arrow, e))
         goto failed;
 
     arrow_nd = arrowval->via.arrow;
@@ -1119,7 +1089,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         for (vec_each(iter_thing->props, ti_prop_t, p))
         {
             size_t paramn = 0;
-            for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+            for (vec_each(query->scope->local, ti_prop_t, prop), ++paramn)
             {
                 switch (paramn)
                 {
@@ -1135,13 +1105,13 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 }
             }
 
-            if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+            if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                 goto failed;
 
-            if (ti_val_move_to_arr(retval, res->rval, e))
+            if (ti_val_move_to_arr(retval, query->rval, e))
                 goto failed;
 
-            res->rval = NULL;
+            query->rval = NULL;
         }
     }
     else switch (iterval->tp)
@@ -1153,7 +1123,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             for (vec_each(iterval->via.arr, ti_val_t, v), ++idx)
             {
                 size_t paramn = 0;
-                for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++paramn)
                 {
                     switch (paramn)
                     {
@@ -1168,13 +1138,13 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     }
                 }
 
-                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
-                if (ti_val_move_to_arr(retval, res->rval, e))
+                if (ti_val_move_to_arr(retval, query->rval, e))
                     goto failed;
 
-                res->rval = NULL;
+                query->rval = NULL;
             }
         }
         break;
@@ -1184,7 +1154,7 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
             {
                 size_t paramn = 0;
-                for (vec_each(res->scope->local, ti_prop_t, prop), ++paramn)
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++paramn)
                 {
                     switch (paramn)
                     {
@@ -1199,20 +1169,20 @@ static int res__f_map(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     }
                 }
 
-                if (ti_res_scope(res, ti_arrow_scope_nd(arrow_nd), e))
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
                     goto failed;
 
-                if (ti_val_move_to_arr(retval, res->rval, e))
+                if (ti_val_move_to_arr(retval, query->rval, e))
                     goto failed;
 
-                res->rval = NULL;
+                query->rval = NULL;
             }
         }
     }
 
-    assert (res->rval == NULL);
+    assert (query->rval == NULL);
     assert (retvec->n == n);
-    res->rval = retval;
+    query->rval = retval;
 
     goto done;
 
@@ -1228,20 +1198,20 @@ done:
     return e->nr;
 }
 
-static int res__f_match(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = res_get_val(res);
-    _Bool from_rval = val == res->rval;
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
     _Bool match;
 
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `match`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1253,26 +1223,26 @@ static int res__f_match(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    res->rval = NULL;
+    query->rval = NULL;
 
-    if (ti_res_scope(res, nd->children->node, e))
+    if (ti_cq_scope(query, nd->children->node, e))
         goto done;
 
-    if (res->rval->tp != TI_VAL_REGEX)
+    if (query->rval->tp != TI_VAL_REGEX)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `match` expects argument 1 to be of type `%s` "
                 "but got `%s`",
                 ti_val_tp_str(TI_VAL_REGEX),
-                ti_val_str(res->rval));
+                ti_val_str(query->rval));
         goto done;
     }
 
-    match = ti_regex_match(res->rval->via.regex, val->via.raw);
+    match = ti_regex_match(query->rval->via.regex, val->via.raw);
 
-    (void) res_rval_clear(res);
+    (void) query_rval_clear(query);
 
-    ti_val_set_bool(res->rval, match);
+    ti_val_set_bool(query->rval, match);
 
 done:
     if (from_rval)
@@ -1280,7 +1250,7 @@ done:
     return e->nr;
 }
 
-static int res__f_now(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -1294,32 +1264,32 @@ static int res__f_now(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_set_float(res->rval, util_now());
+        ti_val_set_float(query->rval, util_now());
 
     return e->nr;
 }
 
-static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (res->ev);
+    assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     int n;
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n;
 
-    ti_val_t * val = res_get_val(res);
-    _Bool from_rval = val == res->rval;
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
 
     if (!val || !ti_val_is_mutable_arr(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `push`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1332,7 +1302,7 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (!from_rval && ti_scope_current_val_in_use(res->scope))
+    if (!from_rval && ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
                 "cannot use function `push` while the array is in use");
@@ -1349,20 +1319,20 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     assert (child);
 
     /* we have rval saved to val */
-    res->rval = NULL;
+    query->rval = NULL;
 
     for (n = 0; child; child = child->next->next)
     {
         ++n;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        if (ti_res_scope(res, child->node, e))
+        if (ti_cq_scope(query, child->node, e))
             goto failed;
 
-        if (ti_val_move_to_arr(val, res->rval, e))
+        if (ti_val_move_to_arr(val, query->rval, e))
             goto failed;
 
-        res->rval = NULL;
+        query->rval = NULL;
 
         if (!child->next)
             break;
@@ -1371,15 +1341,15 @@ static int res__f_push(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     if (!from_rval)
     {
         ti_task_t * task;
-        assert (res->scope->thing);
-        assert (res->scope->name);
-        task = ti_task_get_task(res->ev, res->scope->thing, e);
+        assert (query->scope->thing);
+        assert (query->scope->name);
+        task = ti_task_get_task(query->ev, query->scope->thing, e);
         if (!task)
             goto failed;
 
-        if (ti_task_add_push(task, res->scope->name, val, n))
+        if (ti_task_add_push(task, query->scope->name, val, n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `res->ev->tasks` */
+                                is added to `query->ev->tasks` */
     }
 
     assert (e->nr == 0);
@@ -1390,7 +1360,7 @@ alloc_err:
     ex_set_alloc(e);
 
 failed:
-    res_rval_destroy(res);
+    query_rval_destroy(query);
     while (--n)
     {
         if (val->tp == TI_VAL_THINGS)
@@ -1402,11 +1372,11 @@ failed:
 
 done:
     if (from_rval)
-        res->rval = val;
+        query->rval = val;
     return e->nr;
 }
 
-static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -1420,18 +1390,18 @@ static int res__f_ret(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_set_nil(res->rval);
+        ti_val_set_nil(query->rval);
 
     return e->nr;
 }
 
-static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (res->ev);
+    assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     cleri_node_t * name_nd, * value_nd;
@@ -1442,15 +1412,15 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     int n;
     ti_thing_t * thing;
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `set`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
     if (!thing->id)
     {
         ex_set(e, EX_BAD_DATA,
@@ -1473,12 +1443,12 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     value_nd = nd
             ->children->next->next->node;
 
-    if (ti_res_scope(res, name_nd, e))
+    if (ti_cq_scope(query, name_nd, e))
         return e->nr;
 
-    if (!ti_val_is_valid_name(res->rval))
+    if (!ti_val_is_valid_name(query->rval))
     {
-        if (ti_val_is_raw(res->rval))
+        if (ti_val_is_raw(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
                     "function `set` expects argument 1 to be a valid name, "
@@ -1490,43 +1460,43 @@ static int res__f_set(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     "function `set` expects argument 1 to be of type `%s` "
                     "but got `%s`",
                     ti_val_tp_str(TI_VAL_RAW),
-                    ti_val_str(res->rval));
+                    ti_val_str(query->rval));
         }
         return e->nr;
     }
 
-    name_val = res->rval;
-    res->rval = NULL;
+    name_val = query->rval;
+    query->rval = NULL;
 
-    if (ti_res_scope(res, value_nd, e))
+    if (ti_cq_scope(query, value_nd, e))
         goto finish;
 
-    if (!ti_val_is_settable(res->rval))
+    if (!ti_val_is_settable(query->rval))
     {
         ex_set(e, EX_BAD_DATA, "type `%s` is not settable",
-                ti_val_str(res->rval));
+                ti_val_str(query->rval));
         goto finish;
     }
 
-    task = ti_task_get_task(res->ev, thing, e);
+    task = ti_task_get_task(query->ev, thing, e);
     if (!task)
         goto finish;
 
     name = ti_names_get_from_val(name_val);
 
-    if (!name || ti_task_add_set(task, name, res->rval))
+    if (!name || ti_task_add_set(task, name, query->rval))
         goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `res->ev->tasks` */
+                            is added to `query->ev->tasks` */
 
     if (ti_manages_id(thing->id))
     {
-        if (ti_thing_attr_weak_setv(thing, name, res->rval))
+        if (ti_thing_attr_weak_setv(thing, name, query->rval))
             goto alloc_err;
     }
     else
-        ti_val_clear(res->rval);
+        ti_val_clear(query->rval);
 
-    ti_val_set_nil(res->rval);
+    ti_val_set_nil(query->rval);
 
     goto finish;
 
@@ -1541,20 +1511,20 @@ finish:
     return e->nr;
 }
 
-static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = res_get_val(res);
-    _Bool from_rval = val == res->rval;
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
     _Bool startswith;
 
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `startswith`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1566,26 +1536,26 @@ static int res__f_startswith(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    res->rval = NULL;
+    query->rval = NULL;
 
-    if (ti_res_scope(res, nd->children->node, e))
+    if (ti_cq_scope(query, nd->children->node, e))
         goto done;
 
-    if (!ti_val_is_raw(res->rval))
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `startswith` expects argument 1 to be of type `%s` "
                 "but got `%s`",
                 ti_val_tp_str(TI_VAL_RAW),
-                ti_val_str(res->rval));
+                ti_val_str(query->rval));
         goto done;
     }
 
-    startswith = ti_val_startswith(val, res->rval);
+    startswith = ti_val_startswith(val, query->rval);
 
-    (void) res_rval_clear(res);
+    (void) query_rval_clear(query);
 
-    ti_val_set_bool(res->rval, startswith);
+    ti_val_set_bool(query->rval, startswith);
 
 done:
     if (from_rval)
@@ -1593,7 +1563,7 @@ done:
     return e->nr;
 }
 
-static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -1604,11 +1574,11 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     cleri_children_t * child = nd->children;    /* first in argument list */
 
-    if (res_get_thing(res) != res->db->root)
+    if (query_get_thing(query) != query->target->root)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `thing`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1635,28 +1605,28 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         ++n;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        res_rval_destroy(res);
-        if (ti_res_scope(res, child->node, e))
+        query_rval_destroy(query);
+        if (ti_cq_scope(query, child->node, e))
             goto failed;
 
-        assert (res->rval);
+        assert (query->rval);
 
-        if (res->rval->tp != TI_VAL_INT)
+        if (query->rval->tp != TI_VAL_INT)
         {
             ex_set(e, EX_BAD_DATA,
                     "function `thing` only accepts `int` arguments, but "
-                    "argument %d is of type `%s`", n, res_tp_str(res));
+                    "argument %d is of type `%s`", n, query_tp_str(query));
             goto failed;
         }
 
-        thing = ti_db_thing_by_id(res->db, res->rval->via.int_);
+        thing = ti_collection_thing_by_id(query->target, query->rval->via.int_);
         if (!thing)
         {
             ex_set(e, EX_INDEX_ERROR,
-                    "database `%.*s` has no `thing` with id `%"PRId64"`",
-                    (int) res->db->name->n,
-                    (char *) res->db->name->data,
-                    res->rval->via.int_);
+                    "collection `%.*s` has no `thing` with id `%"PRId64"`",
+                    (int) query->target->name->n,
+                    (char *) query->target->name->data,
+                    query->rval->via.int_);
             goto failed;
         }
 
@@ -1674,23 +1644,23 @@ static int res__f_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 
     if (n > 1 || force_as_array)
     {
-        if (res_rval_clear(res))
+        if (query_rval_clear(query))
         {
             ex_set_alloc(e);
             goto failed;
         }
 
-        ti_val_weak_set(res->rval, TI_VAL_THINGS, things);
+        ti_val_weak_set(query->rval, TI_VAL_THINGS, things);
         goto done;
     }
 
-    res_rval_destroy(res);
+    query_rval_destroy(query);
     thing = vec_pop(things);
 
     assert (thing->ref > 1);
     ti_decref(thing);
 
-    if (ti_scope_push_thing(&res->scope, thing))
+    if (ti_scope_push_thing(&query->scope, thing))
     {
         ex_set_alloc(e);
         goto failed;
@@ -1707,10 +1677,10 @@ done:
     return e->nr;
 }
 
-static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (res->ev);
+    assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     cleri_node_t * name_nd;
@@ -1718,15 +1688,15 @@ static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     ti_name_t * name = NULL;
     ti_thing_t * thing;
 
-    if (!res_is_thing(res))
+    if (!query_is_thing(query))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `unset`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
-    thing = res_get_thing(res);
+    thing = query_get_thing(query);
     if (!thing->id)
     {
         ex_set(e, EX_BAD_DATA,
@@ -1746,12 +1716,12 @@ static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     name_nd = nd
             ->children->node;
 
-    if (ti_res_scope(res, name_nd, e))
+    if (ti_cq_scope(query, name_nd, e))
         return e->nr;
 
-    if (!ti_val_is_valid_name(res->rval))
+    if (!ti_val_is_valid_name(query->rval))
     {
-        if (ti_val_is_raw(res->rval))
+        if (ti_val_is_raw(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
                     "function `unset` expects argument 1 to be a valid name, "
@@ -1763,26 +1733,26 @@ static int res__f_unset(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                     "function `unset` expects argument 1 to be of type `%s` "
                     "but got `%s`",
                     ti_val_tp_str(TI_VAL_RAW),
-                    ti_val_str(res->rval));
+                    ti_val_str(query->rval));
         }
         return e->nr;
     }
 
-    task = ti_task_get_task(res->ev, thing, e);
+    task = ti_task_get_task(query->ev, thing, e);
     if (!task)
         goto finish;
 
-    name = ti_names_get_from_val(res->rval);
+    name = ti_names_get_from_val(query->rval);
 
     if (!name || ti_task_add_unset(task, name))
         goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `res->ev->tasks` */
+                            is added to `query->ev->tasks` */
 
     if (ti_manages_id(thing->id))
         ti_thing_attr_unset(thing, name);
 
-    ti_val_clear(res->rval);
-    ti_val_set_nil(res->rval);
+    ti_val_clear(query->rval);
+    ti_val_set_nil(query->rval);
 
     goto finish;
 
@@ -1794,19 +1764,19 @@ finish:
     return e->nr;
 }
 
-static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = res_get_val(res);
+    ti_val_t * val = query_get_val(query);
     ti_raw_t * upper;
 
     if (!val || !ti_val_is_raw(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `upper`",
-                res_tp_str(res));
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1820,15 +1790,15 @@ static int res__f_upper(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     }
 
     upper = ti_raw_upper(val->via.raw);
-    if (!upper || res_rval_clear(res))
+    if (!upper || query_rval_clear(query))
         ex_set_alloc(e);
     else
-        ti_val_weak_set(res->rval, TI_VAL_RAW, upper);
+        ti_val_weak_set(query->rval, TI_VAL_RAW, upper);
 
     return e->nr;
 }
 
-static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (langdef_nd_is_function(nd));
@@ -1846,51 +1816,51 @@ static int res__function(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     switch (fname->cl_obj->gid)
     {
     case CLERI_GID_F_BLOB:
-        return res__f_blob(res, params, e);
+        return cq__f_blob(query, params, e);
     case CLERI_GID_F_ENDSWITH:
-        return res__f_endswith(res, params, e);
+        return cq__f_endswith(query, params, e);
     case CLERI_GID_F_DEL:
-        return res__f_del(res, params, e);
+        return cq__f_del(query, params, e);
     case CLERI_GID_F_FILTER:
-        return res__f_filter(res, params, e);
+        return cq__f_filter(query, params, e);
     case CLERI_GID_F_GET:
-        return res__f_get(res, params, e);
+        return cq__f_get(query, params, e);
     case CLERI_GID_F_ID:
-        return res__f_id(res, params, e);
+        return cq__f_id(query, params, e);
     case CLERI_GID_F_LOWER:
-        return res__f_lower(res, params, e);
+        return cq__f_lower(query, params, e);
     case CLERI_GID_F_MAP:
-        return res__f_map(res, params, e);
+        return cq__f_map(query, params, e);
     case CLERI_GID_F_MATCH:
-        return res__f_match(res, params, e);
+        return cq__f_match(query, params, e);
     case CLERI_GID_F_NOW:
-        return res__f_now(res, params, e);
+        return cq__f_now(query, params, e);
     case CLERI_GID_F_PUSH:
-        return res__f_push(res, params, e);
+        return cq__f_push(query, params, e);
     case CLERI_GID_F_RET:
-        return res__f_ret(res, params, e);
+        return cq__f_ret(query, params, e);
     case CLERI_GID_F_SET:
-        return res__f_set(res, params, e);
+        return cq__f_set(query, params, e);
     case CLERI_GID_F_STARTSWITH:
-        return res__f_startswith(res, params, e);
+        return cq__f_startswith(query, params, e);
     case CLERI_GID_F_THING:
-        return res__f_thing(res, params, e);
+        return cq__f_thing(query, params, e);
     case CLERI_GID_F_UNSET:
-        return res__f_unset(res, params, e);
+        return cq__f_unset(query, params, e);
     case CLERI_GID_F_UPPER:
-        return res__f_upper(res, params, e);
+        return cq__f_upper(query, params, e);
     }
 
     ex_set(e, EX_INDEX_ERROR,
             "type `%s` has no function `%.*s`",
-            res_tp_str(res),
+            query_tp_str(query),
             fname->len,
             fname->str);
 
     return e->nr;
 }
 
-static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_INDEX);
@@ -1902,11 +1872,11 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     int64_t idx;
     ssize_t n;
 
-    val =  res_get_val(res);
+    val =  query_get_val(query);
     if (!val)
     {
-        /* res is of thing type */
-        ex_set(e, EX_BAD_DATA, "type `%s` is not indexable", res_tp_str(res));
+        /* query is of thing type */
+        ex_set(e, EX_BAD_DATA, "type `%s` is not indexable", query_tp_str(query));
         return e->nr;
     }
 
@@ -1949,12 +1919,12 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         case TI_VAL_RAW:
             {
                 int64_t c = val->via.raw->data[idx];
-                if (res_rval_clear(res))
+                if (query_rval_clear(query))
                 {
                     ex_set_alloc(e);
                     return e->nr;
                 }
-                ti_val_set_int(res->rval, c);
+                ti_val_set_int(query->rval, c);
             }
             break;
         case TI_VAL_ARRAY:
@@ -1966,8 +1936,8 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 v->tp = TI_VAL_NIL;
                 /* v will now potentially be destroyed,
                  * but data and type are saved */
-                if (    res_rval_clear(res) ||
-                        ti_val_set(res->rval, tp, data))
+                if (    query_rval_clear(query) ||
+                        ti_val_set(query->rval, tp, data))
                 {
                     ex_set_alloc(e);
                     return e->nr;
@@ -1978,26 +1948,26 @@ static int res__index(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             {
                 ti_thing_t * thing = vec_get(val->via.things, idx);
                 ti_incref(thing);
-                if (    res_rval_clear(res) ||
-                        ti_scope_push_thing(&res->scope, thing))
+                if (    query_rval_clear(query) ||
+                        ti_scope_push_thing(&query->scope, thing))
                 {
                     ex_set_alloc(e);
                     return e->nr;
                 }
                 /* weak set because incref has been done */
-                ti_val_weak_set(res->rval, TI_VAL_THING, thing);
+                ti_val_weak_set(query->rval, TI_VAL_THING, thing);
             }
             break;
         default:
             assert (0);
             return -1;
         }
-        val = res->rval;
+        val = query->rval;
     }
     return e->nr;
 }
 
-static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     uint32_t gid;
     ti_val_t * a_val = NULL;
@@ -2013,10 +1983,10 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             ->children->node;           /* compare sequence */
 
     assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
-    assert (res->rval == NULL);
+    assert (query->rval == NULL);
 
     if (nd->cl_obj->gid == CLERI_GID_SCOPE)
-        return ti_res_scope(res, nd, e);
+        return ti_cq_scope(query, nd, e);
 
     gid = nd->children->next->node->children->node->cl_obj->gid;
 
@@ -2028,30 +1998,30 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_OPR3_BITWISE_XOR:
     case CLERI_GID_OPR4_BITWISE_OR:
     case CLERI_GID_OPR5_COMPARE:
-        if (res__operations(res, nd->children->node, e))
+        if (cq__operations(query, nd->children->node, e))
             return e->nr;
-        a_val = res->rval;
-        res->rval = NULL;
-        if (res__operations(res, nd->children->next->next->node, e))
+        a_val = query->rval;
+        query->rval = NULL;
+        if (cq__operations(query, nd->children->next->next->node, e))
             break;
-        (void) ti_opr_a_to_b(a_val, nd->children->next->node, res->rval, e);
+        (void) ti_opr_a_to_b(a_val, nd->children->next->node, query->rval, e);
         break;
 
     case CLERI_GID_OPR6_CMP_AND:
-        if (    res__operations(res, nd->children->node, e) ||
-                !ti_val_as_bool(res->rval))
+        if (    cq__operations(query, nd->children->node, e) ||
+                !ti_val_as_bool(query->rval))
             return e->nr;
 
-        res_rval_destroy(res);
-        return res__operations(res, nd->children->next->next->node, e);
+        query_rval_destroy(query);
+        return cq__operations(query, nd->children->next->next->node, e);
 
     case CLERI_GID_OPR7_CMP_OR:
-        if (    res__operations(res, nd->children->node, e) ||
-                ti_val_as_bool(res->rval))
+        if (    cq__operations(query, nd->children->node, e) ||
+                ti_val_as_bool(query->rval))
             return e->nr;
 
-        res_rval_destroy(res);
-        return res__operations(res, nd->children->next->next->node, e);
+        query_rval_destroy(query);
+        return cq__operations(query, nd->children->next->next->node, e);
 
     default:
         assert (0);
@@ -2061,7 +2031,7 @@ static int res__operations(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_PRIMITIVES);
     assert (!e->nr);
@@ -2070,7 +2040,7 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             ->children->node;           /* false, nil, true, undefined,
                                            int, float, string */
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
     {
         ex_set_alloc(e);
         return e->nr;
@@ -2079,16 +2049,16 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_T_FALSE:
-        ti_val_set_bool(res->rval, false);
+        ti_val_set_bool(query->rval, false);
         break;
     case CLERI_GID_T_FLOAT:
-        ti_val_set_float(res->rval, strx_to_doublen(node->str, node->len));
+        ti_val_set_float(query->rval, strx_to_doublen(node->str, node->len));
         break;
     case CLERI_GID_T_INT:
-        ti_val_set_int(res->rval, strx_to_int64n(node->str, node->len));
+        ti_val_set_int(query->rval, strx_to_int64n(node->str, node->len));
         break;
     case CLERI_GID_T_NIL:
-        ti_val_set_nil(res->rval);
+        ti_val_set_nil(query->rval);
         break;
     case CLERI_GID_T_REGEX:
         if (!node->data)
@@ -2096,10 +2066,10 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
             node->data = ti_regex_from_strn(node->str, node->len, e);
             if (!node->data)
                 return e->nr;
-            assert (vec_space(res->nd_cache));
-            VEC_push(res->nd_cache, node);
+            assert (vec_space(query->nd_cache));
+            VEC_push(query->nd_cache, node);
         }
-        (void) ti_val_set(res->rval, TI_VAL_REGEX, node->data);
+        (void) ti_val_set(query->rval, TI_VAL_REGEX, node->data);
         break;
     case CLERI_GID_T_STRING:
         if (!node->data)
@@ -2110,13 +2080,13 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
-            assert (vec_space(res->nd_cache));
-            VEC_push(res->nd_cache, node);
+            assert (vec_space(query->nd_cache));
+            VEC_push(query->nd_cache, node);
         }
-        (void) ti_val_set(res->rval, TI_VAL_RAW, node->data);
+        (void) ti_val_set(query->rval, TI_VAL_RAW, node->data);
         break;
     case CLERI_GID_T_TRUE:
-        ti_val_set_bool(res->rval, true);
+        ti_val_set_bool(query->rval, true);
         break;
 
     }
@@ -2124,22 +2094,22 @@ static int res__primitives(ti_res_t * res, cleri_node_t * nd, ex_t * e)
 }
 
 /* changes scope->name and/or scope->thing */
-static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
-    assert (ti_scope_is_thing(res->scope));
-    assert (res_is_thing(res));
+    assert (ti_scope_is_thing(query->scope));
+    assert (query_is_thing(query));
 
     ti_name_t * name;
     ti_val_t * val;
 
     name = ti_names_weak_get(nd->str, nd->len);
-    val = name ? ti_scope_find_local_val(res->scope, name) : NULL;
+    val = name ? ti_scope_find_local_val(query->scope, name) : NULL;
 
     if (!val && name)
-        val = ti_thing_get(res->db->root, name);
+        val = ti_thing_get(query->target->root, name);
 
     if (!val)
     {
@@ -2149,29 +2119,29 @@ static int res__scope_name(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_push_name(&res->scope, name, val))
+    if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);
 
-    res_rval_destroy(res);
+    query_rval_destroy(query);
 
     return e->nr;
 }
 
-static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
+static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     /*
      * Sequence('{', List(Sequence(name, ':', scope)), '}')
      */
     assert (e->nr == 0);
-    assert (res_is_thing(res));
+    assert (query_is_thing(query));
 
     ti_thing_t * thing;
     cleri_children_t * child;
-    size_t max_props = res->db->quota->max_props;
+    size_t max_props = query->target->quota->max_props;
 
-    res_rval_destroy(res);
+    query_rval_destroy(query);
 
-    thing = ti_thing_create(0, res->db->things);
+    thing = ti_thing_create(0, query->target->things);
     if (!thing)
         goto alloc_err;
 
@@ -2198,25 +2168,25 @@ static int res__scope_thing(ti_res_t * res, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        if (ti_res_scope(res, scope, e))
+        if (ti_cq_scope(query, scope, e))
             goto err;
 
-        assert (res->rval);
+        assert (query->rval);
 
-        ti_thing_weak_setv(thing, name, res->rval);
-        res_rval_weak_destroy(res);
+        ti_thing_weak_setv(thing, name, query->rval);
+        query_rval_weak_destroy(query);
 
         if (!child->next)
             break;
     }
 
-    if (ti_scope_push_thing(&res->scope, thing))
+    if (ti_scope_push_thing(&query->scope, thing))
         goto alloc_err;
 
-    if (res_rval_clear(res))
+    if (query_rval_clear(query))
         goto alloc_err;
 
-    ti_val_weak_set(res->rval, TI_VAL_THING, thing);
+    ti_val_weak_set(query->rval, TI_VAL_THING, thing);
 
     goto done;
 

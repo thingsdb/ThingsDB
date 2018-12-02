@@ -8,14 +8,15 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/arrow.h>
-#include <ti/dbs.h>
+#include <ti/collections.h>
+#include <ti/cq.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
 #include <ti/query.h>
-#include <ti/res.h>
-#include <ti/root.h>
+#include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
+#include <util/query.h>
 
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
 static _Bool query__swap_opr(
@@ -41,12 +42,13 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
         free(query);
         return NULL;
     }
-
+    query->scope = NULL;
+    query->rval = NULL;
     query->flags = 0;
     query->target = NULL;  /* root */
     query->parseres = NULL;
     query->stream = ti_grab(stream);
-    query->statements = NULL;
+    query->results = NULL;
     query->ev = NULL;
     query->blobs = NULL;
     query->querystr = NULL;
@@ -66,13 +68,9 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(
-            query->statements,
-            query->target
-                ? (vec_destroy_cb) ti_res_destroy
-                : (vec_destroy_cb) ti_root_destroy);
+    vec_destroy(query->results, (vec_destroy_cb) ti_val_destroy);
     ti_stream_drop(query->stream);
-    ti_db_drop(query->target);
+    ti_collection_drop(query->target);
     ti_event_drop(query->ev);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
     free(query->querystr);
@@ -119,7 +117,7 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
         if (qp_is_raw_equal_str(&key, "target"))
         {
             (void) qp_next(&unpacker, &val);
-            query->target = ti_dbs_get_by_qp_obj(&val, e);
+            query->target = ti_collections_get_by_qp_obj(&val, e);
             ti_grab(query->target);
             if (e->nr)
                 goto finish;
@@ -223,8 +221,8 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
-    query->statements = vec_new(nstatements);
-    if (!query->statements || (
+    query->results = vec_new(nstatements);
+    if (!query->results || (
             query->nd_cache_count && !(
                     query->nd_cache = vec_new(query->nd_cache_count)
             )
@@ -234,7 +232,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     /* remove flag which is not applicable */
     query->flags &= query->target
             ? ~TI_QUERY_FLAG_ROOT_EVENT
-            : ~TI_QUERY_FLAG_DB_EVENT;
+            : ~TI_QUERY_FLAG_COLLECTION_EVENT;
 
     return e->nr;
 }
@@ -249,61 +247,27 @@ void ti_query_run(ti_query_t * query)
         ->children->next->node  /* list */
         ->children;             /* first child or NULL */
 
-    if (query->target)
+    while (child)
     {
-        while (child)
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        if (query->target
+                ? ti_cq_scope(query, child->node, e)
+                : ti_rq_scope(query, child->node, e))
         {
-            assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-
-            ti_res_t * res = ti_res_create(
-                    query->target,
-                    query->ev,
-                    query->blobs,
-                    query->nd_cache,
-                    query->collect);
-            if (!res)
-            {
-                ex_set_alloc(e);
-                goto done;
-            }
-
-            VEC_push(query->statements, res);
-
-            ti_res_scope(res, child->node, e);
-            if (e->nr)
-                goto done;
-
-            if (!child->next)
-                break;
-            child = child->next->next;                  /* skip delimiter */
+            query_rval_destroy(query);
+            goto done;
         }
-    }
-    else
-    {
-        while (child)
-        {
-            assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-            assert (query->stream->via.user);
 
-            ti_root_t * root = ti_root_create(
-                    query->ev,
-                    query->stream->via.user);
-            if (!root)
-            {
-                ex_set_alloc(e);
-                goto done;
-            }
+        VEC_push(query->results, query->rval);
+        query->rval = NULL;
 
-            VEC_push(query->statements, root);
+        if (!child->next)
+            break;
 
-            ti_root_scope(root, child->node, e);
-            if (e->nr)
-                goto done;
+        child = child->next->next;                  /* skip delimiter */
 
-            if (!child->next)
-                break;
-            child = child->next->next;                  /* skip delimiter */
-        }
+        ti_scope_leave(&query->scope, NULL);
     }
 
 done:
@@ -328,14 +292,13 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     (void) qp_add_array(&packer);
 
     /* we should have a result for each statement */
-    assert (query->statements->n == query->statements->sz);
+    assert (query->results->n == query->results->sz);
 
-    /* ti_res_t or ti_root_t */
-    for (vec_each(query->statements, ti_res_t, res))
+    /* ti_query_t or ti_root_t */
+    for (vec_each(query->results, ti_val_t, rval))
     {
-        assert (res);
-        assert (res->rval);
-        if (ti_val_to_packer(res->rval, &packer, 0))
+        assert (rval);
+        if (ti_val_to_packer(rval, &packer, 0))
             goto alloc_err;
     }
 
@@ -384,7 +347,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_RENAME:
         case CLERI_GID_F_SET:
         case CLERI_GID_F_UNSET:
-            query->flags |= TI_QUERY_FLAG_DB_EVENT;
+            query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
             break;
         case CLERI_GID_NAME:
             if (query__requires_root_event(nd->children->node->children->node))
@@ -397,7 +360,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 nd->children->next->next->node);
         return;
     case CLERI_GID_ASSIGNMENT:
-        query->flags |= TI_QUERY_FLAG_DB_EVENT;
+        query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
         /* skip to scope */
         query__investigate_recursive(
                 query,
@@ -412,7 +375,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                     nd->children->next->next->node);
 
             langdef_nd_flag(nd,
-                    query->flags & TI_QUERY_FLAG_DB_EVENT
+                    query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
                     ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
                     : TI_ARROW_FLAG);
 
@@ -449,7 +412,7 @@ static _Bool query__swap_opr(
 {
     cleri_node_t * node;
     cleri_node_t * nd = parent->node;
-    cleri_children_t * childb;
+    cleri_children_t * chilcollection;
     uint32_t gid;
 
     assert( nd->cl_obj->tp == CLERI_TP_RULE ||
@@ -472,22 +435,22 @@ static _Bool query__swap_opr(
 
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD && gid <= CLERI_GID_OPR7_CMP_OR);
 
-    childb = node->children->next->next;
+    chilcollection = node->children->next->next;
 
     (void) query__swap_opr(query, node->children, gid);
-    if (query__swap_opr(query, childb, gid))
+    if (query__swap_opr(query, chilcollection, gid))
     {
         cleri_node_t * tmp;
         cleri_children_t * bchilda;
-        parent->node = childb->node;
-        tmp = childb->node->cl_obj->tp == CLERI_TP_PRIO ?
-                childb->node->children->node :
-                childb->node->children->node->children->node;
+        parent->node = chilcollection->node;
+        tmp = chilcollection->node->cl_obj->tp == CLERI_TP_PRIO ?
+                chilcollection->node->children->node :
+                chilcollection->node->children->node->children->node;
         bchilda = tmp->children;
         gid = tmp->cl_obj->gid;
         tmp = bchilda->node;
         bchilda->node = nd;
-        childb->node = tmp;
+        chilcollection->node = tmp;
     }
 
     return gid > parent_gid;
@@ -623,14 +586,15 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
 
 static inline _Bool query__requires_root_event(cleri_node_t * name_nd)
 {
+    /* TODO: we can later optimize this if we want */
     return (
-        langdef_nd_match_str(name_nd, "database_del") ||
-        langdef_nd_match_str(name_nd, "database_new") ||
+        langdef_nd_match_str(name_nd, "del_collection") ||
+        langdef_nd_match_str(name_nd, "del_user") ||
         langdef_nd_match_str(name_nd, "grant") ||
-        langdef_nd_match_str(name_nd, "node_new") ||
-        langdef_nd_match_str(name_nd, "revoke") ||
-        langdef_nd_match_str(name_nd, "user_del") ||
-        langdef_nd_match_str(name_nd, "user_new")
+        langdef_nd_match_str(name_nd, "new_collection") ||
+        langdef_nd_match_str(name_nd, "new_node") ||
+        langdef_nd_match_str(name_nd, "new_user") ||
+        langdef_nd_match_str(name_nd, "revoke")
     );
 }
 

@@ -14,7 +14,7 @@ int ti_store_restore(void);
 struct ti_store_s
 {
     char * access_fn;
-    char * dbs_fn;
+    char * collections_fn;
     char * id_stat_fn;
     char * names_fn;
     char * prev_path;

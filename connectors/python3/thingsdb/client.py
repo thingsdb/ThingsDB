@@ -12,7 +12,7 @@ from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
-from .db import Db
+from .collection import Collection
 
 
 class Client:

@@ -3,7 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/db.h>
+#include <ti/collection.h>
 #include <ti/event.h>
 #include <ti/names.h>
 #include <ti/signals.h>
@@ -11,7 +11,7 @@
 #include <ti/auth.h>
 #include <ti/user.h>
 #include <ti/users.h>
-#include <ti/dbs.h>
+#include <ti/collections.h>
 #include <ti/access.h>
 #include <ti/proto.h>
 #include <ti/things.h>
@@ -59,7 +59,7 @@ int ti_create(void)
             ti_nodes_create() ||
             ti_names_create() ||
             ti_users_create() ||
-            ti_dbs_create() ||
+            ti_collections_create() ||
             ti_events_create() ||
             ti_connect_create() ||
             !ti_.access ||
@@ -88,7 +88,7 @@ void ti_destroy(void)
     ti_cfg_destroy();
     ti_clients_destroy();
     ti_nodes_destroy();
-    ti_dbs_destroy();
+    ti_collections_destroy();
     ti_users_destroy();
     ti_names_destroy();
     ti_store_destroy();

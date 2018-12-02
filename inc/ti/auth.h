@@ -10,16 +10,16 @@
 enum
 {
     TI_AUTH_NO_ACCESS   =0,     /* default */
-    TI_AUTH_READ        =1<<0,  /* root and database, allow queries without
+    TI_AUTH_READ        =1<<0,  /* root and collection, allow queries without
                                    events
                                 */
-    TI_AUTH_MODIFY      =1<<1,  /* root and database, allow all queries
+    TI_AUTH_MODIFY      =1<<1,  /* root and collection, allow all queries
                                    including queries with events, for root
                                    anything `access` related is excluded and
                                    requires the `GRANT` flag
                                 */
-    TI_AUTH_WATCH       =1<<2,  /* (root? and) database */
-    TI_AUTH_GRANT       =1<<3,  /* root and database, grant/revoke */
+    TI_AUTH_WATCH       =1<<2,  /* (root? and) collection */
+    TI_AUTH_GRANT       =1<<3,  /* root and collection, grant/revoke */
     TI_AUTH_MASK_FULL   =1<<0|  /* READ   */
                          1<<1|  /* MODIFY */
                          1<<2|  /* WATCH  */

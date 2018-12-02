@@ -16,4 +16,4 @@ int ti_store_things_restore_data(
         imap_t * things,
         imap_t * names,
         const char * fn);
-#endif /* TI_STORE_DBS_H_ */
+#endif /* TI_STORE_COLLECTIONS_H_ */

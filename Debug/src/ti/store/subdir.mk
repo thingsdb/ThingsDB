@@ -5,24 +5,24 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/ti/store/access.c \
-../src/ti/store/db.c \
-../src/ti/store/dbs.c \
+../src/ti/store/collection.c \
+../src/ti/store/collections.c \
 ../src/ti/store/names.c \
 ../src/ti/store/status.c \
 ../src/ti/store/things.c 
 
 OBJS += \
 ./src/ti/store/access.o \
-./src/ti/store/db.o \
-./src/ti/store/dbs.o \
+./src/ti/store/collection.o \
+./src/ti/store/collections.o \
 ./src/ti/store/names.o \
 ./src/ti/store/status.o \
 ./src/ti/store/things.o 
 
 C_DEPS += \
 ./src/ti/store/access.d \
-./src/ti/store/db.d \
-./src/ti/store/dbs.d \
+./src/ti/store/collection.d \
+./src/ti/store/collections.d \
 ./src/ti/store/names.d \
 ./src/ti/store/status.d \
 ./src/ti/store/things.d 

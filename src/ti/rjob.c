@@ -10,8 +10,8 @@
 #include <util/qpx.h>
 
 static int rjob__grant(qp_unpacker_t * unp);
+static int rjob__new_user(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
-static int rjob__user_new(qp_unpacker_t * unp);
 
 
 int ti_rjob_run(qp_unpacker_t * unp)
@@ -26,11 +26,11 @@ int ti_rjob_run(qp_unpacker_t * unp)
     if (qpx_obj_eq_str(&qp_job_name, "grant"))
         return rjob__grant(unp);
 
+    if (qpx_obj_eq_str(&qp_job_name, "new_user"))
+        return rjob__new_user(unp);
+
     if (qpx_obj_eq_str(&qp_job_name, "revoke"))
         return rjob__revoke(unp);
-
-    if (qpx_obj_eq_str(&qp_job_name, "user_new"))
-        return rjob__user_new(unp);
 
     log_critical("unknown job: `%.*s`",
             (int) qp_job_name.len,
@@ -47,7 +47,7 @@ static int rjob__grant(qp_unpacker_t * unp)
     assert (unp);
 
     ti_user_t * user;
-    ti_db_t * target = NULL;
+    ti_collection_t * target = NULL;
     uint64_t mask;
     qp_obj_t qp_target, qp_user, qp_mask;
 
@@ -66,10 +66,10 @@ static int rjob__grant(qp_unpacker_t * unp)
     if (qp_target.via.int64)
     {
         uint64_t id = qp_target.via.int64;
-        target = ti_dbs_get_by_id(id);
+        target = ti_collections_get_by_id(id);
         if (!target)
         {
-            log_critical("job `grant`: "TI_DB_ID" not found", id);
+            log_critical("job `grant`: "TI_COLLECTION_ID" not found", id);
             return -1;
         }
     }
@@ -97,6 +97,59 @@ static int rjob__grant(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: {'id': id, 'username':value, 'password':value}
+ */
+static int rjob__new_user(qp_unpacker_t * unp)
+{
+    assert (unp);
+    int rc = -1;
+    ex_t * e = ex_use();
+    qp_obj_t qp_id, qp_name, qp_pass;
+    uint64_t user_id;
+    char * encrypted;
+
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
+            !qp_is_int(qp_next(unp, &qp_id)) ||         /* val: id */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: username */
+            !qp_is_raw(qp_next(unp, &qp_name)) ||       /* val: username */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
+            !qp_is_raw(qp_next(unp, &qp_pass)))         /* val: password */
+    {
+        log_critical("job `new_user`: invalid format");
+        return -1;
+    }
+
+    user_id = (uint64_t) qp_id.via.int64;
+
+    encrypted = qpx_obj_raw_to_str(&qp_pass);
+    if (!encrypted)
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    if (!ti_users_load_user(
+            user_id,
+            (const char *) qp_name.via.raw,
+            qp_name.len,
+            encrypted,
+            e))
+    {
+        log_critical("job `new_user`: %s", e->msg);
+        goto done;
+    }
+
+    rc = 0;
+
+done:
+    free(encrypted);
+    return rc;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'target':id, 'user':name, 'mask': integer}
  */
 static int rjob__revoke(qp_unpacker_t * unp)
@@ -104,7 +157,7 @@ static int rjob__revoke(qp_unpacker_t * unp)
     assert (unp);
 
     ti_user_t * user;
-    ti_db_t * target = NULL;
+    ti_collection_t * target = NULL;
     uint64_t mask;
     qp_obj_t qp_target, qp_user, qp_mask;
 
@@ -123,10 +176,10 @@ static int rjob__revoke(qp_unpacker_t * unp)
     if (qp_target.via.int64)
     {
         uint64_t id = qp_target.via.int64;
-        target = ti_dbs_get_by_id(id);
+        target = ti_collections_get_by_id(id);
         if (!target)
         {
-            log_critical("job `revoke`: "TI_DB_ID" not found", id);
+            log_critical("job `revoke`: "TI_COLLECTION_ID" not found", id);
             return -1;
         }
     }
@@ -148,55 +201,3 @@ static int rjob__revoke(qp_unpacker_t * unp)
     return 0;
 }
 
-/*
- * Returns 0 on success
- * - for example: {'id': id, 'username':value, 'password':value}
- */
-static int rjob__user_new(qp_unpacker_t * unp)
-{
-    assert (unp);
-    int rc = -1;
-    ex_t * e = ex_use();
-    qp_obj_t qp_id, qp_name, qp_pass;
-    uint64_t user_id;
-    char * encrypted;
-
-
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
-            !qp_is_int(qp_next(unp, &qp_id)) ||         /* val: id */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: username */
-            !qp_is_raw(qp_next(unp, &qp_name)) ||       /* val: username */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
-            !qp_is_raw(qp_next(unp, &qp_pass)))         /* val: password */
-    {
-        log_critical("job `user_new`: invalid format");
-        return -1;
-    }
-
-    user_id = (uint64_t) qp_id.via.int64;
-
-    encrypted = qpx_obj_raw_to_str(&qp_pass);
-    if (!encrypted)
-    {
-        log_critical(EX_ALLOC_S);
-        return -1;
-    }
-
-    if (!ti_users_load_user(
-            user_id,
-            (const char *) qp_name.via.raw,
-            qp_name.len,
-            encrypted,
-            e))
-    {
-        log_critical("job `user_new`: %s", e->msg);
-        goto done;
-    }
-
-    rc = 0;
-
-done:
-    free(encrypted);
-    return rc;
-}

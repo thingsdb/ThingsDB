@@ -2,6 +2,10 @@
 
 ## TODO list
 
+- [ ] Refactor
+    - [ ] database -> collection
+    - [ ] user_new etc -> new_user ??
+    - [ ] ti_res_t / ti_root_t  -> ti_query_t ? with dquery_ and cquery_ functions
 - [ ] Language
     - [ ] Primitives
         - [x] `false`

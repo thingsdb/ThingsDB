@@ -71,7 +71,7 @@ ti_db_t * ti_dbs_create_db(
 
     db->root = ti_things_create_thing(db->things, database_id);
 
-    if (!db->root || ti_access_grant(&db->access, user, TI_AUTH_FULL))
+    if (!db->root || ti_access_grant(&db->access, user, TI_AUTH_MASK_FULL))
     {
         ex_set_alloc(e);
         goto fail1;

@@ -37,9 +37,9 @@ async def test():
          * test query
          */
 
-        undefined;
-        a;
-        ''', timeout=2)
+        user_new('sasha', 'siri');
+
+        ''', timeout=2, target=0)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:

@@ -41,9 +41,14 @@ int ti_task_add_push(
         ti_name_t * name,
         ti_val_t * val,             /* array or things */
         size_t n);                  /* the last n items are pushed */
+int ti_task_add_revoke(
+        ti_task_t * task,
+        uint64_t target_id,
+        ti_user_t * user,
+        uint64_t mask);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
-int ti_task_add_user_new(ti_task_t * task, ti_user_t * user, char * passstr);
+int ti_task_add_user_new(ti_task_t * task, ti_user_t * user);
 
 
 struct ti_task_s

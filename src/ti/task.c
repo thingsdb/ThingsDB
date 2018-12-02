@@ -322,6 +322,50 @@ done:
     return rc;
 }
 
+int ti_task_add_revoke(
+        ti_task_t * task,
+        uint64_t target_id,
+        ti_user_t * user,
+        uint64_t mask)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(50 + user->name->n, 2);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "revoke");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "target");
+    (void) qp_add_int64(packer, target_id);
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_raw_from_str(packer, "mask");
+    (void) qp_add_int64(packer, mask);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
 {
     int rc;
@@ -396,7 +440,7 @@ done:
     return rc;
 }
 
-int ti_task_add_user_new(ti_task_t * task, ti_user_t * user, char * passstr)
+int ti_task_add_user_new(ti_task_t * task, ti_user_t * user)
 {
     int rc;
     ti_raw_t * job = NULL;
@@ -408,10 +452,12 @@ int ti_task_add_user_new(ti_task_t * task, ti_user_t * user, char * passstr)
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "user_new");
     (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int64(packer, user->id);
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
     (void) qp_add_raw_from_str(packer, "password");
-    (void) qp_add_raw_from_str(packer, passstr);
+    (void) qp_add_raw_from_str(packer, user->encpass);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

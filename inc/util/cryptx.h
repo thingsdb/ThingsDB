@@ -1,5 +1,5 @@
 /*
- * cryptx.h
+ * util/cryptx.h
  */
 #ifndef CRYPTX_H_
 #define CRYPTX_H_

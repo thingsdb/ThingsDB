@@ -98,4 +98,4 @@
     - [ ] `nodes`
     - [ ] `counter_reset`
     - [x] `grant`
-    - [ ] `revoke`
+    - [x] `revoke`

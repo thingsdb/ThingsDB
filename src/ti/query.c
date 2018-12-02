@@ -249,14 +249,6 @@ void ti_query_run(ti_query_t * query)
         ->children->next->node  /* list */
         ->children;             /* first child or NULL */
 
-    log_debug(
-        "\n  query     : %s"
-        "\n  event     : %s"
-        "\n  node cache: %lu",
-        query->querystr,
-        query->ev ? "true" : "false",
-        query->nd_cache_count);
-
     if (query->target)
     {
         while (child)

@@ -18,6 +18,7 @@
 
 static int root__f_database_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e);
+static int root__f_revoke(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e);
 static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e);
@@ -306,7 +307,7 @@ static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     /* grant user */
     ti_val_clear(root->rval);
-    if (ti_root_scope(root, nd->children->next->node, e))
+    if (ti_root_scope(root, nd->children->next->next->node, e))
         return e->nr;
 
     if (root->rval->tp != TI_VAL_RAW)
@@ -332,7 +333,7 @@ static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e)
 
     /* grant mask */
     ti_val_clear(root->rval);
-    if (ti_root_scope(root, nd->children->next->next->node, e))
+    if (ti_root_scope(root, nd->children->next->next->next->next->node, e))
         return e->nr;
 
     if (root->rval->tp != TI_VAL_INT)
@@ -358,6 +359,107 @@ static int root__f_grant(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     }
 
     if (ti_task_add_grant(task, target ? target->root->id : 0, user, mask))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+    return e->nr;
+}
+
+static int root__f_revoke(ti_root_t * root, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (root->ev);
+    assert (root->user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (root->ev->via.query->stream->via.user);
+
+    int n;
+    ti_db_t * target;
+    ti_user_t * user;
+    ti_task_t * task;
+    uint64_t mask;
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 3)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `revoke` requires 3 arguments but %d %s given, "
+            "see: "TI_DOCS"#grant",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    /* revoke target, target maybe NULL for root */
+    if (ti_root_scope(root, nd->children->node, e))
+        return e->nr;
+
+    assert (e->nr == 0);
+    target = ti_dbs_get_by_val(root->rval, e);
+    if (e->nr)
+        return e->nr;
+
+    /* check for privileges */
+    if (ti_access_check_err(
+            target ? target->access : ti()->access,
+            root->user, TI_AUTH_GRANT, e))
+        return e->nr;
+
+    /* revoke user */
+    ti_val_clear(root->rval);
+    if (ti_root_scope(root, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (root->rval->tp != TI_VAL_RAW)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `revoke` expects argument 2 to be of type `%s` "
+            "but got `%s`, see: "TI_DOCS"#grant",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(root->rval));
+        return e->nr;
+    }
+
+    user = ti_users_get_by_namestrn(
+            (const char *) root->rval->via.raw->data,
+            root->rval->via.raw->n);
+    if (!user)
+    {
+        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+                (int) root->rval->via.raw->n,
+                (char *) root->rval->via.raw->data);
+        return e->nr;
+    }
+
+    /* revoke mask */
+    ti_val_clear(root->rval);
+    if (ti_root_scope(root, nd->children->next->next->next->next->node, e))
+        return e->nr;
+
+    if (root->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `revoke` expects argument 3 to be of type `%s` "
+            "but got `%s`, see: "TI_DOCS"#grant",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_str(root->rval));
+        return e->nr;
+    }
+
+    mask = (uint64_t) root->rval->via.int_;
+
+    if (root->user == user && (mask & TI_AUTH_GRANT))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "it is not possible to revoke your own `GRANT` privileges");
+        return e->nr;
+    }
+
+    task = ti_task_get_task(root->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
+
+    ti_access_revoke(target ? target->access : ti()->access, user, mask);
+
+    if (ti_task_add_revoke(task, target ? target->root->id : 0, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     return e->nr;
@@ -401,7 +503,7 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     rname = root->rval->via.raw;
     ti_val_set_undefined(root->rval);
 
-    if (ti_root_scope(root, nd->children->next->node, e))
+    if (ti_root_scope(root, nd->children->next->next->node, e))
         goto done;
 
     if (!ti_val_is_raw(root->rval))
@@ -420,6 +522,8 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);
         goto done;
     }
+    ti_val_clear(root->rval);
+    ti_val_set_nil(root->rval);
 
     task = ti_task_get_task(root->ev, ti()->thing0, e);
     if (!task)
@@ -432,7 +536,7 @@ static int root__f_user_new(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     if (!nuser)
         goto done;
 
-    if (ti_task_add_user_new(task, nuser, passstr))
+    if (ti_task_add_user_new(task, nuser))
         ex_set_alloc(e);  /* task cleanup is not required */
 
 done:
@@ -462,6 +566,9 @@ static int root__function(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     if (langdef_nd_match_str(fname, "grant"))
         return root__f_grant(root, params, e);
 
+    if (langdef_nd_match_str(fname, "revoke"))
+        return root__f_revoke(root, params, e);
+
     if (langdef_nd_match_str(fname, "user_new"))
         return root__f_user_new(root, params, e);
 
@@ -487,11 +594,16 @@ static int root__name(ti_root_t * root, cleri_node_t * nd, ex_t * e)
     }
 
     int flags
-        = langdef_nd_match_str(nd, "READ") ? TI_AUTH_READ
-        : langdef_nd_match_str(nd, "MODIFY") ? TI_AUTH_MODIFY
-        : langdef_nd_match_str(nd, "WATCH") ? TI_AUTH_WATCH
-        : langdef_nd_match_str(nd, "GRANT") ? TI_AUTH_GRANT
-        : langdef_nd_match_str(nd, "FULL") ? TI_AUTH_FULL
+        = langdef_nd_match_str(nd, "READ")
+        ? TI_AUTH_READ
+        : langdef_nd_match_str(nd, "MODIFY")
+        ? TI_AUTH_READ|TI_AUTH_MODIFY
+        : langdef_nd_match_str(nd, "WATCH")
+        ? TI_AUTH_WATCH
+        : langdef_nd_match_str(nd, "GRANT")
+        ? TI_AUTH_READ|TI_AUTH_MODIFY|TI_AUTH_GRANT
+        : langdef_nd_match_str(nd, "FULL")
+        ? TI_AUTH_MASK_FULL
         : 0;
 
     if (flags)
@@ -602,7 +714,7 @@ static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e)
         ti_regex_t * regex = ti_regex_from_strn(node->str, node->len, e);
         if (!regex)
             return e->nr;
-        ti_val_weak_set(root->rval, TI_VAL_REGEX, node->data);
+        ti_val_weak_set(root->rval, TI_VAL_REGEX, regex);
         break;
     }
     case CLERI_GID_T_STRING:
@@ -613,7 +725,7 @@ static int root__primitives(ti_root_t * root, cleri_node_t * nd, ex_t * e)
             ex_set_alloc(e);
             return e->nr;
         }
-        ti_val_weak_set(root->rval, TI_VAL_RAW, node->data);
+        ti_val_weak_set(root->rval, TI_VAL_RAW, raw);
         break;
     }
     case CLERI_GID_T_TRUE:

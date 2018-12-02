@@ -136,9 +136,7 @@ int ti_init(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_event_t * ev = ti_event_initial();
-    if (!ev)
-        return rc;
+    ti_event_t * ev;
 
     ti_.redundancy = ti_.args->redundancy;
 
@@ -152,6 +150,10 @@ int ti_build(void)
 
     ti_.events->cevid = &ti_.node->cevid;
     ti_.next_thing_id = &ti_.node->next_thing_id;
+
+    ev = ti_event_initial();
+    if (!ev)
+        goto failed;
 
     if (ti_event_run(ev))
         goto failed;

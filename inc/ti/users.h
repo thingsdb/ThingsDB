@@ -17,6 +17,12 @@ ti_user_t * ti_users_create_user(
         size_t n,
         const char * passstr,
         ex_t * e);
+ti_user_t * ti_users_load_user(
+        uint64_t user_id,
+        const char * name,
+        size_t n,
+        const char * encrypted,
+        ex_t * e);
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e);
 ti_user_t * ti_users_get_by_id(uint64_t id);
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n);

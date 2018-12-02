@@ -5,8 +5,10 @@
 #include <ti/epkg.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
+#include <ti.h>
 #include <stdlib.h>
 #include <util/qpx.h>
+#include <util/cryptx.h>
 
 ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
 {
@@ -26,7 +28,17 @@ ti_epkg_t * ti_epkg_initial(void)
     uint64_t thing_id = 0;
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
-    qpx_packer_t * packer = qpx_packer_create(128, 5);
+    qpx_packer_t * packer;
+    char salt[CRYPTX_SALT_SZ];
+    char encrypted[CRYPTX_SZ];
+
+    /* generate a random salt */
+    cryptx_gen_salt(salt);
+
+    /* encrypt the users password */
+    cryptx(ti_user_def_pass, salt, encrypted);
+
+    packer = qpx_packer_create(128, 5);
     if (!packer)
         return NULL;
 
@@ -45,10 +57,12 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "user_new");
     (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int64(packer, ti_next_thing_id());
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw_from_str(packer, ti_user_def_name);
     (void) qp_add_raw_from_str(packer, "password");
-    (void) qp_add_raw_from_str(packer, ti_user_def_pass);
+    (void) qp_add_raw_from_str(packer, encrypted);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -60,7 +74,7 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_raw_from_str(packer, "user");
     (void) qp_add_raw_from_str(packer, ti_user_def_name);
     (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int64(packer, TI_AUTH_FULL);
+    (void) qp_add_int64(packer, TI_AUTH_MASK_FULL);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

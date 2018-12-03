@@ -48,10 +48,10 @@ typedef struct ti_s ti_t;
 #include <string.h>
 #include <ti/archive.h>
 #include <ti/args.h>
-#include <ti/collections.h>
 #include <ti/away.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
+#include <ti/collections.h>
 #include <ti/connect.h>
 #include <ti/counters.h>
 #include <ti/events.h>
@@ -60,6 +60,7 @@ typedef struct ti_s ti_t;
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/tcp.h>
+#include <ti/users.h>
 #include <unistd.h>
 #include <util/logger.h>
 #include <util/smap.h>
@@ -110,7 +111,7 @@ struct ti_s
     ti_connect_t * connect_loop;
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_collections_t * collections;
-    vec_t * users;
+    ti_users_t * users;
     vec_t * access;
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;

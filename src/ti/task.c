@@ -137,13 +137,46 @@ int ti_task_add_del(ti_task_t * task, ti_name_t * name)
 {
     int rc;
     ti_raw_t * job = NULL;
-    qp_packer_t * packer = qp_packer_create2(14 + name->n, 8);
+    qp_packer_t * packer = qp_packer_create2(14 + name->n, 1);
     if (!packer)
         goto failed;
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "del");
     (void) qp_add_raw(packer, (const uchar *) name->str, name->n);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(20, 1);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "del_user");
+    (void) qp_add_int64(packer, user->id);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);

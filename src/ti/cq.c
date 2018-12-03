@@ -571,8 +571,7 @@ static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     endswith = ti_val_endswith(val, query->rval);
 
-    (void) query_rval_clear(query);
-
+    ti_val_clear(query->rval);
     ti_val_set_bool(query->rval, endswith);
 
 done:
@@ -1240,8 +1239,7 @@ static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     match = ti_regex_match(query->rval->via.regex, val->via.raw);
 
-    (void) query_rval_clear(query);
-
+    ti_val_clear(query->rval);
     ti_val_set_bool(query->rval, match);
 
 done:
@@ -1492,11 +1490,10 @@ static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_thing_attr_weak_setv(thing, name, query->rval))
             goto alloc_err;
+        ti_val_set_nil(query->rval);
     }
     else
         ti_val_clear(query->rval);
-
-    ti_val_set_nil(query->rval);
 
     goto finish;
 
@@ -1553,8 +1550,7 @@ static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     startswith = ti_val_startswith(val, query->rval);
 
-    (void) query_rval_clear(query);
-
+    ti_val_clear(query->rval);
     ti_val_set_bool(query->rval, startswith);
 
 done:

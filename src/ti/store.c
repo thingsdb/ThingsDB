@@ -11,8 +11,8 @@
 #include <ti/store/names.h>
 #include <ti/store/status.h>
 #include <ti/store/things.h>
+#include <ti/store/users.h>
 #include <ti/things.h>
-#include <ti/users.h>
 #include <util/fx.h>
 #include <util/imap.h>
 #include <util/logger.h>
@@ -108,7 +108,7 @@ int ti_store_store(void)
 
     if (    ti_store_status_store(store->id_stat_fn) ||
             ti_store_names_store(store->names_fn) ||
-            ti_users_store(store->users_fn) ||
+            ti_store_users_store(store->users_fn) ||
             ti_store_access_store(ti()->access, store->access_fn) ||
             ti_store_collections_store(store->collections_fn))
         goto failed;
@@ -129,7 +129,7 @@ int ti_store_store(void)
                 ti_store_things_store(
                         collection->things,
                         store_collection->things_fn) ||
-                ti_collection_store(
+                ti_store_collection_store(
                         collection,
                         store_collection->collection_fn) ||
                 ti_store_things_store_skeleton(
@@ -168,7 +168,7 @@ int ti_store_restore(void)
     int rc = (
             -(!namesmap) ||
             ti_store_status_restore(store->id_stat_fn) ||
-            ti_users_restore(store->users_fn) ||
+            ti_store_users_restore(store->users_fn) ||
             ti_store_access_restore(&ti()->access, store->access_fn) ||
             ti_store_collections_restore(store->collections_fn));
 
@@ -187,7 +187,7 @@ int ti_store_restore(void)
                 ti_store_things_restore(
                         collection->things,
                         store_collection->things_fn) ||
-                ti_collection_restore(
+                ti_store_collection_restore(
                         collection,
                         store_collection->collection_fn) ||
                 ti_store_things_restore_skeleton(

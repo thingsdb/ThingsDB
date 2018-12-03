@@ -1,5 +1,5 @@
 /*
- * collections.h
+ * ti/collections.c
  */
 #include <stdlib.h>
 #include <assert.h>
@@ -30,6 +30,7 @@ int ti_collections_create(void)
 
 failed:
     free(collections);
+    collections = NULL;
     return -1;
 }
 

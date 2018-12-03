@@ -16,7 +16,7 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
-    client.use('test_collection')
+    client.use('test')
 
     start = time.time()
     try:
@@ -37,7 +37,7 @@ async def test():
          * test query
          */
 
-        new_collection('test1');
+        del_user('iris');
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:
@@ -52,7 +52,9 @@ async def test():
     start = time.time()
     try:
         res = await client.query(r'''
-        del('re');
+
+        re;
+
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")

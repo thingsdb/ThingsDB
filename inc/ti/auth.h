@@ -39,7 +39,7 @@ const char * ti_auth_mask_to_str(uint16_t mask);
 
 struct ti_auth_s
 {
-    ti_user_t * user;  /* does not take a reference */
+    ti_user_t * user;       /* with reference */
     uint16_t mask;
 };
 

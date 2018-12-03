@@ -7,11 +7,12 @@
 typedef enum
 {
     TI_VAL_ATTR,    /* attribute ti_prop_t */
-    TI_VAL_UNDEFINED,
     TI_VAL_NIL,
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
+    TI_VAL_QP,      /* QPack data, only used on root for returning raw packed
+                       data */
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
@@ -98,11 +99,11 @@ union ti_val_u
 {
     void * attr;
     cleri_node_t * arrow;
-    void * undefined;
     void * nil;
     int64_t int_;
     double float_;
     _Bool bool_;
+    ti_raw_t * qp;
     ti_raw_t * raw;
     ti_regex_t * regex;
     vec_t * array;          /* ti_val_t*        */

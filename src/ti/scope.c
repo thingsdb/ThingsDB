@@ -139,7 +139,7 @@ int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        prop = ti_prop_create(name, TI_VAL_UNDEFINED, NULL);
+        prop = ti_prop_create(name, TI_VAL_NIL, NULL);
         if (!prop)
         {
             ti_name_drop(name);

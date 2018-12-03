@@ -14,7 +14,7 @@ int query_rval_clear(ti_query_t * query)
         ti_val_clear(query->rval);
         return 0;
     }
-    query->rval = ti_val_create(TI_VAL_UNDEFINED, NULL);
+    query->rval = ti_val_create(TI_VAL_NIL, NULL);
     return query->rval ? 0 : -1;
 }
 

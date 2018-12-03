@@ -1,7 +1,8 @@
 /*
  * ti/store/collection.c
  */
-
+#include <assert.h>
+#include <ti.h>
 #include <ti/store/collection.h>
 #include <util/fx.h>
 #include <stdlib.h>
@@ -12,22 +13,38 @@ static const char * ti__store_collection_skeleton_fn   = "skeleton.qp";
 static const char * ti__store_collection_data_fn       = "data.qp";
 static const char * ti__store_collection_access_fn     = "access.qp";
 
-ti_store_collection_t * ti_store_collection_create(const char * path, ti_collection_t * collection)
+ti_store_collection_t * ti_store_collection_create(
+        const char * path,
+        ti_collection_t * collection)
 {
     char * collection_path;
-    ti_store_collection_t * store_collection = malloc(sizeof(ti_store_collection_t));
+    ti_store_collection_t * store_collection;
+
+    store_collection = malloc(sizeof(ti_store_collection_t));
     if (!store_collection)
         goto fail0;
 
-    collection_path = store_collection->collection_path = fx_path_join(path, collection->guid.guid);
+    collection_path = store_collection->collection_path = fx_path_join(
+            path,
+            collection->guid.guid);
     if (!collection_path)
         goto fail0;
 
-    store_collection->access_fn = fx_path_join(collection_path, ti__store_collection_access_fn);
-    store_collection->things_fn = fx_path_join(collection_path, ti__store_collection_things_fn);
-    store_collection->collection_fn = fx_path_join(collection_path, ti__store_collection_collection_fn);
-    store_collection->skeleton_fn = fx_path_join(collection_path, ti__store_collection_skeleton_fn);
-    store_collection->data_fn = fx_path_join(collection_path, ti__store_collection_data_fn);
+    store_collection->access_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_access_fn);
+    store_collection->things_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_things_fn);
+    store_collection->collection_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_collection_fn);
+    store_collection->skeleton_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_skeleton_fn);
+    store_collection->data_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_data_fn);
 
     if (    !store_collection->access_fn ||
             !store_collection->things_fn ||
@@ -45,7 +62,6 @@ fail0:
     return NULL;
 }
 
-
 void ti_store_collection_destroy(ti_store_collection_t * store_collection)
 {
     if (!store_collection)
@@ -57,4 +73,47 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->data_fn);
     free(store_collection->collection_path);
     free(store_collection);
+}
+
+int ti_store_collection_store(ti_collection_t * collection, const char * fn)
+{
+    int rc;
+    FILE * f = fopen(fn, "w");
+    if (!f)
+        return -1;
+
+    rc = -(fwrite(&collection->root->id, sizeof(uint64_t), 1, f) != 1);
+
+    if (rc)
+        log_error("saving failed: `%s`", fn);
+
+    return -(fclose(f) || rc);
+}
+
+int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
+{
+    int rc = 0;
+    ssize_t sz;
+    uchar * data = fx_read(fn, &sz);
+    if (!data || sz != sizeof(uint64_t)) goto failed;
+
+    uint64_t id;
+    memcpy(&id, data, sizeof(uint64_t));
+
+    collection->root = imap_get(collection->things, id);
+    if (!collection->root)
+    {
+        log_critical("cannot find root thing: %"PRIu64, id);
+        goto failed;
+    }
+
+    collection->root = ti_grab(collection->root);
+    goto done;
+
+failed:
+    rc = -1;
+    log_critical("failed to restore from file: `%s`", fn);
+done:
+    free(data);
+    return rc;
 }

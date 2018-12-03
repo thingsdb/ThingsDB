@@ -86,45 +86,4 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
     return true;
 }
 
-int ti_collection_store(ti_collection_t * collection, const char * fn)
-{
-    int rc;
-    FILE * f = fopen(fn, "w");
-    if (!f)
-        return -1;
 
-    rc = -(fwrite(&collection->root->id, sizeof(uint64_t), 1, f) != 1);
-
-    if (rc)
-        log_error("saving failed: `%s`", fn);
-
-    return -(fclose(f) || rc);
-}
-
-int ti_collection_restore(ti_collection_t * collection, const char * fn)
-{
-    int rc = 0;
-    ssize_t sz;
-    uchar * data = fx_read(fn, &sz);
-    if (!data || sz != sizeof(uint64_t)) goto failed;
-
-    uint64_t id;
-    memcpy(&id, data, sizeof(uint64_t));
-
-    collection->root = imap_get(collection->things, id);
-    if (!collection->root)
-    {
-        log_critical("cannot find root thing: %"PRIu64, id);
-        goto failed;
-    }
-
-    collection->root = ti_grab(collection->root);
-    goto done;
-
-failed:
-    rc = -1;
-    log_critical("failed to restore from file: `%s`", fn);
-done:
-    free(data);
-    return rc;
-}

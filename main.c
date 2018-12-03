@@ -3,10 +3,10 @@
  *
  * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
  * home page         : https://thingsdb.net
- * copyright         : 2018, Transceptor Technology
+ * copyright         : 2018, Jeroen van der Heijden
  *
- * This code will be release as open source but the exact license is yet
- * unknown
+ * This code will be release as open source but the exact license might be
+ * changed to something else than MIT.
  */
 #include <locale.h>
 #include <stdlib.h>
@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
         }
 
         printf(
-            "Well done! You successfully initialized a new ThingsDB cluster.\n\n"
+            "Well done, you successfully initialized ThingsDB!!\n\n"
             "You can now start ThingsDB and connect by using the default user `%s`.\n"
             "..before I forget, the password is `%s`\n\n",
             ti_user_def_name,
@@ -94,8 +94,8 @@ int main(int argc, char * argv[])
     if (strlen(ti()->args->secret))
     {
         printf(
-            "Waiting for a invite to join some cluster from a ThingsDB node...\n"
-            "(if you want to create a new cluster instead, press CTRL+C and "
+            "Waiting for an invite from a node to join ThingsDB...\n"
+            "(if you want to create a new ThingsDB instead, press CTRL+C and "
             "use the --init argument)\n");
     }
     else if (fx_file_exist(ti()->fn))
@@ -115,9 +115,9 @@ int main(int argc, char * argv[])
     else
     {
         printf(
-            "The first time you should either create a new cluster using "
-            "the --init argument or set a one-time-secret using the --secret "
-            "argument and wait for a invite from another node.\n");
+            "The first time you should either setup ThingsDB by using "
+            "the --init argument or use a one-time-secret using the --secret "
+            "argument and wait for an invite from another node.\n");
         goto stop;
     }
 

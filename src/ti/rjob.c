@@ -9,6 +9,7 @@
 #include <ti/access.h>
 #include <util/qpx.h>
 
+static int rjob__del_user(qp_unpacker_t * unp);
 static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
@@ -24,6 +25,9 @@ int ti_rjob_run(qp_unpacker_t * unp)
         return -1;
     }
 
+    if (qpx_obj_eq_str(&qp_job_name, "del_user"))
+        return rjob__del_user(unp);
+
     if (qpx_obj_eq_str(&qp_job_name, "grant"))
         return rjob__grant(unp);
 
@@ -36,12 +40,42 @@ int ti_rjob_run(qp_unpacker_t * unp)
     if (qpx_obj_eq_str(&qp_job_name, "revoke"))
         return rjob__revoke(unp);
 
+
     log_critical("unknown job: `%.*s`",
             (int) qp_job_name.len,
             (char *) qp_job_name.via.raw);
     return -1;
 }
 
+/*
+ * Returns 0 on success
+ * - for example: id
+ */
+static int rjob__del_user(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    ti_user_t * user;
+    uint64_t user_id;
+    qp_obj_t qp_user;
+
+    if (!qp_is_int(qp_next(unp, &qp_user)))
+    {
+        log_critical("job `del_user`: invalid format");
+        return -1;
+    }
+
+    user_id = (uint64_t) qp_user.via.int64;
+    user = ti_users_get_by_id(user_id);
+    if (!user)
+    {
+        log_critical("job `del_user`: "TI_USER_ID" not found", user_id);
+        return -1;
+    }
+
+    ti_users_del_user(user);
+    return 0;
+}
 /*
  * Returns 0 on success
  * - for example: {'target':id, 'user':name, 'mask': integer}

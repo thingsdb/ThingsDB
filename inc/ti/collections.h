@@ -1,5 +1,5 @@
 /*
- * collections.h
+ * ti/collections.h
  */
 #ifndef TI_COLLECTIONS_H_
 #define TI_COLLECTIONS_H_

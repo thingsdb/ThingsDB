@@ -11,6 +11,7 @@ typedef struct ti_users_s ti_users_t;
 #include <ti/ex.h>
 #include <ti/raw.h>
 #include <ti/user.h>
+#include <ti/val.h>
 
 int ti_users_create(void);
 void ti_users_destroy(void);
@@ -29,6 +30,8 @@ void ti_users_del_user(ti_user_t * user);
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e);
 ti_user_t * ti_users_get_by_id(uint64_t id);
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n);
+ti_val_t * ti_users_as_qpval(void);
+
 
 struct ti_users_s
 {

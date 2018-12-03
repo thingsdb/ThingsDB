@@ -93,6 +93,13 @@ int main(int argc, char * argv[])
 
     if (strlen(ti()->args->secret))
     {
+        if (fx_file_exist(ti()->fn))
+        {
+            printf("error: directory `%s` is already initialized\n",
+                    ti()->cfg->storage_path);
+            rc = -1;
+            goto stop;
+        }
         printf(
             "Waiting for an invite from a node to join ThingsDB...\n"
             "(if you want to create a new ThingsDB instead, press CTRL+C and "

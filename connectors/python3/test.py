@@ -12,7 +12,7 @@ async def test():
 
     # Authenticte
     try:
-        await client.authenticate('sasha', 'iris')
+        await client.authenticate('iris', 'siri')
     except ThingsDBError as e:
         print(e)
 
@@ -36,8 +36,9 @@ async def test():
         /*
          * test query
          */
-
-        del_user('iris');
+        new_user('sasha', 'bla');
+        grant(0, 'sasha', MODIFY);
+        users();
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:

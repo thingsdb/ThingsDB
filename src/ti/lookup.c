@@ -9,12 +9,10 @@
 
 static ti_lookup_t * lookup;
 
-static void lookup__calculate(const vec_t * nodes);
+static void lookup__calculate(vec_t * nodes, size_t n);
 
-int ti_lookup_create(uint8_t redundancy, const vec_t * vec_nodes)
+ti_lookup_t * ti_lookup_create(vec_t * vec_nodes, size_t n, uint8_t redundancy)
 {
-    size_t n = vec_nodes->n;
-
     assert (n);
 
     lookup = malloc(sizeof(ti_lookup_t) + n * sizeof(uint64_t));
@@ -37,7 +35,7 @@ int ti_lookup_create(uint8_t redundancy, const vec_t * vec_nodes)
         return -1;
     }
 
-    lookup__calculate(vec_nodes);
+    lookup__calculate(vec_nodes, n);
 
     ti()->lookup = lookup;
 
@@ -141,7 +139,7 @@ static void lookup__calculate(const vec_t * nodes)
         uint64_t mask = 0;
         for (int p = 0; p < r; p++)
         {
-            node = (ti_node_t *) vec_get(lookup->nodes_, i*r + p);
+            node = vec_get(lookup->nodes_, i*r + p);
             mask += 1 << node->id;
         }
         lookup->mask_[i] = mask;

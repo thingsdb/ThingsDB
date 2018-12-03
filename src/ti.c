@@ -223,26 +223,25 @@ int ti_run(void)
     if (ti_events_start())
         goto failed;
 
-    if (ti_archive_load())
-        goto failed;
 
-    if (ti_away_start())
-        goto failed;
-
-    /* TODO: this is probably not right yet, not all things should start
-     *       when only listening for joining a pool
-     */
     if (ti_.node)
     {
+        if (ti_archive_load())
+            goto failed;
+
+        if (ti_away_start())
+            goto failed;
+
         if (ti_clients_listen())
             goto failed;
+
+        if (ti_connect_start())
+            goto failed;
+
         ti_.node->status = TI_NODE_STAT_READY;
     }
 
     if (ti_nodes_listen())
-        goto failed;
-
-    if (ti_connect_start())
         goto failed;
 
     rc = uv_run(ti_.loop, UV_RUN_DEFAULT);

@@ -1,5 +1,5 @@
 /*
- * clients.c
+ * ti/clients.c
  */
 #include <ti/node.h>
 #include <ti/write.h>

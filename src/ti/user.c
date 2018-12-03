@@ -132,34 +132,30 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     return 0;
 }
 
-ti_val_t * ti_user_as_qpval(ti_user_t * user)
+int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
 {
-    ti_val_t * qpval;
-    ti_raw_t * ruser;
-    qp_packer_t * packer = qp_packer_create2(128, 3);
-    if (!packer)
-        return NULL;
+    if (qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, "id") ||
+        qp_add_int64(*packer, user->id) ||
+        qp_add_raw_from_str(*packer, "name") ||
+        qp_add_raw(*packer, user->name->data, user->name->n) ||
+        qp_add_raw_from_str(*packer, "access") ||
+        qp_add_array(packer))
+        return -1;
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, user->id);
-    (void) qp_add_raw_from_str(packer, "name");
-    (void) qp_add_raw(packer, user->name->data, user->name->n);
-    (void) qp_add_raw_from_str(packer, "access");
-    (void) qp_add_array(&packer);
     for (vec_each(ti()->access, ti_auth_t, auth))
     {
         if (auth->user == user)
         {
-            if (qp_add_map(&packer) ||
-                qp_add_raw_from_str(packer, "target") ||
-                qp_add_int64(packer, 0) ||
-                qp_add_raw_from_str(packer, "privileges") ||
+            if (qp_add_map(packer) ||
+                qp_add_raw_from_str(*packer, "target") ||
+                qp_add_int64(*packer, 0) ||
+                qp_add_raw_from_str(*packer, "privileges") ||
                 qp_add_raw_from_str(
-                        packer,
+                        *packer,
                         ti_auth_mask_to_str(auth->mask)) ||
-                qp_close_map(packer))
-                goto fail0;
+                qp_close_map(*packer))
+                return -1;
             break;
         }
     }
@@ -169,41 +165,46 @@ ti_val_t * ti_user_as_qpval(ti_user_t * user)
         {
             if (auth->user == user)
             {
-                if (qp_add_map(&packer) ||
-                    qp_add_raw_from_str(packer, "target") ||
+                if (qp_add_map(packer) ||
+                    qp_add_raw_from_str(*packer, "target") ||
                     qp_add_raw(
-                            packer,
+                            *packer,
                             collection->name->data,
                             collection->name->n) ||
-                    qp_add_raw_from_str(packer, "privileges") ||
+                    qp_add_raw_from_str(*packer, "privileges") ||
                     qp_add_raw_from_str(
-                            packer,
+                            *packer,
                             ti_auth_mask_to_str(auth->mask)) ||
-                    qp_close_map(packer))
-                    goto fail0;
+                    qp_close_map(*packer))
+                    return -1;
                 break;
             }
         }
     }
 
-    if (qp_close_array(packer) || qp_close_map(packer))
-        goto fail0;
+    return -(qp_close_array(*packer) || qp_close_map(*packer));
+}
+
+ti_val_t * ti_user_as_qpval(ti_user_t * user)
+{
+    ti_raw_t * ruser;
+    ti_val_t * qpval = NULL;
+    qp_packer_t * packer = qp_packer_create2(256, 3);
+    if (!packer)
+        return NULL;
+
+    if (ti_user_to_packer(user, &packer))
+        goto fail;
 
     ruser = ti_raw_from_packer(packer);
     if (!ruser)
-        goto fail0;
-
-    qp_packer_destroy(packer);
+        goto fail;
 
     qpval = ti_val_weak_create(TI_VAL_QP, ruser);
     if (!qpval)
-        goto fail1;
+        ti_raw_drop(ruser);
 
-    return qpval;
-
-fail1:
-    ti_raw_drop(ruser);
-fail0:
+fail:
     qp_packer_destroy(packer);
-    return NULL;
+    return qpval;
 }

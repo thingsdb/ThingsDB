@@ -1,5 +1,5 @@
 /*
- * cfg.c
+ * ti/cfg.c
  */
 
 #include <stdio.h>

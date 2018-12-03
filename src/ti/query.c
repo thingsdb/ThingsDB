@@ -605,18 +605,32 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
     }
 }
 
-static inline _Bool query__requires_root_event(cleri_node_t * name_nd)
+static inline _Bool query__requires_root_event(cleri_node_t * fname_nd)
 {
-    /* TODO: we can later optimize this if we want */
-    return (
-        langdef_nd_match_str(name_nd, "del_collection") ||
-        langdef_nd_match_str(name_nd, "del_user") ||
-        langdef_nd_match_str(name_nd, "grant") ||
-        langdef_nd_match_str(name_nd, "new_collection") ||
-        langdef_nd_match_str(name_nd, "new_node") ||
-        langdef_nd_match_str(name_nd, "new_user") ||
-        langdef_nd_match_str(name_nd, "revoke")
-    );
+    /* a function has at least size 1 */
+    switch (*fname_nd->str)
+    {
+    case 'd':
+        return (
+            langdef_nd_match_str(fname_nd, "del_collection") ||
+            langdef_nd_match_str(fname_nd, "del_user")
+        );
+    case 'g':
+        return (
+            langdef_nd_match_str(fname_nd, "grant")
+        );
+    case 'n':
+        return (
+            langdef_nd_match_str(fname_nd, "new_collection") ||
+            langdef_nd_match_str(fname_nd, "new_node") ||
+            langdef_nd_match_str(fname_nd, "new_user")
+        );
+    case 'r':
+        return (
+            langdef_nd_match_str(fname_nd, "revoke")
+        );
+    }
+    return false;
 }
 
 static inline void query__collect_destroy_cb(vec_t * names)

@@ -23,12 +23,12 @@ enum
 };
 
 static void away__destroy(uv_handle_t * handle);
-static void away__repeat_cb(uv_timer_t * repeat);
 static void away__req_away_id(void);
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted);
 static void away__waiter_cb(uv_timer_t * timer);
 static void away__work(uv_work_t * UNUSED(work));
 static void away__work_finish(uv_work_t * UNUSED(work), int status);
+static inline void away__repeat_cb(uv_timer_t * repeat);
 static inline uint64_t away__calc_sleep(void);
 
 int ti_away_create(void)
@@ -53,7 +53,6 @@ int ti_away_create(void)
     return 0;
 }
 
-
 int ti_away_start(void)
 {
     assert (away->flags == 0);
@@ -74,6 +73,15 @@ fail1:
     uv_close((uv_handle_t *) away->repeat, away__destroy);
 fail0:
     return -1;
+}
+
+void ti_away_trigger(void)
+{
+    if ((away->flags & AWAY__FLAG_IS_RUNNING) || ti_nodes_get_away_or_soon())
+        return;
+
+    away->flags |= AWAY__FLAG_IS_RUNNING;
+    away__req_away_id();
 }
 
 void ti_away_stop(void)
@@ -117,15 +125,6 @@ static void away__destroy(uv_handle_t * handle)
         free(away);
     }
     away = ti()->away = NULL;
-}
-
-static void away__repeat_cb(uv_timer_t * UNUSED(repeat))
-{
-    if ((away->flags & AWAY__FLAG_IS_RUNNING) || ti_nodes_get_away_or_soon())
-        return;
-
-    away->flags |= AWAY__FLAG_IS_RUNNING;
-    away__req_away_id();
 }
 
 static void away__req_away_id(void)
@@ -325,6 +324,11 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     }
 
     ti_set_and_send_node_status(TI_NODE_STAT_READY);
+}
+
+static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
+{
+    ti_away_trigger();
 }
 
 static inline uint64_t away__calc_sleep(void)

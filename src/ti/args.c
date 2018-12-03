@@ -75,7 +75,7 @@ int ti_args_parse(int argc, char *argv[])
     argparse_argument_t redundancy_ = {
             name: "redundancy",
             shortcut: 0,
-            help: "set the initial redundancy (only together with --init)",
+            help: "set the redundancy (only together with --init)",
             action: ARGPARSE_STORE_INT,
             default_int32_t: DEFAULT_REDUNDANCY,
             pt_value_int32_t: &args->redundancy,
@@ -157,9 +157,9 @@ int ti_args_parse(int argc, char *argv[])
         {
             if (!args->redundancy)
                 args->redundancy = DEFAULT_REDUNDANCY;
-            else if (args->redundancy < 1 || args->redundancy > 64)
+            else if (args->redundancy < 3 || args->redundancy > 64)
             {
-                printf("redundancy must be a value between 1 and 64\n");
+                printf("redundancy must be a value between 3 and 64\n");
                 rc = -1;
             }
         }

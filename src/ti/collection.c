@@ -1,5 +1,5 @@
 /*
- * collection.c
+ * ti/collection.c
  */
 #include <assert.h>
 #include <string.h>

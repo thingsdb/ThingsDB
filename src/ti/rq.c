@@ -22,6 +22,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -487,6 +488,30 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_user_t * user;
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `users` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    query_rval_destroy(query);
+    query->rval = ti_users_as_qpval();
+    if (!query->rval)
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -501,24 +526,34 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     params = nd                             /* sequence */
             ->children->next->next->node;   /* list of scope (arguments) */
 
-    if (langdef_nd_match_str(fname, "del_user"))
-        return rq__f_del_user(query, params, e);
-
-    if (langdef_nd_match_str(fname, "grant"))
-        return rq__f_grant(query, params, e);
-
-    if (langdef_nd_match_str(fname, "new_collection"))
-        return rq__f_new_collection(query, params, e);
-
-    if (langdef_nd_match_str(fname, "new_user"))
-        return rq__f_new_user(query, params, e);
-
-    if (langdef_nd_match_str(fname, "revoke"))
-        return rq__f_revoke(query, params, e);
-
-    if (langdef_nd_match_str(fname, "user"))
-        return rq__f_user(query, params, e);
-
+    /* a function has at least size 1 */
+    switch (*fname->str)
+    {
+    case 'd':
+        if (langdef_nd_match_str(fname, "del_user"))
+            return rq__f_del_user(query, params, e);
+        break;
+    case 'g':
+        if (langdef_nd_match_str(fname, "grant"))
+            return rq__f_grant(query, params, e);
+        break;
+    case 'n':
+        if (langdef_nd_match_str(fname, "new_collection"))
+            return rq__f_new_collection(query, params, e);
+        if (langdef_nd_match_str(fname, "new_user"))
+            return rq__f_new_user(query, params, e);
+        break;
+    case 'r':
+        if (langdef_nd_match_str(fname, "revoke"))
+            return rq__f_revoke(query, params, e);
+        break;
+    case 'u':
+        if (langdef_nd_match_str(fname, "user"))
+            return rq__f_user(query, params, e);
+        if (langdef_nd_match_str(fname, "users"))
+            return rq__f_users(query, params, e);
+        break;
+    }
 
     ex_set(e, EX_INDEX_ERROR,
             "`%.*s` is undefined",

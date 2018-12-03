@@ -25,21 +25,27 @@ int ti_rjob_run(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qpx_obj_eq_str(&qp_job_name, "del_user"))
-        return rjob__del_user(unp);
-
-    if (qpx_obj_eq_str(&qp_job_name, "grant"))
-        return rjob__grant(unp);
-
-    if (qpx_obj_eq_str(&qp_job_name, "new_collection"))
-        return rjob__new_collection(unp);
-
-    if (qpx_obj_eq_str(&qp_job_name, "new_user"))
-        return rjob__new_user(unp);
-
-    if (qpx_obj_eq_str(&qp_job_name, "revoke"))
-        return rjob__revoke(unp);
-
+    switch (*qp_job_name.via.raw)
+    {
+    case 'd':
+        if (qpx_obj_eq_str(&qp_job_name, "del_user"))
+            return rjob__del_user(unp);
+        break;
+    case 'g':
+        if (qpx_obj_eq_str(&qp_job_name, "grant"))
+            return rjob__grant(unp);
+        break;
+    case 'n':
+        if (qpx_obj_eq_str(&qp_job_name, "new_collection"))
+            return rjob__new_collection(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "new_user"))
+            return rjob__new_user(unp);
+        break;
+    case 'r':
+        if (qpx_obj_eq_str(&qp_job_name, "revoke"))
+            return rjob__revoke(unp);
+        break;
+    }
 
     log_critical("unknown job: `%.*s`",
             (int) qp_job_name.len,

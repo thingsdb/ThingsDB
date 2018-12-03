@@ -44,8 +44,6 @@ void ti_user_drop(ti_user_t * user)
 {
     if (user && !--user->ref)
     {
-        LOGC("USER DROPPED: %.*s",
-                (int) user->name->n, (char *) user->name->data);
         free(user->encpass);
         ti_raw_drop(user->name);
         free(user);

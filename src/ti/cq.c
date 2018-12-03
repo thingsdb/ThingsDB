@@ -16,6 +16,7 @@
 #include <util/strx.h>
 #include <util/util.h>
 
+static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__arrow(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -75,6 +76,8 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
+        if (cq__array(query, node, e))
+            return e->nr;
         break;
     case CLERI_GID_ARROW:
         if (cq__arrow(query, node, e))
@@ -156,6 +159,55 @@ done:
     ti_scope_leave(&query->scope, current_scope);
     return e->nr;
 }
+
+static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
+
+    ti_val_t * val;
+    vec_t * arr;
+    uintptr_t sz = (uintptr_t) nd->data;
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* list */
+            ->children;
+
+    arr = vec_new(sz);
+    if (!arr)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    val = ti_val_weak_create(TI_VAL_THINGS, arr);
+    if (!val)
+    {
+        vec_destroy(arr, NULL);
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    for (; child; child = child->next->next)
+    {
+        if (ti_cq_scope(query, child->node, e))
+            goto failed;
+
+        if (ti_val_move_to_arr(val, query->rval, e))
+            goto failed;
+
+        query->rval = NULL;
+
+        if (!child->next)
+            break;
+    }
+
+    query->rval = val;
+    return 0;
+
+failed:
+    ti_val_destroy(val);
+    return e->nr;
+}
+
 
 static int cq__arrow(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {

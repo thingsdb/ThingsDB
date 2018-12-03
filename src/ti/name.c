@@ -25,7 +25,6 @@ void ti_name_drop(ti_name_t * name)
 {
     if (name && !--name->ref)
     {
-        LOGC("drop name: `%s`", name->str);
         smap_pop(ti()->names, name->str);
         ti_name_destroy(name);
     }

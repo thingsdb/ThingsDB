@@ -18,6 +18,7 @@
 #include <util/qpx.h>
 #include <util/query.h>
 
+static void query__investigate_array(ti_query_t * query, cleri_node_t * nd);
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
 static _Bool query__swap_opr(
         ti_query_t * query,
@@ -329,10 +330,30 @@ finish:
 
 }
 
+static void query__investigate_array(ti_query_t * query, cleri_node_t * nd)
+{
+    uintptr_t sz = 0;
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* list */
+            ->children;
+    for (; child; child = child->next->next)
+    {
+        query__investigate_recursive(query, child->node);
+        ++sz;
+
+        if (!child->next)
+            break;
+    }
+    nd->data = (void *) sz;
+}
+
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 {
     switch (nd->cl_obj->gid)
     {
+    case CLERI_GID_ARRAY:
+        query__investigate_array(query, nd);
+        return;
     case CLERI_GID_FUNCTION:
         switch (nd                              /* sequence */
                 ->children->node                /* choice */

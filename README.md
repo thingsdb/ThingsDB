@@ -7,7 +7,7 @@
     - [x] user_new etc -> new_user
     - [x] ti_res_t & ti_root_t  -> ti_query_t
 - [ ] Language
-    - [ ] Primitives
+    - [x] Primitives
         - [x] `false`
         - [x] `nil`
         - [x] `true`
@@ -15,9 +15,8 @@
         - [x] `int`
         - [x] `string`
         - [x] `regex`
-        - [x] `undefined`
     - [x] Thing
-    - [ ] Array
+    - [x] Array
     - [ ] Functions:
         - [ ] `blob`
             - [x] array implementation
@@ -52,13 +51,13 @@
 - [x] Events without tasks could be saved smaller
 - [ ] Jobs processing from `EPKG`
     - [x] `assign`
-    - [ ] `del`
+    - [x] `del`
     - [ ] `push`
     - [ ] `rename`
     - [ ] `set`
     - [ ] `splice`
     - [ ] `unset`
-- [ ] Value implementation
+- [x] Value implementation
     - [x] Bool
     - [x] Int
     - [x] Float
@@ -70,6 +69,7 @@
     - [x] Regex
     - [x] Arrow
     - [x] Raw
+    - [x] Qp
 - [x] Build first event on init
 - [ ] Storing
     - [ ] Full storage on disk
@@ -92,23 +92,23 @@
         - [ ] `collections`
         - [ ] `del_collection`
         - [ ] `del_node` ?? -> very hard
-        - [ ] `del_user`
+        - [x] `del_user`
         - [x] `grant`
-        - [ ] `new_collection`
+        - [x] `new_collection`
         - [ ] `new_node`
         - [x] `new_user`
         - [ ] `node`
         - [ ] `nodes`
         - [ ] `reset_counters`
         - [x] `revoke`
-        - [ ] `user`
+        - [x] `user`
         - [ ] `users`
     - [ ] jobs
         - [ ] `del_collection`
-        - [ ] `del_node`
-        - [ ] `del_user`
+        - [ ] `del_node` ?? -> very hard
+        - [x] `del_user`
         - [x] `grant`
-        - [ ] `new_collection`
+        - [x] `new_collection`
         - [ ] `new_node`
         - [x] `new_user`
         - [x] `revoke`

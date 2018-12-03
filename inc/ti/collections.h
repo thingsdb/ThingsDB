@@ -17,6 +17,7 @@ typedef struct ti_collections_s ti_collections_t;
 int ti_collections_create(void);
 void ti_collections_destroy(void);
 ti_collection_t * ti_collections_create_collection(
+        uint64_t root_id,   /* when 0, a new thing id will be generated */
         const char * name,
         size_t n,
         ti_user_t * user,

@@ -184,7 +184,7 @@ int ti_task_add_grant(
     (void) qp_add_raw_from_str(packer, "target");
     (void) qp_add_int64(packer, target_id);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_int64(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");
     (void) qp_add_int64(packer, mask);
     (void) qp_close_map(packer);
@@ -218,7 +218,7 @@ int ti_task_add_new_collection(
     int rc;
     ti_raw_t * job = NULL;
     qp_packer_t * packer = qp_packer_create2(
-            40 + collection->name->n + user->name->n, 3);
+            40 + collection->name->n + user->name->n, 2);
 
     if (!packer)
         goto failed;
@@ -229,9 +229,9 @@ int ti_task_add_new_collection(
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, collection->name->data, collection->name->n);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_int64(packer, user->id);
     (void) qp_add_raw_from_str(packer, "root");
-    (void) ti_thing_id_to_packer(collection->root, &packer);
+    (void) qp_add_int64(packer, collection->root->id);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -384,7 +384,7 @@ int ti_task_add_revoke(
     (void) qp_add_raw_from_str(packer, "target");
     (void) qp_add_int64(packer, target_id);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_raw(packer, user->name->data, user->name->n);
+    (void) qp_add_int64(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");
     (void) qp_add_int64(packer, mask);
     (void) qp_close_map(packer);

@@ -10,6 +10,7 @@
 #include <util/qpx.h>
 
 static int rjob__grant(qp_unpacker_t * unp);
+static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
 
@@ -25,6 +26,9 @@ int ti_rjob_run(qp_unpacker_t * unp)
 
     if (qpx_obj_eq_str(&qp_job_name, "grant"))
         return rjob__grant(unp);
+
+    if (qpx_obj_eq_str(&qp_job_name, "new_collection"))
+        return rjob__new_collection(unp);
 
     if (qpx_obj_eq_str(&qp_job_name, "new_user"))
         return rjob__new_user(unp);
@@ -48,14 +52,14 @@ static int rjob__grant(qp_unpacker_t * unp)
 
     ti_user_t * user;
     ti_collection_t * target = NULL;
-    uint64_t mask;
+    uint64_t mask, user_id;
     qp_obj_t qp_target, qp_user, qp_mask;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: target */
             !qp_is_int(qp_next(unp, &qp_target)) ||     /* val: target */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
-            !qp_is_raw(qp_next(unp, &qp_user)) ||       /* val: user */
+            !qp_is_int(qp_next(unp, &qp_user)) ||       /* val: user */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
             !qp_is_int(qp_next(unp, &qp_mask)))         /* val: mask */
     {
@@ -74,21 +78,70 @@ static int rjob__grant(qp_unpacker_t * unp)
         }
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) qp_user.via.raw,
-            qp_user.len);
+    user_id = (uint64_t) qp_user.via.int64;
+
+    user = ti_users_get_by_id(user_id);
     if (!user)
     {
-        log_critical("job `grant`: user `%.*s` not found",
-                (int) qp_user.len, (char *) qp_user.via.raw);
+        log_critical("job `grant`: "TI_USER_ID" not found", user_id);
         return -1;
     }
 
-    mask = qp_mask.via.int64;
+    mask = (uint64_t) qp_mask.via.int64;
 
     if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
     {
         log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'name': collection_name, 'user': id, 'root': id}
+ */
+static int rjob__new_collection(qp_unpacker_t * unp)
+{
+    assert (unp);
+    ex_t * e = ex_use();
+    qp_obj_t qp_name, qp_user, qp_root;
+    uint64_t user_id, root_id;
+    ti_user_t * user;
+    ti_collection_t * collection;
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: name */
+            !qp_is_raw(qp_next(unp, &qp_name)) ||       /* val: name */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
+            !qp_is_int(qp_next(unp, &qp_user)) ||       /* val: user */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: root */
+            !qp_is_int(qp_next(unp, &qp_root)))         /* val: root */
+    {
+        log_critical("job `new_collection`: invalid format");
+        return -1;
+    }
+
+    user_id = (uint64_t) qp_user.via.int64;
+    user = ti_users_get_by_id(user_id);
+    if (!user)
+    {
+        log_critical("job `new_collection`: "TI_USER_ID" not found", user_id);
+        return -1;
+    }
+
+    root_id = (uint64_t) qp_root.via.int64;
+
+    collection = ti_collections_create_collection(
+            root_id,
+            (const char *) qp_name.via.raw,
+            qp_name.len,
+            user,
+            e);
+    if (!collection)
+    {
+        log_critical("job `new_collection`: %s", e->msg);
         return -1;
     }
 
@@ -158,14 +211,14 @@ static int rjob__revoke(qp_unpacker_t * unp)
 
     ti_user_t * user;
     ti_collection_t * target = NULL;
-    uint64_t mask;
+    uint64_t mask, user_id;
     qp_obj_t qp_target, qp_user, qp_mask;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: target */
             !qp_is_int(qp_next(unp, &qp_target)) ||     /* val: target */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
-            !qp_is_raw(qp_next(unp, &qp_user)) ||       /* val: user */
+            !qp_is_int(qp_next(unp, &qp_user)) ||       /* val: user */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
             !qp_is_int(qp_next(unp, &qp_mask)))         /* val: mask */
     {
@@ -184,17 +237,16 @@ static int rjob__revoke(qp_unpacker_t * unp)
         }
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) qp_user.via.raw,
-            qp_user.len);
+    user_id = (uint64_t) qp_user.via.int64;
+
+    user = ti_users_get_by_id(user_id);
     if (!user)
     {
-        log_critical("job `revoke`: user `%.*s` not found",
-                (int) qp_user.len, (char *) qp_user.via.raw);
+        log_critical("job `revoke`: "TI_USER_ID" not found", user_id);
         return -1;
     }
 
-    mask = qp_mask.via.int64;
+    mask = (uint64_t) qp_mask.via.int64;
 
     ti_access_revoke(target ? target->access : ti()->access, user, mask);
 

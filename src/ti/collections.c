@@ -43,14 +43,22 @@ void ti_collections_destroy(void)
 }
 
 ti_collection_t * ti_collections_create_collection(
+        uint64_t root_id,
         const char * name,
         size_t n,
         ti_user_t * user,
         ex_t * e)
 {
     guid_t guid;
-    uint64_t collection_id;
     ti_collection_t * collection = NULL;
+
+    if (!ti_name_is_valid_strn(name, n))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "collection name should be a valid name, "
+                "see "TI_DOCS"#names");
+        goto fail0;
+    }
 
     if (ti_collections_get_by_strn(name, n))
     {
@@ -59,8 +67,18 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    collection_id = ti_next_thing_id();
-    guid_init(&guid, collection_id);
+    if (root_id && ti_collections_get_by_id(root_id))
+    {
+        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" already exists", root_id);
+        goto fail0;
+    }
+
+    if (root_id >= *ti_.next_thing_id)
+        ++(*ti_.next_thing_id);
+    else
+        root_id = ti_next_thing_id();
+
+    guid_init(&guid, root_id);
 
     collection = ti_collection_create(&guid, name, n);
     if (!collection || vec_push(&collections->vec, collection))
@@ -69,9 +87,12 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    collection->root = ti_things_create_thing(collection->things, collection_id);
+    collection->root = ti_things_create_thing(collection->things, root_id);
 
-    if (!collection->root || ti_access_grant(&collection->access, user, TI_AUTH_MASK_FULL))
+    if (!collection->root || ti_access_grant(
+            &collection->access,
+            user,
+            TI_AUTH_MASK_FULL))
     {
         ex_set_alloc(e);
         goto fail1;

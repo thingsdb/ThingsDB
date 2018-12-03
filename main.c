@@ -4,6 +4,9 @@
  * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
  * home page         : https://thingsdb.net
  * copyright         : 2018, Transceptor Technology
+ *
+ * This code will be release as open source but the exact license is yet
+ * unknown
  */
 #include <locale.h>
 #include <stdlib.h>

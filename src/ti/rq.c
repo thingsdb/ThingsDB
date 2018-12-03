@@ -16,10 +16,10 @@
 #include <langdef/nd.h>
 #include <util/query.h>
 
-static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -132,115 +132,6 @@ done:
     return e->nr;
 }
 
-static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->ev->via.query->stream->via.user);
-
-    cleri_children_t * child;
-    cleri_node_t * value_nd = NULL;
-    ti_raw_t * collection_name;
-    ti_collection_t * collection;
-    ti_task_t * task;
-    ti_user_t * user = query->ev->via.query->stream->via.user;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int n = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
-                "function `new` takes 1 argument but %d were given", n);
-        return e->nr;
-    }
-
-    nd = nd                         /* list parameters */
-        ->children->node            /* first parameter scope */
-        ->children                  /* repeat nots */
-        ->next->node                /* choice */
-        ->children->node;           /* thing or something else */
-
-    if (nd->cl_obj->gid != CLERI_GID_THING)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `new` expects argument 1 to be a new `thing`");
-        return e->nr;
-    }
-
-    child = nd                                      /* sequence */
-                ->children->next->node              /* list */
-                ->children;                         /* list items */
-
-    for (; child; child = child->next->next)
-    {
-        cleri_node_t * name_nd = child->node        /* sequence */
-                ->children->node;                   /* name */
-
-        if (value_nd || !langdef_nd_match_str(name_nd, "name"))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "unexpected property `%.*s`",
-                    (int) name_nd->len, name_nd->str);
-            return e->nr;
-        }
-
-        value_nd = child->node                      /* sequence */
-                ->children->next->next->node        /* scope */
-                ->children                          /* repeat not's */
-                ->next->node                        /* choice */
-                ->children->node;                   /* primitives? */
-
-        if (    value_nd->cl_obj->gid != CLERI_GID_PRIMITIVES ||
-                value_nd->children->node->cl_obj->gid != CLERI_GID_T_STRING)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "expected `name` to be a plain `string` property");
-            return e->nr;
-        }
-
-        value_nd = value_nd->children->node;
-
-        if (!child->next)
-            break;
-    }
-
-    if (!value_nd)
-    {
-        ex_set(e, EX_BAD_DATA, "expecting a `name` property");
-        return e->nr;
-    }
-
-    collection_name = ti_raw_from_ti_string(value_nd->str, value_nd->len);
-    if (!collection_name)
-    {
-        ex_set_alloc(e);
-        return e->nr;
-    }
-
-    if (!ti_name_is_valid_strn((const char *) collection_name->data, collection_name->n))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "collection name is invalid, see "TI_DOCS"#names");
-        goto finish;
-    }
-
-    collection = ti_collections_create_collection((const char *) collection_name->data, collection_name->n, user, e);
-    if (!collection)
-        goto finish;
-
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
-
-    if (!task)
-        goto finish;
-
-    if (ti_task_add_new_collection(task, collection, user))
-        ex_set_alloc(e);  /* task cleanup is not required */
-
-finish:
-    ti_raw_drop(collection_name);
-    return e->nr;
-}
-
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -323,21 +214,162 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) query->rval->via.int_;
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
-    if (!task)
-        return e->nr;
-
     if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
     {
         ex_set_alloc(e);
         return e->nr;
     }
 
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
+
     if (ti_task_add_grant(task, target ? target->root->id : 0, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     /* rval is an integer, we can simply overwrite */
     ti_val_set_nil(query->rval);
+
+    return e->nr;
+}
+
+static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->ev->via.query->stream->via.user);
+
+    ti_raw_t * rname;
+    ti_collection_t * collection;
+    ti_task_t * task;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `new_collection` takes 1 argument but %d were given",
+                n);
+        return e->nr;
+    }
+
+    if (ti_rq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_collection` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    rname = query->rval->via.raw;
+
+    collection = ti_collections_create_collection(
+            0,
+            (const char *) rname->data,
+            rname->n,
+            query->stream->via.user,
+            e);
+    if (!collection)
+        goto finish;
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+
+    if (!task)
+        goto finish;
+
+    if (ti_task_add_new_collection(task, collection, query->stream->via.user))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+    /* rval is an integer, we can simply overwrite */
+    ti_val_clear(query->rval);
+    ti_val_set_nil(query->rval);
+
+finish:
+    return e->nr;
+}
+
+static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->ev->via.query->stream->via.user);
+
+    char * passstr = NULL;
+    int n;
+    ti_user_t * nuser;
+    ti_raw_t * rname;
+    ti_task_t * task;
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_user` requires 2 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (ti_rq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_user` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    rname = query->rval->via.raw;
+    ti_val_set_undefined(query->rval);
+
+    if (ti_rq_scope(query, nd->children->next->next->node, e))
+        goto done;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_user` expects argument 2 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        goto done;
+    }
+
+    passstr = ti_raw_to_str(query->rval->via.raw);
+    if (!passstr)
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
+    ti_val_clear(query->rval);
+    ti_val_set_nil(query->rval);
+
+    nuser = ti_users_create_user(
+            (const char *) rname->data, rname->n,
+            passstr, e);
+
+    if (!nuser)
+        goto done;
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        goto done;
+
+    if (ti_task_add_new_user(task, nuser))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+done:
+    free(passstr);
+    ti_raw_drop(rname);
 
     return e->nr;
 }
@@ -431,98 +463,17 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    ti_access_revoke(target ? target->access : ti()->access, user, mask);
+
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
         return e->nr;
-
-    ti_access_revoke(target ? target->access : ti()->access, user, mask);
 
     if (ti_task_add_revoke(task, target ? target->root->id : 0, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     /* rval is an integer, we can simply overwrite */
     ti_val_set_nil(query->rval);
-
-    return e->nr;
-}
-
-static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->ev->via.query->stream->via.user);
-
-    char * passstr = NULL;
-    int n;
-    ti_user_t * nuser;
-    ti_raw_t * rname;
-    ti_task_t * task;
-
-    n = langdef_nd_n_function_params(nd);
-    if (n != 2)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "function `new_user` requires 2 arguments but %d %s given",
-            n, n == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    if (ti_rq_scope(query, nd->children->node, e))
-        return e->nr;
-
-    if (!ti_val_is_raw(query->rval))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "function `new_user` expects argument 1 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
-            ti_val_str(query->rval));
-        return e->nr;
-    }
-
-    rname = query->rval->via.raw;
-    ti_val_set_undefined(query->rval);
-
-    if (ti_rq_scope(query, nd->children->next->next->node, e))
-        goto done;
-
-    if (!ti_val_is_raw(query->rval))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "function `new_user` expects argument 2 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
-            ti_val_str(query->rval));
-        goto done;
-    }
-
-    passstr = ti_raw_to_str(query->rval->via.raw);
-    if (!passstr)
-    {
-        ex_set_alloc(e);
-        goto done;
-    }
-    ti_val_clear(query->rval);
-    ti_val_set_nil(query->rval);
-
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
-    if (!task)
-        goto done;
-
-    nuser = ti_users_create_user(
-            (const char *) rname->data, rname->n,
-            passstr, e);
-
-    if (!nuser)
-        goto done;
-
-    if (ti_task_add_new_user(task, nuser))
-        ex_set_alloc(e);  /* task cleanup is not required */
-
-done:
-    free(passstr);
-    ti_raw_drop(rname);
 
     return e->nr;
 }

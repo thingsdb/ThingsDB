@@ -9,6 +9,7 @@
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
+#define TI_USER_ID "`user:%"PRIu64"`"
 
 typedef unsigned char uchar;
 
@@ -133,6 +134,7 @@ static inline _Bool ti_manages_id(uint64_t id)
     return ti_node_manages_id(ti_.node, ti_.lookup, id);
 }
 
+/* return the next thing id and increment by one */
 static inline uint64_t ti_next_thing_id(void)
 {
     return (*ti_.next_thing_id)++;

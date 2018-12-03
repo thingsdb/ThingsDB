@@ -11,8 +11,8 @@ typedef struct ti_lookup_s ti_lookup_t;
 
 struct ti_lookup_s
 {
-    uint8_t n_;         /* equal to nodes->n */
-    uint8_t r_;         /* equal to min(n, redundancy) */
+    uint8_t n;                  /* equal or less than nodes->n */
+    uint8_t r;                  /* equal to min(n, redundancy) */
 
     /* the three below are used for ti_lookup_node_is_ordered() */
     uint8_t * cache_;

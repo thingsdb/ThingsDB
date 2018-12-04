@@ -7,11 +7,9 @@
 #include <ti/lookup.h>
 #include <ti.h>
 
-static ti_lookup_t * lookup;
+static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, size_t n);
 
-static void lookup__calculate(vec_t * nodes, size_t n);
-
-ti_lookup_t * ti_lookup_create(vec_t * vec_nodes, size_t n, uint8_t redundancy)
+ti_lookup_t * ti_lookup_create(vec_t * nodes, uint8_t n, uint8_t redundancy)
 {
     assert (n);
 
@@ -35,12 +33,12 @@ ti_lookup_t * ti_lookup_create(vec_t * vec_nodes, size_t n, uint8_t redundancy)
         return -1;
     }
 
-    lookup__calculate(vec_nodes, n);
+    lookup__calculate(lookup, nodes, n);
 
     return lookup;
 }
 
-void ti_lookup_destroy(void)
+void ti_lookup_destroy(ti_lookup_t * lookup)
 {
     if (!lookup)
         return;
@@ -48,16 +46,14 @@ void ti_lookup_destroy(void)
     free(lookup->cache_);
     free(lookup->tmp_);
     free(lookup);
-    ti()->lookup = lookup = NULL;
-}
-
-_Bool ti_lookup_node_has_id(ti_node_t * node, uint64_t id)
-{
-    return lookup->mask_[id % lookup->n] & (1 << node->id);
 }
 
 /* TODO: need testing */
-_Bool ti_lookup_node_is_ordered(uint8_t a, uint8_t b, uint64_t u)
+_Bool ti_lookup_node_is_ordered(
+        ti_lookup_t * lookup,
+        uint8_t a,
+        uint8_t b,
+        uint64_t u)
 {
     uint8_t i, n = lookup->n;
     size_t m, f = lookup->factorial_;
@@ -93,7 +89,7 @@ _Bool ti_lookup_node_is_ordered(uint8_t a, uint8_t b, uint64_t u)
     return 0;
 }
 
-static void lookup__calculate(const vec_t * nodes)
+static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, int n)
 {
     /* set lookup to NULL */
     for (uint32_t i = 0, sz = lookup->nodes_->sz; i < sz; i++)
@@ -103,7 +99,6 @@ static void lookup__calculate(const vec_t * nodes)
 
     /* create lookup */
     int offset, found = 0;
-    int n = (int) lookup->n;
     int r = (int) lookup->r;
 
     for (int c = 0; c < n; c++)

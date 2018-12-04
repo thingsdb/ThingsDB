@@ -49,8 +49,13 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 
     if (ti()->flags & TI_FLAG_SIGNAL)
     {
-        log_error("received second signal (%s), abort", strsignal(signum));
-        abort();
+        if (ti()->flags & TI_FLAG_STOP)
+        {
+            log_error("received third signal (%s), abort", strsignal(signum));
+            abort();
+        }
+        log_error("received second signal (%s), stop now", strsignal(signum));
+        ti_stop();
     }
 
     ti()->flags |= TI_FLAG_SIGNAL;
@@ -64,5 +69,5 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         ti_set_and_send_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
     if (!ti_away_is_working())
-        ti_stop();
+        ti_stop_slow();
 }

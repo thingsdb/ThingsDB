@@ -319,7 +319,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
 
     if (ti()->flags & TI_FLAG_SIGNAL)
     {
-        ti_stop();
+        ti_stop_slow();
         return;
     }
 

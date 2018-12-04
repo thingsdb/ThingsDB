@@ -28,11 +28,12 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti_.qp";
 const int ti__fn_schema = 0;
-
+static int shutdown_counter = 10;
 static uv_loop_t loop_;
 
 static qp_packer_t * ti__pack(void);
 static int ti__unpack(qp_res_t * res);
+static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
 
 int ti_create(void)
@@ -261,8 +262,32 @@ finish:
     return rc;
 }
 
+void ti_nice_stop(void)
+{
+    uv_timer_t * shutdown = malloc(sizeof(uv_timer_t));
+    if (!shutdown)
+        goto fail0;
+
+    if (uv_timer_init(ti_.loop, shutdown))
+        goto fail0;
+
+    if (uv_timer_start(shutdown, ti__shutdown_cb, 1000, 1000))
+        goto fail1;
+
+    return;
+
+fail1:
+    uv_close((uv_handle_t *) shutdown, (uv_close_cb) free);
+fail0:
+    free(shutdown);
+    ti__stop();
+}
+
 void ti_stop(void)
 {
+    if (ti_.node)
+        ti_set_and_send_node_status(TI_NODE_STAT_OFFLINE);
+
     ti_archive_to_disk();
     ti_away_stop();
     ti_connect_stop();
@@ -453,6 +478,17 @@ failed:
     return -1;
 }
 
+static void ti__shutdown_cb(uv_timer_t * shutdown)
+{
+    if (--shutdown_counter)
+    {
+        log_info("going offline in %d second%s",
+                shutdown_counter, shutdown_counter == 1 ? "" : "s");
+        return;
+    }
+    (void) uv_timer_stop(shutdown);
+    uv_close((uv_handle_t *) shutdown, (uv_close_cb) free);
+}
 
 static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
 {

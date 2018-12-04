@@ -35,8 +35,9 @@ typedef unsigned char uchar;
 enum
 {
     TI_FLAG_SIGNAL      =1<<0,
-    TI_FLAG_INDEXING    =1<<1,
-    TI_FLAG_LOCKED      =1<<2,
+    TI_FLAG_STOP        =1<<1,
+    TI_FLAG_INDEXING    =1<<2,
+    TI_FLAG_LOCKED      =1<<3,
 };
 
 typedef struct ti_s ti_t;
@@ -81,6 +82,7 @@ int ti_init(void);
 int ti_build(void);
 int ti_read(void);
 int ti_run(void);
+void ti_stop_slow(void);
 void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);

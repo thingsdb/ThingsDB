@@ -30,6 +30,7 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr)
         return NULL;
 
     node->ref = 1;
+    node->flags = 0;
     node->cevid = 0;
     node->next_thing_id = 0;
     node->id = id;

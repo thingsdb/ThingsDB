@@ -88,8 +88,8 @@ void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
-ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with
-                                           ti->node->status
+ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
+                                           cevid, ti_node->status
                                         */
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 static inline ti_t * ti(void);
@@ -124,7 +124,8 @@ struct ti_s
     cleri_grammar_t * langdef;
     uint64_t stored_event_id;   /* last stored event id (excluding archive) */
     uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
-                                   for assigning id's to objects */
+                                   for assigning id's to objects
+                                */
     uint8_t flags;
     char hostname[256];
 

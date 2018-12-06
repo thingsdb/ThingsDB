@@ -36,7 +36,7 @@ async def test():
         /*
          * test query
          */
-        /* new_collection('test'); */
+        /* new_collection('test2'); */
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:
@@ -51,9 +51,7 @@ async def test():
     start = time.time()
     try:
         res = await client.query(r'''
-        arr.map(a);
-
-
+        aa = 9;
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")

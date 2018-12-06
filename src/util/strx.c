@@ -282,6 +282,52 @@ int64_t strx_to_int64n(const char * str, size_t n)
     return i;
 }
 
+/*
+ * Overflow check:
+ *
+ * int strx_to_int64n(int64_t * i64, const char * str, size_t n)
+        {
+            assert (n);
+            _Bool negative = false;
+            int64_t i;
+
+            switch (*str)
+            {
+            case '-':
+                assert (n > 1);
+                negative = true;
+                i = *(++str) - '0';
+                --n;
+                break;
+            case '+':
+                assert (n > 1);
+                i = *(++str) - '0';
+                --n;
+                break;
+            default:
+                i = *str - '0';
+            }
+
+            *i64 = i;
+
+            while (--n)
+            {
+                i = 10 * i + *(++str) - '0';
+                assert (isdigit(*str));
+
+                if (i < *i64)
+                    return -1;
+
+                *i64 = i;
+            }
+
+            if (negative)
+                *i64 = -i;
+
+            return 0;
+        }
+ */
+
 char * strx_cat(const char * s1, const char * s2)
 {
     size_t n1 = strlen(s1);

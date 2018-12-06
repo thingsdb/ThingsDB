@@ -23,6 +23,10 @@ _Bool strx_is_graphn(const char * str, size_t n);
 double strx_to_doublen(const char * str, size_t n);
 uint64_t strx_to_uint64n(const char * str, size_t n);
 int64_t strx_to_int64n(const char * str, size_t n);
+/*
+ * Overflow check:
+ * int strx_to_int64n(int64_t * i, const char * str, size_t n);
+ */
 char * strx_cat(const char * s1, const char * s2);
 
 #endif /* TI_STRX_H_ */

@@ -432,10 +432,16 @@ void ti_val_clear(ti_val_t * val)
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
     case TI_VAL_ARROW:
-        if (!val->via.arrow)
+        if (!val->via.arrow || --val->via.arrow->ref)
             break;
+
         if (val->via.arrow->str == val->via.arrow->data)
             free(val->via.arrow->data);
+        /*
+         * We need to restore one reference since cleri__node_free will remove
+         * one
+         */
+        ++val->via.arrow->ref;
         cleri__node_free(val->via.arrow);
         break;
     }

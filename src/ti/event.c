@@ -180,7 +180,7 @@ int ti_event_run(ti_event_t * ev)
 void ti_event_log(const char * prefix, ti_event_t * ev)
 {
     (void) fprintf(
-            Logger.ostream, "\n  %s "TI_EVENT_ID" (", prefix, ev->id);
+            Logger.ostream, "\t%s "TI_EVENT_ID" (", prefix, ev->id);
 
     switch ((ti_event_tp_enum) ev->tp)
     {

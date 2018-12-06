@@ -4,7 +4,14 @@
 
 - [ ] 64Bit Requirements, support 64 bit only?? else change this following
     - [ ] wareq uses uinpntr_t for 64bit thing id's
-
+    - [ ] if we do require 64bit, then we can take advantage
+- [ ] Special floats
+    - [ ] Inf
+    - [ ] NaN
+    - [ ] (negative) Inf
+- [ ] We can make indexing by scope instead of fixed integer, but allowing only
+      fixed integers makes it a bit faster and easier
+- [ ] Overflow handling? Right now ThingsDB is naive
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user
@@ -56,7 +63,7 @@
 - [ ] Jobs processing from `EPKG`
     - [x] `assign`
     - [x] `del`
-    - [ ] `push`
+    - [x] `push`
     - [ ] `rename`
     - [x] `set`
     - [ ] `splice`
@@ -96,8 +103,8 @@
     - [x] Parenthesis
 - [ ]
 - [x] Build first event on init
-- [ ] Storing
-    - [ ] Full storage on disk
+- [x] Storing
+    - [x] Full storage on disk
         - [x] Status
         - [x] Nodes
         - [x] Databases

@@ -16,6 +16,7 @@
 #include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
+#include <util/strx.h>
 #include <util/query.h>
 
 static void query__investigate_array(ti_query_t * query, cleri_node_t * nd);
@@ -405,12 +406,19 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         }
         return;
     case CLERI_GID_COMMENT:
-    case CLERI_GID_INDEX:
         /* all with children we can skip */
         return;
     case CLERI_GID_PRIMITIVES:
         switch (nd->children->node->cl_obj->gid)
         {
+            case CLERI_GID_T_INT:
+                #if __WORDSIZE == 64
+                {
+                    intptr_t i = strx_to_int64n(nd->str, nd->len);
+                    nd->children->node->data = (void *) i;
+                }
+                #endif
+                break;
             case CLERI_GID_T_STRING:
             case CLERI_GID_T_REGEX:
                 ++query->nd_cache_count;
@@ -420,7 +428,18 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
     case CLERI_GID_OPERATIONS:
         (void) query__swap_opr(query, nd->children->next, 0);
         return;
-
+    case CLERI_GID_INDEX:
+        #if __WORDSIZE == 64
+        for (cleri_children_t * child = nd->children;
+             child;
+             child = child->next)
+        {
+            cleri_node_t * node = child->node->children->next->node;
+            intptr_t i = strx_to_int64n(node->str, node->len);
+            node->data = (void *) i;
+        }
+        #endif
+        return;
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)

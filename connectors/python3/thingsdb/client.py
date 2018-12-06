@@ -76,9 +76,11 @@ class Client:
             thing_ids.append(id)
         assert target is None or isinstance(target, (int, str))
         target = self._target if target is None else target
-        data = {'things': thing_ids}
-        if target:
-            data['target'] = target
+        assert target, 'for watching a target collection is required'
+        data = {
+            'things': thing_ids,
+            'collection': target
+        }
         future = self._write_package(REQ_WATCH, data, timeout=timeout)
 
     def _on_package_received(self, pkg):

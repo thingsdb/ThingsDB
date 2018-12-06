@@ -14,6 +14,7 @@
 
 #define ARCHIVE__FILE_FMT "%020"PRIu64".qp"
 #define ARCHIVE__FILE_LEN 23
+#define ARCHIVE__THRESHOLD_FULL 0
 
 static const char * archive__path           = ".archive/";
 static const char * archive__nodes_cevid    = ".nodes_cevid.dat";
@@ -22,6 +23,8 @@ static int archive__init_queue(void);
 static _Bool archive__is_file(const char * fn);
 static int archive__load_file(const char * fn);
 static int archive__read_nodes_cevid(void);
+static int archive__to_disk(void);
+static int archive__remove_files(void);
 
 static ti_archive_t * archive;
 
@@ -35,7 +38,7 @@ int ti_archive_create(void)
     archive->queue = queue_new(0);
     archive->path = NULL;
     archive->nodes_cevid_fn = NULL;
-    archive->events_in_achive = 0;
+    archive->archived_on_disk = 0;
     archive->last_on_disk = 0;
 
     if (!archive->queue)
@@ -176,65 +179,37 @@ int ti_archive_push(ti_epkg_t * epkg)
         !queue_last(archive->queue) ||
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id
     );
-    int rc = queue_push(&archive->queue, epkg);
-    if (!rc)
-        ++archive->events_in_achive;
-    return rc;
+    return queue_push(&archive->queue, epkg);
 }
 
 int ti_archive_to_disk(void)
 {
-    FILE * f;
-    char * fn;
-    char buf[ARCHIVE__FILE_LEN + 1];
     ti_epkg_t * last_epkg = queue_last(archive->queue);
+
     if (!last_epkg || last_epkg->event_id == archive->last_on_disk)
         return 0;       /* nothing to save to disk */
 
     /* last event id in queue should be equal to cevid */
     assert (*ti()->events->cevid == last_epkg->event_id);
 
-    sprintf(buf, ARCHIVE__FILE_FMT, last_epkg->event_id);
-
-    fn = fx_path_join(archive->path, buf);
-    if (!fn)
-        goto fail0;
-
-    if (fx_file_exist(fn))
-        log_error("archive file `%s` will be overwritten", fn);
-
-    log_debug("saving event changes to: `%s`", fn);
-
-    f = fopen(fn, "w");
-    free(fn);   /* we no longer need the file name */
-    if (!f)
-        goto fail0;
-
-    if (qp_fadd_type(f, QP_ARRAY_OPEN))
-        goto fail1;
-
-    for (queue_each(archive->queue, ti_epkg_t, epkg))
+    if (archive->archived_on_disk >= ti()->cfg->threshold_full_storage)
     {
-        if (epkg->event_id > archive->last_on_disk &&
-            qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg))
-        )
-            goto fail1;
-
-        (void) ti_sleep(10);
+        if (ti_store_store() == 0)
+        {
+            (void) archive__remove_files();
+            goto success;
+        }
+        /* store has failed, try archive to disk */
     }
 
-    if (fclose(f))
-        goto fail1;
+    if (archive__to_disk() == 0)
+        goto success;
 
+    return -1;
+
+success:
     archive->last_on_disk = last_epkg->event_id;
     return 0;
-
-fail1:
-    (void) fclose(f);
-    (void) unlink(fn);
-
-fail0:
-    return -1;
 }
 
 void ti_archive_cleanup(void)
@@ -335,7 +310,7 @@ static int archive__load_file(const char * archive_fn)
                 epkg->event_id > cevid && queue_push(&archive->queue, epkg)))
             goto failed;
 
-        ++archive->events_in_achive;
+        ++archive->archived_on_disk;
     }
 
     if (qp_tp == QP_ERR)
@@ -370,4 +345,82 @@ static int archive__read_nodes_cevid(void)
 failed:
     fclose(f);
     return -1;
+}
+
+static int archive__to_disk(void)
+{
+    FILE * f;
+    char * fn;
+    char buf[ARCHIVE__FILE_LEN + 1];
+    ti_epkg_t * last_epkg = queue_last(archive->queue);
+
+    sprintf(buf, ARCHIVE__FILE_FMT, last_epkg->event_id);
+
+    fn = fx_path_join(archive->path, buf);
+    if (!fn)
+        goto fail0;
+
+    if (fx_file_exist(fn))
+        log_error("archive file `%s` will be overwritten", fn);
+
+    log_debug("saving event changes to: `%s`", fn);
+
+    f = fopen(fn, "w");
+    free(fn);   /* we no longer need the file name */
+    if (!f)
+        goto fail0;
+
+    if (qp_fadd_type(f, QP_ARRAY_OPEN))
+        goto fail1;
+
+    for (queue_each(archive->queue, ti_epkg_t, epkg))
+    {
+        if (epkg->event_id <= archive->last_on_disk)
+            continue;
+
+        if (qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg)))
+            goto fail1;
+
+        ++archive->archived_on_disk;
+
+        (void) ti_sleep(10);
+    }
+
+    if (fclose(f))
+        goto fail1;
+
+    return 0;
+
+fail1:
+    (void) fclose(f);
+    (void) unlink(fn);
+
+fail0:
+    return -1;
+}
+
+static int archive__remove_files(void)
+{
+    int rc = 0;
+    struct dirent * p;
+    char buf[strlen(archive->path) + ARCHIVE__FILE_LEN + 1];
+
+    DIR * d = opendir(archive->path);
+    if (!d)
+        return -1;
+
+    while ((p = readdir(d)))
+    {
+        if (!archive__is_file(p->d_name))
+            continue;
+
+        (void) sprintf(buf, "%s%s", archive->path, p->d_name);
+        if (unlink(buf))
+        {
+            rc = -1;
+            log_error("unable to remove archive file: `%s`", buf);
+        }
+    }
+    closedir(d);
+    return rc;
 }

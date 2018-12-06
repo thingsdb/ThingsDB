@@ -877,7 +877,7 @@ static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (!ti_manages_id(thing->id))
+    if (!ti_thing_with_attrs(thing))
     {
         collect_attrs = omap_get(query->collect, thing->id);
         if (!collect_attrs)
@@ -1538,7 +1538,12 @@ static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto alloc_err;  /* we do not need to cleanup task, since the task
                             is added to `query->ev->tasks` */
 
-    if (ti_manages_id(thing->id))
+    /* TODO: we can technically already store attributes for the desired state,
+     * when in away mode, the `other` attributes must be retrieved so what do
+     * we win? We cannot set the `attribute` flag since that indicates as if we
+     * have all attributes
+     */
+    if (ti_thing_with_attrs(thing))
     {
         if (ti_thing_attr_weak_setv(thing, name, query->rval))
             goto alloc_err;
@@ -1796,8 +1801,8 @@ static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto alloc_err;  /* we do not need to cleanup task, since the task
                             is added to `query->ev->tasks` */
 
-    if (ti_manages_id(thing->id))
-        ti_thing_attr_unset(thing, name);
+    /* unset can run even in case this is a not managed thing */
+    ti_thing_attr_unset(thing, name);
 
     ti_val_clear(query->rval);
     ti_val_set_nil(query->rval);
@@ -1916,15 +1921,15 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     cleri_children_t * child;
     cleri_node_t * node;
-    ti_val_t * val;
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
     int64_t idx;
     ssize_t n;
-
-    val =  query_get_val(query);
     if (!val)
     {
         /* query is of thing type */
-        ex_set(e, EX_BAD_DATA, "type `%s` is not indexable", query_tp_str(query));
+        ex_set(e, EX_BAD_DATA, "type `%s` is not indexable",
+                query_tp_str(query));
         return e->nr;
     }
 
@@ -1943,6 +1948,7 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         case TI_VAL_RAW:
             n = val->via.raw->n;
             break;
+        case TI_VAL_TUPLE:
         case TI_VAL_ARRAY:
         case TI_VAL_THINGS:
             n = val->via.arr->n;
@@ -1979,38 +1985,47 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         case TI_VAL_TUPLE:
             {
                 ti_val_t * v = vec_get(val->via.array, idx);
-                ti_val_enum tp = v->tp;
-                void * data = v->via.nil;
-                v->tp = TI_VAL_NIL;
-                /* v will now potentially be destroyed,
-                 * but data and type are saved */
-                if (    query_rval_clear(query) ||
-                        ti_val_set(query->rval, tp, data))
+                if (from_rval)
                 {
-                    ex_set_alloc(e);
-                    return e->nr;
-                };
+                    ti_val_enum tp = v->tp;
+                    void * data = v->via.nil;
+                    v->tp = TI_VAL_NIL;
+                    /* v will now potentially be destroyed,
+                     * but data and type are saved */
+                    (void) query_rval_clear(query);
+                    ti_val_weak_set(query->rval, tp, data);
+                }
+                else
+                {
+                    assert (query->scope->name);
+                    query->scope->val = v;
+                }
             }
             break;
         case TI_VAL_THINGS:
             {
                 ti_thing_t * thing = vec_get(val->via.things, idx);
-                ti_incref(thing);
-                if (    query_rval_clear(query) ||
-                        ti_scope_push_thing(&query->scope, thing))
+
+                if (from_rval)
+                {
+                    ti_incref(thing);
+                    (void) query_rval_clear(query);
+                    ti_val_weak_set(query->rval, TI_VAL_THING, thing);
+                }
+
+                if (ti_scope_push_thing(&query->scope, thing))
                 {
                     ex_set_alloc(e);
                     return e->nr;
                 }
-                /* weak set because incref has been done */
-                ti_val_weak_set(query->rval, TI_VAL_THING, thing);
             }
             break;
         default:
             assert (0);
             return -1;
         }
-        val = query->rval;
+        val = query_get_val(query);
+        from_rval = val == query->rval;
     }
     return e->nr;
 }

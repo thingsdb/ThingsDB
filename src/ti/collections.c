@@ -141,13 +141,18 @@ ti_collection_t * ti_collections_get_by_id(const uint64_t id)
  * - if the collection target is `root`, then the return value is NULL and
  *   e->nr is EX_SUCCESS
  */
-ti_collection_t * ti_collections_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
+ti_collection_t * ti_collections_get_by_qp_obj(
+        qp_obj_t * obj,
+        _Bool allow_root,
+        ex_t * e)
 {
     ti_collection_t * collection = NULL;
     switch (obj->tp)
     {
     case QP_RAW:
-        collection = ti_collections_get_by_strn((char *) obj->via.raw, obj->len);
+        collection = ti_collections_get_by_strn(
+                (char *) obj->via.raw,
+                obj->len);
         if (!collection)
             ex_set(
                 e,
@@ -158,7 +163,13 @@ ti_collection_t * ti_collections_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
         break;
     case QP_INT64:
         if (!obj->via.int64)
-            ex_set(e, EX_SUCCESS, "collection target is root");
+        {
+            if (allow_root)
+                ex_set(e, EX_SUCCESS, "collection target is root");
+            else
+                ex_set(e, EX_INDEX_ERROR,
+                        TI_COLLECTION_ID" not found", (uint64_t) 0);
+        }
         else
         {
             uint64_t id = (uint64_t) obj->via.int64;

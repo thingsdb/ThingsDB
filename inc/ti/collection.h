@@ -15,10 +15,15 @@ typedef struct ti_collection_s  ti_collection_t;
 #include <ti/ex.h>
 #include <ti/quota.h>
 
-ti_collection_t * ti_collection_create(guid_t * guid, const char * name, size_t n);
+ti_collection_t * ti_collection_create(
+        guid_t * guid,
+        const char * name,
+        size_t n);
 void ti_collection_drop(ti_collection_t * collection);
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
-static inline void * ti_collection_thing_by_id(ti_collection_t * collection, uint64_t thing_id);
+static inline void * ti_collection_thing_by_id(
+        ti_collection_t * collection,
+        uint64_t thing_id);
 
 struct ti_collection_s
 {
@@ -33,7 +38,9 @@ struct ti_collection_s
 };
 
 /* returns a borrowed reference */
-static inline void * ti_collection_thing_by_id(ti_collection_t * collection, uint64_t thing_id)
+static inline void * ti_collection_thing_by_id(
+        ti_collection_t * collection,
+        uint64_t thing_id)
 {
     return imap_get(collection->things, thing_id);
 }

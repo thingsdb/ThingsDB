@@ -18,7 +18,10 @@
 static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
 
-ti_collection_t * ti_collection_create(guid_t * guid, const char * name, size_t n)
+ti_collection_t * ti_collection_create(
+        guid_t * guid,
+        const char * name,
+        size_t n)
 {
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
     if (!collection)
@@ -36,7 +39,8 @@ ti_collection_t * ti_collection_create(guid_t * guid, const char * name, size_t 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->access ||
-        !collection->quota || !collection->lock || uv_mutex_init(collection->lock))
+        !collection->quota || !collection->lock ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;

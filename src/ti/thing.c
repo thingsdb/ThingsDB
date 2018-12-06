@@ -24,8 +24,12 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->things = things;
     thing->props = vec_new(0);
     thing->attrs = NULL;
-    thing->flags = TI_THING_FLAG_SWEEP;
     thing->watchers = NULL;
+    thing->flags = TI_THING_FLAG_SWEEP;
+
+    if (id && ti_manages_id(id))
+        ti_thing_mark_attrs(thing);
+
     if (!thing->props)
     {
         ti_thing_drop(thing);
@@ -262,6 +266,9 @@ int ti_thing_gen_id(ti_thing_t * thing)
     thing->id = ti_next_thing_id();
     ti_thing_mark_new(thing);
 
+    if (ti_manages_id(thing->id))
+        ti_thing_mark_attrs(thing);
+
     if (ti_thing_to_map(thing))
         return -1;
 
@@ -377,7 +384,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
 
     if ((flags & TI_VAL_PACK_ATTR) && thing->attrs && thing->attrs->n)
     {
-        assert (ti_manages_id(thing->id));
+        assert (ti_thing_with_attrs(thing));
 
         if (qp_add_raw(*packer, (const uchar *) ".", 1) || qp_add_map(packer))
             return -1;

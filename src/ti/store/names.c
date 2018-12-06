@@ -19,8 +19,10 @@ int ti_store_names_store(const char * fn)
     FILE * f = fopen(fn, "w");
     if (!f)
         return -1;
-    rc = (  qp_fadd_type(f, QP_ARRAY_OPEN) ||
-            smap_values(names, (smap_val_cb) names__write_cb, f));
+    rc = (
+        qp_fadd_type(f, QP_ARRAY_OPEN) ||
+        smap_values(names, (smap_val_cb) names__write_cb, f)
+    );
     if (rc)
         log_error("saving failed: `%s`", fn);
     return -(fclose(f) || rc);

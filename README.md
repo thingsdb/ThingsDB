@@ -2,10 +2,14 @@
 
 ## TODO list
 
+- [ ] 64Bit Requirements, support 64 bit only?? else change this following
+    - [ ] wareq uses uinpntr_t for 64bit thing id's
+
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user
     - [x] ti_res_t & ti_root_t  -> ti_query_t
+    - [x] watch request only on collections (target to ->collection)
 - [ ] Language
     - [x] Primitives
         - [x] `false`
@@ -54,9 +58,9 @@
     - [x] `del`
     - [ ] `push`
     - [ ] `rename`
-    - [ ] `set`
+    - [x] `set`
     - [ ] `splice`
-    - [ ] `unset`
+    - [x] `unset`
 - [x] Value implementation
     - [x] Bool
     - [x] Int
@@ -100,8 +104,8 @@
         - [x] Access
         - [ ] Things
             - [x] Skeleton
-            - [ ] Data
-            - [ ] Attributes
+            - [x] Data
+            - [x] Attributes
         - [x] Users
     - [x] Archive storing
         - [x] Store in away mode

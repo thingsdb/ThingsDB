@@ -80,7 +80,7 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
 static void connect__cb(uv_timer_t * UNUSED(handle))
 {
     uint32_t n = ++connect_loop->n_loops;
-    ti_rpkg_t * rpkg = ti_status_rpkg();
+    ti_rpkg_t * rpkg = ti_node_status_rpkg();
     if (!rpkg)
         return;
 

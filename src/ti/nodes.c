@@ -79,10 +79,13 @@ int ti_nodes_to_packer(qp_packer_t ** packer)
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        if (qp_add_raw(
+        if (qp_add_array(packer) ||
+            qp_add_raw(
                 *packer,
                 (const uchar *) &node->addr,
-                sizeof(struct sockaddr_storage)))
+                sizeof(struct sockaddr_storage)) ||
+            qp_add_int64(*packer, node->flags) ||
+            qp_close_array(*packer))
             return -1;
     }
 
@@ -93,15 +96,35 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
 {
     for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
     {
+        ti_node_t * node;
         struct sockaddr_storage * addr;
-        qp_res_t * qpaddr = qpnodes->via.array->values + i;
+        qp_res_t * qpflags, * qpaddr;
+        qp_res_t * qparray = qpnodes->via.array->values + i;
+
+        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 2)
+        {
+            LOGC("BLA0");
+            return -1;
+        }
+
+        qpaddr = qparray->via.array->values + 0;
+        qpflags = qparray->via.array->values + 1;
+
         if (    qpaddr->tp != QP_RES_RAW ||
-                qpaddr->via.raw->n != sizeof(struct sockaddr_storage))
-           return -1;
+                qpaddr->via.raw->n != sizeof(struct sockaddr_storage) ||
+                qpflags->tp != QP_RES_INT64)
+        {
+            LOGC("BLA1");
+            return -1;
+        }
 
         addr = (struct sockaddr_storage *) qpaddr->via.raw->data;
-        if (!ti_nodes_create_node(addr))
+
+        node = ti_nodes_create_node(addr);
+        if (!node)
             return -1;
+
+        node->flags = (uint8_t) qpflags->via.int64;
     }
     return 0;
 }
@@ -312,7 +335,10 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        uv_read_start(
+                &stream->uvstream,
+                ti_stream_alloc_buf,
+                ti_stream_on_data);
     }
     else
     {

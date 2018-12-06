@@ -56,6 +56,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         }
         log_error("received second signal (%s), stop now", strsignal(signum));
         ti_stop();
+        return;
     }
 
     ti()->flags |= TI_FLAG_SIGNAL;
@@ -66,7 +67,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         log_critical("received stop signal (%s)", strsignal(signum));
 
     if (ti_.node)
-        ti_set_and_send_node_status(TI_NODE_STAT_SHUTTING_DOWN);
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
     if (!ti_away_is_working())
         ti_stop_slow();

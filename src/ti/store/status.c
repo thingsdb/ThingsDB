@@ -6,10 +6,6 @@
 #include <util/fx.h>
 #include <ti/store/status.h>
 
-/* status of event id, thing id */
-const int ti__stat_fn_schema = 0;
-
-
 int ti_store_status_store(const char * fn)
 {
     int rc = -1;
@@ -18,8 +14,6 @@ int ti_store_status_store(const char * fn)
         return -1;
 
     if (qp_add_map(&packer) ||
-        qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti__stat_fn_schema) ||
         qp_add_raw_from_str(packer, "cevid") ||
         qp_add_int64(packer, (int64_t) *ti()->events->cevid) ||
         qp_add_raw_from_str(packer, "next_thing_id") ||
@@ -61,14 +55,11 @@ int ti_store_status_restore(const char * fn)
         return -1;
     }
 
-    qp_res_t * schema, * qpcevid, * qpnext_thing_id;
+    qp_res_t * qpcevid, * qpnext_thing_id;
 
     if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qpcevid = qpx_map_get(res->via.map, "cevid")) ||
         !(qpnext_thing_id = qpx_map_get(res->via.map, "next_thing_id")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti__stat_fn_schema ||
         qpcevid->tp != QP_RES_INT64 ||
         qpnext_thing_id->tp != QP_RES_INT64)
         goto stop;

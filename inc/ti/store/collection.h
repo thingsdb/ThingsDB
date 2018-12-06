@@ -17,7 +17,8 @@ int ti_store_collection_restore(ti_collection_t * collection, const char * fn);
 struct ti_store_collection_s
 {
     char * access_fn;
-    char * data_fn;
+    char * props_fn;
+    char * attrs_fn;
     char * collection_fn;
     char * collection_path;
     char * names_fn;

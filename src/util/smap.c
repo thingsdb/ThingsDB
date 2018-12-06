@@ -231,6 +231,7 @@ void * smap_pop(smap_t * smap, const char * key)
     {
         free(smap->nodes);
         smap->nodes = NULL;
+        smap->sz = 0;
     }
 
     return data;

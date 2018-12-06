@@ -122,7 +122,16 @@ int ti_store_store(void)
         if (!store_collection)
             goto failed;
 
-        rc = (  mkdir(store_collection->collection_path, 0700) ||
+        rc = mkdir(store_collection->collection_path, 0700);
+        if (rc)
+        {
+            log_critical(
+                    "cannot create collection path: `%s`",
+                    store_collection->collection_path);
+        }
+        else
+        {
+            rc = (
                 ti_store_access_store(
                         collection->access,
                         store_collection->access_fn) ||
@@ -137,8 +146,14 @@ int ti_store_store(void)
                         store_collection->skeleton_fn) ||
                 ti_store_things_store_data(
                         collection->things,
-                        store_collection->data_fn));
-
+                        false,
+                        store_collection->props_fn) ||
+                ti_store_things_store_data(
+                        collection->things,
+                        true,
+                        store_collection->attrs_fn)
+            );
+        }
         ti_store_collection_destroy(store_collection);
         if (rc)
             goto failed;
@@ -146,7 +161,13 @@ int ti_store_store(void)
 
     (void) rename(store->store_path, store->prev_path);
     if (rename(store->tmp_path, store->store_path))
+    {
+        log_error(
+                "rename from `%s` to `%s` has failed",
+                store->tmp_path,
+                store->store_path);
         goto failed;
+    }
 
     (void) fx_rmdir(store->prev_path);
 
@@ -197,7 +218,13 @@ int ti_store_restore(void)
                 ti_store_things_restore_data(
                         collection->things,
                         namesmap,
-                        store_collection->data_fn));
+                        false,
+                        store_collection->props_fn) ||
+                ti_store_things_restore_data(
+                        collection->things,
+                        namesmap,
+                        true,
+                        store_collection->attrs_fn));
 
         ti_store_collection_destroy(store_collection);
 

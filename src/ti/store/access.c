@@ -10,7 +10,6 @@
 #include <util/qpx.h>
 #include <util/fx.h>
 
-static const int ti__access_fn_schema = 0;
 
 int ti_store_access_store(const vec_t * access, const char * fn)
 {
@@ -19,10 +18,6 @@ int ti_store_access_store(const vec_t * access, const char * fn)
     if (!packer) return -1;
 
     if (qp_add_map(&packer)) goto stop;
-
-    /* schema */
-    if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti__access_fn_schema)) goto stop;
 
     if (qp_add_raw_from_str(packer, "access") ||
         qp_add_array(&packer)) goto stop;
@@ -42,6 +37,8 @@ int ti_store_access_store(const vec_t * access, const char * fn)
 stop:
     if (rc)
         log_error("failed to write file: `%s`", fn);
+    else
+        log_debug("stored access to file: `%s`", fn);
     qp_packer_destroy(packer);
     return rc;
 }
@@ -65,14 +62,12 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
         return -1;
     }
 
-    qp_res_t * schema, * qaccess;
+    qp_res_t * qaccess;
 
     if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qaccess = qpx_map_get(res->via.map, "access")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti__access_fn_schema ||
-        qaccess->tp != QP_RES_ARRAY) goto stop;
+        qaccess->tp != QP_RES_ARRAY)
+        goto stop;
 
     for (uint32_t i = 0; i < qaccess->via.array->n; i++)
     {
@@ -84,7 +79,8 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
             !(user_id = qauth->via.array->values) ||
             !(mask = qauth->via.array->values + 1) ||
             user_id->tp != QP_RES_INT64 ||
-            mask->tp != QP_RES_INT64) goto stop;
+            mask->tp != QP_RES_INT64)
+            goto stop;
 
         user = ti_users_get_by_id((uint64_t) user_id->via.int64);
         if (!user)
@@ -94,15 +90,14 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
         }
 
         if (ti_access_grant(access, user, (uint64_t) mask->via.int64))
-        {
             goto stop;
-        }
     }
 
     rc = 0;
 
 stop:
-    if (rc) log_critical("failed to restore from file: `%s`", fn);
+    if (rc)
+        log_critical("failed to restore from file: `%s`", fn);
     qp_res_destroy(res);
     return rc;
 }

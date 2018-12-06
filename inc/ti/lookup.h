@@ -8,7 +8,6 @@ typedef struct ti_lookup_s ti_lookup_t;
 
 #include <stdint.h>
 #include <util/vec.h>
-#include <ti/node.h>
 
 struct ti_lookup_s
 {
@@ -28,7 +27,7 @@ struct ti_lookup_s
 
 ti_lookup_t * ti_lookup_create(vec_t * nodes, uint8_t n, uint8_t redundancy);
 void ti_lookup_destroy(ti_lookup_t * lookup);
-_Bool ti_lookup_node_is_ordered(
+_Bool ti_lookup_id_is_ordered(
         ti_lookup_t * lookup,
         uint8_t a,
         uint8_t b,

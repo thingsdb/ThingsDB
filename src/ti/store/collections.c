@@ -11,8 +11,6 @@
 #include <string.h>
 
 
-static const int ti__collections_fn_schema = 0;
-
 int ti_store_collections_store(const char * fn)
 {
     int rc = -1;
@@ -22,10 +20,6 @@ int ti_store_collections_store(const char * fn)
 
     if (qp_add_map(&packer))
         goto stop;
-
-    /* schema */
-    if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti__collections_fn_schema)) goto stop;
 
     if (qp_add_raw_from_str(packer, "collections") ||
         qp_add_array(&packer)) goto stop;
@@ -64,13 +58,16 @@ int ti_store_collections_restore(const char * fn)
 {
     int rcode, rc = -1;
     ssize_t n;
+    qp_res_t * res;
     uchar * data = fx_read(fn, &n);
-    if (!data) return -1;
-
     qp_unpacker_t unpacker;
+    qp_res_t * qcollections;
+    if (!data)
+        return -1;
+
     qpx_unpacker_init(&unpacker, data, (size_t) n);
 
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
+    res = qp_unpacker_res(&unpacker, &rcode);
     free(data);
 
     if (rcode)
@@ -79,13 +76,8 @@ int ti_store_collections_restore(const char * fn)
         return -1;
     }
 
-    qp_res_t * schema, * qcollections;
-
     if (    res->tp != QP_RES_MAP ||
-            !(schema = qpx_map_get(res->via.map, "schema")) ||
             !(qcollections = qpx_map_get(res->via.map, "collections")) ||
-            schema->tp != QP_RES_INT64 ||
-            schema->via.int64 != ti__collections_fn_schema ||
             qcollections->tp != QP_RES_ARRAY)
         goto stop;
 

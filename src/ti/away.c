@@ -211,7 +211,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     ))
         goto fail2;
 
-    ti_set_and_send_node_status(TI_NODE_STAT_AWAY_SOON);
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY_SOON);
     away->flags |= AWAY__FLAG_IS_WAITING;
     return;
 
@@ -253,12 +253,12 @@ static void away__waiter_cb(uv_timer_t * waiter)
             away__work_finish))
     {
         away->flags &= ~AWAY__FLAG_IS_RUNNING;
-        ti_set_and_send_node_status(TI_NODE_STAT_READY);
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
         uv_mutex_unlock(ti()->events->lock);
         return;
     }
 
-    ti_set_and_send_node_status(TI_NODE_STAT_AWAY);
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
 }
 
 static void away__work(uv_work_t * UNUSED(work))
@@ -313,17 +313,18 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     uv_mutex_unlock(ti()->events->lock);
 
     if (status)
-    {
         log_error(uv_strerror(status));
-    }
 
     if (ti()->flags & TI_FLAG_SIGNAL)
     {
-        ti_stop_slow();
+        if (ti()->flags & TI_FLAG_STOP)
+            ti_stop();
+        else
+            ti_stop_slow();
         return;
     }
 
-    ti_set_and_send_node_status(TI_NODE_STAT_READY);
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 }
 
 static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))

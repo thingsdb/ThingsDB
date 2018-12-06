@@ -7,7 +7,7 @@
 #include <ti/lookup.h>
 #include <ti.h>
 
-static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, size_t n);
+static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, int n);
 
 ti_lookup_t * ti_lookup_create(vec_t * nodes, uint8_t n, uint8_t redundancy)
 {
@@ -29,8 +29,8 @@ ti_lookup_t * ti_lookup_create(vec_t * nodes, uint8_t n, uint8_t redundancy)
 
     if (!lookup->nodes_ || !lookup->cache_ || !lookup->tmp_)
     {
-        ti_lookup_destroy();
-        return -1;
+        ti_lookup_destroy(lookup);
+        return NULL;
     }
 
     lookup__calculate(lookup, nodes, n);
@@ -49,7 +49,7 @@ void ti_lookup_destroy(ti_lookup_t * lookup)
 }
 
 /* TODO: need testing */
-_Bool ti_lookup_node_is_ordered(
+_Bool ti_lookup_id_is_ordered(
         ti_lookup_t * lookup,
         uint8_t a,
         uint8_t b,

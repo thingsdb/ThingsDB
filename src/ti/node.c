@@ -62,11 +62,11 @@ const char * ti_node_status_str(ti_node_status_t status)
     switch (status)
     {
     case TI_NODE_STAT_OFFLINE:          return "OFFLINE";
-    case TI_NODE_STAT_SHUTTING_DOWN:    return "SHUTTING_DOWN";
     case TI_NODE_STAT_CONNECTING:       return "CONNECTING";
     case TI_NODE_STAT_SYNCHRONIZING:    return "SYNCHRONIZING";
     case TI_NODE_STAT_AWAY:             return "AWAY";
     case TI_NODE_STAT_AWAY_SOON:        return "AWAY_SOON";
+    case TI_NODE_STAT_SHUTTING_DOWN:    return "SHUTTING_DOWN";
     case TI_NODE_STAT_READY:            return "READY";
     }
     return "UNKNOWN";
@@ -114,7 +114,11 @@ ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u)
     ti_node_t * min = node_a->id < node_b->id ? node_a : node_b;
     ti_node_t * max = node_a->id > node_b->id ? node_a : node_b;
 
-    return ti_lookup_node_is_ordered(min->id, max->id, u) ? min : max;
+    return ti_lookup_id_is_ordered(
+            ti()->lookup,
+            min->id,
+            max->id,
+            u) ? min : max;
 }
 
 static void node__on_connect(uv_connect_t * req, int status)

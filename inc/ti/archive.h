@@ -13,9 +13,11 @@ typedef struct ti_archive_s  ti_archive_t;
 
 struct ti_archive_s
 {
-    size_t events_in_achive;        /* number of events in archive,
-                                       either on disk or in queue */
-    size_t last_on_disk;            /* last event id written on disk */
+    size_t archived_on_disk;        /* number of events stored on disk */
+    size_t last_on_disk;            /* last event id written on disk, this
+                                       value is also updated if a full store is
+                                       done
+                                    */
     char * path;
     char * nodes_cevid_fn;          /* this file contains the last cevid
                                        by ALL nodes, saved at cleanup */

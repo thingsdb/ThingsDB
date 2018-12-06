@@ -140,6 +140,21 @@ int ti_clients_listen(void)
     return 0;
 }
 
+void ti_clients_write_rpkg(ti_rpkg_t * rpkg)
+{
+    if (!ti()->thing0->watchers)
+        return;
+
+    for (vec_each(ti()->thing0->watchers, ti_watch_t, watch))
+    {
+        if (ti_stream_is_closed(watch->stream))
+            continue;
+
+        if (ti_stream_write_rpkg(watch->stream, rpkg))
+            log_critical(EX_INTERNAL_S);
+    }
+}
+
 static void clients__tcp_connection(uv_stream_t * uvstream, int status)
 {
     ti_stream_t * stream;
@@ -160,7 +175,10 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
     uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        uv_read_start(
+                &stream->uvstream,
+                ti_stream_alloc_buf,
+                ti_stream_on_data);
     }
     else
     {
@@ -400,7 +418,6 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_user_t * user = stream->via.user;
     ti_wareq_t * wareq = NULL;
     ex_t * e = ex_use();
-    vec_t * access_;
     ti_pkg_t * resp = NULL;
 
     if (!pkg->id)
@@ -415,7 +432,8 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status <= TI_NODE_STAT_CONNECTING)
+    if (node->status <= TI_NODE_STAT_CONNECTING ||
+        node->status == TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -433,8 +451,9 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_wareq_unpack(wareq, pkg, e))
         goto finish;
 
-    access_ = wareq->target ? wareq->target->access : ti()->access;
-    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
+    assert (wareq->collection);
+
+    if (ti_access_check_err(wareq->collection->access, user, TI_AUTH_WATCH, e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);

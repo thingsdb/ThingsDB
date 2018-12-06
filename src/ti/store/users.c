@@ -12,7 +12,6 @@
 #include <util/qpx.h>
 #include <util/vec.h>
 
-const int ti_users_fn_schema = 0;
 
 int ti_store_users_store(const char * fn)
 {
@@ -23,11 +22,6 @@ int ti_store_users_store(const char * fn)
         return -1;
 
     if (qp_add_map(&packer))
-        goto stop;
-
-    /* schema */
-    if (qp_add_raw_from_str(packer, "schema") ||
-        qp_add_int64(packer, ti_users_fn_schema))
         goto stop;
 
     if (qp_add_raw_from_str(packer, "users") ||
@@ -76,13 +70,10 @@ int ti_store_users_restore(const char * fn)
         return -1;
     }
 
-    qp_res_t * schema, * qusers;
+    qp_res_t * qusers;
 
     if (res->tp != QP_RES_MAP ||
-        !(schema = qpx_map_get(res->via.map, "schema")) ||
         !(qusers = qpx_map_get(res->via.map, "users")) ||
-        schema->tp != QP_RES_INT64 ||
-        schema->via.int64 != ti_users_fn_schema ||
         qusers->tp != QP_RES_ARRAY)
         goto stop;
 
@@ -119,7 +110,6 @@ int ti_store_users_restore(const char * fn)
             log_critical(e->msg);
             goto stop;
         }
-
     }
 
     rc = 0;

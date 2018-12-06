@@ -27,6 +27,7 @@ typedef enum
     TI_PROTO_CLIENT_WATCH_INI   =16,    /* {event:x, thing: {#:x, ...}      */
     TI_PROTO_CLIENT_WATCH_UPD   =17,    /* {event:x. #:x, jobs:[] etc }     */
     TI_PROTO_CLIENT_WATCH_DEL   =18,    /* {#:x}                            */
+    TI_PROTO_CLIENT_NODE_STATUS =19,    /* str_status                       */
 
     /*
      * 32..47 client requests mapping to node requests

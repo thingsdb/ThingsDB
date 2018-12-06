@@ -1,5 +1,5 @@
 /*
- * thing.h
+ * ti/thing.h
  */
 #ifndef TI_THING_H_
 #define TI_THING_H_
@@ -7,7 +7,7 @@
 enum
 {
     TI_THING_FLAG_SWEEP     =1<<0,
-    TI_THING_FLAG_DATA      =1<<1,
+    TI_THING_FLAG_ATTRS     =1<<1,
     TI_THING_FLAG_NEW       =1<<2,
 };
 
@@ -57,6 +57,9 @@ static inline int ti_thing_to_map(ti_thing_t * thing);
 static inline _Bool ti_thing_is_new(ti_thing_t * thing);
 static inline void ti_thing_mark_new(ti_thing_t * thing);
 static inline void ti_thing_unmark_new(ti_thing_t * thing);
+static inline _Bool ti_thing_with_attrs(ti_thing_t * thing);
+static inline void ti_thing_mark_attrs(ti_thing_t * thing);
+static inline void ti_thing_unmark_attrs(ti_thing_t * thing);
 
 struct ti_thing_s
 {
@@ -100,5 +103,17 @@ static inline void ti_thing_mark_new(ti_thing_t * thing)
 static inline void ti_thing_unmark_new(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_NEW;
+}
+static inline _Bool ti_thing_with_attrs(ti_thing_t * thing)
+{
+    return thing->flags & TI_THING_FLAG_ATTRS;
+}
+static inline void ti_thing_mark_attrs(ti_thing_t * thing)
+{
+    thing->flags |= TI_THING_FLAG_ATTRS;
+}
+static inline void ti_thing_unmark_attrs(ti_thing_t * thing)
+{
+    thing->flags &= ~TI_THING_FLAG_ATTRS;
 }
 #endif /* TI_THING_H_ */

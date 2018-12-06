@@ -8,9 +8,10 @@
 #include <stdlib.h>
 
 static const char * ti__store_collection_things_fn     = "things.dat";
-static const char * ti__store_collection_collection_fn         = "collection.dat";
+static const char * ti__store_collection_collection_fn = "collection.dat";
 static const char * ti__store_collection_skeleton_fn   = "skeleton.qp";
-static const char * ti__store_collection_data_fn       = "data.qp";
+static const char * ti__store_collection_props_fn      = "props.qp";
+static const char * ti__store_collection_attrs_fn      = "attrs.qp";
 static const char * ti__store_collection_access_fn     = "access.qp";
 
 ti_store_collection_t * ti_store_collection_create(
@@ -42,15 +43,19 @@ ti_store_collection_t * ti_store_collection_create(
     store_collection->skeleton_fn = fx_path_join(
             collection_path,
             ti__store_collection_skeleton_fn);
-    store_collection->data_fn = fx_path_join(
+    store_collection->props_fn = fx_path_join(
             collection_path,
-            ti__store_collection_data_fn);
+            ti__store_collection_props_fn);
+    store_collection->attrs_fn = fx_path_join(
+            collection_path,
+            ti__store_collection_attrs_fn);
 
     if (    !store_collection->access_fn ||
             !store_collection->things_fn ||
             !store_collection->collection_fn ||
             !store_collection->skeleton_fn ||
-            !store_collection->data_fn)
+            !store_collection->props_fn ||
+            !store_collection->attrs_fn)
         goto fail1;
 
     return store_collection;
@@ -70,7 +75,8 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->things_fn);
     free(store_collection->collection_fn);
     free(store_collection->skeleton_fn);
-    free(store_collection->data_fn);
+    free(store_collection->props_fn);
+    free(store_collection->attrs_fn);
     free(store_collection->collection_path);
     free(store_collection);
 }
@@ -86,6 +92,8 @@ int ti_store_collection_store(ti_collection_t * collection, const char * fn)
 
     if (rc)
         log_error("saving failed: `%s`", fn);
+    else
+        log_debug("stored collection info to file: `%s`", fn);
 
     return -(fclose(f) || rc);
 }
@@ -94,10 +102,11 @@ int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = 0;
     ssize_t sz;
-    uchar * data = fx_read(fn, &sz);
-    if (!data || sz != sizeof(uint64_t)) goto failed;
-
     uint64_t id;
+    uchar * data = fx_read(fn, &sz);
+    if (!data || sz != sizeof(uint64_t))
+        goto failed;
+
     memcpy(&id, data, sizeof(uint64_t));
 
     collection->root = imap_get(collection->things, id);

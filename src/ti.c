@@ -28,11 +28,14 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti_.qp";
 const int ti__fn_schema = 0;
-static int shutdown_counter = 10;
+static int shutdown_counter = 3;
+static uv_timer_t * shutdown_timer = NULL;
 static uv_loop_t loop_;
 
 static qp_packer_t * ti__pack(void);
 static int ti__unpack(qp_res_t * res);
+static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
+static void ti__shutdown_stop(void);
 static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
 
@@ -40,7 +43,6 @@ int ti_create(void)
 {
     ti_.stored_event_id = 0;
     ti_.flags = 0;
-    ti_.redundancy = 0;     /* initially from --init --redundancy x     */
     ti_.fn = NULL;
     ti_.node = NULL;
     ti_.lookup = NULL;
@@ -84,7 +86,7 @@ void ti_destroy(void)
     ti_away_stop();
 
     ti_archive_destroy();
-    ti_lookup_destroy();
+    ti_lookup_destroy(ti_.lookup);
     ti_args_destroy();
     ti_cfg_destroy();
     ti_clients_destroy();
@@ -139,11 +141,17 @@ int ti_build(void)
     int rc = -1;
     ti_event_t * ev;
 
-    ti_.redundancy = ti_.args->redundancy;
-
     ti_.node = ti_nodes_create_node(&ti_.nodes->addr);
-    if (!ti_.node || ti_save())
+    if (!ti_.node)
         goto failed;
+
+    ti_.lookup = ti_lookup_create(
+            ti_.nodes->vec,
+            ti_.nodes->vec->n,
+            ti_.args->redundancy);
+
+   if (ti_save())
+       goto failed;
 
     ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
@@ -203,9 +211,6 @@ int ti_read(void)
         goto stop;
     }
 
-    if (ti_lookup_create(ti_.redundancy, ti_.nodes->vec))
-        return -1;
-
 stop:
     return rc;
 }
@@ -262,31 +267,32 @@ finish:
     return rc;
 }
 
-void ti_nice_stop(void)
+void ti_stop_slow(void)
 {
-    uv_timer_t * shutdown = malloc(sizeof(uv_timer_t));
-    if (!shutdown)
+    shutdown_timer = malloc(sizeof(uv_timer_t));
+    if (!shutdown_timer)
         goto fail0;
 
-    if (uv_timer_init(ti_.loop, shutdown))
+    if (uv_timer_init(ti_.loop, shutdown_timer))
         goto fail0;
 
-    if (uv_timer_start(shutdown, ti__shutdown_cb, 1000, 1000))
+    if (uv_timer_start(shutdown_timer, ti__shutdown_cb, 1000, 1000))
         goto fail1;
 
     return;
 
 fail1:
-    uv_close((uv_handle_t *) shutdown, (uv_close_cb) free);
+    uv_close((uv_handle_t *) shutdown_timer, (uv_close_cb) free);
 fail0:
-    free(shutdown);
-    ti__stop();
+    free(shutdown_timer);
+    shutdown_timer = NULL;
+    ti_stop();
 }
 
 void ti_stop(void)
 {
     if (ti_.node)
-        ti_set_and_send_node_status(TI_NODE_STAT_OFFLINE);
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
     ti_archive_to_disk();
     ti_away_stop();
@@ -351,7 +357,7 @@ int ti_unlock(void)
     return 0;
 }
 
-ti_rpkg_t * ti_status_rpkg(void)
+ti_rpkg_t * ti_node_status_rpkg(void)
 {
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
@@ -369,16 +375,31 @@ ti_rpkg_t * ti_status_rpkg(void)
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
-    {
         free(pkg);
-        return NULL;
-    }
     return rpkg;
 }
 
-void ti_set_and_send_node_status(ti_node_status_t status)
+ti_rpkg_t * ti_client_status_rpkg(void)
 {
+    ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
+    qpx_packer_t * packer = qpx_packer_create(20, 1);
+
+    if (!packer)
+        return NULL;
+
+    (void) qp_add_raw_from_str(packer, ti_node_status_str(ti_.node->status));
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+        free(pkg);
+    return rpkg;
+}
+
+void ti_set_and_broadcast_node_status(ti_node_status_t status)
+{
+    ti_rpkg_t * node_rpkg, * client_rpkg;
 
     log_debug("changing status of node `%s` from %s to %s",
             ti_node_name(ti()->node),
@@ -387,15 +408,20 @@ void ti_set_and_send_node_status(ti_node_status_t status)
 
     ti()->node->status = status;
 
-    rpkg = ti_status_rpkg();
-    if (!rpkg)
+    node_rpkg = ti_node_status_rpkg();
+    client_rpkg = ti_client_status_rpkg();
+    if (!node_rpkg || !client_rpkg)
     {
         log_critical(EX_ALLOC_S);
-        return;
+        goto fail;
     }
 
-    ti_nodes_write_rpkg(rpkg);
-    ti_rpkg_drop(rpkg);
+    ti_nodes_write_rpkg(node_rpkg);
+    ti_clients_write_rpkg(client_rpkg);
+
+fail:
+    ti_rpkg_drop(node_rpkg);
+    ti_rpkg_drop(client_rpkg);
 }
 
 static qp_packer_t * ti__pack(void)
@@ -410,8 +436,13 @@ static qp_packer_t * ti__pack(void)
         goto failed;
 
     /* redundancy */
-    if (    qp_add_raw_from_str(packer, "redundancy") ||
-            qp_add_int64(packer, (int64_t) ti_.redundancy))
+    if (    qp_add_raw_from_str(packer, "lookup_r") ||
+            qp_add_int64(packer, ti_.lookup->r))
+        goto failed;
+
+    /* lookup-size */
+    if (    qp_add_raw_from_str(packer, "lookup_n") ||
+            qp_add_int64(packer, ti_.lookup->n))
         goto failed;
 
     /* node */
@@ -437,28 +468,37 @@ failed:
 
 static int ti__unpack(qp_res_t * res)
 {
-    uint8_t node_id;
-    qp_res_t * schema, * qpredundancy, * qpnode, * qpnodes;
+    uint8_t node_id, lookup_r, lookup_n;
+    qp_res_t * schema, * qplookup_r, * qpnode, * qpnodes, * qplookup_n;
 
     if (    res->tp != QP_RES_MAP ||
             !(schema = qpx_map_get(res->via.map, "schema")) ||
-            !(qpredundancy = qpx_map_get(res->via.map, "redundancy")) ||
+            !(qplookup_r = qpx_map_get(res->via.map, "lookup_r")) ||
+            !(qplookup_n = qpx_map_get(res->via.map, "lookup_n")) ||
             !(qpnode = qpx_map_get(res->via.map, "node")) ||
             !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
             schema->tp != QP_RES_INT64 ||
             schema->via.int64 != ti__fn_schema ||
-            qpredundancy->tp != QP_RES_INT64 ||
+            qplookup_r->tp != QP_RES_INT64 ||
+            qplookup_n->tp != QP_RES_INT64 ||
             qpnode->tp != QP_RES_INT64 ||
             qpnodes->tp != QP_RES_ARRAY ||
-            qpredundancy->via.int64 < 1 ||
-            qpredundancy->via.int64 > 64 ||
+            qplookup_r->via.int64 < 1 ||
+            qplookup_r->via.int64 > 64 ||
+            qplookup_n->via.int64 < 1 ||
+            qplookup_n->via.int64 > qplookup_r->via.int64 ||
             qpnode->via.int64 < 0)
         goto failed;
 
-    ti_.redundancy = (uint8_t) qpredundancy->via.int64;
+    lookup_r = (uint8_t) qplookup_r->via.int64;
+    lookup_n = (uint8_t) qplookup_n->via.int64;
     node_id = (uint8_t) qpnode->via.int64;
 
     if (ti_nodes_from_qpres(qpnodes))
+        goto failed;
+
+    ti_.lookup = ti_lookup_create(ti_.nodes->vec, lookup_n, lookup_r);
+    if (!ti_.lookup)
         goto failed;
 
     if (node_id >= ti_.nodes->vec->n)
@@ -473,12 +513,23 @@ static int ti__unpack(qp_res_t * res)
     return 0;
 
 failed:
-    log_critical("unpacking has failed (%s)", ti_.fn);
     ti_.node = NULL;
     return -1;
 }
 
-static void ti__shutdown_cb(uv_timer_t * shutdown)
+static void ti__shutdown_free(uv_handle_t * UNUSED(timer))
+{
+    free(shutdown_timer);
+    shutdown_timer = NULL;
+}
+
+static void ti__shutdown_stop(void)
+{
+    (void) uv_timer_stop(shutdown_timer);
+    uv_close((uv_handle_t *) shutdown_timer, ti__shutdown_free);
+}
+
+static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
 {
     if (--shutdown_counter)
     {
@@ -486,8 +537,8 @@ static void ti__shutdown_cb(uv_timer_t * shutdown)
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
         return;
     }
-    (void) uv_timer_stop(shutdown);
-    uv_close((uv_handle_t *) shutdown, (uv_close_cb) free);
+    ti__shutdown_stop();
+    ti_stop();
 }
 
 static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
@@ -509,8 +560,10 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
             uv_close(handle, NULL);
         break;
     case UV_TIMER:
-        LOGC("non closing timer found");
-        assert(0);
+        if (handle == (uv_handle_t *) shutdown_timer)
+            ti__shutdown_stop();
+        else
+            log_error("non closing timer found");
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

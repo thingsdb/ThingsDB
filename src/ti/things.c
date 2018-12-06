@@ -32,7 +32,8 @@ ti_thing_t * ti_things_thing_from_unp(
         qp_unpacker_t * unp,
         ssize_t sz)
 {
-    ti_thing_t * thing = imap_get(things, thing_id);
+    ti_thing_t * thing;
+    thing = imap_get(things, thing_id);
     if (thing)
         /* an existing thing cannot have properties inside the data and
          * therefore the length must be equal to one */

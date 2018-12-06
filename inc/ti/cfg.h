@@ -16,7 +16,13 @@ struct ti_cfg_s
 {
     uint16_t client_port;
     uint16_t node_port;
-    int ip_support;
+    size_t threshold_full_storage;      /* if the number of events changes
+                                           stored on disk is equal or greater
+                                           than this threshold, then a full-
+                                           instead of incremental store will be
+                                           performed
+                                        */
+    int ip_support;                     /* IPv4 and/or IPv6 support */
     char * bind_client_addr;
     char * bind_node_addr;
     char * pipe_client_name;

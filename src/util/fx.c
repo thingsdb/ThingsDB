@@ -30,7 +30,8 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
         return NULL;
     if (fseeko(fp, 0, SEEK_END) ||
         (*size = ftello(fp)) < 0  ||
-        fseeko(fp, 0, SEEK_SET)) goto final;
+        fseeko(fp, 0, SEEK_SET))
+        goto final;
     data = malloc(*size);
     if (!data)
         goto final;

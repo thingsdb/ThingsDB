@@ -118,7 +118,7 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
         if (qp_is_raw_equal_str(&key, "target"))
         {
             (void) qp_next(&unpacker, &val);
-            query->target = ti_collections_get_by_qp_obj(&val, e);
+            query->target = ti_collections_get_by_qp_obj(&val, true, e);
             ti_grab(query->target);
             if (e->nr)
                 goto finish;
@@ -267,11 +267,12 @@ void ti_query_run(ti_query_t * query)
             break;
 
         child = child->next->next;                  /* skip delimiter */
-
         ti_scope_leave(&query->scope, NULL);
     }
 
 done:
+    ti_scope_leave(&query->scope, NULL);
+
     if (query->ev)
         query__event_handle(query);  /* error here will be logged only */
 

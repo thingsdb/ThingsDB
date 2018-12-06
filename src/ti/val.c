@@ -65,12 +65,16 @@ ti_val_t * ti_val_weak_dup(ti_val_t * val)
     return dup;
 }
 
-
+/*
+ * Return 0 on success, <0 if unpacking has failed or >0 if
+ */
 int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
 {
     qp_obj_t qp_val;
-    qp_next(unp, &qp_val);
-    return val__from_unp(dest, &qp_val, unp, things);
+    qp_types_t tp = qp_next(unp, &qp_val);
+    return qp_is_close(tp)
+            ? (int) tp
+            : val__from_unp(dest, &qp_val, unp, things);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -634,10 +638,14 @@ int ti_val_move_to_arr(ti_val_t * to_arr, ti_val_t * val, ex_t * e)
 
     if (val->tp == TI_VAL_THINGS)
     {
-        ex_set(e, EX_BAD_DATA,
-                "type `%s` cannot be nested into into another array",
-                ti_val_str(val));
-        return e->nr;
+        if (val->via.things->n)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "type `%s` cannot be nested into into another array",
+                    ti_val_str(val));
+            return e->nr;
+        }
+        val->tp = TI_VAL_TUPLE;
     }
 
     if (val->tp == TI_VAL_THING)
@@ -709,7 +717,7 @@ static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
 
     assert (qp_is_map(sz));
 
-    sz = QP_MAP_OPEN ? -1 : sz - QP_MAP0;
+    sz = sz == QP_MAP_OPEN ? -1 : sz - QP_MAP0;
 
     if (!sz || !qp_is_raw(qp_next(unp, &qp_kind)) || qp_kind.len != 1)
         goto fail;

@@ -26,7 +26,7 @@ typedef unsigned char uchar;
 
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
-#define ti_decref(x) (--(x)->ref)  /* only use when x->ref > 1 */
+#define ti_decref(x) (--(x)->ref)  /* use only when x->ref > 1 */
 
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */
@@ -56,6 +56,7 @@ typedef struct ti_s ti_t;
 #include <ti/connect.h>
 #include <ti/counters.h>
 #include <ti/events.h>
+#include <ti/desired.h>
 #include <ti/lookup.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
@@ -87,8 +88,10 @@ void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
-ti_rpkg_t * ti_status_rpkg(void);  /* returns package with ti->node->status */
-void ti_set_and_send_node_status(ti_node_status_t status);
+ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with
+                                           ti->node->status
+                                        */
+void ti_set_and_broadcast_node_status(ti_node_status_t status);
 static inline ti_t * ti(void);
 static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);
@@ -106,6 +109,7 @@ struct ti_s
     ti_cfg_t * cfg;
     ti_away_t * away;
     ti_lookup_t * lookup;
+    ti_desired_t * desired;     /* NULL or a desired state lookup */
     ti_clients_t * clients;
     ti_events_t * events;
     ti_nodes_t * nodes;
@@ -121,7 +125,6 @@ struct ti_s
     uint64_t stored_event_id;   /* last stored event id (excluding archive) */
     uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
                                    for assigning id's to objects */
-    uint8_t redundancy;         /* value 1..64 */
     uint8_t flags;
     char hostname[256];
 
@@ -132,9 +135,17 @@ static inline ti_t * ti(void)
     return &ti_;
 }
 
+/*
+ * Returns true if this is `should` be managed by ThingsDB, it can be that
+ * the id is still in the desired lookup and attributes are not available yet,
+ * if you want to know if the thing has attributes, check ti_thing_with_attrs()
+ */
 static inline _Bool ti_manages_id(uint64_t id)
 {
-    return ti_node_manages_id(ti_.node, ti_.lookup, id);
+    return (
+        ti_node_manages_id(ti_.node, ti_.lookup, id) ||
+        (ti_.desired && ti_node_manages_id(ti_.node, ti_.desired->lookup, id))
+    );
 }
 
 /* return the next thing id and increment by one */

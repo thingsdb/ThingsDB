@@ -49,7 +49,8 @@ struct ti_node_s
     uint8_t status;
     uint8_t flags;                  /* flag status must be stored */
     uint8_t pad0;
-    uint64_t cevid;
+    uint64_t cevid;                 /* last committed event id */
+    uint64_t sevid;                 /* last stored event id */
     uint64_t next_thing_id;
     ti_stream_t * stream;
     struct sockaddr_storage addr;
@@ -61,6 +62,7 @@ const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 int ti_node_connect(ti_node_t * node);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
+
 static inline _Bool ti_node_manages_id(
         ti_node_t * node,
         ti_lookup_t * lookup,

@@ -8,11 +8,15 @@ typedef struct ti_counters_s ti_counters_t;
 
 #include <inttypes.h>
 #include <sys/time.h>
+#include <qpack.h>
+#include <ti/val.h>
 
 int ti_counters_create(void);
 void ti_counters_destroy(void);
 void ti_counters_reset(void);
 void ti_counters_upd_commit_event(struct timespec * start);
+int ti_counters_to_packer(qp_packer_t ** packer);
+ti_val_t * ti_counters_as_qpval(void);
 
 struct ti_counters_s
 {
@@ -48,10 +52,11 @@ struct ti_counters_s
                                     */
     uint64_t garbage_collected;     /* total garbage collected */
     double longest_event_duration;  /* longest duration it took for an event
-                                       to complete
+                                       to complete (in seconds)
                                     */
     double total_event_duration;    /* can be used to calculate the average
                                        total_event_duration / events_committed
+                                        (in seconds)
                                     */
 };
 

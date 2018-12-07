@@ -39,7 +39,7 @@ int ti_archive_create(void)
     archive->path = NULL;
     archive->nodes_cevid_fn = NULL;
     archive->archived_on_disk = 0;
-    archive->last_on_disk = 0;
+    archive->sevid = NULL;
 
     if (!archive->queue)
     {
@@ -64,7 +64,7 @@ void ti_archive_destroy(void)
 
 int ti_archive_write_nodes_cevid(void)
 {
-    uint64_t cevid = ti()->nodes->cevid;
+    uint64_t cevid = ti_nodes_cevid();
     FILE * f = fopen(archive->nodes_cevid_fn, "w");
     if (!f)
         return -1;
@@ -111,6 +111,7 @@ ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg)
 
 int ti_archive_load(void)
 {
+    ti_epkg_t * epkg;
     struct stat st;
     struct dirent ** file_list;
     int n, total;
@@ -119,8 +120,11 @@ int ti_archive_load(void)
     assert (storage_path);
     assert (archive->path == NULL);
     assert (ti()->events->cevid);
+    assert (ti()->node);
 
     memset(&st, 0, sizeof(struct stat));
+    archive->sevid = &ti()->node->sevid;
+    *archive->sevid = *ti()->events->cevid;
 
     archive->path = fx_path_join(storage_path, archive__path);
     if (!archive->path)
@@ -167,6 +171,11 @@ int ti_archive_load(void)
 
     free(file_list);
 
+    /* update the last stored event id */
+    epkg = queue_last(archive->queue);
+    if (epkg)
+        *archive->sevid = epkg->event_id;
+
     return archive__init_queue();
 }
 
@@ -186,19 +195,22 @@ int ti_archive_to_disk(void)
 {
     ti_epkg_t * last_epkg = queue_last(archive->queue);
 
-    if (!last_epkg || last_epkg->event_id == archive->last_on_disk)
+    if (!last_epkg || last_epkg->event_id == *archive->sevid)
         return 0;       /* nothing to save to disk */
 
     /* last event id in queue should be equal to cevid */
     assert (*ti()->events->cevid == last_epkg->event_id);
 
+    /* TODO: maybe on signal only store changes? */
     if (archive->archived_on_disk >= ti()->cfg->threshold_full_storage)
     {
         if (ti_store_store() == 0)
         {
             (void) archive__remove_files();
+            archive->archived_on_disk = 0;
             goto success;
         }
+
         /* store has failed, try archive to disk */
     }
 
@@ -208,7 +220,7 @@ int ti_archive_to_disk(void)
     return -1;
 
 success:
-    archive->last_on_disk = last_epkg->event_id;
+    *archive->sevid = last_epkg->event_id;
     return 0;
 }
 
@@ -217,8 +229,8 @@ void ti_archive_cleanup(void)
     uint64_t m = ti()->nodes->cevid;
     size_t n = 0;
 
-    if (archive->last_on_disk < m)
-        m = archive->last_on_disk;
+    if (*archive->sevid < m)
+        m = *archive->sevid;
 
     for (queue_each(archive->queue, ti_epkg_t, epkg), ++n)
         if (epkg->event_id > m)
@@ -375,7 +387,7 @@ static int archive__to_disk(void)
 
     for (queue_each(archive->queue, ti_epkg_t, epkg))
     {
-        if (epkg->event_id <= archive->last_on_disk)
+        if (epkg->event_id <= *archive->sevid)
             continue;
 
         if (qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg)))
@@ -404,6 +416,7 @@ static int archive__remove_files(void)
     int rc = 0;
     struct dirent * p;
     char buf[strlen(archive->path) + ARCHIVE__FILE_LEN + 1];
+    uint64_t cevid = ti()->nodes->cevid;
 
     DIR * d = opendir(archive->path);
     if (!d)
@@ -411,7 +424,13 @@ static int archive__remove_files(void)
 
     while ((p = readdir(d)))
     {
+        uint64_t event_id;
+
         if (!archive__is_file(p->d_name))
+            continue;
+
+        event_id = strtoull(p->d_name, NULL, 10);
+        if (event_id > cevid)
             continue;
 
         (void) sprintf(buf, "%s%s", archive->path, p->d_name);

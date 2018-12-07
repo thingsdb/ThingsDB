@@ -243,6 +243,24 @@ _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
     return false;
 }
 
+/*
+ * Returns true if `from` is found and replaced by to, false if not found
+ */
+_Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to)
+{
+    uint32_t i = 0;
+    for (vec_each(thing->props, ti_prop_t, prop), ++i)
+    {
+        if (prop->name == from)
+        {
+            ti_name_drop(prop->name);
+            prop->name = to;
+            return true;
+        }
+    }
+    return false;
+}
+
 void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name)
 {
     uint32_t i = 0;

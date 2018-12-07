@@ -133,17 +133,17 @@ done:
     return rc;
 }
 
-int ti_task_add_del(ti_task_t * task, ti_name_t * name)
+int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 {
     int rc;
     ti_raw_t * job = NULL;
-    qp_packer_t * packer = qp_packer_create2(14 + name->n, 1);
+    qp_packer_t * packer = qp_packer_create2(14 + rname->n, 1);
     if (!packer)
         goto failed;
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "del");
-    (void) qp_add_raw(packer, (const uchar *) name->str, name->n);
+    (void) qp_add_raw(packer, rname->data, rname->n);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
@@ -378,6 +378,42 @@ int ti_task_add_push(
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
         goto failed;
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_rename(ti_task_t * task, ti_raw_t * from, ti_raw_t * to)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(30 + from->n + to->n, 2);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "rename");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw(packer, from->data, from->n);
+    (void) qp_add_raw(packer, to->data, to->n);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
     if (!job)

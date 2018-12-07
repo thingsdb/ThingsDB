@@ -58,6 +58,7 @@ class Definition(Grammar):
     f_filter = Keyword('filter')
     f_get = Keyword('get')
     f_id = Keyword('id')
+    f_len = Keyword('len')
     f_lower = Keyword('lower')
     f_map = Keyword('map')
     f_now = Keyword('now')
@@ -100,6 +101,7 @@ class Definition(Grammar):
         f_filter,       # (arrow) -> [return values where return is true]
         f_get,          # (str,..) -> attribute val
         f_id,           # () -> int
+        f_len,          # () -> int
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
         f_match,        # (regex) -> bool

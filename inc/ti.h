@@ -62,6 +62,7 @@ typedef struct ti_s ti_t;
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/tcp.h>
+#include <ti/val.h>
 #include <ti/users.h>
 #include <unistd.h>
 #include <util/logger.h>
@@ -92,6 +93,8 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
                                         */
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
+int ti_node_to_packer(qp_packer_t ** packer);
+ti_val_t * ti_node_as_qpval(void);
 static inline ti_t * ti(void);
 static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);

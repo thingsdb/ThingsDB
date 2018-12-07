@@ -15,6 +15,7 @@
 #include <ti/access.h>
 #include <ti/proto.h>
 #include <ti/things.h>
+#include <ti/version.h>
 #include <ti.h>
 #include <util/fx.h>
 #include <util/strx.h>
@@ -422,6 +423,70 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
 fail:
     ti_rpkg_drop(node_rpkg);
     ti_rpkg_drop(client_rpkg);
+}
+
+int ti_node_to_packer(qp_packer_t ** packer)
+{
+    return (
+        qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, "node_id") ||
+        qp_add_int64(*packer, ti_.node->id) ||
+        qp_add_raw_from_str(*packer, "version") ||
+        qp_add_raw_from_str(*packer, TI_VERSION) ||
+        qp_add_raw_from_str(*packer, "status") ||
+        qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
+        qp_add_raw_from_str(*packer, "hostname") ||
+        qp_add_raw_from_str(*packer, ti_.hostname) ||
+        qp_add_raw_from_str(*packer, "client_port") ||
+        qp_add_int64(*packer, ti_.cfg->client_port) ||
+        qp_add_raw_from_str(*packer, "node_port") ||
+        qp_add_int64(*packer, ti_.cfg->node_port) ||
+        qp_add_raw_from_str(*packer, "ip_support") ||
+        qp_add_raw_from_str(
+            *packer,
+            ti_tcp_ip_support_str(ti_.cfg->ip_support)) ||
+        qp_add_raw_from_str(*packer, "storage_path") ||
+        qp_add_raw_from_str(*packer, ti_.cfg->storage_path) ||
+        qp_add_raw_from_str(*packer, "events_in_queue") ||
+        qp_add_int64(*packer, ti_.events->queue->n) ||
+        qp_add_raw_from_str(*packer, "archived_on_disk") ||
+        qp_add_int64(*packer, ti_.archive->archived_on_disk) ||
+        qp_add_raw_from_str(*packer, "archived_on_disk") ||
+        qp_add_int64(*packer, ti_.archive->archived_on_disk) ||
+        qp_add_raw_from_str(*packer, "events_in_archive") ||
+        qp_add_int64(*packer, ti_.archive->queue->n) ||
+        qp_add_raw_from_str(*packer, "local_stored_event_id") ||
+        qp_add_int64(*packer, ti_.archive->last_on_disk) ||
+        qp_add_raw_from_str(*packer, "global_commited_event_id") ||
+        qp_add_int64(*packer, ti_nodes_cevid()) ||
+        qp_add_raw_from_str(*packer, "local_commited_event_id") ||
+        qp_add_int64(*packer, ti_.node->cevid) ||
+        qp_close_map(*packer)
+    );
+}
+
+ti_val_t * ti_node_as_qpval(void)
+{
+    ti_raw_t * raw;
+    ti_val_t * qpval = NULL;
+    qp_packer_t * packer = qp_packer_create2(1024, 1);
+    if (!packer)
+        return NULL;
+
+    if (ti_node_to_packer(&packer))
+        goto fail;
+
+    raw = ti_raw_from_packer(packer);
+    if (!raw)
+        goto fail;
+
+    qpval = ti_val_weak_create(TI_VAL_QP, raw);
+    if (!qpval)
+        ti_raw_drop(raw);
+
+fail:
+    qp_packer_destroy(packer);
+    return qpval;
 }
 
 static qp_packer_t * ti__pack(void)

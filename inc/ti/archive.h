@@ -13,8 +13,10 @@ typedef struct ti_archive_s  ti_archive_t;
 
 struct ti_archive_s
 {
-    size_t archived_on_disk;        /* number of events stored on disk */
-    size_t last_on_disk;            /* last event id written on disk, this
+    size_t archived_on_disk;        /* number of events stored on disk since
+                                       the last full store, the actual amount
+                                       stored can be higher */
+    uint64_t * sevid;               /* last event id written on disk, this
                                        value is also updated if a full store is
                                        done
                                     */

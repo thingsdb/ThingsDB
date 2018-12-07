@@ -27,11 +27,13 @@ static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -486,7 +488,7 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     cleri_node_t * name_nd;
     ti_task_t * task;
-    ti_name_t * name = NULL;
+    ti_name_t * name;
     ti_thing_t * thing;
     ti_raw_t * rname;
 
@@ -541,8 +543,7 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = query->rval->via.raw;
     name = ti_names_weak_get((const char *) rname->data, rname->n);
 
-    /* we do need a name reference since ti_thing_del might remove one */
-    if (!ti_grab(name) || !ti_thing_del(thing, name))
+    if (!name || !ti_thing_del(thing, name))
     {
         if (ti_name_is_valid_strn((const char *) rname->data, rname->n))
         {
@@ -557,27 +558,21 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     "function `del` expects argument 1 to be a valid name, "
                     "see "TI_DOCS"#names");
         }
-        goto finish;
+        return e->nr;
     }
 
     task = ti_task_get_task(query->ev, thing, e);
     if (!task)
-        goto finish;
+        return e->nr;
 
-    if (ti_task_add_del(task, name))
-        goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `query->ev->tasks` */
+    if (ti_task_add_del(task, rname))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
 
     ti_val_clear(query->rval);
-    ti_val_set_nil(query->rval);
 
-    goto finish;
-
-alloc_err:
-    ex_set_alloc(e);
-
-finish:
-    ti_name_drop(name);
     return e->nr;
 }
 
@@ -1033,6 +1028,56 @@ static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = query_get_val(query);
+
+    if (!val || !ti_val_is_iterable(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `len`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `len` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (query_rval_clear(query))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    switch (val->tp)
+    {
+    case TI_VAL_RAW:
+        ti_val_set_int(query->rval, val->via.raw->n);
+        break;
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+    case TI_VAL_THINGS:
+        ti_val_set_int(query->rval, val->via.arr->n);
+        break;
+    case TI_VAL_THING:
+        ti_val_set_int(query->rval, val->via.thing->props->n);
+        break;
+    }
+
+    assert (query->rval->tp == TI_VAL_INT);
+
+    return e->nr;
+}
+
 static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1426,6 +1471,157 @@ done:
     return e->nr;
 }
 
+static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int n;
+    ti_thing_t * thing;
+    cleri_node_t * from_nd, * to_nd;
+    ti_val_t * from_val;
+    ti_raw_t * from_raw, * to_raw;
+    ti_name_t * from_name, * to_name;
+    ti_task_t * task;
+
+    if (!query_is_thing(query))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `del`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    thing = query_get_thing(query);
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `rename` requires a thing to be assigned, "
+                "`del` should therefore be used in a separate statement");
+        return e->nr;
+    }
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `rename` expects 2 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    /* TODO: maybe this is possible? */
+    if (query_in_use_thing(query))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "cannot use `rename` while thing "TI_THING_ID" is in use");
+        return e->nr;
+    }
+
+    from_nd = nd
+            ->children->node;
+    to_nd = nd
+            ->children->next->next->node;
+
+    if (ti_cq_scope(query, from_nd, e))
+        return e->nr;
+
+    from_val = query->rval;
+    if (!ti_val_is_raw(from_val))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `rename` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_RAW),
+                ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    from_raw = from_val->via.raw;
+    from_name = ti_names_weak_get((const char *) from_raw->data, from_raw->n);
+
+    if (!from_name)
+    {
+        if (!ti_val_is_valid_name(query->rval))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `rename` expects argument 1 to be a valid name, "
+                    "see "TI_DOCS"#names");
+        }
+        else
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "thing "TI_THING_ID" has no property `%.*s`",
+                    thing->id,
+                    (int) from_raw->n, (const char *) from_raw->data);
+        }
+        return e->nr;
+    }
+
+    query->rval = NULL;
+
+    if (ti_cq_scope(query, to_nd, e))
+        goto finish;
+
+    if (!ti_val_is_valid_name(query->rval))
+    {
+        if (ti_val_is_raw(query->rval))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `rename` expects argument 2 to be a valid name, "
+                    "see "TI_DOCS"#names");
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "function `rename` expects argument 2 to be of type `%s` "
+                    "but got `%s`",
+                    ti_val_tp_str(TI_VAL_RAW),
+                    ti_val_str(query->rval));
+        }
+        goto finish;
+    }
+
+
+    to_raw = query->rval->via.raw;
+    to_name = ti_names_get((const char *) to_raw->data, to_raw->n);
+    if (!to_name)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (!ti_thing_rename(thing, from_name, to_name))
+    {
+        ti_name_drop(to_name);
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id,
+                (int) from_raw->n, (const char *) from_raw->data);
+        goto finish;
+    }
+
+    task = ti_task_get_task(query->ev, thing, e);
+    if (!task)
+        goto finish;
+
+    if (ti_task_add_rename(task, from_raw, to_raw))
+        goto alloc_err;  /* we do not need to cleanup task, since the task
+                            is added to `query->ev->tasks` */
+
+    ti_val_clear(query->rval);
+
+    goto finish;
+
+alloc_err:
+    ex_set_alloc(e);
+
+finish:
+    ti_val_destroy(from_val);
+    return e->nr;
+}
+
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1805,7 +2001,6 @@ static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_attr_unset(thing, name);
 
     ti_val_clear(query->rval);
-    ti_val_set_nil(query->rval);
 
     goto finish;
 
@@ -1880,6 +2075,8 @@ static int cq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return cq__f_get(query, params, e);
     case CLERI_GID_F_ID:
         return cq__f_id(query, params, e);
+    case CLERI_GID_F_LEN:
+        return cq__f_len(query, params, e);
     case CLERI_GID_F_LOWER:
         return cq__f_lower(query, params, e);
     case CLERI_GID_F_MAP:
@@ -1890,6 +2087,8 @@ static int cq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return cq__f_now(query, params, e);
     case CLERI_GID_F_PUSH:
         return cq__f_push(query, params, e);
+    case CLERI_GID_F_RENAME:
+        return cq__f_rename(query, params, e);
     case CLERI_GID_F_RET:
         return cq__f_ret(query, params, e);
     case CLERI_GID_F_SET:

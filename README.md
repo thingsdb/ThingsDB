@@ -46,7 +46,7 @@
         - [x] `upper`
         - [x] `del`
         - [x] `push`
-        - [ ] `rename`
+        - [x] `rename`
         - [x] `set`
         - [ ] `splice`
         - [x] `unset`
@@ -55,7 +55,7 @@
     - [x] `assign`
     - [x] `del`
     - [x] `push`
-    - [ ] `rename`
+    - [x] `rename`
     - [x] `set`
     - [ ] `splice`
     - [x] `unset`
@@ -64,7 +64,7 @@
     - [x] `assign`
     - [x] `del`
     - [x] `push`
-    - [ ] `rename`
+    - [x] `rename`
     - [x] `set`
     - [ ] `splice`
     - [x] `unset`
@@ -101,7 +101,7 @@
     - [x] AND
     - [x] OR
     - [x] Parenthesis
-- [ ]
+- [ ] Keep sevid ?? (lowest stored event_id on all nodes)
 - [x] Build first event on init
 - [x] Storing
     - [x] Full storage on disk

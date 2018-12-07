@@ -19,6 +19,10 @@ static int job__push(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
+static int job__rename(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp);
 static int job__set(
         ti_collection_t * collection,
         ti_thing_t * thing,
@@ -31,7 +35,10 @@ static int job__unset(
  * (Log function)
  * Unpacker should be at point 'job': ...
  */
-int ti_job_run(ti_collection_t * collection, ti_thing_t * thing, qp_unpacker_t * unp)
+int ti_job_run(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
 {
     qp_obj_t qp_job_name;
     const uchar * raw;
@@ -53,6 +60,8 @@ int ti_job_run(ti_collection_t * collection, ti_thing_t * thing, qp_unpacker_t *
         return job__del(collection, thing, unp);
     case 'p':
         return job__push(collection, thing, unp);
+    case 'r':
+        return job__rename(collection, thing, unp);
     case 's':
         return job__set(collection, thing, unp);
     case 'u':
@@ -299,6 +308,64 @@ static int job__push(
 
     /* don't care if shrink fails */
     (void) vec_shrink(&arr->via.arr);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'from': 'to'}
+ */
+static int job__rename(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (thing);
+    assert (unp);
+
+    qp_obj_t qp_from, qp_to;
+    ti_name_t * from_name, * to_name;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, &qp_from)) ||
+        !qp_is_raw(qp_next(unp, &qp_to)))
+    {
+        log_critical(
+                "job `rename` property on "TI_THING_ID": "
+                "missing map or names",
+                thing->id);
+        return -1;
+    }
+
+    from_name = ti_names_weak_get((const char *) qp_from.via.raw, qp_from.len);
+    if (!from_name)
+    {
+        log_critical(
+                "job `rename` property on "TI_THING_ID": "
+                "missing property: `%.*s`",
+                thing->id,
+                (int) qp_from.len, (char *) qp_from.via.raw);
+        return -1;
+    }
+
+    to_name = ti_names_get((const char *) qp_to.via.raw, qp_to.len);
+    if (!to_name)
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    if (!ti_thing_rename(thing, from_name, to_name))
+    {
+        log_critical(
+                "job `rename` property on "TI_THING_ID": "
+                "missing property: `%s`",
+                thing->id,
+                from_name->str);
+        return -1;
+    }
 
     return 0;
 }

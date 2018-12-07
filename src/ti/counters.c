@@ -62,3 +62,59 @@ void ti_counters_upd_commit_event(struct timespec * start)
 
     counters->total_event_duration += duration;
 }
+
+int ti_counters_to_packer(qp_packer_t ** packer)
+{
+    return -(
+        qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, "queries_received") ||
+        qp_add_int64(*packer, counters->queries_received) ||
+        qp_add_raw_from_str(*packer, "events_with_gap") ||
+        qp_add_int64(*packer, counters->events_with_gap) ||
+        qp_add_raw_from_str(*packer, "events_skipped") ||
+        qp_add_int64(*packer, counters->events_skipped) ||
+        qp_add_raw_from_str(*packer, "events_failed") ||
+        qp_add_int64(*packer, counters->events_failed) ||
+        qp_add_raw_from_str(*packer, "events_killed") ||
+        qp_add_int64(*packer, counters->events_killed) ||
+        qp_add_raw_from_str(*packer, "events_committed") ||
+        qp_add_int64(*packer, counters->events_committed) ||
+        qp_add_raw_from_str(*packer, "events_quorum_lost") ||
+        qp_add_int64(*packer, counters->events_quorum_lost) ||
+        qp_add_raw_from_str(*packer, "events_unaligned") ||
+        qp_add_int64(*packer, counters->events_unaligned) ||
+        qp_add_raw_from_str(*packer, "garbage_collected") ||
+        qp_add_int64(*packer, counters->garbage_collected) ||
+        qp_add_raw_from_str(*packer, "longest_event_duration") ||
+        qp_add_double(*packer, counters->longest_event_duration) ||
+        qp_add_raw_from_str(*packer, "average_event_duration") ||
+        qp_add_double(*packer, counters->events_committed
+            ? counters->total_event_duration / counters->events_committed
+            : 0.0f) ||
+        qp_close_map(*packer)
+    );
+}
+
+ti_val_t * ti_counters_as_qpval(void)
+{
+    ti_raw_t * raw;
+    ti_val_t * qpval = NULL;
+    qp_packer_t * packer = qp_packer_create2(512, 1);
+    if (!packer)
+        return NULL;
+
+    if (ti_counters_to_packer(&packer))
+        goto fail;
+
+    raw = ti_raw_from_packer(packer);
+    if (!raw)
+        goto fail;
+
+    qpval = ti_val_weak_create(TI_VAL_QP, raw);
+    if (!qpval)
+        ti_raw_drop(raw);
+
+fail:
+    qp_packer_destroy(packer);
+    return qpval;
+}

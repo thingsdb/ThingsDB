@@ -402,7 +402,6 @@ static void events__loop(uv_async_t * UNUSED(handle))
     ti_event_t * ev;
     util_time_t timing;
 
-    /* TODO: is this lock still required ??? depends... */
     if (uv_mutex_trylock(events->lock))
         return;
 

@@ -21,14 +21,16 @@ struct ti_archive_s
                                        done
                                     */
     char * path;
-    char * nodes_cevid_fn;          /* this file contains the last cevid
-                                       by ALL nodes, saved at cleanup */
+    char * nodes_scevid_fn;         /* this file contains the last cevid
+                                       and sevid by ALL nodes, saved at
+                                       cleanup
+                                    */
     queue_t * queue;                /* ordered ti_epkg_t on event_id */
 };
 
 int ti_archive_create(void);
 void ti_archive_destroy(void);
-int ti_archive_write_nodes_cevid(void);
+int ti_archive_write_nodes_scevid(void);
 ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg);
 int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);

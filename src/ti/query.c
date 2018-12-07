@@ -87,6 +87,7 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
     const char * ebad = "invalid query request, see "TI_DOCS"#query";
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
+    size_t max_raw = 0;
 
     query->pkg_id = pkg->id;
 
@@ -107,6 +108,10 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
             }
+
+            if (val.len > max_raw)
+                max_raw = val.len;
+
             query->querystr = qpx_obj_raw_to_str(&val);
             if (!query->querystr)
             {
@@ -155,6 +160,9 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
                     ex_set_alloc(e);
                     goto finish;
                 }
+
+                if (blob->n > max_raw)
+                    max_raw = blob->n;
             }
             continue;
         }
@@ -165,6 +173,11 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
             goto finish;
         }
     }
+
+    if (query->target && max_raw >= query->target->quota->max_raw_size)
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum raw size quota of %zu bytes is reached, "
+                "see "TI_DOCS"#quotas", query->target->quota->max_raw_size);
 
 finish:
     return e->nr;

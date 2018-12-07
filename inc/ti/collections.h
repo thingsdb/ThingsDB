@@ -29,8 +29,13 @@ ti_collection_t * ti_collections_get_by_qp_obj(
         qp_obj_t * obj,
         _Bool allow_root,
         ex_t * e);
-ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e);
+ti_collection_t * ti_collections_get_by_val(
+        ti_val_t * val,
+        _Bool allow_root,
+        ex_t * e);
 void ti_collections_get(ti_stream_t * sock, ti_pkg_t * pkg, ex_t * e);
+int ti_collections_to_packer(qp_packer_t ** packer);
+ti_val_t * ti_collections_as_qpval(void);
 
 struct ti_collections_s
 {

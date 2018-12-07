@@ -194,7 +194,10 @@ ti_collection_t * ti_collections_get_by_qp_obj(
  * - if the collection target is `root`, then the return value is NULL and
  *   e->nr is EX_SUCCESS
  */
-ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
+ti_collection_t * ti_collections_get_by_val(
+        ti_val_t * val,
+        _Bool allow_root,
+        ex_t * e)
 {
     ti_collection_t * collection = NULL;
     switch (val->tp)
@@ -212,7 +215,13 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
         break;
     case TI_VAL_INT:
         if (val->via.int_ == 0)
-            ex_set(e, EX_SUCCESS, "collection target is root");
+        {
+            if (allow_root)
+                ex_set(e, EX_SUCCESS, "collection target is root");
+            else
+                ex_set(e, EX_INDEX_ERROR,
+                        TI_COLLECTION_ID" not found", (uint64_t) 0);
+        }
         else
         {
             uint64_t id = (uint64_t) val->via.int_;
@@ -230,5 +239,41 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
                 ti_val_tp_str(TI_VAL_RAW), ti_val_tp_str(TI_VAL_INT));
     }
     return collection;
+}
+
+int ti_collections_to_packer(qp_packer_t ** packer)
+{
+    if (qp_add_array(packer))
+        return -1;
+
+    for (vec_each(collections->vec, ti_collection_t, collection))
+        if (ti_collection_to_packer(collection, packer))
+            return -1;
+
+    return qp_close_array(*packer);
+}
+
+ti_val_t * ti_collections_as_qpval(void)
+{
+    ti_raw_t * raw;
+    ti_val_t * qpval = NULL;
+    qp_packer_t * packer = qp_packer_create2(collections->vec->n * 128, 2);
+    if (!packer)
+        return NULL;
+
+    if (ti_collections_to_packer(&packer))
+        goto fail;
+
+    raw = ti_raw_from_packer(packer);
+    if (!raw)
+        goto fail;
+
+    qpval = ti_val_weak_create(TI_VAL_QP, raw);
+    if (!qpval)
+        ti_raw_drop(raw);
+
+fail:
+    qp_packer_destroy(packer);
+    return qpval;
 }
 

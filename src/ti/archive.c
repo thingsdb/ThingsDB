@@ -17,12 +17,12 @@
 #define ARCHIVE__THRESHOLD_FULL 0
 
 static const char * archive__path           = ".archive/";
-static const char * archive__nodes_cevid    = ".nodes_cevid.dat";
+static const char * archive__nodes_scevid    = ".nodes_scevid.dat";
 
 static int archive__init_queue(void);
 static _Bool archive__is_file(const char * fn);
 static int archive__load_file(const char * fn);
-static int archive__read_nodes_cevid(void);
+static int archive__read_nodes_scevid(void);
 static int archive__to_disk(void);
 static int archive__remove_files(void);
 
@@ -37,7 +37,7 @@ int ti_archive_create(void)
 
     archive->queue = queue_new(0);
     archive->path = NULL;
-    archive->nodes_cevid_fn = NULL;
+    archive->nodes_scevid_fn = NULL;
     archive->archived_on_disk = 0;
     archive->sevid = NULL;
 
@@ -57,19 +57,21 @@ void ti_archive_destroy(void)
         return;
     queue_destroy(archive->queue, (queue_destroy_cb) ti_epkg_drop);
     free(archive->path);
-    free(archive->nodes_cevid_fn);
+    free(archive->nodes_scevid_fn);
     free(archive);
     archive = ti()->archive = NULL;
 }
 
-int ti_archive_write_nodes_cevid(void)
+int ti_archive_write_nodes_scevid(void)
 {
     uint64_t cevid = ti_nodes_cevid();
-    FILE * f = fopen(archive->nodes_cevid_fn, "w");
+    uint64_t sevid = ti_nodes_sevid();
+    FILE * f = fopen(archive->nodes_scevid_fn, "w");
     if (!f)
         return -1;
 
-    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1)
+    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
+        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
         goto failed;
 
     return fclose(f);
@@ -130,13 +132,13 @@ int ti_archive_load(void)
     if (!archive->path)
         return -1;
 
-    archive->nodes_cevid_fn = fx_path_join(
+    archive->nodes_scevid_fn = fx_path_join(
             archive->path,
-            archive__nodes_cevid);
-    if (!archive->nodes_cevid_fn)
+            archive__nodes_scevid);
+    if (!archive->nodes_scevid_fn)
         return -1;
 
-    archive__read_nodes_cevid();
+    archive__read_nodes_scevid();
 
     if (!fx_is_dir(archive->path))
     {
@@ -210,7 +212,6 @@ int ti_archive_to_disk(void)
             archive->archived_on_disk = 0;
             goto success;
         }
-
         /* store has failed, try archive to disk */
     }
 
@@ -335,22 +336,25 @@ failed:
     return -1;
 }
 
-static int archive__read_nodes_cevid(void)
+static int archive__read_nodes_scevid(void)
 {
-    assert (archive->nodes_cevid_fn);
+    assert (archive->nodes_scevid_fn);
     assert (ti()->nodes->cevid == 0);
 
-    uint64_t cevid;
-    FILE * f = fopen(archive->nodes_cevid_fn, "r");
+    uint64_t cevid, sevid;
+    FILE * f = fopen(archive->nodes_scevid_fn, "r");
     if (!f)
         return -1;
 
-    if (fread(&cevid, sizeof(uint64_t), 1, f))
+    if (fread(&cevid, sizeof(uint64_t), 1, f) ||
+        fread(&sevid, sizeof(uint64_t), 1, f))
         goto failed;
 
     log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
+    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
 
     ti()->nodes->cevid = cevid;
+    ti()->nodes->sevid = sevid;
 
     return fclose(f);
 
@@ -416,7 +420,7 @@ static int archive__remove_files(void)
     int rc = 0;
     struct dirent * p;
     char buf[strlen(archive->path) + ARCHIVE__FILE_LEN + 1];
-    uint64_t cevid = ti()->nodes->cevid;
+    uint64_t sevid = ti_nodes_sevid();
 
     DIR * d = opendir(archive->path);
     if (!d)
@@ -430,7 +434,7 @@ static int archive__remove_files(void)
             continue;
 
         event_id = strtoull(p->d_name, NULL, 10);
-        if (event_id > cevid)
+        if (event_id > sevid)
             continue;
 
         (void) sprintf(buf, "%s%s", archive->path, p->d_name);

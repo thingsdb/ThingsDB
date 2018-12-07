@@ -36,8 +36,8 @@ async def test():
         /*
          * test query
          */
-        counters();
-        node();
+        collection('test');
+        collections();
         /* new_collection('test2'); */
 
         ''', timeout=2, target=0)
@@ -61,7 +61,7 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(14.5)
     print('-----------------------------------------------------------------')
 
 

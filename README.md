@@ -4,13 +4,13 @@
 
 - [ ] 64Bit Requirements, support 64 bit only?? else change this following
     - [ ] wareq uses uinpntr_t for 64bit thing id's
-    - [ ] if we do require 64bit, then we can take advantage
+- [x] In case of WORD_SIZE 64, we can cache integer values
 - [ ] Special floats
     - [ ] Inf
     - [ ] NaN
     - [ ] (negative) Inf
-- [ ] We can make indexing by scope instead of fixed integer, but allowing only
-      fixed integers makes it a bit faster and easier
+* [ ] We can make `indexing by scope` instead of using a fixed integer, but
+      allowing only fixed integers makes it a bit faster and easier
 - [ ] Overflow handling? Right now ThingsDB is naive
 - [x] Refactor
     - [x] database -> collection
@@ -101,7 +101,12 @@
     - [x] AND
     - [x] OR
     - [x] Parenthesis
-- [ ] Keep sevid ?? (lowest stored event_id on all nodes)
+- [x] Keep lowest stored event_id on all nodes
+- [x] Implement collection quotas
+    - [x] max things
+    - [x] max array size
+    - [x] max raw size
+    - [x] max properties
 - [x] Build first event on init
 - [x] Storing
     - [x] Full storage on disk
@@ -170,8 +175,9 @@
         - [ ] In nodes -> ti_nodes_new_node function
 - [ ] Root
     - [ ] functions
-        - [ ] `collection`
-        - [ ] `collections`
+        - [x] `collection`
+        - [x] `collections`
+        - [x] `counters`
         - [ ] `del_collection`
         - [ ] `pop_node` --> pop so we do not need to replace node id's
         - [x] `del_user`
@@ -179,12 +185,13 @@
         - [x] `new_collection`
         - [ ] `new_node`
         - [x] `new_user`
-        - [ ] `node`
-        - [ ] `nodes`
-        - [ ] `reset_counters`
+        - [x] `node`
+        - [x] `nodes`
+        - [x] `reset_counters`
         - [x] `revoke`
         - [x] `user`
         - [x] `users`
+        - [x] `shutdown`
     - [ ] jobs
         - [ ] `del_collection`
         - [ ] `pop_node` ?? --> pop so we do not need to replace node id's

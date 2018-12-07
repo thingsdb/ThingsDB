@@ -16,6 +16,7 @@
 #include <util/strx.h>
 #include <util/util.h>
 
+
 static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__arrow(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -173,6 +174,14 @@ static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->node         /* list */
             ->children;
 
+    if (sz >= query->target->quota->max_array_size)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum array size quota of %zu has been reached, "
+                "see "TI_DOCS"#quotas", query->target->quota->max_array_size);
+        return e->nr;
+    }
+
     arr = vec_new(sz);
     if (!arr)
     {
@@ -256,7 +265,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (thing->props->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
-                    "maximum properties quota of %u has been reached, "
+                    "maximum properties quota of %zu has been reached, "
                     "see "TI_DOCS"#quotas", max_props);
             return e->nr;
         }
@@ -683,7 +692,17 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (iter_thing)
     {
-        ti_thing_t * thing = ti_thing_create(0, query->target->things);
+        ti_thing_t * thing;
+
+        if (query->target->things->n >= query->target->quota->max_things)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                    "maximum things quota of %zu has been reached, "
+                    "see "TI_DOCS"#quotas", query->target->quota->max_things);
+            goto failed;
+        }
+
+        thing = ti_thing_create(0, query->target->things);
         if (!thing)
             goto failed;
 
@@ -1375,7 +1394,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     int n;
     cleri_children_t * child = nd->children;    /* first in argument list */
-    uint32_t current_n;
+    uint32_t current_n, new_n;
 
     ti_val_t * val = query_get_val(query);
     _Bool from_rval = val == query->rval;
@@ -1405,7 +1424,17 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     current_n = val->via.arr->n;
-    if (vec_resize(&val->via.arr, current_n + n))
+    new_n = current_n + n;
+
+    if (new_n >= query->target->quota->max_array_size)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum array size quota of %zu has been reached, "
+                "see "TI_DOCS"#quotas", query->target->quota->max_array_size);
+        return e->nr;
+    }
+
+    if (vec_resize(&val->via.arr, new_n))
     {
         ex_set_alloc(e);
         return e->nr;
@@ -2411,6 +2440,15 @@ static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     cleri_children_t * child;
     size_t max_props = query->target->quota->max_props;
+    size_t max_things = query->target->quota->max_things;
+
+    if (query->target->things->n >= max_things)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum things quota of %zu has been reached, "
+                "see "TI_DOCS"#quotas", max_things);
+        return e->nr;
+    }
 
     query_rval_destroy(query);
 
@@ -2427,7 +2465,7 @@ static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (thing->props->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
-                    "maximum properties quota of %u has been reached, "
+                    "maximum properties quota of %zu has been reached, "
                     "see "TI_DOCS"#quotas", max_props);
             goto err;
         }

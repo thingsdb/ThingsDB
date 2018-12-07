@@ -16,6 +16,8 @@
 #include <langdef/nd.h>
 #include <util/query.h>
 
+static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_counters_reset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -23,7 +25,9 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -37,6 +41,66 @@ int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->flags &= ~TI_QUERY_FLAG_ROOT_NESTED;
     return rq__scope(query, nd, e);
 }
+
+static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    ti_collection_t * collection;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `collection` takes 1 argument but %d were given",
+                n);
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    collection = ti_collections_get_by_val(query->rval, false, e);
+    query_rval_destroy(query);
+
+    if (e->nr)
+        return e->nr;
+
+    assert (collection);
+
+    query->rval = ti_collection_as_qpval(collection);
+    if (!query->rval)
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
+static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `collections` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    query->rval = ti_collections_as_qpval();
+    if (!query->rval)
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 
 static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -65,6 +129,11 @@ static int rq__f_counters_reset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (query->rval == NULL);
+
+    /* check for privileges */
+    if (ti_access_check_err(ti()->access,
+            query->stream->via.user, TI_AUTH_MODIFY, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
@@ -177,7 +246,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     assert (e->nr == 0);
-    target = ti_collections_get_by_val(query->rval, e);
+    target = ti_collections_get_by_val(query->rval, true, e);
     if (e->nr)
         return e->nr;
 
@@ -412,6 +481,29 @@ static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `nodes` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    query->rval = ti_nodes_info_as_qpval();
+    if (!query->rval)
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -441,7 +533,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     assert (e->nr == 0);
-    target = ti_collections_get_by_val(query->rval, e);
+    target = ti_collections_get_by_val(query->rval, true, e);
     if (e->nr)
         return e->nr;
 
@@ -512,6 +604,33 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* rval is an integer, we can simply overwrite */
     ti_val_set_nil(query->rval);
+
+    return e->nr;
+}
+
+static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->rval == NULL);
+
+    /* check for privileges */
+    if (ti_access_check_err(ti()->access,
+            query->stream->via.user, TI_AUTH_MODIFY, e))
+        return e->nr;
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `shutdown` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    ti_stop_slow();
+
+    if (query_rval_clear(query))
+        ex_set_alloc(e);
 
     return e->nr;
 }
@@ -607,6 +726,10 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (*fname->str)
     {
     case 'c':
+        if (langdef_nd_match_str(fname, "collection"))
+            return rq__f_collection(query, params, e);
+        if (langdef_nd_match_str(fname, "collections"))
+            return rq__f_collections(query, params, e);
         if (langdef_nd_match_str(fname, "counters"))
             return rq__f_counters(query, params, e);
         if (langdef_nd_match_str(fname, "counters_reset"))
@@ -627,10 +750,16 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return rq__f_new_user(query, params, e);
         if (langdef_nd_match_str(fname, "node"))
             return rq__f_node(query, params, e);
+        if (langdef_nd_match_str(fname, "nodes"))
+            return rq__f_nodes(query, params, e);
         break;
     case 'r':
         if (langdef_nd_match_str(fname, "revoke"))
             return rq__f_revoke(query, params, e);
+        break;
+    case 's':
+        if (langdef_nd_match_str(fname, "shutdown"))
+            return rq__f_shutdown(query, params, e);
         break;
     case 'u':
         if (langdef_nd_match_str(fname, "user"))

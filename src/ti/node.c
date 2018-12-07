@@ -73,6 +73,15 @@ const char * ti_node_status_str(ti_node_status_t status)
     return "UNKNOWN";
 }
 
+const char * ti_node_flags_str(ti_node_flags_t flags)
+{
+    if (flags & TI_NODE_FLAG_REMOVED)
+        return "REMOVED";
+    if (flags & TI_NODE_FLAG_MIGRATING)
+        return "MIGRATING";
+    return "NO_FLAGS";
+}
+
 int ti_node_connect(ti_node_t * node)
 {
     assert (!node->stream);

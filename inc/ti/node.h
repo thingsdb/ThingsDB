@@ -20,7 +20,7 @@ typedef enum
 typedef enum
 {
     TI_NODE_FLAG_MIGRATING  =1<<0,      /* migrating to desired state */
-    TI_NODE_FLAG_IS_REMOVED =1<<1,      /* node is removed, we should prevent
+    TI_NODE_FLAG_REMOVED    =1<<1,      /* node is removed, we should prevent
                                            removing more nodes than
                                            `redundancy` - 1
                                         */
@@ -60,6 +60,7 @@ ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
 void ti_node_drop(ti_node_t * node);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
+const char * ti_node_flags_str(ti_node_flags_t flags);
 int ti_node_connect(ti_node_t * node);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 

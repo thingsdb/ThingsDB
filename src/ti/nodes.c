@@ -25,6 +25,7 @@ int ti_nodes_create(void)
     /* make sure data is set to null, we use this on close */
     nodes->tcp.data = NULL;
     nodes->cevid = 0;
+    nodes->sevid = 0;
 
     nodes->vec = vec_new(0);
     memset(&nodes->addr, 0, sizeof(struct sockaddr_storage));
@@ -143,6 +144,20 @@ uint64_t ti_nodes_cevid(void)
     return nodes->cevid;
 }
 
+uint64_t ti_nodes_sevid(void)
+{
+    uint64_t m = *ti()->archive->sevid;
+
+    for (vec_each(ti()->nodes->vec, ti_node_t, node))
+        if (node->sevid < m)
+            m = node->sevid;
+
+    if (m > nodes->sevid)
+        nodes->sevid = m;
+
+    return nodes->cevid;
+}
+
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)
 {
     ti_node_t * node = ti_node_create(nodes->vec->n, addr);
@@ -249,8 +264,8 @@ ti_node_t * ti_nodes_random_ready_node(void)
 {
     ti_node_t * this_node = ti()->node;
     ti_node_t * online_nodes[nodes->vec->n-1];
-    uint32_t i = 0, n = 0;
-    for (vec_each(nodes->vec, ti_node_t, node), i++)
+    uint32_t n = 0;
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node == this_node || node->status != TI_NODE_STAT_READY)
             continue;
@@ -268,8 +283,8 @@ ti_node_t * ti_nodes_random_ready_node_for_id(uint64_t id)
 {
     ti_node_t * this_node = ti()->node;
     ti_node_t * online_nodes[nodes->vec->n-1];
-    uint32_t i = 0, n = 0;
-    for (vec_each(nodes->vec, ti_node_t, node), i++)
+    uint32_t n = 0;
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (    node == this_node ||
                 node->status != TI_NODE_STAT_READY ||
@@ -313,6 +328,67 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
                 pkg->tp,
                 ti_stream_name(stream));
     }
+}
+
+int ti_nodes_info_to_packer(qp_packer_t ** packer)
+{
+    ti_node_t * this_node = ti()->node;
+    if (qp_add_array(packer))
+        return -1;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (qp_add_map(packer) ||
+            qp_add_raw_from_str(*packer, "id") ||
+            qp_add_int64(*packer, node->id) ||
+            qp_add_raw_from_str(*packer, "status") ||
+            qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
+            qp_add_raw_from_str(*packer, "commited_event_id") ||
+            qp_add_int64(*packer, node->cevid) ||
+            qp_add_raw_from_str(*packer, "stored_event_id") ||
+            qp_add_int64(*packer, node->sevid))
+            return -1;
+
+        if ((this_node == node || node->stream) && (
+                qp_add_raw_from_str(*packer, "name") ||
+                qp_add_raw_from_str(*packer, ti_node_name(node))))
+            return -1;
+
+
+        if (node->flags && (
+                qp_add_raw_from_str(*packer, "flags") ||
+                qp_add_int64(*packer, node->flags)))
+            return -1;
+
+        if (qp_close_map(*packer))
+            return -1;
+    }
+
+    return qp_close_array(*packer);
+}
+
+ti_val_t * ti_nodes_info_as_qpval(void)
+{
+    ti_raw_t * raw;
+    ti_val_t * qpval = NULL;
+    qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 64, 2);
+    if (!packer)
+        return NULL;
+
+    if (ti_nodes_info_to_packer(&packer))
+        goto fail;
+
+    raw = ti_raw_from_packer(packer);
+    if (!raw)
+        goto fail;
+
+    qpval = ti_val_weak_create(TI_VAL_QP, raw);
+    if (!qpval)
+        ti_raw_drop(raw);
+
+fail:
+    qp_packer_destroy(packer);
+    return qpval;
 }
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)

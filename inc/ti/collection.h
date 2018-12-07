@@ -21,9 +21,14 @@ ti_collection_t * ti_collection_create(
         size_t n);
 void ti_collection_drop(ti_collection_t * collection);
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
+static inline int ti_collection_to_packer(
+        ti_collection_t * collection,
+        qp_packer_t ** packer);
+ti_val_t * ti_collection_as_qpval(ti_collection_t * collection);
 static inline void * ti_collection_thing_by_id(
         ti_collection_t * collection,
         uint64_t thing_id);
+
 
 struct ti_collection_s
 {
@@ -44,4 +49,37 @@ static inline void * ti_collection_thing_by_id(
 {
     return imap_get(collection->things, thing_id);
 }
+
+static inline int ti_collection_to_packer(
+        ti_collection_t * collection,
+        qp_packer_t ** packer)
+{
+    return (
+        qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, "id") ||
+        qp_add_int64(*packer, collection->root->id) ||
+        qp_add_raw_from_str(*packer, "name") ||
+        qp_add_raw(*packer, collection->name->data, collection->name->n) ||
+        qp_add_raw_from_str(*packer, "things") ||
+        qp_add_int64(*packer, collection->things->n) ||
+        qp_add_raw_from_str(*packer, "quota_max_things") ||
+        (collection->quota->max_things == SIZE_MAX
+                ? qp_add_null(*packer)
+                : qp_add_int64(*packer, collection->quota->max_things)) ||
+        qp_add_raw_from_str(*packer, "quota_properties") ||
+        (collection->quota->max_props == SIZE_MAX
+                ? qp_add_null(*packer)
+                : qp_add_int64(*packer, collection->quota->max_props)) ||
+        qp_add_raw_from_str(*packer, "quota_array_size") ||
+        (collection->quota->max_array_size == SIZE_MAX
+                ? qp_add_null(*packer)
+                : qp_add_int64(*packer, collection->quota->max_array_size)) ||
+        qp_add_raw_from_str(*packer, "quota_raw_size") ||
+        (collection->quota->max_raw_size == SIZE_MAX
+                ? qp_add_null(*packer)
+                : qp_add_int64(*packer, collection->quota->max_raw_size)) ||
+        qp_close_map(*packer)
+    );
+}
+
 #endif /* TI_COLLECTION_H_ */

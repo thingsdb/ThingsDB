@@ -270,6 +270,9 @@ finish:
 
 void ti_stop_slow(void)
 {
+    if (ti_.node)
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
+
     shutdown_timer = malloc(sizeof(uv_timer_t));
     if (!shutdown_timer)
         goto fail0;
@@ -370,7 +373,9 @@ ti_rpkg_t * ti_node_status_rpkg(void)
     (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, *ti()->next_thing_id);
     (void) qp_add_int64(packer, *ti()->events->cevid);
+    (void) qp_add_int64(packer, *ti()->archive->sevid);
     (void) qp_add_int64(packer, ti()->node->status);
+    (void) qp_add_int64(packer, ti()->node->flags);
     (void) qp_close_array(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
@@ -456,7 +461,7 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, "events_in_archive") ||
         qp_add_int64(*packer, ti_.archive->queue->n) ||
         qp_add_raw_from_str(*packer, "local_stored_event_id") ||
-        qp_add_int64(*packer, ti_.archive->last_on_disk) ||
+        qp_add_int64(*packer, ti_.node->sevid) ||
         qp_add_raw_from_str(*packer, "global_commited_event_id") ||
         qp_add_int64(*packer, ti_nodes_cevid()) ||
         qp_add_raw_from_str(*packer, "local_commited_event_id") ||

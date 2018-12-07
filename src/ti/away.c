@@ -291,7 +291,7 @@ static void away__work(uv_work_t * UNUSED(work))
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 
-    if (ti_archive_write_nodes_cevid())
+    if (ti_archive_write_nodes_scevid())
         log_warning(
                 "failed writing last nodes committed to disk: "TI_EVENT_ID,
                 ti()->events->cevid);

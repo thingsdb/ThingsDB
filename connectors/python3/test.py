@@ -2,8 +2,12 @@ import time
 import asyncio
 import logging
 import pprint
+import signal
 from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
+
+
+interrupted = False
 
 
 async def test():
@@ -53,7 +57,14 @@ async def test():
     start = time.time()
     try:
         res = await client.query(r'''
-        #name = 'Iris';
+
+        isnan(a.nan);
+        isinf(a.inf);
+        isinf(a.ninf);
+        isnan(7.0);
+        a;
+
+
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
@@ -61,13 +72,21 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    while True:
-        await asyncio.sleep(0.5)
+    while not interrupted:
+        await asyncio.sleep(0.1)
 
     print('-----------------------------------------------------------------')
 
 
+def signal_handler(signal, frame):
+    print('Quit...')
+    global interrupted
+    interrupted = True
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     loop = asyncio.get_event_loop()

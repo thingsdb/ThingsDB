@@ -202,7 +202,7 @@ _Bool strx_is_graphn(const char * str, size_t n)
 }
 
 /*
- * Requires a match with regular expression: [-+]?[0-9]*\.?[0-9]+
+ * Requires a match with regular expression: [-+]?(inf|nan|[0-9]*\.[0-9]+)
  */
 double strx_to_doublen(const char * str, size_t n)
 {
@@ -228,6 +228,12 @@ double strx_to_doublen(const char * str, size_t n)
     default:
         convert = 1.0;
     }
+
+    if (*str == 'i')
+        return convert * INFINITY;
+
+    if (*str == 'n')
+        return convert * NAN;
 
     for (; n && isdigit(*str); --n, ++str)
         r1 = 10 * r1 + *str - '0';

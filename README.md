@@ -5,10 +5,12 @@
 - [ ] 64Bit Requirements, support 64 bit only?? else change this following
     - [ ] wareq uses uinpntr_t for 64bit thing id's
 - [x] In case of WORD_SIZE 64, we can cache integer values
-- [ ] Special floats
-    - [ ] Inf
-    - [ ] NaN
-    - [ ] (negative) Inf
+- [x] Special floats
+    - [x] Inf
+    - [x] -Inf
+        - [x] Add `isinf` function for checking
+    - [x] NaN
+        - [x] Add `isnan` function for checking
 - [ ] ~~We can make `indexing by scope` instead of using a fixed integer, but
       allowing only fixed integers makes it a bit faster and easier~~
 - [ ] Overflow handling? Right now ThingsDB is naive
@@ -35,6 +37,8 @@
         - [x] `endswith`
         - [x] `filter`
         - [x] `get`
+        - [x] `isinf`
+        - [x] `isnan`
         - [x] `id`
         - [x] `lower`
         - [x] `map`

@@ -40,7 +40,7 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
-    t_float = Regex(r'[-+]?[0-9]*\.[0-9]+')
+    t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+)')
     t_int = Regex(r'[-+]?[0-9]+')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
@@ -58,6 +58,8 @@ class Definition(Grammar):
     f_filter = Keyword('filter')
     f_get = Keyword('get')
     f_id = Keyword('id')
+    f_isinf = Keyword('isinf')
+    f_isnan = Keyword('isnan')
     f_len = Keyword('len')
     f_lower = Keyword('lower')
     f_map = Keyword('map')
@@ -101,6 +103,8 @@ class Definition(Grammar):
         f_filter,       # (arrow) -> [return values where return is true]
         f_get,          # (str,..) -> attribute val
         f_id,           # () -> int
+        f_isinf,        # (float) -> bool
+        f_isnan,        # (float) -> bool
         f_len,          # () -> int
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
@@ -195,7 +199,7 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('a = (5 + 7);')
+    definition.test('a = 0.5;')
     # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

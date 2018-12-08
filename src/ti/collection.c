@@ -35,7 +35,6 @@ ti_collection_t * ti_collection_create(
     collection->quota = ti_quota_create();
     collection->lock = malloc(sizeof(uv_mutex_t));
 
-
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->access ||
@@ -57,10 +56,12 @@ void ti_collection_drop(ti_collection_t * collection)
         vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
 
         ti_thing_drop(collection->root);
-        ti_things_gc(collection->things, NULL);
 
-        assert (collection->things->n == 0);
-        imap_destroy(collection->things, NULL);
+        if (!collection->things->n)
+            imap_destroy(collection->things, NULL);
+        else if (ti_collections_add_for_collect(collection->things))
+            log_critical(EX_ALLOC_S);
+
         ti_quota_destroy(collection->quota);
         uv_mutex_destroy(collection->lock);
         free(collection->lock);

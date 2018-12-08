@@ -19,16 +19,19 @@ int ti_collections_create(void)
 {
     collections = malloc(sizeof(ti_collections_t));
     if (!collections)
-        goto failed;
+        return -1;
 
     collections->vec = vec_new(1);
-    if (!collections->vec)
+    collections->dropped = vec_new(1);
+    if (!collections->vec || !collections->dropped)
         goto failed;
 
     ti()->collections = collections;
     return 0;
 
 failed:
+    vec_destroy(collections->vec, NULL);
+    vec_destroy(collections->dropped, NULL);
     free(collections);
     collections = NULL;
     return -1;
@@ -39,8 +42,49 @@ void ti_collections_destroy(void)
     if (!collections)
         return;
     vec_destroy(collections->vec, (vec_destroy_cb) ti_collection_drop);
+
+    (void) ti_collections_gc_collect_dropped();
+    assert (collections->dropped->n == 0);
+    vec_destroy(collections->dropped, NULL);
+
     free(collections);
     ti()->collections = collections = NULL;
+}
+
+_Bool ti_collections_del_collection(const uint64_t collection_id)
+{
+    uint32_t i = 0;
+    for (vec_each(collections->vec, ti_collection_t, collection), ++i)
+        if (collection->root->id == collection_id)
+            break;
+    if (i == collections->vec->n)
+        return false;
+    ti_collection_drop(vec_remove(collections->vec, i));
+    return true;
+}
+
+int ti_collections_add_for_collect(imap_t * things)
+{
+    return vec_push(&collections->dropped, things);
+}
+
+int ti_collections_gc_collect_dropped(void)
+{
+    int rc = 0;
+    imap_t * things;
+    while ((things = vec_pop(collections->dropped)))
+    {
+        if (ti_things_gc(things, NULL))
+        {
+            rc = -1;
+            log_critical(EX_ALLOC_S);
+            continue;
+        }
+
+        assert (!things->n);
+        imap_destroy(things, NULL);
+    }
+    return rc;
 }
 
 ti_collection_t * ti_collections_create_collection(
@@ -276,4 +320,3 @@ fail:
     qp_packer_destroy(packer);
     return qpval;
 }
-

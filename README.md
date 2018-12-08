@@ -9,8 +9,8 @@
     - [ ] Inf
     - [ ] NaN
     - [ ] (negative) Inf
-* [ ] We can make `indexing by scope` instead of using a fixed integer, but
-      allowing only fixed integers makes it a bit faster and easier
+- [ ] ~~We can make `indexing by scope` instead of using a fixed integer, but
+      allowing only fixed integers makes it a bit faster and easier~~
 - [ ] Overflow handling? Right now ThingsDB is naive
 - [x] Refactor
     - [x] database -> collection
@@ -31,7 +31,7 @@
     - [ ] Functions:
         - [x] `blob`
             - [x] array implementation
-            - [*] Future feature: map implementation
+            - [ ] ~~Future feature: map implementation~~
         - [x] `endswith`
         - [x] `filter`
         - [x] `get`
@@ -178,7 +178,8 @@
         - [x] `collection`
         - [x] `collections`
         - [x] `counters`
-        - [ ] `del_collection`
+        - [x] `del_collection`
+            - [x] Make sure dropped collections will be garbage collected while in away mode
         - [ ] `pop_node` --> pop so we do not need to replace node id's
         - [x] `del_user`
         - [x] `grant`

@@ -274,6 +274,9 @@ static void away__work(uv_work_t * UNUSED(work))
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
+    /* garbage collect dropped collections */
+    (void) ti_collections_gc_collect_dropped();
+
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
         uv_mutex_lock(collection->lock);

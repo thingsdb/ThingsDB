@@ -9,6 +9,7 @@
 #include <ti/access.h>
 #include <util/qpx.h>
 
+static int rjob__del_collection(qp_unpacker_t * unp);
 static int rjob__del_user(qp_unpacker_t * unp);
 static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
@@ -28,6 +29,8 @@ int ti_rjob_run(qp_unpacker_t * unp)
     switch (*qp_job_name.via.raw)
     {
     case 'd':
+        if (qpx_obj_eq_str(&qp_job_name, "del_collection"))
+            return rjob__del_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_user"))
             return rjob__del_user(unp);
         break;
@@ -51,6 +54,36 @@ int ti_rjob_run(qp_unpacker_t * unp)
             (int) qp_job_name.len,
             (char *) qp_job_name.via.raw);
     return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: id
+ */
+static int rjob__del_collection(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    uint64_t collection_id;
+    qp_obj_t qp_collection;
+
+    if (!qp_is_int(qp_next(unp, &qp_collection)))
+    {
+        log_critical("job `del_collection`: invalid format");
+        return -1;
+    }
+
+    collection_id = (uint64_t) qp_collection.via.int64;
+
+    if (!ti_collections_del_collection(collection_id))
+    {
+        log_critical(
+                "job `del_collection`: "TI_COLLECTION_ID" not found",
+                collection_id);
+        return -1;
+    }
+
+    return 0;
 }
 
 /*
@@ -82,6 +115,7 @@ static int rjob__del_user(qp_unpacker_t * unp)
     ti_users_del_user(user);
     return 0;
 }
+
 /*
  * Returns 0 on success
  * - for example: {'target':id, 'user':name, 'mask': integer}

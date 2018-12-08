@@ -36,7 +36,7 @@ async def test():
         /*
          * test query
          */
-        collection('test');
+        /* del_collection('test2'); */
         collections();
         /* new_collection('test2'); */
 
@@ -53,7 +53,7 @@ async def test():
     start = time.time()
     try:
         res = await client.query(r'''
-        name = 'Iris';
+        #name = 'Iris';
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
@@ -61,7 +61,9 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    await asyncio.sleep(14.5)
+    while True:
+        await asyncio.sleep(0.5)
+
     print('-----------------------------------------------------------------')
 
 

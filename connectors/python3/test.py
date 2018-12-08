@@ -58,11 +58,8 @@ async def test():
     try:
         res = await client.query(r'''
 
-        isnan(a.nan);
-        isinf(a.inf);
-        isinf(a.ninf);
-        isnan(7.0);
-        a;
+        f = 5.3;
+        f;
 
 
         ''', blobs=["bla"], timeout=2)

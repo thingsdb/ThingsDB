@@ -433,6 +433,15 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 }
                 #endif
                 break;
+            case CLERI_GID_T_FLOAT:
+                #if __WORDSIZE == 64
+                {
+                    assert (sizeof(double) == sizeof(void *));
+                    double d = strx_to_doublen(nd->str, nd->len);
+                    memcpy(&nd->children->node->data , &d, sizeof(double));
+                }
+                #endif
+                break;
             case CLERI_GID_T_STRING:
             case CLERI_GID_T_REGEX:
                 ++query->nd_cache_count;

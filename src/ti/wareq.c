@@ -10,6 +10,8 @@
 #include <ti/fwd.h>
 #include <util/qpx.h>
 
+#define WAREQ__USE_VOID_POINTER __WORDSIZE == 64
+
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__task_cb(uv_async_t * task);
@@ -94,8 +96,17 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
             while(n-- && qp_is_int(qp_next(&unpacker, &val)))
             {
-                /* TODO: here we depend on 64 bit word size */
+                #if WAREQ__USE_VOID_POINTER
                 uintptr_t id = (uintptr_t) val.via.int64;
+                #else
+                uint64_t * id = malloc(sizeof(uint64_t));
+                if (!id)
+                {
+                    ex_set_alloc(e);
+                    goto finish;
+                }
+                *id = (uint64_t) val.via.int64;
+                #endif
                 if (vec_push(&wareq->thing_ids, (void *) id))
                 {
                     ex_set_alloc(e);
@@ -126,7 +137,11 @@ int ti_wareq_run(ti_wareq_t * wareq)
 
 static void wareq__destroy(ti_wareq_t * wareq)
 {
+    #if WAREQ__USE_VOID_POINTER
     vec_destroy(wareq->thing_ids, NULL);
+    #else
+    vec_destroy(wareq->thing_ids, free);
+    #endif
     ti_stream_drop(wareq->stream);
     ti_collection_drop(wareq->collection);
     free(wareq->task);
@@ -143,7 +158,6 @@ static void wareq__task_cb(uv_async_t * task)
 {
     ti_wareq_t * wareq = task->data;
     ti_thing_t * thing;
-    uintptr_t id;
     uint32_t n = wareq->thing_ids->n;
     ti_watch_t * watch;
 
@@ -174,7 +188,14 @@ static void wareq__task_cb(uv_async_t * task)
 
     while (n--)
     {
-        id = (uintptr_t) vec_pop(wareq->thing_ids);
+        #if WAREQ__USE_VOID_POINTER
+        uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
+        #else
+        uint64_t * idp = vec_pop(wareq->thing_ids);
+        uint64_t id = *idp;
+        free(idp);
+        #endif
+
         thing = imap_get(wareq->collection->things, id);
 
         if (!thing)

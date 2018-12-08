@@ -944,7 +944,16 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_set_bool(query->rval, false);
         break;
     case CLERI_GID_T_FLOAT:
+        #if __WORDSIZE == 64
+        {
+            assert (sizeof(double) == sizeof(void *));
+            double d;
+            memcpy(&d, &node->data, sizeof(double));
+            ti_val_set_float(query->rval, d);
+        }
+        #else
         ti_val_set_float(query->rval, strx_to_doublen(node->str, node->len));
+        #endif
         break;
     case CLERI_GID_T_INT:
         ti_val_set_int(

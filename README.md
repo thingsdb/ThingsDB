@@ -2,8 +2,9 @@
 
 ## TODO list
 
-- [ ] 64Bit Requirements, support 64 bit only?? else change this following
-    - [ ] wareq uses uinpntr_t for 64bit thing id's
+- [x] Take advantage when on a 64 bit system
+    - [x] wareq uses uinpntr_t for 64bit thing id's, on 32 bit id's are allocated
+    - [x] pre-caching is done on 64bit systems for integer and float values
 - [x] In case of WORD_SIZE 64, we can cache integer values
 - [x] Special floats
     - [x] Inf
@@ -13,7 +14,7 @@
         - [x] Add `isnan` function for checking
 - [ ] ~~We can make `indexing by scope` instead of using a fixed integer, but
       allowing only fixed integers makes it a bit faster and easier~~
-- [ ] Overflow handling? Right now ThingsDB is naive
+- [ ] ~~Overflow handling? Right now ThingsDB is naive~~
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user
@@ -198,7 +199,7 @@
         - [x] `users`
         - [x] `shutdown`
     - [ ] jobs
-        - [ ] `del_collection`
+        - [x] `del_collection`
         - [ ] `pop_node` ?? --> pop so we do not need to replace node id's
         - [x] `del_user`
         - [x] `grant`

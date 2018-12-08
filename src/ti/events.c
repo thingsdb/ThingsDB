@@ -475,7 +475,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
             break;
         case TI_EVENT_TP_EPKG:
             assert (ev->tp == TI_EVENT_TP_EPKG);
-            if (ti_event_run(ev))
+            if (ti_archive_push(ev->via.epkg) || ti_event_run(ev))
             {
                 /* logging is done, but we increment the failed counter and
                  * log the full event */

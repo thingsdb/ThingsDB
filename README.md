@@ -53,7 +53,7 @@
         - [x] `push`
         - [x] `rename`
         - [x] `set`
-        - [ ] `splice`
+        - [x] `splice`
         - [x] `unset`
 - [x] Redundancy as initial argument together with --init ?
 - [ ] Task generating
@@ -62,7 +62,7 @@
     - [x] `push`
     - [x] `rename`
     - [x] `set`
-    - [ ] `splice`
+    - [x] `splice`
     - [x] `unset`
 - [x] Events without tasks could be saved smaller
 - [ ] Jobs processing from `EPKG`
@@ -71,7 +71,7 @@
     - [x] `push`
     - [x] `rename`
     - [x] `set`
-    - [ ] `splice`
+    - [x] `splice`
     - [x] `unset`
 - [x] Value implementation
     - [x] Bool

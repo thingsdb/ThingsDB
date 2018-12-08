@@ -58,8 +58,8 @@ async def test():
     try:
         res = await client.query(r'''
 
-        f = 5.3;
-        f;
+        arr;
+
 
 
         ''', blobs=["bla"], timeout=2)

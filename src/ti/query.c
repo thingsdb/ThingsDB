@@ -383,6 +383,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_PUSH:
         case CLERI_GID_F_RENAME:
         case CLERI_GID_F_SET:
+        case CLERI_GID_F_SPLICE:
         case CLERI_GID_F_UNSET:
             query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
             break;
@@ -535,8 +536,6 @@ static void query__event_handle(ti_query_t * query)
     /* store event package in archive */
     if (ti_archive_push(epkg))
         log_critical(EX_ALLOC_S);
-    else
-        ti_incref(epkg);
 
     ti_nodes_write_rpkg((ti_rpkg_t *) epkg);
     ti_epkg_drop(epkg);

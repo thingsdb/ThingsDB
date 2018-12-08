@@ -54,6 +54,13 @@ int ti_task_add_revoke(
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_splice(
+        ti_task_t * task,
+        ti_name_t * name,
+        ti_val_t * val,
+        int64_t i,
+        int64_t c,
+        int32_t n);
 int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
 
 

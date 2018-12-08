@@ -41,7 +41,7 @@ int ti_cfg_create(void)
     /* set defaults */
     cfg->client_port = 9200;
     cfg->node_port = 9220;
-    cfg->threshold_full_storage = 2;    /* TODO : not configurable (yet) */
+    cfg->threshold_full_storage = 3;    /* TODO : not configurable (yet) */
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");

@@ -70,6 +70,9 @@ int ti_archive_write_nodes_scevid(void)
     if (!f)
         return -1;
 
+    log_debug("store global committed event id: "TI_EVENT_ID, cevid);
+    log_debug("store global stored event id: "TI_EVENT_ID, sevid);
+
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
         fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
         goto failed;
@@ -181,6 +184,7 @@ int ti_archive_load(void)
     return archive__init_queue();
 }
 
+/* increments `epkg` reference by one if successful */
 int ti_archive_push(ti_epkg_t * epkg)
 {
     /* queue is either empty or the received event_id > any event id inside the
@@ -190,13 +194,15 @@ int ti_archive_push(ti_epkg_t * epkg)
         !queue_last(archive->queue) ||
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id
     );
-    return queue_push(&archive->queue, epkg);
+    int rc = queue_push(&archive->queue, epkg);
+    if (!rc)
+        ti_incref(epkg);
+    return rc;
 }
 
 int ti_archive_to_disk(void)
 {
     ti_epkg_t * last_epkg = queue_last(archive->queue);
-
     if (!last_epkg || last_epkg->event_id == *archive->sevid)
         return 0;       /* nothing to save to disk */
 

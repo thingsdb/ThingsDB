@@ -553,6 +553,79 @@ done:
     return rc;
 }
 
+int ti_task_add_splice(
+        ti_task_t * task,
+        ti_name_t * name,
+        ti_val_t * val,
+        int64_t i,
+        int64_t c,
+        int32_t n)
+{
+    assert (val->tp == TI_VAL_THINGS || val->tp == TI_VAL_ARRAY);
+    assert (name);
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(512, 8);
+    if (!packer)
+        goto failed;
+
+    if (ti_val_gen_ids(val))
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "splice");
+    (void) qp_add_map(&packer);
+
+    if (qp_add_raw(packer, (const uchar *) name->str, name->n) ||
+        qp_add_array(&packer) ||
+        qp_add_int64(packer, i) ||
+        qp_add_int64(packer, c) ||
+        qp_add_int64(packer, n))
+        goto failed;
+
+    if (val->tp == TI_VAL_THINGS)
+    {
+        for (c = i + n; i < c; ++i)
+        {
+            ti_thing_t * t = vec_get(val->via.things, i);
+            if (task__thing_to_packer(&packer, t))
+                goto failed;
+        }
+    }
+    else
+    {
+        assert (val->tp == TI_VAL_ARRAY);
+        for (c = i + n; i < c; ++i)
+        {
+            ti_val_t * v = vec_get(val->via.array, i);
+            if (ti_val_to_packer(v, &packer, 0))
+                goto failed;
+        }
+    }
+
+    if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
+        goto failed;
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_unset(ti_task_t * task, ti_name_t * name)
 {
     int rc;

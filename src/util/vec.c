@@ -1,6 +1,7 @@
 /*
  * vec.c
  */
+#include <assert.h>
 #include <string.h>
 #include <util/vec.h>
 
@@ -34,7 +35,6 @@ void * vec_remove(vec_t * vec, uint32_t i)
     memmove(vec->data + i, vec->data + i + 1, (--vec->n - i) * sizeof(void*));
     return data;
 }
-
 
 /*
  * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will

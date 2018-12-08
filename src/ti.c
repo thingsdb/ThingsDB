@@ -298,7 +298,8 @@ void ti_stop(void)
     if (ti_.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
-    ti_archive_to_disk();
+    (void) ti_archive_to_disk();
+    (void) ti_archive_write_nodes_scevid();
     ti_away_stop();
     ti_connect_stop();
     ti_events_stop();

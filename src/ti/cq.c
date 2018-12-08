@@ -39,6 +39,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -97,6 +98,7 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
+        query_rval_destroy(query);
         if (cq__operations(query, node->children->next->node, e))
             return e->nr;
         break;
@@ -1529,9 +1531,8 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* we have rval saved to val */
     query->rval = NULL;
 
-    for (n = 0; child; child = child->next->next)
+    for (; child; child = child->next->next)
     {
-        ++n;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_cq_scope(query, child->node, e))
@@ -1870,6 +1871,196 @@ alloc_err:
 
 finish:
     ti_val_destroy(name_val);
+
+    return e->nr;
+}
+
+static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int32_t n, x, l;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+    uint32_t current_n, new_n;
+    int64_t i, c;
+    vec_t * vec, * retv;
+
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
+
+    if (!val || !ti_val_is_mutable_arr(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `splice`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    n = langdef_nd_n_function_params(nd);
+    if (n < 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `splice` requires at least 2 arguments "
+                "but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (!from_rval && ti_scope_current_val_in_use(query->scope))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "cannot use function `splice` while the array is in use");
+        return e->nr;
+    }
+
+    query->rval = NULL;
+
+    if (ti_cq_scope(query, child->node, e))
+        goto finish;
+
+    if (query->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `splice` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_INT),
+                ti_val_str(query->rval));
+        goto finish;
+    }
+
+    i = query->rval->via.int_;
+    child = child->next->next;
+    if (ti_cq_scope(query, child->node, e))
+        goto finish;
+
+    if (query->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `splice` expects argument 2 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_INT),
+                ti_val_str(query->rval));
+        goto finish;
+    }
+
+    c = query->rval->via.int_;
+    current_n = val->via.arr->n;
+
+    if (i < 0)
+        i += current_n;
+
+    i = i < 0 ? 0 : (i > current_n ? current_n : i);
+    n -= 2;
+    c = c < 0 ? 0 : (c > current_n - i ? current_n - i : c);
+    new_n = current_n + n - c;
+
+    if (new_n >= query->target->quota->max_array_size)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum array size quota of %zu has been reached, "
+                "see "TI_DOCS"#quotas", query->target->quota->max_array_size);
+        goto finish;
+    }
+
+    if (new_n > current_n && vec_resize(&val->via.arr, new_n))
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    retv = vec_new(c);
+    if (!retv)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    vec = val->via.arr;
+
+    for (x = i, l = i + c; x < l; ++x)
+        VEC_push(retv, vec_get(vec, x));
+
+    memmove(
+        vec->data + i + n,
+        vec->data + i + c,
+        (current_n - i - c) * sizeof(void*));
+
+    vec->n = i;
+
+    for (x = 0; x < n; ++x)
+    {
+        child = child->next->next;
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        if (ti_cq_scope(query, child->node, e))
+            goto failed;
+
+        if (ti_val_move_to_arr(val, query->rval, e))
+            goto failed;
+
+        query->rval = NULL;
+    }
+
+    if (!from_rval)
+    {
+        assert (query->scope->thing);
+        assert (query->scope->name);
+
+        ti_task_t * task;
+
+        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        if (!task)
+            goto failed;
+
+        if (ti_task_add_splice(
+                task,
+                query->scope->name,
+                val,
+                i,
+                c,
+                n))
+            goto alloc_err;  /* we do not need to cleanup task, since the task
+                                is added to `query->ev->tasks` */
+    }
+
+    assert (e->nr == 0);
+
+    /* required since query->rval may not be NULL */
+    ti_val_destroy(query->rval);
+
+    query->rval = ti_val_weak_create(val->tp, retv);
+    if (query->rval)
+    {
+        val->via.arr->n = new_n;
+        if (new_n < current_n)
+            (void) vec_shrink(&val->via.arr);
+        goto finish;
+    }
+
+alloc_err:
+    ex_set_alloc(e);
+
+failed:
+    vec = val->via.arr;
+    while (x--)
+        ti_val_destroy(vec_pop(vec));
+
+    memmove(
+        vec->data + i + n,
+        vec->data + i + c,
+        (current_n - i - c) * sizeof(void*));
+
+    for (x = 0; x < c; ++x)
+        VEC_push(vec, vec_get(retv, x));
+
+    vec_destroy(retv, NULL);
+    vec->n = current_n;
+
+finish:
+    if (from_rval)
+        ti_val_destroy(val);
 
     return e->nr;
 }
@@ -2215,6 +2406,8 @@ static int cq__function(
         return cq__f_ret(query, params, e);
     case CLERI_GID_F_SET:
         return cq__f_set(query, params, e);
+    case CLERI_GID_F_SPLICE:
+        return cq__f_splice(query, params, e);
     case CLERI_GID_F_STARTSWITH:
         return cq__f_startswith(query, params, e);
     case CLERI_GID_F_THING:

@@ -27,6 +27,10 @@ static int job__set(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
+static int job__splice(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp);
 static int job__unset(
         ti_collection_t * collection,
         ti_thing_t * thing,
@@ -42,7 +46,7 @@ int ti_job_run(
 {
     qp_obj_t qp_job_name;
     const uchar * raw;
-    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 2)
+    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 3)
     {
         log_critical(
                 "job `type` for thing "TI_THING_ID" is missing",
@@ -63,7 +67,9 @@ int ti_job_run(
     case 'r':
         return job__rename(collection, thing, unp);
     case 's':
-        return job__set(collection, thing, unp);
+        return *(raw+1) == 'e'
+                ? job__set(collection, thing, unp)
+                : job__splice(collection, thing, unp);
     case 'u':
         return job__unset(collection, thing, unp);
     }
@@ -259,26 +265,18 @@ static int job__push(
             return -1;
         }
     }
-    else if (n < 0)
-    {
-        if (vec_resize(&arr->via.arr, arr->via.arr->n + grow_sz))
-        {
-            log_critical(EX_ALLOC_S);
-            return -1;
-        }
-    }
 
     while(n-- && (rc = ti_val_from_unp(&val, unp, collection->things)) == 0)
     {
         ti_val_t * v;
         if (n < 0 && !vec_space(arr->via.arr))
         {
-            grow_sz *= 2;
             if (vec_resize(&arr->via.arr, arr->via.arr->n + grow_sz))
             {
                 log_critical(EX_ALLOC_S);
                 return -1;
             }
+            grow_sz *= 2;
         }
 
         v = ti_val_weak_dup(&val);
@@ -454,6 +452,142 @@ fail:
     ti_val_clear(&val);
     ti_name_drop(name);
     return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'prop': [index, del_count, new_count, values...]}
+ */
+static int job__splice(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (thing);
+    assert (unp);
+    assert (collection);
+    assert (thing);
+    assert (unp);
+
+    ex_t * e = ex_use();
+    int rc = 0;
+    ssize_t n, i, c, cur_n, new_n;
+    ti_val_t val, * arr;
+    ti_name_t * name;
+    qp_types_t tp;
+    qp_obj_t qp_prop, qp_i, qp_c, qp_n;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, &qp_prop)) ||
+        !qp_is_array((tp = qp_next(unp, NULL))) ||
+        !qp_is_int(qp_next(unp, &qp_i)) ||
+        !qp_is_int(qp_next(unp, &qp_c)) ||
+        !qp_is_int(qp_next(unp, &qp_n)))
+    {
+        log_critical(
+                "job `splice` array on "TI_THING_ID": "
+                "missing map, property, index, delete_count or new_count",
+                thing->id);
+        return -1;
+    }
+
+    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    if (!name || !(arr = ti_thing_get(thing, name)))
+    {
+        log_critical(
+                "job `splice` array on "TI_THING_ID": "
+                "missing property: `%.*s`",
+                thing->id,
+                (int) qp_prop.len, (char *) qp_prop.via.raw);
+        return -1;
+    }
+
+    if (!ti_val_is_mutable_arr(arr))
+    {
+        log_critical(
+                "job `splice` array on "TI_THING_ID": "
+                "expecting a mutable array, got type `%s`",
+                thing->id,
+                ti_val_str(arr));
+        return -1;
+    }
+
+    cur_n = arr->via.arr->n;
+    i = qp_i.via.int64;
+    c = qp_c.via.int64;
+    n = qp_n.via.int64;
+
+    if (i < 0 ||
+        i > cur_n ||
+        c < 0 ||
+        i + c > cur_n ||
+        n < 0 ||
+        (tp != QP_ARRAY_OPEN && n != tp - QP_ARRAY0 - 2))
+    {
+        log_critical(
+                "job `splice` array on "TI_THING_ID": "
+                "incorrect values "
+                "(index: %zd, delete_count: %zd, new_count: %zd)",
+                thing->id,
+                i, c, n);
+        return -1;
+    }
+
+    new_n = cur_n + n - c;
+
+    if (new_n > cur_n && vec_resize(&arr->via.arr, new_n))
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    for (ssize_t x = i, y = i + c; x < y; ++x)
+        ti_val_destroy(vec_get(arr->via.arr, x));
+
+    memmove(
+        arr->via.arr->data + i + n,
+        arr->via.arr->data + i + c,
+        (cur_n - i - c) * sizeof(void*));
+
+    arr->via.arr->n = i;
+
+    while(n-- && (rc = ti_val_from_unp(&val, unp, collection->things)) == 0)
+    {
+        assert (vec_space(arr->via.arr));
+        ti_val_t * v;
+
+        v = ti_val_weak_dup(&val);
+        if (!v)
+        {
+            log_critical(EX_ALLOC_S);
+            return -1;
+        }
+
+        if (ti_val_move_to_arr(arr, v, e))
+        {
+            log_critical("job `splice` array on "TI_THING_ID": %s", e->msg);
+            ti_val_destroy(v);
+            return -1;
+        }
+    }
+
+    if (rc)  /* both <0 and >0 are not correct since we should have n values */
+    {
+        log_critical(
+                "job `splice` array on "TI_THING_ID": "
+                "error reading value for property: `%s`",
+                thing->id,
+                name->str);
+        return -1;
+    }
+
+    arr->via.arr->n = new_n;
+
+    if (new_n < cur_n)
+        (void) vec_shrink(&arr->via.arr);
+
+    return 0;
 }
 
 /*

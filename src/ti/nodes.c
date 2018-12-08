@@ -103,10 +103,7 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
         qp_res_t * qparray = qpnodes->via.array->values + i;
 
         if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 2)
-        {
-            LOGC("BLA0");
             return -1;
-        }
 
         qpaddr = qparray->via.array->values + 0;
         qpflags = qparray->via.array->values + 1;
@@ -114,10 +111,7 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
         if (    qpaddr->tp != QP_RES_RAW ||
                 qpaddr->via.raw->n != sizeof(struct sockaddr_storage) ||
                 qpflags->tp != QP_RES_INT64)
-        {
-            LOGC("BLA1");
             return -1;
-        }
 
         addr = (struct sockaddr_storage *) qpaddr->via.raw->data;
 
@@ -155,7 +149,7 @@ uint64_t ti_nodes_sevid(void)
     if (m > nodes->sevid)
         nodes->sevid = m;
 
-    return nodes->cevid;
+    return nodes->sevid;
 }
 
 ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr)

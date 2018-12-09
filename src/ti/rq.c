@@ -718,7 +718,11 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     quota = query->rval->tp == TI_VAL_NIL
             ? TI_QUOTA_NOT_SET
-            : query->rval->via.int_;
+            : (query->rval->via.int_ < 0
+              ? 0
+              : (size_t) query->rval->via.int_);
+
+
 
     assert (collection);
 

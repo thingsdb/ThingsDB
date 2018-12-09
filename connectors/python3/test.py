@@ -41,9 +41,8 @@ async def test():
          * test query
          */
         /* del_collection('test2'); */
-        collections();
-        set_quota('test', 'array_size', nil);
-        /* new_collection('test2'); */
+        new_node('secret', 'bla');
+        new_collection('test');
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:

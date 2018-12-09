@@ -343,8 +343,6 @@ static int rjob__set_quota(qp_unpacker_t * unp)
     size_t quota;
     ti_collection_t * collection;
     ti_quota_enum_t quota_tp;
-
-    uint64_t mask, user_id;
     qp_obj_t qp_collection, qp_quota_tp, qp_quota;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||

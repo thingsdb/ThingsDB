@@ -2,19 +2,20 @@
  * ti/rq.c
  */
 #include <assert.h>
-#include <stdlib.h>
-#include <ti.h>
-#include <ti/collections.h>
-#include <ti/rq.h>
-#include <ti/auth.h>
-#include <ti/users.h>
-#include <ti/access.h>
-#include <ti/task.h>
-#include <ti/opr.h>
-#include <util/strx.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
+#include <stdlib.h>
+#include <ti.h>
+#include <ti/access.h>
+#include <ti/auth.h>
+#include <ti/collections.h>
+#include <ti/opr.h>
+#include <ti/rq.h>
+#include <ti/task.h>
+#include <ti/users.h>
 #include <util/query.h>
+#include <util/strx.h>
+#include <uv.h>
 
 static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -417,7 +418,6 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_collection(task, collection, query->stream->via.user))
         ex_set_alloc(e);  /* task cleanup is not required */
 
-    /* rval is an integer, we can simply overwrite */
     ti_val_clear(query->rval);
 
 finish:
@@ -431,7 +431,14 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    int n = langdef_nd_n_function_params(nd);
+
+    ti_raw_t * rsecret;
+    struct in_addr sa;
+    struct in6_addr sa6;
+    struct sockaddr addr;
+    char * addrstr;
+    int port, n = langdef_nd_n_function_params(nd);
+
     if (n < 2)
     {
         ex_set(e, EX_BAD_DATA,
@@ -467,8 +474,11 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (rq__scope(query, nd->children->node, e))
-        return e->nr;
+    rsecret = query->rval->via.raw;
+    ti_incref(rsecret);
+
+    if (rq__scope(query, nd->children->next->next->node, e))
+        goto fail0;
 
     if (!ti_val_is_raw(query->rval))
     {
@@ -477,10 +487,73 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "but got `%s`",
             ti_val_tp_str(TI_VAL_RAW),
             ti_val_str(query->rval));
-        return e->nr;
+        goto fail0;
     }
 
-    return 0;
+    addrstr = ti_raw_to_str(query->rval->via.raw);
+    if (!addrstr)
+    {
+        ex_set_alloc(e);
+        goto fail0;
+    }
+
+    if (n == 3)
+    {
+        if (rq__scope(query, nd->children->next->next->next->next->node, e))
+            goto fail1;
+
+        if (query->rval->tp == TI_VAL_INT)
+        {
+            ex_set(e, EX_BAD_DATA,
+                "function `new_node` expects argument 3 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_INT),
+                ti_val_str(query->rval));
+            goto fail1;
+        }
+
+        port = query->rval->via.int_;
+        if (port < 1 || port > 65535)
+        {
+            ex_set(e, EX_BAD_DATA,
+                "`port` should be an integer value between 1 and 65535, got %d",
+                port);
+            goto fail1;
+        }
+    }
+    else
+    {
+        port = TI_DEFAULT_NODE_PORT;
+    }
+
+    if (inet_pton(AF_INET, addrstr, &sa))
+    {
+        if (uv_ip4_addr(addrstr, port, (struct sockaddr_in *) &addr))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv4 address from `%s:%d`",
+                    addrstr, port);
+            goto fail1;
+        }
+    }
+    else if (inet_pton(AF_INET6, addrstr, &sa6))
+    {
+        if (uv_ip6_addr(addrstr, port, (struct sockaddr_in6 *) &addr))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv6 address from `[%s]:%d`",
+                    addrstr, port);
+            goto fail1;
+        }
+    }
+
+    ti_val_clear(query->rval);
+
+fail1:
+    free(addrstr);
+fail0:
+    ti_raw_drop(rsecret);
+    return e->nr;
 }
 
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -940,6 +1013,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case 'n':
         if (langdef_nd_match_str(fname, "new_collection"))
             return rq__f_new_collection(query, params, e);
+        if (langdef_nd_match_str(fname, "new_node"))
+            return rq__f_new_node(query, params, e);
         if (langdef_nd_match_str(fname, "new_user"))
             return rq__f_new_user(query, params, e);
         if (langdef_nd_match_str(fname, "node"))

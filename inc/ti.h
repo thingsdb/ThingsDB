@@ -40,10 +40,11 @@ typedef unsigned char uchar;
 
 enum
 {
-    TI_FLAG_SIGNAL      =1<<0,
-    TI_FLAG_STOP        =1<<1,
-    TI_FLAG_INDEXING    =1<<2,
-    TI_FLAG_LOCKED      =1<<3,
+    TI_FLAG_SIGNAL          =1<<0,
+    TI_FLAG_STOP            =1<<1,
+    TI_FLAG_INDEXING        =1<<2,
+    TI_FLAG_LOCKED          =1<<3,
+    TI_FLAG_PENDING_NODE    =1<<4,
 };
 
 typedef struct ti_s ti_t;

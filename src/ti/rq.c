@@ -431,6 +431,55 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
+    int n = langdef_nd_n_function_params(nd);
+    if (n < 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_node` requires at least 2 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    } else if (n > 3)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_node` takes at most 3 arguments but %d were given",
+            n);
+        return e->nr;
+    }
+
+    if (ti()->flags & TI_FLAG_PENDING_NODE)
+    {
+        ex_set(e, EX_NODE_ERROR,
+            "another node is still pending to be added, "
+            "try again in a few seconds");
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_node` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_node` expects argument 2 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
     return 0;
 }
 

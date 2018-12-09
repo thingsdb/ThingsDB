@@ -10,8 +10,6 @@
 #include <ti/fwd.h>
 #include <util/qpx.h>
 
-#define WAREQ__USE_VOID_POINTER __WORDSIZE == 64
-
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__task_cb(uv_async_t * task);
@@ -96,7 +94,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
             while(n-- && qp_is_int(qp_next(&unpacker, &val)))
             {
-                #if WAREQ__USE_VOID_POINTER
+                #if TI_USE_VOID_POINTER
                 uintptr_t id = (uintptr_t) val.via.int64;
                 #else
                 uint64_t * id = malloc(sizeof(uint64_t));
@@ -137,7 +135,7 @@ int ti_wareq_run(ti_wareq_t * wareq)
 
 static void wareq__destroy(ti_wareq_t * wareq)
 {
-    #if WAREQ__USE_VOID_POINTER
+    #if TI_USE_VOID_POINTER
     vec_destroy(wareq->thing_ids, NULL);
     #else
     vec_destroy(wareq->thing_ids, free);
@@ -188,7 +186,7 @@ static void wareq__task_cb(uv_async_t * task)
 
     while (n--)
     {
-        #if WAREQ__USE_VOID_POINTER
+        #if TI_USE_VOID_POINTER
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
         #else
         uint64_t * idp = vec_pop(wareq->thing_ids);

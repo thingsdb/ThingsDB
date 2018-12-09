@@ -944,7 +944,7 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_set_bool(query->rval, false);
         break;
     case CLERI_GID_T_FLOAT:
-        #if __WORDSIZE == 64
+        #if TI_USE_VOID_POINTER
         {
             assert (sizeof(double) == sizeof(void *));
             double d;
@@ -952,16 +952,16 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_set_float(query->rval, d);
         }
         #else
-        ti_val_set_float(query->rval, strx_to_doublen(node->str, node->len));
+        ti_val_set_float(query->rval, strx_to_double(node->str));
         #endif
         break;
     case CLERI_GID_T_INT:
         ti_val_set_int(
             query->rval,
-            #if __WORDSIZE == 64
+            #if TI_USE_VOID_POINTER
             (intptr_t) ((intptr_t *) node->data)
             #else
-            strx_to_int64n(node->str, node->len)
+            strx_to_int64(node->str)
             #endif
         );
         break;

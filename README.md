@@ -12,6 +12,7 @@
         - [x] Add `isinf` function for checking
     - [x] NaN
         - [x] Add `isnan` function for checking
+    - [x] e+- notation
 - [x] Support other base integers
     - [x] 0x for hex
     - [x] 0o for octal

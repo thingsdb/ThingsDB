@@ -60,8 +60,9 @@ async def test():
 
         x = 0o10;
         x;
-
-
+        d1 = 0.5;
+        d2 = 0.5e-2;
+        [d1, d2];
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

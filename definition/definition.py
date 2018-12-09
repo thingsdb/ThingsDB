@@ -40,7 +40,7 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
-    t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+)')
+    t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
     t_int = Regex(r'[-+]?(0[box])?[0-9]+')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
@@ -199,7 +199,7 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('a = 0.5;')
+    definition.test('a = 0.5e+5;')
     # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

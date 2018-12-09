@@ -202,61 +202,41 @@ _Bool strx_is_graphn(const char * str, size_t n)
 }
 
 /*
- * Requires a match with regular expression: [-+]?(inf|nan|[0-9]*\.[0-9]+)
+ * Requires a match with regular expression:
+ *
+ *      [-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)
  */
-double strx_to_doublen(const char * str, size_t n)
+double strx_to_double(const char * str)
 {
-    assert (n);
-    double d = 0;
-    double convert;
-    uint64_t r1 = 0;
+    double d;
+    double negative = 0;
 
     switch (*str)
     {
     case '-':
-        assert (n > 1);
-        convert = -1.0;
+        negative = -1.0;
         ++str;
-        --n;
         break;
     case '+':
-        assert (n > 1);
-        convert = 1.0;
         ++str;
-        --n;
         break;
-    default:
-        convert = 1.0;
     }
 
     if (*str == 'i')
-        return convert * INFINITY;
+        return negative ? negative * INFINITY : INFINITY;
 
     if (*str == 'n')
-        return convert * NAN;
+        return NAN;
 
-    for (; n && isdigit(*str); --n, ++str)
-        r1 = 10 * r1 + *str - '0';
+    d = strtod(str, NULL);
 
-    d = (double) r1;
-
-    if (n && --n)
-    {
-        uint64_t r2;
-        double power;
-        ++str;
-        r2 = *str - '0';
-        for (power = -1.0f; --n && isdigit(*(++str)); power--)
-             r2 = 10 * r2 + *str - '0';
-
-        d += pow(10.0f, power) * (double) r2;
-    }
-
-    return convert * d;
+    return negative ? negative * d : d;
 }
 
 /*
- * Requires a match with regular expression:  [-+]?(0[box])?[0-9]+'
+ * Requires a match with regular expression:
+ *
+ *      [-+]?(0[box])?[0-9]+'
  *
  * TODO: Maybe include overflow handling (ERANGE)
  */

@@ -11,6 +11,12 @@
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 
+/*
+ * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
+ * some data in void pointers.
+ */
+#define TI_USE_VOID_POINTER __WORDSIZE == 64
+
 typedef unsigned char uchar;
 
 #ifdef UNUSED

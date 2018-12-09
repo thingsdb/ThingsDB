@@ -427,7 +427,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         switch (nd->children->node->cl_obj->gid)
         {
             case CLERI_GID_T_INT:
-                #if __WORDSIZE == 64
+                #if TI_USE_VOID_POINTER
                 {
                     intptr_t i = strx_to_int64(nd->str);
                     nd->children->node->data = (void *) i;
@@ -435,10 +435,10 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 #endif
                 break;
             case CLERI_GID_T_FLOAT:
-                #if __WORDSIZE == 64
+                #if TI_USE_VOID_POINTER
                 {
                     assert (sizeof(double) == sizeof(void *));
-                    double d = strx_to_doublen(nd->str, nd->len);
+                    double d = strx_to_double(nd->str);
                     memcpy(&nd->children->node->data , &d, sizeof(double));
                 }
                 #endif
@@ -453,7 +453,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         (void) query__swap_opr(query, nd->children->next, 0);
         return;
     case CLERI_GID_INDEX:
-        #if __WORDSIZE == 64
+        #if TI_USE_VOID_POINTER
         for (cleri_children_t * child = nd->children;
              child;
              child = child->next)

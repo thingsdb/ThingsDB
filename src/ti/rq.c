@@ -24,6 +24,7 @@ static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -421,6 +422,16 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 finish:
     return e->nr;
+}
+
+static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    return 0;
 }
 
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)

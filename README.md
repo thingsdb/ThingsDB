@@ -216,7 +216,8 @@
         - [x] `del_user`
         - [x] `grant`
         - [x] `new_collection`
-        - [ ] `new_node`
+        - [ ] `new_node`  (address:port, secret)
+        - [ ] `replace_node`
         - [x] `new_user`
         - [x] `revoke`
         - [ ] `rename_user`

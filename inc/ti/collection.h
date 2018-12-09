@@ -63,19 +63,19 @@ static inline int ti_collection_to_packer(
         qp_add_raw_from_str(*packer, "things") ||
         qp_add_int64(*packer, collection->things->n) ||
         qp_add_raw_from_str(*packer, "quota_max_things") ||
-        (collection->quota->max_things == SIZE_MAX
+        (collection->quota->max_things == TI_QUOTA_NOT_SET
                 ? qp_add_null(*packer)
                 : qp_add_int64(*packer, collection->quota->max_things)) ||
         qp_add_raw_from_str(*packer, "quota_properties") ||
-        (collection->quota->max_props == SIZE_MAX
+        (collection->quota->max_props == TI_QUOTA_NOT_SET
                 ? qp_add_null(*packer)
                 : qp_add_int64(*packer, collection->quota->max_props)) ||
         qp_add_raw_from_str(*packer, "quota_array_size") ||
-        (collection->quota->max_array_size == SIZE_MAX
+        (collection->quota->max_array_size == TI_QUOTA_NOT_SET
                 ? qp_add_null(*packer)
                 : qp_add_int64(*packer, collection->quota->max_array_size)) ||
         qp_add_raw_from_str(*packer, "quota_raw_size") ||
-        (collection->quota->max_raw_size == SIZE_MAX
+        (collection->quota->max_raw_size == TI_QUOTA_NOT_SET
                 ? qp_add_null(*packer)
                 : qp_add_int64(*packer, collection->quota->max_raw_size)) ||
         qp_close_map(*packer)

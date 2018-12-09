@@ -28,6 +28,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -649,6 +650,81 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* rval is an integer, we can simply overwrite */
     ti_val_set_nil(query->rval);
+
+    return e->nr;
+}
+
+static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    int qtp;
+    size_t quota;
+    ti_raw_t * rquota;
+    ti_collection_t * collection;
+    int n = langdef_nd_n_function_params(nd);
+
+    if (n != 3)
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `quota` takes 3 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    collection = ti_collections_get_by_val(query->rval, false, e);
+    if (e->nr)
+        return e->nr;
+
+    if (rq__scope(query, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (query->rval->tp != TI_VAL_RAW)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `quota` expects argument 2 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    rquota = query->rval->via.raw;
+    qtp = ti_qouta_tp_from_strn((const char *) rquota->data, rquota->n, e);
+    if (e->nr)
+        return e->nr;
+
+    if (rq__scope(query, nd->children->next->next->next->next->node, e))
+        return e->nr;
+
+    if (query->rval->tp != TI_VAL_INT && query->rval->tp != TI_VAL_NIL)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `quota` expects argument 3 to be of type `%s` or `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_tp_str(TI_VAL_NIL),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    quota = query->rval->tp == TI_VAL_NIL
+            ? TI_QUOTA_NOT_SET
+            : query->rval->via.int_;
+
+    assert (collection);
+
+    query->rval = ti_collection_as_qpval(collection);
+    if (!query->rval)
+        ex_set_alloc(e);
 
     return e->nr;
 }

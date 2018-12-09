@@ -669,7 +669,14 @@ static inline _Bool query__requires_root_event(cleri_node_t * fname_nd)
         );
     case 'r':
         return (
+            langdef_nd_match_str(fname_nd, "rename_collection") ||
+            langdef_nd_match_str(fname_nd, "rename_user") ||
             langdef_nd_match_str(fname_nd, "revoke")
+        );
+    case 's':
+        return (
+            langdef_nd_match_str(fname_nd, "set_password") ||
+            langdef_nd_match_str(fname_nd, "set_quota")
         );
     }
     return false;

@@ -22,6 +22,7 @@
 - [ ] ~~Overflow handling? Right now ThingsDB is naive~~
       We could check ERANGE after investigating since nothing else can set
       ERANGE during investigation. The other checks must be done in ti_opr.
+      - [ ] Can we support arbitrary long integer values?
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user
@@ -205,6 +206,10 @@
         - [x] `user`
         - [x] `users`
         - [x] `shutdown`
+        - [ ] `rename_user`
+        - [ ] `rename_collection`
+        - [ ] `set_password`
+        - [ ] `set_quota`
     - [ ] jobs
         - [x] `del_collection`
         - [ ] `pop_node` ?? --> pop so we do not need to replace node id's
@@ -214,4 +219,8 @@
         - [ ] `new_node`
         - [x] `new_user`
         - [x] `revoke`
+        - [ ] `rename_user`
+        - [ ] `rename_collection`
+        - [ ] `set_password`
+        - [ ] `set_quota`
 

@@ -12,9 +12,15 @@
         - [x] Add `isinf` function for checking
     - [x] NaN
         - [x] Add `isnan` function for checking
+- [x] Support other base integers
+    - [x] 0x for hex
+    - [x] 0o for octal
+    - [x] 0b for binary
 - [ ] ~~We can make `indexing by scope` instead of using a fixed integer, but
       allowing only fixed integers makes it a bit faster and easier~~
 - [ ] ~~Overflow handling? Right now ThingsDB is naive~~
+      We could check ERANGE after investigating since nothing else can set
+      ERANGE during investigation. The other checks must be done in ti_opr.
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user

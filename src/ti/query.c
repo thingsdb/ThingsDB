@@ -429,7 +429,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
             case CLERI_GID_T_INT:
                 #if __WORDSIZE == 64
                 {
-                    intptr_t i = strx_to_int64n(nd->str, nd->len);
+                    intptr_t i = strx_to_int64(nd->str);
                     nd->children->node->data = (void *) i;
                 }
                 #endif
@@ -459,7 +459,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
              child = child->next)
         {
             cleri_node_t * node = child->node->children->next->node;
-            intptr_t i = strx_to_int64n(node->str, node->len);
+            intptr_t i = strx_to_int64(node->str);
             node->data = (void *) i;
         }
         #endif

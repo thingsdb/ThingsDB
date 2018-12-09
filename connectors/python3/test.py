@@ -58,7 +58,8 @@ async def test():
     try:
         res = await client.query(r'''
 
-        arr;
+        x = 0o10;
+        x;
 
 
 

@@ -256,83 +256,53 @@ double strx_to_doublen(const char * str, size_t n)
 }
 
 /*
- * Requires a match with regular expression:   [-+]?[0-9]+
+ * Requires a match with regular expression:  [-+]?(0[box])?[0-9]+'
+ *
+ * TODO: Maybe include overflow handling (ERANGE)
  */
-int64_t strx_to_int64n(const char * str, size_t n)
+int64_t strx_to_int64(const char * str)
 {
-    assert (n);
     int64_t i;
+    int negative = 0;
+    int base = 10;
 
     switch (*str)
     {
     case '-':
-        assert (n > 1);
-        i = -(*(++str) - '0');
-        --n;
+        negative = -1;
+        ++str;
         break;
     case '+':
-        assert (n > 1);
-        i = *(++str) - '0';
-        --n;
+        ++str;
         break;
-    default:
-        i = *str - '0';
     }
 
-    while (--n)
+    if (*str == '0')
     {
-        i = 10 * i + *(++str) - '0';
-        assert (isdigit(*str));
-    }
-
-    return i;
-}
-
-/*
- * Overflow check:
- *
- * int strx_to_int64n(int64_t * i64, const char * str, size_t n)
+        ++str;
+        switch(*str)
         {
-            assert (n);
-            _Bool negative = false;
-            int64_t i;
-
-            switch (*str)
-            {
-            case '-':
-                assert (n > 1);
-                negative = true;
-                i = *(++str) - '0';
-                --n;
-                break;
-            case '+':
-                assert (n > 1);
-                i = *(++str) - '0';
-                --n;
-                break;
-            default:
-                i = *str - '0';
-            }
-
-            *i64 = i;
-
-            while (--n)
-            {
-                i = 10 * i + *(++str) - '0';
-                assert (isdigit(*str));
-
-                if (i < *i64)
-                    return -1;
-
-                *i64 = i;
-            }
-
-            if (negative)
-                *i64 = -i;
-
+        case 'b':
+            base = 2;
+            ++str;
+            break;
+        case 'o':
+            base = 8;
+            ++str;
+            break;
+        case 'x':
+            base = 16;
+            ++str;
+            break;
+        case '\0':
             return 0;
         }
- */
+    }
+
+    i = strtoll(str, NULL, base);
+
+    return negative ? negative * i : i;
+}
 
 char * strx_cat(const char * s1, const char * s2)
 {

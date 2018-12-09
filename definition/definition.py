@@ -41,7 +41,7 @@ class Definition(Grammar):
 
     t_false = Keyword('false')
     t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+)')
-    t_int = Regex(r'[-+]?[0-9]+')
+    t_int = Regex(r'[-+]?(0[box])?[0-9]+')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
     t_string = Choice(r_single_quote, r_double_quote)

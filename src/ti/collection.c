@@ -15,6 +15,7 @@
 #include <util/strx.h>
 #include <util/fx.h>
 
+
 static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
 
@@ -115,3 +116,24 @@ fail:
     return qpval;
 }
 
+void ti_collection_set_quota(
+        ti_collection_t * collection,
+        ti_quota_enum_t quota_tp,
+        size_t quota)
+{
+    switch (quota_tp)
+    {
+    case QUOTA_THINGS:
+        collection->quota->max_things = quota;
+        break;
+    case QUOTA_PROPS:
+        collection->quota->max_props = quota;
+        break;
+    case QUOTA_ARRAY_SIZE:
+        collection->quota->max_array_size = quota;
+        break;
+    case QUOTA_RAW_SIZE:
+        collection->quota->max_raw_size = quota;
+        break;
+    }
+}

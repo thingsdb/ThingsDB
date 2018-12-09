@@ -15,6 +15,7 @@ static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
+static int rjob__set_quota(qp_unpacker_t * unp);
 
 
 int ti_rjob_run(qp_unpacker_t * unp)
@@ -47,6 +48,10 @@ int ti_rjob_run(qp_unpacker_t * unp)
     case 'r':
         if (qpx_obj_eq_str(&qp_job_name, "revoke"))
             return rjob__revoke(unp);
+        break;
+    case 's':
+        if (qpx_obj_eq_str(&qp_job_name, "set_quota"))
+            return rjob__set_quota(unp);
         break;
     }
 
@@ -323,6 +328,51 @@ static int rjob__revoke(qp_unpacker_t * unp)
     mask = (uint64_t) qp_mask.via.int64;
 
     ti_access_revoke(target ? target->access : ti()->access, user, mask);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'collection':id, 'quota_tp': quota_enum_t, 'quota': size_t}
+ */
+static int rjob__set_quota(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    size_t quota;
+    ti_collection_t * collection;
+    ti_quota_enum_t quota_tp;
+
+    uint64_t mask, user_id;
+    qp_obj_t qp_collection, qp_quota_tp, qp_quota;
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_collection)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_quota_tp)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_quota)))
+    {
+        log_critical("job `set_quota`: invalid format");
+        return -1;
+    }
+
+    if (qp_collection.via.int64)
+    {
+        uint64_t id = qp_collection.via.int64;
+        collection = ti_collections_get_by_id(id);
+        if (!collection)
+        {
+            log_critical("job `set_quota`: "TI_COLLECTION_ID" not found", id);
+            return -1;
+        }
+    }
+
+    quota_tp = (ti_quota_enum_t) qp_quota_tp.via.int64;
+    quota = (size_t) qp_quota.via.int64;
+    ti_collection_set_quota(collection, quota_tp, quota);
 
     return 0;
 }

@@ -21,7 +21,7 @@ ti_quota_t * ti_quota_create(void)
 }
 
 
-int ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
+ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
 {
     int tp = strncmp(str, "things", n) == 0
         ? QUOTA_THINGS
@@ -40,5 +40,5 @@ int ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
             "got `%.*s`",
             (int) n, str);
     }
-    return tp;
+    return (ti_quota_enum_t) tp;
 }

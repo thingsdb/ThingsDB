@@ -12,13 +12,13 @@ typedef struct ti_quota_s ti_quota_t;
 
 #define TI_QUOTA_NOT_SET SIZE_MAX
 
-enum
+typedef enum
 {
     QUOTA_THINGS        =1,
     QUOTA_PROPS         =2,
     QUOTA_ARRAY_SIZE    =3,
     QUOTA_RAW_SIZE      =4,
-};
+} ti_quota_enum_t;
 
 struct ti_quota_s
 {
@@ -30,7 +30,7 @@ struct ti_quota_s
 
 ti_quota_t * ti_quota_create(void);
 inline static void ti_quota_destroy(ti_quota_t * quota);
-int ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e);
+ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e);
 
 inline static void ti_quota_destroy(ti_quota_t * quota)
 {

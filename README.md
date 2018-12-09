@@ -209,7 +209,7 @@
         - [ ] `rename_user`
         - [ ] `rename_collection`
         - [ ] `set_password`
-        - [ ] `set_quota`
+        - [x] `set_quota`
     - [ ] jobs
         - [x] `del_collection`
         - [ ] `pop_node` ?? --> pop so we do not need to replace node id's
@@ -222,5 +222,5 @@
         - [ ] `rename_user`
         - [ ] `rename_collection`
         - [ ] `set_password`
-        - [ ] `set_quota`
+        - [x] `set_quota`
 

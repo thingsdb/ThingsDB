@@ -553,6 +553,50 @@ done:
     return rc;
 }
 
+int ti_task_add_set_quota(
+        ti_task_t * task,
+        uint64_t collection_id,
+        ti_quota_enum_t quota_tp,
+        size_t quota)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(128, 2);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "set_quota");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "collection");
+    (void) qp_add_int64(packer, collection_id);
+    (void) qp_add_raw_from_str(packer, "quota_tp");
+    (void) qp_add_int64(packer, quota_tp);
+    (void) qp_add_raw_from_str(packer, "quota");
+    (void) qp_add_int64(packer, quota);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,

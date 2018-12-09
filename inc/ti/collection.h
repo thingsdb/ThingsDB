@@ -25,9 +25,14 @@ static inline int ti_collection_to_packer(
         ti_collection_t * collection,
         qp_packer_t ** packer);
 ti_val_t * ti_collection_as_qpval(ti_collection_t * collection);
+void ti_collection_set_quota(
+        ti_collection_t * collection,
+        ti_quota_enum_t quota_tp,
+        size_t quota);
 static inline void * ti_collection_thing_by_id(
         ti_collection_t * collection,
         uint64_t thing_id);
+
 
 
 struct ti_collection_s

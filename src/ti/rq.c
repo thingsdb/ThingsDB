@@ -662,10 +662,12 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    int qtp;
+    ti_quota_enum_t qtp;
     size_t quota;
     ti_raw_t * rquota;
     ti_collection_t * collection;
+    ti_task_t * task;
+    uint64_t collection_id;
     int n = langdef_nd_n_function_params(nd);
 
     if (n != 3)
@@ -683,6 +685,8 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     collection = ti_collections_get_by_val(query->rval, false, e);
     if (e->nr)
         return e->nr;
+
+    collection_id = collection->root->id;
 
     if (rq__scope(query, nd->children->next->next->node, e))
         return e->nr;
@@ -718,17 +722,20 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     quota = query->rval->tp == TI_VAL_NIL
             ? TI_QUOTA_NOT_SET
-            : (query->rval->via.int_ < 0
+            : (size_t) (query->rval->via.int_ < 0
               ? 0
-              : (size_t) query->rval->via.int_);
+              : query->rval->via.int_);
 
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
 
+    if (ti_task_add_set_quota(task, collection_id, qtp, quota))
+        ex_set_alloc(e);  /* task cleanup is not required */
+    else
+        ti_collection_set_quota(collection, qtp, quota);
 
-    assert (collection);
-
-    query->rval = ti_collection_as_qpval(collection);
-    if (!query->rval)
-        ex_set_alloc(e);
+    ti_val_clear(query->rval);
 
     return e->nr;
 }
@@ -885,6 +892,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return rq__f_revoke(query, params, e);
         break;
     case 's':
+        if (langdef_nd_match_str(fname, "set_quota"))
+            return rq__f_set_quota(query, params, e);
         if (langdef_nd_match_str(fname, "shutdown"))
             return rq__f_shutdown(query, params, e);
         break;
@@ -1024,25 +1033,12 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_set_bool(query->rval, false);
         break;
     case CLERI_GID_T_FLOAT:
-        #if TI_USE_VOID_POINTER
-        {
-            assert (sizeof(double) == sizeof(void *));
-            double d;
-            memcpy(&d, &node->data, sizeof(double));
-            ti_val_set_float(query->rval, d);
-        }
-        #else
         ti_val_set_float(query->rval, strx_to_double(node->str));
-        #endif
         break;
     case CLERI_GID_T_INT:
         ti_val_set_int(
             query->rval,
-            #if TI_USE_VOID_POINTER
-            (intptr_t) ((intptr_t *) node->data)
-            #else
             strx_to_int64(node->str)
-            #endif
         );
         break;
     case CLERI_GID_T_NIL:

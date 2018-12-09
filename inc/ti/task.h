@@ -22,6 +22,7 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/pkg.h>
 #include <ti/collection.h>
 #include <ti/user.h>
+#include <ti/quota.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
@@ -54,6 +55,11 @@ int ti_task_add_revoke(
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_set_quota(
+        ti_task_t * task,
+        uint64_t collection_id,
+        ti_quota_enum_t quota_tp,
+        size_t quota);
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,

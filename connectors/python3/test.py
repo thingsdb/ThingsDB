@@ -42,6 +42,7 @@ async def test():
          */
         /* del_collection('test2'); */
         collections();
+        set_quota('test', 'array_size', nil);
         /* new_collection('test2'); */
 
         ''', timeout=2, target=0)
@@ -58,11 +59,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        x = 0o10;
-        x;
-        d1 = 0.5;
-        d2 = 0.5e-2;
-        [d1, d2];
+
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

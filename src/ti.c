@@ -221,7 +221,9 @@ finish:
 
 int ti_read_node_id(uint8_t * node_id)
 {
-    int rc = 0;
+    assert (ti_.node_fn);
+
+    int rc = -1;
     FILE * f = fopen(ti_.node_fn, "r");
     if (!f)
         goto finish;
@@ -246,7 +248,6 @@ int ti_read(void)
 
     rc = ti_unpack(data, n);
 
-stop:
     free(data);
     return rc;
 }
@@ -672,7 +673,7 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     case UV_TCP:
     case UV_NAMED_PIPE:
         if (handle->data)
-            ti_stream_close((ti_stream_t *) handle->data);
+            ti_stream_drop((ti_stream_t *) handle->data);
         else
             uv_close(handle, NULL);
         break;

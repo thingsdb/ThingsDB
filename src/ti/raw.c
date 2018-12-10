@@ -97,7 +97,7 @@ ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
     r->ref = 1;
     r->n = (uint32_t) sz;
 
-    (void) vsnprintf((char *) r->data, r->n, fmt, args0);
+    (void) vsnprintf((char *) r->data, r->n, fmt, args1);
 
 done:
     va_end(args1);

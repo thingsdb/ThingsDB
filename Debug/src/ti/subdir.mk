@@ -10,6 +10,7 @@ C_SRCS += \
 ../src/ti/arrow.c \
 ../src/ti/auth.c \
 ../src/ti/away.c \
+../src/ti/build.c \
 ../src/ti/cfg.c \
 ../src/ti/clients.c \
 ../src/ti/collection.c \
@@ -71,6 +72,7 @@ OBJS += \
 ./src/ti/arrow.o \
 ./src/ti/auth.o \
 ./src/ti/away.o \
+./src/ti/build.o \
 ./src/ti/cfg.o \
 ./src/ti/clients.o \
 ./src/ti/collection.o \
@@ -132,6 +134,7 @@ C_DEPS += \
 ./src/ti/arrow.d \
 ./src/ti/auth.d \
 ./src/ti/away.d \
+./src/ti/build.d \
 ./src/ti/cfg.d \
 ./src/ti/clients.d \
 ./src/ti/collection.d \

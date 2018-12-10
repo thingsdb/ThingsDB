@@ -34,7 +34,6 @@ typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb);
 void ti_stream_drop(ti_stream_t * sock);
-int ti_stream_init(ti_stream_t * sock);
 void ti_stream_close(ti_stream_t * sock);
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);
 void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf);
@@ -46,8 +45,8 @@ static inline _Bool ti_stream_is_closed(ti_stream_t * stream);
 
 union ti_stream_u
 {
-    ti_user_t * user;
-    ti_node_t * node;
+    ti_user_t * user;       /* with reference */
+    ti_node_t * node;       /* with reference */
 };
 
 struct ti_stream_s

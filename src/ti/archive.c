@@ -388,7 +388,6 @@ static int archive__to_disk(void)
     log_debug("saving event changes to: `%s`", fn);
 
     f = fopen(fn, "w");
-    free(fn);   /* we no longer need the file name */
     if (!f)
         goto fail0;
 
@@ -411,11 +410,13 @@ static int archive__to_disk(void)
     if (fclose(f))
         goto fail1;
 
+    free(fn);
     return 0;
 
 fail1:
     (void) fclose(f);
     (void) unlink(fn);
+    free(fn);
 
 fail0:
     return -1;

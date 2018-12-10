@@ -84,9 +84,8 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
 static void connect__cb(uv_timer_t * UNUSED(handle))
 {
     uint32_t n = ++connect_loop->n_loops;
-    ti_rpkg_t * rpkg = ti_node_status_rpkg();
-    if (!rpkg)
-        return;
+    ti_rpkg_t * rpkg = NULL;
+
 
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
     {
@@ -105,10 +104,17 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
                 log_error(EX_INTERNAL_S);
         }
         else if (
-                node != ti()->node &&
-                !((n + node->id) % 15) &&
-                !ti_stream_is_closed(node->stream))
+            node != ti()->node &&
+            !((n + node->id) % 15) &&
+            (   node->status == TI_NODE_STAT_SYNCHRONIZING ||
+                node->status == TI_NODE_STAT_AWAY ||
+                node->status == TI_NODE_STAT_AWAY_SOON ||
+                node->status == TI_NODE_STAT_READY))
         {
+            rpkg = rpkg ? rpkg : ti_node_status_rpkg();
+            if (!rpkg)
+                return;
+
             /* every 15 loops of 2 seconds we write our status */
             if (ti_stream_write_rpkg(node->stream, rpkg))
                 log_error(EX_INTERNAL_S);

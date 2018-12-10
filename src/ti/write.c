@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/ref.h>
+#include <ti/proto.h>
 #include <ti/write.h>
 #include <util/logger.h>
 
@@ -38,11 +39,14 @@ void ti_write_destroy(ti_write_t * req)
  */
 static void ti__write_cb(uv_write_t * req, int status)
 {
-    ti_write_t * ti_req;
+    ti_write_t * ti_req = req->data;
 
     if (status)
-        log_error(uv_strerror(status));
+        log_error(
+                "stream write error (package type: `%s`, error: `%s`)",
+                ti_proto_str(ti_req->pkg->tp),
+                uv_strerror(status)
+        );
 
-    ti_req = req->data;
     ti_req->cb_(ti_req, status ? EX_WRITE_UV : 0);
 }

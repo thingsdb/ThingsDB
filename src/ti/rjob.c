@@ -238,13 +238,8 @@ static int rjob__new_collection(qp_unpacker_t * unp)
 static int rjob__new_node(qp_unpacker_t * unp)
 {
     assert (unp);
-    int rc = -1;
-    ex_t * e = ex_use();
     qp_obj_t qp_id, qp_addr, qp_secret;
-    uint64_t user_id;
-    char * encrypted;
     uint8_t node_id, next_node_id = ti()->nodes->vec->n;
-    struct sockaddr_storage addr;
 
     assert (((ti_node_t *) vec_last(ti()->nodes->vec))->id == next_node_id-1);
 
@@ -275,9 +270,15 @@ static int rjob__new_node(qp_unpacker_t * unp)
         return -1;
     }
 
-    ti_nodes_new_node(
+    if (!ti_nodes_new_node(
             (struct sockaddr_storage *) qp_addr.via.raw,
-            (const char *) qp_secret.via.raw);
+            (const char *) qp_secret.via.raw))
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    return 0;
 }
 
 /*

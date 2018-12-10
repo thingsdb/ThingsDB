@@ -32,7 +32,7 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
     size_t n = strlen(prefix);
     char * buffer = malloc(tcp__name_buf_sz + n);
     struct sockaddr_storage name;
-    int len = sizeof(name);
+    int len = sizeof(name);     /* len is used both for input and output */
 
     if (!buffer || uv_tcp_getpeername(client, (struct sockaddr *) &name, &len))
         goto failed;

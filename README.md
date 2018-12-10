@@ -5,7 +5,6 @@
 - [x] Take advantage when on a 64 bit system
     - [x] wareq uses uinpntr_t for 64bit thing id's, on 32 bit id's are allocated
     - [x] pre-caching is done on 64bit systems for integer and float values
-- [x] In case of WORD_SIZE 64, we can cache integer values
 - [x] Special floats
     - [x] Inf
     - [x] -Inf
@@ -129,7 +128,7 @@
         - [x] Nodes
         - [x] Databases
         - [x] Access
-        - [ ] Things
+        - [x] Things
             - [x] Skeleton
             - [x] Data
             - [x] Attributes
@@ -137,6 +136,8 @@
     - [x] Archive storing
         - [x] Store in away mode
         - [x] Load on startup (Required Jobs implementation for full coverage)
+- [x] Remove *This* node id from `ti_.qp` file and use a separate file because this
+      is the only value which is not the same over all nodes.
 - [ ] Multi node
     - [ ] Design flow
     - [x] Lookup Should not be a singleton so we can create a desired lookup.
@@ -144,6 +145,7 @@
         - [x] Secrets should be graphical only. (check on argument input and query input)
         - [x] Secrets must be stored (and restored)
         - [x] On --init, the first node should create a *random* secret.
+    - [ ] Create a request for the ThingsDB setup. (data in `ti_.qp`)
     - [ ] Add node
         - [ ] In cq -> parse address:port and secret
         - [ ] In Node, connect to new node

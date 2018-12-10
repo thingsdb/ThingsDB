@@ -172,13 +172,21 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
     if (!stream)
         return;
 
-    uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(
+        int rc = uv_read_start(
                 &stream->uvstream,
                 ti_stream_alloc_buf,
                 ti_stream_on_data);
+        if (rc)
+        {
+            log_error("cannot read on socket: `%s`", uv_strerror(rc));
+            ti_stream_drop(stream);
+        }
+        else
+        {
+            stream->flags &= ~TI_STREAM_FLAG_CLOSED;
+        }
     }
     else
     {
@@ -203,10 +211,21 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
     if (!stream)
         return;
 
-    uv_pipe_init(ti()->loop, (uv_pipe_t *) &stream->uvstream, 0);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
-        uv_read_start(&stream->uvstream, ti_stream_alloc_buf, ti_stream_on_data);
+        int rc = uv_read_start(
+                &stream->uvstream,
+                ti_stream_alloc_buf,
+                ti_stream_on_data);
+        if (rc)
+        {
+            log_error("cannot read on socket: `%s`", uv_strerror(rc));
+            ti_stream_drop(stream);
+        }
+        else
+        {
+            stream->flags &= ~TI_STREAM_FLAG_CLOSED;
+        }
     }
     else
     {

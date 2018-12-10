@@ -420,7 +420,6 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
-    ti_val_clear(query->rval);
 
     msg = ti_raw_from_fmt(
             "created "TI_COLLECTION_ID" (%.*s)",
@@ -523,7 +522,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (rq__scope(query, nd->children->next->next->next->next->node, e))
             goto fail1;
 
-        if (query->rval->tp == TI_VAL_INT)
+        if (query->rval->tp != TI_VAL_INT)
         {
             ex_set(e, EX_BAD_DATA,
                 "function `new_node` expects argument 3 to be of type `%s` "

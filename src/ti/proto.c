@@ -46,12 +46,14 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
     case TI_PROTO_NODE_REQ_AWAY_ID:         return "NODE_REQ_AWAY_ID";
     case TI_PROTO_NODE_REQ_WATCH_ID:        return "NODE_REQ_WATCH_ID";
+    case TI_PROTO_NODE_REQ_SETUP:           return "NODE_REQ_SETUP";
 
     case TI_PROTO_NODE_RES_QUERY:           return "NODE_RES_QUERY";
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
     case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
     case TI_PROTO_NODE_RES_AWAY_ID:         return "NODE_RES_AWAY_ID";
+    case TI_PROTO_NODE_RES_SETUP:           return "NODE_RES_SETUP";
 
     case TI_PROTO_NODE_ERR_ZERO_DIV:        return "NODE_ERR_ZERO_DIV";
     case TI_PROTO_NODE_ERR_MAX_QUOTA:       return "NODE_ERR_MAX_QUOTA";

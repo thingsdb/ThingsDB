@@ -8,6 +8,7 @@
 #include <ti/version.h>
 #include <ti.h>
 #include <util/cryptx.h>
+#include <util/qpx.h>
 
 #define NODES__UV_BACKLOG 64
 
@@ -67,7 +68,11 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
     {
-        if (node != ti()->node && !ti_stream_is_closed(node->stream))
+        if (node != ti()->node && (
+                node->status == TI_NODE_STAT_SYNCHRONIZING ||
+                node->status == TI_NODE_STAT_AWAY ||
+                node->status == TI_NODE_STAT_AWAY_SOON ||
+                node->status == TI_NODE_STAT_READY))
         {
             if (ti_stream_write_rpkg(node->stream, rpkg))
                 log_error(EX_INTERNAL_S);
@@ -415,9 +420,9 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     if (!stream)
         return;
 
-    uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream);
     if (uv_accept(uvstream, &stream->uvstream) == 0)
     {
+        stream->flags &= ~TI_STREAM_FLAG_CLOSED;
         uv_read_start(
                 &stream->uvstream,
                 ti_stream_alloc_buf,
@@ -453,6 +458,10 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     char * min_ver = NULL, * version = NULL;
     qpx_packer_t * packer = qpx_packer_create(32, 1);
     if (!packer)
+    {
+        log_critical(EX_ALLOC_S);
+        goto failed;
+    }
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -652,7 +661,7 @@ send:
 
 failed:
     qpx_packer_destroy(packer);
-    ti_stream_close(stream);
+    ti_stream_drop(stream);
 done:
     free(version);
     free(min_ver);

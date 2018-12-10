@@ -71,6 +71,7 @@ const char * ti_node_status_str(ti_node_status_t status)
     {
     case TI_NODE_STAT_OFFLINE:          return "OFFLINE";
     case TI_NODE_STAT_CONNECTING:       return "CONNECTING";
+    case TI_NODE_STAT_BUILDING:         return "BUILDING";
     case TI_NODE_STAT_SYNCHRONIZING:    return "SYNCHRONIZING";
     case TI_NODE_STAT_AWAY:             return "AWAY";
     case TI_NODE_STAT_AWAY_SOON:        return "AWAY_SOON";
@@ -98,14 +99,18 @@ int ti_node_connect(ti_node_t * node)
     if (!node->stream)
         goto fail0;
 
+    node->stream->via.node = ti_grab(node);
+
     req = malloc(sizeof(uv_connect_t));
     if (!req)
         goto fail0;
 
-    if (uv_tcp_init(ti()->loop, (uv_tcp_t *) &node->stream->uvstream))
-        goto fail0;
+    log_debug("connecting to "TI_NODE_ID" using stream `%s`",
+            node->id,
+            ti_stream_name(node->stream));
 
     node->status = TI_NODE_STAT_CONNECTING;
+    ti_incref(node->stream);
 
     if (uv_tcp_connect(
             req,
@@ -114,8 +119,9 @@ int ti_node_connect(ti_node_t * node)
             node__on_connect))
     {
         node->status = TI_NODE_STAT_OFFLINE;
-        ti_stream_close(node->stream);
-        return -1;
+        assert (node->stream->ref > 1);
+        ti_decref(node->stream);
+        goto fail0;
     }
 
     return 0;
@@ -142,8 +148,8 @@ static void node__on_connect(uv_connect_t * req, int status)
     int rc;
     qpx_packer_t * packer;
     ti_pkg_t * pkg;
-    ti_node_t * node = req->data, * ti_node = ti()->node;
     ti_stream_t * stream = req->handle->data;
+    ti_node_t * node = stream->via.node, * ti_node = ti()->node;
 
     if (status)
     {
@@ -169,6 +175,8 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
+    stream->flags &= ~TI_STREAM_FLAG_CLOSED;
+
     packer = qpx_packer_create(192, 1);
     if (!packer)
     {
@@ -178,7 +186,7 @@ static void node__on_connect(uv_connect_t * req, int status)
 
     (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, node->id);
-    (void) qp_add_raw(packer, node->secret, CRYPTX_SZ);
+    (void) qp_add_raw(packer, (const uchar *) node->secret, CRYPTX_SZ);
     (void) qp_add_int64(packer, ti_node->id);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
@@ -205,7 +213,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     goto done;
 
 failed:
-    ti_stream_close(stream);
+    ti_stream_drop(stream);
 done:
     free(req);
 }
@@ -219,7 +227,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     qp_obj_t qp_next_thing_id, qp_cevid, qp_sevid, qp_status, qp_flags;
 
     if (status)
-        goto failed;  /* logging is done */
+        goto done;  /* logging is done */
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -234,7 +242,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
                 "invalid response from "TI_NODE_ID" (package type: `%s`)",
                 node->id,
                 ti_proto_str(pkg->tp));
-        goto failed;
+        goto done;
     }
 
     node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
@@ -247,11 +255,13 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     node->next_retry = 0;
     node->retry_counter = 0;
 
+    /* the flow is completed so we should have at least 2 references */
+    assert (node->stream->ref > 1);
+
     goto done;
 
-failed:
-    ti_stream_close(node->stream);
 done:
+    ti_stream_drop(node->stream);
     free(pkg);
     ti_req_destroy(req);
 }

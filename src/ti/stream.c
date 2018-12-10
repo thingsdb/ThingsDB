@@ -14,7 +14,9 @@
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
-static void ti__stream_stop(uv_handle_t * uvstream);
+static void stream__destroy(ti_stream_t * stream);
+static void stream__close_cb(uv_handle_t * uvstream);
+
 static const char * ti__stream_name_unresolved = "unresolved";
 
 
@@ -28,7 +30,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->n = 0;
     stream->sz = 0;
     stream->tp = tp;
-    stream->flags = 0;
+    stream->flags = TI_STREAM_FLAG_CLOSED;
     stream->via.user = NULL;  /* set user/node to NULL */
     stream->pkg_cb = cb;
     stream->buf = NULL;
@@ -38,23 +40,41 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->next_pkg_id = 0;
     stream->watching = NULL;
     if (!stream->reqmap)
+        goto failed;
+
+    switch (tp)
     {
-        ti_stream_drop(stream);
+    case TI_STREAM_TCP_OUT_NODE:
+    case TI_STREAM_TCP_IN_NODE:
+    case TI_STREAM_TCP_IN_CLIENT:
+        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream))
+            goto failed;
+        break;
+    case TI_STREAM_PIPE_IN_CLIENT:
+        if (uv_pipe_init(ti()->loop, (uv_pipe_t *) &stream->uvstream, 0))
+            goto failed;
+        break;
     }
 
-
     return stream;
+
+failed:
+    omap_destroy(stream->reqmap, NULL);
+    free(stream);
+    return NULL;
 }
 
 void ti_stream_drop(ti_stream_t * stream)
 {
     if (stream && !--stream->ref)
     {
-        assert (stream->reqmap == NULL);
-        vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_stop);
-        free(stream->buf);
-        free(stream->name_);
-        free(stream);
+        ti_stream_close(stream);
+
+        omap_destroy(stream->reqmap, (omap_destroy_cb) &ti_req_cancel);
+        stream->reqmap = NULL;
+
+        log_info("closing stream `%s`", ti_stream_name(stream));
+        uv_close((uv_handle_t *) &stream->uvstream, stream__close_cb);
     }
 }
 
@@ -62,10 +82,9 @@ void ti_stream_close(ti_stream_t * stream)
 {
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
-    omap_destroy(stream->reqmap, (omap_destroy_cb) &ti_req_cancel);
-    stream->reqmap = NULL;
-    log_info("closing stream `%s`", ti_stream_name(stream));
-    uv_close((uv_handle_t *) &stream->uvstream, ti__stream_stop);
+
+    if (stream->ref)
+        ti_stream_drop(stream);
 }
 
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
@@ -237,14 +256,17 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
     ti_write_destroy(req);
 }
 
-static void ti__stream_stop(uv_handle_t * uvstream)
+static void stream__destroy(ti_stream_t * stream)
 {
-    ti_stream_t * stream = uvstream->data;
+    assert (stream->reqmap == NULL);
 
     switch ((ti_stream_enum) stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
+        if (!stream->via.node)
+            break;
+
         if (~stream->flags & TI_STREAM_FLAG_REPLACED)
         {
             assert (stream->via.node->stream == stream);
@@ -265,9 +287,18 @@ static void ti__stream_stop(uv_handle_t * uvstream)
         ti_user_drop(stream->via.user);
         break;
     }
-    log_debug("disconnected `%s`", ti_stream_name(stream));
-    ti_stream_drop(stream);
+
+    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_stop);
+    free(stream->buf);
+    free(stream->name_);
+    free(stream);
 }
 
+static void stream__close_cb(uv_handle_t * uvstream)
+{
+    ti_stream_t * stream = uvstream->data;
+    log_debug("disconnected `%s`", ti_stream_name(stream));
+    stream__destroy(stream);
+}
 
 

@@ -15,6 +15,7 @@
 #include <ti/users.h>
 #include <util/query.h>
 #include <util/strx.h>
+#include <util/cryptx.h>
 #include <uv.h>
 
 static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -373,7 +374,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    ti_raw_t * rname;
+    ti_raw_t * rname, * msg;
     ti_collection_t * collection;
     ti_task_t * task;
 
@@ -419,6 +420,15 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
+    ti_val_clear(query->rval);
+
+    msg = ti_raw_from_fmt(
+            "created "TI_COLLECTION_ID" (%.*s)",
+            collection->root->id,
+            (int) collection->name->n,
+            (char *) collection->name->data);
+    if (msg)
+        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
 
 finish:
     return e->nr;
@@ -431,11 +441,15 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-
-    ti_raw_t * rsecret;
+    char salt[CRYPTX_SALT_SZ];
+    char encrypted[CRYPTX_SZ];
+    char * secret;
+    ti_node_t * node;
+    ti_raw_t * rsecret, * msg;
+    ti_task_t * task;
     struct in_addr sa;
     struct in6_addr sa6;
-    struct sockaddr addr;
+    struct sockaddr_storage addr;
     char * addrstr;
     int port, n = langdef_nd_n_function_params(nd);
 
@@ -445,19 +459,12 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "function `new_node` requires at least 2 arguments but %d %s given",
             n, n == 1 ? "was" : "were");
         return e->nr;
-    } else if (n > 3)
+    }
+    else if (n > 3)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` takes at most 3 arguments but %d were given",
             n);
-        return e->nr;
-    }
-
-    if (ti()->flags & TI_FLAG_PENDING_NODE)
-    {
-        ex_set(e, EX_NODE_ERROR,
-            "another node is still pending to be added, "
-            "try again in a few seconds");
         return e->nr;
     }
 
@@ -475,7 +482,20 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     rsecret = query->rval->via.raw;
-    ti_incref(rsecret);
+    if (!rsecret->n || !strx_is_graphn((char *) rsecret->data, rsecret->n))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "a `secret` is required "
+            "and should only contain graphic characters");
+        return e->nr;
+    }
+
+    secret = ti_raw_to_str(rsecret);
+    if (!secret)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
 
     if (rq__scope(query, nd->children->next->next->node, e))
         goto fail0;
@@ -499,6 +519,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (n == 3)
     {
+        /* Read the port number from arguments */
         if (rq__scope(query, nd->children->next->next->next->next->node, e))
             goto fail1;
 
@@ -513,20 +534,22 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         port = query->rval->via.int_;
-        if (port < 1 || port > 65535)
+        if (port < 1<<0 || port >= 1<<16)
         {
             ex_set(e, EX_BAD_DATA,
-                "`port` should be an integer value between 1 and 65535, got %d",
+                "`port` should be an integer value between 1 and 65535, "
+                "got %d",
                 port);
             goto fail1;
         }
     }
     else
     {
+        /* Use default port number as no port is given as argument */
         port = TI_DEFAULT_NODE_PORT;
     }
 
-    if (inet_pton(AF_INET, addrstr, &sa))
+    if (inet_pton(AF_INET, addrstr, &sa))  /* try IPv4 */
     {
         if (uv_ip4_addr(addrstr, port, (struct sockaddr_in *) &addr))
         {
@@ -536,7 +559,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail1;
         }
     }
-    else if (inet_pton(AF_INET6, addrstr, &sa6))
+    else if (inet_pton(AF_INET6, addrstr, &sa6))  /* try IPv6 */
     {
         if (uv_ip6_addr(addrstr, port, (struct sockaddr_in6 *) &addr))
         {
@@ -546,13 +569,39 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail1;
         }
     }
+    else
+    {
+        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", addrstr);
+        goto fail1;
+    }
+
+    cryptx_gen_salt(salt);
+    cryptx(secret, salt, encrypted);
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        goto fail1;
+
+    node = ti_nodes_new_node(&addr, encrypted);
+    if (!node)
+    {
+        ex_set_alloc(e);
+        goto fail1;
+    }
+
+    if (ti_task_add_new_node(task, node))
+        ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
+
+    msg = ti_raw_from_fmt("created "TI_NODE_ID, node->id);
+    if (msg)
+        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
 
 fail1:
     free(addrstr);
 fail0:
-    ti_raw_drop(rsecret);
+    free(secret);
     return e->nr;
 }
 
@@ -566,7 +615,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * passstr = NULL;
     int n;
     ti_user_t * nuser;
-    ti_raw_t * rname;
+    ti_raw_t * rname, * msg;
     ti_task_t * task;
 
     n = langdef_nd_n_function_params(nd);
@@ -614,8 +663,6 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    ti_val_clear(query->rval);
-
     nuser = ti_users_new_user(
             (const char *) rname->data, rname->n,
             passstr, e);
@@ -629,6 +676,14 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_task_add_new_user(task, nuser))
         ex_set_alloc(e);  /* task cleanup is not required */
+
+    ti_val_clear(query->rval);
+
+    msg = ti_raw_from_fmt(
+            "created user `%.*s`",
+            (int) nuser->name->n, (char *) nuser->name->data);
+    if (msg)
+        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
 
 done:
     free(passstr);

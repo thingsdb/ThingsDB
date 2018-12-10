@@ -432,8 +432,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status <= TI_NODE_STAT_CONNECTING ||
-        node->status == TI_NODE_STAT_SHUTTING_DOWN)
+    if (node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",

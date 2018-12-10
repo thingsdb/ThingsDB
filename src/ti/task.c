@@ -9,6 +9,7 @@
 #include <ti/raw.h>
 #include <ti/proto.h>
 #include <util/qpx.h>
+#include <util/cryptx.h>
 
 static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing);
 static void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw);
@@ -298,6 +299,50 @@ int ti_task_add_new_collection(
     (void) qp_add_int64(packer, user->id);
     (void) qp_add_raw_from_str(packer, "root");
     (void) qp_add_int64(packer, collection->root->id);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_raw_drop(job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(256, 2);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "new_node");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int64(packer, node->id);
+    (void) qp_add_raw_from_str(packer, "addr");
+    (void) qp_add_raw(
+            packer,
+            (const uchar *) &node->addr,
+            sizeof(struct sockaddr_storage));
+    (void) qp_add_raw_from_str(packer, "secret");
+    (void) qp_add_raw(packer, (uchar *) node->secret, CRYPTX_SZ);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

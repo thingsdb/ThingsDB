@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <ti/raw.h>
 
@@ -72,6 +73,34 @@ ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
             r = tmp;
     }
 
+    return r;
+}
+
+ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
+{
+    ti_raw_t * r;
+    int sz;
+    va_list args0, args1;
+    va_start(args0, fmt);
+    va_copy(args1, args0);
+
+    sz = vsnprintf(NULL, 0, fmt, args0);
+    if (sz < 0)
+        return NULL;
+
+    va_end(args0);
+
+    r = malloc(sizeof(ti_raw_t) + sz);
+    if (!r)
+        goto done;
+
+    r->ref = 1;
+    r->n = (uint32_t) sz;
+
+    (void) vsnprintf((char *) r->data, r->n, fmt, args0);
+
+done:
+    va_end(args1);
     return r;
 }
 

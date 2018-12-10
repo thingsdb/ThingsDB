@@ -42,7 +42,11 @@ int ti_connect_start(void)
     if (uv_timer_init(ti()->loop, connect_loop->timer))
         goto fail0;
 
-    if (uv_timer_start(connect_loop->timer, connect__cb, 1000, connect_loop->interval))
+    if (uv_timer_start(
+            connect_loop->timer,
+            connect__cb,
+            1000,
+            connect_loop->interval))
         goto fail1;
 
     connect_loop->is_started = true;

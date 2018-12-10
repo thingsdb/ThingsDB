@@ -29,7 +29,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->sz = 0;
     stream->tp = tp;
     stream->flags = 0;
-    stream->via.user = NULL;
+    stream->via.user = NULL;  /* set user/node to NULL */
     stream->pkg_cb = cb;
     stream->buf = NULL;
     stream->name_ = NULL;
@@ -240,12 +240,24 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
 static void ti__stream_stop(uv_handle_t * uvstream)
 {
     ti_stream_t * stream = uvstream->data;
+
     switch ((ti_stream_enum) stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
-        stream->via.node->status = TI_NODE_STAT_OFFLINE;
-        stream->via.node->stream = NULL;
+        if (~stream->flags & TI_STREAM_FLAG_REPLACED)
+        {
+            assert (stream->via.node->stream == stream);
+            stream->via.node->status = TI_NODE_STAT_OFFLINE;
+            stream->via.node->stream = NULL;
+        }
+        else
+        {
+            assert (stream->via.node->stream != stream);
+            log_debug("stream `%s` is replaced with `%s`",
+                    ti_stream_name(stream),
+                    ti_stream_name(stream->via.node->stream));
+        }
         ti_node_drop(stream->via.node);
         break;
     case TI_STREAM_TCP_IN_CLIENT:

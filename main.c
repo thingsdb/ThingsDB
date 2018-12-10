@@ -91,7 +91,7 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    if (strlen(ti()->args->secret))
+    if (*ti()->args->secret)
     {
         if (fx_file_exist(ti()->fn))
         {

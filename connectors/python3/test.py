@@ -41,7 +41,7 @@ async def test():
          * test query
          */
         /* del_collection('test2'); */
-        new_node('secret', 'bla');
+        new_node('secret', '10.10.10.1');
         new_collection('test');
 
         ''', timeout=2, target=0)

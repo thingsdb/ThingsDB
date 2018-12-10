@@ -25,7 +25,7 @@ struct ti_args_s
     /* string props */
     char config[ARGPARSE_MAX_LEN_ARG];
     char log_level[ARGPARSE_MAX_LEN_ARG];
-    char secret[ARGPARSE_MAX_LEN_ARG];
+    char secret[ARGPARSE_MAX_LEN_ARG];  /* allow only graphic characters */
 };
 
 #endif /* TI_ARGS_H_ */

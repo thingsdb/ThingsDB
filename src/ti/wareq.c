@@ -273,7 +273,6 @@ static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
     (void) qp_add_int64(packer, thing_id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_WATCH_ID);
 
-
     if (ti_req_create(
             node->stream,
             pkg,

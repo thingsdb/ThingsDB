@@ -1,5 +1,5 @@
 /*
- * write.c
+ * ti/write.c
  */
 #include <stdlib.h>
 #include <ti.h>

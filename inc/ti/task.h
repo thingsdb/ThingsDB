@@ -42,6 +42,7 @@ int ti_task_add_new_collection(
         ti_task_t * task,
         ti_collection_t * collection,
         ti_user_t * user);
+int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_push(
         ti_task_t * task,

@@ -22,7 +22,9 @@ int ti_nodes_to_packer(qp_packer_t ** packer);
 int ti_nodes_from_qpres(qp_res_t * qpnodes);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
-ti_node_t * ti_nodes_create_node(struct sockaddr_storage * addr);
+ti_node_t * ti_nodes_new_node(
+        struct sockaddr_storage * addr,
+        const char * secret);
 ti_node_t * ti_nodes_node_by_id(uint8_t node_id);
 ti_node_t * ti_nodes_get_away(void);
 ti_node_t * ti_nodes_get_away_or_soon(void);

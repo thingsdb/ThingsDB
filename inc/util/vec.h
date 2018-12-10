@@ -15,6 +15,8 @@ typedef int (*vec_cmp_cb) (const void *, const void *);
 vec_t * vec_new(uint32_t sz);
 void vec_destroy(vec_t * vec, vec_destroy_cb cb);
 static inline uint32_t vec_space(const vec_t * vec);
+static inline void * vec_first(const vec_t * vec);
+static inline void * vec_last(const vec_t * vec);
 static inline void * vec_get(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
@@ -48,6 +50,16 @@ struct vec_s
 static inline uint32_t vec_space(const vec_t * vec)
 {
     return vec->sz - vec->n;
+}
+
+static inline void * vec_first(const vec_t * vec)
+{
+    return vec->n ? vec_get(vec, 0) : NULL;
+}
+
+static inline void * vec_last(const vec_t * vec)
+{
+    return vec->n ? vec_get(vec, vec->n - 1) : NULL;
 }
 
 static inline void * vec_get(const vec_t * vec, uint32_t i)

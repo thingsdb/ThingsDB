@@ -19,6 +19,8 @@
     - [x] 0b for binary
 - [ ] ~~We can make `indexing by scope` instead of using a fixed integer, but
       allowing only fixed integers makes it a bit faster and easier~~
+      We can always do this later since `index by scope` is backwards compatible with the
+      current syntax, but not the other way around.
 - [ ] ~~Overflow handling? Right now ThingsDB is naive~~
       We could check ERANGE after investigating since nothing else can set
       ERANGE during investigation. The other checks must be done in ti_opr.
@@ -137,7 +139,11 @@
         - [x] Load on startup (Required Jobs implementation for full coverage)
 - [ ] Multi node
     - [ ] Design flow
-    - [ ] Lookup Should not be a singleton so we can create a desired lookup.
+    - [x] Lookup Should not be a singleton so we can create a desired lookup.
+    - [x] Each node should have a secret
+        - [x] Secrets should be graphical only. (check on argument input and query input)
+        - [x] Secrets must be stored (and restored)
+        - [x] On --init, the first node should create a *random* secret.
     - [ ] Add node
         - [ ] In cq -> parse address:port and secret
         - [ ] In Node, connect to new node
@@ -212,7 +218,9 @@
         - [x] `set_quota`
     - [ ] jobs
         - [x] `del_collection`
-        - [ ] `pop_node` ?? --> pop so we do not need to replace node id's
+        - [ ] `pop_node`
+            - [ ] We should check the current 'lookup' state and only allow to
+                  pop when having at least (lookup_n - lookup_r + 2) nodes.
         - [x] `del_user`
         - [x] `grant`
         - [x] `new_collection`
@@ -225,3 +233,25 @@
         - [ ] `set_password`
         - [x] `set_quota`
 
+
+## Flow for adding a new node
+
+1. First the query `new_node('secret', 'ip-address' [, port])` is used to add a
+   new node and requires an event.
+   The 3th argument, port, is optional and falls back to the default
+   if not given.
+   An ip address (2nd argument) is required and I think we should not support
+   dns names but only IPv4 and IPv6 addresses. Reason why:
+    - dns names are hard to check for "wrong" input while processing the query
+    - a lookup can only be performed *after* the query, out-side the event since
+      this must be an asynchronous call.
+    - the risk of one node being able to connect while another node is not,
+      becomes larger since dns is just another *layer* which might fail.
+
+   If *invalid* input is given, nothing is done (no task for the event is created)
+
+2. On successful input, a task is created containing the `secret`, `node_id`, and `socket-address`.
+   The node will be added to the nodes list (and flagged PENDING? on a second thought, the PENDING flag is maybe not required)
+   ThingsDB state will be saved to disk immediately? ->This is actually not really required
+   The root job processor should check if the node is already saved, and otherwise skip adding
+   the node. (therefore we really need the `node_id`)

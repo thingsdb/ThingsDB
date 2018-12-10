@@ -8,11 +8,13 @@
 #include <ti/users.h>
 #include <ti/access.h>
 #include <util/qpx.h>
+#include <util/cryptx.h>
 
 static int rjob__del_collection(qp_unpacker_t * unp);
 static int rjob__del_user(qp_unpacker_t * unp);
 static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
+static int rjob__new_node(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
 static int rjob__set_quota(qp_unpacker_t * unp);
@@ -42,6 +44,8 @@ int ti_rjob_run(qp_unpacker_t * unp)
     case 'n':
         if (qpx_obj_eq_str(&qp_job_name, "new_collection"))
             return rjob__new_collection(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "new_node"))
+            return rjob__new_node(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_user"))
             return rjob__new_user(unp);
         break;
@@ -225,6 +229,55 @@ static int rjob__new_collection(qp_unpacker_t * unp)
     }
 
     return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id': id, 'addr':sockaddr, 'secret': encrypted}
+ */
+static int rjob__new_node(qp_unpacker_t * unp)
+{
+    assert (unp);
+    int rc = -1;
+    ex_t * e = ex_use();
+    qp_obj_t qp_id, qp_addr, qp_secret;
+    uint64_t user_id;
+    char * encrypted;
+    uint8_t node_id, next_node_id = ti()->nodes->vec->n;
+    struct sockaddr_storage addr;
+
+    assert (((ti_node_t *) vec_last(ti()->nodes->vec))->id == next_node_id-1);
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_id)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, &qp_addr)) ||
+            qp_addr.len != sizeof(struct sockaddr_storage) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, &qp_secret)) ||
+            qp_secret.len != CRYPTX_SZ ||
+            qp_secret.via.raw[qp_secret.len-1] != '\0')
+    {
+        log_critical("job `new_node`: invalid format");
+        return -1;
+    }
+
+    node_id = (uint8_t) qp_id.via.int64;
+    if (node_id < next_node_id)
+        return 0;  /* this node is already added */
+
+    if (node_id > next_node_id)
+    {
+        log_critical(
+                "job `new_node`: expecting "TI_NODE_ID" but got "TI_NODE_ID,
+                next_node_id, node_id);
+        return -1;
+    }
+
+    ti_nodes_new_node(
+            (struct sockaddr_storage *) qp_addr.via.raw,
+            (const char *) qp_secret.via.raw);
 }
 
 /*

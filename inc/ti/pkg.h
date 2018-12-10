@@ -1,5 +1,5 @@
 /*
- * pkg.h
+ * ti/pkg.h
  */
 #ifndef TI_PKG_H_
 #define TI_PKG_H_

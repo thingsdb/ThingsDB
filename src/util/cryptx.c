@@ -29,20 +29,28 @@ static const unsigned int END = CRYPTX_SZ - 1;
  *
  * Usage:
  *
- *  char[OWCRYPT_SZ] encrypted;
- *  owcrypt("my_password", "saltsalt$1", encrypted);
+ *  char salt[CRYPTX_SALT_SZ];
+ *  char encrypted[CRYPTX_SZ];
+ *
+ *  // Generate a random salt
+ *  cryptx_gen_salt(salt);
+ *
+ *  // Create encryption
+ *  cryptx("my_password", salt, encrypted);
  *
  *  // Checking can be done like this:
- *  char[OWCRYPT_SZ] pw;
- *  owcrypt("pasword_to_check", encrypted, pw");
- *  if (strcmp(pw, encrypted) === 0) {
+ *  char validate[CRYPTX_SZ];
+ *  cryptx("pasword_to_check", encrypted, validate);
+ *  if (strcmp(validate, encrypted) == 0) {
  *      // valid
  *  }
  *
  * Parameters:
  *  const char * password: must be a terminated string
  *  const char * salt: must be a string with at least a length OWCRYPT_SALT_SZ.
- *  char * encrypted: must be able to hold at least OWCRYPT_SZ chars.
+ *  char * encrypted: must be able to hold at least CRYPTX_SZ chars and will
+ *                    be a null terminated string. (CRYPTX_SZ - 1 is the actual
+ *                    length)
  */
 void cryptx(const char * password, const char * salt, char * encrypted)
 {

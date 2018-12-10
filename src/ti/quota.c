@@ -2,6 +2,7 @@
  * quota.c
  */
 #include <stdint.h>
+#include <string.h>
 #include <ti/quota.h>
 
 

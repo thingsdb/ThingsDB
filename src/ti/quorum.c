@@ -1,5 +1,5 @@
 /*
- * quorum.c
+ * ti/quorum.c
  */
 #include <assert.h>
 #include <stdlib.h>

@@ -6,9 +6,11 @@
 
 #define TI_URL "https://thinkdb.net"
 #define TI_DOCS TI_URL"/docs/"
-#define TI_THING_ID "`#%"PRIu64"`"
-#define TI_EVENT_ID "`event:%"PRIu64"`"
+
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
+#define TI_EVENT_ID "`event:%"PRIu64"`"
+#define TI_NODE_ID "`node:%u`"
+#define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 
 #define TI_DEFAULT_CLIENT_PORT 9200
@@ -46,7 +48,6 @@ enum
     TI_FLAG_STOP            =1<<1,
     TI_FLAG_INDEXING        =1<<2,
     TI_FLAG_LOCKED          =1<<3,
-    TI_FLAG_PENDING_NODE    =1<<4,
 };
 
 typedef struct ti_s ti_t;
@@ -59,6 +60,7 @@ typedef struct ti_s ti_t;
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/away.h>
+#include <ti/build.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
 #include <ti/collections.h>
@@ -91,7 +93,10 @@ void ti_destroy(void);
 void ti_init_logger(void);
 int ti_init(void);
 int ti_build(void);
+int ti_write_node_id(uint8_t * node_id);
+int ti_read_node_id(uint8_t * node_id);
 int ti_read(void);
+int ti_unpack(uchar * data, size_t n);
 int ti_run(void);
 void ti_stop_slow(void);
 void ti_stop(void);
@@ -101,7 +106,9 @@ int ti_unlock(void);
 ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
                                         */
-void ti_set_and_broadcast_node_status(ti_node_status_t status);
+void ti_change_and_broadcast_node_status(ti_node_status_t status);
+void ti_set_and_broadcast_node_flags(ti_node_flags_t flags);
+void ti_unset_and_broadcast_node_flags(ti_node_flags_t flags);
 int ti_node_to_packer(qp_packer_t ** packer);
 ti_val_t * ti_node_as_qpval(void);
 static inline ti_t * ti(void);
@@ -114,12 +121,14 @@ struct ti_s
 {
     struct timespec boottime;
     char * fn;
+    char * node_fn;
     ti_archive_t * archive;     /* committed events archive */
     ti_counters_t * counters;   /* counters for statistics */
     ti_node_t * node;
     ti_args_t * args;
     ti_cfg_t * cfg;
     ti_away_t * away;
+    ti_build_t * build;         /* only when using --secret */
     ti_lookup_t * lookup;
     ti_desired_t * desired;     /* NULL or a desired state lookup */
     ti_clients_t * clients;

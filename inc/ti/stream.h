@@ -7,6 +7,7 @@
 enum
 {
     TI_STREAM_FLAG_CLOSED   =1<<0,
+    TI_STREAM_FLAG_REPLACED =1<<1,
 };
 
 

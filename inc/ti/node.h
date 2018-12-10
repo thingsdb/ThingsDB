@@ -4,26 +4,69 @@
 #ifndef TI_NODE_H_
 #define TI_NODE_H_
 
+/* TODO: check through code if everything responds correctly to the status
+ *       codes.
+ */
 typedef enum
 {
+    /*
+     * Offline: node is not connected.
+     */
     TI_NODE_STAT_OFFLINE,
+
+    /*
+     * Connecting: changed to connecting when trying to setup a connection
+     *             to a node. This-node can never have status connection.
+     */
     TI_NODE_STAT_CONNECTING,
+
+    /*
+     * Building: this state has a node when it starts building ThingsDB. It is
+     *           a lower state than synchronizing since here we might not even
+     *           know which nodes are available. (and This node might not even
+     *           exist)
+     */
+    TI_NODE_STAT_BUILDING,
+
+    /*
+     * Synchronizing: We have at least the known nodes and redundancy settings
+     *                so a lookup and This Node is created. In this mode we can
+     *                accept (or reject) event id's, although processing events
+     *                and queries is not possible.
+     */
     TI_NODE_STAT_SYNCHRONIZING,
+
+    /*
+     * Away: In this mode we cannot access collection data. Client queries are
+     *       forwarded and changes etc. are stored to disk. We can still accept
+     *       or reject event id's and append new events to the queue.
+     */
     TI_NODE_STAT_AWAY,
+
+    /*
+     * Away-Soon: Few seconds before going into `away` mode. The node still
+     *            accepts requests from clients but they will be forwarded to
+     *            another node. Back-end request are still handled but nodes
+     *            should stop asking for collection data (attributes).
+     */
     TI_NODE_STAT_AWAY_SOON,     /* few seconds before going away,
                                    back-end still accepts queries */
-    TI_NODE_STAT_SHUTTING_DOWN, /* few seconds before going offline,
-                                   back-end still accepts queries */
+    /*
+     * Shutting-Down: Few seconds before going offline, the node still accepts
+     *                requests but all nodes and clients should change to
+     *                another connection.
+     */
+    TI_NODE_STAT_SHUTTING_DOWN,
+
+    /*
+     * Ready: This node is ready to accept and handle requests.
+     */
     TI_NODE_STAT_READY
 } ti_node_status_t;
 
 typedef enum
 {
     TI_NODE_FLAG_MIGRATING  =1<<0,      /* migrating to desired state */
-    TI_NODE_FLAG_REMOVED    =1<<1,      /* node is removed, we should prevent
-                                           removing more nodes than
-                                           `redundancy` - 1
-                                        */
 } ti_node_flags_t;
 
 typedef struct ti_node_s ti_node_t;
@@ -52,11 +95,17 @@ struct ti_node_s
     uint64_t cevid;                 /* last committed event id */
     uint64_t sevid;                 /* last stored event id */
     uint64_t next_thing_id;
-    ti_stream_t * stream;
+    ti_stream_t * stream;           /* borrowed reference (but possible the
+                                       only place the steam is assigned too)
+                                    */
+    char secret[64];                /* null terminated encrypted secret */
     struct sockaddr_storage addr;
 };
 
-ti_node_t * ti_node_create(uint8_t id, struct sockaddr_storage * addr);
+ti_node_t * ti_node_create(
+        uint8_t id,
+        struct sockaddr_storage * addr,
+        const char * secret);
 void ti_node_drop(ti_node_t * node);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ti/args.h>
 #include <ti.h>
+#include <util/strx.h>
 
 #define DEFAULT_REDUNDANCY 4
 
@@ -146,22 +147,36 @@ int ti_args_parse(int argc, char *argv[])
 
     if (rc == 0)
     {
-        if (!args->init && args->redundancy)
+        if (!args->init)
         {
-            printf("redundancy can only be set together with --init\n"
+            if (args->redundancy)
+            {
+                printf("redundancy can only be set together with --init\n"
                    "see "TI_DOCS"#redundancy for more info\n");
-            rc = -1;
+                rc = -1;
+            }
+            else if (*args->secret && !strx_is_graph(args->secret))
+            {
+                printf("secret should only contain graphic characters\n");
+                rc = -1;
+            }
         }
 
         if (args->init)
         {
-            if (!args->redundancy)
+            if (*args->secret)
+            {
+                printf("--secret cannot be used together with --init\n");
+                rc = -1;
+            }
+            else if (!args->redundancy)
                 args->redundancy = DEFAULT_REDUNDANCY;
             else if (args->redundancy < 3 || args->redundancy > 64)
             {
                 printf("redundancy must be a value between 3 and 64\n");
                 rc = -1;
             }
+
         }
     }
 

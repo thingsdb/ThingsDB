@@ -106,9 +106,7 @@ int ti_node_connect(ti_node_t * node)
         goto fail0;
 
     req->data = ti_grab(node);
-    log_debug("connecting to "TI_NODE_ID" using stream `%s`",
-            node->id,
-            ti_stream_name(node->stream));
+    log_debug("connecting to "TI_NODE_ID, node->id);
 
     node->status = TI_NODE_STAT_CONNECTING;
 
@@ -147,7 +145,6 @@ static void node__on_connect(uv_connect_t * req, int status)
     int rc;
     qpx_packer_t * packer;
     ti_pkg_t * pkg;
-    ti_stream_t * stream;
     ti_node_t * node = req->data, * ti_node = ti()->node;
 
     if (status)
@@ -158,9 +155,7 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
-    stream = req->handle->data;;
-
-    if (node->stream != stream)
+    if (node->stream != (ti_stream_t *) req->handle->data)
     {
         log_warning(
                 "connection to "TI_NODE_ID" (%s) already established "
@@ -220,7 +215,7 @@ static void node__on_connect(uv_connect_t * req, int status)
 
 failed:
     if (!uv_is_closing((uv_handle_t *) req->handle))
-        ti_stream_drop(stream);
+        ti_stream_drop((ti_stream_t *) req->handle->data);
 done:
     ti_node_drop(node);  /* reference on the request */
     free(req);
@@ -272,6 +267,5 @@ failed:
     ti_stream_drop(node->stream);
 done:
     free(req->pkg_req);
-    free(req->pkg_res);
     ti_req_destroy(req);
 }

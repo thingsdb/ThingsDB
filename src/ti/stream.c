@@ -223,7 +223,7 @@ void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_stream_name(stream), pkg->id);
         return;
     }
-
+    req->pkg_res = pkg;
     ti_req_result(req);
 }
 

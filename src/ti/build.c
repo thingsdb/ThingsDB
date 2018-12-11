@@ -26,7 +26,7 @@ int ti_build_create(void)
     build->status = TI_BUILD_WAITING;
     build->req_setup_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SETUP, NULL, 0);
 
-    if (!build->streams || build->req_setup_pkg)
+    if (!build->streams || !build->req_setup_pkg)
     {
         ti_build_destroy();
         return -1;

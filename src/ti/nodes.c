@@ -646,7 +646,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         }
     }
 
-    node->stream = stream;
+    node->stream = ti_grab(stream);
 
     (void) qp_add_array(&packer);
     (void) qp_add_int64(packer, this_node->next_thing_id);
@@ -658,10 +658,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
 send:
     resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_CONNECT);
-    if (!resp || ti_stream_write_pkg(stream, resp))
+    resp->id = pkg->id;
+
+    if (ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_INTERNAL_S);
     }
 
     goto done;

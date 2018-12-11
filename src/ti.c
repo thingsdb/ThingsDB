@@ -73,6 +73,11 @@ int ti_create(void)
             !ti_.access ||
             !ti_.langdef)
     {
+        /* ti_stop() is never called */
+        ti_events_stop();
+        ti_connect_stop();
+        ti_away_stop();
+
         ti_destroy();
         return -1;
     }
@@ -84,12 +89,6 @@ void ti_destroy(void)
 {
     free(ti_.fn);
     free(ti_.node_fn);
-
-    /* usually the signal handler will make the stop calls,
-     * but not if ti_run() is never called */
-    ti_events_stop();
-    ti_connect_stop();
-    ti_away_stop();
 
     ti_build_destroy();
     ti_archive_destroy();
@@ -320,7 +319,7 @@ int ti_run(void)
 
 failed:
     rc = -1;
-    uv_stop(ti_.loop);
+    ti_stop();
 
 finish:
     if (uv_loop_close(ti_.loop))
@@ -360,10 +359,13 @@ fail0:
 void ti_stop(void)
 {
     if (ti_.node)
+    {
         ti_change_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
-    (void) ti_archive_to_disk();
-    (void) ti_archive_write_nodes_scevid();
+        (void) ti_archive_to_disk();
+        (void) ti_archive_write_nodes_scevid();
+    }
+
     ti_away_stop();
     ti_connect_stop();
     ti_events_stop();

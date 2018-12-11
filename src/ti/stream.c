@@ -30,7 +30,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->n = 0;
     stream->sz = 0;
     stream->tp = tp;
-    stream->flags = TI_STREAM_FLAG_CLOSED;
+    stream->flags = 0;
     stream->via.user = NULL;  /* set user/node to NULL */
     stream->pkg_cb = cb;
     stream->buf = NULL;
@@ -74,6 +74,7 @@ void ti_stream_drop(ti_stream_t * stream)
         stream->reqmap = NULL;
 
         log_info("closing stream `%s`", ti_stream_name(stream));
+
         uv_close((uv_handle_t *) &stream->uvstream, stream__close_cb);
     }
 }
@@ -83,8 +84,7 @@ void ti_stream_close(ti_stream_t * stream)
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
 
-    if (stream->ref)
-        ti_stream_drop(stream);
+    ti_stream_drop(stream);
 }
 
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)

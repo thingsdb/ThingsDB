@@ -531,7 +531,8 @@ static void query__event_handle(ti_query_t * query)
     }
 
     /* send tasks to watchers if required */
-    query__task_to_watchers(query);
+    if (query->target)
+        query__task_to_watchers(query);
 
     /* store event package in archive */
     if (ti_archive_push(epkg))

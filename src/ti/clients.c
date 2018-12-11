@@ -157,6 +157,7 @@ void ti_clients_write_rpkg(ti_rpkg_t * rpkg)
 
 static void clients__tcp_connection(uv_stream_t * uvstream, int status)
 {
+    int rc;
     ti_stream_t * stream;
 
     if (status < 0)
@@ -168,34 +169,33 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
     log_debug("received a TCP client connection");
 
     stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &clients__pkg_cb);
-
     if (!stream)
+    {
+        log_critical(EX_ALLOC_S);
         return;
+    }
 
-    if (uv_accept(uvstream, &stream->uvstream) == 0)
-    {
-        int rc = uv_read_start(
-                &stream->uvstream,
-                ti_stream_alloc_buf,
-                ti_stream_on_data);
-        if (rc)
-        {
-            log_error("cannot read on socket: `%s`", uv_strerror(rc));
-            ti_stream_drop(stream);
-        }
-        else
-        {
-            stream->flags &= ~TI_STREAM_FLAG_CLOSED;
-        }
-    }
-    else
-    {
-        ti_stream_drop(stream);
-    }
+    rc = uv_accept(uvstream, &stream->uvstream);
+    if (rc)
+        goto failed;
+
+    rc = uv_read_start(
+            &stream->uvstream,
+            ti_stream_alloc_buf,
+            ti_stream_on_data);
+    if (rc)
+        goto failed;
+
+    return;
+
+failed:
+    log_error("cannot read client TCP stream: `%s`", uv_strerror(rc));
+    ti_stream_drop(stream);
 }
 
 static void clients__pipe_connection(uv_stream_t * uvstream, int status)
 {
+    int rc;
     ti_stream_t * stream;
 
     if (status < 0)
@@ -207,30 +207,28 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
     log_debug("received a PIPE client connection");
 
     stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &clients__pkg_cb);
-
     if (!stream)
+    {
+        log_critical(EX_ALLOC_S);
         return;
+    }
 
-    if (uv_accept(uvstream, &stream->uvstream) == 0)
-    {
-        int rc = uv_read_start(
-                &stream->uvstream,
-                ti_stream_alloc_buf,
-                ti_stream_on_data);
-        if (rc)
-        {
-            log_error("cannot read on socket: `%s`", uv_strerror(rc));
-            ti_stream_drop(stream);
-        }
-        else
-        {
-            stream->flags &= ~TI_STREAM_FLAG_CLOSED;
-        }
-    }
-    else
-    {
-        ti_stream_drop(stream);
-    }
+    rc = uv_accept(uvstream, &stream->uvstream);
+    if (rc)
+        goto failed;
+
+    rc = uv_read_start(
+            &stream->uvstream,
+            ti_stream_alloc_buf,
+            ti_stream_on_data);
+    if (rc)
+        goto failed;
+
+    return;
+
+failed:
+    log_error("cannot read client PIPE stream: `%s`", uv_strerror(rc));
+    ti_stream_drop(stream);
 }
 
 static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)

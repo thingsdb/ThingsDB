@@ -27,6 +27,8 @@ int ti_req_create(
     if (!req->timer)
         goto fail1;
 
+    req->timer->data = req;
+
     assert (timeout > 0);
     assert (pkg_req->id == 0);
 
@@ -53,7 +55,7 @@ int ti_req_create(
     if (uv_timer_init(ti()->loop, req->timer))
         goto fail3;
 
-    if (uv_timer_start(req->timer, ti__req_timeout, timeout, 0))
+    if (uv_timer_start(req->timer, ti__req_timeout, timeout * 1000, 0))
         goto fail4;
 
     if (ti_write(stream, pkg_req, req, ti__req_write_cb))

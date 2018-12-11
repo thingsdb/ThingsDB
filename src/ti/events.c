@@ -106,11 +106,12 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 
     if (!ti_nodes_has_quorum())
     {
+        uint8_t quorum = ti_nodes_quorum();
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` does not have the required quorum "
-                "of at least %u connected nodes",
+                "of at least %u connected %s",
                 ti()->hostname,
-                ti_nodes_quorum());
+                quorum, quorum == 1 ? "node" : "nodes");
         return e->nr;
     }
 

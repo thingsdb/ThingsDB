@@ -54,7 +54,8 @@ typedef enum
     /*
      * Shutting-Down: Few seconds before going offline, the node still accepts
      *                requests but all nodes and clients should change to
-     *                another connection.
+     *                another connection. Client request should be forwarded
+     *                so no new event will be created by this node.
      */
     TI_NODE_STAT_SHUTTING_DOWN,
 

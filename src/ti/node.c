@@ -105,12 +105,12 @@ int ti_node_connect(ti_node_t * node)
     if (!req)
         goto fail0;
 
+    req->data = ti_grab(node);
     log_debug("connecting to "TI_NODE_ID" using stream `%s`",
             node->id,
             ti_stream_name(node->stream));
 
     node->status = TI_NODE_STAT_CONNECTING;
-    ti_incref(node->stream);
 
     if (uv_tcp_connect(
             req,
@@ -120,7 +120,6 @@ int ti_node_connect(ti_node_t * node)
     {
         node->status = TI_NODE_STAT_OFFLINE;
         assert (node->stream->ref > 1);
-        ti_decref(node->stream);
         goto fail0;
     }
 
@@ -148,8 +147,8 @@ static void node__on_connect(uv_connect_t * req, int status)
     int rc;
     qpx_packer_t * packer;
     ti_pkg_t * pkg;
-    ti_stream_t * stream = req->handle->data;
-    ti_node_t * node = stream->via.node, * ti_node = ti()->node;
+    ti_stream_t * stream;
+    ti_node_t * node = req->data, * ti_node = ti()->node;
 
     if (status)
     {
@@ -159,23 +158,29 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
-    if (node->stream != (ti_stream_t *) req->handle->data)
+    stream = req->handle->data;;
+
+    if (node->stream != stream)
     {
-        log_warning("connection to `%s` is established from the other side",
-                ti_node_name(node));
+        log_warning(
+                "connection to "TI_NODE_ID" (%s) already established "
+                "from the other side",
+                node->id, ti_node_name(node));
         goto failed;
     }
 
-    log_debug("node connection to `%s` created", ti_node_name(node));
+    log_debug(
+            "connection to "TI_NODE_ID" (%s) created",
+            node->id,
+            ti_node_name(node));
 
     rc = uv_read_start(req->handle, ti_stream_alloc_buf, ti_stream_on_data);
     if (rc)
     {
-        log_error("cannot read on socket: `%s`", uv_strerror(rc));
+        log_error("cannot read TCP stream for "TI_NODE_ID": `%s`",
+                node->id, uv_strerror(rc));
         goto failed;
     }
-
-    stream->flags &= ~TI_STREAM_FLAG_CLOSED;
 
     packer = qpx_packer_create(192, 1);
     if (!packer)
@@ -206,6 +211,7 @@ static void node__on_connect(uv_connect_t * req, int status)
             node__on_connect_req,
             node))
     {
+        free(pkg);
         log_error(EX_INTERNAL_S);
         goto failed;
     }
@@ -213,8 +219,10 @@ static void node__on_connect(uv_connect_t * req, int status)
     goto done;
 
 failed:
-    ti_stream_drop(stream);
+    if (!uv_is_closing((uv_handle_t *) req->handle))
+        ti_stream_drop(stream);
 done:
+    ti_node_drop(node);  /* reference on the request */
     free(req);
 }
 
@@ -227,7 +235,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     qp_obj_t qp_next_thing_id, qp_cevid, qp_sevid, qp_status, qp_flags;
 
     if (status)
-        goto done;  /* logging is done */
+        goto failed;  /* logging is done */
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -242,7 +250,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
                 "invalid response from "TI_NODE_ID" (package type: `%s`)",
                 node->id,
                 ti_proto_str(pkg->tp));
-        goto done;
+        goto failed;
     }
 
     node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
@@ -260,8 +268,10 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
 
     goto done;
 
-done:
+failed:
     ti_stream_drop(node->stream);
-    free(pkg);
+done:
+    free(req->pkg_req);
+    free(req->pkg_res);
     ti_req_destroy(req);
 }

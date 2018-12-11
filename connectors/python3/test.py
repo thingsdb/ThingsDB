@@ -41,8 +41,9 @@ async def test():
          * test query
          */
         /* del_collection('test2'); */
-        new_node('secret', '0.0.0.0', 9001);
-        new_collection('test');
+        nodes();
+        new_node('secret', '10.10.10.1', 9220);
+        /* new_collection('test'); */
 
         ''', timeout=2, target=0)
     except ThingsDBError as e:
@@ -58,7 +59,8 @@ async def test():
     try:
         res = await client.query(r'''
 
-
+       #x = 'hoi';
+        x;
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

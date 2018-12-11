@@ -405,6 +405,7 @@ fail:
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
+    int rc;
     ti_stream_t * stream;
 
     if (status < 0)
@@ -416,22 +417,28 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     log_debug("received a TCP node connection");
 
     stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &ti_nodes_pkg_cb);
-
     if (!stream)
+    {
+        log_critical(EX_ALLOC_S);
         return;
+    }
 
-    if (uv_accept(uvstream, &stream->uvstream) == 0)
-    {
-        stream->flags &= ~TI_STREAM_FLAG_CLOSED;
-        uv_read_start(
-                &stream->uvstream,
-                ti_stream_alloc_buf,
-                ti_stream_on_data);
-    }
-    else
-    {
-        ti_stream_drop(stream);
-    }
+    rc = uv_accept(uvstream, &stream->uvstream);
+    if (rc)
+        goto failed;
+
+    rc = uv_read_start(
+            &stream->uvstream,
+            ti_stream_alloc_buf,
+            ti_stream_on_data);
+    if (rc)
+        goto failed;
+
+    return;
+
+failed:
+    log_error("cannot read node TCP stream: `%s`", uv_strerror(rc));
+    ti_stream_drop(stream);
 }
 
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -661,7 +668,6 @@ send:
 
 failed:
     qpx_packer_destroy(packer);
-    ti_stream_drop(stream);
 done:
     free(version);
     free(min_ver);

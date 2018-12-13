@@ -110,6 +110,8 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
                 quorum->rnode_id = *node_id;
             }
             break;
+        default:
+            ti_pkg_log(req->pkg_res);
         }
     }
     ti_quorum_go(quorum);

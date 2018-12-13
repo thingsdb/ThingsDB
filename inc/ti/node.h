@@ -79,6 +79,7 @@ typedef struct ti_node_s ti_node_t;
 #include <ti/rpkg.h>
 #include <ti/lookup.h>
 #include <util/imap.h>
+#include <util/cryptx.h>
 
 struct ti_node_s
 {
@@ -92,22 +93,27 @@ struct ti_node_s
                     is the winner. */
     uint8_t status;
     uint8_t flags;                  /* flag status must be stored */
-    uint8_t pad0;
+    uint8_t _pad0_;
     uint64_t cevid;                 /* last committed event id */
     uint64_t sevid;                 /* last stored event id */
     uint64_t next_thing_id;
-    ti_stream_t * stream;           /* borrowed reference (but possible the
-                                       only place the steam is assigned too)
-                                    */
-    char secret[64];                /* null terminated encrypted secret */
-    struct sockaddr_storage addr;
+    ti_stream_t * stream;           /* borrowed reference */
+    uint16_t port;
+    struct sockaddr_storage * sockaddr_;
+    char addr[INET6_ADDRSTRLEN];    /* null terminated (last known) address */
+    char secret[CRYPTX_SZ];         /* null terminated encrypted secret */
 };
 
 ti_node_t * ti_node_create(
         uint8_t id,
-        struct sockaddr_storage * addr,
+        uint16_t port,
+        const char * addr,
         const char * secret);
 void ti_node_drop(ti_node_t * node);
+int ti_node_upd_addr_from_stream(
+        ti_node_t * node,
+        ti_stream_t * stream,
+        uint16_t port);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 const char * ti_node_flags_str(ti_node_flags_t flags);

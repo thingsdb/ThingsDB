@@ -90,6 +90,9 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
     for (vec_each(ti()->nodes->vec, ti_node_t, node))
     {
         uint32_t step;
+        if (node == ti()->node)
+            continue;
+
         if (node->status == TI_NODE_STAT_OFFLINE)
         {
             if (n < node->next_retry)
@@ -104,7 +107,6 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
                 log_error(EX_INTERNAL_S);
         }
         else if (
-            node != ti()->node &&
             !((n + node->id) % 15) &&
             (   node->status == TI_NODE_STAT_SYNCHRONIZING ||
                 node->status == TI_NODE_STAT_AWAY ||

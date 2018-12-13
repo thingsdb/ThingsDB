@@ -30,12 +30,10 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti_.qp";
 const char * ti__node_fn = "node_.dat";
-const int ti__fn_schema = 0;
 static int shutdown_counter = 3;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_loop_t loop_;
 
-static qp_packer_t * ti__pack(void);
 static int ti__unpack(qp_res_t * res);
 static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
 static void ti__shutdown_stop(void);
@@ -74,10 +72,6 @@ int ti_create(void)
             !ti_.langdef)
     {
         /* ti_stop() is never called */
-        ti_events_stop();
-        ti_connect_stop();
-        ti_away_stop();
-
         ti_destroy();
         return -1;
     }
@@ -89,6 +83,11 @@ void ti_destroy(void)
 {
     free(ti_.fn);
     free(ti_.node_fn);
+
+    ti_events_stop();
+    ti_connect_stop();
+    ti_away_stop();
+//    ti_nodes_close();
 
     ti_build_destroy();
     ti_archive_destroy();
@@ -153,7 +152,7 @@ int ti_build(void)
     cryptx_gen_salt(salt);
     cryptx("ThingsDB", salt, encrypted);
 
-    ti_.node = ti_nodes_new_node(&ti_.nodes->addr, encrypted);
+    ti_.node = ti_nodes_new_node(ti_.cfg->node_port, "0.0.0.0", encrypted);
     if (!ti_.node)
         goto failed;
 
@@ -291,6 +290,9 @@ int ti_run(void)
 
     if (ti_.node)
     {
+        if (ti_archive_init())
+            goto failed;
+
         if (ti_archive_load())
             goto failed;
 
@@ -303,6 +305,7 @@ int ti_run(void)
         if (ti_connect_start())
             goto failed;
 
+        /* Should be status SYNCHRONIZING and later change to READY */
         ti_.node->status = TI_NODE_STAT_READY;
     }
     else
@@ -375,15 +378,19 @@ void ti_stop(void)
 
 int ti_save(void)
 {
-    int rc;
-    qp_packer_t * packer = ti__pack();
+    int rc = -1;
+    qp_packer_t * packer = qp_packer_create2(48 + ti_.nodes->vec->n * 224, 3);
     if (!packer)
         return -1;
+
+    if (ti_to_packer(&packer))
+        goto stop;
 
     rc = fx_write(ti_.fn, packer->buffer, packer->len);
     if (rc)
         log_error("failed to write file: `%s`", ti_.fn);
 
+stop:
     qp_packer_destroy(packer);
     return rc;
 }
@@ -542,7 +549,7 @@ ti_val_t * ti_node_as_qpval(void)
 {
     ti_raw_t * raw;
     ti_val_t * qpval = NULL;
-    qp_packer_t * packer = qp_packer_create2(1024, 1);
+    qp_packer_t * packer = qp_packer_create2(512, 1);
     if (!packer)
         return NULL;
 
@@ -562,31 +569,6 @@ fail:
     return qpval;
 }
 
-static qp_packer_t * ti__pack(void)
-{
-    qp_packer_t * packer = qp_packer_create2(48 + ti_.nodes->vec->n * 224, 3);
-
-    if (    !packer ||
-            qp_add_map(&packer) ||
-            qp_add_raw_from_str(packer, "schema") ||
-            qp_add_int64(packer, ti__fn_schema) ||
-            qp_add_raw_from_str(packer, "lookup_r") ||
-            qp_add_int64(packer, ti_.lookup->r) ||
-            qp_add_raw_from_str(packer, "lookup_n") ||
-            qp_add_int64(packer, ti_.lookup->n) ||
-            qp_add_raw_from_str(packer, "nodes") ||
-            ti_nodes_to_packer(&packer) ||
-            qp_close_map(packer))
-        goto failed;
-
-    return packer;
-
-failed:
-    if (packer)
-        qp_packer_destroy(packer);
-    return NULL;
-}
-
 static int ti__unpack(qp_res_t * res)
 {
     uint8_t node_id, lookup_r, lookup_n;
@@ -598,7 +580,7 @@ static int ti__unpack(qp_res_t * res)
             !(qplookup_n = qpx_map_get(res->via.map, "lookup_n")) ||
             !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
             schema->tp != QP_RES_INT64 ||
-            schema->via.int64 != ti__fn_schema ||
+            schema->via.int64 != TI_FN_SCHEMA ||
             qplookup_r->tp != QP_RES_INT64 ||
             qplookup_n->tp != QP_RES_INT64 ||
             qpnodes->tp != QP_RES_ARRAY ||
@@ -675,7 +657,7 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     case UV_TCP:
     case UV_NAMED_PIPE:
         if (handle->data)
-            ti_stream_drop((ti_stream_t *) handle->data);
+            ti_stream_close((ti_stream_t *) handle->data);
         else
             uv_close(handle, NULL);
         break;

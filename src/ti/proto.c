@@ -48,24 +48,25 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_REQ_WATCH_ID:        return "NODE_REQ_WATCH_ID";
     case TI_PROTO_NODE_REQ_SETUP:           return "NODE_REQ_SETUP";
 
-    case TI_PROTO_NODE_RES_QUERY:           return "NODE_RES_QUERY";
+//    case TI_PROTO_NODE_RES_QUERY:           return "NODE_RES_QUERY";
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
     case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
     case TI_PROTO_NODE_RES_AWAY_ID:         return "NODE_RES_AWAY_ID";
     case TI_PROTO_NODE_RES_SETUP:           return "NODE_RES_SETUP";
 
-    case TI_PROTO_NODE_ERR_ZERO_DIV:        return "NODE_ERR_ZERO_DIV";
-    case TI_PROTO_NODE_ERR_MAX_QUOTA:       return "NODE_ERR_MAX_QUOTA";
-    case TI_PROTO_NODE_ERR_AUTH:            return "NODE_ERR_AUTH";
-    case TI_PROTO_NODE_ERR_FORBIDDEN:       return "NODE_ERR_FORBIDDEN";
-    case TI_PROTO_NODE_ERR_INDEX:           return "NODE_ERR_INDEX";
-    case TI_PROTO_NODE_ERR_BAD_REQUEST:     return "NODE_ERR_BAD_REQUEST";
-    case TI_PROTO_NODE_ERR_QUERY:           return "NODE_ERR_QUERY";
-    case TI_PROTO_NODE_ERR_NODE:            return "NODE_ERR_NODE";
-    case TI_PROTO_NODE_ERR_INTERNAL:        return "NODE_ERR_INTERNAL";
-
-    case TI_PROTO_NODE_ERR_CONNECT:         return "NODE_ERR_CONNECT";
+//    case TI_PROTO_NODE_ERR_ZERO_DIV:        return "NODE_ERR_ZERO_DIV";
+//    case TI_PROTO_NODE_ERR_MAX_QUOTA:       return "NODE_ERR_MAX_QUOTA";
+//    case TI_PROTO_NODE_ERR_AUTH:            return "NODE_ERR_AUTH";
+//    case TI_PROTO_NODE_ERR_FORBIDDEN:       return "NODE_ERR_FORBIDDEN";
+//    case TI_PROTO_NODE_ERR_INDEX:           return "NODE_ERR_INDEX";
+//    case TI_PROTO_NODE_ERR_BAD_REQUEST:     return "NODE_ERR_BAD_REQUEST";
+//    case TI_PROTO_NODE_ERR_QUERY:           return "NODE_ERR_QUERY";
+//    case TI_PROTO_NODE_ERR_NODE:            return "NODE_ERR_NODE";
+//    case TI_PROTO_NODE_ERR_INTERNAL:        return "NODE_ERR_INTERNAL";
+//
+//    case TI_PROTO_NODE_ERR_CONNECT:         return "NODE_ERR_CONNECT";
+    case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES_CONNECT";
     case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";
     case TI_PROTO_NODE_ERR_AWAY_ID:         return "NODE_ERR_AWAY_ID";
 

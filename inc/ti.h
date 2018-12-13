@@ -7,14 +7,20 @@
 #define TI_URL "https://thinkdb.net"
 #define TI_DOCS TI_URL"/docs/"
 
+#define TI_DEFAULT_CLIENT_PORT 9200
+#define TI_DEFAULT_NODE_PORT 9220
+
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
 #define TI_NODE_ID "`node:%u`"
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 
-#define TI_DEFAULT_CLIENT_PORT 9200
-#define TI_DEFAULT_NODE_PORT 9220
+/*
+ * File name schema to check version info on created files.
+ */
+#define TI_FN_SCHEMA 0
+
 /*
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
  * some data in void pointers.
@@ -80,6 +86,7 @@ typedef struct ti_s ti_t;
 #include <util/smap.h>
 #include <util/vec.h>
 #include <uv.h>
+#include <qpack.h>
 
 extern ti_t ti_;
 
@@ -116,6 +123,7 @@ static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline const char * ti_name(void);
+static inline int ti_to_packer(qp_packer_t ** packer);
 
 struct ti_s
 {
@@ -188,6 +196,22 @@ static inline int ti_sleep(int ms)
 static inline const char * ti_name(void)
 {
     return ti_.hostname;
+}
+
+static inline int ti_to_packer(qp_packer_t ** packer)
+{
+    return -(
+        qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, "schema") ||
+        qp_add_int64(*packer, TI_FN_SCHEMA) ||
+        qp_add_raw_from_str(*packer, "lookup_r") ||
+        qp_add_int64(*packer, ti_.lookup->r) ||
+        qp_add_raw_from_str(*packer, "lookup_n") ||
+        qp_add_int64(*packer, ti_.lookup->n) ||
+        qp_add_raw_from_str(*packer, "nodes") ||
+        ti_nodes_to_packer(packer) ||
+        qp_close_map(*packer)
+    );
 }
 
 #endif /* TI_H_ */

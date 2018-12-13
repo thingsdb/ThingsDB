@@ -81,7 +81,12 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
+int ti_query_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
 {
     assert (e->nr == 0);
     const char * ebad = "invalid query request, see "TI_DOCS"#query";
@@ -89,9 +94,9 @@ int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e)
     qp_obj_t key, val;
     size_t max_raw = 0;
 
-    query->pkg_id = pkg->id;
+    query->pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    qp_unpacker_init2(&unpacker, data, n, 0);
 
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
@@ -258,9 +263,9 @@ void ti_query_run(ti_query_t * query)
     ex_t * e = ex_use();
 
     child = query->parseres->tree   /* root */
-        ->children->node        /* sequence <comment, list> */
-        ->children->next->node  /* list */
-        ->children;             /* first child or NULL */
+        ->children->node            /* sequence <comment, list> */
+        ->children->next->node      /* list */
+        ->children;                 /* first child or NULL */
 
     while (child)
     {
@@ -332,17 +337,16 @@ alloc_err:
     ex_set_alloc(e);
 
 pkg_err:
-    pkg = ti_pkg_err(query->pkg_id, e);
+    pkg = ti_pkg_client_err(query->pkg_id, e);
 
 finish:
-
     if (!pkg || ti_stream_write_pkg(query->stream, pkg))
     {
         free(pkg);
         log_critical(EX_ALLOC_S);
     }
-    ti_query_destroy(query);
 
+    ti_query_destroy(query);
 }
 
 static void query__investigate_array(ti_query_t * query, cleri_node_t * nd)

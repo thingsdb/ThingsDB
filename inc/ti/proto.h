@@ -118,7 +118,7 @@ typedef enum
      * 192..207 node responses mapping to client responses
      */
 
-    TI_PROTO_NODE_RES_QUERY     =194,   /* [{}, {}, ...] */
+//    TI_PROTO_NODE_RES_QUERY     =194,   /* [{}, {}, ...] */
 
     /*
      * 208..223 node only responses
@@ -133,29 +133,29 @@ typedef enum
      * 224..239 node errors mapping to client errors
      */
 
-    /* zero division error */
-    TI_PROTO_NODE_ERR_ZERO_DIV      =224,
-    /* max quota is reached */
-    TI_PROTO_NODE_ERR_MAX_QUOTA     =225,
-    /* authentication failed or request without authentication */
-    TI_PROTO_NODE_ERR_AUTH          =226,
-    /* no access for the requested task */
-    TI_PROTO_NODE_ERR_FORBIDDEN     =227,
-    /* query syntax error */
-    TI_PROTO_NODE_ERR_INDEX         =228,
-    /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_NODE_ERR_BAD_REQUEST   =229,
-    /* node is (currently) unable to respond to the request */
-    TI_PROTO_NODE_ERR_QUERY         =230,
-    /* not found, maybe because due to no access */
-    TI_PROTO_NODE_ERR_NODE          =231,
-    /* internal server error, for example allocation error */
-    TI_PROTO_NODE_ERR_INTERNAL      =232,
+//    /* zero division error */
+//    TI_PROTO_NODE_ERR_ZERO_DIV      =224,
+//    /* max quota is reached */
+//    TI_PROTO_NODE_ERR_MAX_QUOTA     =225,
+//    /* authentication failed or request without authentication */
+//    TI_PROTO_NODE_ERR_AUTH          =226,
+//    /* no access for the requested task */
+//    TI_PROTO_NODE_ERR_FORBIDDEN     =227,
+//    /* query syntax error */
+//    TI_PROTO_NODE_ERR_INDEX         =228,
+//    /* invalid request, incorrect package type, invalid QPack data */
+//    TI_PROTO_NODE_ERR_BAD_REQUEST   =229,
+//    /* node is (currently) unable to respond to the request */
+//    TI_PROTO_NODE_ERR_QUERY         =230,
+//    /* not found, maybe because due to no access */
+//    TI_PROTO_NODE_ERR_NODE          =231,
+//    /* internal server error, for example allocation error */
+//    TI_PROTO_NODE_ERR_INTERNAL      =232,
 
     /*
      * 240..255 node only errors
      */
-    TI_PROTO_NODE_ERR_CONNECT       =240,
+    TI_PROTO_NODE_ERR_RES           =240,   /* message */
     TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* uint8_t node_id with the
                                                conflicting event id */
     TI_PROTO_NODE_ERR_AWAY_ID       =242,   /* empty */

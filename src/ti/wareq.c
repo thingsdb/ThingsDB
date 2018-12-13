@@ -302,7 +302,7 @@ static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status)
     {
         ex_t * e = ex_use();
         ex_set(e, status, ex_str(status));
-        resp = ti_pkg_err(fwd->orig_pkg_id, e);
+        resp = ti_pkg_client_err(fwd->orig_pkg_id, e);
         if (!resp)
             log_error(EX_ALLOC_S);
         goto finish;

@@ -164,7 +164,7 @@ static void away__req_away_id(void)
         {
             if (ti_quorum_shrink_one(quorum))
                 log_error(
-                        "failed to reach quorum while the previous check"
+                        "failed to reach quorum while the previous check "
                         "was successful");
         }
     }
@@ -335,6 +335,7 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 
 static inline uint64_t away__calc_sleep(void)
 {
+    return 3600000L;
     return ti()->nodes->vec->n == 1 ?
             3600000L :   /* once an hour: 3600000L */
             ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;

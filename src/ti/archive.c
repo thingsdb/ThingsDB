@@ -114,20 +114,17 @@ ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg)
     return epkg;
 }
 
-int ti_archive_load(void)
+int ti_archive_init(void)
 {
-    ti_epkg_t * epkg;
     struct stat st;
-    struct dirent ** file_list;
-    int n, total;
     char * storage_path = ti()->cfg->storage_path;
 
     assert (storage_path);
     assert (archive->path == NULL);
-    assert (ti()->events->cevid);
     assert (ti()->node);
 
     memset(&st, 0, sizeof(struct stat));
+
     archive->sevid = &ti()->node->sevid;
     *archive->sevid = *ti()->events->cevid;
 
@@ -141,17 +138,25 @@ int ti_archive_load(void)
     if (!archive->nodes_scevid_fn)
         return -1;
 
-    archive__read_nodes_scevid();
-
-    if (!fx_is_dir(archive->path))
+    if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
     {
-        if (mkdir(archive->path, 0700))
-        {
-            log_critical("cannot create archive directory: `%s`", archive->path);
-            return -1;
-        }
-        return 0;
+        log_critical("cannot create archive directory: `%s`", archive->path);
+        return -1;
     }
+
+    return 0;
+}
+
+int ti_archive_load(void)
+{
+    ti_epkg_t * epkg;
+    struct dirent ** file_list;
+    int n, total;
+
+    assert (ti()->events->cevid);
+    assert (ti()->node);
+
+    archive__read_nodes_scevid();
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
     if (total < 0)

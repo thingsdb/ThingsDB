@@ -509,6 +509,14 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
+    if (query->rval->via.raw->n >= INET6_ADDRSTRLEN)
+    {
+        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%.*s`",
+                (int) query->rval->via.raw->n,
+                (char *) query->rval->via.raw->data);
+        goto fail0;
+    }
+
     addrstr = ti_raw_to_str(query->rval->via.raw);
     if (!addrstr)
     {
@@ -581,7 +589,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail1;
 
-    node = ti_nodes_new_node(&addr, encrypted);
+    node = ti_nodes_new_node(port, addrstr, encrypted);
     if (!node)
     {
         ex_set_alloc(e);
@@ -946,6 +954,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    ti()->flags |= TI_FLAG_SIGNAL;
     ti_stop_slow();
 
     if (query_rval_clear(query))

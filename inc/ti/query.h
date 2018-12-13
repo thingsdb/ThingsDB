@@ -9,7 +9,6 @@ enum
     TI_QUERY_FLAG_COLLECTION_EVENT      =1<<0,
     TI_QUERY_FLAG_ROOT_EVENT            =1<<1,
     TI_QUERY_FLAG_ROOT_NESTED           =1<<2,
-    TI_QUERY_FLAG_OVERFLOW              =1<<3,
 };
 
 typedef struct ti_query_s ti_query_t;
@@ -27,7 +26,12 @@ typedef struct ti_query_s ti_query_t;
 
 ti_query_t * ti_query_create(ti_stream_t * stream);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_unpack(ti_query_t * query, ti_pkg_t * pkg, ex_t * e);
+int ti_query_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e);
 int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
@@ -37,8 +41,9 @@ static inline _Bool ti_query_will_update(ti_query_t * query);
 struct ti_query_s
 {
     uint32_t nd_cache_count;    /* count while investigate */
+    uint16_t pkg_id;
     uint8_t flags;
-    uint64_t pkg_id;
+    uint8_t pad0_;
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* target NULL means root */
     char * querystr;            /* 0 terminated query string */

@@ -175,12 +175,12 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
         return;
     }
 
-    rc = uv_accept(uvstream, &stream->uvstream);
+    rc = uv_accept(uvstream, stream->uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            &stream->uvstream,
+            stream->uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)
@@ -213,12 +213,12 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
         return;
     }
 
-    rc = uv_accept(uvstream, &stream->uvstream);
+    rc = uv_accept(uvstream, stream->uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            &stream->uvstream,
+            stream->uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)
@@ -262,7 +262,7 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_t * e = ex_use();
         ex_set(e, EX_BAD_DATA, "ping request requires a package id > 0");
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
     }
     else
     {
@@ -288,7 +288,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(e, EX_BAD_DATA,
                 "authentication request requires a package id > 0");
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
         goto finish;
     }
 
@@ -300,7 +300,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(e, EX_BAD_DATA, "invalid authentication request");
         log_error("%s from `%s`", e->msg, ti_stream_name(stream));
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
         goto finish;
     }
     user = ti_users_auth(&name, &pass, e);
@@ -311,14 +311,17 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
                 "authentication failed `%s` from `%s`)",
                 e->msg,
                 ti_stream_name(stream));
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
     }
     else
     {
         assert (user != NULL);
         if (stream->via.user)
+        {
             ti_user_drop(stream->via.user);
-        stream->via.user = ti_grab(user);
+            stream->via.user = NULL;
+        }
+        ti_stream_set_user(stream, user);
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_AUTH, NULL, 0);
     }
 
@@ -389,7 +392,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_unpack(query, pkg, e))
+    if (ti_query_unpack(query, pkg->id, pkg->data, pkg->n, e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access;
@@ -420,7 +423,7 @@ finish:
     ti_query_destroy(query);
 
     if (e->nr)
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -478,7 +481,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
 
 finish:
     if (e->nr)
-        resp = ti_pkg_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -540,21 +543,19 @@ static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
     {
         ex_t * e = ex_use();
         ex_set(e, status, ex_str(status));
-        resp = ti_pkg_err(fwd->orig_pkg_id, e);
+        resp = ti_pkg_client_err(fwd->orig_pkg_id, e);
         if (!resp)
             log_error(EX_ALLOC_S);
         goto finish;
     }
 
-    resp = req->pkg_res;
-    req->pkg_res = NULL;
-
-    resp->id = fwd->orig_pkg_id;
-    resp->tp = resp->tp - 0x80;
-    resp->ntp = resp->tp ^ 255;
+    resp = ti_pkg_dup(req->pkg_res);
+    if (resp)
+        resp->id = fwd->orig_pkg_id;
+    else
+        log_error(EX_ALLOC_S);
 
 finish:
-    free(req->pkg_res);
     if (resp && ti_stream_write_pkg(fwd->stream, resp))
     {
         free(resp);

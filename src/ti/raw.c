@@ -90,14 +90,14 @@ ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
 
     va_end(args0);
 
-    r = malloc(sizeof(ti_raw_t) + sz);
+    r = malloc(sizeof(ti_raw_t) + sz + 1);
     if (!r)
         goto done;
 
     r->ref = 1;
     r->n = (uint32_t) sz;
 
-    (void) vsnprintf((char *) r->data, r->n, fmt, args1);
+    (void) vsnprintf((char *) r->data, r->n + 1, fmt, args1);
 
 done:
     va_end(args1);

@@ -336,11 +336,10 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
     (void) qp_add_int64(packer, node->id);
+    (void) qp_add_raw_from_str(packer, "port");
+    (void) qp_add_int64(packer, node->port);
     (void) qp_add_raw_from_str(packer, "addr");
-    (void) qp_add_raw(
-            packer,
-            (const uchar *) &node->addr,
-            sizeof(struct sockaddr_storage));
+    (void) qp_add_raw_from_str(packer, node->addr);
     (void) qp_add_raw_from_str(packer, "secret");
     (void) qp_add_raw(packer, (uchar *) node->secret, CRYPTX_SZ);
     (void) qp_close_map(packer);

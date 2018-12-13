@@ -14,10 +14,9 @@
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
-static void stream__destroy(ti_stream_t * stream);
 static void stream__close_cb(uv_handle_t * uvstream);
 
-static const char * ti__stream_name_unresolved = "unresolved";
+#define STREAM__UNRESOLVED "unresolved";
 
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
@@ -25,6 +24,13 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     ti_stream_t * stream = malloc(sizeof(ti_stream_t));
     if (!stream)
         return NULL;
+
+    stream->uvstream = malloc(sizeof(uv_stream_t));
+    if (!stream->uvstream)
+    {
+        free(stream);
+        return NULL;
+    }
 
     stream->ref = 1;
     stream->n = 0;
@@ -36,7 +42,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->buf = NULL;
     stream->name_ = NULL;
     stream->reqmap = omap_create();
-    stream->uvstream.data = stream;
+    stream->uvstream->data = stream;
     stream->next_pkg_id = 0;
     stream->watching = NULL;
     if (!stream->reqmap)
@@ -47,11 +53,11 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
     case TI_STREAM_TCP_IN_CLIENT:
-        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) &stream->uvstream))
+        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
             goto failed;
         break;
     case TI_STREAM_PIPE_IN_CLIENT:
-        if (uv_pipe_init(ti()->loop, (uv_pipe_t *) &stream->uvstream, 0))
+        if (uv_pipe_init(ti()->loop, (uv_pipe_t *) stream->uvstream, 0))
             goto failed;
         break;
     }
@@ -68,23 +74,39 @@ void ti_stream_drop(ti_stream_t * stream)
 {
     if (stream && !--stream->ref)
     {
-        ti_stream_close(stream);
-
-        omap_destroy(stream->reqmap, (omap_destroy_cb) &ti_req_cancel);
-        stream->reqmap = NULL;
-
+        assert (stream->flags & TI_STREAM_FLAG_CLOSED);
         log_info("closing stream `%s`", ti_stream_name(stream));
-
-        uv_close((uv_handle_t *) &stream->uvstream, stream__close_cb);
+        uv_close((uv_handle_t *) stream->uvstream, stream__close_cb);
     }
 }
 
 void ti_stream_close(ti_stream_t * stream)
 {
+    if (!stream)
+        return;
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */
-
+    omap_destroy(stream->reqmap, (omap_destroy_cb) &ti_req_cancel);
+    stream->reqmap = NULL;
     ti_stream_drop(stream);
+}
+
+void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
+{
+    assert (stream->tp == TI_STREAM_TCP_OUT_NODE ||
+            stream->tp == TI_STREAM_TCP_IN_NODE);
+    assert (node->stream == NULL);
+    assert (stream->via.node == NULL);
+    stream->via.node = ti_grab(node);
+    node->stream = stream;
+}
+
+void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
+{
+    assert (stream->tp == TI_STREAM_TCP_IN_CLIENT ||
+            stream->tp == TI_STREAM_PIPE_IN_CLIENT);
+    assert (stream->via.user == NULL);
+    stream->via.user = ti_grab(user);
 }
 
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
@@ -176,6 +198,46 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     }
 }
 
+/*
+ * Returns 0 on success
+ *
+ *  - `toaddr` should be able to store at least INET6_ADDRSTRLEN
+ */
+int ti_stream_tcp_address(ti_stream_t * stream, char * toaddr)
+{
+    assert (stream->tp == TI_STREAM_TCP_OUT_NODE ||
+            stream->tp == TI_STREAM_TCP_IN_NODE ||
+            stream->tp == TI_STREAM_TCP_IN_CLIENT);
+
+    struct sockaddr_storage name;
+    int len = sizeof(name);     /* len is used both for input and output */
+
+    if (uv_tcp_getpeername(
+            (uv_tcp_t *) stream->uvstream,
+            (struct sockaddr *) &name,
+            &len))
+        return -1;
+
+    switch (name.ss_family)
+    {
+    case AF_INET:
+        return uv_inet_ntop(
+                AF_INET,
+                &((struct sockaddr_in *) &name)->sin_addr,
+                toaddr,
+                INET6_ADDRSTRLEN);
+    case AF_INET6:
+        return uv_inet_ntop(
+                AF_INET6,
+                &((struct sockaddr_in6 *) &name)->sin6_addr,
+                toaddr,
+                INET6_ADDRSTRLEN);
+    }
+
+    assert (0);
+    return -1;
+}
+
 const char * ti_stream_name(ti_stream_t * stream)
 {
     if (!stream)
@@ -190,25 +252,26 @@ const char * ti_stream_name(ti_stream_t * stream)
         stream->name_ = ti_tcp_name(
                 "<node-out> ",
                 (uv_tcp_t *) &stream->uvstream);
-        break;
+        return stream->name_ ? stream->name_ : "<node-out> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_NODE:
         stream->name_ = ti_tcp_name(
                 "<node-in> ",
                 (uv_tcp_t *) &stream->uvstream);
-        break;
+        return stream->name_ ? stream->name_ : "<node-in> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_CLIENT:
         stream->name_ = ti_tcp_name(
                 "<client> ",
                 (uv_tcp_t *) &stream->uvstream);
-        break;
+        return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
         stream->name_ = ti_pipe_name(
                 "<client> ",
                 (uv_pipe_t *) &stream->uvstream);
-        break;
+        return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }
 
-    return stream->name_ ? stream->name_ : ti__stream_name_unresolved;
+    assert (0);
+    return STREAM__UNRESOLVED;
 }
 
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -256,8 +319,11 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
     ti_write_destroy(req);
 }
 
-static void stream__destroy(ti_stream_t * stream)
+static void stream__close_cb(uv_handle_t * uvstream)
 {
+    ti_stream_t * stream = uvstream->data;
+    assert (stream);
+    assert (stream->flags & TI_STREAM_FLAG_CLOSED);
     assert (stream->reqmap == NULL);
 
     switch ((ti_stream_enum) stream->tp)
@@ -291,14 +357,6 @@ static void stream__destroy(ti_stream_t * stream)
     vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_stop);
     free(stream->buf);
     free(stream->name_);
+    free(uvstream);
     free(stream);
 }
-
-static void stream__close_cb(uv_handle_t * uvstream)
-{
-    ti_stream_t * stream = uvstream->data;
-    log_debug("disconnected `%s`", ti_stream_name(stream));
-    stream__destroy(stream);
-}
-
-

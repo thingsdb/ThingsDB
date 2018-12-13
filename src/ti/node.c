@@ -19,6 +19,8 @@
 
 static void node__on_connect(uv_connect_t * req, int status);
 static void node__on_connect_req(ti_req_t * req, ex_enum status);
+static int node__update_sockaddr(ti_node_t * node, ex_t * e);
+static void node__clear_sockaddr(ti_node_t * node);
 
 /*
  * Nodes are created ti_nodes_new_node() to ensure a correct id
@@ -26,10 +28,12 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status);
  */
 ti_node_t * ti_node_create(
         uint8_t id,
-        struct sockaddr_storage * addr,
+        uint16_t port,
+        const char * addr,
         const char * secret)
 {
     assert (strlen(secret) == CRYPTX_SZ - 1);
+    assert (strlen(addr) < INET6_ADDRSTRLEN);
 
     ti_node_t * node = (ti_node_t *) malloc(sizeof(ti_node_t));
     if (!node)
@@ -43,9 +47,13 @@ ti_node_t * ti_node_create(
     node->id = id;
     node->stream = NULL;
     node->status = TI_NODE_STAT_OFFLINE;
-    node->addr = *addr;
     node->next_retry = 0;
     node->retry_counter = 0;
+    node->port = port;
+    node->sockaddr_ = NULL;     /* must be updated using
+                                   node__update_sockaddr()
+                                */
+    strcpy(node->addr, addr);
     memcpy(&node->secret, secret, CRYPTX_SZ);
 
     return node;
@@ -55,9 +63,34 @@ void ti_node_drop(ti_node_t * node)
 {
     if (node && !--node->ref)
     {
-        ti_stream_drop(node->stream);
+        ti_stream_close(node->stream);
+        free(node->sockaddr_);
         free(node);
     }
+}
+
+int ti_node_upd_addr_from_stream(
+        ti_node_t * node,
+        ti_stream_t * stream,
+        uint16_t port)
+{
+    char addr[INET6_ADDRSTRLEN];
+
+    /* try to update the address and port information if required */
+    if (ti_stream_tcp_address(stream, addr))
+    {
+        log_warning("cannot read address from node stream");
+        return -1;
+    }
+
+    if (strncmp(node->addr, addr, INET6_ADDRSTRLEN) || node->port != port)
+    {
+        node->port = port;
+        node__clear_sockaddr(node);
+        (void *) strcpy(node->addr, addr);
+        (void) ti_save();
+    }
+    return 0;
 }
 
 const char * ti_node_name(ti_node_t * node)
@@ -93,38 +126,50 @@ int ti_node_connect(ti_node_t * node)
     assert (!node->stream);
     assert (node->status == TI_NODE_STAT_OFFLINE);
 
+    log_debug("connecting to "TI_NODE_ID, node->id);
+
+    ti_stream_t * stream;
     uv_connect_t * req;
 
-    node->stream = ti_stream_create(TI_STREAM_TCP_OUT_NODE, ti_nodes_pkg_cb);
-    if (!node->stream)
+    if (!node->sockaddr_)
+    {
+        ex_t * e = ex_use();
+        if (node__update_sockaddr(node, e))
+        {
+            log_error(e->msg);
+            return -1;
+        }
+    }
+
+    stream = ti_stream_create(TI_STREAM_TCP_OUT_NODE, ti_nodes_pkg_cb);
+    if (!stream)
         goto fail0;
 
-    node->stream->via.node = ti_grab(node);
+    ti_stream_set_node(stream, node);
 
     req = malloc(sizeof(uv_connect_t));
     if (!req)
         goto fail0;
 
     req->data = ti_grab(node);
-    log_debug("connecting to "TI_NODE_ID, node->id);
-
     node->status = TI_NODE_STAT_CONNECTING;
 
     if (uv_tcp_connect(
             req,
-            (uv_tcp_t *) &node->stream->uvstream,
-            (const struct sockaddr*) &node->addr,
+            (uv_tcp_t *) node->stream->uvstream,
+            (const struct sockaddr*) node->sockaddr_,
             node__on_connect))
     {
         node->status = TI_NODE_STAT_OFFLINE;
-        assert (node->stream->ref > 1);
-        goto fail0;
+        goto fail1;
     }
 
     return 0;
 
+fail1:
+    ti_node_drop(node);  /* break down req->data */
 fail0:
-    ti_stream_drop(node->stream);
+    ti_stream_close(stream);
     return -1;
 }
 
@@ -145,7 +190,8 @@ static void node__on_connect(uv_connect_t * req, int status)
     int rc;
     qpx_packer_t * packer;
     ti_pkg_t * pkg;
-    ti_node_t * node = req->data, * ti_node = ti()->node;
+    ti_node_t * node = req->data;
+    ti_node_t * ti_node = ti()->node;
 
     if (status)
     {
@@ -188,6 +234,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     (void) qp_add_int64(packer, node->id);
     (void) qp_add_raw(packer, (const uchar *) node->secret, CRYPTX_SZ);
     (void) qp_add_int64(packer, ti_node->id);
+    (void) qp_add_int64(packer, ti_node->port);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
     (void) qp_add_int64(packer, ti_node->next_thing_id);
@@ -215,7 +262,8 @@ static void node__on_connect(uv_connect_t * req, int status)
 
 failed:
     if (!uv_is_closing((uv_handle_t *) req->handle))
-        ti_stream_drop((ti_stream_t *) req->handle->data);
+        ti_stream_close((ti_stream_t *) req->handle->data);
+
 done:
     ti_node_drop(node);  /* reference on the request */
     free(req);
@@ -232,6 +280,21 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     if (status)
         goto failed;  /* logging is done */
 
+    if (pkg->tp != TI_PROTO_NODE_RES_CONNECT)
+    {
+        ti_pkg_log(pkg);
+        goto failed;
+    }
+
+    if (node->stream != req->stream)
+    {
+        log_warning(
+                "connection to "TI_NODE_ID" (%s) already established "
+                "from the other side",
+                node->id, ti_node_name(node));
+        goto failed;
+    }
+
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
@@ -241,10 +304,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
             !qp_is_int(qp_next(&unpacker, &qp_status)) ||
             !qp_is_int(qp_next(&unpacker, &qp_flags)))
     {
-        log_error(
-                "invalid response from "TI_NODE_ID" (package type: `%s`)",
-                node->id,
-                ti_proto_str(pkg->tp));
+        log_error("invalid connect response from "TI_NODE_ID, node->id);
         goto failed;
     }
 
@@ -258,14 +318,76 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     node->next_retry = 0;
     node->retry_counter = 0;
 
-    /* the flow is completed so we should have at least 2 references */
-    assert (node->stream->ref > 1);
+    /* drop the request node reference */
+    ti_node_drop(node);
 
     goto done;
 
 failed:
-    ti_stream_drop(node->stream);
+    ti_stream_close(req->stream);
 done:
     free(req->pkg_req);
     ti_req_destroy(req);
 }
+
+static int node__update_sockaddr(ti_node_t * node, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (!node->sockaddr_);
+
+    struct in_addr sa;
+    struct in6_addr sa6;
+
+    node->sockaddr_ = malloc(sizeof(struct sockaddr_storage));
+    if (!node->sockaddr_)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    if (inet_pton(AF_INET, node->addr, &sa))  /* try IPv4 */
+    {
+        if (uv_ip4_addr(
+                node->addr,
+                node->port,
+                (struct sockaddr_in *) node->sockaddr_))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv4 address from `%s:%d`",
+                    node->addr, node->port);
+            goto failed;
+        }
+    }
+    else if (inet_pton(AF_INET6, node->addr, &sa6))  /* try IPv6 */
+    {
+        if (uv_ip6_addr(
+                node->addr,
+                node->port,
+                (struct sockaddr_in6 *) node->sockaddr_))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv6 address from `[%s]:%d`",
+                    node->addr, node->port);
+            goto failed;
+        }
+    }
+    else
+    {
+        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", node->addr);
+        goto failed;
+    }
+
+    assert (e->nr == 0);
+    return e->nr;
+
+failed:
+    node__clear_sockaddr(node);
+    return e->nr;
+}
+
+static void node__clear_sockaddr(ti_node_t * node)
+{
+    free(node->sockaddr_);
+    node->sockaddr_ = NULL;
+}
+

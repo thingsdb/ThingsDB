@@ -1,0 +1,1 @@
+rm ../itest/testdir/ti*/ -r

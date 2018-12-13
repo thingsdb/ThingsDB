@@ -233,13 +233,15 @@ static int rjob__new_collection(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'id': id, 'addr':sockaddr, 'secret': encrypted}
+ * - for example: {'id': id, 'port': port, 'addr':ip_addr, 'secret': encrypted}
  */
 static int rjob__new_node(qp_unpacker_t * unp)
 {
     assert (unp);
-    qp_obj_t qp_id, qp_addr, qp_secret;
+    qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
     uint8_t node_id, next_node_id = ti()->nodes->vec->n;
+    uint16_t port;
+    char addr[INET6_ADDRSTRLEN];
 
     assert (((ti_node_t *) vec_last(ti()->nodes->vec))->id == next_node_id-1);
 
@@ -247,8 +249,10 @@ static int rjob__new_node(qp_unpacker_t * unp)
             !qp_is_raw(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qp_id)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_port)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, &qp_addr)) ||
-            qp_addr.len != sizeof(struct sockaddr_storage) ||
+            qp_addr.len >= INET6_ADDRSTRLEN ||
             !qp_is_raw(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, &qp_secret)) ||
             qp_secret.len != CRYPTX_SZ ||
@@ -259,6 +263,8 @@ static int rjob__new_node(qp_unpacker_t * unp)
     }
 
     node_id = (uint8_t) qp_id.via.int64;
+    port = (uint16_t) qp_port.via.int64;
+
     if (node_id < next_node_id)
         return 0;  /* this node is already added */
 
@@ -270,9 +276,10 @@ static int rjob__new_node(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (!ti_nodes_new_node(
-            (struct sockaddr_storage *) qp_addr.via.raw,
-            (const char *) qp_secret.via.raw))
+    memcpy(addr, qp_addr.via.raw, qp_addr.len);
+    addr[qp_addr.len] = '\0';
+
+    if (!ti_nodes_new_node(port, addr, (const char *) qp_secret.via.raw))
     {
         log_critical(EX_ALLOC_S);
         return -1;

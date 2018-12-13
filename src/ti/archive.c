@@ -257,7 +257,7 @@ void ti_archive_cleanup(void)
 static int archive__init_queue(void)
 {
     assert (ti()->node);
-    assert (*ti()->events->cevid);
+    assert (ti()->events->cevid);
     int rc = -1;
     ti_epkg_t * epkg;
     uint64_t cevid = *ti()->events->cevid;

@@ -114,8 +114,7 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
                                         */
 void ti_change_and_broadcast_node_status(ti_node_status_t status);
-void ti_set_and_broadcast_node_flags(ti_node_flags_t flags);
-void ti_unset_and_broadcast_node_flags(ti_node_flags_t flags);
+void ti_broadcast_node_status(void);
 int ti_node_to_packer(qp_packer_t ** packer);
 ti_val_t * ti_node_as_qpval(void);
 static inline ti_t * ti(void);

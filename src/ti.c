@@ -480,14 +480,19 @@ ti_rpkg_t * ti_client_status_rpkg(void)
 
 void ti_change_and_broadcast_node_status(ti_node_status_t status)
 {
-    ti_rpkg_t * node_rpkg, * client_rpkg;
-
     log_debug("changing status of node `%s` from %s to %s",
             ti_node_name(ti()->node),
             ti_node_status_str(ti()->node->status),
             ti_node_status_str(status));
 
     ti()->node->status = status;
+
+    ti_broadcast_node_status();
+}
+
+void ti_broadcast_node_status(void)
+{
+    ti_rpkg_t * node_rpkg, * client_rpkg;
 
     node_rpkg = ti_node_status_rpkg();
     client_rpkg = ti_client_status_rpkg();

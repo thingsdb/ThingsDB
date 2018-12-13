@@ -251,22 +251,22 @@ const char * ti_stream_name(ti_stream_t * stream)
     case TI_STREAM_TCP_OUT_NODE:
         stream->name_ = ti_tcp_name(
                 "<node-out> ",
-                (uv_tcp_t *) &stream->uvstream);
+                (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-out> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_NODE:
         stream->name_ = ti_tcp_name(
                 "<node-in> ",
-                (uv_tcp_t *) &stream->uvstream);
+                (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-in> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_CLIENT:
         stream->name_ = ti_tcp_name(
                 "<client> ",
-                (uv_tcp_t *) &stream->uvstream);
+                (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
         stream->name_ = ti_pipe_name(
                 "<client> ",
-                (uv_pipe_t *) &stream->uvstream);
+                (uv_pipe_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }
 

@@ -301,7 +301,7 @@ ti_val_t * ti_collections_as_qpval(void)
 {
     ti_raw_t * raw;
     ti_val_t * qpval = NULL;
-    qp_packer_t * packer = qp_packer_create2(collections->vec->n * 128, 2);
+    qp_packer_t * packer = qp_packer_create2(2 + collections->vec->n * 128, 2);
     if (!packer)
         return NULL;
 

@@ -117,7 +117,7 @@ const char * ti_node_status_str(ti_node_status_t status)
 const char * ti_node_flags_str(ti_node_flags_t flags)
 {
     if (flags & TI_NODE_FLAG_MIGRATING)
-        return "MIGRATING";
+        return "MIGRATING_TO_DESIRED_STATE";
     return "NO_FLAGS_SET";
 }
 
@@ -263,9 +263,9 @@ static void node__on_connect(uv_connect_t * req, int status)
 failed:
     if (!uv_is_closing((uv_handle_t *) req->handle))
         ti_stream_close((ti_stream_t *) req->handle->data);
+    ti_node_drop(node);
 
 done:
-    ti_node_drop(node);  /* reference on the request */
     free(req);
 }
 

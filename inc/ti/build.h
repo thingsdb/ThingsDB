@@ -17,13 +17,22 @@ typedef struct ti_build_s ti_build_t;
 
 int ti_build_create(void);
 void ti_build_destroy(void);
-int ti_build_setup(uint8_t this_id, uint8_t from_id, ti_stream_t * stream);
+int ti_build_setup(
+        uint8_t this_node_id,
+        uint8_t from_node_id,
+        uint8_t from_node_status,
+        uint8_t from_node_flags,
+        uint16_t from_node_port,
+        ti_stream_t * stream);
 
 struct ti_build_s
 {
     uint8_t status;
-    uint8_t this_id;            /* this node id */
-    uint8_t from_id;
+    uint8_t this_node_id;
+    uint8_t from_node_id;
+    uint8_t from_node_status;
+    uint8_t from_node_flags;
+    uint16_t from_node_port;
 };
 
 #endif  /* TI_BUILD_H */

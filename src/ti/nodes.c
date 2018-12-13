@@ -378,18 +378,23 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
             qp_add_raw_from_str(*packer, "commited_event_id") ||
             qp_add_int64(*packer, node->cevid) ||
             qp_add_raw_from_str(*packer, "stored_event_id") ||
-            qp_add_int64(*packer, node->sevid))
+            qp_add_int64(*packer, node->sevid) ||
+            qp_add_raw_from_str(*packer, "address") ||
+            qp_add_raw_from_str(
+                    *packer,
+                    node == this_node ? ti_name() : node->addr) ||
+            qp_add_raw_from_str(*packer, "port") ||
+            qp_add_int64(*packer, node->port))
             return -1;
 
-        if ((this_node == node || node->stream) && (
-                qp_add_raw_from_str(*packer, "name") ||
-                qp_add_raw_from_str(*packer, ti_node_name(node))))
+        if (!ti_stream_is_closed(node->stream) && (
+                qp_add_raw_from_str(*packer, "stream") ||
+                qp_add_raw_from_str(*packer, ti_stream_name(node->stream))))
             return -1;
-
 
         if (node->flags && (
                 qp_add_raw_from_str(*packer, "flags") ||
-                qp_add_int64(*packer, node->flags)))
+                qp_add_raw_from_str(*packer, ti_node_flags_str(node->flags))))
             return -1;
 
         if (qp_close_map(*packer))
@@ -481,12 +486,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         qp_status,
         qp_flags;
 
-    uint8_t this_node_id, from_node_id;
+    uint8_t this_node_id, from_node_id, from_node_status, from_node_flags;
     uint16_t from_node_port;
     ti_node_t * node, * this_node = ti()->node;
     char * min_ver = NULL;
     char * version = NULL;
-    qpx_packer_t * packer;
+    qpx_packer_t * packer = NULL;
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -514,6 +519,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     this_node_id = (uint8_t) qp_this_node_id.via.int64;
     from_node_id = (uint8_t) qp_from_node_id.via.int64;
     from_node_port = (uint16_t) qp_from_node_port.via.int64;
+    from_node_status = (uint8_t) qp_status.via.int64;
+    from_node_flags = (uint8_t) qp_flags.via.int64;
 
     if (from_node_id == this_node_id)
     {
@@ -567,7 +574,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     "ignore connection request from `%s` since this node is ",
                     "busy building ThingsDB",
                     ti_stream_name(stream));
-            goto done;
+            goto failed;
         }
 
         char validate[CRYPTX_SZ];
@@ -581,8 +588,30 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             goto failed;
         }
 
-        (void) ti_build_setup(this_node_id, from_node_id, stream);
-        goto done;
+        (void) ti_build_setup(
+                this_node_id,
+                from_node_id,
+                from_node_status,
+                from_node_flags,
+                from_node_port,
+                stream);
+
+        packer = qpx_packer_create(32, 1);
+        if (!packer)
+        {
+            log_critical(EX_ALLOC_S);
+            goto failed;
+        }
+
+        (void) qp_add_array(&packer);
+        (void) qp_add_int64(packer, 0);
+        (void) qp_add_int64(packer, 0);
+        (void) qp_add_int64(packer, 0);
+        (void) qp_add_int64(packer, TI_NODE_STAT_BUILDING);
+        (void) qp_add_int64(packer, TI_NODE_FLAG_MIGRATING);
+        (void) qp_close_array(packer);
+
+        goto send;
     }
 
     if (this_node_id != this_node->id)
@@ -624,6 +653,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             from_node_id);
         goto failed;
     }
+
+    node->status = from_node_status;
+    node->flags = from_node_flags;
+    node->cevid = (uint64_t) qp_cevid.via.int64;
+    node->sevid = (uint64_t) qp_sevid.via.int64;
+    node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
 
     if (node->stream)
     {
@@ -671,6 +706,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     (void) qp_add_int64(packer, this_node->flags);
     (void) qp_close_array(packer);
 
+send:
     resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_CONNECT);
     resp->id = pkg->id;
 
@@ -684,6 +720,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
 failed:
     qpx_packer_destroy(packer);
+
 done:
     free(version);
     free(min_ver);
@@ -851,7 +888,7 @@ static void nodes__on_status(ti_stream_t * stream, ti_pkg_t * pkg)
     node->cevid = (uint64_t) qp_cevid.via.int64;
     node->sevid = (uint64_t) qp_sevid.via.int64;
     node->status = (uint8_t) qp_status.via.int64;
-    node->flags = (uint8_t) qp_status.via.int64;
+    node->flags = (uint8_t) qp_flags.via.int64;
 
     log_debug("got a status update for "TI_NODE_ID" (%s)",
             node->id,

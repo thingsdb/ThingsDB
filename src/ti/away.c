@@ -77,7 +77,9 @@ fail0:
 
 void ti_away_trigger(void)
 {
-    if ((away->flags & AWAY__FLAG_IS_RUNNING) || ti_nodes_get_away_or_soon())
+    if ((away->flags & AWAY__FLAG_IS_RUNNING) ||
+        (~ti()->node->flags & TI_NODE_STAT_READY) ||
+        ti_nodes_get_away_or_soon())
         return;
 
     away->flags |= AWAY__FLAG_IS_RUNNING;
@@ -335,7 +337,6 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 
 static inline uint64_t away__calc_sleep(void)
 {
-    return 3600000L;
     return ti()->nodes->vec->n == 1 ?
             3600000L :   /* once an hour: 3600000L */
             ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;

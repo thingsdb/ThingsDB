@@ -445,37 +445,61 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
     char * secret;
+    uint8_t zone;
     ti_node_t * node;
     ti_raw_t * rsecret, * msg;
     ti_task_t * task;
+    cleri_children_t * child;
     struct in_addr sa;
     struct in6_addr sa6;
     struct sockaddr_storage addr;
     char * addrstr;
     int port, n = langdef_nd_n_function_params(nd);
 
-    if (n < 2)
+    if (n < 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` requires at least 2 arguments but %d %s given",
+            "function `new_node` requires at least 3 arguments but %d %s given",
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
-    else if (n > 3)
+    else if (n > 4)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` takes at most 3 arguments but %d were given",
+            "function `new_node` takes at most 4 arguments but %d were given",
             n);
         return e->nr;
     }
 
-    if (rq__scope(query, nd->children->node, e))
+    child = nd->children;
+
+    if (rq__scope(query, child->node, e))
         return e->nr;
+
+    if (query->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `new_node` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    if (query->rval->via.int_ < 0 || query->rval->via.int_ > 0Xff)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "`zone` should be an integer between 0 and 255, got %s",
+            query->rval->via.int_);
+        return e->nr;
+    }
+
+    zone = (uint8_t) query->rval->via.int_;
 
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` expects argument 1 to be of type `%s` "
+            "function `new_node` expects argument 2 to be of type `%s` "
             "but got `%s`",
             ti_val_tp_str(TI_VAL_RAW),
             ti_val_str(query->rval));
@@ -504,7 +528,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` expects argument 2 to be of type `%s` "
+            "function `new_node` expects argument 3 to be of type `%s` "
             "but got `%s`",
             ti_val_tp_str(TI_VAL_RAW),
             ti_val_str(query->rval));
@@ -526,16 +550,17 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (n == 3)
+    if (n == 4)
     {
+        child = child->next->next;
         /* Read the port number from arguments */
-        if (rq__scope(query, nd->children->next->next->next->next->node, e))
+        if (rq__scope(query, child->node, e))
             goto fail1;
 
         if (query->rval->tp != TI_VAL_INT)
         {
             ex_set(e, EX_BAD_DATA,
-                "function `new_node` expects argument 3 to be of type `%s` "
+                "function `new_node` expects argument 4 to be of type `%s` "
                 "but got `%s`",
                 ti_val_tp_str(TI_VAL_INT),
                 ti_val_str(query->rval));
@@ -591,7 +616,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail1;
 
-    node = ti_nodes_new_node(port, addrstr, encrypted);
+    node = ti_nodes_new_node(zone, port, addrstr, encrypted);
     if (!node)
     {
         ex_set_alloc(e);

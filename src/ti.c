@@ -153,7 +153,7 @@ int ti_build(void)
     cryptx_gen_salt(salt);
     cryptx("ThingsDB", salt, encrypted);
 
-    ti_.node = ti_nodes_new_node(ti_.cfg->node_port, "0.0.0.0", encrypted);
+    ti_.node = ti_nodes_new_node(0, ti_.cfg->node_port, "0.0.0.0", encrypted);
     if (!ti_.node)
         goto failed;
 

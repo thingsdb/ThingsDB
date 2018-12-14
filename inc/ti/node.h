@@ -92,7 +92,7 @@ struct ti_node_s
                     is the winner. */
     uint8_t status;
     uint8_t flags;                  /* flag status must be stored */
-    uint8_t _pad0_;
+    uint8_t zone;                   /* zone info */
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */
     uint64_t cevid;                 /* last committed event id */
@@ -107,6 +107,7 @@ struct ti_node_s
 
 ti_node_t * ti_node_create(
         uint8_t id,
+        uint8_t zone,
         uint16_t port,
         const char * addr,
         const char * secret);

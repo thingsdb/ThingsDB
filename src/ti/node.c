@@ -28,6 +28,7 @@ static void node__clear_sockaddr(ti_node_t * node);
  */
 ti_node_t * ti_node_create(
         uint8_t id,
+        uint8_t zone,
         uint16_t port,
         const char * addr,
         const char * secret)
@@ -40,15 +41,16 @@ ti_node_t * ti_node_create(
         return NULL;
 
     node->ref = 1;
+    node->id = id;
+    node->status = TI_NODE_STAT_OFFLINE;
     node->flags = 0;
+    node->zone = zone;
+    node->next_retry = 0;
+    node->retry_counter = 0;
     node->cevid = 0;
     node->sevid = 0;
     node->next_thing_id = 0;
-    node->id = id;
     node->stream = NULL;
-    node->status = TI_NODE_STAT_OFFLINE;
-    node->next_retry = 0;
-    node->retry_counter = 0;
     node->port = port;
     node->sockaddr_ = NULL;     /* must be updated using
                                    node__update_sockaddr()

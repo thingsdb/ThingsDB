@@ -24,6 +24,7 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
 ti_node_t * ti_nodes_new_node(
+        uint8_t zone,
         uint16_t port,
         const char * addr,
         const char * secret);

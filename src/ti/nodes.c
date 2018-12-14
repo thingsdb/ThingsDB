@@ -96,6 +96,7 @@ int ti_nodes_to_packer(qp_packer_t ** packer)
     for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (qp_add_array(packer) ||
+            qp_add_int64(*packer, node->zone) ||
             qp_add_int64(*packer, node->port) ||
             qp_add_raw_from_str(*packer, node->addr) ||
             qp_add_raw(*packer, (const uchar *) node->secret, CRYPTX_SZ) ||
@@ -113,20 +114,23 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
     {
         char addr[INET6_ADDRSTRLEN];
         uint16_t port;
+        uint8_t zone;
         ti_node_t * node;
         const char * secret;
-        qp_res_t * qpflags, * qpport, * qpaddr, * qpsecret;
+        qp_res_t * qpflags, * qpzone, * qpport, * qpaddr, * qpsecret;
         qp_res_t * qparray = qpnodes->via.array->values + i;
 
-        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 4)
+        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 5)
             return -1;
 
-        qpport = qparray->via.array->values + 0;
-        qpaddr = qparray->via.array->values + 1;
-        qpsecret = qparray->via.array->values + 2;
-        qpflags = qparray->via.array->values + 3;
+        qpzone = qparray->via.array->values + 0;
+        qpport = qparray->via.array->values + 1;
+        qpaddr = qparray->via.array->values + 2;
+        qpsecret = qparray->via.array->values + 3;
+        qpflags = qparray->via.array->values + 4;
 
-        if (    qpport->tp != QP_RES_INT64 ||
+        if (    qpzone->tp != QP_RES_INT64 ||
+                qpport->tp != QP_RES_INT64 ||
                 qpaddr->tp != QP_RES_RAW ||
                 qpaddr->via.raw->n >= INET6_ADDRSTRLEN ||
                 qpsecret->tp != QP_RES_RAW ||
@@ -134,6 +138,7 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
                 qpflags->tp != QP_RES_INT64)
             return -1;
 
+        zone = (uint8_t) qpzone->via.int64;
         port = (uint16_t) qpport->via.int64;
 
         memcpy(addr, qpaddr->via.raw->data, qpaddr->via.raw->n);
@@ -141,7 +146,7 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
 
         secret = (const char *) qpsecret->via.raw->data;
 
-        node = ti_nodes_new_node(port, addr, secret);
+        node = ti_nodes_new_node(zone, port, addr, secret);
         if (!node)
             return -1;
 
@@ -179,11 +184,12 @@ uint64_t ti_nodes_sevid(void)
 }
 
 ti_node_t * ti_nodes_new_node(
+        uint8_t zone,
         uint16_t port,
         const char * addr,
         const char * secret)
 {
-    ti_node_t * node = ti_node_create(nodes->vec->n, port, addr, secret);
+    ti_node_t * node = ti_node_create(nodes->vec->n, zone, port, addr, secret);
     if (!node || vec_push(&nodes->vec, node))
     {
         ti_node_drop(node);
@@ -287,43 +293,58 @@ ti_node_t * ti_nodes_get_away_or_soon(void)
 }
 
 /*
- * Returns another borrowed node with status READY.
+ * Returns another borrowed node with status READY if possible from the same
+ * zone.
  */
 ti_node_t * ti_nodes_random_ready_node(void)
 {
+    size_t sz = nodes->vec->n-1;
     ti_node_t * this_node = ti()->node;
-    ti_node_t * online_nodes[nodes->vec->n-1];
-    uint32_t n = 0;
+    ti_node_t * znodes[sz];
+    ti_node_t * onodes[sz];
+
+    uint32_t zn = 0, on = 0;
+
     for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node == this_node || node->status != TI_NODE_STAT_READY)
             continue;
-        online_nodes[n++] = node;
+
+        if (this_node->zone == node->zone)
+            znodes[zn++] = node;
+        else
+            onodes[on++] = node;
     }
-    if (!n)
-        return NULL;
-    return online_nodes[rand() % n];
+    return zn ? znodes[rand() % zn] : on ? onodes[rand() % on] : NULL;
 }
 
 /*
- * Returns another borrowed node which manages id with status READY.
+ * Returns another borrowed node which manages id with status READY if possible
+ * from the same zone.
  */
 ti_node_t * ti_nodes_random_ready_node_for_id(uint64_t id)
 {
+    size_t sz = nodes->vec->n-1;
     ti_node_t * this_node = ti()->node;
-    ti_node_t * online_nodes[nodes->vec->n-1];
-    uint32_t n = 0;
+    ti_node_t * znodes[sz];
+    ti_node_t * onodes[sz];
+
+    uint32_t zn = 0, on = 0;
+
     for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (    node == this_node ||
                 node->status != TI_NODE_STAT_READY ||
                 !ti_node_manages_id(node, ti()->lookup, id))
             continue;
-        online_nodes[n++] = node;
+
+        if (this_node->zone == node->zone)
+            znodes[zn++] = node;
+        else
+            onodes[on++] = node;
     }
-    if (!n)
-        return NULL;
-    return online_nodes[rand() % n];
+
+    return zn ? znodes[rand() % zn] : on ? onodes[rand() % on] : NULL;
 }
 
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)

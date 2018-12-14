@@ -7,33 +7,27 @@
 #include <ti/lookup.h>
 #include <ti.h>
 
-static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, int n);
+static uint8_t lookup__cache[64];
+static uint8_t lookup__tmp[63];
 
-ti_lookup_t * ti_lookup_create(vec_t * nodes, uint8_t n, uint8_t redundancy)
+static void lookup__calculate(ti_lookup_t * lookup);
+
+ti_lookup_t * ti_lookup_create(uint8_t n, uint8_t r)
 {
-    assert (n);
+    assert (n && n <= 64);
 
     ti_lookup_t * lookup = malloc(sizeof(ti_lookup_t) + n * sizeof(uint64_t));
     if (!lookup)
         return NULL;
 
     lookup->n = n;
-    lookup->r = (n < redundancy) ? n : redundancy;
-    lookup->nodes_ = vec_new(lookup->r * n);
-    lookup->cache_ = malloc(sizeof(uint8_t) * n);
-    lookup->tmp_ = malloc(sizeof(uint8_t) * (n - 1));
+    lookup->r = (n < r) ? n : r;
 
     lookup->factorial_ = 1;
     for(size_t i = 1; i <= n; ++i)
         lookup->factorial_ *= i;
 
-    if (!lookup->nodes_ || !lookup->cache_ || !lookup->tmp_)
-    {
-        ti_lookup_destroy(lookup);
-        return NULL;
-    }
-
-    lookup__calculate(lookup, nodes, n);
+    lookup__calculate(lookup);
 
     return lookup;
 }
@@ -42,9 +36,6 @@ void ti_lookup_destroy(ti_lookup_t * lookup)
 {
     if (!lookup)
         return;
-    free(lookup->nodes_);
-    free(lookup->cache_);
-    free(lookup->tmp_);
     free(lookup);
 }
 
@@ -62,18 +53,18 @@ _Bool ti_lookup_id_is_ordered(
     assert (b < lookup->n);
 
     for (i = 0; i < n; ++i)
-        lookup->cache_[i] = i;
+        lookup__cache[i] = i;
 
     for (m = u % f; i > 1; m %= f, --i)
     {
         f /= i;
-        lookup->tmp_[n-i] = (uint8_t) (m / f);
+        lookup__tmp[n-i] = (uint8_t) (m / f);
     }
 
     for (i = 0; true; ++i)
     {
-        uint8_t p = lookup->tmp_[i] + i;
-        n = lookup->cache_[p];
+        uint8_t p = lookup__tmp[i] + i;
+        n = lookup__cache[p];
 
         if (n == a)
             return true;
@@ -81,25 +72,25 @@ _Bool ti_lookup_id_is_ordered(
         if (n == b)
             return false;
 
-        lookup->cache_[p] = lookup->cache_[i];
-        lookup->cache_[i] = n;
+        lookup__cache[p] = lookup__cache[i];
+        lookup__cache[i] = n;
     }
 
     assert (0);
     return 0;
 }
 
-static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, int n)
+static void lookup__calculate(ti_lookup_t * lookup)
 {
-    /* set lookup to NULL */
-    for (uint32_t i = 0, sz = lookup->nodes_->sz; i < sz; i++)
-    {
-        vec_push(&lookup->nodes_, NULL);
-    }
-
     /* create lookup */
+    const uint8_t empty = 0xff;
     int offset, found = 0;
     int r = (int) lookup->r;
+    int n = (int) lookup->n;
+
+    /* set lookup to -1 */
+    for (int i = 0; i < n; i++)
+        lookup__cache[i] = empty;
 
     for (int c = 0; c < n; c++)
     {
@@ -109,32 +100,35 @@ static void lookup__calculate(ti_lookup_t * lookup, vec_t * nodes, int n)
             if ((i - offset) % n < r)
                 found = 1;
 
-            if (found)
+            if (!found)
+                continue;
+
+            for (int p = 0; p < r; p++)
             {
-                for (int p = 0; p < r; p++)
+                if (lookup__cache[i*r + p] == empty)
                 {
-                    if (vec_get(lookup->nodes_, i*r + p) == NULL)
-                    {
-                        lookup->nodes_->data[i*r + p] = vec_get(nodes, c);
-                        found = 0;
-                        break;
-                    }
+                    lookup__cache[i*r + p] = (uint8_t) c;
+                    found = 0;
+                    break;
                 }
-                if (found)
-                    offset++;
             }
+
+            if (found)
+                offset++;
         }
     }
 
     for (int i = 0; i < n; i++)
     {
-        ti_node_t * node;
+        uint8_t node_id;
         uint64_t mask = 0;
+
         for (int p = 0; p < r; p++)
         {
-            node = vec_get(lookup->nodes_, i*r + p);
-            mask += 1 << node->id;
+            node_id = lookup__cache[i*r + p];
+            mask += 1 << node_id;
         }
+
         lookup->mask_[i] = mask;
     }
 }

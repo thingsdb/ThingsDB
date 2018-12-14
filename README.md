@@ -213,6 +213,7 @@
         - [x] `revoke`
         - [x] `user`
         - [x] `users`
+        - [x] `set_loglevel`
         - [x] `shutdown`
         - [ ] `rename_user`
         - [ ] `rename_collection`

@@ -27,6 +27,7 @@ ti_node_t * ti_nodes_new_node(
         uint16_t port,
         const char * addr,
         const char * secret);
+void ti_nodes_pop_node(void);
 ti_node_t * ti_nodes_node_by_id(uint8_t node_id);
 ti_node_t * ti_nodes_get_away(void);
 ti_node_t * ti_nodes_get_away_or_soon(void);

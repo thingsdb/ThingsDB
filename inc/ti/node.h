@@ -68,6 +68,7 @@ typedef enum
 typedef enum
 {
     TI_NODE_FLAG_MIGRATING  =1<<0,      /* migrating to desired state */
+    TI_NODE_FLAG_REMOVED    =1<<1,      /* node in lookup */
 } ti_node_flags_t;
 
 typedef struct ti_node_s ti_node_t;
@@ -84,8 +85,6 @@ typedef struct ti_node_s ti_node_t;
 struct ti_node_s
 {
     uint32_t ref;
-    uint32_t next_retry;            /* retry connect when >= to next retry */
-    uint32_t retry_counter;         /* connection retry counter */
     uint8_t id;  /* node id, equal to the index in tin->nodes and each node
                     contains the same order since the lookup is based on this
                     id. When deciding which node wins over an equal event id
@@ -94,6 +93,8 @@ struct ti_node_s
     uint8_t status;
     uint8_t flags;                  /* flag status must be stored */
     uint8_t _pad0_;
+    uint32_t next_retry;            /* retry connect when >= to next retry */
+    uint32_t retry_counter;         /* connection retry counter */
     uint64_t cevid;                 /* last committed event id */
     uint64_t sevid;                 /* last stored event id */
     uint64_t next_thing_id;

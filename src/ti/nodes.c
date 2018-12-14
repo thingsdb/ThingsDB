@@ -193,6 +193,11 @@ ti_node_t * ti_nodes_new_node(
     return node;
 }
 
+void ti_nodes_pop_node(void)
+{
+    ti_node_drop(vec_pop(nodes->vec));
+}
+
 ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
 {
     return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);

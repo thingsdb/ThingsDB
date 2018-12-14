@@ -41,18 +41,21 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 void ti_thing_drop(ti_thing_t * thing)
 {
     if (thing && !--thing->ref)
-    {
-        if (thing->id)
-            (void *) imap_pop(thing->things, thing->id);
+        ti_thing_destroy(thing);
+}
 
-        if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
-            thing__watch_del(thing);
+void ti_thing_destroy(ti_thing_t * thing)
+{
+    if (thing->id)
+        (void *) imap_pop(thing->things, thing->id);
 
-        vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
-        vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
-        vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_free);
-        free(thing);
-    }
+    if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
+        thing__watch_del(thing);
+
+    vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
+    vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
+    vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_free);
+    free(thing);
 }
 
 ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name)

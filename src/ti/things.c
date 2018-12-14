@@ -6,6 +6,7 @@
 #include <ti.h>
 #include <ti/prop.h>
 #include <ti/names.h>
+#include <ti/watch.h>
 #include <ti/things.h>
 #include <util/logger.h>
 
@@ -102,9 +103,8 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
         if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             ++n;
-            vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
-            (void *) imap_pop(things, thing->id);
-            free(thing);
+
+            ti_thing_destroy(thing);
             continue;
         }
         thing->flags |= TI_THING_FLAG_SWEEP;

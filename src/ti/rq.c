@@ -30,7 +30,9 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -745,6 +747,53 @@ static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    ti_node_t * node;
+    uint8_t node_id;
+    ti_task_t * task;
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `pop_node` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    node = vec_last(ti()->nodes->vec);
+    assert (node);
+
+    if (node->status >= TI_NODE_STAT_SYNCHRONIZING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                TI_NODE_ID" (%s) still has an active connection to ThingsDB",
+                node->id, ti_stream_name(node->stream));
+        return e->nr;
+    }
+
+    assert (node != ti()->node);
+    node_id = node->id;
+
+    ti_nodes_pop_node();
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
+
+    if (ti_task_add_pop_node(task, node_id))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+    return e->nr;
+}
+
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -845,6 +894,52 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* rval is an integer, we can simply overwrite */
     ti_val_set_nil(query->rval);
+
+    return e->nr;
+}
+
+static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->rval == NULL);
+    int log_level;
+
+    /* check for privileges */
+    if (ti_access_check_err(ti()->access,
+            query->stream->via.user, TI_AUTH_MODIFY, e))
+        return e->nr;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `set_loglevel` takes 1 argument but %d were given",
+                n);
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (query->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `set_loglevel` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    log_level = query->rval->via.int_ < LOGGER_DEBUG
+            ? LOGGER_DEBUG
+            : query->rval->via.int_ > LOGGER_CRITICAL
+            ? LOGGER_CRITICAL
+            : query->rval->via.int_;
+
+    logger_set_level(log_level);
+
+    ti_val_clear(query->rval);
 
     return e->nr;
 }
@@ -1085,11 +1180,17 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (langdef_nd_match_str(fname, "nodes"))
             return rq__f_nodes(query, params, e);
         break;
+    case 'p':
+        if (langdef_nd_match_str(fname, "pop_node"))
+            return rq__f_pop_node(query, params, e);
+        break;
     case 'r':
         if (langdef_nd_match_str(fname, "revoke"))
             return rq__f_revoke(query, params, e);
         break;
     case 's':
+        if (langdef_nd_match_str(fname, "set_loglevel"))
+            return rq__f_set_loglevel(query, params, e);
         if (langdef_nd_match_str(fname, "set_quota"))
             return rq__f_set_quota(query, params, e);
         if (langdef_nd_match_str(fname, "shutdown"))
@@ -1134,6 +1235,16 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? TI_AUTH_READ|TI_AUTH_MODIFY|TI_AUTH_GRANT
         : langdef_nd_match_str(nd, "FULL")
         ? TI_AUTH_MASK_FULL
+        : langdef_nd_match_str(nd, "DEBUG")
+        ? LOGGER_DEBUG
+        : langdef_nd_match_str(nd, "INFO")
+        ? LOGGER_INFO
+        : langdef_nd_match_str(nd, "WARNING")
+        ? LOGGER_WARNING
+        : langdef_nd_match_str(nd, "ERROR")
+        ? LOGGER_ERROR
+        : langdef_nd_match_str(nd, "CRITICAL")
+        ? LOGGER_CRITICAL
         : 0;
 
     if (flags)

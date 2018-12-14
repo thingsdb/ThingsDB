@@ -137,7 +137,7 @@ struct ti_s
     ti_away_t * away;
     ti_build_t * build;         /* only when using --secret */
     ti_lookup_t * lookup;
-    ti_desired_t * desired;     /* NULL or a desired state lookup */
+    ti_desired_t * desired;
     ti_clients_t * clients;
     ti_events_t * events;
     ti_nodes_t * nodes;
@@ -173,7 +173,8 @@ static inline _Bool ti_manages_id(uint64_t id)
 {
     return (
         ti_node_manages_id(ti_.node, ti_.lookup, id) ||
-        (ti_.desired && ti_node_manages_id(ti_.node, ti_.desired->lookup, id))
+        (ti_.desired->lookup &&
+                ti_node_manages_id(ti_.node, ti_.desired->lookup, id))
     );
 }
 
@@ -203,10 +204,14 @@ static inline int ti_to_packer(qp_packer_t ** packer)
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "schema") ||
         qp_add_int64(*packer, TI_FN_SCHEMA) ||
-        qp_add_raw_from_str(*packer, "lookup_r") ||
-        qp_add_int64(*packer, ti_.lookup->r) ||
         qp_add_raw_from_str(*packer, "lookup_n") ||
         qp_add_int64(*packer, ti_.lookup->n) ||
+        qp_add_raw_from_str(*packer, "lookup_r") ||
+        qp_add_int64(*packer, ti_.lookup->r) ||
+        qp_add_raw_from_str(*packer, "desired_n") ||
+        qp_add_int64(*packer, ti_.desired->n) ||
+        qp_add_raw_from_str(*packer, "desired_r") ||
+        qp_add_int64(*packer, ti_.desired->r) ||
         qp_add_raw_from_str(*packer, "nodes") ||
         ti_nodes_to_packer(packer) ||
         qp_close_map(*packer)

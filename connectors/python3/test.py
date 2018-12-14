@@ -61,8 +61,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        /* x = 'hoi';
-        x; */
+        iris;
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

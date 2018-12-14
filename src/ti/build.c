@@ -133,6 +133,9 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_store_store())
         goto failed;
 
+    if (ti_desired_init())
+        goto failed;
+
     if (ti_archive_init())
         goto failed;
 

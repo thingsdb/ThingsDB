@@ -44,6 +44,7 @@ int ti_task_add_new_collection(
         ti_user_t * user);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
+int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
 int ti_task_add_push(
         ti_task_t * task,
         ti_name_t * name,

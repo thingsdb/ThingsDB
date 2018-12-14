@@ -447,7 +447,7 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query_get_thing(query) != query->target->root);
+    assert (query_get_thing(query) == query->target->root);
 
     int n_blobs = query->blobs ? query->blobs->n : 0;
     int64_t idx;

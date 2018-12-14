@@ -26,7 +26,7 @@ logger_t Logger = {
 #define KWHT  "\x1B[37m"    // -- not used --
 
 const char * LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS] =
-    {"debug", "info", "warning", "error", "critical"};
+    {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
 
 const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
     {KCYN, KGRN, KYEL, KRED, KMAG};

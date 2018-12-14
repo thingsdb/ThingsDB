@@ -140,6 +140,7 @@
       is the only value which is not the same over all nodes.
 - [ ] Multi node
     - [ ] Design flow
+    - [ ] Zone info (so we can first try a node in the same zone for forward queries)
     - [x] Lookup Should not be a singleton so we can create a desired lookup.
     - [x] Each node should have a secret
         - [x] Secrets should be graphical only. (check on argument input and query input)

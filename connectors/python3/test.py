@@ -47,6 +47,8 @@ async def test():
         /* new_collection('test'); */
         collections();
 
+        /* set_loglevel(WARNING); */
+
         ''', timeout=2, target=0)
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
@@ -61,7 +63,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        iris;
+        iris.text = blob(0);
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

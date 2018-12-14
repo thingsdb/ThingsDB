@@ -527,6 +527,8 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, TI_VERSION) ||
         qp_add_raw_from_str(*packer, "status") ||
         qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
+        qp_add_raw_from_str(*packer, "loglevel") ||
+        qp_add_raw_from_str(*packer, Logger.level_name) ||
         qp_add_raw_from_str(*packer, "hostname") ||
         qp_add_raw_from_str(*packer, ti_.hostname) ||
         qp_add_raw_from_str(*packer, "client_port") ||

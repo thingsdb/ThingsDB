@@ -344,7 +344,7 @@ finish:
 void ti_stop_slow(void)
 {
     if (ti_.node)
-        ti_change_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
     shutdown_timer = malloc(sizeof(uv_timer_t));
     if (!shutdown_timer)
@@ -370,7 +370,7 @@ void ti_stop(void)
 {
     if (ti_.node)
     {
-        ti_change_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
         (void) ti_archive_to_disk();
         (void) ti_archive_write_nodes_scevid();
@@ -446,21 +446,15 @@ ti_rpkg_t * ti_node_status_rpkg(void)
 {
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(32, 1);
+    qpx_packer_t * packer = qpx_packer_create(34, 1);
     ti_node_t * ti_node = ti()->node;
 
     if (!packer)
         return NULL;
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, ti_node->next_thing_id);
-    (void) qp_add_int64(packer, ti_node->cevid);
-    (void) qp_add_int64(packer, ti_node->sevid);
-    (void) qp_add_int64(packer, ti_node->status);
-    (void) qp_add_int64(packer, ti_node->flags);
-    (void) qp_close_array(packer);
+    (void) ti_node_info_to_packer(ti_node, &packer);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
+    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_INFO);
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
         free(pkg);
@@ -478,15 +472,17 @@ ti_rpkg_t * ti_client_status_rpkg(void)
 
     (void) qp_add_raw_from_str(packer, ti_node_status_str(ti_.node->status));
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_STATUS);
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_NODE_STATUS);
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
         free(pkg);
     return rpkg;
 }
 
-void ti_change_and_broadcast_node_status(ti_node_status_t status)
+void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
+    ti_rpkg_t * client_rpkg;
+
     log_debug("changing status of node `%s` from %s to %s",
             ti_node_name(ti()->node),
             ti_node_status_str(ti()->node->status),
@@ -494,27 +490,47 @@ void ti_change_and_broadcast_node_status(ti_node_status_t status)
 
     ti()->node->status = status;
 
-    ti_broadcast_node_status();
+    ti_broadcast_node_info();
+
+    client_rpkg = ti_client_status_rpkg();
+    if (!client_rpkg)
+    {
+        log_critical(EX_ALLOC_S);
+        goto fail;
+    }
+    ti_clients_write_rpkg(client_rpkg);
+
+fail:
+    ti_rpkg_drop(client_rpkg);
 }
 
-void ti_broadcast_node_status(void)
+void ti_set_and_broadcast_node_zone(uint8_t zone)
 {
-    ti_rpkg_t * node_rpkg, * client_rpkg;
+    log_debug("changing zone of node `%s` from %s to %s",
+            ti_node_name(ti()->node),
+            ti_node_status_str(ti()->node->zone),
+            ti_node_status_str(zone));
+
+    ti()->node->zone = zone;
+
+    ti_broadcast_node_info();
+}
+
+void ti_broadcast_node_info(void)
+{
+    ti_rpkg_t * node_rpkg;
 
     node_rpkg = ti_node_status_rpkg();
-    client_rpkg = ti_client_status_rpkg();
-    if (!node_rpkg || !client_rpkg)
+    if (!node_rpkg)
     {
         log_critical(EX_ALLOC_S);
         goto fail;
     }
 
     ti_nodes_write_rpkg(node_rpkg);
-    ti_clients_write_rpkg(client_rpkg);
 
 fail:
     ti_rpkg_drop(node_rpkg);
-    ti_rpkg_drop(client_rpkg);
 }
 
 int ti_node_to_packer(qp_packer_t ** packer)
@@ -527,6 +543,8 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, TI_VERSION) ||
         qp_add_raw_from_str(*packer, "status") ||
         qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
+        qp_add_raw_from_str(*packer, "zone") ||
+        qp_add_int64(*packer, ti_.node->zone) ||
         qp_add_raw_from_str(*packer, "loglevel") ||
         qp_add_raw_from_str(*packer, Logger.level_name) ||
         qp_add_raw_from_str(*packer, "hostname") ||

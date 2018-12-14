@@ -42,6 +42,7 @@ int ti_build_setup(
         uint8_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_flags,
+        uint8_t from_node_zone,
         uint16_t from_node_port,
         ti_stream_t * stream)
 {
@@ -64,6 +65,7 @@ int ti_build_setup(
     build->from_node_id = from_node_id;
     build->from_node_status = from_node_status;
     build->from_node_flags = from_node_flags;
+    build->from_node_zone = from_node_zone;
     build->from_node_port = from_node_port;
 
     if (ti_req_create(
@@ -112,6 +114,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
 
             node->status = build->from_node_status;
             node->flags = build->from_node_flags;
+            node->zone = build->from_node_zone;
         }
     }
 
@@ -148,7 +151,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_connect_start())
         goto failed;
 
-    ti_broadcast_node_status();
+    ti_broadcast_node_info();
 
     goto done;
 

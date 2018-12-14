@@ -121,6 +121,8 @@ const char * ti_node_status_str(ti_node_status_t status);
 const char * ti_node_flags_str(ti_node_flags_t flags);
 int ti_node_connect(ti_node_t * node);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
+int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
+int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
 
 static inline _Bool ti_node_manages_id(
         ti_node_t * node,

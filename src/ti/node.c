@@ -187,6 +187,44 @@ ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u)
             u) ? min : max;
 }
 
+int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
+{
+    return (
+        qp_add_array(packer) ||
+        qp_add_int64(*packer, node->next_thing_id) ||
+        qp_add_int64(*packer, node->cevid) ||
+        qp_add_int64(*packer, node->sevid) ||
+        qp_add_int64(*packer, node->status) ||
+        qp_add_int64(*packer, node->flags) ||
+        qp_add_int64(*packer, node->zone) ||
+        qp_close_array(*packer)
+    );
+}
+
+int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
+{
+    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpflags, qpzone;
+
+    if (    !qp_is_array(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qpnext_thing_id)) ||
+            !qp_is_int(qp_next(unp, &qpcevid)) ||
+            !qp_is_int(qp_next(unp, &qpsevid)) ||
+            !qp_is_int(qp_next(unp, &qpstatus)) ||
+            !qp_is_int(qp_next(unp, &qpflags)) ||
+            !qp_is_int(qp_next(unp, &qpzone)))
+        return -1;
+
+    node->next_thing_id = (uint64_t) qpnext_thing_id.via.int64;
+    node->cevid = (uint64_t) qpcevid.via.int64;
+    node->sevid = (uint64_t) qpsevid.via.int64;
+    node->status = (uint8_t) qpstatus.via.int64;
+    node->flags = (uint8_t) qpflags.via.int64;
+    node->zone = (uint8_t) qpzone.via.int64;
+
+    return 0;
+}
+
+
 static void node__on_connect(uv_connect_t * req, int status)
 {
     int rc;
@@ -225,7 +263,7 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
-    packer = qpx_packer_create(192, 1);
+    packer = qpx_packer_create(192, 2);
     if (!packer)
     {
         log_error(EX_ALLOC_S);
@@ -239,11 +277,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     (void) qp_add_int64(packer, ti_node->port);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
-    (void) qp_add_int64(packer, ti_node->next_thing_id);
-    (void) qp_add_int64(packer, ti_node->cevid);
-    (void) qp_add_int64(packer, ti_node->sevid);
-    (void) qp_add_int64(packer, ti_node->status);
-    (void) qp_add_int64(packer, ti_node->flags);
+    (void) ti_node_info_to_packer(ti_node, &packer);
     (void) qp_close_array(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_CONNECT);
@@ -277,7 +311,6 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     qp_unpacker_t unpacker;
     ti_pkg_t * pkg = req->pkg_res;
     ti_node_t * node = req->data;
-    qp_obj_t qp_next_thing_id, qp_cevid, qp_sevid, qp_status, qp_flags;
 
     if (status)
         goto failed;  /* logging is done */
@@ -299,22 +332,11 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
-    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_next_thing_id)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_cevid)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_sevid)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_status)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_flags)))
+    if (ti_node_info_from_unp(node, &unpacker))
     {
         log_error("invalid connect response from "TI_NODE_ID, node->id);
         goto failed;
     }
-
-    node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
-    node->cevid = (uint64_t) qp_cevid.via.int64;
-    node->sevid = (uint64_t) qp_sevid.via.int64;
-    node->status = (uint8_t) qp_status.via.int64;
-    node->flags = (uint8_t) qp_status.via.int64;
 
     /* reset the connection retry counters */
     node->next_retry = 0;

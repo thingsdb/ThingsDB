@@ -43,6 +43,7 @@ async def test():
         /* del_collection('test2'); */
         node();
         nodes();
+        counters();
         /* new_node('secret', '127.0.0.1', 9221); */
         /* new_collection('test'); */
         collections();
@@ -63,7 +64,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        iris.text = blob(0);
+        iris;
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

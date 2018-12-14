@@ -210,16 +210,17 @@
         - [x] `new_user`
         - [x] `node`
         - [x] `nodes`
-        - [x] `reset_counters`
-        - [x] `revoke`
-        - [x] `user`
-        - [x] `users`
-        - [x] `set_loglevel`
-        - [x] `shutdown`
         - [ ] `rename_user`
         - [ ] `rename_collection`
+        - [x] `reset_counters`
+        - [x] `revoke`
+        - [x] `set_loglevel`
         - [ ] `set_password`
         - [x] `set_quota`
+        - [x] `set_zone`
+        - [x] `shutdown`
+        - [x] `user`
+        - [x] `users`
     - [ ] jobs
         - [x] `del_collection`
         - [ ] `pop_node`

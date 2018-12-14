@@ -96,7 +96,7 @@ typedef enum
      */
 
     TI_PROTO_NODE_EVENT         =158,   /* event */
-    TI_PROTO_NODE_STATUS        =159,   /* [...] */
+    TI_PROTO_NODE_INFO          =159,   /* [...] */
 
     /*
      * 160..175 node requests mapping to client requests

@@ -21,7 +21,6 @@
 static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int rq__f_counters_reset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -31,9 +30,11 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -127,33 +128,6 @@ static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = ti_counters_as_qpval();
     if (!query->rval)
-        ex_set_alloc(e);
-
-    return e->nr;
-}
-
-static int rq__f_counters_reset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (query->rval == NULL);
-
-    /* check for privileges */
-    if (ti_access_check_err(ti()->access,
-            query->stream->via.user, TI_AUTH_MODIFY, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int n = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
-                "function `counters_reset` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    ti_counters_reset();
-
-    if (query_rval_clear(query))
         ex_set_alloc(e);
 
     return e->nr;
@@ -819,6 +793,33 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->rval == NULL);
+
+    /* check for privileges */
+    if (ti_access_check_err(ti()->access,
+            query->stream->via.user, TI_AUTH_MODIFY, e))
+        return e->nr;
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `reset_counters` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    ti_counters_reset();
+
+    if (query_rval_clear(query))
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1055,6 +1056,57 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->rval == NULL);
+
+    uint8_t zone;
+
+    /* check for privileges */
+    if (ti_access_check_err(ti()->access,
+            query->stream->via.user, TI_AUTH_MODIFY, e))
+        return e->nr;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `set_zone` takes 1 argument but %d were given",
+                n);
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (query->rval->tp != TI_VAL_INT)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `set_zone` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_INT),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    if (query->rval->via.int_ < 0 || query->rval->via.int_ > 0Xff)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "`zone` should be an integer between 0 and 255, got %s",
+            query->rval->via.int_);
+        return e->nr;
+    }
+
+    zone = (uint8_t) query->rval->via.int_;
+
+    ti_set_and_broadcast_node_zone(zone);
+
+    ti_val_clear(query->rval);
+
+    return e->nr;
+}
+
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1180,8 +1232,6 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return rq__f_collections(query, params, e);
         if (langdef_nd_match_str(fname, "counters"))
             return rq__f_counters(query, params, e);
-        if (langdef_nd_match_str(fname, "counters_reset"))
-            return rq__f_counters_reset(query, params, e);
         break;
     case 'd':
         if (langdef_nd_match_str(fname, "del_collection"))
@@ -1210,6 +1260,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return rq__f_pop_node(query, params, e);
         break;
     case 'r':
+        if (langdef_nd_match_str(fname, "reset_counters"))
+            return rq__f_reset_counters(query, params, e);
         if (langdef_nd_match_str(fname, "revoke"))
             return rq__f_revoke(query, params, e);
         break;
@@ -1218,6 +1270,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return rq__f_set_loglevel(query, params, e);
         if (langdef_nd_match_str(fname, "set_quota"))
             return rq__f_set_quota(query, params, e);
+        if (langdef_nd_match_str(fname, "set_zone"))
+            return rq__f_set_zone(query, params, e);
         if (langdef_nd_match_str(fname, "shutdown"))
             return rq__f_shutdown(query, params, e);
         break;

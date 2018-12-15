@@ -50,9 +50,9 @@ big_t * big_mulii(const int64_t a, const int64_t b)
     assert (b >= -LLONG_MAX && b <= LLONG_MAX);
 
     uint16_t nparts = 4;
-    uint64_t carry = 0;
-    uint64_t ua, ub, na, nb, part;
-    big_t * big = malloc(sizeof(big_t) + sizeof(uint32_t) * nparts);
+    uint64_t ua, ub, part, carry;
+    uint64_t a0, a1, b0, b1;
+    big_t * big = calloc(1, sizeof(big_t) + sizeof(uint32_t) * nparts);
     if (!big)
         return NULL;
 
@@ -62,16 +62,42 @@ big_t * big_mulii(const int64_t a, const int64_t b)
     ua = (uint64_t) llabs(a);
     ub = (uint64_t) llabs(b);
 
-    na = ua & 0xffff;
-    nb = ub & 0xffff;
+    a0 = ua & 0xffffffff;
+    a1 = (ua & 0xffffffff00000000) >> 32;
+    b0 = ub & 0xffffffff;
+    b1 = (ub & 0xffffffff00000000) >> 32;
 
-    part = na * nb;
+    printf("a0: %lu\n", a0);
+    printf("a1: %lu\n", a1);
+    printf("b0: %lu\n", b0);
+    printf("b1: %lu\n", b1);
 
-    while (--nparts)
+
+    part = a0 * b0;
+    big->parts_[3] = part & 0xffffffff;
+    big->parts_[2] = (part & 0xffffffff00000000) >> 32;
+
+    part = a1*b0 + big->parts_[2];;
+    big->parts_[2] = part & 0xffffffff;
+    big->parts_[1] = carry = (part & 0xffffffff00000000) >> 32;
+
+    part = a0*b1 + big->parts_[2];
+    big->parts_[2] = part & 0xffffffff;
+
+    carry += (part & 0xffffffff00000000) >> 32;
+    big->parts_[1] = carry & 0xffffffff;
+    big->parts_[0] = carry & 0xffffffff00000000;
+
+    printf("part0: %u\n", big->parts_[0]);
+
+
+    part = a1*b1 + big->parts_[1];
+    big->parts_[1] = part & 0xffffffff;
+    big->parts_[0] = (part & 0xffffffff00000000) >> 32;
+
+    for (int i = 0; i < 4; ++i)
     {
-        big->parts_[nparts] = (carry + part) & 0xffff;
-        carry = (part & 0xffff0000) >> 32;
-        part = 0;
+        printf("part %d: %u\n", i, big->parts_[i]);
     }
 
     return big;

@@ -6,8 +6,8 @@ int big__mulii(void)
 {
     test_start("big (mulii)");
 
-    int64_t a = 0xffff;
-    int64_t b = 0xfffff;
+    int64_t a = 0x31f3efe57fef32ab;
+    int64_t b = 0x22fe3567fefea234;
 
     big_t * big = big_mulii(a, b);
 

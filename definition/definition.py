@@ -41,7 +41,7 @@ class Definition(Grammar):
 
     t_false = Keyword('false')
     t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
-    t_int = Regex(r'[-+]?(0[box])?[0-9]+')
+    t_int = Regex(r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
     t_string = Choice(r_single_quote, r_double_quote)
@@ -56,6 +56,7 @@ class Definition(Grammar):
     f_blob = Keyword('blob')
     f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
+    f_find = Keyword('find')
     f_get = Keyword('get')
     f_id = Keyword('id')
     f_isinf = Keyword('isinf')
@@ -101,6 +102,7 @@ class Definition(Grammar):
         f_blob,         # (int inx_in_blobs) -> raw
         f_endswith,     # (str) -> bool
         f_filter,       # (arrow) -> [return values where return is true]
+        f_find,         # (arrow) -> return first value where true or null
         f_get,          # (str,..) -> attribute val
         f_id,           # () -> int
         f_isinf,        # (float) -> bool
@@ -199,7 +201,11 @@ class Definition(Grammar):
 if __name__ == '__main__':
     definition = Definition()
 
-    definition.test('a = 0.5e+5;')
+    definition.test(r'''
+
+        hex = 0xff;
+
+        ''')
     # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

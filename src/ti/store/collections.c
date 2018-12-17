@@ -26,19 +26,19 @@ int ti_store_collections_store(const char * fn)
 
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
-        if (    qp_add_array(&packer) ||
-                qp_add_raw(
-                        packer,
-                        (const uchar *) collection->guid.guid,
-                        sizeof(guid_t)) ||
-                qp_add_raw(packer, collection->name->data, collection->name->n) ||
-                qp_add_array(&packer) ||
-                qp_add_int64(packer, collection->quota->max_things) ||
-                qp_add_int64(packer, collection->quota->max_props) ||
-                qp_add_int64(packer, collection->quota->max_array_size) ||
-                qp_add_int64(packer, collection->quota->max_raw_size) ||
-                qp_close_array(packer) ||
-                qp_close_array(packer))
+        if (qp_add_array(&packer) ||
+            qp_add_raw(
+                    packer,
+                    (const uchar *) collection->guid.guid,
+                    sizeof(guid_t)) ||
+            qp_add_raw(packer, collection->name->data, collection->name->n) ||
+            qp_add_array(&packer) ||
+            ti_quota_val_to_packer(packer, collection->quota->max_things) ||
+            ti_quota_val_to_packer(packer, collection->quota->max_props) ||
+            ti_quota_val_to_packer(packer, collection->quota->max_array_size) ||
+            ti_quota_val_to_packer(packer, collection->quota->max_raw_size) ||
+            qp_close_array(packer) ||
+            qp_close_array(packer))
             goto stop;
     }
 
@@ -105,10 +105,14 @@ int ti_store_collections_restore(const char * fn)
                 !(qq_props = q_quota->via.array->values + 1) ||
                 !(qq_arrsz = q_quota->via.array->values + 2) ||
                 !(qq_rawsz = q_quota->via.array->values + 3) ||
-                qq_things->tp != QP_RES_INT64 ||
-                qq_props->tp != QP_RES_INT64 ||
-                qq_arrsz->tp != QP_RES_INT64 ||
-                qq_rawsz->tp != QP_RES_INT64)
+                (       qq_things->tp != QP_RES_INT64 &&
+                        qq_things->tp != QP_RES_NULL) ||
+                (       qq_props->tp != QP_RES_INT64 &&
+                        qq_props->tp != QP_RES_NULL) ||
+                (       qq_arrsz->tp != QP_RES_INT64 &&
+                        qq_arrsz->tp != QP_RES_NULL) ||
+                (       qq_rawsz->tp != QP_RES_INT64 &&
+                        qq_rawsz->tp != QP_RES_NULL))
             goto stop;
 
         /* copy and check guid, must be null terminated */
@@ -123,10 +127,18 @@ int ti_store_collections_restore(const char * fn)
         if (!collection || vec_push(&ti()->collections->vec, collection))
             goto stop;
 
-        collection->quota->max_things = qq_things->via.int64;
-        collection->quota->max_props = qq_props->via.int64;
-        collection->quota->max_array_size = qq_arrsz->via.int64;
-        collection->quota->max_raw_size = qq_rawsz->via.int64;
+        collection->quota->max_things = qq_things->tp == QP_RES_NULL
+                ? TI_QUOTA_NOT_SET
+                : (size_t) qq_things->via.int64;
+        collection->quota->max_props = qq_props->tp == QP_RES_NULL
+                ? TI_QUOTA_NOT_SET
+                : (size_t) qq_props->via.int64;
+        collection->quota->max_array_size = qq_arrsz->tp == QP_RES_NULL
+                ? TI_QUOTA_NOT_SET
+                : (size_t) qq_arrsz->via.int64;
+        collection->quota->max_raw_size = qq_rawsz->tp == QP_RES_NULL
+                ? TI_QUOTA_NOT_SET
+                : (size_t) qq_rawsz->via.int64;
     }
 
     rc = 0;

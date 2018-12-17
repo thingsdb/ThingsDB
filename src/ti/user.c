@@ -135,7 +135,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
 int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
 {
     if (qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, "id") ||
+        qp_add_raw_from_str(*packer, "user_id") ||
         qp_add_int64(*packer, user->id) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, user->name->data, user->name->n) ||

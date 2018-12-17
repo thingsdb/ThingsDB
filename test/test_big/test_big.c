@@ -6,21 +6,41 @@ int big__mulii(void)
 {
     test_start("big (mulii)");
 
-    int64_t a = 0x31f3efe57fef32ab;
-    int64_t b = 0x22fe3567fefea234;
+    int64_t a = -9223372036854775807;
+    // int64_t b = 9223372036854775807;
+    // int64_t a = 5000;
+    // int64_t b = 120;
 
-    big_t * big = big_mulii(a, b);
+    big_t * big1 = big_from_int64(a);
+    big_t * big2 = big_mulbb(big1, big1);
+    big_t * big3 = big_mulbi(big2, a);
 
-    size_t sz = big_str16_msize(big);
+    int64_t x = big_to_int64(big1);
+    printf("x: %ld\n", x);
 
-    char str[sz];
+    {
+        size_t sz = big_str16_msize(big1);
+        char str[sz];
+        int rc = big_to_str16n(big1, str, sz);
+        printf("\nrc: %d, value: %s\n", rc, str);
+        free(big1);
+    }
 
-    int rc = big_to_str16n(big, str, sz);
+    {
+        size_t sz = big_str16_msize(big2);
+        char str[sz];
+        int rc = big_to_str16n(big2, str, sz);
+        printf("\nrc: %d, value: %s\n", rc, str);
+        free(big2);
+    }
 
-    printf("\nrc: %d, value: %s\n", rc, str);
-
-    free(big);
-
+    {
+        size_t sz = big_str16_msize(big3);
+        char str[sz];
+        int rc = big_to_str16n(big3, str, sz);
+        printf("\nrc: %d, value: %s\n", rc, str);
+        free(big3);
+    }
 
     return test_end();
 }

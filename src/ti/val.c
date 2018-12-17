@@ -317,6 +317,13 @@ void ti_val_set_float(ti_val_t * val, double d)
     val->via.float_ = d;
 }
 
+void ti_val_set_thing(ti_val_t * val, ti_thing_t * thing)
+{
+    val->tp = TI_VAL_THING;
+    val->flags = 0;
+    val->via.thing = ti_grab(thing);
+}
+
 _Bool ti_val_as_bool(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)

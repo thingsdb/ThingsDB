@@ -10,11 +10,21 @@ typedef struct big_s big_t;
 #include <stddef.h>
 
 int big_to_str16n(const big_t * big, char * tostr, size_t size);
+big_t * big_null(void);
+big_t * big_from_int64(const int64_t i);
+int64_t big_to_int64(const big_t * big);
+big_t * big_from_double(const double d);
+double big_to_double(const big_t * big);
 big_t * big_mulii(const int64_t a, const int64_t b);
+big_t * big_mulbb(const big_t * a, const big_t * b);
+big_t * big_mulbi(const big_t * a, const int64_t b);
+double big_mulbd(const big_t * a, const double b);
 
 static inline _Bool big_is_positive(const big_t * big);
 static inline _Bool big_is_negative(const big_t * big);
 static inline size_t big_str16_msize(const big_t * big);
+static inline _Bool big_fits_int64(const big_t * big);
+static inline _Bool big_is_null(const big_t * big);
 
 struct big_s
 {
@@ -36,7 +46,17 @@ static inline _Bool big_is_negative(const big_t * big)
 
 static inline size_t big_str16_msize(const big_t * big)
 {
-    return big->n_ * 8 + 1;
+    return big->n_ ? big->n_ * 8 + 1 : 2;
+}
+
+static inline _Bool big_fits_int64(const big_t * big)
+{
+    return big->n_ <= 2 && (~big->parts_[0] & 0x80000000);
+}
+
+static inline _Bool big_is_null(const big_t * big)
+{
+    return big->n_ == 0;
 }
 
 #endif  /* BIG_H_ */

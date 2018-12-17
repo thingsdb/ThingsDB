@@ -12,12 +12,16 @@
 
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
-static void wareq__task_cb(uv_async_t * task);
+static void wareq__watch_cb(uv_async_t * task);
+static void wareq__unwatch_cb(uv_async_t * task);
 static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id);
 static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status);
 
-
-ti_wareq_t * ti_wareq_create(ti_stream_t * stream)
+/*
+ * Create a watch or unwatch request.
+ *   Argument `task` should be either "watch" or "unwatch" (watch / unwatch)
+ */
+ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
 {
     ti_wareq_t * wareq = malloc(sizeof(ti_wareq_t));
     if (!wareq)
@@ -28,7 +32,10 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream)
     wareq->collection = NULL;
     wareq->task = malloc(sizeof(uv_async_t));
 
-    if (!wareq->task || uv_async_init(ti()->loop, wareq->task, wareq__task_cb))
+    if (!wareq->task || uv_async_init(
+            ti()->loop,
+            wareq->task,
+            *task == 'w' ? wareq__watch_cb : wareq__unwatch_cb))
     {
         wareq__destroy(wareq);
         return NULL;
@@ -152,7 +159,7 @@ static void wareq__destroy_cb(uv_async_t * task)
     wareq__destroy(wareq);
 }
 
-static void wareq__task_cb(uv_async_t * task)
+static void wareq__watch_cb(uv_async_t * task)
 {
     ti_wareq_t * wareq = task->data;
     ti_thing_t * thing;
@@ -248,6 +255,40 @@ static void wareq__task_cb(uv_async_t * task)
     ti_wareq_destroy(wareq);
 }
 
+static void wareq__unwatch_cb(uv_async_t * task)
+{
+    ti_wareq_t * wareq = task->data;
+    ti_thing_t * thing;
+    uint32_t n = wareq->thing_ids->n;
+
+    if (!n || ti_stream_is_closed(wareq->stream) || !wareq->stream->watching)
+    {
+        ti_wareq_destroy(wareq);
+        return;
+    }
+
+    uv_mutex_lock(wareq->collection->lock);
+
+    while (n--)
+    {
+        #if TI_USE_VOID_POINTER
+        uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
+        #else
+        uint64_t * idp = vec_pop(wareq->thing_ids);
+        uint64_t id = *idp;
+        free(idp);
+        #endif
+
+        thing = imap_get(wareq->collection->things, id);
+        if (thing)
+            (void) ti_thing_unwatch(thing, wareq->stream);
+    }
+
+    uv_mutex_unlock(wareq->collection->lock);
+
+    ti_wareq_destroy(wareq);
+}
+
 static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
 {
     qpx_packer_t * packer;
@@ -258,7 +299,8 @@ static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
     node = ti_nodes_random_ready_node_for_id(thing_id);
     if (!node)
     {
-        log_critical("no online node found which manages "TI_THING_ID, thing_id);
+        log_critical(
+                "no online node found which manages "TI_THING_ID, thing_id);
         return -1;
     }
 
@@ -291,9 +333,6 @@ fail0:
     return -1;
 }
 
-/*
- * TODO: This is (still) equal to fwd_query_cb ??? Then create a fwd function
- */
 static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status)
 {
     ti_pkg_t * resp;
@@ -308,15 +347,13 @@ static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status)
         goto finish;
     }
 
-    resp = req->pkg_res;
-    req->pkg_res = NULL;
-
-    resp->id = fwd->orig_pkg_id;
-    resp->tp = resp->tp - 0x80;
-    resp->ntp = resp->tp ^ 255;
+    resp = ti_pkg_dup(req->pkg_res);
+    if (resp)
+        resp->id = fwd->orig_pkg_id;
+    else
+        log_error(EX_ALLOC_S);
 
 finish:
-    free(req->pkg_res);
     if (resp && ti_stream_write_pkg(fwd->stream, resp))
     {
         free(resp);

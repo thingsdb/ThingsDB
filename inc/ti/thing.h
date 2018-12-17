@@ -50,6 +50,7 @@ _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
+_Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags);
 _Bool ti_thing_has_watchers(ti_thing_t * thing);
 static inline int ti_thing_id_to_packer(

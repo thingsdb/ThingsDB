@@ -14,6 +14,12 @@
 
 static ti_away_t * away;
 
+/*
+ * When `away` mode is finished we might have some events queued, after the
+ * queue has less or equal to this threshold we can go out of away mode
+ */
+#define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 2
+
 enum
 {
     AWAY__FLAG_IS_STARTED       =1<<0,
@@ -25,7 +31,8 @@ enum
 static void away__destroy(uv_handle_t * handle);
 static void away__req_away_id(void);
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted);
-static void away__waiter_cb(uv_timer_t * timer);
+static void away__waiter_pre_cb(uv_timer_t * timer);
+static void away__waiter_after_cb(uv_timer_t * waiter);
 static void away__work(uv_work_t * UNUSED(work));
 static void away__work_finish(uv_work_t * UNUSED(work), int status);
 static inline void away__repeat_cb(uv_timer_t * repeat);
@@ -40,10 +47,12 @@ int ti_away_create(void)
     away->work = malloc(sizeof(uv_work_t));
     away->repeat = malloc(sizeof(uv_timer_t));
     away->waiter = malloc(sizeof(uv_timer_t));
+    away->syncers = vec_new(1);
+
     away->flags = 0;
     away->id = 0;
 
-    if (!away->work || !away->repeat || !away->waiter)
+    if (!away->work || !away->repeat || !away->waiter || !away->syncers)
     {
         away__destroy(NULL);
         return -1;
@@ -124,6 +133,8 @@ static void away__destroy(uv_handle_t * handle)
          */
         if (!handle)
             free(away->waiter);
+
+        vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_free);
         free(away);
     }
     away = ti()->away = NULL;
@@ -207,7 +218,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 
     if (uv_timer_start(
             away->waiter,
-            away__waiter_cb,
+            away__waiter_pre_cb,
             10000,      /* for 10 seconds we keep in AWAY_SOON mode */
             1000        /* a little longer if events are still queued */
     ))
@@ -225,7 +236,7 @@ fail0:
     away->flags &= ~AWAY__FLAG_IS_RUNNING;
 }
 
-static void away__waiter_cb(uv_timer_t * waiter)
+static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
     assert (ti()->node->status == TI_NODE_STAT_AWAY_SOON);
     assert (away->flags & AWAY__FLAG_IS_STARTED);
@@ -261,6 +272,32 @@ static void away__waiter_cb(uv_timer_t * waiter)
     }
 
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
+}
+
+static void away__waiter_after_cb(uv_timer_t * waiter)
+{
+    assert (ti()->node->status == TI_NODE_STAT_AWAY);
+    assert (away->flags & AWAY__FLAG_IS_STARTED);
+    assert (away->flags & AWAY__FLAG_IS_RUNNING);
+    assert (away->flags & AWAY__FLAG_IS_WORKING);
+
+    if (away->syncers)
+
+    if (ti()->events->queue->n > AWAY__THRESHOLD_EVENTS_QUEUE_SIZE)
+    {
+        log_warning(
+                "stay in away mode since there are still %zu %s in the "
+                "queue, a value of %u or lower is required",
+                ti()->events->queue->n,
+                ti()->events->queue->n == 1 ? "event" : "events",
+                AWAY__THRESHOLD_EVENTS_QUEUE_SIZE);
+        return;
+    }
+
+    (void) uv_timer_stop(waiter);
+    uv_close((uv_handle_t *) waiter, NULL);
+
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 }
 
 static void away__work(uv_work_t * UNUSED(work))
@@ -310,16 +347,17 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (~away->flags & AWAY__FLAG_IS_WAITING);
 
-    away->flags &= ~AWAY__FLAG_IS_WORKING;
-    away->flags &= ~AWAY__FLAG_IS_RUNNING;
-
-    uv_mutex_unlock(ti()->events->lock);
-
+    int rc;
     if (status)
         log_error(uv_strerror(status));
 
+    uv_mutex_unlock(ti()->events->lock);
+
     if (ti()->flags & TI_FLAG_SIGNAL)
     {
+        away->flags &= ~AWAY__FLAG_IS_WORKING;
+        away->flags &= ~AWAY__FLAG_IS_RUNNING;
+
         if (ti()->flags & TI_FLAG_STOP)
             ti_stop();
         else
@@ -327,6 +365,27 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
         return;
     }
 
+    rc = uv_timer_init(ti()->loop, away->waiter);
+    if (rc)
+        goto fail1;
+
+    rc = uv_timer_start(
+            away->waiter,
+            away__waiter_after_cb,
+            2000,       /* give the system a few seconds to process events and
+                           look for registered synchronizers */
+            5000        /* check on repeat if finished */
+    );
+
+    if (rc)
+        goto fail2;
+
+    return;
+
+fail2:
+    uv_close((uv_handle_t *) away->waiter, NULL);
+fail1:
+    log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
     ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 }
 

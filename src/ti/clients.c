@@ -31,6 +31,7 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg);
 static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
@@ -247,6 +248,9 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_WATCH:
         clients__on_watch(stream, pkg);
         break;
+    case TI_PROTO_CLIENT_REQ_UNWATCH:
+        clients__on_unwatch(stream, pkg);
+        break;
     default:
         log_error(
                 "unexpected package type `%u` from `%s`)",
@@ -460,7 +464,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    wareq = ti_wareq_create(stream);
+    wareq = ti_wareq_create(stream, "watch");
     if (!wareq)
     {
         ex_set_alloc(e);
@@ -476,6 +480,67 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
+    if (!resp)
+        ex_set_alloc(e);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+
+    if (e->nr || ti_wareq_run(wareq))
+        ti_wareq_destroy(wareq);
+}
+
+static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_node_t * node = ti()->node;
+    ti_user_t * user = stream->via.user;
+    ti_wareq_t * wareq = NULL;
+    ex_t * e = ex_use();
+    ti_pkg_t * resp = NULL;
+
+    if (!pkg->id)
+    {
+        ex_set(e, EX_BAD_DATA, "unwatch request requires a package id > 0");
+        goto finish;
+    }
+
+    if (!user)
+    {
+        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    if (node->status <= TI_NODE_STAT_BUILDING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+    wareq = ti_wareq_create(stream, "unwatch");
+    if (!wareq)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (ti_wareq_unpack(wareq, pkg, e))
+        goto finish;
+
+    assert (wareq->collection);
+
+    if (ti_access_check_err(wareq->collection->access, user, TI_AUTH_WATCH, e))
+        goto finish;
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
     if (!resp)
         ex_set_alloc(e);
 

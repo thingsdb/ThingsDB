@@ -53,6 +53,7 @@ C_SRCS += \
 ../src/ti/skipped.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
+../src/ti/sync.c \
 ../src/ti/task.c \
 ../src/ti/tcp.c \
 ../src/ti/thing.c \
@@ -115,6 +116,7 @@ OBJS += \
 ./src/ti/skipped.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
+./src/ti/sync.o \
 ./src/ti/task.o \
 ./src/ti/tcp.o \
 ./src/ti/thing.o \
@@ -177,6 +179,7 @@ C_DEPS += \
 ./src/ti/skipped.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \
+./src/ti/sync.d \
 ./src/ti/task.d \
 ./src/ti/tcp.d \
 ./src/ti/thing.d \

@@ -26,6 +26,7 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -668,7 +669,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* clear query->rval (bug keep the value)
-     * from here need need to clean iterval in case of an error */
+     * from here need need to clean iterval */
     query->rval = NULL;
     if (ti_cq_scope(query, nd->children->node, e))
         goto failed;
@@ -851,9 +852,192 @@ failed:
     if (!e->nr)  /* all not set errors are allocation errors */
         ex_set_alloc(e);
 
+done:
     if (from_rval)
         ti_val_destroy(iterval);
+
+    ti_val_destroy(arrowval);
+    return e->nr;
+}
+
+static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * arrowval = NULL, * iterval = query_get_val(query);
+    cleri_node_t * arrow_nd;
+    _Bool from_rval = iterval == query->rval;
+    ti_thing_t * iter_thing = iterval
+            ? (iterval->tp == TI_VAL_THING
+                    ? iterval->via.thing
+                    : NULL)
+            : query_get_thing(query);
+
+    if (iterval && (!ti_val_is_iterable(iterval) || iterval->tp == TI_VAL_RAW))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `find`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `find` find 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    /* clear query->rval (bug keep the value)
+     * from here need need to clean iterval */
+    query->rval = NULL;
+    if (ti_cq_scope(query, nd->children->node, e))
+        goto failed;
+
+    if (query->rval->tp != TI_VAL_ARROW)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `find` expects an `%s` but got type `%s` instead",
+                ti_val_tp_str(TI_VAL_ARROW),
+                ti_val_tp_str(query->rval->tp));
+        goto failed;
+    }
+
+    arrowval = query->rval;
+    query->rval = NULL;
+
+    if (ti_scope_local_from_arrow(query->scope, arrowval->via.arrow, e))
+        goto failed;
+
+    arrow_nd = arrowval->via.arrow;
+
+    if (iter_thing)
+    {
+        for (vec_each(iter_thing->props, ti_prop_t, p))
+        {
+            size_t n = 0;
+            for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
+            {
+                switch (n)
+                {
+                case 0:
+                    /* use name as raw */
+                    ti_val_weak_set(&prop->val, TI_VAL_RAW, p->name);
+                    break;
+                case 1:
+                    ti_val_weak_copy(&prop->val, &p->val);
+                    break;
+                default:
+                    ti_val_set_nil(&prop->val);
+                }
+            }
+
+            if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
+                goto failed;
+
+            if (ti_val_as_bool(query->rval))
+            {
+                ti_val_clear(query->rval);
+                if (ti_val_copy(query->rval, &p->val))
+                    goto failed;
+                else
+                    goto done;
+            }
+
+            query_rval_weak_destroy(query);
+        }
+    }
+    else switch (iterval->tp)
+    {
+    case TI_VAL_ARRAY:
+    case TI_VAL_TUPLE:
+        {
+            int64_t idx = 0;
+            for (vec_each(iterval->via.arr, ti_val_t, v), ++idx)
+            {
+                size_t n = 0;
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
+                {
+                    switch (n)
+                    {
+                    case 0:
+                        ti_val_weak_copy(&prop->val, v);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_nil(&prop->val);
+                    }
+                }
+
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
+                    goto failed;
+
+                if (ti_val_as_bool(query->rval))
+                {
+                    ti_val_clear(query->rval);
+                    if (ti_val_copy(query->rval, v))
+                        goto failed;
+                    else
+                        goto done;
+                }
+
+                query_rval_destroy(query);
+            }
+        }
+        break;
+    case TI_VAL_THINGS:
+        {
+            int64_t idx = 0;
+            for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
+            {
+                size_t n = 0;
+                for (vec_each(query->scope->local, ti_prop_t, prop), ++n)
+                {
+                    switch (n)
+                    {
+                    case 0:
+                        ti_val_weak_set(&prop->val, TI_VAL_THING, t);
+                        break;
+                    case 1:
+                        ti_val_set_int(&prop->val, idx);
+                        break;
+                    default:
+                        ti_val_set_nil(&prop->val);
+                    }
+                }
+
+                if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
+                    goto failed;
+
+                if (ti_val_as_bool(query->rval))
+                {
+                    ti_val_clear(query->rval);
+                    ti_val_set_thing(query->rval, t);
+                    goto done;
+                }
+
+                query_rval_destroy(query);
+            }
+        }
+    }
+
+    assert (query->rval == NULL);
+    query->rval = ti_val_create(TI_VAL_NIL, NULL);
+    if (query->rval)
+        goto done;
+
+failed:
+    if (!e->nr)  /* all not set errors are allocation errors */
+        ex_set_alloc(e);
+
 done:
+    if (from_rval)
+        ti_val_destroy(iterval);
+
     ti_val_destroy(arrowval);
     return e->nr;
 }
@@ -1250,7 +1434,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* clear query->rval (bug keep the value)
-     * from here need need to clean iterval in case of an error */
+     * from here need need to clean iterval */
     query->rval = NULL;
     if (ti_cq_scope(query, nd->children->node, e))
         goto failed;
@@ -1391,9 +1575,10 @@ failed:
     if (!e->nr)  /* all not set errors are allocation errors */
         ex_set_alloc(e);
 
+done:
     if (from_rval)
         ti_val_destroy(iterval);
-done:
+
     ti_val_destroy(arrowval);
     return e->nr;
 }
@@ -2374,6 +2559,8 @@ static int cq__function(
         return cq__f_del(query, params, e);
     case CLERI_GID_F_FILTER:
         return cq__f_filter(query, params, e);
+    case CLERI_GID_F_FIND:
+        return cq__f_find(query, params, e);
     case CLERI_GID_F_GET:
         return cq__f_get(query, params, e);
     case CLERI_GID_F_ID:

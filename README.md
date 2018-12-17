@@ -23,12 +23,57 @@
 - [ ] ~~Overflow handling? Right now ThingsDB is naive~~
       We could check ERANGE after investigating since nothing else can set
       ERANGE during investigation. The other checks must be done in ti_opr.
-      - [ ] Can we support arbitrary long integer values?
+      - [ ] Introduce big numbers, export as hex {-:''} and {+:''}
+      - [ ] bit_t
+        - [x] `big_to_str16n`
+        - [x] `big_null`
+        - [x] `big_from_int64`
+        - [x] `big_to_int64`
+        - [ ] `big_from_double`
+        - [ ] `big_to_double`
+        - [x] `big_mulii` -> big
+        - [x] `big_mulbb` -> big
+        - [x] `big_mulbi` -> big
+        - [ ] `big_mulbd` -> double
+        - [ ] `big_addii` -> big
+        - [ ] `big_addbb` -> big
+        - [ ] `big_addbi` -> big
+        - [ ] `big_addbd` -> double
+        - [ ] `big_subii` -> big
+        - [ ] `big_subbb` -> big
+        - [ ] `big_subbi` -> big
+        - [ ] `big_subbd` -> double
+        - [ ] `big_divii` -> double
+        - [ ] `big_divbb` -> double
+        - [ ] `big_divbi` -> double
+        - [ ] `big_divbd` -> double
+        - [ ] `big_idivii` -> big
+        - [ ] `big_idivbb` -> big
+        - [ ] `big_idivbi` -> big
+        - [ ] `big_idivbd` -> big
+        - [ ] `big_modii`
+        - [ ] `big_modbb`
+        - [ ] `big_modbi`
+        - [ ] `big_andbi`
+        - [ ] `big_andbb`
+        - [ ] `big_orbi`
+        - [ ] `big_orbb`
+        - [ ] `big_xorbi`
+        - [ ] `big_xorbb`
+        - [ ] `big_eqbb`
+        - [x] `big_is_positive`
+        - [x] `big_is_negative`
+        - [x] `big_str16_msize`
+        - [x] `big_fits_int64`
+        - [x] `big_is_null`
 - [x] Refactor
     - [x] database -> collection
     - [x] user_new etc -> new_user
     - [x] ti_res_t & ti_root_t  -> ti_query_t
     - [x] watch request only on collections (target to ->collection)
+- [x] Watching
+    - [x] watch
+    - [x] unwatch
 - [ ] Language
     - [x] Primitives
         - [x] `false`
@@ -46,6 +91,7 @@
             - [ ] ~~Future feature: map implementation~~
         - [x] `endswith`
         - [x] `filter`
+        - [ ] `find`
         - [x] `get`
         - [x] `isinf`
         - [x] `isnan`

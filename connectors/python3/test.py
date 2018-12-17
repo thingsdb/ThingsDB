@@ -47,6 +47,7 @@ async def test():
         /* new_node('secret', '127.0.0.1', 9221); */
         /* new_collection('test'); */
         collections();
+        users();
 
         /* set_loglevel(WARNING); */
 
@@ -64,7 +65,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        iris;
+        hex;
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

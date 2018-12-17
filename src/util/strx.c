@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 void strx_lower_case(char * str)
 {
@@ -236,7 +237,7 @@ double strx_to_double(const char * str)
 /*
  * Requires a match with regular expression:
  *
- *      [-+]?(0[box])?[0-9]+'
+ *      [-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))
  *
  * TODO: Maybe include overflow handling (ERANGE)
  */

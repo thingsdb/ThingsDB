@@ -387,6 +387,22 @@ fail0:
     return NULL;
 }
 
+_Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
+{
+    if (!thing->watchers)
+        return false;
+
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+    {
+        if (watch->stream == stream)
+        {
+            watch->stream = NULL;
+            return true;
+        }
+    }
+    return false;
+}
+
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
 {
     flags |= TI_VAL_PACK_THING;
@@ -441,7 +457,7 @@ static void thing__watch_del(ti_thing_t * thing)
 
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(12, 8);
+    qpx_packer_t * packer = qpx_packer_create(12, 1);
     if (!packer)
     {
         log_critical(EX_ALLOC_S);

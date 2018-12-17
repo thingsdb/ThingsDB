@@ -73,6 +73,7 @@ void ti_val_set_nil(ti_val_t * val);
 void ti_val_set_undefined(ti_val_t * val);
 void ti_val_set_int(ti_val_t * val, int64_t i);
 void ti_val_set_float(ti_val_t * val, double d);
+void ti_val_set_thing(ti_val_t * val, ti_thing_t * thing);
 _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_iterator_n(ti_val_t * val);

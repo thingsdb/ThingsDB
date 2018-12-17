@@ -48,12 +48,6 @@ void ti_nodes_destroy(void)
     nodes = ti()->nodes = NULL;
 }
 
-//void ti_nodes_close(void)
-//{
-//    for (vec_each(nodes->vec, ti_node_t, node))
-//        ti_stream_close(node->stream);
-//}
-
 uint8_t ti_nodes_quorum(void)
 {
     return nodes->vec->n / 2;

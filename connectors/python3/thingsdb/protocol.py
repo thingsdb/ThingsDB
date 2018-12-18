@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from .package import Package
+from .exceptions import OverflowError
 from .exceptions import ZeroDivisionError
 from .exceptions import MaxQuotaError
 from .exceptions import AuthError
@@ -30,15 +31,16 @@ ON_WATCH_INI = 16
 ON_WATCH_UPD = 17
 ON_WATCH_DEL = 18
 
-RES_ERR_ZERO_DIV = 96
-RES_ERR_MAX_QUOTA = 97
-RES_ERR_AUTH = 98
-RES_ERR_FORBIDDEN = 99
-RES_ERR_INDEX = 100
-RES_ERR_BAD_REQUEST = 101
-RES_ERR_QUERY = 102
-RES_ERR_NODE = 103
-RES_ERR_INTERNAL = 104
+RES_ERR_OVERFLOW = 96
+RES_ERR_ZERO_DIV = 97
+RES_ERR_MAX_QUOTA = 98
+RES_ERR_AUTH = 99
+RES_ERR_FORBIDDEN = 100
+RES_ERR_INDEX = 101
+RES_ERR_BAD_REQUEST = 102
+RES_ERR_QUERY = 103
+RES_ERR_NODE = 104
+RES_ERR_INTERNAL = 127
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
@@ -46,6 +48,8 @@ PROTOMAP = {
     RES_QUERY: lambda f, d: f.set_result(d),
     RES_WATCH: lambda f, d: f.set_result(None),
     RES_UNWATCH: lambda f, d: f.set_result(None),
+    RES_ERR_OVERFLOW:
+        lambda f, d: f.set_exception(OverflowError(errdata=d)),
     RES_ERR_ZERO_DIV:
         lambda f, d: f.set_exception(ZeroDivisionError(errdata=d)),
     RES_ERR_MAX_QUOTA:

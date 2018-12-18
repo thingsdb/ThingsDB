@@ -2,6 +2,7 @@
  * ti/query.c
  */
 #include <assert.h>
+#include <errno.h>
 #include <langdef/nd.h>
 #include <langdef/translate.h>
 #include <qpack.h>
@@ -16,8 +17,9 @@
 #include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
-#include <util/strx.h>
 #include <util/query.h>
+#include <util/strx.h>
+
 
 static void query__investigate_array(ti_query_t * query, cleri_node_t * nd);
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
@@ -254,6 +256,9 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
             ? ~TI_QUERY_FLAG_ROOT_EVENT
             : ~TI_QUERY_FLAG_COLLECTION_EVENT;
 
+    if (query->flags & TI_QUERY_FLAG_OVERFLOW)
+        ex_set(e, EX_OVERFLOW, "integer overflow");
+
     return e->nr;
 }
 
@@ -434,6 +439,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 #if TI_USE_VOID_POINTER
                 {
                     intptr_t i = strx_to_int64(nd->str);
+                    if (errno == ERANGE)
+                        query->flags |= TI_QUERY_FLAG_OVERFLOW;
                     nd->children->node->data = (void *) i;
                 }
                 #endif
@@ -464,6 +471,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         {
             cleri_node_t * node = child->node->children->next->node;
             intptr_t i = strx_to_int64(node->str);
+            if (errno == ERANGE)
+                query->flags |= TI_QUERY_FLAG_OVERFLOW;
             node->data = (void *) i;
         }
         #endif

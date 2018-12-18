@@ -65,7 +65,9 @@ async def test():
     try:
         res = await client.query(r'''
 
-        {name: 'iris'}.find(x=>x);
+        x = 123456789012;
+        a;
+
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

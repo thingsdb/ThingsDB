@@ -1,5 +1,5 @@
 /*
- * big.c
+ * util/big.c
  */
 #include <assert.h>
 #include <util/big.h>
@@ -8,6 +8,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+
+#define BIG__MMIN 0x8000000000000000ULL
+#define BIG__U32MASK 0xffffffffUL
+#define BIG__LEFT(__u64) ((__u64 & 0xffffffff00000000ULL) >> 32)
+#define BIG__RIGHT(__u64) (__u64 & BIG__U32MASK)
+
 
 int big_to_str16n(const big_t * big, char * tostr, size_t size)
 {
@@ -43,6 +49,41 @@ int big_to_str16n(const big_t * big, char * tostr, size_t size)
     return count;
 }
 
+big_t * big_from_str2n(const char * str, size_t n)
+{
+    big_t * big;
+    uint32_t m, * ptr;
+
+    /* skip leading zero's */
+    while (*str == '0')
+    {
+        ++str;
+        --n;
+    }
+
+    m = (uint32_t) ceil(n / 32);
+    big = calloc(1, sizeof(big_t) + sizeof(uint32_t) * m);
+    if (!big)
+        return NULL;
+
+    ptr = big->parts_;
+
+    while (n--)
+    {
+        if (*str != '0' && *str != '1')
+        {
+            errno = EINVAL;
+            break;
+        }
+        m = n % 32;
+        if (!m)
+            ptr++;
+        *ptr |= 1 << m;
+    }
+
+    return NULL;
+}
+
 big_t * big_null(void)
 {
     big_t * big = malloc(sizeof(big_t));
@@ -55,13 +96,11 @@ big_t * big_null(void)
 
 big_t * big_from_int64(const int64_t i)
 {
-    assert (i >= -LLONG_MAX && i <= LLONG_MAX);
-
     big_t * big;
     uint32_t count, lu;
-    uint64_t u = (uint64_t) llabs(i);
+    uint64_t u = i == LLONG_MIN ? BIG__MMIN : (uint64_t) llabs(i);
 
-    lu = (u & 0xffffffff00000000) >> 32;
+    lu = BIG__LEFT(u);
     count = lu ? 2 : i ? 1 : 0;
     big = malloc(sizeof(big_t) + sizeof(uint32_t) * count);
     if (!big)
@@ -73,11 +112,11 @@ big_t * big_from_int64(const int64_t i)
     if (lu)
     {
         big->parts_[0] = lu;
-        big->parts_[1] = u & 0xffffffff;
+        big->parts_[1] = BIG__RIGHT(u);
     }
     else if (i)
     {
-        big->parts_[0] = u & 0xffffffff;
+        big->parts_[0] = BIG__RIGHT(u);
     }
 
     return big;
@@ -98,9 +137,6 @@ int64_t big_to_int64(const big_t * big)
 
 big_t * big_mulii(const int64_t a, const int64_t b)
 {
-    assert (a >= -LLONG_MAX && a <= LLONG_MAX);
-    assert (b >= -LLONG_MAX && b <= LLONG_MAX);
-
     big_t * big;
     uint32_t start, count, size, parts[4];
     uint64_t a0, a1, b0, b1, part;
@@ -108,31 +144,31 @@ big_t * big_mulii(const int64_t a, const int64_t b)
     if (!a || !b)
         return big_null();
 
-    a0 = (uint64_t) llabs(a);
-    b0 = (uint64_t) llabs(b);
+    a0 = a == LLONG_MIN ? BIG__MMIN : (uint64_t) llabs(a);
+    b0 = b == LLONG_MIN ? BIG__MMIN : (uint64_t) llabs(b);
 
-    a1 = (a0 & 0xffffffff00000000) >> 32;
-    b1 = (b0 & 0xffffffff00000000) >> 32;
+    a1 = BIG__LEFT(a0);
+    b1 = BIG__LEFT(b0);;
 
-    a0 &= 0xffffffff;
-    b0 &= 0xffffffff;
+    a0 &= BIG__U32MASK;
+    b0 &= BIG__U32MASK;
 
     part = a0*b0;
 
-    parts[3] = part & 0xffffffff;
-    parts[2] = (part & 0xffffffff00000000) >> 32;
+    parts[3] = BIG__RIGHT(part);
+    parts[2] = BIG__LEFT(part);
 
     part = a1*b0 + parts[2];;
-    parts[2] = part & 0xffffffff;
-    parts[1] = (part & 0xffffffff00000000) >> 32;
+    parts[2] = BIG__RIGHT(part);
+    parts[1] = BIG__LEFT(part);
 
     part = a0*b1 + parts[2];
-    parts[2] = part & 0xffffffff;
-    parts[1] += (part & 0xffffffff00000000) >> 32;
+    parts[2] = BIG__RIGHT(part);
+    parts[1] += BIG__LEFT(part);
 
     part = a1*b1 + parts[1];
-    parts[1] = part & 0xffffffff;
-    parts[0] = (part & 0xffffffff00000000) >> 32;
+    parts[1] = BIG__RIGHT(part);
+    parts[0] = BIG__LEFT(part);
 
     for (start = 0; start < 4 && !parts[start]; ++start);
     count = (4 - start);
@@ -142,7 +178,7 @@ big_t * big_mulii(const int64_t a, const int64_t b)
     if (!big)
         return NULL;
 
-    big->negative_ = (a<0)^(b<0);
+    big->negative_ = (a<0) ^ (b<0);
     big->n_ = count;
     memcpy(big->parts_, parts + start, size);
 
@@ -167,8 +203,8 @@ big_t * big_mulbb(const big_t * a, const big_t * b)
         for (uint_fast16_t bn = b->n_, x = i; bn--; )
         {
             part = (uint64_t) a->parts_[an]*(uint64_t) b->parts_[bn]+parts[x];
-            parts[x] = part & 0xffffffff;
-            parts[--x] += (part & 0xffffffff00000000) >> 32;
+            parts[x] = BIG__RIGHT(part);
+            parts[--x] += BIG__LEFT(part);
         }
     }
 
@@ -180,7 +216,7 @@ big_t * big_mulbb(const big_t * a, const big_t * b)
     if (!big)
         return NULL;
 
-    big->negative_ = a->negative_^b->negative_;
+    big->negative_ = a->negative_ ^ b->negative_;
     big->n_ = count;
     memcpy(big->parts_, parts + i, size);
 
@@ -189,8 +225,6 @@ big_t * big_mulbb(const big_t * a, const big_t * b)
 
 big_t * big_mulbi(const big_t * a, const int64_t b)
 {
-    assert (b >= -LLONG_MAX && b <= LLONG_MAX);
-
     big_t * big;
     uint32_t nmax = a->n_ + 2;
     uint32_t i = nmax - 1, count, size, parts[nmax];
@@ -199,23 +233,22 @@ big_t * big_mulbi(const big_t * a, const int64_t b)
     if (big_is_null(a) || !b)
         return big_null();
 
-    b0 = (uint64_t) llabs(b);
-    b1 = (b0 & 0xffffffff00000000) >> 32;
-    b0 &= 0xffffffff;
+    b0 = b == LLONG_MIN ? BIG__MMIN : (uint64_t) llabs(b);
+    b1 = BIG__LEFT(b0);
+    b0 &= BIG__U32MASK;
 
     for (unsigned int k = 0; k < nmax; ++k)
         parts[k] = 0;
 
     for (uint_fast16_t an = a->n_; an--; ++i)
     {
-
         part = (uint64_t) a->parts_[an]*b0 + parts[i];
-        parts[i] = part & 0xffffffff;
-        parts[--i] += (part & 0xffffffff00000000) >> 32;
+        parts[i] = BIG__RIGHT(part);
+        parts[--i] += BIG__LEFT(part);
 
         part = (uint64_t) a->parts_[an]*b1 + parts[i];
-        parts[i] = part & 0xffffffff;
-        parts[--i] += (part & 0xffffffff00000000) >> 32;
+        parts[i] = BIG__RIGHT(part);
+        parts[--i] += BIG__LEFT(part);
     }
 
     for (i = 0; i < nmax && !parts[i]; ++i);
@@ -242,9 +275,75 @@ double big_mulbd(const big_t * a, const double b)
         d = b * (double) a->parts_[i];
         k = n - i;
         while (--k)
-            d *= (double) 0x100000000;
+            d *= (double) 0x100000000ULL;
         r += d;
     }
     return a->negative_ ? -r : r;
 }
 
+
+/*
+static void addDecValue (int * pHexArray, int nElements, int value)
+{
+    int carryover = value;
+    int tmp = 0;
+    int i;
+
+    for (i = (nElements-1); (i >= 0); i--)
+    {
+        tmp = (pHexArray[i] * 10) + carryover;
+        pHexArray[i] = tmp % 16;
+        carryover = tmp / 16;
+    }
+}
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "sys/types.h"
+
+char HexChar [16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                      '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+static int * initHexArray (char * pDecStr, int * pnElements);
+
+static void addDecValue (int * pMyArray, int nElements, int value);
+static void printHexArray (int * pHexArray, int nElements);
+
+static int * initHexArray (char * pDecStr, int * pnElements)
+{
+    int * pArray = NULL;
+    int lenDecStr = strlen (pDecStr);
+    int i;
+
+    pArray = (int *) calloc (lenDecStr,  sizeof (int));
+
+    for (i = 0; i < lenDecStr; i++)
+    {
+        addDecValue (pArray, lenDecStr, pDecStr[i] - '0');
+    }
+
+    *pnElements = lenDecStr;
+
+    return (pArray);
+}
+
+static void printHexArray (int * pHexArray, int nElements)
+{
+    int start = 0;
+    int i;
+
+    while ((pHexArray[start] == 0) && (start < (nElements-1)))
+    {
+        start++;
+    }
+
+    for (i = start; i < nElements; i++)
+    {
+        printf ("%c", HexChar[pHexArray[i]]);
+    }
+
+    printf ("\n");
+}
+
+/*

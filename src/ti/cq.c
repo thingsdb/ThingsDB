@@ -2822,7 +2822,7 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_set_bool(query->rval, false);
         break;
     case CLERI_GID_T_FLOAT:
-        #if TI_USE_VOIDP
+        #if TI_USE_VOID_POINTER
         {
             assert (sizeof(double) == sizeof(void *));
             double d;
@@ -2834,14 +2834,13 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         #endif
         break;
     case CLERI_GID_T_INT:
-        ti_val_set_int(
-            query->rval,
-            #if TI_USE_VOIDP
-            (intptr_t) ((intptr_t *) node->data)
-            #else
-            strx_to_int64(node->str)
-            #endif
-        );
+        #if TI_USE_VOID_POINTER
+        ti_val_set_int(query->rval, (intptr_t) ((intptr_t *) node->data));
+        #else
+        ti_val_set_int(query->rval, strx_to_int64(node->str));
+        if (errno == ERANGE)
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+        #endif
         break;
     case CLERI_GID_T_NIL:
         ti_val_set_nil(query->rval);

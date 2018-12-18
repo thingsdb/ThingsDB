@@ -1428,6 +1428,8 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval,
             strx_to_int64(node->str)
         );
+        if (errno == ERANGE)
+            ex_set(e, EX_OVERFLOW, "integer overflow");
         break;
     case CLERI_GID_T_NIL:
         ti_val_set_nil(query->rval);

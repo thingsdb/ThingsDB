@@ -1,5 +1,5 @@
 /*
- * val.c
+ * ti/val.c
  */
 #include <assert.h>
 #include <stdlib.h>
@@ -563,13 +563,13 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);
     case TI_VAL_THING:
-        return qp_fadd_int64(f, (int64_t) val->via.thing->id);
+        return qp_fadd_int64(f, val->via.thing->id);
     case TI_VAL_THINGS:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (qp_fadd_int64(f, (int64_t) thing->id))
+            if (qp_fadd_int64(f, thing->id))
                 return -1;
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);

@@ -14,6 +14,7 @@
 
 typedef enum
 {
+    EX_OVERFLOW             =-108,
     EX_ZERO_DIV             =-107,
     EX_MAX_QUOTA            =-106,
     EX_AUTH_ERROR           =-105,

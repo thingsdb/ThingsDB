@@ -67,7 +67,7 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
                 continue;
 
             if (!found && (
-                    qp_fadd_int64(f, (int64_t) thing->id) ||
+                    qp_fadd_int64(f, thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN)
                 ))
                 goto stop;
@@ -75,7 +75,7 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
             found = 1;
             p = (intptr_t) prop->name;
 
-            if (qp_fadd_int64(f, (int64_t) p) || ti_val_to_file(&prop->val, f))
+            if (qp_fadd_int64(f, p) || ti_val_to_file(&prop->val, f))
                 goto stop;
 
         }
@@ -124,7 +124,7 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
                 continue;
 
             if (!found && (
-                    qp_fadd_int64(f, (int64_t) thing->id) ||
+                    qp_fadd_int64(f, thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN)
                 ))
                 goto stop;
@@ -132,7 +132,7 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
             found = 1;
             p = (intptr_t) prat->name;
 
-            if (qp_fadd_int64(f, (int64_t) p) || ti_val_to_file(&prat->val, f))
+            if (qp_fadd_int64(f, p) || ti_val_to_file(&prat->val, f))
                 goto stop;
         }
 

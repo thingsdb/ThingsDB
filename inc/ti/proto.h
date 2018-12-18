@@ -50,24 +50,25 @@ typedef enum
      * 96..127 client errors
      */
 
+    TI_PROTO_CLIENT_ERR_OVERFLOW    =96,
     /* zero division error */
-    TI_PROTO_CLIENT_ERR_ZERO_DIV    =96,
+    TI_PROTO_CLIENT_ERR_ZERO_DIV    =97,
     /* max quota is reached */
-    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =97,
+    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =98,
     /* authentication failed or request without authentication */
-    TI_PROTO_CLIENT_ERR_AUTH        =98,
+    TI_PROTO_CLIENT_ERR_AUTH        =99,
     /* no access for the requested task */
-    TI_PROTO_CLIENT_ERR_FORBIDDEN   =99,
+    TI_PROTO_CLIENT_ERR_FORBIDDEN   =100,
     /* query syntax error */
-    TI_PROTO_CLIENT_ERR_INDEX       =100,
+    TI_PROTO_CLIENT_ERR_INDEX       =101,
     /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_CLIENT_ERR_BAD_REQUEST =101,
+    TI_PROTO_CLIENT_ERR_BAD_REQUEST =102,
     /* node is (currently) unable to respond to the request */
-    TI_PROTO_CLIENT_ERR_QUERY       =102,
+    TI_PROTO_CLIENT_ERR_QUERY       =103,
     /* not found, maybe because due to no access */
-    TI_PROTO_CLIENT_ERR_NODE        =103,
+    TI_PROTO_CLIENT_ERR_NODE        =104,
     /* internal server error, for example allocation error */
-    TI_PROTO_CLIENT_ERR_INTERNAL    =104,
+    TI_PROTO_CLIENT_ERR_INTERNAL    =127,
 
 
     /*

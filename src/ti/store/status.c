@@ -15,9 +15,9 @@ int ti_store_status_store(const char * fn)
 
     if (qp_add_map(&packer) ||
         qp_add_raw_from_str(packer, "cevid") ||
-        qp_add_int64(packer, (int64_t) *ti()->events->cevid) ||
+        qp_add_int64(packer, ti()->node->cevid) ||
         qp_add_raw_from_str(packer, "next_thing_id") ||
-        qp_add_int64(packer, (int64_t) *ti()->next_thing_id) ||
+        qp_add_int64(packer, ti()->node->next_thing_id) ||
         qp_close_map(packer)
     )
         goto stop;
@@ -28,7 +28,7 @@ stop:
     if (rc)
         log_error("failed to write file: `%s`", fn);
     else
-        ti()->stored_event_id = *ti()->events->cevid;
+        ti()->stored_event_id = ti()->node->cevid;
     qp_packer_destroy(packer);
     return rc;
 }

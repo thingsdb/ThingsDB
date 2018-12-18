@@ -229,7 +229,18 @@ double strx_to_double(const char * str)
     if (*str == 'n')
         return NAN;
 
+    if (errno == ERANGE)
+        errno = 0;
+
     d = strtod(str, NULL);
+
+    if (errno == ERANGE)
+    {
+        assert (d == HUGE_VAL || d == -HUGE_VAL);
+
+        d = d == HUGE_VAL ? INFINITY : -INFINITY;
+        errno = 0;
+    }
 
     return negative ? negative * d : d;
 }
@@ -239,7 +250,7 @@ double strx_to_double(const char * str)
  *
  *      [-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))
  *
- * TODO: Maybe include overflow handling (ERANGE)
+ * This function may set errno to ERANGE
  */
 int64_t strx_to_int64(const char * str)
 {
@@ -279,6 +290,9 @@ int64_t strx_to_int64(const char * str)
             return 0;
         }
     }
+
+    if (errno == ERANGE)
+        errno = 0;
 
     i = strtoll(str, NULL, base);
 

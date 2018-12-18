@@ -25,8 +25,8 @@ int ti_store_access_store(const vec_t * access, const char * fn)
     for (vec_each(access, ti_auth_t, auth))
     {
         if (qp_add_array(&packer) ||
-            qp_add_int64(packer, (int64_t) auth->user->id) ||
-            qp_add_int64(packer, (int64_t) auth->mask) ||
+            qp_add_int64(packer, auth->user->id) ||
+            qp_add_int64(packer, auth->mask) ||
             qp_close_array(packer)) goto stop;
     }
 

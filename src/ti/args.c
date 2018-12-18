@@ -181,6 +181,5 @@ int ti_args_parse(int argc, char *argv[])
     }
 
     argparse_destroy(parser);
-
     return rc;
 }

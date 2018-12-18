@@ -31,7 +31,7 @@ int ti_store_users_store(const char * fn)
     for (vec_each(users->vec, ti_user_t, user))
     {
         if (qp_add_array(&packer) ||
-            qp_add_int64(packer, (int64_t) user->id) ||
+            qp_add_int64(packer, user->id) ||
             qp_add_raw(packer, user->name->data, user->name->n) ||
             qp_add_raw_from_str(packer, user->encpass) ||
             qp_close_array(packer))

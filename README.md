@@ -20,9 +20,9 @@
       allowing only fixed integers makes it a bit faster and easier~~
       We can always do this later since `index by scope` is backwards compatible with the
       current syntax, but not the other way around.
-- [ ] ~~Overflow handling? Right now ThingsDB is naive~~
-      We could check ERANGE after investigating since nothing else can set
-      ERANGE during investigation. The other checks must be done in ti_opr.
+- [x] ~~Overflow handling? Right now ThingsDB is naive~~
+      Overflow handling is now implemented correctly. We could in the future implement
+      bit_t for suporting big integer numbers.
       - [ ] Introduce big numbers, export as hex {-:''} and {+:''}
       - [ ] bit_t
         - [x] `big_to_str16n`
@@ -34,7 +34,7 @@
         - [x] `big_mulii` -> big
         - [x] `big_mulbb` -> big
         - [x] `big_mulbi` -> big
-        - [ ] `big_mulbd` -> double
+        - [x] `big_mulbd` -> double
         - [ ] `big_addii` -> big
         - [ ] `big_addbb` -> big
         - [ ] `big_addbi` -> big

@@ -9,6 +9,7 @@ enum
     TI_QUERY_FLAG_COLLECTION_EVENT      =1<<0,
     TI_QUERY_FLAG_ROOT_EVENT            =1<<1,
     TI_QUERY_FLAG_ROOT_NESTED           =1<<2,
+    TI_QUERY_FLAG_OVERFLOW              =1<<3,
 };
 
 typedef struct ti_query_s ti_query_t;

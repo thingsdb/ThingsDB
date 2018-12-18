@@ -171,7 +171,6 @@ static void wareq__watch_cb(uv_async_t * task)
         ti_wareq_destroy(wareq);
         return;
     }
-
     if (!wareq->stream->watching)
     {
         /*

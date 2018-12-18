@@ -1,5 +1,6 @@
 _IndexError = IndexError
 _ZeroDivisionError = ZeroDivisionError
+_OverflowError = OverflowError
 
 
 class ThingsDBError(Exception):
@@ -7,6 +8,10 @@ class ThingsDBError(Exception):
         if isinstance(errdata, dict):
             args = ('{error_msg} ({error_code})'.format_map(errdata), )
         super().__init__(*args)
+
+
+class OverflowError(ThingsDBError, _OverflowError):
+    pass
 
 
 class ZeroDivisionError(ThingsDBError, _ZeroDivisionError):

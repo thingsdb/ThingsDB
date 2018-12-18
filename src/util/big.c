@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
 #define BIG__MMIN 0x8000000000000000ULL
 #define BIG__U32MASK 0xffffffffUL
@@ -61,27 +62,81 @@ big_t * big_from_str2n(const char * str, size_t n)
         --n;
     }
 
-    m = (uint32_t) ceil(n / 32);
+    m = (uint32_t) ceil(n / 32.0f);
     big = calloc(1, sizeof(big_t) + sizeof(uint32_t) * m);
     if (!big)
         return NULL;
 
-    ptr = big->parts_;
+    big->n_ = m;
+    big->negative_ = 0;
 
+    ptr = big->parts_;
     while (n--)
     {
-        if (*str != '0' && *str != '1')
+        m = n % 32;
+        if (*str == '1')
+        {
+            *ptr |= 1 << m;
+        }
+        else if (*str != '0')
         {
             errno = EINVAL;
             break;
         }
-        m = n % 32;
+
         if (!m)
-            ptr++;
-        *ptr |= 1 << m;
+            ++ptr;
+
+        ++str;
     }
 
-    return NULL;
+    return big;
+}
+
+big_t * big_from_str8n(const char * str, size_t n)
+{
+    big_t * big;
+    uint32_t m, * ptr;
+    int c;
+
+    /* skip leading zero's */
+    while (*str == '0')
+    {
+        ++str;
+        --n;
+    }
+
+    m = (uint32_t) ceil(n / 10.665f);
+    big = calloc(1, sizeof(big_t) + sizeof(uint32_t) * m);
+    if (!big)
+        return NULL;
+
+    big->n_ = m;
+    big->negative_ = 0;
+
+    ptr = big->parts_;
+    while (n--)
+    {
+        m = n % 32;
+        c = *str - '0';
+
+        if (*str == '1')
+        {
+            *ptr |= 1 << m;
+        }
+        else if (*str != '0')
+        {
+            errno = EINVAL;
+            break;
+        }
+
+        if (!m)
+            ++ptr;
+
+        ++str;
+    }
+
+    return big;
 }
 
 big_t * big_null(void)
@@ -346,4 +401,4 @@ static void printHexArray (int * pHexArray, int nElements)
     printf ("\n");
 }
 
-/*
+*/

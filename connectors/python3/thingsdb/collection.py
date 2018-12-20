@@ -3,8 +3,16 @@ from .thing import Thing
 
 class Collection(Thing):
 
-    def __init__(self, client, collection_id):
-        self.client = client
-        self.collection_id = collection_id
-        self._watching = set()
-        super().__init__(self, collection_id)
+    __slots__ = (
+        '_id',
+        '_props',
+        '_attrs'
+    )
+
+    def __new__(cls, client, collection_id):
+        thing = client._things.get(id)
+        if thing is None:
+            thing = object.__new__(cls)
+            thing._client = client
+            thing = client._things[id] = super().__new__(cls, thing, collection_id)
+        return thing

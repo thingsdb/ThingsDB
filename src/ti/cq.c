@@ -164,7 +164,8 @@ finish:
         ti_val_clear(query->rval);
         ti_val_set_bool(query->rval, (nots & 1) ^ b);
     }
-    else ti_val_mark_fetch(query->rval);
+    else if (query->rval->tp == TI_VAL_THING)
+        ti_val_mark_fetch(query->rval);
 
 done:
     ti_scope_leave(&query->scope, current_scope);
@@ -809,6 +810,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 vec_destroy(retvec, NULL);
                 goto failed;
             }
+            retval->flags |= TI_VAL_FLAG_FETCH;
 
             for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
             {
@@ -1535,6 +1537,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_THINGS:
         {
             int64_t idx = 0;
+            retval->flags |= TI_VAL_FLAG_FETCH;
             for (vec_each(iterval->via.things, ti_thing_t, t), ++idx)
             {
                 size_t paramn = 0;

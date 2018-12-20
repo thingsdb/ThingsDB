@@ -1,3 +1,5 @@
+from .collection import Collection
+
 
 ROOT_TARGET = 0
 
@@ -8,7 +10,6 @@ class Root:
         await self.query(f'new_collection("{name}")', target=ROOT_TARGET)
         return
 
-
     async def get_collection(self, name):
         collection_id = await self.query(f'id()', target=name)
-        return Collection()
+        return Collection(self, collection_id)

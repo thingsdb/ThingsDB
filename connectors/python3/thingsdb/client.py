@@ -7,14 +7,13 @@ from .protocol import Protocol
 from .protocol import REQ_AUTH
 from .protocol import REQ_QUERY
 from .protocol import REQ_WATCH
-from .protocol import ON_WATCH_INI
-from .protocol import ON_WATCH_UPD
-from .protocol import ON_WATCH_DEL
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
+from .watch import WatchMixin
+from .root import Root
 
 
-class Client:
+class Client(WatchMixin, Root):
     def __init__(self, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._username = None
@@ -24,6 +23,7 @@ class Client:
         self._transport = None
         self._protocol = None
         self._requests = {}
+        self._things = {}
         self._target = 0  # root target
 
     async def connect(self, host, port=9200, timeout=5):
@@ -50,7 +50,6 @@ class Client:
 
     def use(self, target):
         assert isinstance(target, (int, str))
-
         self._target = target
 
     async def query(
@@ -87,7 +86,7 @@ class Client:
 
     def _on_package_received(self, pkg):
         if not pkg.pid:
-            print(pkg.tp, pkg.data)
+            self._on_watch_received(pkg)
             return
 
         try:

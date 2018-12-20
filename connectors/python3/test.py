@@ -6,6 +6,17 @@ import signal
 from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
 
+'''
+
+from thingsdb.client import Client
+from thingsdb.exceptions import ThingsDBError
+client = Client()
+await client.connect('localhost', 9200)
+await client.authenticate('iris', 'siri')
+collection = await client.get_collection('test')
+
+
+'''
 
 interrupted = False
 
@@ -21,6 +32,8 @@ async def test():
         print(e)
 
     client.use('test')
+
+    collection = await client.get_collection('test')
 
     start = time.time()
     try:
@@ -48,7 +61,7 @@ async def test():
         /* new_collection('test'); */
         collections();
         users();
-        set_password('irisske', 'siri');
+        /* set_password('irisske', 'siri'); */
 
         /* set_loglevel(WARNING); */
 
@@ -66,8 +79,8 @@ async def test():
     try:
         res = await client.query(r'''
 
-        x = 123456789012345678901234;
-        a;
+        p;
+
 
 
         ''', blobs=["bla"], timeout=2)

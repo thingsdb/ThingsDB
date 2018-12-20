@@ -523,14 +523,14 @@ static int job__splice(
         c < 0 ||
         i + c > cur_n ||
         n < 0 ||
-        (tp != QP_ARRAY_OPEN && n != tp - QP_ARRAY0 - 2))
+        (tp != QP_ARRAY_OPEN && n > tp - QP_ARRAY0 - 2))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
                 "incorrect values "
-                "(index: %zd, delete_count: %zd, new_count: %zd)",
+                "(index: %zd, delete: %zd, new: %zd, current_size: %zd)",
                 thing->id,
-                i, c, n);
+                i, c, n, cur_n);
         return -1;
     }
 

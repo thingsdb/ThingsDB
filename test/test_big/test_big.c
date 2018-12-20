@@ -16,6 +16,7 @@ int big__from_str2n(void)
         char * binary = "00101110";
         char * expect = "2e";
         big = big_from_str2n(binary, strlen(binary));
+        _assert (big);
         _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
         _assert (strcmp(str, expect) == 0);
         free(big);
@@ -27,6 +28,7 @@ int big__from_str2n(void)
             "000010101000101011001001111011010";
         char * expect = "1175cdbe2151593da";
         big = big_from_str2n(binary, strlen(binary));
+        _assert (big);
         _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
         _assert (strcmp(str, expect) == 0);
         free(big);

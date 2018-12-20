@@ -48,6 +48,7 @@ async def test():
         /* new_collection('test'); */
         collections();
         users();
+        set_password('irisske', 'siri');
 
         /* set_loglevel(WARNING); */
 
@@ -65,7 +66,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        x = 123456789012;
+        x = 123456789012345678901234;
         a;
 
 

@@ -67,6 +67,7 @@ typedef struct ti_s ti_t;
 #include <ti/args.h>
 #include <ti/away.h>
 #include <ti/build.h>
+#include <ti/sync.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
 #include <ti/collections.h>
@@ -91,7 +92,7 @@ typedef struct ti_s ti_t;
 extern ti_t ti_;
 
 #define ti_term(signum__) do {\
-    log_critical("raise at: %s:%d,%s (%s)", \
+    if (signum__ != SIGINT) log_critical("raise at: %s:%d,%s (%s)", \
     __FILE__, __LINE__, __func__, strsignal(signum__)); \
     raise(signum__);} while(0)
 
@@ -131,21 +132,22 @@ struct ti_s
     char * fn;
     char * node_fn;
     ti_archive_t * archive;     /* committed events archive */
-    ti_counters_t * counters;   /* counters for statistics */
-    ti_node_t * node;
     ti_args_t * args;
-    ti_cfg_t * cfg;
     ti_away_t * away;
     ti_build_t * build;         /* only when using --secret */
-    ti_lookup_t * lookup;
-    ti_desired_t * desired;
+    ti_cfg_t * cfg;
     ti_clients_t * clients;
+    ti_collections_t * collections;
+    ti_connect_t * connect_loop;
+    ti_counters_t * counters;   /* counters for statistics */
+    ti_desired_t * desired;
     ti_events_t * events;
+    ti_lookup_t * lookup;
+    ti_node_t * node;
     ti_nodes_t * nodes;
     ti_store_t * store;
-    ti_connect_t * connect_loop;
+    ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
-    ti_collections_t * collections;
     ti_users_t * users;
     vec_t * access;
     smap_t * names;             /* weak map for ti_name_t */

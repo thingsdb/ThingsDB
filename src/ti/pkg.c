@@ -1,5 +1,5 @@
 /*
- * pkg.c
+ * ti/pkg.c
  */
 #include <assert.h>
 #include <string.h>

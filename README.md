@@ -22,13 +22,19 @@
       current syntax, but not the other way around.
 - [x] ~~Overflow handling? Right now ThingsDB is naive~~
       Overflow handling is now implemented correctly. We could in the future implement
-      bit_t for suporting big integer numbers.
+      bit_t for supporting big integer numbers.
+      Except maybe for `double` compare?)
       - [ ] Introduce big numbers, export as hex {-:''} and {+:''}
       - [ ] bit_t
         - [x] `big_to_str16n`
         - [x] `big_null`
         - [x] `big_from_int64`
         - [x] `big_to_int64`
+        - [ ] `big_from_strn`
+            - [x] `big_from_str2n`
+            - [ ] `big_from_str8n`
+            - [ ] `big_from_str10n`
+            - [ ] `big_from_str16n`
         - [ ] `big_from_double`
         - [ ] `big_to_double`
         - [x] `big_mulii` -> big
@@ -60,7 +66,24 @@
         - [ ] `big_orbb`
         - [ ] `big_xorbi`
         - [ ] `big_xorbb`
-        - [ ] `big_eqbb`
+        - [ ] `big_eq`
+        - [ ] `big_ne`
+        - [ ] `big_lt`
+        - [ ] `big_le`
+        - [ ] `big_gt`
+        - [ ] `big_ge`
+        - [ ] `big_eqi` (should in practice return false)
+        - [ ] `big_nei` (should in practice return true)
+        - [ ] `big_lti` (compare with int64_t)
+        - [ ] `big_lei` (compare with int64_t)
+        - [ ] `big_gti` (compare with int64_t)
+        - [ ] `big_gei` (compare with int64_t)
+        - [ ] `big_eqd`
+        - [ ] `big_ned`
+        - [ ] `big_ltd` (compare with double)
+        - [ ] `big_led` (compare with double)
+        - [ ] `big_gtd` (compare with double)
+        - [ ] `big_ged` (compare with double)
         - [x] `big_is_positive`
         - [x] `big_is_negative`
         - [x] `big_str16_msize`
@@ -74,7 +97,7 @@
 - [x] Watching
     - [x] watch
     - [x] unwatch
-- [ ] Language
+- [x] Language
     - [x] Primitives
         - [x] `false`
         - [x] `nil`
@@ -85,13 +108,13 @@
         - [x] `regex`
     - [x] Thing
     - [x] Array
-    - [ ] Functions:
+    - [x] Functions:
         - [x] `blob`
             - [x] array implementation
             - [ ] ~~Future feature: map implementation~~
         - [x] `endswith`
         - [x] `filter`
-        - [ ] `find`
+        - [x] `find`
         - [x] `get`
         - [x] `isinf`
         - [x] `isnan`
@@ -111,7 +134,7 @@
         - [x] `splice`
         - [x] `unset`
 - [x] Redundancy as initial argument together with --init ?
-- [ ] Task generating
+- [x] Task generating
     - [x] `assign`
     - [x] `del`
     - [x] `push`
@@ -120,7 +143,7 @@
     - [x] `splice`
     - [x] `unset`
 - [x] Events without tasks could be saved smaller
-- [ ] Jobs processing from `EPKG`
+- [x] Jobs processing from `EPKG`
     - [x] `assign`
     - [x] `del`
     - [x] `push`
@@ -261,7 +284,7 @@
         - [x] `reset_counters`
         - [x] `revoke`
         - [x] `set_loglevel`
-        - [ ] `set_password`
+        - [x] `set_password`
         - [x] `set_quota`
         - [x] `set_zone`
         - [x] `shutdown`
@@ -281,7 +304,7 @@
         - [x] `revoke`
         - [ ] `rename_user`
         - [ ] `rename_collection`
-        - [ ] `set_password`
+        - [x] `set_password`
         - [x] `set_quota`
 
 

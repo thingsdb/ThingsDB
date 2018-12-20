@@ -1,5 +1,5 @@
 /*
- * cfg.h
+ * ti/cfg.h
  */
 #ifndef TI_CFG_H_
 #define TI_CFG_H_

@@ -20,6 +20,7 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
@@ -367,6 +368,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_REQ_SETUP:
         nodes__on_req_setup(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNC:
+        nodes__on_req_sync(stream, pkg);
         break;
     case TI_PROTO_NODE_RES_CONNECT:
     case TI_PROTO_NODE_RES_EVENT_ID:
@@ -881,6 +885,43 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         free(resp);
         log_critical(EX_ALLOC_S);
+    }
+}
+
+static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t * e = ex_use();
+    ti_pkg_t * resp;
+    qpx_packer_t * packer;
+    ti_node_t * node = stream->via.node;
+
+    if (!node)
+    {
+        log_error(
+                "got a sync request from an unauthorized connection: `%s`",
+                ti_stream_name(stream));
+        return;
+    }
+
+    if (node->status != TI_NODE_STAT_AWAY_SOON &&
+        node->status != TI_NODE_STAT_AWAY)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not in `away` mode and therefore cannot handle "
+                "sync requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
     }
 }
 

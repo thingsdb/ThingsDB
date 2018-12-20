@@ -57,6 +57,7 @@ int ti_task_add_revoke(
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
+int ti_task_add_set_password(ti_task_t * task, ti_user_t * user);
 int ti_task_add_set_quota(
         ti_task_t * task,
         uint64_t collection_id,

@@ -12,7 +12,6 @@ from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
-from .collection import Collection
 
 
 class Client:
@@ -54,7 +53,8 @@ class Client:
 
         self._target = target
 
-    async def query(self, query, blobs=None, target=None, timeout=None):
+    async def query(
+            self, query, blobs=None, target=None, timeout=None, as_list=False):
         assert isinstance(query, str)
         assert blobs is None or isinstance(blobs, (list, tuple))
         assert target is None or isinstance(target, (int, str))
@@ -67,6 +67,8 @@ class Client:
             data['blobs'] = blobs
         future = self._write_package(REQ_QUERY, data, timeout=timeout)
         result = await future
+        if not as_list and len(result) == 1:
+            result = result[0]
         return result
 
     async def watch(self, ids, target=None, timeout=None):

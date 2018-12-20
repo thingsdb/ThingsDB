@@ -17,6 +17,7 @@ static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_node(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
+static int rjob__set_password(qp_unpacker_t * unp);
 static int rjob__set_quota(qp_unpacker_t * unp);
 
 
@@ -54,6 +55,8 @@ int ti_rjob_run(qp_unpacker_t * unp)
             return rjob__revoke(unp);
         break;
     case 's':
+        if (qpx_obj_eq_str(&qp_job_name, "set_password"))
+            return rjob__set_password(unp);
         if (qpx_obj_eq_str(&qp_job_name, "set_quota"))
             return rjob__set_quota(unp);
         break;
@@ -398,6 +401,49 @@ static int rjob__revoke(qp_unpacker_t * unp)
     mask = (uint64_t) qp_mask.via.int64;
 
     ti_access_revoke(target ? target->access : ti()->access, user, mask);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id':user_id, 'password': encpass}
+ */
+static int rjob__set_password(qp_unpacker_t * unp)
+{
+    assert (unp);
+    qp_obj_t qp_user, qp_pass;
+    uint64_t user_id;
+    ti_user_t * user;
+    char * encrypted;
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
+            !qp_is_int(qp_next(unp, &qp_user)) ||       /* val: id */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
+            !qp_is_raw(qp_next(unp, &qp_pass)))         /* val: password */
+    {
+        log_critical("job `set_password`: invalid format");
+        return -1;
+    }
+
+    user_id = (uint64_t) qp_user.via.int64;
+    user = ti_users_get_by_id(user_id);
+    if (!user)
+    {
+        log_critical("job `set_password`: "TI_USER_ID" not found", user_id);
+        return -1;
+    }
+
+    encrypted = qpx_obj_raw_to_str(&qp_pass);
+    if (!encrypted)
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    free(user->encpass);
+    user->encpass = encrypted;
 
     return 0;
 }

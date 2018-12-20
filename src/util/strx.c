@@ -1,5 +1,5 @@
 /*
- * strx.h
+ * util/strx.h
  */
 #include <assert.h>
 #include <ctype.h>

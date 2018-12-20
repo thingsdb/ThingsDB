@@ -18,7 +18,7 @@ static ti_away_t * away;
  * When `away` mode is finished we might have some events queued, after the
  * queue has less or equal to this threshold we can go out of away mode
  */
-#define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 2
+#define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 5
 
 enum
 {
@@ -281,7 +281,15 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (away->flags & AWAY__FLAG_IS_WORKING);
 
-    if (away->syncers)
+    if (away->syncers->n)
+    {
+        log_warning(
+                "stay in away mode since this node is synchronizing with "
+                "%zu other %s",
+                away->syncers->n,
+                away->syncers->n == 1 ? "node" : "nodes");
+        return;
+    }
 
     if (ti()->events->queue->n > AWAY__THRESHOLD_EVENTS_QUEUE_SIZE)
     {

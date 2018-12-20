@@ -94,6 +94,7 @@ typedef enum
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
     TI_PROTO_NODE_REQ_AWAY_ID   =178,   /* away id  */
     TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
+    TI_PROTO_NODE_REQ_SYNC      =181,   /* [event_range_start, end] */
 
     /*
      * 192..223 node responses
@@ -102,6 +103,7 @@ typedef enum
     TI_PROTO_NODE_RES_EVENT_ID  =209,   /* empty, event id accepted */
     TI_PROTO_NODE_RES_AWAY_ID   =210,   /* empty, away id accepted */
     TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
+    TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
 
     /*
      * 224..255 node errors
@@ -118,6 +120,7 @@ typedef enum
 #define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_SETUP_TIMEOUT 10
+#define TI_PROTO_NODE_REQ_SYNC_TIMEOUT 10
 
 const char * ti_proto_str(ti_proto_e tp);
 

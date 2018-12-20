@@ -11,7 +11,7 @@ typedef struct big_s big_t;
 
 
 int big_to_str16n(const big_t * big, char * tostr, size_t size);
-big_t * big_from_str(const char * str, int base);
+big_t * big_from_strn(const char * str, size_t n, int base);
 big_t * big_from_str2n(const char * str, size_t n);
 big_t * big_null(void);
 big_t * big_from_int64(const int64_t i);

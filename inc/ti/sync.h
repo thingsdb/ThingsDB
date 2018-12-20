@@ -12,13 +12,15 @@ typedef struct ti_sync_s ti_sync_t;
 #include <ti/stream.h>
 #include <util/logger.h>
 
-void ti_sync_create(void);
-void ti_sync_destroy(void);
+int ti_sync_create(void);
+int ti_sync_start(void);
+void ti_sync_stop(void);
 
 
 struct ti_sync_s
 {
     uint8_t status;
+    uv_timer_t * repeat;
 };
 
 

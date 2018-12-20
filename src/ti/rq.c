@@ -33,6 +33,7 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -215,7 +216,7 @@ static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval->via.raw->n);
     if (!user)
     {
-        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
                 (int) query->rval->via.raw->n,
                 (char *) query->rval->via.raw->data);
         return e->nr;
@@ -301,7 +302,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval->via.raw->n);
     if (!user)
     {
-        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
                 (int) query->rval->via.raw->n,
                 (char *) query->rval->via.raw->data);
         return e->nr;
@@ -879,7 +880,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval->via.raw->n);
     if (!user)
     {
-        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
                 (int) query->rval->via.raw->n,
                 (char *) query->rval->via.raw->data);
         return e->nr;
@@ -967,6 +968,95 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_clear(query->rval);
 
+    return e->nr;
+}
+
+static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    int n;
+    char * passstr = NULL;
+    ti_user_t * user;
+    ti_task_t * task;
+    n = langdef_nd_n_function_params(nd);
+
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `set_password` requires 2 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `set_password` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    user = ti_users_get_by_namestrn(
+            (const char *) query->rval->via.raw->data,
+            query->rval->via.raw->n);
+    if (!user)
+    {
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
+                (int) query->rval->via.raw->n,
+                (char *) query->rval->via.raw->data);
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->next->next->node, e))
+        goto done;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `set_password` expects argument 2 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        goto done;
+    }
+
+    passstr = ti_raw_to_str(query->rval->via.raw);
+    if (!passstr)
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
+
+    if (!ti_user_pass_check(passstr, e))
+        goto done;
+
+    if (ti_user_set_pass(user, passstr))
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        goto done;
+
+    if (ti_task_add_set_password(task, user))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+    ti_val_clear(query->rval);
+
+done:
+    free(passstr);
     return e->nr;
 }
 
@@ -1126,8 +1216,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti()->flags |= TI_FLAG_SIGNAL;
-    ti_stop_slow();
+    ti_term(SIGINT);
 
     if (query_rval_clear(query))
         ex_set_alloc(e);
@@ -1170,7 +1259,7 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval->via.raw->n);
     if (!user)
     {
-        ex_set(e, EX_BAD_DATA, "user `%.*s` not found",
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
                 (int) query->rval->via.raw->n,
                 (char *) query->rval->via.raw->data);
         return e->nr;
@@ -1268,6 +1357,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case 's':
         if (langdef_nd_match_str(fname, "set_loglevel"))
             return rq__f_set_loglevel(query, params, e);
+        if (langdef_nd_match_str(fname, "set_password"))
+            return rq__f_set_password(query, params, e);
         if (langdef_nd_match_str(fname, "set_quota"))
             return rq__f_set_quota(query, params, e);
         if (langdef_nd_match_str(fname, "set_zone"))

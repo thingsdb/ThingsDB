@@ -12,10 +12,25 @@ int big__from_str2n(void)
 
     big_t * big;
 
-    big = big_from_str2n("00101110", 8);
-    _assert (big_to_str16n(big, str, big__sz));
-    _assert (strcmp(str, "2e") == 0);
-    free(big);
+    {
+        char * binary = "00101110";
+        char * expect = "2e";
+        big = big_from_str2n(binary, strlen(binary));
+        _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
+        _assert (strcmp(str, expect) == 0);
+        free(big);
+    }
+
+    {
+        char * binary =
+            "10001011101011100110110111110001"
+            "000010101000101011001001111011010";
+        char * expect = "1175cdbe2151593da";
+        big = big_from_str2n(binary, strlen(binary));
+        _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
+        _assert (strcmp(str, expect) == 0);
+        free(big);
+    }
 
     return test_end();
 }

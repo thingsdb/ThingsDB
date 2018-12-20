@@ -97,7 +97,7 @@ big_t * big_from_str8n(const char * str, size_t n)
 {
     big_t * big;
     uint32_t offset, m, * ptr;
-    int c, rest;
+    int c;
 
     /* skip leading zero's */
     while (*str == '0')
@@ -118,33 +118,33 @@ big_t * big_from_str8n(const char * str, size_t n)
     ptr = big->parts_;
     while (n--)
     {
-//        m = offset % 32;
-//        c = *str - '0';
-//        if (m == 0)
-//        {
-//
-//        }
-//        if (m == 1)
-//        {
-//            *ptr |= c
-//        }
-//        else if (m == 2)
-//        {
-//
-//        }
-//        else if (m == 3)
-//        {
-//
-//        }
-//        else
-//        {
-//            *ptr |= c << m;
-//        }
-//        offset -= 3;
-//        if (!m)
-//            ++ptr;
-//
-//        ++str;
+        m = offset % 32;
+        c = *str - '0';
+        if (m == 0)
+        {
+
+        }
+        if (m == 1)
+        {
+            *ptr |= c;
+        }
+        else if (m == 2)
+        {
+
+        }
+        else if (m == 3)
+        {
+
+        }
+        else
+        {
+            *ptr |= c << m;
+        }
+        offset -= 3;
+        if (!m)
+            ++ptr;
+
+        ++str;
     }
 
     return big;

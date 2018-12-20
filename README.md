@@ -275,7 +275,7 @@
         - [x] `del_user`
         - [x] `grant`
         - [x] `new_collection`
-        - [ ] `new_node`
+        - [ ] `new_node`  --> working on....
         - [x] `new_user`
         - [x] `node`
         - [x] `nodes`

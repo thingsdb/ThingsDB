@@ -892,7 +892,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp;
-    qpx_packer_t * packer;
+    ti_watch_t * watch;
     ti_node_t * node = stream->via.node;
 
     if (!node)
@@ -903,20 +903,35 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (node->status != TI_NODE_STAT_AWAY_SOON &&
-        node->status != TI_NODE_STAT_AWAY)
+    if (ti()->node->status != TI_NODE_STAT_AWAY_SOON &&
+        ti()->node->status != TI_NODE_STAT_AWAY)
     {
+        log_error(
+                "got a sync request from `%s` "
+                "but this node is not in `away` mode",
+                ti_stream_name(stream));
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not in `away` mode and therefore cannot handle "
                 "sync requests",
-                ti()->hostname);
+                ti_name());
+        goto finish;
+    }
+
+    watch = ti_watch_create(node->stream);
+    if (!watch || vec_push(&ti()->away->syncers, watch))
+    {
+        ti_watch_free(watch);
+        ex_set_alloc(e);
         goto finish;
     }
 
 
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNC, NULL, 0);
+
 finish:
     if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+        resp = ti_pkg_node_err(pkg->id, e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {

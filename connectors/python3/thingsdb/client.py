@@ -70,17 +70,17 @@ class Client(WatchMixin, Root):
             result = result[0]
         return result
 
-    async def watch(self, ids, target=None, timeout=None):
+    async def watch(self, ids, collection=None, timeout=None):
         thing_ids = []
         for id in ids:
             assert isinstance(id, int)
             thing_ids.append(id)
-        assert target is None or isinstance(target, (int, str))
-        target = self._target if target is None else target
-        assert target, 'for watching a target collection is required'
+        assert collection is None or isinstance(collection, (int, str))
+        collection = self._target if collection is None else collection
+        assert collection, 'for watching a target collection is required'
         data = {
             'things': thing_ids,
-            'collection': target
+            'collection': collection
         }
         future = self._write_package(REQ_WATCH, data, timeout=timeout)
 

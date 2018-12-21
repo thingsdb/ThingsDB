@@ -19,6 +19,7 @@ ti_pkg_t * ti_pkg_new(
         uint32_t n);
 ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg);
 ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e);
+ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e);
 void ti_pkg_log(ti_pkg_t * pkg);
 static inline size_t ti_pkg_sz(ti_pkg_t * pkg);
 

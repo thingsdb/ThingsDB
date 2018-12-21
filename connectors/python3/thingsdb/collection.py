@@ -14,5 +14,9 @@ class Collection(Thing):
         if thing is None:
             thing = object.__new__(cls)
             thing._client = client
-            thing = client._things[id] = super().__new__(cls, thing, collection_id)
+            thing._id = collection_id
+            thing = client._things[id] = super().__new__(
+                cls,
+                thing,
+                collection_id)
         return thing

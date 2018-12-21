@@ -1,5 +1,5 @@
 /*
- * event.h
+ * ti/event.h
  */
 #ifndef TI_EVENT_H_
 #define TI_EVENT_H_

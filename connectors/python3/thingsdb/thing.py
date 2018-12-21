@@ -4,7 +4,8 @@ class Thing:
         '_client',
         '_collection',
         '_id',
-        '_props'
+        '_props',
+        '_attrs',
     )
 
     def _init(self, collection, id):
@@ -22,18 +23,28 @@ class Thing:
         return thing
 
     async def _query(self, query, **kwargs):
-        return await self._collection.client.query(
+        return await self._collection._client.query(
             query,
-            target=self._collection.collection_id,
+            target=self._collection._id,
             **kwargs)
 
     async def assign(self, name, value, **kwargs):
         await self._query(f'thing({self._id}).{name}={value}', **kwargs)
 
-    async def watch(self, name, value, **kwargs):
-        await self._query(f'thing({self._id}).{name}={value}', **kwargs)
+    def _assign(self, prop, value):
+        if isinstance(value, dict):
+            if '#' in value:
+                thing_id = value['#']
+                self._props[prop] = Thing(self._collection, thing_id)
+        else:
+            self._props[prop] = value
 
-    # def __getattribute__(self, name):
-    #     if name in self._props:
-    #         return self._props[name]
-    #     return None
+    async def watch(self, **kwargs):
+        return await self._collection._client.watch(
+            [self._id],
+            collection=self._collection._id)
+
+    def __getattr__(self, name):
+        if name in self._props:
+            return self._props[name]
+        raise AttributeError(f'{self} has no property {name}')

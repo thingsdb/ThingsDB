@@ -97,6 +97,11 @@ void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
             stream->tp == TI_STREAM_TCP_IN_NODE);
     assert (node->stream == NULL);
     assert (stream->via.node == NULL);
+
+    /* clear the stream name */
+    free(stream->name_);
+    stream->name_ = NULL;
+
     stream->via.node = ti_grab(node);
     node->stream = stream;
 }
@@ -106,6 +111,11 @@ void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
     assert (stream->tp == TI_STREAM_TCP_IN_CLIENT ||
             stream->tp == TI_STREAM_PIPE_IN_CLIENT);
     assert (stream->via.user == NULL);
+
+    /* clear the stream name */
+    free(stream->name_);
+    stream->name_ = NULL;
+
     stream->via.user = ti_grab(user);
 }
 
@@ -240,6 +250,7 @@ int ti_stream_tcp_address(ti_stream_t * stream, char * toaddr)
 
 const char * ti_stream_name(ti_stream_t * stream)
 {
+    char prefix[30];
     if (!stream)
         return "disconnected";
 
@@ -249,24 +260,32 @@ const char * ti_stream_name(ti_stream_t * stream)
     switch (stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
-        stream->name_ = ti_tcp_name(
-                "<node-out> ",
-                (uv_tcp_t *) stream->uvstream);
+        if (stream->via.node)
+            sprintf(prefix, "<node:%u-out> ", stream->via.node->id);
+        else
+            sprintf(prefix, "<node-out> ");
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-out> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_NODE:
-        stream->name_ = ti_tcp_name(
-                "<node-in> ",
-                (uv_tcp_t *) stream->uvstream);
+        if (stream->via.node)
+            sprintf(prefix, "<node:%u-in> ", stream->via.node->id);
+        else
+            sprintf(prefix, "<node-in> ");
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-in> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_CLIENT:
-        stream->name_ = ti_tcp_name(
-                "<client> ",
-                (uv_tcp_t *) stream->uvstream);
+        if (stream->via.user)
+            sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
+        else
+            sprintf(prefix, "<client> ");
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
-        stream->name_ = ti_pipe_name(
-                "<client> ",
-                (uv_pipe_t *) stream->uvstream);
+        if (stream->via.user)
+            sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
+        else
+            sprintf(prefix, "<client> ");
+        stream->name_ = ti_pipe_name(prefix, (uv_pipe_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }
 

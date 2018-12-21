@@ -18,8 +18,8 @@ void ti_syncer_destroy(ti_syncer_t * syncer);
 
 struct ti_syncer_s
 {
-    uint8_t status;
-    uv_timer_t * repeat;
+    ti_stream_t * stream;       /* weak reference */
+
 };
 
 

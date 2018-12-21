@@ -594,8 +594,8 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_RAW:                return "raw";
     case TI_VAL_REGEX:              return "regex";
     case TI_VAL_TUPLE:              return "tuple";
-    case TI_VAL_ARRAY:
-    case TI_VAL_THINGS:             return "array";
+    case TI_VAL_ARRAY:              return "array";
+    case TI_VAL_THINGS:             return "array-of-things";
     case TI_VAL_THING:              return "thing";
     case TI_VAL_ARROW:              return "arrow-function";
     }
@@ -903,7 +903,7 @@ static int val__from_unp(
         ti_val_t v;
         qp_obj_t qp_v;
         dest->tp = TI_VAL_THINGS;
-        dest->via.arr = vec_new(6);  /* most likely we have at least 6 items */
+        dest->via.arr = vec_new(6);  /* we have at least 6 items */
         if (!dest->via.arr)
             goto fail;
 

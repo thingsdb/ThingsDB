@@ -48,24 +48,30 @@
         - [ ] `big_subii` -> big
         - [ ] `big_subbb` -> big
         - [ ] `big_subbi` -> big
+        - [ ] `big_subib` -> big
         - [ ] `big_subbd` -> double
         - [ ] `big_divii` -> double
         - [ ] `big_divbb` -> double
         - [ ] `big_divbi` -> double
+        - [ ] `big_divib` -> double
         - [ ] `big_divbd` -> double
+        - [ ] `big_divdb` -> double
         - [ ] `big_idivii` -> big
         - [ ] `big_idivbb` -> big
         - [ ] `big_idivbi` -> big
+        - [ ] `big_idivib` -> big
         - [ ] `big_idivbd` -> big
-        - [ ] `big_modii`
-        - [ ] `big_modbb`
-        - [ ] `big_modbi`
-        - [ ] `big_andbi`
-        - [ ] `big_andbb`
-        - [ ] `big_orbi`
-        - [ ] `big_orbb`
-        - [ ] `big_xorbi`
-        - [ ] `big_xorbb`
+        - [ ] `big_idivdb` -> big
+        - [ ] `big_modii` -> big
+        - [ ] `big_modbb` -> big
+        - [ ] `big_modbi` -> big
+        - [ ] `big_modib` -> big
+        - [ ] `big_andbi` -> big
+        - [ ] `big_andbb` -> big
+        - [ ] `big_orbi` -> big
+        - [ ] `big_orbb` -> big
+        - [ ] `big_xorbi` -> big
+        - [ ] `big_xorbb` -> big
         - [ ] `big_eq`
         - [ ] `big_ne`
         - [ ] `big_lt`

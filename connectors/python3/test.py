@@ -15,6 +15,8 @@ await client.connect('localhost', 9200)
 await client.authenticate('iris', 'siri')
 collection = await client.get_collection('test')
 
+await collection.watch()
+await collection.assign('y', 123)
 
 '''
 

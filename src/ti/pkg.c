@@ -99,6 +99,11 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     return pkg;
 }
 
+ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e)
+{
+    return ti_pkg_new(id, TI_PROTO_NODE_ERR_RES, (const uchar *) e->msg, e->n);
+}
+
 void ti_pkg_log(ti_pkg_t * pkg)
 {
     switch (pkg->tp)

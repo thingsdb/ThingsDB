@@ -1,5 +1,5 @@
 /*
- * event.c
+ * ti/event.c
  */
 #include <assert.h>
 #include <qpack.h>
@@ -154,20 +154,26 @@ int ti_event_run(ti_event_t * ev)
         {
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
                 if (ti_job_run(ev->target, thing, &unpacker))
+                {
                     log_critical(
                             "job for thing "TI_THING_ID" in "
                             TI_EVENT_ID" for collection `%.*s` failed",
                             thing_id, ev->id,
                             (int) ev->target->name->n,
                             (const char *) ev->target->name->data);
+                    return -1;
+                }
         }
         else
         {
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
                 if (ti_rjob_run(&unpacker))
+                {
                     log_critical(
                             "job for `root` in "TI_EVENT_ID" failed",
                             ev->id);
+                    return -1;
+                }
         }
 
         if (qp_is_close(thing_or_map.tp))

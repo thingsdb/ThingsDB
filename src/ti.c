@@ -56,6 +56,7 @@ int ti_create(void)
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
             gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+            ti_sync_create() ||
             ti_desired_create() ||
             ti_counters_create() ||
             ti_away_create() ||
@@ -85,9 +86,10 @@ void ti_destroy(void)
     free(ti_.fn);
     free(ti_.node_fn);
 
-    ti_events_stop();
-    ti_connect_stop();
+    ti_sync_stop();
     ti_away_stop();
+    ti_connect_stop();
+    ti_events_stop();
 
     ti_desired_destroy();
     ti_build_destroy();
@@ -376,6 +378,7 @@ void ti_stop(void)
         (void) ti_archive_write_nodes_scevid();
     }
 
+    ti_sync_stop();
     ti_away_stop();
     ti_connect_stop();
     ti_events_stop();

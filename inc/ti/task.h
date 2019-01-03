@@ -51,6 +51,9 @@ int ti_task_add_push(
         ti_val_t * val,             /* array or things */
         size_t n);                  /* the last n items are pushed */
 int ti_task_add_rename(ti_task_t * task, ti_raw_t * from, ti_raw_t * to);
+int ti_task_add_rename_collection(
+        ti_task_t * task,
+        ti_collection_t * collection);
 int ti_task_add_revoke(
         ti_task_t * task,
         uint64_t target_id,

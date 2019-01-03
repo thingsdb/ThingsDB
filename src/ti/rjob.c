@@ -16,6 +16,7 @@ static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_node(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
+static int rjob__rename_collection(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
 static int rjob__set_password(qp_unpacker_t * unp);
 static int rjob__set_quota(qp_unpacker_t * unp);
@@ -51,6 +52,8 @@ int ti_rjob_run(qp_unpacker_t * unp)
             return rjob__new_user(unp);
         break;
     case 'r':
+        if (qpx_obj_eq_str(&qp_job_name, "rename_collection"))
+            return rjob__rename_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "revoke"))
             return rjob__revoke(unp);
         break;
@@ -351,6 +354,55 @@ static int rjob__new_user(qp_unpacker_t * unp)
 done:
     free(encrypted);
     return rc;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int rjob__rename_collection(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    ex_t * e = ex_use();
+    ti_collection_t * collection;
+    uint64_t id;
+    qp_obj_t qp_id, qp_name;
+    ti_raw_t * rname;
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_id)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, &qp_name)))
+    {
+        log_critical("job `rename_collection`: invalid format");
+        return -1;
+    }
+
+
+    id = qp_id.via.int64;
+    collection = ti_collections_get_by_id(id);
+    if (!collection)
+    {
+        log_critical(
+                "job `rename_collection`: "TI_COLLECTION_ID" not found", id);
+        return -1;
+    }
+
+    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    if (!rname)
+    {
+        ex_set_alloc(e);
+        return -1;
+    }
+
+    assert (e->nr == 0);
+
+    (void) ti_collection_rename(collection, rname, e);
+    ti_raw_drop(rname);
+
+    return e->nr;
 }
 
 /*

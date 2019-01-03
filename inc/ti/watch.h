@@ -6,6 +6,10 @@
 
 typedef struct ti_watch_s ti_watch_t;
 
+#define TI_WATCH_T                                                          \
+{                                                                           \
+        ti_stream_t * stream;       /* weak reference */
+
 #include <ti/pkg.h>
 #include <ti/ex.h>
 #include <ti/user.h>
@@ -17,8 +21,7 @@ static inline void ti_watch_stop(ti_watch_t * watch);
 static inline void ti_watch_free(ti_watch_t * watch);
 
 struct ti_watch_s
-{
-    ti_stream_t * stream;       /* weak reference */
+    TI_WATCH_T
 };
 
 static inline void ti_watch_stop(ti_watch_t * watch)

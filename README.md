@@ -286,7 +286,7 @@
         - [x] `node`
         - [x] `nodes`
         - [ ] `rename_user`
-        - [ ] `rename_collection`
+        - [x] `rename_collection`
         - [x] `reset_counters`
         - [x] `revoke`
         - [x] `set_loglevel`
@@ -309,7 +309,7 @@
         - [x] `new_user`
         - [x] `revoke`
         - [ ] `rename_user`
-        - [ ] `rename_collection`
+        - [x] `rename_collection`
         - [x] `set_password`
         - [x] `set_quota`
 

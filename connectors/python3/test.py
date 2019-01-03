@@ -33,9 +33,9 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
-    client.use('test')
+    client.use('Test')
 
-    collection = await client.get_collection('test')
+    collection = await client.get_collection('Test')
 
     start = time.time()
     try:
@@ -63,6 +63,7 @@ async def test():
         /* new_collection('test'); */
         collections();
         users();
+        /* rename_collection('test', 'Test'); */
         /* set_password('irisske', 'siri'); */
 
         /* set_loglevel(WARNING); */

@@ -24,6 +24,10 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
 static inline int ti_collection_to_packer(
         ti_collection_t * collection,
         qp_packer_t ** packer);
+int ti_collection_rename(
+        ti_collection_t * collection,
+        ti_raw_t * rname,
+        ex_t * e);
 ti_val_t * ti_collection_as_qpval(ti_collection_t * collection);
 void ti_collection_set_quota(
         ti_collection_t * collection,

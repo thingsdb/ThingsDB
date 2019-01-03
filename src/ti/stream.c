@@ -352,20 +352,13 @@ static void stream__close_cb(uv_handle_t * uvstream)
         if (!stream->via.node)
             break;
 
-        if (~stream->flags & TI_STREAM_FLAG_REPLACED)
-        {
-            assert (stream->via.node->stream == stream);
-            stream->via.node->status = TI_NODE_STAT_OFFLINE;
-            stream->via.node->stream = NULL;
-        }
-        else
-        {
-            assert (stream->via.node->stream != stream);
-            log_debug("stream `%s` is replaced with `%s`",
-                    ti_stream_name(stream),
-                    ti_stream_name(stream->via.node->stream));
-        }
+        assert (stream->via.node->stream == stream);
+
+        stream->via.node->status = TI_NODE_STAT_OFFLINE;
+        stream->via.node->stream = NULL;
+
         ti_node_drop(stream->via.node);
+
         break;
     case TI_STREAM_TCP_IN_CLIENT:
     case TI_STREAM_PIPE_IN_CLIENT:

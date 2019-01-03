@@ -235,8 +235,8 @@ ti_collection_t * ti_collections_get_by_qp_obj(
 /*
  * Returns a weak reference collection based on a ti_val_t.
  * If the collection is not found, then e will contain the reason why.
- * - if the collection target is `root`, then the return value is NULL and
- *   e->nr is EX_SUCCESS
+ * - if the collection target is `root` and `allow_root` is set true, then the
+ *   return value is NULL and e->nr is EX_SUCCESS
  */
 ti_collection_t * ti_collections_get_by_val(
         ti_val_t * val,
@@ -279,7 +279,8 @@ ti_collection_t * ti_collections_get_by_val(
         }
         break;
     default:
-        ex_set(e, EX_BAD_DATA, "expecting type `%s` or `%s` as target",
+        ex_set(e, EX_BAD_DATA,
+                "expecting type `%s` or `%s` as collection target",
                 ti_val_tp_str(TI_VAL_RAW), ti_val_tp_str(TI_VAL_INT));
     }
     return collection;

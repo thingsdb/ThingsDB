@@ -70,7 +70,6 @@ typedef enum
     /* internal server error, for example allocation error */
     TI_PROTO_CLIENT_ERR_INTERNAL    =127,
 
-
     /*
      * protocol definition for node connections
      */

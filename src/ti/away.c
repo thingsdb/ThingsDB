@@ -6,6 +6,7 @@
 #include <ti/proto.h>
 #include <ti/quorum.h>
 #include <ti/things.h>
+#include <ti/syncer.h>
 #include <ti.h>
 #include <util/logger.h>
 #include <util/qpx.h>
@@ -272,6 +273,24 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     }
 
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
+}
+
+static size_t away__syncers(void)
+{
+    size_t count = 0;
+    for (vec_each(away->syncers, ti_syncer_t, watch))
+    {
+        if (watch->stream)
+        {
+            ++count;
+            if (watch->stream->flags & TI_STREAM_FLAG_IN_SYNC)
+                continue;
+
+            /* TODO: start and mark in sync */
+
+        }
+    }
+    return count;
 }
 
 static void away__waiter_after_cb(uv_timer_t * waiter)

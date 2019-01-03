@@ -699,20 +699,10 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (node->stream)
     {
-        if (node->id > this_node->id)
+        assert (node->stream->via.node == node);
+
+        if (node->id < this_node->id)
         {
-            log_warning("changing stream for "TI_NODE_ID" from `%s` to `%s",
-                    node->id,
-                    ti_stream_name(node->stream),
-                    ti_stream_name(stream));
-            /*
-             * Do nothing with the `old` stream because it will be closed when
-             * a response to the connection request is received.
-             */
-        }
-        else
-        {
-            assert (node->id < this_node->id);
             log_warning(
                     "connection request from `%s` rejected since a connection "
                     "with "TI_NODE_ID" is already established",
@@ -720,6 +710,19 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     node->id);
             goto failed;
         }
+
+        assert (node->id > this_node->id);
+        log_warning("changing stream for "TI_NODE_ID" from `%s` to `%s",
+                node->id,
+                ti_stream_name(node->stream),
+                ti_stream_name(stream));
+        /*
+         * We leave the old stream alone since it will be closed once a
+         * connection response is received.
+         */
+        ti_node_drop(node);
+
+        node->stream->via.node = NULL;
         node->stream = NULL;
     }
 

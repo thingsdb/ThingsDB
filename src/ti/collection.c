@@ -92,6 +92,33 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
     return true;
 }
 
+int ti_collection_rename(
+        ti_collection_t * collection,
+        ti_raw_t * rname,
+        ex_t * e)
+{
+    if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "collection name should be a valid name, "
+                "see "TI_DOCS"#names");
+        return -1;
+    }
+
+    if (ti_collections_get_by_strn((const char *) rname->data, rname->n))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "collection `%.*s` already exists",
+                (int) rname->n, (const char *) rname->data);
+        return -1;
+    }
+
+    ti_raw_drop(collection->name);
+    collection->name = ti_grab(rname);
+
+    return 0;
+}
+
 ti_val_t * ti_collection_as_qpval(ti_collection_t * collection)
 {
     ti_raw_t * raw;

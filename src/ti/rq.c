@@ -31,6 +31,7 @@ static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -839,14 +840,87 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
     }
 
+    if (ti_collection_rename(collection, query->rval->via.raw, e))
+        return e->nr;
+
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
         return e->nr;
 
-    if (ti_collection_rename(collection, query->rval->via.raw, e))
+    if (ti_task_add_rename_collection(task, collection))
+        ex_set_alloc(e);  /* task cleanup is not required */
+
+    ti_val_clear(query->rval);
+
+    return e->nr;
+}
+
+static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (query->stream->via.user);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
+
+    int n;
+    ti_task_t * task;
+    ti_user_t * user;
+
+    n = langdef_nd_n_function_params(nd);
+    if (n != 2)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `rename_user` requires 2 arguments but %d %s given",
+            n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    if (ti_task_add_rename_collection(task, collection))
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `rename_user` expects argument 1 to be of type `%s` "
+            "but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    user = ti_users_get_by_namestrn(
+            (const char *) query->rval->via.raw->data,
+            query->rval->via.raw->n);
+    if (!user)
+    {
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
+                (int) query->rval->via.raw->n,
+                (char *) query->rval->via.raw->data);
+        return e->nr;
+    }
+
+    if (rq__scope(query, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `rename_user` expects argument 2 to be of "
+            "type `%s` but got `%s`",
+            ti_val_tp_str(TI_VAL_RAW),
+            ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    if (ti_user_rename(user, query->rval->via.raw, e))
+        return e->nr;
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        return e->nr;
+
+    if (ti_task_add_rename_user(task, user))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
@@ -1411,6 +1485,8 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case 'r':
         if (langdef_nd_match_str(fname, "rename_collection"))
             return rq__f_rename_collection(query, params, e);
+        if (langdef_nd_match_str(fname, "rename_user"))
+            return rq__f_rename_user(query, params, e);
         if (langdef_nd_match_str(fname, "reset_counters"))
             return rq__f_reset_counters(query, params, e);
         if (langdef_nd_match_str(fname, "revoke"))

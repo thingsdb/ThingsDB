@@ -59,12 +59,6 @@ ti_user_t * ti_users_new_user(
     if (!ti_user_pass_check(passstr, e))
         goto done;
 
-    if (ti_users_get_by_namestrn(name, n))
-    {
-        ex_set(e, EX_INDEX_ERROR, "user `%.*s` already exists", (int) n, name);
-        goto done;
-    }
-
     user = ti_user_create(ti_next_thing_id(), name, n, "");
 
     if (!user ||
@@ -93,12 +87,6 @@ ti_user_t * ti_users_load_user(
 
     if (!ti_user_name_check(name, n, e))
         goto done;
-
-    if (ti_users_get_by_namestrn(name, n))
-    {
-        ex_set(e, EX_INDEX_ERROR, "user `%.*s` already exists", (int) n, name);
-        goto done;
-    }
 
     if (ti_users_get_by_id(user_id))
     {

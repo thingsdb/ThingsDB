@@ -68,6 +68,12 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
         return false;
     }
 
+    if (ti_users_get_by_namestrn(name, n))
+    {
+        ex_set(e, EX_INDEX_ERROR, "user `%.*s` already exists", (int) n, name);
+        return false;
+    }
+
     return true;
 }
 
@@ -97,15 +103,17 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
     return true;
 }
 
-int ti_user_rename(ti_user_t * user, ti_raw_t * name)
+int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
 {
-    ti_raw_t * username = ti_grab(name);
-    if (!username)
-        return -1;
-    /* free the old user name */
-    free(user->name);
-    user->name = username;
-    return 0;
+    assert (e->nr == 0);
+
+    if (!ti_user_name_check((const char *) name->data, name->n, e))
+        return e->nr;
+
+    ti_raw_drop(user->name);
+    user->name = ti_grab(name);
+
+    return e->nr;
 }
 
 int ti_user_set_pass(ti_user_t * user, const char * pass)

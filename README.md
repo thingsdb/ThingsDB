@@ -285,7 +285,7 @@
         - [x] `new_user`
         - [x] `node`
         - [x] `nodes`
-        - [ ] `rename_user`
+        - [x] `rename_user`
         - [x] `rename_collection`
         - [x] `reset_counters`
         - [x] `revoke`
@@ -308,7 +308,7 @@
         - [ ] `replace_node`
         - [x] `new_user`
         - [x] `revoke`
-        - [ ] `rename_user`
+        - [x] `rename_user`
         - [x] `rename_collection`
         - [x] `set_password`
         - [x] `set_quota`

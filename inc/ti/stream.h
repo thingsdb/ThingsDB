@@ -7,7 +7,7 @@
 enum
 {
     TI_STREAM_FLAG_CLOSED           =1<<0,
-    TI_STREAM_FLAG_IN_SYNC          =1<<1,
+    TI_STREAM_FLAG_SYNCHRONIZING    =1<<1,
 };
 
 typedef enum
@@ -34,6 +34,7 @@ typedef void (*ti_stream_pkg_cb)(ti_stream_t * stream, ti_pkg_t * pkg);
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb);
 void ti_stream_drop(ti_stream_t * sock);
 void ti_stream_close(ti_stream_t * sock);
+void ti_stream_stop_watching(ti_stream_t * stream);
 void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node);
 void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user);
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf);

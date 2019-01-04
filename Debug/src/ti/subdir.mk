@@ -24,6 +24,7 @@ C_SRCS += \
 ../src/ti/events.c \
 ../src/ti/ex.c \
 ../src/ti/fetch.c \
+../src/ti/fsync.c \
 ../src/ti/fwd.c \
 ../src/ti/job.c \
 ../src/ti/lookup.c \
@@ -88,6 +89,7 @@ OBJS += \
 ./src/ti/events.o \
 ./src/ti/ex.o \
 ./src/ti/fetch.o \
+./src/ti/fsync.o \
 ./src/ti/fwd.o \
 ./src/ti/job.o \
 ./src/ti/lookup.o \
@@ -152,6 +154,7 @@ C_DEPS += \
 ./src/ti/events.d \
 ./src/ti/ex.d \
 ./src/ti/fetch.d \
+./src/ti/fsync.d \
 ./src/ti/fwd.d \
 ./src/ti/job.d \
 ./src/ti/lookup.d \

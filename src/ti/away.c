@@ -123,6 +123,42 @@ _Bool ti_away_is_working(void)
     return away->flags & AWAY__FLAG_IS_WORKING;
 }
 
+int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until)
+{
+    ti_syncer_t * syncer = NULL;
+
+    for (vec_each(away->syncers, ti_syncer_t, syncr))
+    {
+        if (syncr->stream == stream)
+        {
+            syncr->start = start;
+            syncr->until = until;
+            return 0;
+        }
+        if (syncr->stream == NULL)
+        {
+            syncer = syncr;
+        }
+    }
+
+    if (syncer)
+    {
+        syncer->stream = stream;
+        syncer->start = start;
+        syncer->until = until;
+        return 0;
+    }
+
+    syncer = ti_syncer_create(stream, start, until);
+    if (!syncer || vec_push(&away->syncers, syncer))
+    {
+        ti_syncer_destroy(syncer);
+        return -1;
+    }
+
+    return 0;
+}
+
 static void away__destroy(uv_handle_t * handle)
 {
     if (away)
@@ -278,16 +314,21 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 static size_t away__syncers(void)
 {
     size_t count = 0;
-    for (vec_each(away->syncers, ti_syncer_t, watch))
+    for (vec_each(away->syncers, ti_syncer_t, syncer))
     {
-        if (watch->stream)
+        if (syncer->stream)
         {
             ++count;
-            if (watch->stream->flags & TI_STREAM_FLAG_IN_SYNC)
+            if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
                 continue;
 
-            /* TODO: start and mark in sync */
+            syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
+            if (syncer->start < ti()->archive->start_event_id)
+            {
+                log_info("full database sync is required for `%s`",
+                        ti_stream_name(syncer->stream));
 
+            }
         }
     }
     return count;

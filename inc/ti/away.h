@@ -14,6 +14,7 @@ int ti_away_start(void);
 void ti_away_trigger(void);
 void ti_away_stop(void);
 _Bool ti_away_is_working(void);
+int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until);
 
 struct ti_away_s
 {

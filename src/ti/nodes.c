@@ -21,6 +21,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
@@ -372,10 +373,14 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_SYNC:
         nodes__on_req_sync(stream, pkg);
         break;
+    case TI_PROTO_NODE_REQ_MULTIPART:
+        nodes__on_req_multipart(stream, pkg);
+        break;
     case TI_PROTO_NODE_RES_CONNECT:
     case TI_PROTO_NODE_RES_EVENT_ID:
     case TI_PROTO_NODE_RES_AWAY_ID:
     case TI_PROTO_NODE_RES_SETUP:
+    case TI_PROTO_NODE_RES_MULTIPART:
         ti_stream_on_response(stream, pkg);
         break;
     default:
@@ -895,8 +900,11 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp;
-    ti_watch_t * watch;
     ti_node_t * node = stream->via.node;
+    qp_unpacker_t unpacker;
+    qp_obj_t qp_start, qp_until;
+    uint64_t start, until;
+    ti_syncer_t * syncer;
 
     if (!node)
     {
@@ -920,6 +928,71 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
+    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+
+    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
+        !qp_is_int(qp_next(&unpacker, &qp_start)) ||
+        !qp_is_int(qp_next(&unpacker, &qp_until)) ||
+        qp_until.via.int64 < 0 ||
+        (!qp_until.via.int64 && qp_start.via.int64 >= qp_until.via.int64))
+    {
+        log_error(
+                "got an invalid sync request from `%s`",
+                ti_stream_name(stream));
+        ex_set(e, EX_BAD_DATA, "invalid sync request");
+        goto finish;
+    }
+
+    start = (uint64_t) qp_start.via.int64;
+    until = (uint64_t) qp_until.via.int64;
+
+    if (ti_away_syncer(stream, start, until))
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNC, NULL, 0);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_node_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
+static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t * e = ex_use();
+    ti_pkg_t * resp;
+    ti_watch_t * watch;
+    ti_node_t * node = stream->via.node;
+
+    if (!node)
+    {
+        log_error(
+                "got a sync request from an unauthorized connection: `%s`",
+                ti_stream_name(stream));
+        return;
+    }
+
+    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    {
+        log_error(
+                "got a multi-part request from `%s` "
+                "but this node is not in `synchronizing` mode",
+                ti_stream_name(stream));
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not in `synchronizing` mode and therefore "
+                "multi-part requests",
+                ti_name());
+        goto finish;
+    }
+
     watch = ti_watch_create(node->stream);
     if (!watch || vec_push(&ti()->away->syncers, watch))
     {
@@ -927,8 +1000,6 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set_alloc(e);
         goto finish;
     }
-
-
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNC, NULL, 0);
 

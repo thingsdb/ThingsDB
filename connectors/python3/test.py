@@ -61,6 +61,7 @@ async def test():
         counters();
         /* new_node('secret', '127.0.0.1', 9221); */
         /* new_collection('test'); */
+        rename_user("sasha", "bla");
         collections();
         users();
         /* rename_collection('test', 'Test'); */

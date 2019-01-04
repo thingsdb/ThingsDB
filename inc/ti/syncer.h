@@ -17,7 +17,7 @@ ti_syncer_t * ti_syncer_create(
         ti_stream_t * stream,
         uint64_t start,
         uint64_t until);
-
+static inline void ti_syncer_destroy(ti_syncer_t * syncer);
 
 /* extends ti_watch_t */
 struct ti_syncer_s
@@ -28,5 +28,9 @@ struct ti_syncer_s
                                  */
 };
 
+static inline void ti_syncer_destroy(ti_syncer_t * syncer)
+{
+    free(syncer);
+}
 
 #endif  /* TI_SYNCER_H_ */

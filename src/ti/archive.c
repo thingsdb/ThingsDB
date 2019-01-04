@@ -156,6 +156,7 @@ int ti_archive_load(void)
     assert (ti()->events->cevid);
     assert (ti()->node);
 
+    archive->start_event_id = ti()->node->cevid + 1;
     archive__read_nodes_scevid();
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
@@ -214,13 +215,14 @@ int ti_archive_to_disk(void)
     /* last event id in queue should be equal to cevid */
     assert (*ti()->events->cevid == last_epkg->event_id);
 
-    /* TODO: maybe on signal only store changes? */
+    /* TODO: maybe on signal (shutdown) only store changes? */
     if (archive->archived_on_disk >= ti()->cfg->threshold_full_storage)
     {
         if (ti_store_store() == 0)
         {
             (void) archive__remove_files();
             archive->archived_on_disk = 0;
+            archive->start_event_id = last_epkg->event_id + 1;
             goto success;
         }
         /* store has failed, try archive to disk */
@@ -238,11 +240,8 @@ success:
 
 void ti_archive_cleanup(void)
 {
-    uint64_t m = ti()->nodes->cevid;
+    uint64_t m = *archive->sevid;
     size_t n = 0;
-
-    if (*archive->sevid < m)
-        m = *archive->sevid;
 
     for (queue_each(archive->queue, ti_epkg_t, epkg), ++n)
         if (epkg->event_id > m)
@@ -251,7 +250,7 @@ void ti_archive_cleanup(void)
     (void) ti_sleep(50);
 
     while (n--)
-        (void *) queue_shift(archive->queue);
+        ti_epkg_drop(queue_shift(archive->queue));
 }
 
 static int archive__init_queue(void)
@@ -307,7 +306,6 @@ static int archive__load_file(const char * archive_fn)
     FILE * f;
     qp_res_t pkg_qp;
     qp_types_t qp_tp;
-    uint64_t cevid = ti()->nodes->cevid;
     char * fn = fx_path_join(archive->path, archive_fn);
     if (!fn)
         return -1;
@@ -331,7 +329,8 @@ static int archive__load_file(const char * archive_fn)
 
         epkg = ti_archive_epkg_from_pkg(pkg);
         if (!epkg || (
-                epkg->event_id > cevid && queue_push(&archive->queue, epkg)))
+                epkg->event_id >= archive->start_event_id &&
+                queue_push(&archive->queue, epkg)))
             goto failed;
 
         ++archive->archived_on_disk;
@@ -432,7 +431,6 @@ static int archive__remove_files(void)
     int rc = 0;
     struct dirent * p;
     char buf[strlen(archive->path) + ARCHIVE__FILE_LEN + 1];
-    uint64_t sevid = ti_nodes_sevid();
 
     DIR * d = opendir(archive->path);
     if (!d)
@@ -446,7 +444,7 @@ static int archive__remove_files(void)
             continue;
 
         event_id = strtoull(p->d_name, NULL, 10);
-        if (event_id > sevid)
+        if (event_id >= archive->start_event_id)
             continue;
 
         (void) sprintf(buf, "%s%s", archive->path, p->d_name);

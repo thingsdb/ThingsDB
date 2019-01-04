@@ -16,6 +16,9 @@ struct ti_archive_s
     size_t archived_on_disk;        /* number of events stored on disk since
                                        the last full store, the actual amount
                                        stored can be higher */
+    uint64_t start_event_id;        /* archive starts with this event id,
+                                       either on disk or in memory
+                                    */
     uint64_t * sevid;               /* last event id written on disk, this
                                        value is also updated if a full store is
                                        done

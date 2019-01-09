@@ -15,22 +15,26 @@ int ti_store_access_store(const vec_t * access, const char * fn)
 {
     int rc = -1;
     qp_packer_t * packer = qp_packer_create(1024);
-    if (!packer) return -1;
+    if (!packer)
+        return -1;
 
-    if (qp_add_map(&packer)) goto stop;
+    if (qp_add_map(&packer))
+        goto stop;
 
     if (qp_add_raw_from_str(packer, "access") ||
-        qp_add_array(&packer)) goto stop;
+        qp_add_array(&packer))
+        goto stop;
 
     for (vec_each(access, ti_auth_t, auth))
     {
         if (qp_add_array(&packer) ||
-            qp_add_int64(packer, auth->user->id) ||
-            qp_add_int64(packer, auth->mask) ||
+            qp_add_int(packer, auth->user->id) ||
+            qp_add_int(packer, auth->mask) ||
             qp_close_array(packer)) goto stop;
     }
 
-    if (qp_close_array(packer) || qp_close_map(packer)) goto stop;
+    if (qp_close_array(packer) || qp_close_map(packer))
+        goto stop;
 
     rc = fx_write(fn, packer->buffer, packer->len);
 
@@ -39,7 +43,9 @@ stop:
         log_error("failed to write file: `%s`", fn);
     else
         log_debug("stored access to file: `%s`", fn);
+
     qp_packer_destroy(packer);
+
     return rc;
 }
 

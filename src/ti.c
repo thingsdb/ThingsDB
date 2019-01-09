@@ -541,21 +541,21 @@ int ti_node_to_packer(qp_packer_t ** packer)
     return (
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "node_id") ||
-        qp_add_int64(*packer, ti_.node->id) ||
+        qp_add_int(*packer, ti_.node->id) ||
         qp_add_raw_from_str(*packer, "version") ||
         qp_add_raw_from_str(*packer, TI_VERSION) ||
         qp_add_raw_from_str(*packer, "status") ||
         qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
         qp_add_raw_from_str(*packer, "zone") ||
-        qp_add_int64(*packer, ti_.node->zone) ||
+        qp_add_int(*packer, ti_.node->zone) ||
         qp_add_raw_from_str(*packer, "loglevel") ||
         qp_add_raw_from_str(*packer, Logger.level_name) ||
         qp_add_raw_from_str(*packer, "hostname") ||
         qp_add_raw_from_str(*packer, ti_.hostname) ||
         qp_add_raw_from_str(*packer, "client_port") ||
-        qp_add_int64(*packer, ti_.cfg->client_port) ||
+        qp_add_int(*packer, ti_.cfg->client_port) ||
         qp_add_raw_from_str(*packer, "node_port") ||
-        qp_add_int64(*packer, ti_.cfg->node_port) ||
+        qp_add_int(*packer, ti_.cfg->node_port) ||
         qp_add_raw_from_str(*packer, "ip_support") ||
         qp_add_raw_from_str(
             *packer,
@@ -563,19 +563,19 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, "storage_path") ||
         qp_add_raw_from_str(*packer, ti_.cfg->storage_path) ||
         qp_add_raw_from_str(*packer, "events_in_queue") ||
-        qp_add_int64(*packer, ti_.events->queue->n) ||
+        qp_add_int(*packer, ti_.events->queue->n) ||
         qp_add_raw_from_str(*packer, "archived_on_disk") ||
-        qp_add_int64(*packer, ti_.archive->archived_on_disk) ||
+        qp_add_int(*packer, ti_.archive->archived_on_disk) ||
         qp_add_raw_from_str(*packer, "archived_on_disk") ||
-        qp_add_int64(*packer, ti_.archive->archived_on_disk) ||
+        qp_add_int(*packer, ti_.archive->archived_on_disk) ||
         qp_add_raw_from_str(*packer, "events_in_archive") ||
-        qp_add_int64(*packer, ti_.archive->queue->n) ||
+        qp_add_int(*packer, ti_.archive->queue->n) ||
         qp_add_raw_from_str(*packer, "local_stored_event_id") ||
-        qp_add_int64(*packer, ti_.node->sevid) ||
+        qp_add_int(*packer, ti_.node->sevid) ||
         qp_add_raw_from_str(*packer, "global_commited_event_id") ||
-        qp_add_int64(*packer, ti_nodes_cevid()) ||
+        qp_add_int(*packer, ti_nodes_cevid()) ||
         qp_add_raw_from_str(*packer, "local_commited_event_id") ||
-        qp_add_int64(*packer, ti_.node->cevid) ||
+        qp_add_int(*packer, ti_.node->cevid) ||
         qp_close_map(*packer)
     );
 }

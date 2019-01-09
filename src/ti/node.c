@@ -191,12 +191,12 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
 {
     return (
         qp_add_array(packer) ||
-        qp_add_int64(*packer, node->next_thing_id) ||
-        qp_add_int64(*packer, node->cevid) ||
-        qp_add_int64(*packer, node->sevid) ||
-        qp_add_int64(*packer, node->status) ||
-        qp_add_int64(*packer, node->flags) ||
-        qp_add_int64(*packer, node->zone) ||
+        qp_add_int(*packer, node->next_thing_id) ||
+        qp_add_int(*packer, node->cevid) ||
+        qp_add_int(*packer, node->sevid) ||
+        qp_add_int(*packer, node->status) ||
+        qp_add_int(*packer, node->flags) ||
+        qp_add_int(*packer, node->zone) ||
         qp_close_array(*packer)
     );
 }
@@ -271,10 +271,10 @@ static void node__on_connect(uv_connect_t * req, int status)
     }
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, node->id);
+    (void) qp_add_int(packer, node->id);
     (void) qp_add_raw(packer, (const uchar *) node->secret, CRYPTX_SZ);
-    (void) qp_add_int64(packer, ti_node->id);
-    (void) qp_add_int64(packer, ti_node->port);
+    (void) qp_add_int(packer, ti_node->id);
+    (void) qp_add_int(packer, ti_node->port);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
     (void) ti_node_info_to_packer(ti_node, &packer);

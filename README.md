@@ -2,6 +2,7 @@
 
 ## TODO list
 
+- [ ] Maybe add the option for read only queries? For example via a protocol type: TI_PROTO_CLIENT_REQ_QUERY_RO
 - [x] Take advantage when on a 64 bit system
     - [x] wareq uses uinpntr_t for 64bit thing id's, on 32 bit id's are allocated
     - [x] pre-caching is done on 64bit systems for integer and float values

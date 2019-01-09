@@ -7,19 +7,34 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <stdbool.h>
 #include <util/fx.h>
 #include <util/logger.h>
+#include <errno.h>
 
 int fx_write(const char * fn, unsigned char * data, size_t n)
 {
     int rc = 0;
     FILE * fp = fopen(fn, "w");
     if (!fp)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    rc = (fwrite(data, n, 1, fp) == 1) ? 0 : -1;
+    if (fwrite(data, n, 1, fp) != 1)
+    {
+        log_error("cannot write %zu bytes to `%s`", n, fn);
+        rc = -1;
+    }
 
-    return fclose(fp) || rc;
+    if (fclose(fp))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+    return rc;
 }
 
 unsigned char * fx_read(const char * fn, ssize_t * size)
@@ -27,22 +42,38 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
     unsigned char * data = NULL;
     FILE * fp = fopen(fn, "r");
     if (!fp)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return NULL;
+    }
+
     if (fseeko(fp, 0, SEEK_END) ||
         (*size = ftello(fp)) < 0  ||
         fseeko(fp, 0, SEEK_SET))
+    {
+        log_error("cannot read size of file `%s` (%s)", fn, strerror(errno));
         goto final;
+    }
+
     data = malloc(*size);
     if (!data)
+    {
+        log_error("allocation error in `%s` at %s:%d",
+                __func__, __FILE__, __LINE__);
         goto final;
+    }
+
     if (fread(data, *size, 1, fp) != 1)
     {
+        log_error("cannot read %zu bytes from file `%s`", *size, fn);
         free(data);
         data = NULL;
     }
 
 final:
-    fclose(fp);
+    if (fclose(fp))
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+
     return data;
 }
 
@@ -51,9 +82,9 @@ _Bool fx_file_exist(const char * fn)
     FILE * fp;
     fp = fopen(fn, "r");
     if (!fp)
-        return 0;
-    fclose(fp);
-    return 1;
+        return false;
+    (void) fclose(fp);
+    return true;
 }
 
 _Bool fx_is_dir(const char * path)

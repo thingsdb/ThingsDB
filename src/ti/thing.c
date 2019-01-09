@@ -409,7 +409,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
 
     if (    qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar *) "#", 1) ||
-            qp_add_int64(*packer, thing->id))
+            qp_add_int(*packer, thing->id))
         return -1;
 
     for (vec_each(thing->props, ti_prop_t, prop))

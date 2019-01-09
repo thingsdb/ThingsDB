@@ -68,23 +68,23 @@ int ti_counters_to_packer(qp_packer_t ** packer)
     return -(
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "queries_received") ||
-        qp_add_int64(*packer, counters->queries_received) ||
+        qp_add_int(*packer, counters->queries_received) ||
         qp_add_raw_from_str(*packer, "events_with_gap") ||
-        qp_add_int64(*packer, counters->events_with_gap) ||
+        qp_add_int(*packer, counters->events_with_gap) ||
         qp_add_raw_from_str(*packer, "events_skipped") ||
-        qp_add_int64(*packer, counters->events_skipped) ||
+        qp_add_int(*packer, counters->events_skipped) ||
         qp_add_raw_from_str(*packer, "events_failed") ||
-        qp_add_int64(*packer, counters->events_failed) ||
+        qp_add_int(*packer, counters->events_failed) ||
         qp_add_raw_from_str(*packer, "events_killed") ||
-        qp_add_int64(*packer, counters->events_killed) ||
+        qp_add_int(*packer, counters->events_killed) ||
         qp_add_raw_from_str(*packer, "events_committed") ||
-        qp_add_int64(*packer, counters->events_committed) ||
+        qp_add_int(*packer, counters->events_committed) ||
         qp_add_raw_from_str(*packer, "events_quorum_lost") ||
-        qp_add_int64(*packer, counters->events_quorum_lost) ||
+        qp_add_int(*packer, counters->events_quorum_lost) ||
         qp_add_raw_from_str(*packer, "events_unaligned") ||
-        qp_add_int64(*packer, counters->events_unaligned) ||
+        qp_add_int(*packer, counters->events_unaligned) ||
         qp_add_raw_from_str(*packer, "garbage_collected") ||
-        qp_add_int64(*packer, counters->garbage_collected) ||
+        qp_add_int(*packer, counters->garbage_collected) ||
         qp_add_raw_from_str(*packer, "longest_event_duration") ||
         qp_add_double(*packer, counters->longest_event_duration) ||
         qp_add_raw_from_str(*packer, "average_event_duration") ||

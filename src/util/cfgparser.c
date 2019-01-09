@@ -78,7 +78,7 @@ cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
             section = cfgparser_section(cfgparser, pt);
             if (section == NULL)
             {
-                fclose(fp);
+                (void) fclose(fp);
                 return CFGPARSER_ERR_SESSION_NOT_OPEN;
             }
             continue;
@@ -86,7 +86,7 @@ cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
 
         if (section == NULL)
         {
-            fclose(fp);
+            (void) fclose(fp);
             return CFGPARSER_ERR_SESSION_NOT_OPEN;
         }
 
@@ -109,7 +109,7 @@ cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
 
         if (!found)
         {
-            fclose(fp);
+            (void) fclose(fp);
             return CFGPARSER_ERR_MISSING_EQUAL_SIGN;
         }
 

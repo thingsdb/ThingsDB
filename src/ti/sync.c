@@ -113,8 +113,8 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     event = queue_first(ti()->events->queue);
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, ti()->node->cevid + 1);
-    (void) qp_add_int64(packer, event ? event->id : 0);
+    (void) qp_add_int(packer, ti()->node->cevid + 1);
+    (void) qp_add_int(packer, event ? event->id : 0);
     (void) qp_close_array(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNC);

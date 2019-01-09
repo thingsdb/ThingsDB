@@ -8,6 +8,8 @@
 #include <ti/version.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/fsync.h>
+#include <ti/away.h>
 #include <ti.h>
 #include <util/cryptx.h>
 #include <util/qpx.h>
@@ -92,11 +94,11 @@ int ti_nodes_to_packer(qp_packer_t ** packer)
     for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (qp_add_array(packer) ||
-            qp_add_int64(*packer, node->zone) ||
-            qp_add_int64(*packer, node->port) ||
+            qp_add_int(*packer, node->zone) ||
+            qp_add_int(*packer, node->port) ||
             qp_add_raw_from_str(*packer, node->addr) ||
             qp_add_raw(*packer, (const uchar *) node->secret, CRYPTX_SZ) ||
-            qp_add_int64(*packer, node->flags) ||
+            qp_add_int(*packer, node->flags) ||
             qp_close_array(*packer))
             return -1;
     }
@@ -401,19 +403,19 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
     {
         if (qp_add_map(packer) ||
             qp_add_raw_from_str(*packer, "node_id") ||
-            qp_add_int64(*packer, node->id) ||
+            qp_add_int(*packer, node->id) ||
             qp_add_raw_from_str(*packer, "status") ||
             qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
             qp_add_raw_from_str(*packer, "commited_event_id") ||
-            qp_add_int64(*packer, node->cevid) ||
+            qp_add_int(*packer, node->cevid) ||
             qp_add_raw_from_str(*packer, "stored_event_id") ||
-            qp_add_int64(*packer, node->sevid) ||
+            qp_add_int(*packer, node->sevid) ||
             qp_add_raw_from_str(*packer, "address") ||
             qp_add_raw_from_str(
                     *packer,
                     node == this_node ? ti_name() : node->addr) ||
             qp_add_raw_from_str(*packer, "port") ||
-            qp_add_int64(*packer, node->port))
+            qp_add_int(*packer, node->port))
             return -1;
 
         if (!ti_stream_is_closed(node->stream) && (
@@ -645,11 +647,11 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         }
 
         (void) qp_add_array(&packer);
-        (void) qp_add_int64(packer, 0);
-        (void) qp_add_int64(packer, 0);
-        (void) qp_add_int64(packer, 0);
-        (void) qp_add_int64(packer, TI_NODE_STAT_BUILDING);
-        (void) qp_add_int64(packer, TI_NODE_FLAG_MIGRATING);
+        (void) qp_add_int(packer, 0);
+        (void) qp_add_int(packer, 0);
+        (void) qp_add_int(packer, 0);
+        (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);
+        (void) qp_add_int(packer, TI_NODE_FLAG_MIGRATING);
         (void) qp_close_array(packer);
 
         goto send;
@@ -904,7 +906,6 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_unpacker_t unpacker;
     qp_obj_t qp_start, qp_until;
     uint64_t start, until;
-    ti_syncer_t * syncer;
 
     if (!node)
     {
@@ -969,39 +970,31 @@ static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp;
-    ti_watch_t * watch;
     ti_node_t * node = stream->via.node;
 
     if (!node)
     {
         log_error(
-                "got a sync request from an unauthorized connection: `%s`",
-                ti_stream_name(stream));
+            "got a multipart request from an unauthorized connection: `%s`",
+            ti_stream_name(stream));
         return;
     }
 
     if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
-                "got a multi-part request from `%s` "
+                "got a multipart request from `%s` "
                 "but this node is not in `synchronizing` mode",
                 ti_stream_name(stream));
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
-                "multi-part requests",
+                "multipart requests",
                 ti_name());
         goto finish;
     }
 
-    watch = ti_watch_create(node->stream);
-    if (!watch || vec_push(&ti()->away->syncers, watch))
-    {
-        ti_watch_free(watch);
-        ex_set_alloc(e);
-        goto finish;
-    }
-
-    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNC, NULL, 0);
+    resp = ti_fsync_on_multipart(pkg, e);
+    assert (!resp ^ !e->nr);
 
 finish:
     if (e->nr)

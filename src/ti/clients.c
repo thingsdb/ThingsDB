@@ -576,7 +576,7 @@ static int clients__fwd_query(
         goto fail1;
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, src_stream->via.user->id);
+    (void) qp_add_int(packer, src_stream->via.user->id);
     (void) qp_add_raw(packer, orig_pkg->data, orig_pkg->n);
     (void) qp_close_array(packer);
 

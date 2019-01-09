@@ -18,27 +18,44 @@
 
 int ti_store_things_store(imap_t * things, const char * fn)
 {
+    vec_t * things_vec;
     int rc = -1;
     FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    vec_t * things_vec = imap_vec(things);
+    things_vec = imap_vec(things);
     if (!things_vec)
+    {
+        log_error(EX_ALLOC_S);
         goto stop;
+    }
 
     for (vec_each(things_vec, ti_thing_t, thing))
+    {
         if (fwrite(&thing->id, sizeof(uint64_t), 1, f) != 1)
+        {
+            log_error("error writing to file `%s`", fn);
             goto stop;
+        }
+    }
+
     rc = 0;
 
 stop:
-    if (rc)
-        log_error("save failed: %s", fn);
-    else
-        log_debug("stored things id's to file: `%s`", fn);
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
 
-    return -(fclose(f) || rc);
+    if (!rc)
+        log_debug("stored things (id's) to file: `%s`", fn);
+
+    return rc;
 }
 
 int ti_store_things_store_skeleton(imap_t * things, const char * fn)
@@ -48,7 +65,10 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
     int rc = -1;
     FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
     vec_t * things_vec = imap_vec(things);
     if (!things_vec)
@@ -67,7 +87,7 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
                 continue;
 
             if (!found && (
-                    qp_fadd_int64(f, thing->id) ||
+                    qp_fadd_int(f, thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN)
                 ))
                 goto stop;
@@ -75,7 +95,7 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
             found = 1;
             p = (intptr_t) prop->name;
 
-            if (qp_fadd_int64(f, p) || ti_val_to_file(&prop->val, f))
+            if (qp_fadd_int(f, p) || ti_val_to_file(&prop->val, f))
                 goto stop;
 
         }
@@ -90,9 +110,17 @@ int ti_store_things_store_skeleton(imap_t * things, const char * fn)
 stop:
     if (rc)
         log_error("save failed: %s", fn);
-    else
+
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+    if (!rc)
         log_debug("stored skeleton to file: `%s`", fn);
-    return -(fclose(f) || rc);
+
+    return rc;
 }
 
 int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
@@ -102,7 +130,10 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
     int rc = -1;
     FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
     vec_t * things_vec = imap_vec(things);
     if (!things_vec)
@@ -124,7 +155,7 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
                 continue;
 
             if (!found && (
-                    qp_fadd_int64(f, thing->id) ||
+                    qp_fadd_int(f, thing->id) ||
                     qp_fadd_type(f, QP_MAP_OPEN)
                 ))
                 goto stop;
@@ -132,7 +163,7 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
             found = 1;
             p = (intptr_t) prat->name;
 
-            if (qp_fadd_int64(f, p) || ti_val_to_file(&prat->val, f))
+            if (qp_fadd_int(f, p) || ti_val_to_file(&prat->val, f))
                 goto stop;
         }
 
@@ -147,10 +178,18 @@ int ti_store_things_store_data(imap_t * things, _Bool attrs, const char * fn)
 stop:
     if (rc)
         log_error("save failed: %s", fn);
-    else
+
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+    if (!rc)
         log_debug("stored %s to file: `%s`",
                 attrs ? "attributes" : "properties", fn);
-    return -(fclose(f) || rc);
+
+    return rc;
 }
 
 int ti_store_things_restore(imap_t * things, const char * fn)

@@ -46,20 +46,20 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_map(&packer);
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, event_id);
-    (void) qp_add_int64(packer, target_id);
+    (void) qp_add_int(packer, event_id);
+    (void) qp_add_int(packer, target_id);
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);
 
-    (void) qp_add_int64(packer, thing_id);
+    (void) qp_add_int(packer, thing_id);
     (void) qp_add_array(&packer);
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "new_user");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, user_id);
+    (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw_from_str(packer, ti_user_def_name);
     (void) qp_add_raw_from_str(packer, "password");
@@ -71,11 +71,11 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_raw_from_str(packer, "grant");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int64(packer, 0);
+    (void) qp_add_int(packer, 0);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int64(packer, user_id);
+    (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int64(packer, TI_AUTH_MASK_FULL);
+    (void) qp_add_int(packer, TI_AUTH_MASK_FULL);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

@@ -578,9 +578,9 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_add_map(&packer);
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int64(packer, query->ev->id);
+    (void) qp_add_int(packer, query->ev->id);
     /* store `no tasks` as target 0, this will save space and a lookup */
-    (void) qp_add_int64(packer, query->target && query->ev->tasks->n
+    (void) qp_add_int(packer, query->target && query->ev->tasks->n
             ? query->target->root->id
             : 0);
     (void) qp_close_array(packer);
@@ -591,7 +591,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     iter = omap_iter(query->ev->tasks);
     for (omap_each(iter, ti_task_t, task))
     {
-        (void) qp_add_int64(packer, task->thing->id);
+        (void) qp_add_int(packer, task->thing->id);
         (void) qp_add_array(&packer);
         for (vec_each(task->jobs, ti_raw_t, raw))
         {

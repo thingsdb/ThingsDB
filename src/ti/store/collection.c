@@ -83,19 +83,30 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
 
 int ti_store_collection_store(ti_collection_t * collection, const char * fn)
 {
-    int rc;
+    int rc = 0;
     FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    rc = -(fwrite(&collection->root->id, sizeof(uint64_t), 1, f) != 1);
+    if (fwrite(&collection->root->id, sizeof(uint64_t), 1, f) != 1)
+    {
+        log_error("cannot write to file `%s`", fn);
+        rc = -1;
+    }
 
-    if (rc)
-        log_error("saving failed: `%s`", fn);
-    else
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+    if (rc == 0)
         log_debug("stored collection info to file: `%s`", fn);
 
-    return -(fclose(f) || rc);
+    return rc;
 }
 
 int ti_store_collection_restore(ti_collection_t * collection, const char * fn)

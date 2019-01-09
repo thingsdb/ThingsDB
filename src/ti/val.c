@@ -475,12 +475,11 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
     case TI_VAL_NIL:
         return qp_add_null(*packer);
     case TI_VAL_INT:
-        return qp_add_int64(*packer, val->via.int_);
+        return qp_add_int(*packer, val->via.int_);
     case TI_VAL_FLOAT:
         return qp_add_double(*packer, val->via.float_);
     case TI_VAL_BOOL:
-        return val->via.bool_ ?
-                qp_add_true(*packer) : qp_add_false(*packer);
+        return qp_add_bool(*packer, val->via.bool_);
     case TI_VAL_QP:
         return qp_add_qp(*packer, val->via.raw->data, val->via.raw->n);
     case TI_VAL_RAW:
@@ -544,7 +543,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_NIL:
         return qp_fadd_type(f, QP_NULL);
     case TI_VAL_INT:
-        return qp_fadd_int64(f, val->via.int_);
+        return qp_fadd_int(f, val->via.int_);
     case TI_VAL_FLOAT:
         return qp_fadd_double(f, val->via.float_);
     case TI_VAL_BOOL:
@@ -564,13 +563,13 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);
     case TI_VAL_THING:
-        return qp_fadd_int64(f, val->via.thing->id);
+        return qp_fadd_int(f, val->via.thing->id);
     case TI_VAL_THINGS:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (qp_fadd_int64(f, thing->id))
+            if (qp_fadd_int(f, thing->id))
                 return -1;
         }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);

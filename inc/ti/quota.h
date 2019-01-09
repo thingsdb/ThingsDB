@@ -43,7 +43,7 @@ inline static int ti_quota_val_to_packer(qp_packer_t * packer, size_t quota)
 {
     return quota == TI_QUOTA_NOT_SET
                     ? qp_add_null(packer)
-                    : qp_add_int64(packer, quota);
+                    : qp_add_int(packer, quota);
 }
 
 

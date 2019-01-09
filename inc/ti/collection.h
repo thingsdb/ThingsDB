@@ -66,11 +66,11 @@ static inline int ti_collection_to_packer(
     return (
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "collection_id") ||
-        qp_add_int64(*packer, collection->root->id) ||
+        qp_add_int(*packer, collection->root->id) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, collection->name->data, collection->name->n) ||
         qp_add_raw_from_str(*packer, "things") ||
-        qp_add_int64(*packer, collection->things->n) ||
+        qp_add_int(*packer, collection->things->n) ||
         qp_add_raw_from_str(*packer, "quota_things") ||
         ti_quota_val_to_packer(*packer, collection->quota->max_things) ||
         qp_add_raw_from_str(*packer, "quota_properties") ||

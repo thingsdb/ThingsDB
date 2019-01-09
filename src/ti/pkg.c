@@ -88,7 +88,7 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
     (void) qp_add_map(&xpkg);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
-    (void) qp_add_int64(xpkg, e->nr);
+    (void) qp_add_int(xpkg, e->nr);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
     (void) qp_add_raw(xpkg, (const unsigned char *) e->msg, e->n);
     (void) qp_close_map(xpkg);

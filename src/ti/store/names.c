@@ -14,18 +14,32 @@ static int names__write_cb(ti_name_t * name, FILE * f);
 
 int ti_store_names_store(const char * fn)
 {
-    smap_t * names = ti()->names;
     int rc;
     FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
+
     rc = (
         qp_fadd_type(f, QP_ARRAY_OPEN) ||
-        smap_values(names, (smap_val_cb) names__write_cb, f)
+        smap_values(ti()->names, (smap_val_cb) names__write_cb, f)
     );
+
     if (rc)
-        log_error("saving failed: `%s`", fn);
-    return -(fclose(f) || rc);
+        log_error("error writing to file `%s`", fn);
+
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+    if (rc == 0)
+        log_debug("stored names to file: `%s`", fn);
+
+    return rc;
 }
 
 imap_t * ti_store_names_restore(const char * fn)
@@ -69,6 +83,6 @@ static int names__write_cb(ti_name_t * name, FILE * f)
 {
     intptr_t p = (intptr_t) name;
     return (qp_fadd_type(f, QP_ARRAY2) ||
-            qp_fadd_int64(f, p) ||
+            qp_fadd_int(f, p) ||
             qp_fadd_raw(f, (const uchar *) name->str, name->n));
 }

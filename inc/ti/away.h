@@ -8,6 +8,7 @@ typedef struct ti_away_s ti_away_t;
 
 #include <uv.h>
 #include <util/vec.h>
+#include <ti/stream.h>
 
 int ti_away_create(void);
 int ti_away_start(void);

@@ -224,7 +224,7 @@ static void wareq__watch_cb(uv_async_t * task)
 
             (void) qp_add_map(&packer);
             (void) qp_add_raw_from_str(packer, "event");
-            (void) qp_add_int64(packer, *ti()->events->cevid);
+            (void) qp_add_int(packer, *ti()->events->cevid);
             (void) qp_add_raw_from_str(packer, "thing");
 
             if (    ti_thing_to_packer(thing, &packer, TI_VAL_PACK_ATTR) ||
@@ -311,7 +311,7 @@ static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
     if (!fwd)
         goto fail1;
 
-    (void) qp_add_int64(packer, thing_id);
+    (void) qp_add_int(packer, thing_id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_WATCH_ID);
 
     if (ti_req_create(

@@ -71,9 +71,9 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
         return NULL;
     (void) qp_add_map(&packer);
     (void) qp_add_raw(packer, (const uchar *) "#", 1);
-    (void) qp_add_int64(packer, task->thing->id);
+    (void) qp_add_int(packer, task->thing->id);
     (void) qp_add_raw_from_str(packer, "event");
-    (void) qp_add_int64(packer, task->event_id);
+    (void) qp_add_int(packer, task->event_id);
     (void) qp_add_raw_from_str(packer, "jobs");
     (void) qp_add_array(&packer);
     for (vec_each(task->jobs, ti_raw_t, raw))
@@ -177,7 +177,7 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "del_collection");
-    (void) qp_add_int64(packer, collection_id);
+    (void) qp_add_int(packer, collection_id);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
@@ -210,7 +210,7 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "del_user");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
@@ -249,11 +249,11 @@ int ti_task_add_grant(
     (void) qp_add_raw_from_str(packer, "grant");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int64(packer, target_id);
+    (void) qp_add_int(packer, target_id);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int64(packer, mask);
+    (void) qp_add_int(packer, mask);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -296,9 +296,9 @@ int ti_task_add_new_collection(
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, collection->name->data, collection->name->n);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "root");
-    (void) qp_add_int64(packer, collection->root->id);
+    (void) qp_add_int(packer, collection->root->id);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -335,11 +335,11 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     (void) qp_add_raw_from_str(packer, "new_node");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, node->id);
+    (void) qp_add_int(packer, node->id);
     (void) qp_add_raw_from_str(packer, "zone");
-    (void) qp_add_int64(packer, node->zone);
+    (void) qp_add_int(packer, node->zone);
     (void) qp_add_raw_from_str(packer, "port");
-    (void) qp_add_int64(packer, node->port);
+    (void) qp_add_int(packer, node->port);
     (void) qp_add_raw_from_str(packer, "addr");
     (void) qp_add_raw_from_str(packer, node->addr);
     (void) qp_add_raw_from_str(packer, "secret");
@@ -380,7 +380,7 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     (void) qp_add_raw_from_str(packer, "new_user");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
     (void) qp_add_raw_from_str(packer, "password");
@@ -419,7 +419,7 @@ int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id)
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "pop_node");
-    (void) qp_add_int64(packer, node_id);
+    (void) qp_add_int(packer, node_id);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);
@@ -562,7 +562,7 @@ int ti_task_add_rename_collection(
     (void) qp_add_raw_from_str(packer, "rename_collection");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, collection->root->id);
+    (void) qp_add_int(packer, collection->root->id);
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, collection->name->data, collection->name->n);
     (void) qp_close_map(packer);
@@ -600,7 +600,7 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
     (void) qp_add_raw_from_str(packer, "rename_user");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
     (void) qp_close_map(packer);
@@ -642,11 +642,11 @@ int ti_task_add_revoke(
     (void) qp_add_raw_from_str(packer, "revoke");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int64(packer, target_id);
+    (void) qp_add_int(packer, target_id);
     (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int64(packer, mask);
+    (void) qp_add_int(packer, mask);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -723,7 +723,7 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
     (void) qp_add_raw_from_str(packer, "set_password");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int64(packer, user->id);
+    (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "password");
     (void) qp_add_raw_from_str(packer, user->encpass);
     (void) qp_close_map(packer);
@@ -765,11 +765,11 @@ int ti_task_add_set_quota(
     (void) qp_add_raw_from_str(packer, "set_quota");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "collection");
-    (void) qp_add_int64(packer, collection_id);
+    (void) qp_add_int(packer, collection_id);
     (void) qp_add_raw_from_str(packer, "quota_tp");
-    (void) qp_add_int64(packer, quota_tp);
+    (void) qp_add_int(packer, quota_tp);
     (void) qp_add_raw_from_str(packer, "quota");
-    (void) qp_add_int64(packer, quota);
+    (void) qp_add_int(packer, quota);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -818,9 +818,9 @@ int ti_task_add_splice(
 
     if (qp_add_raw(packer, (const uchar *) name->str, name->n) ||
         qp_add_array(&packer) ||
-        qp_add_int64(packer, i) ||
-        qp_add_int64(packer, c) ||
-        qp_add_int64(packer, n))
+        qp_add_int(packer, i) ||
+        qp_add_int(packer, c) ||
+        qp_add_int(packer, n))
         goto failed;
 
     if (val->tp == TI_VAL_THINGS)

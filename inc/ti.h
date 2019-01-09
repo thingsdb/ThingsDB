@@ -206,15 +206,15 @@ static inline int ti_to_packer(qp_packer_t ** packer)
     return -(
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "schema") ||
-        qp_add_int64(*packer, TI_FN_SCHEMA) ||
+        qp_add_int(*packer, TI_FN_SCHEMA) ||
         qp_add_raw_from_str(*packer, "lookup_n") ||
-        qp_add_int64(*packer, ti_.lookup->n) ||
+        qp_add_int(*packer, ti_.lookup->n) ||
         qp_add_raw_from_str(*packer, "lookup_r") ||
-        qp_add_int64(*packer, ti_.lookup->r) ||
+        qp_add_int(*packer, ti_.lookup->r) ||
         qp_add_raw_from_str(*packer, "desired_n") ||
-        qp_add_int64(*packer, ti_.desired->n) ||
+        qp_add_int(*packer, ti_.desired->n) ||
         qp_add_raw_from_str(*packer, "desired_r") ||
-        qp_add_int64(*packer, ti_.desired->r) ||
+        qp_add_int(*packer, ti_.desired->r) ||
         qp_add_raw_from_str(*packer, "nodes") ||
         ti_nodes_to_packer(packer) ||
         qp_close_map(*packer)

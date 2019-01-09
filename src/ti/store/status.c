@@ -15,9 +15,9 @@ int ti_store_status_store(const char * fn)
 
     if (qp_add_map(&packer) ||
         qp_add_raw_from_str(packer, "cevid") ||
-        qp_add_int64(packer, ti()->node->cevid) ||
+        qp_add_int(packer, ti()->node->cevid) ||
         qp_add_raw_from_str(packer, "next_thing_id") ||
-        qp_add_int64(packer, ti()->node->next_thing_id) ||
+        qp_add_int(packer, ti()->node->next_thing_id) ||
         qp_close_map(packer)
     )
         goto stop;

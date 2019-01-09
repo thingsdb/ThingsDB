@@ -197,7 +197,7 @@ static void away__req_away_id(void)
 
     /* this is used in case of an equal result and should be a value > 0 */
     ti_quorum_set_id(quorum, 1);
-    (void) qp_add_int64(packer, away->id);
+    (void) qp_add_int(packer, away->id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 
     for (vec_each(vec_nodes, ti_node_t, node))
@@ -341,13 +341,14 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     assert (away->flags & AWAY__FLAG_IS_RUNNING);
     assert (away->flags & AWAY__FLAG_IS_WORKING);
 
-    if (away->syncers->n)
+    size_t nsyncers = away__syncers();
+    if (nsyncers)
     {
         log_warning(
                 "stay in away mode since this node is synchronizing with "
                 "%zu other %s",
-                away->syncers->n,
-                away->syncers->n == 1 ? "node" : "nodes");
+                nsyncers,
+                nsyncers ? "node" : "nodes");
         return;
     }
 

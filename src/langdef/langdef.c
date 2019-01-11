@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2018-12-17 16:10:09
+ * Created at: 2019-01-11 11:09:25
  */
 
 #include <langdef/langdef.h>
@@ -42,6 +42,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
     cleri_t * f_find = cleri_keyword(CLERI_GID_F_FIND, "find", CLERI_CASE_SENSITIVE);
     cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
+    cleri_t * f_hasprop = cleri_keyword(CLERI_GID_F_HASPROP, "hasprop", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_isinf = cleri_keyword(CLERI_GID_F_ISINF, "isinf", CLERI_CASE_SENSITIVE);
     cleri_t * f_isnan = cleri_keyword(CLERI_GID_F_ISNAN, "isnan", CLERI_CASE_SENSITIVE);
@@ -107,12 +108,13 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            24,
+            25,
             f_blob,
             f_endswith,
             f_filter,
             f_find,
             f_get,
+            f_hasprop,
             f_id,
             f_isinf,
             f_isnan,

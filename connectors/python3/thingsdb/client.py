@@ -39,6 +39,13 @@ class Client(WatchMixin, Root):
         self._protocol.on_package_received = self._on_package_received
         self._pid = 0
 
+    def close(self):
+        self._transport.close()
+
+    async def wait_closed(self):
+        if self._protocol and self._protocol.close_future:
+            await self._protocol.close_future
+
     async def authenticate(self, username, password, timeout=5):
         self._username = username
         self._password = password

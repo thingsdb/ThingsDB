@@ -28,6 +28,7 @@ static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1197,6 +1198,55 @@ done:
     return e->nr;
 }
 
+static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_raw_t * rname;
+    ti_name_t * name;
+    ti_thing_t * thing;
+
+    if (!query_is_thing(query))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `hasprop`",
+                query_tp_str(query));
+        return e->nr;
+    }
+    thing = query_get_thing(query);
+    assert(thing);
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `hasprop` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    if (ti_cq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `hasprop` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_RAW),
+                ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    rname = query->rval->via.raw;
+    name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    ti_val_clear(query->rval);
+    ti_val_set_bool(query->rval, name && ti_thing_get(thing, name));
+
+    return e->nr;
+}
+
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1269,7 +1319,7 @@ static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    (void) query_rval_clear(query);
+    ti_val_clear(query->rval);
     ti_val_set_bool(query->rval, is_inf);
 
     return e->nr;
@@ -1311,7 +1361,7 @@ static int cq__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    (void) query_rval_clear(query);
+    ti_val_clear(query->rval);
     ti_val_set_bool(query->rval, is_nan);
 
     return e->nr;
@@ -2566,6 +2616,8 @@ static int cq__function(
         return cq__f_find(query, params, e);
     case CLERI_GID_F_GET:
         return cq__f_get(query, params, e);
+    case CLERI_GID_F_HASPROP:
+        return cq__f_hasprop(query, params, e);
     case CLERI_GID_F_ID:
         return cq__f_id(query, params, e);
     case CLERI_GID_F_ISINF:

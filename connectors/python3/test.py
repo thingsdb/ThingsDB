@@ -83,7 +83,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        p;
+        Labels = 6;
 
 
 

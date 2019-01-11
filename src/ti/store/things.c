@@ -233,10 +233,9 @@ int ti_store_things_restore_skeleton(
     qp_res_t thing_id, name_id;
     vec_t * things_vec = NULL;
     FILE * f = fopen(fn, "r");
-
     if (!f)
     {
-        log_critical("file is missing: `%s`", fn);
+        log_critical("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
     }
 
@@ -315,8 +314,13 @@ failed:
     rc = -1;
     vec_destroy(things_vec, (vec_destroy_cb) ti_thing_drop);
     log_critical("failed to restore from file: `%s`", fn);
+
 done:
-    fclose(f);
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
     return rc;
 }
 
@@ -326,9 +330,8 @@ int ti_store_things_restore_data(
         _Bool attrs,
         const char * fn)
 {
-    int rc = -1,
-    pagesize = getpagesize(),
-    fd = open(fn, O_RDONLY);
+    int rc = -1;
+    int pagesize = getpagesize();
     ti_thing_t * thing;
     ti_name_t * name;
     ti_val_t val;
@@ -337,17 +340,19 @@ int ti_store_things_restore_data(
     ssize_t size;
     uchar * data;
     qp_unpacker_t unp;
-
+    int fd = open(fn, O_RDONLY);
     if (fd < 0)
     {
-        log_critical("file is missing: `%s`", fn);
+        log_critical("cannot open file descriptor `%s` (%s)",
+                fn, strerror(errno));
         goto fail0;
     }
 
     /* Get the size of the file. TODO: does it work with really large files? */
     if (fstat(fd, &st) < 0)
     {
-        log_critical("unable to get file statistics: `%s`", fn);
+        log_critical("unable to get file statistics: `%s` (%s)",
+                fn, strerror(errno));
         goto fail1;
     }
 
@@ -356,7 +361,8 @@ int ti_store_things_restore_data(
     data = (uchar *) mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (data == MAP_FAILED)
     {
-        log_critical("unable to memory map file : `%s`", fn);
+        log_critical("unable to memory map file `%s` (%s)",
+                fn, strerror(errno));
         goto fail1;
     }
 
@@ -410,10 +416,11 @@ int ti_store_things_restore_data(
 
 fail2:
     if (munmap(data, size))
-        log_error("memory unmap failed: `%s`", fn);
+        log_error("memory unmap failed: `%s` (%s)", fn, strerror(errno));
 fail1:
     if (close(fd))
-        log_error("closing file descriptor failed: `%s`", fn);
+        log_error("cannot close file descriptor `%s` (%s)",
+                fn, strerror(errno));
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);

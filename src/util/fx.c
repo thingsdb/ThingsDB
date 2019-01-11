@@ -117,7 +117,8 @@ int fx_rmdir(const char * path)
         {
             bufsz = len;
             char * tmp = realloc(buf, bufsz);
-            if (!tmp) goto stop;
+            if (!tmp)
+                goto stop;
             buf = tmp;
         }
 
@@ -167,7 +168,8 @@ char * fx_get_exec_path(void)
         rc = readlink("/proc/self/exe", buffer, buffer_sz);
         if (rc < 0)
             goto failed;
-        if (rc < (ssize_t) buffer_sz) break;
+        if (rc < (ssize_t) buffer_sz)
+            break;
         buffer_sz *= 2;
         tmp = realloc(buffer, buffer_sz);
         if (!tmp)

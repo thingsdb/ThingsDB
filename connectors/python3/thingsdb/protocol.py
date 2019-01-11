@@ -78,23 +78,24 @@ def proto_unkown(f, d):
 
 class Protocol(asyncio.Protocol):
 
-    _connected = False
-
-    def __init__(self):
+    def __init__(self, loop=None):
         self._buffered_data = bytearray()
         self.package = None
+        self.loop = asyncio.get_event_loop() if loop is None else loop
+        self.close_future = None
 
     def connection_made(self, transport):
         '''
         override asyncio.Protocol
         '''
-        pass
+        self.close_future = self.loop.create_future()
 
     def connection_lost(self, exc):
         '''
         override asyncio.Protocol
         '''
-        pass
+        self.close_future.set_result(None)
+        self.close_future = None
 
     def data_received(self, data):
         '''

@@ -21,6 +21,12 @@ typedef enum
     FSYNC__ACCESS_FILE
 } fsync__file_t;
 
+static int fsync__write_part(
+        const char * fn,
+        const unsigned char * data,
+        size_t size,
+        off_t offset,
+        ex_t * e);
 static void fsync__push_cb(ti_req_t * req, ex_enum status);
 static ti_pkg_t * fsync__pkg(
         ti_collection_t * target,
@@ -60,7 +66,7 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
     fsync__file_t ft;
     off_t offset;
     uint64_t target_id;
-    char * fn;
+    const char * fn;
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -86,6 +92,9 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
+    if (fsync__write_part(fn, qp_raw.via.raw, qp_raw.len, offset, e))
+        return NULL;
+
     packer = qpx_packer_create(48 , 1);
     if (!packer)
     {
@@ -107,7 +116,7 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
 
 static int fsync__write_part(
         const char * fn,
-        unsigned char * data,
+        const unsigned char * data,
         size_t size,
         off_t offset,
         ex_t * e)
@@ -117,7 +126,8 @@ static int fsync__write_part(
     fp = fopen(fn, "a");
     if (!fp)
     {
-        ex_set(e, EX_INTERNAL, "cannot open `%s` (%s)", fn, strerror(errno));
+        ex_set(e, EX_INTERNAL,
+                "cannot open file `%s` (%s)", fn, strerror(errno));
         return e->nr;
     }
 
@@ -132,15 +142,12 @@ static int fsync__write_part(
     }
 
     if (fwrite(data, sizeof(char), size, fp) != size)
-    {
         ex_set(e, EX_INTERNAL, "error writing %zu bytes to file `%s`",
                 size, fn);
-        goto done;
-    }
 
 done:
     if (fclose(fp) && !e->nr)
-        ex_set(e, EX_INTERNAL, "error closing file `%s` (%s)",
+        ex_set(e, EX_INTERNAL, "cannot close file `%s` (%s)",
             fn, strerror(errno));
 
     return e->nr;
@@ -154,8 +161,7 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
     uint64_t target_id;
     fsync__file_t ft;
     off_t offset;
-    FILE * fp;
-    char * fn;
+    const char * fn;
 
     if (status)
         goto failed;
@@ -188,15 +194,14 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    if (offset)
+    if (!offset)
     {
-        fp = fopen(fn, "a");
-        if (!fp)
-            goto failed;
-        if (ftello(fp) != offset)
+        /* next file or finished */
     }
-
-
+    else
+    {
+        /* next part from file */
+    }
 
     goto done;
 
@@ -215,6 +220,8 @@ static ti_pkg_t * fsync__pkg(
     int more;
     const char * fn;
     qpx_packer_t * packer = qpx_packer_create(48 + FSYNC__PART_SIZE, 1);
+    if (!packer)
+        return NULL;
 
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, 0);       /* target root */
@@ -261,13 +268,16 @@ static int fsync__part_to_packer(
         const char * fn,
         off_t offset)
 {
-    int rc;
+    int more;
     size_t sz;
     off_t restsz;
-    FILE * fp = fopen(fn, "r");
     unsigned char * buff;
+    FILE * fp = fopen(fn, "r");
     if (!fp)
+    {
+        log_critical("cannot open file `%s` (%s)", fn, strerror(errno));
         goto fail0;
+    }
 
     if (fseeko(fp, 0, SEEK_END) == -1 || (restsz = ftello(fp)) == -1)
     {
@@ -309,9 +319,9 @@ static int fsync__part_to_packer(
         goto fail2;
     }
 
-    rc = qp_add_raw(packer, buff, sz) ? -1 : (size_t) restsz != sz;
+    more = qp_add_raw(packer, buff, sz) ? -1 : (size_t) restsz != sz;
     free(buff);
-    return rc;
+    return more;
 
 fail2:
     free(buff);

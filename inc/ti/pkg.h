@@ -26,8 +26,8 @@ static inline size_t ti_pkg_sz(ti_pkg_t * pkg);
 struct ti_pkg_s
 {
     uint32_t n;     /* size of data */
-    uint16_t id;
-    uint8_t tp;
+    uint16_t id;    /* id 0 is used for fire-and-forget packages */
+    uint8_t tp;     /* see proto.h for protocol types */
     uint8_t ntp;    /* used as check-bit */
     unsigned char data[];
 };

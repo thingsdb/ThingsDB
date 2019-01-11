@@ -64,24 +64,33 @@ void ti_archive_destroy(void)
 
 int ti_archive_write_nodes_scevid(void)
 {
+    int rc = 0;
     uint64_t cevid = ti_nodes_cevid();
     uint64_t sevid = ti_nodes_sevid();
-    FILE * f = fopen(archive->nodes_scevid_fn, "w");
+    char * fn = archive->nodes_scevid_fn;
+    FILE * f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
     log_debug("store global committed event id: "TI_EVENT_ID, cevid);
     log_debug("store global stored event id: "TI_EVENT_ID, sevid);
 
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
         fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
-        goto failed;
+    {
+        log_error("error writing to `%s`", fn);
+        rc = -1;
+    }
 
-    return fclose(f);
-
-failed:
-    fclose(f);
-    return -1;
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
 }
 
 /*
@@ -303,6 +312,7 @@ static _Bool archive__is_file(const char * fn)
 
 static int archive__load_file(const char * archive_fn)
 {
+    int rc = -1;
     FILE * f;
     qp_res_t pkg_qp;
     qp_types_t qp_tp;
@@ -311,19 +321,21 @@ static int archive__load_file(const char * archive_fn)
         return -1;
 
     f = fopen(fn, "r");
-    free(fn);       /* we no longer need to file name */
     if (!f)
-        return -1;
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        goto fail0;
+    }
 
     if (!qp_is_array(qp_fnext(f, NULL)))
-        goto failed;
+        goto fail1;
 
     while (qp_is_raw((qp_tp = qp_fnext(f, &pkg_qp))))
     {
         ti_epkg_t * epkg;
         ti_pkg_t * pkg = ti_pkg_dup((ti_pkg_t *) pkg_qp.via.raw->data);
         if (!pkg)
-            goto failed;
+            goto fail1;
 
         qp_res_clear(&pkg_qp);
 
@@ -331,19 +343,26 @@ static int archive__load_file(const char * archive_fn)
         if (!epkg || (
                 epkg->event_id >= archive->start_event_id &&
                 queue_push(&archive->queue, epkg)))
-            goto failed;
+            goto fail1;
 
         ++archive->archived_on_disk;
     }
 
     if (qp_tp == QP_ERR)
-        goto failed;
+        goto fail1;
 
-    return fclose(f);
+    rc = 0;
 
-failed:
-    (void) fclose(f);
-    return -1;
+fail1:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+
+fail0:
+    free(fn);
+    return rc;
 }
 
 static int archive__read_nodes_scevid(void)
@@ -351,30 +370,39 @@ static int archive__read_nodes_scevid(void)
     assert (archive->nodes_scevid_fn);
     assert (ti()->nodes->cevid == 0);
 
+    int rc = -1;
     uint64_t cevid, sevid;
-    FILE * f = fopen(archive->nodes_scevid_fn, "r");
+    char * fn = archive->nodes_scevid_fn;
+    FILE * f = fopen(fn, "r");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
     if (fread(&cevid, sizeof(uint64_t), 1, f) ||
         fread(&sevid, sizeof(uint64_t), 1, f))
-        goto failed;
+        goto stop;
 
     log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
     log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
 
     ti()->nodes->cevid = cevid;
     ti()->nodes->sevid = sevid;
+    rc = 0;
 
-    return fclose(f);
-
-failed:
-    fclose(f);
-    return -1;
+stop:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
 }
 
 static int archive__to_disk(void)
 {
+    int rc = -1;
     FILE * f;
     char * fn;
     char buf[ARCHIVE__FILE_LEN + 1];
@@ -393,7 +421,10 @@ static int archive__to_disk(void)
 
     f = fopen(fn, "w");
     if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         goto fail0;
+    }
 
     if (qp_fadd_type(f, QP_ARRAY_OPEN))
         goto fail1;
@@ -411,19 +442,19 @@ static int archive__to_disk(void)
         (void) ti_sleep(10);
     }
 
-    if (fclose(f))
-        goto fail1;
-
-    free(fn);
-    return 0;
+    rc = 0;
 
 fail1:
-    (void) fclose(f);
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
     (void) unlink(fn);
-    free(fn);
 
 fail0:
-    return -1;
+    free(fn);
+    return rc;
 }
 
 static int archive__remove_files(void)

@@ -58,6 +58,7 @@ class Definition(Grammar):
     f_filter = Keyword('filter')
     f_find = Keyword('find')
     f_get = Keyword('get')
+    f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
     f_isinf = Keyword('isinf')
     f_isnan = Keyword('isnan')
@@ -104,6 +105,7 @@ class Definition(Grammar):
         f_filter,       # (arrow) -> [return values where return is true]
         f_find,         # (arrow) -> return first value where true or null
         f_get,          # (str,..) -> attribute val
+        f_hasprop,      # (str) -> bool
         f_id,           # () -> int
         f_isinf,        # (float) -> bool
         f_isnan,        # (float) -> bool

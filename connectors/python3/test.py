@@ -13,7 +13,7 @@ from thingsdb.exceptions import ThingsDBError
 client = Client()
 await client.connect('localhost', 9200)
 await client.authenticate('iris', 'siri')
-collection = await client.get_collection('test')
+collection = await client.get_collection('Test')
 
 await collection.watch()
 await collection.assign('y', 123)
@@ -33,9 +33,9 @@ async def test():
     except ThingsDBError as e:
         print(e)
 
-    client.use('Test')
+    client.use('osdata')
 
-    collection = await client.get_collection('Test')
+    collection = await client.get_collection('osdata')
 
     start = time.time()
     try:
@@ -56,17 +56,7 @@ async def test():
          * test query
          */
         /* del_collection('test2'); */
-        node();
-        nodes();
-        counters();
-        /* new_node('secret', '127.0.0.1', 9221); */
-        /* new_collection('test'); */
-        rename_user("sasha", "bla");
         collections();
-        users();
-        /* rename_collection('test', 'Test'); */
-        /* set_password('irisske', 'siri'); */
-
         /* set_loglevel(WARNING); */
 
         ''', timeout=2, target=0)
@@ -76,6 +66,8 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
+    print(collection.Labels)
+
     await asyncio.sleep(0.5)
     print('-----------------------------------------------------------------')
 
@@ -83,7 +75,9 @@ async def test():
     try:
         res = await client.query(r'''
 
-        Labels = 6;
+        Labels;
+
+
 
 
 

@@ -18,6 +18,7 @@
 #include <util/fx.h>
 #include <cleri/version.h>
 
+
 int main(int argc, char * argv[])
 {
     int rc = EXIT_SUCCESS;
@@ -83,8 +84,8 @@ int main(int argc, char * argv[])
 
         printf(
             "Well done, you successfully initialized ThingsDB!!\n\n"
-            "You can now start ThingsDB and connect by using the default user `%s`.\n"
-            "..before I forget, the password is `%s`\n\n",
+            "You can now start ThingsDB and connect by using the "
+            "default user `%s` and password `%s`\n\n",
             ti_user_def_name,
             ti_user_def_pass);
 

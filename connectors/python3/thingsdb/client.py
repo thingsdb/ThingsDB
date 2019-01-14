@@ -26,6 +26,9 @@ class Client(WatchMixin, Root):
         self._things = {}
         self._target = 0  # root target
 
+    def get_event_loop():
+        return self._loop
+
     async def connect(self, host, port=9200, timeout=5):
         self._host = host
         self._port = port
@@ -131,7 +134,7 @@ class Client(WatchMixin, Root):
 
         data = data if is_bin else b'' if data is None else qpack.packb(data)
 
-        header = Package.struct_datapackage.pack(
+        header = Package.st_package.pack(
             len(data),
             self._pid,
             tp,

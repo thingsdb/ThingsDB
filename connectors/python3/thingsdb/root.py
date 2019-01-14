@@ -12,4 +12,6 @@ class Root:
 
     async def get_collection(self, name):
         collection_id = await self.query(f'id()', target=name)
-        return Collection(self, collection_id)
+        collection = Collection(self, collection_id)
+        await collection.fetch()
+        return collection

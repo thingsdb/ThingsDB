@@ -105,7 +105,7 @@ class Protocol(asyncio.Protocol):
         while self._buffered_data:
             size = len(self._buffered_data)
             if self.package is None:
-                if size < Package.struct_datapackage.size:
+                if size < Package.st_package.size:
                     return None
                 self.package = Package(self._buffered_data)
             if size < self.package.total:

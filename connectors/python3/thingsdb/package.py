@@ -6,18 +6,18 @@ class Package(object):
 
     __slots__ = ('pid', 'length', 'total', 'tp', 'checkbit', 'data')
 
-    struct_datapackage = struct.Struct('<IHBB')
+    st_package = struct.Struct('<IHBB')
 
     def __init__(self, barray):
         self.length, self.pid, self.tp, self.checkbit = \
-            self.__class__.struct_datapackage.unpack_from(barray, offset=0)
-        self.total = self.__class__.struct_datapackage.size + self.length
+            self.__class__.st_package.unpack_from(barray, offset=0)
+        self.total = self.__class__.st_package.size + self.length
         self.data = None
 
     def extract_data_from(self, barray):
         try:
             self.data = qpack.unpackb(
-                barray[self.__class__.struct_datapackage.size:self.total],
+                barray[self.__class__.st_package.size:self.total],
                 decode='utf8') \
                 if self.length else None
         finally:

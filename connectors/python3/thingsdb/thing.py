@@ -1,6 +1,16 @@
 from .onwatch import OnWatch
-from .blob import Blob
-from .wrap import wrap
+from .repesent import repesent
+
+
+class T(dict):
+
+    def _comma_sep(self):
+
+        return ','.join(f'{k}:{v}' for k, v in)
+
+    def __repr__(self):
+        for k, v in self:
+        return '{{}}'
 
 
 class Thing:
@@ -59,12 +69,10 @@ class Thing:
             self._assign(prop, value)
 
     async def assign(self, name, value, **kwargs):
-        if isinstance(value, bytes):
-            blobs = kwargs.pop('blobs', [])
-            value = Blob(value, blobs)
+        blobs = kwargs.pop('blobs', [])
+        value = wrap(value, blobs)
+        if blobs:
             kwargs['blobs'] = blobs
-        else:
-            value = wrap(value, None)
 
         await self._query(f'thing({self._id}).{name}={value!r}', **kwargs)
 

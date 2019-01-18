@@ -22,9 +22,9 @@ struct ti_away_s
     uv_work_t * work;
     uv_timer_t * repeat;
     uv_timer_t * waiter;
-    vec_t * syncers;    /* weak ti_watch_t for synchronizing */
-    uint8_t flags;      /* internal state flags */
-    uint8_t id;         /* id in the node range */
+    vec_t * syncers;        /* weak ti_watch_t for synchronizing */
+    uint8_t flags;          /* internal state flags */
+    uint8_t id;             /* id in the node range */
 };
 
 #endif  /* TI_AWAY_H_ */

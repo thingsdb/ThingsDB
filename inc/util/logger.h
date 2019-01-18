@@ -23,10 +23,12 @@
 typedef struct logger_s logger_t;
 
 #include <stdio.h>
+#include <uv.h>
 
 const char * LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS];
 
-void logger_init(struct _LOGGER_IO_FILE * ostream, int log_level);
+int logger_init(struct _LOGGER_IO_FILE * ostream, int log_level);
+void logger_destroy(void);
 void logger_set_level(int log_level);
 const char * logger_level_name(int log_level);
 
@@ -39,28 +41,47 @@ void log__critical(const char * fmt, ...);
 extern logger_t Logger;
 
 #define log_debug(fmt, ...)                         \
-    do if (Logger.level == LOGGER_DEBUG)            \
-        log__debug(fmt, ##__VA_ARGS__); while(0)
+    do if (Logger.level == LOGGER_DEBUG) {          \
+        uv_mutex_lock(&Logger.lock);                \
+        log__debug(fmt, ##__VA_ARGS__);             \
+        uv_mutex_unlock(&Logger.lock);              \
+    } while(0)
 
 #define log_info(fmt, ...)                          \
-    do if (Logger.level <= LOGGER_INFO)             \
-        log__info(fmt, ##__VA_ARGS__); while(0)
+    do if (Logger.level <= LOGGER_INFO) {           \
+        uv_mutex_lock(&Logger.lock);                \
+        log__info(fmt, ##__VA_ARGS__);              \
+        uv_mutex_unlock(&Logger.lock);              \
+    } while(0)
 
 #define log_warning(fmt, ...)                       \
-    do if (Logger.level <= LOGGER_WARNING)          \
-        log__warning(fmt, ##__VA_ARGS__); while(0)
+    do if (Logger.level <= LOGGER_WARNING) {        \
+        uv_mutex_lock(&Logger.lock);                \
+        log__warning(fmt, ##__VA_ARGS__);           \
+        uv_mutex_unlock(&Logger.lock);              \
+    } while(0)
 
 #define log_error(fmt, ...)                         \
-    do if (Logger.level <= LOGGER_ERROR)            \
-        log__error(fmt, ##__VA_ARGS__); while(0)
+    do if (Logger.level <= LOGGER_ERROR) {          \
+        uv_mutex_lock(&Logger.lock);                \
+        log__error(fmt, ##__VA_ARGS__);             \
+        uv_mutex_unlock(&Logger.lock);              \
+    } while(0)
 
 #define log_critical(fmt, ...)                      \
-    do if (Logger.level <= LOGGER_CRITICAL)         \
-        log__critical(fmt, ##__VA_ARGS__); while(0)
+    do if (Logger.level <= LOGGER_CRITICAL) {       \
+        uv_mutex_lock(&Logger.lock);                \
+        log__critical(fmt, ##__VA_ARGS__);          \
+        uv_mutex_unlock(&Logger.lock);              \
+    } while(0)
 
-#define LOGC(fmt, ...) \
-    do {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
-    log_critical(fmt, ##__VA_ARGS__);} while(0)
+#define LOGC(fmt, ...)                                          \
+    do {                                                        \
+        fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__);  \
+        uv_mutex_lock(&Logger.lock);                            \
+        log_critical(fmt, ##__VA_ARGS__);                       \
+        uv_mutex_unlock(&Logger.lock);                          \
+    } while(0)
 
 #ifndef NDEBUG
 #define assert_log(x, fmt, ...) \
@@ -69,17 +90,14 @@ extern logger_t Logger;
 #define assert_log(x, fmt, ...) ((const char *) 0)
 #endif
 
-#define LOGC(fmt, ...) \
-    do {fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__); \
-    log_critical(fmt, ##__VA_ARGS__);} while(0)
-
-
 struct logger_s
 {
     struct _LOGGER_IO_FILE * ostream;
     int level;
     const char * level_name;
     int flags;
+    uv_mutex_t lock;
+    uv_thread_t main_thread;
 };
 
 #endif /* LOGGER_H_ */

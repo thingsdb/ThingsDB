@@ -162,6 +162,7 @@ int ti_archive_load(void)
     struct dirent ** file_list;
     int n, total;
 
+    log_debug("loading archive files from `%s`", archive->path);
     assert (ti()->events->cevid);
     assert (ti()->node);
 
@@ -172,7 +173,10 @@ int ti_archive_load(void)
     if (total < 0)
     {
         /* no need to free shard_list when total < 0 */
-        log_critical("cannot read archive directory: `%s`.", archive->path);
+        log_critical(
+                "cannot scan directory `%s` (%s)",
+                archive->path,
+                strerror(errno));
         return -1;
     }
 
@@ -215,6 +219,9 @@ int ti_archive_push(ti_epkg_t * epkg)
     return rc;
 }
 
+/*
+ * May run from the `away->work` thread
+ */
 int ti_archive_to_disk(void)
 {
     ti_epkg_t * last_epkg = queue_last(archive->queue);
@@ -319,6 +326,8 @@ static int archive__load_file(const char * archive_fn)
     char * fn = fx_path_join(archive->path, archive_fn);
     if (!fn)
         return -1;
+
+    log_debug("loading archive file `%s`", fn);
 
     f = fopen(fn, "r");
     if (!f)
@@ -450,7 +459,9 @@ fail1:
         log_error("cannot close file `%s` (%s)", fn, strerror(errno));
         rc = -1;
     }
-    (void) unlink(fn);
+
+    if (rc)
+        (void) unlink(fn);
 
 fail0:
     free(fn);
@@ -465,7 +476,13 @@ static int archive__remove_files(void)
 
     DIR * d = opendir(archive->path);
     if (!d)
+    {
+        log_critical(
+                "cannot open directory `%s` (%s)",
+                archive->path,
+                strerror(errno));
         return -1;
+    }
 
     while ((p = readdir(d)))
     {
@@ -479,12 +496,18 @@ static int archive__remove_files(void)
             continue;
 
         (void) sprintf(buf, "%s%s", archive->path, p->d_name);
+
+        log_debug("removing archive file `%s`", buf);
         if (unlink(buf))
         {
             rc = -1;
             log_error("unable to remove archive file: `%s`", buf);
         }
     }
-    closedir(d);
+    if (closedir(d))
+        log_error(
+                "cannot close directory `%s` (%s)",
+                archive->path,
+                strerror(errno));
     return rc;
 }

@@ -39,7 +39,7 @@ async def test():
 
     start = time.time()
     try:
-        res = await client.watch([3])
+        res = await collection.watch()
     except ThingsDBError as e:
         print(f"{e.__class__.__name__}: {e}")
     else:
@@ -66,7 +66,7 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    print(collection.Labels)
+    # print(collection.Labels)
 
     await asyncio.sleep(0.5)
     print('-----------------------------------------------------------------')
@@ -75,10 +75,7 @@ async def test():
     try:
         res = await client.query(r'''
 
-        Labels;
-
-
-
+        Labels.labels[-1].name = 'bla';
 
 
         ''', blobs=["bla"], timeout=2)

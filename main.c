@@ -51,7 +51,12 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    ti_init_logger();
+    if (ti_init_logger())
+    {
+        printf("error initializing logger\n");
+        rc = -1;
+        goto stop;
+    }
 
     log_debug("running with cleri version: %s", cleri_version());
 
@@ -132,11 +137,13 @@ int main(int argc, char * argv[])
     rc = ti_run();
 
 stop:
+    ti_destroy();
+
     if (ti_unlock() || rc)
     {
         rc = EXIT_FAILURE;
     }
-    ti_destroy();
 
+    logger_destroy();
     return rc;
 }

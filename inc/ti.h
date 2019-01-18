@@ -98,7 +98,7 @@ extern ti_t ti_;
 
 int ti_create(void);
 void ti_destroy(void);
-void ti_init_logger(void);
+int ti_init_logger(void);
 int ti_init(void);
 int ti_build(void);
 int ti_write_node_id(uint8_t * node_id);

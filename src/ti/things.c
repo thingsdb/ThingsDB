@@ -119,7 +119,6 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     return 0;
 }
 
-
 static void things__gc_mark(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_SWEEP;

@@ -2,6 +2,7 @@ import asyncio
 import struct
 import logging
 import qpack
+import weakref
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
@@ -24,6 +25,7 @@ class Client(WatchMixin, Root):
         self._protocol = None
         self._requests = {}
         self._things = {}
+        self._watching = weakref.WeakSet()
         self._target = 0  # root target
 
     def get_event_loop():
@@ -80,19 +82,28 @@ class Client(WatchMixin, Root):
             result = result[0]
         return result
 
-    async def watch(self, ids, collection=None, timeout=None):
-        thing_ids = []
-        for id in ids:
-            assert isinstance(id, int)
-            thing_ids.append(id)
+    def watch(self, things, collection=None, timeout=None):
         assert collection is None or isinstance(collection, (int, str))
+        ids = [t.id() for t in things]
         collection = self._target if collection is None else collection
-        assert collection, 'for watching a target collection is required'
+        assert collection, 'for watching, a collection is required'
         data = {
-            'things': thing_ids,
+            'things': ids,
             'collection': collection
         }
-        future = self._write_package(REQ_WATCH, data, timeout=timeout)
+        return self._write_package(REQ_WATCH, data, timeout=timeout)
+
+    def unwatch(self, things, collection=None, timeout=None):
+        assert collection is None or isinstance(collection, (int, str))
+        ids = [t.id() for t in things]
+        assert collection is None or isinstance(collection, (int, str))
+        collection = self._target if collection is None else collection
+        assert collection, 'for un-watching, a collection is required'
+        data = {
+            'things': ids,
+            'collection': collection
+        }
+        return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
     def _on_package_received(self, pkg):
         if not pkg.pid:

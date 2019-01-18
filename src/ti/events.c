@@ -485,7 +485,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
             }
             /* TODO: this is only useful while implementing jobs */
             else if (Logger.level == LOGGER_DEBUG)
-                ti_event_log("success", ev);
+                ti_event_log("processed", ev);
             break;
         case TI_EVENT_TP_SLAVE:
             assert (0);

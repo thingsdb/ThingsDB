@@ -16,7 +16,7 @@ ti_lookup_t * ti_lookup_create(uint8_t n, uint8_t r)
 {
     assert (n && n <= 64);
 
-    ti_lookup_t * lookup = malloc(sizeof(ti_lookup_t) + n * sizeof(uint64_t));
+    ti_lookup_t * lookup = malloc(sizeof(ti_lookup_t));
     if (!lookup)
         return NULL;
 
@@ -83,52 +83,42 @@ _Bool ti_lookup_id_is_ordered(
 static void lookup__calculate(ti_lookup_t * lookup)
 {
     /* create lookup */
-    const uint8_t empty = 0xff;
-    int offset, found = 0;
+    int offset, nodes, skip, x, shift;
     int r = (int) lookup->r;
     int n = (int) lookup->n;
+    uint64_t * maskp;
 
-    /* set lookup to -1 */
-    for (int i = 0; i < n; i++)
-        lookup__cache[i] = empty;
+    /* set initial lookup */
+    for (int i = 0; i < LOOKUP_SIZE; ++i)
+        lookup->masks_[i] = (1 << r) -1;
 
-    for (int c = 0; c < n; c++)
+    for (int c = r; c < n; ++c)
     {
-        offset = -c;
-        for (int i = 0; i < n; i++)
+        offset = c;
+        nodes = c + 1;
+        skip = nodes - r;
+        assert (skip > 0);
+        for (int i = 0; i < LOOKUP_SIZE; ++i)
         {
-            if ((i - offset) % n < r)
-                found = 1;
-
-            if (!found)
+            x = i + offset;
+            if (x % nodes < skip)
                 continue;
 
-            for (int p = 0; p < r; p++)
+            x %= r;
+            maskp = lookup->masks_ + i;
+
+            for (shift = 1;; shift <<= 1)
             {
-                if (lookup__cache[i*r + p] == empty)
+                if (*maskp & shift)
                 {
-                    lookup__cache[i*r + p] = (uint8_t) c;
-                    found = 0;
-                    break;
+                    if (!x)
+                        break;
+                    x -= 1;
                 }
             }
 
-            if (found)
-                offset++;
+            *maskp &= ~shift;
+            *maskp |= 1 << c;
         }
-    }
-
-    for (int i = 0; i < n; i++)
-    {
-        uint8_t node_id;
-        uint64_t mask = 0;
-
-        for (int p = 0; p < r; p++)
-        {
-            node_id = lookup__cache[i*r + p];
-            mask += 1 << node_id;
-        }
-
-        lookup->mask_[i] = mask;
     }
 }

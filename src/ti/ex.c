@@ -6,11 +6,17 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ti/ex.h>
+#ifndef NDEBUG
+#include <util/logger.h>
+#include <uv.h>
+#endif
 
 static ex_t ex__e;
 
 ex_t * ex_use(void)
 {
+    /* should only be called on the main thread */
+    assert (Logger.main_thread == uv_thread_self());
     ex__e.nr = 0;
     ex__e.n = 0;
     ex__e.msg[0] = '\0';

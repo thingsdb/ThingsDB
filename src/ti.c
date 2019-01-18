@@ -111,7 +111,7 @@ void ti_destroy(void)
     memset(&ti_, 0, sizeof(ti_t));
 }
 
-void ti_init_logger(void)
+int ti_init_logger(void)
 {
     int n;
     char lname[255];
@@ -131,11 +131,11 @@ void ti_init_logger(void)
         strx_lower_case(lname);
         if (strlen(lname) == len && strcmp(ti_.args->log_level, lname) == 0)
         {
-            logger_init(stdout, n);
-            return;
+            return logger_init(stdout, n);
         }
     }
     assert (0);
+    return -1;
 }
 
 int ti_init(void)

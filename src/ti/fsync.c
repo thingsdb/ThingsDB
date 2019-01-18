@@ -126,29 +126,40 @@ static int fsync__write_part(
     fp = fopen(fn, "a");
     if (!fp)
     {
+        uv_mutex_lock(&Logger.lock);
         ex_set(e, EX_INTERNAL,
-                "cannot open file `%s` (%s)", fn, strerror(errno));
+                "cannot open file `%s` (%s)",
+                fn, strerror(errno));
+        uv_mutex_unlock(&Logger.lock);
         return e->nr;
     }
 
     sz = ftello(fp);
     if (sz != offset)
     {
+        uv_mutex_lock(&Logger.lock);
         ex_set(e, EX_BAD_DATA, "file `%s` is expected to have size %zd (%s)",
                 fn,
                 offset,
                 sz == -1 ? strerror(errno) : "file size is different");
+        uv_mutex_unlock(&Logger.lock);
         goto done;
     }
 
     if (fwrite(data, sizeof(char), size, fp) != size)
+    {
         ex_set(e, EX_INTERNAL, "error writing %zu bytes to file `%s`",
                 size, fn);
+    }
 
 done:
     if (fclose(fp) && !e->nr)
+    {
+        uv_mutex_lock(&Logger.lock);
         ex_set(e, EX_INTERNAL, "cannot close file `%s` (%s)",
-            fn, strerror(errno));
+                fn, strerror(errno));
+        uv_mutex_unlock(&Logger.lock);
+    }
 
     return e->nr;
 }

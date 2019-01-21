@@ -45,8 +45,12 @@ class Thing:
     def _unpack(self, prop, value, _arrtype=(list, tuple)):
         if isinstance(value, dict):
             if '#' in value:
-                thing_id = value['#']
-                return Thing(self._collection, thing_id)
+                thing_id = value.pop('#')
+                thing = Thing(self._collection, thing_id)
+                for p, v in value.items():
+                    thing._assign(p, v)
+                return thing
+
         elif isinstance(value, _arrtype):
             return Arr(self, prop, (self._unpack(None, v) for v in value))
         return value
@@ -72,7 +76,7 @@ class Thing:
         for prop, value in job.items():
             arr = self._props[prop]
             arr.extend((self._unpack(None, v) for v in value))
-            arr.apply_watch.(slice(-len(value), None))
+            arr.apply_watch(slice(-len(value), None))
 
     def _job_rename(self, job):
         for old_prop, new_prop in job.items():
@@ -120,12 +124,14 @@ class Thing:
     async def watch(self, **kwargs):
         return await self._collection._client.watch(
             [self],
-            collection=self._collection._id)
+            collection=self._collection._id
+        )
 
     async def unwatch(self, **kwargs):
         return await self._collection._client.unwatch(
             [self],
-            collection=self._collection._id)
+            collection=self._collection._id
+        )
 
     def id(self):
         return self._id

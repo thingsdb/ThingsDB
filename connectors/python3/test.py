@@ -35,20 +35,6 @@ async def test():
 
     client.use('osdata')
 
-    collection = await client.get_collection('osdata')
-
-    start = time.time()
-    try:
-        res = await collection.watch()
-    except ThingsDBError as e:
-        print(f"{e.__class__.__name__}: {e}")
-    else:
-        print('Time: {}'.format(time.time() - start))
-        pprint.pprint(res)
-
-    await asyncio.sleep(0.5)
-    print('-----------------------------------------------------------------')
-
     start = time.time()
     try:
         res = await client.query(r'''
@@ -66,16 +52,25 @@ async def test():
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
 
-    # print(collection.Labels)
-
-    await asyncio.sleep(0.5)
     print('-----------------------------------------------------------------')
 
     start = time.time()
     try:
         res = await client.query(r'''
 
-        Labels.labels[-1].name = 'bla';
+        /*
+        Oversight.nodes.push({
+            address: 'localhost',
+            port: 8720,
+            in_sync: true
+        }).ret();
+        */
+
+        /*
+        Oversight.nodes.splice(-1, 1);
+        */
+
+        Oversight.nodes.map(_=>_);
 
 
         ''', blobs=["bla"], timeout=2)
@@ -84,9 +79,6 @@ async def test():
     else:
         print('Time: {}'.format(time.time() - start))
         pprint.pprint(res)
-
-    while not interrupted:
-        await asyncio.sleep(0.1)
 
     print('-----------------------------------------------------------------')
 

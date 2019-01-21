@@ -349,10 +349,14 @@ static int archive__load_file(const char * archive_fn)
         qp_res_clear(&pkg_qp);
 
         epkg = ti_archive_epkg_from_pkg(pkg);
-        if (!epkg || (
-                epkg->event_id >= archive->start_event_id &&
-                queue_push(&archive->queue, epkg)))
+        if (!epkg)
             goto fail1;
+
+        if (epkg->event_id < archive->start_event_id)
+            ti_epkg_drop(epkg);
+        else
+            if (queue_push(&archive->queue, epkg))
+                goto fail1;
 
         ++archive->archived_on_disk;
     }

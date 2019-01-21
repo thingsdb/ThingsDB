@@ -543,7 +543,16 @@ static int job__splice(
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-        ti_val_destroy(vec_get(arr->via.arr, x));
+    {
+        if (arr->tp == TI_VAL_THINGS)
+        {
+            ti_thing_drop(vec_get(arr->via.arr, x));
+        }
+        else
+        {
+            ti_val_destroy(vec_get(arr->via.arr, x));
+        }
+    }
 
     memmove(
         arr->via.arr->data + i + n,

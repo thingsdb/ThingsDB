@@ -83,42 +83,52 @@ _Bool ti_lookup_id_is_ordered(
 static void lookup__calculate(ti_lookup_t * lookup)
 {
     /* create lookup */
-    int offset, nodes, skip, x, shift;
+    int nodes, shift, k, m;
     int r = (int) lookup->r;
     int n = (int) lookup->n;
+    const int total = LOOKUP_SIZE * r;
+    uint8_t * snode, * tnode, target;
     uint64_t * maskp;
+
 
     /* set initial lookup */
     for (int i = 0; i < LOOKUP_SIZE; ++i)
         lookup->masks_[i] = (1 << r) -1;
 
+    for (int i = 0; i < n; ++i)
+        lookup__cache[i] = i < r ? LOOKUP_SIZE : 0;
+
     for (int c = r; c < n; ++c)
     {
-        offset = c;
         nodes = c + 1;
-        skip = nodes - r;
-        assert (skip > 0);
+        target = (uint8_t) (total / nodes);
+        m = nodes - total % nodes;
+        tnode = lookup__cache + c;
         for (int i = 0; i < LOOKUP_SIZE; ++i)
         {
-            x = i + offset;
-            if (x % nodes < skip)
-                continue;
-
-            x %= r;
             maskp = lookup->masks_ + i;
-
-            for (shift = 1;; shift <<= 1)
+            for (k = 0, shift = 1, snode = lookup__cache;
+                 k < c;
+                 ++k, shift <<= 1, ++snode)
             {
-                if (*maskp & shift)
+                if ((*maskp & shift) && (*snode > target))
                 {
-                    if (!x)
-                        break;
-                    x -= 1;
+                    --(*snode);
+                    if (++(*tnode) > target)
+                    {
+                        nodes = 0;
+                    }
+                    else if (*snode == target && (!--m))
+                    {
+                        ++target;
+                    }
+                    *maskp &= ~shift;
+                    *maskp |= 1 << c;
+                    break;
                 }
             }
-
-            *maskp &= ~shift;
-            *maskp |= 1 << c;
+            if (!nodes)
+                break;
         }
     }
 }

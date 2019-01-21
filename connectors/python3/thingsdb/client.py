@@ -47,6 +47,9 @@ class Client(WatchMixin, Root):
     def close(self):
         self._transport.close()
 
+    def get_num_watch(self):
+        return len(self._watching)
+
     async def wait_closed(self):
         if self._protocol and self._protocol.close_future:
             await self._protocol.close_future

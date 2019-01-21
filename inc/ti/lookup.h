@@ -19,8 +19,6 @@ struct ti_lookup_s
     uint64_t masks_[LOOKUP_SIZE];
 };
 
-#include <ti/node.h>
-
 ti_lookup_t * ti_lookup_create(uint8_t n, uint8_t r);
 void ti_lookup_destroy(ti_lookup_t * lookup);
 _Bool ti_lookup_id_is_ordered(

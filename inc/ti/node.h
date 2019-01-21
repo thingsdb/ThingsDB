@@ -134,7 +134,7 @@ static inline _Bool ti_node_manages_id(
         ti_lookup_t * lookup,
         uint64_t id)
 {
-    return lookup->masks_[id % LOOKUP_SIZE] & (1 << node->id);
+    return ti_lookup_node_has_id(lookup, node->id, id);
 }
 
 

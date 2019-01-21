@@ -35,6 +35,15 @@ class Arr(list):
             loop=client._loop
         )
 
+    async def fetch(self):
+        thing = self._parent
+        res = await self._parent._query(
+            f'thing({self._parent._id}).{self._prop}.map(_=>_)'
+        )
+        self[:] = [thing._unpack(None, v) for v in res]
+        for t in self:
+            t._is_fetched = True
+
     async def ti_push(self, value, **kwargs):
         if self._prop is None:
             raise TypeError('cannot run push on tuple type')

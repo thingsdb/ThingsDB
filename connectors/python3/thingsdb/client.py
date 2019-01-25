@@ -28,7 +28,7 @@ class Client(WatchMixin, Root):
         self._watching = weakref.WeakSet()
         self._target = 0  # root target
 
-    def get_event_loop():
+    def get_event_loop(self):
         return self._loop
 
     async def connect(self, host, port=9200, timeout=5):

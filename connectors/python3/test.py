@@ -61,7 +61,7 @@ async def test():
         /*
         Oversight.nodes.push({
             address: 'localhost',
-            port: 8720,
+            port: 8721,
             in_sync: true
         }).ret();
         */
@@ -70,7 +70,7 @@ async def test():
         Oversight.nodes.splice(-1, 1);
         */
 
-        Oversight.nodes.map(_=>_);
+        Oversight.nodes.map(_ => _);
 
 
         ''', blobs=["bla"], timeout=2)

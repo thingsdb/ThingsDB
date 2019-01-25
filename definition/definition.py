@@ -107,6 +107,7 @@ class Definition(Grammar):
         f_get,          # (str,..) -> attribute val
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
+        # f_if,         # (bool, arrow/nil, [arrow/nil]) -> returns arrow val
         f_isinf,        # (float) -> bool
         f_isnan,        # (float) -> bool
         f_len,          # () -> int

@@ -128,6 +128,7 @@
         - [x] `isinf`
         - [x] `isnan`
         - [x] `id`
+        - [ ] `if`
         - [x] `lower`
         - [x] `map`
         - [x] `match`

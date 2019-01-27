@@ -262,16 +262,16 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
-    if (!pkg->id)
-    {
-        ex_t * e = ex_use();
-        ex_set(e, EX_BAD_DATA, "ping request requires a package id > 0");
-        resp = ti_pkg_client_err(pkg->id, e);
-    }
-    else
-    {
+//    if (!pkg->id)
+//    {
+//        ex_t * e = ex_use();
+//        ex_set(e, EX_BAD_DATA, "ping request requires a package id > 0");
+//        resp = ti_pkg_client_err(pkg->id, e);
+//    }
+//    else
+//    {
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
-    }
+//    }
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -288,13 +288,13 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_user_t * user;
     ex_t * e = ex_use();
 
-    if (!pkg->id)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "authentication request requires a package id > 0");
-        resp = ti_pkg_client_err(pkg->id, e);
-        goto finish;
-    }
+//    if (!pkg->id)
+//    {
+//        ex_set(e, EX_BAD_DATA,
+//                "authentication request requires a package id > 0");
+//        resp = ti_pkg_client_err(pkg->id, e);
+//        goto finish;
+//    }
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -346,11 +346,11 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_user_t * user = stream->via.user;
     vec_t * access_;
 
-    if (!pkg->id)
-    {
-        ex_set(e, EX_BAD_DATA, "query request requires a package id > 0");
-        goto finish;
-    }
+//    if (!pkg->id)
+//    {
+//        ex_set(e, EX_BAD_DATA, "query request requires a package id > 0");
+//        goto finish;
+//    }
 
     if (!user)
     {
@@ -444,11 +444,11 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
 
-    if (!pkg->id)
-    {
-        ex_set(e, EX_BAD_DATA, "watch request requires a package id > 0");
-        goto finish;
-    }
+//    if (!pkg->id)
+//    {
+//        ex_set(e, EX_BAD_DATA, "watch request requires a package id > 0");
+//        goto finish;
+//    }
 
     if (!user)
     {
@@ -505,11 +505,11 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
 
-    if (!pkg->id)
-    {
-        ex_set(e, EX_BAD_DATA, "unwatch request requires a package id > 0");
-        goto finish;
-    }
+//    if (!pkg->id)
+//    {
+//        ex_set(e, EX_BAD_DATA, "unwatch request requires a package id > 0");
+//        goto finish;
+//    }
 
     if (!user)
     {

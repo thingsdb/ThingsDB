@@ -32,10 +32,7 @@ int ti_req_create(
     assert (timeout > 0);
     assert (pkg_req->id == 0);
 
-    /* we use package id 0 for fire-and-forget writes */
-    pkg_req->id = ++stream->next_pkg_id
-            ? stream->next_pkg_id
-            : ++stream->next_pkg_id;
+    pkg_req->id = ++stream->next_pkg_id;
 
     req->stream = ti_grab(stream);
     req->pkg_req = pkg_req;

@@ -350,6 +350,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     switch (pkg->tp)
     {
     case TI_PROTO_CLIENT_RES_QUERY:
+    case TI_PROTO_CLIENT_ERR_OVERFLOW:
+    case TI_PROTO_CLIENT_ERR_ZERO_DIV:
     case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
     case TI_PROTO_CLIENT_ERR_AUTH:
     case TI_PROTO_CLIENT_ERR_FORBIDDEN:

@@ -10,6 +10,7 @@ from .protocol import REQ_QUERY
 from .protocol import REQ_WATCH
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
+from .protocol import ON_WATCH
 from .watch import WatchMixin
 from .root import Root
 
@@ -109,7 +110,7 @@ class Client(WatchMixin, Root):
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
     def _on_package_received(self, pkg):
-        if not pkg.pid:
+        if pkg.tp in ON_WATCH:
             self._on_watch_received(pkg)
             return
 
@@ -143,8 +144,6 @@ class Client(WatchMixin, Root):
     def _write_package(self, tp, data=None, is_bin=False, timeout=None):
         self._pid += 1
         self._pid %= 0x10000  # pid is handled as uint16_t
-        if not self._pid:
-            self._pid += 1
 
         data = data if is_bin else b'' if data is None else qpack.packb(data)
 

@@ -43,6 +43,8 @@ RES_ERR_QUERY = 103
 RES_ERR_NODE = 104
 RES_ERR_INTERNAL = 127
 
+ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL, ON_NODE_STATUS)
+
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
     RES_AUTH: lambda f, d: f.set_result(None),

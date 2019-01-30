@@ -10,6 +10,7 @@
 #include <ti/things.h>
 #include <ti.h>
 #include <util/logger.h>
+#include <util/strx.h>
 
 static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
 static int val__push(ti_val_t * arr, ti_val_t * val);
@@ -207,6 +208,63 @@ int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
     log_critical("unknown type: %d", tp);
     assert (0);
     return -1;
+}
+
+int ti_val_convert_to_str(ti_val_t * val)
+{
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
+    case TI_VAL_NIL:
+        val->via.raw = ti_raw_from_strn("nil", 3);
+        break;
+    case TI_VAL_INT:
+        {
+            size_t n;
+            const char * s = strx_from_int64(val->via.int_, &n);
+            val->via.raw = ti_raw_from_strn(s, n);
+        }
+        break;
+    case TI_VAL_FLOAT:
+        {
+            size_t n;
+            const char * s = strx_from_double(val->via.float_, &n);
+            val->via.raw = ti_raw_from_strn(s, n);
+        }
+        break;
+    case TI_VAL_BOOL:
+        val->via.raw = val->via.bool_
+            ? ti_raw_from_strn("true", 4)
+            : ti_raw_from_strn("false", 5);
+        break;
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+        break;
+    case TI_VAL_REGEX:
+        {
+            ti_raw_t * pattern = ti_grab(val->via.regex->pattern);
+            ti_regex_drop(val->via.regex);
+            val->via.raw = pattern;
+        }
+        break;
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        ti_val_clear(val);
+        val->via.raw = ti_raw_from_strn("<object>", 8);
+        break;
+    }
+
+    if (!val->via.raw)
+    {
+        val->tp = TI_VAL_NIL;
+        return -1;
+    }
+
+    val->tp = TI_VAL_RAW;
+    return 0;
 }
 
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)

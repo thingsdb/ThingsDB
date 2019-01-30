@@ -69,6 +69,7 @@ class Definition(Grammar):
     f_match = Keyword('match')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
+    f_str = Keyword('str')
     f_thing = Keyword('thing')
     f_upper = Keyword('upper')
 
@@ -117,6 +118,7 @@ class Definition(Grammar):
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
+        f_str,          # (x) -> string
         f_thing,        # (int thing_id) -> thing
         f_upper,        # () -> str
         # build-in update functions

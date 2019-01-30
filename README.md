@@ -119,30 +119,31 @@
         - [x] `blob`
             - [x] array implementation
             - [ ] ~~Future feature: map implementation~~
+        - [ ] `hasattr`
+        - [ ] `if`
+        - [x] `del`
         - [x] `endswith`
         - [x] `filter`
         - [x] `find`
         - [x] `get`
-        - [ ] `hasattr`
         - [x] `hasprop`
+        - [x] `id`
         - [x] `isinf`
         - [x] `isnan`
-        - [x] `id`
-        - [ ] `if`
         - [x] `lower`
         - [x] `map`
         - [x] `match`
         - [x] `now`
-        - [x] `ret`
-        - [x] `startswith`
-        - [x] `thing`
-        - [x] `upper`
-        - [x] `del`
         - [x] `push`
         - [x] `rename`
+        - [x] `ret`
         - [x] `set`
         - [x] `splice`
+        - [x] `startswith`
+        - [x] `str`
+        - [x] `thing`
         - [x] `unset`
+        - [x] `upper`
 - [x] Redundancy as initial argument together with --init ?
 - [x] Task generating
     - [x] `assign`

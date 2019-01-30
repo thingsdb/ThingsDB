@@ -61,13 +61,15 @@ async def test():
         /*
         Oversight.nodes.push({
             address: 'localhost',
+            secret: 'someblabla',
             port: 8721,
             in_sync: true
         }).ret();
         */
 
+
         /*
-        Oversight.nodes.splice(-1, 1);
+        Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
         Oversight.nodes.map(_ => _);

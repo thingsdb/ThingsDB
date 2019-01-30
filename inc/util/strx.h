@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 void strx_upper_case(char * sptr);
 void strx_lower_case(char * sptr);
@@ -22,6 +23,8 @@ _Bool strx_is_graph(const char * str);
 _Bool strx_is_graphn(const char * str, size_t n);
 double strx_to_double(const char * str);
 int64_t strx_to_int64(const char * str);
+const char * strx_from_double(const double d, size_t * n);  /* not thread safe */
+const char * strx_from_int64(const int64_t i, size_t * n);  /* not thread safe */
 char * strx_cat(const char * s1, const char * s2);
 
 #endif /* TI_STRX_H_ */

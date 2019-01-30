@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <inttypes.h>
+
+#define STRX__MAX_CONV_SZ 50
+static char strx__buf[STRX__MAX_CONV_SZ];
 
 void strx_lower_case(char * str)
 {
@@ -297,6 +301,22 @@ int64_t strx_to_int64(const char * str)
     i = strtoll(str, NULL, base);
 
     return negative ? negative * i : i;
+}
+
+/* not thread safe */
+const char * strx_from_double(const double d, size_t * n)
+{
+    int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%g", d);
+    *n = (r < 0 || r >= STRX__MAX_CONV_SZ) ? 0 : (size_t) r;
+    return strx__buf;
+}
+
+/* not thread safe */
+const char * strx_from_int64(const int64_t i, size_t * n)
+{
+    int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%"PRId64, i);
+    *n = (r < 0 || r >= STRX__MAX_CONV_SZ) ? 0 : (size_t) r;
+    return strx__buf;
 }
 
 char * strx_cat(const char * s1, const char * s2)

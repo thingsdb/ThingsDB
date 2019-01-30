@@ -104,6 +104,18 @@ done:
     return r;
 }
 
+ti_raw_t * ti_raw_from_strn(const char * str, size_t n)
+{
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    if (!r)
+        return NULL;
+
+    r->n = n;
+    r->ref = 1;
+    memcpy(r->data, str, n);
+    return r;
+}
+
 ti_raw_t * ti_raw_upper(ti_raw_t * raw)
 {
     char * to, * from = (char *) raw->data;

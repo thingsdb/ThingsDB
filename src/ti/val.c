@@ -239,6 +239,13 @@ int ti_val_convert_to_str(ti_val_t * val)
         break;
     case TI_VAL_QP:
     case TI_VAL_RAW:
+        if (!strx_is_graphn(
+                (const char *) val->via.raw->data,
+                val->via.raw->n))
+        {
+            ti_raw_drop(val->via.raw);
+            val->via.raw = ti_raw_from_strn("<blob>", 6);
+        }
         break;
     case TI_VAL_REGEX:
         {

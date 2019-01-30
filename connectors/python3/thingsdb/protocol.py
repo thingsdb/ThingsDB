@@ -83,6 +83,7 @@ class Protocol(asyncio.Protocol):
     def __init__(self, loop=None):
         self._buffered_data = bytearray()
         self.package = None
+        self.transport = None
         self.loop = asyncio.get_event_loop() if loop is None else loop
         self.close_future = None
 
@@ -91,6 +92,7 @@ class Protocol(asyncio.Protocol):
         override asyncio.Protocol
         '''
         self.close_future = self.loop.create_future()
+        self.transport = transport
 
     def connection_lost(self, exc):
         '''
@@ -98,6 +100,7 @@ class Protocol(asyncio.Protocol):
         '''
         self.close_future.set_result(None)
         self.close_future = None
+        self.transport = None
 
     def data_received(self, data):
         '''

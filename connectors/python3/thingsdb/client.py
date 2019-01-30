@@ -22,7 +22,6 @@ class Client(WatchMixin, Root):
         self._password = None
         self._host = None
         self._port = None
-        self._transport = None
         self._protocol = None
         self._requests = {}
         self._things = {}
@@ -32,6 +31,9 @@ class Client(WatchMixin, Root):
     def get_event_loop(self):
         return self._loop
 
+    def is_connected(self):
+        return self._protocol and self._protocol.transport
+
     async def connect(self, host, port=9200, timeout=5):
         self._host = host
         self._port = port
@@ -39,14 +41,15 @@ class Client(WatchMixin, Root):
             Protocol,
             host=self._host,
             port=self._port)
-        self._transport, self._protocol = await asyncio.wait_for(
+        _, self._protocol = await asyncio.wait_for(
             conn,
             timeout=timeout)
         self._protocol.on_package_received = self._on_package_received
         self._pid = 0
 
     def close(self):
-        self._transport.close()
+        if self._protocol and self._protocol.transport:
+            self._protocol.transport.close()
 
     def get_num_watch(self):
         return len(self._watching)
@@ -153,7 +156,7 @@ class Client(WatchMixin, Root):
             tp,
             tp ^ 0xff)
 
-        self._transport.write(header + data)
+        self._protocol.transport.write(header + data)
 
         task = asyncio.ensure_future(
             self._timer(self._pid, timeout)) if timeout else None

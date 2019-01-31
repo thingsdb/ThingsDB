@@ -353,7 +353,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    ti_raw_t * rname, * msg;
+    ti_raw_t * rname;
     ti_collection_t * collection;
     ti_task_t * task;
 
@@ -399,14 +399,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
-
-    msg = ti_raw_from_fmt(
-            "created "TI_COLLECTION_ID" (%.*s)",
-            collection->root->id,
-            (int) collection->name->n,
-            (char *) collection->name->data);
-    if (msg)
-        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
+    ti_val_set_int(query->rval, (int64_t) collection->root->id);
 
 finish:
     return e->nr;
@@ -424,7 +417,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * secret;
     uint8_t zone;
     ti_node_t * node;
-    ti_raw_t * rsecret, * msg;
+    ti_raw_t * rsecret;
     ti_task_t * task;
     cleri_children_t * child;
     struct in_addr sa;
@@ -604,10 +597,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
-
-    msg = ti_raw_from_fmt("created "TI_NODE_ID, node->id);
-    if (msg)
-        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
+    ti_val_set_int(query->rval, (int64_t) node->id);
 
 fail1:
     free(addrstr);
@@ -626,7 +616,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * passstr = NULL;
     int n;
     ti_user_t * nuser;
-    ti_raw_t * rname, * msg;
+    ti_raw_t * rname;
     ti_task_t * task;
 
     n = langdef_nd_n_function_params(nd);
@@ -689,12 +679,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_clear(query->rval);
-
-    msg = ti_raw_from_fmt(
-            "created user `%.*s`",
-            (int) nuser->name->n, (char *) nuser->name->data);
-    if (msg)
-        ti_val_weak_set(query->rval, TI_VAL_RAW, msg);
+    ti_val_set_int(query->rval, (int64_t) nuser->id);
 
 done:
     free(passstr);

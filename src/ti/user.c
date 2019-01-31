@@ -9,8 +9,8 @@
 #include <util/cryptx.h>
 #include <util/strx.h>
 
-const char * ti_user_def_name = "iris";
-const char * ti_user_def_pass = "siri";
+const char * ti_user_def_name = "admin";
+const char * ti_user_def_pass = "pass";
 const unsigned int ti_min_name = 1;
 const unsigned int ti_max_name = 128;
 const unsigned int ti_min_pass = 1;

@@ -108,7 +108,16 @@ class Definition(Grammar):
         f_get,          # (str,..) -> attribute val
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
-        # f_if,         # (bool, arrow/nil, [arrow/nil]) -> returns arrow val
+        # f_isint,
+        # f_israw,
+        # f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
+        # f_isutf8,
+        # f_isascci,
+        # f_isarray,
+        # f_isthings,
+        # f_isbool,
+        # f_isfloat,
+        # f_isnumber,
         f_isinf,        # (float) -> bool
         f_isnan,        # (float) -> bool
         f_len,          # () -> int
@@ -118,7 +127,7 @@ class Definition(Grammar):
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
-        f_str,          # (x) -> string
+        f_str,          # (x) -> raw
         f_thing,        # (int thing_id) -> thing
         f_upper,        # () -> str
         # build-in update functions
@@ -158,6 +167,7 @@ class Definition(Grammar):
             ), THIS)
         ),
         ')',
+        Optional(Sequence('?', scope, ':', scope)),  # conditional support?
     )
 
     assignment = Sequence(name, Tokens('= += -= *= /= %= &= ^= |='), scope)

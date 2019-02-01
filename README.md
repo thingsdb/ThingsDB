@@ -120,7 +120,7 @@
             - [x] array implementation
             - [ ] ~~Future feature: map implementation~~
         - [ ] `hasattr`
-        - [ ] `if`
+        - [ ] ~~`if`~~, or maybe better: a conditional operator ?
         - [x] `del`
         - [x] `endswith`
         - [x] `filter`
@@ -128,6 +128,7 @@
         - [x] `get`
         - [x] `hasprop`
         - [x] `id`
+        - [ ] `int`
         - [x] `isinf`
         - [x] `isnan`
         - [x] `lower`

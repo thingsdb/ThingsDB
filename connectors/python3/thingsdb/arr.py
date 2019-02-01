@@ -53,7 +53,7 @@ class Arr(list):
             kwargs['blobs'] = blobs
 
         await self._parent._query(
-            f'thing({self._parent._id}).{self._prop}.push({value})',
+            f'thing({self._parent._id}).{self._prop}.push({value}).ret()',
             **kwargs
         )
 

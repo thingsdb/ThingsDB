@@ -239,7 +239,7 @@ int ti_val_convert_to_str(ti_val_t * val)
         break;
     case TI_VAL_QP:
     case TI_VAL_RAW:
-        if (!strx_is_graphn(
+        if (!strx_is_utf8n(
                 (const char *) val->via.raw->data,
                 val->via.raw->n))
         {

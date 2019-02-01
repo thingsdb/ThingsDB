@@ -206,6 +206,15 @@ _Bool strx_is_graphn(const char * str, size_t n)
     return true;
 }
 
+_Bool strx_is_asciin(const char * str, size_t n)
+{
+    for (; n--; str++)
+        if (*str < 0)
+            return false;
+    return true;
+}
+
+
 /*
  * Requires a match with regular expression:
  *

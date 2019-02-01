@@ -218,7 +218,7 @@ _Bool strx_is_asciin(const char * str, size_t n)
 /*
  * Requires a match with regular expression:
  *
- *      [-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)
+ *      [-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)
  */
 double strx_to_double(const char * str)
 {

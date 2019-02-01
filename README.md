@@ -347,3 +347,20 @@
 ## Special thanks to:
 
  - [Fast Validate UTF-8](https://github.com/lemire/fastvalidate-utf-8)
+
+
+
+## Fonts:
+
+*From this one I like the smaller case and very bold*
+https://fonts.google.com/specimen/Work+Sans
+
+*Uppercase is also oke*
+https://fonts.google.com/specimen/Encode+Sans+Condensed
+
+
+*Very simple*
+https://fonts.google.com/specimen/Baloo+Thambi
+
+*like the capital b*
+https://fonts.google.com/specimen/Fredoka+One

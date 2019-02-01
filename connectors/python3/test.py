@@ -72,8 +72,11 @@ async def test():
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
-        ('') ? 'bla' : 'no';
+        info_email = 'info@thingsdb.net';
+        check = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/;
 
+        /* Check if info_email is a valid email address */
+        info_email.test(check);
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

@@ -40,7 +40,7 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
-    t_float = Regex(r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
+    t_float = Regex(r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
     t_int = Regex(r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
@@ -66,10 +66,10 @@ class Definition(Grammar):
     f_lower = Keyword('lower')
     f_map = Keyword('map')
     f_now = Keyword('now')
-    f_match = Keyword('match')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_str = Keyword('str')
+    f_test = Keyword('test')
     f_thing = Keyword('thing')
     f_upper = Keyword('upper')
 
@@ -123,11 +123,11 @@ class Definition(Grammar):
         f_len,          # () -> int
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
-        f_match,        # (regex) -> bool
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_str,          # (x) -> raw
+        f_test,         # (regex) -> bool
         f_thing,        # (int thing_id) -> thing
         f_upper,        # () -> str
         # build-in update functions
@@ -220,8 +220,8 @@ if __name__ == '__main__':
 
         (true) ? 2 : 3;
 
-        ''')
-    exit(0)
+        inf''')
+    # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

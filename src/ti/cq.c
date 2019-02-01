@@ -35,7 +35,6 @@ static int cq__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -44,6 +43,7 @@ static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1650,57 +1650,6 @@ done:
     return e->nr;
 }
 
-static int cq__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
-    ti_val_t * val = query_get_val(query);
-    _Bool from_rval = val == query->rval;
-    _Bool match;
-
-    if (!val || !ti_val_is_raw(val))
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `match`",
-                query_tp_str(query));
-        return e->nr;
-    }
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int n = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
-                "function `match` takes 1 argument but %d were given", n);
-        return e->nr;
-    }
-
-    query->rval = NULL;
-
-    if (ti_cq_scope(query, nd->children->node, e))
-        goto done;
-
-    if (query->rval->tp != TI_VAL_REGEX)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `match` expects argument 1 to be of type `%s` "
-                "but got `%s`",
-                ti_val_tp_str(TI_VAL_REGEX),
-                ti_val_str(query->rval));
-        goto done;
-    }
-
-    match = ti_regex_match(query->rval->via.regex, val->via.raw);
-
-    ti_val_clear(query->rval);
-    ti_val_set_bool(query->rval, match);
-
-done:
-    if (from_rval)
-        ti_val_destroy(val);
-    return e->nr;
-}
-
 static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2395,6 +2344,57 @@ static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return 0;
 }
 
+static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
+    _Bool has_match;
+
+    if (!val || !ti_val_is_raw(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `test`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `test` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    query->rval = NULL;
+
+    if (ti_cq_scope(query, nd->children->node, e))
+        goto done;
+
+    if (query->rval->tp != TI_VAL_REGEX)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `test` expects argument 1 to be of type `%s` "
+                "but got `%s`",
+                ti_val_tp_str(TI_VAL_REGEX),
+                ti_val_str(query->rval));
+        goto done;
+    }
+
+    has_match = ti_regex_test(query->rval->via.regex, val->via.raw);
+
+    ti_val_clear(query->rval);
+    ti_val_set_bool(query->rval, has_match);
+
+done:
+    if (from_rval)
+        ti_val_destroy(val);
+    return e->nr;
+}
+
 static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2675,8 +2675,6 @@ static int cq__function(
         return cq__f_lower(query, params, e);
     case CLERI_GID_F_MAP:
         return cq__f_map(query, params, e);
-    case CLERI_GID_F_MATCH:
-        return cq__f_match(query, params, e);
     case CLERI_GID_F_NOW:
         if (is_scope)
             return cq__f_now(query, params, e);
@@ -2697,6 +2695,8 @@ static int cq__function(
         if (is_scope)
             return cq__f_str(query, params, e);
         break;
+    case CLERI_GID_F_TEST:
+        return cq__f_test(query, params, e);
     case CLERI_GID_F_THING:
         if (is_scope)
             return cq__f_thing(query, params, e);

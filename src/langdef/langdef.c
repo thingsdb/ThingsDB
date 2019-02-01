@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-01 12:19:48
+ * Created at: 2019-02-01 22:50:18
  */
 
 #include <langdef/langdef.h>
@@ -22,7 +22,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
-    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?(inf|nan|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)");
+    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)");
     cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))");
     cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
     cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)");
@@ -50,10 +50,10 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_lower = cleri_keyword(CLERI_GID_F_LOWER, "lower", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
     cleri_t * f_now = cleri_keyword(CLERI_GID_F_NOW, "now", CLERI_CASE_SENSITIVE);
-    cleri_t * f_match = cleri_keyword(CLERI_GID_F_MATCH, "match", CLERI_CASE_SENSITIVE);
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_str = cleri_keyword(CLERI_GID_F_STR, "str", CLERI_CASE_SENSITIVE);
+    cleri_t * f_test = cleri_keyword(CLERI_GID_F_TEST, "test", CLERI_CASE_SENSITIVE);
     cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
     cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
@@ -122,11 +122,11 @@ cleri_grammar_t * compile_langdef(void)
             f_len,
             f_lower,
             f_map,
-            f_match,
             f_now,
             f_ret,
             f_startswith,
             f_str,
+            f_test,
             f_thing,
             f_upper,
             f_del,

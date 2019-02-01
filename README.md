@@ -341,3 +341,8 @@
    ThingsDB state will be saved to disk immediately? ->This is actually not really required
    The root job processor should check if the node is already saved, and otherwise skip adding
    the node. (therefore we really need the `node_id`)
+
+
+## Special thanks to:
+
+ - [Fast Validate UTF-8](https://github.com/lemire/fastvalidate-utf-8)

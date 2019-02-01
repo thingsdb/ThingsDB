@@ -120,7 +120,7 @@
             - [x] array implementation
             - [ ] ~~Future feature: map implementation~~
         - [ ] `hasattr`
-        - [ ] ~~`if`~~, or maybe better: a conditional operator ?
+
         - [x] `del`
         - [x] `endswith`
         - [x] `filter`
@@ -192,6 +192,7 @@
     - [x] `b_and`
     - [x] `b_xor`
     - [x] `b_or`
+    - [x] `(b) ? x : y` conditional operator
 - [x] Expressions
     - [x] AND
     - [x] OR

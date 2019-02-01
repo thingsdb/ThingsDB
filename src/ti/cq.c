@@ -104,6 +104,19 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query_rval_destroy(query);
         if (cq__operations(query, node->children->next->node, e))
             return e->nr;
+
+        if (node->children->next->next->next)               /* optional */
+        {
+            node = node->children->next->next->next->node   /* choice */
+                   ->children->node;                        /* sequence */
+            if (ti_cq_scope(
+                    query,
+                    ti_val_as_bool(query->rval)
+                        ? node->children->next->node        /* scope, true */
+                        : node->children->next->next->next->node, /* false */
+                    e))
+                return e->nr;
+        }
         break;
     case CLERI_GID_FUNCTION:
         if (cq__function(query, node, true, e))

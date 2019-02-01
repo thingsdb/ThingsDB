@@ -481,7 +481,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "a `secret` is required "
-            "and should only contain graphic characters");
+            "and should only contain graphical characters");
         return e->nr;
     }
 

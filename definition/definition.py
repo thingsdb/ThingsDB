@@ -218,10 +218,10 @@ if __name__ == '__main__':
 
     definition.test(r'''
 
-        hex = 0xff;
+        (true) ? 2 : 3;
 
         ''')
-    # exit(0)
+    exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

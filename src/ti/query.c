@@ -462,6 +462,17 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         return;
     case CLERI_GID_OPERATIONS:
         (void) query__swap_opr(query, nd->children->next, 0);
+        if (nd->children->next->next->next)             /* optional */
+        {
+            nd = nd->children->next->next->next->node   /* choice */
+                    ->children->node;                   /* sequence */
+            query__investigate_recursive(
+                    query,
+                    nd->children->next->node);
+            query__investigate_recursive(
+                    query,
+                    nd->children->next->next->next->node);
+        }
         return;
     case CLERI_GID_INDEX:
         #if TI_USE_VOID_POINTER

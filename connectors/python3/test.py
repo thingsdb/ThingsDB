@@ -72,7 +72,7 @@ async def test():
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
-        Oversight.nodes.map(_ => _);
+        ('') ? 'bla' : 'no';
 
 
         ''', blobs=["bla"], timeout=2)

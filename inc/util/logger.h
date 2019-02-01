@@ -78,9 +78,7 @@ extern logger_t Logger;
 #define LOGC(fmt, ...)                                          \
     do {                                                        \
         fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__);  \
-        uv_mutex_lock(&Logger.lock);                            \
         log_critical(fmt, ##__VA_ARGS__);                       \
-        uv_mutex_unlock(&Logger.lock);                          \
     } while(0)
 
 #ifndef NDEBUG

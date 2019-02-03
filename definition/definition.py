@@ -60,7 +60,9 @@ class Definition(Grammar):
     f_get = Keyword('get')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
+    f_isarray = Keyword('isarray')
     f_isinf = Keyword('isinf')
+    f_islist = Keyword('islist')
     f_isnan = Keyword('isnan')
     f_len = Keyword('len')
     f_lower = Keyword('lower')
@@ -108,17 +110,18 @@ class Definition(Grammar):
         f_get,          # (str,..) -> attribute val
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
-        # f_isint,
-        # f_israw,
-        # f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
-        # f_isutf8,
+        f_isarray,      # (x) -> bool
         # f_isascci,
-        # f_isarray,
-        # f_isthings,
         # f_isbool,
         # f_isfloat,
+        # f_isint,
         # f_isnumber,
+        # f_israw,
+        # f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
+        # f_isthings,
+        # f_isutf8,
         f_isinf,        # (float) -> bool
+        f_islist,       # (x) -> bool
         f_isnan,        # (float) -> bool
         f_len,          # () -> int
         f_lower,        # () -> str

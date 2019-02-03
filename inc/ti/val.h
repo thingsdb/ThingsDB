@@ -94,6 +94,8 @@ static inline _Bool ti_val_is_settable(ti_val_t * val);
 static inline _Bool ti_val_is_mutable_arr(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
 static inline _Bool ti_val_is_iterable(ti_val_t * val);
+static inline _Bool ti_val_is_array(ti_val_t * val);
+static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline void ti_val_mark_fetch(ti_val_t * val);
 static inline void ti_val_unmark_fetch(ti_val_t * val);
 
@@ -183,6 +185,23 @@ static inline _Bool ti_val_is_iterable(ti_val_t * val)
         val->tp == TI_VAL_TUPLE ||
         val->tp == TI_VAL_THING ||
         val->tp == TI_VAL_THINGS
+    );
+}
+
+static inline _Bool ti_val_is_array(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_ARRAY ||
+        val->tp == TI_VAL_TUPLE ||
+        val->tp == TI_VAL_THINGS
+    );
+}
+
+static inline _Bool ti_val_is_list(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_ARRAY ||
+        (val->tp == TI_VAL_THINGS && !val->via.arr->n)
     );
 }
 

@@ -30,7 +30,9 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_islist(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1297,6 +1299,33 @@ static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query_get_thing(query) == query->target->root);
+
+    _Bool is_array;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `isarray` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    if (ti_cq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    is_array = ti_val_is_array(query->rval);
+
+    ti_val_clear(query->rval);
+    ti_val_set_bool(query->rval, is_array);
+
+    return e->nr;
+}
+
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1338,6 +1367,34 @@ static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
+
+static int cq__f_islist(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query_get_thing(query) == query->target->root);
+
+    _Bool is_list;
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `islist` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    if (ti_cq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    is_list = ti_val_is_list(query->rval);
+
+    ti_val_clear(query->rval);
+    ti_val_set_bool(query->rval, is_list);
+
+    return e->nr;
+}
+
 
 static int cq__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -2661,9 +2718,17 @@ static int cq__function(
         return cq__f_hasprop(query, params, e);
     case CLERI_GID_F_ID:
         return cq__f_id(query, params, e);
+    case CLERI_GID_F_ISARRAY:
+        if (is_scope)
+            return cq__f_isarray(query, params, e);
+        break;
     case CLERI_GID_F_ISINF:
         if (is_scope)
             return cq__f_isinf(query, params, e);
+        break;
+    case CLERI_GID_F_ISLIST:
+        if (is_scope)
+            return cq__f_islist(query, params, e);
         break;
     case CLERI_GID_F_ISNAN:
         if (is_scope)

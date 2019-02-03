@@ -1,20 +1,13 @@
 import asyncio
 from thingsdb.client import Client
 
-client = Client()
-loop = asyncio.get_event_loop()
-
-
 async def example():
-    # replace `localhost` with your ThingsDB server address
-    await client.connect('localhost', 9200)
-
-    # replace `admin` with yout username and `pass` with your password
+    await client.connect('server.local', 9200)
     await client.authenticate('admin', 'pass')
+    res = await client.query(r'''
+        'Hello World!!'.lower();
+    ''', target='stuff')
+    print(res)
 
-# run the example
-loop.run_until_complete(example())
-
-# the will close the client in a nice way
-client.close()
-loop.run_until_complete(client.wait_closed())
+client = Client()
+asyncio.get_event_loop().run_until_complete(example())

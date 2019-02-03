@@ -658,7 +658,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_RAW:                return "raw";
     case TI_VAL_REGEX:              return "regex";
     case TI_VAL_TUPLE:              return "tuple";
-    case TI_VAL_ARRAY:              return "array";
+    case TI_VAL_ARRAY:              return "list";
     case TI_VAL_THINGS:             return "array-of-things";
     case TI_VAL_THING:              return "thing";
     case TI_VAL_ARROW:              return "arrow-function";

@@ -75,3 +75,7 @@ __pycache__/
 Debug/thingsdb
 Release/thingsdb
 
+# Python building
+connectors/python3/build/
+connectors/python3/*-info/
+connectors/python3/dist/

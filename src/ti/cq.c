@@ -30,6 +30,7 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_islist(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1297,6 +1298,26 @@ static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_set_int(query->rval, thing_id);
 
     return e->nr;
+}
+
+static int cq__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query_get_thing(query) == query->target->root);
+
+    if (!langdef_nd_fun_has_one_param(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `int` takes 1 argument but %d were given", n);
+        return e->nr;
+    }
+
+    if (ti_cq_scope(query, nd->children->node, e))
+        return e->nr;
+
+    return ti_val_convert_to_int(query->rval, e);
 }
 
 static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -2718,6 +2739,10 @@ static int cq__function(
         return cq__f_hasprop(query, params, e);
     case CLERI_GID_F_ID:
         return cq__f_id(query, params, e);
+    case CLERI_GID_F_INT:
+        if (is_scope)
+            return cq__f_int(query, params, e);
+        break;
     case CLERI_GID_F_ISARRAY:
         if (is_scope)
             return cq__f_isarray(query, params, e);

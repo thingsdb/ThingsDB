@@ -119,17 +119,18 @@
         - [x] `blob`
             - [x] array implementation
             - [ ] ~~Future feature: map implementation~~
-        - [ ] `hasattr`
-
         - [x] `del`
         - [x] `endswith`
         - [x] `filter`
         - [x] `find`
         - [x] `get`
+        - [ ] `hasattr`
         - [x] `hasprop`
         - [x] `id`
         - [ ] `int`
+        - [x] `isarray`
         - [x] `isinf`
+        - [x] `islist`
         - [x] `isnan`
         - [x] `lower`
         - [x] `map`

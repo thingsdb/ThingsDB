@@ -60,6 +60,7 @@ class Definition(Grammar):
     f_get = Keyword('get')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
+    f_int = Keyword('int')
     f_isarray = Keyword('isarray')
     f_isinf = Keyword('isinf')
     f_islist = Keyword('islist')
@@ -110,6 +111,7 @@ class Definition(Grammar):
         f_get,          # (str,..) -> attribute val
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
+        f_int,          # (x) -> int
         f_isarray,      # (x) -> bool
         # f_isascci,
         # f_isbool,

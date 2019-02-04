@@ -274,6 +274,74 @@ int ti_val_convert_to_str(ti_val_t * val)
     return 0;
 }
 
+int ti_val_convert_to_int(ti_val_t * val, ex_t * e)
+{
+    int64_t i;
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
+    case TI_VAL_NIL:
+    case TI_VAL_REGEX:
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
+                ti_val_str(val), ti_val_tp_str(TI_VAL_INT));
+        return e->nr;
+    case TI_VAL_INT:
+        return 0;
+    case TI_VAL_FLOAT:
+        if (ti_val_overflow_cast(val->via.float_))
+            goto overflow;
+
+        i = (int64_t) val->via.float_;
+        val->via.int_ = i;
+        break;
+    case TI_VAL_BOOL:
+        break;
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+        if (errno == ERANGE)
+            errno = 0;
+        if (val->via.raw->n > 128)
+        {
+            char * dup = strndup(
+                    (const char *) val->via.raw->data,
+                    val->via.raw->n);
+            if (!dup)
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+            i = strtoll(dup, NULL, 0);
+            free(dup);
+        }
+        else
+        {
+            char dup[val->via.raw->n + 1];
+            memcpy(dup, val->via.raw->data, val->via.raw->n);
+            dup[val->via.raw->n] = '\0';
+            i = strtoll(dup, NULL, 0);
+        }
+        if (errno == ERANGE)
+            goto overflow;
+
+        ti_raw_drop(val->via.raw);
+        val->via.int_ = i;
+        break;
+    }
+
+    val->tp = TI_VAL_INT;
+    return 0;
+
+overflow:
+    ex_set(e, EX_OVERFLOW, "integer overflow");
+    return e->nr;
+
+}
+
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;

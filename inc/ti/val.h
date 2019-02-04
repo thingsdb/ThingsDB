@@ -4,6 +4,9 @@
 #ifndef TI_VAL_H_
 #define TI_VAL_H_
 
+#define VAL__CAST_MAX 9223372036854775808.0
+
+
 typedef enum
 {
     TI_VAL_ATTR,    /* attribute ti_prop_t */
@@ -66,6 +69,7 @@ static inline void ti_val_weak_destroy(ti_val_t * val);
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_convert_to_str(ti_val_t * val);
+int ti_val_convert_to_int(ti_val_t * val, ex_t * e);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
 int ti_val_copy(ti_val_t * to, ti_val_t * from);
 void ti_val_set_arrow(ti_val_t * val, cleri_node_t * arrow_nd);
@@ -98,6 +102,8 @@ static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline void ti_val_mark_fetch(ti_val_t * val);
 static inline void ti_val_unmark_fetch(ti_val_t * val);
+static inline _Bool ti_val_overflow_cast(double d);
+
 
 union ti_val_u
 {
@@ -214,5 +220,11 @@ static inline void ti_val_unmark_fetch(ti_val_t * val)
 {
     val->flags &= ~TI_VAL_FLAG_FETCH;
 }
+
+static inline _Bool ti_val_overflow_cast(double d)
+{
+    return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
+}
+
 
 #endif /* TI_VAL_H_ */

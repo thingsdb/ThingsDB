@@ -23,7 +23,6 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e);
-static inline _Bool opr__overflow_cast(double d);
 
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t * b, ex_t * e)
@@ -1493,7 +1492,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             if (b->via.float_ == 0.0)
                 goto zerodiv;
             d = a->via.int_ / b->via.float_;
-            if (opr__overflow_cast(d))
+            if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
@@ -1523,7 +1522,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             if (b->via.int_ == 0)
                 goto zerodiv;
             d = a->via.float_ / b->via.int_;
-            if (opr__overflow_cast(d))
+            if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
@@ -1531,7 +1530,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             if (b->via.float_ == 0.0)
                 goto zerodiv;
             d = a->via.float_ / b->via.float_;
-            if (opr__overflow_cast(d))
+            if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
@@ -1539,7 +1538,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             if (b->via.bool_ == 0)
                 goto zerodiv;
             d = a->via.float_ / b->via.bool_;
-            if (opr__overflow_cast(d))
+            if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
@@ -1569,7 +1568,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
             if (b->via.float_ == 0.0)
                 goto zerodiv;
             d = a->via.bool_ / b->via.float_;
-            if (opr__overflow_cast(d))
+            if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
@@ -1640,7 +1639,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.int_ % b->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (opr__overflow_cast(b->via.float_))
+            if (ti_val_overflow_cast(b->via.float_))
                 goto overflow;
             int_ = (int64_t) b->via.float_;
             if (int_ == 0)
@@ -1670,15 +1669,15 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (opr__overflow_cast(a->via.float_))
+            if (ti_val_overflow_cast(a->via.float_))
                 goto overflow;
             if (b->via.int_ == 0)
                 goto zerodiv;
             int_ = (int64_t) a->via.float_ % b->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (opr__overflow_cast(a->via.float_) ||
-                opr__overflow_cast(b->via.float_))
+            if (ti_val_overflow_cast(a->via.float_) ||
+                ti_val_overflow_cast(b->via.float_))
                 goto overflow;
             int_ = (int64_t) b->via.float_;
             if (int_ == 0)
@@ -1686,7 +1685,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = (int64_t) a->via.float_ % int_;
             break;
         case TI_VAL_BOOL:
-            if (opr__overflow_cast(a->via.float_))
+            if (ti_val_overflow_cast(a->via.float_))
                 goto overflow;
             if (b->via.bool_ == 0)
                 goto zerodiv;
@@ -1715,7 +1714,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
             int_ = a->via.bool_ % b->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (opr__overflow_cast(b->via.float_))
+            if (ti_val_overflow_cast(b->via.float_))
                 goto overflow;
             int_ = (int64_t) b->via.float_;
             if (int_ == 0)
@@ -2017,7 +2016,3 @@ type_err:
     return e->nr;
 }
 
-static inline _Bool opr__overflow_cast(double d)
-{
-    return !(d >= -CAST_MAX && d < CAST_MAX);
-}

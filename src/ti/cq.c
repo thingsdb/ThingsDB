@@ -48,6 +48,7 @@ static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__function(
@@ -2580,6 +2581,81 @@ done:
     return e->nr;
 }
 
+static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query_get_thing(query) == query->target->root);
+
+    cleri_children_t * child = nd->children;    /* first in argument list */
+    int n = langdef_nd_n_function_params(nd);
+    ex_enum errnr;
+    ti_val_t * ret;
+
+    if (n < 1)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `try` requires at least 1 argument but 0 "
+                "were given");
+        return e->nr;
+    }
+
+    errnr = ti_cq_scope(query, child->node, e);
+
+    if (errnr > -100)
+        return errnr;
+
+    if (query_rval_clear(query))
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    e->nr = 0;
+
+    if (n == 1)
+        return 0;
+
+    child = child->next->next;
+
+    if (ti_cq_scope(query, child->node, e))
+        return e->nr;
+
+    if (n == 2)
+        return 0;
+
+    ret = query->rval;
+    query->rval = NULL;
+
+    for (child = child->next->next; child; child = child->next->next)
+    {
+        if (ti_cq_scope(query, child->node, e))
+            goto failed;
+
+        if (ti_val_convert_to_errnr(query->rval, e))
+            goto failed;
+
+        assert (query->rval->tp == TI_VAL_INT);
+
+        if ((ex_enum) query->rval->via.int_ == errnr)
+        {
+            ti_val_destroy(query->rval);
+            query->rval = ret;
+            assert (e->nr == 0);
+            return 0;
+        }
+
+        if (!child->next)
+            break;
+    }
+
+    e->nr = errnr;
+
+failed:
+    ti_val_destroy(ret);
+    return e->nr;
+}
+
 static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2790,6 +2866,10 @@ static int cq__function(
     case CLERI_GID_F_THING:
         if (is_scope)
             return cq__f_thing(query, params, e);
+        break;
+    case CLERI_GID_F_TRY:
+        if (is_scope)
+            return cq__f_try(query, params, e);
         break;
     case CLERI_GID_F_UNSET:
         return cq__f_unset(query, params, e);

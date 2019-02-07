@@ -38,6 +38,7 @@ typedef struct ex_s ex_t;
 ex_t * ex_use(void);
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);
 const char * ex_str(ex_enum errnr);
+_Bool ex_int64_is_errnr(int64_t i);
 
 struct ex_s
 {

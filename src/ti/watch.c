@@ -15,3 +15,13 @@ ti_watch_t * ti_watch_create(ti_stream_t * stream)
     watch->stream = stream;
     return watch;
 }
+
+void ti_watch_drop(ti_watch_t * watch)
+{
+    if (!watch)
+        return;
+    if (!watch->stream)
+        free(watch);
+    else
+        watch->stream = NULL;
+}

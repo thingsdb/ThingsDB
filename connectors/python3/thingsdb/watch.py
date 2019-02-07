@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from .protocol import ON_WATCH_INI
 from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
@@ -20,7 +21,7 @@ class WatchMixin:
         thing = self._things.get(thing_id)
         if thing is None:
             return
-
+        self._watching.add(thing)
         asyncio.ensure_future(
             thing._on_watch.on_init(thing, thing_dict),
             loop=self._loop

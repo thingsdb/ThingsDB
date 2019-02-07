@@ -645,10 +645,16 @@ static void query__task_to_watchers(ti_query_t * query)
                 break;
             }
 
+            LOGC("watchers: %u", task->thing->watchers->n);
+
             for (vec_each(task->thing->watchers, ti_watch_t, watch))
             {
                 if (ti_stream_is_closed(watch->stream))
+                {
+                    LOGC("CLOSED: %p", watch->stream);
                     continue;
+                }
+                LOGC("OK");
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))
                     log_critical(EX_INTERNAL_S);

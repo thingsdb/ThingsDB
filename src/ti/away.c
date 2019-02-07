@@ -13,7 +13,7 @@
 #include <util/util.h>
 #include <uv.h>
 
-static ti_away_t * away;
+static ti_away_t * away = NULL;
 
 /*
  * When `away` mode is finished we might have some events queued, after the
@@ -171,7 +171,7 @@ static void away__destroy(uv_handle_t * handle)
         if (!handle)
             free(away->waiter);
 
-        vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_free);
+        vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_drop);
         free(away);
     }
     away = ti()->away = NULL;

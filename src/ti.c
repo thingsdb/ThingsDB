@@ -277,7 +277,7 @@ int ti_unpack(uchar * data, size_t n)
 
 int ti_run(void)
 {
-    int rc;
+    int rc, attempts;
     if (uv_loop_init(&loop_))
         return -1;
 
@@ -334,11 +334,14 @@ failed:
     ti_stop();
 
 finish:
-    if (uv_loop_close(ti_.loop))
+    attempts = 3;
+    while (attempts--)
     {
+        rc = uv_loop_close(ti_.loop);
+        if (!rc)
+            break;
         uv_walk(ti_.loop, ti__close_handles, NULL);
         (void) uv_run(ti_.loop, UV_RUN_DEFAULT);
-        return -(uv_loop_close(ti_.loop) || rc);
     }
     return rc;
 }

@@ -4,11 +4,12 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ti/val.h>
+#include <ti.h>
 #include <ti/arrow.h>
 #include <ti/prop.h>
+#include <ti/proto.h>
 #include <ti/things.h>
-#include <ti.h>
+#include <ti/val.h>
 #include <util/logger.h>
 #include <util/strx.h>
 
@@ -339,8 +340,123 @@ int ti_val_convert_to_int(ti_val_t * val, ex_t * e)
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");
     return e->nr;
-
 }
+
+int ti_val_convert_to_errnr(ti_val_t * val, ex_t * e)
+{
+    int64_t i;
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
+    case TI_VAL_NIL:
+    case TI_VAL_QP:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_REGEX:
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
+    case TI_VAL_THING:
+    case TI_VAL_THINGS:
+    case TI_VAL_ARROW:
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
+                ti_val_str(val));
+        return e->nr;
+    case TI_VAL_INT:
+        switch(val->via.int_)
+        {
+        case TI_PROTO_CLIENT_ERR_OVERFLOW:
+            i = EX_OVERFLOW;
+            break;
+        case TI_PROTO_CLIENT_ERR_ZERO_DIV:
+            i = EX_ZERO_DIV;
+            break;
+        case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
+            i = EX_MAX_QUOTA;
+            break;
+        case TI_PROTO_CLIENT_ERR_AUTH:
+            i = EX_AUTH_ERROR;
+            break;
+        case TI_PROTO_CLIENT_ERR_FORBIDDEN:
+            i = EX_FORBIDDEN;
+            break;
+        case TI_PROTO_CLIENT_ERR_INDEX:
+            i = EX_INDEX_ERROR;
+            break;
+        case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
+            i = EX_BAD_DATA;
+            break;
+        case TI_PROTO_CLIENT_ERR_QUERY:
+            i = EX_QUERY_ERROR;
+            break;
+        case TI_PROTO_CLIENT_ERR_NODE:
+            i = EX_NODE_ERROR;
+            break;
+        case TI_PROTO_CLIENT_ERR_INTERNAL:
+            i = EX_INTERNAL;
+            break;
+        default:
+            ex_set(e, EX_BAD_DATA, "unknown error number `%"PRId64"`",
+                    val->via.int_);
+            return e->nr;
+        }
+        break;
+    case TI_VAL_RAW:
+        i = (
+            ti_raw_equal_strn(
+                val->via.raw,
+                "OVERFLOW_ERROR",
+                strlen("OVERFLOW_ERROR")) ? EX_OVERFLOW :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "ZERO_DIV_ERROR",
+                strlen("ZERO_DIV_ERROR")) ? EX_ZERO_DIV :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "MAX_QUOTA_ERROR",
+                strlen("MAX_QUOTA_ERROR")) ? EX_MAX_QUOTA :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "AUTH_ERROR",
+                strlen("AUTH_ERROR")) ? EX_AUTH_ERROR :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "FORBIDDEN",
+                strlen("FORBIDDEN")) ? EX_FORBIDDEN :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "INDEX_ERROR",
+                strlen("INDEX_ERROR")) ? EX_INDEX_ERROR :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "BAD_REQUEST",
+                strlen("BAD_REQUEST")) ? EX_BAD_DATA :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "QUERY_ERROR",
+                strlen("QUERY_ERROR")) ? EX_QUERY_ERROR :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "NODE_ERROR",
+                strlen("NODE_ERROR")) ? EX_NODE_ERROR :
+            ti_raw_equal_strn(
+                val->via.raw,
+                "INTERNAL_ERROR",
+                strlen("INTERNAL_ERROR")) ? EX_INTERNAL : 0
+        );
+        if (!i)
+        {
+            ex_set(e, EX_BAD_DATA, "unknown error `%.*s`",
+                    (int) val->via.raw->n, (const char *) val->via.raw->data);
+            return e->nr;
+        }
+        ti_raw_drop(val->via.raw);
+        break;
+    }
+    val->via.int_ = i;
+    val->tp = TI_VAL_INT;
+    return 0;
+}
+
 
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
 {

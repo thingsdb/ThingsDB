@@ -54,7 +54,7 @@ void ti_thing_destroy(ti_thing_t * thing)
 
     vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
     vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
-    vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_free);
+    vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
 
@@ -348,7 +348,7 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
         if (watch->stream == stream)
             return watch;
         if (!watch->stream)
-            empty_watch = &watch;
+            empty_watch = v__;
     }
 
     if (empty_watch)
@@ -365,7 +365,6 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
     if (vec_push(&thing->watchers, watch))
         goto fail0;
 
-
 finish:
     if (!stream->watching)
     {
@@ -379,11 +378,12 @@ finish:
 
     return watch;
 
-fail1:
-    (void *) vec_pop(thing->watchers);
-
 fail0:
-    ti_watch_free(watch);
+    watch->stream = NULL;
+    ti_watch_drop(watch);
+    return NULL;
+fail1:
+    watch->stream = NULL;
     return NULL;
 }
 

@@ -24,7 +24,7 @@ class Client(WatchMixin, Root):
         self._port = None
         self._protocol = None
         self._requests = {}
-        self._things = {}
+        self._things = weakref.WeakValueDictionary()
         self._watching = weakref.WeakSet()
         self._target = 0  # root target
 
@@ -53,6 +53,9 @@ class Client(WatchMixin, Root):
 
     def get_num_watch(self):
         return len(self._watching)
+
+    def get_num_things(self):
+        return len(self._things)
 
     async def wait_closed(self):
         if self._protocol and self._protocol.close_future:

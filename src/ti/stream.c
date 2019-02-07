@@ -93,7 +93,9 @@ void ti_stream_close(ti_stream_t * stream)
 
 void ti_stream_stop_watching(ti_stream_t * stream)
 {
-    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_stop);
+    if (!stream->watching)
+        return;
+    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_drop);
     stream->watching = NULL;
 }
 

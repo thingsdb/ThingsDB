@@ -72,11 +72,16 @@ async def test():
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
-        info_email = 'info@thingsdb.net';
-        check = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/;
+        Labels.labels.push({
+            name: 'Other label',
+            description: 'some ble ble label'
+        });
 
-        /* Check if info_email is a valid email address */
-        info_email.test(check);
+        /*
+        Labels.labels.splice(-1, 1);
+        */
+
+        Labels.labels.map(l => l);
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

@@ -127,7 +127,7 @@
         - [ ] `hasattr`
         - [x] `hasprop`
         - [x] `id`
-        - [ ] `int`
+        - [x] `int`
         - [x] `isarray`
         - [x] `isinf`
         - [x] `islist`
@@ -144,6 +144,7 @@
         - [x] `startswith`
         - [x] `str`
         - [x] `thing`
+        - [ ] `try`
         - [x] `unset`
         - [x] `upper`
 - [x] Redundancy as initial argument together with --init ?

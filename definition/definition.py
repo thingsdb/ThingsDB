@@ -74,6 +74,7 @@ class Definition(Grammar):
     f_str = Keyword('str')
     f_test = Keyword('test')
     f_thing = Keyword('thing')
+    f_try = Keyword('try')
     f_upper = Keyword('upper')
 
     # build-in update functions
@@ -134,6 +135,7 @@ class Definition(Grammar):
         f_str,          # (x) -> raw
         f_test,         # (regex) -> bool
         f_thing,        # (int thing_id) -> thing
+        f_try,
         f_upper,        # () -> str
         # build-in update functions
         f_del,

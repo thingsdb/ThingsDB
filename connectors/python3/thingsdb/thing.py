@@ -15,6 +15,7 @@ class Thing:
         '_attrs',
         '_on_watch',
         '_is_fetched',
+        '__weakref__',
     )
 
     def _init(self, collection, id):
@@ -91,7 +92,7 @@ class Thing:
             index, count, _new, *items = value
             sl = slice(index, index+count)
             arr = self._props[prop]
-            arr[sl] = (self._unpack(None, v) for v in value)
+            arr[sl] = (self._unpack(None, v) for v in items)
             arr.apply_watch(sl)
 
     def _job_unset(self, job):

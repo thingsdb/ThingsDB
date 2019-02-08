@@ -137,6 +137,9 @@ class Thing:
     def id(self):
         return self._id
 
+    def collection(self):
+        return self._collection
+
     def is_fetched(self):
         return self._is_fetched
 

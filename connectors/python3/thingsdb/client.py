@@ -3,6 +3,8 @@ import struct
 import logging
 import qpack
 import weakref
+import random
+import collections
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
@@ -16,17 +18,22 @@ from .root import Root
 
 
 class Client(WatchMixin, Root):
-    def __init__(self, loop=None):
+
+    MAX_RECONNECT_WAIT_TIME = 120
+    MAX_RECONNECT_TIMEOUT = 10
+
+    def __init__(self, auto_reconnect=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._username = None
         self._password = None
-        self._host = None
-        self._port = None
+        self._pool = None
         self._protocol = None
         self._requests = {}
+        self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()
         self._watching = weakref.WeakSet()
         self._target = 0  # root target
+        self._pool_idx = 0
 
     def get_event_loop(self):
         return self._loop
@@ -34,22 +41,83 @@ class Client(WatchMixin, Root):
     def is_connected(self):
         return self._protocol and self._protocol.transport
 
+    async def connect_pool(self, pool):
+        assert self._pool is None
+        self._pool = tuple(pool)
+        self._pool_idx = random.randint(0, len(pool) - 1)
+
     async def connect(self, host, port=9200, timeout=5):
-        self._host = host
-        self._port = port
+        assert self._pool is None
+        self._pool = ((host, port),)
+        self._pool_idx = 0
+        await self._connect(timeout=timeout)
+
+    async def _connect(self, timeout=5):
+        host, port = self._pool[self._pool_idx]
         conn = self._loop.create_connection(
-            Protocol,
-            host=self._host,
-            port=self._port)
+            lambda: Protocol(on_lost=self._on_lost, loop=self._loop),
+            host=host,
+            port=port)
         _, self._protocol = await asyncio.wait_for(
             conn,
             timeout=timeout)
         self._protocol.on_package_received = self._on_package_received
         self._pid = 0
+        self._pool_idx += 1
+        self._pool_idx %= len(self._pool)
 
     def close(self):
         if self._protocol and self._protocol.transport:
+            self._reconnect = False
             self._protocol.transport.close()
+
+    def _on_lost(self, exc):
+        self._protocol = None
+
+        if self._requests:
+            logging.error(
+                f'canceling {len(self._requests)} requests '
+                'due to a lost connection'
+            )
+            while self._requests:
+                future, task = rself._requests.popitem()
+                if task is not None:
+                    task.cancel()
+                if not future.cancelled():
+                    future.cancel()
+
+        if self._reconnect:
+            asyncio.ensure_future(self._reconnect_loop(), loop=self._loop)
+
+    async def _reconnect_loop(self):
+        wait_time = 1
+        timeout = 2
+        while True:
+            host, port = self._pool[self._pool_idx]
+            try:
+                await self._connect(timeout=timeout)
+            except Exception as e:
+                logging.error(
+                    f'connecting to {host}:{port} failed ({e}), '
+                    f'try next connect in {wait_time} seconds'
+                )
+            else:
+                break
+
+            await asyncio.sleep(wait_time)
+            wait_time *= 2
+            wait_time = min(wait_time, self.MAX_RECONNECT_WAIT_TIME)
+            timeout = min(timeout+1, self.MAX_RECONNECT_TIMEOUT)
+
+        await self._authenticate(timeout=5)
+
+        # re-watch all watching things
+        watch_ids = collections.defaultdict(list)
+        for t in self._watching:
+            watch_ids[t._collection._id].append(t)
+
+        for collection_id, thing_ids in watch_ids.items():
+            await self.watch(thing_ids, collection=collection_id)
 
     def get_num_watch(self):
         return len(self._watching)
@@ -64,6 +132,9 @@ class Client(WatchMixin, Root):
     async def authenticate(self, username, password, timeout=5):
         self._username = username
         self._password = password
+        await self._authenticate(timeout)
+
+    async def _authenticate(self, timeout):
         future = self._write_package(
             REQ_AUTH,
             data=(self._username, self._password),
@@ -94,7 +165,7 @@ class Client(WatchMixin, Root):
 
     def watch(self, things, collection=None, timeout=None):
         assert collection is None or isinstance(collection, (int, str))
-        ids = [t.id() for t in things]
+        ids = [t._id for t in things]
         collection = self._target if collection is None else collection
         assert collection, 'for watching, a collection is required'
         data = {

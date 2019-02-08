@@ -72,10 +72,7 @@ async def test():
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
-        Labels.labels.push({
-            name: 'Other label',
-            description: 'some ble ble label'
-        });
+        Labels.labels[0].name = '!!! New Name !!!';
 
         /*
         Labels.labels.splice(-1, 1);

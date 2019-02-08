@@ -27,7 +27,6 @@ class Arr(list):
         if self._watchclass is None:
             return
         client = self._parent._collection._client
-        print(self[sl])
         asyncio.ensure_future(
             client.watch((
                 t.set_watcher(self._watchclass)

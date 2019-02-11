@@ -688,17 +688,7 @@ void ti_val_clear(ti_val_t * val)
         vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
         break;
     case TI_VAL_ARROW:
-        if (!val->via.arrow || --val->via.arrow->ref)
-            break;
-
-        if (val->via.arrow->str == val->via.arrow->data)
-            free(val->via.arrow->data);
-        /*
-         * We need to restore one reference since cleri__node_free will remove
-         * one
-         */
-        ++val->via.arrow->ref;
-        cleri__node_free(val->via.arrow);
+        ti_arrow_destroy(val->via.arrow);
         break;
     }
     val->flags = 0;
@@ -963,6 +953,20 @@ int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
         if (ti_arrow_wse(val->via.arrow))
             ex_set(e, EX_BAD_DATA,
                     "an arrow function with side effects cannot be assigned");
+        {
+            /*
+             * This an arrow hack to prevent unnecessary copy of the whole
+             * arrow while is is not assigned.
+             */
+            cleri_node_t * arrow = ti_arrow_cp(val->via.arrow);
+            if (!arrow)
+            {
+                ex_set_alloc(e);
+                break;
+            }
+            ti_arrow_destroy(val->via.arrow);
+            val->via.arrow = arrow;
+        }
         break;
     case TI_VAL_TUPLE:
     case TI_VAL_ARRAY:

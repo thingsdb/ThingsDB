@@ -51,6 +51,7 @@ struct ti_query_s
     cleri_parse_t * parseres;
     ti_stream_t * stream;       /* with reference */
     vec_t * blobs;              /* ti_raw_t */
+    vec_t * tmpvars;            /* temporary variable */
     vec_t * results;            /* ti_val_t for each statement */
     ti_event_t * ev;            /* with reference, only when an event is
                                    required

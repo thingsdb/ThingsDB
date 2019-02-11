@@ -45,11 +45,6 @@ int ti_task_add_new_collection(
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
-int ti_task_add_push(
-        ti_task_t * task,
-        ti_name_t * name,
-        ti_val_t * val,             /* array or things */
-        size_t n);                  /* the last n items are pushed */
 int ti_task_add_rename(ti_task_t * task, ti_raw_t * from, ti_raw_t * to);
 int ti_task_add_rename_collection(
         ti_task_t * task,
@@ -70,10 +65,10 @@ int ti_task_add_set_quota(
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
-        ti_val_t * val,
-        int64_t i,
-        int64_t c,
-        int32_t n);
+        ti_val_t * val,         /* array or array-of-things */
+        int64_t i,              /* start at index */
+        int64_t c,              /* number of items to remove */
+        int32_t n);             /* number of items to add */
 int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
 
 

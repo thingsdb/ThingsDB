@@ -17,11 +17,14 @@ enum
 #include <ti.h>
 
 cleri_node_t * ti_arrow_from_strn(const char * str, size_t n);
+void ti_arrow_destroy(cleri_node_t * arrow);
 int ti_arrow_to_packer(cleri_node_t * arrow, qp_packer_t ** packer);
 int ti_arrow_to_file(cleri_node_t * arrow, FILE * f);
 uchar * ti_arrow_uchar(cleri_node_t * arrow, size_t * n);
 static inline cleri_node_t * ti_arrow_scope_nd(cleri_node_t * arrow);
 static inline _Bool ti_arrow_wse(cleri_node_t * arrow);
+static inline cleri_node_t * ti_arrow_cp(cleri_node_t * arrow);
+
 
 static inline _Bool ti_arrow_wse(cleri_node_t * arrow)
 {
@@ -35,6 +38,11 @@ static inline cleri_node_t * ti_arrow_scope_nd(cleri_node_t * arrow)
 {
     /*  arrow = Sequence(List(name, opt=False), '=>', scope)  */
     return arrow->children->next->next->node;
+}
+
+static inline cleri_node_t * ti_arrow_cp(cleri_node_t * arrow)
+{
+    return ti_arrow_from_strn(arrow->str, arrow->len);
 }
 
 #endif  /* TI_ARROW_H_ */

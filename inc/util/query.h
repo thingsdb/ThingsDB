@@ -12,6 +12,7 @@
 #include <ti/name.h>
 #include <ti/scope.h>
 #include <ti/query.h>
+#include <ti/prop.h>
 #include <ti/ex.h>
 #include <util/vec.h>
 
@@ -24,6 +25,7 @@ static inline ti_thing_t * query_get_thing(ti_query_t * query);
 int query_rval_clear(ti_query_t * query);
 void query_rval_destroy(ti_query_t * query);
 void query_rval_weak_destroy(ti_query_t * query);
+ti_prop_t * query_get_tmp_prop(ti_query_t * query, ti_name_t * name);
 static inline ti_val_t * query_get_val(ti_query_t * query);
 
 static inline ti_val_enum query_tp(ti_query_t * query)

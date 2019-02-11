@@ -241,7 +241,7 @@ int ti_store_restore(void)
 
 stop:
     if (namesmap)
-        imap_destroy(namesmap, NULL);
+        imap_destroy(namesmap, (imap_destroy_cb) ti_name_drop);
     return rc;
 }
 

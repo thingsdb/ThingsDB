@@ -80,7 +80,7 @@ class Client(WatchMixin, Root):
                 'due to a lost connection'
             )
             while self._requests:
-                future, task = rself._requests.popitem()
+                future, task = self._requests.popitem()
                 if task is not None:
                     task.cancel()
                 if not future.cancelled():

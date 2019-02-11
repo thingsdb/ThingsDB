@@ -167,7 +167,7 @@ int ti_archive_load(void)
     assert (ti()->node);
 
     archive->start_event_id = ti()->node->cevid + 1;
-    archive__read_nodes_scevid();
+    (void) archive__read_nodes_scevid();
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
     if (total < 0)
@@ -389,7 +389,7 @@ static int archive__read_nodes_scevid(void)
     FILE * f = fopen(fn, "r");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_info("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
     }
 

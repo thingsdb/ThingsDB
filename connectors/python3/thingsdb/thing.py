@@ -73,12 +73,6 @@ class Thing:
     def _job_del(self, job):
         del self._props[job]
 
-    def _job_push(self, job):
-        for prop, value in job.items():
-            arr = self._props[prop]
-            arr.extend((self._unpack(None, v) for v in value))
-            arr.apply_watch(slice(-len(value), None))
-
     def _job_rename(self, job):
         for old_prop, new_prop in job.items():
             self._props[new_prop] = self._props.pop(old_prop)
@@ -89,11 +83,10 @@ class Thing:
 
     def _job_splice(self, job):
         for prop, value in job.items():
-            index, count, _new, *items = value
-            sl = slice(index, index+count)
+            index, count, new, *items = value
             arr = self._props[prop]
-            arr[sl] = (self._unpack(None, v) for v in items)
-            arr.apply_watch(sl)
+            arr[index:index+count] = (self._unpack(None, v) for v in items)
+            arr.apply_watch(slice(index, index+new))
 
     def _job_unset(self, job):
         try:
@@ -140,6 +133,9 @@ class Thing:
     def collection(self):
         return self._collection
 
+    def get_prop(self, prop, d=None):
+        return self._props.get(prop, d)
+
     def is_fetched(self):
         return self._is_fetched
 
@@ -158,7 +154,6 @@ class Thing:
     def on_watch_update(self, jobs, _map={
         'assign': _job_assign,
         'del': _job_del,
-        'push': _job_push,
         'rename': _job_rename,
         'set': _job_set,
         'splice': _job_splice,

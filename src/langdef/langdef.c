@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-05 16:00:58
+ * Created at: 2019-02-11 16:46:52
  */
 
 #include <langdef/langdef.h>
@@ -37,6 +37,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
+    cleri_t * tmp = cleri_regex(CLERI_GID_TMP, "^\\$[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
     cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
@@ -103,7 +104,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * arrow = cleri_sequence(
         CLERI_GID_ARROW,
         3,
-        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 0),
+        cleri_list(CLERI_NONE, tmp, cleri_token(CLERI_NONE, ","), 0, 0, 0),
         cleri_token(CLERI_NONE, "=>"),
         scope
     );
@@ -202,6 +203,13 @@ cleri_grammar_t * compile_langdef(void)
         cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
         scope
     );
+    cleri_t * tmp_assign = cleri_sequence(
+        CLERI_GID_TMP_ASSIGN,
+        3,
+        tmp,
+        cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
+        scope
+    );
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(
         CLERI_NONE,
         3,
@@ -227,12 +235,14 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            8,
+            10,
             primitives,
             function,
             assignment,
+            tmp_assign,
             arrow,
             name,
+            tmp,
             thing,
             array,
             operations

@@ -52,6 +52,20 @@ fail:
     return NULL;
 }
 
+void ti_arrow_destroy(cleri_node_t * arrow)
+{
+    if (!arrow || --arrow->ref)
+        return;
+
+    if (arrow->str == arrow->data)
+        free(arrow->data);
+    /*
+     * We need to restore one reference since cleri__node_free will remove
+     * one
+     */
+    ++arrow->ref;
+    cleri__node_free(arrow);
+}
 
 int ti_arrow_to_packer(cleri_node_t * arrow, qp_packer_t ** packer)
 {

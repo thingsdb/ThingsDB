@@ -58,6 +58,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     query->querystr = NULL;
     query->nd_cache_count = 0;
     query->nd_cache = NULL;
+    query->tmpvars = NULL;
 
     return query;
 }
@@ -73,6 +74,7 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
 
     vec_destroy(query->results, (vec_destroy_cb) ti_val_destroy);
+    vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
     ti_collection_drop(query->target);
     ti_event_drop(query->ev);
@@ -645,16 +647,10 @@ static void query__task_to_watchers(ti_query_t * query)
                 break;
             }
 
-            LOGC("watchers: %u", task->thing->watchers->n);
-
             for (vec_each(task->thing->watchers, ti_watch_t, watch))
             {
                 if (ti_stream_is_closed(watch->stream))
-                {
-                    LOGC("CLOSED: %p", watch->stream);
                     continue;
-                }
-                LOGC("OK");
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))
                     log_critical(EX_INTERNAL_S);

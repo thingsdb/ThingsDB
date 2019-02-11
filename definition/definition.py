@@ -17,6 +17,8 @@ from pyleri import (
 )
 
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
+RE_TMP = r'^\$[A-Za-z_][0-9A-Za-z_]*'
+ASSIGN_TOKENS = '= += -= *= /= %= &= ^= |='
 
 
 class Choice(Choice_):
@@ -51,6 +53,7 @@ class Definition(Grammar):
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
 
     name = Regex(RE_NAME)
+    tmp = Regex(RE_TMP)
 
     # build-in get functions
     f_blob = Keyword('blob')
@@ -101,7 +104,7 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    arrow = Sequence(List(name, opt=False), '=>', scope)
+    arrow = Sequence(List(tmp, opt=False), '=>', scope)
 
     function = Sequence(Choice(
         # build-in get functions
@@ -177,7 +180,9 @@ class Definition(Grammar):
         Optional(Sequence('?', scope, ':', scope)),  # conditional support?
     )
 
-    assignment = Sequence(name, Tokens('= += -= *= /= %= &= ^= |='), scope)
+    assignment = Sequence(name, Tokens(ASSIGN_TOKENS), scope)
+    tmp_assign = Sequence(tmp, Tokens(ASSIGN_TOKENS), scope)
+
     index = Repeat(
         Sequence('[', t_int, ']')
     )       # we skip index in query investigate (in case we want to use scope)
@@ -195,8 +200,10 @@ class Definition(Grammar):
             primitives,
             function,
             assignment,
+            tmp_assign,
             arrow,
             name,
+            tmp,
             thing,
             array,
             operations,
@@ -227,8 +234,13 @@ if __name__ == '__main__':
 
         (true) ? 2 : 3;
 
+        Oversight = {
+            redundancy: 3,
+            nodes: [],
+        };
+
         inf''')
-    # exit(0)
+    exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

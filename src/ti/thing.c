@@ -175,7 +175,7 @@ int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     prop = ti_prop_weak_createv(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
-        ti_incref(name);
+        ti_incref(name);  /* the call below will drop a name reference */
         ti_prop_weak_destroy(prop);
         return -1;
     }

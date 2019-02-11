@@ -61,6 +61,9 @@ static int cq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+
 
 int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -103,6 +106,14 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (cq__assignment(query, node, e))
             return e->nr;
         break;
+    case CLERI_GID_FUNCTION:
+        if (cq__function(query, node, true, e))
+            return e->nr;
+        break;
+    case CLERI_GID_NAME:
+        if (cq__scope_name(query, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
         query_rval_destroy(query);
@@ -122,14 +133,6 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
         }
         break;
-    case CLERI_GID_FUNCTION:
-        if (cq__function(query, node, true, e))
-            return e->nr;
-        break;
-    case CLERI_GID_NAME:
-        if (cq__scope_name(query, node, e))
-            return e->nr;
-        break;
     case CLERI_GID_PRIMITIVES:
         if (cq__primitives(query, node, e))
             return e->nr;
@@ -138,6 +141,15 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (cq__scope_thing(query, node, e))
             return e->nr;
         break;
+    case CLERI_GID_TMP:
+        if (cq__tmp(query, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_TMP_ASSIGN:
+        if (cq__tmp_assign(query, node, e))
+            return e->nr;
+        break;
+
     default:
         assert (0);  /* all possible should be handled */
         return -1;
@@ -290,16 +302,18 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (assign_nd->len == 1)
     {
+        /* assign_nd == '=', a new assignment */
         if (thing->props->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
                     "maximum properties quota of %zu has been reached, "
                     "see "TI_DOCS"#quotas", max_props);
-            return e->nr;
+            goto failed;
         }
     }
     else
     {
+        /* apply to existing variable */
         assert (assign_nd->len == 2);
         assert (assign_nd->str[1] == '=');
         left_val = ti_thing_get(thing, name);
@@ -307,7 +321,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_INDEX_ERROR,
                     "`%.*s` is undefined", (int) name->n, name->str);
-            return e->nr;
+            goto failed;
         }
     }
 
@@ -318,11 +332,11 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
             "cannot assign a new value to `%.*s` while the property is in use",
             (int) name->n, name->str);
-        return e->nr;
+        goto failed;
     }
 
     if (ti_cq_scope(query, scope_nd, e))
-        goto done;
+        goto failed;
 
     assert (query->rval);
 
@@ -330,17 +344,17 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         assert (left_val);
         if (ti_opr_a_to_b(left_val, assign_nd, query->rval, e))
-            goto done;
+            goto failed;
     }
     else if (ti_val_check_assignable(query->rval, false, e))
-        goto done;
+        goto failed;
 
     if (thing->id)
     {
         task = ti_task_get_task(query->ev, thing, e);
 
         if (!task)
-            goto done;
+            goto failed;
 
         if (ti_task_add_assign(task, name, query->rval))
             goto alloc_err;  /* we do not need to cleanup task, since the task
@@ -363,6 +377,9 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 alloc_err:
     ex_set_alloc(e);
+
+failed:
+    ti_name_drop(name);
 
 done:
     return e->nr;
@@ -1836,7 +1853,13 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto failed;
 
-        if (ti_task_add_push(task, query->scope->name, val, n))
+        if (ti_task_add_splice(
+                task,
+                query->scope->name,
+                val,
+                current_n,
+                0,
+                n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
@@ -3262,9 +3285,149 @@ done:
 }
 
 
+/* changes scope->name and/or scope->thing */
+static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->gid == CLERI_GID_TMP);
+    assert (nd->len >= 2);
+    assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
+    assert (ti_scope_is_thing(query->scope));
+    assert (query_is_thing(query));
 
+    ti_name_t * name;
 
+    ti_val_t * val;
 
+    name = ti_names_weak_get(nd->str, nd->len);
 
+    val = name ? ti_scope_local_val(query->scope, name) : NULL;
 
+    if (!val && name)
+    {
+        ti_prop_t * prop = query_get_tmp_prop(query, name);
+        val = prop ? &prop->val : NULL;
+    }
 
+    if (!val)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "temporary variable `%.*s` is undefined",
+                (int) nd->len, nd->str);
+        return e->nr;
+    }
+
+    if (ti_scope_push_name(&query->scope, name, val))
+        ex_set_alloc(e);
+
+    query_rval_destroy(query);
+
+    return e->nr;
+}
+
+static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_TMP_ASSIGN);
+
+    ti_thing_t * thing;
+    ti_name_t * name;
+    ti_prop_t * prop = NULL;     /* assign to prevent warning */
+    cleri_node_t * name_nd = nd                 /* sequence */
+            ->children->node;                   /* name */
+    cleri_node_t * assign_nd = nd               /* sequence */
+            ->children->next->node;             /* assign tokens */
+    cleri_node_t * scope_nd = nd                /* sequence */
+            ->children->next->next->node;       /* scope */
+
+    assert (name_nd->len >= 2);
+    assert (ti_name_is_valid_strn(name_nd->str + 1, name_nd->len - 1));
+
+    thing = query_get_thing(query);
+
+    name = ti_names_get(name_nd->str, name_nd->len);
+    if (!name)
+        goto alloc_err;
+
+    if (assign_nd->len == 1)
+        prop = NULL;
+    else
+    {
+        /* apply to existing variable */
+        assert (assign_nd->len == 2);
+        assert (assign_nd->str[1] == '=');
+        prop = query_get_tmp_prop(query, name);
+        if (!prop)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "`%.*s` is undefined", (int) name->n, name->str);
+            goto failed;
+        }
+        ti_decref(name);  /* we already have a reference to name */
+    }
+
+    /* should also work in chain because then scope->local must be NULL */
+    if (    ti_scope_has_local_name(query->scope, name) ||
+            ti_scope_in_use_name(query->scope, thing, name))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "cannot assign a new value to `%.*s` while the variable is in use",
+            (int) name->n, name->str);
+        goto failed;
+    }
+
+    if (ti_cq_scope(query, scope_nd, e))
+        goto failed;
+
+    assert (query->rval);
+
+    if (assign_nd->len == 2)
+    {
+        assert (prop);
+        if (ti_opr_a_to_b(&prop->val, assign_nd, query->rval, e))
+            goto failed;
+    }
+    else if (ti_val_check_assignable(query->rval, false, e))
+        goto failed;
+
+    if (prop)
+    {
+        ti_val_clear(&prop->val);
+        ti_val_weak_copy(&prop->val, query->rval);
+    }
+    else
+    {
+        prop = ti_prop_weak_createv(name, query->rval);
+        if (!prop)
+        {
+            goto alloc_err;
+        }
+        if (query->tmpvars)
+        {
+            if (vec_push(&query->tmpvars, prop))
+                goto alloc_err_with_prop;
+        }
+        else
+        {
+            query->tmpvars = vec_new(1);
+            if (!query->tmpvars)
+                goto alloc_err_with_prop;
+            VEC_push(query->tmpvars, prop);
+        }
+    }
+
+    ti_val_set_nil(query->rval);
+
+    goto done;
+
+alloc_err_with_prop:
+    free(prop);  /* name is dropped, value too */
+
+alloc_err:
+    ex_set_alloc(e);
+
+failed:
+    ti_name_drop(name);
+
+done:
+    return e->nr;
+}

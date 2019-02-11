@@ -29,7 +29,7 @@ async def test():
 
     # Authenticte
     try:
-        await client.authenticate('iris', 'siri')
+        await client.authenticate('admin', 'pass')
     except ThingsDBError as e:
         print(e)
 
@@ -67,18 +67,21 @@ async def test():
         }).ret();
         */
 
+        map($_ => $_);
 
         /*
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
         */
 
-        Labels.labels[0].name = '!!! New Name !!!';
+        /*
+        Labels.labels[0].name = '!!! New Name2 !!!';
+        */
 
         /*
         Labels.labels.splice(-1, 1);
         */
 
-        Labels.labels.map(l => l);
+        Labels.labels.map($_ => $_);
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

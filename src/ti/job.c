@@ -15,10 +15,6 @@ static int job__del(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__push(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
 static int job__rename(
         ti_collection_t * collection,
         ti_thing_t * thing,
@@ -62,8 +58,6 @@ int ti_job_run(
         return job__assign(collection, thing, unp);
     case 'd':
         return job__del(collection, thing, unp);
-    case 'p':
-        return job__push(collection, thing, unp);
     case 'r':
         return job__rename(collection, thing, unp);
     case 's':
@@ -197,115 +191,6 @@ static int job__del(
 
         return -1;
     }
-
-    return 0;
-}
-
-/*
- * Returns 0 on success
- * - for example: {'prop': [values]}
- */
-static int job__push(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
-{
-    assert (collection);
-    assert (thing);
-    assert (unp);
-
-    ex_t * e = ex_use();
-    int rc = 0;
-    size_t grow_sz = 6;
-    ssize_t n;
-    qp_types_t tp;
-    ti_val_t val, * arr;
-    ti_name_t * name;
-    qp_obj_t qp_prop;
-
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_prop)) ||
-        !qp_is_array((tp = qp_next(unp, NULL))))
-    {
-        log_critical(
-                "job `push` to array on "TI_THING_ID": "
-                "missing map, property or array of values",
-                thing->id);
-        return -1;
-    }
-
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(arr = ti_thing_get(thing, name)))
-    {
-        log_critical(
-                "job `push` to array on "TI_THING_ID": "
-                "missing property: `%.*s`",
-                thing->id,
-                (int) qp_prop.len, (char *) qp_prop.via.raw);
-        return -1;
-    }
-
-    if (!ti_val_is_mutable_arr(arr))
-    {
-        log_critical(
-                "job `push` to array on "TI_THING_ID": "
-                "expecting a mutable array, got type `%s`",
-                thing->id,
-                ti_val_str(arr));
-        return -1;
-    }
-
-    n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
-
-    if (n > 0)
-    {
-        if (vec_resize(&arr->via.arr, arr->via.arr->n + n))
-        {
-            log_critical(EX_ALLOC_S);
-            return -1;
-        }
-    }
-
-    while(n-- && (rc = ti_val_from_unp(&val, unp, collection->things)) == 0)
-    {
-        ti_val_t * v;
-        if (n < 0 && !vec_space(arr->via.arr))
-        {
-            if (vec_resize(&arr->via.arr, arr->via.arr->n + grow_sz))
-            {
-                log_critical(EX_ALLOC_S);
-                return -1;
-            }
-            grow_sz *= 2;
-        }
-
-        v = ti_val_weak_dup(&val);
-        if (!v)
-        {
-            log_critical(EX_ALLOC_S);
-            return -1;
-        }
-
-        if (ti_val_move_to_arr(arr, v, e))
-        {
-            log_critical("job `push` to array on "TI_THING_ID": %s", e->msg);
-            ti_val_destroy(v);
-            return -1;
-        }
-    }
-
-    if (rc < 0)
-    {
-        log_critical(
-                "job `push` to array on "TI_THING_ID": "
-                "error reading value for property: `%s`",
-                thing->id,
-                name->str);
-        return -1;
-    }
-
-    /* don't care if shrink fails */
-    (void) vec_shrink(&arr->via.arr);
 
     return 0;
 }

@@ -43,6 +43,10 @@ async def test():
          */
         /* del_collection('test2'); */
         collections();
+        new_user('a', 'a');
+
+        grant('osdata', 'a', (READ|MODIFY));
+
         /* set_loglevel(WARNING); */
 
         ''', timeout=2, target=0)
@@ -67,7 +71,7 @@ async def test():
         }).ret();
         */
 
-        map($_ => $_);
+        Oversight.nodes.map(_ => _);
 
         /*
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
@@ -81,7 +85,7 @@ async def test():
         Labels.labels.splice(-1, 1);
         */
 
-        Labels.labels.map($_ => $_);
+        Labels.labels.map(_ => _);
 
         ''', blobs=["bla"], timeout=2)
     except ThingsDBError as e:

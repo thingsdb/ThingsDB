@@ -1709,6 +1709,7 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
+        query_rval_destroy(query);
         if (rq__operations(query, node->children->next->node, e))
             return e->nr;
         break;

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-11 16:46:52
+ * Created at: 2019-02-13 08:45:31
  */
 
 #include <langdef/langdef.h>
@@ -104,7 +104,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * arrow = cleri_sequence(
         CLERI_GID_ARROW,
         3,
-        cleri_list(CLERI_NONE, tmp, cleri_token(CLERI_NONE, ","), 0, 0, 0),
+        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 0),
         cleri_token(CLERI_NONE, "=>"),
         scope
     );

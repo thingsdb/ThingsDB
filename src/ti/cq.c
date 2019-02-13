@@ -3296,20 +3296,12 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query_is_thing(query));
 
     ti_name_t * name;
-
-    ti_val_t * val;
+    ti_prop_t * prop;
 
     name = ti_names_weak_get(nd->str, nd->len);
+    prop = name ? query_get_tmp_prop(query, name) : NULL;
 
-    val = name ? ti_scope_local_val(query->scope, name) : NULL;
-
-    if (!val && name)
-    {
-        ti_prop_t * prop = query_get_tmp_prop(query, name);
-        val = prop ? &prop->val : NULL;
-    }
-
-    if (!val)
+    if (!prop)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "temporary variable `%.*s` is undefined",
@@ -3317,7 +3309,7 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_push_name(&query->scope, name, val))
+    if (ti_scope_push_name(&query->scope, name, &prop->val))
         ex_set_alloc(e);
 
     query_rval_destroy(query);

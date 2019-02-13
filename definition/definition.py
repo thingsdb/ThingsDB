@@ -104,7 +104,7 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    arrow = Sequence(List(tmp, opt=False), '=>', scope)
+    arrow = Sequence(List(name, opt=False), '=>', scope)
 
     function = Sequence(Choice(
         # build-in get functions
@@ -234,13 +234,8 @@ if __name__ == '__main__':
 
         (true) ? 2 : 3;
 
-        Oversight = {
-            redundancy: 3,
-            nodes: [],
-        };
-
         inf''')
-    exit(0)
+    # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

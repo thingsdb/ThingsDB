@@ -71,6 +71,15 @@ class Client(WatchMixin, Root):
             self._reconnect = False
             self._protocol.transport.close()
 
+    def connection_info(self):
+        if not self.is_connected():
+            return 'disconnected'
+        socket = self._protocol.transport.get_extra_info('socket', None)
+        if socket is None:
+            return 'unknown_addr'
+        addr, port = socket.getpeername()
+        return f'{addr}:{port}'
+
     def _on_lost(self, exc):
         self._protocol = None
 
@@ -144,6 +153,9 @@ class Client(WatchMixin, Root):
     def use(self, target):
         assert isinstance(target, (int, str))
         self._target = target
+
+    def get_target(self):
+        return self._target
 
     async def query(
             self, query, blobs=None, target=None, timeout=None, as_list=False):

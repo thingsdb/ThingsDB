@@ -43,10 +43,6 @@ async def test():
          */
         /* del_collection('test2'); */
         collections();
-        new_user('a', 'a');
-
-        grant('osdata', 'a', (READ|MODIFY));
-
         /* set_loglevel(WARNING); */
 
         ''', timeout=2, target=0)
@@ -65,13 +61,15 @@ async def test():
         /*
         Oversight.nodes.push({
             address: 'localhost',
-            secret: 'someblabla',
+            secret: 'secret001',
             port: 8721,
             in_sync: true
         }).ret();
         */
 
-        Oversight.nodes.map(_ => _);
+        $a = _ => _;
+
+        Oversight.nodes.map($a);
 
         /*
         Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));

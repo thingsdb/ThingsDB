@@ -41,6 +41,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -2040,6 +2041,39 @@ finish:
     return e->nr;
 }
 
+static int cq__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_thing_t * thing;
+
+    if (!query_is_thing(query))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `refs`",
+                query_tp_str(query));
+        return e->nr;
+    }
+    thing = query_get_thing(query);
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `re` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    if (query_rval_clear(query))
+        ex_set_alloc(e);
+    else
+        ti_val_set_int(query->rval, (int64_t) thing->ref);
+
+    return e->nr;
+}
+
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2874,6 +2908,8 @@ static int cq__function(
         return cq__f_push(query, params, e);
     case CLERI_GID_F_RENAME:
         return cq__f_rename(query, params, e);
+    case CLERI_GID_F_REFS:
+        return cq__f_refs(query, params, e);
     case CLERI_GID_F_RET:
         return cq__f_ret(query, params, e);
     case CLERI_GID_F_SET:

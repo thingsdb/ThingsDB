@@ -72,6 +72,7 @@ class Definition(Grammar):
     f_lower = Keyword('lower')
     f_map = Keyword('map')
     f_now = Keyword('now')
+    f_refs = Keyword('refs')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_str = Keyword('str')
@@ -133,6 +134,7 @@ class Definition(Grammar):
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
         f_now,          # () -> timestamp as double seconds.nanoseconds
+        f_refs,         # () -> reference counter
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_str,          # (x) -> raw

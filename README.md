@@ -144,14 +144,14 @@
         - [x] `startswith`
         - [x] `str`
         - [x] `thing`
-        - [ ] `try`
+        - [x] `try`
         - [x] `unset`
         - [x] `upper`
 - [x] Redundancy as initial argument together with --init ?
 - [x] Task generating
     - [x] `assign`
     - [x] `del`
-    - [x] `push`
+    - [x] ~~`push`~~ replaced with splice
     - [x] `rename`
     - [x] `set`
     - [x] `splice`
@@ -160,7 +160,7 @@
 - [x] Jobs processing from `EPKG`
     - [x] `assign`
     - [x] `del`
-    - [x] `push`
+    - [x] ~~`push`~~ replaced with splice
     - [x] `rename`
     - [x] `set`
     - [x] `splice`

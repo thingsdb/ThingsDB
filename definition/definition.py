@@ -75,8 +75,8 @@ class Definition(Grammar):
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_str = Keyword('str')
+    f_t = Keyword('t')
     f_test = Keyword('test')
-    f_thing = Keyword('thing')
     f_try = Keyword('try')
     f_upper = Keyword('upper')
 
@@ -136,8 +136,8 @@ class Definition(Grammar):
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_str,          # (x) -> raw
+        f_t,            # (int thing_id) -> thing
         f_test,         # (regex) -> bool
-        f_thing,        # (int thing_id) -> thing
         f_try,
         f_upper,        # () -> str
         # build-in update functions

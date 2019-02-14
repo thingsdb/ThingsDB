@@ -28,7 +28,6 @@ typedef enum
 typedef enum
 {
     TI_VAL_FLAG_FETCH       =1<<0,
-    TI_VAL_FLAG_STATIC      =1<<2,
 } ti_val_flags;
 
 typedef enum

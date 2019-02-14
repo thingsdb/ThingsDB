@@ -107,10 +107,10 @@ class Thing:
         if blobs:
             kwargs['blobs'] = blobs
 
-        await self._query(f'thing({self._id}).{name}={value!r}', **kwargs)
+        await self._query(f't({self._id}).{name}={value!r}', **kwargs)
 
     async def fetch(self):
-        thing_dict = await self._query(f'thing({self._id})')
+        thing_dict = await self._query(f't({self._id})')
         for prop, value in thing_dict.items():
             self._assign(prop, value)
         self._is_fetched = True
@@ -133,8 +133,11 @@ class Thing:
     def collection(self):
         return self._collection
 
-    def get_prop(self, prop, d=None):
+    def prop(self, prop, d=None):
         return self._props.get(prop, d)
+
+    def attr(self, attr, d=None):
+        return self._attrs.get(attr, d)
 
     def is_fetched(self):
         return self._is_fetched

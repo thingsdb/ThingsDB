@@ -748,9 +748,10 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
             return -1;
         for (vec_each(val->via.things, ti_thing_t, thing))
         {
-            if (    (flags == TI_VAL_PACK_NEW &&
+            if (    ((flags & TI_VAL_PACK_NEW) &&
                     (thing->flags & TI_THING_FLAG_NEW)) ||
-                    (val->flags & TI_VAL_FLAG_FETCH))
+                    ((~flags & TI_VAL_PACK_NEW) &&
+                    (val->flags & TI_VAL_FLAG_FETCH)))
             {
                 if (ti_thing_to_packer(thing, packer, flags))
                     return -1;

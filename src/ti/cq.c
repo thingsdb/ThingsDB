@@ -47,7 +47,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1632,6 +1632,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (iter_thing)
     {
+        retval->flags |= TI_VAL_FLAG_FETCH;
         for (vec_each(iter_thing->props, ti_prop_t, p))
         {
             size_t paramn = 0;
@@ -2497,7 +2498,7 @@ done:
     return e->nr;
 }
 
-static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -2513,7 +2514,7 @@ static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!n)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `thing` requires at least 1 argument but 0 "
+                "function `t` requires at least 1 argument but 0 "
                 "were given");
         return e->nr;
     }
@@ -2541,7 +2542,7 @@ static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (query->rval->tp != TI_VAL_INT)
         {
             ex_set(e, EX_BAD_DATA,
-                    "function `thing` only accepts `int` arguments, but "
+                    "function `t` only accepts `int` arguments, but "
                     "argument %d is of type `%s`", n, query_tp_str(query));
             goto failed;
         }
@@ -2578,6 +2579,7 @@ static int cq__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         ti_val_weak_set(query->rval, TI_VAL_THINGS, things);
+        query->rval->flags |= TI_VAL_FLAG_FETCH;
         goto done;
     }
 
@@ -2884,12 +2886,12 @@ static int cq__function(
         if (is_scope)
             return cq__f_str(query, params, e);
         break;
+    case CLERI_GID_F_T:
+        if (is_scope)
+            return cq__f_t(query, params, e);
+        break;
     case CLERI_GID_F_TEST:
         return cq__f_test(query, params, e);
-    case CLERI_GID_F_THING:
-        if (is_scope)
-            return cq__f_thing(query, params, e);
-        break;
     case CLERI_GID_F_TRY:
         if (is_scope)
             return cq__f_try(query, params, e);

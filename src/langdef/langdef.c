@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-13 08:45:31
+ * Created at: 2019-02-14 09:42:36
  */
 
 #include <langdef/langdef.h>
@@ -57,8 +57,8 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_str = cleri_keyword(CLERI_GID_F_STR, "str", CLERI_CASE_SENSITIVE);
+    cleri_t * f_t = cleri_keyword(CLERI_GID_F_T, "t", CLERI_CASE_SENSITIVE);
     cleri_t * f_test = cleri_keyword(CLERI_GID_F_TEST, "test", CLERI_CASE_SENSITIVE);
-    cleri_t * f_thing = cleri_keyword(CLERI_GID_F_THING, "thing", CLERI_CASE_SENSITIVE);
     cleri_t * f_try = cleri_keyword(CLERI_GID_F_TRY, "try", CLERI_CASE_SENSITIVE);
     cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
@@ -134,8 +134,8 @@ cleri_grammar_t * compile_langdef(void)
             f_ret,
             f_startswith,
             f_str,
+            f_t,
             f_test,
-            f_thing,
             f_try,
             f_upper,
             f_del,

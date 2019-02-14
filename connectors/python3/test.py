@@ -63,8 +63,7 @@ async def test():
             address: 'localhost',
             secret: 'secret001',
             port: 8721,
-            in_sync: true
-        }).ret();
+        });
         */
 
         $a = _ => _;

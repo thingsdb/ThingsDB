@@ -38,7 +38,7 @@ class Arr(list):
     async def fetch(self):
         thing = self._parent
         res = await self._parent._query(
-            f'thing({self._parent._id}).{self._prop}.map(_=>_)'
+            f't({self._parent._id}).{self._prop}.map(_=>_)'
         )
         self[:] = [thing._unpack(None, v) for v in res]
         for t in self:
@@ -53,7 +53,7 @@ class Arr(list):
             kwargs['blobs'] = blobs
 
         await self._parent._query(
-            f'thing({self._parent._id}).{self._prop}.push({value}).ret()',
+            f't({self._parent._id}).{self._prop}.push({value}).ret()',
             **kwargs
         )
 
@@ -66,6 +66,6 @@ class Arr(list):
             kwargs['blobs'] = blobs
 
         await self._parent._query(
-            f'thing({self._parent._id}).{self._prop}.push({values})',
+            f't({self._parent._id}).{self._prop}.push({values})',
             **kwargs
         )

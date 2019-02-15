@@ -18,10 +18,11 @@ typedef enum
                        data */
     TI_VAL_RAW,
     TI_VAL_REGEX,
-    TI_VAL_ARRAY,   /* NEVER turn back to TI_VAL_THINGS */
-    TI_VAL_TUPLE,   /* nested arrays are of tuple type */
     TI_VAL_THING,
+    TI_VAL_MIXED,   /* contains things + other */
+    TI_VAL_ARRAY,
     TI_VAL_THINGS,  /* when empty, this can be turned into TI_VAL_ARRAY */
+    TI_VAL_TUPLE,   /* nested arrays of tuple type */
     TI_VAL_ARROW,
 } ti_val_enum;
 
@@ -57,21 +58,26 @@ int ti_val_init_common(void);
 void ti_val_destroy_common(void);
 ti_val_t * ti_val_create_thing(ti_thing_t * thing);
 ti_val_t * ti_val_create_raw(ti_raw_t * raw);
+ti_val_t * ti_val_create_qp(ti_raw_t * raw);
 ti_val_t * ti_val_create_regex(ti_regex_t * regex);
 ti_val_t * ti_val_create_int(int64_t i);
 ti_val_t * ti_val_create_float(double d);
 ti_val_t * ti_val_get_nil(void);
 ti_val_t * ti_val_get_true(void);
 ti_val_t * ti_val_get_false(void);
-void ti_val_destroy(ti_val_t * val);
-
+void ti_val_drop(ti_val_t * val);
+int ti_val_make_int(ti_val_t ** val, int64_t i);
+int ti_val_make_float(ti_val_t ** val, double d);
+int ti_val_make_raw(ti_val_t ** val, ti_raw_t * raw);
+int ti_val_convert_to_str(ti_val_t ** val);
+int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
+int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
+
+
 static inline void __ti_val_weak_destroy(ti_val_t * val);
 void __ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
-int ti_val_convert_to_str(ti_val_t * val);
-int ti_val_convert_to_int(ti_val_t * val, ex_t * e);
-int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
 int ti_val_copy(ti_val_t * to, ti_val_t * from);
 _Bool ti_val_as_bool(ti_val_t * val);
@@ -119,6 +125,7 @@ struct ti_val_s
 {
     uint32_t ref;
     uint8_t tp;
+    uint8_t flags;          /* only for things */
     ti_val_via_t via;
 };
 

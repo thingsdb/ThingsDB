@@ -15,13 +15,13 @@ static int opr__le(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__lt(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__ne(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e);
+static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e);
+static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e);
 static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e);
 
 
@@ -908,7 +908,7 @@ type_err:
     return e->nr;
 }
 
-static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0f;   /* set to 0 only to prevent warning */
@@ -920,24 +920,24 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if ((b->via.int_ > 0 && a->via.int_ > LLONG_MAX - b->via.int_) ||
-                (b->via.int_ < 0 && a->via.int_ < LLONG_MIN - b->via.int_))
+            if (((*b)->via.int_ > 0 && a->via.int_ > LLONG_MAX - (*b)->via.int_) ||
+                ((*b)->via.int_ < 0 && a->via.int_ < LLONG_MIN - (*b)->via.int_))
                 goto overflow;
-            int_ = a->via.int_ + b->via.int_;
+            int_ = a->via.int_ + (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.int_ + b->via.float_;
+            float_ = a->via.int_ + (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            if (a->via.int_ == LLONG_MAX && b->via.bool_)
+            if (a->via.int_ == LLONG_MAX && (*b)->via.bool_)
                 goto overflow;
-            int_ = a->via.int_ + b->via.bool_;
+            int_ = a->via.int_ + (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -951,19 +951,19 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            float_ = a->via.float_ + b->via.int_;
+            float_ = a->via.float_ + (*b)->via.int_;
             goto type_float;
         case TI_VAL_FLOAT:
-            float_ = a->via.float_ + b->via.float_;
+            float_ = a->via.float_ + (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            float_ = a->via.float_ + b->via.bool_;
+            float_ = a->via.float_ + (*b)->via.bool_;
             goto type_float;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -977,21 +977,21 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (a->via.bool_ && b->via.int_ == LLONG_MAX)
+            if (a->via.bool_ && (*b)->via.int_ == LLONG_MAX)
                 goto overflow;
-            int_ = a->via.bool_ + b->via.int_;
+            int_ = a->via.bool_ + (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.bool_ + b->via.float_;
+            float_ = a->via.bool_ + (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ + b->via.bool_;
+            int_ = a->via.bool_ + (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1006,7 +1006,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
         break;
     case TI_VAL_QP:
     case TI_VAL_RAW:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
@@ -1016,7 +1016,7 @@ static int opr__add(ti_val_t * a, ti_val_t * b, ex_t * e)
             goto type_err;
         case TI_VAL_QP:
         case TI_VAL_RAW:
-            raw = ti_raw_cat(a->via.raw, b->via.raw);
+            raw = ti_raw_cat(a->via.raw, (*b)->via.raw);
             goto type_raw;
         case TI_VAL_REGEX:
         case TI_VAL_ARRAY:
@@ -1049,21 +1049,21 @@ type_raw:
 
 type_float:
 
-    ti_val_clear(b);
-    ti_val_set_float(b, float_);
+    if (ti_val_make_float(b, float_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_int:
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`+` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 
 overflow:
@@ -1071,7 +1071,7 @@ overflow:
     return e->nr;
 }
 
-static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0f;   /* set to 0 only to prevent warning */
@@ -1082,24 +1082,24 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if ((b->via.int_ < 0 && a->via.int_ > LLONG_MAX + b->via.int_) ||
-                (b->via.int_ > 0 && a->via.int_ < LLONG_MIN + b->via.int_))
+            if (((*b)->via.int_ < 0 && a->via.int_ > LLONG_MAX + (*b)->via.int_) ||
+                ((*b)->via.int_ > 0 && a->via.int_ < LLONG_MIN + (*b)->via.int_))
                 goto overflow;
-            int_ = a->via.int_ - b->via.int_;
+            int_ = a->via.int_ - (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.int_ - b->via.float_;
+            float_ = a->via.int_ - (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            if (a->via.int_ == LLONG_MIN && b->via.bool_)
+            if (a->via.int_ == LLONG_MIN && (*b)->via.bool_)
                 goto overflow;
-            int_ = a->via.int_ - b->via.bool_;
+            int_ = a->via.int_ - (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1113,19 +1113,19 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            float_ = a->via.float_ - b->via.int_;
+            float_ = a->via.float_ - (*b)->via.int_;
             goto type_float;
         case TI_VAL_FLOAT:
-            float_ = a->via.float_ - b->via.float_;
+            float_ = a->via.float_ - (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            float_ = a->via.float_ - b->via.bool_;
+            float_ = a->via.float_ - (*b)->via.bool_;
             goto type_float;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1139,22 +1139,22 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == LLONG_MIN ||
-                (a->via.bool_ && b->via.int_ == -LLONG_MAX))
+            if ((*b)->via.int_ == LLONG_MIN ||
+                (a->via.bool_ && (*b)->via.int_ == -LLONG_MAX))
                 goto overflow;
-            int_ = a->via.bool_ - b->via.int_;
+            int_ = a->via.bool_ - (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.bool_ - b->via.float_;
+            float_ = a->via.bool_ - (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ - b->via.bool_;
+            int_ = a->via.bool_ - (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1182,21 +1182,21 @@ static int opr__sub(ti_val_t * a, ti_val_t * b, ex_t * e)
 
 type_float:
 
-    ti_val_clear(b);
-    ti_val_set_float(b, float_);
+    if (ti_val_make_float(b, float_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_int:
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`-` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 
 overflow:
@@ -1204,7 +1204,7 @@ overflow:
     return e->nr;
 }
 
-static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0f;   /* set to 0 only to prevent warning */
@@ -1215,24 +1215,24 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if ((a->via.int_ > LLONG_MAX / b->via.int_) ||
-                (a->via.int_ < LLONG_MIN / b->via.int_) ||
-                (a->via.int_ == -1 && b->via.int_ == LLONG_MIN) ||
-                (b->via.int_ == -1 && a->via.int_ == LLONG_MIN))
+            if ((a->via.int_ > LLONG_MAX / (*b)->via.int_) ||
+                (a->via.int_ < LLONG_MIN / (*b)->via.int_) ||
+                (a->via.int_ == -1 && (*b)->via.int_ == LLONG_MIN) ||
+                ((*b)->via.int_ == -1 && a->via.int_ == LLONG_MIN))
                 goto overflow;
-            int_ = a->via.int_ * b->via.int_;
+            int_ = a->via.int_ * (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.int_ * b->via.float_;
+            float_ = a->via.int_ * (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            int_ = a->via.int_ * b->via.bool_;
+            int_ = a->via.int_ * (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1246,19 +1246,19 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            float_ = a->via.float_ * b->via.int_;
+            float_ = a->via.float_ * (*b)->via.int_;
             goto type_float;
         case TI_VAL_FLOAT:
-            float_ = a->via.float_ * b->via.float_;
+            float_ = a->via.float_ * (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            float_ = a->via.float_ * b->via.bool_;
+            float_ = a->via.float_ * (*b)->via.bool_;
             goto type_float;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1272,19 +1272,19 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.bool_ * b->via.int_;
+            int_ = a->via.bool_ * (*b)->via.int_;
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = a->via.bool_ * b->via.float_;
+            float_ = a->via.bool_ * (*b)->via.float_;
             goto type_float;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ * b->via.bool_;
+            int_ = a->via.bool_ * (*b)->via.bool_;
             goto type_int;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1312,21 +1312,21 @@ static int opr__mul(ti_val_t * a, ti_val_t * b, ex_t * e)
 
 type_float:
 
-    ti_val_clear(b);
-    ti_val_set_float(b, float_);
+    if (ti_val_make_float(b, float_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_int:
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`*` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 
 overflow:
@@ -1334,7 +1334,7 @@ overflow:
     return e->nr;
 }
 
-static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     double float_ = 0.0f;   /* set to 0 only to prevent warning */
 
@@ -1344,25 +1344,25 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            float_ = (double) a->via.int_ / (double) b->via.int_;
+            float_ = (double) a->via.int_ / (double) (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            float_ = (double) a->via.int_ / b->via.float_;
+            float_ = (double) a->via.int_ / (*b)->via.float_;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            float_ = (double) a->via.int_ / (double) b->via.bool_;
+            float_ = (double) a->via.int_ / (double) (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1376,25 +1376,25 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            float_ = a->via.float_ / (double) b->via.int_;
+            float_ = a->via.float_ / (double) (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            float_ = a->via.float_ / b->via.float_;
+            float_ = a->via.float_ / (*b)->via.float_;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            float_ = a->via.float_ / (double) b->via.bool_;
+            float_ = a->via.float_ / (double) (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1408,25 +1408,25 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            float_ = (double) a->via.bool_ / (double) b->via.int_;
+            float_ = (double) a->via.bool_ / (double) (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            float_ = (double) a->via.bool_ / b->via.float_;
+            float_ = (double) a->via.bool_ / (*b)->via.float_;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            float_ = (double) a->via.bool_ / (double) b->via.bool_;
+            float_ = (double) a->via.bool_ / (double) (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1450,14 +1450,14 @@ static int opr__div(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_float(b, float_);
+    if (ti_val_make_float(b, float_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`/` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 
 zerodiv:
@@ -1465,7 +1465,7 @@ zerodiv:
     return e->nr;
 }
 
-static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;   /* set to 0 only to prevent warning */
     double d;
@@ -1476,30 +1476,30 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            if (a->via.int_ == LLONG_MAX && b->via.int_ == -1)
+            if (a->via.int_ == LLONG_MAX && (*b)->via.int_ == -1)
                 goto overflow;
-            int_ = a->via.int_ / b->via.int_;
+            int_ = a->via.int_ / (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            d = a->via.int_ / b->via.float_;
+            d = a->via.int_ / (*b)->via.float_;
             if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            int_ = a->via.int_ / b->via.bool_;
+            int_ = a->via.int_ / (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1513,31 +1513,31 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            d = a->via.float_ / b->via.int_;
+            d = a->via.float_ / (*b)->via.int_;
             if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            d = a->via.float_ / b->via.float_;
+            d = a->via.float_ / (*b)->via.float_;
             if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            d = a->via.float_ / b->via.bool_;
+            d = a->via.float_ / (*b)->via.bool_;
             if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
@@ -1554,28 +1554,28 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            int_ = a->via.bool_ / b->via.int_;
+            int_ = a->via.bool_ / (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (b->via.float_ == 0.0)
+            if ((*b)->via.float_ == 0.0)
                 goto zerodiv;
-            d = a->via.bool_ / b->via.float_;
+            d = a->via.bool_ / (*b)->via.float_;
             if (ti_val_overflow_cast(d))
                 goto overflow;
             int_ = (int64_t) d;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            int_ = a->via.bool_ / b->via.bool_;
+            int_ = a->via.bool_ / (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1599,14 +1599,14 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "`//` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 
 overflow:
@@ -1618,7 +1618,7 @@ zerodiv:
     return e->nr;
 }
 
-static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
 
@@ -1628,28 +1628,28 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            int_ = a->via.int_ % b->via.int_;
+            int_ = a->via.int_ % (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(b->via.float_))
+            if (ti_val_overflow_cast((*b)->via.float_))
                 goto overflow;
-            int_ = (int64_t) b->via.float_;
+            int_ = (int64_t) (*b)->via.float_;
             if (int_ == 0)
                 goto zerodiv;
             int_ = a->via.int_ % int_;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            int_ = a->via.int_ % b->via.bool_;
+            int_ = a->via.int_ % (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1663,7 +1663,7 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
@@ -1671,15 +1671,15 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_INT:
             if (ti_val_overflow_cast(a->via.float_))
                 goto overflow;
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            int_ = (int64_t) a->via.float_ % b->via.int_;
+            int_ = (int64_t) a->via.float_ % (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             if (ti_val_overflow_cast(a->via.float_) ||
-                ti_val_overflow_cast(b->via.float_))
+                ti_val_overflow_cast((*b)->via.float_))
                 goto overflow;
-            int_ = (int64_t) b->via.float_;
+            int_ = (int64_t) (*b)->via.float_;
             if (int_ == 0)
                 goto zerodiv;
             int_ = (int64_t) a->via.float_ % int_;
@@ -1687,9 +1687,9 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_BOOL:
             if (ti_val_overflow_cast(a->via.float_))
                 goto overflow;
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            int_ = (int64_t) a->via.float_ % b->via.bool_;
+            int_ = (int64_t) a->via.float_ % (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1703,28 +1703,28 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         }
         break;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (b->via.int_ == 0)
+            if ((*b)->via.int_ == 0)
                 goto zerodiv;
-            int_ = a->via.bool_ % b->via.int_;
+            int_ = a->via.bool_ % (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(b->via.float_))
+            if (ti_val_overflow_cast((*b)->via.float_))
                 goto overflow;
-            int_ = (int64_t) b->via.float_;
+            int_ = (int64_t) (*b)->via.float_;
             if (int_ == 0)
                 goto zerodiv;
             int_ = a->via.bool_ % int_;
             break;
         case TI_VAL_BOOL:
-            if (b->via.bool_ == 0)
+            if ((*b)->via.bool_ == 0)
                 goto zerodiv;
-            int_ = a->via.bool_ % b->via.bool_;
+            int_ = a->via.bool_ % (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1748,8 +1748,8 @@ static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
@@ -1767,7 +1767,7 @@ zerodiv:
     return e->nr;
 }
 
-static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
 
@@ -1777,18 +1777,18 @@ static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.int_ & b->via.int_;
+            int_ = a->via.int_ & (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.int_ & b->via.bool_;
+            int_ = a->via.int_ & (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1804,18 +1804,18 @@ static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         goto type_err;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.bool_ & b->via.int_;
+            int_ = a->via.bool_ & (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ & b->via.bool_;
+            int_ = a->via.bool_ & (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1839,18 +1839,18 @@ static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "bitwise `&` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 }
 
-static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
 
@@ -1860,18 +1860,18 @@ static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.int_ ^ b->via.int_;
+            int_ = a->via.int_ ^ (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.int_ ^ b->via.bool_;
+            int_ = a->via.int_ ^ (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1887,18 +1887,18 @@ static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         goto type_err;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.bool_ ^ b->via.int_;
+            int_ = a->via.bool_ ^ (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ ^ b->via.bool_;
+            int_ = a->via.bool_ ^ (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1922,14 +1922,14 @@ static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "bitwise `^` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 }
 
@@ -2005,24 +2005,14 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
         goto type_err;
     }
 
-    if ((*b)->ref == 1)
-    {
-        (*b)->tp = TI_VAL_INT;
-        (*b)->via.int_ = int_;
-    }
-    else
-    {
-        ti_decref(*b);
-        *b = ti_val_create_int(int_);
-        if (!(*b))
-            ex_set_alloc(e);
-    }
+    if (ti_val_make_int(b, int_))
+        ex_set_alloc(e);
 
     return e->nr;
 
 type_err:
     ex_set(e, EX_BAD_DATA, "bitwise `|` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+        ti_val_str(a), ti_val_str(*b));
     return e->nr;
 }
 

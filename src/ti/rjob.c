@@ -451,7 +451,6 @@ static int rjob__rename_user(qp_unpacker_t * unp)
     assert (e->nr == 0);
 
     (void) ti_user_rename(user, rname, e);
-    ti_raw_drop(rname);
 
     return e->nr;
 }

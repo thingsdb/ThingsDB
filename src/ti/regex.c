@@ -21,7 +21,6 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
         goto fail0;
     }
 
-    regex->ref = 1;
     regex->pattern = ti_raw_create((uchar *) str, n);
     if (!regex->pattern)
     {
@@ -86,15 +85,15 @@ fail0:
     return NULL;
 }
 
-void ti_regex_drop(ti_regex_t * regex)
+void ti_regex_destroy(ti_regex_t * regex)
 {
-    if (regex && !--regex->ref)
-    {
-        pcre2_match_data_free(regex->match_data);
-        pcre2_code_free(regex->code);
-        ti_raw_drop(regex->pattern);
-        free(regex);
-    }
+    if (!regex)
+        return;
+
+    pcre2_match_data_free(regex->match_data);
+    pcre2_code_free(regex->code);
+    ti_raw_drop(regex->pattern);
+    free(regex);
 }
 
 

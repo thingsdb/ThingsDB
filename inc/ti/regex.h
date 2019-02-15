@@ -15,14 +15,13 @@ typedef struct ti_regex_s ti_regex_t;
 #include <ti/ex.h>
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
-void ti_regex_drop(ti_regex_t * regex);
+void ti_regex_destroy(ti_regex_t * regex);
 static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer);
 static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f);
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw);
 
 struct ti_regex_s
 {
-    uint32_t ref;
     pcre2_code * code;
     pcre2_match_data * match_data;
     ti_raw_t * pattern;

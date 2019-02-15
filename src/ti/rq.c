@@ -851,6 +851,7 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int n;
     ti_task_t * task;
     ti_user_t * user;
+    ti_raw_t * rname;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 2)
@@ -898,8 +899,18 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_user_rename(user, query->rval->via.raw, e))
+    rname = ti_raw_dup(query->rval->via.raw);
+    if (!rname)
+    {
+        ex_set_alloc(e);
         return e->nr;
+    }
+
+    if (ti_user_rename(user, rname, e))
+        return e->nr;
+
+    ti_val_drop(query->rval);
+    query->rval = ti_val_get_nil();
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
@@ -907,8 +918,6 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_task_add_rename_user(task, user))
         ex_set_alloc(e);  /* task cleanup is not required */
-
-    ti_val_clear(query->rval);
 
     return e->nr;
 }

@@ -32,17 +32,12 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
     if (!thing->props)
     {
-        ti_thing_drop(thing);
+        ti_thing_destroy(thing);
         return NULL;
     }
     return thing;
 }
 
-void ti_thing_drop(ti_thing_t * thing)
-{
-    if (thing && !--thing->ref)
-        ti_thing_destroy(thing);
-}
 
 void ti_thing_destroy(ti_thing_t * thing)
 {

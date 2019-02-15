@@ -110,8 +110,8 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;
 
-    ti_raw_drop(user->name);
-    user->name = ti_grab(name);
+    ti_raw_free(user->name);
+    user->name = name;
 
     return e->nr;
 }
@@ -208,9 +208,9 @@ ti_val_t * ti_user_as_qpval(ti_user_t * user)
     if (!ruser)
         goto fail;
 
-    qpval = ti_val_weak_create(TI_VAL_QP, ruser);
+    qpval = ti_val_create_qp(ruser);
     if (!qpval)
-        ti_raw_drop(ruser);
+        ti_raw_free(ruser);
 
 fail:
     qp_packer_destroy(packer);

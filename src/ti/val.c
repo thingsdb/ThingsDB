@@ -26,41 +26,88 @@ static ti_val_t * val__nil;
 static ti_val_t * val__true;
 static ti_val_t * val__false;
 static ti_val_t * val__0;
+static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
 static ti_val_t * val__sblob;
 static ti_val_t * val__sobject;
 
+#define VAL__BUF_SZ 128
+static char val__buf[VAL__BUF_SZ];
+
 
 int ti_val_init_common(void)
 {
+    ti_raw_t * rnil = ti_raw_from_strn("nil", 3);
+    ti_raw_t * rtrue = ti_raw_from_strn("true", 4);
+    ti_raw_t * rfalse = ti_raw_from_strn("false", 5);
+    ti_raw_t * rblob = ti_raw_from_strn("<blob>", 6);
+    ti_raw_t * robject = ti_raw_from_strn("<object>", 8);
+
+    if (!rnil || !rtrue || !rfalse || !rblob || !robject)
+    {
+        ti_raw_free(rnil);
+        ti_raw_free(rtrue);
+        ti_raw_free(rfalse);
+        ti_raw_free(rblob);
+        ti_raw_free(robject);
+        return -1;
+    }
+
     val__nil = malloc(sizeof(ti_val_t));
     val__true = malloc(sizeof(ti_val_t));
     val__false = malloc(sizeof(ti_val_t));
     val__0 = malloc(sizeof(ti_val_t));
+    val__snil = malloc(sizeof(ti_val_t));
+    val__strue = malloc(sizeof(ti_val_t));
+    val__sfalse = malloc(sizeof(ti_val_t));
+    val__sblob = malloc(sizeof(ti_val_t));
+    val__sobject = malloc(sizeof(ti_val_t));
 
-    if (!val__nil || !val__true || !val__false || !val__0)
+    if (!val__nil || !val__true || !val__false || !val__0 || !val__snil ||
+        !val__strue || !val__sfalse || !val__sblob || !val__sobject)
     {
-        ti_val_destroy_common();
+        ti_val_drop_common();
         return -1;
     }
 
     val__nil->tp = TI_VAL_NIL;
+    val__nil->via.nil = NULL;
     val__true->tp = TI_VAL_BOOL;
-    val__false->tp = TI_VAL_NIL;
+    val__true->via.bool_ = true;
+    val__false->tp = TI_VAL_BOOL;
+    val__false->via.bool_ = false;
     val__0->tp = TI_VAL_INT;
+    val__0->via.int_ = 0;
+    val__snil->tp = TI_VAL_RAW;
+    val__snil->via.raw = rnil;
+    val__strue->tp = TI_VAL_RAW;
+    val__strue->via.raw = rtrue;
+    val__sfalse->tp = TI_VAL_RAW;
+    val__sfalse->via.raw = rfalse;
+    val__sblob->tp = TI_VAL_RAW;
+    val__sblob->via.raw = rblob;
+    val__sobject->tp = TI_VAL_RAW;
+    val__sobject->via.raw = robject;
 
-    val__nil->ref = val__true->ref = val__false->ref = val__0->ref = 1;
+    val__nil->ref = val__true->ref = val__false->ref = val__0->ref = \
+            val__snil->ref = val__strue->ref = val__sfalse->ref = \
+            val__sblob->ref = val__sobject->ref = 1;
 
     return 0;
 }
 
-void ti_val_destroy_common(void)
+void ti_val_drop_common(void)
 {
-    ti_val_destroy(val__nil);
-    ti_val_destroy(val__true);
-    ti_val_destroy(val__false);
-    ti_val_destroy(val__0);
+    ti_val_drop(val__nil);
+    ti_val_drop(val__true);
+    ti_val_drop(val__false);
+    ti_val_drop(val__0);
+    ti_val_drop(val__snil);
+    ti_val_drop(val__strue);
+    ti_val_drop(val__sfalse);
+    ti_val_drop(val__sblob);
+    ti_val_drop(val__sobject);
 }
 
 ti_val_t * ti_val_create_thing(ti_thing_t * thing)
@@ -84,6 +131,19 @@ ti_val_t * ti_val_create_raw(ti_raw_t * raw)
 
     val->ref = 1;
     val->tp = TI_VAL_RAW;
+    val->via.raw = raw;
+
+    return val;
+}
+
+ti_val_t * ti_val_create_qp(ti_raw_t * raw)
+{
+    ti_val_t * val = malloc(sizeof(ti_val_t));
+    if (!val)
+        return NULL;
+
+    val->ref = 1;
+    val->tp = TI_VAL_QP;
     val->via.raw = raw;
 
     return val;
@@ -152,7 +212,7 @@ ti_val_t * ti_val_get_false(void)
     return val__false;
 }
 
-void ti_val_destroy(ti_val_t * val)
+void ti_val_drop(ti_val_t * val)
 {
     if (!val || --val->ref)
         return;
@@ -160,6 +220,77 @@ void ti_val_destroy(ti_val_t * val)
     free(val);
 }
 
+/*
+ * If this is the only reference, the value will be converted to an integer.
+ * If references are left, one reference is removed and **val will point to a
+ * new integer value.
+ */
+int ti_val_make_int(ti_val_t ** val, int64_t i)
+{
+    ti_val_t * v;
+    if ((*val)->ref == 1)
+    {
+        val__clear(*val);
+        (*val)->tp = TI_VAL_INT;
+        (*val)->via.int_ = i;
+        return 0;
+    }
+    v = ti_val_create_int(i);
+    if (!v)
+        return -1;
+
+    ti_decref(*val);
+    *val = &v;
+    return 0;
+}
+
+/*
+ * If this is the only reference, the value will be converted to an integer.
+ * If references are left, one reference is removed and **val will point to a
+ * new integer value.
+ */
+int ti_val_make_float(ti_val_t ** val, double d)
+{
+    ti_val_t * v;
+    if ((*val)->ref == 1)
+    {
+        val__clear(*val);
+        (*val)->tp = TI_VAL_FLOAT;
+        (*val)->via.float_ = d;
+        return 0;
+    }
+    v = ti_val_create_float(d);
+    if (!v)
+        return -1;
+
+    ti_decref(*val);
+    *val = &v;
+    return 0;
+}
+
+/*
+ * If this is the only reference, the value will be converted to an integer.
+ * If references are left, one reference is removed and **val will point to a
+ * new raw value.
+ */
+int ti_val_make_raw(ti_val_t ** val, ti_raw_t * raw)
+{
+    ti_val_t * v;
+    if ((*val)->ref == 1)
+    {
+        val__clear(*val);
+        (*val)->tp = TI_VAL_RAW;
+        (*val)->via.raw = raw;
+        return 0;
+    }
+    v = ti_val_create_raw(raw);
+    if (!v)
+        return -1;
+
+    ti_decref(*val);
+    *val = &v;
+    return 0;
+}
 
 /*
  * Return 0 on success, <0 if unpacking has failed or >0 if
@@ -173,230 +304,226 @@ int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
             : val__from_unp(dest, &qp_val, unp, things);
 }
 
+//void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
+//{
+//    val->tp = tp;
+//    switch((ti_val_enum) tp)
+//    {
+//    case TI_VAL_ATTR:
+//        val->via.attr = v;
+//        return;
+//    case TI_VAL_NIL:
+//        val->via.nil = NULL;
+//        return;
+//    case TI_VAL_INT:
+//        {
+//            int64_t * p = v;
+//            val->via.int_ = *p;
+//        }
+//        return;
+//    case TI_VAL_FLOAT:
+//        {
+//            double * p = v;
+//            val->via.float_ = *p;
+//        }
+//        return;
+//    case TI_VAL_BOOL:
+//        {
+//            _Bool * p = v;
+//            val->via.bool_ = !!*p;
+//        }
+//        return;
+//    case TI_VAL_QP:
+//    case TI_VAL_RAW:
+//        val->via.raw = v;
+//        return;
+//    case TI_VAL_REGEX:
+//        val->via.regex = v;
+//        return;
+//    case TI_VAL_TUPLE:
+//    case TI_VAL_ARRAY:
+//        val->via.array = v;
+//        return;
+//    case TI_VAL_THING:
+//        val->via.thing = v;
+//        return;
+//    case TI_VAL_THINGS:
+//        val->via.things = v;
+//        return;
+//    case TI_VAL_ARROW:
+//        val->via.arrow = v;
+//        return;
+//    }
+//    log_critical("unknown type: %d", tp);
+//    assert (0);
+//}
 
+//int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
+//{
+//    val->tp = tp;
+//    switch((ti_val_enum) tp)
+//    {
+//    case TI_VAL_ATTR:
+//        val->via.attr = v;
+//        return 0;
+//    case TI_VAL_NIL:
+//        val->via.nil = NULL;
+//        return 0;
+//    case TI_VAL_INT:
+//        {
+//            int64_t * p = v;
+//            val->via.int_ = *p;
+//        }
+//        return 0;
+//    case TI_VAL_FLOAT:
+//        {
+//            double * p = v;
+//            val->via.float_ = *p;
+//        }
+//        return 0;
+//    case TI_VAL_BOOL:
+//        {
+//            _Bool * p = v;
+//            val->via.bool_ = !!*p;
+//        }
+//        return 0;
+//    case TI_VAL_QP:
+//    case TI_VAL_RAW:
+//        val->via.raw = ti_grab((ti_raw_t *) v);
+//        return 0;
+//    case TI_VAL_REGEX:
+//        val->via.regex = ti_grab((ti_regex_t *) v);
+//        return 0;
+//    case TI_VAL_TUPLE:
+//    case TI_VAL_ARRAY:
+//        val->via.array = vec_dup((vec_t *) v);
+//        if (!val->via.array)
+//        {
+//            val->tp = TI_VAL_NIL;
+//            return -1;
+//        }
+//        return 0;
+//    case TI_VAL_THING:
+//        val->via.thing = ti_grab((ti_thing_t *) v);
+//        return 0;
+//    case TI_VAL_THINGS:
+//        val->via.things = vec_dup((vec_t *) v);
+//        if (!val->via.things)
+//        {
+//            val->tp = TI_VAL_NIL;
+//            return -1;
+//        }
+//        for (vec_each(val->via.things, ti_thing_t, thing))
+//            ti_incref(thing);
+//        return 0;
+//    case TI_VAL_ARROW:
+//        val->via.arrow = v;
+//        ++val->via.arrow->ref;
+//        return 0;
+//    }
+//    log_critical("unknown type: %d", tp);
+//    assert (0);
+//    return -1;
+//}
 
-void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
+int ti_val_convert_to_str(ti_val_t ** val)
 {
-    val->tp = tp;
-    switch((ti_val_enum) tp)
-    {
-    case TI_VAL_ATTR:
-        val->via.attr = v;
-        return;
-    case TI_VAL_NIL:
-        val->via.nil = NULL;
-        return;
-    case TI_VAL_INT:
-        {
-            int64_t * p = v;
-            val->via.int_ = *p;
-        }
-        return;
-    case TI_VAL_FLOAT:
-        {
-            double * p = v;
-            val->via.float_ = *p;
-        }
-        return;
-    case TI_VAL_BOOL:
-        {
-            _Bool * p = v;
-            val->via.bool_ = !!*p;
-        }
-        return;
-    case TI_VAL_QP:
-    case TI_VAL_RAW:
-        val->via.raw = v;
-        return;
-    case TI_VAL_REGEX:
-        val->via.regex = v;
-        return;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        val->via.array = v;
-        return;
-    case TI_VAL_THING:
-        val->via.thing = v;
-        return;
-    case TI_VAL_THINGS:
-        val->via.things = v;
-        return;
-    case TI_VAL_ARROW:
-        val->via.arrow = v;
-        return;
-    }
-    log_critical("unknown type: %d", tp);
-    assert (0);
-}
-
-int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
-{
-    val->tp = tp;
-    switch((ti_val_enum) tp)
-    {
-    case TI_VAL_ATTR:
-        val->via.attr = v;
-        return 0;
-    case TI_VAL_NIL:
-        val->via.nil = NULL;
-        return 0;
-    case TI_VAL_INT:
-        {
-            int64_t * p = v;
-            val->via.int_ = *p;
-        }
-        return 0;
-    case TI_VAL_FLOAT:
-        {
-            double * p = v;
-            val->via.float_ = *p;
-        }
-        return 0;
-    case TI_VAL_BOOL:
-        {
-            _Bool * p = v;
-            val->via.bool_ = !!*p;
-        }
-        return 0;
-    case TI_VAL_QP:
-    case TI_VAL_RAW:
-        val->via.raw = ti_grab((ti_raw_t *) v);
-        return 0;
-    case TI_VAL_REGEX:
-        val->via.regex = ti_grab((ti_regex_t *) v);
-        return 0;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        val->via.array = vec_dup((vec_t *) v);
-        if (!val->via.array)
-        {
-            val->tp = TI_VAL_NIL;
-            return -1;
-        }
-        return 0;
-    case TI_VAL_THING:
-        val->via.thing = ti_grab((ti_thing_t *) v);
-        return 0;
-    case TI_VAL_THINGS:
-        val->via.things = vec_dup((vec_t *) v);
-        if (!val->via.things)
-        {
-            val->tp = TI_VAL_NIL;
-            return -1;
-        }
-        for (vec_each(val->via.things, ti_thing_t, thing))
-            ti_incref(thing);
-        return 0;
-    case TI_VAL_ARROW:
-        val->via.arrow = v;
-        ++val->via.arrow->ref;
-        return 0;
-    }
-    log_critical("unknown type: %d", tp);
-    assert (0);
-    return -1;
-}
-
-int ti_val_convert_to_str(ti_val_t * val)
-{
-    switch((ti_val_enum) val->tp)
+    switch((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
-        val->via.raw = ti_raw_from_strn("nil", 3);
-        break;
+        ti_val_drop(*val);
+        *val = val__snil;
+        ti_incref(*val);
+        return 0;
     case TI_VAL_INT:
-        {
-            size_t n;
-            const char * s = strx_from_int64(val->via.int_, &n);
-            val->via.raw = ti_raw_from_strn(s, n);
-        }
-        break;
+    {
+        size_t n;
+        const char * s = strx_from_int64((*val)->via.int_, &n);
+        ti_raw_t * raw = ti_raw_from_strn(s, n);
+        return raw ? ti_val_make_raw(val, raw) : -1;
+    }
     case TI_VAL_FLOAT:
-        {
-            size_t n;
-            const char * s = strx_from_double(val->via.float_, &n);
-            val->via.raw = ti_raw_from_strn(s, n);
-        }
-        break;
+    {
+        size_t n;
+        const char * s = strx_from_double((*val)->via.float_, &n);
+        ti_raw_t * raw = ti_raw_from_strn(s, n);
+        return raw ? ti_val_make_raw(val, raw) : -1;
+    }
     case TI_VAL_BOOL:
-        val->via.raw = val->via.bool_
-            ? ti_raw_from_strn("true", 4)
-            : ti_raw_from_strn("false", 5);
-        break;
+    {
+        _Bool is_true = (*val)->via.bool_;
+        ti_val_drop(*val);
+        *val = is_true ? val__strue : val__sfalse;
+        ti_incref(*val);
+        return 0;
+    }
     case TI_VAL_QP:
     case TI_VAL_RAW:
         if (!strx_is_utf8n(
-                (const char *) val->via.raw->data,
-                val->via.raw->n))
+                (const char *) (*val)->via.raw->data,
+                (*val)->via.raw->n))
         {
-            ti_raw_drop(val->via.raw);
-            val->via.raw = ti_raw_from_strn("<blob>", 6);
+            ti_val_drop(*val);
+            *val = val__sblob;
+            ti_incref(*val);
         }
-        break;
+        return 0;
     case TI_VAL_REGEX:
-        {
-            ti_raw_t * pattern = ti_grab(val->via.regex->pattern);
-            ti_regex_drop(val->via.regex);
-            val->via.raw = pattern;
-        }
-        break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-    case TI_VAL_THING:
-    case TI_VAL_THINGS:
-    case TI_VAL_ARROW:
-        ti_val_clear(val);
-        val->via.raw = ti_raw_from_strn("<object>", 8);
-        break;
-    }
-
-    if (!val->via.raw)
     {
-        val->tp = TI_VAL_NIL;
-        return -1;
+        ti_raw_t * raw = ti_raw_dup((*val)->via.regex->pattern);
+        return raw ? ti_val_make_raw(val, raw) : -1;
     }
-
-    val->tp = TI_VAL_RAW;
-    return 0;
+    case TI_VAL_THING:
+    case TI_VAL_ARRAY:
+    case TI_VAL_THINGS:
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARROW:
+        ti_val_drop(*val);
+        *val = val__sobject;
+        ti_incref(*val);
+        return 0;
+    }
+    assert(0);
+    return -1;
 }
 
-int ti_val_convert_to_int(ti_val_t * val, ex_t * e)
+int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 {
-    int64_t i;
-    switch((ti_val_enum) val->tp)
+    int64_t i = 0;
+    switch((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
     case TI_VAL_REGEX:
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
     case TI_VAL_THING:
+    case TI_VAL_ARRAY:
     case TI_VAL_THINGS:
+    case TI_VAL_TUPLE:
     case TI_VAL_ARROW:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
-                ti_val_str(val), ti_val_tp_str(TI_VAL_INT));
+                ti_val_str(*val), ti_val_tp_str(TI_VAL_INT));
         return e->nr;
     case TI_VAL_INT:
         return 0;
     case TI_VAL_FLOAT:
-        if (ti_val_overflow_cast(val->via.float_))
+        if (ti_val_overflow_cast((*val)->via.float_))
             goto overflow;
 
-        i = (int64_t) val->via.float_;
-        val->via.int_ = i;
+        i = (int64_t) (*val)->via.float_;
         break;
     case TI_VAL_BOOL:
+        i = (*val)->via.bool_;
         break;
     case TI_VAL_QP:
     case TI_VAL_RAW:
         if (errno == ERANGE)
             errno = 0;
-        if (val->via.raw->n > 128)
+        if ((*val)->via.raw->n >= VAL__BUF_SZ)
         {
             char * dup = strndup(
-                    (const char *) val->via.raw->data,
-                    val->via.raw->n);
+                    (const char *) (*val)->via.raw->data,
+                    (*val)->via.raw->n);
             if (!dup)
             {
                 ex_set_alloc(e);
@@ -407,21 +534,19 @@ int ti_val_convert_to_int(ti_val_t * val, ex_t * e)
         }
         else
         {
-            char dup[val->via.raw->n + 1];
-            memcpy(dup, val->via.raw->data, val->via.raw->n);
-            dup[val->via.raw->n] = '\0';
-            i = strtoll(dup, NULL, 0);
+            memcpy(val__buf, (*val)->via.raw->data, (*val)->via.raw->n);
+            val__buf[(*val)->via.raw->n] = '\0';
+            i = strtoll(val__buf, NULL, 0);
         }
         if (errno == ERANGE)
             goto overflow;
-
-        ti_raw_drop(val->via.raw);
-        val->via.int_ = i;
         break;
     }
 
-    val->tp = TI_VAL_INT;
-    return 0;
+    if (ti_val_make_int(val, i))
+        ex_set_alloc(e);
+
+    return e->nr;
 
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");
@@ -583,7 +708,7 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
             ti_val_t * dup = ti_val_dup(val);
             if (!dup)
             {
-                vec_destroy(to->via.array, (vec_destroy_cb) ti_val_destroy);
+                vec_destroy(to->via.array, (vec_destroy_cb) ti_val_drop);
                 to->tp = TI_VAL_NIL;
                 return -1;
             }
@@ -1211,15 +1336,13 @@ static void val__clear(ti_val_t * val)
     case TI_VAL_REGEX:
         ti_regex_drop(val->via.regex);
         break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
-        break;
     case TI_VAL_THING:
         ti_thing_drop(val->via.thing);
         break;
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
     case TI_VAL_THINGS:
-        vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
+        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_drop);
         break;
     case TI_VAL_ARROW:
         ti_arrow_destroy(val->via.arrow);

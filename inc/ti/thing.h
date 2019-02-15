@@ -61,10 +61,6 @@ static inline void ti_thing_unmark_attrs(ti_thing_t * thing);
 
 struct ti_thing_s
 {
-    uint32_t ref;
-    uint16_t pad0;
-    uint8_t flags;
-    uint8_t pad1;
     uint64_t id;
     vec_t * props;          /* vec contains ti_prop_t */
     imap_t * things;        /* thing is added to this map */

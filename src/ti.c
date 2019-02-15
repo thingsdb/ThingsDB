@@ -109,6 +109,8 @@ void ti_destroy(void)
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
+
+    ti_val_destroy_common();
 }
 
 int ti_init_logger(void)
@@ -280,6 +282,9 @@ int ti_run(void)
     int rc, attempts;
 
     ti_names_inject_common();
+
+    if (ti_val_init_common())
+        return -1;
 
     if (uv_loop_init(&loop_))
         return -1;

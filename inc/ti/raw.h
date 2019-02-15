@@ -12,7 +12,9 @@ typedef struct ti_raw_s ti_raw_t;
 typedef unsigned char uchar;
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n);
-void ti_raw_drop(ti_raw_t * raw);
+//void ti_raw_drop(ti_raw_t * raw);
+ti_raw_t * ti_raw_dup(ti_raw_t * raw);
+static inline ti_raw_free(ti_raw_t * raw);
 ti_raw_t * ti_raw_from_packer(qp_packer_t * packer);
 ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n);
 ti_raw_t * ti_raw_from_fmt(const char * fmt, ...);
@@ -36,9 +38,13 @@ static inline _Bool ti_raw_equal_strn(
         const char * s,
         size_t n);
 
+static inline ti_raw_free(ti_raw_t * raw)
+{
+    free(raw);
+}
+
 struct ti_raw_s
 {
-    uint32_t ref;
     uint32_t n;
     unsigned char data[];
 };

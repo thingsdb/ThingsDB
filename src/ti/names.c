@@ -27,6 +27,15 @@ void ti_names_destroy(void)
 }
 
 /*
+ * non-critical function, just to inject some common names
+ */
+void ti_names_inject_common(void)
+{
+    (void *) ti_names_get("$_", 2);
+    (void *) ti_names_get("$tmp", 4);
+}
+
+/*
  * returns a name with a new reference or NULL in case of an error
  */
 ti_name_t * ti_names_get(const char * str, size_t n)

@@ -731,15 +731,12 @@ int ti_task_add_splice(
         int64_t c,
         int32_t n)
 {
-    assert (val->tp == TI_VAL_THINGS || val->tp == TI_VAL_ARRAY);
+    assert (!val || val->tp == TI_VAL_THINGS || val->tp == TI_VAL_ARRAY);
     assert (name);
     int rc;
     ti_raw_t * job = NULL;
     qp_packer_t * packer = qp_packer_create2(512, 8);
     if (!packer)
-        goto failed;
-
-    if (ti_val_gen_ids(val))
         goto failed;
 
     (void) qp_add_map(&packer);
@@ -753,23 +750,29 @@ int ti_task_add_splice(
         qp_add_int(packer, n))
         goto failed;
 
-    if (val->tp == TI_VAL_THINGS)
+    if (val)
     {
-        for (c = i + n; i < c; ++i)
+        if (ti_val_gen_ids(val))
+            goto failed;
+
+        switch(val->tp)
         {
-            ti_thing_t * t = vec_get(val->via.things, i);
-            if (task__thing_to_packer(&packer, t))
-                goto failed;
-        }
-    }
-    else
-    {
-        assert (val->tp == TI_VAL_ARRAY);
-        for (c = i + n; i < c; ++i)
-        {
-            ti_val_t * v = vec_get(val->via.array, i);
-            if (ti_val_to_packer(v, &packer, 0))
-                goto failed;
+        case TI_VAL_THINGS:
+            for (c = i + n; i < c; ++i)
+            {
+                ti_thing_t * t = vec_get(val->via.things, i);
+                if (task__thing_to_packer(&packer, t))
+                    goto failed;
+            }
+            break;
+        case TI_VAL_ARRAY:
+            for (c = i + n; i < c; ++i)
+            {
+                ti_val_t * v = vec_get(val->via.array, i);
+                if (ti_val_to_packer(v, &packer, 0))
+                    goto failed;
+            }
+            break;
         }
     }
 

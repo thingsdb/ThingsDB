@@ -2,6 +2,12 @@
 
 ## TODO list
 
+- [ ] Maybe implement a `set()` for things? For the implementation we could use an imap.
+      This will make lookups very fast and set operations possible.
+      Methods could be:
+      - [ ] add
+      - [ ] remove
+      - [ ] contains
 - [ ] Maybe add the option for read only queries? For example via a protocol type: TI_PROTO_CLIENT_REQ_QUERY_RO
 - [x] Take advantage when on a 64 bit system
     - [x] wareq uses uinpntr_t for 64bit thing id's, on 32 bit id's are allocated

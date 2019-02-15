@@ -39,6 +39,7 @@ static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -123,11 +124,13 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (node->children->next->next->next)               /* optional */
         {
+            _Bool is_true = ti_val_as_bool(query->rval);
+            query_rval_destroy(query);
             node = node->children->next->next->next->node   /* choice */
                    ->children->node;                        /* sequence */
             if (ti_cq_scope(
                     query,
-                    ti_val_as_bool(query->rval)
+                    is_true
                         ? node->children->next->node        /* scope, true */
                         : node->children->next->next->next->node, /* false */
                     e))
@@ -1771,6 +1774,79 @@ static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int cq__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (query->ev);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    ti_val_t * val = query_get_val(query);
+    _Bool from_rval = val == query->rval;
+    void * last;
+
+    if (!val || !ti_val_is_mutable_arr(val))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "type `%s` has no function `pop`",
+                query_tp_str(query));
+        return e->nr;
+    }
+
+    if (!langdef_nd_fun_has_zero_params(nd))
+    {
+        int n = langdef_nd_n_function_params(nd);
+        ex_set(e, EX_BAD_DATA,
+                "function `pop` takes 0 arguments but %d %s given",
+                n, n == 1 ? "was" : "were");
+        return e->nr;
+    }
+
+    last = vec_pop(val->via.arr);
+
+    if (!last)
+    {
+        ex_set(e, EX_INDEX_ERROR, "pop from empty array");
+        return e->nr;
+    }
+
+    (void) vec_shrink(&val->via.arr);
+
+    query->rval = val->tp == TI_VAL_THINGS
+            ? ti_val_create(TI_VAL_THING, last)
+            : last;
+
+    if (!query->rval)
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
+
+    if (!from_rval)
+    {
+        ti_task_t * task;
+        assert (query->scope->thing);
+        assert (query->scope->name);
+        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        if (!task)
+            goto done;
+
+        if (ti_task_add_splice(
+                task,
+                query->scope->name,
+                NULL,
+                val->via.arr->n,
+                1,
+                0))
+            ex_set_alloc(e);
+    }
+
+done:
+    if (from_rval)
+        ti_val_destroy(val);
+
+    return e->nr;
+}
+
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2904,6 +2980,8 @@ static int cq__function(
         if (is_scope)
             return cq__f_now(query, params, e);
         break;
+    case CLERI_GID_F_POP:
+        return cq__f_pop(query, params, e);
     case CLERI_GID_F_PUSH:
         return cq__f_push(query, params, e);
     case CLERI_GID_F_RENAME:

@@ -69,7 +69,7 @@ static inline void * vec_get(const vec_t * vec, uint32_t i)
 
 static inline void * vec_pop(vec_t * vec)
 {
-    return (vec->n) ? vec->data[--vec->n] : NULL;
+    return vec->n ? vec->data[--vec->n] : NULL;
 }
 
 static inline void vec_clear(vec_t * vec)

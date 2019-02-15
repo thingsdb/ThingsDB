@@ -82,7 +82,9 @@ done:
 static int names__write_cb(ti_name_t * name, FILE * f)
 {
     intptr_t p = (intptr_t) name;
-    return (qp_fadd_type(f, QP_ARRAY2) ||
-            qp_fadd_int(f, p) ||
-            qp_fadd_raw(f, (const uchar *) name->str, name->n));
+    return name->str[0] == '$' ? 0 : (
+        qp_fadd_type(f, QP_ARRAY2) ||
+        qp_fadd_int(f, p) ||
+        qp_fadd_raw(f, (const uchar *) name->str, name->n)
+    );
 }

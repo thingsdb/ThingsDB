@@ -278,6 +278,9 @@ int ti_unpack(uchar * data, size_t n)
 int ti_run(void)
 {
     int rc, attempts;
+
+    ti_names_inject_common();
+
     if (uv_loop_init(&loop_))
         return -1;
 
@@ -288,7 +291,6 @@ int ti_run(void)
 
     if (ti_events_start())
         goto failed;
-
 
     if (ti_.node)
     {

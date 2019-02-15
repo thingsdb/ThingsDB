@@ -83,6 +83,7 @@ class Definition(Grammar):
 
     # build-in update functions
     f_del = Keyword('del')
+    f_pop = Keyword('pop')
     f_push = Keyword('push')
     f_rename = Keyword('rename')
     f_set = Keyword('set')
@@ -144,6 +145,7 @@ class Definition(Grammar):
         f_upper,        # () -> str
         # build-in update functions
         f_del,
+        f_pop,
         f_push,
         f_rename,       # TODO : implement
         f_set,

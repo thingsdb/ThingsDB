@@ -12,6 +12,7 @@
 
 int ti_names_create(void);
 void ti_names_destroy(void);
+void ti_names_inject_common(void);
 ti_name_t * ti_names_get(const char * str, size_t n);
 ti_name_t * ti_names_weak_get(const char * str, size_t n);
 static inline ti_name_t * ti_names_get_from_val(ti_val_t * val);

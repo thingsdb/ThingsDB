@@ -58,11 +58,11 @@ void ti_thing_destroy(ti_thing_t * thing)
     free(thing);
 }
 
-ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name)
+ti_val_t * ti_thing_weak_get_val(ti_thing_t * thing, ti_name_t * name)
 {
     for (vec_each(thing->props, ti_prop_t, prop))
         if (prop->name == name)
-            return &prop->val;
+            return prop->val;
     return NULL;
 }
 
@@ -74,11 +74,10 @@ void * ti_thing_attr_get(ti_thing_t * thing, ti_name_t * name)
     return NULL;
 }
 
-int ti_thing_set(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_enum tp,
-        void * v)
+/*
+ * This function does nothing with the name and val references.
+ */
+int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
     ti_prop_t * prop;
 
@@ -87,41 +86,16 @@ int ti_thing_set(
         if (prop->name == name)
         {
             ti_decref(name);
-            ti_val_clear(&prop->val);
-            return ti_val_set(&prop->val, tp, v);
+            ti_val_destroy(prop->val);
+            prop->val = val;
+            return 0;
         }
     }
 
-    prop = ti_prop_create(name, tp, v);
+    prop = ti_prop_create(name, val);
     if (!prop || vec_push(&thing->props, prop))
     {
-        ti_incref(name);
-        ti_prop_destroy(prop);
-        return -1;
-    }
-
-    return 0;
-}
-
-int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
-{
-    ti_prop_t * prop;
-
-    for (vec_each(thing->props, ti_prop_t, prop))
-    {
-        if (prop->name == name)
-        {
-            ti_decref(name);
-            ti_val_clear(&prop->val);
-            return ti_val_copy(&prop->val, val);
-        }
-    }
-
-    prop = ti_prop_createv(name, val);
-    if (!prop || vec_push(&thing->props, prop))
-    {
-        ti_incref(name);
-        ti_prop_destroy(prop);
+        free(prop);
         return -1;
     }
 

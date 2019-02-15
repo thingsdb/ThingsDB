@@ -48,6 +48,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     }
     query->scope = NULL;
     query->rval = NULL;
+    query->fetch = 0;
     query->flags = 0;
     query->target = NULL;  /* root */
     query->parseres = NULL;

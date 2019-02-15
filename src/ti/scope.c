@@ -84,12 +84,9 @@ int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing)
 
 _Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing)
 {
-    while (scope)
-    {
+    for (; scope; scope = scope->prev)
         if (scope->thing == thing)
             return true;
-        scope = scope->prev;
-    }
     return false;
 }
 
@@ -98,12 +95,9 @@ _Bool ti_scope_in_use_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    while (scope)
-    {
+    for (; scope; scope = scope->prev)
         if (scope->thing == thing && scope->name == name)
             return true;
-        scope = scope->prev;
-    }
     return false;
 }
 

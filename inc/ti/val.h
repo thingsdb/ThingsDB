@@ -27,11 +27,6 @@ typedef enum
 
 typedef enum
 {
-    TI_VAL_FLAG_FETCH       =1<<0,
-} ti_val_flags;
-
-typedef enum
-{
     TI_VAL_KIND_THING   ='#',
     TI_VAL_KIND_ARROW   ='$',
     TI_VAL_KIND_REGEX   ='*',
@@ -58,27 +53,27 @@ typedef union ti_val_u ti_val_via_t;
 #include <util/vec.h>
 #include <util/imap.h>
 
-ti_val_t * ti_val_create(ti_val_enum tp, void * v);
-ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v);
-ti_val_t * ti_val_dup(ti_val_t * val);
-ti_val_t * ti_val_weak_dup(ti_val_t * val);
-int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
+int ti_val_init_common(void);
+void ti_val_destroy_common(void);
+ti_val_t * ti_val_create_thing(ti_thing_t * thing);
+ti_val_t * ti_val_create_raw(ti_raw_t * raw);
+ti_val_t * ti_val_create_regex(ti_regex_t * regex);
+ti_val_t * ti_val_create_int(int64_t i);
+ti_val_t * ti_val_create_float(double d);
+ti_val_t * ti_val_get_nil(void);
+ti_val_t * ti_val_get_true(void);
+ti_val_t * ti_val_get_false(void);
 void ti_val_destroy(ti_val_t * val);
-static inline void ti_val_weak_destroy(ti_val_t * val);
-void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
+
+int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
+static inline void __ti_val_weak_destroy(ti_val_t * val);
+void __ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v);
 int ti_val_convert_to_str(ti_val_t * val);
 int ti_val_convert_to_int(ti_val_t * val, ex_t * e);
-int ti_val_convert_to_errnr(ti_val_t * val, ex_t * e);
+int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from);
 int ti_val_copy(ti_val_t * to, ti_val_t * from);
-void ti_val_set_arrow(ti_val_t * val, cleri_node_t * arrow_nd);
-void ti_val_set_bool(ti_val_t * val, _Bool bool_);
-void ti_val_set_nil(ti_val_t * val);
-void ti_val_set_undefined(ti_val_t * val);
-void ti_val_set_int(ti_val_t * val, int64_t i);
-void ti_val_set_float(ti_val_t * val, double d);
-void ti_val_set_thing(ti_val_t * val, ti_thing_t * thing);
 _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_iterator_n(ti_val_t * val);
@@ -100,8 +95,6 @@ static inline _Bool ti_val_is_indexable(ti_val_t * val);
 static inline _Bool ti_val_is_iterable(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
-static inline void ti_val_mark_fetch(ti_val_t * val);
-static inline void ti_val_unmark_fetch(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 
 union ti_val_u
@@ -124,8 +117,8 @@ union ti_val_u
 
 struct ti_val_s
 {
+    uint32_t ref;
     uint8_t tp;
-    uint8_t flags;
     ti_val_via_t via;
 };
 
@@ -208,16 +201,6 @@ static inline _Bool ti_val_is_list(ti_val_t * val)
         val->tp == TI_VAL_ARRAY ||
         (val->tp == TI_VAL_THINGS && !val->via.arr->n)
     );
-}
-
-static inline void ti_val_mark_fetch(ti_val_t * val)
-{
-    val->flags |= TI_VAL_FLAG_FETCH;
-}
-
-static inline void ti_val_unmark_fetch(ti_val_t * val)
-{
-    val->flags &= ~TI_VAL_FLAG_FETCH;
 }
 
 static inline _Bool ti_val_overflow_cast(double d)

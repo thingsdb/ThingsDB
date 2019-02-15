@@ -22,10 +22,10 @@ static int opr__idiv(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__mod(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__and(ti_val_t * a, ti_val_t * b, ex_t * e);
 static int opr__xor(ti_val_t * a, ti_val_t * b, ex_t * e);
-static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e);
+static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e);
 
 
-int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t * b, ex_t * e)
+int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
     switch (nd->len)
     {
@@ -1933,7 +1933,7 @@ type_err:
     return e->nr;
 }
 
-static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
 
@@ -1943,18 +1943,18 @@ static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_NIL:
         goto type_err;
     case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.int_ | b->via.int_;
+            int_ = a->via.int_ | (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.int_ | b->via.bool_;
+            int_ = a->via.int_ | (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -1970,18 +1970,18 @@ static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e)
     case TI_VAL_FLOAT:
         goto type_err;
     case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
+        switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_ATTR:
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = a->via.bool_ | b->via.int_;
+            int_ = a->via.bool_ | (*b)->via.int_;
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = a->via.bool_ | b->via.bool_;
+            int_ = a->via.bool_ | (*b)->via.bool_;
             break;
         case TI_VAL_QP:
         case TI_VAL_RAW:
@@ -2005,8 +2005,18 @@ static int opr__or(ti_val_t * a, ti_val_t * b, ex_t * e)
         goto type_err;
     }
 
-    ti_val_clear(b);
-    ti_val_set_int(b, int_);
+    if ((*b)->ref == 1)
+    {
+        (*b)->tp = TI_VAL_INT;
+        (*b)->via.int_ = int_;
+    }
+    else
+    {
+        ti_decref(*b);
+        *b = ti_val_create_int(int_);
+        if (!(*b))
+            ex_set_alloc(e);
+    }
 
     return e->nr;
 

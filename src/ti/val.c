@@ -20,52 +20,146 @@ static int val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
         imap_t * things);
+static void val__clear(ti_val_t * val);
 
-ti_val_t * ti_val_create(ti_val_enum tp, void * v)
+static ti_val_t * val__nil;
+static ti_val_t * val__true;
+static ti_val_t * val__false;
+static ti_val_t * val__0;
+static ti_val_t * val__strue;
+static ti_val_t * val__sfalse;
+static ti_val_t * val__sblob;
+static ti_val_t * val__sobject;
+
+
+int ti_val_init_common(void)
+{
+    val__nil = malloc(sizeof(ti_val_t));
+    val__true = malloc(sizeof(ti_val_t));
+    val__false = malloc(sizeof(ti_val_t));
+    val__0 = malloc(sizeof(ti_val_t));
+
+    if (!val__nil || !val__true || !val__false || !val__0)
+    {
+        ti_val_destroy_common();
+        return -1;
+    }
+
+    val__nil->tp = TI_VAL_NIL;
+    val__true->tp = TI_VAL_BOOL;
+    val__false->tp = TI_VAL_NIL;
+    val__0->tp = TI_VAL_INT;
+
+    val__nil->ref = val__true->ref = val__false->ref = val__0->ref = 1;
+
+    return 0;
+}
+
+void ti_val_destroy_common(void)
+{
+    ti_val_destroy(val__nil);
+    ti_val_destroy(val__true);
+    ti_val_destroy(val__false);
+    ti_val_destroy(val__0);
+}
+
+ti_val_t * ti_val_create_thing(ti_thing_t * thing)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
         return NULL;
-    val->flags = 0;
-    if (ti_val_set(val, tp, v))
-    {
-        ti_val_destroy(val);
-        return NULL;
-    }
+
+    val->ref = 1;
+    val->tp = TI_VAL_THING;
+    val->via.thing = thing;
+
     return val;
 }
 
-ti_val_t * ti_val_weak_create(ti_val_enum tp, void * v)
+ti_val_t * ti_val_create_raw(ti_raw_t * raw)
 {
     ti_val_t * val = malloc(sizeof(ti_val_t));
     if (!val)
         return NULL;
-    val->flags = 0;
-    ti_val_weak_set(val, tp, v);
+
+    val->ref = 1;
+    val->tp = TI_VAL_RAW;
+    val->via.raw = raw;
+
     return val;
 }
 
-ti_val_t * ti_val_dup(ti_val_t * val)
+ti_val_t * ti_val_create_regex(ti_regex_t * regex)
 {
-    ti_val_t * dup = malloc(sizeof(ti_val_t));
-    if (!dup)
+    ti_val_t * val = malloc(sizeof(ti_val_t));
+    if (!val)
         return NULL;
-    if (ti_val_copy(dup, val))
-    {
-        free(dup);
-        return NULL;
-    }
-    return dup;
+
+    val->ref = 1;
+    val->tp = TI_VAL_REGEX;
+    val->via.regex = regex;
+
+    return val;
 }
 
-ti_val_t * ti_val_weak_dup(ti_val_t * val)
+ti_val_t * ti_val_create_int(int64_t i)
 {
-    ti_val_t * dup = malloc(sizeof(ti_val_t));
-    if (!dup)
+    ti_val_t * val;
+    if (!i)
+    {
+        ti_incref(val__0);
+        return val__0;
+    }
+    val = malloc(sizeof(ti_val_t));
+    if (!val)
         return NULL;
-    memcpy(dup, val, sizeof(ti_val_t));
-    return dup;
+
+    val->ref = 1;
+    val->tp = TI_VAL_INT;
+    val->via.int_ = i;
+
+    return val;
 }
+
+ti_val_t * ti_val_create_float(double d)
+{
+    ti_val_t * val = malloc(sizeof(ti_val_t));
+    if (!val)
+        return NULL;
+
+    val->ref = 1;
+    val->tp = TI_VAL_FLOAT;
+    val->via.float_ = d;
+
+    return val;
+}
+
+ti_val_t * ti_val_get_nil(void)
+{
+    ti_incref(val__nil);
+    return val__nil;
+}
+
+ti_val_t * ti_val_get_true(void)
+{
+    ti_incref(val__true);
+    return val__true;
+}
+
+ti_val_t * ti_val_get_false(void)
+{
+    ti_incref(val__false);
+    return val__false;
+}
+
+void ti_val_destroy(ti_val_t * val)
+{
+    if (!val || --val->ref)
+        return;
+    val__clear(val);
+    free(val);
+}
+
 
 /*
  * Return 0 on success, <0 if unpacking has failed or >0 if
@@ -79,18 +173,11 @@ int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
             : val__from_unp(dest, &qp_val, unp, things);
 }
 
-void ti_val_destroy(ti_val_t * val)
-{
-    if (!val)
-        return;
-    ti_val_clear(val);
-    free(val);
-}
+
 
 void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
-    val->flags = 0;
     switch((ti_val_enum) tp)
     {
     case TI_VAL_ATTR:
@@ -145,7 +232,6 @@ void ti_val_weak_set(ti_val_t * val, ti_val_enum tp, void * v)
 int ti_val_set(ti_val_t * val, ti_val_enum tp, void * v)
 {
     val->tp = tp;
-    val->flags = 0;
     switch((ti_val_enum) tp)
     {
     case TI_VAL_ATTR:
@@ -342,10 +428,10 @@ overflow:
     return e->nr;
 }
 
-int ti_val_convert_to_errnr(ti_val_t * val, ex_t * e)
+int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
 {
     int64_t i;
-    switch((ti_val_enum) val->tp)
+    switch((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
@@ -362,7 +448,7 @@ int ti_val_convert_to_errnr(ti_val_t * val, ex_t * e)
                 ti_val_str(val));
         return e->nr;
     case TI_VAL_INT:
-        switch(val->via.int_)
+        switch((*val)->via.int_)
         {
         case TI_PROTO_CLIENT_ERR_OVERFLOW:
             i = EX_OVERFLOW;
@@ -396,79 +482,76 @@ int ti_val_convert_to_errnr(ti_val_t * val, ex_t * e)
             break;
         default:
             ex_set(e, EX_BAD_DATA, "unknown error number `%"PRId64"`",
-                    val->via.int_);
+                    (*val)->via.int_);
             return e->nr;
         }
         break;
     case TI_VAL_RAW:
         i = (
             ti_raw_equal_strn(
-                val->via.raw,
-                "OVERFLOW_ERROR",
-                strlen("OVERFLOW_ERROR")) ? EX_OVERFLOW :
+                    (*val)->via.raw,
+                    "OVERFLOW_ERROR",
+                    strlen("OVERFLOW_ERROR")) ? EX_OVERFLOW :
             ti_raw_equal_strn(
-                val->via.raw,
-                "ZERO_DIV_ERROR",
-                strlen("ZERO_DIV_ERROR")) ? EX_ZERO_DIV :
+                    (*val)->via.raw,
+                    "ZERO_DIV_ERROR",
+                    strlen("ZERO_DIV_ERROR")) ? EX_ZERO_DIV :
             ti_raw_equal_strn(
-                val->via.raw,
-                "MAX_QUOTA_ERROR",
-                strlen("MAX_QUOTA_ERROR")) ? EX_MAX_QUOTA :
+                    (*val)->via.raw,
+                    "MAX_QUOTA_ERROR",
+                    strlen("MAX_QUOTA_ERROR")) ? EX_MAX_QUOTA :
             ti_raw_equal_strn(
-                val->via.raw,
-                "AUTH_ERROR",
-                strlen("AUTH_ERROR")) ? EX_AUTH_ERROR :
+                    (*val)->via.raw,
+                    "AUTH_ERROR",
+                    strlen("AUTH_ERROR")) ? EX_AUTH_ERROR :
             ti_raw_equal_strn(
-                val->via.raw,
-                "FORBIDDEN",
-                strlen("FORBIDDEN")) ? EX_FORBIDDEN :
+                    (*val)->via.raw,
+                    "FORBIDDEN",
+                    strlen("FORBIDDEN")) ? EX_FORBIDDEN :
             ti_raw_equal_strn(
-                val->via.raw,
-                "INDEX_ERROR",
-                strlen("INDEX_ERROR")) ? EX_INDEX_ERROR :
+                    (*val)->via.raw,
+                    "INDEX_ERROR",
+                    strlen("INDEX_ERROR")) ? EX_INDEX_ERROR :
             ti_raw_equal_strn(
-                val->via.raw,
-                "BAD_REQUEST",
-                strlen("BAD_REQUEST")) ? EX_BAD_DATA :
+                    (*val)->via.raw,
+                    "BAD_REQUEST",
+                    strlen("BAD_REQUEST")) ? EX_BAD_DATA :
             ti_raw_equal_strn(
-                val->via.raw,
-                "QUERY_ERROR",
-                strlen("QUERY_ERROR")) ? EX_QUERY_ERROR :
+                    (*val)->via.raw,
+                    "QUERY_ERROR",
+                    strlen("QUERY_ERROR")) ? EX_QUERY_ERROR :
             ti_raw_equal_strn(
-                val->via.raw,
-                "NODE_ERROR",
-                strlen("NODE_ERROR")) ? EX_NODE_ERROR :
+                    (*val)->via.raw,
+                    "NODE_ERROR",
+                    strlen("NODE_ERROR")) ? EX_NODE_ERROR :
             ti_raw_equal_strn(
-                val->via.raw,
-                "INTERNAL_ERROR",
-                strlen("INTERNAL_ERROR")) ? EX_INTERNAL : 0
+                    (*val)->via.raw,
+                    "INTERNAL_ERROR",
+                    strlen("INTERNAL_ERROR")) ? EX_INTERNAL : 0
         );
         if (!i)
         {
-            ex_set(e, EX_BAD_DATA, "unknown error `%.*s`",
-                    (int) val->via.raw->n, (const char *) val->via.raw->data);
+            ex_set(e, EX_BAD_DATA,
+                    "unknown error `%.*s`",
+                    (int) (*val)->via.raw->n,
+                    (const char *) (*val)->via.raw->data);
             return e->nr;
         }
-        ti_raw_drop(val->via.raw);
         break;
     }
-    val->via.int_ = i;
-    val->tp = TI_VAL_INT;
-    return 0;
+    return ti_val_make_int(val, i);
 }
 
 
 void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
-    to->flags = 0;
     to->via = from->via;
 }
 
 int ti_val_copy(ti_val_t * to, ti_val_t * from)
 {
     to->tp = from->tp;
-    to->flags = 0;
     switch((ti_val_enum) from->tp)
     {
     case TI_VAL_ATTR:
@@ -528,49 +611,6 @@ int ti_val_copy(ti_val_t * to, ti_val_t * from)
     log_critical("unknown type: %d", from->tp);
     assert (0);
     return -1;
-}
-
-void ti_val_set_arrow(ti_val_t * val, cleri_node_t * arrow_nd)
-{
-    val->tp = TI_VAL_ARROW;
-    val->flags = 0;
-    val->via.arrow = arrow_nd;
-    ++arrow_nd->ref;
-}
-
-void ti_val_set_bool(ti_val_t * val, _Bool bool_)
-{
-    val->tp = TI_VAL_BOOL;
-    val->flags = 0;
-    val->via.bool_ = !!bool_;
-}
-
-void ti_val_set_nil(ti_val_t * val)
-{
-    val->tp = TI_VAL_NIL;
-    val->flags = 0;
-    val->via.nil = NULL;
-}
-
-void ti_val_set_int(ti_val_t * val, int64_t i)
-{
-    val->tp = TI_VAL_INT;
-    val->flags = 0;
-    val->via.int_ = i;
-}
-
-void ti_val_set_float(ti_val_t * val, double d)
-{
-    val->tp = TI_VAL_FLOAT;
-    val->flags = 0;
-    val->via.float_ = d;
-}
-
-void ti_val_set_thing(ti_val_t * val, ti_thing_t * thing)
-{
-    val->tp = TI_VAL_THING;
-    val->flags = 0;
-    val->via.thing = ti_grab(thing);
 }
 
 _Bool ti_val_as_bool(ti_val_t * val)
@@ -657,44 +697,7 @@ int ti_val_gen_ids(ti_val_t * val)
     return 0;
 }
 
-/*
- * Clear value and sets nil
- */
-void ti_val_clear(ti_val_t * val)
-{
-    switch((ti_val_enum) val->tp)
-    {
-    case TI_VAL_ATTR:  /* attributes are destroyed by res */
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-        break;
-    case TI_VAL_QP:
-    case TI_VAL_RAW:
-        ti_raw_drop(val->via.raw);
-        break;
-    case TI_VAL_REGEX:
-        ti_regex_drop(val->via.regex);
-        break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
-        break;
-    case TI_VAL_THING:
-        ti_thing_drop(val->via.thing);
-        break;
-    case TI_VAL_THINGS:
-        vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
-        break;
-    case TI_VAL_ARROW:
-        ti_arrow_destroy(val->via.arrow);
-        break;
-    }
-    val->flags = 0;
-    val->via.nil = NULL;
-    val->tp = TI_VAL_NIL;
-}
+
 
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags)
 {
@@ -1187,4 +1190,39 @@ static int val__from_unp(
 fail:
     ti_val_clear(dest);
     return -1;
+}
+
+static void val__clear(ti_val_t * val)
+{
+    assert (val->ref <= 1);
+
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ATTR:  /* attributes are destroyed by res */
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+        break;
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+        ti_raw_drop(val->via.raw);
+        break;
+    case TI_VAL_REGEX:
+        ti_regex_drop(val->via.regex);
+        break;
+    case TI_VAL_TUPLE:
+    case TI_VAL_ARRAY:
+        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_destroy);
+        break;
+    case TI_VAL_THING:
+        ti_thing_drop(val->via.thing);
+        break;
+    case TI_VAL_THINGS:
+        vec_destroy(val->via.things, (vec_destroy_cb) ti_thing_drop);
+        break;
+    case TI_VAL_ARROW:
+        ti_arrow_destroy(val->via.arrow);
+        break;
+    }
 }

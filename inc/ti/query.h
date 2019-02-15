@@ -44,7 +44,7 @@ struct ti_query_s
     uint32_t nd_cache_count;    /* count while investigate */
     uint16_t pkg_id;
     uint8_t flags;
-    uint8_t pad0_;
+    uint8_t fetch;              /* fetch level */
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* target NULL means root */
     char * querystr;            /* 0 terminated query string */

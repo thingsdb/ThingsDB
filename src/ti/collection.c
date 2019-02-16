@@ -8,9 +8,9 @@
 #include <ti/things.h>
 #include <ti/name.h>
 #include <ti/auth.h>
-#include <ti/thing.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/thing.h>
 #include <ti.h>
 #include <util/strx.h>
 #include <util/fx.h>

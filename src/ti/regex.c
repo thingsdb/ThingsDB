@@ -21,6 +21,9 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
         goto fail0;
     }
 
+    regex->ref = 1;
+    regex->tp = TI_VAL_REGEX;
+
     regex->pattern = ti_raw_create((uchar *) str, n);
     if (!regex->pattern)
     {

@@ -14,26 +14,12 @@ ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = n;
     memcpy(r->data, raw, n);
     return r;
 }
-
-ti_raw_t * ti_raw_dup(ti_raw_t * raw)
-{
-    size_t size = sizeof(ti_raw_t) + raw->n;
-    ti_raw_t * r = malloc(size);
-    if (!r)
-        return NULL;
-    memcpy(r, raw, size);
-    return r;
-}
-
-//void ti_raw_drop(ti_raw_t * raw)
-//{
-//    if (raw && !--raw->ref)
-//        free(raw);
-//}
 
 ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
 {
@@ -41,6 +27,8 @@ ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
     ti_raw_t * r = malloc(sz);
     if (!r)
         return NULL;
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = packer->len;
     memcpy(r->data, packer->buffer, packer->len);
     return r;
@@ -72,6 +60,8 @@ ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
         r->data[i] = *src;
     }
 
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = i;
 
     if (r->n < sz)
@@ -103,6 +93,8 @@ ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
     if (!r)
         goto done;
 
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = (uint32_t) sz;
 
     (void) vsnprintf((char *) r->data, r->n + 1, fmt, args1);
@@ -118,6 +110,8 @@ ti_raw_t * ti_raw_from_strn(const char * str, size_t n)
     if (!r)
         return NULL;
 
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = n;
     memcpy(r->data, str, n);
     return r;
@@ -130,6 +124,9 @@ ti_raw_t * ti_raw_upper(ti_raw_t * raw)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = n;
     to = (char *) r->data;
 
@@ -146,6 +143,9 @@ ti_raw_t * ti_raw_lower(ti_raw_t * raw)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = n;
     to = (char *) r->data;
 
@@ -189,6 +189,9 @@ ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = n;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, b->data, b->n);
@@ -201,6 +204,9 @@ ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = nn;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, s, n);
@@ -213,6 +219,9 @@ ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = nn;
     memcpy(r->data, s, n);
     memcpy(r->data + n, b->data, b->n);
@@ -229,6 +238,9 @@ ti_raw_t * ti_raw_cat_strn_strn(
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = nn;
     memcpy(r->data, as, an);
     memcpy(r->data + an, bs, bn);

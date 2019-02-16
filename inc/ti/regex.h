@@ -22,6 +22,11 @@ static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw);
 
 struct ti_regex_s
 {
+    uint32_t ref;
+    uint8_t tp;
+    uint8_t _pad8;
+    uint16_t _pad16;
+
     pcre2_code * code;
     pcre2_match_data * match_data;
     ti_raw_t * pattern;

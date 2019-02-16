@@ -10,6 +10,7 @@ enum
     TI_ARROW_FLAG_WSE        =1<<1,     /* with side effects */
 };
 
+typedef struct ti_arrow_s ti_arrow_t;
 
 #include <stdint.h>
 #include <cleri/cleri.h>
@@ -25,6 +26,15 @@ static inline cleri_node_t * ti_arrow_scope_nd(cleri_node_t * arrow);
 static inline _Bool ti_arrow_wse(cleri_node_t * arrow);
 static inline cleri_node_t * ti_arrow_cp(cleri_node_t * arrow);
 
+struct ti_arrow_s
+{
+    uint32_t ref;
+    uint8_t tp;
+    uint8_t _pad8;
+    uint16_t _pad16;
+
+    cleri_node_t * node;
+};
 
 static inline _Bool ti_arrow_wse(cleri_node_t * arrow)
 {

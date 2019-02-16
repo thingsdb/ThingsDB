@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/task.h>
-#include <ti/raw.h>
 #include <ti/proto.h>
+#include <ti/raw.h>
 #include <util/qpx.h>
 #include <util/cryptx.h>
 

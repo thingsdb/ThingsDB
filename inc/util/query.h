@@ -6,7 +6,6 @@
 
 #include <assert.h>
 #include <ti/event.h>
-#include <ti/thing.h>
 #include <ti/task.h>
 #include <ti/val.h>
 #include <ti/name.h>
@@ -14,6 +13,7 @@
 #include <ti/query.h>
 #include <ti/prop.h>
 #include <ti/ex.h>
+#include <ti/thing.h>
 #include <util/vec.h>
 
 static inline ti_val_enum query_tp(ti_query_t * query);

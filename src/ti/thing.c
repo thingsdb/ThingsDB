@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/prop.h>
-#include <ti/thing.h>
 #include <ti/proto.h>
+#include <ti/thing.h>
 #include <ti/val.h>
 #include <util/qpx.h>
 #include <util/logger.h>
@@ -20,12 +20,14 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
         return NULL;
 
     thing->ref = 1;
+    thing->tp = TI_VAL_THING;
+    thing->flags = TI_THING_FLAG_SWEEP;
+
     thing->id = id;
     thing->things = things;
     thing->props = vec_new(0);
     thing->attrs = NULL;
     thing->watchers = NULL;
-    thing->flags = TI_THING_FLAG_SWEEP;
 
     if (id && ti_manages_id(id))
         ti_thing_mark_attrs(thing);
@@ -37,7 +39,6 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     }
     return thing;
 }
-
 
 void ti_thing_destroy(ti_thing_t * thing)
 {

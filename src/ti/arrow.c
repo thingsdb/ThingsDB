@@ -67,17 +67,18 @@ void ti_arrow_destroy(cleri_node_t * arrow)
     cleri__node_free(arrow);
 }
 
-int ti_arrow_to_packer(cleri_node_t * arrow, qp_packer_t ** packer)
+int ti_arrow_to_packer(ti_arrow_t * arrow, qp_packer_t ** packer)
 {
     uchar * buf;
+    cleri_node_t * node;
     size_t n = 0;
     int rc;
-    if (arrow->str == arrow->data)
+    if (node->str == node->data)
     {
         return -(
             qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar * ) "$", 1) ||
-            qp_add_raw(*packer, (const uchar * ) arrow->str, arrow->len) ||
+            qp_add_raw(*packer, (const uchar * ) node->str, node->len) ||
             qp_close_map(*packer)
         );
     }

@@ -524,15 +524,13 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_ATTR:
-        /* this is for value packing when the parent is not a `thing` */
-        assert (~flags & TI_VAL_PACK_THING);
-
         return flags & TI_VAL_PACK_NEW
             ? qp_add_null(*pckr)
             : ti_val_to_packer(
                 &((ti_vattr_t *) val)->prop->val,
                 pckr,
-                flags
+                flags,
+                fetch
             );
     case TI_VAL_NIL:
         return qp_add_null(*pckr);
@@ -543,50 +541,37 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
     case TI_VAL_BOOL:
         return qp_add_bool(*pckr, ((ti_vbool_t *) val)->bool_);
     case TI_VAL_QP:
-        return qp_add_qp(*pckr, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
+        return qp_add_qp(
+                *pckr,
+                ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n);
     case TI_VAL_RAW:
-        return qp_add_raw(*pckr, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
+        return qp_add_raw(
+                *pckr,
+                ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:
-        return ti_regex_to_packer((ti_regex_t *) val, packer);
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        if (qp_add_array(packer))
-            return -1;
-        for (vec_each(val->via.array, ti_val_t, v))
-        {
-            if (ti_val_to_packer(v, packer, flags))
-                return -1;
-        }
-        return qp_close_array(*packer);
+        return ti_regex_to_packer((ti_regex_t *) val, pckr);
     case TI_VAL_THING:
         return flags & TI_VAL_PACK_NEW
-                ? (val->tflags & TI_THING_FLAG_NEW
-                    ? ti_thing_to_packer(val->via.thing, packer, flags)
-                    : ti_thing_id_to_packer(val->via.thing, packer))
-                : (val->flags & TI_VAL_FLAG_FETCH
-                    ? ti_thing_to_packer(val->via.thing, packer, flags)
-                    : ti_thing_id_to_packer(val->via.thing, packer));
-    case TI_VAL_THINGS:
-        if (qp_add_array(packer))
+            ? (((ti_thing_t *) val)->flags & TI_THING_FLAG_NEW
+                ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
+                : ti_thing_id_to_packer((ti_thing_t *) val, pckr))
+            : (fetch-- > 0
+                ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
+                : ti_thing_id_to_packer((ti_thing_t *) val, pckr));
+    case TI_VAL_ARRAY:
+    case TI_VAL_LIST:
+    case TI_VAL_TUPLE:
+        if (qp_add_array(pckr))
             return -1;
-        for (vec_each(val->via.things, ti_thing_t, thing))
-        {
-            if (    ((flags & TI_VAL_PACK_NEW) &&
-                    (thing->flags & TI_THING_FLAG_NEW)) ||
-                    ((~flags & TI_VAL_PACK_NEW) &&
-                    (val->flags & TI_VAL_FLAG_FETCH)))
-            {
-                if (ti_thing_to_packer(thing, packer, flags))
-                    return -1;
-                continue;
-            }
-
-            if (ti_thing_id_to_packer(thing, packer))
+        fetch--;
+        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+            if (ti_val_to_packer(v, pckr, flags, fetch))
                 return -1;
-        }
-        return qp_close_array(*packer);
+        return qp_close_array(*pckr);
     case TI_VAL_ARROW:
-        return ti_arrow_to_packer(val->via.arrow, packer);
+        return ti_arrow_to_packer((ti_arrow_t *) val, pckr);
     }
 
     assert(0);
@@ -606,30 +591,28 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_NIL:
         return qp_fadd_type(f, QP_NULL);
     case TI_VAL_INT:
-        return qp_fadd_int(f, val->via.int_);
+        return qp_fadd_int(f, ((ti_vint_t *) val)->int_);
     case TI_VAL_FLOAT:
-        return qp_fadd_double(f, val->via.float_);
+        return qp_fadd_double(f, ((ti_vfloat_t *) val)->float_);
     case TI_VAL_BOOL:
-        return qp_fadd_type(f, val->via.bool_ ? QP_TRUE : QP_FALSE);
+        return qp_fadd_type(f, ((ti_vbool_t *) val)->bool_ ? QP_TRUE:QP_FALSE);
     case TI_VAL_RAW:
-        return qp_fadd_raw(f, val->via.raw->data, val->via.raw->n);
+        return qp_fadd_raw(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:
-        return ti_regex_to_file(val->via.regex, f);
+        return ti_regex_to_file((ti_regex_t *) val, f);
     case TI_VAL_THING:
-        return qp_fadd_int(f, val->via.thing->id);
+        return qp_fadd_int(f, ((ti_thing_t *) val)->id);
     case TI_VAL_ARRAY:
-    case TI_VAL_THINGS:
+    case TI_VAL_LIST:
     case TI_VAL_TUPLE:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
-        for (vec_each(val->via.arr, ti_val_t, v))
-        {
+        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
             if (ti_val_to_file(v, f))
                 return -1;
-        }
         return qp_fadd_type(f, QP_ARRAY_CLOSE);
     case TI_VAL_ARROW:
-        return ti_arrow_to_file(val->via.arrow, f);
+        return ti_arrow_to_file((ti_arrow_t *) val, f);
     }
     assert (0);
     return -1;

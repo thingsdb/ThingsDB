@@ -19,11 +19,14 @@ typedef enum
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,
-    TI_VAL_ARRAY,   /* array without things */
-    TI_VAL_LIST,    /* when empty, this can be turned back into TI_VAL_ARRAY */
-    TI_VAL_TUPLE,   /* nested arrays of tuple type */
+    TI_VAL_ARR,     /* array without things */
     TI_VAL_ARROW,
 } ti_val_enum;
+
+#define TI_VAL_ATTR_S   "attribute"
+#define TI_VAL_NIL_S    "nil"
+#define TI_VAL_INT_S    "int"
+#define TI_VAL_FLOAT_S  "float"
 
 typedef enum
 {
@@ -87,8 +90,6 @@ void ti_val_clear(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_tp_str(ti_val_enum tp);
-_Bool ti_val_startswith(ti_val_t * a, ti_val_t * b);
-_Bool ti_val_endswith(ti_val_t * a, ti_val_t * b);
 int ti_val_move_to_arr(ti_val_t * to_arr, ti_val_t * val, ex_t * e);
 int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e);
 static inline const char * ti_val_str(ti_val_t * val);
@@ -163,21 +164,13 @@ static inline _Bool ti_val_is_settable(ti_val_t * val)
         val->tp == TI_VAL_TUPLE);
 }
 
-static inline _Bool ti_val_is_mutable_arr(ti_val_t * val)
-{
-    return (
-        val->tp == TI_VAL_ARRAY ||
-        val->tp == TI_VAL_THINGS
-    );
-}
-
 static inline _Bool ti_val_is_indexable(ti_val_t * val)
 {
     return (
         val->tp == TI_VAL_RAW ||
         val->tp == TI_VAL_ARRAY ||
-        val->tp == TI_VAL_TUPLE ||
-        val->tp == TI_VAL_THINGS
+        val->tp == TI_VAL_LIST ||
+        val->tp == TI_VAL_TUPLE
     );
 }
 
@@ -186,9 +179,9 @@ static inline _Bool ti_val_is_iterable(ti_val_t * val)
     return (
         val->tp == TI_VAL_RAW ||
         val->tp == TI_VAL_ARRAY ||
+        val->tp == TI_VAL_LIST ||
         val->tp == TI_VAL_TUPLE ||
-        val->tp == TI_VAL_THING ||
-        val->tp == TI_VAL_THINGS
+        val->tp == TI_VAL_THING
     );
 }
 
@@ -196,17 +189,19 @@ static inline _Bool ti_val_is_array(ti_val_t * val)
 {
     return (
         val->tp == TI_VAL_ARRAY ||
-        val->tp == TI_VAL_TUPLE ||
-        val->tp == TI_VAL_THINGS
+        val->tp == TI_VAL_LIST ||
+        val->tp == TI_VAL_TUPLE
     );
 }
 
 static inline _Bool ti_val_is_list(ti_val_t * val)
 {
-    return (
-        val->tp == TI_VAL_ARRAY ||
-        (val->tp == TI_VAL_THINGS && !val->via.arr->n)
-    );
+    return val->tp == TI_VAL_ARRAY || val->tp == TI_VAL_LIST;
+}
+
+static inline _Bool ti_val_is_tuple(ti_val_t * val)
+{
+    return val->tp == TI_VAL_TUPLE;
 }
 
 static inline _Bool ti_val_overflow_cast(double d)

@@ -618,13 +618,13 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     return -1;
 }
 
-const char * ti_val_tp_str(ti_val_enum tp)
+const char * ti_val_str(ti_val_t * val)
 {
-    switch (tp)
+    switch (val->tp)
     {
-    case TI_VAL_ATTR:               return "attribute";
-    case TI_VAL_NIL:                return "nil";
-    case TI_VAL_INT:                return "int";
+    case TI_VAL_ATTR:               return TI_VAL_ATTR_S;
+    case TI_VAL_NIL:                return TI_VAL_NIL_S;
+    case TI_VAL_INT:                return TI_VAL_INT_S;
     case TI_VAL_FLOAT:              return "float";
     case TI_VAL_BOOL:               return "bool";
     case TI_VAL_QP:                 return "qpack";
@@ -632,7 +632,7 @@ const char * ti_val_tp_str(ti_val_enum tp)
     case TI_VAL_REGEX:              return "regex";
     case TI_VAL_THING:              return "thing";
     case TI_VAL_ARRAY:
-    case TI_VAL_THINGS:             return "array";
+    case TI_VAL_LIST:               return "array";
     case TI_VAL_TUPLE:              return "tuple";
     case TI_VAL_ARROW:              return "arrow-function";
     }
@@ -640,103 +640,6 @@ const char * ti_val_tp_str(ti_val_enum tp)
     return "unknown";
 }
 
-_Bool ti_val_startswith(ti_val_t * a, ti_val_t * b)
-{
-    uchar * au, * bu;
-
-    if (a->tp != TI_VAL_RAW ||
-        b->tp != TI_VAL_RAW ||
-        a->via.raw->n < b->via.raw->n)
-        return false;
-
-    au = a->via.raw->data;
-    bu = b->via.raw->data;
-    for (size_t n = b->via.raw->n; n; --n, ++au, ++bu)
-        if (*au != *bu)
-            return false;
-    return true;
-}
-
-_Bool ti_val_endswith(ti_val_t * a, ti_val_t * b)
-{
-    uchar * au, * bu;
-
-    if (a->tp != TI_VAL_RAW ||
-        b->tp != TI_VAL_RAW ||
-        a->via.raw->n < b->via.raw->n)
-        return false;
-
-    au = a->via.raw->data + a->via.raw->n;
-    bu = b->via.raw->data + b->via.raw->n;
-
-    for (size_t n = b->via.raw->n; n; --n)
-    {
-        if (*--au != *--bu)
-            return false;
-    }
-
-    return true;
-}
-
-/* The destination array should have enough space to hold the new value.
- * Note that 'val' will be moved so should not be used after calling thing
- * function.
- */
-int ti_val_move_to_arr(ti_val_t * to_arr, ti_val_t * val, ex_t * e)
-{
-    assert (ti_val_is_mutable_arr(to_arr));
-    assert (vec_space(to_arr->via.arr));
-
-    if (val->tp == TI_VAL_THINGS)
-    {
-        if (val->via.things->n)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "type `%s` cannot be nested into into another array",
-                    ti_val_str(val));
-            return e->nr;
-        }
-        val->tp = TI_VAL_TUPLE;
-    }
-
-    if (val->tp == TI_VAL_THING)
-    {
-        /* TODO: I think we can convert back, not sure why I first thought
-         * this was not possible. Maybe because of nesting? but that is
-         * solved because nested are tuple and therefore not mutable */
-        if (to_arr->tp == TI_VAL_ARRAY  && !to_arr->via.array->n)
-            to_arr->tp = TI_VAL_THINGS;
-
-        if (to_arr->tp == TI_VAL_ARRAY)
-        {
-            ex_set(e, EX_BAD_DATA,
-                "type `%s` cannot be added into an array with other types",
-                ti_val_str(val));
-            return e->nr;
-        }
-
-        VEC_push(to_arr->via.things, val->via.thing);
-        ti_val_weak_destroy(val);
-        return 0;
-    }
-
-    if (to_arr->tp == TI_VAL_THINGS  && !to_arr->via.things->n)
-        to_arr->tp = TI_VAL_ARRAY;
-
-    if (to_arr->tp == TI_VAL_THINGS)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "type `%s` cannot be added into an array with `things`",
-            ti_val_str(val));
-        return e->nr;
-    }
-
-    if (ti_val_check_assignable(val, true, e))
-        return e->nr;
-
-    VEC_push(to_arr->via.array, val);
-    return 0;
-}
 
 /* checks PROP, QP, ARROW and ARRAY/TUPLE */
 int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)

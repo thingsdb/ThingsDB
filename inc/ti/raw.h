@@ -30,6 +30,8 @@ ti_raw_t * ti_raw_cat_strn_strn(
         size_t an,
         const char * bs,
         size_t bn);
+_Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
+_Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_equal(const ti_raw_t * a, const ti_raw_t * b);
 static inline _Bool ti_raw_equal_strn(
         const ti_raw_t * a,

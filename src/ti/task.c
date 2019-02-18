@@ -726,12 +726,12 @@ done:
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
-        ti_val_t * val,
+        ti_varr_t * varr,
         int64_t i,
         int64_t c,
         int32_t n)
 {
-    assert (!val || val->tp == TI_VAL_THINGS || val->tp == TI_VAL_ARRAY);
+    assert (!varr || varr->tp == TI_VAL_ARR);
     assert (name);
     int rc;
     ti_raw_t * job = NULL;
@@ -750,30 +750,14 @@ int ti_task_add_splice(
         qp_add_int(packer, n))
         goto failed;
 
-    if (val)
+    if (varr)
     {
-        if (ti_val_gen_ids(val))
+        if (ti_val_gen_ids((ti_val_t *) varr))
             goto failed;
 
-        switch(val->tp)
-        {
-        case TI_VAL_THINGS:
-            for (c = i + n; i < c; ++i)
-            {
-                ti_thing_t * t = vec_get(val->via.things, i);
-                if (task__thing_to_packer(&packer, t))
-                    goto failed;
-            }
-            break;
-        case TI_VAL_ARRAY:
-            for (c = i + n; i < c; ++i)
-            {
-                ti_val_t * v = vec_get(val->via.array, i);
-                if (ti_val_to_packer(v, &packer, 0))
-                    goto failed;
-            }
-            break;
-        }
+        for (c = i + n; i < c; ++i)
+            if (ti_val_to_packer(vec_get(varr->vec, i), &packer, 0))
+                goto failed;
     }
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))

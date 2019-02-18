@@ -74,7 +74,7 @@ int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
 {
     assert (ti_varr_is_list(to));
 
-    if (ti_val_check_assignable(val, true, e))
+    if (ti_val_check_assignable(val, e))
         return e->nr;
 
     if (ti_val_is_list(val))
@@ -101,5 +101,14 @@ int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
     }
 
     return e->nr;
+}
+
+_Bool ti_varr_has_things(ti_varr_t * varr)
+{
+    if (ti_varr_may_have_things(varr))
+        for (vec_each(varr->vec, ti_val_t, val))
+            if (val->tp == TI_VAL_THING)
+                return true;
+    return false;
 }
 

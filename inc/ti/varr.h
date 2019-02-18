@@ -18,10 +18,10 @@ typedef struct ti_varr_s ti_varr_t;
 ti_varr_t * ti_varr_create(size_t sz);
 void ti_varr_destroy(ti_varr_t * varr);
 int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e);
-static inline ti_varr_has_things(ti_varr_t * varr);
-static inline ti_varr_is_list(ti_varr_t * varr);
-static inline ti_varr_is_tuple(ti_varr_t * varr);
-
+_Bool ti_varr_has_things(ti_varr_t * varr);
+static inline _Bool ti_varr_may_have_things(ti_varr_t * varr);
+static inline _Bool ti_varr_is_list(ti_varr_t * varr);
+static inline _Bool ti_varr_is_tuple(ti_varr_t * varr);
 
 struct ti_varr_s
 {
@@ -32,17 +32,17 @@ struct ti_varr_s
     vec_t * vec;
 };
 
-static inline ti_varr_has_things(ti_varr_t * varr)
+static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
 {
     return varr->flags & TI_ARR_FLAG_THINGS;
 }
 
-static inline ti_varr_is_list(ti_varr_t * varr)
+static inline _Bool ti_varr_is_list(ti_varr_t * varr)
 {
     return ~varr->flags & TI_ARR_FLAG_TUPLE;
 }
 
-static inline ti_varr_is_tuple(ti_varr_t * varr)
+static inline _Bool ti_varr_is_tuple(ti_varr_t * varr)
 {
     return varr->flags & TI_ARR_FLAG_TUPLE;
 }

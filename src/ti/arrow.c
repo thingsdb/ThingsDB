@@ -6,7 +6,7 @@
 #include <util/logger.h>
 #include <langdef/langdef.h>
 
-static cleri_node_t * arrow__node_from_strn(const char * str, size_t n)
+static cleri_node_t * arrow__node_from_strn(const char * str, size_t n);
 static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
 
 ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)

@@ -338,7 +338,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_opr_a_to_b(left_val, assign_nd, query->rval, e))
             goto failed;
     }
-    else if (ti_val_check_assignable(query->rval, false, e))
+    else if (ti_val_check_assignable(query->rval, e))
         goto failed;
 
     if (thing->id)
@@ -746,6 +746,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     prop->val = p->name;
                     break;
                 case 1:
+                    prop->val
                     ti_val_weak_copy(&prop->val, &p->val);
                     break;
                 default:
@@ -753,7 +754,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 }
             }
 
-            if (ti_cq_scope(query, ti_arrow_scope_nd(arrow_nd), e))
+            if (ti_cq_scope(query, ti_arrow_scope_nd(arrow->node), e))
                 goto failed;
 
             if (ti_val_as_bool(query->rval))
@@ -3430,10 +3431,10 @@ static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (assign_nd->len == 2)
     {
         assert (prop);
-        if (ti_opr_a_to_b(&prop->val, assign_nd, query->rval, e))
+        if (ti_opr_a_to_b(prop->val, assign_nd, query->rval, e))
             goto failed;
     }
-    else if (ti_val_check_assignable(query->rval, false, e))
+    else if (ti_val_check_assignable(query->rval, e))
         goto failed;
 
     if (prop)

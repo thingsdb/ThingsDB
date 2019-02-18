@@ -502,7 +502,7 @@ int ti_val_gen_ids(ti_val_t * val)
             return -1;
         break;
     case TI_VAL_ARR:
-        if (ti_varr_has_things((ti_varr_t *) val))
+        if (ti_varr_may_have_things((ti_varr_t *) val))
         {
             for (vec_each(((ti_varr_t *) val)->vec, ti_thing_t, thing))
             {
@@ -644,7 +644,7 @@ const char * ti_val_str(ti_val_t * val)
 
 
 /* checks PROP, QP, ARROW and ARRAY/TUPLE */
-int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
+int ti_val_check_assignable(ti_val_t * val, ex_t * e)
 {
     switch (val->tp)
     {

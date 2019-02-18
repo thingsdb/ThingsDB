@@ -103,7 +103,6 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
         if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             ++n;
-
             ti_thing_destroy(thing);
             continue;
         }
@@ -128,22 +127,19 @@ static void things__gc_mark(ti_thing_t * thing)
         {
         case TI_VAL_THING:
         {
-            ti_thing_t * thing = (ti_thing_t *) prop->val;
-            if (thing->flags & TI_THING_FLAG_SWEEP)
-                things__gc_mark(thing);
+            ti_thing_t * t = (ti_thing_t *) prop->val;
+            if (t->flags & TI_THING_FLAG_SWEEP)
+                things__gc_mark(t);
             continue;
         }
         case TI_VAL_ARR:
         {
             ti_varr_t * varr = (ti_varr_t *) prop->val;
-
-            if (ti_varr_is_list(varr))
-            {
-                for (vec_each(varr->vec, ti_thing_t, thing))
-                    if (    thing->tp == TI_VAL_THING &&
-                            (thing->flags & TI_THING_FLAG_SWEEP))
-                        things__gc_mark(thing);
-            }
+            if (ti_varr_may_have_things(varr))
+                for (vec_each(varr->vec, ti_thing_t, t))
+                    if (    t->tp == TI_VAL_THING &&
+                            (t->flags & TI_THING_FLAG_SWEEP))
+                        things__gc_mark(t);
             continue;
         }
         }

@@ -74,12 +74,12 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->results, (vec_destroy_cb) ti_val_destroy);
+    vec_destroy(query->results, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
     ti_collection_drop(query->target);
     ti_event_drop(query->ev);
-    vec_destroy(query->blobs, (vec_destroy_cb) ti_raw_drop);
+    vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
     free(query->querystr);
     omap_destroy(query->collect, (omap_destroy_cb) query__collect_destroy_cb);
 
@@ -423,15 +423,15 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
     case CLERI_GID_ARROW:
         {
             uint8_t flags = query->flags;
+
             query->flags = 0;
             query__investigate_recursive(
                     query,
                     nd->children->next->next->node);
-
-            langdef_nd_flag(nd,
+            nd->data = (void *) ((uintptr_t) (
                     query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
-                    ? TI_ARROW_FLAG|TI_ARROW_FLAG_WSE
-                    : TI_ARROW_FLAG);
+                        ? TI_ARROW_FLAG_QBOUND|TI_ARROW_FLAG_WSE
+                        : TI_ARROW_FLAG_QBOUND));
 
             query->flags |= flags;
         }

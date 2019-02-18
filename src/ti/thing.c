@@ -42,6 +42,9 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
 void ti_thing_destroy(ti_thing_t * thing)
 {
+    if (!thing)
+        return;
+
     if (thing->id)
         (void *) imap_pop(thing->things, thing->id);
 
@@ -71,9 +74,9 @@ void * ti_thing_attr_get(ti_thing_t * thing, ti_name_t * name)
 }
 
 /*
- * This function does nothing with the name and val references.
+ * does not increment the `name` and `val` reference counters.
  */
-int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
     ti_prop_t * prop;
 
@@ -82,7 +85,7 @@ int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
         if (prop->name == name)
         {
             ti_decref(name);
-            ti_val_destroy(prop->val);
+            ti_val_drop(prop->val);
             prop->val = val;
             return 0;
         }
@@ -98,66 +101,9 @@ int ti_thing_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
     return 0;
 }
 
-int ti_thing_weak_set(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_enum tp,
-        void * v)
+int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
-    ti_prop_t * prop;
-
-    for (vec_each(thing->props, ti_prop_t, prop))
-    {
-        if (prop->name == name)
-        {
-            ti_decref(name);
-            ti_val_clear(&prop->val);
-            ti_val_weak_set(&prop->val, tp, v);
-            return 0;
-        }
-    }
-
-    prop = ti_prop_weak_create(name, tp, v);
-    if (!prop || vec_push(&thing->props, prop))
-    {
-        ti_incref(name);
-        ti_prop_weak_destroy(prop);
-        return -1;
-    }
-    return 0;
-}
-
-int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
-{
-    ti_prop_t * prop;
-
-    for (vec_each(thing->props, ti_prop_t, prop))
-    {
-        if (prop->name == name)
-        {
-            ti_decref(name);
-            ti_val_clear(&prop->val);
-            ti_val_weak_copy(&prop->val, val);
-            return 0;
-        }
-    }
-
-    prop = ti_prop_weak_createv(name, val);
-    if (!prop || vec_push(&thing->props, prop))
-    {
-        ti_incref(name);  /* the call below will drop a name reference */
-        ti_prop_weak_destroy(prop);
-        return -1;
-    }
-    return 0;
-}
-
-int ti_thing_attr_weak_setv(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val)
-{
-    ti_prop_t * prop;
+    ti_prop_t * attr;
 
     if (!thing->attrs)
     {
@@ -170,19 +116,19 @@ int ti_thing_attr_weak_setv(
         if (attr->name == name)
         {
             ti_decref(name);
-            ti_val_clear(&attr->val);
-            ti_val_weak_copy(&attr->val, val);
+            ti_val_drop(attr->val);
+            attr->val = val;
             return 0;
         }
     }
 
-    prop = ti_prop_weak_createv(name, val);
-    if (!prop || vec_push(&thing->attrs, prop))
+    attr = ti_prop_weak_createv(name, val);
+    if (!attr || vec_push(&thing->attrs, attr))
     {
-        ti_incref(name);
-        ti_prop_weak_destroy(prop);
+        free(attr);
         return -1;
     }
+
     return 0;
 }
 
@@ -265,34 +211,38 @@ int ti_thing_gen_id(ti_thing_t * thing)
 
     for (vec_each(thing->props, ti_prop_t, prop))
     {
-        ti_val_t * val = &prop->val;
-
-        if (val->tp == TI_VAL_THING)
+        if (prop->val->tp == TI_VAL_THING)
         {
-            if (val->via.thing->id)
-            {
-                ti_thing_unmark_new(val->via.thing);
-                continue;
-            }
-
-            if (ti_thing_gen_id(val->via.thing))
-                return -1;
-
-            continue;
-        }
-
-        if (val->tp != TI_VAL_THINGS)
-            continue;
-
-        for (vec_each(val->via.things, ti_thing_t, tthing))
-        {
+            ti_thing_t * tthing = (ti_thing_t *) prop->val;
             if (tthing->id)
             {
                 ti_thing_unmark_new(tthing);
                 continue;
             }
+
             if (ti_thing_gen_id(tthing))
                 return -1;
+
+            continue;
+        }
+
+        if (ti_val_is_list(prop->val))
+        {
+            ti_varr_t * varr = (ti_varr_t *) prop->val;
+            for (vec_each(varr->vec, ti_thing_t, tthing))
+            {
+                if (tthing->tp != TI_VAL_THING)
+                    continue;
+
+                if (tthing->id)
+                {
+                    ti_thing_unmark_new(tthing);
+                    continue;
+                }
+
+                if (ti_thing_gen_id(tthing))
+                    return -1;
+            }
         }
     }
     return 0;

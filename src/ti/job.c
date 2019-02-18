@@ -356,9 +356,9 @@ static int job__splice(
     assert (unp);
 
     ex_t * e = ex_use();
-    int rc = 0;
     ssize_t n, i, c, cur_n, new_n;
-    ti_val_t val, * arr;
+    ti_val_t * val;
+    ti_varr_t * varr;
     ti_name_t * name;
     qp_types_t tp;
     qp_obj_t qp_prop, qp_i, qp_c, qp_n;
@@ -371,14 +371,14 @@ static int job__splice(
         !qp_is_int(qp_next(unp, &qp_n)))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
+                "job `splice` on "TI_THING_ID": "
                 "missing map, property, index, delete_count or new_count",
                 thing->id);
         return -1;
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(arr = ti_thing_get(thing, name)))
+    if (!name || !(varr = (ti_varr_t *) ti_thing_weak_get_val(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -388,17 +388,18 @@ static int job__splice(
         return -1;
     }
 
-    if (!ti_val_is_mutable_arr(arr))
+    if (!ti_val_is_list(varr))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
-                "expecting a mutable array, got type `%s`",
+                "job `splice` on "TI_THING_ID": "
+                "expecting a `%s`, got `%s`",
                 thing->id,
-                ti_val_str(arr));
+                TI_VAL_ARR_LIST_S,
+                ti_val_str(varr));
         return -1;
     }
 
-    cur_n = arr->via.arr->n;
+    cur_n = varr->vec->n;
     i = qp_i.via.int64;
     c = qp_c.via.int64;
     n = qp_n.via.int64;
@@ -411,7 +412,7 @@ static int job__splice(
         (tp != QP_ARRAY_OPEN && n > tp - QP_ARRAY0 - 2))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
+                "job `splice` on "TI_THING_ID": "
                 "incorrect values "
                 "(index: %zd, delete: %zd, new: %zd, current_size: %zd)",
                 thing->id,
@@ -421,52 +422,33 @@ static int job__splice(
 
     new_n = cur_n + n - c;
 
-    if (new_n > cur_n && vec_resize(&arr->via.arr, new_n))
+    if (new_n > cur_n && vec_resize(&varr->vec, new_n))
     {
         log_critical(EX_ALLOC_S);
         return -1;
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-    {
-        if (arr->tp == TI_VAL_THINGS)
-        {
-            ti_thing_drop(vec_get(arr->via.arr, x));
-        }
-        else
-        {
-            ti_val_destroy(vec_get(arr->via.arr, x));
-        }
-    }
+        ti_val_destroy(vec_get(varr->vec, x));
 
     memmove(
-        arr->via.arr->data + i + n,
-        arr->via.arr->data + i + c,
-        (cur_n - i - c) * sizeof(void*));
+            varr->vec->data + i + n,
+            varr->vec->data  + i + c,
+            (cur_n - i - c) * sizeof(void*));
 
-    arr->via.arr->n = i;
+    varr->vec->n = i;
 
-    while(n-- && (rc = ti_val_from_unp(&val, unp, collection->things)) == 0)
+    while(n-- && (val = ti_val_from_unp(unp, collection->things)))
     {
-        assert (vec_space(arr->via.arr));
-        ti_val_t * v;
-
-        v = ti_val_weak_dup(&val);
-        if (!v)
-        {
-            log_critical(EX_ALLOC_S);
-            return -1;
-        }
-
-        if (ti_val_move_to_arr(arr, v, e))
+        if (ti_varr_append(varr, val, e))
         {
             log_critical("job `splice` array on "TI_THING_ID": %s", e->msg);
-            ti_val_destroy(v);
+            ti_val_drop(val);
             return -1;
         }
     }
 
-    if (rc)  /* both <0 and >0 are not correct since we should have n values */
+    if (!val)  /* both <0 and >0 are not correct since we should have n values */
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -476,10 +458,10 @@ static int job__splice(
         return -1;
     }
 
-    arr->via.arr->n = new_n;
+    varr->vec->n = new_n;
 
     if (new_n < cur_n)
-        (void) vec_shrink(&arr->via.arr);
+        (void) vec_shrink(&varr->vec);
 
     return 0;
 }

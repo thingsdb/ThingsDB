@@ -22,7 +22,7 @@ _Bool ti_scope_in_use_name(
         ti_scope_t * scope,
         ti_thing_t * thing,
         ti_name_t * name);
-int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e);
+int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e);
 ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name);
 ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name);
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
@@ -31,6 +31,7 @@ static inline _Bool ti_scope_is_raw(ti_scope_t * scope);
 static inline _Bool ti_scope_has_local_name(
         ti_scope_t * scope,
         ti_name_t * name);
+static inline ti_val_t * ti_scope_weak_get_val(ti_scope_t * scope);
 
 struct ti_scope_s
 {
@@ -41,9 +42,16 @@ struct ti_scope_s
     vec_t * local;      /* ti_prop_t (local props arrow functions */
 };
 
+
+static inline ti_val_t * ti_scope_weak_get_val(ti_scope_t * scope)
+{
+    return scope->name ? scope->val : (ti_val_t *) scope->thing;
+}
+
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope)
 {
-    return scope->thing && !scope->name;
+    assert (scope->thing);
+    return !scope->name;
 }
 
 static inline _Bool ti_scope_is_raw(ti_scope_t * scope)

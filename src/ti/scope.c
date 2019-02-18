@@ -64,7 +64,7 @@ int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
     if (val->tp != TI_VAL_THING)
         return 0;
 
-    nscope = ti_scope_enter(*scope, val->via.thing);
+    nscope = ti_scope_enter(*scope, (ti_thing_t *) val);
     if (!nscope)
         return -1;
 
@@ -101,7 +101,7 @@ _Bool ti_scope_in_use_name(
     return false;
 }
 
-int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
+int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARROW);
     size_t n;

@@ -124,19 +124,28 @@ static void things__gc_mark(ti_thing_t * thing)
     thing->flags &= ~TI_THING_FLAG_SWEEP;
     for (vec_each(thing->props, ti_prop_t, prop))
     {
-        switch (prop->val.tp)
+        switch (prop->val->tp)
         {
         case TI_VAL_THING:
-            if (prop->val.via.thing->flags & TI_THING_FLAG_SWEEP)
-                things__gc_mark(prop->val.via.thing);
+        {
+            ti_thing_t * thing = (ti_thing_t *) prop->val;
+            if (thing->flags & TI_THING_FLAG_SWEEP)
+                things__gc_mark(thing);
             continue;
-        case TI_VAL_THINGS:
-            for (vec_each(prop->val.via.things, ti_thing_t, thing))
-                if (thing->flags & TI_THING_FLAG_SWEEP)
-                    things__gc_mark(thing);
+        }
+        case TI_VAL_ARR:
+        {
+            ti_varr_t * varr = (ti_varr_t *) prop->val;
+
+            if (ti_varr_is_list(varr))
+            {
+                for (vec_each(varr->vec, ti_thing_t, thing))
+                    if (    thing->tp == TI_VAL_THING &&
+                            (thing->flags & TI_THING_FLAG_SWEEP))
+                        things__gc_mark(thing);
+            }
             continue;
-        default:
-            continue;
+        }
         }
     }
 }

@@ -14,13 +14,12 @@
 #include <util/strx.h>
 
 static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
-static int val__push(ti_val_t * arr, ti_val_t * val);
-static int val__from_unp(
-        ti_val_t * dest,
+static int val__push(ti_varr_t * arr, ti_val_t * val);
+static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things);
+static ti_val_t * val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
         imap_t * things);
-static void val__clear(ti_val_t * val);
 
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
@@ -82,9 +81,7 @@ void ti_val_drop(ti_val_t * val)
     case TI_VAL_THING:
         ti_thing_destroy((ti_thing_t *) val);
         return;
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
         ti_varr_destroy((ti_varr_t *) val);
         return;
     case TI_VAL_ARROW:
@@ -104,16 +101,27 @@ int ti_val_make_int(ti_val_t ** val, int64_t i)
     return 0;
 }
 
+int ti_val_make_float(ti_val_t ** val, double d)
+{
+    ti_val_t * v = ti_vfloat_create(d);
+    if (!v)
+        return -1;
+
+    ti_val_drop(*val);
+    *val = v;
+    return 0;
+}
+
 /*
  * Return 0 on success, <0 if unpacking has failed or >0 if
  */
-int ti_val_from_unp(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 {
     qp_obj_t qp_val;
     qp_types_t tp = qp_next(unp, &qp_val);
-    return qp_is_close(tp)
-            ? (int) tp
-            : val__from_unp(dest, &qp_val, unp, things);
+    if (qp_is_close(tp))
+        return NULL;
+    return val__from_unp(&qp_val, unp, things);
 }
 
 int ti_val_convert_to_str(ti_val_t ** val)
@@ -162,9 +170,7 @@ int ti_val_convert_to_str(ti_val_t ** val)
         ti_incref(v);
         break;
     case TI_VAL_THING:
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
     case TI_VAL_ARROW:
         v = val__sobject;
         ti_incref(v);
@@ -185,12 +191,10 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_NIL:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
     case TI_VAL_ARROW:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
-                ti_val_str(*val), ti_val_tp_str(TI_VAL_INT));
+                ti_val_str(*val), TI_VAL_INT_S);
         return e->nr;
     case TI_VAL_INT:
         return 0;
@@ -256,10 +260,8 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_REGEX:
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
     case TI_VAL_THING:
-    case TI_VAL_LIST:
+    case TI_VAL_ARR:
     case TI_VAL_ARROW:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
                 ti_val_str(val));
@@ -452,9 +454,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return !!((ti_raw_t *) val)->n;
     case TI_VAL_REGEX:
         return true;
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
         return !!((ti_varr_t *) val)->vec->n;
     case TI_VAL_THING:
     case TI_VAL_ARROW:
@@ -477,9 +477,7 @@ size_t ti_val_iterator_n(ti_val_t * val)
     {
     case TI_VAL_RAW:
         return ((ti_raw_t *) val)->n;
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
         return ((ti_varr_t *) val)->vec->n;
     case TI_VAL_THING:
         return ((ti_thing_t *) val)->props->n;
@@ -503,17 +501,22 @@ int ti_val_gen_ids(ti_val_t * val)
         if (ti_thing_gen_id((ti_thing_t *) val))
             return -1;
         break;
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
-        for (vec_each(((ti_varr_t *) val)->vec, ti_thing_t, thing))
+    case TI_VAL_ARR:
+        if (ti_varr_has_things((ti_varr_t *) val))
         {
-            if (thing->id)
+            for (vec_each(((ti_varr_t *) val)->vec, ti_thing_t, thing))
             {
-                ti_thing_unmark_new(thing);
-                continue;
+                if (thing->tp != TI_VAL_THING)
+                    continue;
+
+                if (thing->id)
+                {
+                    ti_thing_unmark_new(thing);
+                    continue;
+                }
+                if (ti_thing_gen_id(thing))
+                    return -1;
             }
-            if (ti_thing_gen_id(thing))
-                return -1;
         }
     }
     return 0;
@@ -560,9 +563,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
             : (fetch-- > 0
                 ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
                 : ti_thing_id_to_packer((ti_thing_t *) val, pckr));
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
         if (qp_add_array(pckr))
             return -1;
         fetch--;
@@ -601,10 +602,11 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_REGEX:
         return ti_regex_to_file((ti_regex_t *) val, f);
     case TI_VAL_THING:
-        return qp_fadd_int(f, ((ti_thing_t *) val)->id);
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:
-    case TI_VAL_TUPLE:
+        return (
+                qp_fadd_type(f, QP_MAP1) ||
+                qp_fadd_int(f, ((ti_thing_t *) val)->id)
+        );
+    case TI_VAL_ARR:
         if (qp_fadd_type(f, QP_ARRAY_OPEN))
             return -1;
         for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
@@ -625,16 +627,16 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_ATTR:               return TI_VAL_ATTR_S;
     case TI_VAL_NIL:                return TI_VAL_NIL_S;
     case TI_VAL_INT:                return TI_VAL_INT_S;
-    case TI_VAL_FLOAT:              return "float";
-    case TI_VAL_BOOL:               return "bool";
-    case TI_VAL_QP:                 return "qpack";
-    case TI_VAL_RAW:                return "raw";
-    case TI_VAL_REGEX:              return "regex";
-    case TI_VAL_THING:              return "thing";
-    case TI_VAL_ARRAY:
-    case TI_VAL_LIST:               return "array";
-    case TI_VAL_TUPLE:              return "tuple";
-    case TI_VAL_ARROW:              return "arrow-function";
+    case TI_VAL_FLOAT:              return TI_VAL_FLOAT_S;
+    case TI_VAL_BOOL:               return TI_VAL_BOOL_S;
+    case TI_VAL_QP:                 return TI_VAL_QP_S;
+    case TI_VAL_RAW:                return TI_VAL_RAW_S;
+    case TI_VAL_REGEX:              return TI_VAL_REGEX_S;
+    case TI_VAL_THING:              return TI_VAL_THING_S;
+    case TI_VAL_ARR:                return ti_varr_is_list((ti_varr_t *) val)
+                                        ? TI_VAL_ARR_LIST_S
+                                        : TI_VAL_ARR_TUPLE_S;
+    case TI_VAL_ARROW:              return TI_VAL_ARROW_S;
     }
     assert (0);
     return "unknown";
@@ -652,33 +654,23 @@ int ti_val_check_assignable(ti_val_t * val, _Bool to_array, ex_t * e)
                 ti_val_tp_str(val->tp));
         break;
     case TI_VAL_ARROW:
-        if (ti_arrow_wse(val->via.arrow))
+        if (ti_arrow_wse((ti_arrow_t * ) val))
+        {
             ex_set(e, EX_BAD_DATA,
                     "an arrow function with side effects cannot be assigned");
-        {
-            /*
-             * This an arrow hack to prevent unnecessary copy of the whole
-             * arrow while is is not assigned.
-             */
-            cleri_node_t * arrow = ti_arrow_cp(val->via.arrow);
-            if (!arrow)
-            {
-                ex_set_alloc(e);
-                break;
-            }
-            ti_arrow_destroy(val->via.arrow);
-            val->via.arrow = arrow;
         }
-        break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-        val->tp = to_array ? TI_VAL_TUPLE : TI_VAL_ARRAY;
+        /*
+         * This an arrow hack to prevent unnecessary copy of the whole
+         * arrow while is is not assigned.
+         */
+        else if (ti_arrow_unbound((ti_arrow_t * ) val))
+            ex_set_alloc(e);
         break;
     }
     return e->nr;
 }
 
-static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
+static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
 {
     qp_obj_t qp_kind, qp_tmp;
     ssize_t sz = qp_next(unp, NULL);
@@ -688,104 +680,77 @@ static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things)
     sz = sz == QP_MAP_OPEN ? -1 : sz - QP_MAP0;
 
     if (!sz || !qp_is_raw(qp_next(unp, &qp_kind)) || qp_kind.len != 1)
-        goto fail;
+        return NULL;
 
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
     case TI_VAL_KIND_THING:
-    {
-        uint64_t thing_id;
-        if (!qp_is_int(qp_next(unp, &qp_tmp)))
-            goto fail;
-        thing_id = (uint64_t) qp_tmp.via.int64;
-        dest->tp = TI_VAL_THING;
-        dest->via.thing = ti_things_thing_from_unp(things, thing_id, unp, sz);
-        if (!dest->via.thing)
-            return -1;
-        break;
-    }
+        return qp_is_int(qp_next(unp, &qp_tmp))
+                ? ti_things_thing_from_unp(
+                        things,
+                        (uint64_t) qp_tmp.via.int64,
+                        unp,
+                        sz)
+                : NULL;
     case TI_VAL_KIND_ARROW:
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
-            goto fail;
-        dest->tp = TI_VAL_ARROW;
-        dest->via.arrow = ti_arrow_from_strn(
+            return NULL;
+        return ti_arrow_from_strn(
                 (char *) qp_tmp.via.raw,
                 qp_tmp.len);
-        if (!dest->via.arrow)
-            return -1;
-        break;
     case TI_VAL_KIND_REGEX:
     {
-        ex_t * e = ex_use();
+        ex_t e = { .nr=0 };
+        ti_regex_t * regex;
 
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
-            goto fail;
-        dest->tp = TI_VAL_REGEX;
-        dest->via.regex = ti_regex_from_strn(
+            return NULL;
+        regex = ti_regex_from_strn(
                 (const char *) qp_tmp.via.raw,
                 qp_tmp.len,
                 e);
-        if (!dest->via.regex)
-        {
+        if (!regex)
             log_error(e->msg);
-            return -1;
-        }
-        break;
+        return (ti_val_t *) regex;
     }
     }
 
-    return 0;
-
-fail:
-    dest->via.nil = NULL;
-    dest->tp = TI_VAL_NIL;
-    return -1;
+    return NULL;
 }
 
-static int val__push(ti_val_t * arr, ti_val_t * val)
+/*
+ * Does not increment the `val` reference counter.
+ */
+static int val__push(ti_varr_t * varr, ti_val_t * val)
 {
-    if (    val->tp == TI_VAL_ARRAY || (
-            val->tp == TI_VAL_THINGS && !val->via.things->n))
-        val->tp = TI_VAL_TUPLE;
+    assert (ti_varr_is_list(varr));
+
+    if (ti_val_is_list(val))
+        ((ti_varr_t *) val)->flags |= TI_ARR_FLAG_TUPLE;
 
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_THING:
-        return -(
-            arr->tp != TI_VAL_THINGS ||
-            vec_push(&arr->via.things, val->via.thing)
-        );
+        varr->flags |= TI_ARR_FLAG_THINGS;
+        break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
-    case TI_VAL_TUPLE:
+    case TI_VAL_ARR:
     case TI_VAL_ARROW:
-    {
-        ti_val_t * v;
-        if (arr->tp != TI_VAL_ARRAY)
-        {
-            assert (arr->tp == TI_VAL_THINGS);
-            if (arr->via.things->n)
-                return -1;
-            arr->tp = TI_VAL_ARRAY;
-        }
-        v = ti_val_weak_dup(val);
-        return v ? vec_push(&arr->via.array, v) : -1;
-    }
+        break;
     case TI_VAL_ATTR:
     case TI_VAL_QP:
-    case TI_VAL_ARRAY:
-    case TI_VAL_THINGS:
         return -1;
     }
-    return -1;
+
+    return vec_push(&varr->vec, val);
 }
 
-static int val__from_unp(
-        ti_val_t * dest,
+static ti_val_t * val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
         imap_t * things)
@@ -793,19 +758,11 @@ static int val__from_unp(
     switch(qp_val->tp)
     {
     case QP_RAW:
-        dest->tp = TI_VAL_RAW;
-        dest->via.raw = ti_raw_create(qp_val->via.raw, qp_val->len);
-        if (!dest->via.raw)
-            goto fail;
-        break;
+        return (ti_val_t *) ti_raw_create(qp_val->via.raw, qp_val->len);
     case QP_INT64:
-        dest->tp = TI_VAL_INT;
-        dest->via.int_ = qp_val->via.int64;
-        break;
+        return (ti_val_t *) ti_vint_create(qp_val->via.int64);
     case QP_DOUBLE:
-        dest->tp = TI_VAL_FLOAT;
-        dest->via.float_ = qp_val->via.real;
-        break;
+        return (ti_val_t *) ti_vfloat_create(qp_val->via.real);
     case QP_ARRAY0:
     case QP_ARRAY1:
     case QP_ARRAY2:
@@ -813,26 +770,25 @@ static int val__from_unp(
     case QP_ARRAY4:
     case QP_ARRAY5:
     {
+        ti_val_t * v;
         qp_obj_t qp_v;
-        ti_val_t v;
         size_t sz = qp_val->tp - QP_ARRAY0;
-        dest->tp = TI_VAL_THINGS;
-        dest->via.arr = vec_new(sz);
-        if (!dest->via.arr)
-            goto fail;
+        ti_varr_t * varr = ti_varr_create(sz);
+        if (!varr)
+            return NULL;
 
         while (sz--)
         {
             (void) qp_next(unp, &qp_v);
-
-            if (val__from_unp(&v, &qp_v, unp, things) || val__push(dest, &v))
+            v = val__from_unp(&qp_v, unp, things);
+            if (!v || val__push(varr, v))
             {
-                ti_val_clear(&v);
-                goto fail;
+                ti_val_drop(v);
+                ti_val_drop(varr);
+                return NULL;
             }
         }
-
-        break;
+        return (ti_val_t *) varr;
     }
     case QP_MAP1:
     case QP_MAP2:
@@ -840,85 +796,42 @@ static int val__from_unp(
     case QP_MAP4:
     case QP_MAP5:
         --unp->pt;  /* reset to map */
-        if (val__unp_map(dest, unp, things))
-            goto fail;
-        break;
+        return val__unp_map(unp, things);
     case QP_TRUE:
     case QP_FALSE:
-        dest->tp = TI_VAL_BOOL;
-        dest->via.bool_ = qp_val->tp == QP_TRUE;
-        break;
+        return ti_vbool_get(qp_val->tp == QP_TRUE);
     case QP_NULL:
-        dest->tp = TI_VAL_NIL;
-        dest->via.nil = NULL;
-        break;
+        return ti_nil_get();
     case QP_ARRAY_OPEN:
     {
-        ti_val_t v;
+        ti_val_t * v;
         qp_obj_t qp_v;
-        dest->tp = TI_VAL_THINGS;
-        dest->via.arr = vec_new(6);  /* we have at least 6 items */
-        if (!dest->via.arr)
-            goto fail;
+        ti_varr_t * varr = ti_varr_create(6);  /* we have at least 6 items */
+        if (!varr)
+            return NULL;
 
-        while (1)
+        while (!qp_is_close(qp_next(unp, &qp_v)))
         {
-            if (qp_is_close(qp_next(unp, &qp_v)))
-                break;
+            v = val__from_unp(&qp_v, unp, things);
 
-            if (val__from_unp(&v, &qp_v, unp, things) || val__push(dest, &v))
+            if (!v || val__push(varr, v))
             {
-                ti_val_clear(&v);
-                goto fail;
+                ti_val_drop(v);
+                ti_val_drop(varr);
+                return NULL;
             }
         }
-        break;
+        return (ti_val_t *) varr;
     }
     case QP_MAP_OPEN:
         --unp->pt;  /* reset to map */
-        if (val__unp_map(dest, unp, things))
-            goto fail;
-        break;
+        return val__unp_map(unp, things);
     default:
-        goto fail;
+        assert (0);
+        return NULL;
     }
 
-    return 0;
-
-fail:
-    ti_val_clear(dest);
-    return -1;
+    return NULL;
 }
 
-static void val__clear(ti_val_t * val)
-{
-    assert (val->ref <= 1);
 
-    switch((ti_val_enum) val->tp)
-    {
-    case TI_VAL_ATTR:  /* attributes are destroyed by res */
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-        break;
-    case TI_VAL_QP:
-    case TI_VAL_RAW:
-        ti_raw_drop(val->via.raw);
-        break;
-    case TI_VAL_REGEX:
-        ti_regex_drop(val->via.regex);
-        break;
-    case TI_VAL_THING:
-        ti_thing_drop(val->via.thing);
-        break;
-    case TI_VAL_TUPLE:
-    case TI_VAL_ARRAY:
-    case TI_VAL_THINGS:
-        vec_destroy(val->via.array, (vec_destroy_cb) ti_val_drop);
-        break;
-    case TI_VAL_ARROW:
-        ti_arrow_destroy(val->via.arrow);
-        break;
-    }
-}

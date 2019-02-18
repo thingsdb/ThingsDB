@@ -16,24 +16,28 @@
 #include <ti/thing.h>
 #include <util/vec.h>
 
-static inline ti_val_enum query_tp(ti_query_t * query);
 static inline const char * query_tp_str(ti_query_t * query);
 static inline _Bool query_is_thing(ti_query_t * query);
 static inline _Bool query_in_use_thing(ti_query_t * query);
 static inline _Bool query_is_raw(ti_query_t * query);
-static inline ti_thing_t * query_get_thing(ti_query_t * query);
+static inline ti_thing_t * query_weak_get_thing(ti_query_t * query);
 ti_prop_t * query_get_tmp_prop(ti_query_t * query, ti_name_t * name);
 static inline ti_val_t * query_get_val(ti_query_t * query);
 
-static inline ti_val_enum query_tp(ti_query_t * query)
-{
-    return query->rval ? query->rval->tp : (
-            query->scope->val ? query->scope->val->tp : TI_VAL_THING);
-}
 
 static inline const char * query_tp_str(ti_query_t * query)
 {
-    return ti_val_tp_str(query_tp(query));
+    return query->rval
+            ? ti_val_str(query->rval)
+            : (query->scope->val
+                    ? ti_val_str(query->scope->val)
+                    : TI_VAL_THING_S
+            );
+}
+
+static inline ti_val_t * query_weak_get_val(ti_query_t * query)
+{
+    return query->rval ? query->rval : ti_scope_weak_get_val(query->scope);
 }
 
 static inline _Bool query_is_thing(ti_query_t * query)
@@ -48,7 +52,7 @@ static inline _Bool query_in_use_thing(ti_query_t * query)
 {
     assert (query_is_thing(query));
     return query->rval
-            ? ti_scope_in_use_thing(query->scope, query->rval->via.thing)
+            ? ti_scope_in_use_thing(query->scope, query->rval)
             : ti_scope_in_use_thing(query->scope->prev, query->scope->thing);
 }
 
@@ -61,10 +65,9 @@ static inline _Bool query_is_raw(ti_query_t * query)
 }
 
 /* returns a borrowed reference */
-static inline ti_thing_t * query_get_thing(ti_query_t * query)
+static inline ti_thing_t * query_weak_get_thing(ti_query_t * query)
 {
-    assert (query_is_thing(query));
-    return query->rval ? query->rval->via.thing : query->scope->thing;
+    return query->rval ? query->rval : query->scope->thing;
 }
 
 /* return value might be NULL */

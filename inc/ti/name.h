@@ -15,12 +15,13 @@ void ti_name_drop(ti_name_t * name);
 _Bool ti_name_is_valid_strn(const char * str, size_t n);
 static inline void ti_name_destroy(ti_name_t * name);
 
-
 struct ti_name_s
 {
     uint32_t ref;
-    uint32_t n;             /* strlen(name->name) */
-    char str[];            /* null terminated string */
+    uint8_t tp;
+    uint8_t _pad0;
+    uint16_t n;             /* strlen(name->name) */
+    char str[];             /* null terminated string */
 };
 
 static inline void ti_name_destroy(ti_name_t * name)

@@ -30,6 +30,7 @@ C_SRCS += \
 ../src/ti/lookup.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
+../src/ti/nil.c \
 ../src/ti/node.c \
 ../src/ti/nodes.c \
 ../src/ti/opr.c \
@@ -63,7 +64,11 @@ C_SRCS += \
 ../src/ti/user.c \
 ../src/ti/users.c \
 ../src/ti/val.c \
+../src/ti/varr.c \
+../src/ti/vbool.c \
 ../src/ti/version.c \
+../src/ti/vfloat.c \
+../src/ti/vint.c \
 ../src/ti/wareq.c \
 ../src/ti/watch.c \
 ../src/ti/write.c 
@@ -95,6 +100,7 @@ OBJS += \
 ./src/ti/lookup.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
+./src/ti/nil.o \
 ./src/ti/node.o \
 ./src/ti/nodes.o \
 ./src/ti/opr.o \
@@ -128,7 +134,11 @@ OBJS += \
 ./src/ti/user.o \
 ./src/ti/users.o \
 ./src/ti/val.o \
+./src/ti/varr.o \
+./src/ti/vbool.o \
 ./src/ti/version.o \
+./src/ti/vfloat.o \
+./src/ti/vint.o \
 ./src/ti/wareq.o \
 ./src/ti/watch.o \
 ./src/ti/write.o 
@@ -160,6 +170,7 @@ C_DEPS += \
 ./src/ti/lookup.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
+./src/ti/nil.d \
 ./src/ti/node.d \
 ./src/ti/nodes.d \
 ./src/ti/opr.d \
@@ -193,7 +204,11 @@ C_DEPS += \
 ./src/ti/user.d \
 ./src/ti/users.d \
 ./src/ti/val.d \
+./src/ti/varr.d \
+./src/ti/vbool.d \
 ./src/ti/version.d \
+./src/ti/vfloat.d \
+./src/ti/vint.d \
 ./src/ti/wareq.d \
 ./src/ti/watch.d \
 ./src/ti/write.d 

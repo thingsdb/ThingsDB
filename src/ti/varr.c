@@ -15,7 +15,8 @@ ti_varr_t * ti_varr_create(size_t sz)
         return NULL;
 
     varr->ref = 1;
-    varr->tp = TI_VAL_ARRAY;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = 0;
 
     varr->vec = vec_new(sz);
     if (!varr->vec)
@@ -31,7 +32,7 @@ ti_varr_t * ti_varr_to_tuple(ti_varr_t * arr)
 {
     ti_varr_t * tuple;
 
-    if (arr->tp == TI_VAL_TUPLE)
+    if (arr->flags & TI_ARR_FLAG_TUPLE)
     {
         ti_incref(arr);
         return arr;
@@ -42,8 +43,7 @@ ti_varr_t * ti_varr_to_tuple(ti_varr_t * arr)
         return NULL;
 
     tuple->ref = 1;
-    tuple->tp = TI_VAL_TUPLE;
-    tuple->tuple_with_things = arr->tp == TI_VAL_LIST;
+    tuple->flags |= TI_ARR_FLAG_TUPLE;
     tuple->vec = vec_dup(arr->vec);
 
     if (!tuple->vec)
@@ -61,21 +61,23 @@ ti_varr_t * ti_varr_to_tuple(ti_varr_t * arr)
 
 void ti_varr_destroy(ti_varr_t * varr)
 {
+    if (!varr)
+        return;
     vec_destroy(varr->vec, (vec_destroy_cb) ti_val_drop);
+    free(varr);
 }
 
-
 /*
- * The destination array should have enough space to hold the new value.
+ * Increments `val` reference counter when assigned to the array.
  */
 int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
 {
-    assert (to->tp == TI_VAL_ARRAY || to->tp == TI_VAL_LIST);
-    assert (vec_space(to->vec));
+    assert (ti_varr_is_list(to));
 
-    if
+    if (ti_val_check_assignable(val, true, e))
+        return e->nr;
 
-    if (val->tp == TI_VAL_ARRAY || val->tp == TI_VAL_LIST)
+    if (ti_val_is_list(val))
     {
         ti_varr_t * tuple = ti_varr_to_tuple((ti_varr_t *) val);
         if (!tuple)
@@ -84,70 +86,20 @@ int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
             return e->nr;
         }
 
-        /* if this
-        if (to->tp == TI_VAL_ARRAY && val->tp == TI_VAL_LIST)
-            to->tp = TI_VAL_LIST;
-
-        val = tuple;
+        to->flags |= tuple->flags & TI_ARR_FLAG_THINGS;
+        val = (ti_val_t *) tuple;
     }
     else
     {
         ti_incref(val);
     }
 
-
-
-    VEC_push(to->vec, val);
-
-    if (to->tp == TI_VAL_ARRAY && )
-
-    if (val->tp == TI_VAL_THINGS)
+    if (vec_push(&to->vec, val))
     {
-        if (val->via.things->n)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "type `%s` cannot be nested into into another array",
-                    ti_val_str(val));
-            return e->nr;
-        }
-        val->tp = TI_VAL_TUPLE;
+        ti_decref(val);
+        ex_set_alloc(e);
     }
 
-    if (val->tp == TI_VAL_THING)
-    {
-        /* TODO: I think we can convert back, not sure why I first thought
-         * this was not possible. Maybe because of nesting? but that is
-         * solved because nested are tuple and therefore not mutable */
-        if (to_arr->tp == TI_VAL_ARRAY  && !to_arr->via.array->n)
-            to_arr->tp = TI_VAL_THINGS;
-
-        if (to_arr->tp == TI_VAL_ARRAY)
-        {
-            ex_set(e, EX_BAD_DATA,
-                "type `%s` cannot be added into an array with other types",
-                ti_val_str(val));
-            return e->nr;
-        }
-
-        VEC_push(to_arr->via.things, val->via.thing);
-        ti_val_weak_destroy(val);
-        return 0;
-    }
-
-    if (to_arr->tp == TI_VAL_THINGS  && !to_arr->via.things->n)
-        to_arr->tp = TI_VAL_ARRAY;
-
-    if (to_arr->tp == TI_VAL_THINGS)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "type `%s` cannot be added into an array with `things`",
-            ti_val_str(val));
-        return e->nr;
-    }
-
-    if (ti_val_check_assignable(val, true, e))
-        return e->nr;
-
-    VEC_push(to_arr->via.array, val);
-    return 0;
+    return e->nr;
 }
+

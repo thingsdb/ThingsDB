@@ -15,9 +15,9 @@ ti_name_t * ti_name_create(const char * str, size_t n)
         return NULL;
 
     memcpy(name->str, str, n);
-    name->str[n] = '\0';
-    name->n = n;
     name->ref = 1;
+    name->n = n;
+    name->str[n] = '\0';
     return name;
 }
 
@@ -32,7 +32,7 @@ void ti_name_drop(ti_name_t * name)
 
 _Bool ti_name_is_valid_strn(const char * str, size_t n)
 {
-    if (!n || (!isalpha(str[0]) && str[0] != '_'))
+    if (!n || (!isalpha(str[0]) && str[0] != '_') || n >= 0xffff)
         return false;
 
     while(--n)

@@ -25,7 +25,7 @@ int ti_arrow_unbound(ti_arrow_t * arrow);
 int ti_arrow_to_packer(ti_arrow_t * arrow, qp_packer_t ** packer);
 int ti_arrow_to_file(ti_arrow_t * arrow, FILE * f);
 uchar * ti_arrow_uchar(ti_arrow_t * arrow, size_t * n);
-static inline cleri_node_t * ti_arrow_scope_nd(cleri_node_t * arrow);
+static inline cleri_node_t * ti_arrow_scope_nd(ti_arrow_t * arrow);
 static inline _Bool ti_arrow_wse(ti_arrow_t * arrow);
 
 struct ti_arrow_s
@@ -45,10 +45,10 @@ static inline _Bool ti_arrow_wse(ti_arrow_t * arrow)
     );
 }
 
-static inline cleri_node_t * ti_arrow_scope_nd(cleri_node_t * arrow)
+static inline cleri_node_t * ti_arrow_scope_nd(ti_arrow_t * arrow)
 {
     /*  arrow = Sequence(List(name, opt=False), '=>', scope)  */
-    return arrow->children->next->next->node;
+    return arrow->node->children->next->next->node;
 }
 
 

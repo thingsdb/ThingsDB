@@ -74,7 +74,7 @@ int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
 {
     assert (ti_varr_is_list(to));
 
-    if (ti_val_check_assignable(val, e))
+    if (ti_val_make_assignable(val, e))
         return e->nr;
 
     if (ti_val_is_list(val))

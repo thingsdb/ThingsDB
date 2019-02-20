@@ -25,8 +25,8 @@ typedef struct ti_thing_s  ti_thing_t;
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
 void ti_thing_destroy(ti_thing_t * thing);
-ti_val_t * ti_thing_weak_get_val(ti_thing_t * thing, ti_name_t * name);
-void * ti_thing_attr_get(ti_thing_t * thing, ti_name_t * name);
+ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name);
+ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);

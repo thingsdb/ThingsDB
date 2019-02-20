@@ -7,8 +7,14 @@
 #include <langdef/langdef.h>
 
 static cleri_node_t * arrow__node_from_strn(const char * str, size_t n);
-static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
+static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
 
+/*
+ * Return an arrow with is bound to the query. The node for this arrow can
+ * only be used for as long as the 'query' exists in memory. If the arrow
+ * will be stored for later usage, a call to `ti_arrow_unbound` must be
+ * made.
+ */
 ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)
 {
     ti_arrow_t * arrow = malloc(sizeof(ti_arrow_t));
@@ -55,7 +61,6 @@ int ti_arrow_unbound(ti_arrow_t * arrow)
     cleri_node_t * node;
 
     assert (~arrow->flags & TI_ARROW_FLAG_WSE);
-
     if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
         return 0;
 
@@ -133,7 +138,7 @@ uchar * ti_arrow_uchar(ti_arrow_t * arrow, size_t * n)
     if (!buf)
         return NULL;
 
-    arrow__to_buf(arrow, buf, n);
+    arrow__node_to_buf(arrow->node, buf, n);
     return buf;
 }
 
@@ -183,7 +188,7 @@ fail:
     return NULL;
 }
 
-static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
+static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -208,5 +213,5 @@ static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
-        arrow__to_buf(child->node, buf, n);
+        arrow__node_to_buf(child->node, buf, n);
 }

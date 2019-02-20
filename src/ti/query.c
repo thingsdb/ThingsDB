@@ -357,6 +357,37 @@ finish:
     ti_query_destroy(query);
 }
 
+ti_val_t * ti_query_val_pop(ti_query_t * query)
+{
+    if (query->rval)
+    {
+        ti_val_t * val = query->rval;
+        query->rval = NULL;
+        return val;
+    }
+
+    if (query->scope->val)
+    {
+        ti_incref(query->scope->val);
+        return query->scope->val;
+    }
+
+    ti_incref(query->scope->thing);
+    return (ti_val_t *) query->scope->thing;
+}
+
+ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)
+{
+    if (!query->tmpvars)
+        return NULL;
+
+    for (vec_each(query->tmpvars, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop;
+    return NULL;
+}
+
+
 static void query__investigate_array(ti_query_t * query, cleri_node_t * nd)
 {
     uintptr_t sz = 0;

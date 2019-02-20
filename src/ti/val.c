@@ -644,7 +644,7 @@ const char * ti_val_str(ti_val_t * val)
 
 
 /* checks PROP, QP, ARROW and ARRAY/TUPLE */
-int ti_val_check_assignable(ti_val_t * val, ex_t * e)
+int ti_val_make_assignable(ti_val_t * val, ex_t * e)
 {
     switch (val->tp)
     {
@@ -659,10 +659,6 @@ int ti_val_check_assignable(ti_val_t * val, ex_t * e)
             ex_set(e, EX_BAD_DATA,
                     "an arrow function with side effects cannot be assigned");
         }
-        /*
-         * This an arrow hack to prevent unnecessary copy of the whole
-         * arrow while is is not assigned.
-         */
         else if (ti_arrow_unbound((ti_arrow_t * ) val))
             ex_set_alloc(e);
         break;

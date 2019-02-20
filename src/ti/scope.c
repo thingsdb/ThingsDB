@@ -31,8 +31,8 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
     {
         ti_scope_t * prev = cur->prev;
 
-        ti_thing_drop(cur->thing);
-        vec_destroy(cur->local, (vec_destroy_cb) ti_prop_weak_destroy);
+        ti_val_drop((ti_val_t *) cur->thing);
+        vec_destroy(cur->local, (vec_destroy_cb) ti_prop_destroy);
         free(cur);
 
         cur = prev;
@@ -110,7 +110,7 @@ int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
     if (scope->local)
     {
         /* cleanup existing local */
-        vec_destroy(scope->local, (vec_destroy_cb) ti_prop_weak_destroy);
+        vec_destroy(scope->local, (vec_destroy_cb) ti_prop_destroy);
         scope->local = NULL;
     }
 
@@ -128,17 +128,21 @@ int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 
     for (child = first; child; child = child->next->next)
     {
+        ti_val_t * val;
         ti_prop_t * prop;
         ti_name_t * name = ti_names_get(child->node->str, child->node->len);
         if (!name)
             goto alloc_err;
 
-        prop = ti_prop_create(name, TI_VAL_NIL, NULL);
+        val = (ti_val_t *) ti_nil_get();
+        prop = ti_prop_create(name, val);
         if (!prop)
         {
             ti_name_drop(name);
+            ti_val_drop(val);
             goto alloc_err;
         }
+
         VEC_push(scope->local, prop);
         if (!child->next)
             break;
@@ -161,7 +165,7 @@ ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name)
         if (scope->local)
             for (vec_each(scope->local, ti_prop_t, prop))
                 if (prop->name == name)
-                    return &prop->val;
+                    return prop->val;
         scope = scope->prev;
     }
     return NULL;
@@ -175,6 +179,6 @@ ti_val_t * ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
         return NULL;
     for (vec_each(scope->prev->local, ti_prop_t, prop))
         if (prop->name == name)
-            return &prop->val;
+            return prop->val;
     return NULL;
 }

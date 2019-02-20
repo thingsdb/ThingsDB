@@ -16,7 +16,7 @@ typedef enum
     TI_VAL_QP,      /* QPack data, only used on root for returning raw packed
                        data */
     TI_VAL_RAW,
-    TI_VAL_NAME,
+//    TI_VAL_NAME,
     TI_VAL_REGEX,
     TI_VAL_THING,
     TI_VAL_ARR,     /* array without things */
@@ -30,6 +30,7 @@ typedef enum
 #define TI_VAL_BOOL_S       "bool"
 #define TI_VAL_QP_S         "qpack"
 #define TI_VAL_RAW_S        "raw"
+//#define TI_VAL_NAME_S
 #define TI_VAL_REGEX_S      "regex"
 #define TI_VAL_THING_S      "thing"
 #define TI_VAL_ARR_S        "array"
@@ -76,7 +77,7 @@ int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
-int ti_val_check_assignable(ti_val_t * val, ex_t * e);
+int ti_val_make_assignable(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);

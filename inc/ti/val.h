@@ -79,11 +79,14 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
+static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
+static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
 static inline _Bool ti_val_is_iterable(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
+static inline _Bool ti_val_is_settable(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 
 struct ti_val_s
@@ -99,9 +102,19 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
     return val->tp == TI_VAL_ARR;
 }
 
+static inline _Bool ti_val_is_int(ti_val_t * val)
+{
+    return val->tp == TI_VAL_INT;
+}
+
 static inline _Bool ti_val_is_raw(ti_val_t * val)
 {
     return val->tp == TI_VAL_RAW;
+}
+
+static inline _Bool ti_val_is_regex(ti_val_t * val)
+{
+    return val->tp == TI_VAL_REGEX;
 }
 
 static inline _Bool ti_val_valid_attr(ti_val_t * val)

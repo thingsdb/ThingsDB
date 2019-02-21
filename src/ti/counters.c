@@ -98,23 +98,14 @@ int ti_counters_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_counters_as_qpval(void)
 {
     ti_raw_t * raw;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(512, 1);
     if (!packer)
         return NULL;
 
-    if (ti_counters_to_packer(&packer))
-        goto fail;
+    raw = ti_counters_to_packer(&packer)
+            ? NULL
+            : ti_raw_from_packer(packer);
 
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, raw);
-    if (!qpval)
-        ti_raw_drop(raw);
-
-fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) raw;
 }

@@ -122,25 +122,16 @@ int ti_collection_rename(
 ti_val_t * ti_collection_as_qpval(ti_collection_t * collection)
 {
     ti_raw_t * raw;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(128, 1);
     if (!packer)
         return NULL;
 
-    if (ti_collection_to_packer(collection, &packer))
-        goto fail;
+    raw = ti_collection_to_packer(collection, &packer)
+            ? NULL
+            : ti_raw_from_packer(packer);
 
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, raw);
-    if (!qpval)
-        ti_raw_drop(raw);
-
-fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) raw;
 }
 
 void ti_collection_set_quota(

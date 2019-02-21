@@ -440,7 +440,6 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_nodes_info_as_qpval(void)
 {
     ti_raw_t * raw;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 64, 2);
     if (!packer)
         return NULL;
@@ -452,13 +451,9 @@ ti_val_t * ti_nodes_info_as_qpval(void)
     if (!raw)
         goto fail;
 
-    qpval = ti_val_weak_create(TI_VAL_QP, raw);
-    if (!qpval)
-        ti_raw_drop(raw);
-
 fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) raw;
 }
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)

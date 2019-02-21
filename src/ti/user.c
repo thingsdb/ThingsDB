@@ -196,7 +196,6 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
 ti_val_t * ti_user_as_qpval(ti_user_t * user)
 {
     ti_raw_t * ruser;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);
     if (!packer)
         return NULL;
@@ -205,14 +204,8 @@ ti_val_t * ti_user_as_qpval(ti_user_t * user)
         goto fail;
 
     ruser = ti_raw_from_packer(packer);
-    if (!ruser)
-        goto fail;
-
-    qpval = ti_val_create_qp(ruser);
-    if (!qpval)
-        ti_raw_free(ruser);
 
 fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t * ) ruser;
 }

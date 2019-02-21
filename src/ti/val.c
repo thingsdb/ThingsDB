@@ -66,9 +66,10 @@ void ti_val_drop(ti_val_t * val)
     {
     case TI_VAL_NIL:
     case TI_VAL_BOOL:
-        assert (0);
+        assert (0);     /* there should always be one reference
+                           left for nil and boolean. */
         /* no break  */
-    case TI_VAL_ATTR:  /* attributes are destroyed by res */
+    case TI_VAL_ATTR:   /* attributes are destroyed by res */
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_QP:
@@ -113,7 +114,7 @@ int ti_val_make_float(ti_val_t ** val, double d)
 }
 
 /*
- * Return 0 on success, <0 if unpacking has failed or >0 if
+ * Return NULL when failed. Otherwise a new value with a reference.
  */
 ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 {

@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <util/logger.h>
 #include <ti/regex.h>
+#include <ti/val.h>
 #include <stdlib.h>
 
 

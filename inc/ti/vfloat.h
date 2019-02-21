@@ -18,7 +18,7 @@ struct ti_vfloat_s
     double float_;
 };
 
-static inline void ti_vint_free(ti_vfloat_t * vfloat)
+static inline void ti_vfloat_free(ti_vfloat_t * vfloat)
 {
     free(vfloat);
 }

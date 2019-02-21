@@ -182,3 +182,52 @@ ti_val_t * ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
             return prop->val;
     return NULL;
 }
+
+int ti_scope_polute_prop(ti_scope_t * scope, ti_prop_t * prop)
+{
+    size_t n = 0;
+    for (vec_each(scope->local, ti_prop_t, p), ++n)
+    {
+        ti_val_drop(p->val);
+        switch (n)
+        {
+        case 0:
+            p->val = (ti_val_t *) ti_raw_from_strn(
+                    prop->name->str, prop->name->n);
+            if (!p->val)
+                return -1;
+            break;
+        case 1:
+            p->val = prop->val;
+            ti_incref(prop->val);
+            break;
+        default:
+            p->val = (ti_val_t *) ti_nil_get();
+        }
+    }
+    return 0;
+}
+
+int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx)
+{
+    size_t n = 0;
+    for (vec_each(scope->local, ti_prop_t, p), ++n)
+    {
+       ti_val_drop(p->val);
+       switch (n)
+       {
+       case 0:
+           p->val = val;
+           ti_incref(val);
+           break;
+       case 1:
+           p->val = (ti_val_t *) ti_vint_create(idx);
+           if (!p->val)
+               return -1;
+           break;
+       default:
+           p->val = (ti_val_t *) ti_nil_get();
+       }
+    }
+}
+

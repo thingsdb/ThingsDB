@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ti/raw.h>
+#include <ti/val.h>
 #include <util/logger.h>
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)

@@ -137,7 +137,10 @@ _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
 }
 
 /*
- * Returns true if `from` is found and replaced by to, false if not found
+ * Returns true if `from` is found and replaced by to, false if not found.
+ * If found, then the `from` reference which was used by the thing will be
+ * decremented, the reference count of `to` will never change so when using
+ * this function you should act on the return value.
  */
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to)
 {

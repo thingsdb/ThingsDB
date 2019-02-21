@@ -16,6 +16,7 @@
 #include <util/query.h>
 #include <util/strx.h>
 #include <util/cryptx.h>
+#include <ti/regex.h>
 #include <uv.h>
 
 static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e);

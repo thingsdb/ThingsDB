@@ -312,7 +312,9 @@ int64_t strx_to_int64(const char * str)
     return negative ? negative * i : i;
 }
 
-/* not thread safe */
+/* not thread safe, the returned string might not be NULL terminated when the
+ * output exceeds STRX__MAX_CONV_SZ. If this is the case,
+ * then size `n` is set to 0. */
 const char * strx_from_double(const double d, size_t * n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%g", d);
@@ -320,7 +322,9 @@ const char * strx_from_double(const double d, size_t * n)
     return strx__buf;
 }
 
-/* not thread safe */
+/* not thread safe, the returned string might not be NULL terminated when the
+ * output exceeds STRX__MAX_CONV_SZ. If this is the case,
+ * then size `n` is set to 0. */
 const char * strx_from_int64(const int64_t i, size_t * n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%"PRId64, i);

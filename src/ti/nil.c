@@ -1,8 +1,9 @@
 /*
  * ti/nil.c
  */
-#include <ti/varr.h>
+#include <ti/nil.h>
 #include <ti/val.h>
+#include <stdlib.h>
 
 static ti_nil_t nil__val = {
         .ref = 1,

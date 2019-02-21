@@ -4,6 +4,9 @@
 #include <assert.h>
 #include <ti/opr.h>
 #include <ti/raw.h>
+#include <ti/vbool.h>
+#include <ti/vint.h>
+#include <ti/vfloat.h>
 #include <util/logger.h>
 
 #define CAST_MAX 9223372036854775808.0
@@ -105,7 +108,7 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     return e->nr;
 }
 
-static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
+static int opr__eq(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     _Bool bool_ = false;
     switch ((ti_val_enum) a->tp)
@@ -221,7 +224,7 @@ static int opr__eq(ti_val_t * a, ti_val_t * b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 
@@ -340,7 +343,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 
@@ -459,7 +462,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 
@@ -578,7 +581,7 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 
@@ -697,7 +700,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 
@@ -823,7 +826,7 @@ static int opr__ne(ti_val_t * a, ti_val_t ** b, ex_t * e)
     }
 
     ti_val_drop(*b);
-    *b = ti_vbool_get(bool_);
+    *b = (ti_val_t *) ti_vbool_get(bool_);
 
     return e->nr;
 

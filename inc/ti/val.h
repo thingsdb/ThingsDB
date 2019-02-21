@@ -162,5 +162,14 @@ static inline _Bool ti_val_overflow_cast(double d)
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
+static inline _Bool ti_val_is_settable(ti_val_t * val)
+{
+    return (
+            val->tp == TI_VAL_INT ||
+            val->tp == TI_VAL_FLOAT ||
+            val->tp == TI_VAL_BOOL ||
+            val->tp == TI_VAL_RAW
+    );
+}
 
 #endif /* TI_VAL_H_ */

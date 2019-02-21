@@ -25,6 +25,8 @@ _Bool ti_scope_in_use_name(
 int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e);
 ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name);
 ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name);
+int ti_scope_polute_prop(ti_scope_t * scope, ti_prop_t * prop);
+int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx);
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
 static inline _Bool ti_scope_is_thing(ti_scope_t * scope);
 static inline _Bool ti_scope_is_raw(ti_scope_t * scope);

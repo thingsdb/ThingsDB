@@ -122,7 +122,7 @@ int fx_rmdir(const char * path)
             buf = tmp;
         }
 
-        snprintf(buf, len, "%s%s%s", path, slash, p->d_name);
+        (void) sprintf(buf, "%s%s%s", path, slash, p->d_name);
 
         if (fx_is_dir(buf) ? fx_rmdir(buf) : unlink(buf))
             goto stop;

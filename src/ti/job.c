@@ -2,6 +2,7 @@
  * ti/job.c
  */
 #include <assert.h>
+#include <ti.h>
 #include <ti/job.h>
 #include <ti/val.h>
 #include <ti/name.h>
@@ -85,7 +86,7 @@ static int job__assign(
     assert (thing);
     assert (unp);
 
-    ti_val_t val;
+    ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_prop;
     if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_prop)))
@@ -115,7 +116,8 @@ static int job__assign(
         return -1;
     }
 
-    if (ti_val_from_unp(&val, unp, collection->things))
+    val = ti_val_from_unp(unp, collection->things);
+    if (!val)
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
@@ -125,7 +127,7 @@ static int job__assign(
         goto fail;
     }
 
-    if (ti_thing_weak_setv(thing, name, &val))
+    if (ti_thing_prop_set(thing, name, val))
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
@@ -139,7 +141,7 @@ static int job__assign(
     return 0;
 
 fail:
-    ti_val_clear(&val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return -1;
 }
@@ -266,7 +268,7 @@ static int job__set(
     assert (thing);
     assert (unp);
 
-    ti_val_t val;
+    ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_attr;
 
@@ -300,7 +302,8 @@ static int job__set(
         return -1;
     }
 
-    if (ti_val_from_unp(&val, unp, collection->things))
+    val = ti_val_from_unp(unp, collection->things);
+    if (!val)
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
@@ -310,17 +313,17 @@ static int job__set(
         goto fail;
     }
 
-    if (!ti_val_is_settable(&val))
+    if (!ti_val_is_settable(val))
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
                 "type `%s` is not settable",
                 thing->id,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
-    if (ti_thing_attr_weak_setv(thing, name, &val))
+    if (ti_thing_attr_set(thing, name, val))
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
@@ -334,7 +337,7 @@ static int job__set(
     return 0;
 
 fail:
-    ti_val_clear(&val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return -1;
 }
@@ -378,7 +381,7 @@ static int job__splice(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(varr = (ti_varr_t *) ti_thing_weak_get_val(thing, name)))
+    if (!name || !(varr = (ti_varr_t *) ti_thing_prop_weak_get(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -388,14 +391,13 @@ static int job__splice(
         return -1;
     }
 
-    if (!ti_val_is_list(varr))
+    if (!ti_val_is_list((ti_val_t *) varr))
     {
         log_critical(
                 "job `splice` on "TI_THING_ID": "
-                "expecting a `%s`, got `%s`",
+                "expecting a `"TI_VAL_ARR_LIST_S"`, got `%s`",
                 thing->id,
-                TI_VAL_ARR_LIST_S,
-                ti_val_str(varr));
+                ti_val_str((ti_val_t *) varr));
         return -1;
     }
 

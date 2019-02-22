@@ -11,6 +11,7 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <lib/simdutf8check.h>
 
 #define STRX__MAX_CONV_SZ 50
 static char strx__buf[STRX__MAX_CONV_SZ];
@@ -214,6 +215,10 @@ _Bool strx_is_asciin(const char * str, size_t n)
     return true;
 }
 
+_Bool strx_is_utf8n(const char * str, size_t n)
+{
+    return validate_utf8_fast(str, n);
+}
 
 /*
  * Requires a match with regular expression:

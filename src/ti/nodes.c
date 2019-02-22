@@ -439,7 +439,7 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
 
 ti_val_t * ti_nodes_info_as_qpval(void)
 {
-    ti_raw_t * raw;
+    ti_raw_t * raw = NULL;
     qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 64, 2);
     if (!packer)
         return NULL;
@@ -768,11 +768,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     uint64_t user_id;
     ex_t * e = ex_use();
-    ti_pkg_t * resp;
     vec_t * access_;
     ti_user_t * user;
-    ti_query_t * query;
     qp_unpacker_t unpacker;
+    ti_pkg_t * resp = NULL;
+    ti_query_t * query = NULL;
     ti_node_t * node = stream->via.node;
     qp_obj_t qp_user_id, qp_query;
 
@@ -898,7 +898,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
-    ti_pkg_t * resp;
+    ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
     qp_unpacker_t unpacker;
     qp_obj_t qp_start, qp_until;
@@ -966,7 +966,7 @@ finish:
 static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
-    ti_pkg_t * resp;
+    ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
     if (!node)

@@ -12,14 +12,8 @@ static int job__assign(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__del(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
-static int job__rename(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
+static int job__del(ti_thing_t * thing, qp_unpacker_t * unp);
+static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp);
 static int job__set(
         ti_collection_t * collection,
         ti_thing_t * thing,
@@ -28,10 +22,7 @@ static int job__splice(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__unset(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
+static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp);
 /*
  * (Log function)
  * Unpacker should be at point 'job': ...
@@ -58,15 +49,15 @@ int ti_job_run(
     case 'a':
         return job__assign(collection, thing, unp);
     case 'd':
-        return job__del(collection, thing, unp);
+        return job__del(thing, unp);
     case 'r':
-        return job__rename(collection, thing, unp);
+        return job__rename(thing, unp);
     case 's':
         return *(raw+1) == 'e'
                 ? job__set(collection, thing, unp)
                 : job__splice(collection, thing, unp);
     case 'u':
-        return job__unset(collection, thing, unp);
+        return job__unset(thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
@@ -150,12 +141,8 @@ fail:
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int job__del(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -201,12 +188,8 @@ static int job__del(
  * Returns 0 on success
  * - for example: {'from': 'to'}
  */
-static int job__rename(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -354,9 +337,6 @@ static int job__splice(
     assert (collection);
     assert (thing);
     assert (unp);
-    assert (collection);
-    assert (thing);
-    assert (unp);
 
     ex_t * e = ex_use();
     ssize_t n, i, c, cur_n, new_n;
@@ -472,12 +452,8 @@ static int job__splice(
  * Returns 0 on success
  * - for example: 'attr'
  */
-static int job__unset(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 

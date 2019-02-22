@@ -2,28 +2,29 @@
  * ti_.c
  */
 #include <assert.h>
+#include <langdef/langdef.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/collection.h>
+#include <ti/collections.h>
 #include <ti/event.h>
 #include <ti/names.h>
+#include <ti/proto.h>
 #include <ti/signals.h>
 #include <ti/store.h>
-#include <ti/auth.h>
+#include <ti/things.h>
 #include <ti/user.h>
 #include <ti/users.h>
-#include <ti/collections.h>
-#include <ti/access.h>
-#include <ti/proto.h>
-#include <ti/things.h>
 #include <ti/version.h>
-#include <ti.h>
-#include <util/fx.h>
-#include <util/strx.h>
-#include <util/qpx.h>
-#include <util/lock.h>
-#include <util/cryptx.h>
-#include <langdef/langdef.h>
+#include <tiinc.h>
 #include <unistd.h>
+#include <util/cryptx.h>
+#include <util/fx.h>
+#include <util/lock.h>
+#include <util/qpx.h>
+#include <util/strx.h>
 
 ti_t ti_;
 
@@ -150,7 +151,7 @@ int ti_init(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_event_t * ev;
+    ti_event_t * ev = NULL;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 

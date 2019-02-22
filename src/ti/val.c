@@ -61,11 +61,9 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sobject);
 }
 
-void ti_val_drop(ti_val_t * val)
+void ti_val_destroy(ti_val_t * val)
 {
-    if (!val || --val->ref)
-        return;
-
+    assert (val);
     switch((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:
@@ -180,6 +178,9 @@ int ti_val_convert_to_str(ti_val_t ** val)
         v = val__sobject;
         ti_incref(v);
         break;
+    default:
+        assert(0);
+        v = NULL;
     }
 
     ti_val_drop(*val);
@@ -362,6 +363,9 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
             return e->nr;
         }
         break;
+    default:
+        assert (0);
+        i = 0;
     }
 
     if (ti_val_make_int(val, i))

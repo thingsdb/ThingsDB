@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/util/argparse.c \
+../src/util/big.c \
 ../src/util/cfgparser.c \
 ../src/util/cryptx.c \
 ../src/util/fx.c \
@@ -16,13 +17,14 @@ C_SRCS += \
 ../src/util/omap.c \
 ../src/util/qpx.c \
 ../src/util/queue.c \
-../src/util/res.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
+../src/util/util.c \
 ../src/util/vec.c 
 
 OBJS += \
 ./src/util/argparse.o \
+./src/util/big.o \
 ./src/util/cfgparser.o \
 ./src/util/cryptx.o \
 ./src/util/fx.o \
@@ -34,13 +36,14 @@ OBJS += \
 ./src/util/omap.o \
 ./src/util/qpx.o \
 ./src/util/queue.o \
-./src/util/res.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
+./src/util/util.o \
 ./src/util/vec.o 
 
 C_DEPS += \
 ./src/util/argparse.d \
+./src/util/big.d \
 ./src/util/cfgparser.d \
 ./src/util/cryptx.d \
 ./src/util/fx.d \
@@ -52,9 +55,9 @@ C_DEPS += \
 ./src/util/omap.d \
 ./src/util/qpx.d \
 ./src/util/queue.d \
-./src/util/res.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
+./src/util/util.d \
 ./src/util/vec.d 
 
 
@@ -62,7 +65,7 @@ C_DEPS += \
 src/util/%.o: ../src/util/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross GCC Compiler'
-	gcc -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -msse4.1 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

@@ -185,7 +185,7 @@ ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 
 ti_val_t * ti_users_as_qpval(void)
 {
-    ti_raw_t * rusers;
+    ti_raw_t * rusers = NULL;
     qp_packer_t * packer = qp_packer_create2(4 + (192 * users->vec->n), 4);
     if (!packer)
         return NULL;

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <math.h>
 
 #define BIG__MMIN 0x8000000000000000ULL

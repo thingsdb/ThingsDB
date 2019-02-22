@@ -198,7 +198,7 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
 
 ti_val_t * ti_user_as_qpval(ti_user_t * user)
 {
-    ti_raw_t * ruser;
+    ti_raw_t * ruser = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);
     if (!packer)
         return NULL;

@@ -62,7 +62,7 @@ typedef struct ti_val_s ti_val_t;
 
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
-void ti_val_drop(ti_val_t * val);
+void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
 ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things);
@@ -88,6 +88,7 @@ static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline _Bool ti_val_is_settable(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
+static inline void ti_val_drop(ti_val_t * val);
 
 struct ti_val_s
 {
@@ -96,6 +97,11 @@ struct ti_val_s
     uint8_t _pad8;
     uint16_t _pad16;
 };
+
+static inline void ti_val_drop(ti_val_t * val)
+{
+    if (val && !--val->ref) ti_val_destroy(val);
+}
 
 static inline _Bool ti_val_is_arr(ti_val_t * val)
 {

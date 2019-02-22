@@ -230,7 +230,7 @@ static void print_usage(argparse_t * parser, const char * bname)
     size_t ident;
     argparse_args_t * current;
 
-    buffer[ARGPARSE_ERR_SIZE - 1] = '\0';
+    buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
     snprintf(buffer, ARGPARSE_HELP_SIZE-1, "usage: %s ", bname);
     line_size = ident = strlen(buffer);
     printf("%s", buffer);
@@ -299,7 +299,7 @@ static void print_help(argparse_t * parser, const char * bname)
     argparse_args_t * current;
     size_t line_size;
 
-    buffer[ARGPARSE_ERR_SIZE - 1] = '\0';
+    buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
     print_usage(parser, bname);
     printf("\noptional arguments:\n");
 

@@ -65,9 +65,17 @@ class Definition(Grammar):
     f_id = Keyword('id')
     f_int = Keyword('int')
     f_isarray = Keyword('isarray')
+    f_isascci = Keyword('isascci')
+    f_isbool = Keyword('isbool')
+    f_isfloat = Keyword('isfloat')
     f_isinf = Keyword('isinf')
+    f_isint = Keyword('isint')
     f_islist = Keyword('islist')
     f_isnan = Keyword('isnan')
+    f_israw = Keyword('israw')
+    f_isstr = Keyword('isstr')       # alias for isutf8 (if isutf8, then is isascii)
+    f_istuple = Keyword('istuple')
+    f_isutf8 = Keyword('isutf8')
     f_len = Keyword('len')
     f_lower = Keyword('lower')
     f_map = Keyword('map')
@@ -119,18 +127,17 @@ class Definition(Grammar):
         f_id,           # () -> int
         f_int,          # (x) -> int
         f_isarray,      # (x) -> bool
-        # f_isascci,
-        # f_isbool,
-        # f_isfloat,
-        # f_isint,
-        # f_isnumber,
-        # f_israw,
-        # f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
-        # f_isthings,
-        # f_isutf8,
+        f_isascci,
+        f_isbool,
+        f_isfloat,
         f_isinf,        # (float) -> bool
+        f_isint,
         f_islist,       # (x) -> bool
         f_isnan,        # (float) -> bool
+        f_israw,
+        f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
+        f_istuple,
+        f_isutf8,
         f_len,          # () -> int
         f_lower,        # () -> str
         f_map,          # (arrow) -> [return values]
@@ -188,7 +195,7 @@ class Definition(Grammar):
     tmp_assign = Sequence(tmp, Tokens(ASSIGN_TOKENS), scope)
 
     index = Repeat(
-        Sequence('[', t_int, ']')
+        Sequence('[', scope, ']')
     )       # we skip index in query investigate (in case we want to use scope)
 
     chain = Sequence(
@@ -239,7 +246,7 @@ if __name__ == '__main__':
         (true).refs();
 
         ''')
-    exit(0)
+    # exit(0)
 
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
     definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')

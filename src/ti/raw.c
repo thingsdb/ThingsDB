@@ -67,7 +67,6 @@ ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
 
     if (r->n < sz)
     {
-        LOGC("REALLOC");
         ti_raw_t * tmp = realloc(r, sizeof(ti_raw_t) + r->n);
         if (tmp)
             r = tmp;

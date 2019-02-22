@@ -1675,7 +1675,7 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_T_INT:
         query->rval = (ti_val_t *) ti_vint_create(strx_to_int64(node->str));
-        if (query->rval)
+        if (!query->rval)
             ex_set_alloc(e);
         if (errno == ERANGE)
             ex_set(e, EX_OVERFLOW, "integer overflow");
@@ -1734,6 +1734,19 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* skip the sequence , jump to the priority list */
         if (rq__operations(query, node->children->next->node, e))
             return e->nr;
+
+        if (node->children->next->next->next)               /* optional */
+        {
+            node = node->children->next->next->next->node   /* choice */
+                   ->children->node;                        /* sequence */
+            if (rq__scope(
+                    query,
+                    ti_val_as_bool(query->rval)
+                        ? node->children->next->node        /* scope, true */
+                        : node->children->next->next->next->node, /* false */
+                    e))
+                return e->nr;
+        }
         break;
     case CLERI_GID_FUNCTION:
         if (nested)

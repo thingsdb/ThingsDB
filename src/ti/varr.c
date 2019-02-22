@@ -29,36 +29,41 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
-ti_varr_t * ti_varr_to_tuple(ti_varr_t * varr)
+int ti_varr_to_tuple(ti_varr_t ** varr)
 {
-    ti_varr_t * tuple;
+    ti_varr_t * tuple = *varr;
 
-    if (varr->flags & TI_ARR_FLAG_TUPLE)
+    if (tuple->flags & TI_ARR_FLAG_TUPLE)
+        return 0;
+
+    if (tuple->ref == 1)
     {
-        ti_incref(varr);
-        return varr;
+        tuple->flags |= TI_ARR_FLAG_TUPLE;
+        return 0;
     }
 
     tuple = malloc(sizeof(ti_varr_t));
     if (!tuple)
-        return NULL;
+        return -1;
 
     tuple->ref = 1;
     tuple->flags |= TI_ARR_FLAG_TUPLE;
-    tuple->vec = vec_dup(varr->vec);
+    tuple->vec = vec_dup((*varr)->vec);
 
     if (!tuple->vec)
     {
         free(tuple);
-        return NULL;
+        return -1;
     }
 
     for (vec_each(tuple->vec, ti_val_t, val))
         ti_incref(val);
 
-    return tuple;
+    assert ((*varr)->ref > 1);
+    ti_decref(*varr);
+    *varr = tuple;
+    return 0;
 }
-
 
 void ti_varr_destroy(ti_varr_t * varr)
 {
@@ -69,38 +74,38 @@ void ti_varr_destroy(ti_varr_t * varr)
 }
 
 /*
- * Increments `val` reference counter when assigned to the array.
+ * does not increment `*v` reference counter but the value might change to
+ * a (new) tuple.
  */
-int ti_varr_append(ti_varr_t * to, void * v, ex_t * e)
+int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));
-    ti_val_t * val = v;
+    ti_val_t * val = *v;
 
     if (ti_val_make_assignable(val, e))
         return e->nr;
 
-    if (ti_val_is_list(val))
+    switch (val->tp)
     {
-        ti_varr_t * tuple = ti_varr_to_tuple((ti_varr_t *) val);
-        if (!tuple)
+    case TI_VAL_ARR:
+        if (ti_varr_is_list((ti_varr_t *) val))
         {
-            ex_set_alloc(e);
-            return e->nr;
+            if (ti_varr_to_tuple((ti_varr_t **) v))
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+            val = *v;
         }
-
-        to->flags |= tuple->flags & TI_ARR_FLAG_THINGS;
-        val = (ti_val_t *) tuple;
-    }
-    else
-    {
-        ti_incref(val);
+        to->flags |= ((ti_varr_t *) val)->flags & TI_ARR_FLAG_THINGS;
+        break;
+    case TI_VAL_THING:
+        to->flags |= TI_ARR_FLAG_THINGS;
+        break;
     }
 
     if (vec_push(&to->vec, val))
-    {
-        ti_decref(val);
         ex_set_alloc(e);
-    }
 
     return e->nr;
 }

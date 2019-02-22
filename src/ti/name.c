@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <ti/name.h>
+#include <ti/val.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -16,10 +17,7 @@ ti_name_t * ti_name_create(const char * str, size_t n)
 
     memcpy(name->str, str, n);
     name->ref = 1;
-    /*
-     * TODO: decide if we should somehow make a name a value.
-     * name->tp = TI_VAL_NAME;
-     */
+    name->tp = TI_VAL_RAW;
     name->n = n;
     name->str[n] = '\0';
     return name;
@@ -36,7 +34,7 @@ void ti_name_drop(ti_name_t * name)
 
 _Bool ti_name_is_valid_strn(const char * str, size_t n)
 {
-    if (!n || (!isalpha(str[0]) && str[0] != '_') || n >= 0xffff)
+    if (!n || (!isalpha(str[0]) && str[0] != '_'))
         return false;
 
     while(--n)

@@ -29,7 +29,6 @@ static _Bool query__swap_opr(
 static void query__event_handle(ti_query_t * query);
 static ti_epkg_t * query__epkg_event(ti_query_t * query);
 static void query__task_to_watchers(ti_query_t * query);
-static void query__nd_cache_cleanup(cleri_node_t * node);
 static inline _Bool query__requires_root_event(cleri_node_t * name_nd);
 static inline void query__collect_destroy_cb(vec_t * names);
 
@@ -68,7 +67,7 @@ void ti_query_destroy(ti_query_t * query)
     if (!query)
         return;
     /* must destroy nd_cache before clearing the parse result */
-    vec_destroy(query->nd_cache, (vec_destroy_cb) query__nd_cache_cleanup);
+    vec_destroy(query->nd_cache, (vec_destroy_cb) ti_val_drop);
 
     if (query->parseres)
         cleri_parse_free(query->parseres);
@@ -420,7 +419,6 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         {
         case CLERI_GID_F_NOW:
         case CLERI_GID_F_ID:
-        case CLERI_GID_F_REFS:
         case CLERI_GID_F_RET:
         case CLERI_GID_F_LEN:
             return;  /* arguments will be ignored */
@@ -475,24 +473,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         switch (nd->children->node->cl_obj->gid)
         {
             case CLERI_GID_T_INT:
-                #if TI_USE_VOID_POINTER
-                {
-                    intptr_t i = strx_to_int64(nd->str);
-                    if (errno == ERANGE)
-                        query->flags |= TI_QUERY_FLAG_OVERFLOW;
-                    nd->children->node->data = (void *) i;
-                }
-                #endif
-                break;
             case CLERI_GID_T_FLOAT:
-                #if TI_USE_VOID_POINTER
-                {
-                    assert (sizeof(double) == sizeof(void *));
-                    double d = strx_to_double(nd->str);
-                    memcpy(&nd->children->node->data , &d, sizeof(double));
-                }
-                #endif
-                break;
             case CLERI_GID_T_STRING:
             case CLERI_GID_T_REGEX:
                 ++query->nd_cache_count;
@@ -512,20 +493,6 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                     query,
                     nd->children->next->next->next->node);
         }
-        return;
-    case CLERI_GID_INDEX:
-        #if TI_USE_VOID_POINTER
-        for (cleri_children_t * child = nd->children;
-             child;
-             child = child->next)
-        {
-            cleri_node_t * node = child->node->children->next->node;
-            intptr_t i = strx_to_int64(node->str);
-            if (errno == ERANGE)
-                query->flags |= TI_QUERY_FLAG_OVERFLOW;
-            node->data = (void *) i;
-        }
-        #endif
         return;
     }
 
@@ -695,19 +662,6 @@ static void query__task_to_watchers(ti_query_t * query)
 
             ti_rpkg_drop(rpkg);
         }
-    }
-}
-
-static void query__nd_cache_cleanup(cleri_node_t * node)
-{
-    switch (node->cl_obj->gid)
-    {
-    case CLERI_GID_T_STRING:
-        ti_val_drop(node->data);
-        return;
-    case CLERI_GID_T_REGEX:
-        ti_val_drop(node->data);
-        return;
     }
 }
 

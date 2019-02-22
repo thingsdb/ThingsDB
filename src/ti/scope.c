@@ -180,14 +180,12 @@ int ti_scope_polute_prop(ti_scope_t * scope, ti_prop_t * prop)
         switch (n)
         {
         case 0:
-            p->val = (ti_val_t *) ti_raw_from_strn(
-                    prop->name->str, prop->name->n);
-            if (!p->val)
-                return -1;
+            p->val = (ti_val_t *) prop->name;
+            ti_incref(p->val);
             break;
         case 1:
             p->val = prop->val;
-            ti_incref(prop->val);
+            ti_incref(p->val);
             break;
         default:
             p->val = (ti_val_t *) ti_nil_get();
@@ -206,7 +204,7 @@ int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx)
        {
        case 0:
            p->val = val;
-           ti_incref(val);
+           ti_incref(p->val);
            break;
        case 1:
            p->val = (ti_val_t *) ti_vint_create(idx);

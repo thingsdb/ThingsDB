@@ -21,6 +21,8 @@ ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)
     if (!arrow)
         return NULL;
 
+    arrow->ref = 1;
+    arrow->tp = TI_VAL_ARROW;
     arrow->flags = (uintptr_t) node->data;
     arrow->node = node;
 

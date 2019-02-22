@@ -78,6 +78,9 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
+static inline _Bool ti_val_is_arrow(ti_val_t * val);
+static inline _Bool ti_val_is_bool(ti_val_t * val);
+static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_nil(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
@@ -106,6 +109,21 @@ static inline void ti_val_drop(ti_val_t * val)
 static inline _Bool ti_val_is_arr(ti_val_t * val)
 {
     return val->tp == TI_VAL_ARR;
+}
+
+static inline _Bool ti_val_is_arrow(ti_val_t * val)
+{
+    return val->tp == TI_VAL_ARROW;
+}
+
+static inline _Bool ti_val_is_bool(ti_val_t * val)
+{
+    return val->tp == TI_VAL_BOOL;
+}
+
+static inline _Bool ti_val_is_float(ti_val_t * val)
+{
+    return val->tp == TI_VAL_FLOAT;
 }
 
 static inline _Bool ti_val_is_int(ti_val_t * val)

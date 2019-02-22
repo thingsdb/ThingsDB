@@ -422,7 +422,7 @@ static int job__splice(
 
     while(n-- && (val = ti_val_from_unp(unp, collection->things)))
     {
-        if (ti_varr_append(varr, val, e))
+        if (ti_varr_append(varr, (void **) &val, e))
         {
             log_critical("job `splice` array on "TI_THING_ID": %s", e->msg);
             ti_val_drop(val);

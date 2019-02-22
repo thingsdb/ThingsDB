@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ti.h>
+#include <tiinc.h>
 #include <ti/arrow.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -615,15 +615,21 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_THING:
         return (
                 qp_fadd_type(f, QP_MAP1) ||
+                qp_fadd_raw(f, (const uchar *) "#", 1) ||
                 qp_fadd_int(f, ((ti_thing_t *) val)->id)
         );
     case TI_VAL_ARR:
-        if (qp_fadd_type(f, QP_ARRAY_OPEN))
+    {
+        vec_t * vec = ((ti_varr_t *) val)->vec;
+        if (qp_fadd_type(f, vec->n > 5 ? QP_ARRAY_OPEN: QP_ARRAY0 + vec->n))
             return -1;
-        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+
+        for (vec_each(vec, ti_val_t, v))
             if (ti_val_to_file(v, f))
                 return -1;
-        return qp_fadd_type(f, QP_ARRAY_CLOSE);
+
+        return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
+    }
     case TI_VAL_ARROW:
         return ti_arrow_to_file((ti_arrow_t *) val, f);
     }
@@ -721,7 +727,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
         return (ti_val_t *) regex;
     }
     }
-
+    assert (0);
     return NULL;
 }
 
@@ -821,7 +827,6 @@ static ti_val_t * val__from_unp(
         while (!qp_is_close(qp_next(unp, &qp_v)))
         {
             v = val__from_unp(&qp_v, unp, things);
-
             if (!v || val__push(varr, v))
             {
                 ti_val_drop(v);

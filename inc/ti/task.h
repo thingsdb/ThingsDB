@@ -65,7 +65,7 @@ int ti_task_add_set_quota(
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
-        ti_val_t * val,         /* array or array-of-things */
+        ti_varr_t * varr,       /* array or array-of-things */
         int64_t i,              /* start at index */
         int64_t c,              /* number of items to remove */
         int32_t n);             /* number of items to add */

@@ -6,9 +6,147 @@
 #include <util/logger.h>
 #include <langdef/langdef.h>
 
-static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
+static cleri_node_t * arrow__node_from_strn(const char * str, size_t n);
+static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
 
-cleri_node_t * ti_arrow_from_strn(const char * str, size_t n)
+/*
+ * Return an arrow with is bound to the query. The node for this arrow can
+ * only be used for as long as the 'query' exists in memory. If the arrow
+ * will be stored for later usage, a call to `ti_arrow_unbound` must be
+ * made.
+ */
+ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)
+{
+    ti_arrow_t * arrow = malloc(sizeof(ti_arrow_t));
+    if (!arrow)
+        return NULL;
+
+    arrow->ref = 1;
+    arrow->tp = TI_VAL_ARROW;
+    arrow->flags = (uintptr_t) node->data;
+    arrow->node = node;
+
+    return arrow;
+}
+
+ti_arrow_t * ti_arrow_from_strn(const char * str, size_t n)
+{
+    ti_arrow_t * arrow = malloc(sizeof(ti_arrow_t));
+    if (!arrow)
+        return NULL;
+
+    arrow->flags = 0;
+    arrow->node = arrow__node_from_strn(str, n);
+    if (!arrow->node)
+    {
+        free(arrow);
+        return NULL;
+    }
+
+    return arrow;
+}
+
+void ti_arrow_destroy(ti_arrow_t * arrow)
+{
+    if (!arrow)
+        return;
+
+    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    {
+        free(arrow->node->data);
+        cleri__node_free(arrow->node);
+    }
+
+    free(arrow);
+}
+
+int ti_arrow_unbound(ti_arrow_t * arrow)
+{
+    cleri_node_t * node;
+
+    assert (~arrow->flags & TI_ARROW_FLAG_WSE);
+    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+        return 0;
+
+    node = arrow__node_from_strn(arrow->node->str, arrow->node->len);
+    if (!node)
+        return -1;
+
+    arrow->node = node;
+    arrow->flags &= ~TI_ARROW_FLAG_QBOUND;
+
+    return 0;
+}
+
+int ti_arrow_to_packer(ti_arrow_t * arrow, qp_packer_t ** packer)
+{
+    uchar * buf;
+    size_t n = 0;
+    int rc;
+    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    {
+        return -(
+            qp_add_map(packer) ||
+            qp_add_raw(*packer, (const uchar * ) "$", 1) ||
+            qp_add_raw(
+                    *packer,
+                    (const uchar * ) arrow->node->str,
+                    arrow->node->len) ||
+            qp_close_map(*packer)
+        );
+    }
+    buf = ti_arrow_uchar(arrow, &n);
+    if (!buf)
+        return -1;
+
+    rc = -(
+        qp_add_map(packer) ||
+        qp_add_raw(*packer, (const uchar * ) "$", 1) ||
+        qp_add_raw(*packer, buf, n) ||
+        qp_close_map(*packer)
+    );
+
+    free(buf);
+    return rc;
+}
+
+int ti_arrow_to_file(ti_arrow_t * arrow, FILE * f)
+{
+    uchar * buf;
+    size_t n = 0;
+    int rc;
+    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    {
+        return -(
+            qp_fadd_type(f, QP_MAP1) ||
+            qp_fadd_raw(f, (const uchar * ) "$", 1) ||
+            qp_fadd_raw(f, (const uchar * ) arrow->node->str, arrow->node->len)
+        );
+    }
+    buf = ti_arrow_uchar(arrow, &n);
+    if (!buf)
+        return -1;
+    rc = -(
+        qp_fadd_type(f, QP_MAP1) ||
+        qp_fadd_raw(f, (const uchar * ) "$", 1) ||
+        qp_fadd_raw(f, buf, n)
+    );
+    free(buf);
+    return rc;
+}
+
+uchar * ti_arrow_uchar(ti_arrow_t * arrow, size_t * n)
+{
+    uchar * buf;
+    buf = malloc(arrow->node->len);
+    if (!buf)
+        return NULL;
+
+    arrow__node_to_buf(arrow->node, buf, n);
+    return buf;
+}
+
+static cleri_node_t * arrow__node_from_strn(const char * str, size_t n)
 {
     cleri_parse_t * res;
     cleri_node_t * node;
@@ -39,6 +177,8 @@ cleri_node_t * ti_arrow_from_strn(const char * str, size_t n)
         goto fail;
 
     node->data = query;
+
+    /* make sure the node gets an extra reference so it will be kept */
     ++node->ref;
 
     cleri_parse_free(res);
@@ -52,88 +192,7 @@ fail:
     return NULL;
 }
 
-void ti_arrow_destroy(cleri_node_t * arrow)
-{
-    if (!arrow || --arrow->ref)
-        return;
-
-    if (arrow->str == arrow->data)
-        free(arrow->data);
-    /*
-     * We need to restore one reference since cleri__node_free will remove
-     * one
-     */
-    ++arrow->ref;
-    cleri__node_free(arrow);
-}
-
-int ti_arrow_to_packer(cleri_node_t * arrow, qp_packer_t ** packer)
-{
-    uchar * buf;
-    size_t n = 0;
-    int rc;
-    if (arrow->str == arrow->data)
-    {
-        return -(
-            qp_add_map(packer) ||
-            qp_add_raw(*packer, (const uchar * ) "$", 1) ||
-            qp_add_raw(*packer, (const uchar * ) arrow->str, arrow->len) ||
-            qp_close_map(*packer)
-        );
-    }
-    buf = ti_arrow_uchar(arrow, &n);
-    if (!buf)
-        return -1;
-
-    rc = -(
-        qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) "$", 1) ||
-        qp_add_raw(*packer, buf, n) ||
-        qp_close_map(*packer)
-    );
-
-    free(buf);
-    return rc;
-}
-
-int ti_arrow_to_file(cleri_node_t * arrow, FILE * f)
-{
-    uchar * buf;
-    size_t n = 0;
-    int rc;
-    if (arrow->str == arrow->data)
-    {
-        return -(
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) "$", 1) ||
-            qp_fadd_raw(f, (const uchar * ) arrow->str, arrow->len)
-        );
-    }
-    buf = ti_arrow_uchar(arrow, &n);
-    if (!buf)
-        return -1;
-    rc = -(
-        qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) "$", 1) ||
-        qp_fadd_raw(f, buf, n)
-    );
-    free(buf);
-    return rc;
-}
-
-uchar * ti_arrow_uchar(cleri_node_t * arrow, size_t * n)
-{
-    uchar * buf;
-    buf = malloc(arrow->len);
-    if (!buf)
-        return NULL;
-
-    arrow__to_buf(arrow, buf, n);
-    return buf;
-}
-
-
-static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
+static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -158,5 +217,5 @@ static void arrow__to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
-        arrow__to_buf(child->node, buf, n);
+        arrow__node_to_buf(child->node, buf, n);
 }

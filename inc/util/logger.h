@@ -85,7 +85,7 @@ extern logger_t Logger;
 #define assert_log(x, fmt, ...) \
     do if (!(x)) LOGC(fmt, ##__VA_ARGS__); while(0)
 #else
-#define assert_log(x, fmt, ...) ((const char *) 0)
+#define assert_log(x, fmt, ...) (void) ((const char *) 0)
 #endif
 
 struct logger_s

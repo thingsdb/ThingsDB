@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-15 14:08:27
+ * Created at: 2019-02-22 21:40:17
  */
 
 #include <langdef/langdef.h>
@@ -47,9 +47,17 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_int = cleri_keyword(CLERI_GID_F_INT, "int", CLERI_CASE_SENSITIVE);
     cleri_t * f_isarray = cleri_keyword(CLERI_GID_F_ISARRAY, "isarray", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isascci = cleri_keyword(CLERI_GID_F_ISASCCI, "isascci", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isbool = cleri_keyword(CLERI_GID_F_ISBOOL, "isbool", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isfloat = cleri_keyword(CLERI_GID_F_ISFLOAT, "isfloat", CLERI_CASE_SENSITIVE);
     cleri_t * f_isinf = cleri_keyword(CLERI_GID_F_ISINF, "isinf", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isint = cleri_keyword(CLERI_GID_F_ISINT, "isint", CLERI_CASE_SENSITIVE);
     cleri_t * f_islist = cleri_keyword(CLERI_GID_F_ISLIST, "islist", CLERI_CASE_SENSITIVE);
     cleri_t * f_isnan = cleri_keyword(CLERI_GID_F_ISNAN, "isnan", CLERI_CASE_SENSITIVE);
+    cleri_t * f_israw = cleri_keyword(CLERI_GID_F_ISRAW, "israw", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isstr = cleri_keyword(CLERI_GID_F_ISSTR, "isstr", CLERI_CASE_SENSITIVE);
+    cleri_t * f_istuple = cleri_keyword(CLERI_GID_F_ISTUPLE, "istuple", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isutf8 = cleri_keyword(CLERI_GID_F_ISUTF8, "isutf8", CLERI_CASE_SENSITIVE);
     cleri_t * f_len = cleri_keyword(CLERI_GID_F_LEN, "len", CLERI_CASE_SENSITIVE);
     cleri_t * f_lower = cleri_keyword(CLERI_GID_F_LOWER, "lower", CLERI_CASE_SENSITIVE);
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
@@ -116,7 +124,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            32,
+            40,
             f_blob,
             f_endswith,
             f_filter,
@@ -126,9 +134,17 @@ cleri_grammar_t * compile_langdef(void)
             f_id,
             f_int,
             f_isarray,
+            f_isascci,
+            f_isbool,
+            f_isfloat,
             f_isinf,
+            f_isint,
             f_islist,
             f_isnan,
+            f_israw,
+            f_isstr,
+            f_istuple,
+            f_isutf8,
             f_len,
             f_lower,
             f_map,
@@ -218,7 +234,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_NONE,
         3,
         cleri_token(CLERI_NONE, "["),
-        t_int,
+        scope,
         cleri_token(CLERI_NONE, "]")
     ), 0, 0);
     cleri_t * START = cleri_sequence(

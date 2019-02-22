@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ti/raw.h>
+#include <ti/val.h>
 #include <util/logger.h>
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)
@@ -14,16 +15,11 @@ ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
-    r->n = n;
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = n;
     memcpy(r->data, raw, n);
     return r;
-}
-
-void ti_raw_drop(ti_raw_t * raw)
-{
-    if (raw && !--raw->ref)
-        free(raw);
 }
 
 ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
@@ -32,8 +28,9 @@ ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
     ti_raw_t * r = malloc(sz);
     if (!r)
         return NULL;
-    r->n = packer->len;
     r->ref = 1;
+    r->tp = TI_VAL_QP;
+    r->n = packer->len;
     memcpy(r->data, packer->buffer, packer->len);
     return r;
 }
@@ -65,11 +62,11 @@ ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
     }
 
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = i;
 
     if (r->n < sz)
     {
-        LOGC("REALLOC");
         ti_raw_t * tmp = realloc(r, sizeof(ti_raw_t) + r->n);
         if (tmp)
             r = tmp;
@@ -97,6 +94,7 @@ ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
         goto done;
 
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
     r->n = (uint32_t) sz;
 
     (void) vsnprintf((char *) r->data, r->n + 1, fmt, args1);
@@ -112,8 +110,9 @@ ti_raw_t * ti_raw_from_strn(const char * str, size_t n)
     if (!r)
         return NULL;
 
-    r->n = n;
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = n;
     memcpy(r->data, str, n);
     return r;
 }
@@ -125,8 +124,10 @@ ti_raw_t * ti_raw_upper(ti_raw_t * raw)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
-    r->n = n;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = n;
     to = (char *) r->data;
 
     for (; i < n; ++i, ++from, ++to)
@@ -142,8 +143,10 @@ ti_raw_t * ti_raw_lower(ti_raw_t * raw)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
-    r->n = n;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = n;
     to = (char *) r->data;
 
     for (; i < n; ++i, ++from, ++to)
@@ -186,8 +189,10 @@ ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
-    r->n = n;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = n;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, b->data, b->n);
     return r;
@@ -199,8 +204,10 @@ ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
-    r->n = nn;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = nn;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, s, n);
     return r;
@@ -212,8 +219,10 @@ ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
-    r->n = nn;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = nn;
     memcpy(r->data, s, n);
     memcpy(r->data + n, b->data, b->n);
     return r;
@@ -229,9 +238,49 @@ ti_raw_t * ti_raw_cat_strn_strn(
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
-    r->n = nn;
+
     r->ref = 1;
+    r->tp = TI_VAL_RAW;
+    r->n = nn;
     memcpy(r->data, as, an);
     memcpy(r->data + an, bs, bn);
     return r;
+}
+
+_Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b)
+{
+    assert (a->tp == TI_VAL_RAW);
+    assert (b->tp == TI_VAL_RAW);
+    uchar * au, * bu;
+
+    if (a->n < b->n)
+        return false;
+
+    au = a->data;
+    bu = b->data;
+
+    for (size_t n = b->n; n; --n, ++au, ++bu)
+        if (*au != *bu)
+            return false;
+
+    return true;
+}
+
+_Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b)
+{
+    assert (a->tp == TI_VAL_RAW);
+    assert (b->tp == TI_VAL_RAW);
+    uchar * au, * bu;
+
+    if (a->n < b->n)
+        return false;
+
+    au = a->data + a->n;
+    bu = b->data + b->n;
+
+    for (size_t n = b->n; n; --n)
+        if (*--au != *--bu)
+            return false;
+
+    return true;
 }

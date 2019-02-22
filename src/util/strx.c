@@ -11,6 +11,7 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <lib/simdutf8check.h>
 
 #define STRX__MAX_CONV_SZ 50
 static char strx__buf[STRX__MAX_CONV_SZ];
@@ -214,6 +215,10 @@ _Bool strx_is_asciin(const char * str, size_t n)
     return true;
 }
 
+_Bool strx_is_utf8n(const char * str, size_t n)
+{
+    return validate_utf8_fast(str, n);
+}
 
 /*
  * Requires a match with regular expression:
@@ -312,7 +317,9 @@ int64_t strx_to_int64(const char * str)
     return negative ? negative * i : i;
 }
 
-/* not thread safe */
+/* not thread safe, the returned string might not be NULL terminated when the
+ * output exceeds STRX__MAX_CONV_SZ. If this is the case,
+ * then size `n` is set to 0. */
 const char * strx_from_double(const double d, size_t * n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%g", d);
@@ -320,7 +327,9 @@ const char * strx_from_double(const double d, size_t * n)
     return strx__buf;
 }
 
-/* not thread safe */
+/* not thread safe, the returned string might not be NULL terminated when the
+ * output exceeds STRX__MAX_CONV_SZ. If this is the case,
+ * then size `n` is set to 0. */
 const char * strx_from_int64(const int64_t i, size_t * n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%"PRId64, i);

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <ti/tcp.h>
 
-static const size_t tcp__name_buf_sz = 54;
+static const size_t tcp__name_buf_sz = 56;
 
 const char * ti_tcp_ip_support_str(int ip_support)
 {
@@ -49,9 +49,8 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
                     &((struct sockaddr_in *) &name)->sin_addr,
                     addr,
                     sizeof(addr));
-            snprintf(
+            (void) sprintf(
                     buffer + n,
-                    tcp__name_buf_sz,
                     "%s:%d",
                     addr,
                     ntohs(((struct sockaddr_in *) &name)->sin_port));
@@ -66,9 +65,8 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
                     &((struct sockaddr_in6 *) &name)->sin6_addr,
                     addr,
                     sizeof(addr));
-            snprintf(
+            (void) sprintf(
                     buffer + n,
-                    tcp__name_buf_sz,
                     "[%s]:%d",
                     addr,
                     ntohs(((struct sockaddr_in6 *) &name)->sin6_port));

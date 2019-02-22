@@ -6,12 +6,11 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/task.h>
-#include <ti/raw.h>
 #include <ti/proto.h>
+#include <ti/raw.h>
 #include <util/qpx.h>
 #include <util/cryptx.h>
 
-static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing);
 static void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw);
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
@@ -59,7 +58,7 @@ void ti_task_destroy(ti_task_t * task)
     if (!task)
         return;
     vec_destroy(task->jobs, free);
-    ti_thing_drop(task->thing);
+    ti_val_drop((ti_val_t *) task->thing);
     free(task);
 }
 
@@ -107,7 +106,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto failed;
 
-    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW))
+    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW, 0))
         goto failed;
 
     if (qp_close_map(packer) || qp_close_map(packer))
@@ -126,7 +125,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -159,7 +158,7 @@ int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -192,7 +191,7 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -225,7 +224,7 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -269,7 +268,7 @@ int ti_task_add_grant(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -314,7 +313,7 @@ int ti_task_add_new_collection(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -359,7 +358,7 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -400,7 +399,7 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -434,7 +433,7 @@ int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -470,7 +469,7 @@ int ti_task_add_rename(ti_task_t * task, ti_raw_t * from, ti_raw_t * to)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -510,7 +509,7 @@ int ti_task_add_rename_collection(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -548,7 +547,7 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -592,7 +591,7 @@ int ti_task_add_revoke(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -615,7 +614,7 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto failed;
 
-    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW))
+    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW, 0))
         goto failed;
 
     if (qp_close_map(packer) || qp_close_map(packer))
@@ -633,7 +632,7 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -671,7 +670,7 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -715,7 +714,7 @@ int ti_task_add_set_quota(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -726,12 +725,12 @@ done:
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
-        ti_val_t * val,
+        ti_varr_t * varr,
         int64_t i,
         int64_t c,
         int32_t n)
 {
-    assert (!val || val->tp == TI_VAL_THINGS || val->tp == TI_VAL_ARRAY);
+    assert (!varr || varr->tp == TI_VAL_ARR);
     assert (name);
     int rc;
     ti_raw_t * job = NULL;
@@ -750,30 +749,18 @@ int ti_task_add_splice(
         qp_add_int(packer, n))
         goto failed;
 
-    if (val)
+    if (varr)
     {
-        if (ti_val_gen_ids(val))
+        if (ti_val_gen_ids((ti_val_t *) varr))
             goto failed;
 
-        switch(val->tp)
-        {
-        case TI_VAL_THINGS:
-            for (c = i + n; i < c; ++i)
-            {
-                ti_thing_t * t = vec_get(val->via.things, i);
-                if (task__thing_to_packer(&packer, t))
-                    goto failed;
-            }
-            break;
-        case TI_VAL_ARRAY:
-            for (c = i + n; i < c; ++i)
-            {
-                ti_val_t * v = vec_get(val->via.array, i);
-                if (ti_val_to_packer(v, &packer, 0))
-                    goto failed;
-            }
-            break;
-        }
+        for (c = i + n; i < c; ++i)
+            if (ti_val_to_packer(
+                    vec_get(varr->vec, i),
+                    &packer,
+                    TI_VAL_PACK_NEW,
+                    0))
+                goto failed;
     }
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
@@ -791,7 +778,7 @@ int ti_task_add_splice(
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
@@ -824,19 +811,12 @@ int ti_task_add_unset(ti_task_t * task, ti_name_t * name)
     goto done;
 
 failed:
-    ti_raw_drop(job);
+    ti_val_drop((ti_val_t *) job);
     rc = -1;
 done:
     if (packer)
         qp_packer_destroy(packer);
     return rc;
-}
-
-static int task__thing_to_packer(qp_packer_t ** packer, ti_thing_t * thing)
-{
-    if (thing->flags & TI_THING_FLAG_NEW)
-        return ti_thing_to_packer(thing, packer, TI_VAL_PACK_NEW);
-    return ti_thing_id_to_packer(thing, packer);
 }
 
 static inline void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw)

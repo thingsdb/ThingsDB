@@ -9,7 +9,7 @@
 
 static const char * ti__store_collection_things_fn     = "things.dat";
 static const char * ti__store_collection_collection_fn = "collection.dat";
-static const char * ti__store_collection_skeleton_fn   = "skeleton.qp";
+//static const char * ti__store_collection_skeleton_fn   = "skeleton.qp";
 static const char * ti__store_collection_props_fn      = "props.qp";
 static const char * ti__store_collection_attrs_fn      = "attrs.qp";
 static const char * ti__store_collection_access_fn     = "access.qp";
@@ -40,9 +40,9 @@ ti_store_collection_t * ti_store_collection_create(
     store_collection->collection_fn = fx_path_join(
             collection_path,
             ti__store_collection_collection_fn);
-    store_collection->skeleton_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_skeleton_fn);
+//    store_collection->skeleton_fn = fx_path_join(
+//            collection_path,
+//            ti__store_collection_skeleton_fn);
     store_collection->props_fn = fx_path_join(
             collection_path,
             ti__store_collection_props_fn);
@@ -53,7 +53,7 @@ ti_store_collection_t * ti_store_collection_create(
     if (    !store_collection->access_fn ||
             !store_collection->things_fn ||
             !store_collection->collection_fn ||
-            !store_collection->skeleton_fn ||
+//            !store_collection->skeleton_fn ||
             !store_collection->props_fn ||
             !store_collection->attrs_fn)
         goto fail1;
@@ -74,7 +74,6 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->access_fn);
     free(store_collection->things_fn);
     free(store_collection->collection_fn);
-    free(store_collection->skeleton_fn);
     free(store_collection->props_fn);
     free(store_collection->attrs_fn);
     free(store_collection->collection_path);

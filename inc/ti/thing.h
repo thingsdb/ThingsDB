@@ -24,26 +24,11 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <util/imap.h>
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
-void ti_thing_drop(ti_thing_t * thing);
 void ti_thing_destroy(ti_thing_t * thing);
-ti_val_t * ti_thing_get(ti_thing_t * thing, ti_name_t * name);
-void * ti_thing_attr_get(ti_thing_t * thing, ti_name_t * name);
-int ti_thing_set(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_enum tp,
-        void * v);
-int ti_thing_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
-int ti_thing_weak_set(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_enum tp,
-        void * v);
-int ti_thing_weak_setv(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
-int ti_thing_attr_weak_setv(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val);
+ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name);
+ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
+int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
+int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
@@ -51,7 +36,11 @@ void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags);
+int ti_thing_to_packer(
+        ti_thing_t * thing,
+        qp_packer_t ** packer,
+        int flags,
+        int fetch);
 _Bool ti_thing_has_watchers(ti_thing_t * thing);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
@@ -67,9 +56,10 @@ static inline void ti_thing_unmark_attrs(ti_thing_t * thing);
 struct ti_thing_s
 {
     uint32_t ref;
-    uint16_t pad0;
+    uint8_t tp;
     uint8_t flags;
-    uint8_t pad1;
+    uint16_t _pad16;
+
     uint64_t id;
     vec_t * props;          /* vec contains ti_prop_t */
     imap_t * things;        /* thing is added to this map */

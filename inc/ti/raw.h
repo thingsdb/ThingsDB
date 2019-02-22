@@ -12,7 +12,7 @@ typedef struct ti_raw_s ti_raw_t;
 typedef unsigned char uchar;
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n);
-void ti_raw_drop(ti_raw_t * raw);
+static inline void ti_raw_free(ti_raw_t * raw);
 ti_raw_t * ti_raw_from_packer(qp_packer_t * packer);
 ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n);
 ti_raw_t * ti_raw_from_fmt(const char * fmt, ...);
@@ -30,22 +30,32 @@ ti_raw_t * ti_raw_cat_strn_strn(
         size_t an,
         const char * bs,
         size_t bn);
+_Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
+_Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_equal(const ti_raw_t * a, const ti_raw_t * b);
 static inline _Bool ti_raw_equal_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n);
 
+static inline void ti_raw_free(ti_raw_t * raw)
+{
+    free(raw);
+}
+
 struct ti_raw_s
 {
     uint32_t ref;
+    uint8_t tp;
+    uint8_t _pad0;
+    uint16_t _pad1;
     uint32_t n;
     unsigned char data[];
 };
 
 static inline _Bool ti_raw_equal(const ti_raw_t * a, const ti_raw_t * b)
 {
-    return a->n == b->n && !memcmp(a->data, b->data, a->n);
+    return a == b || (a->n == b->n && !memcmp(a->data, b->data, a->n));
 }
 
 static inline _Bool ti_raw_equal_strn(

@@ -45,7 +45,7 @@ void ti_user_drop(ti_user_t * user)
     if (user && !--user->ref)
     {
         free(user->encpass);
-        ti_raw_drop(user->name);
+        ti_val_drop((ti_val_t *) user->name);
         free(user);
     }
 }
@@ -103,6 +103,9 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
     return true;
 }
 
+/*
+ * Increments the `name` reference counter only if successful
+ */
 int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
 {
     assert (e->nr == 0);
@@ -110,7 +113,7 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;
 
-    ti_raw_drop(user->name);
+    ti_val_drop((ti_val_t *) user->name);
     user->name = ti_grab(name);
 
     return e->nr;
@@ -195,8 +198,7 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
 
 ti_val_t * ti_user_as_qpval(ti_user_t * user)
 {
-    ti_raw_t * ruser;
-    ti_val_t * qpval = NULL;
+    ti_raw_t * ruser = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);
     if (!packer)
         return NULL;
@@ -205,14 +207,8 @@ ti_val_t * ti_user_as_qpval(ti_user_t * user)
         goto fail;
 
     ruser = ti_raw_from_packer(packer);
-    if (!ruser)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, ruser);
-    if (!qpval)
-        ti_raw_drop(ruser);
 
 fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t * ) ruser;
 }

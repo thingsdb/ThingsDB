@@ -8,14 +8,11 @@
 #include <langdef/langdef.h>
 #include <string.h>
 
-#define LANGDEF_ND_FLAG_UNIQUE 1<<15
-
 static inline _Bool langdef_nd_is_function(cleri_node_t * nd);
 static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd);
 static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd);
 static inline _Bool langdef_nd_match_str(cleri_node_t * nd, char * str);
 int langdef_nd_n_function_params(cleri_node_t * nd);
-void langdef_nd_flag(cleri_node_t * nd, int flags);
 
 static inline _Bool langdef_nd_is_function(cleri_node_t * nd)
 {

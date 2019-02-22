@@ -8,6 +8,7 @@
 #include <ti/collections.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
+#include <ti/vint.h>
 #include <ti/access.h>
 #include <ti/things.h>
 #include <ti.h>
@@ -248,17 +249,18 @@ ti_collection_t * ti_collections_get_by_val(
     {
     case TI_VAL_RAW:
         collection = ti_collections_get_by_strn(
-                (const char *) val->via.raw->data, val->via.raw->n);
+                (const char *) ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n);
         if (!collection)
             ex_set(
                 e,
                 EX_INDEX_ERROR,
                 "collection `%.*s` not found",
-                val->via.raw->n,
-                (char *) val->via.raw->data);
+                ((ti_raw_t *) val)->n,
+                (char *) ((ti_raw_t *) val)->data);
         break;
     case TI_VAL_INT:
-        if (val->via.int_ == 0)
+        if (((ti_vint_t *) val)->int_ == 0)
         {
             if (allow_root)
                 ex_set(e, EX_SUCCESS, "collection target is root");
@@ -268,7 +270,7 @@ ti_collection_t * ti_collections_get_by_val(
         }
         else
         {
-            uint64_t id = (uint64_t) val->via.int_;
+            uint64_t id = (uint64_t) ((ti_vint_t *) val)->int_;
             collection = ti_collections_get_by_id(id);
             if (!collection)
                 ex_set(
@@ -280,8 +282,8 @@ ti_collection_t * ti_collections_get_by_val(
         break;
     default:
         ex_set(e, EX_BAD_DATA,
-                "expecting type `%s` or `%s` as collection target",
-                ti_val_tp_str(TI_VAL_RAW), ti_val_tp_str(TI_VAL_INT));
+                "expecting type `"TI_VAL_RAW_S"` "
+                "or `"TI_VAL_INT_S"` as collection target");
     }
     return collection;
 }
@@ -301,23 +303,14 @@ int ti_collections_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_collections_as_qpval(void)
 {
     ti_raw_t * raw;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(2 + collections->vec->n * 128, 2);
     if (!packer)
         return NULL;
 
-    if (ti_collections_to_packer(&packer))
-        goto fail;
+    raw = ti_collections_to_packer(&packer)
+            ? NULL
+            : ti_raw_from_packer(packer);
 
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, raw);
-    if (!qpval)
-        ti_raw_drop(raw);
-
-fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) raw;
 }

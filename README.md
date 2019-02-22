@@ -135,6 +135,8 @@
         - [x] `id`
         - [x] `int`
         - [x] `isarray`
+        - [x] `isascci`
+        - [x] `isbool`
         - [x] `isinf`
         - [x] `islist`
         - [x] `isnan`

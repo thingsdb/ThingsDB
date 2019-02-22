@@ -403,7 +403,7 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
     assert (e->nr == 0);
 
     (void) ti_collection_rename(collection, rname, e);
-    ti_raw_drop(rname);
+    ti_val_drop((ti_val_t *) rname);
 
     return e->nr;
 }
@@ -450,8 +450,8 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 
     assert (e->nr == 0);
 
-    (void) ti_user_rename(user, rname, e);
-    ti_raw_drop(rname);
+    ti_user_rename(user, rname, e);
+    ti_val_drop((ti_val_t *) rname);
 
     return e->nr;
 }
@@ -559,6 +559,7 @@ static int rjob__set_quota(qp_unpacker_t * unp)
 {
     assert (unp);
 
+    uint64_t id;
     size_t quota;
     ti_collection_t * collection;
     ti_quota_enum_t quota_tp;
@@ -576,15 +577,18 @@ static int rjob__set_quota(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_collection.via.int64)
+    if (!qp_collection.via.int64)
     {
-        uint64_t id = qp_collection.via.int64;
-        collection = ti_collections_get_by_id(id);
-        if (!collection)
-        {
-            log_critical("job `set_quota`: "TI_COLLECTION_ID" not found", id);
-            return -1;
-        }
+        log_critical("job `set_quota`: cannot set quota on root (target: 0)");
+        return -1;
+    }
+
+    id = qp_collection.via.int64;
+    collection = ti_collections_get_by_id(id);
+    if (!collection)
+    {
+        log_critical("job `set_quota`: "TI_COLLECTION_ID" not found", id);
+        return -1;
     }
 
     quota_tp = (ti_quota_enum_t) qp_quota_tp.via.int64;

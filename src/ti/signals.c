@@ -54,6 +54,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
             log_error("received third signal (%s), abort", strsignal(signum));
             abort();
         }
+        ti()->flags |= TI_FLAG_STOP;
         log_error("received second signal (%s), stop now", strsignal(signum));
         ti_stop();
         return;

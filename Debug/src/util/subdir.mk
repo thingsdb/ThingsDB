@@ -16,7 +16,6 @@ C_SRCS += \
 ../src/util/logger.c \
 ../src/util/omap.c \
 ../src/util/qpx.c \
-../src/util/query.c \
 ../src/util/queue.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
@@ -36,7 +35,6 @@ OBJS += \
 ./src/util/logger.o \
 ./src/util/omap.o \
 ./src/util/qpx.o \
-./src/util/query.o \
 ./src/util/queue.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
@@ -56,7 +54,6 @@ C_DEPS += \
 ./src/util/logger.d \
 ./src/util/omap.d \
 ./src/util/qpx.d \
-./src/util/query.d \
 ./src/util/queue.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
@@ -68,7 +65,7 @@ C_DEPS += \
 src/util/%.o: ../src/util/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross GCC Compiler'
-	gcc -I../inc -I/usr/include/python3.6m/ -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -I../inc -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

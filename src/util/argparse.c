@@ -13,7 +13,7 @@
 
 #define HELP_WIDTH 80           /* try to fit help within this screen width */
 #define ARGPARSE_ERR_SIZE 1024  /* buffer size for building err msg */
-#define ARGPARSE_HELP_SIZE 255  /* buffer size for building help */
+#define ARGPARSE_HELP_SIZE 512  /* buffer size for building help */
 
 /* static function definitions */
 static void print_usage(argparse_t * parser, const char * bname);
@@ -32,7 +32,7 @@ static uint16_t get_argument(
         argparse_args_t ** target,
         argparse_t * parser,
         char * argument);
-static bool match_choice(char * choices, char * choice);
+static _Bool match_choice(char * choices, char * choice);
 static void fill_defaults(argparse_t * parser);
 
 argparse_t * argparse_create(void)
@@ -164,6 +164,7 @@ int argparse_parse(argparse_t * parser, int argc, char *argv[])
         }
         if (rc)
         {
+            buffer[ARGPARSE_ERR_SIZE - 1] = '\0';
             print_error(parser, buffer, bname);
             return rc;
         }
@@ -229,7 +230,8 @@ static void print_usage(argparse_t * parser, const char * bname)
     size_t ident;
     argparse_args_t * current;
 
-    snprintf(buffer, ARGPARSE_HELP_SIZE, "usage: %s ", bname);
+    buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
+    snprintf(buffer, ARGPARSE_HELP_SIZE-1, "usage: %s ", bname);
     line_size = ident = strlen(buffer);
     printf("%s", buffer);
     for (current = parser->args; current != NULL; current = current->next)
@@ -240,11 +242,11 @@ static void print_usage(argparse_t * parser, const char * bname)
         case ARGPARSE_STORE_TRUE:
         case ARGPARSE_STORE_FALSE:
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[-%c] ",
                         current->argument->shortcut);
             else
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[--%s] ",
                         current->argument->name);
             break;
@@ -254,24 +256,24 @@ static void print_usage(argparse_t * parser, const char * bname)
             strx_replace_char(uname, '-', '_');
             strx_upper_case(uname);
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[-%c %s] ",
                         current->argument->shortcut,
                         uname);
             else
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[--%s %s] ",
                         current->argument->name,
                         uname);
             break;
         case ARGPARSE_STORE_STR_CHOICE:
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[-%c {%s}] ",
                         current->argument->shortcut,
                         current->argument->choices);
             else
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
                         "[--%s {%s}] ",
                         current->argument->name,
                         current->argument->choices);
@@ -297,6 +299,7 @@ static void print_help(argparse_t * parser, const char * bname)
     argparse_args_t * current;
     size_t line_size;
 
+    buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
     print_usage(parser, bname);
     printf("\noptional arguments:\n");
 
@@ -309,12 +312,13 @@ static void print_help(argparse_t * parser, const char * bname)
         case ARGPARSE_STORE_TRUE:
         case ARGPARSE_STORE_FALSE:
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
-                        " -%c,",
-                        current->argument->shortcut);
-            snprintf(buffer, ARGPARSE_HELP_SIZE,
-                    "%s --%s",
-                    buffer,
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                        " -%c, --%s",
+                        current->argument->shortcut,
+                        current->argument->name);
+            else
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                    " --%s",
                     current->argument->name);
             break;
         case ARGPARSE_STORE_STRING:
@@ -323,25 +327,27 @@ static void print_help(argparse_t * parser, const char * bname)
             strx_replace_char(uname, '-', '_');
             strx_upper_case(uname);
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
-                        " -%c %s,",
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                        " -%c, --%s %s",
                         current->argument->shortcut,
+                        current->argument->name,
                         uname);
-            snprintf(buffer, ARGPARSE_HELP_SIZE,
-                    "%s --%s %s",
-                    buffer,
+            else
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                    " --%s %s",
                     current->argument->name,
                     uname);
             break;
         case ARGPARSE_STORE_STR_CHOICE:
             if (current->argument->shortcut)
-                snprintf(buffer, ARGPARSE_HELP_SIZE,
-                        " -%c {%s},",
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                        " -%c, --%s {%s}",
                         current->argument->shortcut,
+                        current->argument->name,
                         current->argument->choices);
-            snprintf(buffer, ARGPARSE_HELP_SIZE,
-                    "%s --%s {%s}",
-                    buffer,
+            else
+                snprintf(buffer, ARGPARSE_HELP_SIZE-1,
+                    " --%s {%s}",
                     current->argument->name,
                     current->argument->choices);
             break;
@@ -445,14 +451,13 @@ static int process_arg(
     default:
         return ARGPARSE_ERR_UNHANDLED;
     }
-
 }
 
-static bool match_choice(char * choices, char * choice)
+static _Bool match_choice(char * choices, char * choice)
 {
     size_t len_rest = strlen(choices);
     size_t len_choice = strlen(choice);
-    bool check = true;
+    _Bool check = true;
     char * walk = choices;
 
     for (; walk; len_rest--, walk++)

@@ -137,13 +137,13 @@ int main(int argc, char * argv[])
     rc = ti_run();
 
 stop:
-    ti_destroy();
-
     if (ti_unlock() || rc)
     {
         rc = EXIT_FAILURE;
     }
 
+    ti_destroy();
     logger_destroy();
+
     return rc;
 }

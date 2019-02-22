@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <ti/name.h>
+#include <ti/val.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -15,9 +16,10 @@ ti_name_t * ti_name_create(const char * str, size_t n)
         return NULL;
 
     memcpy(name->str, str, n);
-    name->str[n] = '\0';
-    name->n = n;
     name->ref = 1;
+    name->tp = TI_VAL_RAW;
+    name->n = n;
+    name->str[n] = '\0';
     return name;
 }
 

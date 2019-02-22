@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <langdef/nd.h>
 #include <ti/scope.h>
-#include <ti/prop.h>
 #include <ti/names.h>
+#include <ti/nil.h>
+#include <ti/vint.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -31,25 +32,13 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
     {
         ti_scope_t * prev = cur->prev;
 
-        ti_thing_drop(cur->thing);
-        vec_destroy(cur->local, (vec_destroy_cb) ti_prop_weak_destroy);
+        ti_val_drop((ti_val_t *) cur->thing);
+        vec_destroy(cur->local, (vec_destroy_cb) ti_prop_destroy);
         free(cur);
 
         cur = prev;
     }
     *scope = until;
-}
-
-/*
- * Returns a new referenced value.
- * In case of an error the return value is NULL.
- */
-ti_val_t * ti_scope_global_to_val(ti_scope_t * scope)
-{
-    if (ti_scope_is_thing(scope))
-        return ti_val_create(TI_VAL_THING, scope->thing);
-    assert (scope->val);
-    return ti_val_dup(scope->val);
 }
 
 int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
@@ -64,7 +53,7 @@ int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
     if (val->tp != TI_VAL_THING)
         return 0;
 
-    nscope = ti_scope_enter(*scope, val->via.thing);
+    nscope = ti_scope_enter(*scope, (ti_thing_t *) val);
     if (!nscope)
         return -1;
 
@@ -84,12 +73,9 @@ int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing)
 
 _Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing)
 {
-    while (scope)
-    {
+    for (; scope; scope = scope->prev)
         if (scope->thing == thing)
             return true;
-        scope = scope->prev;
-    }
     return false;
 }
 
@@ -98,16 +84,13 @@ _Bool ti_scope_in_use_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    while (scope)
-    {
+    for (; scope; scope = scope->prev)
         if (scope->thing == thing && scope->name == name)
             return true;
-        scope = scope->prev;
-    }
     return false;
 }
 
-int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
+int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARROW);
     size_t n;
@@ -116,7 +99,7 @@ int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
     if (scope->local)
     {
         /* cleanup existing local */
-        vec_destroy(scope->local, (vec_destroy_cb) ti_prop_weak_destroy);
+        vec_destroy(scope->local, (vec_destroy_cb) ti_prop_destroy);
         scope->local = NULL;
     }
 
@@ -134,17 +117,20 @@ int ti_scope_local_from_arrow(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 
     for (child = first; child; child = child->next->next)
     {
-        ti_prop_t * prop;
+        ti_val_t * val = (ti_val_t *) ti_nil_get();
         ti_name_t * name = ti_names_get(child->node->str, child->node->len);
+        ti_prop_t * prop;
         if (!name)
             goto alloc_err;
 
-        prop = ti_prop_create(name, TI_VAL_NIL, NULL);
+        prop = ti_prop_create(name, val);
         if (!prop)
         {
             ti_name_drop(name);
+            ti_val_drop(val);
             goto alloc_err;
         }
+
         VEC_push(scope->local, prop);
         if (!child->next)
             break;
@@ -167,7 +153,7 @@ ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name)
         if (scope->local)
             for (vec_each(scope->local, ti_prop_t, prop))
                 if (prop->name == name)
-                    return &prop->val;
+                    return prop->val;
         scope = scope->prev;
     }
     return NULL;
@@ -181,6 +167,54 @@ ti_val_t * ti_scope_local_val(ti_scope_t * scope, ti_name_t * name)
         return NULL;
     for (vec_each(scope->prev->local, ti_prop_t, prop))
         if (prop->name == name)
-            return &prop->val;
+            return prop->val;
     return NULL;
 }
+
+int ti_scope_polute_prop(ti_scope_t * scope, ti_prop_t * prop)
+{
+    size_t n = 0;
+    for (vec_each(scope->local, ti_prop_t, p), ++n)
+    {
+        ti_val_drop(p->val);
+        switch (n)
+        {
+        case 0:
+            p->val = (ti_val_t *) prop->name;
+            ti_incref(p->val);
+            break;
+        case 1:
+            p->val = prop->val;
+            ti_incref(p->val);
+            break;
+        default:
+            p->val = (ti_val_t *) ti_nil_get();
+        }
+    }
+    return 0;
+}
+
+int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx)
+{
+    size_t n = 0;
+    for (vec_each(scope->local, ti_prop_t, p), ++n)
+    {
+       ti_val_drop(p->val);
+       switch (n)
+       {
+       case 0:
+           p->val = val;
+           ti_incref(p->val);
+           break;
+       case 1:
+           p->val = (ti_val_t *) ti_vint_create(idx);
+           if (!p->val)
+               return -1;
+           break;
+       default:
+           p->val = (ti_val_t *) ti_nil_get();
+       }
+    }
+    return 0;
+}
+

@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <util/logger.h>
 #include <ti/regex.h>
+#include <ti/val.h>
 #include <stdlib.h>
 
 
@@ -22,6 +23,8 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     }
 
     regex->ref = 1;
+    regex->tp = TI_VAL_REGEX;
+
     regex->pattern = ti_raw_create((uchar *) str, n);
     if (!regex->pattern)
     {
@@ -80,21 +83,21 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
 fail2:
     pcre2_code_free(regex->code);
 fail1:
-    ti_raw_drop(regex->pattern);
+    ti_val_drop((ti_val_t *) regex->pattern);
 fail0:
     free(regex);
     return NULL;
 }
 
-void ti_regex_drop(ti_regex_t * regex)
+void ti_regex_destroy(ti_regex_t * regex)
 {
-    if (regex && !--regex->ref)
-    {
-        pcre2_match_data_free(regex->match_data);
-        pcre2_code_free(regex->code);
-        ti_raw_drop(regex->pattern);
-        free(regex);
-    }
+    if (!regex)
+        return;
+
+    pcre2_match_data_free(regex->match_data);
+    pcre2_code_free(regex->code);
+    ti_val_drop((ti_val_t *) regex->pattern);
+    free(regex);
 }
 
 

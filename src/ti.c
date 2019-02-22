@@ -2,28 +2,29 @@
  * ti_.c
  */
 #include <assert.h>
+#include <langdef/langdef.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/collection.h>
+#include <ti/collections.h>
 #include <ti/event.h>
 #include <ti/names.h>
+#include <ti/proto.h>
 #include <ti/signals.h>
 #include <ti/store.h>
-#include <ti/auth.h>
+#include <ti/things.h>
 #include <ti/user.h>
 #include <ti/users.h>
-#include <ti/collections.h>
-#include <ti/access.h>
-#include <ti/proto.h>
-#include <ti/things.h>
 #include <ti/version.h>
-#include <ti.h>
-#include <util/fx.h>
-#include <util/strx.h>
-#include <util/qpx.h>
-#include <util/lock.h>
-#include <util/cryptx.h>
-#include <langdef/langdef.h>
+#include <tiinc.h>
 #include <unistd.h>
+#include <util/cryptx.h>
+#include <util/fx.h>
+#include <util/lock.h>
+#include <util/qpx.h>
+#include <util/strx.h>
 
 ti_t ti_;
 
@@ -103,12 +104,14 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_names_destroy();
     ti_store_destroy();
-    ti_thing_drop(ti_.thing0);
+    ti_val_drop((ti_val_t *) ti_.thing0);
     ti_counters_destroy();  /* very last since counters can be updated */
     vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
+
+    ti_val_drop_common();
 }
 
 int ti_init_logger(void)
@@ -148,7 +151,7 @@ int ti_init(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_event_t * ev;
+    ti_event_t * ev = NULL;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
@@ -280,6 +283,9 @@ int ti_run(void)
     int rc, attempts;
 
     ti_names_inject_common();
+
+    if (ti_val_init_common())
+        return -1;
 
     if (uv_loop_init(&loop_))
         return -1;
@@ -588,25 +594,16 @@ int ti_node_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_node_as_qpval(void)
 {
     ti_raw_t * raw;
-    ti_val_t * qpval = NULL;
     qp_packer_t * packer = qp_packer_create2(512, 1);
     if (!packer)
         return NULL;
 
-    if (ti_node_to_packer(&packer))
-        goto fail;
+    raw = ti_node_to_packer(&packer)
+            ? NULL
+            : ti_raw_from_packer(packer);
 
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, raw);
-    if (!qpval)
-        ti_raw_drop(raw);
-
-fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) raw;
 }
 
 static int ti__unpack(qp_res_t * res)

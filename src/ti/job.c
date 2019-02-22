@@ -2,6 +2,7 @@
  * ti/job.c
  */
 #include <assert.h>
+#include <ti.h>
 #include <ti/job.h>
 #include <ti/val.h>
 #include <ti/name.h>
@@ -11,14 +12,8 @@ static int job__assign(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__del(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
-static int job__rename(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
+static int job__del(ti_thing_t * thing, qp_unpacker_t * unp);
+static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp);
 static int job__set(
         ti_collection_t * collection,
         ti_thing_t * thing,
@@ -27,10 +22,7 @@ static int job__splice(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__unset(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
+static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp);
 /*
  * (Log function)
  * Unpacker should be at point 'job': ...
@@ -57,15 +49,15 @@ int ti_job_run(
     case 'a':
         return job__assign(collection, thing, unp);
     case 'd':
-        return job__del(collection, thing, unp);
+        return job__del(thing, unp);
     case 'r':
-        return job__rename(collection, thing, unp);
+        return job__rename(thing, unp);
     case 's':
         return *(raw+1) == 'e'
                 ? job__set(collection, thing, unp)
                 : job__splice(collection, thing, unp);
     case 'u':
-        return job__unset(collection, thing, unp);
+        return job__unset(thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
@@ -85,7 +77,7 @@ static int job__assign(
     assert (thing);
     assert (unp);
 
-    ti_val_t val;
+    ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_prop;
     if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_prop)))
@@ -115,7 +107,8 @@ static int job__assign(
         return -1;
     }
 
-    if (ti_val_from_unp(&val, unp, collection->things))
+    val = ti_val_from_unp(unp, collection->things);
+    if (!val)
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
@@ -125,21 +118,21 @@ static int job__assign(
         goto fail;
     }
 
-    if (ti_thing_weak_setv(thing, name, &val))
+    if (ti_thing_prop_set(thing, name, val))
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
                 "error setting property: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
     return 0;
 
 fail:
-    ti_val_clear(&val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return -1;
 }
@@ -148,12 +141,8 @@ fail:
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int job__del(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -199,12 +188,8 @@ static int job__del(
  * Returns 0 on success
  * - for example: {'from': 'to'}
  */
-static int job__rename(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -266,7 +251,7 @@ static int job__set(
     assert (thing);
     assert (unp);
 
-    ti_val_t val;
+    ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_attr;
 
@@ -300,7 +285,8 @@ static int job__set(
         return -1;
     }
 
-    if (ti_val_from_unp(&val, unp, collection->things))
+    val = ti_val_from_unp(unp, collection->things);
+    if (!val)
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
@@ -310,31 +296,31 @@ static int job__set(
         goto fail;
     }
 
-    if (!ti_val_is_settable(&val))
+    if (!ti_val_is_settable(val))
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
                 "type `%s` is not settable",
                 thing->id,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
-    if (ti_thing_attr_weak_setv(thing, name, &val))
+    if (ti_thing_attr_set(thing, name, val))
     {
         log_critical(
                 "job `set` attribute on "TI_THING_ID": "
                 "error setting attribute: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
     return 0;
 
 fail:
-    ti_val_clear(&val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return -1;
 }
@@ -351,14 +337,11 @@ static int job__splice(
     assert (collection);
     assert (thing);
     assert (unp);
-    assert (collection);
-    assert (thing);
-    assert (unp);
 
     ex_t * e = ex_use();
-    int rc = 0;
     ssize_t n, i, c, cur_n, new_n;
-    ti_val_t val, * arr;
+    ti_val_t * val;
+    ti_varr_t * varr;
     ti_name_t * name;
     qp_types_t tp;
     qp_obj_t qp_prop, qp_i, qp_c, qp_n;
@@ -371,14 +354,14 @@ static int job__splice(
         !qp_is_int(qp_next(unp, &qp_n)))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
+                "job `splice` on "TI_THING_ID": "
                 "missing map, property, index, delete_count or new_count",
                 thing->id);
         return -1;
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(arr = ti_thing_get(thing, name)))
+    if (!name || !(varr = (ti_varr_t *) ti_thing_prop_weak_get(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -388,17 +371,17 @@ static int job__splice(
         return -1;
     }
 
-    if (!ti_val_is_mutable_arr(arr))
+    if (!ti_val_is_list((ti_val_t *) varr))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
-                "expecting a mutable array, got type `%s`",
+                "job `splice` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_ARR_LIST_S"`, got `%s`",
                 thing->id,
-                ti_val_str(arr));
+                ti_val_str((ti_val_t *) varr));
         return -1;
     }
 
-    cur_n = arr->via.arr->n;
+    cur_n = varr->vec->n;
     i = qp_i.via.int64;
     c = qp_c.via.int64;
     n = qp_n.via.int64;
@@ -411,7 +394,7 @@ static int job__splice(
         (tp != QP_ARRAY_OPEN && n > tp - QP_ARRAY0 - 2))
     {
         log_critical(
-                "job `splice` array on "TI_THING_ID": "
+                "job `splice` on "TI_THING_ID": "
                 "incorrect values "
                 "(index: %zd, delete: %zd, new: %zd, current_size: %zd)",
                 thing->id,
@@ -421,52 +404,33 @@ static int job__splice(
 
     new_n = cur_n + n - c;
 
-    if (new_n > cur_n && vec_resize(&arr->via.arr, new_n))
+    if (new_n > cur_n && vec_resize(&varr->vec, new_n))
     {
         log_critical(EX_ALLOC_S);
         return -1;
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-    {
-        if (arr->tp == TI_VAL_THINGS)
-        {
-            ti_thing_drop(vec_get(arr->via.arr, x));
-        }
-        else
-        {
-            ti_val_destroy(vec_get(arr->via.arr, x));
-        }
-    }
+        ti_val_drop(vec_get(varr->vec, x));
 
     memmove(
-        arr->via.arr->data + i + n,
-        arr->via.arr->data + i + c,
-        (cur_n - i - c) * sizeof(void*));
+            varr->vec->data + i + n,
+            varr->vec->data  + i + c,
+            (cur_n - i - c) * sizeof(void*));
 
-    arr->via.arr->n = i;
+    varr->vec->n = i;
 
-    while(n-- && (rc = ti_val_from_unp(&val, unp, collection->things)) == 0)
+    while(n-- && (val = ti_val_from_unp(unp, collection->things)))
     {
-        assert (vec_space(arr->via.arr));
-        ti_val_t * v;
-
-        v = ti_val_weak_dup(&val);
-        if (!v)
-        {
-            log_critical(EX_ALLOC_S);
-            return -1;
-        }
-
-        if (ti_val_move_to_arr(arr, v, e))
+        if (ti_varr_append(varr, (void **) &val, e))
         {
             log_critical("job `splice` array on "TI_THING_ID": %s", e->msg);
-            ti_val_destroy(v);
+            ti_val_drop(val);
             return -1;
         }
     }
 
-    if (rc)  /* both <0 and >0 are not correct since we should have n values */
+    if (!val)  /* both <0 and >0 are not correct since we should have n values */
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -476,10 +440,10 @@ static int job__splice(
         return -1;
     }
 
-    arr->via.arr->n = new_n;
+    varr->vec->n = new_n;
 
     if (new_n < cur_n)
-        (void) vec_shrink(&arr->via.arr);
+        (void) vec_shrink(&varr->vec);
 
     return 0;
 }
@@ -488,12 +452,8 @@ static int job__splice(
  * Returns 0 on success
  * - for example: 'attr'
  */
-static int job__unset(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 

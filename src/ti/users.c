@@ -185,8 +185,7 @@ ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 
 ti_val_t * ti_users_as_qpval(void)
 {
-    ti_val_t * qpval = NULL;
-    ti_raw_t * rusers;
+    ti_raw_t * rusers = NULL;
     qp_packer_t * packer = qp_packer_create2(4 + (192 * users->vec->n), 4);
     if (!packer)
         return NULL;
@@ -201,16 +200,10 @@ ti_val_t * ti_users_as_qpval(void)
         goto fail;
 
     rusers = ti_raw_from_packer(packer);
-    if (!rusers)
-        goto fail;
-
-    qpval = ti_val_weak_create(TI_VAL_QP, rusers);
-    if (!qpval)
-        ti_raw_drop(rusers);
 
 fail:
     qp_packer_destroy(packer);
-    return qpval;
+    return (ti_val_t *) rusers;
 }
 
 

@@ -18,12 +18,13 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/collection.h>
 #include <ti/event.h>
 #include <ti/ex.h>
+#include <ti/name.h>
 #include <ti/pkg.h>
+#include <ti/prop.h>
 #include <ti/raw.h>
 #include <ti/scope.h>
 #include <ti/stream.h>
 #include <util/omap.h>
-
 
 ti_query_t * ti_query_create(ti_stream_t * stream);
 void ti_query_destroy(ti_query_t * query);
@@ -37,14 +38,17 @@ int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
 void ti_query_send(ti_query_t * query, ex_t * e);
+ti_val_t * ti_query_val_pop(ti_query_t * query);
+ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name);
 static inline _Bool ti_query_will_update(ti_query_t * query);
+static inline const char * ti_query_val_str(ti_query_t * query);
 
 struct ti_query_s
 {
     uint32_t nd_cache_count;    /* count while investigate */
     uint16_t pkg_id;
     uint8_t flags;
-    uint8_t pad0_;
+    uint8_t fetch;              /* fetch level */
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* target NULL means root */
     char * querystr;            /* 0 terminated query string */
@@ -62,12 +66,24 @@ struct ti_query_s
                                    to collect (or type ti_name_t),
                                    and the key is the thing id.
                                 */
-
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)
 {
-    return query->flags & (TI_QUERY_FLAG_COLLECTION_EVENT | TI_QUERY_FLAG_ROOT_EVENT);
+    return query->flags & (
+            TI_QUERY_FLAG_COLLECTION_EVENT |
+            TI_QUERY_FLAG_ROOT_EVENT
+    );
+}
+
+static inline const char * ti_query_val_str(ti_query_t * query)
+{
+    return query->rval
+            ? ti_val_str(query->rval)
+            : (query->scope->val
+                    ? ti_val_str(query->scope->val)
+                    : TI_VAL_THING_S
+            );
 }
 
 #endif /* TI_QUERY_H_ */

@@ -36,7 +36,7 @@ static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_isascci(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isbool(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isfloat(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1135,7 +1135,7 @@ static int cq__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int cq__f_isascci(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int cq__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -1147,7 +1147,7 @@ static int cq__f_isascci(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int n = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `isascci` takes 1 argument but %d were given", n);
+                "function `isascii` takes 1 argument but %d were given", n);
         return e->nr;
     }
 
@@ -2729,9 +2729,9 @@ static int cq__function(
         if (is_scope)
             return cq__f_isarray(query, params, e);
         break;
-    case CLERI_GID_F_ISASCCI:
+    case CLERI_GID_F_ISASCII:
         if (is_scope)
-            return cq__f_isascci(query, params, e);
+            return cq__f_isascii(query, params, e);
         break;
     case CLERI_GID_F_ISBOOL:
         if (is_scope)

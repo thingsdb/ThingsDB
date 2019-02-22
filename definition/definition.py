@@ -65,7 +65,7 @@ class Definition(Grammar):
     f_id = Keyword('id')
     f_int = Keyword('int')
     f_isarray = Keyword('isarray')
-    f_isascci = Keyword('isascci')
+    f_isascii = Keyword('isascii')
     f_isbool = Keyword('isbool')
     f_isfloat = Keyword('isfloat')
     f_isinf = Keyword('isinf')
@@ -127,7 +127,7 @@ class Definition(Grammar):
         f_id,           # () -> int
         f_int,          # (x) -> int
         f_isarray,      # (x) -> bool
-        f_isascci,
+        f_isascii,
         f_isbool,
         f_isfloat,
         f_isinf,        # (float) -> bool

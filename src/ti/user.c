@@ -45,7 +45,7 @@ void ti_user_drop(ti_user_t * user)
     if (user && !--user->ref)
     {
         free(user->encpass);
-        ti_raw_drop(user->name);
+        ti_val_drop((ti_val_t *) user->name);
         free(user);
     }
 }
@@ -103,6 +103,9 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
     return true;
 }
 
+/*
+ * Increments the `name` reference counter only if successful
+ */
 int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
 {
     assert (e->nr == 0);
@@ -110,8 +113,8 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;
 
-    ti_raw_free(user->name);
-    user->name = name;
+    ti_val_drop((ti_val_t *) user->name);
+    user->name = ti_grab(name);
 
     return e->nr;
 }

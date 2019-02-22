@@ -19,7 +19,6 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/cryptx.h>
-#include <util/query.h>
 #include <util/strx.h>
 #include <uv.h>
 
@@ -894,24 +893,24 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `rename_user` expects argument 1 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `rename_user` expects argument 1 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) query->rval->via.raw->data,
-            query->rval->via.raw->n);
+    rname = (ti_raw_t *) query->rval;
+    user = ti_users_get_by_namestrn((const char *) rname->data, rname->n);
     if (!user)
     {
         ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) query->rval->via.raw->n,
-                (char *) query->rval->via.raw->data);
+                (int) rname->n,
+                (char *) rname->data);
         return e->nr;
     }
 
+    ti_val_drop(query->rval);
+    query->rval = NULL;
     if (rq__scope(query, nd->children->next->next->node, e))
         return e->nr;
 
@@ -919,13 +918,12 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_user` expects argument 2 to be of "
-            "type `%s` but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    rname = ti_raw_dup(query->rval->via.raw);
+    rname = (ti_raw_t *) query->rval;
     if (!rname)
     {
         ex_set_alloc(e);
@@ -936,7 +934,7 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     ti_val_drop(query->rval);
-    query->rval = ti_val_get_nil();
+    query->rval = (ti_val_t *) ti_nil_get();
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
@@ -969,8 +967,7 @@ static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_counters_reset();
 
-    if (query_rval_clear(query))
-        ex_set_alloc(e);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }
@@ -986,6 +983,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int n;
     ti_collection_t * target;
     ti_user_t * user;
+    ti_raw_t * uname;
     ti_task_t * task;
     uint64_t mask;
 
@@ -1015,47 +1013,46 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     /* revoke user */
-    ti_val_clear(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = NULL;
     if (rq__scope(query, nd->children->next->next->node, e))
         return e->nr;
 
-    if (query->rval->tp != TI_VAL_RAW)
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `revoke` expects argument 2 to be of type `%s` "
-            "but got `%s`, see: "TI_DOCS"#grant",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `revoke` expects argument 2 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`, see: "TI_DOCS"#grant",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) query->rval->via.raw->data,
-            query->rval->via.raw->n);
+    uname = (ti_raw_t *) query->rval;
+    user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
     if (!user)
     {
         ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) query->rval->via.raw->n,
-                (char *) query->rval->via.raw->data);
+                (int) uname->n,
+                (char *) uname->data);
         return e->nr;
     }
 
     /* revoke mask */
-    ti_val_clear(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = NULL;
     if (rq__scope(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
-    if (query->rval->tp != TI_VAL_INT)
+    if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `revoke` expects argument 3 to be of type `%s` "
-            "but got `%s`, see: "TI_DOCS"#grant",
-            ti_val_tp_str(TI_VAL_INT),
+            "function `revoke` expects argument 3 to be of "
+            "type `"TI_VAL_INT_S"` but got `%s`, see: "TI_DOCS"#grant",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    mask = (uint64_t) query->rval->via.int_;
+    mask = (uint64_t) ((ti_vint_t *) query->rval)->int_;
 
     if (query->stream->via.user == user && (mask & TI_AUTH_GRANT))
     {
@@ -1073,8 +1070,8 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_revoke(task, target ? target->root->id : 0, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
-    /* rval is an integer, we can simply overwrite */
-    ti_val_set_nil(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }
@@ -1084,6 +1081,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (query->rval == NULL);
     int log_level;
+    int64_t ilog;
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access,
@@ -1102,25 +1100,27 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    if (query->rval->tp != TI_VAL_INT)
+    if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `set_loglevel` expects argument 1 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_INT),
+            "function `set_loglevel` expects argument 1 to be of "
+            "type `"TI_VAL_INT_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    log_level = query->rval->via.int_ < LOGGER_DEBUG
+    ilog = ((ti_vint_t *) query->rval)->int_;
+
+    log_level = ilog < LOGGER_DEBUG
             ? LOGGER_DEBUG
-            : query->rval->via.int_ > LOGGER_CRITICAL
+            : ilog > LOGGER_CRITICAL
             ? LOGGER_CRITICAL
-            : query->rval->via.int_;
+            : ilog;
 
     logger_set_level(log_level);
 
-    ti_val_clear(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }
@@ -1135,6 +1135,7 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     int n;
     char * passstr = NULL;
+    ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
     n = langdef_nd_n_function_params(nd);
@@ -1153,23 +1154,24 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `set_password` expects argument 1 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `set_password` expects argument 1 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) query->rval->via.raw->data,
-            query->rval->via.raw->n);
+    uname = (ti_raw_t *) query->rval;
+    user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
     if (!user)
     {
         ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) query->rval->via.raw->n,
-                (char *) query->rval->via.raw->data);
+                (int) uname->n,
+                (char *) uname->data);
         return e->nr;
     }
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
 
     if (rq__scope(query, nd->children->next->next->node, e))
         goto done;
@@ -1177,14 +1179,13 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `set_password` expects argument 2 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `set_password` expects argument 2 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         goto done;
     }
 
-    passstr = ti_raw_to_str(query->rval->via.raw);
+    passstr = ti_raw_to_str((ti_raw_t *) query->rval);
     if (!passstr)
     {
         ex_set_alloc(e);
@@ -1207,7 +1208,8 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_set_password(task, user))
         ex_set_alloc(e);  /* task cleanup is not required */
 
-    ti_val_clear(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 
 done:
     free(passstr);
@@ -1248,43 +1250,46 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     collection_id = collection->root->id;
 
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
     if (rq__scope(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (query->rval->tp != TI_VAL_RAW)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `quota` expects argument 2 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `quota` expects argument 2 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    rquota = query->rval->via.raw;
+    rquota = (ti_raw_t *) query->rval;
     qtp = ti_qouta_tp_from_strn((const char *) rquota->data, rquota->n, e);
     if (e->nr)
         return e->nr;
 
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
     if (rq__scope(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
-    if (query->rval->tp != TI_VAL_INT && query->rval->tp != TI_VAL_NIL)
+    if (!ti_val_is_int(query->rval) && !ti_val_is_nil(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `quota` expects argument 3 to be of type `%s` or `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_INT),
-            ti_val_tp_str(TI_VAL_NIL),
+            "function `quota` expects argument 3 to be of "
+            "type `"TI_VAL_INT_S"` or "TI_VAL_NIL_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    quota = query->rval->tp == TI_VAL_NIL
+    quota = (size_t) (ti_val_is_nil(query->rval)
             ? TI_QUOTA_NOT_SET
-            : (size_t) (query->rval->via.int_ < 0
-              ? 0
-              : query->rval->via.int_);
+            : ((ti_vint_t *) query->rval)->int_ < 0
+            ? 0
+            : ((ti_vint_t *) query->rval)->int_);
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
@@ -1295,7 +1300,8 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         ti_collection_set_quota(collection, qtp, quota);
 
-    ti_val_clear(query->rval);
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }
@@ -1375,8 +1381,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_term(SIGINT);
 
-    if (query_rval_clear(query))
-        ex_set_alloc(e);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }
@@ -1388,6 +1393,7 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     ti_user_t * user;
+    ti_raw_t * uname;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
@@ -1404,25 +1410,24 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `user` expects argument 1 to be of type `%s` "
-            "but got `%s`",
-            ti_val_tp_str(TI_VAL_RAW),
+            "function `user` expects argument 1 to be of "
+            "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
     }
 
-    user = ti_users_get_by_namestrn(
-            (const char *) query->rval->via.raw->data,
-            query->rval->via.raw->n);
+    uname = (ti_raw_t *) query->rval;
+    user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
     if (!user)
     {
         ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) query->rval->via.raw->n,
-                (char *) query->rval->via.raw->data);
+                (int) uname->n,
+                (char *) uname->data);
         return e->nr;
     }
 
-    query_rval_destroy(query);
+    ti_val_drop(query->rval);
+
     query->rval = ti_user_as_qpval(user);
     if (!query->rval)
         ex_set_alloc(e);
@@ -1445,7 +1450,6 @@ static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    query_rval_destroy(query);
     query->rval = ti_users_as_qpval();
     if (!query->rval)
         ex_set_alloc(e);
@@ -1728,7 +1732,6 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
-        query_rval_destroy(query);
         if (rq__operations(query, node->children->next->node, e))
             return e->nr;
         break;
@@ -1771,14 +1774,11 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    child = child->next;
-    if (!child)
-        goto finish;
-
-    ex_set(e, EX_BAD_DATA, "chaining is not supported at root");
-    return e->nr;
-
-finish:
+    if (child->next)
+    {
+        ex_set(e, EX_BAD_DATA, "chaining is not supported at root");
+        return e->nr;
+    }
 
     if (!query->rval)
         query->rval = (ti_val_t *) ti_nil_get();
@@ -1790,6 +1790,5 @@ finish:
         query->rval = (ti_val_t *) ti_vbool_get((nots & 1) ^ b);
     }
 
-done:
     return e->nr;
 }

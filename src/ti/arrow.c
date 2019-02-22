@@ -23,6 +23,8 @@ ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)
 
     arrow->flags = (uintptr_t) node->data;
     arrow->node = node;
+
+    return arrow;
 }
 
 ti_arrow_t * ti_arrow_from_strn(const char * str, size_t n)

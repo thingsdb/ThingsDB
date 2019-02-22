@@ -1,6 +1,7 @@
 /*
  * ti/vint.c
  */
+#include <tiinc.h>
 #include <stdlib.h>
 #include <ti/val.h>
 #include <ti/vint.h>

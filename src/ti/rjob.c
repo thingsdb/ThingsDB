@@ -403,7 +403,7 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
     assert (e->nr == 0);
 
     (void) ti_collection_rename(collection, rname, e);
-    ti_raw_drop(rname);
+    ti_val_drop((ti_val_t *) rname);
 
     return e->nr;
 }
@@ -450,7 +450,8 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 
     assert (e->nr == 0);
 
-    (void) ti_user_rename(user, rname, e);
+    ti_user_rename(user, rname, e);
+    ti_val_drop((ti_val_t *) rname);
 
     return e->nr;
 }

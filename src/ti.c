@@ -103,14 +103,14 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_names_destroy();
     ti_store_destroy();
-    ti_thing_drop(ti_.thing0);
+    ti_val_drop((ti_val_t *) ti_.thing0);
     ti_counters_destroy();  /* very last since counters can be updated */
     vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
 
-    ti_val_destroy_common();
+    ti_val_drop_common();
 }
 
 int ti_init_logger(void)

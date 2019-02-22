@@ -134,7 +134,7 @@ static int job__assign(
                 "error setting property: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
@@ -330,7 +330,7 @@ static int job__set(
                 "error setting attribute: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
-                ti_val_str(&val));
+                ti_val_str(val));
         goto fail;
     }
 
@@ -431,7 +431,7 @@ static int job__splice(
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-        ti_val_destroy(vec_get(varr->vec, x));
+        ti_val_drop(vec_get(varr->vec, x));
 
     memmove(
             varr->vec->data + i + n,

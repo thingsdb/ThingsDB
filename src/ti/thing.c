@@ -95,7 +95,7 @@ int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
         if (!thing->attrs)
             return -1;
 
-        attr = ti_prop_weak_createv(name, val);
+        attr = ti_prop_create(name, val);
         if (!attr)
             return -1;
 
@@ -300,10 +300,12 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
     return false;
 }
 
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
+int ti_thing_to_packer(
+        ti_thing_t * thing,
+        qp_packer_t ** packer,
+        int flags,
+        int fetch)
 {
-    flags |= TI_VAL_PACK_THING;
-
     if (    qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar *) "#", 1) ||
             qp_add_int(*packer, thing->id))
@@ -312,7 +314,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                ti_val_to_packer(&prop->val, packer, flags))
+                ti_val_to_packer(prop->val, packer, flags, fetch))
             return -1;
     }
 
@@ -326,7 +328,7 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int flags)
         for (vec_each(thing->attrs, ti_prop_t, prop))
         {
             if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                    ti_val_to_packer(&prop->val, packer, flags))
+                    ti_val_to_packer(prop->val, packer, flags, 0))
                 return -1;
         }
 
@@ -398,7 +400,7 @@ static int thing__set(vec_t ** vec, ti_name_t * name, ti_val_t * val)
         }
     }
 
-    prop = ti_prop_weak_createv(name, val);
+    prop = ti_prop_create(name, val);
     if (!prop || vec_push(vec, prop))
     {
         free(prop);

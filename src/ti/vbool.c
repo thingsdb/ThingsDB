@@ -1,6 +1,7 @@
 /*
  * ti/vbool.c
  */
+#include <tiinc.h>
 #include <ti/val.h>
 #include <ti/vbool.h>
 #include <stdbool.h>

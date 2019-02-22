@@ -2,6 +2,7 @@
  * ti/varr.c
  */
 #include <assert.h>
+#include <tiinc.h>
 #include <stdlib.h>
 #include <ti/varr.h>
 #include <ti/val.h>
@@ -28,14 +29,14 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
-ti_varr_t * ti_varr_to_tuple(ti_varr_t * arr)
+ti_varr_t * ti_varr_to_tuple(ti_varr_t * varr)
 {
     ti_varr_t * tuple;
 
-    if (arr->flags & TI_ARR_FLAG_TUPLE)
+    if (varr->flags & TI_ARR_FLAG_TUPLE)
     {
-        ti_incref(arr);
-        return arr;
+        ti_incref(varr);
+        return varr;
     }
 
     tuple = malloc(sizeof(ti_varr_t));
@@ -44,7 +45,7 @@ ti_varr_t * ti_varr_to_tuple(ti_varr_t * arr)
 
     tuple->ref = 1;
     tuple->flags |= TI_ARR_FLAG_TUPLE;
-    tuple->vec = vec_dup(arr->vec);
+    tuple->vec = vec_dup(varr->vec);
 
     if (!tuple->vec)
     {
@@ -70,9 +71,10 @@ void ti_varr_destroy(ti_varr_t * varr)
 /*
  * Increments `val` reference counter when assigned to the array.
  */
-int ti_varr_append(ti_varr_t * to, ti_val_t * val, ex_t * e)
+int ti_varr_append(ti_varr_t * to, void * v, ex_t * e)
 {
     assert (ti_varr_is_list(to));
+    ti_val_t * val = v;
 
     if (ti_val_make_assignable(val, e))
         return e->nr;

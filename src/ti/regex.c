@@ -83,7 +83,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
 fail2:
     pcre2_code_free(regex->code);
 fail1:
-    ti_raw_drop(regex->pattern);
+    ti_val_drop((ti_val_t *) regex->pattern);
 fail0:
     free(regex);
     return NULL;
@@ -96,7 +96,7 @@ void ti_regex_destroy(ti_regex_t * regex)
 
     pcre2_match_data_free(regex->match_data);
     pcre2_code_free(regex->code);
-    ti_raw_drop(regex->pattern);
+    ti_val_drop((ti_val_t *) regex->pattern);
     free(regex);
 }
 

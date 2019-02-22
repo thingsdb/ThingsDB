@@ -53,10 +53,10 @@ void ti_collection_drop(ti_collection_t * collection)
 {
     if (collection && !--collection->ref)
     {
-        ti_raw_drop(collection->name);
+        ti_val_drop((ti_val_t *) collection->name);
         vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
 
-        ti_thing_drop(collection->root);
+        ti_val_drop((ti_val_t *) collection->root);
 
         if (!collection->things->n)
             imap_destroy(collection->things, NULL);
@@ -113,7 +113,7 @@ int ti_collection_rename(
         return -1;
     }
 
-    ti_raw_drop(collection->name);
+    ti_val_drop((ti_val_t *) collection->name);
     collection->name = ti_grab(rname);
 
     return 0;

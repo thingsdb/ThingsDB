@@ -48,8 +48,7 @@ typedef enum
 enum
 {
     TI_VAL_PACK_NEW     =1<<0,
-    TI_VAL_PACK_THING   =1<<1,
-    TI_VAL_PACK_ATTR    =1<<2,
+    TI_VAL_PACK_ATTR    =1<<1,
 };
 
 typedef struct ti_val_s ti_val_t;
@@ -57,9 +56,9 @@ typedef struct ti_val_s ti_val_t;
 #include <qpack.h>
 #include <stdint.h>
 #include <ti/ex.h>
-#include <ti/varr.h>
 #include <util/imap.h>
 #include <util/vec.h>
+#include <ti/varr.h>
 
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
@@ -74,12 +73,13 @@ _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_iterator_n(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags);
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags, int fetch);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
+static inline _Bool ti_val_is_nil(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_indexable(ti_val_t * val);
@@ -105,6 +105,11 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
 static inline _Bool ti_val_is_int(ti_val_t * val)
 {
     return val->tp == TI_VAL_INT;
+}
+
+static inline _Bool ti_val_is_nil(ti_val_t * val)
+{
+    return val->tp == TI_VAL_NIL;
 }
 
 static inline _Bool ti_val_is_raw(ti_val_t * val)

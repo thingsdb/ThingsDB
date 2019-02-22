@@ -20,7 +20,7 @@ ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
     ti_thing_t * thing = ti_thing_create(id, things);
     if (!thing || ti_thing_to_map(thing))
     {
-        ti_thing_drop(thing);
+        ti_val_drop((ti_val_t *) thing);
         return NULL;
     }
     return thing;
@@ -49,7 +49,7 @@ ti_thing_t * ti_things_thing_from_unp(
 
     while (--sz)
     {
-        ti_val_t val;
+        ti_val_t * val;
         ti_name_t * name;
         qp_obj_t qp_prop;
         if (qp_is_close(qp_next(unp, &qp_prop)))
@@ -61,11 +61,11 @@ ti_thing_t * ti_things_thing_from_unp(
             goto failed;
 
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
-        ti_val_from_unp(&val, unp, things);
+        val = ti_val_from_unp(unp, things);
 
-        if (!name || ti_thing_weak_setv(thing, name, &val))
+        if (!val || !name || ti_thing_prop_set(thing, name, val))
         {
-            ti_val_clear(&val);
+            ti_val_drop(val);
             ti_name_drop(name);
             goto failed;
         }
@@ -74,7 +74,7 @@ ti_thing_t * ti_things_thing_from_unp(
     return thing;
 
 failed:
-    ti_thing_drop(thing);
+    ti_val_drop((ti_val_t *) thing);
     return NULL;
 }
 

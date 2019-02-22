@@ -8,12 +8,16 @@
 #include <ti/arrow.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/regex.h>
+#include <ti/nil.h>
 #include <ti/things.h>
 #include <ti/val.h>
+#include <ti/vbool.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
 #include <util/logger.h>
 #include <util/strx.h>
 
-static int val__unp_map(ti_val_t * dest, qp_unpacker_t * unp, imap_t * things);
 static int val__push(ti_varr_t * arr, ti_val_t * val);
 static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things);
 static ti_val_t * val__from_unp(
@@ -93,7 +97,7 @@ void ti_val_drop(ti_val_t * val)
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
 {
-    ti_val_t * v = ti_vint_create(i);
+    ti_val_t * v = (ti_val_t *) ti_vint_create(i);
     if (!v)
         return -1;
 
@@ -104,7 +108,7 @@ int ti_val_make_int(ti_val_t ** val, int64_t i)
 
 int ti_val_make_float(ti_val_t ** val, double d)
 {
-    ti_val_t * v = ti_vfloat_create(d);
+    ti_val_t * v = (ti_val_t *) ti_vfloat_create(d);
     if (!v)
         return -1;
 
@@ -265,7 +269,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_ARROW:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
-                ti_val_str(val));
+                ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
         switch((*(ti_vint_t **) val)->int_)
@@ -528,14 +532,16 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_ATTR:
-        return flags & TI_VAL_PACK_NEW
-            ? qp_add_null(*pckr)
-            : ti_val_to_packer(
-                &((ti_vattr_t *) val)->prop->val,
-                pckr,
-                flags,
-                fetch
-            );
+//        return flags & TI_VAL_PACK_NEW
+//            ? qp_add_null(*pckr)
+//            : ti_val_to_packer(
+//                &((ti_vattr_t *) val)->prop->val,
+//                pckr,
+//                flags,
+//                fetch
+//            );
+        assert (0);
+        return 0;
     case TI_VAL_NIL:
         return qp_add_null(*pckr);
     case TI_VAL_INT:
@@ -652,7 +658,7 @@ int ti_val_make_assignable(ti_val_t * val, ex_t * e)
     case TI_VAL_ATTR:
     case TI_VAL_QP:
         ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
-                ti_val_tp_str(val->tp));
+                ti_val_str(val));
         break;
     case TI_VAL_ARROW:
         if (ti_arrow_wse((ti_arrow_t * ) val))
@@ -683,7 +689,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
     {
     case TI_VAL_KIND_THING:
         return qp_is_int(qp_next(unp, &qp_tmp))
-                ? ti_things_thing_from_unp(
+                ? (ti_val_t *) ti_things_thing_from_unp(
                         things,
                         (uint64_t) qp_tmp.via.int64,
                         unp,
@@ -692,7 +698,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
     case TI_VAL_KIND_ARROW:
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
             return NULL;
-        return ti_arrow_from_strn(
+        return (ti_val_t *) ti_arrow_from_strn(
                 (char *) qp_tmp.via.raw,
                 qp_tmp.len);
     case TI_VAL_KIND_REGEX:
@@ -705,9 +711,9 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
         regex = ti_regex_from_strn(
                 (const char *) qp_tmp.via.raw,
                 qp_tmp.len,
-                e);
+                &e);
         if (!regex)
-            log_error(e->msg);
+            log_error(e.msg);
         return (ti_val_t *) regex;
     }
     }
@@ -781,7 +787,7 @@ static ti_val_t * val__from_unp(
             if (!v || val__push(varr, v))
             {
                 ti_val_drop(v);
-                ti_val_drop(varr);
+                ti_val_drop((ti_val_t *) varr);
                 return NULL;
             }
         }
@@ -795,10 +801,11 @@ static ti_val_t * val__from_unp(
         --unp->pt;  /* reset to map */
         return val__unp_map(unp, things);
     case QP_TRUE:
+        return (ti_val_t *) ti_vbool_get(true);
     case QP_FALSE:
-        return ti_vbool_get(qp_val->tp == QP_TRUE);
+        return (ti_val_t *) ti_vbool_get(false);
     case QP_NULL:
-        return ti_nil_get();
+        return (ti_val_t *) ti_nil_get();
     case QP_ARRAY_OPEN:
     {
         ti_val_t * v;
@@ -814,7 +821,7 @@ static ti_val_t * val__from_unp(
             if (!v || val__push(varr, v))
             {
                 ti_val_drop(v);
-                ti_val_drop(varr);
+                ti_val_drop((ti_val_t *) varr);
                 return NULL;
             }
         }

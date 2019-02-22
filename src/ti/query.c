@@ -17,7 +17,6 @@
 #include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
-#include <util/query.h>
 #include <util/strx.h>
 
 
@@ -283,7 +282,8 @@ void ti_query_run(ti_query_t * query)
                 ? ti_cq_scope(query, child->node, e)
                 : ti_rq_scope(query, child->node, e))
         {
-            query_rval_destroy(query);
+            ti_val_drop(query->rval);
+            query->rval = NULL;
             goto done;
         }
 
@@ -327,7 +327,8 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     for (vec_each(query->results, ti_val_t, rval))
     {
         assert (rval);
-        if (ti_val_to_packer(rval, &packer, 0))
+        /* TODO: set fetch level */
+        if (ti_val_to_packer(rval, &packer, 0, 1))
             goto alloc_err;
     }
 
@@ -702,10 +703,10 @@ static void query__nd_cache_cleanup(cleri_node_t * node)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_T_STRING:
-        ti_raw_drop(node->data);
+        ti_val_drop(node->data);
         return;
     case CLERI_GID_T_REGEX:
-        ti_regex_drop(node->data);
+        ti_val_drop(node->data);
         return;
     }
 }

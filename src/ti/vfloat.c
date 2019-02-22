@@ -1,6 +1,7 @@
 /*
  * ti/vfloat.c
  */
+#include <tiinc.h>
 #include <stdlib.h>
 #include <ti/val.h>
 #include <ti/vfloat.h>
@@ -23,7 +24,7 @@ ti_vfloat_t * ti_vfloat_create(double d)
         return vfloat;
     }
 
-    vfloat = malloc(sizeof(ti_vint_t));
+    vfloat = malloc(sizeof(ti_vfloat_t));
     if (!vfloat)
         return NULL;
 

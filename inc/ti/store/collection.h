@@ -22,6 +22,5 @@ struct ti_store_collection_s
     char * collection_fn;
     char * collection_path;
     char * names_fn;
-    char * skeleton_fn;
     char * things_fn;
 };

@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <langdef/nd.h>
 #include <ti/scope.h>
-#include <ti/prop.h>
 #include <ti/names.h>
+#include <ti/nil.h>
+#include <ti/vint.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -38,18 +39,6 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
         cur = prev;
     }
     *scope = until;
-}
-
-/*
- * Returns a new referenced value.
- * In case of an error the return value is NULL.
- */
-ti_val_t * ti_scope_global_to_val(ti_scope_t * scope)
-{
-    if (ti_scope_is_thing(scope))
-        return ti_val_create(TI_VAL_THING, scope->thing);
-    assert (scope->val);
-    return ti_val_dup(scope->val);
 }
 
 int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
@@ -128,13 +117,12 @@ int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 
     for (child = first; child; child = child->next->next)
     {
-        ti_val_t * val;
-        ti_prop_t * prop;
+        ti_val_t * val = (ti_val_t *) ti_nil_get();
         ti_name_t * name = ti_names_get(child->node->str, child->node->len);
+        ti_prop_t * prop;
         if (!name)
             goto alloc_err;
 
-        val = (ti_val_t *) ti_nil_get();
         prop = ti_prop_create(name, val);
         if (!prop)
         {
@@ -229,5 +217,6 @@ int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx)
            p->val = (ti_val_t *) ti_nil_get();
        }
     }
+    return 0;
 }
 

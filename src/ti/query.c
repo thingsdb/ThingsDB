@@ -20,6 +20,8 @@
 #include <util/strx.h>
 
 
+#define QUERY__MAX_DEEP 0x7f
+
 static void query__investigate_array(ti_query_t * query, cleri_node_t * nd);
 static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd);
 static _Bool query__swap_opr(
@@ -46,7 +48,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     }
     query->scope = NULL;
     query->rval = NULL;
-    query->fetch = 0;
+    query->deep = 1;
     query->flags = 0;
     query->target = NULL;  /* root */
     query->parseres = NULL;
@@ -139,6 +141,24 @@ int ti_query_unpack(
             /* query->target maybe NULL in case when the target is root */
             continue;
         }
+
+        if (qp_is_raw_equal_str(&key, "deep"))
+        {
+            if (!qp_is_int(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+            if (val.via.int64 < 0 || val.via.int64 > QUERY__MAX_DEEP)
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
+            query->deep = (uint8_t) val.via.int64;
+            continue;
+        }
+
 
         if (qp_is_raw_equal_str(&key, "blobs"))
         {
@@ -327,7 +347,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     {
         assert (rval);
         /* TODO: set fetch level */
-        if (ti_val_to_packer(rval, &packer, 0, 1))
+        if (ti_val_to_packer(rval, &packer, 0, query->deep))
             goto alloc_err;
     }
 

@@ -157,11 +157,12 @@ class Client(WatchMixin, Root):
     def get_target(self):
         return self._target
 
-    async def query(
-            self, query, blobs=None, target=None, timeout=None, as_list=False):
+    async def query(self, query, deep=None, blobs=None, target=None,
+            timeout=None, as_list=False):
         assert isinstance(query, str)
         assert blobs is None or isinstance(blobs, (list, tuple))
         assert target is None or isinstance(target, (int, str))
+        assert deep is None or isinstance(deep, (int, str))
 
         target = self._target if target is None else target
         data = {'query': query}
@@ -169,6 +170,8 @@ class Client(WatchMixin, Root):
             data['target'] = target
         if blobs:
             data['blobs'] = blobs
+        if deep is not None and deep != 1:
+            data['deep'] = deep
         future = self._write_package(REQ_QUERY, data, timeout=timeout)
         result = await future
         if not as_list and len(result) == 1:

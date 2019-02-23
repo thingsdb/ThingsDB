@@ -157,8 +157,9 @@ class Client(WatchMixin, Root):
     def get_target(self):
         return self._target
 
-    async def query(self, query, deep=None, blobs=None, target=None,
-            timeout=None, as_list=False):
+    async def query(
+                self, query, deep=None, all=False, blobs=None, target=None,
+                timeout=None, as_list=False):
         assert isinstance(query, str)
         assert blobs is None or isinstance(blobs, (list, tuple))
         assert target is None or isinstance(target, (int, str))
@@ -172,10 +173,16 @@ class Client(WatchMixin, Root):
             data['blobs'] = blobs
         if deep is not None and deep != 1:
             data['deep'] = deep
+        if all:
+            data['all'] = True
         future = self._write_package(REQ_QUERY, data, timeout=timeout)
         result = await future
-        if not as_list and len(result) == 1:
-            result = result[0]
+        if all:
+            if not as_list and len(result) == 1:
+                result = result[0]
+        elif as_list:
+            result = [result]
+
         return result
 
     def watch(self, things, collection=None, timeout=None):

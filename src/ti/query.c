@@ -159,6 +159,17 @@ int ti_query_unpack(
             continue;
         }
 
+        if (qp_is_raw_equal_str(&key, "all"))
+        {
+            if (!qp_is_bool(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+            if (val.tp == QP_TRUE)
+                query->flags |= TI_QUERY_FLAG_ALL;
+            continue;
+        }
 
         if (qp_is_raw_equal_str(&key, "blobs"))
         {
@@ -264,6 +275,9 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
+    nstatements = ((query->flags & TI_QUERY_FLAG_ALL) || !nstatements)
+            ? nstatements : 1;
+
     query->results = vec_new(nstatements);
     if (!query->results || (
             query->nd_cache_count && !(
@@ -293,6 +307,9 @@ void ti_query_run(ti_query_t * query)
         ->children->next->node      /* list */
         ->children;                 /* first child or NULL */
 
+    if (!child)
+        goto failed;
+
     while (child)
     {
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
@@ -303,21 +320,26 @@ void ti_query_run(ti_query_t * query)
         {
             ti_val_drop(query->rval);
             query->rval = NULL;
-            goto done;
+            goto failed;
         }
 
-        VEC_push(query->results, query->rval);
-        query->rval = NULL;
-
-        if (!child->next)
+        if (!child->next || !(child = child->next->next))
             break;
 
-        child = child->next->next;                  /* skip delimiter */
+        if (query->flags & TI_QUERY_FLAG_ALL)
+            VEC_push(query->results, query->rval);
+        else
+            ti_val_drop(query->rval);
+
+        query->rval = NULL;
         ti_scope_leave(&query->scope, NULL);
     }
 
-done:
+    VEC_push(query->results, query->rval);
+    query->rval = NULL;
     ti_scope_leave(&query->scope, NULL);
+
+failed:
 
     if (query->ev)
         query__event_handle(query);  /* error here will be logged only */
@@ -337,7 +359,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (!packer)
         goto alloc_err;
 
-    (void) qp_add_array(&packer);
+    (void) ((query->flags & TI_QUERY_FLAG_ALL) && qp_add_array(&packer));
 
     /* we should have a result for each statement */
     assert (query->results->n == query->results->sz);
@@ -351,7 +373,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
             goto alloc_err;
     }
 
-    if (qp_close_array(packer))
+    if ((query->flags & TI_QUERY_FLAG_ALL) && qp_close_array(packer))
         goto alloc_err;
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);

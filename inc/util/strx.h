@@ -22,6 +22,8 @@ _Bool strx_is_int(const char * str);
 _Bool strx_is_float(const char * str);
 _Bool strx_is_graph(const char * str);
 _Bool strx_is_graphn(const char * str, size_t n);
+_Bool strx_is_printable(const char * str);
+_Bool strx_is_printablen(const char * str, size_t n);
 _Bool strx_is_asciin(const char * str, size_t n);
 _Bool strx_is_utf8n(const char * str, size_t n);
 double strx_to_double(const char * str);

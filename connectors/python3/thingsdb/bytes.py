@@ -1,3 +1,0 @@
-
-class Bytes(bytes):
-    pass

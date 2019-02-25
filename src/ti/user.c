@@ -60,11 +60,12 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
         return false;
     }
 
-    if (!ti_name_is_valid_strn(name, n))
+    /* TODO: maybe change to graphical characters, no white space, so email
+     * addresses can be used */
+    if (!strx_is_graphn(name, n))
     {
         ex_set(e, EX_BAD_DATA,
-                "username should be a valid name, "
-                "see "TI_DOCS"#names");
+                "username should should only contain graphical characters");
         return false;
     }
 
@@ -94,10 +95,10 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
         return false;
     }
 
-    if (!strx_is_graph(passstr))
+    if (!strx_is_printable(passstr))
     {
         ex_set(e, EX_BAD_DATA,
-                "password should only contain graphical characters");
+                "password should only contain printable characters");
         return false;
     }
     return true;

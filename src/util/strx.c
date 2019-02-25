@@ -207,6 +207,22 @@ _Bool strx_is_graphn(const char * str, size_t n)
     return true;
 }
 
+_Bool strx_is_printable(const char * str)
+{
+    for (; *str; str++)
+        if (!isprint(*str))
+            return false;
+    return true;
+}
+
+_Bool strx_is_printablen(const char * str, size_t n)
+{
+    for (; n--; str++)
+        if (!isprint(*str))
+            return false;
+    return true;
+}
+
 _Bool strx_is_asciin(const char * str, size_t n)
 {
     for (; n--; str++)

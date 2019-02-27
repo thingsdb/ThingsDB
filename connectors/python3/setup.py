@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from thingsdb import __version__
 
 long_description = '''
-The ThingsDB connector can be used communicate with a ThingsDB database.
+The ThingsDB connector can be used to communicate with a ThingsDB database.
 '''.strip()
 
 setup(

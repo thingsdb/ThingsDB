@@ -11,6 +11,7 @@
 #include <util/strx.h>
 
 #define DEFAULT_REDUNDANCY 4
+#define ARGS__NO_ZONE INT32_MIN
 
 #ifndef NDEBUG
 #define DEFAULT_LOG_LEVEL "debug"
@@ -29,6 +30,7 @@ int ti_args_create(void)
     strcpy(args->config, "");
     strcpy(args->log_level, "");
     args->redundancy = 0;
+    args->zone = ARGS__NO_ZONE;
     args->log_colorized = 0;
     args->init = 0;
     ti()->args = args;
@@ -40,6 +42,16 @@ void ti_args_destroy(void)
 {
     free(args);
     args = ti()->args = NULL;
+}
+
+uint8_t ti_args_get_zone(void)
+{
+    return args->zone == ARGS__NO_ZONE ? 0 : args->zone;
+}
+
+_Bool ti_args_has_zone(void)
+{
+    return args->zone != ARGS__NO_ZONE;
 }
 
 int ti_args_parse(int argc, char *argv[])
@@ -97,6 +109,17 @@ int ti_args_parse(int argc, char *argv[])
             choices: NULL,
     };
 
+    argparse_argument_t zone_ = {
+            name: "zone",
+            shortcut: 0,
+            help: "set the node zone, can be overwritten at runtime using set_zone(...)",
+            action: ARGPARSE_STORE_INT,
+            pt_value_int32_t: &args->zone,
+            str_default: NULL,
+            str_value: NULL,
+            choices: NULL,
+    };
+
     argparse_argument_t version_ = {
             name: "version",
             shortcut: 'v',
@@ -137,6 +160,7 @@ int ti_args_parse(int argc, char *argv[])
             argparse_add_argument(parser, &init_) ||
             argparse_add_argument(parser, &redundancy_) ||
             argparse_add_argument(parser, &secret_) ||
+            argparse_add_argument(parser, &zone_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
             argparse_add_argument(parser, &log_colorized_))
@@ -176,7 +200,12 @@ int ti_args_parse(int argc, char *argv[])
                 printf("redundancy must be a value between 3 and 64\n");
                 rc = -1;
             }
+        }
 
+        if (args->zone != ARGS__NO_ZONE && (args->zone < 0 || args->zone > 255))
+        {
+            printf("zone must be a value between 0 and 255\n");
+            rc = -1;
         }
     }
 

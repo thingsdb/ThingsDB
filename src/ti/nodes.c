@@ -10,6 +10,7 @@
 #include <ti/auth.h>
 #include <ti/fsync.h>
 #include <ti/away.h>
+#include <ti/args.h>
 #include <ti.h>
 #include <util/cryptx.h>
 #include <util/qpx.h>
@@ -644,11 +645,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         }
 
         (void) qp_add_array(&packer);
-        (void) qp_add_int(packer, 0);
-        (void) qp_add_int(packer, 0);
-        (void) qp_add_int(packer, 0);
-        (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);
-        (void) qp_add_int(packer, TI_NODE_FLAG_MIGRATING);
+        (void) qp_add_int(packer, 0);                       /* next_thing_id */
+        (void) qp_add_int(packer, 0);                       /* cevid */
+        (void) qp_add_int(packer, 0);                       /* sevid */
+        (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);   /* status */
+        (void) qp_add_int(packer, TI_NODE_FLAG_MIGRATING);  /* flags */
+        (void) qp_add_int(packer, ti_args_get_zone());        /* zone */
         (void) qp_close_array(packer);
 
         goto send;

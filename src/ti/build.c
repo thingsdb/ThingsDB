@@ -8,6 +8,7 @@
 #include <ti/proto.h>
 #include <ti/req.h>
 #include <ti/ex.h>
+#include <ti/sync.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -35,7 +36,6 @@ void ti_build_destroy(void)
     free(build);
     ti()->build = build = NULL;
 }
-
 
 int ti_build_setup(
         uint8_t this_node_id,
@@ -149,6 +149,9 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         goto failed;
 
     if (ti_connect_start())
+        goto failed;
+
+    if (ti_sync_start())
         goto failed;
 
     ti_broadcast_node_info();

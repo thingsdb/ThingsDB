@@ -126,6 +126,7 @@ static int fsync__write_part(
     fp = fopen(fn, "a");
     if (!fp)
     {
+        /* lock is required for use of strerror */
         uv_mutex_lock(&Logger.lock);
         ex_set(e, EX_INTERNAL,
                 "cannot open file `%s` (%s)",

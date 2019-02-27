@@ -16,6 +16,7 @@
 #include <ti/store.h>
 #include <ti/things.h>
 #include <ti/user.h>
+#include <ti/sync.h>
 #include <ti/users.h>
 #include <ti/version.h>
 #include <tiinc.h>
@@ -40,6 +41,7 @@ static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
 static void ti__shutdown_stop(void);
 static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
+static void ti__stop(void);
 
 int ti_create(void)
 {
@@ -71,6 +73,7 @@ int ti_create(void)
             ti_collections_create() ||
             ti_events_create() ||
             ti_connect_create() ||
+            ti_sync_create() ||
             !ti_.access ||
             !ti_.langdef)
     {
@@ -87,10 +90,7 @@ void ti_destroy(void)
     free(ti_.fn);
     free(ti_.node_fn);
 
-    ti_sync_stop();
-    ti_away_stop();
-    ti_connect_stop();
-    ti_events_stop();
+    ti__stop();
 
     ti_desired_destroy();
     ti_build_destroy();
@@ -158,7 +158,11 @@ int ti_build(void)
     cryptx_gen_salt(salt);
     cryptx("ThingsDB", salt, encrypted);
 
-    ti_.node = ti_nodes_new_node(0, ti_.cfg->node_port, "0.0.0.0", encrypted);
+    ti_.node = ti_nodes_new_node(
+            ti_args_get_zone(),
+            ti_.cfg->node_port,
+            "0.0.0.0",
+            encrypted);
     if (!ti_.node)
         goto failed;
 
@@ -300,6 +304,9 @@ int ti_run(void)
 
     if (ti_.node)
     {
+        /* Should be status SYNCHRONIZING and later change to READY */
+        ti_.node->status = TI_NODE_STAT_SYNCHRONIZING;
+
         /*
          * First load desired so for new things we will already store the
          * attributes from archive
@@ -322,8 +329,9 @@ int ti_run(void)
         if (ti_connect_start())
             goto failed;
 
-        /* Should be status SYNCHRONIZING and later change to READY */
-        ti_.node->status = TI_NODE_STAT_READY;
+        if (ti_sync_start())
+            goto failed;
+
     }
     else
     {
@@ -379,6 +387,15 @@ fail0:
     ti_stop();
 }
 
+static void ti__stop(void)
+{
+    ti_sync_stop();
+    ti_away_stop();
+    ti_connect_stop();
+    ti_events_stop();
+    ti_sync_stop();
+}
+
 void ti_stop(void)
 {
     if (ti_.node)
@@ -388,12 +405,7 @@ void ti_stop(void)
         (void) ti_archive_to_disk();
         (void) ti_archive_write_nodes_scevid();
     }
-
-    ti_sync_stop();
-    ti_away_stop();
-    ti_connect_stop();
-    ti_events_stop();
-
+    ti__stop();
     uv_stop(ti()->loop);
 }
 
@@ -663,7 +675,8 @@ static int ti__unpack(qp_res_t * res)
     if (!ti_.node)
         goto failed;
 
-    assert (ti_.node->id == node_id);
+    if (ti_args_has_zone())
+        ti_.node->zone = ti_args_get_zone();
 
     return 0;
 
@@ -723,4 +736,13 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     default:
         log_error("unexpected handle type: %d", handle->type);
     }
+}
+
+static void ti__stop(void)
+{
+    ti_sync_stop();
+    ti_away_stop();
+    ti_connect_stop();
+    ti_events_stop();
+    ti_sync_stop();
 }

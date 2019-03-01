@@ -41,7 +41,6 @@ int ti_build_setup(
         uint8_t this_node_id,
         uint8_t from_node_id,
         uint8_t from_node_status,
-        uint8_t from_node_flags,
         uint8_t from_node_zone,
         uint16_t from_node_port,
         ti_stream_t * stream)
@@ -64,7 +63,6 @@ int ti_build_setup(
     build->this_node_id = this_node_id;
     build->from_node_id = from_node_id;
     build->from_node_status = from_node_status;
-    build->from_node_flags = from_node_flags;
     build->from_node_zone = from_node_zone;
     build->from_node_port = from_node_port;
 
@@ -113,7 +111,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
                     build->from_node_port);
 
             node->status = build->from_node_status;
-            node->flags = build->from_node_flags;
             node->zone = build->from_node_zone;
         }
     }
@@ -124,7 +121,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->sevid = 0;
     ti_node->next_thing_id = 0;
     ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
-    ti_node->flags |= TI_NODE_FLAG_MIGRATING;
 
     ti()->events->cevid = &ti_node->cevid;
     ti()->archive->sevid = &ti_node->sevid;
@@ -134,9 +130,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         goto failed;
 
     if (ti_store_store())
-        goto failed;
-
-    if (ti_desired_init())
         goto failed;
 
     if (ti_archive_init())

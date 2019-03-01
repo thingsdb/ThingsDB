@@ -10,7 +10,6 @@
 #include <ti.h>
 #include <util/strx.h>
 
-#define DEFAULT_REDUNDANCY 4
 #define ARGS__NO_ZONE INT32_MIN
 
 #ifndef NDEBUG
@@ -29,7 +28,6 @@ int ti_args_create(void)
     args->version = 0;
     strcpy(args->config, "");
     strcpy(args->log_level, "");
-    args->redundancy = 0;
     args->zone = ARGS__NO_ZONE;
     args->log_colorized = 0;
     args->init = 0;
@@ -80,18 +78,6 @@ int ti_args_parse(int argc, char *argv[])
             action: ARGPARSE_STORE_TRUE,
             default_int32_t: 0,
             pt_value_int32_t: &args->init,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL,
-    };
-
-    argparse_argument_t redundancy_ = {
-            name: "redundancy",
-            shortcut: 0,
-            help: "set the redundancy (only together with --init)",
-            action: ARGPARSE_STORE_INT,
-            default_int32_t: DEFAULT_REDUNDANCY,
-            pt_value_int32_t: &args->redundancy,
             str_default: NULL,
             str_value: NULL,
             choices: NULL,
@@ -158,7 +144,6 @@ int ti_args_parse(int argc, char *argv[])
 
     if (    argparse_add_argument(parser, &config_) ||
             argparse_add_argument(parser, &init_) ||
-            argparse_add_argument(parser, &redundancy_) ||
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &zone_) ||
             argparse_add_argument(parser, &version_) ||
@@ -173,33 +158,17 @@ int ti_args_parse(int argc, char *argv[])
     {
         if (!args->init)
         {
-            if (args->redundancy)
-            {
-                printf("redundancy can only be set together with --init\n"
-                   "see "TI_DOCS"#redundancy for more info\n");
-                rc = -1;
-            }
-            else if (*args->secret && !strx_is_graph(args->secret))
+            if (*args->secret && !strx_is_graph(args->secret))
             {
                 printf("secret should only contain graphic characters\n");
                 rc = -1;
             }
         }
 
-        if (args->init)
+        if (args->init && *args->secret)
         {
-            if (*args->secret)
-            {
-                printf("--secret cannot be used together with --init\n");
-                rc = -1;
-            }
-            else if (!args->redundancy)
-                args->redundancy = DEFAULT_REDUNDANCY;
-            else if (args->redundancy < 3 || args->redundancy > 64)
-            {
-                printf("redundancy must be a value between 3 and 64\n");
-                rc = -1;
-            }
+            printf("--secret cannot be used together with --init\n");
+            rc = -1;
         }
 
         if (args->zone != ARGS__NO_ZONE && (args->zone < 0 || args->zone > 255))

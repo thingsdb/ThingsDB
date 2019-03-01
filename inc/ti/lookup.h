@@ -14,29 +14,15 @@ typedef struct ti_lookup_s ti_lookup_t;
 struct ti_lookup_s
 {
     uint8_t n;                  /* equal or less than nodes->n */
-    uint8_t r;                  /* equal to min(n, redundancy) */
     uint64_t factorial_;        /* only for order check */
-    uint64_t masks_[LOOKUP_SIZE];
 };
 
-ti_lookup_t * ti_lookup_create(uint8_t n, uint8_t r);
+ti_lookup_t * ti_lookup_create(uint8_t n);
 void ti_lookup_destroy(ti_lookup_t * lookup);
 _Bool ti_lookup_id_is_ordered(
         ti_lookup_t * lookup,
         uint8_t a,
         uint8_t b,
         uint64_t u);
-static inline _Bool ti_lookup_node_has_id(
-        ti_lookup_t * lookup,
-        uint8_t node_id,
-        uint64_t id);
-
-static inline _Bool ti_lookup_node_has_id(
-        ti_lookup_t * lookup,
-        uint8_t node_id,
-        uint64_t id)
-{
-    return lookup->masks_[id % LOOKUP_SIZE] & (1 << node_id);
-}
 
 #endif /* TI_LOOKUP_H_ */

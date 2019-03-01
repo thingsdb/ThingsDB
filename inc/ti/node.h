@@ -29,8 +29,7 @@ typedef enum
     TI_NODE_STAT_BUILDING,
 
     /*
-     * Synchronizing: We have at least the known nodes and redundancy settings
-     *                so a lookup and This Node is created. In this mode we can
+     * Synchronizing: We have at least the known nodes. In this mode we can
      *                accept (or reject) event id's, although processing events
      *                and queries is not possible.
      */
@@ -65,11 +64,7 @@ typedef enum
     TI_NODE_STAT_READY
 } ti_node_status_t;
 
-typedef enum
-{
-    TI_NODE_FLAG_MIGRATING  =1<<0,      /* migrating to desired state */
-    TI_NODE_FLAG_REMOVED    =1<<1,      /* node in lookup */
-} ti_node_flags_t;
+
 
 typedef struct ti_node_s ti_node_t;
 
@@ -91,8 +86,8 @@ struct ti_node_s
                     request, the higher ((node->id + event->id) % n-nodes)
                     is the winner. */
     uint8_t status;
-    uint8_t flags;                  /* flag status must be stored */
     uint8_t zone;                   /* zone info */
+    uint8_t _pad0;
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */
     uint64_t cevid;                 /* last committed event id */
@@ -118,25 +113,9 @@ int ti_node_upd_addr_from_stream(
         uint16_t port);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
-const char * ti_node_flags_str(ti_node_flags_t flags);
 int ti_node_connect(ti_node_t * node);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
-
-static inline _Bool ti_node_manages_id(
-        ti_node_t * node,
-        ti_lookup_t * lookup,
-        uint64_t id);
-
-static inline _Bool ti_node_manages_id(
-        ti_node_t * node,
-        ti_lookup_t * lookup,
-        uint64_t id)
-{
-    return ti_lookup_node_has_id(lookup, node->id, id);
-}
-
-
 
 #endif /* TI_NODE_H_ */

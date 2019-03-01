@@ -40,7 +40,6 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
-    case TI_PROTO_NODE_REQ_WATCH_ID:        return "NODE_REQ_WATCH_ID";
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
     case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
     case TI_PROTO_NODE_REQ_AWAY_ID:         return "NODE_REQ_AWAY_ID";

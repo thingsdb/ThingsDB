@@ -86,8 +86,6 @@ typedef enum
 
     /* expects a client response which will be forwarded back to the client */
     TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, {query...}] */
-    /* expects a client response which will be forwarded back to the client */
-    TI_PROTO_NODE_REQ_WATCH_ID  =163,   /* thing id */
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */

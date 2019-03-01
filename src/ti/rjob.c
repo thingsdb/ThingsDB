@@ -299,6 +299,8 @@ static int rjob__new_node(qp_unpacker_t * unp)
         return -1;
     }
 
+    (void) ti_save();
+
     return 0;
 }
 

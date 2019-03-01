@@ -31,7 +31,6 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -55,14 +54,12 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__function(
         ti_query_t * query,
@@ -896,115 +893,6 @@ failed:
 done:
     ti_val_drop((ti_val_t *) arrow);
     ti_val_drop(iterval);
-    return e->nr;
-}
-
-static int cq__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
-    int n;
-    ti_name_t * name;
-    ti_prop_t * prop;
-    vec_t * collect_attrs = NULL;
-    cleri_children_t * child = nd->children;    /* first in argument list */
-    ti_thing_t * thing = (ti_thing_t *) ti_query_val_pop(query);
-
-    if (thing->tp != TI_VAL_THING)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `get`",
-                ti_val_str((ti_val_t *) thing));
-        goto done;
-    }
-
-    n = langdef_nd_n_function_params(nd);
-    if (!n)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `get` requires at least 1 argument but 0 "
-                "were given");
-        return e->nr;
-    }
-
-    if (!ti_thing_with_attrs(thing))
-    {
-        collect_attrs = omap_get(query->collect, thing->id);
-        if (!collect_attrs)
-        {
-            collect_attrs = vec_new(1);
-            if (!collect_attrs ||
-                omap_add(query->collect, thing->id, collect_attrs))
-            {
-                vec_destroy(collect_attrs, NULL);
-                ex_set_alloc(e);
-                return e->nr;
-            }
-        }
-    }
-
-    for (n = 1; child; child = child->next->next, ++n)
-    {
-        ti_raw_t * rname;
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-
-        if (ti_cq_scope(query, child->node, e))
-            goto failed;
-
-        assert (query->rval);
-
-        if (!ti_val_is_valid_name(query->rval))
-        {
-            if (ti_val_is_raw(query->rval))
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "argument %d to function `get` is not a valid name, "
-                        "see "TI_DOCS"#names",
-                        n);
-            }
-            else
-            {
-                ex_set(e, EX_BAD_DATA,
-                    "function `get` only accepts `"TI_VAL_RAW_S"` arguments, "
-                    "but argument %d is of type `%s`",
-                    n, ti_val_str(query->rval));
-            }
-            goto failed;
-        }
-
-        rname = (ti_raw_t *) query->rval;
-        name = ti_names_get((const char *) rname->data, rname->n);
-        if (!name)
-            goto failed;
-
-        if (collect_attrs)
-        {
-            ti_nil_t * nil = ti_nil_get();
-            prop = ti_prop_create(name, (ti_val_t *) nil);
-            if (!prop || vec_push(&collect_attrs, prop))
-            {
-                ti_val_drop((ti_val_t *) nil);
-                ti_name_drop(name);
-                free(prop);
-                ex_set_alloc(e);
-                goto failed;
-            }
-        }
-        else
-        {
-            /* TODO: fix attributes */
-        }
-
-        if (!child->next)
-        {
-            break;
-        }
-    }
-
-    /* TODO: finish get, see id() etc. */
-failed:
-done:
     return e->nr;
 }
 
@@ -1995,118 +1883,6 @@ static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
-    int n;
-    cleri_node_t * name_nd, * value_nd;
-    ti_raw_t * rname;
-    ti_task_t * task;
-    ti_name_t * name;
-    ti_thing_t * thing = (ti_thing_t *) ti_query_val_pop(query);
-
-    if (thing->tp != TI_VAL_THING)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `set`",
-                ti_val_str((ti_val_t *) thing));
-        return e->nr;
-    }
-
-    if (!thing->id)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `set` requires a thing to be assigned, "
-                "`set` should therefore be used in a separate statement");
-        return e->nr;
-    }
-
-    n = langdef_nd_n_function_params(nd);
-    if (n != 2)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `set` expects 2 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    name_nd = nd
-            ->children->node;
-    value_nd = nd
-            ->children->next->next->node;
-
-    if (ti_cq_scope(query, name_nd, e))
-        return e->nr;
-
-    if (!ti_val_is_valid_name(query->rval))
-    {
-        if (ti_val_is_raw(query->rval))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `set` expects argument 1 to be a valid name, "
-                    "see "TI_DOCS"#names");
-        }
-        else
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `set` expects argument 1 to be of "
-                    "type `"TI_VAL_RAW_S"` but got `%s`",
-                    ti_val_str(query->rval));
-        }
-        return e->nr;
-    }
-
-    rname = (ti_raw_t *) query->rval;
-    query->rval = NULL;
-
-    if (ti_cq_scope(query, value_nd, e))
-        goto finish;
-
-    if (!ti_val_is_settable(query->rval))
-    {
-        ex_set(e, EX_BAD_DATA, "type `%s` is not settable",
-                ti_val_str(query->rval));
-        goto finish;
-    }
-
-    task = ti_task_get_task(query->ev, thing, e);
-    if (!task)
-        goto finish;
-
-    name = ti_names_get((const char *) rname->data, rname->n);
-    if (!name || ti_task_add_set(task, name, query->rval))
-        goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `query->ev->tasks` */
-
-    /* TODO: we can technically already store attributes for the desired state,
-     * when in away mode, the `other` attributes must be retrieved so what do
-     * we win? We cannot set the `attribute` flag since that indicates as if we
-     * have all attributes
-     */
-    if (!ti_thing_with_attrs(thing))
-    {
-        ti_val_drop(query->rval);
-    }
-    else if (ti_thing_attr_set(thing, name, query->rval))
-        goto alloc_err;
-
-    query->rval = (ti_val_t *) ti_nil_get();
-
-    goto finish;
-
-alloc_err:
-    /* we happen to require cleanup of name when alloc_err is used */
-    ti_name_drop(name);
-    ex_set_alloc(e);
-
-finish:
-    ti_val_drop((ti_val_t *) rname);
-    return e->nr;
-}
-
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2560,95 +2336,6 @@ failed:
     return e->nr;
 }
 
-static int cq__f_unset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
-    cleri_node_t * name_nd;
-    ti_task_t * task;
-    ti_raw_t * rname;
-    ti_name_t * name = NULL;
-    ti_thing_t * thing;
-
-    thing = (ti_thing_t *) ti_query_val_pop(query);
-
-    if (thing->tp != TI_VAL_THING)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `unset`",
-                ti_val_str((ti_val_t *) thing));
-        goto done;
-    }
-
-    if (!thing->id)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `unset` requires a thing to be assigned, "
-                "`unset` should therefore be used in a separate statement");
-        goto done;
-    }
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int n = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
-                "function `unset` takes 1 argument but %d were given", n);
-        goto done;
-    }
-
-    name_nd = nd->children->node;
-
-    if (ti_cq_scope(query, name_nd, e))
-        return e->nr;
-
-    if (!ti_val_is_valid_name(query->rval))
-    {
-        if (ti_val_is_raw(query->rval))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `unset` expects argument 1 to be a valid name, "
-                    "see "TI_DOCS"#names");
-        }
-        else
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `unset` expects argument 1 to be "
-                    "of type `"TI_VAL_RAW_S"` but got `%s`",
-                    ti_val_str(query->rval));
-        }
-        return e->nr;
-    }
-
-    task = ti_task_get_task(query->ev, thing, e);
-    if (!task)
-        goto done;
-
-    rname = (ti_raw_t *) query->rval;
-    name = ti_names_get((const char *) rname->data, rname->n);
-
-    if (!name || ti_task_add_unset(task, name))
-        goto alloc_err;  /* we do not need to cleanup task, since the task
-                            is added to `query->ev->tasks` */
-
-    /* unset can run even in case this is a not managed thing */
-    ti_thing_attr_unset(thing, name);
-
-    ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_nil_get();
-
-    goto done;
-
-alloc_err:
-    ex_set_alloc(e);
-
-done:
-    ti_name_drop(name);
-    ti_val_drop((ti_val_t *) thing);
-    return e->nr;
-}
-
 static int cq__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2715,8 +2402,6 @@ static int cq__function(
         return cq__f_filter(query, params, e);
     case CLERI_GID_F_FIND:
         return cq__f_find(query, params, e);
-    case CLERI_GID_F_GET:
-        return cq__f_get(query, params, e);
     case CLERI_GID_F_HASPROP:
         return cq__f_hasprop(query, params, e);
     case CLERI_GID_F_ID:
@@ -2792,8 +2477,6 @@ static int cq__function(
         break;
     case CLERI_GID_F_RET:
         return cq__f_ret(query, params, e);
-    case CLERI_GID_F_SET:
-        return cq__f_set(query, params, e);
     case CLERI_GID_F_SPLICE:
         return cq__f_splice(query, params, e);
     case CLERI_GID_F_STARTSWITH:
@@ -2812,8 +2495,6 @@ static int cq__function(
         if (is_scope)
             return cq__f_try(query, params, e);
         break;
-    case CLERI_GID_F_UNSET:
-        return cq__f_unset(query, params, e);
     case CLERI_GID_F_UPPER:
         return cq__f_upper(query, params, e);
     }

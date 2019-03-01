@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-02-22 23:25:36
+ * Created at: 2019-03-01 09:42:57
  */
 
 #include <langdef/langdef.h>
@@ -42,7 +42,6 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
     cleri_t * f_find = cleri_keyword(CLERI_GID_F_FIND, "find", CLERI_CASE_SENSITIVE);
-    cleri_t * f_get = cleri_keyword(CLERI_GID_F_GET, "get", CLERI_CASE_SENSITIVE);
     cleri_t * f_hasprop = cleri_keyword(CLERI_GID_F_HASPROP, "hasprop", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
     cleri_t * f_int = cleri_keyword(CLERI_GID_F_INT, "int", CLERI_CASE_SENSITIVE);
@@ -74,9 +73,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_pop = cleri_keyword(CLERI_GID_F_POP, "pop", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
-    cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
     cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
-    cleri_t * f_unset = cleri_keyword(CLERI_GID_F_UNSET, "unset", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_FIRST_MATCH,
@@ -124,12 +121,11 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            40,
+            37,
             f_blob,
             f_endswith,
             f_filter,
             f_find,
-            f_get,
             f_hasprop,
             f_id,
             f_int,
@@ -161,9 +157,7 @@ cleri_grammar_t * compile_langdef(void)
             f_pop,
             f_push,
             f_rename,
-            f_set,
             f_splice,
-            f_unset,
             name
         ),
         cleri_token(CLERI_NONE, "("),

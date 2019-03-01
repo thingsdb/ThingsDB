@@ -63,10 +63,6 @@ struct ti_query_s
                                 */
     vec_t * nd_cache;           /* cleri_node_t, for node cache cleanup */
     ti_scope_t * scope;         /* scope status */
-    omap_t * collect;           /* contains a vec_t with attributes
-                                   to collect (or type ti_name_t),
-                                   and the key is the thing id.
-                                */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

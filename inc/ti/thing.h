@@ -7,10 +7,8 @@
 enum
 {
     TI_THING_FLAG_SWEEP     =1<<0,
-    TI_THING_FLAG_ATTRS     =1<<1,
-    TI_THING_FLAG_NEW       =1<<2,
+    TI_THING_FLAG_NEW       =1<<1,
 };
-
 
 typedef struct ti_thing_s  ti_thing_t;
 
@@ -28,11 +26,9 @@ void ti_thing_destroy(ti_thing_t * thing);
 ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
-int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
-void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
@@ -49,9 +45,6 @@ static inline int ti_thing_to_map(ti_thing_t * thing);
 static inline _Bool ti_thing_is_new(ti_thing_t * thing);
 static inline void ti_thing_mark_new(ti_thing_t * thing);
 static inline void ti_thing_unmark_new(ti_thing_t * thing);
-static inline _Bool ti_thing_with_attrs(ti_thing_t * thing);
-static inline void ti_thing_mark_attrs(ti_thing_t * thing);
-static inline void ti_thing_unmark_attrs(ti_thing_t * thing);
 
 struct ti_thing_s
 {
@@ -65,8 +58,6 @@ struct ti_thing_s
     imap_t * things;        /* thing is added to this map */
     vec_t * watchers;       /* vec contains ti_watch_t,
                                NULL if no watchers,  */
-    vec_t * attrs;          /* vec contains ti_prop_t,
-                               NULL if no attributes or if not managed */
 };
 
 static inline int ti_thing_id_to_packer(
@@ -96,17 +87,5 @@ static inline void ti_thing_mark_new(ti_thing_t * thing)
 static inline void ti_thing_unmark_new(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_NEW;
-}
-static inline _Bool ti_thing_with_attrs(ti_thing_t * thing)
-{
-    return thing->flags & TI_THING_FLAG_ATTRS;
-}
-static inline void ti_thing_mark_attrs(ti_thing_t * thing)
-{
-    thing->flags |= TI_THING_FLAG_ATTRS;
-}
-static inline void ti_thing_unmark_attrs(ti_thing_t * thing)
-{
-    thing->flags &= ~TI_THING_FLAG_ATTRS;
 }
 #endif /* TI_THING_H_ */

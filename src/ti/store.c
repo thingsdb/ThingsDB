@@ -141,17 +141,9 @@ int ti_store_store(void)
                 ti_store_collection_store(
                         collection,
                         store_collection->collection_fn) ||
-//                ti_store_things_store_skeleton(
-//                        collection->things,
-//                        store_collection->skeleton_fn) ||
                 ti_store_things_store_data(
                         collection->things,
-                        false,
-                        store_collection->props_fn) ||
-                ti_store_things_store_data(
-                        collection->things,
-                        true,
-                        store_collection->attrs_fn)
+                        store_collection->props_fn)
             );
         }
         ti_store_collection_destroy(store_collection);
@@ -211,20 +203,11 @@ int ti_store_restore(void)
                 ti_store_collection_restore(
                         collection,
                         store_collection->collection_fn) ||
-//                ti_store_things_restore_skeleton(
-//                        collection->things,
-//                        namesmap,
-//                        store_collection->skeleton_fn) ||
                 ti_store_things_restore_data(
                         collection->things,
                         namesmap,
-                        false,
-                        store_collection->props_fn) ||
-                ti_store_things_restore_data(
-                        collection->things,
-                        namesmap,
-                        true,
-                        store_collection->attrs_fn));
+                        store_collection->props_fn)
+        );
 
         ti_store_collection_destroy(store_collection);
 

@@ -43,7 +43,6 @@ ti_node_t * ti_node_create(
     node->ref = 1;
     node->id = id;
     node->status = TI_NODE_STAT_OFFLINE;
-    node->flags = 0;
     node->zone = zone;
     node->next_retry = 0;
     node->retry_counter = 0;
@@ -114,13 +113,6 @@ const char * ti_node_status_str(ti_node_status_t status)
     case TI_NODE_STAT_READY:            return "READY";
     }
     return "UNKNOWN";
-}
-
-const char * ti_node_flags_str(ti_node_flags_t flags)
-{
-    if (flags & TI_NODE_FLAG_MIGRATING)
-        return "MIGRATING_TO_DESIRED_STATE";
-    return "NO_FLAGS_SET";
 }
 
 int ti_node_connect(ti_node_t * node)
@@ -195,7 +187,6 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
         qp_add_int(*packer, node->cevid) ||
         qp_add_int(*packer, node->sevid) ||
         qp_add_int(*packer, node->status) ||
-        qp_add_int(*packer, node->flags) ||
         qp_add_int(*packer, node->zone) ||
         qp_close_array(*packer)
     );
@@ -203,14 +194,13 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
 
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
 {
-    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpflags, qpzone;
+    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone;
 
     if (    !qp_is_array(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qpnext_thing_id)) ||
             !qp_is_int(qp_next(unp, &qpcevid)) ||
             !qp_is_int(qp_next(unp, &qpsevid)) ||
             !qp_is_int(qp_next(unp, &qpstatus)) ||
-            !qp_is_int(qp_next(unp, &qpflags)) ||
             !qp_is_int(qp_next(unp, &qpzone)))
         return -1;
 
@@ -218,7 +208,6 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
     node->cevid = (uint64_t) qpcevid.via.int64;
     node->sevid = (uint64_t) qpsevid.via.int64;
     node->status = (uint8_t) qpstatus.via.int64;
-    node->flags = (uint8_t) qpflags.via.int64;
     node->zone = (uint8_t) qpzone.via.int64;
 
     return 0;
@@ -313,7 +302,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     ti_node_t * node = req->data;
 
     if (status)
-        goto failed;  /* logging is done */
+        goto failed;
 
     if (pkg->tp != TI_PROTO_NODE_RES_CONNECT)
     {
@@ -342,14 +331,14 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     node->next_retry = 0;
     node->retry_counter = 0;
 
-    /* drop the request node reference */
-    ti_node_drop(node);
-
     goto done;
 
 failed:
     ti_stream_close(req->stream);
 done:
+    /* drop the request node reference */
+    ti_node_drop(node);
+
     free(req->pkg_req);
     ti_req_destroy(req);
 }

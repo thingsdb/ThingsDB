@@ -22,7 +22,6 @@ struct ti_args_s
     int32_t init;
 
     /* integer props */
-    int32_t redundancy;                     /* only on init */
     int32_t zone;                           /* can be overwritten at runtime */
 
     /* string props */

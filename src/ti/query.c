@@ -32,7 +32,6 @@ static void query__event_handle(ti_query_t * query);
 static ti_epkg_t * query__epkg_event(ti_query_t * query);
 static void query__task_to_watchers(ti_query_t * query);
 static inline _Bool query__requires_root_event(cleri_node_t * name_nd);
-static inline void query__collect_destroy_cb(vec_t * names);
 
 ti_query_t * ti_query_create(ti_stream_t * stream)
 {
@@ -40,12 +39,6 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     if (!query)
         return NULL;
 
-    query->collect = omap_create();
-    if (!query->collect)
-    {
-        free(query);
-        return NULL;
-    }
     query->scope = NULL;
     query->rval = NULL;
     query->deep = 1;
@@ -68,12 +61,11 @@ void ti_query_destroy(ti_query_t * query)
 {
     if (!query)
         return;
-    /* must destroy nd_cache before clearing the parse result */
-    vec_destroy(query->nd_cache, (vec_destroy_cb) ti_val_drop);
 
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
+    vec_destroy(query->nd_cache, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->results, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
@@ -81,8 +73,6 @@ void ti_query_destroy(ti_query_t * query)
     ti_event_drop(query->ev);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
     free(query->querystr);
-    omap_destroy(query->collect, (omap_destroy_cb) query__collect_destroy_cb);
-
     free(query);
 }
 
@@ -470,9 +460,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_F_DEL:
         case CLERI_GID_F_PUSH:
         case CLERI_GID_F_RENAME:
-        case CLERI_GID_F_SET:
         case CLERI_GID_F_SPLICE:
-        case CLERI_GID_F_UNSET:
             query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
             break;
         case CLERI_GID_NAME:
@@ -740,9 +728,4 @@ static inline _Bool query__requires_root_event(cleri_node_t * fname_nd)
         );
     }
     return false;
-}
-
-static inline void query__collect_destroy_cb(vec_t * names)
-{
-    vec_destroy(names, (vec_destroy_cb) ti_name_drop);
 }

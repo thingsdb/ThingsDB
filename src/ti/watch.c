@@ -20,8 +20,8 @@ void ti_watch_drop(ti_watch_t * watch)
 {
     if (!watch)
         return;
-    if (!watch->stream)
-        free(watch);
-    else
+    if (watch->stream)
         watch->stream = NULL;
+    else
+        free(watch);
 }

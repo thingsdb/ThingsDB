@@ -82,7 +82,7 @@ void ti_stream_drop(ti_stream_t * stream)
 
 void ti_stream_close(ti_stream_t * stream)
 {
-    if (!stream)
+    if (!stream || (stream->flags & TI_STREAM_FLAG_CLOSED))
         return;
     stream->flags |= TI_STREAM_FLAG_CLOSED;
     stream->n = 0; /* prevents quick looping allocation function */

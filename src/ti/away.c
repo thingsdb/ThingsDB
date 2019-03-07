@@ -116,7 +116,8 @@ void ti_away_stop(void)
         away__destroy(NULL);
     else
     {
-        if (away->status == AWAY__STATUS_WAITING)
+        if (    away->status == AWAY__STATUS_WAITING ||
+                away->status ==AWAY__STATUS_SYNCING)
         {
             uv_timer_stop(away->waiter);
             uv_close((uv_handle_t *) away->waiter, (uv_close_cb) free);

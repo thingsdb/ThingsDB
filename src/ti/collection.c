@@ -51,23 +51,23 @@ ti_collection_t * ti_collection_create(
 
 void ti_collection_drop(ti_collection_t * collection)
 {
-    if (collection && !--collection->ref)
-    {
-        ti_val_drop((ti_val_t *) collection->name);
-        vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
+    if (!collection || --collection->ref)
+        return;
 
-        ti_val_drop((ti_val_t *) collection->root);
+    ti_val_drop((ti_val_t *) collection->name);
+    vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
 
-        if (!collection->things->n)
-            imap_destroy(collection->things, NULL);
-        else if (ti_collections_add_for_collect(collection->things))
-            log_critical(EX_ALLOC_S);
+    ti_val_drop((ti_val_t *) collection->root);
 
-        ti_quota_destroy(collection->quota);
-        uv_mutex_destroy(collection->lock);
-        free(collection->lock);
-        free(collection);
-    }
+    if (!collection->things->n)
+        imap_destroy(collection->things, NULL);
+    else if (ti_collections_add_for_collect(collection->things))
+        log_critical(EX_ALLOC_S);
+
+    ti_quota_destroy(collection->quota);
+    uv_mutex_destroy(collection->lock);
+    free(collection->lock);
+    free(collection);
 }
 
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)

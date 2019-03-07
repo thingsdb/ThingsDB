@@ -55,13 +55,17 @@ int ti_store_users_restore(const char * fn)
     ex_t * e = ex_use();
     int rcode, rc = -1;
     ssize_t n;
+    qp_unpacker_t unpacker;
+    qp_res_t * res;
     uchar * data = fx_read(fn, &n);
+
     if (!data)
         return -1;
 
-    qp_unpacker_t unpacker;
+    ti_users_clear();
+
     qpx_unpacker_init(&unpacker, data, (size_t) n);
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
+    res = qp_unpacker_res(&unpacker, &rcode);
     free(data);
 
     if (rcode)
@@ -93,7 +97,9 @@ int ti_store_users_restore(const char * fn)
             qid->tp != QP_RES_INT64 ||
             qname->tp != QP_RES_RAW ||
             qpass->tp != QP_RES_RAW)
+        {
             goto stop;
+        }
 
         user_id = (uint64_t) qid->via.int64;
         name = (char *) qname->via.raw->data;

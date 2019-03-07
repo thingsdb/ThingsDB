@@ -2288,15 +2288,17 @@ static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (errnr > -100)
         return errnr;   /* return when successful or internal errors */
 
+    ti_val_drop(query->rval);
     e->nr = 0;
 
     if (n == 1)
+    {
+        query->rval = (ti_val_t *) ti_nil_get();
         return 0;
+    }
 
-    child = child->next->next;
-
-    ti_val_drop(query->rval);
     query->rval = NULL;
+    child = child->next->next;
 
     if (ti_cq_scope(query, child->node, e))
         return e->nr;

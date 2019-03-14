@@ -7,6 +7,7 @@
 #include <ti/fsync.h>
 #include <ti/proto.h>
 #include <ti/collection.h>
+#include <ti/store/collection.h>
 #include <ti/req.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,7 +19,18 @@
 
 typedef enum
 {
-    FSYNC__ACCESS_FILE
+    /* root files */
+    FSYNC__USERS_FILE,
+    FSYNC__ACCESS_FILE,
+    FSYNC__NAMES_FILE,
+    FSYNC__COLLECTIONS_FILE,
+    FSYNC__ID_STAT_FILE,
+    /* collection files */
+    FSYNC__COLLECTION_DAT_FILE,
+    FSYNC__COLLECTION_ACCESS_FILE,
+    FSYNC__COLLECTION_THINGS_FILE,
+    FSYNC__COLLECTION_PROPS_FILE,
+    FSYNC__COLLECTION_END,
 } fsync__file_t;
 
 static int fsync__write_part(
@@ -29,10 +41,10 @@ static int fsync__write_part(
         ex_t * e);
 static void fsync__push_cb(ti_req_t * req, ex_enum status);
 static ti_pkg_t * fsync__pkg(
-        ti_collection_t * target,
+        uint64_t target_id,
         fsync__file_t ft,
         off_t offset);
-static const char * fsync__get_fn(uint64_t target_id, fsync__file_t ft);
+static char * fsync__get_fn(uint64_t target_id, fsync__file_t ft);
 static int fsync__part_to_packer(
         qp_packer_t * packer,
         const char * fn,
@@ -40,7 +52,7 @@ static int fsync__part_to_packer(
 
 int ti_fsync_start(ti_stream_t * stream)
 {
-    ti_pkg_t * pkg = fsync__pkg(NULL, FSYNC__ACCESS_FILE, 0);
+    ti_pkg_t * pkg = fsync__pkg(0, FSYNC__USERS_FILE, 0);
     if (!pkg)
         return -1;
 
@@ -59,6 +71,7 @@ int ti_fsync_start(ti_stream_t * stream)
 
 ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
 {
+    int rc;
     qp_unpacker_t unpacker;
     ti_pkg_t * resp;
     qp_obj_t qp_target, qp_ft, qp_offset, qp_raw, qp_more;
@@ -66,7 +79,7 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
     fsync__file_t ft;
     off_t offset;
     uint64_t target_id;
-    const char * fn;
+    char * fn;
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -85,14 +98,32 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
     ft = (fsync__file_t) qp_ft.via.int64;
     offset = (off_t) qp_offset.via.int64;
 
+    if (ft == FSYNC__COLLECTION_DAT_FILE)
+    {
+        int rc;
+        char * path = ti()->store->store_path;
+        path = ti_store_collection_get_path(path, target_id);
+        rc = mkdir(path, 0700);
+        if (rc)
+        {
+            log_error("cannot create directory `%s` (%s)",
+                    path,
+                    strerror(errno));
+        }
+        free(path);
+    }
+
     fn = fsync__get_fn(target_id, ft);
     if (!fn)
     {
-        ex_set(e, EX_BAD_DATA, "invalid file type: %d", ft);
+        ex_set(e, EX_BAD_DATA, "invalid file type %d for "TI_COLLECTION_ID,
+                ft, target_id);
         return NULL;
     }
 
-    if (fsync__write_part(fn, qp_raw.via.raw, qp_raw.len, offset, e))
+    rc = fsync__write_part(fn, qp_raw.via.raw, qp_raw.len, offset, e);
+    free(fn);
+    if (rc)
         return NULL;
 
     packer = qpx_packer_create(48 , 1);
@@ -123,7 +154,7 @@ static int fsync__write_part(
 {
     off_t sz;
     FILE * fp;
-    fp = fopen(fn, "a");
+    fp = fopen(fn, offset ? "ab" : "wb");
     if (!fp)
     {
         /* lock is required for use of strerror */
@@ -134,14 +165,15 @@ static int fsync__write_part(
         uv_mutex_unlock(&Logger.lock);
         return e->nr;
     }
-
     sz = ftello(fp);
     if (sz != offset)
     {
         uv_mutex_lock(&Logger.lock);
-        ex_set(e, EX_BAD_DATA, "file `%s` is expected to have size %zd (%s)",
+        ex_set(e, EX_BAD_DATA,
+                "file `%s` is expected to have size %zd (got: %zd, %s)",
                 fn,
                 offset,
+                sz,
                 sz == -1 ? strerror(errno) : "file size is different");
         uv_mutex_unlock(&Logger.lock);
         goto done;
@@ -165,18 +197,50 @@ done:
     return e->nr;
 }
 
+static bool fsync__next_file(uint64_t * target_id, fsync__file_t * ft)
+{
+    (*ft)++;
+    if (*ft == FSYNC__COLLECTION_END)
+        *ft = FSYNC__COLLECTION_DAT_FILE;
+
+    if (*ft == FSYNC__COLLECTION_DAT_FILE)
+    {
+        size_t i = 0;
+        ti_collection_t * collection;
+        vec_t * collections = ti()->collections->vec;
+
+        if (*target_id)
+            for (vec_each(collections, ti_collection_t, collection))
+                if (++i && collection->root->id == *target_id)
+                    break;
+        collection = vec_get_or_null(collections, i);
+        if (!collection)
+            return false;       /* finished, no more files to sync */
+        *target_id = collection->root->id;
+    }
+    return true;
+}
+
 static void fsync__push_cb(ti_req_t * req, ex_enum status)
 {
     qp_unpacker_t unpacker;
     ti_pkg_t * pkg = req->pkg_res;
+    ti_pkg_t * next_pkg;
     qp_obj_t qp_target, qp_ft, qp_offset;
     uint64_t target_id;
     fsync__file_t ft;
     off_t offset;
-    const char * fn;
+
+    LOGC("ON CALLBACK");
 
     if (status)
         goto failed;
+
+    if (!req->stream)
+    {
+        log_error("connection to stream lost while synchronizing");
+        goto failed;
+    }
 
     if (pkg->tp != TI_PROTO_NODE_RES_MULTIPART)
     {
@@ -199,20 +263,31 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
     ft = (fsync__file_t) qp_ft.via.int64;
     offset = (off_t) qp_offset.via.int64;
 
-    fn = fsync__get_fn(target_id, ft);
-    if (!fn)
+    if (!offset && !fsync__next_file(&target_id, &ft))
     {
-        log_error("invalid file type: %d", ft);
+        LOGC("FINISED WITH ALL FILES");
+        goto done;
+    }
+
+    next_pkg = fsync__pkg(target_id, ft, offset);
+    if (!next_pkg)
+    {
+        log_error(
+                "failed creating package "
+                "(target: %"PRIu64" file type: %d, offset: %zd)",
+                target_id, ft, offset);
         goto failed;
     }
 
-    if (!offset)
+    if (ti_req_create(
+            req->stream,
+            next_pkg,
+            TI_PROTO_NODE_REQ_PUSH_PART_TIMEOUT,
+            fsync__push_cb,
+            NULL))
     {
-        /* next file or finished */
-    }
-    else
-    {
-        /* next part from file */
+        free(next_pkg);
+        goto failed;
     }
 
     goto done;
@@ -225,26 +300,27 @@ done:
 }
 
 static ti_pkg_t * fsync__pkg(
-        ti_collection_t * target,
+        uint64_t target_id,
         fsync__file_t ft,
         off_t offset)
 {
     int more;
-    const char * fn;
+    char * fn;
     qpx_packer_t * packer = qpx_packer_create(48 + FSYNC__PART_SIZE, 1);
     if (!packer)
         return NULL;
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, 0);       /* target root */
-    (void) qp_add_int(packer, ft);      /* file type */
-    (void) qp_add_int(packer, offset);  /* offset in file */
+    (void) qp_add_int(packer, target_id);   /* target root */
+    (void) qp_add_int(packer, ft);          /* file type */
+    (void) qp_add_int(packer, offset);      /* offset in file */
 
-    fn = fsync__get_fn(target ? target->root->id : 0, ft);
+    fn = fsync__get_fn(target_id, ft);
     if (!fn)
         goto failed;
 
     more = fsync__part_to_packer(packer, fn, offset);
+    free(fn);
     if (more < 0)
         goto failed;
 
@@ -258,16 +334,34 @@ failed:
     return NULL;
 }
 
-static const char * fsync__get_fn(uint64_t target_id, fsync__file_t ft)
+static char * fsync__get_fn(uint64_t target_id, fsync__file_t ft)
 {
-    if (target_id == 0)
+    char * path = ti()->store->store_path;
+
+    switch (ft)
     {
-        switch (ft)
-        {
-        case FSYNC__ACCESS_FILE:
-            return ti()->store->access_fn;
-        }
+    case FSYNC__USERS_FILE:
+        return strdup(ti()->store->users_fn);
+    case FSYNC__ACCESS_FILE:
+        return strdup(ti()->store->access_fn);
+    case FSYNC__NAMES_FILE:
+        return strdup(ti()->store->names_fn);
+    case FSYNC__COLLECTIONS_FILE:
+        return strdup(ti()->store->collections_fn);
+    case FSYNC__ID_STAT_FILE:
+        return strdup(ti()->store->id_stat_fn);
+    case FSYNC__COLLECTION_DAT_FILE:
+        return ti_store_collection_dat_fn(path, target_id);
+    case FSYNC__COLLECTION_ACCESS_FILE:
+        return ti_store_collection_access_fn(path, target_id);
+    case FSYNC__COLLECTION_THINGS_FILE:
+        return ti_store_collection_things_fn(path, target_id);
+    case FSYNC__COLLECTION_PROPS_FILE:
+        return ti_store_collection_props_fn(path, target_id);
+    case FSYNC__COLLECTION_END:
+        break;
     }
+
     return NULL;
 }
 

@@ -5,14 +5,28 @@
 typedef struct ti_store_collection_s ti_store_collection_t;
 
 #include <ti/collection.h>
+#include <util/guid.h>
+
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
-        ti_collection_t * collection);
+        guid_t * guid);
 void ti_store_collection_destroy(ti_store_collection_t * store_collection);
 int ti_store_collection_store(ti_collection_t * collection, const char * fn);
 int ti_store_collection_restore(ti_collection_t * collection, const char * fn);
-
+char * ti_store_collection_get_path(const char * path, uint64_t collection_id);
+char * ti_store_collection_access_fn(
+        const char * path,
+        uint64_t collection_id);
+char * ti_store_collection_dat_fn(
+        const char * path,
+        uint64_t collection_id);
+char * ti_store_collection_props_fn(
+        const char * path,
+        uint64_t collection_id);
+char * ti_store_collection_things_fn(
+        const char * path,
+        uint64_t collection_id);
 
 struct ti_store_collection_s
 {

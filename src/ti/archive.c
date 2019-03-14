@@ -149,7 +149,9 @@ int ti_archive_init(void)
 
     if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
     {
-        log_critical("cannot create archive directory: `%s`", archive->path);
+        log_critical("cannot create archive directory: `%s` (%s)",
+                archive->path,
+                strerror(errno));
         return -1;
     }
 

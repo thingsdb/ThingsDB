@@ -6,6 +6,7 @@
 #include <ti/proto.h>
 #include <ti/quorum.h>
 #include <ti/things.h>
+#include <ti/fsync.h>
 #include <ti/syncer.h>
 #include <ti.h>
 #include <util/logger.h>
@@ -21,6 +22,7 @@ static ti_away_t * away = NULL;
  */
 #define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 5
 #define AWAY__ACCEPT_COUNTER 3
+#define AWAY__SOON_TIMER 1000  /* TODO: 10 seconds might be a nice default */
 
 enum away__status
 {
@@ -315,8 +317,8 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     if (uv_timer_start(
             away->waiter,
             away__waiter_pre_cb,
-            10000,      /* for 10 seconds we keep in AWAY_SOON mode */
-            1000        /* a little longer if events are still queued */
+            AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
+            1000                /* a little longer if events are still queued */
     ))
         goto fail2;
 
@@ -375,13 +377,12 @@ static size_t away__syncers(void)
             ++count;
             if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
                 continue;
-
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
             if (syncer->start < ti()->archive->start_event_id)
             {
                 log_info("full database sync is required for `%s`",
                         ti_stream_name(syncer->stream));
-
+                ti_fsync_start(syncer->stream);
             }
         }
     }

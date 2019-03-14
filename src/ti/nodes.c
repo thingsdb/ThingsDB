@@ -1002,6 +1002,8 @@ static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
+    LOGC("MULTIPART REQUEST");
+
     if (!node)
     {
         log_error(

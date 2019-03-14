@@ -432,14 +432,14 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * addrstr;
     int port, n = langdef_nd_n_function_params(nd);
 
-    if (n < 3)
+    if (n < 2)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` requires at least 2 arguments but %d %s given",
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
-    else if (n > 4)
+    else if (n > 3)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` takes at most 3 arguments but %d were given",

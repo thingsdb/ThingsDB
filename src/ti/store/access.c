@@ -54,7 +54,8 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
     int rcode, rc = -1;
     ssize_t n;
     uchar * data = fx_read(fn, &n);
-    if (!data) return -1;
+    if (!data)
+        return -1;
 
     qp_unpacker_t unpacker;
     qpx_unpacker_init(&unpacker, data, (size_t) n);

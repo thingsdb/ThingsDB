@@ -18,6 +18,7 @@ static inline uint32_t vec_space(const vec_t * vec);
 static inline void * vec_first(const vec_t * vec);
 static inline void * vec_last(const vec_t * vec);
 static inline void * vec_get(const vec_t * vec, uint32_t i);
+static inline void * vec_get_or_null(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
 void * vec_remove(vec_t * vec, uint32_t i);
@@ -65,6 +66,11 @@ static inline void * vec_last(const vec_t * vec)
 static inline void * vec_get(const vec_t * vec, uint32_t i)
 {
     return vec->data[i];
+}
+
+static inline void * vec_get_or_null(const vec_t * vec, uint32_t i)
+{
+    return i < vec->n ? vec->data[i] : NULL;
 }
 
 static inline void * vec_pop(vec_t * vec)

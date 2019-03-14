@@ -151,8 +151,9 @@ static int ti__cfg_storage_path(cfgparser_t * parser, const char * cfg_file)
         storage_path = option->val->string;
     }
 
-    if (!fx_is_dir(storage_path))
-        (void) mkdir(storage_path, 0700);
+    if (!fx_is_dir(storage_path) && mkdir(storage_path, 0700))
+        log_error("cannot create directory `%s` (%s)",
+                storage_path, strerror(errno));
 
     cfg->storage_path = realpath(storage_path, NULL);
 

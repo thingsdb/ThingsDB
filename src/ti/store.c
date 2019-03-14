@@ -98,13 +98,21 @@ void ti_store_destroy(void)
 
 int ti_store_store(void)
 {
+    int rc;
     assert (store);
 
     /* not need for checking on errors */
     fx_rmdir(store->prev_path);
-    mkdir(store->tmp_path, 0700);
 
-    store__set_filename(true);
+    rc = mkdir(store->tmp_path, 0700);
+    if (rc)
+    {
+        log_warning("cannot create directory `%s` (%s)",
+                store->tmp_path,
+                strerror(errno));
+    }
+
+    store__set_filename(/* use_tmp: */ true);
 
     if (    ti_store_status_store(store->id_stat_fn) ||
             ti_store_names_store(store->names_fn) ||
@@ -118,7 +126,7 @@ int ti_store_store(void)
         int rc;
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->tmp_path,
-                collection);
+                &collection->guid);
         if (!store_collection)
             goto failed;
 
@@ -126,8 +134,9 @@ int ti_store_store(void)
         if (rc)
         {
             log_critical(
-                    "cannot create collection path: `%s`",
-                    store_collection->collection_path);
+                    "cannot create collection path: `%s` (%s)",
+                    store_collection->collection_path,
+                    strerror(errno));
         }
         else
         {
@@ -163,6 +172,8 @@ int ti_store_store(void)
 
     (void) fx_rmdir(store->prev_path);
 
+    store__set_filename(/* use_tmp: */ false);
+
     return 0;
 
 failed:
@@ -175,7 +186,7 @@ int ti_store_restore(void)
 {
     assert (store);
 
-    store__set_filename(false);
+    store__set_filename(/* use_tmp: */ false);
 
     imap_t * namesmap = ti_store_names_restore(store->names_fn);
     int rc = (
@@ -192,7 +203,7 @@ int ti_store_restore(void)
     {
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->store_path,
-                collection);
+                &collection->guid);
         rc = (  -(!store_collection) ||
                 ti_store_access_restore(
                         &collection->access,

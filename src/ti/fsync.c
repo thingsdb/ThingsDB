@@ -8,6 +8,7 @@
 #include <ti/proto.h>
 #include <ti/collection.h>
 #include <ti/store/collection.h>
+#include <ti/store.h>
 #include <ti/req.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,7 +60,7 @@ int ti_fsync_start(ti_stream_t * stream)
     if (ti_req_create(
             stream,
             pkg,
-            TI_PROTO_NODE_REQ_PUSH_PART_TIMEOUT,
+            TI_PROTO_NODE_REQ_FSYNCPART_TIMEOUT,
             fsync__push_cb,
             NULL))
     {
@@ -69,7 +70,7 @@ int ti_fsync_start(ti_stream_t * stream)
     return 0;
 }
 
-ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
+ti_pkg_t * ti_fsync_on_part(ti_pkg_t * pkg, ex_t * e)
 {
     int rc;
     qp_unpacker_t unpacker;
@@ -139,7 +140,7 @@ ti_pkg_t * ti_fsync_on_multipart(ti_pkg_t * pkg, ex_t * e)
     (void) qp_add_int(packer, qp_more.tp == QP_TRUE ? offset + qp_raw.len : 0);
     (void) qp_close_array(packer);
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_MULTIPART);
+    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_FSYNCPART);
     resp->id = pkg->id;
 
     return resp;
@@ -221,6 +222,20 @@ static bool fsync__next_file(uint64_t * target_id, fsync__file_t * ft)
     return true;
 }
 
+static void fsync__done_cb(ti_req_t * req, ex_enum status)
+{
+    if (status)
+        log_error("failed resonse on fsync done");
+
+    LOGC("FSYNC DONE CB");
+
+    ti_away_syncer_done(req->stream);
+    ti_stream_stop_watching(req->stream);
+
+    free(req->pkg_req);
+    ti_req_destroy(req);
+}
+
 static void fsync__push_cb(ti_req_t * req, ex_enum status)
 {
     qp_unpacker_t unpacker;
@@ -242,7 +257,7 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    if (pkg->tp != TI_PROTO_NODE_RES_MULTIPART)
+    if (pkg->tp != TI_PROTO_NODE_RES_FSYNCPART)
     {
         ti_pkg_log(pkg);
         goto failed;
@@ -255,7 +270,7 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
         !qp_is_int(qp_next(&unpacker, &qp_ft)) ||
         !qp_is_int(qp_next(&unpacker, &qp_offset)))
     {
-        log_error("invalid multipart response");
+        log_error("invalid `%s`", ti_proto_str(pkg->tp));
         goto failed;
     }
 
@@ -266,6 +281,20 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
     if (!offset && !fsync__next_file(&target_id, &ft))
     {
         LOGC("FINISED WITH ALL FILES");
+        next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_FSYNCDONE, NULL, 0);
+        if (!next_pkg)
+            goto failed;
+
+        if (ti_req_create(
+                req->stream,
+                next_pkg,
+                TI_PROTO_NODE_REQ_FSYNCDONE_TIMEOUT,
+                fsync__done_cb,
+                NULL))
+        {
+            free(next_pkg);
+            goto failed;
+        }
         goto done;
     }
 
@@ -282,7 +311,7 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
     if (ti_req_create(
             req->stream,
             next_pkg,
-            TI_PROTO_NODE_REQ_PUSH_PART_TIMEOUT,
+            TI_PROTO_NODE_REQ_FSYNCPART_TIMEOUT,
             fsync__push_cb,
             NULL))
     {
@@ -327,7 +356,7 @@ static ti_pkg_t * fsync__pkg(
     (void) qp_add_bool(packer, (_Bool) more);
     (void) qp_close_array(packer);
 
-    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_MULTIPART);
+    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_FSYNCPART);
 
 failed:
     qp_packer_destroy(packer);

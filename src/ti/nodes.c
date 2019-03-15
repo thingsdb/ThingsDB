@@ -28,6 +28,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
@@ -363,15 +364,19 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_SYNC:
         nodes__on_req_sync(stream, pkg);
         break;
-    case TI_PROTO_NODE_REQ_MULTIPART:
+    case TI_PROTO_NODE_REQ_FSYNCPART:
         nodes__on_req_multipart(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_FSYNCDONE:
+        nodes__on_req_fsyncdone(stream, pkg);
         break;
     case TI_PROTO_NODE_RES_CONNECT:
     case TI_PROTO_NODE_RES_EVENT_ID:
     case TI_PROTO_NODE_RES_AWAY_ID:
     case TI_PROTO_NODE_RES_SETUP:
     case TI_PROTO_NODE_RES_SYNC:
-    case TI_PROTO_NODE_RES_MULTIPART:
+    case TI_PROTO_NODE_RES_FSYNCPART:
+    case TI_PROTO_NODE_RES_FSYNCDONE:
     case TI_PROTO_NODE_ERR_RES:
     case TI_PROTO_NODE_ERR_EVENT_ID:
     case TI_PROTO_NODE_ERR_AWAY_ID:
@@ -1002,31 +1007,76 @@ static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
-    LOGC("MULTIPART REQUEST");
+    LOGC("FSYNCPART REQUEST");
 
     if (!node)
     {
         log_error(
-            "got a multipart request from an unauthorized connection: `%s`",
-            ti_stream_name(stream));
+            "got a `%s` from an unauthorized connection: `%s`",
+            ti_proto_str(pkg->tp), ti_stream_name(stream));
         return;
     }
 
     if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
-                "got a multipart request from `%s` "
+                "got a `%s` from `%s` "
                 "but this node is not in `synchronizing` mode",
-                ti_stream_name(stream));
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
-                "multipart requests",
+                "cannot accept the request",
                 ti_name());
         goto finish;
     }
 
-    resp = ti_fsync_on_multipart(pkg, e);
+    resp = ti_fsync_on_part(pkg, e);
     assert (!resp ^ !e->nr);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_node_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
+static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t * e = ex_use();
+    ti_pkg_t * resp = NULL;
+    ti_node_t * node = stream->via.node;
+
+    LOGC("FSYNC FINISHED");
+
+    if (!node)
+    {
+        log_error(
+            "got a `%s` from an unauthorized connection: `%s`",
+            ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    {
+        log_error(
+                "got a `%s` from `%s` "
+                "but this node is not in `synchronizing` mode",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not in `synchronizing` mode and therefore "
+                "cannot accept the request",
+                ti_name());
+        goto finish;
+    }
+
+    LOGC("RESTORE");
+    ti_store_restore();
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_FSYNCDONE, NULL, 0);
 
 finish:
     if (e->nr)
@@ -1047,8 +1097,8 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!node)
     {
         log_error(
-                "got a info update from an unauthorized connection: `%s`",
-                ti_stream_name(stream));
+                "got a `%s` from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
         return;
     }
 
@@ -1056,11 +1106,13 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_node_info_from_unp(node, &unpacker))
     {
-        log_error("invalid info package from `%s`", ti_stream_name(stream));
+        log_error("invalid `%s` from `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
         return;
     }
 
-    log_debug("got a info update for "TI_NODE_ID" (%s)",
+    log_debug("got a `%s` for "TI_NODE_ID" (%s)",
+            ti_proto_str(pkg->tp),
             node->id,
             ti_stream_name(stream));
 }

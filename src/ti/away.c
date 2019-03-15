@@ -219,6 +219,23 @@ failed:
     return -1;
 }
 
+void ti_away_syncer_done(ti_stream_t * stream)
+{
+    size_t i = 0;
+    for (vec_each(away->syncers, ti_syncer_t, syncer), ++i)
+    {
+        if (syncer->stream == stream)
+        {
+            /* remove the synchronizing flag */
+            syncer->stream->flags &= ~TI_STREAM_FLAG_SYNCHRONIZING;
+            break;
+        }
+    }
+
+    if (i < away->syncers->n)
+        vec_remove(away->syncers, i);
+}
+
 static void away__destroy(uv_handle_t * handle)
 {
     if (away)
@@ -377,6 +394,7 @@ static size_t away__syncers(void)
             ++count;
             if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
                 continue;
+
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
             if (syncer->start < ti()->archive->start_event_id)
             {

@@ -17,6 +17,7 @@ void ti_away_stop(void);
 _Bool ti_away_accept(uint8_t node_id, uint8_t away_id);
 _Bool ti_away_is_working(void);
 int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until);
+void ti_away_syncer_done(ti_stream_t * stream);
 
 struct ti_away_s
 {

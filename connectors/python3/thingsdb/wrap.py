@@ -25,9 +25,9 @@ def wrap(value, blobs):
     if isinstance(value, bytes):
         idx = len(blobs)
         blobs.append(blob)
-        return Wrap(f'blob({self._idx}')
+        return Wrap(f'blob({idx}')
     if isinstance(value, dict):
-        return Wrap(f"{{{','.join(f'{k}:{v!r}' for k, v in value.items())}}}")
+        return Wrap(f"{{{','.join(f'{k}:{wrap(v, blobs)}' for k, v in value.items())}}}")  # nopep8
     if isinstance(value, (list, tuple)):
         return Wrap(f"[{','.join(repr(wrap(v, blobs)) for v in value)}]")
     if isinstance(value, Wrap.nowrap()):

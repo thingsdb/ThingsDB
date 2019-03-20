@@ -25,7 +25,7 @@ def wrap(value, blobs):
     if isinstance(value, bytes):
         idx = len(blobs)
         blobs.append(value)
-        return Wrap(f'blob({idx}')
+        return Wrap(f'blob({idx})')
     if isinstance(value, dict):
         thing = ','.join(
             f'{k}:{repr(wrap(v, blobs))}'

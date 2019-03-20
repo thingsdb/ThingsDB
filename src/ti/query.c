@@ -244,6 +244,10 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
         assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
 
+        e->msg[EX_MAX_SZ] = '\0';
+
+        log_warning("invalid query: `%s` (%s)", query->querystr, e->msg);
+
         /* we will certainly not hit the max size, but just to be safe */
         e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
         e->nr = EX_QUERY_ERROR;

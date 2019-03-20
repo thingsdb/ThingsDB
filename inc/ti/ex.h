@@ -10,7 +10,7 @@
 #define EX_INTERNAL_S \
     "internal error in `%s` at %s:%d", __func__, __FILE__, __LINE__
 
-#define EX_MAX_SZ 1024
+#define EX_MAX_SZ 1023
 
 typedef enum
 {
@@ -44,7 +44,7 @@ struct ex_s
 {
     ex_enum nr;
     int n;
-    char msg[EX_MAX_SZ];    /* 0 terminated message */
+    char msg[EX_MAX_SZ + 1];    /* 0 terminated message */
 };
 
 #define ex_set_alloc(e__) ex_set((e__), EX_ALLOC, EX_ALLOC_S)

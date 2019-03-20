@@ -20,6 +20,7 @@ ex_t * ex_use(void)
     ex__e.nr = 0;
     ex__e.n = 0;
     ex__e.msg[0] = '\0';
+    ex__e.msg[EX_MAX_SZ] = '\0';
     return &ex__e;
 }
 

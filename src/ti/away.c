@@ -93,17 +93,26 @@ fail0:
 void ti_away_trigger(void)
 {
     if (away->accept_counter)
-    {
         --away->accept_counter;
-        return;
-    }
 
     if ((away->status != AWAY__STATUS_IDLE) ||
         ti()->node->status != TI_NODE_STAT_READY ||
         ti()->nodes->vec->n == 1 ||
         !ti_nodes_has_quorum() ||
         ti_nodes_get_away_or_soon())
+    {
+        log_debug("not going in away mode (%s)",
+                away->status != AWAY__STATUS_IDLE
+                ? "away status is not idle"
+                : ti()->node->status != TI_NODE_STAT_READY
+                ? "node status is not ready"
+                : ti()->nodes->vec->n == 1
+                ? "cluster has only one node"
+                : !ti_nodes_has_quorum()
+                ? "quorum not reached"
+                : "other node is away or going away soon");
         return;
+    }
 
     away->status = AWAY__STATUS_REQ_AWAY;
     away__req_away_id();
@@ -232,8 +241,13 @@ void ti_away_syncer_done(ti_stream_t * stream)
         }
     }
 
+    LOGC("GOT I: %zu", i);
+
     if (i < away->syncers->n)
-        vec_remove(away->syncers, i);
+    {
+        LOGC("REMOVED...");
+        ti_watch_drop((ti_watch_t *) vec_swap_remove(away->syncers, i));
+    }
 }
 
 static void away__destroy(uv_handle_t * handle)
@@ -293,8 +307,8 @@ static void away__req_away_id(void)
 
             if (ti_quorum_shrink_one(quorum))
                 log_error(
-                        "failed to reach quorum while the previous check "
-                        "was successful");
+                    "failed to reach quorum of %u nodes while the previous "
+                    "check was successful", quorum->quorum);
         }
     }
 
@@ -353,9 +367,6 @@ fail0:
 
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
-    assert (ti()->node->status == TI_NODE_STAT_AWAY_SOON);
-    assert (away->status == AWAY__STATUS_WAITING);
-
     if (ti()->events->queue->n)
     {
         log_warning(

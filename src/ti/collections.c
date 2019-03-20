@@ -66,7 +66,7 @@ _Bool ti_collections_del_collection(const uint64_t collection_id)
             break;
     if (i == collections->vec->n)
         return false;
-    ti_collection_drop(vec_remove(collections->vec, i));
+    ti_collection_drop(vec_swap_remove(collections->vec, i));
     return true;
 }
 

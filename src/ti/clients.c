@@ -342,15 +342,9 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ex_t * e = ex_use();
-    ti_node_t * node = ti()->node;
+    ti_node_t * this_node = ti()->node;
     ti_user_t * user = stream->via.user;
     vec_t * access_;
-
-//    if (!pkg->id)
-//    {
-//        ex_set(e, EX_BAD_DATA, "query request requires a package id > 0");
-//        goto finish;
-//    }
 
     if (!user)
     {
@@ -358,7 +352,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status <= TI_NODE_STAT_CONNECTING)
+    if (this_node->status <= TI_NODE_STAT_CONNECTING)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -366,11 +360,11 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status < TI_NODE_STAT_READY)
+    if (this_node->status < TI_NODE_STAT_READY)
     {
 
-        node = ti_nodes_random_ready_node();
-        if (!node)
+        ti_node_t * other_node = ti_nodes_random_ready_node();
+        if (!other_node)
         {
             ex_set(e, EX_NODE_ERROR,
                     "node `%s` is unable to handle query requests",
@@ -378,7 +372,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
         }
 
-        if (clients__fwd_query(node, stream, pkg))
+        if (clients__fwd_query(other_node, stream, pkg))
         {
             ex_set_internal(e);
             goto finish;
@@ -444,12 +438,6 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
 
-//    if (!pkg->id)
-//    {
-//        ex_set(e, EX_BAD_DATA, "watch request requires a package id > 0");
-//        goto finish;
-//    }
-
     if (!user)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
@@ -505,12 +493,6 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
 
-//    if (!pkg->id)
-//    {
-//        ex_set(e, EX_BAD_DATA, "unwatch request requires a package id > 0");
-//        goto finish;
-//    }
-
     if (!user)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
@@ -565,14 +547,14 @@ static int clients__fwd_query(
 {
     qpx_packer_t * packer;
     ti_fwd_t * fwd;
-    ti_pkg_t * pkg_req;
-
-    packer = qpx_packer_create(orig_pkg->n + 19, 1);
-    if (!packer)
-        goto fail0;
+    ti_pkg_t * pkg_req = NULL;
 
     fwd = ti_fwd_create(orig_pkg->id, src_stream);
     if (!fwd)
+        goto fail0;
+
+    packer = qpx_packer_create(orig_pkg->n + 19, 1);
+    if (!packer)
         goto fail1;
 
     (void) qp_add_array(&packer);
@@ -594,14 +576,15 @@ static int clients__fwd_query(
     return 0;
 
 fail1:
+    free(pkg_req);
     ti_fwd_destroy(fwd);
-    qp_packer_destroy(packer);
 fail0:
     return -1;
 }
 
 static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
 {
+    LOGC("QUERY CB");
     ti_pkg_t * resp;
     ti_fwd_t * fwd = req->data;
     if (status)
@@ -627,6 +610,7 @@ finish:
         log_error(EX_ALLOC_S);
     }
 
+    free(req->pkg_req);
     ti_fwd_destroy(fwd);
     ti_req_destroy(req);
 }

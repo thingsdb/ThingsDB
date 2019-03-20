@@ -36,6 +36,13 @@ void * vec_remove(vec_t * vec, uint32_t i)
     return data;
 }
 
+void * vec_swap_remove(vec_t * vec, uint32_t i)
+{
+    void * data = vec_get(vec, i);
+    vec->data[i] = vec->data[--vec->n];
+    return data;
+}
+
 /*
  * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will
  * be equal. In case of an allocation error the return value is NULL.

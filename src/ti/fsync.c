@@ -225,7 +225,7 @@ static bool fsync__next_file(uint64_t * target_id, fsync__file_t * ft)
 static void fsync__done_cb(ti_req_t * req, ex_enum status)
 {
     if (status)
-        log_error("failed resonse on fsync done");
+        log_error("failed response on fsync done");
 
     LOGC("FSYNC DONE CB");
 

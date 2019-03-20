@@ -23,12 +23,14 @@ static ti_nodes_t * nodes;
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_away_id(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 
 int ti_nodes_create(void)
@@ -59,7 +61,7 @@ void ti_nodes_destroy(void)
 
 uint8_t ti_nodes_quorum(void)
 {
-    return nodes->vec->n / 2;
+    return (uint8_t) (nodes->vec->n / 2);
 }
 
 _Bool ti_nodes_has_quorum(void)
@@ -67,10 +69,9 @@ _Bool ti_nodes_has_quorum(void)
     size_t quorum = ti_nodes_quorum();
     size_t q = 0;
 
-    for (vec_each(nodes->vec, ti_node_t, node), ++q)
-        if (node->status > TI_NODE_STAT_CONNECTING && q == quorum)
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
             return true;
-
     return false;
 }
 
@@ -157,17 +158,17 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
 _Bool ti_nodes_ignore_sync(void)
 {
     uint64_t m = *ti()->events->cevid;
-    uint8_t quorum = 0;
+    uint8_t n = 0;
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
             return false;
 
-        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
-            ++quorum;
+        if (node->status <= TI_NODE_STAT_SYNCHRONIZING)
+            ++n;
     }
-    return quorum > (nodes->vec->n / 2);
+    return n >= ti_nodes_quorum();
 }
 
 uint64_t ti_nodes_cevid(void)
@@ -346,6 +347,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_ERR_INTERNAL:
         ti_stream_on_response(stream, pkg);
         break;
+    case TI_PROTO_NODE_EVENT:
+        nodes__on_event(stream, pkg);
+        break;
     case TI_PROTO_NODE_INFO:
         nodes__on_info(stream, pkg);
         break;
@@ -354,6 +358,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_REQ_CONNECT:
         nodes__on_req_connect(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_EVENT_ID:
+        nodes__on_req_event_id(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_AWAY_ID:
         nodes__on_req_away_id(stream, pkg);
@@ -748,6 +755,64 @@ done:
     free(min_ver);
 }
 
+static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    _Bool accepted;
+    ex_t * e = ex_use();
+    qp_unpacker_t unpacker;
+    ti_pkg_t * resp = NULL;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti()->node;
+    qp_obj_t qp_event_id;
+
+    if (!this_node)
+    {
+        ex_set(e, EX_AUTH_ERROR,
+                "got an `%s` request from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->id), ti()->hostname);
+        goto finish;
+    }
+
+    if (this_node->status < TI_NODE_STAT_SYNCHRONIZING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle `%s` requests",
+                ti()->hostname, ti_proto_str(pkg->id));
+        goto finish;
+    }
+
+    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    if (!qp_is_int(qp_next(&unpacker, &qp_event_id)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
+                ti_proto_str(pkg->id), other_node->id, this_node->id);
+        goto finish;
+    }
+
+    accepted = ti_events_slave_req(
+            other_node,
+            (uint64_t) qp_event_id.via.int64);
+
+    LOGC("Accepted Event: %d", accepted);
+
+    resp = ti_pkg_new(
+            pkg->id,
+            accepted ? TI_PROTO_NODE_RES_EVENT_ID : TI_PROTO_NODE_ERR_EVENT_ID,
+            NULL,
+            0);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
 static void nodes__on_req_away_id(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     _Bool accepted;
@@ -783,6 +848,7 @@ static void nodes__on_req_away_id(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     accepted = ti_away_accept(node->id, (uint8_t) qp_away_id.via.int64);
+    LOGC("Accepted: %d", accepted);
 
     resp = ti_pkg_new(
             pkg->id,
@@ -810,10 +876,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_unpacker_t unpacker;
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti()->node;
     qp_obj_t qp_user_id, qp_query;
 
-    if (!node)
+    if (!other_node)
     {
         ex_set(e, EX_AUTH_ERROR,
                 "got a forwarded query from an unauthorized connection: `%s`",
@@ -821,7 +888,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status != TI_NODE_STAT_READY)
+    if (this_node->status != TI_NODE_STAT_READY)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -837,7 +904,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
-                node->id, ti()->node->id);
+                other_node->id, this_node->id);
         goto finish;
     }
 
@@ -849,7 +916,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(e, EX_INDEX_ERROR,
                 "cannot find "TI_USER_ID" which is used by a query from "
                 TI_NODE_ID" to "TI_NODE_ID,
-                user_id, node->id, ti()->node->id);
+                user_id, other_node->id, this_node->id);
         goto finish;
     }
 
@@ -1073,8 +1140,14 @@ static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
+    LOGC("FSYNC STOP, TODO: REMOVE HERE, ADD AFTER AL SYNC COMPL.");
+    ti_sync_stop();
+
     LOGC("RESTORE");
     ti_store_restore();
+
+    LOGC("CHANGE STATUS.");
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_FSYNCDONE, NULL, 0);
 
@@ -1089,12 +1162,28 @@ finish:
     }
 }
 
+static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    LOGC("ON EVENT");
+    ti_node_t * other_node = stream->via.node;
+
+    if (!other_node)
+    {
+        log_error(
+                "got a `%s` from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    ti_events_on_event(other_node, pkg);
+}
+
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     qp_unpacker_t unpacker;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
         log_error(
                 "got a `%s` from an unauthorized connection: `%s`",
@@ -1104,15 +1193,15 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
-    if (ti_node_info_from_unp(node, &unpacker))
+    if (ti_node_info_from_unp(other_node, &unpacker))
     {
         log_error("invalid `%s` from `%s`",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
         return;
     }
 
-    log_debug("got a `%s` for "TI_NODE_ID" (%s)",
+    log_debug("got a `%s` package from "TI_NODE_ID" (%s)",
             ti_proto_str(pkg->tp),
-            node->id,
+            other_node->id,
             ti_stream_name(stream));
 }

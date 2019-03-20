@@ -100,6 +100,24 @@ int ti_events_trigger_loop(void)
     return events__trigger();
 }
 
+int ti_events_on_event(ti_node_t * from_node, ti_pkg_t * pkg)
+{
+    int rc;
+    ti_epkg_t * epkg = ti_epkg_from_pkg(pkg);
+    if (!epkg)
+        return -1;
+
+    uv_mutex_lock(ti()->events->lock);
+
+    rc = ti_events_add_event(from_node, epkg);
+
+    ti_epkg_drop(epkg);
+
+    uv_mutex_unlock(ti()->events->lock);
+
+    return rc;
+}
+
 int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 {
     ti_event_t * ev;
@@ -196,30 +214,33 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 
         if (ev->tp == TI_EVENT_TP_SLAVE)
         {
-            log_info(
-                TI_EVENT_ID" was create for node `%s` but is now "
-                "reused by an event from node `%s`",
-                ev->id,
-                ev->tp == TI_EVENT_TP_MASTER
-                    ? ti_name()
-                    : ti_node_name(ev->via.node),
-                ti_node_name(node)
-            );
-
-            ti_node_drop(ev->via.node);
+            if (ev->via.node != node)
+            {
+                log_info(
+                    TI_EVENT_ID" was create for node `%s` but is now "
+                    "reused by an event from node `%s`",
+                    ev->id,
+                    ti_node_name(ev->via.node),
+                    ti_node_name(node)
+                );
+            }
         }
+        ti_node_drop(ev->via.node);
+
         ev->tp = TI_EVENT_TP_EPKG;
         ev->via.epkg = ti_grab(epkg);
+        goto done;
     }
 
     assert (!ev->tasks || ev->tasks->n == 0);
     assert (ev->tp == TI_EVENT_TP_EPKG);
     assert (ev->status != TI_EVENT_STAT_READY);
 
-    ev->status = TI_EVENT_STAT_READY;
-
     /* we have space so this function always succeeds */
     (void) events__push(ev);
+
+done:
+    ev->status = TI_EVENT_STAT_READY;
 
     if (events__trigger())
         log_error("cannot trigger the events loop");
@@ -227,40 +248,52 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     return 0;
 }
 
-/* OBSOLETE, must be re-written */
-_Bool ti_events_check_id(ti_node_t * node, uint64_t event_id)
+static ti_event_t * events__slave_new(ti_node_t * node, uint64_t event_id)
 {
+    assert (event_id >= events->next_event_id);
     ti_event_t * ev;
-    ti_node_t * prev_node;
 
+    if (queue_reserve(&events->queue, 1))
+    {
+        log_critical(EX_ALLOC_S);
+        return NULL;
+    }
+
+    ev = ti_event_create(TI_EVENT_TP_SLAVE);
+    if (!ev)
+    {
+        log_critical(EX_ALLOC_S);
+        return NULL;
+    }
+
+    ev->id = event_id;
+    ev->via.node = ti_grab(node);
+    events->next_event_id = event_id + 1;
+
+    (void) events__push(ev);
+
+    return ev;
+}
+
+/* Returns true if the event is accepted, false if not. In case the event
+ * is not accepted due to an error, logging is done.
+ */
+_Bool ti_events_slave_req(ti_node_t * node, uint64_t event_id)
+{
     if (event_id == events->next_event_id)
-        return true;
+    {
+        return events__slave_new(node, event_id) != NULL;
+    }
 
     if (event_id > events->next_event_id)
     {
         log_debug(
-                "next expected is "TI_EVENT_ID" but received "TI_EVENT_ID,
-                events->next_event_id, event_id);
-        return true;
+            "next expected event is "TI_EVENT_ID" but received "TI_EVENT_ID,
+            events->next_event_id, event_id);
+        return events__slave_new(node, event_id) != NULL;
     }
 
-    ev = queue_last(events->queue);
-
-    if (ev->id != event_id)
-        return false;
-
-    prev_node = ev->tp == TI_EVENT_TP_MASTER ? ti()->node : ev->via.node;
-
-    if (ti_node_winner(node, prev_node, event_id) == prev_node)
-        return false;
-
-    if (ev->tp != TI_EVENT_TP_MASTER)
-    {
-        (void *) queue_pop(events->queue);
-        ti_event_drop(ev);
-    }
-
-    return true;
+    return false;
 }
 
 static void events__destroy(uv_handle_t * UNUSED(handle))

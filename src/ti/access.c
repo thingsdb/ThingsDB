@@ -38,7 +38,7 @@ void ti_access_revoke(vec_t * access, ti_user_t * user, uint64_t mask)
         {
             auth->mask &= ~mask;
             if (!auth->mask)
-                ti_auth_destroy(vec_remove(access, i));
+                ti_auth_destroy(vec_swap_remove(access, i));
             return;
         }
     }

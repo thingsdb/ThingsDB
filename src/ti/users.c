@@ -136,7 +136,7 @@ void ti_users_del_user(ti_user_t * user)
     {
         if (usr == user)
         {
-            ti_user_drop(vec_remove(users->vec, i));
+            ti_user_drop(vec_swap_remove(users->vec, i));
             return;
         }
     }

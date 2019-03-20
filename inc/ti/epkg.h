@@ -12,6 +12,7 @@ typedef struct ti_epkg_s ti_epkg_t;
 
 ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id);
 ti_epkg_t * ti_epkg_initial(void);
+ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg);
 static inline void ti_epkg_drop(ti_epkg_t * epkg);
 
 struct ti_epkg_s

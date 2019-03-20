@@ -77,7 +77,7 @@ _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
     {
         if (prop->name == name)
         {
-            ti_prop_destroy(vec_remove(thing->props, i));
+            ti_prop_destroy(vec_swap_remove(thing->props, i));
             return true;
         }
     }

@@ -34,7 +34,6 @@ struct ti_archive_s
 int ti_archive_create(void);
 void ti_archive_destroy(void);
 int ti_archive_write_nodes_scevid(void);
-ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg);
 int ti_archive_init(void);
 int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);

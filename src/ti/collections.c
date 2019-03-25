@@ -52,6 +52,12 @@ void ti_collections_destroy(void)
     ti()->collections = collections = NULL;
 }
 
+void ti_collections_clear(void)
+{
+    while (collections->vec->n)
+        ti_collection_drop(vec_pop(collections->vec));
+}
+
 _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;
@@ -60,7 +66,7 @@ _Bool ti_collections_del_collection(const uint64_t collection_id)
             break;
     if (i == collections->vec->n)
         return false;
-    ti_collection_drop(vec_remove(collections->vec, i));
+    ti_collection_drop(vec_swap_remove(collections->vec, i));
     return true;
 }
 

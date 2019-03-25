@@ -8,7 +8,6 @@
 
 typedef enum
 {
-    TI_VAL_ATTR,    /* attribute ti_prop_t */
     TI_VAL_NIL,
     TI_VAL_INT,
     TI_VAL_FLOAT,
@@ -16,21 +15,18 @@ typedef enum
     TI_VAL_QP,      /* QPack data, only used on root for returning raw packed
                        data */
     TI_VAL_RAW,
-//    TI_VAL_NAME,
     TI_VAL_REGEX,
     TI_VAL_THING,
     TI_VAL_ARR,     /* array without things */
     TI_VAL_ARROW,
 } ti_val_enum;
 
-#define TI_VAL_ATTR_S       "attribute"
 #define TI_VAL_NIL_S        "nil"
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
 #define TI_VAL_BOOL_S       "bool"
 #define TI_VAL_QP_S         "qpack"
 #define TI_VAL_RAW_S        "raw"
-//#define TI_VAL_NAME_S
 #define TI_VAL_REGEX_S      "regex"
 #define TI_VAL_THING_S      "thing"
 #define TI_VAL_ARR_S        "array"
@@ -48,7 +44,6 @@ typedef enum
 enum
 {
     TI_VAL_PACK_NEW     =1<<0,
-    TI_VAL_PACK_ATTR    =1<<1,
 };
 
 typedef struct ti_val_s ti_val_t;
@@ -146,16 +141,6 @@ static inline _Bool ti_val_is_regex(ti_val_t * val)
     return val->tp == TI_VAL_REGEX;
 }
 
-static inline _Bool ti_val_valid_attr(ti_val_t * val)
-{
-    return (
-        val->tp == TI_VAL_INT ||
-        val->tp == TI_VAL_FLOAT ||
-        val->tp == TI_VAL_BOOL ||
-        val->tp == TI_VAL_RAW ||
-        (val->tp == TI_VAL_ARR && !ti_varr_has_things((ti_varr_t *) val))
-    );
-}
 
 static inline _Bool ti_val_is_indexable(ti_val_t * val)
 {

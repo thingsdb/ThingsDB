@@ -16,6 +16,7 @@
 #include <ti/store.h>
 #include <ti/things.h>
 #include <ti/user.h>
+#include <ti/sync.h>
 #include <ti/users.h>
 #include <ti/version.h>
 #include <tiinc.h>
@@ -40,6 +41,7 @@ static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
 static void ti__shutdown_stop(void);
 static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
+static void ti__stop(void);
 
 int ti_create(void)
 {
@@ -57,8 +59,6 @@ int ti_create(void)
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
             gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
-            ti_sync_create() ||
-            ti_desired_create() ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||
@@ -71,6 +71,7 @@ int ti_create(void)
             ti_collections_create() ||
             ti_events_create() ||
             ti_connect_create() ||
+            ti_sync_create() ||
             !ti_.access ||
             !ti_.langdef)
     {
@@ -87,12 +88,8 @@ void ti_destroy(void)
     free(ti_.fn);
     free(ti_.node_fn);
 
-    ti_sync_stop();
-    ti_away_stop();
-    ti_connect_stop();
-    ti_events_stop();
+    ti__stop();
 
-    ti_desired_destroy();
     ti_build_destroy();
     ti_archive_destroy();
     ti_lookup_destroy(ti_.lookup);
@@ -158,13 +155,15 @@ int ti_build(void)
     cryptx_gen_salt(salt);
     cryptx("ThingsDB", salt, encrypted);
 
-    ti_.node = ti_nodes_new_node(0, ti_.cfg->node_port, "0.0.0.0", encrypted);
+    ti_.node = ti_nodes_new_node(
+            ti_args_get_zone(),
+            ti_.cfg->node_port,
+            "0.0.0.0",
+            encrypted);
     if (!ti_.node)
         goto failed;
 
-    ti_.lookup = ti_lookup_create(ti_.nodes->vec->n, ti_.args->redundancy);
-    ti_.desired->n = ti_.nodes->vec->n;
-    ti_.desired->r = ti_.args->redundancy;
+    ti_.lookup = ti_lookup_create(ti_.nodes->vec->n);
 
    if (ti_write_node_id(&ti_.node->id) || ti_save())
        goto failed;
@@ -300,12 +299,7 @@ int ti_run(void)
 
     if (ti_.node)
     {
-        /*
-         * First load desired so for new things we will already store the
-         * attributes from archive
-         */
-        if (ti_desired_init())
-            goto failed;
+        ti_.node->status = TI_NODE_STAT_SYNCHRONIZING;
 
         if (ti_archive_init())
             goto failed;
@@ -322,8 +316,13 @@ int ti_run(void)
         if (ti_connect_start())
             goto failed;
 
-        /* Should be status SYNCHRONIZING and later change to READY */
-        ti_.node->status = TI_NODE_STAT_READY;
+        if (ti()->nodes->vec->n == 1)
+        {
+            ti_.node->status = TI_NODE_STAT_READY;
+        }
+        else if (ti_sync_start())
+            goto failed;
+
     }
     else
     {
@@ -388,19 +387,14 @@ void ti_stop(void)
         (void) ti_archive_to_disk();
         (void) ti_archive_write_nodes_scevid();
     }
-
-    ti_sync_stop();
-    ti_away_stop();
-    ti_connect_stop();
-    ti_events_stop();
-
+    ti__stop();
     uv_stop(ti()->loop);
 }
 
 int ti_save(void)
 {
     int rc = -1;
-    qp_packer_t * packer = qp_packer_create2(48 + ti_.nodes->vec->n * 224, 3);
+    qp_packer_t * packer = qp_packer_create2(32 + ti_.nodes->vec->n * 224, 3);
     if (!packer)
         return -1;
 
@@ -608,43 +602,16 @@ ti_val_t * ti_node_as_qpval(void)
 
 static int ti__unpack(qp_res_t * res)
 {
-    uint8_t node_id, lookup_r, lookup_n;
-    qp_res_t
-        * schema,
-        * qplookup_n,
-        * qplookup_r,
-        * qpdesired_n,
-        * qpdesired_r,
-        * qpnodes;
+    uint8_t node_id;
+    qp_res_t * schema, * qpnodes;
 
     if (    res->tp != QP_RES_MAP ||
             !(schema = qpx_map_get(res->via.map, "schema")) ||
-            !(qplookup_n = qpx_map_get(res->via.map, "lookup_n")) ||
-            !(qplookup_r = qpx_map_get(res->via.map, "lookup_r")) ||
-            !(qpdesired_n = qpx_map_get(res->via.map, "desired_n")) ||
-            !(qpdesired_r = qpx_map_get(res->via.map, "desired_r")) ||
             !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
             schema->tp != QP_RES_INT64 ||
             schema->via.int64 != TI_FN_SCHEMA ||
-            qplookup_r->tp != QP_RES_INT64 ||
-            qplookup_n->tp != QP_RES_INT64 ||
-            qpdesired_r->tp != QP_RES_INT64 ||
-            qpdesired_n->tp != QP_RES_INT64 ||
-            qpnodes->tp != QP_RES_ARRAY ||
-            qplookup_r->via.int64 < 1 ||
-            qplookup_r->via.int64 > 64 ||
-            qplookup_n->via.int64 < 1 ||
-            qplookup_n->via.int64 > qplookup_r->via.int64 ||
-            qpdesired_r->via.int64 < 1 ||
-            qpdesired_r->via.int64 > 64 ||
-            qpdesired_n->via.int64 < 1 ||
-            qpdesired_n->via.int64 > qpdesired_r->via.int64)
+            qpnodes->tp != QP_RES_ARRAY)
         goto failed;
-
-    lookup_n = (uint8_t) qplookup_n->via.int64;
-    lookup_r = (uint8_t) qplookup_r->via.int64;
-    ti_.desired->n = (uint8_t) qpdesired_n->via.int64;
-    ti_.desired->r = (uint8_t) qpdesired_r->via.int64;
 
     if (ti_read_node_id(&node_id))
         goto failed;
@@ -652,7 +619,7 @@ static int ti__unpack(qp_res_t * res)
     if (ti_nodes_from_qpres(qpnodes))
         goto failed;
 
-    ti_.lookup = ti_lookup_create(lookup_n, lookup_r);
+    ti_.lookup = ti_lookup_create(ti_.nodes->vec->n);
     if (!ti_.lookup)
         goto failed;
 
@@ -663,7 +630,8 @@ static int ti__unpack(qp_res_t * res)
     if (!ti_.node)
         goto failed;
 
-    assert (ti_.node->id == node_id);
+    if (ti_args_has_zone())
+        ti_.node->zone = ti_args_get_zone();
 
     return 0;
 
@@ -723,4 +691,12 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     default:
         log_error("unexpected handle type: %d", handle->type);
     }
+}
+
+static void ti__stop(void)
+{
+    ti_away_stop();
+    ti_connect_stop();
+    ti_events_stop();
+    ti_sync_stop();
 }

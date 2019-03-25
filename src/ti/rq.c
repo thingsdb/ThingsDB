@@ -421,8 +421,6 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
     char * secret;
-    uint8_t zone;
-    int64_t izone;
     ti_node_t * node;
     ti_raw_t * rsecret;
     ti_raw_t * raddr;
@@ -434,58 +432,29 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * addrstr;
     int port, n = langdef_nd_n_function_params(nd);
 
-    if (n < 3)
+    if (n < 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` requires at least 3 arguments but %d %s given",
+            "function `new_node` requires at least 2 arguments but %d %s given",
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
-    else if (n > 4)
+    else if (n > 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` takes at most 4 arguments but %d were given",
+            "function `new_node` takes at most 3 arguments but %d were given",
             n);
         return e->nr;
     }
 
     child = nd->children;
-
-    if (rq__scope(query, child->node, e))
-        return e->nr;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "function `new_node` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s`",
-            ti_val_str(query->rval));
-        return e->nr;
-    }
-
-    izone = ((ti_vint_t *) query->rval)->int_;
-
-    if (izone < 0 || izone > 0xff)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "`zone` should be an integer between 0 and 255, got %"PRId64,
-            izone);
-        return e->nr;
-    }
-
-    zone = (uint8_t) izone;
-
-    ti_val_drop(query->rval);
-    query->rval = NULL;
-    child = child->next->next;
-
     if (rq__scope(query, child->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` expects argument 2 to be of "
+            "function `new_node` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got `%s`",
             ti_val_str(query->rval));
         return e->nr;
@@ -511,13 +480,13 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    if (rq__scope(query, nd->children->next->next->node, e))
+    if (rq__scope(query, child->node, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` expects argument 3 to be of type `"TI_VAL_RAW_S"` "
+            "function `new_node` expects argument 2 to be of type `"TI_VAL_RAW_S"` "
             "but got `%s`",
             ti_val_str(query->rval));
         goto fail0;
@@ -539,7 +508,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (n == 4)
+    if (n == 3)
     {
         int64_t iport;
         ti_val_drop(query->rval);
@@ -553,7 +522,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_int(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
-                "function `new_node` expects argument 4 to be of "
+                "function `new_node` expects argument 3 to be of "
                 "type `"TI_VAL_INT_S"` but got `%s`",
                 ti_val_str(query->rval));
             goto fail1;
@@ -609,7 +578,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail1;
 
-    node = ti_nodes_new_node(zone, port, addrstr, encrypted);
+    node = ti_nodes_new_node(0, port, addrstr, encrypted);
     if (!node)
     {
         ex_set_alloc(e);
@@ -618,6 +587,8 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_task_add_new_node(task, node))
         ex_set_alloc(e);  /* task cleanup is not required */
+
+    (void) ti_save();
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) node->id);

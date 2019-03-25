@@ -18,7 +18,6 @@ C_SRCS += \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
 ../src/ti/cq.c \
-../src/ti/desired.c \
 ../src/ti/epkg.c \
 ../src/ti/event.c \
 ../src/ti/events.c \
@@ -88,7 +87,6 @@ OBJS += \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
 ./src/ti/cq.o \
-./src/ti/desired.o \
 ./src/ti/epkg.o \
 ./src/ti/event.o \
 ./src/ti/events.o \
@@ -158,7 +156,6 @@ C_DEPS += \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
 ./src/ti/cq.d \
-./src/ti/desired.d \
 ./src/ti/epkg.d \
 ./src/ti/event.d \
 ./src/ti/events.d \

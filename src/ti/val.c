@@ -71,7 +71,6 @@ void ti_val_destroy(ti_val_t * val)
         assert (0);     /* there should always be one reference
                            left for nil and boolean. */
         /* no break  */
-    case TI_VAL_ATTR:   /* attributes are destroyed by res */
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_QP:
@@ -132,7 +131,6 @@ int ti_val_convert_to_str(ti_val_t ** val)
     ti_val_t * v;
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
         v = val__snil;
         ti_incref(v);
@@ -193,7 +191,6 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     int64_t i = 0;
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
@@ -260,7 +257,6 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     int64_t i;
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_ATTR:  /* attributes convert to nil and are destroyed by res */
     case TI_VAL_NIL:
     case TI_VAL_QP:
     case TI_VAL_FLOAT:
@@ -374,82 +370,10 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-
-//void ti_val_weak_copy(ti_val_t * to, ti_val_t * from)
-//{
-//    to->tp = from->tp;
-//    to->via = from->via;
-//}
-
-//int ti_val_copy(ti_val_t * to, ti_val_t * from)
-//{
-//    to->tp = from->tp;
-//    switch((ti_val_enum) from->tp)
-//    {
-//    case TI_VAL_ATTR:
-//        to->via.attr = from->via.attr;  /* this is a reference */
-//        return 0;
-//    case TI_VAL_NIL:
-//    case TI_VAL_INT:
-//    case TI_VAL_FLOAT:
-//    case TI_VAL_BOOL:
-//        to->via = from->via;
-//        return 0;
-//    case TI_VAL_QP:
-//    case TI_VAL_RAW:
-//        to->via.raw = ti_grab(from->via.raw);
-//        return 0;
-//    case TI_VAL_REGEX:
-//        to->via.regex = ti_grab(from->via.regex);
-//        return 0;
-//    case TI_VAL_TUPLE:
-//    case TI_VAL_ARRAY:
-//        to->via.array = vec_new(from->via.array->n);
-//        if (!to->via.array)
-//        {
-//            to->tp = TI_VAL_NIL;
-//            return -1;
-//        }
-//        for (vec_each(from->via.array, ti_val_t, val))
-//        {
-//            ti_val_t * dup = ti_val_dup(val);
-//            if (!dup)
-//            {
-//                vec_destroy(to->via.array, (vec_destroy_cb) ti_val_drop);
-//                to->tp = TI_VAL_NIL;
-//                return -1;
-//            }
-//            VEC_push(to->via.array, dup);
-//        }
-//        return 0;
-//    case TI_VAL_THING:
-//        to->via.thing = ti_grab(from->via.thing);
-//        return 0;
-//    case TI_VAL_THINGS:
-//        to->via.things = vec_dup(from->via.things);
-//        if (!to->via.things)
-//        {
-//            to->tp = TI_VAL_NIL;
-//            return -1;
-//        }
-//        for (vec_each(to->via.things, ti_thing_t, thing))
-//            ti_incref(thing);
-//        return 0;
-//    case TI_VAL_ARROW:
-//        to->via.arrow = from->via.arrow;
-//        ++to->via.arrow->ref;
-//        return 0;
-//    }
-//    log_critical("unknown type: %d", from->tp);
-//    assert (0);
-//    return -1;
-//}
-
 _Bool ti_val_as_bool(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_ATTR:
     case TI_VAL_NIL:
         return false;
     case TI_VAL_INT:
@@ -535,17 +459,6 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_ATTR:
-//        return flags & TI_VAL_PACK_NEW
-//            ? qp_add_null(*pckr)
-//            : ti_val_to_packer(
-//                &((ti_vattr_t *) val)->prop->val,
-//                pckr,
-//                flags,
-//                fetch
-//            );
-        assert (0);
-        return 0;
     case TI_VAL_NIL:
         return qp_add_null(*pckr);
     case TI_VAL_INT:
@@ -596,7 +509,6 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_ATTR:
     case TI_VAL_QP:
         assert (0);
         return -1;
@@ -641,7 +553,6 @@ const char * ti_val_str(ti_val_t * val)
 {
     switch (val->tp)
     {
-    case TI_VAL_ATTR:               return TI_VAL_ATTR_S;
     case TI_VAL_NIL:                return TI_VAL_NIL_S;
     case TI_VAL_INT:                return TI_VAL_INT_S;
     case TI_VAL_FLOAT:              return TI_VAL_FLOAT_S;
@@ -665,7 +576,6 @@ int ti_val_make_assignable(ti_val_t * val, ex_t * e)
 {
     switch (val->tp)
     {
-    case TI_VAL_ATTR:
     case TI_VAL_QP:
         ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
                 ti_val_str(val));
@@ -755,7 +665,6 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_ARR:
     case TI_VAL_ARROW:
         break;
-    case TI_VAL_ATTR:
     case TI_VAL_QP:
         return -1;
     }

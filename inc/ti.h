@@ -21,7 +21,6 @@
 #include <ti/connect.h>
 #include <ti/counters.h>
 #include <ti/events.h>
-#include <ti/desired.h>
 #include <ti/lookup.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
@@ -69,7 +68,6 @@ void ti_broadcast_node_info(void);
 int ti_node_to_packer(qp_packer_t ** packer);
 ti_val_t * ti_node_as_qpval(void);
 static inline ti_t * ti(void);
-static inline _Bool ti_manages_id(uint64_t id);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline const char * ti_name(void);
@@ -89,7 +87,6 @@ struct ti_s
     ti_collections_t * collections;
     ti_connect_t * connect_loop;
     ti_counters_t * counters;   /* counters for statistics */
-    ti_desired_t * desired;
     ti_events_t * events;
     ti_lookup_t * lookup;
     ti_node_t * node;
@@ -114,20 +111,6 @@ struct ti_s
 static inline ti_t * ti(void)
 {
     return &ti_;
-}
-
-/*
- * Returns true if this is `should` be managed by ThingsDB, it can be that
- * the id is still in the desired lookup and attributes are not available yet,
- * if you want to know if the thing has attributes, check ti_thing_with_attrs()
- */
-static inline _Bool ti_manages_id(uint64_t id)
-{
-    return (
-        ti_node_manages_id(ti_.node, ti_.lookup, id) ||
-        (ti_.desired->lookup &&
-                ti_node_manages_id(ti_.node, ti_.desired->lookup, id))
-    );
 }
 
 /* return the next thing id and increment by one */
@@ -156,14 +139,6 @@ static inline int ti_to_packer(qp_packer_t ** packer)
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "schema") ||
         qp_add_int(*packer, TI_FN_SCHEMA) ||
-        qp_add_raw_from_str(*packer, "lookup_n") ||
-        qp_add_int(*packer, ti_.lookup->n) ||
-        qp_add_raw_from_str(*packer, "lookup_r") ||
-        qp_add_int(*packer, ti_.lookup->r) ||
-        qp_add_raw_from_str(*packer, "desired_n") ||
-        qp_add_int(*packer, ti_.desired->n) ||
-        qp_add_raw_from_str(*packer, "desired_r") ||
-        qp_add_int(*packer, ti_.desired->r) ||
         qp_add_raw_from_str(*packer, "nodes") ||
         ti_nodes_to_packer(packer) ||
         qp_close_map(*packer)

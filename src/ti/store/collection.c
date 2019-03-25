@@ -7,55 +7,38 @@
 #include <util/fx.h>
 #include <stdlib.h>
 
-static const char * ti__store_collection_things_fn     = "things.dat";
-static const char * ti__store_collection_collection_fn = "collection.dat";
-//static const char * ti__store_collection_skeleton_fn   = "skeleton.qp";
-static const char * ti__store_collection_props_fn      = "props.qp";
-static const char * ti__store_collection_attrs_fn      = "attrs.qp";
-static const char * ti__store_collection_access_fn     = "access.qp";
+static const char * collection___access_fn     = "access.qp";
+static const char * collection___dat_fn = "collection.dat";
+static const char * collection___props_fn      = "props.qp";
+static const char * collection___things_fn     = "things.dat";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
-        ti_collection_t * collection)
+        guid_t * guid)
 {
-    char * collection_path;
+    char * cpath;
     ti_store_collection_t * store_collection;
 
     store_collection = malloc(sizeof(ti_store_collection_t));
     if (!store_collection)
         goto fail0;
 
-    collection_path = store_collection->collection_path = fx_path_join(
+    cpath = store_collection->collection_path = fx_path_join(
             path,
-            collection->guid.guid);
-    if (!collection_path)
+            guid->guid);
+
+    if (!cpath)
         goto fail0;
 
-    store_collection->access_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_access_fn);
-    store_collection->things_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_things_fn);
-    store_collection->collection_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_collection_fn);
-//    store_collection->skeleton_fn = fx_path_join(
-//            collection_path,
-//            ti__store_collection_skeleton_fn);
-    store_collection->props_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_props_fn);
-    store_collection->attrs_fn = fx_path_join(
-            collection_path,
-            ti__store_collection_attrs_fn);
+    store_collection->access_fn = fx_path_join(cpath, collection___access_fn);
+    store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
+    store_collection->collection_fn = fx_path_join(cpath, collection___dat_fn);
+    store_collection->props_fn = fx_path_join(cpath, collection___props_fn);
 
     if (    !store_collection->access_fn ||
             !store_collection->things_fn ||
             !store_collection->collection_fn ||
-//            !store_collection->skeleton_fn ||
-            !store_collection->props_fn ||
-            !store_collection->attrs_fn)
+            !store_collection->props_fn)
         goto fail1;
 
     return store_collection;
@@ -75,7 +58,6 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->things_fn);
     free(store_collection->collection_fn);
     free(store_collection->props_fn);
-    free(store_collection->attrs_fn);
     free(store_collection->collection_path);
     free(store_collection);
 }
@@ -135,4 +117,61 @@ failed:
 done:
     free(data);
     return rc;
+}
+
+char * ti_store_collection_get_path(const char * path, uint64_t collection_id)
+{
+    char * collection_path;
+    guid_t guid;
+    guid_init(&guid, collection_id);
+    collection_path = fx_path_join(path, guid.guid);
+    return collection_path;
+}
+
+char * ti_store_collection_access_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___access_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_dat_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___dat_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_props_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___props_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_things_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___things_fn);
+    free(cpath);
+    return fn;
 }

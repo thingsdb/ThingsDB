@@ -111,6 +111,13 @@ done:
     return user;
 }
 
+/* clears users and access */
+void ti_users_clear(void)
+{
+    while (users->vec->n)
+        ti_users_del_user(vec_pop(users->vec));
+}
+
 void ti_users_del_user(ti_user_t * user)
 {
     size_t i = 0;
@@ -129,7 +136,7 @@ void ti_users_del_user(ti_user_t * user)
     {
         if (usr == user)
         {
-            ti_user_drop(vec_remove(users->vec, i));
+            ti_user_drop(vec_swap_remove(users->vec, i));
             return;
         }
     }

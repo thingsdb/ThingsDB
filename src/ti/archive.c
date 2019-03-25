@@ -93,36 +93,6 @@ int ti_archive_write_nodes_scevid(void)
     return rc;
 }
 
-/*
- * Returns ti_epkg_t from ti_pkg_t
- * In case of an error this function writes logging and return NULL
- */
-ti_epkg_t * ti_archive_epkg_from_pkg(ti_pkg_t * pkg)
-{
-    ti_epkg_t * epkg;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_event_id;
-    uint64_t event_id;
-
-    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
-
-    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
-        !qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_event_id)))
-    {
-        log_error("invalid archive package");
-        return NULL;
-    }
-
-    event_id = (uint64_t) qp_event_id.via.int64;
-
-    epkg = ti_epkg_create(pkg, event_id);
-    if (!epkg)
-        log_critical(EX_ALLOC_S);
-
-    return epkg;
-}
-
 int ti_archive_init(void)
 {
     struct stat st;
@@ -149,7 +119,9 @@ int ti_archive_init(void)
 
     if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
     {
-        log_critical("cannot create archive directory: `%s`", archive->path);
+        log_critical("cannot create archive directory: `%s` (%s)",
+                archive->path,
+                strerror(errno));
         return -1;
     }
 
@@ -348,7 +320,7 @@ static int archive__load_file(const char * archive_fn)
 
         qp_res_clear(&pkg_qp);
 
-        epkg = ti_archive_epkg_from_pkg(pkg);
+        epkg = ti_epkg_from_pkg(pkg);
         if (!epkg)
             goto fail1;
 

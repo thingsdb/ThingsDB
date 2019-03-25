@@ -86,19 +86,19 @@ typedef enum
 
     /* expects a client response which will be forwarded back to the client */
     TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, {query...}] */
-    /* expects a client response which will be forwarded back to the client */
-    TI_PROTO_NODE_REQ_WATCH_ID  =163,   /* thing id */
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
     TI_PROTO_NODE_REQ_AWAY_ID   =178,   /* away id  */
     TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
     TI_PROTO_NODE_REQ_SYNC      =181,   /* [event_range_start, end] */
-    TI_PROTO_NODE_REQ_MULTIPART =182,   /* [target, file, offset, part, more]
-                                           more is a boolean which is set to
-                                           true in case the file is not yet
-                                           complete.
-                                        */
+
+    /* [target_id, file_id, offset, bytes, more]
+     * more is a boolean which is set to true in case the file is not yet
+     * complete.
+     */
+    TI_PROTO_NODE_REQ_FSYNCPART =182,
+    TI_PROTO_NODE_REQ_FSYNCDONE =183,   /* full sync completed */
     /*
      * 192..223 node responses
      */
@@ -107,11 +107,11 @@ typedef enum
     TI_PROTO_NODE_RES_AWAY_ID   =210,   /* empty, away id accepted */
     TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
     TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
-    TI_PROTO_NODE_RES_MULTIPART =214,   /* [target, file, offset]
+    TI_PROTO_NODE_RES_FSYNCPART =214,   /* [target, file, offset]
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */
-
+    TI_PROTO_NODE_RES_FSYNCDONE =215,   /* empty, ack */
     /*
      * 224..255 node errors
      */
@@ -128,7 +128,8 @@ typedef enum
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_SETUP_TIMEOUT 10
 #define TI_PROTO_NODE_REQ_SYNC_TIMEOUT 10
-#define TI_PROTO_NODE_REQ_PUSH_PART_TIMEOUT 10
+#define TI_PROTO_NODE_REQ_FSYNCPART_TIMEOUT 10
+#define TI_PROTO_NODE_REQ_FSYNCDONE_TIMEOUT 300
 
 const char * ti_proto_str(ti_proto_e tp);
 

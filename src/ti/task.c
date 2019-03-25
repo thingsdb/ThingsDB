@@ -335,8 +335,6 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "id");
     (void) qp_add_int(packer, node->id);
-    (void) qp_add_raw_from_str(packer, "zone");
-    (void) qp_add_int(packer, node->zone);
     (void) qp_add_raw_from_str(packer, "port");
     (void) qp_add_int(packer, node->port);
     (void) qp_add_raw_from_str(packer, "addr");

@@ -94,3 +94,39 @@ ti_epkg_t * ti_epkg_initial(void)
     }
     return epkg;
 }
+
+ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
+{
+    ti_epkg_t * epkg;
+    qp_unpacker_t unpacker;
+    qp_obj_t qp_event_id;
+    uint64_t event_id;
+
+    pkg = ti_pkg_dup(pkg);
+    if (!pkg)
+    {
+        log_critical(EX_ALLOC_S);
+        return NULL;
+    }
+
+    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+
+    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
+        !qp_is_array(qp_next(&unpacker, NULL)) ||
+        !qp_is_int(qp_next(&unpacker, &qp_event_id)))
+    {
+        log_error("invalid package");
+        return NULL;
+    }
+
+    event_id = (uint64_t) qp_event_id.via.int64;
+
+    epkg = ti_epkg_create(pkg, event_id);
+    if (!epkg)
+    {
+        free(pkg);
+        log_critical(EX_ALLOC_S);
+    }
+
+    return epkg;
+}

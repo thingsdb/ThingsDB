@@ -14,8 +14,6 @@ static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__watch_cb(uv_async_t * task);
 static void wareq__unwatch_cb(uv_async_t * task);
-static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id);
-static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status);
 
 /*
  * Create a watch or unwatch request.
@@ -192,6 +190,9 @@ static void wareq__watch_cb(uv_async_t * task)
 
     while (n--)
     {
+        ti_pkg_t * pkg;
+        qpx_packer_t * packer;
+
         #if TI_USE_VOID_POINTER
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
         #else
@@ -212,41 +213,33 @@ static void wareq__watch_cb(uv_async_t * task)
             break;
         }
 
-        if (ti_thing_with_attrs(thing))
+        packer = qpx_packer_create(512, 4);
+        if (!packer)
         {
-            ti_pkg_t * pkg;
-            qpx_packer_t * packer = qpx_packer_create(512, 4);
-            if (!packer)
-            {
-                log_critical(EX_ALLOC_S);
-                break;
-            }
-
-            (void) qp_add_map(&packer);
-            (void) qp_add_raw_from_str(packer, "event");
-            (void) qp_add_int(packer, *ti()->events->cevid);
-            (void) qp_add_raw_from_str(packer, "thing");
-
-            if (    ti_thing_to_packer(thing, &packer, TI_VAL_PACK_ATTR, 0) ||
-                    qp_close_map(packer))
-            {
-                log_critical(EX_ALLOC_S);
-                qp_packer_destroy(packer);
-                break;
-            }
-
-            pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_INI);
-
-            if (    ti_stream_is_closed(wareq->stream) ||
-                    ti_stream_write_pkg(wareq->stream, pkg))
-            {
-                free(pkg);
-            }
-
-            continue;
+            log_critical(EX_ALLOC_S);
+            break;
         }
 
-        (void) wareq__fwd_wareq(wareq, id);
+        (void) qp_add_map(&packer);
+        (void) qp_add_raw_from_str(packer, "event");
+        (void) qp_add_int(packer, *ti()->events->cevid);
+        (void) qp_add_raw_from_str(packer, "thing");
+
+        if (    ti_thing_to_packer(thing, &packer, 0, 0) ||
+                qp_close_map(packer))
+        {
+            log_critical(EX_ALLOC_S);
+            qp_packer_destroy(packer);
+            break;
+        }
+
+        pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_INI);
+
+        if (    ti_stream_is_closed(wareq->stream) ||
+                ti_stream_write_pkg(wareq->stream, pkg))
+        {
+            free(pkg);
+        }
     }
 
     uv_mutex_unlock(wareq->collection->lock);
@@ -287,79 +280,3 @@ static void wareq__unwatch_cb(uv_async_t * task)
 
     ti_wareq_destroy(wareq);
 }
-
-static int wareq__fwd_wareq(ti_wareq_t * wareq, uint64_t thing_id)
-{
-    qpx_packer_t * packer;
-    ti_fwd_t * fwd;
-    ti_pkg_t * pkg;
-    ti_node_t * node;
-
-    node = ti_nodes_random_ready_node_for_id(thing_id);
-    if (!node)
-    {
-        log_critical(
-                "no online node found which manages "TI_THING_ID, thing_id);
-        return -1;
-    }
-
-    packer = qpx_packer_create(9, 1);
-    if (!packer)
-        goto fail0;
-
-    fwd = ti_fwd_create(0, wareq->stream);
-    if (!fwd)
-        goto fail1;
-
-    (void) qp_add_int(packer, thing_id);
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_WATCH_ID);
-
-    if (ti_req_create(
-            node->stream,
-            pkg,
-            TI_PROTO_NODE_REQ_QUERY_TIMEOUT,
-            wareq__fwd_wareq_cb,
-            fwd))
-        goto fail1;
-
-    return 0;
-
-fail1:
-    ti_fwd_destroy(fwd);
-    qp_packer_destroy(packer);
-fail0:
-    log_critical(EX_ALLOC_S);
-    return -1;
-}
-
-static void wareq__fwd_wareq_cb(ti_req_t * req, ex_enum status)
-{
-    ti_pkg_t * resp;
-    ti_fwd_t * fwd = req->data;
-    if (status)
-    {
-        ex_t * e = ex_use();
-        ex_set(e, status, ex_str(status));
-        resp = ti_pkg_client_err(fwd->orig_pkg_id, e);
-        if (!resp)
-            log_error(EX_ALLOC_S);
-        goto finish;
-    }
-
-    resp = ti_pkg_dup(req->pkg_res);
-    if (resp)
-        resp->id = fwd->orig_pkg_id;
-    else
-        log_error(EX_ALLOC_S);
-
-finish:
-    if (resp && ti_stream_write_pkg(fwd->stream, resp))
-    {
-        free(resp);
-        log_error(EX_ALLOC_S);
-    }
-
-    ti_fwd_destroy(fwd);
-    ti_req_destroy(req);
-}
-

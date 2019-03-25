@@ -27,11 +27,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->id = id;
     thing->things = things;
     thing->props = vec_new(0);
-    thing->attrs = NULL;
     thing->watchers = NULL;
-
-    if (id && ti_manages_id(id))
-        ti_thing_mark_attrs(thing);
 
     if (!thing->props)
     {
@@ -53,7 +49,6 @@ void ti_thing_destroy(ti_thing_t * thing)
         thing__watch_del(thing);
 
     vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
-    vec_destroy(thing->attrs, (vec_destroy_cb) ti_prop_destroy);
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
@@ -66,44 +61,12 @@ ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
     return NULL;
 }
 
-ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name)
-{
-    if (thing->attrs)
-        for (vec_each(thing->attrs, ti_prop_t, attr))
-            if (attr->name == name)
-                return attr->val;
-
-    return NULL;
-}
-
 /*
  * does not increment the `name` and `val` reference counters.
  */
 int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
     return thing__set(&thing->props, name, val);
-}
-
-
-int ti_thing_attr_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
-{
-    ti_prop_t * attr;
-
-    if (!thing->attrs)
-    {
-        thing->attrs = vec_new(1);
-        if (!thing->attrs)
-            return -1;
-
-        attr = ti_prop_create(name, val);
-        if (!attr)
-            return -1;
-
-        VEC_push(thing->attrs, attr);
-        return 0;
-    }
-
-    return thing__set(&thing->attrs, name, val);
 }
 
 /* Returns true if the property is removed, false if not found */
@@ -114,22 +77,7 @@ _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
     {
         if (prop->name == name)
         {
-            ti_prop_destroy(vec_remove(thing->props, i));
-            return true;
-        }
-    }
-    return false;
-}
-
-/* Returns true if the attribute is removed, false if not found */
-_Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name)
-{
-    uint32_t i = 0;
-    for (vec_each(thing->attrs, ti_prop_t, attr), ++i)
-    {
-        if (attr->name == name)
-        {
-            ti_prop_destroy(vec_remove(thing->attrs, i));
+            ti_prop_destroy(vec_swap_remove(thing->props, i));
             return true;
         }
     }
@@ -157,31 +105,12 @@ _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to)
     return false;
 }
 
-void ti_thing_attr_unset(ti_thing_t * thing, ti_name_t * name)
-{
-    uint32_t i = 0;
-    if (!thing->attrs)
-        return;
-
-    for (vec_each(thing->attrs, ti_prop_t, attr), ++i)
-    {
-        if (attr->name == name)
-        {
-            ti_prop_destroy(vec_remove(thing->attrs, i));
-            return;
-        }
-    }
-}
-
 int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
 
     thing->id = ti_next_thing_id();
     ti_thing_mark_new(thing);
-
-    if (ti_manages_id(thing->id))
-        ti_thing_mark_attrs(thing);
 
     if (ti_thing_to_map(thing))
         return -1;
@@ -260,26 +189,23 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
         return NULL;
 
     if (vec_push(&thing->watchers, watch))
-        goto fail0;
+        goto failed;
 
 finish:
     if (!stream->watching)
     {
         stream->watching = vec_new(1);
         if (!stream->watching)
-            goto fail1;
+            goto failed;
         VEC_push(stream->watching, watch);
     }
     else if (vec_push(&stream->watching, watch))
-        goto fail1;
+        goto failed;
 
     return watch;
 
-fail0:
-    watch->stream = NULL;
-    ti_watch_drop(watch);
-    return NULL;
-fail1:
+failed:
+    /* when this fails, a few bytes might leak */
     watch->stream = NULL;
     return NULL;
 }
@@ -317,25 +243,6 @@ int ti_thing_to_packer(
                 ti_val_to_packer(prop->val, packer, flags, fetch))
             return -1;
     }
-
-    if ((flags & TI_VAL_PACK_ATTR) && thing->attrs && thing->attrs->n)
-    {
-        assert (ti_thing_with_attrs(thing));
-
-        if (qp_add_raw(*packer, (const uchar *) ".", 1) || qp_add_map(packer))
-            return -1;
-
-        for (vec_each(thing->attrs, ti_prop_t, prop))
-        {
-            if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                    ti_val_to_packer(prop->val, packer, flags, 0))
-                return -1;
-        }
-
-        if (qp_close_map(*packer))
-            return -1;
-    }
-
 
     return qp_close_map(*packer);
 }

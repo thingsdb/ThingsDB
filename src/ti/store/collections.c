@@ -65,6 +65,8 @@ int ti_store_collections_restore(const char * fn)
     if (!data)
         return -1;
 
+    ti_collections_clear();
+
     qpx_unpacker_init(&unpacker, data, (size_t) n);
 
     res = qp_unpacker_res(&unpacker, &rcode);

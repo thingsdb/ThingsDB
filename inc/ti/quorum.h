@@ -50,7 +50,7 @@ static inline void ti_quorum_set_id(ti_quorum_t * quorum, uint64_t id)
 
 static inline int ti_quorum_shrink_one(ti_quorum_t * quorum)
 {
-    return --quorum->sz >= quorum->quorum ? 0 : -1;
+    return quorum->sz ? --quorum->sz >= quorum->quorum ? 0 : -1 : -1;
 }
 
 #endif /* TI_QUORUM_H_ */

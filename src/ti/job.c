@@ -14,15 +14,10 @@ static int job__assign(
         qp_unpacker_t * unp);
 static int job__del(ti_thing_t * thing, qp_unpacker_t * unp);
 static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp);
-static int job__set(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
 static int job__splice(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp);
-static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp);
 /*
  * (Log function)
  * Unpacker should be at point 'job': ...
@@ -53,11 +48,7 @@ int ti_job_run(
     case 'r':
         return job__rename(thing, unp);
     case 's':
-        return *(raw+1) == 'e'
-                ? job__set(collection, thing, unp)
-                : job__splice(collection, thing, unp);
-    case 'u':
-        return job__unset(thing, unp);
+        return job__splice(collection, thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
@@ -240,93 +231,6 @@ static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'attr': value}
- */
-static int job__set(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
-{
-    assert (collection);
-    assert (thing);
-    assert (unp);
-
-    ti_val_t * val;
-    ti_name_t * name;
-    qp_obj_t qp_attr;
-
-    if (!ti_thing_with_attrs(thing))
-        return 0;
-
-    if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_attr)))
-    {
-        log_critical(
-                "job `set` attribute on "TI_THING_ID": "
-                "missing map or attribute",
-                thing->id);
-        return -1;
-    }
-
-    if (!ti_name_is_valid_strn((const char *) qp_attr.via.raw, qp_attr.len))
-    {
-        log_critical(
-                "job `set` attribute on "TI_THING_ID": "
-                "invalid attribute: `%.*s`",
-                thing->id,
-                (int) qp_attr.len,
-                (const char *) qp_attr.via.raw);
-        return -1;
-    }
-
-    name = ti_names_get((const char *) qp_attr.via.raw, qp_attr.len);
-    if (!name)
-    {
-        log_critical(EX_ALLOC_S);
-        return -1;
-    }
-
-    val = ti_val_from_unp(unp, collection->things);
-    if (!val)
-    {
-        log_critical(
-                "job `set` attribute on "TI_THING_ID": "
-                "error reading value for attribute: `%s`",
-                thing->id,
-                name->str);
-        goto fail;
-    }
-
-    if (!ti_val_is_settable(val))
-    {
-        log_critical(
-                "job `set` attribute on "TI_THING_ID": "
-                "type `%s` is not settable",
-                thing->id,
-                ti_val_str(val));
-        goto fail;
-    }
-
-    if (ti_thing_attr_set(thing, name, val))
-    {
-        log_critical(
-                "job `set` attribute on "TI_THING_ID": "
-                "error setting attribute: `%s` (type: `%s`)",
-                thing->id,
-                name->str,
-                ti_val_str(val));
-        goto fail;
-    }
-
-    return 0;
-
-fail:
-    ti_val_drop(val);
-    ti_name_drop(name);
-    return -1;
-}
-
-/*
- * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
 static int job__splice(
@@ -444,38 +348,6 @@ static int job__splice(
 
     if (new_n < cur_n)
         (void) vec_shrink(&varr->vec);
-
-    return 0;
-}
-
-/*
- * Returns 0 on success
- * - for example: 'attr'
- */
-static int job__unset(ti_thing_t * thing, qp_unpacker_t * unp)
-{
-    assert (thing);
-    assert (unp);
-
-    if (!thing->attrs)
-        return 0;
-
-    qp_obj_t qp_prop;
-    ti_name_t * name;
-    if (!qp_is_raw(qp_next(unp, &qp_prop)))
-    {
-        log_critical(
-                "job `unset` attribute from "TI_THING_ID": "
-                "missing attribute data",
-                thing->id);
-        return -1;
-    }
-
-    /* the job is already validated so getting the name will most likely
-     * succeed */
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (name)
-        ti_thing_attr_unset(thing, name);
 
     return 0;
 }

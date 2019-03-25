@@ -60,7 +60,6 @@ class Definition(Grammar):
     f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
     f_find = Keyword('find')
-    f_get = Keyword('get')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
     f_int = Keyword('int')
@@ -94,9 +93,7 @@ class Definition(Grammar):
     f_pop = Keyword('pop')
     f_push = Keyword('push')
     f_rename = Keyword('rename')
-    f_set = Keyword('set')
     f_splice = Keyword('splice')
-    f_unset = Keyword('unset')
 
     primitives = Choice(
         t_false,
@@ -122,7 +119,6 @@ class Definition(Grammar):
         f_endswith,     # (str) -> bool
         f_filter,       # (arrow) -> [return values where return is true]
         f_find,         # (arrow) -> return first value where true or null
-        f_get,          # (str,..) -> attribute val
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
         f_int,          # (x) -> int
@@ -154,10 +150,8 @@ class Definition(Grammar):
         f_del,
         f_pop,
         f_push,
-        f_rename,       # TODO : implement
-        f_set,
-        f_splice,       # TODO : implement
-        f_unset,
+        f_rename,       #
+        f_splice,       #
         # any name
         name,           # used for `root` functions
     ), '(', List(scope), ')')

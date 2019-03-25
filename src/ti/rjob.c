@@ -244,7 +244,6 @@ static int rjob__new_collection(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {
  *      'id': id,
- *      'zone': zone,
  *      'port': port,
  *      'addr':ip_addr,
  *      'secret': encrypted
@@ -253,8 +252,8 @@ static int rjob__new_collection(qp_unpacker_t * unp)
 static int rjob__new_node(qp_unpacker_t * unp)
 {
     assert (unp);
-    qp_obj_t qp_id, qp_zone, qp_port, qp_addr, qp_secret;
-    uint8_t node_id, zone, next_node_id = ti()->nodes->vec->n;
+    qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
+    uint8_t node_id, next_node_id = ti()->nodes->vec->n;
     uint16_t port;
     char addr[INET6_ADDRSTRLEN];
 
@@ -263,8 +262,6 @@ static int rjob__new_node(qp_unpacker_t * unp)
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qp_id)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_zone)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qp_port)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -280,7 +277,6 @@ static int rjob__new_node(qp_unpacker_t * unp)
     }
 
     node_id = (uint8_t) qp_id.via.int64;
-    zone = (uint8_t) qp_zone.via.int64;
     port = (uint16_t) qp_port.via.int64;
 
     if (node_id < next_node_id)
@@ -297,11 +293,13 @@ static int rjob__new_node(qp_unpacker_t * unp)
     memcpy(addr, qp_addr.via.raw, qp_addr.len);
     addr[qp_addr.len] = '\0';
 
-    if (!ti_nodes_new_node(zone, port, addr, (const char *) qp_secret.via.raw))
+    if (!ti_nodes_new_node(0, port, addr, (const char *) qp_secret.via.raw))
     {
         log_critical(EX_ALLOC_S);
         return -1;
     }
+
+    (void) ti_save();
 
     return 0;
 }

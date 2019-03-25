@@ -19,6 +19,7 @@ static ti_sync_t * sync_;
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat));
 static void sync__destroy(uv_handle_t * UNUSED(handle));
 static void sync__on_res_sync(ti_req_t * req, ex_enum status);
+static void sync__finish(void);
 
 int ti_sync_create(void)
 {
@@ -69,7 +70,9 @@ void ti_sync_stop(void)
         return;
 
     if (sync_->status == SYNC__STAT_INIT)
+    {
         sync__destroy(NULL);
+    }
     else
     {
         (void) uv_timer_stop(sync_->repeat);
@@ -95,11 +98,30 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     ti_event_t * event;
     ti_pkg_t * pkg;
 
+    event = queue_first(ti()->events->queue);
+    if (event && event->id == ti()->node->cevid + 1)
+    {
+        log_info("no events are missing, skip synchronization");
+        sync__finish();
+        return;
+    }
+
     node = ti_nodes_get_away_or_soon();
-    assert (node != ti()->node);
     if (node == NULL)
     {
-        log_info("waiting for a node to enter `away` mode");
+        if (ti_nodes_ignore_sync())
+        {
+            log_warning(
+                    "ignore the synchronize step because no node is available "
+                    "to synchronize with, and the quorum of nodes is in "
+                    "synchronization mode, and this node has the highest "
+                    "known committed event id");
+            sync__finish();
+        }
+        else
+        {
+            log_info("waiting for a node to enter `away` mode");
+        }
         return;
     }
 
@@ -109,8 +131,6 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         log_critical(EX_ALLOC_S);
         return;
     }
-
-    event = queue_first(ti()->events->queue);
 
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, ti()->node->cevid + 1);
@@ -170,4 +190,14 @@ failed:
 done:
     free(req->pkg_req);
     ti_req_destroy(req);
+}
+
+
+static void sync__finish(void)
+{
+    ti_sync_stop();
+    if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
+    {
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+    }
 }

@@ -59,6 +59,9 @@ void ti_nodes_destroy(void)
     ti()->nodes = nodes = NULL;
 }
 
+/*
+ * Number of nodes required, `this` node excluded.
+ */
 uint8_t ti_nodes_quorum(void)
 {
     return (uint8_t) (nodes->vec->n / 2);
@@ -66,10 +69,11 @@ uint8_t ti_nodes_quorum(void)
 
 _Bool ti_nodes_has_quorum(void)
 {
-    size_t quorum = ti_nodes_quorum();
+    size_t quorum = ti_nodes_quorum() + 1;  /* include `this` node */
     size_t q = 0;
 
     for (vec_each(nodes->vec, ti_node_t, node))
+
         if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
             return true;
     return false;

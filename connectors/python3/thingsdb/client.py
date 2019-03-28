@@ -35,18 +35,45 @@ class Client(WatchMixin, Root):
         self._target = 0  # root target
         self._pool_idx = 0
 
-    def get_event_loop(self):
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return bool(self._protocol and self._protocol.transport)
 
-    async def connect_pool(self, pool):
+    async def connect_pool(self, pool, timeout=5) -> None:
+        """Connect using a connection pool.
+
+        Argument `pool` should be an iterable with node address strings, or
+        with `address` and `port` combinations in a tuple or list.
+
+        Argument `timeout` can be be used to control the maximum time
+        the client will attempt to create and authenticate a connection, the
+        default timeout is 5 seconds.
+
+        Do not use this method if the client is already
+        connected. This can be checked with `client.is_connected()`.
+
+        Example:
+        ```
+        await connect_pool([
+            'node01.local',             # address as string
+            'node02.local',             # port will default to 9200
+            ('node03.local', 9201),     # ..or with an eplicit/alternative port
+        ])
+        ```
+        """
         assert self.is_connected() is False
+
+        self._pool = tuple((
+            (address, 9200) if isinstance(address, str) else address
+            for address in pool))
+
         self._pool = tuple(pool)
         self._pool_idx = random.randint(0, len(pool) - 1)
+        await self._connect(timeout=timeout)
 
-    async def connect(self, host, port=9200, timeout=5):
+    async def connect(self, host, port=9200, timeout=5) -> None:
         assert self.is_connected() is False
         self._pool = ((host, port),)
         self._pool_idx = 0

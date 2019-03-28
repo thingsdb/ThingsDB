@@ -39,7 +39,7 @@ class Client(WatchMixin, Root):
         return self._loop
 
     def is_connected(self):
-        return self._protocol and self._protocol.transport
+        return bool(self._protocol and self._protocol.transport)
 
     async def connect_pool(self, pool):
         assert self.is_connected() is False

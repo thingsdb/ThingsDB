@@ -95,9 +95,11 @@ void ti_away_trigger(void)
     if (away->accept_counter)
         --away->accept_counter;
 
+    if (ti()->nodes->vec->n == 1)
+        return;
+
     if ((away->status != AWAY__STATUS_IDLE) ||
         ti()->node->status != TI_NODE_STAT_READY ||
-        ti()->nodes->vec->n == 1 ||
         !ti_nodes_has_quorum() ||
         ti_nodes_get_away_or_soon())
     {
@@ -106,8 +108,6 @@ void ti_away_trigger(void)
                 ? "away status is not idle"
                 : ti()->node->status != TI_NODE_STAT_READY
                 ? "node status is not ready"
-                : ti()->nodes->vec->n == 1
-                ? "cluster has only one node"
                 : !ti_nodes_has_quorum()
                 ? "quorum not reached"
                 : "other node is away or going away soon");

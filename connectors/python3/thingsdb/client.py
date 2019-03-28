@@ -42,12 +42,12 @@ class Client(WatchMixin, Root):
         return self._protocol and self._protocol.transport
 
     async def connect_pool(self, pool):
-        assert self._pool is None
+        assert self.is_connected() is False
         self._pool = tuple(pool)
         self._pool_idx = random.randint(0, len(pool) - 1)
 
     async def connect(self, host, port=9200, timeout=5):
-        assert self._pool is None
+        assert self.is_connected() is False
         self._pool = ((host, port),)
         self._pool_idx = 0
         await self._connect(timeout=timeout)

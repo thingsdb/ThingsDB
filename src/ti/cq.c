@@ -1010,7 +1010,7 @@ static int cq__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `push`",
+                "type `%s` has no function `indexof`",
                 ti_val_str((ti_val_t *) varr));
         goto done;
     }

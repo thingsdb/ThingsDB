@@ -41,7 +41,7 @@ struct ti_scope_s
     ti_thing_t * thing; /* with reference */
     ti_name_t * name;   /* weak reference to name or NULL */
     ti_val_t * val;     /* weak reference to value */
-    vec_t * local;      /* ti_prop_t (local props arrow functions */
+    vec_t * local;      /* ti_prop_t (local props closure functions */
 };
 
 

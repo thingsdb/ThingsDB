@@ -7,8 +7,8 @@
 #include <langdef/translate.h>
 #include <qpack.h>
 #include <stdlib.h>
+#include <ti/closure.h>
 #include <ti.h>
-#include <ti/arrow.h>
 #include <ti/collections.h>
 #include <ti/cq.h>
 #include <ti/epkg.h>
@@ -484,7 +484,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                 query,
                 nd->children->next->next->node);
         return;
-    case CLERI_GID_ARROW:
+    case CLERI_GID_CLOSURE:
         {
             uint8_t flags = query->flags;
 
@@ -494,8 +494,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
                     nd->children->next->next->node);
             nd->data = (void *) ((uintptr_t) (
                     query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
-                        ? TI_ARROW_FLAG_QBOUND|TI_ARROW_FLAG_WSE
-                        : TI_ARROW_FLAG_QBOUND));
+                        ? TI_CLOSURE_FLAG_QBOUND|TI_CLOSURE_FLAG_WSE
+                        : TI_CLOSURE_FLAG_QBOUND));
 
             query->flags |= flags;
         }

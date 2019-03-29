@@ -62,6 +62,7 @@ class Definition(Grammar):
     f_find = Keyword('find')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
+    f_indexof = Keyword('indexof')
     f_int = Keyword('int')
     f_isarray = Keyword('isarray')
     f_isascii = Keyword('isascii')
@@ -111,16 +112,17 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    arrow = Sequence(List(name, opt=False), '=>', scope)
+    closure = Sequence(List(name, opt=False), '=>', scope)
 
     function = Sequence(Choice(
         # build-in get functions
         f_blob,         # (int inx_in_blobs) -> raw
         f_endswith,     # (str) -> bool
-        f_filter,       # (arrow) -> [return values where return is true]
-        f_find,         # (arrow) -> return first value where true or null
+        f_filter,       # (closure) -> [return values where return is true]
+        f_find,         # (closure) -> return first value where true or null
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
+        f_indexof,      # (v) -> int or nil
         f_int,          # (x) -> int
         f_isarray,      # (x) -> bool
         f_isascii,
@@ -136,7 +138,7 @@ class Definition(Grammar):
         f_isutf8,
         f_len,          # () -> int
         f_lower,        # () -> str
-        f_map,          # (arrow) -> [return values]
+        f_map,          # (closure) -> [return values]
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_refs,         # () -> reference counter
         f_ret,          # () -> nil
@@ -206,7 +208,7 @@ class Definition(Grammar):
             function,
             assignment,
             tmp_assign,
-            arrow,
+            closure,
             name,
             tmp,
             thing,

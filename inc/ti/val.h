@@ -18,7 +18,7 @@ typedef enum
     TI_VAL_REGEX,
     TI_VAL_THING,
     TI_VAL_ARR,     /* array without things */
-    TI_VAL_ARROW,
+    TI_VAL_CLOSURE,
 } ti_val_enum;
 
 #define TI_VAL_NIL_S        "nil"
@@ -32,12 +32,12 @@ typedef enum
 #define TI_VAL_ARR_S        "array"
 #define TI_VAL_ARR_LIST_S   "list"
 #define TI_VAL_ARR_TUPLE_S  "tuple"
-#define TI_VAL_ARROW_S      "arrow-function"
+#define TI_VAL_CLOSURE_S      "closure-function"
 
 typedef enum
 {
     TI_VAL_KIND_THING   ='#',
-    TI_VAL_KIND_ARROW   ='$',
+    TI_VAL_KIND_CLOSURE   ='$',
     TI_VAL_KIND_REGEX   ='*',
 } ti_val_kind;
 
@@ -73,7 +73,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
-static inline _Bool ti_val_is_arrow(ti_val_t * val);
+static inline _Bool ti_val_is_closure(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
 static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
@@ -106,9 +106,9 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
     return val->tp == TI_VAL_ARR;
 }
 
-static inline _Bool ti_val_is_arrow(ti_val_t * val)
+static inline _Bool ti_val_is_closure(ti_val_t * val)
 {
-    return val->tp == TI_VAL_ARROW;
+    return val->tp == TI_VAL_CLOSURE;
 }
 
 static inline _Bool ti_val_is_bool(ti_val_t * val)

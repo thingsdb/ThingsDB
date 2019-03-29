@@ -1688,15 +1688,15 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     node = child->node                      /* choice */
             ->children->node;               /* primitives, function,
                                                assignment, name, thing,
-                                               array, compare, arrow */
+                                               array, compare, closure */
 
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
         ex_set(e, EX_BAD_DATA, "arrays are not supported at root");
         return e->nr;
-    case CLERI_GID_ARROW:
-        ex_set(e, EX_BAD_DATA, "arrow functions are not supported at root");
+    case CLERI_GID_CLOSURE:
+        ex_set(e, EX_BAD_DATA, "closure functions are not supported at root");
         return e->nr;
     case CLERI_GID_ASSIGNMENT:
         ex_set(e, EX_BAD_DATA, "assignments are not supported at root");

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-03-01 09:42:57
+ * Created at: 2019-03-29 13:23:36
  */
 
 #include <langdef/langdef.h>
@@ -44,6 +44,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_find = cleri_keyword(CLERI_GID_F_FIND, "find", CLERI_CASE_SENSITIVE);
     cleri_t * f_hasprop = cleri_keyword(CLERI_GID_F_HASPROP, "hasprop", CLERI_CASE_SENSITIVE);
     cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
+    cleri_t * f_indexof = cleri_keyword(CLERI_GID_F_INDEXOF, "indexof", CLERI_CASE_SENSITIVE);
     cleri_t * f_int = cleri_keyword(CLERI_GID_F_INT, "int", CLERI_CASE_SENSITIVE);
     cleri_t * f_isarray = cleri_keyword(CLERI_GID_F_ISARRAY, "isarray", CLERI_CASE_SENSITIVE);
     cleri_t * f_isascii = cleri_keyword(CLERI_GID_F_ISASCII, "isascii", CLERI_CASE_SENSITIVE);
@@ -108,8 +109,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "]")
     );
-    cleri_t * arrow = cleri_sequence(
-        CLERI_GID_ARROW,
+    cleri_t * closure = cleri_sequence(
+        CLERI_GID_CLOSURE,
         3,
         cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 0),
         cleri_token(CLERI_NONE, "=>"),
@@ -121,13 +122,14 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            37,
+            38,
             f_blob,
             f_endswith,
             f_filter,
             f_find,
             f_hasprop,
             f_id,
+            f_indexof,
             f_int,
             f_isarray,
             f_isascii,
@@ -254,7 +256,7 @@ cleri_grammar_t * compile_langdef(void)
             function,
             assignment,
             tmp_assign,
-            arrow,
+            closure,
             name,
             tmp,
             thing,

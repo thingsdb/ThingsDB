@@ -92,7 +92,7 @@ _Bool ti_scope_in_use_name(
 
 int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_ARROW);
+    assert (nd->cl_obj->gid == CLERI_GID_CLOSURE);
     size_t n;
     cleri_children_t * child, * first;
 

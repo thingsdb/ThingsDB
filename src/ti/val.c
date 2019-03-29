@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti/closure.h>
 #include <tiinc.h>
-#include <ti/arrow.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/regex.h>
@@ -86,8 +86,8 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_ARR:
         ti_varr_destroy((ti_varr_t *) val);
         return;
-    case TI_VAL_ARROW:
-        ti_arrow_destroy((ti_arrow_t *) val);
+    case TI_VAL_CLOSURE:
+        ti_closure_destroy((ti_closure_t *) val);
         return;
     }
 }
@@ -172,7 +172,7 @@ int ti_val_convert_to_str(ti_val_t ** val)
         break;
     case TI_VAL_THING:
     case TI_VAL_ARR:
-    case TI_VAL_ARROW:
+    case TI_VAL_CLOSURE:
         v = val__sobject;
         ti_incref(v);
         break;
@@ -195,7 +195,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
-    case TI_VAL_ARROW:
+    case TI_VAL_CLOSURE:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
                 ti_val_str(*val), TI_VAL_INT_S);
         return e->nr;
@@ -264,7 +264,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
-    case TI_VAL_ARROW:
+    case TI_VAL_CLOSURE:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
                 ti_val_str(*val));
         return e->nr;
@@ -390,7 +390,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_ARR:
         return !!((ti_varr_t *) val)->vec->n;
     case TI_VAL_THING:
-    case TI_VAL_ARROW:
+    case TI_VAL_CLOSURE:
         return true;
     }
     assert (0);
@@ -495,8 +495,8 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
             if (ti_val_to_packer(v, pckr, flags, fetch))
                 return -1;
         return qp_close_array(*pckr);
-    case TI_VAL_ARROW:
-        return ti_arrow_to_packer((ti_arrow_t *) val, pckr);
+    case TI_VAL_CLOSURE:
+        return ti_closure_to_packer((ti_closure_t *) val, pckr);
     }
 
     assert(0);
@@ -542,8 +542,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
         return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
     }
-    case TI_VAL_ARROW:
-        return ti_arrow_to_file((ti_arrow_t *) val, f);
+    case TI_VAL_CLOSURE:
+        return ti_closure_to_file((ti_closure_t *) val, f);
     }
     assert (0);
     return -1;
@@ -564,14 +564,14 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_ARR:                return ti_varr_is_list((ti_varr_t *) val)
                                         ? TI_VAL_ARR_LIST_S
                                         : TI_VAL_ARR_TUPLE_S;
-    case TI_VAL_ARROW:              return TI_VAL_ARROW_S;
+    case TI_VAL_CLOSURE:              return TI_VAL_CLOSURE_S;
     }
     assert (0);
     return "unknown";
 }
 
 
-/* checks PROP, QP, ARROW and ARRAY/TUPLE */
+/* checks PROP, QP, CLOSURE and ARRAY/TUPLE */
 int ti_val_make_assignable(ti_val_t * val, ex_t * e)
 {
     switch (val->tp)
@@ -580,13 +580,13 @@ int ti_val_make_assignable(ti_val_t * val, ex_t * e)
         ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
                 ti_val_str(val));
         break;
-    case TI_VAL_ARROW:
-        if (ti_arrow_wse((ti_arrow_t * ) val))
+    case TI_VAL_CLOSURE:
+        if (ti_closure_wse((ti_closure_t * ) val))
         {
             ex_set(e, EX_BAD_DATA,
-                    "an arrow function with side effects cannot be assigned");
+                    "an closure function with side effects cannot be assigned");
         }
-        else if (ti_arrow_unbound((ti_arrow_t * ) val))
+        else if (ti_closure_unbound((ti_closure_t * ) val))
             ex_set_alloc(e);
         break;
     }
@@ -615,10 +615,10 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
                         unp,
                         sz)
                 : NULL;
-    case TI_VAL_KIND_ARROW:
+    case TI_VAL_KIND_CLOSURE:
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
             return NULL;
-        return (ti_val_t *) ti_arrow_from_strn(
+        return (ti_val_t *) ti_closure_from_strn(
                 (char *) qp_tmp.via.raw,
                 qp_tmp.len);
     case TI_VAL_KIND_REGEX:
@@ -663,7 +663,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_ARR:
-    case TI_VAL_ARROW:
+    case TI_VAL_CLOSURE:
         break;
     case TI_VAL_QP:
         return -1;

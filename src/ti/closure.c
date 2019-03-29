@@ -1,101 +1,101 @@
 /*
- * ti/arrow.h
+ * ti/closure.h
  */
 #include <assert.h>
-#include <ti/arrow.h>
 #include <util/logger.h>
 #include <langdef/langdef.h>
+#include <ti/closure.h>
 
-static cleri_node_t * arrow__node_from_strn(const char * str, size_t n);
-static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
+static cleri_node_t * closure__node_from_strn(const char * str, size_t n);
+static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
 
 /*
- * Return an arrow with is bound to the query. The node for this arrow can
- * only be used for as long as the 'query' exists in memory. If the arrow
- * will be stored for later usage, a call to `ti_arrow_unbound` must be
+ * Return an closure with is bound to the query. The node for this closure can
+ * only be used for as long as the 'query' exists in memory. If the closure
+ * will be stored for later usage, a call to `ti_closure_unbound` must be
  * made.
  */
-ti_arrow_t * ti_arrow_from_node(cleri_node_t * node)
+ti_closure_t * ti_closure_from_node(cleri_node_t * node)
 {
-    ti_arrow_t * arrow = malloc(sizeof(ti_arrow_t));
-    if (!arrow)
+    ti_closure_t * closure = malloc(sizeof(ti_closure_t));
+    if (!closure)
         return NULL;
 
-    arrow->ref = 1;
-    arrow->tp = TI_VAL_ARROW;
-    arrow->flags = (uintptr_t) node->data;
-    arrow->node = node;
+    closure->ref = 1;
+    closure->tp = TI_VAL_CLOSURE;
+    closure->flags = (uintptr_t) node->data;
+    closure->node = node;
 
-    return arrow;
+    return closure;
 }
 
-ti_arrow_t * ti_arrow_from_strn(const char * str, size_t n)
+ti_closure_t * ti_closure_from_strn(const char * str, size_t n)
 {
-    ti_arrow_t * arrow = malloc(sizeof(ti_arrow_t));
-    if (!arrow)
+    ti_closure_t * closure = malloc(sizeof(ti_closure_t));
+    if (!closure)
         return NULL;
 
-    arrow->flags = 0;
-    arrow->node = arrow__node_from_strn(str, n);
-    if (!arrow->node)
+    closure->flags = 0;
+    closure->node = closure__node_from_strn(str, n);
+    if (!closure->node)
     {
-        free(arrow);
+        free(closure);
         return NULL;
     }
 
-    return arrow;
+    return closure;
 }
 
-void ti_arrow_destroy(ti_arrow_t * arrow)
+void ti_closure_destroy(ti_closure_t * closure)
 {
-    if (!arrow)
+    if (!closure)
         return;
 
-    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
     {
-        free(arrow->node->data);
-        cleri__node_free(arrow->node);
+        free(closure->node->data);
+        cleri__node_free(closure->node);
     }
 
-    free(arrow);
+    free(closure);
 }
 
-int ti_arrow_unbound(ti_arrow_t * arrow)
+int ti_closure_unbound(ti_closure_t * closure)
 {
     cleri_node_t * node;
 
-    assert (~arrow->flags & TI_ARROW_FLAG_WSE);
-    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    assert (~closure->flags & TI_CLOSURE_FLAG_WSE);
+    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
         return 0;
 
-    node = arrow__node_from_strn(arrow->node->str, arrow->node->len);
+    node = closure__node_from_strn(closure->node->str, closure->node->len);
     if (!node)
         return -1;
 
-    arrow->node = node;
-    arrow->flags &= ~TI_ARROW_FLAG_QBOUND;
+    closure->node = node;
+    closure->flags &= ~TI_CLOSURE_FLAG_QBOUND;
 
     return 0;
 }
 
-int ti_arrow_to_packer(ti_arrow_t * arrow, qp_packer_t ** packer)
+int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
 {
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
     {
         return -(
             qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar * ) "$", 1) ||
             qp_add_raw(
                     *packer,
-                    (const uchar * ) arrow->node->str,
-                    arrow->node->len) ||
+                    (const uchar * ) closure->node->str,
+                    closure->node->len) ||
             qp_close_map(*packer)
         );
     }
-    buf = ti_arrow_uchar(arrow, &n);
+    buf = ti_closure_uchar(closure, &n);
     if (!buf)
         return -1;
 
@@ -110,20 +110,20 @@ int ti_arrow_to_packer(ti_arrow_t * arrow, qp_packer_t ** packer)
     return rc;
 }
 
-int ti_arrow_to_file(ti_arrow_t * arrow, FILE * f)
+int ti_closure_to_file(ti_closure_t * closure, FILE * f)
 {
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~arrow->flags & TI_ARROW_FLAG_QBOUND)
+    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
     {
         return -(
             qp_fadd_type(f, QP_MAP1) ||
             qp_fadd_raw(f, (const uchar * ) "$", 1) ||
-            qp_fadd_raw(f, (const uchar * ) arrow->node->str, arrow->node->len)
+            qp_fadd_raw(f, (const uchar * ) closure->node->str, closure->node->len)
         );
     }
-    buf = ti_arrow_uchar(arrow, &n);
+    buf = ti_closure_uchar(closure, &n);
     if (!buf)
         return -1;
     rc = -(
@@ -135,18 +135,18 @@ int ti_arrow_to_file(ti_arrow_t * arrow, FILE * f)
     return rc;
 }
 
-uchar * ti_arrow_uchar(ti_arrow_t * arrow, size_t * n)
+uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n)
 {
     uchar * buf;
-    buf = malloc(arrow->node->len);
+    buf = malloc(closure->node->len);
     if (!buf)
         return NULL;
 
-    arrow__node_to_buf(arrow->node, buf, n);
+    closure__node_to_buf(closure->node, buf, n);
     return buf;
 }
 
-static cleri_node_t * arrow__node_from_strn(const char * str, size_t n)
+static cleri_node_t * closure__node_from_strn(const char * str, size_t n)
 {
     cleri_parse_t * res;
     cleri_node_t * node;
@@ -171,9 +171,9 @@ static cleri_node_t * arrow__node_from_strn(const char * str, size_t n)
     node = node                             /* List of statements */
             ->children->node                /* Sequence - scope */
             ->children->next->node          /* Choice */
-            ->children->node;               /* arrow */
+            ->children->node;               /* closure */
 
-    if (node->cl_obj->gid != CLERI_GID_ARROW)
+    if (node->cl_obj->gid != CLERI_GID_CLOSURE)
         goto fail;
 
     node->data = query;
@@ -192,7 +192,7 @@ fail:
     return NULL;
 }
 
-static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
+static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -217,5 +217,5 @@ static void arrow__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
     }
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
-        arrow__node_to_buf(child->node, buf, n);
+        closure__node_to_buf(child->node, buf, n);
 }

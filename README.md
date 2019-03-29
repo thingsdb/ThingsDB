@@ -183,7 +183,7 @@
     - [x] Tuple
     - [x] Things
     - [x] Regex
-    - [x] Arrow
+    - [x] Closure
     - [x] Raw
     - [x] Qp
 - [x] Operations

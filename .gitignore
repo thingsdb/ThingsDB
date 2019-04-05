@@ -64,6 +64,7 @@ Release/tindb
 .pyc
 __pycache__/
 /tmp/
+.cache/
 
 # testdir
 /itest/testdir/

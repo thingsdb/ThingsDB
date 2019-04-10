@@ -198,7 +198,7 @@ done:
     return e->nr;
 }
 
-static bool fsync__next_file(uint64_t * target_id, fsync__file_t * ft)
+static _Bool fsync__next_file(uint64_t * target_id, fsync__file_t * ft)
 {
     (*ft)++;
     if (*ft == FSYNC__COLLECTION_END)
@@ -227,8 +227,6 @@ static void fsync__done_cb(ti_req_t * req, ex_enum status)
     if (status)
         log_error("failed response on fsync done");
 
-    LOGC("FSYNC DONE CB");
-
     ti_away_syncer_done(req->stream);
     ti_stream_stop_watching(req->stream);
 
@@ -245,8 +243,6 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
     uint64_t target_id;
     fsync__file_t ft;
     off_t offset;
-
-    LOGC("ON CALLBACK");
 
     if (status)
         goto failed;
@@ -280,7 +276,6 @@ static void fsync__push_cb(ti_req_t * req, ex_enum status)
 
     if (!offset && !fsync__next_file(&target_id, &ft))
     {
-        LOGC("FINISED WITH ALL FILES");
         next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_FSYNCDONE, NULL, 0);
         if (!next_pkg)
             goto failed;

@@ -584,7 +584,6 @@ fail0:
 
 static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
 {
-    LOGC("QUERY CB");
     ti_pkg_t * resp;
     ti_fwd_t * fwd = req->data;
     if (status)

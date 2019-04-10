@@ -41,8 +41,8 @@ void ti_query_run(ti_query_t * query);
 void ti_query_send(ti_query_t * query, ex_t * e);
 ti_val_t * ti_query_val_pop(ti_query_t * query);
 ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name);
+const char * ti_query_val_str(ti_query_t * query);
 static inline _Bool ti_query_will_update(ti_query_t * query);
-static inline const char * ti_query_val_str(ti_query_t * query);
 
 struct ti_query_s
 {
@@ -71,16 +71,6 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
             TI_QUERY_FLAG_COLLECTION_EVENT |
             TI_QUERY_FLAG_ROOT_EVENT
     );
-}
-
-static inline const char * ti_query_val_str(ti_query_t * query)
-{
-    return query->rval
-            ? ti_val_str(query->rval)
-            : (query->scope->val
-                    ? ti_val_str(query->scope->val)
-                    : TI_VAL_THING_S
-            );
 }
 
 #endif /* TI_QUERY_H_ */

@@ -47,6 +47,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
         return -1;
 
     tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
     tuple->flags |= TI_ARR_FLAG_TUPLE;
     tuple->vec = vec_dup((*varr)->vec);
 

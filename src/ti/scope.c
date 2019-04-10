@@ -90,9 +90,11 @@ _Bool ti_scope_in_use_name(
     return false;
 }
 
-int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
+int ti_scope_local_from_closure(
+        ti_scope_t * scope,
+        ti_closure_t * closure,
+        ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_CLOSURE);
     size_t n;
     cleri_children_t * child, * first;
 
@@ -103,8 +105,8 @@ int ti_scope_local_from_node(ti_scope_t * scope, cleri_node_t * nd, ex_t * e)
         scope->local = NULL;
     }
 
-    first = nd                          /* sequence */
-            ->children->node            /* list */
+    first = closure->node               /* sequence */
+            ->children->next->node      /* list */
             ->children;                 /* first child */
 
     for (n = 0, child = first; child && ++n; child = child->next->next)

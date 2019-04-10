@@ -22,7 +22,7 @@ static ti_away_t * away = NULL;
  */
 #define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 5
 #define AWAY__ACCEPT_COUNTER 3
-#define AWAY__SOON_TIMER 1000  /* TODO: 10 seconds might be a nice default */
+#define AWAY__SOON_TIMER 10000  /* seconds might be a nice default */
 
 enum away__status
 {
@@ -241,11 +241,8 @@ void ti_away_syncer_done(ti_stream_t * stream)
         }
     }
 
-    LOGC("GOT I: %zu", i);
-
     if (i < away->syncers->n)
     {
-        LOGC("REMOVED...");
         ti_watch_drop((ti_watch_t *) vec_swap_remove(away->syncers, i));
     }
 }
@@ -303,8 +300,6 @@ static void away__req_away_id(void)
                 ti_quorum_req_cb,
                 quorum))
         {
-            LOGC("Status: %d", node->status);
-
             if (ti_quorum_shrink_one(quorum))
                 log_error(
                     "failed to reach quorum of %u nodes while the previous "
@@ -329,7 +324,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 {
     if (!accepted)
     {
-        log_error(
+        log_info(
                 "node `%s` does not have the required quorum "
                 "of at least %u connected nodes for going into away mode",
                 ti_node_name(ti()->node),

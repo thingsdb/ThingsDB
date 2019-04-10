@@ -59,6 +59,7 @@ class Definition(Grammar):
     f_blob = Keyword('blob')
     f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
+    f_findindex = Keyword('findindex')
     f_find = Keyword('find')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
@@ -112,13 +113,14 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    closure = Sequence(List(name, opt=False), '=>', scope)
+    closure = Sequence('|', List(name), '|', scope)
 
     function = Sequence(Choice(
         # build-in get functions
         f_blob,         # (int inx_in_blobs) -> raw
         f_endswith,     # (str) -> bool
         f_filter,       # (closure) -> [return values where return is true]
+        f_findindex,    # (closure) -> return the index of the first value..
         f_find,         # (closure) -> return first value where true or null
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
@@ -208,8 +210,8 @@ class Definition(Grammar):
             function,
             assignment,
             tmp_assign,
-            closure,
             name,
+            closure,
             tmp,
             thing,
             array,
@@ -243,75 +245,6 @@ if __name__ == '__main__':
 
         ''')
     # exit(0)
-
-    definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
-    definition.test('users.find(user => (user.id == 1)).labels.filter(label => (label.id().i == 1))')
-    # exit(0)
-    definition.test('users.create("iris");grant(users.iris,FULL)')
-    definition.test('labels.map(label => label.id())')
-    definition.test('''
-        /*
-         * Create a collection
-         */
-        collections.create(dbtest);
-
-        /*
-         * Drop a collection
-         */
-        collections.dbtest.drop();
-
-        /* Change redundancy */
-        config.redundancy = 3[0][0];
-
-        types().create(User, {
-            name: str().required(),
-            age: int().required(),
-            owner: User.required(),
-            schools: School.required(),
-            scores: thing,
-            other: int
-        });
-        users.new({
-            name: 'iris'
-        });
-
-        type().add(users, User.isRequired);
-
-        bla.set('x', 4);
-
-        /*
-         * Finished!
-         */
-    ''')
-
-    definition.test(' users.new({name: "iris"}); ')
-    definition.test(' collections.dbtest.drop() ')
-
-    definition.test('2.1')
-
-    {
-        '$ev': 0,
-        '#': 4,
-        '$jobs': [
-            {'assign': {'age', 5}},
-            {'del': 'age'},
-            {'set': {'name': 'iris'}},
-            {'set': {'image': '<bin_data>'}},
-            {'unset': 'name'},
-            {'push': {'people': [{'#': 123}]}}
-        ]
-    }
-
-    {
-        'event': 1,
-        '#': 0,
-        'jobs': [
-            {'new': {'Database': {
-                'name': 'testdb',
-                'user': 'iris'
-            }}}
-        ]
-    }
 
     c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:

@@ -798,8 +798,6 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node,
             (uint64_t) qp_event_id.via.int64);
 
-    LOGC("Accepted Event: %d", accepted);
-
     resp = ti_pkg_new(
             pkg->id,
             accepted ? TI_PROTO_NODE_RES_EVENT_ID : TI_PROTO_NODE_ERR_EVENT_ID,
@@ -852,8 +850,6 @@ static void nodes__on_req_away_id(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     accepted = ti_away_accept(node->id, (uint8_t) qp_away_id.via.int64);
-    LOGC("Accepted: %d", accepted);
-
     resp = ti_pkg_new(
             pkg->id,
             accepted ? TI_PROTO_NODE_RES_AWAY_ID : TI_PROTO_NODE_ERR_AWAY_ID,
@@ -1078,8 +1074,6 @@ static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
-    LOGC("FSYNCPART REQUEST");
-
     if (!node)
     {
         log_error(
@@ -1121,8 +1115,6 @@ static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
-    LOGC("FSYNC FINISHED");
-
     if (!node)
     {
         log_error(
@@ -1144,13 +1136,10 @@ static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    LOGC("FSYNC STOP, TODO: REMOVE HERE, ADD AFTER AL SYNC COMPL.");
     ti_sync_stop();
 
-    LOGC("RESTORE");
     ti_store_restore();
 
-    LOGC("CHANGE STATUS.");
     ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_FSYNCDONE, NULL, 0);
@@ -1168,7 +1157,6 @@ finish:
 
 static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    LOGC("ON EVENT");
     ti_node_t * other_node = stream->via.node;
 
     if (!other_node)

@@ -313,14 +313,10 @@ static int archive__load_file(const char * archive_fn)
 
     while (qp_is_raw((qp_tp = qp_fnext(f, &pkg_qp))))
     {
-        ti_epkg_t * epkg;
-        ti_pkg_t * pkg = ti_pkg_dup((ti_pkg_t *) pkg_qp.via.raw->data);
-        if (!pkg)
-            goto fail1;
+        ti_epkg_t * epkg = ti_epkg_from_pkg((ti_pkg_t *) pkg_qp.via.raw->data);
 
         qp_res_clear(&pkg_qp);
 
-        epkg = ti_epkg_from_pkg(pkg);
         if (!epkg)
             goto fail1;
 

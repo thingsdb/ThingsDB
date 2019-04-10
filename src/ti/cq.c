@@ -953,6 +953,9 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    if (ti_scope_local_from_closure(query->scope, closure, e))
+        goto done;
+
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         _Bool found;

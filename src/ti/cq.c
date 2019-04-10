@@ -920,7 +920,7 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     size_t idx = 0;
     ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
-    ti_closure_t * closure;
+    ti_closure_t * closure = NULL;
 
     if (!ti_val_is_list((ti_val_t *) varr))
     {

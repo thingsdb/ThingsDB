@@ -82,6 +82,7 @@ class Definition(Grammar):
     f_map = Keyword('map')
     f_now = Keyword('now')
     f_refs = Keyword('refs')
+    f_remove = Keyword('remove')
     f_ret = Keyword('ret')
     f_startswith = Keyword('startswith')
     f_str = Keyword('str')
@@ -121,7 +122,7 @@ class Definition(Grammar):
         f_endswith,     # (str) -> bool
         f_filter,       # (closure) -> [return values where return is true]
         f_findindex,    # (closure) -> return the index of the first value..
-        f_find,         # (closure) -> return first value where true or null
+        f_find,         # (closure, alt) -> return first value where true...
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
         f_indexof,      # (v) -> int or nil
@@ -143,6 +144,7 @@ class Definition(Grammar):
         f_map,          # (closure) -> [return values]
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_refs,         # () -> reference counter
+        f_remove,       # (closue, alt) -> remove and return first value...
         f_ret,          # () -> nil
         f_startswith,   # (str) -> bool
         f_str,          # (x) -> raw

@@ -724,9 +724,9 @@ int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
         ti_varr_t * varr,
-        int64_t i,
-        int64_t c,
-        int32_t n)
+        int64_t i,  /* start index */
+        int64_t c,  /* number of items to remove */
+        int32_t n)  /* number of items to add */
 {
     assert (!varr || varr->tp == TI_VAL_ARR);
     assert (name);

@@ -244,7 +244,6 @@ static int job__splice(
 
     ex_t * e = ex_use();
     ssize_t n, i, c, cur_n, new_n;
-    ti_val_t * val;
     ti_varr_t * varr;
     ti_name_t * name;
     qp_types_t tp;
@@ -324,24 +323,26 @@ static int job__splice(
 
     varr->vec->n = i;
 
-    while(n-- && (val = ti_val_from_unp(unp, collection->things)))
+    while(n--)
     {
+        ti_val_t * val = ti_val_from_unp(unp, collection->things);
+
+        if (!val)  /* both <0 and >0 are not correct since we should have n values */
+        {
+            log_critical(
+                    "job `splice` array on "TI_THING_ID": "
+                    "error reading value for property: `%s`",
+                    thing->id,
+                    name->str);
+            return -1;
+        }
+
         if (ti_varr_append(varr, (void **) &val, e))
         {
             log_critical("job `splice` array on "TI_THING_ID": %s", e->msg);
             ti_val_drop(val);
             return -1;
         }
-    }
-
-    if (!val)  /* both <0 and >0 are not correct since we should have n values */
-    {
-        log_critical(
-                "job `splice` array on "TI_THING_ID": "
-                "error reading value for property: `%s`",
-                thing->id,
-                name->str);
-        return -1;
     }
 
     varr->vec->n = new_n;

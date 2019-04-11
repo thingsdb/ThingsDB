@@ -537,5 +537,6 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 
 static inline uint64_t away__calc_sleep(void)
 {
-    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000;
+    /* TODO: remove + 3600000L */
+    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000 + 3600000L;
 }

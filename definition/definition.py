@@ -42,8 +42,10 @@ class Definition(Grammar):
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
     t_false = Keyword('false')
-    t_float = Regex(r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
-    t_int = Regex(r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
+    t_float = Regex(
+        r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
+    t_int = Regex(
+        r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
     t_nil = Keyword('nil')
     t_regex = Regex('(/[^/\\\\]*(?:\\\\.[^/\\\\]*)*/i?)')
     t_string = Choice(r_single_quote, r_double_quote)
@@ -74,7 +76,7 @@ class Definition(Grammar):
     f_islist = Keyword('islist')
     f_isnan = Keyword('isnan')
     f_israw = Keyword('israw')
-    f_isstr = Keyword('isstr')       # alias for isutf8 (if isutf8, then is isascii)
+    f_isstr = Keyword('isstr')  # alias for isutf8 (if isutf8, then is isascii)
     f_istuple = Keyword('istuple')
     f_isutf8 = Keyword('isutf8')
     f_len = Keyword('len')

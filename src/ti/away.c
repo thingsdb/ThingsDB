@@ -6,8 +6,8 @@
 #include <ti/proto.h>
 #include <ti/quorum.h>
 #include <ti/things.h>
-#include <ti/fsync.h>
 #include <ti/syncer.h>
+#include <ti/syncfull.h>
 #include <ti.h>
 #include <util/logger.h>
 #include <util/qpx.h>
@@ -177,7 +177,6 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until)
 {
     ti_syncer_t * syncer;
     ti_syncer_t ** empty_syncer = NULL;
-
 
     for (vec_each(away->syncers, ti_syncer_t, syncr))
     {
@@ -402,12 +401,15 @@ static size_t away__syncers(void)
                 continue;
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
-            if (syncer->start < ti()->archive->start_event_id)
+
+            if (syncer->start < ti()->archive->first_event_id)
             {
                 log_info("full database sync is required for `%s`",
                         ti_stream_name(syncer->stream));
-                ti_fsync_start(syncer->stream);
+                ti_syncfull_start(syncer->stream);
+                continue;
             }
+
         }
     }
     return count;

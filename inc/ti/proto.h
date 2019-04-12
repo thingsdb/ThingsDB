@@ -97,8 +97,10 @@ typedef enum
      * more is a boolean which is set to true in case the file is not yet
      * complete.
      */
-    TI_PROTO_NODE_REQ_FSYNCPART =182,
-    TI_PROTO_NODE_REQ_FSYNCDONE =183,   /* full sync completed */
+    TI_PROTO_NODE_REQ_SYNCFPART =182,
+    TI_PROTO_NODE_REQ_SYNCFDONE =183,   /* full sync completed */
+    TI_PROTO_NODE_REQ_SYNCAPART =184,   /* archive sync part */
+
     /*
      * 192..223 node responses
      */
@@ -107,11 +109,16 @@ typedef enum
     TI_PROTO_NODE_RES_AWAY_ID   =210,   /* empty, away id accepted */
     TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
     TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
-    TI_PROTO_NODE_RES_FSYNCPART =214,   /* [target, file, offset]
+    TI_PROTO_NODE_RES_SYNCFPART =214,   /* [target, file, offset]
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */
-    TI_PROTO_NODE_RES_FSYNCDONE =215,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCFDONE =215,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCAPART =216,   /* [first, last, offset]
+                                           here
+                                           here offset is 0 in case no more
+                                           data for the file is required
+                                         */
     /*
      * 224..255 node errors
      */
@@ -128,8 +135,9 @@ typedef enum
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_SETUP_TIMEOUT 10
 #define TI_PROTO_NODE_REQ_SYNC_TIMEOUT 10
-#define TI_PROTO_NODE_REQ_FSYNCPART_TIMEOUT 10
-#define TI_PROTO_NODE_REQ_FSYNCDONE_TIMEOUT 300
+#define TI_PROTO_NODE_REQ_SYNCFPART_TIMEOUT 10
+#define TI_PROTO_NODE_REQ_SYNCFDONE_TIMEOUT 300
+#define TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT 10
 
 const char * ti_proto_str(ti_proto_e tp);
 

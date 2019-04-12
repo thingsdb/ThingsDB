@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/ti/access.c \
+../src/ti/archfile.c \
 ../src/ti/archive.c \
 ../src/ti/args.c \
 ../src/ti/auth.c \
@@ -23,7 +24,6 @@ C_SRCS += \
 ../src/ti/events.c \
 ../src/ti/ex.c \
 ../src/ti/fetch.c \
-../src/ti/fsync.c \
 ../src/ti/fwd.c \
 ../src/ti/job.c \
 ../src/ti/lookup.c \
@@ -55,7 +55,9 @@ C_SRCS += \
 ../src/ti/store.c \
 ../src/ti/stream.c \
 ../src/ti/sync.c \
+../src/ti/syncarchive.c \
 ../src/ti/syncer.c \
+../src/ti/syncfull.c \
 ../src/ti/task.c \
 ../src/ti/tcp.c \
 ../src/ti/thing.c \
@@ -74,6 +76,7 @@ C_SRCS += \
 
 OBJS += \
 ./src/ti/access.o \
+./src/ti/archfile.o \
 ./src/ti/archive.o \
 ./src/ti/args.o \
 ./src/ti/auth.o \
@@ -92,7 +95,6 @@ OBJS += \
 ./src/ti/events.o \
 ./src/ti/ex.o \
 ./src/ti/fetch.o \
-./src/ti/fsync.o \
 ./src/ti/fwd.o \
 ./src/ti/job.o \
 ./src/ti/lookup.o \
@@ -124,7 +126,9 @@ OBJS += \
 ./src/ti/store.o \
 ./src/ti/stream.o \
 ./src/ti/sync.o \
+./src/ti/syncarchive.o \
 ./src/ti/syncer.o \
+./src/ti/syncfull.o \
 ./src/ti/task.o \
 ./src/ti/tcp.o \
 ./src/ti/thing.o \
@@ -143,6 +147,7 @@ OBJS += \
 
 C_DEPS += \
 ./src/ti/access.d \
+./src/ti/archfile.d \
 ./src/ti/archive.d \
 ./src/ti/args.d \
 ./src/ti/auth.d \
@@ -161,7 +166,6 @@ C_DEPS += \
 ./src/ti/events.d \
 ./src/ti/ex.d \
 ./src/ti/fetch.d \
-./src/ti/fsync.d \
 ./src/ti/fwd.d \
 ./src/ti/job.d \
 ./src/ti/lookup.d \
@@ -193,7 +197,9 @@ C_DEPS += \
 ./src/ti/store.d \
 ./src/ti/stream.d \
 ./src/ti/sync.d \
+./src/ti/syncarchive.d \
 ./src/ti/syncer.d \
+./src/ti/syncfull.d \
 ./src/ti/task.d \
 ./src/ti/tcp.d \
 ./src/ti/thing.d \

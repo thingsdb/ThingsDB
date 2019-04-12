@@ -8,9 +8,9 @@
 #include <ti/version.h>
 #include <ti/access.h>
 #include <ti/auth.h>
-#include <ti/fsync.h>
 #include <ti/away.h>
 #include <ti/args.h>
+#include <ti/syncfull.h>
 #include <ti.h>
 #include <util/cryptx.h>
 #include <util/qpx.h>
@@ -82,13 +82,16 @@ _Bool ti_nodes_has_quorum(void)
 /* increases with a new reference as long as required */
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {
+    ti_node_t * this_node = ti()->node;
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        if (node != ti()->node && (
-                node->status == TI_NODE_STAT_SYNCHRONIZING ||
-                node->status == TI_NODE_STAT_AWAY ||
-                node->status == TI_NODE_STAT_AWAY_SOON ||
-                node->status == TI_NODE_STAT_READY))
+        uint8_t status = node->status;
+
+        if (node != this_node && (
+                status == TI_NODE_STAT_SYNCHRONIZING ||
+                status == TI_NODE_STAT_AWAY ||
+                status == TI_NODE_STAT_AWAY_SOON ||
+                status == TI_NODE_STAT_READY))
         {
             if (ti_stream_write_rpkg(node->stream, rpkg))
                 log_error(EX_INTERNAL_S);
@@ -375,10 +378,10 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_SYNC:
         nodes__on_req_sync(stream, pkg);
         break;
-    case TI_PROTO_NODE_REQ_FSYNCPART:
+    case TI_PROTO_NODE_REQ_SYNCFPART:
         nodes__on_req_multipart(stream, pkg);
         break;
-    case TI_PROTO_NODE_REQ_FSYNCDONE:
+    case TI_PROTO_NODE_REQ_SYNCFDONE:
         nodes__on_req_fsyncdone(stream, pkg);
         break;
     case TI_PROTO_NODE_RES_CONNECT:
@@ -386,8 +389,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_RES_AWAY_ID:
     case TI_PROTO_NODE_RES_SETUP:
     case TI_PROTO_NODE_RES_SYNC:
-    case TI_PROTO_NODE_RES_FSYNCPART:
-    case TI_PROTO_NODE_RES_FSYNCDONE:
+    case TI_PROTO_NODE_RES_SYNCFPART:
+    case TI_PROTO_NODE_RES_SYNCFDONE:
     case TI_PROTO_NODE_ERR_RES:
     case TI_PROTO_NODE_ERR_EVENT_ID:
     case TI_PROTO_NODE_ERR_AWAY_ID:
@@ -1095,7 +1098,7 @@ static void nodes__on_req_multipart(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    resp = ti_fsync_on_part(pkg, e);
+    resp = ti_syncfull_on_part(pkg, e);
     assert (!resp ^ !e->nr);
 
 finish:
@@ -1142,7 +1145,7 @@ static void nodes__on_req_fsyncdone(ti_stream_t * stream, ti_pkg_t * pkg)
 
     ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 
-    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_FSYNCDONE, NULL, 0);
+    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCFDONE, NULL, 0);
 
 finish:
     if (e->nr)

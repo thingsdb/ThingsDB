@@ -362,7 +362,6 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     for (vec_each(query->results, ti_val_t, rval))
     {
         assert (rval);
-        /* TODO: set fetch level */
         if (ti_val_to_packer(rval, &packer, 0, query->deep))
             goto alloc_err;
     }

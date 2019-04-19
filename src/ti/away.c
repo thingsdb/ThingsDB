@@ -8,6 +8,7 @@
 #include <ti/things.h>
 #include <ti/syncer.h>
 #include <ti/syncfull.h>
+#include <ti/syncarchive.h>
 #include <ti.h>
 #include <util/logger.h>
 #include <util/qpx.h>
@@ -173,7 +174,7 @@ _Bool ti_away_is_working(void)
     return away->status == AWAY__STATUS_WORKING;
 }
 
-int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until)
+int ti_away_syncer(ti_stream_t * stream, uint64_t first, uint64_t until)
 {
     ti_syncer_t * syncer;
     ti_syncer_t ** empty_syncer = NULL;
@@ -182,7 +183,7 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until)
     {
         if (syncr->stream == stream)
         {
-            syncr->start = start;
+            syncr->first = first;
             syncr->until = until;
             return 0;
         }
@@ -196,12 +197,12 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t start, uint64_t until)
     {
         syncer = *empty_syncer;
         syncer->stream = stream;
-        syncer->start = start;
+        syncer->first = first;
         syncer->until = until;
         goto finish;
     }
 
-    syncer = ti_syncer_create(stream, start, until);
+    syncer = ti_syncer_create(stream, first, until);
     if (!syncer)
         return -1;
 
@@ -396,20 +397,33 @@ static size_t away__syncers(void)
     {
         if (syncer->stream)
         {
+            int rc;
+
             ++count;
             if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
                 continue;
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
-            if (syncer->start < ti()->archive->first_event_id)
+            if (syncer->first < ti()->archive->first_event_id)
             {
                 log_info("full database sync is required for `%s`",
                         ti_stream_name(syncer->stream));
-                ti_syncfull_start(syncer->stream);
+                if (ti_syncfull_start(syncer->stream))
+                    log_critical(EX_ALLOC_S);
                 continue;
             }
 
+            rc = ti_syncarchive_init(syncer->stream, syncer->first);
+
+            if (rc < 0)
+            {
+                log_critical(EX_ALLOC_S);
+            }
+            else if (rc > 0)
+            {
+                LOGC("HANDLE EVENT SYNC");
+            }
         }
     }
     return count;
@@ -540,5 +554,5 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 static inline uint64_t away__calc_sleep(void)
 {
     /* TODO: remove + 3600000L */
-    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000 + 3600000L;
+    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000; // + 3600000L;
 }

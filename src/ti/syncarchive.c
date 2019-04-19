@@ -11,9 +11,16 @@
 
 #define SYNCFULL__PART_SIZE 131072UL
 
+static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
 static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
+static ti_archfile_t * syncarchive__get_archfile(uint64_t first, uint64_t last);
 
-int ti_syncarchive_sync(ti_stream_t * stream, uint64_t event_id)
+/*
+ * Returns 1 if no archive file is found for the given `event_id` and 0 if
+ * one is found and a request is successfully made. In case of an error, -1
+ * will be the return value.
+ */
+int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
 {
     queue_t * archfiles = ti()->archive->archfiles;
 
@@ -35,20 +42,11 @@ int ti_syncarchive_sync(ti_stream_t * stream, uint64_t event_id)
                 free(pkg);
                 return -1;
             }
-
+            return 0;
         }
     }
 
-    return 0;
-}
-
-static ti_archfile_t * syncarchive__get_archfile(uint64_t first, uint64_t last)
-{
-    queue_t * archfiles = ti()->archive->archfiles;
-    for (queue_each(archfiles, ti_archfile_t, archfile))
-        if (archfile->first == first && archfile->last == last)
-            return archfile;
-    return NULL;
+    return 1;
 }
 
 ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
@@ -113,21 +111,27 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-
     if (qp_more.tp == QP_TRUE)
     {
         offset += qp_raw.len;
     }
     else
     {
-        if (ti_archive_load_file(archfile))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "error loading archive file `%s`",
-                    archfile->fn);
-            return NULL;
-        }
+//        ti_event_t * first_event;
 
+//        if (ti_archive_load_file(archfile))
+//        {
+//            ex_set(e, EX_INTERNAL,
+//                    "error loading archive file `%s`",
+//                    archfile->fn);
+//            return NULL;
+//        }
+
+//        first_event = queue_first(ti()->events->queue);
+
+        offset = 0;
+        first = 0; // first_event ? first_event->id : 0;
+        last = archfile->last + 1;
     }
 
     (void) qp_add_array(&packer);
@@ -176,6 +180,8 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
     ti_pkg_t * next_pkg;
     qp_obj_t qp_first, qp_last, qp_offset;
     off_t offset;
+    uint64_t first, last;
+    int rc;
 
     if (status)
         goto failed;
@@ -203,51 +209,59 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    target_id = (uint64_t) qp_target.via.int64;
-    ft = (syncfull__file_t) qp_ft.via.int64;
+    first = (uint64_t) qp_first.via.int64;
+    last = (uint64_t) qp_last.via.int64;
     offset = (off_t) qp_offset.via.int64;
 
-    if (!offset && !syncfull__next_file(&target_id, &ft))
+    if (offset)
     {
-        next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCFDONE, NULL, 0);
-        if (!next_pkg)
+        ti_archfile_t * archfile = syncarchive__get_archfile(first, last);
+        if (!archfile)
+        {
+            log_error(
+                    "cannot find archive file for event range "
+                    TI_EVENT_ID " - "TI_EVENT_ID,
+                    first, last);
             goto failed;
+        }
+
+        next_pkg = syncarchive__pkg(archfile, offset);
+        if (!next_pkg)
+        {
+            log_error(
+                    "failed creating package for `%s` using offset: %zd)",
+                    archfile->fn, offset);
+            goto failed;
+        }
 
         if (ti_req_create(
                 req->stream,
                 next_pkg,
-                TI_PROTO_NODE_REQ_SYNCFDONE_TIMEOUT,
-                syncfull__done_cb,
+                TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT,
+                syncarchive__push_cb,
                 NULL))
         {
             free(next_pkg);
             goto failed;
         }
+
         goto done;
     }
 
-    next_pkg = syncfull__pkg(target_id, ft, offset);
-    if (!next_pkg)
+    rc = ti_syncarchive_init(req->stream, last);
+    if (rc < 0)
     {
         log_error(
-                "failed creating package "
-                "(target: %"PRIu64" file type: %d, offset: %zd)",
-                target_id, ft, offset);
+                "failed creating request for stream `%s` and "TI_EVENT_ID,
+                ti_stream_name(req->stream),
+                last);
         goto failed;
     }
 
-    if (ti_req_create(
-            req->stream,
-            next_pkg,
-            TI_PROTO_NODE_REQ_SYNCFPART_TIMEOUT,
-            syncfull__push_cb,
-            NULL))
+    if (rc > 0)
     {
-        free(next_pkg);
-        goto failed;
+        LOGC("HANDLE ALL ARCHIVE FILES");
     }
-
-    goto done;
 
 failed:
     ti_stream_stop_watching(req->stream);
@@ -255,3 +269,13 @@ done:
     free(req->pkg_req);
     ti_req_destroy(req);
 }
+
+static ti_archfile_t * syncarchive__get_archfile(uint64_t first, uint64_t last)
+{
+    queue_t * archfiles = ti()->archive->archfiles;
+    for (queue_each(archfiles, ti_archfile_t, archfile))
+        if (archfile->first == first && archfile->last == last)
+            return archfile;
+    return NULL;
+}
+

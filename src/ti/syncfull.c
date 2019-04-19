@@ -1,17 +1,18 @@
 /*
  * ti/fsync.c
  */
-#include <ti.h>
-#include <qpack.h>
 #include <assert.h>
-#include <ti/proto.h>
-#include <ti/collection.h>
-#include <ti/store/collection.h>
-#include <ti/store.h>
-#include <ti/req.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
+#include <qpack.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ti.h>
+#include <ti/collection.h>
+#include <ti/proto.h>
+#include <ti/req.h>
+#include <ti/store.h>
+#include <ti/store/collection.h>
+#include <ti/syncarchive.h>
 #include <ti/syncfull.h>
 #include <util/qpx.h>
 #include <util/syncpart.h>
@@ -161,12 +162,29 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
 
 static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 {
+    int rc;
+    uint64_t next_event_id = ti()->archive->full_stored_event_id + 1;
+    LOGC("syncfull__done_cb");
+
     if (status)
         log_error("failed response on fsync done");
 
-    /* TODO: Start Event Sync */
-    ti_away_syncer_done(req->stream);
-    ti_stream_stop_watching(req->stream);
+    rc = ti_syncarchive_init(req->stream, next_event_id);
+
+    if (rc < 0)
+    {
+        log_error(
+                "failed creating request for stream `%s` and "TI_EVENT_ID,
+                ti_stream_name(req->stream),
+                next_event_id);
+    }
+
+    if (rc > 0)
+    {
+        /* TODO: single event sync */
+        ti_away_syncer_done(req->stream);
+        ti_stream_stop_watching(req->stream);
+    }
 
     free(req->pkg_req);
     ti_req_destroy(req);

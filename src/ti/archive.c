@@ -226,6 +226,7 @@ int ti_archive_to_disk(void)
         {
             (void) archive__remove_files();
             archive->archived_on_disk = 0;
+            archive->full_stored_event_id = last_epkg->event_id;
         }
     }
 

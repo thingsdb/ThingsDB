@@ -97,9 +97,10 @@ typedef enum
      * more is a boolean which is set to true in case the file is not yet
      * complete.
      */
-    TI_PROTO_NODE_REQ_SYNCFPART =182,
+    TI_PROTO_NODE_REQ_SYNCFPART =182,   /* full sync part */
     TI_PROTO_NODE_REQ_SYNCFDONE =183,   /* full sync completed */
     TI_PROTO_NODE_REQ_SYNCAPART =184,   /* archive sync part */
+    TI_PROTO_NODE_REQ_SYNCADONE =185,   /* archive sync completed */
 
     /*
      * 192..223 node responses
@@ -119,6 +120,8 @@ typedef enum
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */
+    TI_PROTO_NODE_RES_SYNCADONE =217,   /* empty, ack */
+
     /*
      * 224..255 node errors
      */

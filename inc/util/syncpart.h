@@ -5,6 +5,7 @@
 #define SYNCPART_H_
 
 #include <qpack.h>
+#include <ti/ex.h>
 
 #define SYNCPART_SIZE 131072UL
 

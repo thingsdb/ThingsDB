@@ -1,12 +1,12 @@
-from lib.testbase import TestBase
 from lib import run_test
 from lib import default_test_setup
+from lib.testbase import TestBase
 
 
 class TestMultiNode(TestBase):
 
     @default_test_setup(2)
-    def run(self):
+    async def run(self):
         pass
 
 

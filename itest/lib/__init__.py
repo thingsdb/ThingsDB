@@ -3,34 +3,31 @@ import logging
 from .testbase import TestBase
 from .task import Task
 from .cleanup import cleanup
-from
+from .node import Node
+from .vars import THINGSDB_TERMINAL
+from .vars import THINGSDB_TERM_KEEP
+
 
 def default_test_setup(num_nodes=1, **kwargs):
     def wrapper(func):
         async def wrapped(self):
-            self.nodes = [
-                Node(n, title=self.title, **kwargs) for n in range(nservers)]
-            for n, server in enumerate(self.servers):
-                setattr(self, 'server{}'.format(n), server)
-                setattr(self, 'client{}'.format(n), Client(self.db, server))
-                server.create()
-                await server.start()
+            self.nodes = [Node(n, **kwargs) for n in range(num_nodes)]
 
-            time.sleep(2.0)
-
-            await self.db.create_on(self.server0, sleep=5)
+            for n, node in enumerate(self.nodes):
+                setattr(self, f'node{n}', node)
+                node.write_config()
 
             close = await func(self)
 
-            if Server.TERMINAL is None or Server.HOLD_TERM is not True:
-                for server in self.servers:
-                    result = await server.stop()
+            if THINGSDB_TERMINAL is None or THINGSDB_TERM_KEEP is not True:
+                for node in self.nodes:
+                    result = await node.stop()
                     self.assertTrue(
                         result,
-                        msg='Server {} did not close correctly'.format(
-                            server.name))
+                        msg=f'Node {node.name} did not close correctly')
 
         return wrapped
+
     return wrapper
 
 

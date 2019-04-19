@@ -58,10 +58,11 @@ except IndexError:
         f'got `{THINGSDB_MEMCHECK}`'
     )
 
-try:
-    THINGSDB_TERMINAL = os.environ.get('THINGSDB_TERMINAL', None)
-    if THINGSDB_TERMINAL == '0' or THINGSDB_TERMINAL == '':
-        THINGSDB_TERMINAL = None
+THINGSDB_TERMINAL = os.environ.get('THINGSDB_TERMINAL', None)
+if THINGSDB_TERMINAL == '0' or THINGSDB_TERMINAL == '':
+    THINGSDB_TERMINAL = None
+
+
 
 try:
     THINGSDB_TERM_KEEP = bool(int(os.environ.get('THINGSDB_TERM_KEEP', 0)))
@@ -70,12 +71,11 @@ except ValueError:
 
 THINGSDB_TERM_GEOMETRY = os.environ.get('THINGSDB_TERM_GEOMETRY', '140x60')
 
-try:
-    _valid_log_levels = ['debug', 'info', 'warning', 'error', 'critical']
-    THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_TERMINAL', 'critical').lower()
+_valid_log_levels = ['debug', 'info', 'warning', 'error', 'critical']
+THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_TERMINAL', 'critical').lower()
 
-    if THINGSDB_LOGLEVEL not in _valid_log_levels:
-        sys.exit(
-            f'THINGSDB_LOGLEVEL should be one of {_valid_log_levels}, '
-            f'got `{THINGSDB_LOGLEVEL}`'
-        )
+if THINGSDB_LOGLEVEL not in _valid_log_levels:
+    sys.exit(
+        f'THINGSDB_LOGLEVEL should be one of {_valid_log_levels}, '
+        f'got `{THINGSDB_LOGLEVEL}`'
+    )

@@ -3,6 +3,7 @@ import asyncio
 import subprocess
 import platform
 import configparser
+import psutil
 from .vars import THINGSDB_TERMINAL
 from .vars import THINGSDB_TERM_GEOMETRY
 from .vars import THINGSDB_TERM_KEEP
@@ -24,9 +25,19 @@ def get_file_content(fn):
 
 
 class Node:
-    def __init__(self, n: int, **options):
+    def __init__(self, n: int, test_name: str, **options):
         self.pid = None
         self.n = n
+
+        test_name = test_name.replace(' ', '_')
+        self.outfn = os.path.join(
+            THINGSDB_TESTDIR,
+            f'{test_name}-node{n}-out.log'
+        )
+        self.errfn = os.path.join(
+            THINGSDB_TESTDIR,
+            f'{test_name}-node{n}-err.log'
+        )
 
         self.listen_client_port = 9200 + n
         self.listen_node_port = 9220 + n
@@ -98,16 +109,8 @@ class Node:
             return
 
         if THINGSDB_TERMINAL is None:
-            errfn = os.path.join(
-                THINGSDB_TESTDIR,
-                f'{self.test_title}-{self.name}-err.log'
-            )
-            outfn = os.path.join(
-                THINGSDB_TESTDIR,
-                f'{self.test_title}-{self.name}-out.log'
-            )
-            with open(errfn, 'a') as err:
-                with open(outfn, 'a') as out:
+            with open(self.errfn, 'a') as err:
+                with open(self.outfn, 'a') as out:
                     self.proc = subprocess.Popen(
                         command,
                         stderr=err,
@@ -127,11 +130,11 @@ class Node:
         my_pid = self._get_pid_set() - prev
 
         if len(my_pid) != 1:
-            if self.TERMINAL is None:
-                if os.path.exists(outfn) and os.path.getsize(outfn):
-                    reasoninfo = get_file_content(outfn)
-                elif os.path.exists(errfn):
-                    reasoninfo = get_file_content(errfn)
+            if THINGSDB_TERMINAL is None:
+                if os.path.exists(self.outfn) and os.path.getsize(self.outfn):
+                    reasoninfo = get_file_content(self.outfn)
+                elif os.path.exists(self.errfn):
+                    reasoninfo = get_file_content(self.errfn)
                 else:
                     reasoninfo = 'unknown'
                 assert 0, (
@@ -143,3 +146,44 @@ class Node:
                     'be that another process is using the same port.')
 
         self.pid = my_pid.pop()
+
+    def is_active(self):
+        return False if self.pid is None else psutil.pid_exists(self.pid)
+
+    def kill(self):
+        print("!!!!!!!!!!!! KILLL !!!!!!!!!!")
+        os.system('kill -9 {}'.format(self.pid))
+        self.pid = None
+
+    async def stopstop(self):
+        if self.is_active():
+            os.system('kill {}'.format(self.pid))
+            await asyncio.sleep(0.2)
+
+            if self.is_active():
+                os.system('kill {}'.format(self.pid))
+                await asyncio.sleep(1.0)
+
+                if self.is_active():
+                    return False
+
+        self.pid = None
+        return True
+
+    async def stop(self, timeout=20):
+        if self.is_active():
+            os.system('kill {}'.format(self.pid))
+
+            while (timeout and self.is_active()):
+                await asyncio.sleep(1.0)
+                timeout -= 1
+
+        if hasattr(self, 'proc'):
+            self.proc.communicate()
+            assert (self.proc.returncode == 0)
+
+        if timeout:
+            self.pid = None
+            return True
+
+        return False

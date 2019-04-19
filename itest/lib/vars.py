@@ -21,14 +21,18 @@ THINGSDB_LOGLEVEL
 
 import sys
 import os
-
+import logging
 
 THINGSDB_BIN = os.environ.get('THINGSDB_BIN', '../Debug/thingsdb')
+if not THINGSDB_BIN.startswith('/'):
+    THINGSDB_BIN = os.path.join(os.getcwd(), THINGSDB_BIN)
+
 if not os.path.isfile(THINGSDB_BIN) or not os.access(THINGSDB_BIN, os.X_OK):
     sys.exit(f'THINGSDB_BIN ({THINGSDB_BIN}) is not an executable file')
 
-
-THINGSDB_TESTDIR = os.environ.get('THINGSDB_TESTDIR', '../testdir')
+THINGSDB_TESTDIR = os.environ.get('THINGSDB_TESTDIR', './testdir')
+if not THINGSDB_TESTDIR.startswith('/'):
+    THINGSDB_TESTDIR = os.path.join(os.getcwd(), THINGSDB_TESTDIR)
 
 try:
     THINGSDB_MEMCHECK = [
@@ -71,11 +75,9 @@ except ValueError:
 
 THINGSDB_TERM_GEOMETRY = os.environ.get('THINGSDB_TERM_GEOMETRY', '140x60')
 
-_valid_log_levels = ['debug', 'info', 'warning', 'error', 'critical']
-THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_TERMINAL', 'critical').lower()
+THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_LOGLEVEL', 'critical').upper()
 
-if THINGSDB_LOGLEVEL not in _valid_log_levels:
+if not hasattr(logging, THINGSDB_LOGLEVEL):
     sys.exit(
-        f'THINGSDB_LOGLEVEL should be one of {_valid_log_levels}, '
-        f'got `{THINGSDB_LOGLEVEL}`'
+        f'unknown THINGSDB_LOGLEVEL: `{THINGSDB_LOGLEVEL}`'
     )

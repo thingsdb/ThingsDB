@@ -3,15 +3,13 @@ import logging
 from .testbase import TestBase
 from .task import Task
 from .cleanup import cleanup
-
+from
 
 def default_test_setup(num_nodes=1, **kwargs):
     def wrapper(func):
         async def wrapped(self):
-            self.db = SiriDB(**kwargs)
-
-            self.servers = [
-                Server(n, title=self.title, **kwargs) for n in range(nservers)]
+            self.nodes = [
+                Node(n, title=self.title, **kwargs) for n in range(nservers)]
             for n, server in enumerate(self.servers):
                 setattr(self, 'server{}'.format(n), server)
                 setattr(self, 'client{}'.format(n), Client(self.db, server))

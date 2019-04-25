@@ -119,6 +119,17 @@ done:
     return rc;
 }
 
+_Bool ti_store_collection_is_stored(const char * path, uint64_t collection_id)
+{
+    _Bool exists;
+
+    char * collection_path = ti_store_collection_get_path(path, collection_id);
+    exists = fx_is_dir(collection_path);
+
+    free(collection_path);
+    return exists;
+}
+
 char * ti_store_collection_get_path(const char * path, uint64_t collection_id)
 {
     char * collection_path;

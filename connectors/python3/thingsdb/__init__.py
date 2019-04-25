@@ -6,4 +6,4 @@ def fmt(val, blobs=None):
     if blobs is None:
         blobs = []
 
-    return wrap(val, blobs)
+    return repr(wrap(val, blobs))

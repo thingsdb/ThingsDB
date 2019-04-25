@@ -335,7 +335,7 @@ int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
-    free(req->pkg);
+//    free(req->pkg);
     ti_write_destroy(req);
 }
 

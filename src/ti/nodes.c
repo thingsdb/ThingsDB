@@ -32,6 +32,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncfpart(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncapart(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 
@@ -389,6 +390,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_SYNCAPART:
         nodes__on_req_syncapart(stream, pkg);
         break;
+    case TI_PROTO_NODE_REQ_SYNCADONE:
+        nodes__on_req_syncadone(stream, pkg);
+        break;
     case TI_PROTO_NODE_RES_CONNECT:
     case TI_PROTO_NODE_RES_EVENT_ID:
     case TI_PROTO_NODE_RES_AWAY_ID:
@@ -397,6 +401,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_RES_SYNCFPART:
     case TI_PROTO_NODE_RES_SYNCFDONE:
     case TI_PROTO_NODE_RES_SYNCAPART:
+    case TI_PROTO_NODE_RES_SYNCADONE:
     case TI_PROTO_NODE_ERR_RES:
     case TI_PROTO_NODE_ERR_EVENT_ID:
     case TI_PROTO_NODE_ERR_AWAY_ID:
@@ -1193,6 +1198,52 @@ static void nodes__on_req_syncapart(ti_stream_t * stream, ti_pkg_t * pkg)
 
     resp = ti_syncarchive_on_part(pkg, e);
     assert (!resp ^ !e->nr);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_node_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
+static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t * e = ex_use();
+    ti_pkg_t * resp = NULL;
+    ti_node_t * node = stream->via.node;
+
+    if (!node)
+    {
+        log_error(
+            "got a `%s` from an unauthorized connection: `%s`",
+            ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    {
+        log_error(
+                "got a `%s` from `%s` "
+                "but this node is not in `synchronizing` mode",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not in `synchronizing` mode and therefore "
+                "cannot accept the request",
+                ti_name());
+        goto finish;
+    }
+
+    ti_archive_load();
+
+    /* TODO: remove below, next will be event sync */
+    ti_sync_stop();
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCADONE, NULL, 0);
 
 finish:
     if (e->nr)

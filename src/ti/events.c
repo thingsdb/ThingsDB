@@ -329,7 +329,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     vec_t * vec_nodes = ti()->nodes->vec;
     ti_quorum_t * quorum;
     qpx_packer_t * packer;
-    ti_pkg_t * pkg;
+    ti_pkg_t * pkg, * dup = NULL;
 
     quorum = ti_quorum_new((ti_quorum_cb) events__on_req_event_id, ev);
     if (!quorum)
@@ -362,13 +362,16 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         if (node == ti()->node)
             continue;
 
-        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
+        if (node->status <= TI_NODE_STAT_CONNECTING ||
+            !(dup = ti_pkg_dup(pkg)) ||
+            ti_req_create(
                 node->stream,
                 pkg,
                 TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT,
                 ti_quorum_req_cb,
                 quorum))
         {
+            free(dup);
             if (ti_quorum_shrink_one(quorum))
                 log_error("failed to reach quorum while the previous check"
                         "was successful");

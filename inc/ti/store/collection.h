@@ -14,6 +14,7 @@ ti_store_collection_t * ti_store_collection_create(
 void ti_store_collection_destroy(ti_store_collection_t * store_collection);
 int ti_store_collection_store(ti_collection_t * collection, const char * fn);
 int ti_store_collection_restore(ti_collection_t * collection, const char * fn);
+_Bool ti_store_collection_is_stored(const char * path, uint64_t collection_id);
 char * ti_store_collection_get_path(const char * path, uint64_t collection_id);
 char * ti_store_collection_access_fn(
         const char * path,

@@ -31,6 +31,7 @@ typedef enum
     SYNCFULL__COLLECTION_ACCESS_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
     SYNCFULL__COLLECTION_PROPS_FILE,
+    /* end */
     SYNCFULL__COLLECTION_END,
 } syncfull__file_t;
 
@@ -147,15 +148,27 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
         size_t i = 0;
         ti_collection_t * collection;
         vec_t * collections = ti()->collections->vec;
+        char * path = ti()->store->store_path;
 
         if (*target_id)
             for (vec_each(collections, ti_collection_t, collection))
                 if (++i && collection->root->id == *target_id)
                     break;
-        collection = vec_get_or_null(collections, i);
-        if (!collection)
-            return false;       /* finished, no more files to sync */
-        *target_id = collection->root->id;
+
+        while (1)
+        {
+            collection = vec_get_or_null(collections, i);
+            if (!collection)
+                return false;       /* finished, no more files to sync */
+
+            *target_id = collection->root->id;
+
+            if (ti_store_collection_is_stored(path, *target_id))
+                break;
+
+            /* skip collections which are not stored (yet) */
+            ++i;
+        }
     }
     return true;
 }
@@ -167,7 +180,7 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
     LOGC("syncfull__done_cb");
 
     if (status)
-        log_error("failed response on fsync done");
+        log_error("failed response: `%s` (%s)", ex_str(status), status);
 
     rc = ti_syncarchive_init(req->stream, next_event_id);
 

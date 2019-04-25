@@ -7,10 +7,9 @@ from .node import Node
 from .vars import THINGSDB_BIN
 from .vars import THINGSDB_LOGLEVEL
 from .vars import THINGSDB_MEMCHECK
-from .vars import THINGSDB_TERMINAL
-from .vars import THINGSDB_TERM_GEOMETRY
-from .vars import THINGSDB_TERM_KEEP
+from .vars import THINGSDB_NODE_OUTPUT
 from .vars import THINGSDB_TESTDIR
+from .vars import THINGSDB_VERBOSE
 
 
 def default_test_setup(num_nodes=1, **kwargs):
@@ -26,12 +25,8 @@ def default_test_setup(num_nodes=1, **kwargs):
 
             close = await func(self)
 
-            if THINGSDB_TERMINAL is None or THINGSDB_TERM_KEEP is not True:
-                for node in self.nodes:
-                    result = await node.stop()
-                    self.assertTrue(
-                        result,
-                        msg=f'Node {node.name} did not close correctly')
+            for node in self.nodes:
+                result = await node.stop()
 
         return wrapped
 
@@ -46,12 +41,11 @@ async def _run_test(test):
     logging.info(f"""
 Test Settings:
   THINGSDB_BIN: {THINGSDB_BIN}
-  THINGSDB_TESTDIR: {THINGSDB_TESTDIR}
-  THINGSDB_MEMCHECK: {THINGSDB_MEMCHECK}
-  THINGSDB_TERMINAL: {THINGSDB_TERMINAL}
-  THINGSDB_TERM_KEEP: {THINGSDB_TERM_KEEP}
-  THINGSDB_TERM_GEOMETRY: {THINGSDB_TERM_GEOMETRY}
   THINGSDB_LOGLEVEL: {THINGSDB_LOGLEVEL}
+  THINGSDB_MEMCHECK: {THINGSDB_MEMCHECK}
+  THINGSDB_NODE_OUTPUT: {THINGSDB_NODE_OUTPUT}
+  THINGSDB_TESTDIR: {THINGSDB_TESTDIR}
+  THINGSDB_VERBOSE: {THINGSDB_VERBOSE}
 """)
 
     try:

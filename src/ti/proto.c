@@ -48,6 +48,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_REQ_SYNCFPART:       return "NODE_REQ_SYNCFPART";
     case TI_PROTO_NODE_REQ_SYNCFDONE:       return "NODE_REQ_SYNCFDONE";
     case TI_PROTO_NODE_REQ_SYNCAPART:       return "NODE_REQ_SYNCAPART";
+    case TI_PROTO_NODE_REQ_SYNCADONE:       return "NODE_REQ_SYNCADONE";
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
     case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
@@ -57,6 +58,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_RES_SYNCFPART:       return "NODE_RES_SYNCFPART";
     case TI_PROTO_NODE_RES_SYNCFDONE:       return "NODE_RES_SYNCFDONE";
     case TI_PROTO_NODE_RES_SYNCAPART:       return "NODE_RES_SYNCAPART";
+    case TI_PROTO_NODE_RES_SYNCADONE:       return "NODE_RES_SYNCADONE";
 
     case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES_CONNECT";
     case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";

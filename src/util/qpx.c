@@ -70,6 +70,7 @@ ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
 
     packer->buffer = NULL;
     qp_packer_destroy(packer);
+    assert (pkg->id == 0);
     return pkg;
 }
 

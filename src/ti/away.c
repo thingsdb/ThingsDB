@@ -270,7 +270,7 @@ static void away__req_away_id(void)
     vec_t * vec_nodes = ti()->nodes->vec;
     ti_quorum_t * quorum = NULL;
     qpx_packer_t * packer;
-    ti_pkg_t * pkg;
+    ti_pkg_t * pkg, * dup = NULL;
 
     quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
     if (!quorum)
@@ -293,13 +293,16 @@ static void away__req_away_id(void)
         if (node == ti()->node)
             continue;
 
-        if (node->status <= TI_NODE_STAT_CONNECTING || ti_req_create(
+        if (node->status <= TI_NODE_STAT_CONNECTING ||
+            !(dup = ti_pkg_dup(pkg)) ||
+            ti_req_create(
                 node->stream,
-                pkg,
+                dup,
                 TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT,
                 ti_quorum_req_cb,
                 quorum))
         {
+            free(dup);
             if (ti_quorum_shrink_one(quorum))
                 log_error(
                     "failed to reach quorum of %u nodes while the previous "
@@ -307,8 +310,7 @@ static void away__req_away_id(void)
         }
     }
 
-    if (!quorum->sz)
-        free(pkg);
+    free(pkg);
 
     ti_quorum_go(quorum);
 

@@ -1,15 +1,19 @@
+import sys
 import os
 import asyncio
 import subprocess
 import platform
 import configparser
 import psutil
-from .vars import THINGSDB_TERMINAL
-from .vars import THINGSDB_TERM_GEOMETRY
-from .vars import THINGSDB_TERM_KEEP
-from .vars import THINGSDB_MEMCHECK
+import logging
+import pexpect
+import io
+import threading
 from .vars import THINGSDB_BIN
+from .vars import THINGSDB_MEMCHECK
+from .vars import THINGSDB_NODE_OUTPUT
 from .vars import THINGSDB_TESTDIR
+from .vars import THINGSDB_VERBOSE
 from .color import Color
 
 
@@ -26,7 +30,7 @@ def get_file_content(fn):
 
 class Node:
     def __init__(self, n: int, test_name: str, **options):
-        self.pid = None
+        self.proc = None
         self.n = n
 
         test_name = test_name.replace(' ', '_')
@@ -42,6 +46,9 @@ class Node:
         self.listen_client_port = 9200 + n
         self.listen_node_port = 9220 + n
 
+        # can be used for clients to connect
+        self.address_info = ('localhost', self.listen_client_port)
+
         self.bind_client_addr = options.pop('bind_client_addr', '::')
         self.bind_node_addr = options.pop('bind_node_addr', '::')
 
@@ -55,6 +62,45 @@ class Node:
             f'Node{n}<{self.listen_client_port}/{self.listen_node_port}>'
 
         assert not options, f'invalid options: {",".join(options)}'
+
+    async def init(self):
+        self.start(init=True)
+        await self.expect(
+            'Well done, you successfully initialized ThingsDB!!', timeout=5)
+
+    async def join(self, secret):
+        self.start(secret=secret)
+        await self.expect(
+            'start listening for node connections', timeout=5)
+
+    async def run(self):
+        self.start()
+        await self.expect(
+            'start listening for node connections', timeout=5)
+
+    async def init_and_run(self):
+        await self.init()
+        await self.run()
+
+    @staticmethod
+    def _handle_output(node, r):
+        """Runs in another thread."""
+        r = os.fdopen(r, 'r')
+        for line in r:
+            node.queue.put_nowait(line)
+            if THINGSDB_NODE_OUTPUT is True or (
+                    isinstance(THINGSDB_NODE_OUTPUT, int) and
+                    node.n == THINGSDB_NODE_OUTPUT):
+                print(Color.node(node.n, line), end='')
+
+    async def _expect(self, pattern):
+        while True:
+            line = await self.queue.get()
+            if pattern in line:
+                return
+
+    async def expect(self, pattern, timeout=10):
+        await asyncio.wait_for(self._expect(pattern), timeout=timeout)
 
     def write_config(self):
         config = configparser.RawConfigParser()
@@ -81,109 +127,68 @@ class Node:
         except FileExistsError:
             pass
 
-    def _get_pid_set(self):
-        try:
-            ret = set(map(int, subprocess.check_output([
-                'pgrep',
-                MEM_PROC if THINGSDB_MEMCHECK else 'siridb-server']).split()))
-        except subprocess.CalledProcessError:
-            ret = set()
-        return ret
+    def start(self, init=None, secret=None):
+        self.queue = asyncio.Queue()
 
-    def _start(self, init=None, secret=None):
-        command = (
-            f'"{THINGSDB_MEMCHECK}{THINGSDB_BIN} '
-            f'--config {self.cfgfile}" '
-            f'{"--init " if init else ""}'
-            f'{f"--secret {secret}" if secret else ""}'
+        command = THINGSDB_MEMCHECK + [
+            THINGSDB_BIN,
+            '--config', self.cfgfile,
+            '--log-level', 'debug' if THINGSDB_VERBOSE else 'info',
+            '--log-colorized'
+        ]
+
+        if init:
+            command.append('--init')
+        elif secret:
+            command.extend(['--secret', secret])
+
+        r, w = os.pipe()
+        w = os.fdopen(w, 'w')
+
+        t = threading.Thread(target=self._handle_output, args=(self, r))
+        t.start()
+
+        self.proc = subprocess.Popen(
+            command,
+            cwd=os.getcwd(),
+            stderr=w,
+            stdout=w,
         )
-
-        if THINGSDB_TERMINAL == 'xterm':
-            self.proc = subprocess.Popen(
-               f'xterm {"-hold " if THINGSDB_TERM_KEEP else ""}'
-               f'-title {self.name} '
-               f'-geometry {THINGSDB_TERM_GEOMETRY} '
-               f'-e {command}',
-               shell=True
-            )
-            return
-
-        if THINGSDB_TERMINAL is None:
-            with open(self.errfn, 'a') as err:
-                with open(self.outfn, 'a') as out:
-                    self.proc = subprocess.Popen(
-                        command,
-                        stderr=err,
-                        stdout=out,
-                        shell=True
-                    )
-            return
-        assert 0, f'invalid THINGSDB_TERMINAL: `{THINGSDB_TERMINAL}`'
-
-    async def astart(self, init=None, secret=None):
-        prev = self._get_pid_set()
-
-        self._start(init, secret)
-
-        await asyncio.sleep(5)
-
-        my_pid = self._get_pid_set() - prev
-
-        if len(my_pid) != 1:
-            if THINGSDB_TERMINAL is None:
-                if os.path.exists(self.outfn) and os.path.getsize(self.outfn):
-                    reasoninfo = get_file_content(self.outfn)
-                elif os.path.exists(self.errfn):
-                    reasoninfo = get_file_content(self.errfn)
-                else:
-                    reasoninfo = 'unknown'
-                assert 0, (
-                    f'{Color.error("Failed to start ThingsDB")}\n'
-                    f'{Color.info(reasoninfo)}\n')
-            else:
-                assert 0, (
-                    'Failed to start ThingsDB. A possible reason could '
-                    'be that another process is using the same port.')
-
-        self.pid = my_pid.pop()
+        logging.debug(f'{self.name} started using PID `{self.proc.pid}`')
 
     def is_active(self):
-        return False if self.pid is None else psutil.pid_exists(self.pid)
+        return False if self.proc is None else psutil.pid_exists(self.proc.pid)
 
     def kill(self):
-        print("!!!!!!!!!!!! KILLL !!!!!!!!!!")
-        os.system('kill -9 {}'.format(self.pid))
-        self.pid = None
+        command = f'kill -9 {self.proc.pid}'
+        logging.info(f'execute: `{command}``')
+        os.system(command)
+        self.proc = None
 
     async def stopstop(self):
         if self.is_active():
-            os.system('kill {}'.format(self.pid))
+            os.system('kill {}'.format(self.proc.pid))
             await asyncio.sleep(0.2)
 
             if self.is_active():
-                os.system('kill {}'.format(self.pid))
+                os.system('kill {}'.format(self.proc.pid))
                 await asyncio.sleep(1.0)
 
                 if self.is_active():
                     return False
 
-        self.pid = None
+        self.proc = None
         return True
 
     async def stop(self, timeout=20):
         if self.is_active():
-            os.system('kill {}'.format(self.pid))
+            os.system('kill {}'.format(self.proc.pid))
 
-            while (timeout and self.is_active()):
+            while timeout:
+                self.proc.communicate()
+                if not self.is_active():
+                    break
                 await asyncio.sleep(1.0)
                 timeout -= 1
 
-        if hasattr(self, 'proc'):
-            self.proc.communicate()
             assert (self.proc.returncode == 0)
-
-        if timeout:
-            self.pid = None
-            return True
-
-        return False

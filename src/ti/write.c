@@ -18,7 +18,6 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
 
     req->req_.data = req;
     req->stream = ti_grab(stream);
-    req->pkg = pkg;
     req->data = data;
     req->cb_ = cb;
 
@@ -43,8 +42,7 @@ static void ti__write_cb(uv_write_t * req, int status)
 
     if (status)
         log_error(
-                "stream write error (package type: `%s`, error: `%s`)",
-                ti_proto_str(ti_req->pkg->tp),
+                "stream write error (error: `%s`)",
                 uv_strerror(status)
         );
 

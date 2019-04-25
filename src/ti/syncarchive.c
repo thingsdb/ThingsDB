@@ -14,6 +14,7 @@
 static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
 static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
 static ti_archfile_t * syncarchive__get_archfile(uint64_t first, uint64_t last);
+static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
 
 /*
  * Returns 1 if no archive file is found for the given `event_id` and 0 if
@@ -260,12 +261,43 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
 
     if (rc > 0)
     {
-        LOGC("HANDLE ALL ARCHIVE FILES");
+        next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCADONE, NULL, 0);
+
+        if (!next_pkg)
+            goto failed;
+
+        if (ti_req_create(
+                req->stream,
+                next_pkg,
+                TI_PROTO_NODE_REQ_SYNCADONE_TIMEOUT,
+                syncarchive__done_cb,
+                NULL))
+        {
+            free(next_pkg);
+            goto failed;
+        }
     }
+
+    goto done;
 
 failed:
     ti_stream_stop_watching(req->stream);
 done:
+    free(req->pkg_req);
+    ti_req_destroy(req);
+}
+
+static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
+{
+    LOGC("syncarchive__done_cb");
+
+    if (status)
+        log_error("failed response: `%s` (%s)", ex_str(status), status);
+
+    /* TODO: single event sync */
+    ti_away_syncer_done(req->stream);
+    ti_stream_stop_watching(req->stream);
+
     free(req->pkg_req);
     ti_req_destroy(req);
 }

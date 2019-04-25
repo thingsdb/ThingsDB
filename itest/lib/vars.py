@@ -7,16 +7,13 @@ THINGSDB_TESTDIR
 THINGSDB_MEMCHECK
     Enable or disable the `valgrind` memory checker. Valid options are
     0 (disabled), 1 (basic) or 2 (full). Default value is 1 (basic).
-THINGSDB_TERMINAL
-    When set, nodes will open inside a terminal.
-THINGSDB_TERM_KEEP
-    Keep the terminal open when a node is turned off.
-    (only in case a terminal is used, see THINGSDB_TERMINAL)
-THINGSDB_TERM_GEOMETRY
-    Set terminal geometry. Default is `140x60`
-    (only in case a terminal is used, see THINGSDB_TERMINAL)
+THINGSDB_NODE_OUTPUT
+    When set, node output will be written to stdout. If the value can be parsed
+    to an integer value, only `that` node output will be written.
 THINGSDB_LOGLEVEL
     Loglevel used for testing. Default log is `critical`.
+THINGSDB_VERBOSE
+    Sets ThingsDB log level set to `debug` instead of `info`
 """
 
 import sys
@@ -37,20 +34,24 @@ if not THINGSDB_TESTDIR.startswith('/'):
 try:
     THINGSDB_MEMCHECK = [
         # memcheck disabled
-        '',
+        [],
         # basic memcheck
-        'valgrind' \
-        ' --tool=memcheck'  \
-        ' --error-exitcode=1' \
-        ' --leak-check=full ',
+        [
+            'valgrind',
+            '--tool=memcheck',
+            '--error-exitcode=1',
+            '--leak-check=full',
+        ],
         # full and vebose memcheck
-        'valgrind' \
-        ' --tool=memcheck' \
-        ' --error-exitcode=1' \
-        ' --leak-check=full' \
-        ' --show-leak-kinds=all' \
-        ' --track-origins=yes' \
-        ' -v '
+        [
+            'valgrind',
+            '--tool=memcheck',
+            '--error-exitcode=1',
+            '--leak-check=full',
+            '--show-leak-kinds=all',
+            '--track-origins=yes',
+            '-v',
+        ],
     ][int(os.environ.get('THINGSDB_MEMCHECK', 1))]
 
 except ValueError:
@@ -62,18 +63,12 @@ except IndexError:
         f'got `{THINGSDB_MEMCHECK}`'
     )
 
-THINGSDB_TERMINAL = os.environ.get('THINGSDB_TERMINAL', None)
-if THINGSDB_TERMINAL == '0' or THINGSDB_TERMINAL == '':
-    THINGSDB_TERMINAL = None
-
-
-
-try:
-    THINGSDB_TERM_KEEP = bool(int(os.environ.get('THINGSDB_TERM_KEEP', 0)))
-except ValueError:
-    sys.exit('THINGSDB_TERM_KEEP shoud be an integer value')
-
-THINGSDB_TERM_GEOMETRY = os.environ.get('THINGSDB_TERM_GEOMETRY', '140x60')
+THINGSDB_NODE_OUTPUT = os.environ.get('THINGSDB_NODE_OUTPUT', None)
+if THINGSDB_NODE_OUTPUT is not None:
+    try:
+        THINGSDB_NODE_OUTPUT = int(THINGSDB_NODE_OUTPUT)
+    except ValueError:
+        THINGSDB_NODE_OUTPUT = True
 
 THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_LOGLEVEL', 'critical').upper()
 
@@ -81,3 +76,10 @@ if not hasattr(logging, THINGSDB_LOGLEVEL):
     sys.exit(
         f'unknown THINGSDB_LOGLEVEL: `{THINGSDB_LOGLEVEL}`'
     )
+
+THINGSDB_VERBOSE = os.environ.get('THINGSDB_VERBOSE', None)
+if THINGSDB_VERBOSE is not None:
+    if THINGSDB_VERBOSE == '0' or THINGSDB_VERBOSE.lower() == 'false':
+        THINGSDB_VERBOSE = None
+
+THINGSDB_VERBOSE = bool(THINGSDB_VERBOSE)

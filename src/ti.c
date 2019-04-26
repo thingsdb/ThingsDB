@@ -358,6 +358,8 @@ void ti_stop_slow(void)
     if (ti_.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
+    assert (shutdown_timer == NULL);
+
     shutdown_timer = malloc(sizeof(uv_timer_t));
     if (!shutdown_timer)
         goto fail0;
@@ -660,6 +662,7 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
         return;
     }
+
     ti__shutdown_stop();
     ti_stop();
 }
@@ -686,7 +689,11 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         if (handle == (uv_handle_t *) shutdown_timer)
             ti__shutdown_stop();
         else
+        {
             log_error("non closing timer found");
+            uv_timer_stop((uv_timer_t *) handle);
+            uv_close(handle, NULL);
+        }
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

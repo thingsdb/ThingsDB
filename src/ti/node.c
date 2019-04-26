@@ -338,8 +338,6 @@ failed:
 done:
     /* drop the request node reference */
     ti_node_drop(node);
-
-    free(req->pkg_req);
     ti_req_destroy(req);
 }
 

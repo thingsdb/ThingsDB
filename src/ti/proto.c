@@ -42,7 +42,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
     case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
-    case TI_PROTO_NODE_REQ_AWAY_ID:         return "NODE_REQ_AWAY_ID";
+    case TI_PROTO_NODE_REQ_AWAY:            return "NODE_REQ_AWAY";
     case TI_PROTO_NODE_REQ_SETUP:           return "NODE_REQ_SETUP";
     case TI_PROTO_NODE_REQ_SYNC:            return "NODE_REQ_SYNC";
     case TI_PROTO_NODE_REQ_SYNCFPART:       return "NODE_REQ_SYNCFPART";
@@ -52,7 +52,7 @@ const char * ti_proto_str(ti_proto_e tp)
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
     case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
-    case TI_PROTO_NODE_RES_AWAY_ID:         return "NODE_RES_AWAY_ID";
+    case TI_PROTO_NODE_RES_AWAY:            return "NODE_RES_AWAY";
     case TI_PROTO_NODE_RES_SETUP:           return "NODE_RES_SETUP";
     case TI_PROTO_NODE_RES_SYNC:            return "NODE_RES_SYNC";
     case TI_PROTO_NODE_RES_SYNCFPART:       return "NODE_RES_SYNCFPART";
@@ -62,7 +62,7 @@ const char * ti_proto_str(ti_proto_e tp)
 
     case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES_CONNECT";
     case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";
-    case TI_PROTO_NODE_ERR_AWAY_ID:         return "NODE_ERR_AWAY_ID";
+    case TI_PROTO_NODE_ERR_AWAY:            return "NODE_ERR_AWAY";
 
     }
     log_error("asking a string for an unexpected protocol type: `%d`", tp);

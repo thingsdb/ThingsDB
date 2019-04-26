@@ -103,7 +103,7 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
             /* max step will be 60 * 2 seconds */
             node->next_retry = n + (step < 60 ? step : 60);
 
-            if (ti_node_connect(node))
+            if (!node->stream && ti_node_connect(node))
                 log_error(EX_INTERNAL_S);
         }
         else if (

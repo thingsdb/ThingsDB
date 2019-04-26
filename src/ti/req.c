@@ -80,6 +80,7 @@ void ti_req_destroy(ti_req_t * req)
 {
     assert (req->timer == NULL);
     ti_stream_drop(req->stream);
+    free(req->pkg_req);
     free(req);
 }
 

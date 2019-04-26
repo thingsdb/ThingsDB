@@ -177,12 +177,21 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
     uint64_t next_event_id = ti()->archive->full_stored_event_id + 1;
-    LOGC("syncfull__done_cb");
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);
 
     rc = ti_syncarchive_init(req->stream, next_event_id);
+
+    if (rc > 0)
+    {
+        rc = ti_syncevents_init(req->stream, next_event_id);
+
+        if (rc > 0)
+        {
+            rc = ti_syncevents_done(req->stream);
+        }
+    }
 
     if (rc < 0)
     {
@@ -192,14 +201,6 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
                 next_event_id);
     }
 
-    if (rc > 0)
-    {
-        /* TODO: single event sync */
-        ti_away_syncer_done(req->stream);
-        ti_stream_stop_watching(req->stream);
-    }
-
-    free(req->pkg_req);
     ti_req_destroy(req);
 }
 
@@ -288,7 +289,6 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
 failed:
     ti_stream_stop_watching(req->stream);
 done:
-    free(req->pkg_req);
     ti_req_destroy(req);
 }
 

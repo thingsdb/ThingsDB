@@ -89,7 +89,7 @@ typedef enum
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
-    TI_PROTO_NODE_REQ_AWAY_ID   =178,   /* away id  */
+    TI_PROTO_NODE_REQ_AWAY      =178,   /* empty */
     TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
     TI_PROTO_NODE_REQ_SYNC      =181,   /* [event_range_start, end] */
 
@@ -101,13 +101,15 @@ typedef enum
     TI_PROTO_NODE_REQ_SYNCFDONE =183,   /* full sync completed */
     TI_PROTO_NODE_REQ_SYNCAPART =184,   /* archive sync part */
     TI_PROTO_NODE_REQ_SYNCADONE =185,   /* archive sync completed */
+    TI_PROTO_NODE_REQ_SYNCEPART =186,   /* archive sync part */
+    TI_PROTO_NODE_REQ_SYNCEDONE =187,   /* archive sync completed */
 
     /*
      * 192..223 node responses
      */
     TI_PROTO_NODE_RES_CONNECT   =208,   /* [node_id, status] */
     TI_PROTO_NODE_RES_EVENT_ID  =209,   /* empty, event id accepted */
-    TI_PROTO_NODE_RES_AWAY_ID   =210,   /* empty, away id accepted */
+    TI_PROTO_NODE_RES_AWAY      =210,   /* empty, away id accepted */
     TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
     TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
     TI_PROTO_NODE_RES_SYNCFPART =214,   /* [target, file, offset]
@@ -121,6 +123,9 @@ typedef enum
                                            data for the file is required
                                          */
     TI_PROTO_NODE_RES_SYNCADONE =217,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCEPART =218,   /* */
+    TI_PROTO_NODE_RES_SYNCEDONE =219,   /* empty, ack */
+
 
     /*
      * 224..255 node errors
@@ -128,7 +133,7 @@ typedef enum
     TI_PROTO_NODE_ERR_RES           =240,   /* message */
     TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* uint8_t node_id with the
                                                conflicting event id */
-    TI_PROTO_NODE_ERR_AWAY_ID       =242,   /* empty */
+    TI_PROTO_NODE_ERR_AWAY          =242,   /* empty */
 
 } ti_proto_e;
 
@@ -142,6 +147,8 @@ typedef enum
 #define TI_PROTO_NODE_REQ_SYNCFDONE_TIMEOUT 300
 #define TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT 10
 #define TI_PROTO_NODE_REQ_SYNCADONE_TIMEOUT 300
+#define TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT 10
+#define TI_PROTO_NODE_REQ_SYNCEDONE_TIMEOUT 300
 
 const char * ti_proto_str(ti_proto_e tp);
 

@@ -188,7 +188,6 @@ failed:
     }
 
 done:
-    free(req->pkg_req);
     ti_req_destroy(req);
 }
 

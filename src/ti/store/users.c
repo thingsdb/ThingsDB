@@ -58,6 +58,7 @@ int ti_store_users_restore(const char * fn)
     qp_unpacker_t unpacker;
     qp_res_t * res;
     uchar * data = fx_read(fn, &n);
+    qp_res_t * qusers;
 
     if (!data)
         return -1;
@@ -73,8 +74,6 @@ int ti_store_users_restore(const char * fn)
         log_critical(qp_strerror(rcode));
         return -1;
     }
-
-    qp_res_t * qusers;
 
     if (res->tp != QP_RES_MAP ||
         !(qusers = qpx_map_get(res->via.map, "users")) ||

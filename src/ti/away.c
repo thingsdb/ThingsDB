@@ -17,12 +17,7 @@
 
 static ti_away_t * away = NULL;
 
-/*
- * When `away` mode is finished we might have some events queued, after the
- * queue has less or equal to this threshold we can go out of away mode
- */
-#define AWAY__THRESHOLD_EVENTS_QUEUE_SIZE 5
-#define AWAY__ACCEPT_COUNTER 3
+#define AWAY__ACCEPT_COUNTER 3  /* ignore `x` requests after accepting one */
 #define AWAY__SOON_TIMER 10000  /* seconds might be a nice default */
 
 enum away__status
@@ -37,12 +32,14 @@ enum away__status
 
 static void away__destroy(uv_handle_t * handle);
 static void away__req_away_id(void);
+static _Bool away__required(void);
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted);
 static void away__waiter_pre_cb(uv_timer_t * timer);
 static void away__waiter_after_cb(uv_timer_t * waiter);
 static void away__work(uv_work_t * UNUSED(work));
 static void away__work_finish(uv_work_t * UNUSED(work), int status);
 static inline void away__repeat_cb(uv_timer_t * repeat);
+static void away__change_expected_id(uint8_t node_id);
 static inline uint64_t away__calc_sleep(void);
 
 int ti_away_create(void)
@@ -57,7 +54,7 @@ int ti_away_create(void)
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
     away->accept_counter = 0;
-    away->id = 0;
+    away->expected_node_id = 0;  /* always start with node 0 */
 
     if (!away->work || !away->repeat || !away->waiter || !away->syncers)
     {
@@ -93,25 +90,41 @@ fail0:
 
 void ti_away_trigger(void)
 {
-    if (away->accept_counter)
-        --away->accept_counter;
+    static const char * away__skip_msg = "not going in away mode (%s)";
 
     if (ti()->nodes->vec->n == 1)
-        return;
-
-    if ((away->status != AWAY__STATUS_IDLE) ||
-        ti()->node->status != TI_NODE_STAT_READY ||
-        !ti_nodes_has_quorum() ||
-        ti_nodes_get_away_or_soon())
     {
-        log_debug("not going in away mode (%s)",
-                away->status != AWAY__STATUS_IDLE
-                ? "away status is not idle"
-                : ti()->node->status != TI_NODE_STAT_READY
-                ? "node status is not ready"
-                : !ti_nodes_has_quorum()
-                ? "quorum not reached"
-                : "other node is away or going away soon");
+        log_debug(away__skip_msg, "running as single node");
+        return;
+    }
+
+    if ((away->status != AWAY__STATUS_IDLE))
+    {
+        log_debug(away__skip_msg, "away status is not idle");
+        return;
+    }
+
+    if (ti()->node->status != TI_NODE_STAT_READY)
+    {
+        log_debug(away__skip_msg, "node status is not ready");
+        return;
+    }
+
+    if (!away__required())
+    {
+        log_debug(away__skip_msg, "no reason for going into away mode");
+        return;
+    }
+
+    if (ti_nodes_get_away_or_soon())
+    {
+        log_debug(away__skip_msg, "other node is away or going away soon");
+        return;
+    }
+
+    if (!ti_nodes_has_quorum())
+    {
+        log_debug(away__skip_msg, "quorum not reached");
         return;
     }
 
@@ -125,7 +138,9 @@ void ti_away_stop(void)
         return;
 
     if (away->status == AWAY__STATUS_INIT)
+    {
         away__destroy(NULL);
+    }
     else
     {
         if (    away->status == AWAY__STATUS_WAITING ||
@@ -138,13 +153,12 @@ void ti_away_stop(void)
         {
             free(away->waiter);
         }
-
         uv_timer_stop(away->repeat);
         uv_close((uv_handle_t *) away->repeat, away__destroy);
     }
 }
 
-_Bool ti_away_accept(uint8_t node_id, uint8_t away_id)
+_Bool ti_away_accept(uint8_t node_id)
 {
     switch ((enum away__status) away->status)
     {
@@ -152,20 +166,17 @@ _Bool ti_away_accept(uint8_t node_id, uint8_t away_id)
     case AWAY__STATUS_IDLE:
         break;
     case AWAY__STATUS_REQ_AWAY:
-        if (node_id < ti()->node->id)
-            return false;
-        break;
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
         return false;
     }
 
-    if (away->accept_counter)
+    if (node_id != away->expected_node_id && away->accept_counter--)
         return false;
 
-    away->id = away_id;
     away->accept_counter = AWAY__ACCEPT_COUNTER;
+    away__change_expected_id(node_id);
     return true;
 }
 
@@ -269,30 +280,25 @@ static void away__req_away_id(void)
 {
     vec_t * vec_nodes = ti()->nodes->vec;
     ti_quorum_t * quorum = NULL;
-    qpx_packer_t * packer;
-    ti_pkg_t * pkg, * dup = NULL;
-
+    ti_pkg_t * pkg, * dup;
+    ti_node_t * this_node = ti()->node;
     quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
     if (!quorum)
         goto failed;
 
-    packer = qpx_packer_create(2, 0);
-    if (!packer)
+    pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_AWAY, NULL, 0);
+    if (!pkg)
         goto failed;
 
-    away->id++;
-    away->id %= vec_nodes->n;
-
     /* this is used in case of an equal result and should be a value > 0 */
-    ti_quorum_set_id(quorum, away->id + 1);
-    (void) qp_add_int(packer, away->id);
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_AWAY_ID);
+    ti_quorum_set_id(quorum, this_node->id + 1);
 
     for (vec_each(vec_nodes, ti_node_t, node))
     {
         if (node == ti()->node)
             continue;
 
+        dup = NULL;
         if (node->status <= TI_NODE_STAT_CONNECTING ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
@@ -322,6 +328,11 @@ failed:
     away->status = AWAY__STATUS_IDLE;
 }
 
+static _Bool away__required(void)
+{
+    return ti()->archive->queue->n || ti_nodes_require_sync();
+}
+
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 {
     if (!accepted)
@@ -334,10 +345,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail0;;
     }
 
-
-    assert (away->status == AWAY__STATUS_REQ_AWAY);
-
-    uv_timer_set_repeat(away->repeat, away__calc_sleep());
+    away__change_expected_id(ti()->node->id);
 
     if (uv_timer_init(ti()->loop, away->waiter))
         goto fail1;
@@ -360,6 +368,19 @@ fail1:
     log_critical(EX_INTERNAL_S);
 fail0:
     away->status = AWAY__STATUS_IDLE;
+}
+
+static void away__change_expected_id(uint8_t node_id)
+{
+    uint64_t new_timer;
+
+    /* update expected node id */
+    away->expected_node_id = (node_id + 1) % ti()->nodes->vec->n;
+
+    /* calculate new timer */
+    new_timer = away__calc_sleep();
+
+    uv_timer_set_repeat(away->repeat, new_timer);
 }
 
 static void away__waiter_pre_cb(uv_timer_t * waiter)
@@ -418,13 +439,19 @@ static size_t away__syncers(void)
 
             rc = ti_syncarchive_init(syncer->stream, syncer->first);
 
+            if (rc > 0)
+            {
+                rc = ti_syncevents_init(syncer->stream, syncer->first);
+
+                if (rc > 0)
+                {
+                    rc = ti_syncevents_done(syncer->stream);
+                }
+            }
+
             if (rc < 0)
             {
                 log_critical(EX_ALLOC_S);
-            }
-            else if (rc > 0)
-            {
-                LOGC("HANDLE EVENT SYNC");
             }
         }
     }
@@ -435,25 +462,30 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
 {
     assert (away->status == AWAY__STATUS_SYNCING);
 
-    size_t nsyncers = away__syncers();
+    size_t nsyncers, queue_size = ti()->events->queue->n;
+
+    /*
+     * First check and process events before start with synchronizing
+     * optional nodes. This order is required so nodes will receive events
+     * from the archive queue which they might require.
+     */
+    if (queue_size)
+    {
+        log_warning(
+                "stay in away mode since the queue contains %zu %s",
+                queue_size,
+                queue_size == 1 ? "event" : "events");
+        return;
+    }
+
+    nsyncers = away__syncers();
     if (nsyncers)
     {
         log_warning(
                 "stay in away mode since this node is synchronizing with "
                 "%zu other %s",
                 nsyncers,
-                nsyncers ? "node" : "nodes");
-        return;
-    }
-
-    if (ti()->events->queue->n > AWAY__THRESHOLD_EVENTS_QUEUE_SIZE)
-    {
-        log_warning(
-                "stay in away mode since there are still %zu %s in the "
-                "queue, a value of %u or lower is required",
-                ti()->events->queue->n,
-                ti()->events->queue->n == 1 ? "event" : "events",
-                AWAY__THRESHOLD_EVENTS_QUEUE_SIZE);
+                nsyncers == 1 ? "node" : "nodes");
         return;
     }
 
@@ -467,12 +499,6 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
 static void away__work(uv_work_t * UNUSED(work))
 {
     away->status = AWAY__STATUS_WORKING;
-
-    if (ti_sleep(250) == 0)
-    {
-        /* this small sleep gives the system time to set away mode */
-        assert (ti()->node->status == TI_NODE_STAT_AWAY);
-    }
 
     /* garbage collect dropped collections */
     (void) ti_collections_gc_collect_dropped();
@@ -512,17 +538,6 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
 
     uv_mutex_unlock(ti()->events->lock);
 
-    if (ti()->flags & TI_FLAG_SIGNAL)
-    {
-        away->status = AWAY__STATUS_IDLE;
-
-        if (ti()->flags & TI_FLAG_STOP)
-            ti_stop();
-        else
-            ti_stop_slow();
-        return;
-    }
-
     rc = uv_timer_init(ti()->loop, away->waiter);
     if (rc)
         goto fail1;
@@ -530,8 +545,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     rc = uv_timer_start(
             away->waiter,
             away__waiter_after_cb,
-            2000,       /* give the system a few seconds to process events and
-                           look for registered synchronizers */
+            2000,       /* give the system a few seconds to process events */
             5000        /* check on repeat if finished */
     );
 
@@ -555,6 +569,7 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 
 static inline uint64_t away__calc_sleep(void)
 {
-    /* TODO: remove + 3600000L */
-    return ((away->id + ti()->node->id) % ti()->nodes->vec->n) * 5000 + 1000; // + 3600000L;
+    return 2500 + ((away->expected_node_id < ti()->node->id
+            ? away->expected_node_id + ti()->nodes->vec->n
+            : away->expected_node_id) - ti()->node->id) * 11000;
 }

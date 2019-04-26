@@ -21,6 +21,7 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg);
 int ti_nodes_to_packer(qp_packer_t ** packer);
 int ti_nodes_from_qpres(qp_res_t * qpnodes);
 _Bool ti_nodes_ignore_sync(void);
+_Bool ti_nodes_require_sync(void);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
 ti_node_t * ti_nodes_new_node(

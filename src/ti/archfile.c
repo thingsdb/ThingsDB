@@ -2,6 +2,7 @@
  * ti/archfile.c
  */
 #include <ti/archfile.h>
+#include <ti.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -9,6 +10,7 @@
 #include <string.h>
 #include <util/fx.h>
 #include <util/util.h>
+#include <util/queue.h>
 
 #define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".qp"
 #define ARCHIVE__FILE_LEN 36
@@ -57,7 +59,6 @@ ti_archfile_t * ti_archfile_from_event_ids(
     archfile->last = last;
 
     return archfile;
-
 }
 
 void ti_archfile_destroy(ti_archfile_t * archfile)
@@ -66,6 +67,15 @@ void ti_archfile_destroy(ti_archfile_t * archfile)
         return;
     free(archfile->fn);
     free(archfile);
+}
+
+ti_archfile_t * ti_archfile_get(uint64_t first, uint64_t last)
+{
+    queue_t * archfiles = ti()->archive->archfiles;
+    for (queue_each(archfiles, ti_archfile_t, archfile))
+        if (archfile->first == first && archfile->last == last)
+            return archfile;
+    return NULL;
 }
 
 _Bool ti_archfile_is_valid_fn(const char * fn)

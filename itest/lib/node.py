@@ -15,6 +15,7 @@ from .vars import THINGSDB_NODE_OUTPUT
 from .vars import THINGSDB_TESTDIR
 from .vars import THINGSDB_VERBOSE
 from .color import Color
+from thingsdb.exceptions import NodeError
 
 
 MEM_PROC = \
@@ -68,7 +69,7 @@ class Node:
         await self.expect(
             'Well done, you successfully initialized ThingsDB!!', timeout=5)
 
-    async def join(self, secret):
+    async def wait_join(self, secret: str):
         self.start(secret=secret)
         await self.expect(
             'start listening for node connections', timeout=5)
@@ -81,6 +82,21 @@ class Node:
     async def init_and_run(self):
         await self.init()
         await self.run()
+
+    async def join(self, client, secret='my_secret', attempts=1):
+        await self.wait_join(secret)
+        while True:
+            try:
+                await client.query(f'''
+                    new_node("{secret}", "127.0.0.1", {self.listen_node_port});
+                ''')
+            except NodeError as e:
+                attempts -= 1
+                if not attempts:
+                    raise e
+            else:
+                break
+            await asyncio.sleep(1)
 
     @staticmethod
     def _handle_output(node, r):

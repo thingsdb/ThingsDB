@@ -1,42 +1,42 @@
 /*
- * ti/syncarchive.c
+ * ti/syncevents.c
  */
 #include <assert.h>
 #include <ti/proto.h>
 #include <ti.h>
 #include <ti/nodes.h>
-#include <ti/syncarchive.h>
+#include <ti/syncevents.h>
 #include <util/qpx.h>
 #include <util/syncpart.h>
 
 #define SYNCFULL__PART_SIZE 131072UL
 
-static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
-static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
-static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
+static ti_pkg_t * syncevents__pkg(ti_archfile_t * archfile, off_t offset);
+static void syncevents__push_cb(ti_req_t * req, ex_enum status);
+static void syncevents__done_cb(ti_req_t * req, ex_enum status);
 
 /*
- * Returns 1 if no archive file is found for the given `event_id` and 0 if
- * one is found and a request is successfully made. In case of an error, -1
+ * Returns 1 if the given `event_id` is not found and 0 if it is found
+ * and a request is successfully made. In case of an error, -1
  * will be the return value.
  */
-int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
+int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
 {
-    queue_t * archfiles = ti()->archive->archfiles;
+    queue_t * event_pkgs = ti()->archive->archfiles;
 
-    for (queue_each(archfiles, ti_archfile_t, archfile))
+    for (queue_each(event_pkgs, ti_epkg_t, epkg))
     {
-        if (event_id >= archfile->first && event_id <= archfile->last)
+        if (epkg->event_id == event_id)
         {
-            ti_pkg_t * pkg = syncarchive__pkg(archfile, 0 /* offset */);
+            ti_pkg_t * pkg = ti_pkg_dup(epkg->pkg);
             if (!pkg)
                 return -1;
 
             if (ti_req_create(
                     stream,
                     pkg,
-                    TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT,
-                    syncarchive__push_cb,
+                    TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT,
+                    syncevents__push_cb,
                     NULL))
             {
                 free(pkg);
@@ -49,7 +49,7 @@ int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
     return 1;
 }
 
-ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
+ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
 {
     int rc;
     qp_unpacker_t unpacker;
@@ -140,14 +140,33 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
     (void) qp_add_int(packer, offset);
     (void) qp_close_array(packer);
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCAPART);
+    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCEPART);
     resp->id = pkg->id;
 
     return resp;
 }
 
+int ti_syncevents_done(ti_stream_t * stream)
+{
+    ti_pkg_t * pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCEDONE, NULL, 0);
 
-static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
+    if (!pkg)
+        return -1;
+
+    if (ti_req_create(
+            stream,
+            pkg,
+            TI_PROTO_NODE_REQ_SYNCEDONE_TIMEOUT,
+            syncevents__done_cb,
+            NULL))
+    {
+        free(pkg);
+        return -1;
+    }
+    return 0;
+}
+
+static ti_pkg_t * syncevents__pkg(ti_archfile_t * archfile, off_t offset)
 {
     int more;
     qpx_packer_t * packer = qpx_packer_create(48 + SYNCPART_SIZE, 1);
@@ -166,14 +185,14 @@ static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
     (void) qp_add_bool(packer, (_Bool) more);
     (void) qp_close_array(packer);
 
-    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNCAPART);
+    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNCEPART);
 
 failed:
     qp_packer_destroy(packer);
     return NULL;
 }
 
-static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
+static void syncevents__push_cb(ti_req_t * req, ex_enum status)
 {
     qp_unpacker_t unpacker;
     ti_pkg_t * pkg = req->pkg_res;
@@ -192,7 +211,7 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    if (pkg->tp != TI_PROTO_NODE_RES_SYNCAPART)
+    if (pkg->tp != TI_PROTO_NODE_RES_SYNCEPART)
     {
         ti_pkg_log(pkg);
         goto failed;
@@ -225,7 +244,7 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
             goto failed;
         }
 
-        next_pkg = syncarchive__pkg(archfile, offset);
+        next_pkg = syncevents__pkg(archfile, offset);
         if (!next_pkg)
         {
             log_error(
@@ -237,8 +256,8 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
         if (ti_req_create(
                 req->stream,
                 next_pkg,
-                TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT,
-                syncarchive__push_cb,
+                TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT,
+                syncevents__push_cb,
                 NULL))
         {
             free(next_pkg);
@@ -248,7 +267,7 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
         goto done;
     }
 
-    rc = ti_syncarchive_init(req->stream, last);
+    rc = ti_syncevents_init(req->stream, last);
     if (rc < 0)
     {
         log_error(
@@ -260,21 +279,8 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
 
     if (rc > 0)
     {
-        next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCADONE, NULL, 0);
-
-        if (!next_pkg)
+        if (ti_syncevents_done(req->stream))
             goto failed;
-
-        if (ti_req_create(
-                req->stream,
-                next_pkg,
-                TI_PROTO_NODE_REQ_SYNCADONE_TIMEOUT,
-                syncarchive__done_cb,
-                NULL))
-        {
-            free(next_pkg);
-            goto failed;
-        }
     }
 
     goto done;
@@ -285,29 +291,15 @@ done:
     ti_req_destroy(req);
 }
 
-static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
+static void syncevents__done_cb(ti_req_t * req, ex_enum status)
 {
-    int rc;
-    uint64_t next_event_id = (*ti()->archive->sevid) + 1;
-    LOGC("syncarchive__done_cb");
+    LOGC("syncevents__done_cb");
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);
 
-    rc = ti_syncevents_init(req->stream, next_event_id);
-
-    if (rc > 0)
-    {
-        rc = ti_syncevents_done(req->stream);
-    }
-
-    if (rc < 0)
-    {
-        log_error(
-                "failed creating request for stream `%s` and "TI_EVENT_ID,
-                ti_stream_name(req->stream),
-                next_event_id);
-    }
+    ti_away_syncer_done(req->stream);
+    ti_stream_stop_watching(req->stream);
 
     ti_req_destroy(req);
 }

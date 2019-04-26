@@ -261,6 +261,7 @@ int ti_archive_load_file(ti_archfile_t * archfile)
     FILE * f;
     qp_res_t pkg_qp;
     qp_types_t qp_tp;
+    ti_event_t * event = queue_first(ti()->events->queue);
 
     log_debug("loading archive file `%s`", archfile->fn);
 
@@ -285,7 +286,8 @@ int ti_archive_load_file(ti_archfile_t * archfile)
         if (!epkg)
             goto failed;
 
-        if (epkg->event_id <= *archive->sevid)
+        if (epkg->event_id <= *archive->sevid ||
+                (event && epkg->event_id >= event->id))
         {
             ti_epkg_drop(epkg);
         }
@@ -393,10 +395,18 @@ static int archive__to_disk(void)
     FILE * f;
     ti_epkg_t * first_epkg = queue_first(archive->queue);
     ti_epkg_t * last_epkg = queue_last(archive->queue);
-    ti_archfile_t * archfile = ti_archfile_from_event_ids(
+    ti_archfile_t * archfile = archfile = ti_archfile_get(
+            first_epkg->event_id,
+            last_epkg->event_id);
+
+    if (!archfile)
+    {
+        archfile = ti_archfile_from_event_ids(
             archive->path,
             first_epkg->event_id,
             last_epkg->event_id);
+    }
+
     if (!archfile)
         goto fail0;
 

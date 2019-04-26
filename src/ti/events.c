@@ -52,6 +52,7 @@ int ti_events_create(void)
     events->queue = queue_new(4);
     events->evloop = malloc(sizeof(uv_async_t));
     events->lock = malloc(sizeof(uv_mutex_t));
+    events->next_event_id = 0;
 
     if (!events->lock || uv_mutex_init(events->lock))
     {
@@ -200,7 +201,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     {
         assert (ev->tp != TI_EVENT_TP_SLAVE);
 
-        log_critical(
+        log_warning(
             TI_EVENT_ID" is being processed and "
             "can not be reused for node `%s`",
             ev->id,
@@ -329,7 +330,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     vec_t * vec_nodes = ti()->nodes->vec;
     ti_quorum_t * quorum;
     qpx_packer_t * packer;
-    ti_pkg_t * pkg, * dup = NULL;
+    ti_pkg_t * pkg, * dup;
 
     quorum = ti_quorum_new((ti_quorum_cb) events__on_req_event_id, ev);
     if (!quorum)
@@ -362,11 +363,12 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         if (node == ti()->node)
             continue;
 
+        dup = NULL;
         if (node->status <= TI_NODE_STAT_CONNECTING ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
                 node->stream,
-                pkg,
+                dup,
                 TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT,
                 ti_quorum_req_cb,
                 quorum))
@@ -378,8 +380,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         }
     }
 
-    if (!quorum->sz)
-        free(pkg);
+    free(pkg);
 
     ti_quorum_go(quorum);
 

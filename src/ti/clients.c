@@ -609,7 +609,6 @@ finish:
         log_error(EX_ALLOC_S);
     }
 
-    free(req->pkg_req);
     ti_fwd_destroy(fwd);
     ti_req_destroy(req);
 }

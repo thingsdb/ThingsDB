@@ -14,6 +14,7 @@ ti_archfile_t * ti_archfile_from_event_ids(
         uint64_t first,
         uint64_t last);
 void ti_archfile_destroy(ti_archfile_t * archfile);
+ti_archfile_t * ti_archfile_get(uint64_t first, uint64_t last);
 _Bool ti_archfile_is_valid_fn(const char * fn);
 
 

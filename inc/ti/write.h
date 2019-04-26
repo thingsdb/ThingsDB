@@ -23,6 +23,7 @@ void ti_write_destroy(ti_write_t * req);
 struct ti_write_s
 {
     ti_stream_t * stream;
+    ti_pkg_t * pkg;
     void * data;
     ti_write_cb cb_;
     uv_write_t req_;

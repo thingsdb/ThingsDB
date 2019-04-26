@@ -5,6 +5,7 @@ import logging
 import random
 import time
 from thingsdb.client import Client
+from .node import Node
 
 
 async def get_client(node: Node, username='admin', password='pass'):

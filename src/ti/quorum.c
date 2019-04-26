@@ -57,7 +57,6 @@ void ti_quorum_go(ti_quorum_t * quorum)
 done:
     if (quorum->n == quorum->sz)
     {
-        ti_pkg_t * pkg_tmp = NULL;
         _Bool accept = false;
 
         if (quorum->cb_)
@@ -76,16 +75,8 @@ done:
         }
 
         for (size_t i = 0; i < quorum->sz; ++i)
-        {
-            ti_req_t * req = quorum->requests[i];
-            if (pkg_tmp != req->pkg_req)
-            {
-                free(pkg_tmp);
-                pkg_tmp = req->pkg_req;
-            }
-            ti_req_destroy(req);
-        }
-        free(pkg_tmp);
+            ti_req_destroy(quorum->requests[i]);
+
         free(quorum);
     }
 }
@@ -99,11 +90,11 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
         switch (req->pkg_res->tp)
         {
         case TI_PROTO_NODE_RES_EVENT_ID:
-        case TI_PROTO_NODE_RES_AWAY_ID:
+        case TI_PROTO_NODE_RES_AWAY:
             ++quorum->accepted;
             break;
         case TI_PROTO_NODE_ERR_EVENT_ID:
-        case TI_PROTO_NODE_ERR_AWAY_ID:
+        case TI_PROTO_NODE_ERR_AWAY:
             if (req->pkg_res->n == sizeof(uint8_t))
             {
                 uint8_t * node_id = (uint8_t *) req->pkg_res->data;

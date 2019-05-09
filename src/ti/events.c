@@ -24,7 +24,7 @@
 /*
  * Avoid extreme gaps between event id's
  */
-#define EVENTS__MAX_ID_GAP  100
+#define EVENTS__MAX_ID_GAP  10000
 
 static ti_events_t * events;
 
@@ -155,7 +155,7 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 }
 
 /*
- * Returns 0 on success
+ * Returns 0 on success, < 0 when critical, > 0 if not added for a reason
  * - function performs logging on failure
  * - `node` is required but only used for logging
  * - increments a reference for `epkg` on success
@@ -166,12 +166,12 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 
     if (events__max_id_gap(epkg->event_id))
     {
-        log_critical(
+        log_error(
                 TI_EVENT_ID" is too high compared to "
                 "the next expected "TI_EVENT_ID,
                 epkg->event_id,
                 events->next_event_id);
-        return -1;
+        return 1;
     }
 
     /*
@@ -207,7 +207,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
             ev->id,
             ti_node_name(node)
         );
-        return -1;
+        return 1;
     }
     else
     {

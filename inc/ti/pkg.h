@@ -21,6 +21,7 @@ ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg);
 ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e);
 ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e);
 void ti_pkg_log(ti_pkg_t * pkg);
+void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp);
 static inline size_t ti_pkg_sz(ti_pkg_t * pkg);
 
 struct ti_pkg_s
@@ -34,8 +35,8 @@ struct ti_pkg_s
 
 /* setting ntp is to avoid ~ unsigned warn */
 #define ti_pkg_check(pkg__) (\
-        ((pkg__)->tp == ((pkg__)->ntp ^= 255)) && \
-        ((pkg__)->tp != ((pkg__)->ntp ^= 255)) && \
+        ((pkg__)->tp == ((pkg__)->ntp ^= 0xff)) && \
+        ((pkg__)->tp != ((pkg__)->ntp ^= 0xff)) && \
         (pkg__)->n <= TI_PKG_MAX_SIZE)
 
 /* return total package size, header + data size */

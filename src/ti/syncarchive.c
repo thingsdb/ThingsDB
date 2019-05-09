@@ -6,10 +6,9 @@
 #include <ti.h>
 #include <ti/nodes.h>
 #include <ti/syncarchive.h>
+#include <ti/syncevents.h>
 #include <util/qpx.h>
 #include <util/syncpart.h>
-
-#define SYNCFULL__PART_SIZE 131072UL
 
 static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
 static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
@@ -92,15 +91,17 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         }
 
         archfile = ti_archfile_from_event_ids(archive->path, first, last);
-        if (!archfile || queue_push(&archive->archfiles, archfile))
+        if (!archfile)
         {
-            ti_archfile_destroy(archfile);
             ex_set_alloc(e);
             return NULL;
         }
     }
 
     rc = syncpart_write(archfile->fn, qp_raw.via.raw, qp_raw.len, offset, e);
+
+    ti_archfile_destroy(archfile);
+
     if (rc)
         return NULL;
 
@@ -117,21 +118,9 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
     }
     else
     {
-//        ti_event_t * first_event;
-
-//        if (ti_archive_load_file(archfile))
-//        {
-//            ex_set(e, EX_INTERNAL,
-//                    "error loading archive file `%s`",
-//                    archfile->fn);
-//            return NULL;
-//        }
-
-//        first_event = queue_first(ti()->events->queue);
-
         offset = 0;
-        first = 0; // first_event ? first_event->id : 0;
-        last = archfile->last + 1;
+        first = 0;
+        last =+ 1;
     }
 
     (void) qp_add_array(&packer);
@@ -289,7 +278,6 @@ static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
     uint64_t next_event_id = (*ti()->archive->sevid) + 1;
-    LOGC("syncarchive__done_cb");
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);

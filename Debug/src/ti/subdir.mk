@@ -57,6 +57,7 @@ C_SRCS += \
 ../src/ti/sync.c \
 ../src/ti/syncarchive.c \
 ../src/ti/syncer.c \
+../src/ti/syncevents.c \
 ../src/ti/syncfull.c \
 ../src/ti/task.c \
 ../src/ti/tcp.c \
@@ -128,6 +129,7 @@ OBJS += \
 ./src/ti/sync.o \
 ./src/ti/syncarchive.o \
 ./src/ti/syncer.o \
+./src/ti/syncevents.o \
 ./src/ti/syncfull.o \
 ./src/ti/task.o \
 ./src/ti/tcp.o \
@@ -199,6 +201,7 @@ C_DEPS += \
 ./src/ti/sync.d \
 ./src/ti/syncarchive.d \
 ./src/ti/syncer.d \
+./src/ti/syncevents.d \
 ./src/ti/syncfull.d \
 ./src/ti/task.d \
 ./src/ti/tcp.d \

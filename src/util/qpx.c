@@ -66,7 +66,7 @@ ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp)
     pkg->id = 0;
     pkg->n = packer->len - sizeof(ti_pkg_t);
     pkg->tp = (uint8_t) tp;
-    pkg->ntp = pkg->tp ^ 255;
+    pkg->ntp = pkg->tp ^ 0xff;
 
     packer->buffer = NULL;
     qp_packer_destroy(packer);

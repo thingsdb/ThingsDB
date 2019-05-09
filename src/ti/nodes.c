@@ -12,11 +12,14 @@
 #include <ti/args.h>
 #include <ti/syncfull.h>
 #include <ti/syncarchive.h>
+#include <ti/syncevents.h>
 #include <ti.h>
 #include <util/cryptx.h>
 #include <util/qpx.h>
 
 #define NODES__UV_BACKLOG 64
+
+typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
 
 static ti_node_t * nodes__o[63];    /* other zone */
 static ti_node_t * nodes__z[63];    /* same zone */
@@ -29,11 +32,12 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncfpart(ti_stream_t * stream, ti_pkg_t * pkg);
+static void nodes__on_req_syncpart(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        nodes__part_cb part_cb);
 static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncapart(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncepart(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
@@ -90,17 +94,19 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
     ti_node_t * this_node = ti()->node;
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        uint8_t status = node->status;
+        ti_node_status_t status = node->status;
 
-        if (node != this_node && (
-                status == TI_NODE_STAT_SYNCHRONIZING ||
-                status == TI_NODE_STAT_AWAY ||
-                status == TI_NODE_STAT_AWAY_SOON ||
-                status == TI_NODE_STAT_READY))
-        {
-            if (ti_stream_write_rpkg(node->stream, rpkg))
-                log_error(EX_INTERNAL_S);
-        }
+        if (node == this_node)
+            continue;
+
+        if (    status != TI_NODE_STAT_READY &&
+                status != TI_NODE_STAT_AWAY_SOON &&
+                status != TI_NODE_STAT_AWAY &&
+                status != TI_NODE_STAT_SYNCHRONIZING)
+            continue;
+
+        if (ti_stream_write_rpkg(node->stream, rpkg))
+            log_error(EX_INTERNAL_S);
     }
 }
 
@@ -392,16 +398,22 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         nodes__on_req_sync(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_SYNCFPART:
-        nodes__on_req_syncfpart(stream, pkg);
+        nodes__on_req_syncpart(stream, pkg, ti_syncfull_on_part);
         break;
     case TI_PROTO_NODE_REQ_SYNCFDONE:
         nodes__on_req_syncfdone(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_SYNCAPART:
-        nodes__on_req_syncapart(stream, pkg);
+        nodes__on_req_syncpart(stream, pkg, ti_syncarchive_on_part);
         break;
     case TI_PROTO_NODE_REQ_SYNCADONE:
         nodes__on_req_syncadone(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCEPART:
+        nodes__on_req_syncpart(stream, pkg, ti_syncevents_on_part);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCEDONE:
+        nodes__on_req_syncedone(stream, pkg);
         break;
     case TI_PROTO_NODE_RES_CONNECT:
     case TI_PROTO_NODE_RES_EVENT_ID:
@@ -412,6 +424,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_RES_SYNCFDONE:
     case TI_PROTO_NODE_RES_SYNCAPART:
     case TI_PROTO_NODE_RES_SYNCADONE:
+    case TI_PROTO_NODE_RES_SYNCEPART:
+    case TI_PROTO_NODE_RES_SYNCEDONE:
     case TI_PROTO_NODE_ERR_RES:
     case TI_PROTO_NODE_ERR_EVENT_ID:
     case TI_PROTO_NODE_ERR_AWAY:
@@ -1084,7 +1098,10 @@ finish:
     }
 }
 
-static void nodes__on_req_syncfpart(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_syncpart(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        nodes__part_cb part_cb)
 {
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
@@ -1104,6 +1121,7 @@ static void nodes__on_req_syncfpart(ti_stream_t * stream, ti_pkg_t * pkg)
                 "got a `%s` from `%s` "
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
+
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
@@ -1111,7 +1129,7 @@ static void nodes__on_req_syncfpart(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    resp = ti_syncfull_on_part(pkg, e);
+    resp = part_cb(pkg, e);
     assert (!resp ^ !e->nr);
 
 finish:
@@ -1167,47 +1185,6 @@ finish:
     }
 }
 
-static void nodes__on_req_syncapart(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    ex_t * e = ex_use();
-    ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
-
-    if (!node)
-    {
-        log_error(
-            "got a `%s` from an unauthorized connection: `%s`",
-            ti_proto_str(pkg->tp), ti_stream_name(stream));
-        return;
-    }
-
-    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
-    {
-        log_error(
-                "got a `%s` from `%s` "
-                "but this node is not in `synchronizing` mode",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
-        ex_set(e, EX_NODE_ERROR,
-                "node `%s` is not in `synchronizing` mode and therefore "
-                "cannot accept the request",
-                ti_name());
-        goto finish;
-    }
-
-    resp = ti_syncarchive_on_part(pkg, e);
-    assert (!resp ^ !e->nr);
-
-finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
-
-    if (!resp || ti_stream_write_pkg(stream, resp))
-    {
-        free(resp);
-        log_error(EX_ALLOC_S);
-    }
-}
-
 static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t * e = ex_use();
@@ -1237,10 +1214,6 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
 
     ti_archive_load();
 
-    /* TODO: remove below, next will be event sync */
-    ti_sync_stop();
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCADONE, NULL, 0);
 
 finish:
@@ -1252,11 +1225,6 @@ finish:
         free(resp);
         log_error(EX_ALLOC_S);
     }
-}
-
-static void nodes__on_req_syncepart(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-
 }
 
 static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)

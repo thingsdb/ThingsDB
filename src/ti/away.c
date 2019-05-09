@@ -9,6 +9,7 @@
 #include <ti/syncer.h>
 #include <ti/syncfull.h>
 #include <ti/syncarchive.h>
+#include <ti/syncevents.h>
 #include <ti.h>
 #include <util/logger.h>
 #include <util/qpx.h>
@@ -391,13 +392,13 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
                 "waiting for %zu %s to finish before going to away mode",
                 ti()->events->queue->n,
                 ti()->events->queue->n == 1 ? "event" : "events");
+        uv_async_send(ti()->events->evloop);
         return;
     }
 
     (void) uv_timer_stop(waiter);
     uv_close((uv_handle_t *) waiter, NULL);
 
-    uv_mutex_lock(ti()->events->lock);
     if (uv_queue_work(
             ti()->loop,
             away->work,
@@ -406,7 +407,6 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     {
         away->status = AWAY__STATUS_IDLE;
         ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-        uv_mutex_unlock(ti()->events->lock);
         return;
     }
 
@@ -498,6 +498,8 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
 
 static void away__work(uv_work_t * UNUSED(work))
 {
+    uv_mutex_lock(ti()->events->lock);
+
     away->status = AWAY__STATUS_WORKING;
 
     /* garbage collect dropped collections */
@@ -526,17 +528,25 @@ static void away__work(uv_work_t * UNUSED(work))
                 ti()->events->cevid);
 
     ti_archive_cleanup();
+
+    LOGC("FINISH CLEANUP");
+
+    (void) sleep(2);
+
+    LOGC("QUIT THREAD");
+    uv_mutex_unlock(ti()->events->lock);
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
 {
+    printf("\n\n\n !!!! WORK FINISHED !!!! \n\n\n");
+
     away->status = AWAY__STATUS_SYNCING;
 
     int rc;
     if (status)
         log_error(uv_strerror(status));
 
-    uv_mutex_unlock(ti()->events->lock);
 
     rc = uv_timer_init(ti()->loop, away->waiter);
     if (rc)

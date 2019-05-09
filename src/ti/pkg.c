@@ -22,7 +22,7 @@ ti_pkg_t * ti_pkg_new(
         return NULL;
 
     pkg->tp = tp;
-    pkg->ntp = tp ^ 255;
+    pkg->ntp = tp ^ 0xff;
     pkg->n = n;
     pkg->id = id;
 
@@ -115,4 +115,10 @@ void ti_pkg_log(ti_pkg_t * pkg)
     default:
         log_info("package id: %u, type: %s", pkg->id, ti_proto_str(pkg->tp));
     }
+}
+
+void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp)
+{
+    pkg->tp = tp;
+    pkg->ntp = tp ^ 0xff;
 }

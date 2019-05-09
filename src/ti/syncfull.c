@@ -13,6 +13,7 @@
 #include <ti/store.h>
 #include <ti/store/collection.h>
 #include <ti/syncarchive.h>
+#include <ti/syncevents.h>
 #include <ti/syncfull.h>
 #include <util/qpx.h>
 #include <util/syncpart.h>

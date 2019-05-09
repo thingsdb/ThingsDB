@@ -321,7 +321,7 @@ static int archive__init_queue(void)
 {
     assert (ti()->node);
     assert (ti()->events->cevid);
-    int rc = -1;
+    int rc;
     ti_epkg_t * epkg;
     uint64_t cevid = *ti()->events->cevid;
     /*
@@ -333,7 +333,7 @@ static int archive__init_queue(void)
 
     for (queue_each(archive->queue, ti_epkg_t, epkg))
         if (epkg->event_id > cevid)
-            if (ti_events_add_event(ti()->node, epkg))
+            if (ti_events_add_event(ti()->node, epkg) < 0)
                 goto stop;
 
     /* remove events from queue */
@@ -395,17 +395,17 @@ static int archive__to_disk(void)
     FILE * f;
     ti_epkg_t * first_epkg = queue_first(archive->queue);
     ti_epkg_t * last_epkg = queue_last(archive->queue);
-    ti_archfile_t * archfile = archfile = ti_archfile_get(
+    ti_archfile_t * archfile = ti_archfile_get(
             first_epkg->event_id,
             last_epkg->event_id);
 
-    if (!archfile)
-    {
-        archfile = ti_archfile_from_event_ids(
-            archive->path,
-            first_epkg->event_id,
-            last_epkg->event_id);
-    }
+    if (archfile)
+        return 0;
+
+    archfile = ti_archfile_from_event_ids(
+        archive->path,
+        first_epkg->event_id,
+        last_epkg->event_id);
 
     if (!archfile)
         goto fail0;

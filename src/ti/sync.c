@@ -176,15 +176,18 @@ static void sync__on_res_sync(ti_req_t * req, ex_enum status)
 
 failed:
     /* make sure the timer is not running */
-    (void) uv_timer_stop(sync_->repeat);
-
-    if (uv_timer_start(sync_->repeat,
-            sync__find_away_node_cb,
-            500,
-            1000))
+    if (sync_)
     {
-        log_critical("failed to start `sync__find_away_node_cb` timer");
-        ti_term(SIGTERM);
+        (void) uv_timer_stop(sync_->repeat);
+
+        if (uv_timer_start(sync_->repeat,
+                sync__find_away_node_cb,
+                500,
+                1000))
+        {
+            log_critical("failed to start `sync__find_away_node_cb` timer");
+            ti_term(SIGTERM);
+        }
     }
 
 done:

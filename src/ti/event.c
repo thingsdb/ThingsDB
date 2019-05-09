@@ -89,7 +89,8 @@ int ti_event_run(ti_event_t * ev)
     assert (ev->tp == TI_EVENT_TP_EPKG);
     assert (ev->via.epkg);
     assert (ev->via.epkg->event_id == ev->id);
-    assert (ev->via.epkg->pkg->tp == TI_PROTO_NODE_EVENT);
+    assert (ev->via.epkg->pkg->tp == TI_PROTO_NODE_EVENT ||
+            ev->via.epkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
 
     ti_pkg_t * pkg = ev->via.epkg->pkg;
     qp_unpacker_t unpacker;

@@ -131,7 +131,14 @@ int queue_reserve(queue_t ** qaddr, size_t n)
     {
         queue_t * q;
         size_t sz = queue->sz;
-        queue->sz = (nn > (queue->sz += queue->s_)) ? nn : queue->sz;
+
+        /*
+         * It is important to resize with at least x2, otherwise the memcpy
+         * later might fail.
+         */
+        queue->sz *= 2;
+        if (nn > queue->sz)
+            queue->sz = nn;
 
         q = realloc(queue, sizeof(queue_t) + queue->sz * sizeof(void*));
 
@@ -142,7 +149,7 @@ int queue_reserve(queue_t ** qaddr, size_t n)
             return -1;
         }
 
-        /* until q->s_ is always initialized but we can more than required */
+        /* Until q->s_ is always initialized but we can more than required */
         memcpy(q->data_ + sz, q->data_, q->s_ * sizeof(void*));
         *qaddr = q;
     }

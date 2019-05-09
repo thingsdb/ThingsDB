@@ -135,6 +135,9 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_archive_init())
         goto failed;
 
+    if (ti_archive_write_nodes_scevid())
+        goto failed;
+
     if (ti_away_start())
         goto failed;
 

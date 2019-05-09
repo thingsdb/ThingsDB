@@ -101,8 +101,8 @@ typedef enum
     TI_PROTO_NODE_REQ_SYNCFDONE =183,   /* full sync completed */
     TI_PROTO_NODE_REQ_SYNCAPART =184,   /* archive sync part */
     TI_PROTO_NODE_REQ_SYNCADONE =185,   /* archive sync completed */
-    TI_PROTO_NODE_REQ_SYNCEPART =186,   /* archive sync part */
-    TI_PROTO_NODE_REQ_SYNCEDONE =187,   /* archive sync completed */
+    TI_PROTO_NODE_REQ_SYNCEPART =186,   /* event sync part */
+    TI_PROTO_NODE_REQ_SYNCEDONE =187,   /* event sync completed */
 
     /*
      * 192..223 node responses
@@ -123,7 +123,7 @@ typedef enum
                                            data for the file is required
                                          */
     TI_PROTO_NODE_RES_SYNCADONE =217,   /* empty, ack */
-    TI_PROTO_NODE_RES_SYNCEPART =218,   /* */
+    TI_PROTO_NODE_RES_SYNCEPART =218,   /* event */
     TI_PROTO_NODE_RES_SYNCEDONE =219,   /* empty, ack */
 
 

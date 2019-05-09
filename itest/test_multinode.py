@@ -46,7 +46,6 @@ class TestMultiNode(TestBase):
         await asyncio.sleep(0.5)
 
         for node in (self.node0, self.node1, self.node2, self.node3):
-            print('!!!!!\n\n  STOP \n\n !!!!!!!!!!')
             fut = node.stop()
 
             await asyncio.sleep(0.1)
@@ -56,12 +55,10 @@ class TestMultiNode(TestBase):
 
             await fut
 
-            print('!!!!!\n\n  STOPPED! \n\n !!!!!!!!!!')
+            await asyncio.sleep(1.0)
 
-            # counter = await client.query(r'counter;', target='stuff')
-            # assert (counter == 30)
-
-        print('!!!!!\n\n  FINISHED! \n\n !!!!!!!!!!')
+            counter = await client.query(r'counter;', target='stuff')
+            assert (counter == 30)
 
         client.close()
         await client.wait_closed()

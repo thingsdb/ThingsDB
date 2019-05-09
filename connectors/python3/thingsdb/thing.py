@@ -35,7 +35,7 @@ class Thing:
         return thing
 
     def __repr__(self):
-        return f'{{#:{self._id}}}'
+        return f't({self._id})'
 
     async def _query(self, query, **kwargs):
         return await self._collection._client.query(

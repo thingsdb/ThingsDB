@@ -65,7 +65,6 @@ typedef enum
 } ti_node_status_t;
 
 
-
 typedef struct ti_node_s ti_node_t;
 
 #include <uv.h>

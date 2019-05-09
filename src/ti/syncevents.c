@@ -12,6 +12,29 @@
 static void syncevents__push_cb(ti_req_t * req, ex_enum status);
 static void syncevents__done_cb(ti_req_t * req, ex_enum status);
 
+
+static int syncevents__send(ti_stream_t * stream, ti_epkg_t * epkg)
+{
+    ti_pkg_t * pkg = ti_pkg_dup(epkg->pkg);
+    if (!pkg)
+        return -1;
+
+    pkg->id = 0;
+    ti_pkg_set_tp(pkg, TI_PROTO_NODE_REQ_SYNCEPART);
+
+    if (ti_req_create(
+            stream,
+            pkg,
+            TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT,
+            syncevents__push_cb,
+            NULL))
+    {
+        free(pkg);
+        return -1;
+    }
+    return 0;
+}
+
 /*
  * Returns 1 if the given `event_id` is not found and 0 if it is found
  * and a request is successfully made. In case of an error, -1
@@ -25,27 +48,11 @@ int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
     {
         if (epkg->event_id == event_id)
         {
-            ti_pkg_t * pkg = ti_pkg_dup(epkg->pkg);
-            if (!pkg)
-                return -1;
-
-            pkg->id = 0;
-            ti_pkg_set_tp(pkg, TI_PROTO_NODE_REQ_SYNCEPART);
-
-            if (ti_req_create(
-                    stream,
-                    pkg,
-                    TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT,
-                    syncevents__push_cb,
-                    NULL))
-            {
-                free(pkg);
-                return -1;
-            }
-            return 0;
+            return syncevents__send(stream, epkg);
         }
     }
 
+    events_queue = ti()->events->queue;
     return 1;
 }
 
@@ -65,12 +72,8 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
 
     next_event_id = epkg->event_id + 1;
 
-    uv_mutex_lock(ti()->events->lock);
-
     rc = ti_events_add_event(ti()->node, epkg);
     ti_epkg_drop(epkg);
-
-    uv_mutex_unlock(ti()->events->lock);
 
     if (rc < 0)
     {
@@ -162,6 +165,8 @@ done:
 
 static void syncevents__done_cb(ti_req_t * req, ex_enum status)
 {
+    log_info("finished synchronizing `%s`", ti_stream_name(req->stream));
+
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);
 

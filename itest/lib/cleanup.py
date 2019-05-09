@@ -12,8 +12,8 @@ def cleanup():
         pass
     os.mkdir(THINGSDB_TESTDIR)
 
-    logging.info('Force kill all open siridb-server processes')
-    os.system('pkill -9 siridb-server')
+    logging.info('Force kill all open thingsdb processes')
+    os.system('pkill -9 thingsdb')
 
     logging.info('Force kill all open memcheck-amd64- processes')
     os.system('pkill -9 memcheck-amd64-')

@@ -118,9 +118,9 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
     }
     else
     {
-        offset = 0;
         first = 0;
-        last =+ 1;
+        last += 1;
+        offset = 0;
     }
 
     (void) qp_add_array(&packer);
@@ -238,6 +238,7 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
     }
 
     rc = ti_syncarchive_init(req->stream, last);
+
     if (rc < 0)
     {
         log_error(

@@ -98,6 +98,26 @@ class Node:
                 break
             await asyncio.sleep(1)
 
+    async def join_until_ready(self, client, secret='my_secret', timeout=30):
+        await self.wait_join(secret)
+        node_id = await client.query(f'''
+            new_node("{secret}", "127.0.0.1", {self.listen_node_port});
+        ''')
+        while timeout is None or timeout:
+            try:
+                res = await client.query(f'''
+                    nodes();
+                 ''')
+            except NodeError:
+                pass
+            else:
+                for node in res:
+                    if node['node_id'] == node_id and node['status'] == 'READY':
+                        return
+            timeout -= 1
+            await asyncio.sleep(1)
+
+
     @staticmethod
     def _handle_output(node, r):
         """Runs in another thread."""

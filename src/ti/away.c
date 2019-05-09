@@ -392,7 +392,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
                 "waiting for %zu %s to finish before going to away mode",
                 ti()->events->queue->n,
                 ti()->events->queue->n == 1 ? "event" : "events");
-        uv_async_send(ti()->events->evloop);
+        ti_events_trigger_loop();
         return;
     }
 
@@ -425,6 +425,10 @@ static size_t away__syncers(void)
             ++count;
             if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
                 continue;
+
+            log_info(
+                    "start synchronizing `%s`",
+                    ti_stream_name(syncer->stream));
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
@@ -529,24 +533,16 @@ static void away__work(uv_work_t * UNUSED(work))
 
     ti_archive_cleanup();
 
-    LOGC("FINISH CLEANUP");
-
-    (void) sleep(2);
-
-    LOGC("QUIT THREAD");
     uv_mutex_unlock(ti()->events->lock);
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
 {
-    printf("\n\n\n !!!! WORK FINISHED !!!! \n\n\n");
-
     away->status = AWAY__STATUS_SYNCING;
 
     int rc;
     if (status)
         log_error(uv_strerror(status));
-
 
     rc = uv_timer_init(ti()->loop, away->waiter);
     if (rc)
@@ -566,6 +562,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
 
 fail2:
     uv_close((uv_handle_t *) away->waiter, NULL);
+
 fail1:
     log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
     away->status = AWAY__STATUS_IDLE;
@@ -574,6 +571,7 @@ fail1:
 
 static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 {
+    ti_events_trigger_loop();
     ti_away_trigger();
 }
 

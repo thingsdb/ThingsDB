@@ -108,13 +108,8 @@ int ti_events_on_event(ti_node_t * from_node, ti_pkg_t * pkg)
     if (!epkg)
         return -1;
 
-    uv_mutex_lock(ti()->events->lock);
-
     rc = ti_events_add_event(from_node, epkg);
-
     ti_epkg_drop(epkg);
-
-    uv_mutex_unlock(ti()->events->lock);
 
     return rc;
 }
@@ -196,8 +191,14 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 
         ev->via.epkg = ti_grab(epkg);
         ev->id = epkg->event_id;
+
+        /* we have space so this function always succeeds */
+        (void) events__push(ev);
+
+        goto done;
     }
-    else if (ev->status == TI_EVENT_STAT_READY)
+
+    if (ev->status == TI_EVENT_STAT_READY)
     {
         assert (ev->tp != TI_EVENT_TP_SLAVE);
 
@@ -207,38 +208,30 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
             ev->id,
             ti_node_name(node)
         );
+
         return 1;
     }
-    else
+
+    assert (ev->tp != TI_EVENT_TP_EPKG);
+
+    if (ev->tp == TI_EVENT_TP_SLAVE)
     {
-        assert (ev->tp != TI_EVENT_TP_EPKG);
-
-        if (ev->tp == TI_EVENT_TP_SLAVE)
+        if (ev->via.node != node)
         {
-            if (ev->via.node != node)
-            {
-                log_info(
-                    TI_EVENT_ID" was create for node `%s` but is now "
-                    "reused by an event from node `%s`",
-                    ev->id,
-                    ti_node_name(ev->via.node),
-                    ti_node_name(node)
-                );
-            }
+            log_info(
+                TI_EVENT_ID" was create for node `%s` but is now "
+                "reused by an event from node `%s`",
+                ev->id,
+                ti_node_name(ev->via.node),
+                ti_node_name(node)
+            );
         }
-        ti_node_drop(ev->via.node);
-
-        ev->tp = TI_EVENT_TP_EPKG;
-        ev->via.epkg = ti_grab(epkg);
-        goto done;
     }
+    ti_node_drop(ev->via.node);
 
-    assert (!ev->tasks || ev->tasks->n == 0);
-    assert (ev->tp == TI_EVENT_TP_EPKG);
-    assert (ev->status != TI_EVENT_STAT_READY);
-
-    /* we have space so this function always succeeds */
-    (void) events__push(ev);
+    ev->tp = TI_EVENT_TP_EPKG;
+    ev->status = TI_EVENT_STAT_READY;
+    ev->via.epkg = ti_grab(epkg);
 
 done:
     ev->status = TI_EVENT_STAT_READY;
@@ -462,14 +455,13 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 ++ti()->counters->events_skipped;
             }
 
-            (void *) queue_shift(events->queue);
-
-            continue;
+            goto shift_drop_loop;
         }
         else if (ev->id > (*events->cevid) + 1)
         {
             /* We expect at least one event before this one */
-            if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
+                util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
 
             ++ti()->counters->events_with_gap;
@@ -490,11 +482,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
             {
                 log_error(
                         "kill "TI_EVENT_ID" on node `%s` "
-                        "for approximately %f seconds",
+                        "in approximately %f seconds",
                         ev->id,
                         ti_name(),
                         util_time_diff(&ev->time, &timing));
-                break;
             }
 
             /* Reached time-out, kill the event */
@@ -520,13 +511,13 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 ++ti()->counters->events_failed;
                 ti_event_log("failed", ev);
             }
-            /* TODO: this is only useful while implementing jobs */
-            else if (Logger.level == LOGGER_DEBUG)
-                ti_event_log("processed", ev);
             break;
         case TI_EVENT_TP_SLAVE:
             assert (0);
         }
+
+        if (Logger.level == LOGGER_DEBUG)
+            ti_event_log("processed", ev);
 
         /* update counters */
         ti_counters_upd_commit_event(&ev->time);

@@ -8,7 +8,7 @@ from lib.client import get_client
 
 class TestMultiNode(TestBase):
 
-    @default_test_setup(4)
+    @default_test_setup(5)
     async def run(self):
 
         secret = '123bla'
@@ -22,32 +22,51 @@ class TestMultiNode(TestBase):
         ''')
 
         await client.query(r'''
-            x = 1;
-            y = 2;
-            user = {
-                name: 'Iris',
-                age: 6,
-            };
+            counter = 0;
         ''', target='stuff')
 
-        await self.node1.join(client)
-        await asyncio.sleep(30)
-        await self.node2.join(client)
-        await self.node3.join(client)
+        await self.node1.join_until_ready(client)
+        await self.node2.join_until_ready(client)
+        await self.node3.join_until_ready(client)
+        await self.node4.join_until_ready(client)
+
+        client.close()
+        client = await get_client(
+            self.node0,
+            self.node1,
+            self.node2,
+            self.node3,
+            self.node4)
 
         for _ in range(30):
-            try:
-                await client.query(r'''
-                    x += 1;
-                ''', target='stuff')
-            except Exception:
-                pass
-            await asyncio.sleep(1)
+            await client.query(r'''
+                counter += 1;
+            ''', target='stuff')
 
-        await asyncio.sleep(300)
+        await asyncio.sleep(0.5)
+
+        for node in (self.node0, self.node1, self.node2, self.node3):
+            print('!!!!!\n\n  STOP \n\n !!!!!!!!!!')
+            fut = node.stop()
+
+            await asyncio.sleep(0.1)
+
+            counter = await client.query(r'counter;', target='stuff')
+            assert (counter == 30)
+
+            await fut
+
+            print('!!!!!\n\n  STOPPED! \n\n !!!!!!!!!!')
+
+            # counter = await client.query(r'counter;', target='stuff')
+            # assert (counter == 30)
+
+        print('!!!!!\n\n  FINISHED! \n\n !!!!!!!!!!')
 
         client.close()
         await client.wait_closed()
+
+        print('!!!!!\n\n  CLOSED! \n\n !!!!!!!!!!')
 
 
 if __name__ == '__main__':

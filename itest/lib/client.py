@@ -8,8 +8,8 @@ from thingsdb.client import Client
 from .node import Node
 
 
-async def get_client(node: Node, username='admin', password='pass'):
+async def get_client(*nodes: Node, username='admin', password='pass'):
     client = Client()
-    await client.connect(*node.address_info)
+    await client.connect_pool([node.address_info for node in nodes])
     await client.authenticate(username, password)
     return client

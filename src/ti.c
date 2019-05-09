@@ -493,7 +493,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
     ti_rpkg_t * client_rpkg;
 
-    log_debug("changing status of node `%s` from %s to %s",
+    log_info("changing status of node `%s` from %s to %s",
             ti_node_name(ti()->node),
             ti_node_status_str(ti()->node->status),
             ti_node_status_str(status));

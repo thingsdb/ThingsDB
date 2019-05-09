@@ -192,7 +192,7 @@ void ti_event_log(const char * prefix, ti_event_t * ev)
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        (void) fprintf(Logger.ostream, "scheduled tasks: %zu", ev->tasks->n);
+        (void) fprintf(Logger.ostream, "number of tasks: %zu", ev->tasks->n);
         break;
     case TI_EVENT_TP_SLAVE:
         (void) fprintf(Logger.ostream, "status: %s", ti_event_status_str(ev));

@@ -219,8 +219,10 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
         for (x = queue->s_;; x++)
         {
             queue->data_[x - 1] = queue->data_[x];
-            if (x == i) break;
+            if (x == i)
+                break;
         }
+        queue->s_ -= 1;
     }
     queue->n++;
     queue->data_[x] = data;

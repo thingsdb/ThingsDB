@@ -27,11 +27,14 @@ def wrap(value, blobs):
         blobs.append(value)
         return Wrap(f'blob({idx})')
     if isinstance(value, dict):
-        thing = ','.join(
-            f'{k}:{repr(wrap(v, blobs))}'
-            for k, v in value.items()
-        )
-        return Wrap(f"{{{thing}}}")  # nopep8
+        thing_id = value.get('#')
+        if thing_id is None:
+            thing = ','.join(
+                f'{k}:{repr(wrap(v, blobs))}'
+                for k, v in value.items()
+            )
+            return Wrap(f"{{{thing}}}")  # nopep8
+        return f't({thing_id})'
     if isinstance(value, (list, tuple)):
         return Wrap(f"[{','.join(repr(wrap(v, blobs)) for v in value)}]")
     if isinstance(value, Wrap.nowrap()):

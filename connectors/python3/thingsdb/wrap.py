@@ -34,7 +34,7 @@ def wrap(value, blobs):
                 for k, v in value.items()
             )
             return Wrap(f"{{{thing}}}")  # nopep8
-        return f't({thing_id})'
+        return Wrap(f't({thing_id})')
     if isinstance(value, (list, tuple)):
         return Wrap(f"[{','.join(repr(wrap(v, blobs)) for v in value)}]")
     if isinstance(value, Wrap.nowrap()):

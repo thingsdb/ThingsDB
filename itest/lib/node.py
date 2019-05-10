@@ -112,7 +112,8 @@ class Node:
                 pass
             else:
                 for node in res:
-                    if node['node_id'] == node_id and node['status'] == 'READY':
+                    if node['node_id'] == node_id and \
+                            node['status'] == 'READY':
                         return
             timeout -= 1
             await asyncio.sleep(1)
@@ -228,3 +229,8 @@ class Node:
                 timeout -= 1
 
             assert (self.proc.returncode == 0)
+
+    def soft_kill(self):
+        if self.is_active():
+            os.system('kill {}'.format(self.proc.pid))
+        self.proc = None

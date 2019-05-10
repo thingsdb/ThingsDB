@@ -437,6 +437,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_wareq_t * wareq = NULL;
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
+    vec_t * access_;
 
     if (!user)
     {
@@ -462,9 +463,9 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_wareq_unpack(wareq, pkg, e))
         goto finish;
 
-    assert (wareq->collection);
+    access_ = wareq->target ? wareq->target->access : ti()->access;
 
-    if (ti_access_check_err(wareq->collection->access, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
@@ -481,7 +482,7 @@ finish:
         log_error(EX_ALLOC_S);
     }
 
-    if (e->nr || ti_wareq_run(wareq))
+    if (e->nr || ti_wareq_init(wareq) || ti_wareq_run(wareq))
         ti_wareq_destroy(wareq);
 }
 
@@ -517,9 +518,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_wareq_unpack(wareq, pkg, e))
         goto finish;
 
-    assert (wareq->collection);
-
-    if (ti_access_check_err(wareq->collection->access, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(wareq->target->access, user, TI_AUTH_WATCH, e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);

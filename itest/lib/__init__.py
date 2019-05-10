@@ -1,5 +1,10 @@
+import sys
+sys.path.insert(0, '/home/joente/workspace/thingsdb/connectors/python3')
+
+
 import asyncio
 import logging
+import random
 from .testbase import TestBase
 from .task import Task
 from .cleanup import cleanup
@@ -12,7 +17,10 @@ from .vars import THINGSDB_TESTDIR
 from .vars import THINGSDB_VERBOSE
 
 
-def default_test_setup(num_nodes=1, **kwargs):
+def default_test_setup(num_nodes=1, seed=None, **kwargs):
+    if seed is not None:
+        random.seed(seed)
+
     def wrapper(func):
         async def wrapped(self):
             self.nodes = [

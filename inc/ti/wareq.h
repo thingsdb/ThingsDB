@@ -15,12 +15,13 @@ typedef struct ti_wareq_s ti_wareq_t;
 ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task);
 void ti_wareq_destroy(ti_wareq_t * wareq);
 int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e);
+int ti_wareq_init(ti_wareq_t * wareq);
 int ti_wareq_run(ti_wareq_t * wareq);
 
 struct ti_wareq_s
 {
     ti_stream_t * stream;               /* with reference */
-    ti_collection_t * collection;       /* with reference */
+    ti_collection_t * target;           /* with reference, or null for root */
     vec_t * thing_ids;
     uv_async_t * task;
 };

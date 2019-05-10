@@ -22,16 +22,18 @@ class Client(WatchMixin, Root):
     MAX_RECONNECT_WAIT_TIME = 120
     MAX_RECONNECT_TIMEOUT = 10
 
-    def __init__(self, auto_reconnect=True, loop=None):
+    def __init__(self, auto_reconnect=True, auto_watch=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._username = None
         self._password = None
         self._pool = None
         self._protocol = None
         self._requests = {}
+        self._pid = 0
         self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()
         self._watching = weakref.WeakSet()
+        self._auto_watch = auto_watch
         self._target = 0  # root target
         self._pool_idx = 0
 
@@ -81,22 +83,26 @@ class Client(WatchMixin, Root):
 
     async def _connect(self, timeout=5):
         host, port = self._pool[self._pool_idx]
-        conn = self._loop.create_connection(
-            lambda: Protocol(on_lost=self._on_lost, loop=self._loop),
-            host=host,
-            port=port)
-        _, self._protocol = await asyncio.wait_for(
-            conn,
-            timeout=timeout)
-        self._protocol.on_package_received = self._on_package_received
-        self._pid = 0
-        self._pool_idx += 1
-        self._pool_idx %= len(self._pool)
+        try:
+            conn = self._loop.create_connection(
+                lambda: Protocol(on_lost=self._on_lost, loop=self._loop),
+                host=host,
+                port=port)
+            _, self._protocol = await asyncio.wait_for(
+                conn,
+                timeout=timeout)
+            self._protocol.on_package_received = self._on_package_received
+        finally:
+            self._pool_idx += 1
+            self._pool_idx %= len(self._pool)
 
     def close(self):
         if self._protocol and self._protocol.transport:
             self._reconnect = False
             self._protocol.transport.close()
+
+    async def reconnect(self):
+        await self._reconnect_loop()
 
     def connection_info(self):
         if not self.is_connected():
@@ -107,7 +113,10 @@ class Client(WatchMixin, Root):
         addr, port = socket.getpeername()
         return f'{addr}:{port}'
 
-    def _on_lost(self, exc):
+    def _on_lost(self, protocol, exc):
+        if self._protocol is not protocol:
+            return
+
         self._protocol = None
 
         if self._requests:
@@ -116,7 +125,7 @@ class Client(WatchMixin, Root):
                 'due to a lost connection'
             )
             while self._requests:
-                future, task = self._requests.popitem()
+                _key, (future, task) = self._requests.popitem()
                 if task is not None:
                     task.cancel()
                 if not future.cancelled():
@@ -128,6 +137,7 @@ class Client(WatchMixin, Root):
     async def _reconnect_loop(self):
         wait_time = 1
         timeout = 2
+        protocol = self._protocol
         while True:
             host, port = self._pool[self._pool_idx]
             try:
@@ -138,6 +148,9 @@ class Client(WatchMixin, Root):
                     f'try next connect in {wait_time} seconds'
                 )
             else:
+                if protocol and protocol.transport:
+                    # make sure the `old` connection will be dropped
+                    self._loop.call_later(10.0, protocol.transport.close)
                 break
 
             await asyncio.sleep(wait_time)
@@ -152,8 +165,11 @@ class Client(WatchMixin, Root):
         for t in self._watching:
             watch_ids[t._collection._id].append(t)
 
-        for collection_id, thing_ids in watch_ids.items():
-            await self.watch(thing_ids, collection=collection_id)
+        if watch_ids:
+            for collection_id, thing_ids in watch_ids.items():
+                await self.watch(thing_ids, collection=collection_id)
+        elif self._auto_watch:
+            await self.watch()
 
     def get_num_watch(self):
         return len(self._watching)
@@ -169,6 +185,9 @@ class Client(WatchMixin, Root):
         self._username = username
         self._password = password
         await self._authenticate(timeout)
+
+        if self._auto_watch:
+            await self.watch()
 
     async def _authenticate(self, timeout):
         future = self._write_package(
@@ -212,26 +231,23 @@ class Client(WatchMixin, Root):
 
         return result
 
-    def watch(self, things, collection=None, timeout=None):
-        assert collection is None or isinstance(collection, (int, str))
-        ids = [t._id for t in things]
-        collection = self._target if collection is None else collection
-        assert collection, 'for watching, a collection is required'
+    def watch(self, things=[], target=None, timeout=None):
+        assert target is None or isinstance(target, (int, str))
+        ids = [t if isinstance(t, int) else t._id for t in things]
+        target = self._target if target is None else target
         data = {
             'things': ids,
-            'collection': collection
+            'target': target
         }
         return self._write_package(REQ_WATCH, data, timeout=timeout)
 
-    def unwatch(self, things, collection=None, timeout=None):
-        assert collection is None or isinstance(collection, (int, str))
-        ids = [t.id() for t in things]
-        assert collection is None or isinstance(collection, (int, str))
-        collection = self._target if collection is None else collection
-        assert collection, 'for un-watching, a collection is required'
+    def unwatch(self, things, target=None, timeout=None):
+        assert target is None or isinstance(target, (int, str))
+        ids = [t if isinstance(t, int) else t._id for t in things]
+        target = self._target if target is None else target
         data = {
             'things': ids,
-            'collection': collection
+            'target': target
         }
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
@@ -268,6 +284,9 @@ class Client(WatchMixin, Root):
             'request timed out on package id {}'.format(pid)))
 
     def _write_package(self, tp, data=None, is_bin=False, timeout=None):
+        if self._protocol is None:
+            raise ConnectionError('no connection')
+
         self._pid += 1
         self._pid %= 0x10000  # pid is handled as uint16_t
 

@@ -493,6 +493,9 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
     ti_rpkg_t * client_rpkg;
 
+    if (ti()->node->status == status)
+        return;  /* node status is not changed */
+
     log_info("changing status of node `%s` from %s to %s",
             ti_node_name(ti()->node),
             ti_node_status_str(ti()->node->status),

@@ -102,7 +102,7 @@ class Protocol(asyncio.Protocol):
         self.close_future.set_result(None)
         self.close_future = None
         self.transport = None
-        self._on_lost(exc)
+        self._on_lost(self, exc)
 
     def data_received(self, data):
         '''

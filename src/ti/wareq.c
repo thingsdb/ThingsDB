@@ -27,7 +27,7 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
 
     wareq->stream = ti_grab(stream);
     wareq->thing_ids = NULL;
-    wareq->collection = NULL;
+    wareq->target = NULL;
     wareq->task = malloc(sizeof(uv_async_t));
 
     if (!wareq->task || uv_async_init(
@@ -67,13 +67,17 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
     }
     while(qp_is_raw(qp_next(&unpacker, &key)))
     {
-        if (qp_is_raw_equal_str(&key, "collection"))
+        if (qp_is_raw_equal_str(&key, "target"))
         {
             (void) qp_next(&unpacker, &val);
-            wareq->collection = ti_collections_get_by_qp_obj(&val, false, e);
+            wareq->target = ti_collections_get_by_qp_obj(
+                    &val,
+                    true, /* allow_root */
+                    e);
             if (e->nr)
                 goto finish;
-            ti_incref(wareq->collection);
+            if (wareq->target)
+                ti_incref(wareq->target);
             continue;
         }
 
@@ -126,11 +130,33 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         }
     }
 
-    if (!wareq->collection)
-        ex_set(e, EX_BAD_DATA, ebad);
-
 finish:
     return e->nr;
+}
+
+int ti_wareq_init(ti_wareq_t * wareq)
+{
+    if (ti_stream_is_closed(wareq->stream))
+        return -1;
+
+    if (!wareq->stream->watching)
+    {
+        /*
+         * This is the first watch request for this client, add listening for
+         * thing0
+         */
+        ti_watch_t * watch = ti_thing_watch(ti()->thing0, wareq->stream);
+        if (!watch)
+        {
+            log_error(EX_ALLOC_S);
+            /*
+             * This is not critical, it does however mean that the client will
+             * not receive broadcast messages
+             */
+        }
+    }
+
+    return 0;
 }
 
 int ti_wareq_run(ti_wareq_t * wareq)
@@ -146,7 +172,7 @@ static void wareq__destroy(ti_wareq_t * wareq)
     vec_destroy(wareq->thing_ids, free);
     #endif
     ti_stream_drop(wareq->stream);
-    ti_collection_drop(wareq->collection);
+    ti_collection_drop(wareq->target);
     free(wareq->task);
     free(wareq);
 }
@@ -160,33 +186,17 @@ static void wareq__destroy_cb(uv_async_t * task)
 static void wareq__watch_cb(uv_async_t * task)
 {
     ti_wareq_t * wareq = task->data;
-    ti_thing_t * thing;
     uint32_t n = wareq->thing_ids->n;
+    ti_thing_t * thing;
     ti_watch_t * watch;
 
-    if (!n || ti_stream_is_closed(wareq->stream))
+    if (!wareq->target)
     {
         ti_wareq_destroy(wareq);
         return;
     }
-    if (!wareq->stream->watching)
-    {
-        /*
-         * This is the first watch request for this client, add listening for
-         * thing0
-         */
-        watch = ti_thing_watch(ti()->thing0, wareq->stream);
-        if (!watch)
-        {
-            log_error(EX_ALLOC_S);
-            /*
-             * This is not critical, it does however mean that the client will
-             * not receive broadcast messages
-             */
-        }
-    }
 
-    uv_mutex_lock(wareq->collection->lock);
+    uv_mutex_lock(wareq->target->lock);
 
     while (n--)
     {
@@ -201,7 +211,7 @@ static void wareq__watch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->collection->things, id);
+        thing = imap_get(wareq->target->things, id);
 
         if (!thing)
             continue;
@@ -242,7 +252,7 @@ static void wareq__watch_cb(uv_async_t * task)
         }
     }
 
-    uv_mutex_unlock(wareq->collection->lock);
+    uv_mutex_unlock(wareq->target->lock);
 
     ti_wareq_destroy(wareq);
 }
@@ -253,13 +263,16 @@ static void wareq__unwatch_cb(uv_async_t * task)
     ti_thing_t * thing;
     uint32_t n = wareq->thing_ids->n;
 
-    if (!n || ti_stream_is_closed(wareq->stream) || !wareq->stream->watching)
+    if (!n ||
+        ti_stream_is_closed(wareq->stream) ||
+        !wareq->stream->watching ||
+        !wareq->target)
     {
         ti_wareq_destroy(wareq);
         return;
     }
 
-    uv_mutex_lock(wareq->collection->lock);
+    uv_mutex_lock(wareq->target->lock);
 
     while (n--)
     {
@@ -271,12 +284,12 @@ static void wareq__unwatch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->collection->things, id);
+        thing = imap_get(wareq->target->things, id);
         if (thing)
             (void) ti_thing_unwatch(thing, wareq->stream);
     }
 
-    uv_mutex_unlock(wareq->collection->lock);
+    uv_mutex_unlock(wareq->target->lock);
 
     ti_wareq_destroy(wareq);
 }

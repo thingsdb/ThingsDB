@@ -3,6 +3,7 @@ import logging
 from .protocol import ON_WATCH_INI
 from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
+from .protocol import ON_NODE_STATUS
 
 
 class WatchMixin:
@@ -14,6 +15,9 @@ class WatchMixin:
             return self._on_watch_update(pkg.data)
         if pkg.tp == ON_WATCH_DEL:
             return self._on_watch_delete(pkg.data)
+        if pkg.tp == ON_NODE_STATUS:
+            return self._on_node_status(pkg.data)
+
 
     def _on_watch_init(self, data):
         thing_dict = data['thing']
@@ -48,6 +52,10 @@ class WatchMixin:
             thing._on_watch.on_delete(thing, ),
             loop=self._loop
         )
+
+    def _on_node_status(self, status):
+        if status == 'SHUTTING_DOWN':
+            asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
     def _job_assign(self, thing, job):
         for prop, value in job.items():

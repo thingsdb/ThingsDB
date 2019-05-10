@@ -918,7 +918,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (this_node->status != TI_NODE_STAT_READY)
+    if (this_node->status != TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_AWAY_SOON)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",

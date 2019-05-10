@@ -364,7 +364,7 @@ static int archive__read_nodes_scevid(void)
     FILE * f = fopen(fn, "r");
     if (!f)
     {
-        log_info("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
     }
 

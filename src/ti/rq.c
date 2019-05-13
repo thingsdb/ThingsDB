@@ -332,6 +332,12 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) ((ti_vint_t *) query->rval)->int_;
 
+    /* make sure READ when MODIFY and MODIFY when GRANT */
+    if (mask & TI_AUTH_GRANT)
+        mask |= TI_AUTH_READ|TI_AUTH_MODIFY;
+    else if (mask & TI_AUTH_MODIFY)
+        mask |= TI_AUTH_READ;
+
     if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
     {
         ex_set_alloc(e);
@@ -1025,6 +1031,12 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) ((ti_vint_t *) query->rval)->int_;
 
+    /* make sure READ when MODIFY and MODIFY when GRANT */
+    if (mask & TI_AUTH_READ)
+        mask |= TI_AUTH_MODIFY|TI_AUTH_GRANT;
+    else if (mask & TI_AUTH_MODIFY)
+        mask |= TI_AUTH_GRANT;
+
     if (query->stream->via.user == user && (mask & TI_AUTH_GRANT))
     {
         ex_set(e, EX_BAD_DATA,
@@ -1528,11 +1540,11 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         = langdef_nd_match_str(nd, "READ")
         ? TI_AUTH_READ
         : langdef_nd_match_str(nd, "MODIFY")
-        ? TI_AUTH_READ|TI_AUTH_MODIFY
+        ? TI_AUTH_MODIFY
         : langdef_nd_match_str(nd, "WATCH")
         ? TI_AUTH_WATCH
         : langdef_nd_match_str(nd, "GRANT")
-        ? TI_AUTH_READ|TI_AUTH_MODIFY|TI_AUTH_GRANT
+        ? TI_AUTH_GRANT
         : langdef_nd_match_str(nd, "FULL")
         ? TI_AUTH_MASK_FULL
         : langdef_nd_match_str(nd, "DEBUG")

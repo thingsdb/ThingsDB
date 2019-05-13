@@ -218,7 +218,8 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
     query->parseres = cleri_parse2(
             ti()->langdef,
             query->querystr,
-            CLERI_FLAG_EXPECTING_DISABLED);  /* only error position */
+            CLERI_FLAG_EXPECTING_DISABLED|
+            CLERI_FLAG_EXCLUDE_OPTIONAL);  /* only error position */
     if (!query->parseres)
     {
         ex_set_alloc(e);
@@ -499,10 +500,13 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
             uint8_t flags = query->flags;
 
             query->flags = 0;
-            /* investigate the scope, the rest can be skipped */
-            query__investigate_recursive(
+            /* investigate the scope if required, the rest can be skipped */
+            if (nd->children->next->next->next)
+            {
+                query__investigate_recursive(
                     query,
                     nd->children->next->next->next->node);
+            }
             nd->data = (void *) ((uintptr_t) (
                     query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
                         ? TI_CLOSURE_FLAG_QBOUND|TI_CLOSURE_FLAG_WSE
@@ -527,10 +531,9 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         return;
     case CLERI_GID_OPERATIONS:
         (void) query__swap_opr(query, nd->children->next, 0);
-        if (nd->children->next->next->next)             /* optional */
+        if (nd->children->next->next->next)             /* optional (seq) */
         {
-            nd = nd->children->next->next->next->node   /* choice */
-                    ->children->node;                   /* sequence */
+            nd = nd->children->next->next->next->node;  /* sequence */
             query__investigate_recursive(
                     query,
                     nd->children->next->node);

@@ -8,10 +8,11 @@ from lib.client import get_client
 
 class TestMultiNode(TestBase):
 
+    title = 'Test multi node client connection'
+
     @default_test_setup(num_nodes=5, seed=2)
     async def run(self):
 
-        secret = '123bla'
         expected_counter = 10
 
         await self.node0.init_and_run()

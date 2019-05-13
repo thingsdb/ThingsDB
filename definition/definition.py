@@ -116,7 +116,7 @@ class Definition(Grammar):
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
 
-    closure = Sequence('|', List(name), '|', scope)
+    closure = Sequence('|', List(name), '|', Optional(scope))
 
     function = Sequence(Choice(
         # build-in get functions

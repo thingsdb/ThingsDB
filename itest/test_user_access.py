@@ -11,15 +11,14 @@ from thingsdb.exceptions import BadRequestError
 
 class TestUserAccess(TestBase):
 
-    title = 'Test User Access'
+    title = 'Test create/modify/delete users and grant/revoke access'
 
     @default_test_setup(num_nodes=1, seed=1)
     async def run(self):
 
         await self.node0.init_and_run()
 
-        with self.assertRaisesRegex(
-                AuthError, 'invalid username or password'):
+        with self.assertRaisesRegex(AuthError, 'invalid username or password'):
             await get_client(self.node0, username='test', password='test')
 
         client = await get_client(self.node0)
@@ -91,6 +90,16 @@ class TestUserAccess(TestBase):
             'name': 'test',
             'user_id': 2
         }])
+
+        await client.query(r'''del_user('test');''')
+
+        # queries should no longer work
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await testcl.query(r'''map(||);''', target='stuff')
+
+        # should not be possible to create a new client
+        with self.assertRaisesRegex(AuthError, 'invalid username or password'):
+            await get_client(self.node0, username='test', password='test')
 
         testcl.close()
         client.close()

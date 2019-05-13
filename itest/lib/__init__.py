@@ -8,8 +8,10 @@ import random
 from .testbase import TestBase
 from .task import Task
 from .cleanup import cleanup
+from .cleanup import killall
 from .node import Node
 from .vars import THINGSDB_BIN
+from .vars import THINGSDB_KEEP_ON_ERROR
 from .vars import THINGSDB_LOGLEVEL
 from .vars import THINGSDB_MEMCHECK
 from .vars import THINGSDB_NODE_OUTPUT
@@ -49,6 +51,7 @@ async def _run_test(test):
     logging.info(f"""
 Test Settings:
   THINGSDB_BIN: {THINGSDB_BIN}
+  THINGSDB_KEEP_ON_ERROR: {THINGSDB_KEEP_ON_ERROR}
   THINGSDB_LOGLEVEL: {THINGSDB_LOGLEVEL}
   THINGSDB_MEMCHECK: {THINGSDB_MEMCHECK}
   THINGSDB_NODE_OUTPUT: {THINGSDB_NODE_OUTPUT}
@@ -60,6 +63,8 @@ Test Settings:
         await test.run()
     except Exception as e:
         task.stop(success=False)
+        if not THINGSDB_KEEP_ON_ERROR:
+            killall()
         raise e
     else:
         task.stop(success=True)

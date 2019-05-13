@@ -11,7 +11,10 @@ def cleanup():
     except FileNotFoundError:
         pass
     os.mkdir(THINGSDB_TESTDIR)
+    killall()
 
+
+def killall():
     logging.info('Force kill all open thingsdb processes')
     os.system('pkill -9 thingsdb')
 

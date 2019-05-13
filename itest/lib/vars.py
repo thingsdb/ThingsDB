@@ -10,6 +10,9 @@ THINGSDB_MEMCHECK
 THINGSDB_NODE_OUTPUT
     When set, node output will be written to stdout. If the value can be parsed
     to an integer value, only `that` node output will be written.
+THINGSDB_KEEP_ON_ERROR
+    When an error occurs, running nodes will be killed. When this value is set,
+    the nodes stay `alive` on errors.
 THINGSDB_LOGLEVEL
     Loglevel used for testing. Default log is `critical`.
 THINGSDB_VERBOSE
@@ -70,6 +73,14 @@ if THINGSDB_NODE_OUTPUT is not None:
         THINGSDB_NODE_OUTPUT = int(THINGSDB_NODE_OUTPUT)
     except ValueError:
         THINGSDB_NODE_OUTPUT = True
+
+THINGSDB_KEEP_ON_ERROR = os.environ.get('THINGSDB_KEEP_ON_ERROR', None)
+if THINGSDB_KEEP_ON_ERROR is not None:
+    if THINGSDB_KEEP_ON_ERROR == '0' or \
+            THINGSDB_KEEP_ON_ERROR.lower() == 'false':
+        THINGSDB_KEEP_ON_ERROR = None
+
+THINGSDB_KEEP_ON_ERROR = bool(THINGSDB_KEEP_ON_ERROR)
 
 THINGSDB_LOGLEVEL = os.environ.get('THINGSDB_LOGLEVEL', 'critical').upper()
 

@@ -6,6 +6,7 @@
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 
+
 typedef struct ti_regex_s ti_regex_t;
 
 #include <qpack.h>
@@ -13,6 +14,17 @@ typedef struct ti_regex_s ti_regex_t;
 #include <stddef.h>
 #include <ti/raw.h>
 #include <ti/ex.h>
+
+
+#define _TI_PCRE2_STRINGIFY_(num) #num
+#define _TI_PCRE2_VERSION_STR_(major,minor) \
+    _TI_PCRE2_STRINGIFY_(major) "." \
+    _TI_PCRE2_STRINGIFY_(minor)
+
+#define TI_PCRE2_VERSION _TI_PCRE2_VERSION_STR_( \
+        PCRE2_MAJOR, \
+        PCRE2_MINOR) \
+        PCRE2_PRERELEASE
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
 void ti_regex_destroy(ti_regex_t * regex);

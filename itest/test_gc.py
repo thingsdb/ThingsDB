@@ -18,37 +18,15 @@ class TestGC(TestBase):
 
         await self.node0.init_and_run()
 
-        with self.assertRaisesRegex(AuthError, 'invalid username or password'):
-            await get_client(self.node0, username='test', password='test')
-
         client = await get_client(self.node0)
 
         await client.query(r'''new_collection("stuff");''')
-
-        # #3: [
-        #   new: {
-        #       theanswer: 42,
-        #       ref: #2,
-        #   }
-        # ]
-        # #2: [
-        #   new: {},
-        #   assign('other', #3)
-        # ]
-        # #0: [
-        #   assign('a', {#2});
-        #   assign('x', {#3});
-        # ]
 
         await client.query(r'''
             a = {};
             a.other = {theanswer: 42, ref: a};
             x = a.other;
         ''', target='stuff')
-
-        # #2: [
-        #   assign('name', 'Iris')
-        #
 
         await client.query(r'''
             b = {name: 'Iris'};
@@ -59,11 +37,20 @@ class TestGC(TestBase):
         await self.node0.shutdown()
         await self.node0.run()
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(4)
 
-        x = await client.query(r'''x;''', target='stuff')
-        print('X: ', x)
-        self.assertEqual(x.prop['theanswer'], 42)
+        for _ in range(10):
+            await client.query(r'''counte = 1;''', target='stuff')
+
+        await self.node0.shutdown()
+        await self.node0.run()
+
+        await asyncio.sleep(4)
+
+        x, other = await client.query(r'x; a.other;', target='stuff', all=True)
+        self.assertEqual(x['theanswer'], 42)
+        self.assertEqual(x, other)
+
 
 if __name__ == '__main__':
     run_test(TestGC())

@@ -30,9 +30,9 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     ev->status = TI_EVENT_STAT_NEW;
     ev->target = NULL;
     ev->tp = tp;
-    ev->tasks = tp == TI_EVENT_TP_MASTER ? omap_create() : NULL;
+    ev->_tasks = tp == TI_EVENT_TP_MASTER ? vec_new(1) : NULL;
 
-    if (    (tp == TI_EVENT_TP_MASTER && !ev->tasks) ||
+    if (    (tp == TI_EVENT_TP_MASTER && !ev->_tasks) ||
             clock_gettime(TI_CLOCK_MONOTONIC, &ev->time))
     {
         free(ev);
@@ -73,7 +73,7 @@ void ti_event_drop(ti_event_t * ev)
     if (ev->tp == TI_EVENT_TP_EPKG)
         ti_epkg_drop(ev->via.epkg);
 
-    omap_destroy(ev->tasks, (omap_destroy_cb) ti_task_destroy);
+    vec_destroy(ev->_tasks, (vec_destroy_cb) ti_task_destroy);
 
     free(ev);
 }
@@ -96,7 +96,6 @@ int ti_event_run(ti_event_t * ev)
     qp_unpacker_t unpacker;
     qp_obj_t qp_target, thing_or_map;
     uint64_t target_id;
-    int jobn = 0;
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -142,39 +141,17 @@ int ti_event_run(ti_event_t * ev)
         {
             /* can only happen if we have a collection */
             assert (ev->target);
-            if (jobn)
-            {
-                /* not the first `thing`, it might be possible that this
-                 * `thing` does not exists. see example:
-                 *      u = {};   // first thing
-                 *      u.me = u; // second thing
-                 *      del('u'); // also first thing, processed before second
-                 */
-                log_warning(
-                        "thing "TI_THING_ID" in "TI_EVENT_ID
-                        "not found in collection `%.*s`, skip tasks",
-                        thing_id, ev->id,
-                        (int) ev->target->name->n,
-                        (const char *) ev->target->name->data);
-                while (qp_is_map(qp_next(&unpacker, NULL)))
-                {
-                    qp_skip(&unpacker);
-                }
-            }
-            else
-            {
-                /* this is the first `thing` and should always exist */
-                log_critical(
-                        "thing "TI_THING_ID" in "TI_EVENT_ID
-                        "not found in collection `%.*s`",
-                        thing_id, ev->id,
-                        (int) ev->target->name->n,
-                        (const char *) ev->target->name->data);
+            log_critical(
+                    "thing "TI_THING_ID" in "TI_EVENT_ID
+                    "not found in collection `%.*s`",
+                    thing_id, ev->id,
+                    (int) ev->target->name->n,
+                    (const char *) ev->target->name->data);
 
-                return -1;
-            }
+            return -1;
         }
-        else if (ev->target)
+
+        if (ev->target)
         {
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
                 if (ti_job_run(ev->target, thing, &unpacker))
@@ -202,8 +179,6 @@ int ti_event_run(ti_event_t * ev)
 
         if (qp_is_close(thing_or_map.tp))
             qp_next(&unpacker, &thing_or_map);
-
-        ++jobn;
     }
 
     return 0;
@@ -217,7 +192,7 @@ void ti_event_log(const char * prefix, ti_event_t * ev)
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        (void) fprintf(Logger.ostream, "number of tasks: %zu", ev->tasks->n);
+        (void) fprintf(Logger.ostream, "task count: %"PRIu32, ev->_tasks->n);
         break;
     case TI_EVENT_TP_SLAVE:
         (void) fprintf(Logger.ostream, "status: %s", ti_event_status_str(ev));

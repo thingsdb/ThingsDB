@@ -34,15 +34,15 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
 
 ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
 {
-    ti_task_t * task = omap_get(ev->tasks, thing->id);
-    if (task)
+    ti_task_t * task = vec_last(ev->_tasks);
+    if (task && task->thing == thing)
         return task;
 
     task = ti_task_create(ev->id, thing);
     if (!task)
         goto failed;
 
-    if (omap_add(ev->tasks, thing->id, task))
+    if (vec_push(&ev->_tasks, task))
         goto failed;
 
     return task;

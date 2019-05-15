@@ -106,6 +106,8 @@ class TestUserAccess(TestBase):
         await testcl.wait_closed()
         await client.wait_closed()
 
+        assert (0)
+
 
 if __name__ == '__main__':
     run_test(TestUserAccess())

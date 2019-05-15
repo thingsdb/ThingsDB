@@ -630,9 +630,10 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     ti_pkg_t * pkg;
     qpx_packer_t * packer;
     size_t sz = 0;
-    omap_iter_t iter = omap_iter(query->ev->tasks);
+    vec_t * tasks = query->ev->_tasks;
+//    omap_iter_t iter = omap_ite_r(query->ev->tasks);
 
-    for (omap_each(iter, ti_task_t, task))
+    for (vec_each(tasks, ti_task_t, task))
         sz += task->approx_sz;
 
     /* nest size 3 is sufficient since jobs are already raw */
@@ -645,7 +646,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, query->ev->id);
     /* store `no tasks` as target 0, this will save space and a lookup */
-    (void) qp_add_int(packer, query->target && query->ev->tasks->n
+    (void) qp_add_int(packer, query->target && tasks->n
             ? query->target->root->id
             : 0);
     (void) qp_close_array(packer);
@@ -653,8 +654,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_add_map(&packer);
 
     /* reset iterator */
-    iter = omap_iter(query->ev->tasks);
-    for (omap_each(iter, ti_task_t, task))
+    for (vec_each(tasks, ti_task_t, task))
     {
         (void) qp_add_int(packer, task->thing->id);
         (void) qp_add_array(&packer);
@@ -679,8 +679,8 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
 
 static void query__task_to_watchers(ti_query_t * query)
 {
-    omap_iter_t iter = omap_iter(query->ev->tasks);
-    for (omap_each(iter, ti_task_t, task))
+    vec_t * tasks = query->ev->_tasks;
+    for (vec_each(tasks, ti_task_t, task))
     {
         if (ti_thing_has_watchers(task->thing))
         {

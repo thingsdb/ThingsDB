@@ -57,7 +57,7 @@ struct ti_event_s
     ti_event_via_t via;
     ti_collection_t * target;   /* NULL for root or collection with reference
                                 */
-    omap_t * tasks;             /* thing_id : ti_task_t */
+    vec_t * _tasks;             /* ti_task_t */
     struct timespec time;       /* timing an event, used for elapsed time etc.
                                 */
 };

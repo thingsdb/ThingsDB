@@ -212,21 +212,25 @@ int ti_archive_push(ti_epkg_t * epkg)
  */
 int ti_archive_to_disk(void)
 {
+    size_t n;
+    uint64_t last_event_id;
     ti_epkg_t * last_epkg = queue_last(archive->queue);
-    if (!last_epkg || last_epkg->event_id == *archive->sevid)
+
+    if (!last_epkg || (last_event_id = last_epkg->event_id) == *archive->sevid)
         return 0;       /* nothing to save to disk */
 
     /* last event id in queue should be equal to cevid */
     assert (*ti()->events->cevid == last_epkg->event_id);
 
-    /* TODO: maybe on signal (shutdown) only store changes? */
-    if (archive->archived_on_disk >= ti()->cfg->threshold_full_storage)
+    n = archive->archived_on_disk + archive->queue->n;
+
+    if (n >= ti()->cfg->threshold_full_storage)
     {
         if (ti_store_store() == 0)
         {
             (void) archive__remove_files();
             archive->archived_on_disk = 0;
-            archive->full_stored_event_id = last_epkg->event_id;
+            archive->full_stored_event_id = last_event_id;
         }
     }
 
@@ -236,23 +240,8 @@ int ti_archive_to_disk(void)
     return -1;
 
 success:
-    *archive->sevid = last_epkg->event_id;
+    *archive->sevid = last_event_id;
     return 0;
-}
-
-void ti_archive_cleanup(void)
-{
-    uint64_t m = *archive->sevid;
-    size_t n = 0;
-
-    for (queue_each(archive->queue, ti_epkg_t, epkg), ++n)
-        if (epkg->event_id > m)
-            break;
-
-    (void) ti_sleep(50);
-
-    while (n--)
-        ti_epkg_drop(queue_shift(archive->queue));
 }
 
 int ti_archive_load_file(ti_archfile_t * archfile)
@@ -393,6 +382,7 @@ static int archive__to_disk(void)
     assert (archive->queue->n);
     int rc = -1;
     FILE * f;
+    ti_epkg_t * epkg;
     ti_epkg_t * first_epkg = queue_first(archive->queue);
     ti_epkg_t * last_epkg = queue_last(archive->queue);
     ti_archfile_t * archfile = ti_archfile_get(
@@ -425,7 +415,7 @@ static int archive__to_disk(void)
     if (qp_fadd_type(f, QP_ARRAY_OPEN))
         goto fail2;
 
-    for (queue_each(archive->queue, ti_epkg_t, epkg))
+    while ((epkg = queue_shift(archive->queue)))
     {
         if (epkg->event_id <= *archive->sevid)
         {
@@ -439,6 +429,8 @@ static int archive__to_disk(void)
             goto fail2;
 
         ++archive->archived_on_disk;
+
+        ti_epkg_drop(epkg);
 
         (void) ti_sleep(10);
     }

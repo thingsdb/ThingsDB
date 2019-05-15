@@ -53,6 +53,13 @@ void ti_thing_destroy(ti_thing_t * thing)
     free(thing);
 }
 
+void ti_thing_clear(ti_thing_t * thing)
+{
+    ti_prop_t * prop;
+    while ((prop = vec_pop(thing->props)))
+        ti_prop_destroy(prop);
+}
+
 ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
 {
     for (vec_each(thing->props, ti_prop_t, prop))

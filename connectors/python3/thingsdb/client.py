@@ -36,6 +36,7 @@ class Client(WatchMixin, Root):
         self._auto_watch = auto_watch
         self._target = 0  # root target
         self._pool_idx = 0
+        self._reconnecting = False
 
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop
@@ -102,7 +103,14 @@ class Client(WatchMixin, Root):
             self._protocol.transport.close()
 
     async def reconnect(self):
-        await self._reconnect_loop()
+        if self._reconnecting:
+            return
+
+        self._reconnecting = True
+        try:
+            await self._reconnect_loop()
+        finally:
+            self._reconnecting = False
 
     def connection_info(self):
         if not self.is_connected():
@@ -132,7 +140,7 @@ class Client(WatchMixin, Root):
                     future.cancel()
 
         if self._reconnect:
-            asyncio.ensure_future(self._reconnect_loop(), loop=self._loop)
+            asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
     async def _reconnect_loop(self):
         wait_time = 1

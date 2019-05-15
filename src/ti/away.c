@@ -517,8 +517,6 @@ static void away__work(uv_work_t * UNUSED(work))
                 "failed writing last nodes committed to disk: "TI_EVENT_ID,
                 ti()->events->cevid);
 
-    ti_archive_cleanup();
-
     uv_mutex_unlock(ti()->events->lock);
 }
 

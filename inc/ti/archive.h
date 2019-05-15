@@ -43,7 +43,6 @@ int ti_archive_init(void);
 int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);
 int ti_archive_to_disk(void);
-void ti_archive_cleanup(void);
 int ti_archive_load_file(ti_archfile_t * archfile);
 
 

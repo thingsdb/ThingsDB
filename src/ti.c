@@ -12,6 +12,7 @@
 #include <ti/event.h>
 #include <ti/names.h>
 #include <ti/proto.h>
+#include <ti/regex.h>
 #include <ti/signals.h>
 #include <ti/store.h>
 #include <ti/things.h>
@@ -555,11 +556,19 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.node->id) ||
         qp_add_raw_from_str(*packer, "version") ||
         qp_add_raw_from_str(*packer, TI_VERSION) ||
+        qp_add_raw_from_str(*packer, "libqpack_version") ||
+        qp_add_raw_from_str(*packer, qp_version()) ||
+        qp_add_raw_from_str(*packer, "libcleri_version") ||
+        qp_add_raw_from_str(*packer, cleri_version()) ||
+        qp_add_raw_from_str(*packer, "libuv_version") ||
+        qp_add_raw_from_str(*packer, uv_version_string()) ||
+        qp_add_raw_from_str(*packer, "libpcre2_version") ||
+        qp_add_raw_from_str(*packer, TI_PCRE2_VERSION) ||
         qp_add_raw_from_str(*packer, "status") ||
         qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
         qp_add_raw_from_str(*packer, "zone") ||
         qp_add_int(*packer, ti_.node->zone) ||
-        qp_add_raw_from_str(*packer, "loglevel") ||
+        qp_add_raw_from_str(*packer, "log_level") ||
         qp_add_raw_from_str(*packer, Logger.level_name) ||
         qp_add_raw_from_str(*packer, "hostname") ||
         qp_add_raw_from_str(*packer, ti_.hostname) ||
@@ -577,9 +586,7 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.events->queue->n) ||
         qp_add_raw_from_str(*packer, "archived_on_disk") ||
         qp_add_int(*packer, ti_.archive->archived_on_disk) ||
-        qp_add_raw_from_str(*packer, "archived_on_disk") ||
-        qp_add_int(*packer, ti_.archive->archived_on_disk) ||
-        qp_add_raw_from_str(*packer, "events_in_archive") ||
+        qp_add_raw_from_str(*packer, "archived_in_memory") ||
         qp_add_int(*packer, ti_.archive->queue->n) ||
         qp_add_raw_from_str(*packer, "local_stored_event_id") ||
         qp_add_int(*packer, ti_.node->sevid) ||

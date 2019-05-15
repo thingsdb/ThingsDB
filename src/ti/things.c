@@ -99,6 +99,12 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     (void) ti_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
+        if (thing->flags & TI_THING_FLAG_SWEEP)
+            ti_thing_clear(thing);
+
+    (void) ti_sleep(100);
+
+    for (vec_each(things_vec, ti_thing_t, thing))
     {
         if (thing->flags & TI_THING_FLAG_SWEEP)
         {

@@ -6,7 +6,7 @@
 
 #define TI_VERSION_MAJOR 0
 #define TI_VERSION_MINOR 1
-#define TI_VERSION_PATCH 2
+#define TI_VERSION_PATCH 3
 
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha release versions.

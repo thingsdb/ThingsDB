@@ -202,7 +202,7 @@ class Node:
         os.system(command)
         self.proc = None
 
-    async def stopstop(self):
+    async def stop(self):
         if self.is_active():
             os.system('kill {}'.format(self.proc.pid))
             await asyncio.sleep(0.2)
@@ -217,7 +217,7 @@ class Node:
         self.proc = None
         return True
 
-    async def stop(self, timeout=20):
+    async def shutdown(self, timeout=20):
         if self.is_active():
             os.system('kill {}'.format(self.proc.pid))
 

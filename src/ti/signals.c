@@ -67,7 +67,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
     else
         log_critical("received stop signal (%s)", strsignal(signum));
 
-    ti_stop_slow();
+    ti_shutdown();
 
     if (ti_.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);

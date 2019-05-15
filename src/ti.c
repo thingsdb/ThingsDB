@@ -353,7 +353,7 @@ finish:
     return rc;
 }
 
-void ti_stop_slow(void)
+void ti_shutdown(void)
 {
     if (ti_.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
@@ -386,6 +386,7 @@ void ti_stop(void)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
+        (void) ti_collections_gc();
         (void) ti_archive_to_disk();
         (void) ti_archive_write_nodes_scevid();
     }

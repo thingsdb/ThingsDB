@@ -506,22 +506,8 @@ static void away__work(uv_work_t * UNUSED(work))
 
     away->status = AWAY__STATUS_WORKING;
 
-    /* garbage collect dropped collections */
-    (void) ti_collections_gc_collect_dropped();
-
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
-    {
-        uv_mutex_lock(collection->lock);
-
-        if (ti_things_gc(collection->things, collection->root))
-        {
-            log_error("garbage collection for collection `%.*s` has failed",
-                    (int) collection->name->n,
-                    (char *) collection->name->data);
-        }
-
-        uv_mutex_unlock(collection->lock);
-    }
+    /* garbage collect */
+    (void) ti_collections_gc();
 
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");

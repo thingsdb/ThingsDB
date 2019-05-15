@@ -36,7 +36,7 @@ def default_test_setup(num_nodes=1, seed=None, **kwargs):
             close = await func(self)
 
             for node in self.nodes:
-                result = await node.stop()
+                result = await node.shutdown()
 
         return wrapped
 

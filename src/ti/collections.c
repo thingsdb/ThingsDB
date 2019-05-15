@@ -58,6 +58,34 @@ void ti_collections_clear(void)
         ti_collection_drop(vec_pop(collections->vec));
 }
 
+/*
+ * Returns 0 when successful, -1 indicates one or more actions have failed and
+ * logging is done.
+ */
+int ti_collections_gc(void)
+{
+    /* garbage collect dropped collections */
+    int rc = ti_collections_gc_collect_dropped();
+
+    /* collect all other stuff */
+    for (vec_each(collections->vec, ti_collection_t, collection))
+    {
+        uv_mutex_lock(collection->lock);
+
+        if (ti_things_gc(collection->things, collection->root))
+        {
+            log_error("garbage collection for collection `%.*s` has failed",
+                    (int) collection->name->n,
+                    (char *) collection->name->data);
+            rc = -1;
+        }
+
+        uv_mutex_unlock(collection->lock);
+    }
+
+    return rc;
+}
+
 _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;

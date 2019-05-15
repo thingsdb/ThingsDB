@@ -96,6 +96,10 @@ void ti_store_destroy(void)
     store = NULL;
 }
 
+/*
+ * Make sure the `gc` has ran before calling `ti_store_store`. Otherwise
+ * some things may be saved without a reference to a collection.
+ */
 int ti_store_store(void)
 {
     int rc;

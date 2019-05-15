@@ -54,7 +54,7 @@ int ti_read_node_id(uint8_t * node_id);
 int ti_read(void);
 int ti_unpack(uchar * data, size_t n);
 int ti_run(void);
-void ti_stop_slow(void);
+void ti_shutdown(void);
 void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);

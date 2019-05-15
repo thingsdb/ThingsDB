@@ -96,6 +96,7 @@ int ti_event_run(ti_event_t * ev)
     qp_unpacker_t unpacker;
     qp_obj_t qp_target, thing_or_map;
     uint64_t target_id;
+    int jobn = 0;
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -141,17 +142,39 @@ int ti_event_run(ti_event_t * ev)
         {
             /* can only happen if we have a collection */
             assert (ev->target);
-            log_critical(
-                    "thing "TI_THING_ID" in "TI_EVENT_ID
-                    "not found in collection `%.*s`",
-                    thing_id, ev->id,
-                    (int) ev->target->name->n,
-                    (const char *) ev->target->name->data);
+            if (jobn)
+            {
+                /* not the first `thing`, it might be possible that this
+                 * `thing` does not exists. see example:
+                 *      u = {};   // first thing
+                 *      u.me = u; // second thing
+                 *      del('u'); // also first thing, processed before second
+                 */
+                log_warning(
+                        "thing "TI_THING_ID" in "TI_EVENT_ID
+                        "not found in collection `%.*s`, skip tasks",
+                        thing_id, ev->id,
+                        (int) ev->target->name->n,
+                        (const char *) ev->target->name->data);
+                while (qp_is_map(qp_next(&unpacker, NULL)))
+                {
+                    qp_skip(&unpacker);
+                }
+            }
+            else
+            {
+                /* this is the first `thing` and should always exist */
+                log_critical(
+                        "thing "TI_THING_ID" in "TI_EVENT_ID
+                        "not found in collection `%.*s`",
+                        thing_id, ev->id,
+                        (int) ev->target->name->n,
+                        (const char *) ev->target->name->data);
 
-            return -1;
+                return -1;
+            }
         }
-
-        if (ev->target)
+        else if (ev->target)
         {
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
                 if (ti_job_run(ev->target, thing, &unpacker))
@@ -179,6 +202,8 @@ int ti_event_run(ti_event_t * ev)
 
         if (qp_is_close(thing_or_map.tp))
             qp_next(&unpacker, &thing_or_map);
+
+        ++jobn;
     }
 
     return 0;

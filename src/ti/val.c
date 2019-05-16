@@ -519,7 +519,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_FLOAT:
         return qp_fadd_double(f, ((ti_vfloat_t *) val)->float_);
     case TI_VAL_BOOL:
-        return qp_fadd_type(f, ((ti_vbool_t *) val)->bool_ ? QP_TRUE:QP_FALSE);
+        return qp_fadd_bool(f, ((ti_vbool_t *) val)->bool_);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:

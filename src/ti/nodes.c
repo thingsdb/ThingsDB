@@ -908,7 +908,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, qp_query;
+    qp_obj_t qp_user_id, qp_query, qp_is_thingsdb;
+    ti_query_unpack_cb unpack_cb;
 
     if (!other_node)
     {
@@ -931,6 +932,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
             !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
+            !qp_is_bool(qp_next(&unpacker, &qp_is_thingsdb)) ||
             !qp_is_raw(qp_next(&unpacker, &qp_query)))
     {
         ex_set(e, EX_BAD_DATA,
@@ -958,7 +960,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_unpack(query, pkg->id, qp_query.via.raw, qp_query.len, e))
+    unpack_cb = qp_is_true(qp_is_thingsdb.tp)
+            ? ti_query_thingsdb_unpack
+            : ti_query_collection_unpack;
+
+    if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access;

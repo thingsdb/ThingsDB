@@ -11,6 +11,7 @@ enum
     TI_QUERY_FLAG_ROOT_NESTED           =1<<2,
     TI_QUERY_FLAG_OVERFLOW              =1<<3,
     TI_QUERY_FLAG_ALL                   =1<<4,
+    TI_QUERY_FLAG_NODE                  =1<<5,
 };
 
 typedef struct ti_query_s ti_query_t;
@@ -27,9 +28,28 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/stream.h>
 #include <util/omap.h>
 
+typedef int (*ti_query_unpack_cb) (
+        ti_query_t *,
+        uint16_t,
+        const uchar *,
+        size_t,
+        ex_t *);
+
 ti_query_t * ti_query_create(ti_stream_t * stream);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_unpack(
+int ti_query_node_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e);
+int ti_query_thingsdb_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e);
+int ti_query_collection_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
         const uchar * data,

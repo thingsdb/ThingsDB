@@ -107,7 +107,7 @@ class Node:
             try:
                 res = await client.query(f'''
                     nodes();
-                 ''')
+                 ''', target=client.node)
             except NodeError:
                 pass
             else:

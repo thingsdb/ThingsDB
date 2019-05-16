@@ -50,15 +50,19 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e);
+static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e);
 
 int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (e->nr == 0);
     query->flags &= ~TI_QUERY_FLAG_ROOT_NESTED;
     return rq__scope(query, nd, e);
 }
 
 static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -95,6 +99,7 @@ static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -119,6 +124,8 @@ static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -142,6 +149,7 @@ static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -187,6 +195,7 @@ static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -252,6 +261,7 @@ static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -359,6 +369,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -419,6 +430,7 @@ finish:
 
 static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -610,6 +622,7 @@ fail0:
 
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -692,6 +705,8 @@ done:
 
 static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -715,6 +730,8 @@ static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -738,6 +755,7 @@ static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -785,6 +803,7 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -844,6 +863,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
 
 static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -925,6 +945,8 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->rval == NULL);
 
@@ -951,6 +973,7 @@ static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -1061,6 +1084,8 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->rval == NULL);
     int log_level;
@@ -1110,6 +1135,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -1201,6 +1227,7 @@ done:
 
 static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
     assert (query->stream->via.user);
@@ -1291,6 +1318,8 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->rval == NULL);
 
@@ -1345,6 +1374,8 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_node(query, nd, e));
+    assert (!query->ev);
     assert (e->nr == 0);
     assert (query->rval == NULL);
 
@@ -1371,6 +1402,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
@@ -1420,6 +1452,7 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int rq__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
@@ -1460,65 +1493,134 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case 'c':
         if (langdef_nd_match_str(fname, "collection"))
-            return rq__f_collection(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_collection(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "collections"))
-            return rq__f_collections(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_collections(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "counters"))
-            return rq__f_counters(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_counters(query, params, e)
+            );
         break;
     case 'd':
         if (langdef_nd_match_str(fname, "del_collection"))
-            return rq__f_del_collection(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_del_collection(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "del_user"))
-            return rq__f_del_user(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_del_user(query, params, e)
+            );
         break;
     case 'g':
         if (langdef_nd_match_str(fname, "grant"))
-            return rq__f_grant(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_grant(query, params, e)
+            );
         break;
     case 'n':
         if (langdef_nd_match_str(fname, "new_collection"))
-            return rq__f_new_collection(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_new_collection(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "new_node"))
-            return rq__f_new_node(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_new_node(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "new_user"))
-            return rq__f_new_user(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_new_user(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "node"))
-            return rq__f_node(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_node(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "nodes"))
-            return rq__f_nodes(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_nodes(query, params, e)
+            );
         break;
     case 'p':
         if (langdef_nd_match_str(fname, "pop_node"))
-            return rq__f_pop_node(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_pop_node(query, params, e)
+            );
         break;
     case 'r':
         if (langdef_nd_match_str(fname, "rename_collection"))
-            return rq__f_rename_collection(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_rename_collection(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "rename_user"))
-            return rq__f_rename_user(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_rename_user(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "reset_counters"))
-            return rq__f_reset_counters(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_reset_counters(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "revoke"))
-            return rq__f_revoke(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_revoke(query, params, e)
+            );
         break;
     case 's':
         if (langdef_nd_match_str(fname, "set_loglevel"))
-            return rq__f_set_loglevel(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_set_loglevel(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "set_password"))
-            return rq__f_set_password(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_set_password(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "set_quota"))
-            return rq__f_set_quota(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_set_quota(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "set_zone"))
-            return rq__f_set_zone(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_set_zone(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "shutdown"))
-            return rq__f_shutdown(query, params, e);
+            return (
+                rq__is_not_node(query, fname, e) ||
+                rq__f_shutdown(query, params, e)
+            );
         break;
     case 'u':
         if (langdef_nd_match_str(fname, "user"))
-            return rq__f_user(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_user(query, params, e)
+            );
         if (langdef_nd_match_str(fname, "users"))
-            return rq__f_users(query, params, e);
+            return (
+                rq__is_not_thingsdb(query, fname, e) ||
+                rq__f_users(query, params, e)
+            );
         break;
     }
 
@@ -1787,4 +1889,30 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     return e->nr;
+}
+
+static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
+{
+    if (q->flags & TI_QUERY_FLAG_NODE)
+        return false;
+
+    ex_set(e, EX_INDEX_ERROR,
+            "`%.*s` is undefined in the `thingsdb` scope; "
+            "You want to query a `node` scope?",
+            n->len,
+            n->str);
+    return true;
+}
+
+static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
+{
+    if (~q->flags & TI_QUERY_FLAG_NODE)
+        return false;
+
+    ex_set(e, EX_INDEX_ERROR,
+            "`%.*s` is undefined in this `node` scope; "
+            "You might want to query the `thingsdb` scope?",
+            n->len,
+            n->str);
+    return true;
 }

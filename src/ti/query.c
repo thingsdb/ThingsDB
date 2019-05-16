@@ -32,6 +32,13 @@ static void query__event_handle(ti_query_t * query);
 static ti_epkg_t * query__epkg_event(ti_query_t * query);
 static void query__task_to_watchers(ti_query_t * query);
 static inline _Bool query__requires_root_event(cleri_node_t * name_nd);
+static int query__node_db_unpack(
+        const char * ebad,
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e);
 
 ti_query_t * ti_query_create(ti_stream_t * stream)
 {
@@ -76,7 +83,7 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-int ti_query_unpack(
+int ti_query_node_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
         const uchar * data,
@@ -84,7 +91,38 @@ int ti_query_unpack(
         ex_t * e)
 {
     assert (e->nr == 0);
-    const char * ebad = "invalid query request, see "TI_DOCS"#query";
+    const char * ebad =
+            "invalid `query-node` request, "
+            "see "TI_DOCS"#query-node";
+    return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
+}
+
+int ti_query_thingsdb_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
+{
+    assert (e->nr == 0);
+    const char * ebad =
+            "invalid `query-thingsdb` request, "
+            "see "TI_DOCS"#query-thingsdb";
+    return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
+}
+
+int ti_query_collection_unpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
+{
+    assert (e->nr == 0);
+    const char * ebad =
+            "invalid `query-collection` request, "
+            "see "TI_DOCS"#query-collection";
+
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
     size_t max_raw = 0;
@@ -103,7 +141,7 @@ int ti_query_unpack(
     {
         if (qp_is_raw_equal_str(&key, "query"))
         {
-            if (!qp_is_raw(qp_next(&unpacker, &val)))
+            if (query->querystr || !qp_is_raw(qp_next(&unpacker, &val)))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
@@ -121,14 +159,19 @@ int ti_query_unpack(
             continue;
         }
 
-        if (qp_is_raw_equal_str(&key, "target"))
+        if (qp_is_raw_equal_str(&key, "collection"))
         {
+            if (query->target)
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
             (void) qp_next(&unpacker, &val);
-            query->target = ti_collections_get_by_qp_obj(&val, true, e);
-            ti_grab(query->target);
+            query->target = ti_collections_get_by_qp_obj(&val, false, e);
             if (e->nr)
                 goto finish;
-            /* query->target maybe NULL in case when the target is root */
+            ti_incref(query->target);
             continue;
         }
 
@@ -156,7 +199,7 @@ int ti_query_unpack(
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
             }
-            if (val.tp == QP_TRUE)
+            if (qp_is_true(val.tp))
                 query->flags |= TI_QUERY_FLAG_ALL;
             continue;
         }
@@ -166,7 +209,7 @@ int ti_query_unpack(
             ssize_t n;
             qp_types_t tp = qp_next(&unpacker, NULL);
 
-            if (!qp_is_array(tp))
+            if (query->blobs || !qp_is_array(tp))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
@@ -203,6 +246,9 @@ int ti_query_unpack(
         }
     }
 
+    if (!query->querystr || !query->target)
+        ex_set(e, EX_BAD_DATA, ebad);
+
     if (query->target && max_raw >= query->target->quota->max_raw_size)
         ex_set(e, EX_MAX_QUOTA,
                 "maximum raw size quota of %zu bytes is reached, "
@@ -211,6 +257,9 @@ int ti_query_unpack(
 finish:
     return e->nr;
 }
+
+
+
 
 int ti_query_parse(ti_query_t * query, ex_t * e)
 {
@@ -481,6 +530,7 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_NAME:
             if (query__requires_root_event(nd->children->node->children->node))
                 query->flags |= TI_QUERY_FLAG_ROOT_EVENT;
+            /* TODO: maybe here detect node specific versus other? */
             return;  /* arguments can be ignored */
         }
         /* skip to arguments */
@@ -750,4 +800,61 @@ static inline _Bool query__requires_root_event(cleri_node_t * fname_nd)
         );
     }
     return false;
+}
+
+static int query__node_db_unpack(
+        const char * ebad,
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
+{
+    assert (e->nr == 0);
+
+    qp_unpacker_t unpacker;
+    qp_obj_t key, val;
+
+    query->pkg_id = pkg_id;
+
+    qp_unpacker_init2(&unpacker, data, n, 0);
+
+    if (!qp_is_map(qp_next(&unpacker, NULL)))
+    {
+        ex_set(e, EX_BAD_DATA, ebad);
+        goto finish;
+    }
+
+    while(qp_is_raw(qp_next(&unpacker, &key)))
+    {
+        if (qp_is_raw_equal_str(&key, "query"))
+        {
+            if (query->querystr || !qp_is_raw(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
+            query->querystr = qpx_obj_raw_to_str(&val);
+            if (!query->querystr)
+            {
+                ex_set_alloc(e);
+                goto finish;
+            }
+
+            continue;
+        }
+
+        if (!qp_is_map(qp_next(&unpacker, NULL)))
+        {
+            ex_set(e, EX_BAD_DATA, ebad);
+            goto finish;
+        }
+    }
+
+    if (!query->querystr)
+        ex_set(e, EX_BAD_DATA, ebad);
+
+finish:
+    return e->nr;
 }

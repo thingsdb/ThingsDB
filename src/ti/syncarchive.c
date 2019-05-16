@@ -112,7 +112,7 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-    if (qp_more.tp == QP_TRUE)
+    if (qp_is_true(qp_more.tp))
     {
         offset += qp_raw.len;
     }

@@ -314,10 +314,19 @@ ti_collection_t * ti_collections_get_by_val(
                     id);
         }
         break;
+    case TI_VAL_NIL:
+        if (allow_root)
+        {
+            ex_set(e, EX_SUCCESS, "collection target is root");
+            break;
+        }
+        /* FALLTHRU */
+        /* no break */
     default:
         ex_set(e, EX_BAD_DATA,
                 "expecting type `"TI_VAL_RAW_S"` "
-                "or `"TI_VAL_INT_S"` as collection target");
+                "or `"TI_VAL_INT_S"` as collection, not `%s`",
+                ti_val_str(val));
     }
     return collection;
 }

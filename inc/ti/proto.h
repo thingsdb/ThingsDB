@@ -33,9 +33,17 @@ typedef enum
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [username, password]             */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* {target:.. query:.. blobs: []}   */
-    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {target:.. things: []}           */
-    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {target:.. things: []}           */
+    TI_PROTO_CLIENT_REQ_QUERY_NODE          =34,    /* {query:...}   */
+    TI_PROTO_CLIENT_REQ_QUERY_THINGSDB      =35,    /* {query:...}   */
+    TI_PROTO_CLIENT_REQ_QUERY_COLLECTION    =36,    /* { collection:..
+                                                         query:..
+                                                         blobs: []
+                                                         deep: 0..0x7f,
+                                                         all: true/false
+                                                       }
+                                                     */
+    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}           */
+    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}           */
 
     /*
      * 64..95 client responses
@@ -85,7 +93,7 @@ typedef enum
      */
 
     /* expects a client response which will be forwarded back to the client */
-    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, {query...}] */
+    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, is_db, {query...}] */
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */

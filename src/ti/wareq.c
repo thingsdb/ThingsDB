@@ -65,19 +65,25 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         ex_set(e, EX_BAD_DATA, ebad);
         goto finish;
     }
+
     while(qp_is_raw(qp_next(&unpacker, &key)))
     {
-        if (qp_is_raw_equal_str(&key, "target"))
+        if (qp_is_raw_equal_str(&key, "collection"))
         {
+            if (wareq->target)
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
             (void) qp_next(&unpacker, &val);
             wareq->target = ti_collections_get_by_qp_obj(
                     &val,
-                    true, /* allow_root */
+                    false, /* no allow_root */
                     e);
             if (e->nr)
                 goto finish;
-            if (wareq->target)
-                ti_incref(wareq->target);
+            ti_incref(wareq->target);
             continue;
         }
 
@@ -86,7 +92,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             ssize_t n;
             qp_types_t tp = qp_next(&unpacker, NULL);
 
-            if (!qp_is_array(tp))
+            if (wareq->thing_ids || !qp_is_array(tp))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
@@ -130,22 +136,25 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         }
     }
 
+    if (!!wareq->target ^ !!wareq->thing_ids)
+        ex_set(e, EX_BAD_DATA, ebad);
+
 finish:
     return e->nr;
 }
 
-int ti_wareq_init(ti_wareq_t * wareq)
+int ti_wareq_init(ti_stream_t * stream)
 {
-    if (ti_stream_is_closed(wareq->stream))
+    if (ti_stream_is_closed(stream))
         return -1;
 
-    if (!wareq->stream->watching)
+    if (!stream->watching)
     {
         /*
          * This is the first watch request for this client, add listening for
          * thing0
          */
-        ti_watch_t * watch = ti_thing_watch(ti()->thing0, wareq->stream);
+        ti_watch_t * watch = ti_thing_watch(ti()->thing0, stream);
         if (!watch)
         {
             log_error(EX_ALLOC_S);
@@ -186,15 +195,17 @@ static void wareq__destroy_cb(uv_async_t * task)
 static void wareq__watch_cb(uv_async_t * task)
 {
     ti_wareq_t * wareq = task->data;
-    uint32_t n = wareq->thing_ids->n;
     ti_thing_t * thing;
     ti_watch_t * watch;
+    uint32_t n;
 
-    if (!wareq->target)
+    if (!wareq->target || !wareq->thing_ids)
     {
         ti_wareq_destroy(wareq);
         return;
     }
+
+    n = wareq->thing_ids->n;
 
     uv_mutex_lock(wareq->target->lock);
 

@@ -129,7 +129,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, qp_target.via.int64);
     (void) qp_add_int(packer, qp_ft.via.int64);
-    (void) qp_add_int(packer, qp_more.tp == QP_TRUE ? offset + qp_raw.len : 0);
+    (void) qp_add_int(packer, qp_is_true(qp_more.tp) ? offset + qp_raw.len : 0);
     (void) qp_close_array(packer);
 
     resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCFPART);

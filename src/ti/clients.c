@@ -29,15 +29,23 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status);
 static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg);
-static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg);
+static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg);
+static inline void clients__on_query_thingsdb(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg);
+static inline void clients__on_query_collection(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg);
 static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg);
 static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
-        ti_pkg_t * orig_pkg);
+        ti_pkg_t * orig_pkg,
+        _Bool is_query_for_thingsdb);
 static void clients__fwd_query_cb(ti_req_t * req, ex_enum status);
-
+static void clients__query_db_collection(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ti_query_unpack_cb unpack_cb);
 
 int ti_clients_create(void)
 {
@@ -242,8 +250,14 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_AUTH:
         clients__on_auth(stream, pkg);
         break;
-    case TI_PROTO_CLIENT_REQ_QUERY:
-        clients__on_query(stream, pkg);
+    case TI_PROTO_CLIENT_REQ_QUERY_NODE:
+        clients__on_query_node(stream, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_QUERY_THINGSDB:
+        clients__on_query_thingsdb(stream, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_QUERY_COLLECTION:
+        clients__on_query_collection(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_WATCH:
         clients__on_watch(stream, pkg);
@@ -261,18 +275,7 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_pkg_t * resp;
-//    if (!pkg->id)
-//    {
-//        ex_t * e = ex_use();
-//        ex_set(e, EX_BAD_DATA, "ping request requires a package id > 0");
-//        resp = ti_pkg_client_err(pkg->id, e);
-//    }
-//    else
-//    {
-        resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
-//    }
-
+    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
@@ -287,14 +290,6 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_obj_t name, pass;
     ti_user_t * user;
     ex_t * e = ex_use();
-
-//    if (!pkg->id)
-//    {
-//        ex_set(e, EX_BAD_DATA,
-//                "authentication request requires a package id > 0");
-//        resp = ti_pkg_client_err(pkg->id, e);
-//        goto finish;
-//    }
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -337,97 +332,92 @@ finish:
     }
 }
 
-static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ex_t * e = ex_use();
     ti_node_t * this_node = ti()->node;
     ti_user_t * user = stream->via.user;
-    vec_t * access_;
 
     if (!user)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
-        goto finish;
+        goto failed;
     }
 
-    if (this_node->status <= TI_NODE_STAT_CONNECTING)
+    if (ti_access_check_err(ti()->access, user, TI_AUTH_READ, e))
+        goto failed;
+
+    if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
-        goto finish;
-    }
-
-    if (this_node->status < TI_NODE_STAT_READY)
-    {
-
-        ti_node_t * other_node = ti_nodes_random_ready_node();
-        if (!other_node)
-        {
-            ex_set(e, EX_NODE_ERROR,
-                    "node `%s` is unable to handle query requests",
-                    ti()->hostname);
-            goto finish;
-        }
-
-        if (clients__fwd_query(other_node, stream, pkg))
-        {
-            ex_set_internal(e);
-            goto finish;
-        }
-        /* the response to the client will be done on a callback on the
-         * query forward so we simply return;
-         */
-        return;
+        goto failed;
     }
 
     query = ti_query_create(stream);
     if (!query)
     {
         ex_set_alloc(e);
-        goto finish;
+        goto failed;
     }
 
-    if (ti_query_unpack(query, pkg->id, pkg->data, pkg->n, e))
-        goto finish;
+    query->flags |= TI_QUERY_FLAG_NODE;
 
-    access_ = query->target ? query->target->access : ti()->access;
-    if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
-        goto finish;
+    if (ti_query_node_unpack(query, pkg->id, pkg->data, pkg->n, e))
+        goto failed;
 
     if (ti_query_parse(query, e))
-        goto finish;
+        goto failed;
 
     if (ti_query_investigate(query, e))
-        goto finish;
+        goto failed;
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, user, TI_AUTH_MODIFY, e))
-            goto finish;
-
-        if (ti_events_create_new_event(query, e))
-            goto finish;
-
-        return;
+        ex_set(e, EX_BAD_DATA,
+                "this query would trigger an `event` which is not allowed "
+                "when sending a query to a node");
+        goto failed;
     }
 
     ti_query_run(query);
     return;
 
-finish:
+failed:
     ti_query_destroy(query);
 
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    assert (e->nr);
+    resp = ti_pkg_client_err(pkg->id, e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
     }
+}
+
+static inline void clients__on_query_thingsdb(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg)
+{
+    return clients__query_db_collection(
+            stream,
+            pkg,
+            ti_query_thingsdb_unpack);
+}
+
+
+static inline void clients__on_query_collection(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg)
+{
+    return clients__query_db_collection(
+            stream,
+            pkg,
+            ti_query_collection_unpack);
 }
 
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -453,17 +443,20 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    wareq = ti_wareq_create(stream, "watch");
-    if (!wareq)
+    if (pkg->n)
     {
-        ex_set_alloc(e);
-        goto finish;
+        wareq = ti_wareq_create(stream, "watch");
+        if (!wareq)
+        {
+            ex_set_alloc(e);
+            goto finish;
+        }
+
+        if (ti_wareq_unpack(wareq, pkg, e))
+            goto finish;
     }
 
-    if (ti_wareq_unpack(wareq, pkg, e))
-        goto finish;
-
-    access_ = wareq->target ? wareq->target->access : ti()->access;
+    access_ = wareq ? wareq->target->access : ti()->access;
 
     if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
@@ -482,7 +475,7 @@ finish:
         log_error(EX_ALLOC_S);
     }
 
-    if (e->nr || ti_wareq_init(wareq) || ti_wareq_run(wareq))
+    if (e->nr || ti_wareq_init(stream) || (wareq && ti_wareq_run(wareq)))
         ti_wareq_destroy(wareq);
 }
 
@@ -493,6 +486,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_wareq_t * wareq = NULL;
     ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
+    vec_t * access_;
 
     if (!user)
     {
@@ -508,17 +502,22 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    wareq = ti_wareq_create(stream, "unwatch");
-    if (!wareq)
+    if (pkg->n)
     {
-        ex_set_alloc(e);
-        goto finish;
+        wareq = ti_wareq_create(stream, "unwatch");
+        if (!wareq)
+        {
+            ex_set_alloc(e);
+            goto finish;
+        }
+
+        if (ti_wareq_unpack(wareq, pkg, e))
+            goto finish;
     }
 
-    if (ti_wareq_unpack(wareq, pkg, e))
-        goto finish;
+    access_ = wareq ? wareq->target->access : ti()->access;
 
-    if (ti_access_check_err(wareq->target->access, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
@@ -535,14 +534,15 @@ finish:
         log_error(EX_ALLOC_S);
     }
 
-    if (e->nr || ti_wareq_run(wareq))
+    if (e->nr || (wareq && ti_wareq_run(wareq)))
         ti_wareq_destroy(wareq);
 }
 
 static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
-        ti_pkg_t * orig_pkg)
+        ti_pkg_t * orig_pkg,
+        _Bool is_query_for_thingsdb)
 {
     qpx_packer_t * packer;
     ti_fwd_t * fwd;
@@ -552,12 +552,13 @@ static int clients__fwd_query(
     if (!fwd)
         goto fail0;
 
-    packer = qpx_packer_create(orig_pkg->n + 19, 1);
+    packer = qpx_packer_create(orig_pkg->n + 20, 1);
     if (!packer)
         goto fail1;
 
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, src_stream->via.user->id);
+    (void) qp_add_bool(packer, is_query_for_thingsdb);
     (void) qp_add_raw(packer, orig_pkg->data, orig_pkg->n);
     (void) qp_close_array(packer);
 
@@ -610,4 +611,102 @@ finish:
 
     ti_fwd_destroy(fwd);
     ti_req_destroy(req);
+}
+
+
+static void clients__query_db_collection(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ti_query_unpack_cb unpack_cb)
+{
+    ti_pkg_t * resp = NULL;
+    ti_query_t * query = NULL;
+    ex_t * e = ex_use();
+    ti_node_t * this_node = ti()->node;
+    ti_user_t * user = stream->via.user;
+    vec_t * access_;
+
+    if (!user)
+    {
+        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    if (this_node->status <= TI_NODE_STAT_BUILDING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+    if (this_node->status < TI_NODE_STAT_READY)
+    {
+        _Bool is_query_for_thingsdb = unpack_cb == ti_query_thingsdb_unpack;
+        ti_node_t * other_node = ti_nodes_random_ready_node();
+        if (!other_node)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                    "node `%s` is unable to handle query requests",
+                    ti()->hostname);
+            goto finish;
+        }
+
+        if (clients__fwd_query(other_node, stream, pkg, is_query_for_thingsdb))
+        {
+            ex_set_internal(e);
+            goto finish;
+        }
+        /* the response to the client will be done on a callback on the
+         * query forward so we simply return;
+         */
+        return;
+    }
+
+    query = ti_query_create(stream);
+    if (!query)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (unpack_cb(query, pkg->id, pkg->data, pkg->n, e))
+        goto finish;
+
+    /* the `unpack` call should check if a target is used or not */
+    access_ = query->target ? query->target->access : ti()->access;
+    if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
+        goto finish;
+
+    if (ti_query_parse(query, e))
+        goto finish;
+
+    if (ti_query_investigate(query, e))
+        goto finish;
+
+    if (ti_query_will_update(query))
+    {
+        if (ti_access_check_err(access_, user, TI_AUTH_MODIFY, e))
+            goto finish;
+
+        if (ti_events_create_new_event(query, e))
+            goto finish;
+
+        return;
+    }
+
+    ti_query_run(query);
+    return;
+
+finish:
+    ti_query_destroy(query);
+
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
 }

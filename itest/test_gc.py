@@ -4,9 +4,11 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
+from lib.target import create_target
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadRequestError
+from thingsdb.target import Target
 
 
 class TestGC(TestBase):
@@ -19,20 +21,19 @@ class TestGC(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-
-        await client.query(r'''new_collection("stuff");''')
+        stuff = await create_target(client, 'stuff')
 
         await client.query(r'''
             a = {};
             a.other = {theanswer: 42, ref: a};
             x = a.other;
-        ''', target='stuff')
+        ''', target=stuff)
 
         await client.query(r'''
             b = {name: 'Iris'};
             b.me = b;
             del('b');
-        ''', target='stuff')
+        ''', target=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
@@ -40,14 +41,14 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         for _ in range(10):
-            await client.query(r'''counte = 1;''', target='stuff')
+            await client.query(r'''counte = 1;''', target=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
 
         await asyncio.sleep(4)
 
-        x, other = await client.query(r'x; a.other;', target='stuff', all=True)
+        x, other = await client.query(r'x; a.other;', target=stuff, all_=True)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 

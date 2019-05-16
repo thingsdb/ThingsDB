@@ -70,7 +70,7 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_BOOL:
         assert (0);     /* there should always be one reference
                            left for nil and boolean. */
-        /* no break  */
+        return;
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_QP:

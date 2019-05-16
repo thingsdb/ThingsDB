@@ -16,6 +16,13 @@ const unsigned int ti_max_name = 128;
 const unsigned int ti_min_pass = 1;
 const unsigned int ti_max_pass = 128;
 
+static int user__pack_access(
+        ti_user_t * user,
+        qp_packer_t ** packer,
+        vec_t * access_,
+        const unsigned char * target,
+        size_t n);
+
 ti_user_t * ti_user_create(
         uint64_t id,
         const char * name,
@@ -155,43 +162,24 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
         qp_add_array(packer))
         return -1;
 
-    for (vec_each(ti()->access, ti_auth_t, auth))
-    {
-        if (auth->user == user)
-        {
-            if (qp_add_map(packer) ||
-                qp_add_raw_from_str(*packer, "target") ||
-                qp_add_int(*packer, 0) ||
-                qp_add_raw_from_str(*packer, "privileges") ||
-                qp_add_raw_from_str(
-                        *packer,
-                        ti_auth_mask_to_str(auth->mask)) ||
-                qp_close_map(*packer))
-                return -1;
-            break;
-        }
-    }
+    if (user__pack_access(
+            user, packer, ti()->access_node, (uchar *) ":node", 5))
+        return -1;
+
+    if (user__pack_access(
+            user, packer, ti()->access_thingsdb, (uchar *) ":thingsdb", 9))
+        return -1;
+
+
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
-        for (vec_each(collection->access, ti_auth_t, auth))
-        {
-            if (auth->user == user)
-            {
-                if (qp_add_map(packer) ||
-                    qp_add_raw_from_str(*packer, "target") ||
-                    qp_add_raw(
-                            *packer,
-                            collection->name->data,
-                            collection->name->n) ||
-                    qp_add_raw_from_str(*packer, "privileges") ||
-                    qp_add_raw_from_str(
-                            *packer,
-                            ti_auth_mask_to_str(auth->mask)) ||
-                    qp_close_map(*packer))
-                    return -1;
-                break;
-            }
-        }
+        if (user__pack_access(
+                user,
+                packer,
+                collection->access,
+                collection->name->data,
+                collection->name->n))
+            return -1;
     }
 
     return -(qp_close_array(*packer) || qp_close_map(*packer));
@@ -212,4 +200,30 @@ ti_val_t * ti_user_as_qpval(ti_user_t * user)
 fail:
     qp_packer_destroy(packer);
     return (ti_val_t * ) ruser;
+}
+
+static int user__pack_access(
+        ti_user_t * user,
+        qp_packer_t ** packer,
+        vec_t * access_,
+        const unsigned char * target,
+        size_t n)
+{
+    for (vec_each(access_, ti_auth_t, auth))
+    {
+        if (auth->user == user)
+        {
+            if (qp_add_map(packer) ||
+                qp_add_raw_from_str(*packer, "target") ||
+                qp_add_raw(*packer, target, n) ||
+                qp_add_raw_from_str(*packer, "privileges") ||
+                qp_add_raw_from_str(
+                        *packer,
+                        ti_auth_mask_to_str(auth->mask)) ||
+                qp_close_map(*packer))
+                return -1;
+            break;
+        }
+    }
+    return 0;
 }

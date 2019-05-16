@@ -122,8 +122,11 @@ void ti_users_del_user(ti_user_t * user)
 {
     size_t i = 0;
 
-    /* remove root access */
-    ti_access_revoke(ti()->access, user, TI_AUTH_MASK_FULL);
+    /* remove node access */
+    ti_access_revoke(ti()->access_node, user, TI_AUTH_MASK_FULL);
+
+    /* remove thingsdb access */
+    ti_access_revoke(ti()->access_thingsdb, user, TI_AUTH_MASK_FULL);
 
     /* remove collection access */
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))

@@ -39,7 +39,7 @@ ti_epkg_t * ti_epkg_initial(void)
     /* encrypt the users password */
     cryptx(ti_user_def_pass, salt, encrypted);
 
-    packer = qpx_packer_create(128, 5);
+    packer = qpx_packer_create(512, 5);
     if (!packer)
         return NULL;
 
@@ -71,7 +71,19 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_raw_from_str(packer, "grant");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int(packer, 0);
+    (void) qp_add_int(packer, TI_SCOPE_NODE);
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_int(packer, user_id);
+    (void) qp_add_raw_from_str(packer, "mask");
+    (void) qp_add_int(packer, TI_AUTH_MASK_FULL);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "grant");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "target");
+    (void) qp_add_int(packer, TI_SCOPE_THINGSDB);
     (void) qp_add_raw_from_str(packer, "user");
     (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "mask");

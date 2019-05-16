@@ -64,7 +64,6 @@ except IndexError:
     sys.exit(
         'THINGSDB_MEMCHECK shoud be one of '
         '0 (disabled), 1 (basic) or 2 (full)'
-        f'got `{THINGSDB_MEMCHECK}`'
     )
 
 THINGSDB_NODE_OUTPUT = os.environ.get('THINGSDB_NODE_OUTPUT', None)

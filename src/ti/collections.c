@@ -216,14 +216,9 @@ ti_collection_t * ti_collections_get_by_id(const uint64_t id)
 
 /*
  * Returns a weak reference collection based on a QPack object.
- * If the collection is not found, then e will contain the reason why.
- * - if the collection target is `root`, then the return value is NULL and
- *   e->nr is EX_SUCCESS
+ * If the collection is not found, then `e` will contain the reason why.
  */
-ti_collection_t * ti_collections_get_by_qp_obj(
-        qp_obj_t * obj,
-        _Bool allow_root,
-        ex_t * e)
+ti_collection_t * ti_collections_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
 {
     ti_collection_t * collection = NULL;
     switch (obj->tp)
@@ -241,15 +236,6 @@ ti_collection_t * ti_collections_get_by_qp_obj(
                 (char *) obj->via.raw);
         break;
     case QP_INT64:
-        if (!obj->via.int64)
-        {
-            if (allow_root)
-                ex_set(e, EX_SUCCESS, "collection target is root");
-            else
-                ex_set(e, EX_INDEX_ERROR,
-                        TI_COLLECTION_ID" not found", (uint64_t) 0);
-        }
-        else
         {
             uint64_t id = (uint64_t) obj->via.int64;
             collection = ti_collections_get_by_id(id);
@@ -262,21 +248,16 @@ ti_collection_t * ti_collections_get_by_qp_obj(
         }
         break;
     default:
-        ex_set(e, EX_BAD_DATA, "expecting a `name` or `id` as target");
+        ex_set(e, EX_BAD_DATA, "expecting a `name` or `id` as collection");
     }
     return collection;
 }
 
 /*
  * Returns a weak reference collection based on a ti_val_t.
- * If the collection is not found, then e will contain the reason why.
- * - if the collection target is `root` and `allow_root` is set true, then the
- *   return value is NULL and e->nr is EX_SUCCESS
+ * If the collection is not found, then `e` will contain the reason why.
  */
-ti_collection_t * ti_collections_get_by_val(
-        ti_val_t * val,
-        _Bool allow_root,
-        ex_t * e)
+ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
 {
     ti_collection_t * collection = NULL;
     switch (val->tp)
@@ -294,15 +275,6 @@ ti_collection_t * ti_collections_get_by_val(
                 (char *) ((ti_raw_t *) val)->data);
         break;
     case TI_VAL_INT:
-        if (((ti_vint_t *) val)->int_ == 0)
-        {
-            if (allow_root)
-                ex_set(e, EX_SUCCESS, "collection target is root");
-            else
-                ex_set(e, EX_INDEX_ERROR,
-                        TI_COLLECTION_ID" not found", (uint64_t) 0);
-        }
-        else
         {
             uint64_t id = (uint64_t) ((ti_vint_t *) val)->int_;
             collection = ti_collections_get_by_id(id);
@@ -314,14 +286,6 @@ ti_collection_t * ti_collections_get_by_val(
                     id);
         }
         break;
-    case TI_VAL_NIL:
-        if (allow_root)
-        {
-            ex_set(e, EX_SUCCESS, "collection target is root");
-            break;
-        }
-        /* FALLTHRU */
-        /* no break */
     default:
         ex_set(e, EX_BAD_DATA,
                 "expecting type `"TI_VAL_RAW_S"` "

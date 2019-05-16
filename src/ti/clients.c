@@ -346,7 +346,7 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
         goto failed;
     }
 
-    if (ti_access_check_err(ti()->access, user, TI_AUTH_READ, e))
+    if (ti_access_check_err(ti()->access_node, user, TI_AUTH_READ, e))
         goto failed;
 
     if (this_node->status <= TI_NODE_STAT_BUILDING)
@@ -456,7 +456,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
     }
 
-    access_ = wareq ? wareq->target->access : ti()->access;
+    access_ = wareq ? wareq->target->access : ti()->access_node;
 
     if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
@@ -515,7 +515,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
     }
 
-    access_ = wareq ? wareq->target->access : ti()->access;
+    access_ = wareq ? wareq->target->access : ti()->access_node;
 
     if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
         goto finish;
@@ -674,7 +674,7 @@ static void clients__query_db_collection(
         goto finish;
 
     /* the `unpack` call should check if a target is used or not */
-    access_ = query->target ? query->target->access : ti()->access;
+    access_ = query->target ? query->target->access : ti()->access_thingsdb;
     if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
         goto finish;
 

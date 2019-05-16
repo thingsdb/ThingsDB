@@ -22,7 +22,8 @@ static const char * store__path          = ".store/";
 static const char * store__prev_path     = ".prev_/";
 static const char * store__tmp_path      = ".tmp__/";
 /* file names */
-static const char * store__access_fn            = "access.qp";
+static const char * store__access_node_fn       = "access_node.qp";
+static const char * store__access_thingsdb_fn   = "access_thingsdb.qp";
 static const char * store__collections_fn       = "collections.qp";
 static const char * store__id_stat_fn           = "idstat.qp";
 static const char * store__names_fn             = "names.qp";
@@ -52,7 +53,12 @@ int ti_store_create(void)
     store->store_path = fx_path_join(storage_path, store__path);
 
     /* file names */
-    store->access_fn = fx_path_join(store->tmp_path, store__access_fn);
+    store->access_node_fn = fx_path_join(
+            store->tmp_path,
+            store__access_node_fn);
+    store->access_thingsdb_fn = fx_path_join(
+            store->tmp_path,
+            store__access_thingsdb_fn);
     store->collections_fn = fx_path_join(
             store->tmp_path,
             store__collections_fn);
@@ -62,7 +68,8 @@ int ti_store_create(void)
 
     if (    !store->prev_path ||
             !store->store_path ||
-            !store->access_fn ||
+            !store->access_node_fn ||
+            !store->access_thingsdb_fn ||
             !store->collections_fn ||
             !store->id_stat_fn ||
             !store->names_fn ||
@@ -87,7 +94,8 @@ void ti_store_destroy(void)
     free(store->store_path);
     free(store->tmp_path);
 
-    free(store->access_fn);
+    free(store->access_node_fn);
+    free(store->access_thingsdb_fn);
     free(store->collections_fn);
     free(store->id_stat_fn);
     free(store->names_fn);
@@ -121,7 +129,12 @@ int ti_store_store(void)
     if (    ti_store_status_store(store->id_stat_fn) ||
             ti_store_names_store(store->names_fn) ||
             ti_store_users_store(store->users_fn) ||
-            ti_store_access_store(ti()->access, store->access_fn) ||
+            ti_store_access_store(
+                    ti()->access_node,
+                    store->access_node_fn) ||
+            ti_store_access_store(
+                    ti()->access_thingsdb,
+                    store->access_thingsdb_fn) ||
             ti_store_collections_store(store->collections_fn))
         goto failed;
 
@@ -197,7 +210,12 @@ int ti_store_restore(void)
             -(!namesmap) ||
             ti_store_status_restore(store->id_stat_fn) ||
             ti_store_users_restore(store->users_fn) ||
-            ti_store_access_restore(&ti()->access, store->access_fn) ||
+            ti_store_access_restore(
+                    &ti()->access_node,
+                    store->access_node_fn) ||
+            ti_store_access_restore(
+                    &ti()->access_thingsdb,
+                    store->access_thingsdb_fn) ||
             ti_store_collections_restore(store->collections_fn));
 
     if (rc)
@@ -254,7 +272,8 @@ static void store__set_filename(_Bool use_tmp)
 {
     const char * path = use_tmp ? store__tmp_path : store__path;
     size_t n = strlen(path);
-    memcpy(store->access_fn + store->fn_offset, path, n);
+    memcpy(store->access_node_fn + store->fn_offset, path, n);
+    memcpy(store->access_thingsdb_fn + store->fn_offset, path, n);
     memcpy(store->collections_fn + store->fn_offset, path, n);
     memcpy(store->id_stat_fn + store->fn_offset, path, n);
     memcpy(store->names_fn + store->fn_offset, path, n);

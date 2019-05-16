@@ -47,9 +47,8 @@ static inline _Bool ti_closure_wse(ti_closure_t * closure)
 
 static inline cleri_node_t * ti_closure_scope_nd(ti_closure_t * closure)
 {
-    /*  closure = Sequence('|', List(name, opt=True), '|', Optional(scope))  */
-    return closure->node->children->next->next->next ?
-            closure->node->children->next->next->next->node : NULL;
+    /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
+    return closure->node->children->next->next->next->node;
 }
 
 #endif  /* TI_CLOSURE_H_ */

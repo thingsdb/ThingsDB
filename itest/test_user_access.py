@@ -40,10 +40,10 @@ class TestUserAccess(TestBase):
             await testcl.query(r'''new_collection('some_collection');''')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''map(||);''', target='stuff')
+            await testcl.query(r'''map(||nil);''', target='stuff')
 
         await client.query(r'''
-            grant(0, "test", MODIFY);
+            grant(':thingsdb', "test", MODIFY);
             grant('stuff', 'test', READ);
         ''')
 
@@ -51,8 +51,9 @@ class TestUserAccess(TestBase):
             new_collection('some_collection');
             grant('some_collection', 'admin', GRANT);
         ''')
+
         await testcl.query(r'''x = 1;''', target='some_collection')
-        await testcl.query(r'''map(||);''', target='stuff')
+        await testcl.query(r'''map(||nil);''', target='stuff')
 
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -66,7 +67,10 @@ class TestUserAccess(TestBase):
         self.assertEqual(users_access, [{
             'access': [{
                 'privileges': 'FULL',
-                'target': 0
+                'target': ':node'
+            }, {
+                'privileges': 'FULL',
+                'target': ':thingsdb'
             }, {
                 'privileges': 'FULL',
                 'target': 'stuff'
@@ -79,7 +83,7 @@ class TestUserAccess(TestBase):
         }, {
             'access': [{
                 'privileges': 'READ|MODIFY',
-                'target': 0
+                'target': ':thingsdb'
             }, {
                 'privileges': 'READ',
                 'target': 'stuff'
@@ -91,11 +95,29 @@ class TestUserAccess(TestBase):
             'user_id': 2
         }])
 
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await testcl.query(r'''nodes();''', target=client.node)
+
+        await client.query(r'''
+            grant(':node', "test", READ);
+        ''')
+
+        await testcl.query(r'''nodes();''', target=client.node)
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await testcl.query(r'''reset_counters();''', target=client.node)
+
+        await client.query(r'''
+            grant(':node', "test", MODIFY);
+        ''')
+
+        await testcl.query(r'''reset_counters();''', target=client.node)
+
         await client.query(r'''del_user('test');''')
 
         # queries should no longer work
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''map(||);''', target='stuff')
+            await testcl.query(r'''map(||nil);''', target='stuff')
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):

@@ -23,7 +23,8 @@ typedef enum
 {
     /* root files */
     SYNCFULL__USERS_FILE,
-    SYNCFULL__ACCESS_FILE,
+    SYNCFULL__ACCESS_NODE_FILE,
+    SYNCFULL__ACCESS_THINGSDB_FILE,
     SYNCFULL__NAMES_FILE,
     SYNCFULL__COLLECTIONS_FILE,
     SYNCFULL__ID_STAT_FILE,
@@ -336,8 +337,10 @@ static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
     {
     case SYNCFULL__USERS_FILE:
         return strdup(ti()->store->users_fn);
-    case SYNCFULL__ACCESS_FILE:
-        return strdup(ti()->store->access_fn);
+    case SYNCFULL__ACCESS_NODE_FILE:
+        return strdup(ti()->store->access_node_fn);
+    case SYNCFULL__ACCESS_THINGSDB_FILE:
+        return strdup(ti()->store->access_thingsdb_fn);
     case SYNCFULL__NAMES_FILE:
         return strdup(ti()->store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:

@@ -168,7 +168,7 @@ int ti_query_collection_unpack(
             }
 
             (void) qp_next(&unpacker, &val);
-            query->target = ti_collections_get_by_qp_obj(&val, false, e);
+            query->target = ti_collections_get_by_qp_obj(&val, e);
             if (e->nr)
                 goto finish;
             ti_incref(query->target);
@@ -551,12 +551,10 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 
             query->flags = 0;
             /* investigate the scope if required, the rest can be skipped */
-            if (nd->children->next->next->next)
-            {
-                query__investigate_recursive(
-                    query,
-                    nd->children->next->next->next->node);
-            }
+            query__investigate_recursive(
+                query,
+                nd->children->next->next->next->node);
+
             nd->data = (void *) ((uintptr_t) (
                     query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
                         ? TI_CLOSURE_FLAG_QBOUND|TI_CLOSURE_FLAG_WSE

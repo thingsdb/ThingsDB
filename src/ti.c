@@ -27,6 +27,7 @@
 #include <util/lock.h>
 #include <util/qpx.h>
 #include <util/strx.h>
+#include <util/util.h>
 
 ti_t ti_;
 
@@ -55,7 +56,8 @@ int ti_create(void)
     ti_.lookup = NULL;
     ti_.store = NULL;
     ti_.next_thing_id = NULL;
-    ti_.access = vec_new(0);
+    ti_.access_node = vec_new(0);
+    ti_.access_thingsdb = vec_new(0);
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
@@ -73,7 +75,8 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
-            !ti_.access ||
+            !ti_.access_node ||
+            !ti_.access_thingsdb ||
             !ti_.langdef)
     {
         /* ti_stop() is never called */
@@ -104,7 +107,8 @@ void ti_destroy(void)
     ti_store_destroy();
     ti_val_drop((ti_val_t *) ti_.thing0);
     ti_counters_destroy();  /* very last since counters can be updated */
-    vec_destroy(ti_.access, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(ti_.access_node, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(ti_.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
@@ -550,6 +554,11 @@ fail:
 
 int ti_node_to_packer(qp_packer_t ** packer)
 {
+    struct timespec timing;
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
+
+    double uptime = util_time_diff(&ti_.boottime, &timing);
+
     return (
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "node_id") ||
@@ -582,18 +591,24 @@ int ti_node_to_packer(qp_packer_t ** packer)
             ti_tcp_ip_support_str(ti_.cfg->ip_support)) ||
         qp_add_raw_from_str(*packer, "storage_path") ||
         qp_add_raw_from_str(*packer, ti_.cfg->storage_path) ||
+        qp_add_raw_from_str(*packer, "uptime") ||
+        qp_add_double(*packer, uptime) ||
         qp_add_raw_from_str(*packer, "events_in_queue") ||
         qp_add_int(*packer, ti_.events->queue->n) ||
         qp_add_raw_from_str(*packer, "archived_on_disk") ||
         qp_add_int(*packer, ti_.archive->archived_on_disk) ||
         qp_add_raw_from_str(*packer, "archived_in_memory") ||
         qp_add_int(*packer, ti_.archive->queue->n) ||
+        qp_add_raw_from_str(*packer, "archive_files") ||
+        qp_add_int(*packer, ti_.archive->archfiles->n) ||
         qp_add_raw_from_str(*packer, "local_stored_event_id") ||
         qp_add_int(*packer, ti_.node->sevid) ||
-        qp_add_raw_from_str(*packer, "global_commited_event_id") ||
-        qp_add_int(*packer, ti_nodes_cevid()) ||
         qp_add_raw_from_str(*packer, "local_commited_event_id") ||
         qp_add_int(*packer, ti_.node->cevid) ||
+        qp_add_raw_from_str(*packer, "glocal_stored_event_id") ||
+        qp_add_int(*packer, ti_nodes_sevid()) ||
+        qp_add_raw_from_str(*packer, "global_commited_event_id") ||
+        qp_add_int(*packer, ti_nodes_cevid()) ||
         qp_close_map(*packer)
     );
 }

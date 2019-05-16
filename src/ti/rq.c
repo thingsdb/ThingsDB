@@ -82,7 +82,7 @@ static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    collection = ti_collections_get_by_val(query->rval, false, e);
+    collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
 
@@ -172,7 +172,7 @@ static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    collection = ti_collections_get_by_val(query->rval, false, e);
+    collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
 
@@ -269,11 +269,11 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     int n;
-    ti_collection_t * target;
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
-    uint64_t mask;
+    uint64_t mask, target_id;
+    vec_t ** access_;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 3)
@@ -289,14 +289,13 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    assert (e->nr == 0);
-    target = ti_collections_get_by_val(query->rval, true, e);
+    access_ = ti_val_get_access(query->rval, e, &target_id);
     if (e->nr)
         return e->nr;
 
     /* check for privileges */
     if (ti_access_check_err(
-            target ? target->access : ti()->access,
+            *access_,
             query->stream->via.user, TI_AUTH_GRANT, e))
         return e->nr;
 
@@ -348,7 +347,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else if (mask & TI_AUTH_MODIFY)
         mask |= TI_AUTH_READ;
 
-    if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
+    if (ti_access_grant(access_, user, mask))
     {
         ex_set_alloc(e);
         return e->nr;
@@ -358,7 +357,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         return e->nr;
 
-    if (ti_task_add_grant(task, target ? target->root->id : 0, user, mask))
+    if (ti_task_add_grant(task, target_id, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
@@ -828,7 +827,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
 
     assert (e->nr == 0);
-    collection = ti_collections_get_by_val(query->rval, false, e);
+    collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
     assert (collection);
@@ -951,7 +950,7 @@ static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     /* check for privileges */
-    if (ti_access_check_err(ti()->access,
+    if (ti_access_check_err(ti()->access_node,
             query->stream->via.user, TI_AUTH_MODIFY, e))
         return e->nr;
 
@@ -981,11 +980,11 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     int n;
-    ti_collection_t * target;
     ti_user_t * user;
     ti_raw_t * uname;
     ti_task_t * task;
-    uint64_t mask;
+    uint64_t mask, target_id;
+    vec_t ** access_;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 3)
@@ -1001,14 +1000,13 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    assert (e->nr == 0);
-    target = ti_collections_get_by_val(query->rval, true, e);
+    access_ = ti_val_get_access(query->rval, e, &target_id);
     if (e->nr)
         return e->nr;
 
     /* check for privileges */
     if (ti_access_check_err(
-            target ? target->access : ti()->access,
+            *access_,
             query->stream->via.user, TI_AUTH_GRANT, e))
         return e->nr;
 
@@ -1067,13 +1065,13 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_access_revoke(target ? target->access : ti()->access, user, mask);
+    ti_access_revoke(*access_, user, mask);
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
         return e->nr;
 
-    if (ti_task_add_revoke(task, target ? target->root->id : 0, user, mask))
+    if (ti_task_add_revoke(task, target_id, user, mask))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
@@ -1092,7 +1090,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int64_t ilog;
 
     /* check for privileges */
-    if (ti_access_check_err(ti()->access,
+    if (ti_access_check_err(ti()->access_node,
             query->stream->via.user, TI_AUTH_MODIFY, e))
         return e->nr;
 
@@ -1254,7 +1252,7 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->node, e))
         return e->nr;
 
-    collection = ti_collections_get_by_val(query->rval, false, e);
+    collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
 
@@ -1327,7 +1325,7 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint8_t zone;
 
     /* check for privileges */
-    if (ti_access_check_err(ti()->access,
+    if (ti_access_check_err(ti()->access_node,
             query->stream->via.user, TI_AUTH_MODIFY, e))
         return e->nr;
 
@@ -1380,7 +1378,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     /* check for privileges */
-    if (ti_access_check_err(ti()->access,
+    if (ti_access_check_err(ti()->access_node,
             query->stream->via.user, TI_AUTH_MODIFY, e))
         return e->nr;
 

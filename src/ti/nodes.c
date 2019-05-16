@@ -967,7 +967,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, e))
         goto finish;
 
-    access_ = query->target ? query->target->access : ti()->access;
+    access_ = query->target ? query->target->access : ti()->access_thingsdb;
     if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
         goto finish;
 

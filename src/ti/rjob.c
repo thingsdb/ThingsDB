@@ -159,7 +159,7 @@ static int rjob__grant(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_target.via.int64)
+    if (qp_target.via.int64 > 1)
     {
         uint64_t id = qp_target.via.int64;
         target = ti_collections_get_by_id(id);
@@ -181,7 +181,12 @@ static int rjob__grant(qp_unpacker_t * unp)
 
     mask = (uint64_t) qp_mask.via.int64;
 
-    if (ti_access_grant(target ? &target->access : &ti()->access, user, mask))
+    if (ti_access_grant(target
+            ? &target->access
+            : qp_target.via.int64 == TI_SCOPE_NODE
+            ? &ti()->access_node
+            : &ti()->access_thingsdb,
+              user, mask))
     {
         log_critical(EX_ALLOC_S);
         return -1;
@@ -479,9 +484,9 @@ static int rjob__revoke(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_target.via.int64)
+    if (qp_target.via.int64 > 1)
     {
-        uint64_t id = qp_target.via.int64;
+        uint64_t id = (uint64_t) qp_target.via.int64;
         target = ti_collections_get_by_id(id);
         if (!target)
         {
@@ -501,7 +506,12 @@ static int rjob__revoke(qp_unpacker_t * unp)
 
     mask = (uint64_t) qp_mask.via.int64;
 
-    ti_access_revoke(target ? target->access : ti()->access, user, mask);
+    ti_access_revoke(target
+            ? target->access
+            : qp_target.via.int64 == TI_SCOPE_NODE
+            ? ti()->access_node
+            : ti()->access_thingsdb,
+              user, mask);
 
     return 0;
 }

@@ -77,10 +77,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             }
 
             (void) qp_next(&unpacker, &val);
-            wareq->target = ti_collections_get_by_qp_obj(
-                    &val,
-                    false, /* no allow_root */
-                    e);
+            wareq->target = ti_collections_get_by_qp_obj(&val, e);
             if (e->nr)
                 goto finish;
             ti_incref(wareq->target);

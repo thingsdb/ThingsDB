@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-05-13 13:54:06
+ * Created at: 2019-05-16 23:06:35
  */
 
 #include <langdef/langdef.h>
@@ -117,7 +117,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, "|"),
         cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "|"),
-        cleri_optional(CLERI_NONE, scope)
+        scope
     );
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,

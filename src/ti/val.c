@@ -126,6 +126,69 @@ ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
     return val__from_unp(&qp_val, unp, things);
 }
 
+vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
+{
+    ti_collection_t * collection;
+    static ti_raw_t node = {
+            tp: TI_VAL_RAW,
+            n: 5,
+            data: ":node"
+    };
+    static ti_raw_t thingsdb = {
+            tp: TI_VAL_RAW,
+            n: 9,
+            data: ":thingsdb"
+    };
+
+    if (ti_val_is_raw(val))
+    {
+        ti_raw_t * raw = (ti_raw_t *) val;
+        if (raw->n && ti_raw_startswith(&node, raw))
+        {
+            *target_id = TI_SCOPE_NODE;
+            return &ti()->access_node;
+        }
+        if (raw->n && ti_raw_startswith(&thingsdb, raw))
+        {
+            *target_id = TI_SCOPE_THINGSDB;
+            return &ti()->access_thingsdb;
+        }
+        collection = ti_collections_get_by_strn(
+                (const char *) raw->data,
+                raw->n);
+
+        if (collection)
+        {
+            *target_id = collection->root->id;
+            return &collection->access;
+        }
+
+        ex_set(e, EX_INDEX_ERROR,
+                "%s `%.*s` not found",
+                (raw->n && raw->data[0] == ':') ? "scope" : "collection",
+                raw->n, (const char *) raw->data);
+        return NULL;
+    }
+    if (ti_val_is_int(val))
+    {
+        uint64_t id = (uint64_t) ((ti_vint_t *) val)->int_;
+        collection = ti_collections_get_by_id(id);
+        if (collection)
+        {
+            *target_id = collection->root->id;
+            return &collection->access;
+        }
+        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found", id);
+        return NULL;
+    }
+
+    ex_set(e, EX_BAD_DATA,
+            "expecting type `"TI_VAL_RAW_S"` "
+            "or `"TI_VAL_INT_S"` as collection, not `%s`",
+            ti_val_str(val));
+    return NULL;
+}
+
 int ti_val_convert_to_str(ti_val_t ** val)
 {
     ti_val_t * v;

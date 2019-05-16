@@ -25,7 +25,8 @@ class TestUserAccess(TestBase):
 
         await client.query(r'''
             new_user("test", "test");
-            new_collection("stuff");
+            new_collection("junk");
+            del_collection("stuff");
         ''')
 
         testcl = await get_client(
@@ -40,11 +41,11 @@ class TestUserAccess(TestBase):
             await testcl.query(r'''new_collection('some_collection');''')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''map(||nil);''', target='stuff')
+            await testcl.query(r'''map(||nil);''', target='junk')
 
         await client.query(r'''
             grant(':thingsdb', "test", MODIFY);
-            grant('stuff', 'test', READ);
+            grant('junk', 'test', READ);
         ''')
 
         await testcl.query(r'''
@@ -53,7 +54,7 @@ class TestUserAccess(TestBase):
         ''')
 
         await testcl.query(r'''x = 1;''', target='some_collection')
-        await testcl.query(r'''map(||nil);''', target='stuff')
+        await testcl.query(r'''map(||nil);''', target='junk')
 
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -73,7 +74,7 @@ class TestUserAccess(TestBase):
                 'target': ':thingsdb'
             }, {
                 'privileges': 'FULL',
-                'target': 'stuff'
+                'target': 'junk'
             }, {
                 'privileges': 'READ|MODIFY|GRANT',
                 'target': 'some_collection'
@@ -86,13 +87,13 @@ class TestUserAccess(TestBase):
                 'target': ':thingsdb'
             }, {
                 'privileges': 'READ',
-                'target': 'stuff'
+                'target': 'junk'
             }, {
                 'privileges': 'READ|WATCH',
                 'target': 'some_collection'
             }],
             'name': 'test',
-            'user_id': 2
+            'user_id': 4
         }])
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
@@ -117,7 +118,7 @@ class TestUserAccess(TestBase):
 
         # queries should no longer work
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''map(||nil);''', target='stuff')
+            await testcl.query(r'''map(||nil);''', target='junk')
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):

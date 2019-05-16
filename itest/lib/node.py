@@ -118,7 +118,6 @@ class Node:
             timeout -= 1
             await asyncio.sleep(1)
 
-
     @staticmethod
     def _handle_output(node, r):
         """Runs in another thread."""

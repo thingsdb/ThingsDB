@@ -4,7 +4,6 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from lib.target import create_target
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadRequestError
@@ -21,7 +20,7 @@ class TestGC(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = await create_target(client, 'stuff')
+        stuff = Target('stuff')
 
         await client.query(r'''
             a = {};

@@ -25,8 +25,9 @@ ti_epkg_t * ti_epkg_initial(void)
 {
     uint64_t event_id = 1;
     uint64_t target_id = 0;
-    uint64_t thing_id = 0;  /* parent root thing */
-    uint64_t user_id = ti_next_thing_id();
+    uint64_t thing_id = 0;                      /* parent root thing */
+    uint64_t user_id = ti_next_thing_id();      /* id:1 */
+    uint64_t stuff_id = ti_next_thing_id();     /* id:2 !important: id > 1 */
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
     qpx_packer_t * packer;
@@ -88,6 +89,18 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "mask");
     (void) qp_add_int(packer, TI_AUTH_MASK_FULL);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "new_collection");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw_from_str(packer, "stuff");
+    (void) qp_add_raw_from_str(packer, "user");
+    (void) qp_add_int(packer, user_id);
+    (void) qp_add_raw_from_str(packer, "root");
+    (void) qp_add_int(packer, stuff_id);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

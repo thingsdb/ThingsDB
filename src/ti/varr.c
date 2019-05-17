@@ -8,6 +8,7 @@
 #include <ti/val.h>
 #include <util/logger.h>
 
+static int varr__to_tuple(ti_varr_t ** varr);
 
 ti_varr_t * ti_varr_create(size_t sz)
 {
@@ -27,43 +28,6 @@ ti_varr_t * ti_varr_create(size_t sz)
     }
 
     return varr;
-}
-
-int ti_varr_to_tuple(ti_varr_t ** varr)
-{
-    ti_varr_t * tuple = *varr;
-
-    if (tuple->flags & TI_ARR_FLAG_TUPLE)
-        return 0;
-
-    if (tuple->ref == 1)
-    {
-        tuple->flags |= TI_ARR_FLAG_TUPLE;
-        return 0;
-    }
-
-    tuple = malloc(sizeof(ti_varr_t));
-    if (!tuple)
-        return -1;
-
-    tuple->ref = 1;
-    tuple->tp = TI_VAL_ARR;
-    tuple->flags |= TI_ARR_FLAG_TUPLE;
-    tuple->vec = vec_dup((*varr)->vec);
-
-    if (!tuple->vec)
-    {
-        free(tuple);
-        return -1;
-    }
-
-    for (vec_each(tuple->vec, ti_val_t, val))
-        ti_incref(val);
-
-    assert ((*varr)->ref > 1);
-    ti_decref(*varr);
-    *varr = tuple;
-    return 0;
 }
 
 void ti_varr_destroy(ti_varr_t * varr)
@@ -91,7 +55,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
     case TI_VAL_ARR:
         if (ti_varr_is_list((ti_varr_t *) val))
         {
-            if (ti_varr_to_tuple((ti_varr_t **) v))
+            if (varr__to_tuple((ti_varr_t **) v))
             {
                 ex_set_alloc(e);
                 return e->nr;
@@ -120,3 +84,39 @@ _Bool ti_varr_has_things(ti_varr_t * varr)
     return false;
 }
 
+static int varr__to_tuple(ti_varr_t ** varr)
+{
+    ti_varr_t * tuple = *varr;
+
+    if (tuple->flags & TI_ARR_FLAG_TUPLE)
+        return 0;
+
+    if (tuple->ref == 1)
+    {
+        tuple->flags |= TI_ARR_FLAG_TUPLE;
+        return 0;
+    }
+
+    tuple = malloc(sizeof(ti_varr_t));
+    if (!tuple)
+        return -1;
+
+    tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
+    tuple->flags = TI_ARR_FLAG_TUPLE;
+    tuple->vec = vec_dup((*varr)->vec);
+
+    if (!tuple->vec)
+    {
+        free(tuple);
+        return -1;
+    }
+
+    for (vec_each(tuple->vec, ti_val_t, val))
+        ti_incref(val);
+
+    assert ((*varr)->ref > 1);
+    ti_decref(*varr);
+    *varr = tuple;
+    return 0;
+}

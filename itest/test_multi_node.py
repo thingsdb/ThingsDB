@@ -6,6 +6,7 @@ from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.target import Target
 
+
 class TestMultiNode(TestBase):
 
     title = 'Test multi node client connection'

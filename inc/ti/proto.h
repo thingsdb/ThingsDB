@@ -67,14 +67,16 @@ typedef enum
     TI_PROTO_CLIENT_ERR_AUTH        =99,
     /* no access for the requested task */
     TI_PROTO_CLIENT_ERR_FORBIDDEN   =100,
-    /* query syntax error */
+    /* some index is not found */
     TI_PROTO_CLIENT_ERR_INDEX       =101,
     /* invalid request, incorrect package type, invalid QPack data */
     TI_PROTO_CLIENT_ERR_BAD_REQUEST =102,
-    /* node is (currently) unable to respond to the request */
+    /* query syntax error */
     TI_PROTO_CLIENT_ERR_QUERY       =103,
-    /* not found, maybe because due to no access */
+    /* node is (currently) unable to respond to the request */
     TI_PROTO_CLIENT_ERR_NODE        =104,
+    /* assertion error is returned, meaning an `assert` in the query */
+    TI_PROTO_CLIENT_ERR_ASSERTION   =105,
     /* internal server error, for example allocation error */
     TI_PROTO_CLIENT_ERR_INTERNAL    =127,
 

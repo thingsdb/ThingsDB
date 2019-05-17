@@ -39,6 +39,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_CLIENT_ERR_BAD_REQUEST:   return "CLIENT_ERR_BAD_REQUEST";
     case TI_PROTO_CLIENT_ERR_QUERY:         return "CLIENT_ERR_QUERY";
     case TI_PROTO_CLIENT_ERR_NODE:          return "CLIENT_ERR_NODE";
+    case TI_PROTO_CLIENT_ERR_ASSERTION:     return "CLIENT_ERR_ASSERTION";
     case TI_PROTO_CLIENT_ERR_INTERNAL:      return "CLIENT_ERR_INTERNAL";
 
     case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";

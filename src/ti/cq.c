@@ -684,7 +684,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `filter` expects an `"TI_VAL_CLOSURE_S"` "
+                "function `filter` expects a `"TI_VAL_CLOSURE_S"` "
                 "but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto failed;
@@ -826,7 +826,7 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `find` expects an `"TI_VAL_CLOSURE_S"` "
+                "function `find` expects a `"TI_VAL_CLOSURE_S"` "
                 "but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto failed;
@@ -1553,7 +1553,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `map` expects an `"TI_VAL_CLOSURE_S"` "
+                "function `map` expects a `"TI_VAL_CLOSURE_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
         goto failed;
@@ -1907,7 +1907,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `remove` expects an `"TI_VAL_CLOSURE_S"` "
+                "function `remove` expects a `"TI_VAL_CLOSURE_S"` "
                 "but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto done;
@@ -1932,8 +1932,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (found)
         {
-            query->rval = v;
-            ti_incref(v);
+            query->rval = v;  /* we can move the reference here */
             (void *) vec_remove(varr->vec, idx);
 
             if (from_scope)
@@ -3074,8 +3073,9 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
-    query->rval = NULL;
+    // TODO: check if this can be removed
+//    ti_val_drop(query->rval);
+//    query->rval = NULL;
 
     if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);

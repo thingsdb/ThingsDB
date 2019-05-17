@@ -77,18 +77,25 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     case EX_NODE_ERROR:
         tp = TI_PROTO_CLIENT_ERR_NODE;
         break;
+    case EX_ASSERT_ERROR:
+        tp = TI_PROTO_CLIENT_ERR_ASSERTION;
+        break;
     case EX_REQUEST_TIMEOUT:
     case EX_REQUEST_CANCEL:
     case EX_WRITE_UV:
     case EX_ALLOC:
     case EX_INTERNAL:
-    default:
         tp = TI_PROTO_CLIENT_ERR_INTERNAL;
+        break;
+    case EX_SUCCESS:
+    default:
+        assert (e->nr >= 0);
+        tp = -e->nr;
     }
 
     (void) qp_add_map(&xpkg);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
-    (void) qp_add_int(xpkg, e->nr);
+    (void) qp_add_int(xpkg, -tp);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
     (void) qp_add_raw(xpkg, (const unsigned char *) e->msg, e->n);
     (void) qp_close_map(xpkg);

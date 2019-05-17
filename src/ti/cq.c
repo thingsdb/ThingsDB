@@ -21,11 +21,18 @@
 #include <util/strx.h>
 #include <util/util.h>
 
+/*
+ * Function:
+ *  1. Test if the function is available in scope
+ *  2. Test the number of arguments
+ *
+ */
 static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__closure(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -86,7 +93,7 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     int nots = 0;
     cleri_node_t * node;
-    ti_scope_t * current_scope, * scope;
+    ti_scope_t * current_scope;
     cleri_children_t * nchild, * child = nd         /* sequence */
             ->children;                             /* first child, not */
 
@@ -99,13 +106,12 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                                assignment, name, thing,
                                                array, compare, closure */
     current_scope = query->scope;
-    scope = ti_scope_enter(current_scope, query->target->root);
-    if (!scope)
+    query->scope = ti_scope_enter(current_scope, query->target->root);
+    if (!query->scope)
     {
         ex_set_alloc(e);
         return e->nr;
     }
-    query->scope = scope;
 
     switch (node->cl_obj->gid)
     {
@@ -457,6 +463,100 @@ static int cq__closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!query->rval)
         ex_set_alloc(e);
 
+    return e->nr;
+}
+
+static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_children_t * child = nd->children;    /* first in argument list */
+    int n = langdef_nd_n_function_params(nd);
+    _Bool assertion;
+    ti_raw_t * msg;
+    ti_vint_t * code;
+
+    if (n < 1)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` requires at least 1 argument but 0 "
+                "were given");
+        return e->nr;
+    }
+
+    if (n > 3)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` expects at most 3 arguments but %d "
+                "were given", n);
+        return e->nr;
+    }
+
+    if (ti_cq_scope(query, child->node, e) || ti_val_as_bool(query->rval))
+        return e->nr;
+
+    if (!child->next)
+    {
+        ex_set(e, EX_ASSERT_ERROR,
+                "assertion statement `%.*s` has failed",
+                (int) child->node->len, child->node->str);
+        return e->nr;
+    }
+
+    child = child->next;
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_cq_scope(query, child->node, e))
+        return e->nr;
+
+    if (!ti_val_is_raw(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` expects argument 2 to be of "
+                "type `"TI_VAL_RAW_S"` but got `%s`",
+                ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    msg = (ti_raw_t *) query->rval;
+    if (!strx_is_utf8n((const char *) msg->data, msg->n))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` expects a message "
+                "to have valid UTF8 encoding");
+        return e->nr;
+    }
+
+    ex_setn(e, EX_ASSERT_ERROR, (const char *) msg->data, msg->n);
+
+    if (!child->next)
+        return e->nr;
+
+    child = child->next;
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_cq_scope(query, child->node, e))
+        return e->nr;
+
+    if (!ti_val_is_int(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` expects argument 3 to be of "
+                "type `"TI_VAL_INT_S"` but got `%s`", ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    code = (ti_vint_t *) query->rval;
+
+    if (code->int_ < 1 || code->int_ > 32)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `assert` expects a custom error_code between "
+                "1 and 32, got %"PRId64, code->int_);
+        return e->nr;
+    }
+
+    e->nr = (ex_enum) code;
     return e->nr;
 }
 
@@ -3068,12 +3168,12 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!val)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "property `%.*s` is undefined",
+                "`%.*s` is undefined",
                 (int) nd->len, nd->str);
         return e->nr;
     }
 
-    // TODO: check if this can be removed
+    // TODO: why was this code here? and why not in chain_name?
 //    ti_val_drop(query->rval);
 //    query->rval = NULL;
 

@@ -26,11 +26,22 @@ ex_t * ex_use(void)
 
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
 {
-    e->nr = errnr;
     va_list args;
+    int n;
+    e->nr = errnr;
     va_start(args, errmsg);
-    e->n = vsnprintf(e->msg, EX_MAX_SZ, errmsg, args);
+    n = vsnprintf(e->msg, EX_MAX_SZ, errmsg, args);
+    e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
+    assert (e->n >= 0);
     va_end(args);
+}
+
+void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n)
+{
+    e->nr = errnr;
+    e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
+    memcpy(e->msg, errmsg, e->n);
+    e->msg[e->n] = '\0';
 }
 
 const char * ex_str(ex_enum errnr)
@@ -55,6 +66,8 @@ const char * ex_str(ex_enum errnr)
         return "syntax error in query";
     case EX_NODE_ERROR:
         return "node is temporary unable to handle the request";
+    case EX_ASSERT_ERROR:
+        return "assertion statement has failed";
     case EX_REQUEST_TIMEOUT:
         return "request timed out";
     case EX_REQUEST_CANCEL:

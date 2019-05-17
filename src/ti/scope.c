@@ -22,6 +22,7 @@ ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing)
     nscope->name = NULL;
     nscope->val = NULL;
     nscope->local = NULL;
+
     return nscope;
 }
 
@@ -46,19 +47,12 @@ int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
     assert ((*scope)->name == NULL);
     assert ((*scope)->val == NULL);
 
-    ti_scope_t * nscope;
-
     (*scope)->name = name;
     (*scope)->val = val;
-    if (val->tp != TI_VAL_THING)
-        return 0;
 
-    nscope = ti_scope_enter(*scope, (ti_thing_t *) val);
-    if (!nscope)
-        return -1;
-
-    *scope = nscope;
-    return 0;
+    return (val->tp == TI_VAL_THING)
+            ? ti_scope_push_thing(scope, (ti_thing_t *) val)
+            : 0;
 }
 
 int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing)

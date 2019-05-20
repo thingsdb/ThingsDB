@@ -1,12 +1,14 @@
 _IndexError = IndexError
 _ZeroDivisionError = ZeroDivisionError
 _OverflowError = OverflowError
+_AssertionError = AssertionError
 
 
 class ThingsDBError(Exception):
     def __init__(self, *args, errdata=None):
         if isinstance(errdata, dict):
-            args = ('{error_msg} ({error_code})'.format_map(errdata), )
+            args = (errdata['error_msg'], )
+            self.error_code = errdata['error_code']
         super().__init__(*args)
 
 
@@ -43,6 +45,10 @@ class QueryError(ThingsDBError):
 
 
 class NodeError(ThingsDBError):
+    pass
+
+
+class AssertionError(ThingsDBError, _AssertionError):
     pass
 
 

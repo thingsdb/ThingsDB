@@ -90,12 +90,17 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     case EX_SUCCESS:
     default:
         assert (e->nr >= 0);
-        tp = -e->nr;
+        tp = TI_PROTO_CLIENT_ERR_ASSERTION;
     }
 
     (void) qp_add_map(&xpkg);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
-    (void) qp_add_int(xpkg, -tp);
+    /*
+     * return the `custom` error code when e->nr > 0, if e->nr < 0, return
+     * the package type which is equal to the known error codes in the
+     * documentation.
+     */
+    (void) qp_add_int(xpkg, e->nr < 0 ? -((int) tp) : e->nr);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
     (void) qp_add_raw(xpkg, (const unsigned char *) e->msg, e->n);
     (void) qp_close_map(xpkg);

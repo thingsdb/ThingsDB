@@ -20,6 +20,10 @@ class Package(object):
                 barray[self.__class__.st_package.size:self.total],
                 decode='utf8') \
                 if self.length else None
+        except UnicodeDecodeError:
+            self.data = qpack.unpackb(
+                barray[self.__class__.st_package.size:self.total]
+                ) if self.length else None
         finally:
             del barray[:self.total]
 

@@ -6,10 +6,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ti/ex.h>
-#ifndef NDEBUG
+#include <string.h>
 #include <util/logger.h>
 #include <uv.h>
-#endif
 
 static ex_t ex__e;
 
@@ -80,6 +79,16 @@ const char * ex_str(ex_enum errnr)
         return "internal error";
     case EX_SUCCESS:
         return "success";
+    case EX_CUSTOM_01: case EX_CUSTOM_02: case EX_CUSTOM_03: case EX_CUSTOM_04:
+    case EX_CUSTOM_05: case EX_CUSTOM_06: case EX_CUSTOM_07: case EX_CUSTOM_08:
+    case EX_CUSTOM_09: case EX_CUSTOM_0A: case EX_CUSTOM_0B: case EX_CUSTOM_0C:
+    case EX_CUSTOM_0D: case EX_CUSTOM_0E: case EX_CUSTOM_0F: case EX_CUSTOM_10:
+
+    case EX_CUSTOM_11: case EX_CUSTOM_12: case EX_CUSTOM_13: case EX_CUSTOM_14:
+    case EX_CUSTOM_15: case EX_CUSTOM_16: case EX_CUSTOM_17: case EX_CUSTOM_18:
+    case EX_CUSTOM_19: case EX_CUSTOM_1A: case EX_CUSTOM_1B: case EX_CUSTOM_1C:
+    case EX_CUSTOM_1D: case EX_CUSTOM_1E: case EX_CUSTOM_1F: case EX_CUSTOM_20:
+        return "assertion statement has failed (with custom error code)";
     }
     assert (0);
     return "unknown";

@@ -395,26 +395,16 @@ static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     child = child->next;
-
-    assert (child);
-
     node = child->node;
-    assert (node->cl_obj->gid == CLERI_GID_INDEX);
 
     if (node->children && cq__index(query, node, e))
         return e->nr;
 
     child = child->next;
     if (!child)
-        goto finish;
+        return e->nr;
 
-    node = child->node;             /* optional (chain) */
-
-    assert (node->cl_obj->gid == CLERI_GID_CHAIN);
-
-    (void) cq__chain(query, node, e);
-
-finish:
+    (void) cq__chain(query, child->node, e);
     return e->nr;
 }
 
@@ -470,7 +460,6 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
     int n = langdef_nd_n_function_params(nd);
-    _Bool assertion;
     ti_raw_t * msg;
     ti_vint_t * code;
 
@@ -493,7 +482,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_cq_scope(query, child->node, e) || ti_val_as_bool(query->rval))
         return e->nr;
 
-    if (!child->next)
+    if (n == 1)
     {
         ex_set(e, EX_ASSERT_ERROR,
                 "assertion statement `%.*s` has failed",
@@ -501,7 +490,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    child = child->next;
+    child = child->next->next;
     ti_val_drop(query->rval);
     query->rval = NULL;
 
@@ -512,7 +501,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 2 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -528,12 +517,13 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ex_setn(e, EX_ASSERT_ERROR, (const char *) msg->data, msg->n);
 
-    if (!child->next)
+    if (n == 2)
         return e->nr;
 
-    child = child->next;
+    child = child->next->next;
     ti_val_drop(query->rval);
     query->rval = NULL;
+    e->nr = 0;
 
     if (ti_cq_scope(query, child->node, e))
         return e->nr;
@@ -542,7 +532,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s`", ti_val_str(query->rval));
+                "type `"TI_VAL_INT_S"` but got `%s` instead", ti_val_str(query->rval));
         return e->nr;
     }
 
@@ -552,11 +542,11 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects a custom error_code between "
-                "1 and 32, got %"PRId64, code->int_);
+                "1 and 32 but got %"PRId64" instead", code->int_);
         return e->nr;
     }
 
-    e->nr = (ex_enum) code;
+    e->nr = (ex_enum) code->int_;
     return e->nr;
 }
 
@@ -583,7 +573,8 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `blob` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s`", ti_val_str(query->rval));
+                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                ti_val_str(query->rval));
         return e->nr;
     }
 
@@ -601,10 +592,7 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = vec_get(query->blobs, idx);
 
-    assert (query->rval);
-
     ti_incref(query->rval);
-
     return e->nr;
 }
 
@@ -660,7 +648,7 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -736,7 +724,7 @@ static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `endswith` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -1120,7 +1108,7 @@ static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `hasprop` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2138,7 +2126,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `rename` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -2180,7 +2168,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "function `rename` expects argument 2 to be of "
-                    "type `"TI_VAL_RAW_S"` but got `%s`",
+                    "type `"TI_VAL_RAW_S"` but got `%s` instead",
                     ti_val_str(query->rval));
         }
         goto done;
@@ -2291,7 +2279,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s`",
+                "type `"TI_VAL_INT_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2308,7 +2296,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s`",
+                "type `"TI_VAL_INT_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2454,7 +2442,7 @@ static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `startswith` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s`",
+                "type `"TI_VAL_RAW_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2521,7 +2509,7 @@ static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `test` expects argument 1 to be "
-                "of type `"TI_VAL_REGEX_S"` but got `%s`",
+                "of type `"TI_VAL_REGEX_S"` but got `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2750,6 +2738,10 @@ static int cq__function(
 
     switch (fname->cl_obj->gid)
     {
+    case CLERI_GID_F_ASSERT:
+        if (is_scope)
+            return cq__f_assert(query, params, e);
+        break;
     case CLERI_GID_F_BLOB:
         if (is_scope)
             return cq__f_blob(query, params, e);
@@ -2912,7 +2904,7 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "expecting an index to be of "
-                    "type `"TI_VAL_INT_S"` but got `%s`",
+                    "type `"TI_VAL_INT_S"` but got `%s` instead",
                     ti_val_str(query->rval));
             return e->nr;
         }

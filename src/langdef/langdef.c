@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-05-16 23:06:35
+ * Created at: 2019-05-20 08:50:45
  */
 
 #include <langdef/langdef.h>
@@ -38,6 +38,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * tmp = cleri_regex(CLERI_GID_TMP, "^\\$[A-Za-z_][0-9A-Za-z_]*");
+    cleri_t * f_assert = cleri_keyword(CLERI_GID_F_ASSERT, "assert", CLERI_CASE_SENSITIVE);
     cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
     cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
     cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
@@ -125,7 +126,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            40,
+            41,
+            f_assert,
             f_blob,
             f_endswith,
             f_filter,

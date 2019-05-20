@@ -58,6 +58,7 @@ class Definition(Grammar):
     tmp = Regex(RE_TMP)
 
     # build-in get functions
+    f_assert = Keyword('assert')
     f_blob = Keyword('blob')
     f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
@@ -119,7 +120,8 @@ class Definition(Grammar):
     closure = Sequence('|', List(name), '|', scope)
 
     function = Sequence(Choice(
-        # build-in get functions
+        # build-in functions
+        f_assert,       # (statement, [msg], [code])
         f_blob,         # (int inx_in_blobs) -> raw
         f_endswith,     # (str) -> bool
         f_filter,       # (closure) -> [return values where return is true]
@@ -154,7 +156,7 @@ class Definition(Grammar):
         f_test,         # (regex) -> bool
         f_try,
         f_upper,        # () -> str
-        # build-in update functions
+        # build-in `event` functions
         f_del,
         f_pop,
         f_push,

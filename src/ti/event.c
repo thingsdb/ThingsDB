@@ -54,9 +54,11 @@ ti_event_t * ti_event_initial(void)
         ti_epkg_drop(epkg);
         return NULL;
     }
+
     ev->status = TI_EVENT_STAT_READY;
     ev->via.epkg = epkg;
     ev->id = epkg->event_id;
+
     return ev;
 }
 

@@ -19,7 +19,6 @@
 
 static void node__on_connect(uv_connect_t * req, int status);
 static void node__on_connect_req(ti_req_t * req, ex_enum status);
-static int node__update_sockaddr(ti_node_t * node, ex_t * e);
 static void node__clear_sockaddr(ti_node_t * node);
 
 /*
@@ -128,7 +127,7 @@ int ti_node_connect(ti_node_t * node)
     if (!node->sockaddr_)
     {
         ex_t * e = ex_use();
-        if (node__update_sockaddr(node, e))
+        if (ti_node_update_sockaddr(node, e))
         {
             log_error(e->msg);
             return -1;
@@ -213,6 +212,64 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
     return 0;
 }
 
+int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
+{
+    assert (e->nr == 0);
+
+    struct in_addr sa;
+    struct in6_addr sa6;
+    struct sockaddr_storage * tmp_sockaddr;
+
+    tmp_sockaddr = malloc(sizeof(struct sockaddr_storage));
+    if (!tmp_sockaddr)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    if (inet_pton(AF_INET, node->addr, &sa))  /* try IPv4 */
+    {
+        if (uv_ip4_addr(
+                node->addr,
+                node->port,
+                (struct sockaddr_in *) tmp_sockaddr))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv4 address from `%s:%d`",
+                    node->addr, node->port);
+            goto failed;
+        }
+    }
+    else if (inet_pton(AF_INET6, node->addr, &sa6))  /* try IPv6 */
+    {
+        if (uv_ip6_addr(
+                node->addr,
+                node->port,
+                (struct sockaddr_in6 *) tmp_sockaddr))
+        {
+            ex_set(e, EX_INTERNAL,
+                    "cannot create IPv6 address from `[%s]:%d`",
+                    node->addr, node->port);
+            goto failed;
+        }
+    }
+    else
+    {
+        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", node->addr);
+        goto failed;
+    }
+
+    assert (e->nr == 0);
+
+    free(node->sockaddr_);
+    node->sockaddr_ = tmp_sockaddr;
+
+    return 0;
+
+failed:
+    free(tmp_sockaddr);
+    return e->nr;
+}
 
 static void node__on_connect(uv_connect_t * req, int status)
 {
@@ -339,61 +396,6 @@ done:
     /* drop the request node reference */
     ti_node_drop(node);
     ti_req_destroy(req);
-}
-
-static int node__update_sockaddr(ti_node_t * node, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (!node->sockaddr_);
-
-    struct in_addr sa;
-    struct in6_addr sa6;
-
-    node->sockaddr_ = malloc(sizeof(struct sockaddr_storage));
-    if (!node->sockaddr_)
-    {
-        ex_set_alloc(e);
-        return e->nr;
-    }
-
-    if (inet_pton(AF_INET, node->addr, &sa))  /* try IPv4 */
-    {
-        if (uv_ip4_addr(
-                node->addr,
-                node->port,
-                (struct sockaddr_in *) node->sockaddr_))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv4 address from `%s:%d`",
-                    node->addr, node->port);
-            goto failed;
-        }
-    }
-    else if (inet_pton(AF_INET6, node->addr, &sa6))  /* try IPv6 */
-    {
-        if (uv_ip6_addr(
-                node->addr,
-                node->port,
-                (struct sockaddr_in6 *) node->sockaddr_))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv6 address from `[%s]:%d`",
-                    node->addr, node->port);
-            goto failed;
-        }
-    }
-    else
-    {
-        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", node->addr);
-        goto failed;
-    }
-
-    assert (e->nr == 0);
-    return e->nr;
-
-failed:
-    node__clear_sockaddr(node);
-    return e->nr;
 }
 
 static void node__clear_sockaddr(ti_node_t * node)

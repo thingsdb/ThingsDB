@@ -507,6 +507,7 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 static int rjob__replace_node(qp_unpacker_t * unp)
 {
     assert (unp);
+    ex_t * e = ex_use();
     qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
     uint8_t node_id;
     ti_node_t * node;
@@ -543,9 +544,10 @@ static int rjob__replace_node(qp_unpacker_t * unp)
     node->port = (uint16_t) qp_port.via.int64;
     memcpy(node->secret, qp_secret.via.raw, qp_secret.len);
 
+    (void) ti_node_update_sockaddr(node, e);
     (void) ti_save();
 
-    return 0;
+    return e->nr;
 }
 
 /*

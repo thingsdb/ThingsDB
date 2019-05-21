@@ -60,10 +60,8 @@ int ti_store_users_restore(const char * fn)
     uchar * data = fx_read(fn, &n);
     qp_res_t * qusers;
 
-    if (!data)
+    if (!data || ti_users_clear())
         return -1;
-
-    ti_users_clear();
 
     qpx_unpacker_init(&unpacker, data, (size_t) n);
     res = qp_unpacker_res(&unpacker, &rcode);

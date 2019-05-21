@@ -10,35 +10,23 @@ typedef struct ti_archive_s  ti_archive_t;
 #include <ti/archive.h>
 #include <ti/epkg.h>
 #include <util/queue.h>
+#include <util/vec.h>
 #include <ti/archfile.h>
 
 
 struct ti_archive_s
 {
-    size_t archived_on_disk;        /* number of events stored on disk since
-                                       the last full store, the actual amount
-                                       stored can be higher */
-    uint64_t * sevid;               /* last event id written on disk, this
-                                       value is also updated if a full store is
-                                       done
-                                    */
     char * path;
-    char * nodes_scevid_fn;         /* this file contains the last cevid
-                                       and sevid by ALL nodes, saved at
-                                       cleanup
-                                    */
     queue_t * queue;                /* ordered ti_epkg_t on event_id */
-    queue_t * archfiles;            /* ti_archfile_t, unordered */
+    vec_t * archfiles;              /* ti_archfile_t, unordered */
 };
 
 int ti_archive_create(void);
 void ti_archive_destroy(void);
-int ti_archive_write_nodes_scevid(void);
 int ti_archive_init(void);
 int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);
 int ti_archive_to_disk(void);
-int ti_archive_load_file(ti_archfile_t * archfile);
 uint64_t ti_archive_get_first_event_id(void);
 
 #endif /* TI_ARCHIVE_H_ */

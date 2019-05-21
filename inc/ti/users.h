@@ -26,7 +26,7 @@ ti_user_t * ti_users_load_user(
         size_t n,
         const char * encrypted,
         ex_t * e);
-void ti_users_clear(void);
+int ti_users_clear(void);
 void ti_users_del_user(ti_user_t * user);
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e);
 ti_user_t * ti_users_get_by_id(uint64_t id);

@@ -1156,6 +1156,9 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     node->port = (uint16_t) port;
     memcpy(node->secret, encrypted, CRYPTX_SZ);
 
+    if (ti_node_update_sockaddr(node, e))
+        return e->nr;
+
     if (ti_task_add_replace_node(task, node))
         ex_set_alloc(e);  /* task cleanup is not required */
 

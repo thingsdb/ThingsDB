@@ -62,11 +62,9 @@ int ti_store_status_restore(const char * fn)
         qpnext_thing_id->tp != QP_RES_INT64)
         goto stop;
 
-    ti()->node->cevid = (uint64_t) qpcevid->via.int64;
-    ti()->events->cevid = &ti()->node->cevid;
-    ti()->events->next_event_id = (*ti()->events->cevid) + 1;
+    ti()->node->sevid = ti()->node->cevid = (uint64_t) qpcevid->via.int64;
+    ti()->events->next_event_id = (ti()->node->cevid) + 1;
     ti()->node->next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
-    ti()->next_thing_id = &ti()->node->next_thing_id;
     rc = 0;
 
 stop:

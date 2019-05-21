@@ -94,8 +94,8 @@ ti_user_t * ti_users_load_user(
         goto done;
     }
 
-    if (user_id >= *ti()->next_thing_id)
-        *ti()->next_thing_id = user_id + 1;
+    if (user_id >= ti()->node->next_thing_id)
+        ti()->node->next_thing_id = user_id + 1;
 
     user = ti_user_create(user_id, name, n, encrypted);
 
@@ -112,10 +112,15 @@ done:
 }
 
 /* clears users and access */
-void ti_users_clear(void)
+int ti_users_clear(void)
 {
-    while (users->vec->n)
-        ti_users_del_user(vec_pop(users->vec));
+    /* we need a copy since `del_user` will change the vec */
+    vec_t * vec = vec_dup(users->vec);
+    if (!vec)
+        return -1;
+
+    vec_destroy(vec, (vec_destroy_cb) ti_users_del_user);
+    return 0;
 }
 
 void ti_users_del_user(ti_user_t * user)

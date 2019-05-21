@@ -100,12 +100,8 @@ struct ti_s
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
-    uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
-                                   for assigning id's to objects
-                                */
     uint8_t flags;
     char hostname[256];
-
 };
 
 static inline ti_t * ti(void)
@@ -116,7 +112,7 @@ static inline ti_t * ti(void)
 /* return the next thing id and increment by one */
 static inline uint64_t ti_next_thing_id(void)
 {
-    return (*ti_.next_thing_id)++;
+    return ti_.node->next_thing_id++;
 }
 
 /* sleep in milliseconds (value must be between 0 and 999 */

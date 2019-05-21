@@ -122,10 +122,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->next_thing_id = 0;
     ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
 
-    ti()->events->cevid = &ti_node->cevid;
-    ti()->archive->sevid = &ti_node->sevid;
-    ti()->next_thing_id = &ti_node->next_thing_id;
-
     if (ti_save())
         goto failed;
 
@@ -135,7 +131,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_archive_init())
         goto failed;
 
-    if (ti_archive_write_nodes_scevid())
+    if (ti_nodes_write_scevid())
         goto failed;
 
     if (ti_away_start())

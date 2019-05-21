@@ -44,8 +44,8 @@ ti_thing_t * ti_things_thing_from_unp(
     if (!thing)
         return NULL;
 
-    if (thing_id >= *ti()->next_thing_id)
-        *ti()->next_thing_id = thing_id + 1;
+    if (thing_id >= ti()->node->next_thing_id)
+        ti()->node->next_thing_id = thing_id + 1;
 
     while (--sz)
     {

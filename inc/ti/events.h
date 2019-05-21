@@ -30,10 +30,6 @@ struct ti_events_s
 {
     _Bool is_started;
     uv_mutex_t * lock;
-    uint64_t * cevid;               /* pointer to ti->node->cevid
-                                       representing the last event id which is
-                                       committed or 0 if no event is committed
-                                       yet */
     uint64_t next_event_id;         /* next event id, starts at 1 */
     queue_t * queue;                /* queued events (ti_event_t), usually an
                                        event has only one reference which is

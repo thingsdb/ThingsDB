@@ -10,28 +10,33 @@
 #include <string.h>
 #include <util/fx.h>
 #include <util/util.h>
-#include <util/queue.h>
 
 #define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".qp"
 #define ARCHIVE__FILE_LEN 36
 
-ti_archfile_t * ti_archfile_create(const char * path, const char * fn)
+ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
 {
-    ti_archfile_t * archfile = malloc(sizeof(ti_archfile_t));
+    /* Read the first and last event id from file name,
+     * using format 16 hex digits + underscore + 16 hex digits */
+    uint64_t first = strtoull(fn, NULL, 16);
+    uint64_t last = strtoull(fn + 16 + 1, NULL, 16);
+    ti_archfile_t * archfile = ti_archfile_get(first, last);
+    if (archfile)
+        return archfile;
+
+    archfile = malloc(sizeof(ti_archfile_t));
     if (!archfile)
         return NULL;
 
+    archfile->first = first;
+    archfile->last = last;
     archfile->fn = fx_path_join(path, fn);
-    if (!archfile->fn)
+
+    if (!archfile->fn || vec_push(&ti()->archive->archfiles, archfile))
     {
-        free(archfile);
+        ti_archfile_destroy(archfile);
         return NULL;
     }
-
-    /* Read the first and last event id from file name,
-     * using format 16 hex digits + underscore + 16 hex digits */
-    archfile->first = strtoull(fn, NULL, 16);
-    archfile->last = strtoull(fn + 16 + 1, NULL, 16);
 
     return archfile;
 }
@@ -71,8 +76,8 @@ void ti_archfile_destroy(ti_archfile_t * archfile)
 
 ti_archfile_t * ti_archfile_get(uint64_t first, uint64_t last)
 {
-    queue_t * archfiles = ti()->archive->archfiles;
-    for (queue_each(archfiles, ti_archfile_t, archfile))
+    vec_t * archfiles = ti()->archive->archfiles;
+    for (vec_each(archfiles, ti_archfile_t, archfile))
         if (archfile->first == first && archfile->last == last)
             return archfile;
     return NULL;

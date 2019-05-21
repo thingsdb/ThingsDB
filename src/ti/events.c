@@ -47,7 +47,6 @@ int ti_events_create(void)
     if (!events)
         goto failed;
 
-    events->cevid = NULL;
     events->is_started = false;
     events->queue = queue_new(4);
     events->evloop = malloc(sizeof(uv_async_t));
@@ -432,6 +431,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
     util_time_t timing;
+    uint64_t * cevid_p = &ti()->node->cevid;
 
     if (uv_mutex_trylock(events->lock))
         return;
@@ -441,7 +441,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
     while ((ev = queue_first(events->queue)))
     {
-        if (ev->id <= *events->cevid)
+        if (ev->id <= *cevid_p)
         {
             /* cancelled events which are `skipped` can be removed */
             if (ev->status != TI_EVENT_STAT_CACNCEL)
@@ -449,7 +449,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 log_error(
                         TI_EVENT_ID" will be skipped because "TI_EVENT_ID
                         " is already committed",
-                        ev->id, *events->cevid);
+                        ev->id, *cevid_p);
                 ti_event_log("skipped", ev);
 
                 ++ti()->counters->events_skipped;
@@ -457,7 +457,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
             goto shift_drop_loop;
         }
-        else if (ev->id > (*events->cevid) + 1)
+        else if (ev->id > (ti()->node->cevid) + 1)
         {
             /* We expect at least one event before this one */
             if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
@@ -523,7 +523,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
         ti_counters_upd_commit_event(&ev->time);
 
         /* update committed event id */
-        *events->cevid = ev->id;
+        *cevid_p = ev->id;
 
 shift_drop_loop:
         (void) queue_shift(events->queue);

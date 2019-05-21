@@ -417,6 +417,8 @@ static size_t away__syncers(void)
 {
     size_t count = 0;
     uint64_t fa_event_id = ti_archive_get_first_event_id();
+    uint64_t fs_event_id = ti()->store->last_stored_event_id;
+
     for (vec_each(away->syncers, ti_syncer_t, syncer))
     {
         if (syncer->stream)
@@ -433,14 +435,21 @@ static size_t away__syncers(void)
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
-            if (!fa_event_id || syncer->first < fa_event_id)
+            if (    (!fa_event_id || syncer->first < fa_event_id) &&
+                    syncer->first <= fs_event_id)
             {
-                log_info("full database sync is required for `%s`",
-                        ti_stream_name(syncer->stream));
+                log_info(
+                    "full database sync is required for `%s` because the "
+                    "requested "TI_EVENT_ID" is not in the archive starting "
+                    "at "TI_EVENT_ID" but within the full stored "TI_EVENT_ID,
+                    ti_stream_name(syncer->stream),
+                    syncer->first, fa_event_id, fs_event_id);
                 if (ti_syncfull_start(syncer->stream))
                     log_critical(EX_ALLOC_S);
                 continue;
             }
+
+
 
             rc = ti_syncarchive_init(syncer->stream, syncer->first);
             if (rc > 0)
@@ -510,10 +519,10 @@ static void away__work(uv_work_t * UNUSED(work))
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 
-    if (ti_archive_write_nodes_scevid())
+    if (ti_nodes_write_scevid())
         log_warning(
                 "failed writing last nodes committed to disk: "TI_EVENT_ID,
-                ti()->events->cevid);
+                ti()->node->cevid);
 
     uv_mutex_unlock(ti()->events->lock);
 }

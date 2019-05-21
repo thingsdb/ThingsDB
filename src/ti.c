@@ -54,7 +54,6 @@ int ti_create(void)
     ti_.node = NULL;
     ti_.lookup = NULL;
     ti_.store = NULL;
-    ti_.next_thing_id = NULL;
     ti_.access_node = vec_new(0);
     ti_.access_thingsdb = vec_new(0);
     ti_.langdef = compile_langdef();
@@ -175,9 +174,6 @@ int ti_build(void)
     ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
     ti_.events->next_event_id = 1;
-
-    ti_.events->cevid = &ti_.node->cevid;
-    ti_.next_thing_id = &ti_.node->next_thing_id;
 
     ev = ti_event_initial();
     if (!ev)
@@ -305,6 +301,8 @@ int ti_run(void)
     {
         ti_.node->status = TI_NODE_STAT_SYNCHRONIZING;
 
+        (void) ti_nodes_read_scevid();
+
         if (ti_archive_init())
             goto failed;
 
@@ -392,7 +390,7 @@ void ti_stop(void)
 
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
-        (void) ti_archive_write_nodes_scevid();
+        (void) ti_nodes_write_scevid();
     }
     ti__stop();
     uv_stop(ti()->loop);
@@ -594,8 +592,6 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_double(*packer, uptime) ||
         qp_add_raw_from_str(*packer, "events_in_queue") ||
         qp_add_int(*packer, ti_.events->queue->n) ||
-        qp_add_raw_from_str(*packer, "archived_on_disk") ||
-        qp_add_int(*packer, ti_.archive->archived_on_disk) ||
         qp_add_raw_from_str(*packer, "archived_in_memory") ||
         qp_add_int(*packer, ti_.archive->queue->n) ||
         qp_add_raw_from_str(*packer, "archive_files") ||
@@ -613,7 +609,7 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, "next_event_id") ||
         qp_add_int(*packer, ti_.events->next_event_id) ||
         qp_add_raw_from_str(*packer, "next_thing_id") ||
-        qp_add_int(*packer, *ti_.next_thing_id) ||
+        qp_add_int(*packer, ti_.node->next_thing_id) ||
         qp_close_map(*packer)
     );
 }

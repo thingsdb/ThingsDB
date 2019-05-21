@@ -16,10 +16,9 @@
 #define ARCHIVE__THRESHOLD_FULL 0
 
 static const char * archive__path           = ".archive/";
-static const char * archive__nodes_scevid    = ".nodes_scevid.dat";
 
+static int archive__load_file(ti_archfile_t * archfile);
 static int archive__init_queue(void);
-static int archive__read_nodes_scevid(void);
 static int archive__to_disk(void);
 static int archive__remove_files(void);
 
@@ -32,11 +31,8 @@ int ti_archive_create(void)
         return -1;
 
     archive->queue = queue_new(0);
-    archive->archfiles = queue_new(0);
+    archive->archfiles = vec_new(0);
     archive->path = NULL;
-    archive->nodes_scevid_fn = NULL;
-    archive->archived_on_disk = 0;
-    archive->sevid = NULL;
 
     if (!archive->queue || !archive->archfiles)
     {
@@ -53,42 +49,10 @@ void ti_archive_destroy(void)
     if (!archive)
         return;
     queue_destroy(archive->queue, (queue_destroy_cb) ti_epkg_drop);
-    queue_destroy(archive->archfiles, (queue_destroy_cb) ti_archfile_destroy);
+    vec_destroy(archive->archfiles, (vec_destroy_cb) ti_archfile_destroy);
     free(archive->path);
-    free(archive->nodes_scevid_fn);
     free(archive);
     archive = ti()->archive = NULL;
-}
-
-int ti_archive_write_nodes_scevid(void)
-{
-    int rc = 0;
-    uint64_t cevid = ti_nodes_cevid();
-    uint64_t sevid = ti_nodes_sevid();
-    char * fn = archive->nodes_scevid_fn;
-    FILE * f = fopen(fn, "w");
-    if (!f)
-    {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
-        return -1;
-    }
-
-    log_debug("store global committed event id: "TI_EVENT_ID, cevid);
-    log_debug("store global stored event id: "TI_EVENT_ID, sevid);
-
-    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
-        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
-    {
-        log_error("error writing to `%s`", fn);
-        rc = -1;
-    }
-
-    if (fclose(f))
-    {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
-    }
-    return rc;
 }
 
 int ti_archive_init(void)
@@ -102,17 +66,8 @@ int ti_archive_init(void)
 
     memset(&st, 0, sizeof(struct stat));
 
-    archive->sevid = &ti()->node->sevid;
-    *archive->sevid = *ti()->events->cevid;
-
     archive->path = fx_path_join(storage_path, archive__path);
     if (!archive->path)
-        return -1;
-
-    archive->nodes_scevid_fn = fx_path_join(
-            archive->path,
-            archive__nodes_scevid);
-    if (!archive->nodes_scevid_fn)
         return -1;
 
     if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
@@ -133,11 +88,8 @@ int ti_archive_load(void)
     ti_archfile_t * archfile;
 
     log_debug("loading archive files from `%s`", archive->path);
-    assert (ti()->events->cevid);
-    assert (ti()->node);
 
-    *archive->sevid = ti()->node->cevid;
-    (void) archive__read_nodes_scevid();
+    assert (ti()->node);
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
     if (total < 0)
@@ -155,17 +107,16 @@ int ti_archive_load(void)
         if (!ti_archfile_is_valid_fn(file_list[n]->d_name))
             continue;
 
-        archfile = ti_archfile_create(archive->path, file_list[n]->d_name);
-        if (!archfile || queue_push(&archive->archfiles, archfile))
+        archfile = ti_archfile_upsert(archive->path, file_list[n]->d_name);
+        if (!archfile)
         {
-            /* can potentially leak a few bytes */
             log_critical(EX_ALLOC_S);
             rc = -1;
             continue;
         }
 
         /* we are sure this fits since the filename is checked */
-        if (ti_archive_load_file(archfile))
+        if (archive__load_file(archfile))
         {
            log_critical("could not load file: `%s`", file_list[n]->d_name);
            rc = -1;
@@ -193,7 +144,7 @@ int ti_archive_push(ti_epkg_t * epkg)
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id
     );
 
-    if (epkg->event_id > *archive->sevid)
+    if (epkg->event_id > ti()->node->sevid)
     {
         rc = queue_push(&archive->queue, epkg);
         if (rc == 0)
@@ -208,33 +159,22 @@ int ti_archive_push(ti_epkg_t * epkg)
 int ti_archive_to_disk(void)
 {
     size_t n;
-    uint64_t last_event_id;
+    uint64_t leid;
     ti_epkg_t * last_epkg = queue_last(archive->queue);
 
-    if (!last_epkg || (last_event_id = last_epkg->event_id) == *archive->sevid)
+    if (!last_epkg || (leid = last_epkg->event_id) == ti()->node->sevid)
         return 0;       /* nothing to save to disk */
 
-    /* last event id in queue should be equal to cevid */
-    assert (*ti()->events->cevid == last_epkg->event_id);
-
-    n = archive->archived_on_disk + archive->queue->n;
-
+    n = leid - ti()->store->last_stored_event_id;
     if (n >= ti()->cfg->threshold_full_storage)
-    {
-        if (ti_store_store() == 0)
-        {
-            (void) archive__remove_files();
-            archive->archived_on_disk = 0;
-        }
-    }
+        (void) ti_store_store();
 
-    if (archive__to_disk() == 0)
-        goto success;
+    if (archive__to_disk())
+        return -1;
 
-    return -1;
+    (void) archive__remove_files();
+    ti()->node->sevid = leid;  /* last_epkg cannot be used, it's cleared */
 
-success:
-    *archive->sevid = last_event_id;
     return 0;
 }
 
@@ -246,13 +186,13 @@ uint64_t ti_archive_get_first_event_id(void)
 {
     ti_epkg_t * epkg = queue_first(archive->queue);
     uint64_t event_id = epkg ? epkg->event_id : 0;
-    for (queue_each(archive->archfiles, ti_archfile_t, archfile))
+    for (vec_each(archive->archfiles, ti_archfile_t, archfile))
         if (archfile->first < event_id)
             event_id = archfile->first;
     return event_id;
 }
 
-int ti_archive_load_file(ti_archfile_t * archfile)
+static int archive__load_file(ti_archfile_t * archfile)
 {
     int rc = -1;
     FILE * f;
@@ -281,7 +221,7 @@ int ti_archive_load_file(ti_archfile_t * archfile)
         if (!epkg)
             goto failed;
 
-        if (epkg->event_id <= *archive->sevid ||
+        if (epkg->event_id <= ti()->node->sevid ||
                 (event && epkg->event_id >= event->id))
         {
             ti_epkg_drop(epkg);
@@ -290,10 +230,9 @@ int ti_archive_load_file(ti_archfile_t * archfile)
         {
             if (queue_push(&archive->queue, epkg))
                 goto failed;
-            *archive->sevid = epkg->event_id;
-        }
 
-        ++archive->archived_on_disk;
+            ti()->node->sevid = epkg->event_id;
+        }
     }
 
     if (qp_tp == QP_ERR)
@@ -315,10 +254,9 @@ failed:
 static int archive__init_queue(void)
 {
     assert (ti()->node);
-    assert (ti()->events->cevid);
     int rc;
     ti_epkg_t * epkg;
-    uint64_t cevid = *ti()->events->cevid;
+    const uint64_t cevid = ti()->node->cevid;
     /*
      * The cleanest way is to take all events through the whole loop so error
      * checking is done properly, we take a lock to prevent events being
@@ -346,43 +284,6 @@ stop:
     return rc ? rc : ti_events_trigger_loop();
 }
 
-
-
-static int archive__read_nodes_scevid(void)
-{
-    assert (archive->nodes_scevid_fn);
-    assert (ti()->nodes->cevid == 0);
-
-    int rc = -1;
-    uint64_t cevid, sevid;
-    char * fn = archive->nodes_scevid_fn;
-    FILE * f = fopen(fn, "r");
-    if (!f)
-    {
-        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
-        return -1;
-    }
-
-    if (fread(&cevid, sizeof(uint64_t), 1, f) ||
-        fread(&sevid, sizeof(uint64_t), 1, f))
-        goto stop;
-
-    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
-    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
-
-    ti()->nodes->cevid = cevid;
-    ti()->nodes->sevid = sevid;
-    rc = 0;
-
-stop:
-    if (fclose(f))
-    {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
-    }
-    return rc;
-}
-
 static int archive__to_disk(void)
 {
     assert (archive->queue->n);
@@ -394,6 +295,7 @@ static int archive__to_disk(void)
     ti_archfile_t * archfile = ti_archfile_get(
             first_epkg->event_id,
             last_epkg->event_id);
+    const uint64_t sevid = ti()->node->sevid;
 
     if (archfile)
         return 0;
@@ -423,25 +325,22 @@ static int archive__to_disk(void)
 
     while ((epkg = queue_shift(archive->queue)))
     {
-        if (epkg->event_id <= *archive->sevid)
+        if (epkg->event_id <= sevid)
         {
             log_warning(
                     "storing "TI_EVENT_ID" while the last stored "
                     "event id is higher ("TI_EVENT_ID")",
-                    epkg->event_id, *archive->sevid);
+                    epkg->event_id, sevid);
         }
 
         if (qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg)))
             goto fail2;
 
-        ++archive->archived_on_disk;
-
         ti_epkg_drop(epkg);
-
         (void) ti_sleep(10);
     }
 
-    if (queue_push(&archive->archfiles, archfile))
+    if (vec_push(&archive->archfiles, archfile))
     {
         log_critical(EX_ALLOC_S);
         goto fail2;
@@ -472,15 +371,17 @@ static int archive__remove_files(void)
 {
     int rc = 0;
     uint64_t sevid = ti_nodes_sevid();
+    uint64_t lseid = ti()->store->last_stored_event_id;
+    uint64_t threshold = lseid < sevid ? lseid : sevid;
     _Bool found;
 
     do
     {
         found = false;
         size_t idx = 0;
-        for (queue_each(archive->archfiles, ti_archfile_t, archfile), ++idx)
+        for (vec_each(archive->archfiles, ti_archfile_t, archfile), ++idx)
         {
-            if (archfile->last <= sevid)
+            if (archfile->last <= threshold)
             {
                 log_debug("removing archive file `%s`", archfile->fn);
                 if (unlink(archfile->fn))
@@ -490,7 +391,7 @@ static int archive__remove_files(void)
                             archfile->fn);
                 }
 
-                (void) queue_remove(archive->archfiles, idx);
+                (void) vec_swap_remove(archive->archfiles, idx);
                 ti_archfile_destroy(archfile);
 
                 found = true;
@@ -502,16 +403,4 @@ static int archive__remove_files(void)
 
     return rc;
 }
-
-//static void archive__update_first_event_id(ti_archfile_t * archfile)
-//{
-//    if (archfile->first < archive->first_event_id)
-//    {
-//        log_debug(
-//                "update first event id from "TI_EVENT_ID" to "TI_EVENT_ID,
-//                archive->first_event_id,
-//                archfile->first);
-//        archive->first_event_id = archfile->first;
-//    }
-//}
 

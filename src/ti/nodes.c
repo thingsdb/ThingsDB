@@ -16,6 +16,7 @@
 #include <ti.h>
 #include <util/cryptx.h>
 #include <util/qpx.h>
+#include <util/fx.h>
 
 #define NODES__UV_BACKLOG 64
 
@@ -24,6 +25,8 @@ typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
 static ti_node_t * nodes__o[63];    /* other zone */
 static ti_node_t * nodes__z[63];    /* same zone */
 static ti_nodes_t * nodes;
+static const char * nodes__scevid    = ".known_scevid.dat";
+
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
@@ -41,6 +44,7 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
+static const char * nodes__get_scevid_fn(void);
 
 int ti_nodes_create(void)
 {
@@ -52,6 +56,7 @@ int ti_nodes_create(void)
     nodes->tcp.data = NULL;
     nodes->cevid = 0;
     nodes->sevid = 0;
+    nodes->scevid_fn = NULL;
 
     nodes->vec = vec_new(0);
     ti()->nodes = nodes;
@@ -64,8 +69,83 @@ void ti_nodes_destroy(void)
     if (!nodes)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
+    free(nodes->scevid_fn);
     free(nodes);
     ti()->nodes = nodes = NULL;
+}
+
+int ti_nodes_read_scevid(void)
+{
+    int rc = -1;
+    uint64_t cevid, sevid;
+    const char * fn = nodes__get_scevid_fn();
+    FILE * f;
+
+    if (!fn)
+        return -1;
+
+    f = fopen(fn, "r");
+    if (!f)
+    {
+        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+
+    if (fread(&cevid, sizeof(uint64_t), 1, f) ||
+        fread(&sevid, sizeof(uint64_t), 1, f))
+        goto stop;
+
+    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
+    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
+
+    ti()->nodes->cevid = cevid;
+    ti()->nodes->sevid = sevid;
+
+    rc = 0;
+
+stop:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
+}
+
+int ti_nodes_write_scevid(void)
+{
+    int rc = 0;
+    uint64_t cevid = ti_nodes_cevid();
+    uint64_t sevid = ti_nodes_sevid();
+    const char * fn = nodes__get_scevid_fn();
+    FILE * f;
+
+    if (!fn)
+        return -1;
+
+    f = fopen(fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+
+    log_debug("store global committed event id: "TI_EVENT_ID, cevid);
+    log_debug("store global stored event id: "TI_EVENT_ID, sevid);
+
+    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
+        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
+    {
+        log_error("error writing to `%s`", fn);
+        rc = -1;
+    }
+
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
 }
 
 /*
@@ -175,8 +255,11 @@ int ti_nodes_from_qpres(qp_res_t * qpnodes)
 
 _Bool ti_nodes_ignore_sync(void)
 {
-    uint64_t m = *ti()->events->cevid;
+    uint64_t m = ti()->node->cevid;
     uint8_t n = 0;
+
+    if (!m)
+        return false;
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
@@ -199,7 +282,7 @@ _Bool ti_nodes_require_sync(void)
 
 uint64_t ti_nodes_cevid(void)
 {
-    uint64_t m = *ti()->events->cevid;
+    uint64_t m = ti()->node->cevid;
 
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->cevid < m)
@@ -213,7 +296,7 @@ uint64_t ti_nodes_cevid(void)
 
 uint64_t ti_nodes_sevid(void)
 {
-    uint64_t m = *ti()->archive->sevid;
+    uint64_t m = ti()->node->sevid;
 
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->sevid < m)
@@ -1322,4 +1405,13 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_proto_str(pkg->tp),
             other_node->id,
             ti_stream_name(stream));
+}
+
+static const char * nodes__get_scevid_fn(void)
+{
+    if (nodes->scevid_fn)
+        return nodes->scevid_fn;
+
+    nodes->scevid_fn = fx_path_join(ti()->cfg->storage_path, nodes__scevid);
+    return nodes->scevid_fn;
 }

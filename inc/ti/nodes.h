@@ -14,6 +14,8 @@ typedef struct ti_nodes_s ti_nodes_t;
 
 int ti_nodes_create(void);
 void ti_nodes_destroy(void);
+int ti_nodes_read_scevid(void);
+int ti_nodes_write_scevid(void);
 int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
@@ -50,6 +52,9 @@ struct ti_nodes_s
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set
                                the initial value at startup */
+    char * scevid_fn;       /* this file contains the last known committed
+                               and stored event id's by ALL nodes */
+
 };
 
 #endif /* TI_NODES_H_ */

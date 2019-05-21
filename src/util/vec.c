@@ -38,6 +38,7 @@ void * vec_remove(vec_t * vec, uint32_t i)
 
 void * vec_swap_remove(vec_t * vec, uint32_t i)
 {
+    assert (vec->n > 0);
     void * data = vec_get(vec, i);
     vec->data[i] = vec->data[--vec->n];
     return data;

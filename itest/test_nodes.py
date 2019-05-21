@@ -58,7 +58,7 @@ class TestNodes(TestBase):
 
         await client.query('hello = "world";', target=stuff)
 
-        await asyncio.sleep(30)  # 30 seconds should be enough to sync
+        await asyncio.sleep(50)  # 50 seconds should be enough to sync
 
         cl3 = await get_client(self.node3)  # node:2
         cl4 = await get_client(self.node4)  # node:1
@@ -80,6 +80,16 @@ class TestNodes(TestBase):
         await self.node0.run()
         await self.node3.run()
         await self.node4.run()
+
+        await asyncio.sleep(50)  # 50 seconds should be enough to sync
+
+        client = await get_client(self.node0)
+        nodes = await client.query(r'nodes();', target=client.node)
+        for node in nodes:
+            self.assertEqual(node['commited_event_id'], 9)
+
+        client.close()
+        await client.wait_closed()
 
 
 if __name__ == '__main__':

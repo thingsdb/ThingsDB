@@ -90,7 +90,7 @@ struct ti_node_s
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */
     uint64_t cevid;                 /* last committed event id */
-    uint64_t sevid;                 /* last stored event id */
+    uint64_t sevid;                 /* last stored event id on disk */
     uint64_t next_thing_id;
     ti_stream_t * stream;           /* borrowed reference */
     uint16_t port;
@@ -116,5 +116,6 @@ int ti_node_connect(ti_node_t * node);
 ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
+int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);
 
 #endif /* TI_NODE_H_ */

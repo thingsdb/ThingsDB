@@ -21,9 +21,9 @@ static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
  */
 int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
 {
-    queue_t * archfiles = ti()->archive->archfiles;
+    vec_t * archfiles = ti()->archive->archfiles;
 
-    for (queue_each(archfiles, ti_archfile_t, archfile))
+    for (vec_each(archfiles, ti_archfile_t, archfile))
     {
         if (event_id >= archfile->first && event_id <= archfile->last)
         {
@@ -100,11 +100,11 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
             ex_set_alloc(e);
             return NULL;
         }
+
+        (void) vec_push(&archive->archfiles, archfile);
     }
 
     rc = syncpart_write(archfile->fn, qp_raw.via.raw, qp_raw.len, offset, e);
-
-    ti_archfile_destroy(archfile);
 
     if (rc)
         return NULL;
@@ -282,7 +282,7 @@ done:
 static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
-    uint64_t next_event_id = (*ti()->archive->sevid) + 1;
+    uint64_t next_event_id = ti()->node->sevid + 1;
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);

@@ -48,6 +48,10 @@ int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
     {
         if (epkg->event_id == event_id)
         {
+            log_debug(
+                    "synchronizing "TI_EVENT_ID" to `%s`",
+                    event_id,
+                    ti_stream_name(stream));
             return syncevents__send(stream, epkg);
         }
     }
@@ -106,6 +110,9 @@ int ti_syncevents_done(ti_stream_t * stream)
         free(pkg);
         return -1;
     }
+
+    log_debug("synchronizing `%s` is done", ti_stream_name(stream));
+
     return 0;
 }
 

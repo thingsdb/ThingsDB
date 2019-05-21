@@ -181,7 +181,7 @@ ti_collection_t * ti_collections_create_collection(
     return collection;
 
 fail1:
-    (void *) vec_pop(collections->vec);
+    (void) vec_pop(collections->vec);
 fail0:
     ti_collection_drop(collection);
     return NULL;

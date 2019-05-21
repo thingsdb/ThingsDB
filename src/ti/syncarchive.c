@@ -41,6 +41,10 @@ int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
                 free(pkg);
                 return -1;
             }
+            log_debug(
+                    "synchronizing archive with "TI_EVENT_ID" to `%s`",
+                    event_id,
+                    ti_stream_name(stream));
             return 0;
         }
     }

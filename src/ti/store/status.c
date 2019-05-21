@@ -27,8 +27,6 @@ int ti_store_status_store(const char * fn)
 stop:
     if (rc)
         log_error("failed to write file: `%s`", fn);
-    else
-        ti()->stored_event_id = ti()->node->cevid;
     qp_packer_destroy(packer);
     return rc;
 }
@@ -66,7 +64,6 @@ int ti_store_status_restore(const char * fn)
 
     ti()->node->cevid = (uint64_t) qpcevid->via.int64;
     ti()->events->cevid = &ti()->node->cevid;
-    ti()->stored_event_id = ti()->node->cevid;
     ti()->events->next_event_id = (*ti()->events->cevid) + 1;
     ti()->node->next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
     ti()->next_thing_id = &ti()->node->next_thing_id;

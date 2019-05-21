@@ -6,6 +6,8 @@
 
 typedef struct ti_store_s ti_store_t;
 
+#include <inttypes.h>
+
 int ti_store_create(void);
 void ti_store_destroy(void);
 int ti_store_store(void);
@@ -23,6 +25,7 @@ struct ti_store_s
     char * tmp_path;
     char * users_fn;
     size_t fn_offset;
+    uint64_t last_stored_event_id;
 };
 
 #endif /* TI_STORE_H_ */

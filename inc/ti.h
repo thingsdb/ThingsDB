@@ -100,7 +100,6 @@ struct ti_s
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
-    uint64_t stored_event_id;   /* last stored event id (excluding archive) */
     uint64_t * next_thing_id;   /* pointer to ti->node->next_thing_id used
                                    for assigning id's to objects
                                 */

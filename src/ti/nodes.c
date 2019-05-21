@@ -246,6 +246,9 @@ void ti_nodes_pop_node(void)
     ti_node_drop(vec_pop(nodes->vec));
 }
 
+/*
+ * Returns a weak reference to a node, of NULL if not found
+ */
 ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
 {
     return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);
@@ -456,6 +459,8 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
             qp_add_int(*packer, node->cevid) ||
             qp_add_raw_from_str(*packer, "stored_event_id") ||
             qp_add_int(*packer, node->sevid) ||
+            qp_add_raw_from_str(*packer, "next_thing_id") ||
+            qp_add_int(*packer, node->next_thing_id) ||
             qp_add_raw_from_str(*packer, "address") ||
             qp_add_raw_from_str(
                     *packer,
@@ -479,7 +484,7 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_nodes_info_as_qpval(void)
 {
     ti_raw_t * raw = NULL;
-    qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 64, 2);
+    qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 144, 2);
     if (!packer)
         return NULL;
 
@@ -1177,8 +1182,7 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-
-    ti_store_restore();
+    (void) ti_store_restore();
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCFDONE, NULL, 0);
 
 finish:

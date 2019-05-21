@@ -27,7 +27,7 @@ void ti_name_drop(ti_name_t * name)
 {
     if (name && !--name->ref)
     {
-        (void *) smap_pop(ti()->names, name->str);
+        (void) smap_pop(ti()->names, name->str);
         ti_name_destroy(name);
     }
 }

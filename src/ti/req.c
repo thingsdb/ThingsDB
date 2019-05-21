@@ -66,7 +66,7 @@ fail4:
     uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
     req->timer = NULL;
 fail3:
-    (void *) omap_rm(stream->reqmap, pkg_req->id);
+    (void) omap_rm(stream->reqmap, pkg_req->id);
 fail2:
     ti_stream_drop(stream);
     free(req->timer);
@@ -114,7 +114,7 @@ static void ti__req_timeout(uv_timer_t * handle)
 {
     ti_req_t * req = handle->data;
 
-    (void *) omap_rm(req->stream->reqmap, req->pkg_req->id);
+    (void) omap_rm(req->stream->reqmap, req->pkg_req->id);
 
     log_warning(
             "timeout received on `%s` request to `%s`",
@@ -134,7 +134,7 @@ static void ti__req_write_cb(ti_write_t * wreq, ex_enum status)
     if (status)
     {
         ti_req_t * req = wreq->data;
-        (void *) omap_rm(req->stream->reqmap, req->pkg_req->id);
+        (void) omap_rm(req->stream->reqmap, req->pkg_req->id);
         uv_timer_stop(req->timer);
         uv_close((uv_handle_t *) req->timer, (uv_close_cb) &free);
         req->timer = NULL;

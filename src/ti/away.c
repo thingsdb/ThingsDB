@@ -416,6 +416,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 static size_t away__syncers(void)
 {
     size_t count = 0;
+    uint64_t fa_event_id = ti_archive_get_first_event_id();
     for (vec_each(away->syncers, ti_syncer_t, syncer))
     {
         if (syncer->stream)
@@ -432,7 +433,7 @@ static size_t away__syncers(void)
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
-            if (syncer->first < ti()->archive->first_event_id)
+            if (!fa_event_id || syncer->first < fa_event_id)
             {
                 log_info("full database sync is required for `%s`",
                         ti_stream_name(syncer->stream));
@@ -442,17 +443,14 @@ static size_t away__syncers(void)
             }
 
             rc = ti_syncarchive_init(syncer->stream, syncer->first);
-
             if (rc > 0)
             {
                 rc = ti_syncevents_init(syncer->stream, syncer->first);
-
                 if (rc > 0)
                 {
                     rc = ti_syncevents_done(syncer->stream);
                 }
             }
-
             if (rc < 0)
             {
                 log_critical(EX_ALLOC_S);

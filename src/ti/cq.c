@@ -2021,7 +2021,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (found)
         {
             query->rval = v;  /* we can move the reference here */
-            (void *) vec_remove(varr->vec, idx);
+            (void) vec_remove(varr->vec, idx);
 
             if (from_scope)
             {

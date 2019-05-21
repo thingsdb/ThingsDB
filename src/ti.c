@@ -47,7 +47,6 @@ static void ti__stop(void);
 
 int ti_create(void)
 {
-    ti_.stored_event_id = 0;
     ti_.flags = 0;
     ti_.fn = NULL;
     ti_.node_fn = NULL;
@@ -200,7 +199,7 @@ failed:
     (void) mkdir(ti_.cfg->storage_path, 0700);
     ti_node_drop(ti_.node);
     ti_.node = NULL;
-    (void *) vec_pop(ti_.nodes->vec);
+    (void) vec_pop(ti_.nodes->vec);
 
 done:
     ti_event_drop(ev);
@@ -609,6 +608,12 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_nodes_sevid()) ||
         qp_add_raw_from_str(*packer, "global_commited_event_id") ||
         qp_add_int(*packer, ti_nodes_cevid()) ||
+        qp_add_raw_from_str(*packer, "db_stored_event_id") ||
+        qp_add_int(*packer, ti_.store->last_stored_event_id) ||
+        qp_add_raw_from_str(*packer, "next_event_id") ||
+        qp_add_int(*packer, ti_.events->next_event_id) ||
+        qp_add_raw_from_str(*packer, "next_thing_id") ||
+        qp_add_int(*packer, *ti_.next_thing_id) ||
         qp_close_map(*packer)
     );
 }
@@ -616,7 +621,7 @@ int ti_node_to_packer(qp_packer_t ** packer)
 ti_val_t * ti_node_as_qpval(void)
 {
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(512, 1);
+    qp_packer_t * packer = qp_packer_create2(1024, 1);
     if (!packer)
         return NULL;
 

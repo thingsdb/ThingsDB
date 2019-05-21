@@ -18,11 +18,6 @@ struct ti_archive_s
     size_t archived_on_disk;        /* number of events stored on disk since
                                        the last full store, the actual amount
                                        stored can be higher */
-    uint64_t first_event_id;        /* first event id where the archive starts,
-                                       can be on disk, memory or might not even
-                                       exist yet.
-                                    */
-    uint64_t full_stored_event_id;  /* last event id written in full storage */
     uint64_t * sevid;               /* last event id written on disk, this
                                        value is also updated if a full store is
                                        done
@@ -44,6 +39,6 @@ int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);
 int ti_archive_to_disk(void);
 int ti_archive_load_file(ti_archfile_t * archfile);
-
+uint64_t ti_archive_get_first_event_id(void);
 
 #endif /* TI_ARCHIVE_H_ */

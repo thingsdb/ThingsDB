@@ -553,6 +553,49 @@ done:
     return rc;
 }
 
+int ti_task_add_replace_node(ti_task_t * task, ti_node_t * node)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(256, 2);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "replace_node");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int(packer, node->id);
+    (void) qp_add_raw_from_str(packer, "port");
+    (void) qp_add_int(packer, node->port);
+    (void) qp_add_raw_from_str(packer, "addr");
+    (void) qp_add_raw_from_str(packer, node->addr);
+    (void) qp_add_raw_from_str(packer, "secret");
+    (void) qp_add_raw(packer, (uchar *) node->secret, CRYPTX_SZ);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_revoke(
         ti_task_t * task,
         uint64_t target_id,

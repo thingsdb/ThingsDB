@@ -65,6 +65,7 @@ int ti_store_create(void)
     store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
+    store->last_stored_event_id = 0;
 
     if (    !store->prev_path ||
             !store->store_path ||
@@ -190,6 +191,7 @@ int ti_store_store(void)
     (void) fx_rmdir(store->prev_path);
 
     store__set_filename(/* use_tmp: */ false);
+    store->last_stored_event_id = ti()->node->cevid;
 
     return 0;
 
@@ -254,6 +256,8 @@ int ti_store_restore(void)
                 (imap_cb) store__thing_drop,
                 NULL);
     }
+
+    store->last_stored_event_id = ti()->node->cevid;
 
 stop:
     if (namesmap)

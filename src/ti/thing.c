@@ -43,7 +43,7 @@ void ti_thing_destroy(ti_thing_t * thing)
         return;
 
     if (thing->id)
-        (void *) imap_pop(thing->things, thing->id);
+        (void) imap_pop(thing->things, thing->id);
 
     if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);

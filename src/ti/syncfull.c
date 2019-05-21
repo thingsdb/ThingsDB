@@ -178,7 +178,7 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
 static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
-    uint64_t next_event_id = ti()->archive->full_stored_event_id + 1;
+    uint64_t next_event_id = ti()->store->last_stored_event_id + 1;
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);

@@ -22,7 +22,6 @@ static int archive__init_queue(void);
 static int archive__read_nodes_scevid(void);
 static int archive__to_disk(void);
 static int archive__remove_files(void);
-static void archive__update_first_event_id(ti_archfile_t * archfile);
 
 static ti_archive_t * archive;
 
@@ -38,8 +37,6 @@ int ti_archive_create(void)
     archive->nodes_scevid_fn = NULL;
     archive->archived_on_disk = 0;
     archive->sevid = NULL;
-    archive->first_event_id = 0;
-    archive->full_stored_event_id = 0;
 
     if (!archive->queue || !archive->archfiles)
     {
@@ -139,9 +136,7 @@ int ti_archive_load(void)
     assert (ti()->events->cevid);
     assert (ti()->node);
 
-    *archive->sevid = archive->full_stored_event_id = ti()->node->cevid;
-    archive->first_event_id = archive->full_stored_event_id + 1;
-
+    *archive->sevid = ti()->node->cevid;
     (void) archive__read_nodes_scevid();
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
@@ -230,7 +225,6 @@ int ti_archive_to_disk(void)
         {
             (void) archive__remove_files();
             archive->archived_on_disk = 0;
-            archive->full_stored_event_id = last_event_id;
         }
     }
 
@@ -244,6 +238,20 @@ success:
     return 0;
 }
 
+/*
+ * Return the first archived event id, or 0 if no events are inside the
+ * archive. Both memory and disk are included.
+ */
+uint64_t ti_archive_get_first_event_id(void)
+{
+    ti_epkg_t * epkg = queue_first(archive->queue);
+    uint64_t event_id = epkg ? epkg->event_id : 0;
+    for (queue_each(archive->archfiles, ti_archfile_t, archfile))
+        if (archfile->first < event_id)
+            event_id = archfile->first;
+    return event_id;
+}
+
 int ti_archive_load_file(ti_archfile_t * archfile)
 {
     int rc = -1;
@@ -253,8 +261,6 @@ int ti_archive_load_file(ti_archfile_t * archfile)
     ti_event_t * event = queue_first(ti()->events->queue);
 
     log_debug("loading archive file `%s`", archfile->fn);
-
-    archive__update_first_event_id(archfile);
 
     f = fopen(archfile->fn, "r");
     if (!f)
@@ -328,7 +334,7 @@ static int archive__init_queue(void)
     /* remove events from queue */
     while ((epkg = queue_last(archive->queue)) && epkg->event_id > cevid)
     {
-        (void *) queue_pop(archive->queue);
+        (void) queue_pop(archive->queue);
         assert (epkg->ref > 1); /* add event has created a new reference */
         ti_decref(epkg);
     }
@@ -468,9 +474,6 @@ static int archive__remove_files(void)
     uint64_t sevid = ti_nodes_sevid();
     _Bool found;
 
-    /* Reset archive first event id */
-    archive->first_event_id = archive->full_stored_event_id + 1;
-
     do
     {
         found = false;
@@ -487,14 +490,12 @@ static int archive__remove_files(void)
                             archfile->fn);
                 }
 
-                (void *) queue_remove(archive->archfiles, idx);
+                (void) queue_remove(archive->archfiles, idx);
                 ti_archfile_destroy(archfile);
 
                 found = true;
                 break;
             }
-
-            archive__update_first_event_id(archfile);
         }
     }
     while (found);
@@ -502,15 +503,15 @@ static int archive__remove_files(void)
     return rc;
 }
 
-static void archive__update_first_event_id(ti_archfile_t * archfile)
-{
-    if (archfile->first < archive->first_event_id)
-    {
-        log_debug(
-                "update first event id from "TI_EVENT_ID" to "TI_EVENT_ID,
-                archive->first_event_id,
-                archfile->first);
-        archive->first_event_id = archfile->first;
-    }
-}
+//static void archive__update_first_event_id(ti_archfile_t * archfile)
+//{
+//    if (archfile->first < archive->first_event_id)
+//    {
+//        log_debug(
+//                "update first event id from "TI_EVENT_ID" to "TI_EVENT_ID,
+//                archive->first_event_id,
+//                archfile->first);
+//        archive->first_event_id = archfile->first;
+//    }
+//}
 

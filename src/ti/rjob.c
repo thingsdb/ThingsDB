@@ -16,8 +16,10 @@ static int rjob__grant(qp_unpacker_t * unp);
 static int rjob__new_collection(qp_unpacker_t * unp);
 static int rjob__new_node(qp_unpacker_t * unp);
 static int rjob__new_user(qp_unpacker_t * unp);
+static int rjob__pop_node(qp_unpacker_t * unp);
 static int rjob__rename_collection(qp_unpacker_t * unp);
 static int rjob__rename_user(qp_unpacker_t * unp);
+static int rjob__replace_node(qp_unpacker_t * unp);
 static int rjob__revoke(qp_unpacker_t * unp);
 static int rjob__set_password(qp_unpacker_t * unp);
 static int rjob__set_quota(qp_unpacker_t * unp);
@@ -52,11 +54,17 @@ int ti_rjob_run(qp_unpacker_t * unp)
         if (qpx_obj_eq_str(&qp_job_name, "new_user"))
             return rjob__new_user(unp);
         break;
+    case 'p':
+        if (qpx_obj_eq_str(&qp_job_name, "pop_node"))
+            return rjob__pop_node(unp);
+        break;
     case 'r':
         if (qpx_obj_eq_str(&qp_job_name, "rename_collection"))
             return rjob__rename_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "rename_user"))
             return rjob__rename_user(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "replace_node"))
+            return rjob__replace_node(unp);
         if (qpx_obj_eq_str(&qp_job_name, "revoke"))
             return rjob__revoke(unp);
         break;
@@ -364,6 +372,34 @@ done:
 
 /*
  * Returns 0 on success
+ * - for example: id
+ */
+static int rjob__pop_node(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    uint8_t node_id, last_node_id = ti()->nodes->vec->n - 1;
+    qp_obj_t qp_node;
+
+    if (!qp_is_int(qp_next(unp, &qp_node)))
+    {
+        log_critical("job `pop_node`: invalid format");
+        return -1;
+    }
+
+    node_id = (uint64_t) qp_node.via.int64;
+
+    if (node_id != last_node_id)
+        return 0;  /* node is already popped */
+
+    ti_nodes_pop_node();
+    (void) ti_save();
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
 static int rjob__rename_collection(qp_unpacker_t * unp)
@@ -457,6 +493,59 @@ static int rjob__rename_user(qp_unpacker_t * unp)
     ti_val_drop((ti_val_t *) rname);
 
     return e->nr;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {
+ *      'id': id,
+ *      'port': port,
+ *      'addr':ip_addr,
+ *      'secret': encrypted
+ *   }
+ */
+static int rjob__replace_node(qp_unpacker_t * unp)
+{
+    assert (unp);
+    qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
+    uint8_t node_id;
+    ti_node_t * node;
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_id)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_int(qp_next(unp, &qp_port)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, &qp_addr)) ||
+            qp_addr.len >= INET6_ADDRSTRLEN ||
+            !qp_is_raw(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, &qp_secret)) ||
+            qp_secret.len != CRYPTX_SZ ||
+            qp_secret.via.raw[qp_secret.len-1] != '\0')
+    {
+        log_critical("job `replace_node`: invalid format");
+        return -1;
+    }
+
+    node_id = (uint8_t) qp_id.via.int64;
+    node = ti_nodes_node_by_id(node_id);
+    if (!node)
+    {
+        log_critical(
+                "job `replace_node`: "TI_NODE_ID" out of range",
+                node_id);
+        return -1;
+    }
+
+    memcpy(node->addr, qp_addr.via.raw, qp_addr.len);
+    node->addr[qp_addr.len] = '\0';
+    node->port = (uint16_t) qp_port.via.int64;
+    memcpy(node->secret, qp_secret.via.raw, qp_secret.len);
+
+    (void) ti_save();
+
+    return 0;
 }
 
 /*

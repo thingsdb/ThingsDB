@@ -307,7 +307,7 @@ static void events__new_id(ti_event_t * ev)
     ex_t * e = ex_use();
 
     /* remove the event from the queue */
-    (void *) queue_rmval(events->queue, ev);
+    (void) queue_rmval(events->queue, ev);
 
     if (events__req_event_id(ev, e))
     {
@@ -526,7 +526,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
         *events->cevid = ev->id;
 
 shift_drop_loop:
-        (void *) queue_shift(events->queue);
+        (void) queue_shift(events->queue);
         ti_event_drop(ev);
     }
 

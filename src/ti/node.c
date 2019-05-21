@@ -55,7 +55,7 @@ ti_node_t * ti_node_create(
                                    node__update_sockaddr()
                                 */
     strcpy(node->addr, addr);
-    memcpy(&node->secret, secret, CRYPTX_SZ);
+    memcpy(node->secret, secret, CRYPTX_SZ);
 
     return node;
 }
@@ -88,7 +88,7 @@ int ti_node_upd_addr_from_stream(
     {
         node->port = port;
         node__clear_sockaddr(node);
-        (void *) strcpy(node->addr, addr);
+        (void) strcpy(node->addr, addr);
         (void) ti_save();
     }
     return 0;

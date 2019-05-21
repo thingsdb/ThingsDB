@@ -50,6 +50,7 @@ int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
 int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);
+int ti_task_add_replace_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_revoke(
         ti_task_t * task,
         uint64_t target_id,

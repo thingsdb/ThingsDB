@@ -31,8 +31,8 @@ void ti_names_destroy(void)
  */
 void ti_names_inject_common(void)
 {
-    (void *) ti_names_get("$_", 2);
-    (void *) ti_names_get("$tmp", 4);
+    (void) ti_names_get("$_", 2);
+    (void) ti_names_get("$tmp", 4);
 }
 
 /*

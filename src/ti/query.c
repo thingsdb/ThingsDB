@@ -789,6 +789,7 @@ static inline _Bool query__requires_root_event(cleri_node_t * fname_nd)
         return (
             langdef_nd_match_str(fname_nd, "rename_collection") ||
             langdef_nd_match_str(fname_nd, "rename_user") ||
+            langdef_nd_match_str(fname_nd, "replace_node") ||
             langdef_nd_match_str(fname_nd, "revoke")
         );
     case 's':

@@ -182,7 +182,7 @@ class Client(WatchMixin, Root):
 
         if watch_ids:
             for collection_id, thing_ids in watch_ids.items():
-                await self.watch(thing_ids, collection=collection_id)
+                await self.watch(things=thing_ids, target=collection_id)
         elif self._auto_watch:
             await self.watch()
 

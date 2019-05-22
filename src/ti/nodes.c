@@ -162,7 +162,6 @@ _Bool ti_nodes_has_quorum(void)
     size_t q = 0;
 
     for (vec_each(nodes->vec, ti_node_t, node))
-
         if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
             return true;
     return false;

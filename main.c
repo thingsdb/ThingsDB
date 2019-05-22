@@ -76,11 +76,17 @@ int main(int argc, char * argv[])
     {
         if (fx_file_exist(ti()->fn))
         {
-            printf("error: directory `%s` is already initialized\n",
-                    ti()->cfg->storage_path);
-            rc = -1;
-            goto stop;
+            if (!ti()->args->force)
+            {
+                log_warning(
+                        "directory `%s` is already initialized, use --force "
+                        "if you want to remove existing data and initialize "
+                        "a new data directory",
+                        ti()->cfg->storage_path);
+                goto load;
+            }
         }
+
         if ((rc = ti_build()))
         {
             printf("error: building new ThingsDB cluster has failed\n");
@@ -89,29 +95,47 @@ int main(int argc, char * argv[])
 
         printf(
             "Well done, you successfully initialized ThingsDB!!\n\n"
-            "You can now start ThingsDB and connect by using the "
+            "You can now connect by using the "
             "default user `%s` and password `%s`\n\n",
             ti_user_def_name,
             ti_user_def_pass);
 
-        goto stop;
+        goto run;
     }
 
     if (*ti()->args->secret)
     {
         if (fx_file_exist(ti()->fn))
         {
-            printf("error: directory `%s` is already initialized\n",
-                    ti()->cfg->storage_path);
-            rc = -1;
-            goto stop;
+            if (!ti()->args->force)
+            {
+                log_warning(
+                        "directory `%s` is already initialized, use --force "
+                        "if you want to remove existing data and wait for "
+                        "a new join request",
+                        ti()->cfg->storage_path);
+                goto load;
+            }
+
+            if (fx_rmdir(ti()->cfg->storage_path))
+            {
+                printf("error: directory `%s` cannot be removed\n",
+                        ti()->cfg->storage_path);
+                rc = -1;
+                goto stop;
+            }
         }
+
         printf(
             "Waiting for an invite from a node to join ThingsDB...\n"
             "(if you want to create a new ThingsDB instead, press CTRL+C and "
             "use the --init argument)\n");
+
+        goto run;
     }
-    else if (fx_file_exist(ti()->fn))
+
+load:
+    if (fx_file_exist(ti()->fn))
     {
         if ((rc = ti_read()))
         {
@@ -134,6 +158,7 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
+run:
     rc = ti_run();
 
 stop:

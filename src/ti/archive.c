@@ -21,6 +21,7 @@ static int archive__load_file(ti_archfile_t * archfile);
 static int archive__init_queue(void);
 static int archive__to_disk(void);
 static int archive__remove_files(void);
+static char * archive__get_path(void);
 
 static ti_archive_t * archive;
 
@@ -55,25 +56,43 @@ void ti_archive_destroy(void)
     archive = ti()->archive = NULL;
 }
 
+
+int ti_archive_rmdir(void)
+{
+    int rc;
+    const char * archive_path = archive__get_path();
+
+    if (!archive_path)
+    {
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    if (!fx_is_dir(archive_path))
+        return 0;
+
+    while (archive->archfiles->n)
+        ti_archfile_destroy(vec_pop(archive->archfiles));
+
+    rc = fx_rmdir(archive->path);
+    if (rc)
+        log_error("cannot remove directory: `%s`", archive->path);
+
+    return rc;
+}
+
 int ti_archive_init(void)
 {
-    struct stat st;
-    char * storage_path = ti()->cfg->storage_path;
-
-    assert (storage_path);
-    assert (archive->path == NULL);
     assert (ti()->node);
 
-    memset(&st, 0, sizeof(struct stat));
-
-    archive->path = fx_path_join(storage_path, archive__path);
-    if (!archive->path)
+    const char * archive_path = archive__get_path();
+    if (!archive_path)
         return -1;
 
-    if (!fx_is_dir(archive->path) && mkdir(archive->path, 0700))
+    if (!fx_is_dir(archive_path) && mkdir(archive_path, 0700))
     {
         log_critical("cannot create archive directory: `%s` (%s)",
-                archive->path,
+                archive_path,
                 strerror(errno));
         return -1;
     }
@@ -404,3 +423,10 @@ static int archive__remove_files(void)
     return rc;
 }
 
+static char * archive__get_path(void)
+{
+    if (!archive->path)
+        archive->path = fx_path_join(ti()->cfg->storage_path, archive__path);
+
+    return archive->path;
+}

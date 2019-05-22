@@ -81,7 +81,6 @@ class Node:
 
     async def init_and_run(self):
         await self.init()
-        await self.run()
 
     async def join(self, client, secret='my_secret', attempts=1):
         await self.wait_join(secret)

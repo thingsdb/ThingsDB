@@ -76,8 +76,8 @@ static inline int ti_to_packer(qp_packer_t ** packer);
 struct ti_s
 {
     struct timespec boottime;
-    char * fn;
-    char * node_fn;
+    char * fn;                  /* ti__fn */
+    char * node_fn;             /* ti__node_fn */
     ti_archive_t * archive;     /* committed events archive */
     ti_args_t * args;
     ti_away_t * away;

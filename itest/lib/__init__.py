@@ -1,8 +1,3 @@
-import sys
-# TODO: remove line below
-sys.path.insert(0, '/home/joente/workspace/thingsdb/connectors/python3')
-
-
 import asyncio
 import logging
 import random

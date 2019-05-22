@@ -173,7 +173,6 @@ int ti_build(void)
 
     ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
-    ti_.events->next_event_id = 1;
 
     ev = ti_event_initial();
     if (!ev)
@@ -183,8 +182,13 @@ int ti_build(void)
         goto failed;
 
     ti_.node->cevid = ev->id;
+    ti_.node->sevid = ev->id;
+    ti_.events->next_event_id = ev->id + 1;
 
     if (ti_store_store())
+        goto failed;
+
+    if (ti_archive_rmdir())
         goto failed;
 
     rc = 0;

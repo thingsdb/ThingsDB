@@ -25,12 +25,20 @@ int ti_args_create(void)
     args = calloc(1, sizeof(ti_args_t));
     if (!args)
         return -1;
+
+    /* boolean */
+    args->force = 0;
+    args->init = 0;
+    args->log_colorized = 0;
     args->version = 0;
+
+    /* string */
     strcpy(args->config, "");
     strcpy(args->log_level, "");
+
+    /* integer */
     args->zone = ARGS__NO_ZONE;
-    args->log_colorized = 0;
-    args->init = 0;
+
     ti()->args = args;
 
     return 0;
@@ -86,12 +94,24 @@ int ti_args_parse(int argc, char *argv[])
     argparse_argument_t secret_ = {
             name: "secret",
             shortcut: 0,
-            help: "set one time secret for nodes to connect",
+            help: "set one time secret and wait for request to join",
             action: ARGPARSE_STORE_STRING,
             default_int32_t: 0,
             pt_value_int32_t: NULL,
             str_default: "",
             str_value: args->secret,
+            choices: NULL,
+    };
+
+    argparse_argument_t force_ = {
+            name: "force",
+            shortcut: 0,
+            help: "force --init or --secret to remove existing data if exists",
+            action: ARGPARSE_STORE_TRUE,
+            default_int32_t: 0,
+            pt_value_int32_t: &args->force,
+            str_default: NULL,
+            str_value: NULL,
             choices: NULL,
     };
 
@@ -144,6 +164,7 @@ int ti_args_parse(int argc, char *argv[])
 
     if (    argparse_add_argument(parser, &config_) ||
             argparse_add_argument(parser, &init_) ||
+            argparse_add_argument(parser, &force_) ||
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &zone_) ||
             argparse_add_argument(parser, &version_) ||
@@ -168,6 +189,12 @@ int ti_args_parse(int argc, char *argv[])
         if (args->init && *args->secret)
         {
             printf("--secret cannot be used together with --init\n");
+            rc = -1;
+        }
+
+        if (args->force && !args->init && !*args->secret)
+        {
+            printf("--force must be used with --secret or --init\n");
             rc = -1;
         }
 

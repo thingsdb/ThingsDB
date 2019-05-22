@@ -51,7 +51,7 @@ class Client(WatchMixin, Root):
     def is_connected(self) -> bool:
         return bool(self._protocol and self._protocol.transport)
 
-    async def connect_pool(self, pool, timeout=5) -> None:
+    async def connect_pool(self, pool, username, password) -> None:
         """Connect using a connection pool.
 
         Argument `pool` should be an iterable with node address strings, or
@@ -78,10 +78,12 @@ class Client(WatchMixin, Root):
         self._pool = tuple((
             (address, 9200) if isinstance(address, str) else address
             for address in pool))
+        self._username = username
+        self._password = password
 
         self._pool = tuple(pool)
         self._pool_idx = random.randint(0, len(pool) - 1)
-        await self._connect(timeout=timeout)
+        await self.reconnect()
 
     async def connect(self, host, port=9200, timeout=5) -> None:
         assert self.is_connected() is False

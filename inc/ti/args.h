@@ -17,9 +17,10 @@ int ti_args_parse(int argc, char *argv[]);
 struct ti_args_s
 {
     /* true/false props */
-    int32_t version;
-    int32_t log_colorized;
+    int32_t force;
     int32_t init;
+    int32_t log_colorized;
+    int32_t version;
 
     /* integer props */
     int32_t zone;                           /* can be overwritten at runtime */

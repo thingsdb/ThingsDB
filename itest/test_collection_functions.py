@@ -23,9 +23,7 @@ class TestCollectionFunctions(TestBase):
         client = await get_client(self.node0)
         client.use('stuff')
 
-        await self.test_assert(client)
-        await self.test_blob(client)
-        await self.test_remove(client)
+        await self.run_tests(client)
 
         client.close()
         await client.wait_closed()
@@ -56,12 +54,12 @@ class TestCollectionFunctions(TestBase):
                 BadRequestError,
                 'function `assert` expects at most 3 arguments '
                 'but 4 were given'):
-            await client.query('assert(true, "bla", 1, nil);')
+            await client.query('assert(true, "x", 1, nil);')
 
         with self.assertRaisesRegex(
                 BadRequestError,
                 'function `assert` expects argument 2 to be of '
-                'type `raw` but got `nil` instead'):
+                'type `raw` but got type `nil` instead'):
             await client.query('assert(false, nil);')
 
         with self.assertRaisesRegex(
@@ -75,7 +73,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 'function `assert` expects argument 3 to be of '
-                'type `int` but got `nil` instead'):
+                'type `int` but got type `nil` instead'):
             await client.query('assert(false, "msg", nil);')
 
         with self.assertRaisesRegex(
@@ -101,12 +99,154 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 'function `blob` expects argument 1 to be of '
-                'type `int` but got `nil` instead'):
+                'type `int` but got type `nil` instead'):
             await client.query('blob(nil);')
 
         with self.assertRaisesRegex(
                 IndexError, 'blob index out of range'):
             await client.query('blob(0);')
+
+    async def test_del(self, client):
+        await client.query(r'greet = "Hello world";')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `raw` has no function `del`'):
+            await client.query('greet.del("x");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `del` takes 1 argument '
+                'but 0 were given'):
+            await client.query('del();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `del` can only be used on things with an id > 0; '
+                r'\(things which are assigned automatically receive an id\)'):
+            await client.query('{x:1}.del("x");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'cannot use `del` while thing `#\d+` is in use'):
+            await client.query('map( ||del("greet") );')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `del` expects argument 1 to be of type `raw` '
+                r'but got type `nil` instead'):
+            await client.query('del(nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `del` expects argument 1 to be a valid name.*'):
+            await client.query('del("");')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                r'thing `#\d+` has no property `x`'):
+            await client.query(' del("x");')
+
+        self.assertEqual((await client.query(r'del("greet");')), None)
+        self.assertEqual((await client.query(r'hasprop("greet");')), False)
+
+    async def test_endswith(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `endswith`'):
+            await client.query('nil.endswith("world!");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `endswith` takes 1 argument but 2 were given'):
+            await client.query('"Hi World!".endswith("x", 2)')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `endswith` expects argument 1 to be of '
+                r'type `raw` but got type `int` instead'):
+            await client.query('"Hi World!".endswith(1);')
+
+        self.assertTrue(await client.query('"Hi World!".endswith("")'))
+        self.assertFalse(await client.query('"".endswith("!")'))
+        self.assertTrue(await client.query('"Hi World!".endswith("World!")'))
+        self.assertFalse(await client.query('"Hi World!".endswith("world!")'))
+
+    async def test_filter(self, client):
+        await client.query(r'''
+            iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+        ''')
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `filter`'):
+            await client.query('nil.filter(||true);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `filter` takes 1 argument but 0 were given'):
+            await client.query('filter();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `filter` expects argument 1 to be a `closure` '
+                'but got type `nil` instead'):
+            await client.query('filter(nil);')
+
+        self.assertEqual(
+            (await client.query('iris.filter(|k|(k == "name"));')),
+            {'#': 0, 'name': 'Iris'})
+
+        self.assertEqual(
+            (await client.query('iris.filter(|_k, v|(v == 6));')),
+            {'#': 0, 'age': 6})
+
+        self.assertEqual(
+            (await client.query('iris.likes.filter(|v|isstr(v));')),
+            ['k3', 'swimming', 'red'])
+
+        self.assertEqual(
+            (await client.query('iris.likes.filter(|_v, i|(i > 1));')),
+            ['red', 6])
+
+        self.assertEqual((await client.query('iris.filter(||nil);')), {'#': 0})
+        self.assertEqual((await client.query('iris.likes.filter(||nil);')), [])
+
+    async def test_find(self, client):
+        await client.query(r'x = [42, "gallaxy"];')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `thing` has no function `find`'):
+            await client.query('find(||true);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `find` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('x.find();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `find` expects at most 2 arguments '
+                'but 3 were given'):
+            await client.query('x.find(||true, 2, 3);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `find` expects argument 1 to be a `closure` '
+                'but got type `int` instead'):
+            await client.query('x.find(0);')
+
+        self.assertEqual(await client.query('x.find(||true);'), 42)
+        self.assertEqual(await client.query('x.find(|v|(v==42));'), 42)
+        self.assertEqual(await client.query('x.find(|_,i|(i>=0));'), 42)
+        self.assertEqual(await client.query('x.find(|_,i|(i>=1));'), "gallaxy")
+        self.assertEqual(await client.query('x.find(||nil);'), None)
+        self.assertEqual(await client.query('x.find(||nil, 42);'), 42)
 
     async def test_remove(self, client):
         await client.query('list = [1, 2, 3];')
@@ -147,9 +287,38 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `remove` expects a `closure` '
+                'function `remove` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
             await client.query('list.remove(nil);')
+
+    async def test_startswith(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `startswith`'):
+            await client.query('nil.startswith("world!");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `startswith` takes 1 argument '
+                'but 2 were given'):
+            await client.query('"Hi World!".startswith("x", 2)')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `startswith` takes 1 argument '
+                'but 0 were given'):
+            await client.query('"Hi World!".startswith()')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `startswith` expects argument 1 to be of '
+                r'type `raw` but got type `list` instead'):
+            await client.query('"Hi World!".startswith([]);')
+
+        self.assertTrue(await client.query('"Hi World!".startswith("")'))
+        self.assertFalse(await client.query('"".startswith("!")'))
+        self.assertTrue(await client.query('"Hi World!".startswith("Hi")'))
+        self.assertFalse(await client.query('"Hi World!".startswith("hi")'))
 
 
 if __name__ == '__main__':

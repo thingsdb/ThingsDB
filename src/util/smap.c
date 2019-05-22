@@ -171,10 +171,15 @@ void * smap_getn(smap_t * smap, const char * key, size_t n)
 {
     size_t diff = 1;
     smap_node_t * nd;
-    uint8_t k = (uint8_t) *key;
-    uint8_t pos = k / SMAP_BSZ;
+    uint8_t k, pos;
 
-    if (!n || pos < smap->offset || pos >= smap->offset + smap->sz)
+    if (!n)
+        return NULL;
+
+    k = (uint8_t) *key;
+    pos = k / SMAP_BSZ;
+
+    if (pos < smap->offset || pos >= smap->offset + smap->sz)
         return NULL;
 
     nd = (*smap->nodes)[k - smap->offset * SMAP_BSZ];

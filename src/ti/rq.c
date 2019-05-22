@@ -223,7 +223,7 @@ static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `del_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -395,7 +395,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_collection` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -473,7 +473,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -505,7 +505,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         goto fail0;
     }
@@ -541,7 +541,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                 "function `new_node` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
             goto fail1;
         }
@@ -650,7 +650,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -665,7 +665,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_user` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         goto done;
     }
@@ -841,7 +841,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_collection` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -892,7 +892,7 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -916,7 +916,7 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_user` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -993,7 +993,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `replace_node` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s` instead",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1028,7 +1028,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `replace_node` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1060,7 +1060,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `replace_node` expects argument 3 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         goto fail0;
     }
@@ -1096,7 +1096,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                 "function `replace_node` expects argument 4 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
             goto fail1;
         }
@@ -1345,7 +1345,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_loglevel` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s` instead",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1397,7 +1397,7 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_password` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1422,7 +1422,7 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_password` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         goto done;
     }
@@ -1503,7 +1503,7 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `quota` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1523,7 +1523,7 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `quota` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` or "TI_VAL_NIL_S"` but got `%s` instead",
+            "type `"TI_VAL_INT_S"` or "TI_VAL_NIL_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1580,7 +1580,7 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_zone` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s` instead",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -1659,7 +1659,7 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
             ti_val_str(query->rval));
         return e->nr;
     }

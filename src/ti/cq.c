@@ -22,10 +22,10 @@
 #include <util/util.h>
 
 /*
- * Function:
+ * Functions:
  *  1. Test if the function is available in scope
  *  2. Test the number of arguments
- *
+ *  3. Lazy evaluate each argument
  */
 static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -459,11 +459,11 @@ static int cq__closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
-    int n = langdef_nd_n_function_params(nd);
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
     ti_vint_t * code;
 
-    if (n < 1)
+    if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` requires at least 1 argument but 0 "
@@ -471,18 +471,18 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (n > 3)
+    if (nargs > 3)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects at most 3 arguments but %d "
-                "were given", n);
+                "were given", nargs);
         return e->nr;
     }
 
     if (ti_cq_scope(query, child->node, e) || ti_val_as_bool(query->rval))
         return e->nr;
 
-    if (n == 1)
+    if (nargs == 1)
     {
         ex_set(e, EX_ASSERT_ERROR,
                 "assertion statement `%.*s` has failed",
@@ -501,7 +501,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 2 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -517,7 +517,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ex_setn(e, EX_ASSERT_ERROR, (const char *) msg->data, msg->n);
 
-    if (n == 2)
+    if (nargs == 2)
         return e->nr;
 
     child = child->next->next;
@@ -532,7 +532,8 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead", ti_val_str(query->rval));
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                ti_val_str(query->rval));
         return e->nr;
     }
 
@@ -573,7 +574,7 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `blob` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -616,14 +617,6 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (!thing->id)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `del` requires a thing to be assigned, "
-                "`del` should therefore be used in a separate statement");
-        goto done;
-    }
-
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int n = langdef_nd_n_function_params(nd);
@@ -632,10 +625,19 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `del` can only be used on things with an id > 0; "
+                "(things which are assigned automatically receive an id)");
+        goto done;
+    }
+
     if (ti_scope_in_use_thing(query->scope->prev, thing))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use `del` while thing "TI_THING_ID" is in use");
+                "cannot use `del` while thing "TI_THING_ID" is in use",
+                thing->id);
         goto done;
     }
 
@@ -648,7 +650,7 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -724,7 +726,7 @@ static int cq__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `endswith` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -772,8 +774,8 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `filter` expects a `"TI_VAL_CLOSURE_S"` "
-                "but got type `%s` instead",
+                "function `filter` expects argument 1 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto failed;
     }
@@ -874,35 +876,33 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    _Bool found;
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
+    int64_t idx = 0;
     ti_closure_t * closure = NULL;
-    ti_val_t * iterval = ti_query_val_pop(query);
+    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
 
-    if (iterval->tp != TI_VAL_ARR && iterval->tp != TI_VAL_THING)
+    if (!ti_val_is_array((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `find`",
-                ti_val_str(iterval));
-        return e->nr;
+                ti_val_str((ti_val_t *) varr));
+        goto failed;
     }
 
-    n = langdef_nd_n_function_params(nd);
-
-    if (n < 1)
+    if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `find` requires at least 1 argument but 0 "
                 "were given");
-        return e->nr;
+        goto failed;
     }
 
-    if (n > 2)
+    if (nargs > 2)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `find` expects at most 2 arguments but %d "
-                "were given", n);
-        return e->nr;
+                "were given", nargs);
+        goto failed;
     }
 
     if (ti_cq_scope(query, nd->children->node, e))
@@ -914,8 +914,8 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `find` expects a `"TI_VAL_CLOSURE_S"` "
-                "but got type `%s` instead",
+                "function `find` expects argument 1 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto failed;
     }
@@ -923,57 +923,31 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_scope_local_from_closure(query->scope, closure, e))
         goto failed;
 
-    switch (iterval->tp)
+    for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
-    case TI_VAL_THING:
-        for (vec_each(((ti_thing_t *) iterval)->props, ti_prop_t, p))
+        _Bool found;
+
+        if (ti_scope_polute_val(query->scope, v, idx))
+            goto failed;
+
+        if (cq__optscope(query, ti_closure_scope_nd(closure), e))
+            goto failed;
+
+        found = ti_val_as_bool(query->rval);
+        ti_val_drop(query->rval);
+
+        if (found)
         {
-            if (ti_scope_polute_prop(query->scope, p))
-                goto failed;
-
-            if (cq__optscope(query, ti_closure_scope_nd(closure), e))
-                goto failed;
-
-            found = ti_val_as_bool(query->rval);
-            ti_val_drop(query->rval);
-
-            if (found)
-            {
-                query->rval = p->val;
-                p->val = NULL;
-                goto done;
-            }
-            query->rval = NULL;
+            query->rval = v;
+            ti_incref(v);
+            goto done;
         }
-        break;
-    case TI_VAL_ARR:
-    {
-        int64_t idx = 0;
-        for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
-        {
-            if (ti_scope_polute_val(query->scope, v, idx))
-                goto failed;
 
-            if (cq__optscope(query, ti_closure_scope_nd(closure), e))
-                goto failed;
-
-            found = ti_val_as_bool(query->rval);
-            ti_val_drop(query->rval);
-
-            if (found)
-            {
-                query->rval = v;
-                ti_incref(v);
-                goto done;
-            }
-            query->rval = NULL;
-        }
-        break;
-    }
+        query->rval = NULL;
     }
 
     assert (query->rval == NULL);
-    if (n == 2)
+    if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */
         if (ti_cq_scope(query, nd->children->next->next->node, e))
@@ -992,7 +966,8 @@ failed:
 
 done:
     ti_val_drop((ti_val_t *) closure);
-    ti_val_drop(iterval);
+    ti_val_drop((ti_val_t *) varr);
+
     return e->nr;
 }
 
@@ -1030,8 +1005,8 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `findindex` expects a `"TI_VAL_CLOSURE_S"` "
-                "but got type `%s` instead",
+                "function `findindex` expects argument 1 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto done;
     }
@@ -1108,7 +1083,7 @@ static int cq__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `hasprop` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -1641,8 +1616,8 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `map` expects a `"TI_VAL_CLOSURE_S"` "
-                "but got type `%s` instead",
+                "function `map` expects argument 1 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto failed;
     }
@@ -1807,7 +1782,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
     _Bool from_scope = !query->rval;
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
@@ -1821,8 +1796,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    n = langdef_nd_n_function_params(nd);
-    if (!n)
+    if (!nargs)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least 1 argument but 0 "
@@ -1838,7 +1812,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     current_n = varr->vec->n;
-    new_n = current_n + n;
+    new_n = current_n + nargs;
 
     if (new_n >= query->target->quota->max_array_size)
     {
@@ -1887,7 +1861,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 varr,
                 current_n,
                 0,
-                n))
+                nargs))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
@@ -1948,7 +1922,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     _Bool from_scope = !query->rval;
     _Bool found;
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_closure_t * closure = NULL;
     ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
@@ -1961,9 +1935,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    n = langdef_nd_n_function_params(nd);
-
-    if (n < 1)
+    if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` requires at least 1 argument but 0 "
@@ -1971,11 +1943,11 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (n > 2)
+    if (nargs > 2)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` expects at most 2 arguments but %d "
-                "were given", n);
+                "were given", nargs);
         goto done;
     }
 
@@ -1995,8 +1967,8 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (closure->tp != TI_VAL_CLOSURE)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `remove` expects a `"TI_VAL_CLOSURE_S"` "
-                "but got type `%s` instead",
+                "function `remove` expects argument 1 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
                 ti_val_str((ti_val_t *) closure));
         goto done;
     }
@@ -2049,7 +2021,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     assert (query->rval == NULL);
 
-    if (n == 2)
+    if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */
         (void) ti_cq_scope(query, nd->children->next->next->node, e);
@@ -2071,7 +2043,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
     cleri_node_t * from_nd, * to_nd;
     ti_raw_t * from_raw = NULL;
@@ -2097,12 +2069,11 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    n = langdef_nd_n_function_params(nd);
-    if (n != 2)
+    if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `rename` expects 2 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                nargs, nargs == 1 ? "was" : "were");
         goto done;
     }
 
@@ -2126,7 +2097,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `rename` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -2168,7 +2139,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "function `rename` expects argument 2 to be of "
-                    "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                    "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                     ti_val_str(query->rval));
         }
         goto done;
@@ -2279,7 +2250,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2296,7 +2267,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2442,7 +2413,7 @@ static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `startswith` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2509,7 +2480,7 @@ static int cq__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `test` expects argument 1 to be "
-                "of type `"TI_VAL_REGEX_S"` but got `%s` instead",
+                "of type `"TI_VAL_REGEX_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         goto done;
     }
@@ -2528,12 +2499,11 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_varr_t * varr = NULL;
     cleri_children_t * child = nd->children;    /* first in argument list */
 
-    n = langdef_nd_n_function_params(nd);
-    if (!n)
+    if (!nargs)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `t` requires at least 1 argument but 0 "
@@ -2579,7 +2549,7 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             if (!child->next)
             {
-                assert (n == 1);
+                assert (nargs == 1);
                 ti_incref(thing);
                 query->rval = (ti_val_t *) thing;
                 if (ti_scope_push_thing(&query->scope, thing))
@@ -2588,7 +2558,7 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr; /* only one thing, no array */
             }
 
-            varr = ti_varr_create(n);
+            varr = ti_varr_create(nargs);
             if (!varr)
             {
                 ex_set_alloc(e);
@@ -2621,11 +2591,11 @@ static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     cleri_children_t * child = nd->children;    /* first in argument list */
-    int n = langdef_nd_n_function_params(nd);
+    const int nargs = langdef_nd_n_function_params(nd);
     ex_enum errnr;
     cleri_node_t * alt_node;
 
-    if (n < 1)
+    if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `try` requires at least 1 argument but 0 "
@@ -2641,7 +2611,7 @@ static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     e->nr = 0;
 
-    if (n == 1)
+    if (nargs == 1)
     {
         query->rval = (ti_val_t *) ti_nil_get();
         return 0;
@@ -2651,7 +2621,7 @@ static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     child = child->next->next;
     alt_node = child->node;
 
-    if (n == 2)
+    if (nargs == 2)
         goto returnalt;
 
     for (child = child->next->next; child; child = child->next->next)
@@ -2904,7 +2874,7 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "expecting an index to be of "
-                    "type `"TI_VAL_INT_S"` but got `%s` instead",
+                    "type `"TI_VAL_INT_S"` but got type `%s` instead",
                     ti_val_str(query->rval));
             return e->nr;
         }

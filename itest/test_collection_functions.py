@@ -6,9 +6,10 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.target import Target
-from thingsdb.exceptions import IndexError
-from thingsdb.exceptions import BadRequestError
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import BadRequestError
+from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import OverflowError
 
 
 class TestCollectionFunctions(TestBase):
@@ -42,7 +43,7 @@ class TestCollectionFunctions(TestBase):
         else:
             raise Exception('AssertionError not raised')
 
-        self.assertEqual((await client.query('assert((2>1)); 42;')), 42)
+        self.assertEqual(await client.query('assert((2>1)); 42;'), 42)
 
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -83,9 +84,9 @@ class TestCollectionFunctions(TestBase):
             await client.query('assert(false, "msg", 0);')
 
     async def test_blob(self, client):
-        self.assertEqual((await client.query(
+        self.assertEqual(await client.query(
             'objects = [blob(0), blob(1)]; nil;',
-            blobs=(pickle.dumps({}), pickle.dumps([])))), None)
+            blobs=(pickle.dumps({}), pickle.dumps([]))), None)
 
         d, a = await client.query('objects;')
         self.assertTrue(isinstance(pickle.loads(d), dict))
@@ -147,8 +148,8 @@ class TestCollectionFunctions(TestBase):
                 r'thing `#\d+` has no property `x`'):
             await client.query(' del("x");')
 
-        self.assertEqual((await client.query(r'del("greet");')), None)
-        self.assertEqual((await client.query(r'hasprop("greet");')), False)
+        self.assertEqual(await client.query(r'del("greet");'), None)
+        self.assertEqual(await client.query(r'hasprop("greet");'), False)
 
     async def test_endswith(self, client):
         with self.assertRaisesRegex(
@@ -212,8 +213,8 @@ class TestCollectionFunctions(TestBase):
             (await client.query('iris.likes.filter(|_v, i|(i > 1));')),
             ['red', 6])
 
-        self.assertEqual((await client.query('iris.filter(||nil);')), {'#': 0})
-        self.assertEqual((await client.query('iris.likes.filter(||nil);')), [])
+        self.assertEqual(await client.query('iris.filter(||nil);'), {'#': 0})
+        self.assertEqual(await client.query('iris.likes.filter(||nil);'), [])
 
     async def test_find(self, client):
         await client.query(r'x = [42, "gallaxy"];')
@@ -241,6 +242,8 @@ class TestCollectionFunctions(TestBase):
                 'but got type `int` instead'):
             await client.query('x.find(0);')
 
+        self.assertEqual(await client.query('[].find(||true);'), None)
+        self.assertEqual(await client.query('[].find(||false);'), None)
         self.assertEqual(await client.query('x.find(||true);'), 42)
         self.assertEqual(await client.query('x.find(|v|(v==42));'), 42)
         self.assertEqual(await client.query('x.find(|_,i|(i>=0));'), 42)
@@ -248,15 +251,160 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x.find(||nil);'), None)
         self.assertEqual(await client.query('x.find(||nil, 42);'), 42)
 
+    async def test_findindex(self, client):
+        await client.query(r'x = [42, ""];')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `thing` has no function `findindex`'):
+            await client.query('findindex(||true);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `findindex` takes 1 argument but 2 were given'):
+            await client.query('x.findindex(0, 1);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `findindex` expects argument 1 to be a `closure` '
+                'but got type `bool` instead'):
+            await client.query('x.findindex(true);')
+
+        self.assertEqual(await client.query('[].findindex(||true);'), None)
+        self.assertEqual(await client.query('[].findindex(||false);'), None)
+        self.assertEqual(await client.query('x.findindex(||true);'), 0)
+        self.assertEqual(await client.query('x.findindex(||false);'), None)
+        self.assertEqual(await client.query('x.findindex(|_,i|(i>0));'), 1)
+        self.assertEqual(await client.query('x.findindex(|v|(v==42));'), 0)
+        self.assertEqual(await client.query('x.findindex(|v|isstr(v));'), 1)
+
+    async def test_hasprop(self, client):
+        await client.query(r'x = 0.0;')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `float` has no function `hasprop`'):
+            await client.query('x.hasprop("x");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `hasprop` takes 1 argument but 0 were given'):
+            await client.query('hasprop();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `hasprop` expects argument 1 to be of '
+                r'type `raw` but got type `int` instead'):
+            await client.query('hasprop(id());')
+
+        self.assertTrue(await client.query('hasprop("x");'))
+        self.assertFalse(await client.query('hasprop("y");'))
+
+    async def test_id(self, client):
+        o = await client.query(r'o = {};')
+        self.assertTrue(isinstance(o['#'], int))
+        self.assertGreater(o['#'], 0)
+        self.assertEqual(await client.query(r'o.id();'), o['#'])
+        self.assertEqual(await client.query(r'{}.id();'), 0)
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `id`'):
+            await client.query('nil.id();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `id` takes 0 arguments but 1 was given'):
+            await client.query('id(nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `id` takes 0 arguments but 2 were given'):
+            await client.query('id(nil, nil);')
+
+    async def test_indexof(self, client):
+        await client.query(r'x = [42, "thingsdb", t(id()), 42, false, nil];')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `thing` has no function `indexof`'):
+            await client.query('indexof("x");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `indexof` takes 1 argument but 0 were given'):
+            await client.query('x.indexof();')
+
+        self.assertEqual(await client.query('x.indexof(42);'), 0)
+        self.assertEqual(await client.query('x.indexof("thingsdb");'), 1)
+        self.assertEqual(await client.query('x.indexof(t(id()));'), 2)
+        self.assertEqual(await client.query('x.indexof(false);'), 4)
+        self.assertEqual(await client.query('x.indexof(nil);'), 5)
+        self.assertEqual(await client.query('x.indexof(42.1);'), None)
+        self.assertEqual(await client.query('x.indexof("ThingsDb");'), None)
+        self.assertEqual(await client.query('x.indexof(true);'), None)
+        self.assertEqual(await client.query(r'x.indexof({});'), None)
+
+    async def test_int(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `int`'):
+            await client.query('nil.int();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `int` takes 1 argument but 0 were given'):
+            await client.query('int();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `regex` to `int`'):
+            await client.query('int(/.*/);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to `int`'):
+            await client.query('int(nil);')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('int("0x8000000000000000");')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('int("-0x8000000000000001");')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('int(9223372036854775808.314);')
+
+        self.assertEqual(
+            await client.query('int("0x7fffffffffffffff");'),
+            0x7fffffffffffffff)
+        self.assertEqual(
+            await client.query('int("-0x8000000000000000");'),
+            -0x8000000000000000)
+        self.assertEqual(await client.query('int(3.14);'), 3)
+        self.assertEqual(await client.query('int(-3.14);'), -3)
+        self.assertEqual(await client.query('int(42.9);'), 42)
+        self.assertEqual(await client.query('int(-42.9);'), -42)
+        self.assertEqual(await client.query('int(true);'), 1)
+        self.assertEqual(await client.query('int(false);'), 0)
+        self.assertEqual(await client.query('int("3.14");'), 3)
+        self.assertEqual(await client.query('int("-3.14");'), -3)
+
     async def test_remove(self, client):
         await client.query('list = [1, 2, 3];')
-        self.assertEqual((await client.query('list.remove(|x|(x>1));')), 2)
-        self.assertEqual((await client.query('list.remove(|x|(x>1));')), 3)
-        self.assertEqual((await client.query('list;')), [1])
-        self.assertEqual((await client.query('list.remove(||false);')), None)
-        self.assertEqual((await client.query('list.remove(||false, "");')), '')
-        self.assertEqual((await client.query('[].remove(||true);')), None)
-        self.assertEqual((await client.query('["pi"].remove(||true);')), 'pi')
+        self.assertEqual(await client.query('list.remove(|x|(x>1));'), 2)
+        self.assertEqual(await client.query('list.remove(|x|(x>1));'), 3)
+        self.assertEqual(await client.query('list;'), [1])
+        self.assertEqual(await client.query('list.remove(||false);'), None)
+        self.assertEqual(await client.query('list.remove(||false, "");'), '')
+        self.assertEqual(await client.query('[].remove(||true);'), None)
+        self.assertEqual(await client.query('["pi"].remove(||true);'), 'pi')
 
         with self.assertRaisesRegex(
                 IndexError,

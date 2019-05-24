@@ -433,9 +433,8 @@ static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!val)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "property `%.*s` on thing "TI_THING_ID" is undefined",
-                (int) nd->len, nd->str,
-                thing->id);
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id, (int) nd->len, nd->str);
         return e->nr;
     }
 
@@ -474,7 +473,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs > 3)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `assert` expects at most 3 arguments but %d "
+                "function `assert` takes at most 3 arguments but %d "
                 "were given", nargs);
         return e->nr;
     }
@@ -900,7 +899,7 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs > 2)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `find` expects at most 2 arguments but %d "
+                "function `find` takes at most 2 arguments but %d "
                 "were given", nargs);
         goto failed;
     }
@@ -1946,7 +1945,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs > 2)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `remove` expects at most 2 arguments but %d "
+                "function `remove` takes at most 2 arguments but %d "
                 "were given", nargs);
         goto done;
     }
@@ -2056,24 +2055,24 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `del`",
+                "type `%s` has no function `rename`",
                 ti_val_str((ti_val_t *) thing));
-        goto done;
-    }
-
-    if (!thing->id)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `rename` requires a thing to be assigned, "
-                "`del` should therefore be used in a separate statement");
         goto done;
     }
 
     if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `rename` expects 2 arguments but %d %s given",
+                "function `rename` takes 2 arguments but %d %s given",
                 nargs, nargs == 1 ? "was" : "were");
+        goto done;
+    }
+
+    if (!thing->id)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `rename` can only be used on things with an id > 0; "
+                "(things which are assigned automatically receive an id)");
         goto done;
     }
 
@@ -2108,7 +2107,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     from_name = ti_names_weak_get((const char *) from_raw->data, from_raw->n);
     if (!from_name)
     {
-        if (!ti_val_is_valid_name(query->rval))
+        if (!ti_name_is_valid_strn((const char *) from_raw->data, from_raw->n))
         {
             ex_set(e, EX_BAD_DATA,
                     "function `rename` expects argument 1 to be a valid name, "
@@ -2275,10 +2274,13 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     c = ((ti_vint_t *) query->rval)->int_;
     current_n = varr->vec->n;
 
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
     if (i < 0)
         i += current_n;
 
-    i = i < 0 ? 0 : (i > current_n ? current_n : i);
+    i = i < 0 ? (c += i) && 0 : (i > current_n ? current_n : i);
     n -= 2;
     c = c < 0 ? 0 : (c > current_n - i ? current_n - i : c);
     new_n = current_n + n - c;
@@ -3136,8 +3138,8 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     // TODO: why was this code here? and why not in chain_name?
-//    ti_val_drop(query->rval);
-//    query->rval = NULL;
+    //    ti_val_drop(query->rval);
+    //    query->rval = NULL;
 
     if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);

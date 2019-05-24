@@ -653,7 +653,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
             ex_set_alloc(e);
         break;
     case TI_VAL_ARR:
-        if (ti_varr_to_list(val))
+        if (ti_varr_to_list((ti_varr_t **) val))
             ex_set_alloc(e);
         break;
     }

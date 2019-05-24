@@ -93,9 +93,14 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 _Bool ti_varr_has_things(ti_varr_t * varr)
 {
     if (ti_varr_may_have_things(varr))
+    {
         for (vec_each(varr->vec, ti_val_t, val))
             if (val->tp == TI_VAL_THING)
                 return true;
+
+        /* Remove the flag since no `things` are found in the array */
+        varr->flags &= ~TI_ARR_FLAG_THINGS;
+    }
     return false;
 }
 
@@ -105,8 +110,8 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     if (list->ref == 1)
     {
-        LOGC("MOVE LIST");
-        /* this can never happen to a tuple */
+        /* This can never happen to a tuple since a tuple is always nested
+         * and therefore always has more than one reference */
         assert (~list->flags & TI_ARR_FLAG_TUPLE);
         return 0;
     }

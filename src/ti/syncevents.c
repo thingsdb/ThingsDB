@@ -1,5 +1,4 @@
-/*
- * ti/syncevents.c
+/* ti/syncevents.c
  */
 #include <assert.h>
 #include <ti/proto.h>
@@ -32,31 +31,30 @@ static int syncevents__send(ti_stream_t * stream, ti_epkg_t * epkg)
         free(pkg);
         return -1;
     }
+
+    log_debug(
+            "synchronizing "TI_EVENT_ID" to `%s`",
+            epkg->event_id,
+            ti_stream_name(stream));
+
     return 0;
 }
 
-/*
- * Returns 1 if the given `event_id` is not found and 0 if it is found
- * and a request is successfully made. In case of an error, -1
- * will be the return value.
+/* Returns 1 if no package with at least the given `event_id` is not found.
+ * and 0 if an event with at least the requested event_id is found and
+ * successfully send to the stream.
+ * A request with a higher id might be send when there is a gap in the
+ * event list.
+ * In case of an error, -1 will be the return value.
  */
 int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
 {
     queue_t * events_queue = ti()->archive->queue;
 
     for (queue_each(events_queue, ti_epkg_t, epkg))
-    {
-        if (epkg->event_id == event_id)
-        {
-            log_debug(
-                    "synchronizing "TI_EVENT_ID" to `%s`",
-                    event_id,
-                    ti_stream_name(stream));
+        if (epkg->event_id >= event_id)
             return syncevents__send(stream, epkg);
-        }
-    }
 
-    events_queue = ti()->events->queue;
     return 1;
 }
 
@@ -74,7 +72,9 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-    next_event_id = epkg->event_id + 1;
+    next_event_id = epkg->event_id;
+    ti_events_set_next_missing_id(&next_event_id);
+    assert (next_event_id > epkg->event_id);
 
     rc = ti_events_add_event(ti()->node, epkg);
     ti_epkg_drop(epkg);
@@ -149,7 +149,7 @@ static void syncevents__push_cb(ti_req_t * req, ex_enum status)
 
     next_event_id = (uint64_t) qp_event_id.via.int64;
 
-    rc = ti_syncevents_init(req->stream, next_event_id);
+    rc = next_event_id ? ti_syncevents_init(req->stream, next_event_id) : 1;
     if (rc < 0)
     {
         log_error(

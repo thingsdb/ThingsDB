@@ -289,6 +289,24 @@ _Bool ti_events_slave_req(ti_node_t * node, uint64_t event_id)
     return false;
 }
 
+/* Sets the next missing event id, at least higher than the given event_id.
+ *
+ */
+void ti_events_set_next_missing_id(uint64_t * event_id)
+{
+    for (queue_each(events->queue, ti_event_t, ev))
+    {
+        if (ev->id <= *event_id)
+            continue;
+
+        if (ev->id == ++(*event_id))
+            continue;
+
+        return;
+    }
+    ++(*event_id);
+}
+
 static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)

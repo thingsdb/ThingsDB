@@ -1335,8 +1335,8 @@ static int cq__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     default:
         ex_set(e, EX_BAD_DATA,
-                "function `isinf` expects an `"TI_VAL_FLOAT_S"` "
-                "but got type `%s` instead",
+                "function `isinf` expects argument 1 to be of "
+                "type `"TI_VAL_FLOAT_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }

@@ -449,8 +449,6 @@ static size_t away__syncers(void)
                 continue;
             }
 
-
-
             rc = ti_syncarchive_init(syncer->stream, syncer->first);
             if (rc > 0)
             {

@@ -396,6 +396,100 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int("3.14");'), 3)
         self.assertEqual(await client.query('int("-3.14");'), -3)
 
+    async def test_isarray(self, client):
+        await client.query('x = [[0, 1], nil];')
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isarray` takes 1 argument but 0 were given'):
+            await client.query('isarray();')
+
+        self.assertTrue(await client.query('isarray([]);'))
+        self.assertTrue(await client.query('isarray(x);'))
+        self.assertTrue(await client.query('isarray(x[0]);'))
+        self.assertFalse(await client.query('isarray(0);'))
+        self.assertFalse(await client.query('isarray("test");'))
+        self.assertFalse(await client.query(r'isarray({});'))
+        self.assertFalse(await client.query('isarray(x[1]);'))
+
+    async def test_isascii(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isascii` takes 1 argument but 0 were given'):
+            await client.query('isascii();')
+
+        self.assertTrue(await client.query('isascii( "pi" ); '))
+        self.assertTrue(await client.query('isascii( "" ); '))
+        self.assertFalse(await client.query('isascii( "ԉ" ); '))
+        self.assertFalse(await client.query('isascii([]);'))
+        self.assertFalse(await client.query('isascii(nil);'))
+        self.assertFalse(await client.query(
+                'isascii(blob(0));',
+                blobs=(pickle.dumps('binary'), )))
+
+    async def test_isbool(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isbool` takes 1 argument but 3 were given'):
+            await client.query('isbool(1, 2, 3);')
+
+        self.assertTrue(await client.query('isbool( true ); '))
+        self.assertTrue(await client.query('isbool( false ); '))
+        self.assertTrue(await client.query('isbool( isint(id()) ); '))
+        self.assertFalse(await client.query('isbool( "ԉ" ); '))
+        self.assertFalse(await client.query('isbool([]);'))
+        self.assertFalse(await client.query('isbool(nil);'))
+
+    async def test_isfloat(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isfloat` takes 1 argument but 0 were given'):
+            await client.query('isfloat();')
+
+        self.assertTrue(await client.query('isfloat( 0.0 ); '))
+        self.assertTrue(await client.query('isfloat( -0.0 ); '))
+        self.assertTrue(await client.query('isfloat( inf ); '))
+        self.assertTrue(await client.query('isfloat( -inf ); '))
+        self.assertTrue(await client.query('isfloat( nan ); '))
+        self.assertFalse(await client.query('isfloat( "ԉ" ); '))
+        self.assertFalse(await client.query('isfloat( 42 );'))
+        self.assertFalse(await client.query('isfloat( nil );'))
+
+    async def test_isinf(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isinf` takes 1 argument but 0 were given'):
+            await client.query('isinf();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isinf` expects argument 1 to be of '
+                'type `float` but got type `nil` instead'):
+            await client.query('isinf(nil);')
+
+        self.assertTrue(await client.query('isinf( inf ); '))
+        self.assertTrue(await client.query('isinf( -inf ); '))
+        self.assertFalse(await client.query('isinf( 0.0 ); '))
+        self.assertFalse(await client.query('isinf( nan ); '))
+        self.assertFalse(await client.query('isinf( 42 ); '))
+        self.assertFalse(await client.query('isinf( true ); '))
+
+    async def test_isutf8(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isutf8` takes 1 argument but 0 were given'):
+            await client.query('isutf8();')
+
+        self.assertTrue(await client.query('isutf8( "pi" ); '))
+        self.assertTrue(await client.query('isutf8( "" ); '))
+        self.assertTrue(await client.query('isutf8( "ԉ" ); '))
+        self.assertTrue(await client.query('isstr( "ԉ" ); '))  # alias isstr
+        self.assertFalse(await client.query('isutf8([]);'))
+        self.assertFalse(await client.query('isutf8(nil);'))
+        self.assertFalse(await client.query('isstr(123);'))  # alias isstr
+        self.assertFalse(await client.query(
+                'isutf8(blob(0));',
+                blobs=(pickle.dumps('binary'), )))
+
     async def test_remove(self, client):
         await client.query('list = [1, 2, 3];')
         self.assertEqual(await client.query('list.remove(|x|(x>1));'), 2)

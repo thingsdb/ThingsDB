@@ -13,6 +13,7 @@
 static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
 static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
 static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
+static int syncarchive__init(ti_stream_t * stream, ti_archfile_t * archfile);
 
 /*
  * Returns 1 if no archive file is found for the given `event_id` and 0 if
@@ -22,34 +23,32 @@ static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
 int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
 {
     vec_t * archfiles = ti()->archive->archfiles;
+    ti_archfile_t * closest = NULL;
+    size_t closest_gap = SIZE_MAX;
 
     for (vec_each(archfiles, ti_archfile_t, archfile))
     {
         if (event_id >= archfile->first && event_id <= archfile->last)
         {
-            ti_pkg_t * pkg = syncarchive__pkg(archfile, 0 /* offset */);
-            if (!pkg)
-                return -1;
-
-            if (ti_req_create(
-                    stream,
-                    pkg,
-                    TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT,
-                    syncarchive__push_cb,
-                    NULL))
+            return syncarchive__init(stream, archfile);
+        }
+        else if (event_id < archfile->first)
+        {
+            /*
+             * If the given event_id is not found, but an archive with
+             * higher id exists, then we have a gap and should synchronize
+             * the closest available.
+             */
+            size_t diff = archfile->first - event_id;
+            if (diff < closest_gap)
             {
-                free(pkg);
-                return -1;
+                closest_gap = diff;
+                closest = archfile;
             }
-            log_debug(
-                    "synchronizing archive with "TI_EVENT_ID" to `%s`",
-                    event_id,
-                    ti_stream_name(stream));
-            return 0;
         }
     }
 
-    return 1;
+    return closest ? syncarchive__init(stream, closest) : 1;
 }
 
 ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
@@ -305,4 +304,28 @@ static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
     ti_req_destroy(req);
 }
 
+static int syncarchive__init(ti_stream_t * stream, ti_archfile_t * archfile)
+{
+    ti_pkg_t * pkg = syncarchive__pkg(archfile, 0 /* offset */);
+    if (!pkg)
+        return -1;
 
+    if (ti_req_create(
+            stream,
+            pkg,
+            TI_PROTO_NODE_REQ_SYNCAPART_TIMEOUT,
+            syncarchive__push_cb,
+            NULL))
+    {
+        free(pkg);
+        return -1;
+    }
+
+    log_debug(
+            "synchronizing archive ("TI_EVENT_ID"-"TI_EVENT_ID") to `%s`",
+            archfile->first,
+            archfile->last,
+            ti_stream_name(stream));
+
+    return 0;
+}

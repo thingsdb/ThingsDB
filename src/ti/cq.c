@@ -327,7 +327,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_opr_a_to_b(left_val, assign_nd, &query->rval, e))
             goto fail1;
     }
-    else if (ti_val_make_assignable(query->rval, e))
+    else if (ti_val_make_assignable(&query->rval, e))
         goto fail1;
 
     if (thing->id)
@@ -3317,8 +3317,6 @@ static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
             goto failed;
     }
-    else if (ti_val_make_assignable(query->rval, e))
-        goto failed;
 
     if (prop)
     {

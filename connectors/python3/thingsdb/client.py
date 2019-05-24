@@ -263,7 +263,7 @@ class Client(WatchMixin, Root):
         target = self._get_target_instance(target)
         data = {
             'things': [t if isinstance(t, int) else t._id for t in things],
-            'target': target._target
+            'collection': target._target
         } if target.is_collection() else None
         return self._write_package(REQ_WATCH, data, timeout=timeout)
 
@@ -271,7 +271,7 @@ class Client(WatchMixin, Root):
         target = self._get_target_instance(target)
         data = {
             'things': [t if isinstance(t, int) else t._id for t in things],
-            'target': target._target
+            'collection': target._target
         } if target.is_collection() else None
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 

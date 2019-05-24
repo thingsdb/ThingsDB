@@ -62,6 +62,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
+        log_warning("watch request must be a map");
         ex_set(e, EX_BAD_DATA, ebad);
         goto finish;
     }
@@ -72,6 +73,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         {
             if (wareq->target)
             {
+                log_warning("double `collection` key in watch request");
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
             }
@@ -91,6 +93,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
             if (wareq->thing_ids || !qp_is_array(tp))
             {
+                log_warning("double `things` or not an array in watch request");
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
             }
@@ -126,15 +129,16 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             continue;
         }
 
-        if (!qp_is_map(qp_next(&unpacker, NULL)))
-        {
-            ex_set(e, EX_BAD_DATA, ebad);
-            goto finish;
-        }
+        log_debug(
+                "unexpected watch key in map: `%.*s`",
+                key.len, (const char *) key.via.raw);
     }
 
     if (!!wareq->target ^ !!wareq->thing_ids)
+    {
+        log_warning("missing `things` or `collection` in watch request");
         ex_set(e, EX_BAD_DATA, ebad);
+    }
 
 finish:
     return e->nr;

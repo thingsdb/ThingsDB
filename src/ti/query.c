@@ -40,7 +40,7 @@ static int query__node_db_unpack(
         size_t n,
         ex_t * e);
 
-ti_query_t * ti_query_create(ti_stream_t * stream)
+ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
 {
     ti_query_t * query = malloc(sizeof(ti_query_t));
     if (!query)
@@ -53,6 +53,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream)
     query->target = NULL;  /* root */
     query->parseres = NULL;
     query->stream = ti_grab(stream);
+    query->user = ti_grab(user);
     query->results = NULL;
     query->ev = NULL;
     query->blobs = NULL;
@@ -76,6 +77,7 @@ void ti_query_destroy(ti_query_t * query)
     vec_destroy(query->results, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
+    ti_user_drop(query->user);
     ti_collection_drop(query->target);
     ti_event_drop(query->ev);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
@@ -239,11 +241,9 @@ int ti_query_collection_unpack(
             continue;
         }
 
-        if (!qp_is_map(qp_next(&unpacker, NULL)))
-        {
-            ex_set(e, EX_BAD_DATA, ebad);
-            goto finish;
-        }
+        log_debug(
+                "unexpected `query-collection` key in map: `%.*s`",
+                key.len, (const char *) key.via.raw);
     }
 
     if (!query->querystr || !query->target)
@@ -844,11 +844,9 @@ static int query__node_db_unpack(
             continue;
         }
 
-        if (!qp_is_map(qp_next(&unpacker, NULL)))
-        {
-            ex_set(e, EX_BAD_DATA, ebad);
-            goto finish;
-        }
+        log_debug(
+                "unexpected `query` key in map: `%.*s`",
+                key.len, (const char *) key.via.raw);
     }
 
     if (!query->querystr)

@@ -397,7 +397,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int("-3.14");'), -3)
 
     async def test_isarray(self, client):
-        await client.query('x = [[0, 1], nil];')
+        await client.query('x = [[0, 1], nil]; y = x[0];')
         with self.assertRaisesRegex(
                 BadRequestError,
                 'function `isarray` takes 1 argument but 0 were given'):
@@ -405,6 +405,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertTrue(await client.query('isarray([]);'))
         self.assertTrue(await client.query('isarray(x);'))
+        self.assertTrue(await client.query('isarray(y);'))
         self.assertTrue(await client.query('isarray(x[0]);'))
         self.assertFalse(await client.query('isarray(0);'))
         self.assertFalse(await client.query('isarray("test");'))
@@ -473,6 +474,69 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isinf( 42 ); '))
         self.assertFalse(await client.query('isinf( true ); '))
 
+    async def test_islist(self, client):
+        await client.query('x = [[0, 1], nil]; y = x[0];')
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `islist` takes 1 argument but 0 were given'):
+            await client.query('islist();')
+
+        self.assertTrue(await client.query('islist([]);'))
+        self.assertTrue(await client.query('islist(x);'))
+        self.assertTrue(await client.query('islist(y);'))
+        self.assertFalse(await client.query('islist(x[0]);'))
+        self.assertFalse(await client.query('islist(0);'))
+        self.assertFalse(await client.query('islist("test");'))
+        self.assertFalse(await client.query(r'islist({});'))
+        self.assertFalse(await client.query('islist(x[1]);'))
+
+    async def test_isnan(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isnan` takes 1 argument but 0 were given'):
+            await client.query('isnan();')
+
+        self.assertFalse(await client.query('isnan( inf ); '))
+        self.assertFalse(await client.query('isnan( -inf ); '))
+        self.assertFalse(await client.query('isnan( 3.14 ); '))
+        self.assertFalse(await client.query('isnan( 42 ); '))
+        self.assertFalse(await client.query('isnan( true ); '))
+        self.assertTrue(await client.query('isnan( nan ); '))
+        self.assertTrue(await client.query('isnan( [] ); '))
+        self.assertTrue(await client.query(r'isnan( {} ); '))
+        self.assertTrue(await client.query('isnan( "3" ); '))
+
+    async def test_israw(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `israw` takes 1 argument but 0 were given'):
+            await client.query('israw();')
+
+        self.assertTrue(await client.query('israw( "pi" ); '))
+        self.assertTrue(await client.query('israw( "" ); '))
+        self.assertTrue(await client.query('israw( "ԉ" ); '))
+        self.assertFalse(await client.query('israw([]);'))
+        self.assertFalse(await client.query('israw(nil);'))
+        self.assertTrue(await client.query(
+                'israw(blob(0));',
+                blobs=(pickle.dumps('binary'), )))
+
+    async def test_istuple(self, client):
+        await client.query('x = [[0, 1], nil]; y = x[0];')
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `istuple` takes 1 argument but 0 were given'):
+            await client.query('istuple();')
+
+        self.assertFalse(await client.query('istuple([]);'))
+        self.assertFalse(await client.query('istuple(x);'))
+        self.assertFalse(await client.query('istuple(y);'))
+        self.assertTrue(await client.query('istuple(x[0]);'))
+        self.assertFalse(await client.query('istuple(0);'))
+        self.assertFalse(await client.query('istuple("test");'))
+        self.assertFalse(await client.query(r'istuple({});'))
+        self.assertFalse(await client.query('istuple(x[1]);'))
+
     async def test_isutf8(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -489,6 +553,75 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(
                 'isutf8(blob(0));',
                 blobs=(pickle.dumps('binary'), )))
+
+    async def test_len(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `len`'):
+            await client.query('nil.len();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `len` takes 0 arguments but 1 was given'):
+            await client.query('len(nil);')
+
+        self.assertEqual(await client.query(r'{}.len();'), 0)
+        self.assertEqual(await client.query(r'"".len();'), 0)
+        self.assertEqual(await client.query(r'[].len();'), 0)
+        self.assertEqual(await client.query(r'[[]][0].len();'), 0)
+        self.assertEqual(await client.query(r'{x:0, y:1}.len();'), 2)
+        self.assertEqual(await client.query(r'"xy".len();'), 2)
+        self.assertEqual(await client.query(r'["x", "y"].len();'), 2)
+        self.assertEqual(await client.query(r'[["x", "y"]][0].len();'), 2)
+
+    async def test_lower(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `lower`'):
+            await client.query('nil.lower();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `lower` takes 0 arguments but 1 was given'):
+            await client.query('"Hello World".lower(nil);')
+
+        self.assertEqual(await client.query('"".lower();'), "")
+        self.assertEqual(await client.query('"l".lower();'), "l")
+        self.assertEqual(await client.query('"HI !!".lower();'), "hi !!")
+
+    async def test_map(self, client):
+        await client.query(r'''
+            iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+        ''')
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `map`'):
+            await client.query('nil.map(||nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `map` takes 1 argument but 0 were given'):
+            await client.query('map();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `map` expects argument 1 to be a `closure` '
+                'but got type `nil` instead'):
+            await client.query('map(nil);')
+
+        self.assertEqual(await client.query('[].map(||nil)'), [])
+
+        self.assertEqual(
+            set(await client.query('iris.map(|k|k.upper());')),
+            set({'NAME', 'AGE', 'LIKES'}))
+
+        self.assertEqual(
+            set(await client.query('iris.map(|_, v| (isarray(v)) ? true:v);')),
+            set({'Iris', 6, True}))
 
     async def test_remove(self, client):
         await client.query('list = [1, 2, 3];')
@@ -561,6 +694,21 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('"".startswith("!")'))
         self.assertTrue(await client.query('"Hi World!".startswith("Hi")'))
         self.assertFalse(await client.query('"Hi World!".startswith("hi")'))
+
+    async def test_upper(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `upper`'):
+            await client.query('nil.upper();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `upper` takes 0 arguments but 1 was given'):
+            await client.query('"Hello World".upper(nil);')
+
+        self.assertEqual(await client.query('"".upper();'), "")
+        self.assertEqual(await client.query('"U".upper();'), "U")
+        self.assertEqual(await client.query('"hi !!".upper();'), "HI !!")
 
 
 if __name__ == '__main__':

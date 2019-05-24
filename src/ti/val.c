@@ -634,22 +634,26 @@ const char * ti_val_str(ti_val_t * val)
 }
 
 
-/* checks PROP, QP, CLOSURE and ARRAY/TUPLE */
-int ti_val_make_assignable(ti_val_t * val, ex_t * e)
+/* checks PROP, QP, CLOSURE, ARR */
+int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 {
-    switch (val->tp)
+    switch ((*val)->tp)
     {
     case TI_VAL_QP:
         ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
-                ti_val_str(val));
+                ti_val_str(*val));
         break;
     case TI_VAL_CLOSURE:
-        if (ti_closure_wse((ti_closure_t * ) val))
+        if (ti_closure_wse((ti_closure_t * ) *val))
         {
             ex_set(e, EX_BAD_DATA,
                     "an closure function with side effects cannot be assigned");
         }
-        else if (ti_closure_unbound((ti_closure_t * ) val))
+        else if (ti_closure_unbound((ti_closure_t * ) *val))
+            ex_set_alloc(e);
+        break;
+    case TI_VAL_ARR:
+        if (ti_varr_to_list(val))
             ex_set_alloc(e);
         break;
     }

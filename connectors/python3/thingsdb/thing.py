@@ -97,7 +97,9 @@ class Thing:
     def _apply_watch_class(self, watchclass, arr):
         client = self._collection._client
         asyncio.ensure_future(
-            client.watch((t.set_watcher(watchclass) for t in arr)),
+            client.watch(
+                (t.set_watcher(watchclass) for t in arr),
+                collection=self._collection._id),
             loop=client._loop
         )
 

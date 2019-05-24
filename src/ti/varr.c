@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti/varr.h>
 #include <ti/val.h>
+#include <ti/closure.h>
 #include <util/logger.h>
 
 static int varr__to_tuple(ti_varr_t ** varr);
@@ -47,11 +48,25 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
     assert (ti_varr_is_list(to));
     ti_val_t * val = *v;
 
-    if (ti_val_make_assignable(val, e))
-        return e->nr;
-
     switch (val->tp)
     {
+    case TI_VAL_QP:
+        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
+                ti_val_str(val));
+        return e->nr;
+    case TI_VAL_CLOSURE:
+        if (ti_closure_wse((ti_closure_t * ) val))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "an closure function with side effects cannot be assigned");
+            return e->nr;
+        }
+        if (ti_closure_unbound((ti_closure_t * ) val))
+        {
+            ex_set_alloc(e);
+            return e->nr;
+        }
+        break;
     case TI_VAL_ARR:
         if (ti_varr_is_list((ti_varr_t *) val))
         {
@@ -84,6 +99,42 @@ _Bool ti_varr_has_things(ti_varr_t * varr)
     return false;
 }
 
+int ti_varr_to_list(ti_varr_t ** varr)
+{
+    ti_varr_t * list = *varr;
+
+    if (list->ref == 1)
+    {
+        LOGC("MOVE LIST");
+        /* this can never happen to a tuple */
+        assert (~list->flags & TI_ARR_FLAG_TUPLE);
+        return 0;
+    }
+
+    list = malloc(sizeof(ti_varr_t));
+    if (!list)
+        return -1;
+
+    list->ref = 1;
+    list->tp = TI_VAL_ARR;
+    list->flags = (*varr)->flags & TI_ARR_FLAG_THINGS;
+    list->vec = vec_dup((*varr)->vec);
+
+    if (!list->vec)
+    {
+        free(list);
+        return -1;
+    }
+
+    for (vec_each(list->vec, ti_val_t, val))
+        ti_incref(val);
+
+    ti_decref(*varr);
+    *varr = list;
+
+    return 0;
+}
+
 static int varr__to_tuple(ti_varr_t ** varr)
 {
     ti_varr_t * tuple = *varr;
@@ -103,7 +154,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_ARR_FLAG_TUPLE;
+    tuple->flags = TI_ARR_FLAG_TUPLE | ((*varr)->flags & TI_ARR_FLAG_THINGS);
     tuple->vec = vec_dup((*varr)->vec);
 
     if (!tuple->vec)

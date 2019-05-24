@@ -11,7 +11,6 @@ class Root:
             f'new_collection("{target._target}")',
             target=self.thingsdb)
 
-
     async def get_collection(self, name):
         collection_id = await self.query(f'id()', target=name)
         collection = Collection(self, collection_id)

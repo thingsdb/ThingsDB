@@ -20,6 +20,7 @@ ti_varr_t * ti_varr_create(size_t sz);
 void ti_varr_destroy(ti_varr_t * varr);
 int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e);
 _Bool ti_varr_has_things(ti_varr_t * varr);
+int ti_varr_to_list(ti_varr_t ** varr);
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr);
 static inline _Bool ti_varr_is_list(ti_varr_t * varr);
 static inline _Bool ti_varr_is_tuple(ti_varr_t * varr);

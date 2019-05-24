@@ -118,7 +118,9 @@ void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
 {
     assert (stream->tp == TI_STREAM_TCP_IN_CLIENT ||
             stream->tp == TI_STREAM_PIPE_IN_CLIENT);
-    assert (stream->via.user == NULL);
+
+    if (stream->via.user)
+        ti_user_drop(stream->via.user);
 
     /* clear the stream name */
     free(stream->name_);
@@ -269,30 +271,30 @@ const char * ti_stream_name(ti_stream_t * stream)
     {
     case TI_STREAM_TCP_OUT_NODE:
         if (stream->via.node)
-            sprintf(prefix, "<node:%u-out> ", stream->via.node->id);
+            sprintf(prefix, "<node-out:%u> ", stream->via.node->id);
         else
-            sprintf(prefix, "<node-out> ");
+            sprintf(prefix, "<node-out:not authorized> ");
         stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-out> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_NODE:
         if (stream->via.node)
-            sprintf(prefix, "<node:%u-in> ", stream->via.node->id);
+            sprintf(prefix, "<node-in:%u> ", stream->via.node->id);
         else
-            sprintf(prefix, "<node-in> ");
+            sprintf(prefix, "<node-in:not authorized> ");
         stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<node-in> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_CLIENT:
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
         else
-            sprintf(prefix, "<client> ");
+            sprintf(prefix, "<client:not authorized> ");
         stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
         else
-            sprintf(prefix, "<client> ");
+            sprintf(prefix, "<client:not authorized> ");
         stream->name_ = ti_pipe_name(prefix, (uv_pipe_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }

@@ -25,6 +25,7 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/prop.h>
 #include <ti/raw.h>
 #include <ti/scope.h>
+#include <ti/user.h>
 #include <ti/stream.h>
 #include <util/omap.h>
 
@@ -35,7 +36,7 @@ typedef int (*ti_query_unpack_cb) (
         size_t,
         ex_t *);
 
-ti_query_t * ti_query_create(ti_stream_t * stream);
+ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user);
 void ti_query_destroy(ti_query_t * query);
 int ti_query_node_unpack(
         ti_query_t * query,
@@ -75,6 +76,8 @@ struct ti_query_s
     char * querystr;            /* 0 terminated query string */
     cleri_parse_t * parseres;
     ti_stream_t * stream;       /* with reference */
+    ti_user_t * user;           /* with reference, required in case stream
+                                   is a node stream */
     vec_t * blobs;              /* ti_raw_t */
     vec_t * tmpvars;            /* temporary variable */
     vec_t * results;            /* ti_val_t for each statement */

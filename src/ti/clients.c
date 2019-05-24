@@ -315,11 +315,6 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     else
     {
         assert (user != NULL);
-        if (stream->via.user)
-        {
-            ti_user_drop(stream->via.user);
-            stream->via.user = NULL;
-        }
         ti_stream_set_user(stream, user);
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_AUTH, NULL, 0);
     }
@@ -357,7 +352,7 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
         goto failed;
     }
 
-    query = ti_query_create(stream);
+    query = ti_query_create(stream, user);
     if (!query)
     {
         ex_set_alloc(e);
@@ -663,7 +658,7 @@ static void clients__query_db_collection(
         return;
     }
 
-    query = ti_query_create(stream);
+    query = ti_query_create(stream, user);
     if (!query)
     {
         ex_set_alloc(e);
@@ -675,7 +670,7 @@ static void clients__query_db_collection(
 
     /* the `unpack` call should check if a target is used or not */
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, user, TI_AUTH_READ, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e))
         goto finish;
 
     if (ti_query_parse(query, e))
@@ -686,7 +681,7 @@ static void clients__query_db_collection(
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, user, TI_AUTH_MODIFY, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e))
             goto finish;
 
         if (ti_events_create_new_event(query, e))

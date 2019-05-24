@@ -65,7 +65,6 @@ static int rq__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -102,7 +101,6 @@ static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -128,7 +126,6 @@ static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_node(query, nd, e));
     assert (!query->ev);
     assert (e->nr == 0);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -153,7 +150,6 @@ static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -199,7 +195,6 @@ static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -238,7 +233,7 @@ static int rq__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (query->stream->via.user == user)
+    if (query->user == user)
     {
         ex_set(e, EX_BAD_DATA,
                 "it is not possible to delete your own user account");
@@ -265,7 +260,6 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -297,7 +291,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* check for privileges */
     if (ti_access_check_err(
             *access_,
-            query->stream->via.user, TI_AUTH_GRANT, e))
+            query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
     /* grant user */
@@ -406,7 +400,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             0,
             (const char *) rname->data,
             rname->n,
-            query->stream->via.user,
+            query->user,
             e);
     if (!collection)
         goto finish;
@@ -416,7 +410,7 @@ static int rq__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto finish;
 
-    if (ti_task_add_new_collection(task, collection, query->stream->via.user))
+    if (ti_task_add_new_collection(task, collection, query->user))
         ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
@@ -708,7 +702,6 @@ static int rq__f_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_node(query, nd, e));
     assert (!query->ev);
     assert (e->nr == 0);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -733,7 +726,6 @@ static int rq__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_node(query, nd, e));
     assert (!query->ev);
     assert (e->nr == 0);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -758,7 +750,6 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -807,7 +798,6 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -867,7 +857,6 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -1186,7 +1175,7 @@ static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access_node,
-            query->stream->via.user, TI_AUTH_MODIFY, e))
+            query->user, TI_AUTH_MODIFY, e))
         return e->nr;
 
     if (!langdef_nd_fun_has_zero_params(nd))
@@ -1210,7 +1199,6 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -1242,7 +1230,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* check for privileges */
     if (ti_access_check_err(
             *access_,
-            query->stream->via.user, TI_AUTH_GRANT, e))
+            query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
     /* revoke user */
@@ -1293,7 +1281,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else if (mask & TI_AUTH_MODIFY)
         mask |= TI_AUTH_GRANT;
 
-    if (query->stream->via.user == user && (mask & TI_AUTH_GRANT))
+    if (query->user == user && (mask & TI_AUTH_GRANT))
     {
         ex_set(e, EX_BAD_DATA,
                 "it is not possible to revoke your own `GRANT` privileges");
@@ -1326,7 +1314,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access_node,
-            query->stream->via.user, TI_AUTH_MODIFY, e))
+            query->user, TI_AUTH_MODIFY, e))
         return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -1371,7 +1359,6 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -1463,7 +1450,6 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (!rq__is_not_thingsdb(query, nd, e));
     assert (e->nr == 0);
     assert (query->ev);
-    assert (query->stream->via.user);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
@@ -1561,7 +1547,7 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access_node,
-            query->stream->via.user, TI_AUTH_MODIFY, e))
+            query->user, TI_AUTH_MODIFY, e))
         return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -1614,7 +1600,7 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access_node,
-            query->stream->via.user, TI_AUTH_MODIFY, e))
+            query->user, TI_AUTH_MODIFY, e))
         return e->nr;
 
     if (!langdef_nd_fun_has_zero_params(nd))

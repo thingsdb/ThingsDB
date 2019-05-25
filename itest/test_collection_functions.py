@@ -790,7 +790,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                r'function `rename` can only be used on things with an id > 0; '
+                'function `rename` can only be used on things with an id > 0; '
                 r'\(things which are assigned automatically receive an id\)'):
             await client.query('{x:1}.rename("x", "y");')
 
@@ -932,6 +932,31 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('"".startswith("!")'))
         self.assertTrue(await client.query('"Hi World!".startswith("Hi")'))
         self.assertFalse(await client.query('"Hi World!".startswith("hi")'))
+
+    async def test_str(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `str`'):
+            await client.query('nil.str();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `str` takes 1 argument but 0 were given'):
+            await client.query('str();')
+
+        self.assertEqual(await client.query('str(3.14);'), "3.14")
+        self.assertEqual(await client.query('str(-3.14);'), "-3.14")
+        self.assertEqual(await client.query('str(42);'), "42")
+        self.assertEqual(await client.query('str(-42);'), "-42")
+        self.assertEqual(await client.query('str(true);'), "true")
+        self.assertEqual(await client.query('str(false);'), "false")
+        self.assertEqual(await client.query('str(nil);'), "nil")
+        self.assertEqual(await client.query('str("abc");'), "abc")
+        self.assertEqual(await client.query('str("");'), "")
+        self.assertEqual(await client.query('str(/.*/i);'), "/.*/i")
+        self.assertEqual(await client.query('str([]);'), "<object>")
+        self.assertEqual(await client.query(r'str({});'), "<object>")
+        self.assertEqual(await client.query('str(||nil);'), "<object>")
 
     async def test_upper(self, client):
         with self.assertRaisesRegex(

@@ -29,7 +29,9 @@ static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
 static ti_val_t * val__sblob;
-static ti_val_t * val__sobject;
+static ti_val_t * val__sarray;
+static ti_val_t * val__sthing;
+static ti_val_t * val__sclosure;
 
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
@@ -37,14 +39,16 @@ static char val__buf[VAL__BUF_SZ];
 
 int ti_val_init_common(void)
 {
-    val__snil = (ti_val_t *) ti_raw_from_strn("nil", 3);
-    val__strue = (ti_val_t *) ti_raw_from_strn("true", 4);
-    val__sfalse = (ti_val_t *) ti_raw_from_strn("false", 5);
-    val__sblob = (ti_val_t *) ti_raw_from_strn("<blob>", 6);
-    val__sobject = (ti_val_t *) ti_raw_from_strn("<object>", 8);
+    val__snil = (ti_val_t *) ti_raw_from_fmt("nil");
+    val__strue = (ti_val_t *) ti_raw_from_fmt("true");
+    val__sfalse = (ti_val_t *) ti_raw_from_fmt("false");
+    val__sblob = (ti_val_t *) ti_raw_from_fmt("<blob>");
+    val__sarray = (ti_val_t *) ti_raw_from_fmt("<array>");
+    val__sthing = (ti_val_t *) ti_raw_from_fmt("<thing>");
+    val__sclosure = (ti_val_t *) ti_raw_from_fmt("<closure>");
 
     if (!val__snil || !val__strue || !val__sfalse || !val__sblob ||
-        !val__sobject)
+        !val__sarray || !val__sthing || !val__sclosure)
     {
         ti_val_drop_common();
         return -1;
@@ -58,7 +62,9 @@ void ti_val_drop_common(void)
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
     ti_val_drop(val__sblob);
-    ti_val_drop(val__sobject);
+    ti_val_drop(val__sarray);
+    ti_val_drop(val__sthing);
+    ti_val_drop(val__sclosure);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -234,9 +240,15 @@ int ti_val_convert_to_str(ti_val_t ** val)
         ti_incref(v);
         break;
     case TI_VAL_THING:
+        v = val__sthing;
+        ti_incref(v);
+        break;
     case TI_VAL_ARR:
+        v = val__sarray;
+        ti_incref(v);
+        break;
     case TI_VAL_CLOSURE:
-        v = val__sobject;
+        v = val__sclosure;
         ti_incref(v);
         break;
     default:
@@ -318,6 +330,7 @@ overflow:
 int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
 {
     int64_t i;
+    uint64_t u;
     switch((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_NIL:
@@ -332,7 +345,9 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
-        switch((*(ti_vint_t **) val)->int_)
+        i = (*(ti_vint_t **) val)->int_;
+        u = i == LLONG_MIN ? 0 : (uint64_t) llabs(i);
+        switch(u)
         {
         case TI_PROTO_CLIENT_ERR_OVERFLOW:
             i = EX_OVERFLOW;
@@ -361,11 +376,15 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
         case TI_PROTO_CLIENT_ERR_NODE:
             i = EX_NODE_ERROR;
             break;
+        case TI_PROTO_CLIENT_ERR_ASSERTION:
+            i = EX_ASSERT_ERROR;
+            break;
         case TI_PROTO_CLIENT_ERR_INTERNAL:
             i = EX_INTERNAL;
             break;
         default:
-            ex_set(e, EX_BAD_DATA, "unknown error number `%"PRId64"`",
+            ex_set(e, EX_INDEX_ERROR,
+                    "unknown error number: %"PRId64", see "TI_DOCS"#errors",
                     (*(ti_vint_t **) val)->int_);
             return e->nr;
         }
@@ -415,8 +434,8 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
         );
         if (!i)
         {
-            ex_set(e, EX_BAD_DATA,
-                    "unknown error `%.*s`",
+            ex_set(e, EX_INDEX_ERROR,
+                    "unknown error: `%.*s`, see "TI_DOCS"#errors",
                     (int) (*(ti_raw_t **) val)->n,
                     (const char *) (*(ti_raw_t **) val)->data);
             return e->nr;

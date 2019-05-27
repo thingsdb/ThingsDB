@@ -2518,6 +2518,7 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (int arg = 1; child; child = child->next->next, ++arg)
     {
         ti_thing_t * thing;
+        int64_t id;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_cq_scope(query, child->node, e))
@@ -2526,22 +2527,23 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_int(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
-                "function `t` only accepts type `"TI_VAL_INT_S"` arguments, "
-                "but argument %d is of type `%s`",
+                "function `t` expects argument %d to be of "
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
                 arg, ti_val_str(query->rval));
             goto failed;
         }
 
-        thing = ti_collection_thing_by_id(
-                query->target,
-                ((ti_vint_t *) query->rval)->int_);
+        id = ((ti_vint_t *) query->rval)->int_;
+
+        thing = id > 0 ? ti_collection_thing_by_id(query->target, id) : NULL;
+
         if (!thing)
         {
             ex_set(e, EX_INDEX_ERROR,
-                    "collection `%.*s` has no `thing` with id `%"PRId64"`",
+                    "collection `%.*s` has no `thing` with id %"PRId64,
                     (int) query->target->name->n,
                     (char *) query->target->name->data,
-                    ((ti_vint_t *) query->rval)->int_);
+                    id);
             goto failed;
         }
 

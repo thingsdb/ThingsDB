@@ -11,6 +11,7 @@ from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import BadRequestError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
 
 
 class TestCollectionFunctions(TestBase):
@@ -954,9 +955,92 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('str("abc");'), "abc")
         self.assertEqual(await client.query('str("");'), "")
         self.assertEqual(await client.query('str(/.*/i);'), "/.*/i")
-        self.assertEqual(await client.query('str([]);'), "<object>")
-        self.assertEqual(await client.query(r'str({});'), "<object>")
-        self.assertEqual(await client.query('str(||nil);'), "<object>")
+        self.assertEqual(await client.query('str([]);'), "<array>")
+        self.assertEqual(await client.query(r'str({});'), "<thing>")
+        self.assertEqual(await client.query('str(||nil);'), "<closure>")
+
+    async def test_test(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `regex` has no function `test`'):
+            await client.query('(/.*/).test();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `test` takes 1 argument but 0 were given'):
+            await client.query('"".test();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `test` expects argument 1 to be of '
+                r'type `regex` but got type `raw` instead'):
+            await client.query('"".test("abc");')
+
+        self.assertTrue(await client.query(r'"".test(//);'))
+        self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
+        self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))
+        self.assertFalse(await client.query(r'"Hi".test(/hi/);'))
+        self.assertFalse(await client.query(r'"hello".test(/hello!.*/);'))
+
+    async def test_t(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `t` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('t();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `t` expects argument 1 to be of '
+                r'type `int` but got type `nil` instead'):
+            await client.query('t(nil);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'collection `stuff` has no `thing` with id -1'):
+            await client.query('t(-1);')
+
+        id = await client.query(r'(t = {x:42}).id();')
+        t = await client.query('t({});'.format(id))
+        self.assertEqual(t['x'], 42)
+        self.assertFalse(await client.query(r'isarray(t(t.id()));'))
+        self.assertTrue(await client.query(r'isarray(t(t.id(), ));'))
+        stuff, t = await client.query('t(id(), {});'.format(id), deep=3)
+        self.assertEqual(stuff['t'], t)
+
+    async def test_try(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `try` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('try();')
+
+        self.assertEqual(await client.query('try( (10 // 2) );'), 5)
+        self.assertEqual(await client.query('try( (10 // 0) );'), None)
+        self.assertIs(await client.query('try( (10 // 0), false );'), False)
+        self.assertEqual(
+            await client.query('try((10 // 0), nil, "ZERO_DIV_ERROR");'), None)
+        self.assertEqual(await client.query('try((10 // 0), nil, -97);'), None)
+        self.assertEqual(await client.query('try((10 // 0), nil, 97);'), None)
+        with self.assertRaisesRegex(
+                IndexError,
+                'unknown error: `UNKNOWN`, see https:.*'):
+            await client.query('try( (10 // 0), nil, "UNKNOWN");')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'unknown error number: 0, see https:.*'):
+            await client.query('try( (10 // 0), nil, 0);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to an `errnr`'):
+            await client.query('try( (10 // 0), nil, nil);')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                'division or modulo by zero'):
+            await client.query('try( (10 // 0), nil, "INDEX_ERROR");')
 
     async def test_upper(self, client):
         with self.assertRaisesRegex(

@@ -4,12 +4,6 @@
 #ifndef TI_PROTO_H_
 #define TI_PROTO_H_
 
-/*
- * TODO: make tests for checking if `node-responses-128` still map to client
- *       requests. this is required when we forward a query, and alter the
- *       response when returning data to the client.
- */
-
 typedef enum
 {
     /*
@@ -101,7 +95,7 @@ typedef enum
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
     TI_PROTO_NODE_REQ_AWAY      =178,   /* empty */
     TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
-    TI_PROTO_NODE_REQ_SYNC      =181,   /* [event_range_start, end] */
+    TI_PROTO_NODE_REQ_SYNC      =181,   /* event_id */
 
     /* [target_id, file_id, offset, bytes, more]
      * more is a boolean which is set to true in case the file is not yet

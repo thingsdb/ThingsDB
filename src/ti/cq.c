@@ -3139,10 +3139,6 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    // TODO: why was this code here? and why not in chain_name?
-    //    ti_val_drop(query->rval);
-    //    query->rval = NULL;
-
     if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);
 

@@ -25,7 +25,7 @@ typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
 static ti_node_t * nodes__o[63];    /* other zone */
 static ti_node_t * nodes__z[63];    /* same zone */
 static ti_nodes_t * nodes;
-static const char * nodes__scevid    = ".known_scevid.dat";
+static const char * nodes__scevid    = "global_event_status";
 
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
@@ -82,7 +82,10 @@ int ti_nodes_read_scevid(void)
     FILE * f;
 
     if (!fn)
+    {
+        log_critical(EX_INTERNAL_S);
         return -1;
+    }
 
     f = fopen(fn, "r");
     if (!f)
@@ -91,9 +94,12 @@ int ti_nodes_read_scevid(void)
         return -1;
     }
 
-    if (fread(&cevid, sizeof(uint64_t), 1, f) ||
-        fread(&sevid, sizeof(uint64_t), 1, f))
+    if (fread(&cevid, sizeof(uint64_t), 1, f) != 1 ||
+        fread(&sevid, sizeof(uint64_t), 1, f) != 1)
+    {
+        log_error("error reading global event status from: `%s`", fn);
         goto stop;
+    }
 
     log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
     log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
@@ -121,7 +127,10 @@ int ti_nodes_write_scevid(void)
     FILE * f;
 
     if (!fn)
+    {
+        log_critical(EX_INTERNAL_S);
         return -1;
+    }
 
     f = fopen(fn, "w");
     if (!f)
@@ -130,8 +139,8 @@ int ti_nodes_write_scevid(void)
         return -1;
     }
 
-    log_debug("store global committed event id: "TI_EVENT_ID, cevid);
-    log_debug("store global stored event id: "TI_EVENT_ID, sevid);
+    log_debug("save global committed "TI_EVENT_ID" to disk", cevid);
+    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
 
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
         fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
@@ -153,7 +162,7 @@ int ti_nodes_write_scevid(void)
  */
 uint8_t ti_nodes_quorum(void)
 {
-    return (uint8_t) (nodes->vec->n / 2);
+    return nodes->vec->n == 2 ? 0 : (uint8_t) (nodes->vec->n / 2);
 }
 
 _Bool ti_nodes_has_quorum(void)
@@ -455,6 +464,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
     case TI_PROTO_CLIENT_ERR_QUERY:
     case TI_PROTO_CLIENT_ERR_NODE:
+    case TI_PROTO_CLIENT_ERR_ASSERTION:
     case TI_PROTO_CLIENT_ERR_INTERNAL:
         ti_stream_on_response(stream, pkg);
         break;
@@ -1129,8 +1139,8 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
     qp_unpacker_t unpacker;
-    qp_obj_t qp_start, qp_until;
-    uint64_t start, until;
+    qp_obj_t qp_start;
+    uint64_t start;
 
     if (!node)
     {
@@ -1156,12 +1166,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_start)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_until)) ||
-        qp_start.via.int64 < 0 ||
-        qp_until.via.int64 < 0 ||
-        (qp_until.via.int64 && qp_start.via.int64 >= qp_until.via.int64))
+    if (!qp_is_int(qp_next(&unpacker, &qp_start)) || qp_start.via.int64 < 0)
     {
         log_error(
                 "got an invalid sync request from `%s`",
@@ -1171,9 +1176,8 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     start = (uint64_t) qp_start.via.int64;
-    until = (uint64_t) qp_until.via.int64;
 
-    if (ti_away_syncer(stream, start, until))
+    if (ti_away_syncer(stream, start))
     {
         ex_set_alloc(e);
         goto finish;
@@ -1305,7 +1309,7 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_archive_load();
+    (void) ti_archive_load();
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCADONE, NULL, 0);
 

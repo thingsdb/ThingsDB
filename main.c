@@ -85,6 +85,9 @@ int main(int argc, char * argv[])
                         ti()->cfg->storage_path);
                 goto load;
             }
+
+            if (!ti_ask_continue())
+                goto stop;
         }
 
         if ((rc = ti_build()))
@@ -117,13 +120,21 @@ int main(int argc, char * argv[])
                 goto load;
             }
 
-            if (fx_rmdir(ti()->cfg->storage_path))
-            {
-                printf("error: directory `%s` cannot be removed\n",
-                        ti()->cfg->storage_path);
-                rc = -1;
+            if (!ti_ask_continue())
                 goto stop;
+
+            if (fx_rmdir(ti()->store->store_path))
+            {
+                log_error("error: directory `%s` cannot be removed\n",
+                        ti()->store->store_path);
+                rc = -1;
             }
+
+            if (ti_archive_rmdir())
+                rc = -1;
+
+            if (rc)
+                goto stop;
         }
 
         printf(
@@ -143,7 +154,26 @@ load:
             goto stop;
         }
 
-        if ((rc = ti_store_restore()))
+        if (ti()->args->rebuild)
+        {
+            if (!ti_ask_continue())
+                goto stop;
+
+            if (ti()->nodes->vec->n < 2)
+            {
+                printf( "At least 2 nodes are required for a rebuild. "
+                        "You might want to use --init or --secret with "
+                        "--force instead.\n");
+                goto stop;
+            }
+
+            if (ti_rebuild())
+            {
+                printf("error while rebuilding\n");
+                goto stop;
+            }
+        }
+        else if ((rc = ti_store_restore()))
         {
             printf("error loading ThingsDB cluster\n");
             goto stop;

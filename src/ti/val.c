@@ -429,6 +429,10 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
                     strlen("NODE_ERROR")) ? EX_NODE_ERROR :
             ti_raw_equal_strn(
                     (*(ti_raw_t **) val),
+                    "ASSERTION_ERROR",
+                    strlen("ASSERTION_ERROR")) ? EX_ASSERT_ERROR :
+            ti_raw_equal_strn(
+                    (*(ti_raw_t **) val),
                     "INTERNAL_ERROR",
                     strlen("INTERNAL_ERROR")) ? EX_INTERNAL : 0
         );

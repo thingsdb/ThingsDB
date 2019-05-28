@@ -67,8 +67,6 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
         return false;
     }
 
-    /* TODO: maybe change to graphical characters, no white space, so email
-     * addresses can be used */
     if (!strx_is_graphn(name, n))
     {
         ex_set(e, EX_BAD_DATA,

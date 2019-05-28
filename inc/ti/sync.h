@@ -9,6 +9,7 @@ typedef struct ti_sync_s ti_sync_t;
 #include <ti/pkg.h>
 #include <ti/ex.h>
 #include <ti/user.h>
+#include <ti/node.h>
 #include <ti/stream.h>
 #include <util/logger.h>
 
@@ -21,6 +22,7 @@ struct ti_sync_s
 {
     uint8_t status;
     uv_timer_t * repeat;
+    ti_node_t * node;
 };
 
 

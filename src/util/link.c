@@ -52,11 +52,13 @@ int link_insert(link_t * link, size_t idx, void * data)
 
 void * link_pop(link_t * link)
 {
-    if (!link->next_) return NULL;
-    struct link__s * cur;
-    for (cur = link->next_; cur->next_; cur = cur->next_);
+    if (!link->next_)
+        return NULL;
+    struct link__s * cur, * prev = (struct link__s *) link;
+    while ((cur = prev->next_))
+        prev = cur->next_;
 
-    return link__pop__(link, &cur);  /* TODO: wrong, see omap */
+    return link__pop__(link, &prev->next_);
 }
 
 void * link__pop__(link_t * link, struct link__s ** link_)

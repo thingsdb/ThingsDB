@@ -27,6 +27,7 @@ int ti_store_status_store(const char * fn)
 stop:
     if (rc)
         log_error("failed to write file: `%s`", fn);
+
     qp_packer_destroy(packer);
     return rc;
 }
@@ -38,7 +39,7 @@ int ti_store_status_restore(const char * fn)
     uchar * data = fx_read(fn, &n);
     if (!data)
     {
-        log_critical("failed to restore from file: `%s`", fn);
+        log_critical("failed to restore status from file: `%s`", fn);
         return -1;
     }
 

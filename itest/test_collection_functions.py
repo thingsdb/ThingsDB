@@ -835,6 +835,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('x;')
 
         self.assertEqual(await client.query('rename("y", "y"); y;'), 42)
+        self.assertEqual(await client.query('x = 6; rename("y", "x"); x;'), 42)
 
     async def test_ret(self, client):
         with self.assertRaisesRegex(

@@ -32,8 +32,8 @@
 ti_t ti_;
 
 /* settings, nodes etc. */
-const char * ti__fn = "ti_.qp";
-const char * ti__node_fn = "node_.dat";
+const char * ti__fn = "ti.qp";
+const char * ti__node_fn = ".node";
 static int shutdown_counter = 3;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_loop_t loop_;
@@ -206,6 +206,26 @@ done:
     return rc;
 }
 
+int ti_rebuild(void)
+{
+    /* remove store path if exists */
+    if (fx_is_dir(ti_.store->store_path))
+    {
+        log_warning("removing store directory: `%s`", ti_.store->store_path);
+        (void) fx_rmdir(ti_.store->store_path);
+    }
+
+    if (mkdir(ti_.store->store_path, 0700))
+    {
+        log_error("cannot create directory `%s` (%s)",
+                ti_.store->store_path,
+                strerror(errno));
+        return -1;
+    }
+
+    return ti_archive_rmdir();
+}
+
 int ti_write_node_id(uint8_t * node_id)
 {
     assert (ti_.node_fn);
@@ -215,7 +235,7 @@ int ti_write_node_id(uint8_t * node_id)
     if (!f)
         goto finish;
 
-    rc = -(fwrite(node_id, sizeof(uint8_t), 1, f) != 1);
+    rc = -(fprintf(f, TI_NODE_ID, *node_id) < 0);
     rc = -(fclose(f) || rc);
 
 finish:
@@ -229,17 +249,22 @@ int ti_read_node_id(uint8_t * node_id)
 {
     assert (ti_.node_fn);
 
+    unsigned int unode_id = 0;
     int rc = -1;
     FILE * f = fopen(ti_.node_fn, "r");
     if (!f)
         goto finish;
 
-    rc = -(fread(node_id, sizeof(uint8_t), 1, f) != 1);
+    rc = -(fscanf(f, TI_NODE_ID, &unode_id) != 1);
     rc = -(fclose(f) || rc);
+
+    *node_id = (uint8_t) unode_id;
 
 finish:
     if (rc)
         log_critical("error reading node id from `%s`", ti_.node_fn);
+    else
+        log_debug("found node id `%u` in file: `%s`", *node_id, ti_.node_fn);
 
     return rc;
 }
@@ -457,6 +482,20 @@ int ti_unlock(void)
         }
     }
     return 0;
+}
+
+_Bool ti_ask_continue(void)
+{
+    printf("\nWarning: all data on this node will be removed!!\n\n"
+            "Type `yes` + ENTER if you really want to continue: ");
+
+    if (getchar() != 'y')
+        return false;
+    if (getchar() != 'e')
+        return false;
+    if (getchar() != 's')
+        return false;
+    return getchar() == '\n';
 }
 
 ti_rpkg_t * ti_node_status_rpkg(void)

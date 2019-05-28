@@ -16,6 +16,7 @@
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
 #include <util/qpx.h>
+#include <util/fx.h>
 #include <util/syncpart.h>
 
 
@@ -97,6 +98,14 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         int rc;
         char * path = ti()->store->store_path;
         path = ti_store_collection_get_path(path, target_id);
+        if (fx_is_dir(path))
+        {
+            log_debug("delete existing path: `%s`", path);
+            if (fx_rmdir(path))
+            {
+                log_warning("cannot remove directory: `%s`", path);
+            }
+        }
         rc = mkdir(path, 0700);
         if (rc)
         {

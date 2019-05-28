@@ -30,6 +30,7 @@ int ti_args_create(void)
     args->force = 0;
     args->init = 0;
     args->log_colorized = 0;
+    args->rebuild = 0;
     args->version = 0;
 
     /* string */
@@ -115,6 +116,18 @@ int ti_args_parse(int argc, char *argv[])
             choices: NULL,
     };
 
+    argparse_argument_t rebuild_ = {
+            name: "rebuild",
+            shortcut: 0,
+            help: "rebuild the node (can only be used when having >1 nodes)",
+            action: ARGPARSE_STORE_TRUE,
+            default_int32_t: 0,
+            pt_value_int32_t: &args->rebuild,
+            str_default: NULL,
+            str_value: NULL,
+            choices: NULL,
+    };
+
     argparse_argument_t zone_ = {
             name: "zone",
             shortcut: 0,
@@ -166,6 +179,7 @@ int ti_args_parse(int argc, char *argv[])
             argparse_add_argument(parser, &init_) ||
             argparse_add_argument(parser, &force_) ||
             argparse_add_argument(parser, &secret_) ||
+            argparse_add_argument(parser, &rebuild_) ||
             argparse_add_argument(parser, &zone_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
@@ -195,6 +209,12 @@ int ti_args_parse(int argc, char *argv[])
         if (args->force && !args->init && !*args->secret)
         {
             printf("--force must be used with --secret or --init\n");
+            rc = -1;
+        }
+
+        if (args->rebuild && (args->init || *args->secret))
+        {
+            printf("--rebuild cannot be used together with --init or --secret\n");
             rc = -1;
         }
 

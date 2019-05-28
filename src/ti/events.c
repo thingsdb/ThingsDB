@@ -34,7 +34,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e);
 static void events__on_req_event_id(ti_event_t * ev, _Bool accepted);
 static int events__push(ti_event_t * ev);
 static void events__loop(uv_async_t * handle);
-static inline int events__trigger(void);
+static inline ssize_t events__trigger(void);
 static inline _Bool events__max_id_gap(uint64_t event_id);
 
 /*
@@ -95,7 +95,10 @@ void ti_events_stop(void)
         events__destroy(NULL);
 }
 
-int ti_events_trigger_loop(void)
+/* Returns a negative number in case of an error, or else the queue size at
+ * the time the trigger is started.
+ */
+ssize_t ti_events_trigger_loop(void)
 {
     return events__trigger();
 }
@@ -235,7 +238,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 done:
     ev->status = TI_EVENT_STAT_READY;
 
-    if (events__trigger())
+    if (events__trigger() < 0)
         log_error("cannot trigger the events loop");
 
     return 0;
@@ -422,7 +425,7 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
     }
 
     ev->status = TI_EVENT_STAT_READY;
-    if (events__trigger())
+    if (events__trigger() < 0)
         log_error("cannot trigger the events loop");
 
 done:
@@ -550,11 +553,20 @@ shift_drop_loop:
 
 stop:
     uv_mutex_unlock(events->lock);
+
+    /* status will be send to nodes on next `connect` loop */
+    ti_connect_force_sync();
 }
 
-static inline int events__trigger(void)
+static inline ssize_t events__trigger(void)
 {
-    return uv_async_send(events->evloop);
+    return events->queue->n
+            ? (
+                    uv_async_send(events->evloop)
+                        ? -1                          /* in case or an error */
+                        : (ssize_t) events->queue->n  /* current size */
+            )
+            : 0;
 }
 
 static inline _Bool events__max_id_gap(uint64_t event_id)

@@ -11,13 +11,15 @@
 enum
 {
     SYNC__STAT_INIT,
-    SYNC__STAT_FIND_AWAY_NODE,
+    SYNC__STAT_STARTED,
+    SYNC__STAT_STOPPED,
 };
 
 static ti_sync_t * sync_;
 
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat));
 static void sync__destroy(uv_handle_t * UNUSED(handle));
+static _Bool sync__set_node(ti_node_t * node);
 static void sync__on_res_sync(ti_req_t * req, ex_enum status);
 static void sync__finish(void);
 
@@ -29,6 +31,7 @@ int ti_sync_create(void)
 
     sync_->repeat = malloc(sizeof(uv_timer_t));
     sync_->status = SYNC__STAT_INIT;
+    sync_->node = NULL;
 
     if (!sync_->repeat)
     {
@@ -47,7 +50,7 @@ int ti_sync_start(void)
     if (uv_timer_init(ti()->loop, sync_->repeat))
         goto fail0;
 
-    sync_->status = SYNC__STAT_FIND_AWAY_NODE;
+    sync_->status = SYNC__STAT_STARTED;
 
     if (uv_timer_start(sync_->repeat,
             sync__find_away_node_cb,
@@ -66,7 +69,7 @@ fail0:
 
 void ti_sync_stop(void)
 {
-    if (!sync_)
+    if (!sync_ || sync_->status == SYNC__STAT_STOPPED)
         return;
 
     if (sync_->status == SYNC__STAT_INIT)
@@ -75,6 +78,8 @@ void ti_sync_stop(void)
     }
     else
     {
+        sync_->status = SYNC__STAT_STOPPED;
+
         (void) uv_timer_stop(sync_->repeat);
         uv_close((uv_handle_t *) sync_->repeat, sync__destroy);
     }
@@ -84,6 +89,7 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
 {
     if (sync_)
     {
+        ti_node_drop(sync_->node);
         free(sync_->repeat);
         free(sync_);
     }
@@ -92,21 +98,14 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
 
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
 {
-    assert (sync_->status == SYNC__STAT_FIND_AWAY_NODE);
     ti_node_t * node;
     qp_packer_t * packer;
-    ti_event_t * event;
     ti_pkg_t * pkg;
 
-    event = queue_first(ti()->events->queue);
-    if (event && event->id == ti()->node->cevid + 1)
-    {
-        log_info("no events are missing, skip synchronization");
-        sync__finish();
-        return;
-    }
-
     node = ti_nodes_get_away_or_soon();
+    if (!sync__set_node(node) && node)
+        return;
+
     if (node == NULL)
     {
         if (ti_nodes_ignore_sync())
@@ -125,17 +124,14 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
-    packer = qpx_packer_create(128, 1);
+    packer = qpx_packer_create(9, 0);
     if (!packer)
     {
         log_critical(EX_ALLOC_S);
         return;
     }
 
-    (void) qp_add_array(&packer);
     (void) qp_add_int(packer, ti()->node->cevid + 1);
-    (void) qp_add_int(packer, event ? event->id : 0);
-    (void) qp_close_array(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNC);
     if (ti_req_create(
@@ -149,48 +145,24 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         free(pkg);
         return;
     }
+}
 
-    uv_timer_stop(sync_->repeat);
+static _Bool sync__set_node(ti_node_t * node)
+{
+    if (node == sync_->node)
+        return false;
+    ti_node_drop(sync_->node);
+    sync_->node = ti_grab(node);
+    return true;
 }
 
 static void sync__on_res_sync(ti_req_t * req, ex_enum status)
 {
-    if (status)
-        goto failed;
-
-    if (req->pkg_res->tp != TI_PROTO_NODE_RES_SYNC)
+    if (status == 0 && req->pkg_res->tp != TI_PROTO_NODE_RES_SYNC)
     {
         ti_pkg_log(req->pkg_res);
-        goto failed;
     }
 
-    if (uv_timer_start(sync_->repeat,
-            sync__find_away_node_cb,
-            5000,
-            10000))
-    {
-        log_error("failed to start `sync__find_away_node_cb` timer");
-    }
-
-    goto done;
-
-failed:
-    /* make sure the timer is not running */
-    if (sync_)
-    {
-        (void) uv_timer_stop(sync_->repeat);
-
-        if (uv_timer_start(sync_->repeat,
-                sync__find_away_node_cb,
-                500,
-                1000))
-        {
-            log_critical("failed to start `sync__find_away_node_cb` timer");
-            ti_term(SIGTERM);
-        }
-    }
-
-done:
     ti_req_destroy(req);
 }
 

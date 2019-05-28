@@ -1001,7 +1001,8 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (node->status >= TI_NODE_STAT_SYNCHRONIZING)
     {
         ex_set(e, EX_NODE_ERROR,
-            TI_NODE_ID" is still active, shutdown the node before replacement",
+            TI_NODE_ID" is still active, shutdown the current node and start "
+            "the new node with `--secret <secret>`",
             node->id);
         return e->nr;
     }

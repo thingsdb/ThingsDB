@@ -19,14 +19,12 @@ void guid_init(guid_t * guid, uint64_t id)
 {
     char * pt = guid->guid;
 
-    *pt = '.';
-    pt++;
-
     for (uint64_t i = 60; i >= 6; i -= 6, pt++)
     {
         *pt = guid__map[id / ((uint64_t) 1 << i)];
         id %= (uint64_t) 1 << i;
     }
+
     *pt = guid__map[id];
     pt++;
     *pt = '\0';

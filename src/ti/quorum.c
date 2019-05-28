@@ -33,22 +33,24 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     return quorum;
 }
 
-
 void ti_quorum_go(ti_quorum_t * quorum)
 {
     assert (quorum->id);  /* call ti_quorum_set_id() for id > 0 */
 
     if (quorum->cb_)
     {
+        uint8_t reject;
         if (quorum->accepted == quorum->quorum)
         {
             quorum->cb_(quorum->data, true);
             quorum->cb_ = NULL;
             goto done;
         }
-        uint8_t reject = (uint8_t) (quorum->nn + 1) / 2;
+
+        reject = (uint8_t) (quorum->nn + 1) / 2;
         if (reject == quorum->n - quorum->accepted)
         {
+            LOGC("Reject: %d", accept);
             quorum->cb_(quorum->data, false);
             quorum->cb_ = NULL;
         }
@@ -71,6 +73,7 @@ done:
                         ti_node_winner(ti_node, node, quorum->id) == ti_node
                 );
             }
+            LOGC("Accept: %d", accept);
             quorum->cb_(quorum->data, accept);
         }
 

@@ -44,7 +44,7 @@ RES_ERR_INDEX = 101
 RES_ERR_BAD_REQUEST = 102
 RES_ERR_QUERY = 103
 RES_ERR_NODE = 104
-RES_ERR_ASSERTOIN = 105
+RES_ERR_ASSERTION = 105
 RES_ERR_INTERNAL = 127
 
 ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL, ON_NODE_STATUS)
@@ -73,7 +73,7 @@ PROTOMAP = {
         lambda f, d: f.set_exception(QueryError(errdata=d)),
     RES_ERR_NODE:
         lambda f, d: f.set_exception(NodeError(errdata=d)),
-    RES_ERR_ASSERTOIN:
+    RES_ERR_ASSERTION:
         lambda f, d: f.set_exception(AssertionError(errdata=d)),
     RES_ERR_INTERNAL:
         lambda f, d: f.set_exception(InternalError(errdata=d)),

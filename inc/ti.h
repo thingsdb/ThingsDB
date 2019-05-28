@@ -49,6 +49,7 @@ void ti_destroy(void);
 int ti_init_logger(void);
 int ti_init(void);
 int ti_build(void);
+int ti_rebuild(void);
 int ti_write_node_id(uint8_t * node_id);
 int ti_read_node_id(uint8_t * node_id);
 int ti_read(void);
@@ -59,6 +60,7 @@ void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
+_Bool ti_ask_continue(void);
 ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
                                         */

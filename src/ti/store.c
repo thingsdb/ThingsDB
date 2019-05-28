@@ -18,9 +18,9 @@
 #include <util/logger.h>
 
 /* path names */
-static const char * store__path          = ".store/";
-static const char * store__prev_path     = ".prev_/";
-static const char * store__tmp_path      = ".tmp__/";
+static const char * store__path          = "store/";
+static const char * store__prev_path     = "_prev/";
+static const char * store__tmp_path      = "__tmp/";
 /* file names */
 static const char * store__access_node_fn       = "access_node.qp";
 static const char * store__access_thingsdb_fn   = "access_thingsdb.qp";
@@ -78,6 +78,9 @@ int ti_store_create(void)
         goto fail1;
 
     ti()->store = store;
+
+    store__set_filename(/* use_tmp: */ false);
+
     return 0;
 fail1:
     ti_store_destroy();
@@ -111,14 +114,13 @@ void ti_store_destroy(void)
  */
 int ti_store_store(void)
 {
-    int rc;
+    int rc = 0;
     assert (store);
 
     /* not need for checking on errors */
-    fx_rmdir(store->prev_path);
+    (void) fx_rmdir(store->prev_path);
 
-    rc = mkdir(store->tmp_path, 0700);
-    if (rc)
+    if (mkdir(store->tmp_path, 0700))
     {
         log_warning("cannot create directory `%s` (%s)",
                 store->tmp_path,
@@ -141,7 +143,6 @@ int ti_store_store(void)
 
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
-        int rc;
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->tmp_path,
                 &collection->guid);
@@ -190,25 +191,43 @@ int ti_store_store(void)
 
     (void) fx_rmdir(store->prev_path);
 
-    store__set_filename(/* use_tmp: */ false);
     store->last_stored_event_id = ti()->node->cevid;
 
-    return 0;
+    log_info("stored thingsdb until "TI_EVENT_ID" to: `%s`",
+            store->last_stored_event_id, store->store_path);
+
+    goto done;
 
 failed:
+    rc = -1;
     log_error("storing ThingsDB has failed");
     (void) fx_rmdir(store->tmp_path);
-    return -1;
+
+done:
+    store__set_filename(/* use_tmp: */ false);
+    return rc;
 }
 
 int ti_store_restore(void)
 {
+    int rc;
+    imap_t * namesmap;
+
     assert (store);
 
     store__set_filename(/* use_tmp: */ false);
 
-    imap_t * namesmap = ti_store_names_restore(store->names_fn);
-    int rc = (
+    if (!fx_is_dir(ti()->store->store_path))
+    {
+        log_warning(
+                "store path not found: `%s`",
+                ti()->store->store_path);
+
+        return ti_rebuild();
+    }
+
+    namesmap = ti_store_names_restore(store->names_fn);
+    rc = (
             -(!namesmap) ||
             ti_store_status_restore(store->id_stat_fn) ||
             ti_store_users_restore(store->users_fn) ||

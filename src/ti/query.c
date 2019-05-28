@@ -398,8 +398,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (e->nr)
         goto pkg_err;
 
-    /* TODO: we can probably make an educated guess about the required size */
-    packer = qpx_packer_create(65536, 8);
+    packer = qpx_packer_create(65536, query->deep + 1);
     if (!packer)
         goto alloc_err;
 
@@ -530,7 +529,6 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
         case CLERI_GID_NAME:
             if (query__requires_root_event(nd->children->node->children->node))
                 query->flags |= TI_QUERY_FLAG_ROOT_EVENT;
-            /* TODO: maybe here detect node specific versus other? */
             return;  /* arguments can be ignored */
         }
         /* skip to arguments */

@@ -12,7 +12,7 @@ void guid_init(guid_t * guid, uint64_t id);
 
 struct guid_s
 {
-    char guid[13];
+    char guid[12];
 };
 
 #endif /* GUID_H_ */

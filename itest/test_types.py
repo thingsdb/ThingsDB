@@ -35,7 +35,7 @@ class TestTypes(TestBase):
                 BadRequestError,
                 r'cannot compile regular expression \'/invalid\(regex/\', '
                 r'missing closing parenthesis'):
-            await client.query(r'r = /invalid(regex/')
+            await client.query(r'r = /invalid(regex/;')
 
 
 if __name__ == '__main__':

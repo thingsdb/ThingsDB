@@ -172,7 +172,6 @@ int ti_store_things_restore_data(
         goto fail0;
     }
 
-    /* Get the size of the file. TODO: does it work with really large files? */
     if (fstat(fd, &st) < 0)
     {
         log_critical("unable to get file statistics: `%s` (%s)",

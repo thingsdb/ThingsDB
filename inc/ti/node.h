@@ -4,9 +4,6 @@
 #ifndef TI_NODE_H_
 #define TI_NODE_H_
 
-/* TODO: check through code if everything responds correctly to the status
- *       codes.
- */
 typedef enum
 {
     /*

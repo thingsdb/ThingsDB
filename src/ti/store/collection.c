@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 static const char * collection___access_fn     = "access.qp";
-static const char * collection___dat_fn = "collection.dat";
+static const char * collection___dat_fn        = "collection.dat";
 static const char * collection___props_fn      = "props.qp";
 static const char * collection___things_fn     = "things.dat";
 
@@ -104,16 +104,17 @@ int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
     collection->root = imap_get(collection->things, id);
     if (!collection->root)
     {
-        log_critical("cannot find root thing: %"PRIu64, id);
+        log_critical("cannot find collection root: "TI_THING_ID, id);
         goto failed;
     }
 
-    collection->root = ti_grab(collection->root);
+    ti_incref(collection->root);
     goto done;
 
 failed:
     rc = -1;
     log_critical("failed to restore from file: `%s`", fn);
+
 done:
     free(data);
     return rc;

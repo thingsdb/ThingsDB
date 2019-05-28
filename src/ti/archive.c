@@ -15,7 +15,7 @@
 
 #define ARCHIVE__THRESHOLD_FULL 0
 
-static const char * archive__path           = ".archive/";
+static const char * archive__path           = "archive/";
 
 static int archive__load_file(ti_archfile_t * archfile);
 static int archive__init_queue(void);
@@ -70,6 +70,8 @@ int ti_archive_rmdir(void)
 
     if (!fx_is_dir(archive_path))
         return 0;
+
+    log_warning("removing archive directory: `%s`", archive->path);
 
     while (archive->archfiles->n)
         ti_archfile_destroy(vec_pop(archive->archfiles));
@@ -182,29 +184,32 @@ int ti_archive_to_disk(void)
     ti_epkg_t * last_epkg = queue_last(archive->queue);
 
     if (!last_epkg || (leid = last_epkg->event_id) == ti()->node->sevid)
-        return 0;       /* nothing to save to disk */
+        goto done;       /* nothing to save to disk */
 
     n = leid - ti()->store->last_stored_event_id;
+
     if (n >= ti()->cfg->threshold_full_storage)
         (void) ti_store_store();
 
+    /* archive events, even after full store for synchronizing `other` nodes */
     if (archive__to_disk())
         return -1;
 
-    (void) archive__remove_files();
     ti()->node->sevid = leid;  /* last_epkg cannot be used, it's cleared */
 
+done:
+    (void) archive__remove_files();
     return 0;
 }
 
 /*
- * Return the first archived event id, or 0 if no events are inside the
- * archive. Both memory and disk are included.
+ * Return the first archived event id, or UINT64_MAX if no events are inside
+ * the archive. Both memory and disk are included.
  */
 uint64_t ti_archive_get_first_event_id(void)
 {
     ti_epkg_t * epkg = queue_first(archive->queue);
-    uint64_t event_id = epkg ? epkg->event_id : 0;
+    uint64_t event_id = epkg ? epkg->event_id : UINT64_MAX;
     for (vec_each(archive->archfiles, ti_archfile_t, archfile))
         if (archfile->first < event_id)
             event_id = archfile->first;
@@ -300,7 +305,7 @@ static int archive__init_queue(void)
 stop:
     uv_mutex_unlock(ti()->events->lock);
 
-    return rc ? rc : ti_events_trigger_loop();
+    return rc ? rc : -(ti_events_trigger_loop() < 0);
 }
 
 static int archive__to_disk(void)
@@ -309,28 +314,42 @@ static int archive__to_disk(void)
     int rc = -1;
     FILE * f;
     ti_epkg_t * epkg;
-    ti_epkg_t * first_epkg = queue_first(archive->queue);
     ti_epkg_t * last_epkg = queue_last(archive->queue);
-    ti_archfile_t * archfile = ti_archfile_get(
-            first_epkg->event_id,
-            last_epkg->event_id);
+    ti_archfile_t * archfile;
     const uint64_t sevid = ti()->node->sevid;
 
+    while ((epkg = queue_shift(archive->queue)) && epkg->event_id <= sevid)
+    {
+       log_debug(
+               "skip saving "TI_EVENT_ID" because the last stored "
+               "event id is higher ("TI_EVENT_ID")",
+               epkg->event_id, sevid);
+       ti_epkg_drop(epkg);
+    }
+
+    if (!epkg)
+        return 0;  /* nothing to save to disk */
+
+    archfile = ti_archfile_get(epkg->event_id, last_epkg->event_id);
+
     if (archfile)
-        return 0;
+        return 0;  /* these events are already on disk */
 
     archfile = ti_archfile_from_event_ids(
         archive->path,
-        first_epkg->event_id,
+        epkg->event_id,
         last_epkg->event_id);
 
     if (!archfile)
         goto fail0;
 
     if (fx_file_exist(archfile->fn))
+    {
+        /* file should not be here, it is not in memory anyway */
         log_error("archive file `%s` will be overwritten", archfile->fn);
+    }
 
-    log_debug("saving event changes to: `%s`", archfile->fn);
+    log_info("saving event changes to file: `%s`", archfile->fn);
 
     f = fopen(archfile->fn, "w");
     if (!f)
@@ -342,22 +361,18 @@ static int archive__to_disk(void)
     if (qp_fadd_type(f, QP_ARRAY_OPEN))
         goto fail2;
 
-    while ((epkg = queue_shift(archive->queue)))
+    do
     {
-        if (epkg->event_id <= sevid)
-        {
-            log_warning(
-                    "storing "TI_EVENT_ID" while the last stored "
-                    "event id is higher ("TI_EVENT_ID")",
-                    epkg->event_id, sevid);
-        }
+        assert (epkg->event_id > sevid);  /* other are removed from queue */
 
         if (qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg)))
             goto fail2;
 
         ti_epkg_drop(epkg);
+
         (void) ti_sleep(10);
     }
+    while ((epkg = queue_shift(archive->queue)));
 
     if (vec_push(&archive->archfiles, archfile))
     {
@@ -402,7 +417,7 @@ static int archive__remove_files(void)
         {
             if (archfile->last <= threshold)
             {
-                log_debug("removing archive file `%s`", archfile->fn);
+                log_info("removing archive file: `%s`", archfile->fn);
                 if (unlink(archfile->fn))
                 {
                     rc = -1;

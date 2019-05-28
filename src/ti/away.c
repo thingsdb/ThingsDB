@@ -186,7 +186,7 @@ _Bool ti_away_is_working(void)
     return away->status == AWAY__STATUS_WORKING;
 }
 
-int ti_away_syncer(ti_stream_t * stream, uint64_t first, uint64_t until)
+int ti_away_syncer(ti_stream_t * stream, uint64_t first)
 {
     ti_syncer_t * syncer;
     ti_syncer_t ** empty_syncer = NULL;
@@ -196,7 +196,6 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t first, uint64_t until)
         if (syncr->stream == stream)
         {
             syncr->first = first;
-            syncr->until = until;
             return 0;
         }
         if (!syncr->stream)
@@ -210,11 +209,10 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t first, uint64_t until)
         syncer = *empty_syncer;
         syncer->stream = stream;
         syncer->first = first;
-        syncer->until = until;
         goto finish;
     }
 
-    syncer = ti_syncer_create(stream, first, until);
+    syncer = ti_syncer_create(stream, first);
     if (!syncer)
         return -1;
 
@@ -386,13 +384,13 @@ static void away__change_expected_id(uint8_t node_id)
 
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
-    if (ti()->events->queue->n)
+    ssize_t events_to_process = ti_events_trigger_loop();
+    if (events_to_process)
     {
         log_warning(
-                "waiting for %zu %s to finish before going to away mode",
-                ti()->events->queue->n,
-                ti()->events->queue->n == 1 ? "event" : "events");
-        ti_events_trigger_loop();
+                "waiting for %zd %s to finish before going to away mode",
+                events_to_process,
+                events_to_process == 1 ? "event" : "events");
         return;
     }
 
@@ -435,7 +433,7 @@ static size_t away__syncers(void)
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
-            if (    (!fa_event_id || syncer->first < fa_event_id) &&
+            if (    (syncer->first < fa_event_id) &&
                     syncer->first <= fs_event_id)
             {
                 log_info(
@@ -443,7 +441,9 @@ static size_t away__syncers(void)
                     "requested "TI_EVENT_ID" is not in the archive starting "
                     "at "TI_EVENT_ID" but within the full stored "TI_EVENT_ID,
                     ti_stream_name(syncer->stream),
-                    syncer->first, fa_event_id, fs_event_id);
+                    syncer->first,
+                    fa_event_id == UINT64_MAX ? fs_event_id + 1 : fa_event_id,
+                    fs_event_id);
                 if (ti_syncfull_start(syncer->stream))
                     log_critical(EX_ALLOC_S);
                 continue;
@@ -471,7 +471,8 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
 {
     assert (away->status == AWAY__STATUS_SYNCING);
 
-    size_t nsyncers, queue_size = ti()->events->queue->n;
+    size_t nsyncers;
+    ssize_t queue_size = ti_events_trigger_loop();
 
     /*
      * First check and process events before start with synchronizing
@@ -481,7 +482,7 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     if (queue_size)
     {
         log_warning(
-                "stay in away mode since the queue contains %zu %s",
+                "stay in away mode since the queue contains %zd %s",
                 queue_size,
                 queue_size == 1 ? "event" : "events");
         return;
@@ -517,10 +518,8 @@ static void away__work(uv_work_t * UNUSED(work))
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 
-    if (ti_nodes_write_scevid())
-        log_warning(
-                "failed writing last nodes committed to disk: "TI_EVENT_ID,
-                ti()->node->cevid);
+    /* write global event status to disk */
+    (void) ti_nodes_write_scevid();
 
     uv_mutex_unlock(ti()->events->lock);
 }
@@ -540,8 +539,8 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     rc = uv_timer_start(
             away->waiter,
             away__waiter_after_cb,
-            2000,       /* give the system a few seconds to process events */
-            5000        /* check on repeat if finished */
+            0,          /* check immediately, no reason to wait */
+            2000        /* check on repeat if finished */
     );
 
     if (rc)
@@ -560,7 +559,6 @@ fail1:
 
 static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 {
-    ti_events_trigger_loop();
     ti_away_trigger();
 }
 

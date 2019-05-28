@@ -364,7 +364,6 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     ev->id = events->next_event_id;
     ++events->next_event_id;
 
-    ti_quorum_set_id(quorum, ev->id);
     (void) qp_add_int(packer, ev->id);
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
 

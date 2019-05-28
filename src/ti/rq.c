@@ -1002,7 +1002,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NODE_ERROR,
             TI_NODE_ID" is still active, shutdown the current node and start "
-            "the new node with `--secret <secret>`",
+            "the new node with `--secret ...`",
             node->id);
         return e->nr;
     }

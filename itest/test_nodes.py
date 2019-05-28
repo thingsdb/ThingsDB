@@ -47,7 +47,8 @@ class TestNodes(TestBase):
         with self.assertRaisesRegex(
                 NodeError,
                 r'`node:1` is still active, '
-                r'shutdown the node before replacement'):
+                r'shutdown the current node and start '
+                r'the new node with `--secret ...`'):
             await client.query('replace_node(1, "letsgo", "127.0.0.1", 9224);')
 
         await self.node1.shutdown()

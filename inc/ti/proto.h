@@ -135,8 +135,7 @@ typedef enum
      * 224..255 node errors
      */
     TI_PROTO_NODE_ERR_RES           =240,   /* message */
-    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* uint8_t node_id with the
-                                               conflicting event id */
+    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* empty */
     TI_PROTO_NODE_ERR_AWAY          =242,   /* empty */
 
 } ti_proto_e;

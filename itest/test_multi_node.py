@@ -43,7 +43,10 @@ class TestMultiNode(TestBase):
                 counter += 1;
             ''', target=stuff)
 
-        for node in (self.node0, self.node1, self.node2, self.node3):
+        counter = await client.query(r'counter;', target=stuff)
+        assert (counter == expected_counter)
+
+        for node in (self.node0, self.node1, self.node2):
             # A soft kill and we do not wait for the result. The goal here is
             # to test if all the queries which follow are still returning as
             # expected.

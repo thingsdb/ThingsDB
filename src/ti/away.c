@@ -42,6 +42,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status);
 static inline void away__repeat_cb(uv_timer_t * repeat);
 static void away__change_expected_id(uint8_t node_id);
 static inline uint64_t away__calc_sleep(void);
+static const char * away__status_str(void);
 
 int ti_away_create(void)
 {
@@ -170,11 +171,22 @@ _Bool ti_away_accept(uint8_t node_id)
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
+        log_debug(
+                "reject away request for "TI_NODE_ID
+                " due to away status: `%s`",
+                node_id, away__status_str());
         return false;
     }
 
     if (node_id != away->expected_node_id && away->accept_counter--)
+    {
+        log_debug(
+                "reject away request for "TI_NODE_ID
+                " since it is not the expected "TI_NODE_ID
+                " (will be rejected %u more time(s))",
+                node_id, away->expected_node_id, away->accept_counter);
         return false;
+    }
 
     away->accept_counter = AWAY__ACCEPT_COUNTER;
     away__change_expected_id(node_id);
@@ -280,7 +292,7 @@ static void away__req_away_id(void)
     vec_t * vec_nodes = ti()->nodes->vec;
     ti_quorum_t * quorum = NULL;
     ti_pkg_t * pkg, * dup;
-    ti_node_t * this_node = ti()->node;
+
     quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
     if (!quorum)
         goto failed;
@@ -288,9 +300,6 @@ static void away__req_away_id(void)
     pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_AWAY, NULL, 0);
     if (!pkg)
         goto failed;
-
-    /* this is used in case of an equal result and should be a value > 0 */
-    ti_quorum_set_id(quorum, this_node->id + 1);
 
     for (vec_each(vec_nodes, ti_node_t, node))
     {
@@ -568,3 +577,18 @@ static inline uint64_t away__calc_sleep(void)
             ? away->expected_node_id + ti()->nodes->vec->n
             : away->expected_node_id) - ti()->node->id) * 11000;
 }
+
+static const char * away__status_str(void)
+{
+    switch ((enum away__status) away->status)
+    {
+    case AWAY__STATUS_INIT:     return "INIT";
+    case AWAY__STATUS_IDLE:     return "IDLE";
+    case AWAY__STATUS_REQ_AWAY: return "REQ_AWAY";
+    case AWAY__STATUS_WAITING:  return "WAITING";
+    case AWAY__STATUS_WORKING:  return "WORKING";
+    case AWAY__STATUS_SYNCING:  return "SYNCING";
+    }
+    return "UNKNOWN";
+}
+

@@ -120,7 +120,6 @@ static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-
 static int rq__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_node(query, nd, e));

@@ -289,7 +289,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     default:
         ex_set(e, EX_BAD_DATA,
                 "expecting type `"TI_VAL_RAW_S"` "
-                "or `"TI_VAL_INT_S"` as collection, not `%s`",
+                "or `"TI_VAL_INT_S"` as collection but got type `%s` instead",
                 ti_val_str(val));
     }
     return collection;

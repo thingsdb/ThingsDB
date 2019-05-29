@@ -9,6 +9,8 @@
 
 #define TI_DEFAULT_CLIENT_PORT 9200
 #define TI_DEFAULT_NODE_PORT 9220
+#define TI_DEFAULT_THRESHOLD_FULL_STORAGE 1000UL
+
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"

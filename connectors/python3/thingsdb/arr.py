@@ -31,7 +31,7 @@ class Arr(list):
             client.watch((
                 t.set_watcher(self._watchclass)
                 for t in self[sl]
-            ), collection=self._parent._collection),
+            ), collection=self._parent._collection._id),
             loop=client._loop
         )
 

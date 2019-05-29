@@ -31,6 +31,9 @@ static int ti__cfg_str(
         const char * cfg_file,
         const char * option_name,
         char ** str);
+static void ti__cfg_threshold_full_storage(
+        cfgparser_t * parser,
+        const char * cfg_file);
 
 int ti_cfg_create(void)
 {
@@ -41,7 +44,7 @@ int ti_cfg_create(void)
     /* set defaults */
     cfg->client_port = TI_DEFAULT_CLIENT_PORT;
     cfg->node_port = TI_DEFAULT_NODE_PORT;
-    cfg->threshold_full_storage = 5;    /* TODO : not configurable (yet) */
+    cfg->threshold_full_storage = TI_DEFAULT_THRESHOLD_FULL_STORAGE;
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");
@@ -109,6 +112,7 @@ int ti_cfg_parse(const char * cfg_file)
     ti__cfg_port(parser, cfg_file, "listen_client_port", &cfg->client_port);
     ti__cfg_port(parser, cfg_file, "listen_node_port", &cfg->node_port);
     ti__cfg_ip_support(parser, cfg_file);
+    ti__cfg_threshold_full_storage(parser, cfg_file);
 
 exit_parse:
     cfgparser_destroy(parser);
@@ -319,4 +323,41 @@ static int ti__cfg_str(
     free(*str);
     *str = strdup(option->val->string);
     return -(!*str);
+}
+
+static void ti__cfg_threshold_full_storage(
+        cfgparser_t * parser,
+        const char * cfg_file)
+{
+    const char * option_name = "threshold_full_storage";
+
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    rc = cfgparser_get_option(&option, parser, ti__cfg_section, option_name);
+
+    if (rc != CFGPARSER_SUCCESS)
+    {
+        log_debug(
+                "missing `%s` in `%s` (%s), "
+                "using default value %zu",
+                option_name,
+                cfg_file,
+                cfgparser_errmsg(rc),
+                cfg->threshold_full_storage);
+        return;
+    }
+    if (    option->tp != CFGPARSER_TP_INTEGER ||
+            option->val->integer < 0)
+    {
+        log_warning(
+                "error reading `%s` in `%s` "
+                "(expecting an integer value greater than, or equal to 0), "
+                "using default value %zu",
+                option_name,
+                cfg_file,
+                cfg->threshold_full_storage);
+        return;
+    }
+
+    cfg->threshold_full_storage = (size_t) option->val->integer;
 }

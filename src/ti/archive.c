@@ -186,7 +186,7 @@ int ti_archive_to_disk(void)
 
     n = leid - ti()->store->last_stored_event_id;
 
-    if (n >= ti()->cfg->threshold_full_storage)
+    if (n > ti()->cfg->threshold_full_storage)
         (void) ti_store_store();
 
     /* archive events, even after full store for synchronizing `other` nodes */

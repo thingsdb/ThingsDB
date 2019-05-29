@@ -24,12 +24,11 @@ static int archive__remove_files(void);
 static char * archive__get_path(void);
 
 static ti_archive_t * archive;
+static ti_archive_t archive_;
 
 int ti_archive_create(void)
 {
-    archive = malloc(sizeof(ti_archive_t));
-    if (!archive)
-        return -1;
+    archive = &archive_;
 
     archive->queue = queue_new(0);
     archive->archfiles = vec_new(0);
@@ -52,7 +51,6 @@ void ti_archive_destroy(void)
     queue_destroy(archive->queue, (queue_destroy_cb) ti_epkg_drop);
     vec_destroy(archive->archfiles, (vec_destroy_cb) ti_archfile_destroy);
     free(archive->path);
-    free(archive);
     archive = ti()->archive = NULL;
 }
 

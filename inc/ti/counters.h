@@ -29,8 +29,7 @@ struct ti_counters_s
                                     */
     uint64_t events_skipped;        /* events which cannot be committed because
                                        an event with a higher id is already
-                                       been committed, these events are moved
-                                       to a `skipped` queue
+                                       been committed
                                     */
     uint64_t events_failed;         /* events failed which should be committed
                                        from EPKG, this is a critical counter

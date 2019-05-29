@@ -19,12 +19,11 @@
 #endif
 
 static ti_args_t * args;
+static ti_args_t args_;
 
 int ti_args_create(void)
 {
-    args = calloc(1, sizeof(ti_args_t));
-    if (!args)
-        return -1;
+    args = &args_;
 
     /* boolean */
     args->force = 0;
@@ -36,6 +35,7 @@ int ti_args_create(void)
     /* string */
     strcpy(args->config, "");
     strcpy(args->log_level, "");
+    strcpy(args->secret, "");
 
     /* integer */
     args->zone = ARGS__NO_ZONE;
@@ -47,7 +47,6 @@ int ti_args_create(void)
 
 void ti_args_destroy(void)
 {
-    free(args);
     args = ti()->args = NULL;
 }
 

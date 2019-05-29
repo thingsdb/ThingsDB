@@ -6,14 +6,17 @@
 
 #define TI_VERSION_MAJOR 0
 #define TI_VERSION_MINOR 1
-#define TI_VERSION_PATCH 3
+#define TI_VERSION_PATCH 4
 
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha release versions.
  * This should be an empty string when building a final release.
- * Examples: "-alpha-0" "-alpha-1", ""
+ * Examples:
+ *  "-alpha-0"
+ *  "-alpha-1"
+ *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha0"
+#define TI_VERSION_PRE_RELEASE ""
 
 #define TI_STRINGIFY(num) #num
 #define TI_VERSION_STR(major,minor,patch) \

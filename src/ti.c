@@ -52,7 +52,6 @@ int ti_create(void)
     ti_.node_fn = NULL;
     ti_.build = NULL;
     ti_.node = NULL;
-    ti_.lookup = NULL;
     ti_.store = NULL;
     ti_.access_node = vec_new(0);
     ti_.access_thingsdb = vec_new(0);
@@ -94,7 +93,6 @@ void ti_destroy(void)
 
     ti_build_destroy();
     ti_archive_destroy();
-    ti_lookup_destroy(ti_.lookup);
     ti_args_destroy();
     ti_cfg_destroy();
     ti_clients_destroy();
@@ -165,8 +163,6 @@ int ti_build(void)
             encrypted);
     if (!ti_.node)
         goto failed;
-
-    ti_.lookup = ti_lookup_create(ti_.nodes->vec->n);
 
    if (ti_write_node_id(&ti_.node->id) || ti_save())
        goto failed;
@@ -689,10 +685,6 @@ static int ti__unpack(qp_res_t * res)
         goto failed;
 
     if (ti_nodes_from_qpres(qpnodes))
-        goto failed;
-
-    ti_.lookup = ti_lookup_create(ti_.nodes->vec->n);
-    if (!ti_.lookup)
         goto failed;
 
     if (node_id >= ti_.nodes->vec->n)

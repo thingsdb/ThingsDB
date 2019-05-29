@@ -69,18 +69,13 @@ typedef struct ti_node_s ti_node_t;
 #include <ti/stream.h>
 #include <ti/pkg.h>
 #include <ti/rpkg.h>
-#include <ti/lookup.h>
 #include <util/imap.h>
 #include <util/cryptx.h>
 
 struct ti_node_s
 {
     uint32_t ref;
-    uint8_t id;  /* node id, equal to the index in tin->nodes and each node
-                    contains the same order since the lookup is based on this
-                    id. When deciding which node wins over an equal event id
-                    request, the higher ((node->id + event->id) % n-nodes)
-                    is the winner. */
+    uint8_t id;
     uint8_t status;
     uint8_t zone;                   /* zone info */
     uint8_t _pad0;
@@ -110,7 +105,6 @@ int ti_node_upd_addr_from_stream(
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 int ti_node_connect(ti_node_t * node);
-ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u);
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
 int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);

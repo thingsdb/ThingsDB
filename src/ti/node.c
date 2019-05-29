@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti.h>
-#include <ti/lookup.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
@@ -164,18 +163,6 @@ fail1:
 fail0:
     ti_stream_close(stream);
     return -1;
-}
-
-ti_node_t * ti_node_winner(ti_node_t * node_a, ti_node_t * node_b, uint64_t u)
-{
-    ti_node_t * min = node_a->id < node_b->id ? node_a : node_b;
-    ti_node_t * max = node_a->id > node_b->id ? node_a : node_b;
-
-    return ti_lookup_id_is_ordered(
-            ti()->lookup,
-            min->id,
-            max->id,
-            u) ? min : max;
 }
 
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)

@@ -25,7 +25,6 @@ C_SRCS += \
 ../src/ti/ex.c \
 ../src/ti/fwd.c \
 ../src/ti/job.c \
-../src/ti/lookup.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/nil.c \
@@ -50,7 +49,6 @@ C_SRCS += \
 ../src/ti/rq.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
-../src/ti/skipped.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
 ../src/ti/sync.c \
@@ -96,7 +94,6 @@ OBJS += \
 ./src/ti/ex.o \
 ./src/ti/fwd.o \
 ./src/ti/job.o \
-./src/ti/lookup.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/nil.o \
@@ -121,7 +118,6 @@ OBJS += \
 ./src/ti/rq.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
-./src/ti/skipped.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
 ./src/ti/sync.o \
@@ -167,7 +163,6 @@ C_DEPS += \
 ./src/ti/ex.d \
 ./src/ti/fwd.d \
 ./src/ti/job.d \
-./src/ti/lookup.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/nil.d \
@@ -192,7 +187,6 @@ C_DEPS += \
 ./src/ti/rq.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \
-./src/ti/skipped.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \
 ./src/ti/sync.d \

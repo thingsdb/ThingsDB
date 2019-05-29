@@ -25,6 +25,8 @@ typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
 static ti_node_t * nodes__o[63];    /* other zone */
 static ti_node_t * nodes__z[63];    /* same zone */
 static ti_nodes_t * nodes;
+static ti_nodes_t nodes_;
+
 static const char * nodes__scevid    = "global_event_status";
 
 
@@ -46,11 +48,10 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
 static const char * nodes__get_scevid_fn(void);
 
+
 int ti_nodes_create(void)
 {
-    nodes = malloc(sizeof(ti_nodes_t));
-    if (!nodes)
-        return -1;
+    nodes = &nodes_;
 
     /* make sure data is set to null, we use this on close */
     nodes->tcp.data = NULL;
@@ -70,7 +71,6 @@ void ti_nodes_destroy(void)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes->scevid_fn);
-    free(nodes);
     ti()->nodes = nodes = NULL;
 }
 

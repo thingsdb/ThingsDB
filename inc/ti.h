@@ -21,7 +21,6 @@
 #include <ti/connect.h>
 #include <ti/counters.h>
 #include <ti/events.h>
-#include <ti/lookup.h>
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
@@ -90,7 +89,6 @@ struct ti_s
     ti_connect_t * connect_loop;
     ti_counters_t * counters;   /* counters for statistics */
     ti_events_t * events;
-    ti_lookup_t * lookup;
     ti_node_t * node;
     ti_nodes_t * nodes;
     ti_store_t * store;

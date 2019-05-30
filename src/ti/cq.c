@@ -1,5 +1,11 @@
 /*
  * ti/cq.c
+
+ * Functions:
+ *  1. Test if the function is available in scope
+ *  2. Test the number of arguments
+ *  3. Lazy evaluate each argument
+ *
  */
 #include <assert.h>
 #include <langdef/langdef.h>
@@ -21,12 +27,6 @@
 #include <util/strx.h>
 #include <util/util.h>
 
-/*
- * Functions:
- *  1. Test if the function is available in scope
- *  2. Test the number of arguments
- *  3. Lazy evaluate each argument
- */
 static int cq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e);

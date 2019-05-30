@@ -599,7 +599,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_node(task, node))
         ex_set_alloc(e);  /* task cleanup is not required */
 
-    (void) ti_save();
+    query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) node->id);
@@ -780,7 +780,7 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     node_id = node->id;
 
     ti_nodes_pop_node();
-    (void) ti_save();
+    query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)
@@ -1151,7 +1151,7 @@ static int rq__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_replace_node(task, node))
         ex_set_alloc(e);  /* task cleanup is not required */
 
-    (void) ti_save();
+    query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -16,7 +16,7 @@ from thingsdb.exceptions import ZeroDivisionError
 
 class TestCollectionFunctions(TestBase):
 
-    title = 'Test collection functions'
+    title = 'Test collection scope functions'
 
     @default_test_setup(num_nodes=1, seed=1)
     async def run(self):

@@ -375,13 +375,9 @@ int ti_nodes_listen(void)
     }
 
     if (is_ipv6)
-    {
-        uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
-    }
+        (void) uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
     else
-    {
-        uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
-    }
+        (void) uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
 
     if ((rc = uv_tcp_bind(
             &nodes->tcp,

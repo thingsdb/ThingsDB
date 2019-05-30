@@ -44,6 +44,7 @@ int ti_cfg_create(void)
     /* set defaults */
     cfg->client_port = TI_DEFAULT_CLIENT_PORT;
     cfg->node_port = TI_DEFAULT_NODE_PORT;
+    cfg->http_status_port = TI_DEFAULT_HTTP_STATUS_PORT;
     cfg->threshold_full_storage = TI_DEFAULT_THRESHOLD_FULL_STORAGE;
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
@@ -111,6 +112,7 @@ int ti_cfg_parse(const char * cfg_file)
 
     ti__cfg_port(parser, cfg_file, "listen_client_port", &cfg->client_port);
     ti__cfg_port(parser, cfg_file, "listen_node_port", &cfg->node_port);
+    ti__cfg_port(parser, cfg_file, "http_status_port", &cfg->http_status_port);
     ti__cfg_ip_support(parser, cfg_file);
     ti__cfg_threshold_full_storage(parser, cfg_file);
 
@@ -193,7 +195,7 @@ static void ti__cfg_port(
         const char * option_name,
         uint16_t * port)
 {
-    const int min_ = 1;
+    const int min_ = 0;
     const int max_ = 65535;
 
     cfgparser_option_t * option;

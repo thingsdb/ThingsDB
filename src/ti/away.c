@@ -31,18 +31,328 @@ enum away__status
     AWAY__STATUS_SYNCING,
 };
 
-static void away__destroy(uv_handle_t * handle);
-static void away__req_away_id(void);
-static _Bool away__required(void);
-static void away__on_req_away_id(void * UNUSED(data), _Bool accepted);
-static void away__waiter_pre_cb(uv_timer_t * timer);
-static void away__waiter_after_cb(uv_timer_t * waiter);
-static void away__work(uv_work_t * UNUSED(work));
-static void away__work_finish(uv_work_t * UNUSED(work), int status);
-static inline void away__repeat_cb(uv_timer_t * repeat);
-static void away__change_expected_id(uint8_t node_id);
-static inline uint64_t away__calc_sleep(void);
-static const char * away__status_str(void);
+static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
+{
+    ti_away_trigger();
+}
+
+static inline uint64_t away__calc_sleep(void)
+{
+    return 2500 + ((away->expected_node_id < ti()->node->id
+            ? away->expected_node_id + ti()->nodes->vec->n
+            : away->expected_node_id) - ti()->node->id) * 11000;
+}
+
+static _Bool away__required(void)
+{
+    return ti()->archive->queue->n || ti_nodes_require_sync();
+}
+
+static const char * away__status_str(void)
+{
+    switch ((enum away__status) away->status)
+    {
+    case AWAY__STATUS_INIT:     return "INIT";
+    case AWAY__STATUS_IDLE:     return "IDLE";
+    case AWAY__STATUS_REQ_AWAY: return "REQ_AWAY";
+    case AWAY__STATUS_WAITING:  return "WAITING";
+    case AWAY__STATUS_WORKING:  return "WORKING";
+    case AWAY__STATUS_SYNCING:  return "SYNCING";
+    }
+    return "UNKNOWN";
+}
+
+static void away__destroy(uv_handle_t * handle)
+{
+    if (away)
+    {
+        free(away->work);
+        free(away->repeat);
+        /* only call free on timer if we have a handle since it otherwise will
+         * be removed by ti_away_stop()
+         */
+        if (!handle)
+            free(away->waiter);
+
+        vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_drop);
+        free(away);
+    }
+    away = ti()->away = NULL;
+}
+
+static void away__change_expected_id(uint8_t node_id)
+{
+    uint64_t new_timer;
+
+    /* update expected node id */
+    away->expected_node_id = (node_id + 1) % ti()->nodes->vec->n;
+
+    /* calculate new timer */
+    new_timer = away__calc_sleep();
+
+    uv_timer_set_repeat(away->repeat, new_timer);
+}
+
+static void away__work(uv_work_t * UNUSED(work))
+{
+    uv_mutex_lock(ti()->events->lock);
+
+    away->status = AWAY__STATUS_WORKING;
+
+    /* garbage collect */
+    (void) ti_collections_gc();
+
+    if (ti_archive_to_disk())
+        log_critical("failed writing archived events to disk");
+
+    /* write global event status to disk */
+    (void) ti_nodes_write_scevid();
+
+    uv_mutex_unlock(ti()->events->lock);
+}
+
+static size_t away__syncers(void)
+{
+    size_t count = 0;
+    uint64_t fa_event_id = ti_archive_get_first_event_id();
+    uint64_t fs_event_id = ti()->store->last_stored_event_id;
+
+    for (vec_each(away->syncers, ti_syncer_t, syncer))
+    {
+        if (syncer->stream)
+        {
+            int rc;
+
+            ++count;
+            if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
+                continue;
+
+            log_info(
+                    "start synchronizing `%s`",
+                    ti_stream_name(syncer->stream));
+
+            syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
+
+            if (    (syncer->first < fa_event_id) &&
+                    syncer->first <= fs_event_id)
+            {
+                log_info(
+                    "full database sync is required for `%s` because the "
+                    "requested "TI_EVENT_ID" is not in the archive starting "
+                    "at "TI_EVENT_ID" but within the full stored "TI_EVENT_ID,
+                    ti_stream_name(syncer->stream),
+                    syncer->first,
+                    fa_event_id == UINT64_MAX ? fs_event_id + 1 : fa_event_id,
+                    fs_event_id);
+                if (ti_syncfull_start(syncer->stream))
+                    log_critical(EX_ALLOC_S);
+                continue;
+            }
+
+            rc = ti_syncarchive_init(syncer->stream, syncer->first);
+            if (rc > 0)
+            {
+                rc = ti_syncevents_init(syncer->stream, syncer->first);
+                if (rc > 0)
+                {
+                    rc = ti_syncevents_done(syncer->stream);
+                }
+            }
+            if (rc < 0)
+            {
+                log_critical(EX_ALLOC_S);
+            }
+        }
+    }
+    return count;
+}
+
+static void away__waiter_after_cb(uv_timer_t * waiter)
+{
+    assert (away->status == AWAY__STATUS_SYNCING);
+
+    size_t nsyncers;
+    ssize_t queue_size = ti_events_trigger_loop();
+
+    /*
+     * First check and process events before start with synchronizing
+     * optional nodes. This order is required so nodes will receive events
+     * from the archive queue which they might require.
+     */
+    if (queue_size)
+    {
+        log_warning(
+                "stay in away mode since the queue contains %zd %s",
+                queue_size,
+                queue_size == 1 ? "event" : "events");
+        return;
+    }
+
+    nsyncers = away__syncers();
+    if (nsyncers)
+    {
+        log_warning(
+                "stay in away mode since this node is synchronizing with "
+                "%zu other %s",
+                nsyncers,
+                nsyncers == 1 ? "node" : "nodes");
+        return;
+    }
+
+    (void) uv_timer_stop(waiter);
+    uv_close((uv_handle_t *) waiter, NULL);
+
+    away->status = AWAY__STATUS_IDLE;
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+}
+
+static void away__work_finish(uv_work_t * UNUSED(work), int status)
+{
+    away->status = AWAY__STATUS_SYNCING;
+
+    int rc;
+    if (status)
+        log_error(uv_strerror(status));
+
+    rc = uv_timer_init(ti()->loop, away->waiter);
+    if (rc)
+        goto fail1;
+
+    rc = uv_timer_start(
+            away->waiter,
+            away__waiter_after_cb,
+            0,          /* check immediately, no reason to wait */
+            2000        /* check on repeat if finished */
+    );
+
+    if (rc)
+        goto fail2;
+
+    return;
+
+fail2:
+    uv_close((uv_handle_t *) away->waiter, NULL);
+
+fail1:
+    log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
+    away->status = AWAY__STATUS_IDLE;
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+}
+
+static void away__waiter_pre_cb(uv_timer_t * waiter)
+{
+    ssize_t events_to_process = ti_events_trigger_loop();
+    if (events_to_process)
+    {
+        log_warning(
+                "waiting for %zd %s to finish before going to away mode",
+                events_to_process,
+                events_to_process == 1 ? "event" : "events");
+        return;
+    }
+
+    (void) uv_timer_stop(waiter);
+    uv_close((uv_handle_t *) waiter, NULL);
+
+    if (uv_queue_work(
+            ti()->loop,
+            away->work,
+            away__work,
+            away__work_finish))
+    {
+        away->status = AWAY__STATUS_IDLE;
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+        return;
+    }
+
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
+}
+
+static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
+{
+    if (!accepted)
+    {
+        log_info(
+                "node `%s` does not have the required quorum "
+                "of at least %u connected nodes for going into away mode",
+                ti_node_name(ti()->node),
+                ti_nodes_quorum());
+        goto fail0;;
+    }
+
+    away__change_expected_id(ti()->node->id);
+
+    if (uv_timer_init(ti()->loop, away->waiter))
+        goto fail1;
+
+    if (uv_timer_start(
+            away->waiter,
+            away__waiter_pre_cb,
+            AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
+            1000                /* a little longer if events are still queued */
+    ))
+        goto fail2;
+
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY_SOON);
+    away->status = AWAY__STATUS_WAITING;
+    return;
+
+fail2:
+    uv_close((uv_handle_t *) away->waiter, NULL);
+fail1:
+    log_critical(EX_INTERNAL_S);
+fail0:
+    away->status = AWAY__STATUS_IDLE;
+}
+
+static void away__req_away_id(void)
+{
+    vec_t * vec_nodes = ti()->nodes->vec;
+    ti_quorum_t * quorum = NULL;
+    ti_pkg_t * pkg, * dup;
+
+    quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
+    if (!quorum)
+        goto failed;
+
+    pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_AWAY, NULL, 0);
+    if (!pkg)
+        goto failed;
+
+    for (vec_each(vec_nodes, ti_node_t, node))
+    {
+        if (node == ti()->node)
+            continue;
+
+        dup = NULL;
+        if (node->status <= TI_NODE_STAT_CONNECTING ||
+            !(dup = ti_pkg_dup(pkg)) ||
+            ti_req_create(
+                node->stream,
+                dup,
+                TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT,
+                ti_quorum_req_cb,
+                quorum))
+        {
+            free(dup);
+            if (ti_quorum_shrink_one(quorum))
+                log_error(
+                    "failed to reach quorum of %u nodes while the previous "
+                    "check was successful", quorum->quorum);
+        }
+    }
+
+    free(pkg);
+
+    ti_quorum_go(quorum);
+
+    return;
+
+failed:
+    ti_quorum_destroy(quorum);
+    log_critical(EX_ALLOC_S);
+    away->status = AWAY__STATUS_IDLE;
+}
 
 int ti_away_create(void)
 {
@@ -268,327 +578,3 @@ void ti_away_syncer_done(ti_stream_t * stream)
         ti_watch_drop((ti_watch_t *) vec_swap_remove(away->syncers, i));
     }
 }
-
-static void away__destroy(uv_handle_t * handle)
-{
-    if (away)
-    {
-        free(away->work);
-        free(away->repeat);
-        /* only call free on timer if we have a handle since it otherwise will
-         * be removed by ti_away_stop()
-         */
-        if (!handle)
-            free(away->waiter);
-
-        vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_drop);
-        free(away);
-    }
-    away = ti()->away = NULL;
-}
-
-static void away__req_away_id(void)
-{
-    vec_t * vec_nodes = ti()->nodes->vec;
-    ti_quorum_t * quorum = NULL;
-    ti_pkg_t * pkg, * dup;
-
-    quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
-    if (!quorum)
-        goto failed;
-
-    pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_AWAY, NULL, 0);
-    if (!pkg)
-        goto failed;
-
-    for (vec_each(vec_nodes, ti_node_t, node))
-    {
-        if (node == ti()->node)
-            continue;
-
-        dup = NULL;
-        if (node->status <= TI_NODE_STAT_CONNECTING ||
-            !(dup = ti_pkg_dup(pkg)) ||
-            ti_req_create(
-                node->stream,
-                dup,
-                TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT,
-                ti_quorum_req_cb,
-                quorum))
-        {
-            free(dup);
-            if (ti_quorum_shrink_one(quorum))
-                log_error(
-                    "failed to reach quorum of %u nodes while the previous "
-                    "check was successful", quorum->quorum);
-        }
-    }
-
-    free(pkg);
-
-    ti_quorum_go(quorum);
-
-    return;
-
-failed:
-    ti_quorum_destroy(quorum);
-    log_critical(EX_ALLOC_S);
-    away->status = AWAY__STATUS_IDLE;
-}
-
-static _Bool away__required(void)
-{
-    return ti()->archive->queue->n || ti_nodes_require_sync();
-}
-
-static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
-{
-    if (!accepted)
-    {
-        log_info(
-                "node `%s` does not have the required quorum "
-                "of at least %u connected nodes for going into away mode",
-                ti_node_name(ti()->node),
-                ti_nodes_quorum());
-        goto fail0;;
-    }
-
-    away__change_expected_id(ti()->node->id);
-
-    if (uv_timer_init(ti()->loop, away->waiter))
-        goto fail1;
-
-    if (uv_timer_start(
-            away->waiter,
-            away__waiter_pre_cb,
-            AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
-            1000                /* a little longer if events are still queued */
-    ))
-        goto fail2;
-
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY_SOON);
-    away->status = AWAY__STATUS_WAITING;
-    return;
-
-fail2:
-    uv_close((uv_handle_t *) away->waiter, NULL);
-fail1:
-    log_critical(EX_INTERNAL_S);
-fail0:
-    away->status = AWAY__STATUS_IDLE;
-}
-
-static void away__change_expected_id(uint8_t node_id)
-{
-    uint64_t new_timer;
-
-    /* update expected node id */
-    away->expected_node_id = (node_id + 1) % ti()->nodes->vec->n;
-
-    /* calculate new timer */
-    new_timer = away__calc_sleep();
-
-    uv_timer_set_repeat(away->repeat, new_timer);
-}
-
-static void away__waiter_pre_cb(uv_timer_t * waiter)
-{
-    ssize_t events_to_process = ti_events_trigger_loop();
-    if (events_to_process)
-    {
-        log_warning(
-                "waiting for %zd %s to finish before going to away mode",
-                events_to_process,
-                events_to_process == 1 ? "event" : "events");
-        return;
-    }
-
-    (void) uv_timer_stop(waiter);
-    uv_close((uv_handle_t *) waiter, NULL);
-
-    if (uv_queue_work(
-            ti()->loop,
-            away->work,
-            away__work,
-            away__work_finish))
-    {
-        away->status = AWAY__STATUS_IDLE;
-        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-        return;
-    }
-
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
-}
-
-static size_t away__syncers(void)
-{
-    size_t count = 0;
-    uint64_t fa_event_id = ti_archive_get_first_event_id();
-    uint64_t fs_event_id = ti()->store->last_stored_event_id;
-
-    for (vec_each(away->syncers, ti_syncer_t, syncer))
-    {
-        if (syncer->stream)
-        {
-            int rc;
-
-            ++count;
-            if (syncer->stream->flags & TI_STREAM_FLAG_SYNCHRONIZING)
-                continue;
-
-            log_info(
-                    "start synchronizing `%s`",
-                    ti_stream_name(syncer->stream));
-
-            syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
-
-            if (    (syncer->first < fa_event_id) &&
-                    syncer->first <= fs_event_id)
-            {
-                log_info(
-                    "full database sync is required for `%s` because the "
-                    "requested "TI_EVENT_ID" is not in the archive starting "
-                    "at "TI_EVENT_ID" but within the full stored "TI_EVENT_ID,
-                    ti_stream_name(syncer->stream),
-                    syncer->first,
-                    fa_event_id == UINT64_MAX ? fs_event_id + 1 : fa_event_id,
-                    fs_event_id);
-                if (ti_syncfull_start(syncer->stream))
-                    log_critical(EX_ALLOC_S);
-                continue;
-            }
-
-            rc = ti_syncarchive_init(syncer->stream, syncer->first);
-            if (rc > 0)
-            {
-                rc = ti_syncevents_init(syncer->stream, syncer->first);
-                if (rc > 0)
-                {
-                    rc = ti_syncevents_done(syncer->stream);
-                }
-            }
-            if (rc < 0)
-            {
-                log_critical(EX_ALLOC_S);
-            }
-        }
-    }
-    return count;
-}
-
-static void away__waiter_after_cb(uv_timer_t * waiter)
-{
-    assert (away->status == AWAY__STATUS_SYNCING);
-
-    size_t nsyncers;
-    ssize_t queue_size = ti_events_trigger_loop();
-
-    /*
-     * First check and process events before start with synchronizing
-     * optional nodes. This order is required so nodes will receive events
-     * from the archive queue which they might require.
-     */
-    if (queue_size)
-    {
-        log_warning(
-                "stay in away mode since the queue contains %zd %s",
-                queue_size,
-                queue_size == 1 ? "event" : "events");
-        return;
-    }
-
-    nsyncers = away__syncers();
-    if (nsyncers)
-    {
-        log_warning(
-                "stay in away mode since this node is synchronizing with "
-                "%zu other %s",
-                nsyncers,
-                nsyncers == 1 ? "node" : "nodes");
-        return;
-    }
-
-    (void) uv_timer_stop(waiter);
-    uv_close((uv_handle_t *) waiter, NULL);
-
-    away->status = AWAY__STATUS_IDLE;
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-}
-
-static void away__work(uv_work_t * UNUSED(work))
-{
-    uv_mutex_lock(ti()->events->lock);
-
-    away->status = AWAY__STATUS_WORKING;
-
-    /* garbage collect */
-    (void) ti_collections_gc();
-
-    if (ti_archive_to_disk())
-        log_critical("failed writing archived events to disk");
-
-    /* write global event status to disk */
-    (void) ti_nodes_write_scevid();
-
-    uv_mutex_unlock(ti()->events->lock);
-}
-
-static void away__work_finish(uv_work_t * UNUSED(work), int status)
-{
-    away->status = AWAY__STATUS_SYNCING;
-
-    int rc;
-    if (status)
-        log_error(uv_strerror(status));
-
-    rc = uv_timer_init(ti()->loop, away->waiter);
-    if (rc)
-        goto fail1;
-
-    rc = uv_timer_start(
-            away->waiter,
-            away__waiter_after_cb,
-            0,          /* check immediately, no reason to wait */
-            2000        /* check on repeat if finished */
-    );
-
-    if (rc)
-        goto fail2;
-
-    return;
-
-fail2:
-    uv_close((uv_handle_t *) away->waiter, NULL);
-
-fail1:
-    log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
-    away->status = AWAY__STATUS_IDLE;
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-}
-
-static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
-{
-    ti_away_trigger();
-}
-
-static inline uint64_t away__calc_sleep(void)
-{
-    return 2500 + ((away->expected_node_id < ti()->node->id
-            ? away->expected_node_id + ti()->nodes->vec->n
-            : away->expected_node_id) - ti()->node->id) * 11000;
-}
-
-static const char * away__status_str(void)
-{
-    switch ((enum away__status) away->status)
-    {
-    case AWAY__STATUS_INIT:     return "INIT";
-    case AWAY__STATUS_IDLE:     return "IDLE";
-    case AWAY__STATUS_REQ_AWAY: return "REQ_AWAY";
-    case AWAY__STATUS_WAITING:  return "WAITING";
-    case AWAY__STATUS_WORKING:  return "WORKING";
-    case AWAY__STATUS_SYNCING:  return "SYNCING";
-    }
-    return "UNKNOWN";
-}
-

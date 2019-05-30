@@ -43,20 +43,17 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 {
     if (signum == SIGPIPE)
     {
-        log_warning("signal (%d) received, probably a connection was lost");
+        log_warning(
+            "signal (%s) received, probably a connection was lost",
+            strsignal(signum));
         return;
     }
 
     if (ti()->flags & TI_FLAG_SIGNAL)
     {
-        if (ti()->flags & TI_FLAG_STOP)
-        {
-            log_error("received third signal (%s), abort", strsignal(signum));
-            abort();
-        }
-        ti()->flags |= TI_FLAG_STOP;
-        log_error("received second signal (%s), stop now", strsignal(signum));
-        ti_stop();
+        log_warning(
+            "signal (%s) received but a shutdown is already initiated",
+            strsignal(signum));
         return;
     }
 
@@ -71,5 +68,4 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 
     if (ti_.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
-
 }

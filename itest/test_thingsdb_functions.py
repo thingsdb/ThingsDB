@@ -16,7 +16,7 @@ from thingsdb.exceptions import ZeroDivisionError
 
 class TestThingsDBFunctions(TestBase):
 
-    title = 'Test ThingsDB functions'
+    title = 'Test thingsdb scope functions'
 
     @default_test_setup(num_nodes=1, seed=1)
     async def run(self):
@@ -65,6 +65,8 @@ class TestThingsDBFunctions(TestBase):
 
         collections = await client.query('collections();')
         self.assertEqual(len(collections), 1)
+        self.assertEqual(len(collections[0]), 7)
+
         self.assertIn("collection_id", collections[0])
         self.assertIn("name", collections[0])
         self.assertIn("things", collections[0])
@@ -73,11 +75,13 @@ class TestThingsDBFunctions(TestBase):
         self.assertIn("quota_array_size", collections[0])
         self.assertIn("quota_raw_size", collections[0])
 
-    async def test_counters(self, client):
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'function `counters` takes 0 arguments but 1 was given'):
-            await client.query('counters(nil);')
+        self.assertTrue(isinstance(collections[0]["collection_id"], int))
+        self.assertTrue(isinstance(collections[0]["name"], str))
+        self.assertTrue(isinstance(collections[0]["things"], int))
+        self.assertIs(collections[0]["quota_things"], None)
+        self.assertIs(collections[0]["quota_properties"], None)
+        self.assertIs(collections[0]["quota_array_size"], None)
+        self.assertIs(collections[0]["quota_raw_size"], None)
 
 
 if __name__ == '__main__':

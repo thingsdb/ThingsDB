@@ -12,6 +12,7 @@ static void ti__write_cb(uv_write_t * req, int status);
 
 int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
 {
+    uv_buf_t wrbuf;
     ti_write_t * req = (ti_write_t *) malloc(sizeof(uv_write_t));
     if (!req)
         return -1;
@@ -22,7 +23,7 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
     req->data = data;
     req->cb_ = cb;
 
-    uv_buf_t wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
+    wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
     uv_write(&req->req_, stream->uvstream, &wrbuf, 1, &ti__write_cb);
 
     return 0;

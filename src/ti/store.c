@@ -29,10 +29,26 @@ static const char * store__id_stat_fn           = "idstat.qp";
 static const char * store__names_fn             = "names.qp";
 static const char * store__users_fn             = "users.qp";
 
-static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg));
-static void store__set_filename(_Bool use_tmp);
-
 static ti_store_t * store;
+
+static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
+{
+    assert (thing->ref > 1);
+    --thing->ref;
+    return 0;
+}
+
+static void store__set_filename(_Bool use_tmp)
+{
+    const char * path = use_tmp ? store__tmp_path : store__path;
+    size_t n = strlen(path);
+    memcpy(store->access_node_fn + store->fn_offset, path, n);
+    memcpy(store->access_thingsdb_fn + store->fn_offset, path, n);
+    memcpy(store->collections_fn + store->fn_offset, path, n);
+    memcpy(store->id_stat_fn + store->fn_offset, path, n);
+    memcpy(store->names_fn + store->fn_offset, path, n);
+    memcpy(store->users_fn + store->fn_offset, path, n);
+}
 
 int ti_store_create(void)
 {
@@ -283,24 +299,4 @@ stop:
         imap_destroy(namesmap, (imap_destroy_cb) ti_name_drop);
     return rc;
 }
-
-static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
-{
-    assert (thing->ref > 1);
-    --thing->ref;
-    return 0;
-}
-
-static void store__set_filename(_Bool use_tmp)
-{
-    const char * path = use_tmp ? store__tmp_path : store__path;
-    size_t n = strlen(path);
-    memcpy(store->access_node_fn + store->fn_offset, path, n);
-    memcpy(store->access_thingsdb_fn + store->fn_offset, path, n);
-    memcpy(store->collections_fn + store->fn_offset, path, n);
-    memcpy(store->id_stat_fn + store->fn_offset, path, n);
-    memcpy(store->names_fn + store->fn_offset, path, n);
-    memcpy(store->users_fn + store->fn_offset, path, n);
-}
-
 

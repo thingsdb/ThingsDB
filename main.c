@@ -18,7 +18,6 @@
 #include <util/fx.h>
 #include <cleri/version.h>
 
-
 int main(int argc, char * argv[])
 {
     int rc = EXIT_SUCCESS;

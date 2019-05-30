@@ -30,6 +30,7 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     ev->status = TI_EVENT_STAT_NEW;
     ev->target = NULL;
     ev->tp = tp;
+    ev->flags = 0;
     ev->_tasks = tp == TI_EVENT_TP_MASTER ? vec_new(1) : NULL;
 
     if (    (tp == TI_EVENT_TP_MASTER && !ev->_tasks) ||
@@ -170,7 +171,7 @@ int ti_event_run(ti_event_t * ev)
         else
         {
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
-                if (ti_rjob_run(&unpacker))
+                if (ti_rjob_run(ev, &unpacker))
                 {
                     log_critical(
                             "job for `root` in "TI_EVENT_ID" failed",

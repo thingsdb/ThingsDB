@@ -43,9 +43,15 @@ class TestMultiNode(TestBase):
                 counter += 1;
             ''', target=stuff)
 
+        # the client points to the same node so we expect the correct result
         counter = await client.query(r'counter;', target=stuff)
         assert (counter == expected_counter)
 
+        # a little sleep to make sure all nodes have time to process the events
+        await asyncio.sleep(0.75)
+
+        # kill three nodes at most, since one can be in away mode, and at lesat
+        # one node must have `ready` status
         for node in (self.node0, self.node1, self.node2):
             # A soft kill and we do not wait for the result. The goal here is
             # to test if all the queries which follow are still returning as

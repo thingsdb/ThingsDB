@@ -11,7 +11,10 @@
 #include <util/qpx.h>
 #include <util/cryptx.h>
 
-static void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw);
+static inline void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw)
+{
+    task->approx_sz += (37 + raw->n);
+}
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
 {
@@ -860,8 +863,5 @@ done:
     return rc;
 }
 
-static inline void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw)
-{
-    task->approx_sz += (37 + raw->n);
-}
+
 

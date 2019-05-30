@@ -14,7 +14,7 @@ class TestGC(TestBase):
 
     title = 'Test garbage collection'
 
-    @default_test_setup(num_nodes=1, seed=1)
+    @default_test_setup(num_nodes=2, seed=1)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -40,7 +40,7 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         for _ in range(10):
-            await client.query(r'''counte = 1;''', target=stuff)
+            await client.query(r'''counter = 1;''', target=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
@@ -50,6 +50,16 @@ class TestGC(TestBase):
         x, other = await client.query(r'x; a.other;', target=stuff, all_=True)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
+
+        await client.query(r'''
+            del('a');
+        ''', target=stuff)
+
+        # add another node so away node and gc is forced
+        await self.node1.join_until_ready(client)
+
+        counters = await client.query('counters();', target=client.node)
+        self.assertEqual(counters['garbage_collected'], 1)
 
 
 if __name__ == '__main__':

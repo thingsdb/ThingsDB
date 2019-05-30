@@ -545,6 +545,9 @@ static void events__loop(uv_async_t * UNUSED(handle))
         /* update committed event id */
         *cevid_p = ev->id;
 
+        if (ev->flags & TI_EVENT_FLAG_SAVE)
+            ti_save();
+
 shift_drop_loop:
         (void) queue_shift(events->queue);
         ti_event_drop(ev);

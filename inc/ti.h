@@ -79,6 +79,7 @@ struct ti_s
     struct timespec boottime;
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
+    uint64_t last_event_id;       /* ti_event_id when `ti__fn` was saved */
     ti_archive_t * archive;     /* committed events archive */
     ti_args_t * args;
     ti_away_t * away;
@@ -135,6 +136,8 @@ static inline int ti_to_packer(qp_packer_t ** packer)
         qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "schema") ||
         qp_add_int(*packer, TI_FN_SCHEMA) ||
+        qp_add_raw_from_str(*packer, "event_id") ||
+        qp_add_int(*packer, ti_.last_event_id) ||
         qp_add_raw_from_str(*packer, "nodes") ||
         ti_nodes_to_packer(packer) ||
         qp_close_map(*packer)

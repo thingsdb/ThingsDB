@@ -8,53 +8,6 @@
 #include <ti/name.h>
 #include <ti/names.h>
 
-static int job__assign(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
-static int job__del(ti_thing_t * thing, qp_unpacker_t * unp);
-static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp);
-static int job__splice(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp);
-/*
- * (Log function)
- * Unpacker should be at point 'job': ...
- */
-int ti_job_run(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
-{
-    qp_obj_t qp_job_name;
-    const uchar * raw;
-    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 3)
-    {
-        log_critical(
-                "job `type` for thing "TI_THING_ID" is missing",
-                thing->id);
-        return -1;
-    }
-
-    raw = qp_job_name.via.raw;
-
-    switch (*raw)
-    {
-    case 'a':
-        return job__assign(collection, thing, unp);
-    case 'd':
-        return job__del(thing, unp);
-    case 'r':
-        return job__rename(thing, unp);
-    case 's':
-        return job__splice(collection, thing, unp);
-    }
-
-    log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
-    return -1;
-}
-
 /*
  * Returns 0 on success
  * - for example: {'prop':value}
@@ -351,4 +304,40 @@ static int job__splice(
         (void) vec_shrink(&varr->vec);
 
     return 0;
+}
+
+/*
+ * Unpacker should be at point 'job': ...
+ */
+int ti_job_run(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
+{
+    qp_obj_t qp_job_name;
+    const uchar * raw;
+    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 3)
+    {
+        log_critical(
+                "job `type` for thing "TI_THING_ID" is missing",
+                thing->id);
+        return -1;
+    }
+
+    raw = qp_job_name.via.raw;
+
+    switch (*raw)
+    {
+    case 'a':
+        return job__assign(collection, thing, unp);
+    case 'd':
+        return job__del(thing, unp);
+    case 'r':
+        return job__rename(thing, unp);
+    case 's':
+        return job__splice(collection, thing, unp);
+    }
+
+    log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
+    return -1;
 }

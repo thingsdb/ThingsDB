@@ -20,6 +20,7 @@
 #include <ti/sync.h>
 #include <ti/users.h>
 #include <ti/version.h>
+#include <ti/web.h>
 #include <tiinc.h>
 #include <unistd.h>
 #include <util/cryptx.h>
@@ -47,6 +48,7 @@ static void ti__stop(void);
 
 int ti_create(void)
 {
+    ti_.last_event_id = 0;
     ti_.flags = 0;
     ti_.fn = NULL;
     ti_.node_fn = NULL;
@@ -319,6 +321,9 @@ int ti_run(void)
     if (ti_signals_init())
         goto failed;
 
+    if (ti_.cfg->http_status_port && ti_web_init())
+        goto failed;
+
     if (ti_events_start())
         goto failed;
 
@@ -427,6 +432,9 @@ int ti_save(void)
     qp_packer_t * packer = qp_packer_create2(32 + ti_.nodes->vec->n * 224, 3);
     if (!packer)
         return -1;
+
+    if (ti_.node->cevid > ti_.last_event_id)
+        ti_.last_event_id = ti_.node->cevid;
 
     if (ti_to_packer(&packer))
         goto stop;
@@ -671,15 +679,18 @@ ti_val_t * ti_node_as_qpval(void)
 static int ti__unpack(qp_res_t * res)
 {
     uint8_t node_id;
-    qp_res_t * schema, * qpnodes;
+    qp_res_t * schema, * event_id, * qpnodes;
 
     if (    res->tp != QP_RES_MAP ||
             !(schema = qpx_map_get(res->via.map, "schema")) ||
+            !(event_id = qpx_map_get(res->via.map, "event_id")) ||
             !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
             schema->tp != QP_RES_INT64 ||
             schema->via.int64 != TI_FN_SCHEMA ||
+            event_id->tp != QP_RES_INT64 ||
             qpnodes->tp != QP_RES_ARRAY)
         goto failed;
+
 
     if (ti_read_node_id(&node_id))
         goto failed;
@@ -690,6 +701,7 @@ static int ti__unpack(qp_res_t * res)
     if (node_id >= ti_.nodes->vec->n)
         goto failed;
 
+    ti_.last_event_id = (uint64_t) event_id->via.int64;
     ti_.node = ti_nodes_node_by_id(node_id);
     if (!ti_.node)
         goto failed;
@@ -742,10 +754,18 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         break;
     case UV_TCP:
     case UV_NAMED_PIPE:
-        if (handle->data)
+        if (ti_web_is_handle(handle))
+        {
+            ti_web_close((ti_web_request_t *) handle->data);
+        }
+        else if (handle->data)
+        {
             ti_stream_close((ti_stream_t *) handle->data);
+        }
         else
+        {
             uv_close(handle, NULL);
+        }
         break;
     case UV_TIMER:
         if (handle == (uv_handle_t *) shutdown_timer)

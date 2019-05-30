@@ -18,6 +18,11 @@ typedef enum
     TI_EVENT_TP_EPKG,       /* status is always READY */
 } ti_event_tp_enum;
 
+typedef enum
+{
+    TI_EVENT_FLAG_SAVE  = 1<<0,    /* ti_save() must be triggered */
+} ti_event_flags_enum;
+
 typedef struct ti_event_s ti_event_t;
 typedef union ti_event_u ti_event_via_t;
 
@@ -50,9 +55,10 @@ union ti_event_u
 struct ti_event_s
 {
     uint32_t ref;           /* reference counting */
-    uint16_t pad0;
     uint8_t status;         /* NEW / CANCEL / READY */
     uint8_t tp;             /* MASTER / SLAVE / EPKG */
+    uint8_t flags;
+    uint8_t pad0;
     uint64_t id;
     ti_event_via_t via;
     ti_collection_t * target;   /* NULL for root or collection with reference

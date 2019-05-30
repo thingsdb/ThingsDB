@@ -37,6 +37,20 @@ class TestTypes(TestBase):
                 r'missing closing parenthesis'):
             await client.query(r'r = /invalid(regex/;')
 
+    async def test_raw(self, client):
+        self.assertEqual(await client.query(r'''
+            "Hi ""Iris""!!";
+        '''), 'Hi "Iris"!!')
+        self.assertEqual(await client.query(r'''
+            'Hi ''Iris''!!';
+        '''), "Hi 'Iris'!!")
+        self.assertTrue(await client.query(r'''
+            ("Hi ""Iris""" == 'Hi "Iris"' && 'Hi ''Iris''!' == "Hi 'Iris'!")
+        '''))
+        self.assertEqual(await client.query(r'''
+            blob(0);
+        ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
+
 
 if __name__ == '__main__':
     run_test(TestTypes())

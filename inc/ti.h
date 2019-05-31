@@ -79,7 +79,7 @@ struct ti_s
     struct timespec boottime;
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
-    uint64_t last_event_id;       /* ti_event_id when `ti__fn` was saved */
+    uint64_t last_event_id;     /* when `ti__fn` was saved */
     ti_archive_t * archive;     /* committed events archive */
     ti_args_t * args;
     ti_away_t * away;

@@ -12,7 +12,33 @@
 
 #include <ti/val.h>
 
-static void things__gc_mark(ti_thing_t * thing);
+static void things__gc_mark(ti_thing_t * thing)
+{
+    thing->flags &= ~TI_THING_FLAG_SWEEP;
+    for (vec_each(thing->props, ti_prop_t, prop))
+    {
+        switch (prop->val->tp)
+        {
+        case TI_VAL_THING:
+        {
+            ti_thing_t * t = (ti_thing_t *) prop->val;
+            if (t->flags & TI_THING_FLAG_SWEEP)
+                things__gc_mark(t);
+            continue;
+        }
+        case TI_VAL_ARR:
+        {
+            ti_varr_t * varr = (ti_varr_t *) prop->val;
+            if (ti_varr_may_have_things(varr))
+                for (vec_each(varr->vec, ti_thing_t, t))
+                    if (    t->tp == TI_VAL_THING &&
+                            (t->flags & TI_THING_FLAG_SWEEP))
+                        things__gc_mark(t);
+            continue;
+        }
+        }
+    }
+}
 
 ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id)
 {
@@ -123,33 +149,3 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     return 0;
 }
-
-static void things__gc_mark(ti_thing_t * thing)
-{
-    thing->flags &= ~TI_THING_FLAG_SWEEP;
-    for (vec_each(thing->props, ti_prop_t, prop))
-    {
-        switch (prop->val->tp)
-        {
-        case TI_VAL_THING:
-        {
-            ti_thing_t * t = (ti_thing_t *) prop->val;
-            if (t->flags & TI_THING_FLAG_SWEEP)
-                things__gc_mark(t);
-            continue;
-        }
-        case TI_VAL_ARR:
-        {
-            ti_varr_t * varr = (ti_varr_t *) prop->val;
-            if (ti_varr_may_have_things(varr))
-                for (vec_each(varr->vec, ti_thing_t, t))
-                    if (    t->tp == TI_VAL_THING &&
-                            (t->flags & TI_THING_FLAG_SWEEP))
-                        things__gc_mark(t);
-            continue;
-        }
-        }
-    }
-}
-
-

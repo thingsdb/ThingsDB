@@ -62,6 +62,3 @@ ti_name_t * ti_names_weak_get(const char * str, size_t n)
 {
     return smap_getn(names, str, n);
 }
-
-
-

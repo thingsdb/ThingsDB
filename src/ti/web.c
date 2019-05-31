@@ -47,6 +47,7 @@
     "\r\n" \
     "READY\n"
 
+/* static response buffers */
 static uv_buf_t web__uv_ok_buf;
 static uv_buf_t web__uv_nok_buf;
 static uv_buf_t web__uv_nfound_buf;
@@ -56,10 +57,6 @@ static uv_buf_t web__uv_ready_buf;
 
 static uv_tcp_t web__uv_server;
 static http_parser_settings web__settings;
-
-/* a small buffer is sufficient since we don't care about the content */
-#define WEB__READ_BUF_SZ 512
-static char web__read_buf[WEB__READ_BUF_SZ];
 
 static void web__close_cb(uv_handle_t * handle)
 {
@@ -72,10 +69,8 @@ static void web__alloc_cb(
         size_t UNUSED(sugsz),
         uv_buf_t * buf)
 {
-    memset(web__read_buf, 0, WEB__READ_BUF_SZ);
-    buf->base = web__read_buf;
-
-    buf->len = WEB__READ_BUF_SZ;
+    buf->base = malloc(HTTP_MAX_HEADER_SIZE);
+    buf->len = buf->base ? HTTP_MAX_HEADER_SIZE : 0;
 }
 
 static void web__data_cb(
@@ -87,20 +82,22 @@ static void web__data_cb(
     ti_web_request_t * web_request = uvstream->data;
 
     if (web_request->is_closed)
-        return;
+        goto done;
 
     if (n < 0)
     {
         if (n != UV_EOF)
             log_error(uv_strerror(n));
         ti_web_close(web_request);
-        return;
+        goto done;
     }
+
+    buf->base[HTTP_MAX_HEADER_SIZE-1] = '\0';
 
     parsed = http_parser_execute(
             &web_request->parser,
             &web__settings,
-            buf->base, buf->len);
+            buf->base, n);
 
     if (web_request->parser.upgrade)
     {
@@ -111,8 +108,10 @@ static void web__data_cb(
     {
         log_warning("error parsing HTTP request");
         ti_web_close(web_request);
-        return;
     }
+
+done:
+     free(buf->base);
 }
 
 static uv_buf_t * web__get_status_response(void)

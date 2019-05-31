@@ -29,565 +29,6 @@ static ti_nodes_t nodes_;
 
 static const char * nodes__scevid    = "global_event_status";
 
-
-static void nodes__tcp_connection(uv_stream_t * uvstream, int status);
-static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncpart(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        nodes__part_cb part_cb);
-static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg);
-static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg);
-static const char * nodes__get_scevid_fn(void);
-
-
-int ti_nodes_create(void)
-{
-    nodes = &nodes_;
-
-    /* make sure data is set to null, we use this on close */
-    nodes->tcp.data = NULL;
-    nodes->cevid = 0;
-    nodes->sevid = 0;
-    nodes->scevid_fn = NULL;
-
-    nodes->vec = vec_new(0);
-    ti()->nodes = nodes;
-
-    return -(nodes == NULL);
-}
-
-void ti_nodes_destroy(void)
-{
-    if (!nodes)
-        return;
-    vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
-    free(nodes->scevid_fn);
-    ti()->nodes = nodes = NULL;
-}
-
-int ti_nodes_read_scevid(void)
-{
-    int rc = -1;
-    uint64_t cevid, sevid;
-    const char * fn = nodes__get_scevid_fn();
-    FILE * f;
-
-    if (!fn)
-    {
-        log_critical(EX_INTERNAL_S);
-        return -1;
-    }
-
-    f = fopen(fn, "r");
-    if (!f)
-    {
-        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
-        return -1;
-    }
-
-    if (fread(&cevid, sizeof(uint64_t), 1, f) != 1 ||
-        fread(&sevid, sizeof(uint64_t), 1, f) != 1)
-    {
-        log_error("error reading global event status from: `%s`", fn);
-        goto stop;
-    }
-
-    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
-    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
-
-    ti()->nodes->cevid = cevid;
-    ti()->nodes->sevid = sevid;
-
-    rc = 0;
-
-stop:
-    if (fclose(f))
-    {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
-    }
-    return rc;
-}
-
-int ti_nodes_write_scevid(void)
-{
-    int rc = 0;
-    uint64_t cevid = ti_nodes_cevid();
-    uint64_t sevid = ti_nodes_sevid();
-    const char * fn = nodes__get_scevid_fn();
-    FILE * f;
-
-    if (!fn)
-    {
-        log_critical(EX_INTERNAL_S);
-        return -1;
-    }
-
-    f = fopen(fn, "w");
-    if (!f)
-    {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
-        return -1;
-    }
-
-    log_debug("save global committed "TI_EVENT_ID" to disk", cevid);
-    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
-
-    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
-        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
-    {
-        log_error("error writing to `%s`", fn);
-        rc = -1;
-    }
-
-    if (fclose(f))
-    {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
-    }
-    return rc;
-}
-
-/*
- * Number of nodes required, `this` node excluded.
- */
-uint8_t ti_nodes_quorum(void)
-{
-    return nodes->vec->n == 2 ? 0 : (uint8_t) (nodes->vec->n / 2);
-}
-
-_Bool ti_nodes_has_quorum(void)
-{
-    size_t quorum = ti_nodes_quorum() + 1;  /* include `this` node */
-    size_t q = 0;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
-            return true;
-    return false;
-}
-
-/* increases with a new reference as long as required */
-void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
-{
-    ti_node_t * this_node = ti()->node;
-    for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        ti_node_status_t status = node->status;
-
-        if (node == this_node)
-            continue;
-
-        if (    status != TI_NODE_STAT_READY &&
-                status != TI_NODE_STAT_AWAY_SOON &&
-                status != TI_NODE_STAT_AWAY &&
-                status != TI_NODE_STAT_SYNCHRONIZING)
-            continue;
-
-        if (ti_stream_write_rpkg(node->stream, rpkg))
-            log_error(EX_INTERNAL_S);
-    }
-}
-
-int ti_nodes_to_packer(qp_packer_t ** packer)
-{
-    if (qp_add_array(packer))
-        return -1;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        if (qp_add_array(packer) ||
-            qp_add_int(*packer, node->zone) ||
-            qp_add_int(*packer, node->port) ||
-            qp_add_raw_from_str(*packer, node->addr) ||
-            qp_add_raw(*packer, (const uchar *) node->secret, CRYPTX_SZ) ||
-            qp_close_array(*packer))
-            return -1;
-    }
-
-    return qp_close_array(*packer);
-}
-
-int ti_nodes_from_qpres(qp_res_t * qpnodes)
-{
-    for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
-    {
-        char addr[INET6_ADDRSTRLEN];
-        uint16_t port;
-        uint8_t zone;
-        ti_node_t * node;
-        const char * secret;
-        qp_res_t * qpzone, * qpport, * qpaddr, * qpsecret;
-        qp_res_t * qparray = qpnodes->via.array->values + i;
-
-        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 4)
-            return -1;
-
-        qpzone = qparray->via.array->values + 0;
-        qpport = qparray->via.array->values + 1;
-        qpaddr = qparray->via.array->values + 2;
-        qpsecret = qparray->via.array->values + 3;
-
-        if (    qpzone->tp != QP_RES_INT64 ||
-                qpport->tp != QP_RES_INT64 ||
-                qpaddr->tp != QP_RES_RAW ||
-                qpaddr->via.raw->n >= INET6_ADDRSTRLEN ||
-                qpsecret->tp != QP_RES_RAW ||
-                qpsecret->via.raw->n != CRYPTX_SZ)
-            return -1;
-
-        zone = (uint8_t) qpzone->via.int64;
-        port = (uint16_t) qpport->via.int64;
-
-        memcpy(addr, qpaddr->via.raw->data, qpaddr->via.raw->n);
-        addr[qpaddr->via.raw->n] = '\0';
-
-        secret = (const char *) qpsecret->via.raw->data;
-
-        node = ti_nodes_new_node(zone, port, addr, secret);
-        if (!node)
-            return -1;
-
-    }
-    return 0;
-}
-
-_Bool ti_nodes_ignore_sync(void)
-{
-    uint64_t m = ti()->node->cevid;
-    uint8_t n = 0;
-
-    if (!m)
-        return false;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
-            return false;
-
-        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
-            ++n;
-    }
-    return n > ti_nodes_quorum();
-}
-
-_Bool ti_nodes_require_sync(void)
-{
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
-            return true;
-    return false;
-}
-
-uint64_t ti_nodes_cevid(void)
-{
-    uint64_t m = ti()->node->cevid;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->cevid < m)
-            m = node->cevid;
-
-    if (m > nodes->cevid)
-        nodes->cevid = m;
-
-    return nodes->cevid;
-}
-
-uint64_t ti_nodes_sevid(void)
-{
-    uint64_t m = ti()->node->sevid;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->sevid < m)
-            m = node->sevid;
-
-    if (m > nodes->sevid)
-        nodes->sevid = m;
-
-    return nodes->sevid;
-}
-
-ti_node_t * ti_nodes_new_node(
-        uint8_t zone,
-        uint16_t port,
-        const char * addr,
-        const char * secret)
-{
-    ti_node_t * node = ti_node_create(nodes->vec->n, zone, port, addr, secret);
-    if (!node || vec_push(&nodes->vec, node))
-    {
-        ti_node_drop(node);
-        return NULL;
-    }
-    assert (node->id == nodes->vec->n - 1);
-    return node;
-}
-
-void ti_nodes_pop_node(void)
-{
-    ti_node_drop(vec_pop(nodes->vec));
-}
-
-/*
- * Returns a weak reference to a node, of NULL if not found
- */
-ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
-{
-    return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);
-}
-
-int ti_nodes_listen(void)
-{
-    struct sockaddr_storage addr = {0};
-    int rc;
-    ti_cfg_t * cfg = ti()->cfg;
-    _Bool is_ipv6 = false;
-    char * ip;
-
-    uv_tcp_init(ti()->loop, &nodes->tcp);
-
-    if (cfg->bind_node_addr != NULL)
-    {
-        struct in6_addr sa6;
-        if (inet_pton(AF_INET6, cfg->bind_node_addr, &sa6))
-        {
-            is_ipv6 = true;
-        }
-        ip = cfg->bind_client_addr;
-    }
-    else if (cfg->ip_support == AF_INET)
-    {
-        ip = "0.0.0.0";
-    }
-    else
-    {
-        ip = "::";
-        is_ipv6 = true;
-    }
-
-    if (is_ipv6)
-        (void) uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
-    else
-        (void) uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
-
-    if ((rc = uv_tcp_bind(
-            &nodes->tcp,
-            (const struct sockaddr *) &addr,
-            (cfg->ip_support == AF_INET6) ?
-                    UV_TCP_IPV6ONLY : 0)) ||
-        (rc = uv_listen(
-            (uv_stream_t *) &nodes->tcp,
-            NODES__UV_BACKLOG,
-            nodes__tcp_connection)))
-    {
-        log_error("error listening for node connections on TCP port %d: `%s`",
-                cfg->node_port,
-                uv_strerror(rc));
-        return -1;
-    }
-
-    log_info("start listening for node connections on TCP port %d",
-            cfg->node_port);
-
-    return 0;
-}
-
-/*
- * Returns a borrowed node in away mode or NULL if none is found
- */
-ti_node_t * ti_nodes_get_away(void)
-{
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->status == TI_NODE_STAT_AWAY)
-            return node;
-    return NULL;
-}
-
-/*
- * Returns a borrowed node in away or soon mode or NULL if none is found
- */
-ti_node_t * ti_nodes_get_away_or_soon(void)
-{
-    for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->status == TI_NODE_STAT_AWAY ||
-            node->status == TI_NODE_STAT_AWAY_SOON)
-            return node;
-    return NULL;
-}
-
-/*
- * Returns another borrowed node with status READY if possible from the same
- * zone of NULL if no ready node is found. (not thread safe)
- */
-ti_node_t * ti_nodes_random_ready_node(void)
-{
-    ti_node_t * this_node = ti()->node;
-    uint32_t zn = 0, on = 0;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        if (node == this_node || node->status != TI_NODE_STAT_READY)
-            continue;
-
-        if (this_node->zone == node->zone)
-            nodes__z[zn++] = node;
-        else
-            nodes__o[on++] = node;
-    }
-    return zn ? nodes__z[rand() % zn] : on ? nodes__o[rand() % on] : NULL;
-}
-
-void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    switch (pkg->tp)
-    {
-    case TI_PROTO_CLIENT_RES_QUERY:
-    case TI_PROTO_CLIENT_ERR_OVERFLOW:
-    case TI_PROTO_CLIENT_ERR_ZERO_DIV:
-    case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
-    case TI_PROTO_CLIENT_ERR_AUTH:
-    case TI_PROTO_CLIENT_ERR_FORBIDDEN:
-    case TI_PROTO_CLIENT_ERR_INDEX:
-    case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
-    case TI_PROTO_CLIENT_ERR_QUERY:
-    case TI_PROTO_CLIENT_ERR_NODE:
-    case TI_PROTO_CLIENT_ERR_ASSERTION:
-    case TI_PROTO_CLIENT_ERR_INTERNAL:
-        ti_stream_on_response(stream, pkg);
-        break;
-    case TI_PROTO_NODE_EVENT:
-        nodes__on_event(stream, pkg);
-        break;
-    case TI_PROTO_NODE_INFO:
-        nodes__on_info(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_QUERY:
-        nodes__on_req_query(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_CONNECT:
-        nodes__on_req_connect(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_EVENT_ID:
-        nodes__on_req_event_id(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_AWAY:
-        nodes__on_req_away(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_SETUP:
-        nodes__on_req_setup(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_SYNC:
-        nodes__on_req_sync(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCFPART:
-        nodes__on_req_syncpart(stream, pkg, ti_syncfull_on_part);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCFDONE:
-        nodes__on_req_syncfdone(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCAPART:
-        nodes__on_req_syncpart(stream, pkg, ti_syncarchive_on_part);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCADONE:
-        nodes__on_req_syncadone(stream, pkg);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCEPART:
-        nodes__on_req_syncpart(stream, pkg, ti_syncevents_on_part);
-        break;
-    case TI_PROTO_NODE_REQ_SYNCEDONE:
-        nodes__on_req_syncedone(stream, pkg);
-        break;
-    case TI_PROTO_NODE_RES_CONNECT:
-    case TI_PROTO_NODE_RES_EVENT_ID:
-    case TI_PROTO_NODE_RES_AWAY:
-    case TI_PROTO_NODE_RES_SETUP:
-    case TI_PROTO_NODE_RES_SYNC:
-    case TI_PROTO_NODE_RES_SYNCFPART:
-    case TI_PROTO_NODE_RES_SYNCFDONE:
-    case TI_PROTO_NODE_RES_SYNCAPART:
-    case TI_PROTO_NODE_RES_SYNCADONE:
-    case TI_PROTO_NODE_RES_SYNCEPART:
-    case TI_PROTO_NODE_RES_SYNCEDONE:
-    case TI_PROTO_NODE_ERR_RES:
-    case TI_PROTO_NODE_ERR_EVENT_ID:
-    case TI_PROTO_NODE_ERR_AWAY:
-        ti_stream_on_response(stream, pkg);
-        break;
-    default:
-        log_error(
-                "got an unexpected package type %u from `%s`",
-                pkg->tp,
-                ti_stream_name(stream));
-    }
-}
-
-int ti_nodes_info_to_packer(qp_packer_t ** packer)
-{
-    ti_node_t * this_node = ti()->node;
-    if (qp_add_array(packer))
-        return -1;
-
-    for (vec_each(nodes->vec, ti_node_t, node))
-    {
-        if (qp_add_map(packer) ||
-            qp_add_raw_from_str(*packer, "node_id") ||
-            qp_add_int(*packer, node->id) ||
-            qp_add_raw_from_str(*packer, "status") ||
-            qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
-            qp_add_raw_from_str(*packer, "commited_event_id") ||
-            qp_add_int(*packer, node->cevid) ||
-            qp_add_raw_from_str(*packer, "stored_event_id") ||
-            qp_add_int(*packer, node->sevid) ||
-            qp_add_raw_from_str(*packer, "next_thing_id") ||
-            qp_add_int(*packer, node->next_thing_id) ||
-            qp_add_raw_from_str(*packer, "address") ||
-            qp_add_raw_from_str(
-                    *packer,
-                    node == this_node ? ti_name() : node->addr) ||
-            qp_add_raw_from_str(*packer, "port") ||
-            qp_add_int(*packer, node->port))
-            return -1;
-
-        if (!ti_stream_is_closed(node->stream) && (
-                qp_add_raw_from_str(*packer, "stream") ||
-                qp_add_raw_from_str(*packer, ti_stream_name(node->stream))))
-            return -1;
-
-        if (qp_close_map(*packer))
-            return -1;
-    }
-
-    return qp_close_array(*packer);
-}
-
-ti_val_t * ti_nodes_info_as_qpval(void)
-{
-    ti_raw_t * raw = NULL;
-    qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 144, 2);
-    if (!packer)
-        return NULL;
-
-    if (ti_nodes_info_to_packer(&packer))
-        goto fail;
-
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t *) raw;
-}
-
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
     int rc;
@@ -1413,4 +854,543 @@ static const char * nodes__get_scevid_fn(void)
 
     nodes->scevid_fn = fx_path_join(ti()->cfg->storage_path, nodes__scevid);
     return nodes->scevid_fn;
+}
+
+int ti_nodes_create(void)
+{
+    nodes = &nodes_;
+
+    /* make sure data is set to null, we use this on close */
+    nodes->tcp.data = NULL;
+    nodes->cevid = 0;
+    nodes->sevid = 0;
+    nodes->scevid_fn = NULL;
+
+    nodes->vec = vec_new(0);
+    ti()->nodes = nodes;
+
+    return -(nodes == NULL);
+}
+
+void ti_nodes_destroy(void)
+{
+    if (!nodes)
+        return;
+    vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
+    free(nodes->scevid_fn);
+    ti()->nodes = nodes = NULL;
+}
+
+int ti_nodes_read_scevid(void)
+{
+    int rc = -1;
+    uint64_t cevid, sevid;
+    const char * fn = nodes__get_scevid_fn();
+    FILE * f;
+
+    if (!fn)
+    {
+        log_critical(EX_INTERNAL_S);
+        return -1;
+    }
+
+    f = fopen(fn, "r");
+    if (!f)
+    {
+        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+
+    if (fread(&cevid, sizeof(uint64_t), 1, f) != 1 ||
+        fread(&sevid, sizeof(uint64_t), 1, f) != 1)
+    {
+        log_error("error reading global event status from: `%s`", fn);
+        goto stop;
+    }
+
+    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
+    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
+
+    ti()->nodes->cevid = cevid;
+    ti()->nodes->sevid = sevid;
+
+    rc = 0;
+
+stop:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
+}
+
+int ti_nodes_write_scevid(void)
+{
+    int rc = 0;
+    uint64_t cevid = ti_nodes_cevid();
+    uint64_t sevid = ti_nodes_sevid();
+    const char * fn = nodes__get_scevid_fn();
+    FILE * f;
+
+    if (!fn)
+    {
+        log_critical(EX_INTERNAL_S);
+        return -1;
+    }
+
+    f = fopen(fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+
+    log_debug("save global committed "TI_EVENT_ID" to disk", cevid);
+    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
+
+    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
+        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
+    {
+        log_error("error writing to `%s`", fn);
+        rc = -1;
+    }
+
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        rc = -1;
+    }
+    return rc;
+}
+
+/*
+ * Number of nodes required, `this` node excluded.
+ */
+uint8_t ti_nodes_quorum(void)
+{
+    return nodes->vec->n == 2 ? 0 : (uint8_t) (nodes->vec->n / 2);
+}
+
+_Bool ti_nodes_has_quorum(void)
+{
+    size_t quorum = ti_nodes_quorum() + 1;  /* include `this` node */
+    size_t q = 0;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
+            return true;
+    return false;
+}
+
+/* increases with a new reference as long as required */
+void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
+{
+    ti_node_t * this_node = ti()->node;
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        ti_node_status_t status = node->status;
+
+        if (node == this_node)
+            continue;
+
+        if (    status != TI_NODE_STAT_READY &&
+                status != TI_NODE_STAT_AWAY_SOON &&
+                status != TI_NODE_STAT_AWAY &&
+                status != TI_NODE_STAT_SYNCHRONIZING)
+            continue;
+
+        if (ti_stream_write_rpkg(node->stream, rpkg))
+            log_error(EX_INTERNAL_S);
+    }
+}
+
+int ti_nodes_to_packer(qp_packer_t ** packer)
+{
+    if (qp_add_array(packer))
+        return -1;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (qp_add_array(packer) ||
+            qp_add_int(*packer, node->zone) ||
+            qp_add_int(*packer, node->port) ||
+            qp_add_raw_from_str(*packer, node->addr) ||
+            qp_add_raw(*packer, (const uchar *) node->secret, CRYPTX_SZ) ||
+            qp_close_array(*packer))
+            return -1;
+    }
+
+    return qp_close_array(*packer);
+}
+
+int ti_nodes_from_qpres(qp_res_t * qpnodes)
+{
+    for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
+    {
+        char addr[INET6_ADDRSTRLEN];
+        uint16_t port;
+        uint8_t zone;
+        ti_node_t * node;
+        const char * secret;
+        qp_res_t * qpzone, * qpport, * qpaddr, * qpsecret;
+        qp_res_t * qparray = qpnodes->via.array->values + i;
+
+        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 4)
+            return -1;
+
+        qpzone = qparray->via.array->values + 0;
+        qpport = qparray->via.array->values + 1;
+        qpaddr = qparray->via.array->values + 2;
+        qpsecret = qparray->via.array->values + 3;
+
+        if (    qpzone->tp != QP_RES_INT64 ||
+                qpport->tp != QP_RES_INT64 ||
+                qpaddr->tp != QP_RES_RAW ||
+                qpaddr->via.raw->n >= INET6_ADDRSTRLEN ||
+                qpsecret->tp != QP_RES_RAW ||
+                qpsecret->via.raw->n != CRYPTX_SZ)
+            return -1;
+
+        zone = (uint8_t) qpzone->via.int64;
+        port = (uint16_t) qpport->via.int64;
+
+        memcpy(addr, qpaddr->via.raw->data, qpaddr->via.raw->n);
+        addr[qpaddr->via.raw->n] = '\0';
+
+        secret = (const char *) qpsecret->via.raw->data;
+
+        node = ti_nodes_new_node(zone, port, addr, secret);
+        if (!node)
+            return -1;
+
+    }
+    return 0;
+}
+
+_Bool ti_nodes_ignore_sync(void)
+{
+    uint64_t m = ti()->node->cevid;
+    uint8_t n = 0;
+
+    if (!m)
+        return false;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
+            return false;
+
+        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
+            ++n;
+    }
+    return n > ti_nodes_quorum();
+}
+
+_Bool ti_nodes_require_sync(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
+            return true;
+    return false;
+}
+
+uint64_t ti_nodes_cevid(void)
+{
+    uint64_t m = ti()->node->cevid;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->cevid < m)
+            m = node->cevid;
+
+    if (m > nodes->cevid)
+        nodes->cevid = m;
+
+    return nodes->cevid;
+}
+
+uint64_t ti_nodes_sevid(void)
+{
+    uint64_t m = ti()->node->sevid;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->sevid < m)
+            m = node->sevid;
+
+    if (m > nodes->sevid)
+        nodes->sevid = m;
+
+    return nodes->sevid;
+}
+
+ti_node_t * ti_nodes_new_node(
+        uint8_t zone,
+        uint16_t port,
+        const char * addr,
+        const char * secret)
+{
+    ti_node_t * node = ti_node_create(nodes->vec->n, zone, port, addr, secret);
+    if (!node || vec_push(&nodes->vec, node))
+    {
+        ti_node_drop(node);
+        return NULL;
+    }
+    assert (node->id == nodes->vec->n - 1);
+    return node;
+}
+
+void ti_nodes_pop_node(void)
+{
+    ti_node_drop(vec_pop(nodes->vec));
+}
+
+/*
+ * Returns a weak reference to a node, of NULL if not found
+ */
+ti_node_t * ti_nodes_node_by_id(uint8_t node_id)
+{
+    return node_id >= nodes->vec->n ? NULL : vec_get(nodes->vec, node_id);
+}
+
+int ti_nodes_listen(void)
+{
+    struct sockaddr_storage addr = {0};
+    int rc;
+    ti_cfg_t * cfg = ti()->cfg;
+    _Bool is_ipv6 = false;
+    char * ip;
+
+    uv_tcp_init(ti()->loop, &nodes->tcp);
+
+    if (cfg->bind_node_addr != NULL)
+    {
+        struct in6_addr sa6;
+        if (inet_pton(AF_INET6, cfg->bind_node_addr, &sa6))
+        {
+            is_ipv6 = true;
+        }
+        ip = cfg->bind_client_addr;
+    }
+    else if (cfg->ip_support == AF_INET)
+    {
+        ip = "0.0.0.0";
+    }
+    else
+    {
+        ip = "::";
+        is_ipv6 = true;
+    }
+
+    if (is_ipv6)
+        (void) uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
+    else
+        (void) uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
+
+    if ((rc = uv_tcp_bind(
+            &nodes->tcp,
+            (const struct sockaddr *) &addr,
+            (cfg->ip_support == AF_INET6) ?
+                    UV_TCP_IPV6ONLY : 0)) ||
+        (rc = uv_listen(
+            (uv_stream_t *) &nodes->tcp,
+            NODES__UV_BACKLOG,
+            nodes__tcp_connection)))
+    {
+        log_error("error listening for node connections on TCP port %d: `%s`",
+                cfg->node_port,
+                uv_strerror(rc));
+        return -1;
+    }
+
+    log_info("start listening for node connections on TCP port %d",
+            cfg->node_port);
+
+    return 0;
+}
+
+/*
+ * Returns a borrowed node in away mode or NULL if none is found
+ */
+ti_node_t * ti_nodes_get_away(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status == TI_NODE_STAT_AWAY)
+            return node;
+    return NULL;
+}
+
+/*
+ * Returns a borrowed node in away or soon mode or NULL if none is found
+ */
+ti_node_t * ti_nodes_get_away_or_soon(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status == TI_NODE_STAT_AWAY ||
+            node->status == TI_NODE_STAT_AWAY_SOON)
+            return node;
+    return NULL;
+}
+
+/*
+ * Returns another borrowed node with status READY if possible from the same
+ * zone of NULL if no ready node is found. (not thread safe)
+ */
+ti_node_t * ti_nodes_random_ready_node(void)
+{
+    ti_node_t * this_node = ti()->node;
+    uint32_t zn = 0, on = 0;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (node == this_node || node->status != TI_NODE_STAT_READY)
+            continue;
+
+        if (this_node->zone == node->zone)
+            nodes__z[zn++] = node;
+        else
+            nodes__o[on++] = node;
+    }
+    return zn ? nodes__z[rand() % zn] : on ? nodes__o[rand() % on] : NULL;
+}
+
+void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    switch (pkg->tp)
+    {
+    case TI_PROTO_CLIENT_RES_QUERY:
+    case TI_PROTO_CLIENT_ERR_OVERFLOW:
+    case TI_PROTO_CLIENT_ERR_ZERO_DIV:
+    case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
+    case TI_PROTO_CLIENT_ERR_AUTH:
+    case TI_PROTO_CLIENT_ERR_FORBIDDEN:
+    case TI_PROTO_CLIENT_ERR_INDEX:
+    case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
+    case TI_PROTO_CLIENT_ERR_QUERY:
+    case TI_PROTO_CLIENT_ERR_NODE:
+    case TI_PROTO_CLIENT_ERR_ASSERTION:
+    case TI_PROTO_CLIENT_ERR_INTERNAL:
+        ti_stream_on_response(stream, pkg);
+        break;
+    case TI_PROTO_NODE_EVENT:
+        nodes__on_event(stream, pkg);
+        break;
+    case TI_PROTO_NODE_INFO:
+        nodes__on_info(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_QUERY:
+        nodes__on_req_query(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_CONNECT:
+        nodes__on_req_connect(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_EVENT_ID:
+        nodes__on_req_event_id(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_AWAY:
+        nodes__on_req_away(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SETUP:
+        nodes__on_req_setup(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNC:
+        nodes__on_req_sync(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCFPART:
+        nodes__on_req_syncpart(stream, pkg, ti_syncfull_on_part);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCFDONE:
+        nodes__on_req_syncfdone(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCAPART:
+        nodes__on_req_syncpart(stream, pkg, ti_syncarchive_on_part);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCADONE:
+        nodes__on_req_syncadone(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCEPART:
+        nodes__on_req_syncpart(stream, pkg, ti_syncevents_on_part);
+        break;
+    case TI_PROTO_NODE_REQ_SYNCEDONE:
+        nodes__on_req_syncedone(stream, pkg);
+        break;
+    case TI_PROTO_NODE_RES_CONNECT:
+    case TI_PROTO_NODE_RES_EVENT_ID:
+    case TI_PROTO_NODE_RES_AWAY:
+    case TI_PROTO_NODE_RES_SETUP:
+    case TI_PROTO_NODE_RES_SYNC:
+    case TI_PROTO_NODE_RES_SYNCFPART:
+    case TI_PROTO_NODE_RES_SYNCFDONE:
+    case TI_PROTO_NODE_RES_SYNCAPART:
+    case TI_PROTO_NODE_RES_SYNCADONE:
+    case TI_PROTO_NODE_RES_SYNCEPART:
+    case TI_PROTO_NODE_RES_SYNCEDONE:
+    case TI_PROTO_NODE_ERR_RES:
+    case TI_PROTO_NODE_ERR_EVENT_ID:
+    case TI_PROTO_NODE_ERR_AWAY:
+        ti_stream_on_response(stream, pkg);
+        break;
+    default:
+        log_error(
+                "got an unexpected package type %u from `%s`",
+                pkg->tp,
+                ti_stream_name(stream));
+    }
+}
+
+int ti_nodes_info_to_packer(qp_packer_t ** packer)
+{
+    ti_node_t * this_node = ti()->node;
+    if (qp_add_array(packer))
+        return -1;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (qp_add_map(packer) ||
+            qp_add_raw_from_str(*packer, "node_id") ||
+            qp_add_int(*packer, node->id) ||
+            qp_add_raw_from_str(*packer, "status") ||
+            qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
+            qp_add_raw_from_str(*packer, "commited_event_id") ||
+            qp_add_int(*packer, node->cevid) ||
+            qp_add_raw_from_str(*packer, "stored_event_id") ||
+            qp_add_int(*packer, node->sevid) ||
+            qp_add_raw_from_str(*packer, "next_thing_id") ||
+            qp_add_int(*packer, node->next_thing_id) ||
+            qp_add_raw_from_str(*packer, "address") ||
+            qp_add_raw_from_str(
+                    *packer,
+                    node == this_node ? ti_name() : node->addr) ||
+            qp_add_raw_from_str(*packer, "port") ||
+            qp_add_int(*packer, node->port))
+            return -1;
+
+        if (!ti_stream_is_closed(node->stream) && (
+                qp_add_raw_from_str(*packer, "stream") ||
+                qp_add_raw_from_str(*packer, ti_stream_name(node->stream))))
+            return -1;
+
+        if (qp_close_map(*packer))
+            return -1;
+    }
+
+    return qp_close_array(*packer);
+}
+
+ti_val_t * ti_nodes_info_as_qpval(void)
+{
+    ti_raw_t * raw = NULL;
+    qp_packer_t * packer = qp_packer_create2(nodes->vec->n * 144, 2);
+    if (!packer)
+        return NULL;
+
+    if (ti_nodes_info_to_packer(&packer))
+        goto fail;
+
+    raw = ti_raw_from_packer(packer);
+    if (!raw)
+        goto fail;
+
+fail:
+    qp_packer_destroy(packer);
+    return (ti_val_t *) raw;
 }

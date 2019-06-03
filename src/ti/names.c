@@ -12,6 +12,8 @@
 
 static smap_t * names;
 
+#define NAMES__INJECT(__s) __s, strlen(__s)
+
 int ti_names_create(void)
 {
     names = ti()->names = smap_create();
@@ -31,8 +33,8 @@ void ti_names_destroy(void)
  */
 void ti_names_inject_common(void)
 {
-    (void) ti_names_get("$_", 2);
-    (void) ti_names_get("$tmp", 4);
+    (void) ti_names_get(NAMES__INJECT("$_"));
+    (void) ti_names_get(NAMES__INJECT("$tmp"));
 }
 
 /*

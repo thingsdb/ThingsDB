@@ -18,6 +18,9 @@
 #include <util/logger.h>
 #include <util/strx.h>
 
+
+#define VAL__CMP(__s) ti_raw_equal_strn((*(ti_raw_t **) val), __s, strlen(__s))
+
 static int val__push(ti_varr_t * arr, ti_val_t * val);
 static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things);
 static ti_val_t * val__from_unp(
@@ -390,53 +393,20 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
         }
         break;
     case TI_VAL_RAW:
-        i = (
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "OVERFLOW_ERROR",
-                    strlen("OVERFLOW_ERROR")) ? EX_OVERFLOW :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "ZERO_DIV_ERROR",
-                    strlen("ZERO_DIV_ERROR")) ? EX_ZERO_DIV :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "MAX_QUOTA_ERROR",
-                    strlen("MAX_QUOTA_ERROR")) ? EX_MAX_QUOTA :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "AUTH_ERROR",
-                    strlen("AUTH_ERROR")) ? EX_AUTH_ERROR :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "FORBIDDEN",
-                    strlen("FORBIDDEN")) ? EX_FORBIDDEN :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "INDEX_ERROR",
-                    strlen("INDEX_ERROR")) ? EX_INDEX_ERROR :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "BAD_REQUEST",
-                    strlen("BAD_REQUEST")) ? EX_BAD_DATA :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "QUERY_ERROR",
-                    strlen("QUERY_ERROR")) ? EX_QUERY_ERROR :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "NODE_ERROR",
-                    strlen("NODE_ERROR")) ? EX_NODE_ERROR :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "ASSERTION_ERROR",
-                    strlen("ASSERTION_ERROR")) ? EX_ASSERT_ERROR :
-            ti_raw_equal_strn(
-                    (*(ti_raw_t **) val),
-                    "INTERNAL_ERROR",
-                    strlen("INTERNAL_ERROR")) ? EX_INTERNAL : 0
-        );
-        if (!i)
+        i = VAL__CMP("OVERFLOW_ERROR") ? EX_OVERFLOW :
+            VAL__CMP("ZERO_DIV_ERROR") ? EX_ZERO_DIV :
+            VAL__CMP("MAX_QUOTA_ERROR") ? EX_MAX_QUOTA :
+            VAL__CMP("AUTH_ERROR") ? EX_AUTH_ERROR :
+            VAL__CMP("FORBIDDEN") ? EX_FORBIDDEN :
+            VAL__CMP("INDEX_ERROR") ? EX_INDEX_ERROR :
+            VAL__CMP("BAD_REQUEST") ? EX_BAD_DATA :
+            VAL__CMP("QUERY_ERROR") ? EX_QUERY_ERROR :
+            VAL__CMP("NODE_ERROR") ? EX_NODE_ERROR :
+            VAL__CMP("ASSERTION_ERROR") ? EX_ASSERT_ERROR :
+            VAL__CMP("INTERNAL_ERROR") ? EX_INTERNAL :
+            0;
+
+        if (i == 0)
         {
             ex_set(e, EX_INDEX_ERROR,
                     "unknown error: `%.*s`, see "TI_DOCS"#errors",

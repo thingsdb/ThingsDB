@@ -1710,7 +1710,7 @@ reexecute:
         UPDATE_STATE(s_header_field_start);
         REEXECUTE();
       }
-
+      /* fall through */
       case s_header_value_discard_ws_almost_done:
       {
         STRICT_CHECK(ch != LF);
@@ -1753,7 +1753,7 @@ reexecute:
           REEXECUTE();
         }
       }
-
+      /* fall through */
       case s_headers_almost_done:
       {
         STRICT_CHECK(ch != LF);
@@ -1822,7 +1822,7 @@ reexecute:
 
         REEXECUTE();
       }
-
+      /* fall through */
       case s_headers_done:
       {
         int hasBody;
@@ -1831,7 +1831,7 @@ reexecute:
         parser->nread = 0;
         nread = 0;
 
-        hasBody = parser->flags & F_CHUNKED ||
+        hasBody = (parser->flags & F_CHUNKED) ||
           (parser->content_length > 0 && parser->content_length != ULLONG_MAX);
         if (parser->upgrade && (parser->method == HTTP_CONNECT ||
                                 (parser->flags & F_SKIPBODY) || !hasBody)) {
@@ -2096,7 +2096,7 @@ http_message_needs_eof (const http_parser *parser)
   if (parser->status_code / 100 == 1 || /* 1xx e.g. Continue */
       parser->status_code == 204 ||     /* No Content */
       parser->status_code == 304 ||     /* Not Modified */
-      parser->flags & F_SKIPBODY) {     /* response to a HEAD request */
+      (parser->flags & F_SKIPBODY)) {     /* response to a HEAD request */
     return 0;
   }
 
@@ -2367,7 +2367,7 @@ http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
       case s_dead:
         return 1;
 
-      /* Skip delimeters */
+      /* Skip delimiters */
       case s_req_schema_slash:
       case s_req_schema_slash_slash:
       case s_req_server_start:

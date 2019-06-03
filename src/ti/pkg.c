@@ -95,8 +95,7 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
     (void) qp_add_map(&xpkg);
     (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
-    /*
-     * return the `custom` error code when e->nr > 0, if e->nr < 0, return
+    /* return the `custom` error code when e->nr > 0, if e->nr < 0, return
      * the package type which is equal to the known error codes in the
      * documentation.
      */

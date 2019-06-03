@@ -52,6 +52,7 @@ class TestGC(TestBase):
         self.assertEqual(x, other)
 
         await client.query(r'''
+            n = {};
             del('a');
         ''', target=stuff)
 

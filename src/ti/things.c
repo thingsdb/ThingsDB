@@ -9,31 +9,55 @@
 #include <ti/watch.h>
 #include <ti/things.h>
 #include <util/logger.h>
-
 #include <ti/val.h>
 
-static void things__gc_mark(ti_thing_t * thing)
+static void things__gc_mark_thing(ti_thing_t * thing);
+
+static void things__gc_mark_varr(ti_varr_t * varr)
+{
+    for (vec_each(varr->vec, ti_val_t, val))
+    {
+        switch(val->tp)
+        {
+        case TI_VAL_THING:
+        {
+            ti_thing_t * thing = (ti_thing_t *) val;
+            if (thing->flags & TI_THING_FLAG_SWEEP)
+                things__gc_mark_thing(thing);
+            continue;
+        }
+
+        case TI_VAL_ARR:
+        {
+            ti_varr_t * varr = (ti_varr_t *) val;
+            if (ti_varr_may_have_things(varr))
+                things__gc_mark_varr(varr);
+            continue;
+        }
+        }
+    }
+}
+
+static void things__gc_mark_thing(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_SWEEP;
     for (vec_each(thing->props, ti_prop_t, prop))
     {
-        switch (prop->val->tp)
+        switch(prop->val->tp)
         {
         case TI_VAL_THING:
         {
-            ti_thing_t * t = (ti_thing_t *) prop->val;
-            if (t->flags & TI_THING_FLAG_SWEEP)
-                things__gc_mark(t);
+            ti_thing_t * thing = (ti_thing_t *) prop->val;
+            if (thing->flags & TI_THING_FLAG_SWEEP)
+                things__gc_mark_thing(thing);
             continue;
         }
+
         case TI_VAL_ARR:
         {
             ti_varr_t * varr = (ti_varr_t *) prop->val;
             if (ti_varr_may_have_things(varr))
-                for (vec_each(varr->vec, ti_thing_t, t))
-                    if (    t->tp == TI_VAL_THING &&
-                            (t->flags & TI_THING_FLAG_SWEEP))
-                        things__gc_mark(t);
+                things__gc_mark_varr(varr);
             continue;
         }
         }
@@ -114,7 +138,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     (void) ti_sleep(100);
 
     if (root)
-        things__gc_mark(root);
+        things__gc_mark_thing(root);
 
     (void) ti_sleep(100);
 

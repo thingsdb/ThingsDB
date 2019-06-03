@@ -56,7 +56,6 @@ int ti_task_add_revoke(
         uint64_t target_id,
         ti_user_t * user,
         uint64_t mask);
-int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_set_password(ti_task_t * task, ti_user_t * user);
 int ti_task_add_set_quota(
         ti_task_t * task,
@@ -70,7 +69,6 @@ int ti_task_add_splice(
         int64_t i,              /* start at index */
         int64_t c,              /* number of items to remove */
         int32_t n);             /* number of items to add */
-int ti_task_add_unset(ti_task_t * task, ti_name_t * name);
 
 
 struct ti_task_s

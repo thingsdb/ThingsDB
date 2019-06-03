@@ -18,7 +18,7 @@ class TestCollectionFunctions(TestBase):
 
     title = 'Test collection scope functions'
 
-    @default_test_setup(num_nodes=1, seed=1)
+    @default_test_setup(num_nodes=2, seed=1)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -28,8 +28,12 @@ class TestCollectionFunctions(TestBase):
 
         await self.run_tests(client)
 
-        client.close()
-        await client.wait_closed()
+        # add another node so away node and gc is forced
+        await self.node1.join_until_ready(client)
+
+        # expected gc should be 1, by the `indexof` test
+        counters = await client.query('counters();', target=client.node)
+        self.assertEqual(counters['garbage_collected'], 1)
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(
@@ -327,6 +331,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('id(nil, nil);')
 
     async def test_indexof(self, client):
+        """This test requires garbage collection for cleanup."""
         await client.query(r'x = [42, "thingsdb", t(id()), 42, false, nil];')
 
         with self.assertRaisesRegex(

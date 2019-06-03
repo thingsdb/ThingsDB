@@ -67,7 +67,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
-size_t ti_val_iterator_n(ti_val_t * val);
+size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags, int fetch);
 int ti_val_to_file(ti_val_t * val, FILE * f);
@@ -81,11 +81,10 @@ static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_nil(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_regex(ti_val_t * val);
-static inline _Bool ti_val_is_indexable(ti_val_t * val);
-static inline _Bool ti_val_is_iterable(ti_val_t * val);
+static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
-static inline _Bool ti_val_is_settable(ti_val_t * val);
+static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
 
@@ -142,19 +141,9 @@ static inline _Bool ti_val_is_regex(ti_val_t * val)
     return val->tp == TI_VAL_REGEX;
 }
 
-
-static inline _Bool ti_val_is_indexable(ti_val_t * val)
+static inline _Bool ti_val_is_thing(ti_val_t * val)
 {
-    return val->tp == TI_VAL_RAW || val->tp == TI_VAL_ARR;
-}
-
-static inline _Bool ti_val_is_iterable(ti_val_t * val)
-{
-    return (
-        val->tp == TI_VAL_RAW ||
-        val->tp == TI_VAL_ARR ||
-        val->tp == TI_VAL_THING
-    );
+    return val->tp == TI_VAL_THING;
 }
 
 static inline _Bool ti_val_is_array(ti_val_t * val)
@@ -172,19 +161,19 @@ static inline _Bool ti_val_is_tuple(ti_val_t * val)
     return val->tp == TI_VAL_ARR && ti_varr_is_tuple((ti_varr_t *) val);
 }
 
+static inline _Bool ti_val_has_len(ti_val_t * val)
+{
+    return (
+        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_ARR ||
+        val->tp == TI_VAL_THING
+    );
+}
+
 static inline _Bool ti_val_overflow_cast(double d)
 {
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
-static inline _Bool ti_val_is_settable(ti_val_t * val)
-{
-    return (
-            val->tp == TI_VAL_INT ||
-            val->tp == TI_VAL_FLOAT ||
-            val->tp == TI_VAL_BOOL ||
-            val->tp == TI_VAL_RAW
-    );
-}
 
 #endif /* TI_VAL_H_ */

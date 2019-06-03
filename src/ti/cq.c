@@ -275,7 +275,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
                 ti_val_str((ti_val_t *) thing));
-        goto fail0;
+        goto done;
     }
 
     name = ti_names_get(name_nd->str, name_nd->len);
@@ -351,7 +351,7 @@ static int cq__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_incref(query->rval);
 
-    return 0;
+    goto done;
 
 alloc_err:
     ex_set_alloc(e);
@@ -359,7 +359,7 @@ alloc_err:
 fail1:
     ti_name_drop(name);
 
-fail0:
+done:
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }
@@ -424,7 +424,7 @@ static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "type `%s` has no property `%.*s`",
                 ti_val_str((ti_val_t *) thing),
                 (int) nd->len, nd->str);
-        return e->nr;
+        goto done;
     }
 
     name = ti_names_weak_get(nd->str, nd->len);
@@ -435,11 +435,14 @@ static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_INDEX_ERROR,
                 "thing "TI_THING_ID" has no property `%.*s`",
                 thing->id, (int) nd->len, nd->str);
-        return e->nr;
+        goto done;
     }
 
     if (ti_scope_push_name(&query->scope, name, val))
         ex_set_alloc(e);
+
+done:
+    ti_val_drop((ti_val_t *) thing);
 
     return e->nr;
 }
@@ -761,7 +764,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int n = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
                 "function `filter` takes 1 argument but %d were given", n);
-        return e->nr;
+        goto failed;
     }
 
     if (ti_cq_scope(query, nd->children->node, e))
@@ -1523,7 +1526,7 @@ static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_t * val = ti_query_val_pop(query);
 
-    if (!ti_val_is_iterable(val))
+    if (!ti_val_has_len(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `len`",
@@ -1540,8 +1543,7 @@ static int cq__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    query->rval = (ti_val_t *) ti_vint_create(
-            (int64_t) ti_val_iterator_n(val));
+    query->rval = (ti_val_t *) ti_vint_create((int64_t) ti_val_get_len(val));
     if (!query->rval)
         ex_set_alloc(e);
 
@@ -1624,7 +1626,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    n = ti_val_iterator_n(iterval);
+    n = ti_val_get_len(iterval);
 
     if (ti_scope_local_from_closure(query->scope, closure, e))
         goto failed;
@@ -2090,7 +2092,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->next->node;
 
     if (ti_cq_scope(query, from_nd, e))
-        return e->nr;
+        goto done;
 
     if (!ti_val_is_raw(query->rval))
     {
@@ -2098,7 +2100,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `rename` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead",
                 ti_val_str(query->rval));
-        return e->nr;
+        goto done;
     }
 
     from_raw = (ti_raw_t *) query->rval;
@@ -2147,10 +2149,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     to_raw = (ti_raw_t *) query->rval;
     to_name = ti_names_get((const char *) to_raw->data, to_raw->n);
     if (!to_name)
-    {
-        ex_set_alloc(e);
-        goto done;
-    }
+        goto alloc_err;
 
     if (!ti_thing_rename(thing, from_name, to_name))
     {

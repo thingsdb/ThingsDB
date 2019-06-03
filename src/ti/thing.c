@@ -11,8 +11,65 @@
 #include <util/qpx.h>
 #include <util/logger.h>
 
-static void thing__watch_del(ti_thing_t * thing);
-static int thing__set(vec_t ** vec, ti_name_t * name, ti_val_t * val);
+static void thing__watch_del(ti_thing_t * thing)
+{
+    assert (thing->watchers);
+
+    ti_pkg_t * pkg;
+    ti_rpkg_t * rpkg;
+    qpx_packer_t * packer = qpx_packer_create(12, 1);
+    if (!packer)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
+    (void) ti_thing_id_to_packer(thing, &packer);
+
+    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_DEL);
+
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+    {
+        log_critical(EX_ALLOC_S);
+        return;
+    }
+
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+    {
+        if (ti_stream_is_closed(watch->stream))
+            continue;
+
+        if (ti_stream_write_rpkg(watch->stream, rpkg))
+            log_critical(EX_INTERNAL_S);
+    }
+
+    ti_rpkg_drop(rpkg);
+}
+
+static int thing__set(vec_t ** vec, ti_name_t * name, ti_val_t * val)
+{
+    ti_prop_t * prop;
+
+    for (vec_each(*vec, ti_prop_t, p))
+    {
+        if (p->name == name)
+        {
+            ti_decref(name);
+            ti_val_drop(p->val);
+            p->val = val;
+            return 0;
+        }
+    }
+
+    prop = ti_prop_create(name, val);
+    if (!prop || vec_push(vec, prop))
+    {
+        free(prop);
+        return -1;
+    }
+
+    return 0;
+}
 
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
@@ -123,41 +180,9 @@ int ti_thing_gen_id(ti_thing_t * thing)
         return -1;
 
     for (vec_each(thing->props, ti_prop_t, prop))
-    {
-        if (prop->val->tp == TI_VAL_THING)
-        {
-            ti_thing_t * tthing = (ti_thing_t *) prop->val;
-            if (tthing->id)
-            {
-                ti_thing_unmark_new(tthing);
-                continue;
-            }
+        if (ti_val_gen_ids(prop->val))
+            return -1;
 
-            if (ti_thing_gen_id(tthing))
-                return -1;
-
-            continue;
-        }
-
-        if (ti_val_is_list(prop->val))
-        {
-            ti_varr_t * varr = (ti_varr_t *) prop->val;
-            for (vec_each(varr->vec, ti_thing_t, tthing))
-            {
-                if (tthing->tp != TI_VAL_THING)
-                    continue;
-
-                if (tthing->id)
-                {
-                    ti_thing_unmark_new(tthing);
-                    continue;
-                }
-
-                if (ti_thing_gen_id(tthing))
-                    return -1;
-            }
-        }
-    }
     return 0;
 }
 
@@ -263,64 +288,3 @@ _Bool ti_thing_has_watchers(ti_thing_t * thing)
             return true;
     return false;
 }
-
-static void thing__watch_del(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(12, 1);
-    if (!packer)
-    {
-        log_critical(EX_ALLOC_S);
-        return;
-    }
-    (void) ti_thing_id_to_packer(thing, &packer);
-
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_DEL);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-    {
-        log_critical(EX_ALLOC_S);
-        return;
-    }
-
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-            log_critical(EX_INTERNAL_S);
-    }
-
-    ti_rpkg_drop(rpkg);
-}
-
-static int thing__set(vec_t ** vec, ti_name_t * name, ti_val_t * val)
-{
-    ti_prop_t * prop;
-
-    for (vec_each(*vec, ti_prop_t, p))
-    {
-        if (p->name == name)
-        {
-            ti_decref(name);
-            ti_val_drop(p->val);
-            p->val = val;
-            return 0;
-        }
-    }
-
-    prop = ti_prop_create(name, val);
-    if (!prop || vec_push(vec, prop))
-    {
-        free(prop);
-        return -1;
-    }
-
-    return 0;
-}
-

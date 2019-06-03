@@ -50,6 +50,26 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->users_fn + store->fn_offset, path, n);
 }
 
+static int store__collection_ids(void)
+{
+    vec_t * collections_vec = ti()->collections->vec;
+
+    vec_destroy(store->collection_ids, free);
+    store->collection_ids = vec_new(collections_vec->n);
+    if (!store->collection_ids)
+        return -1;
+
+    for (vec_each(collections_vec, ti_collection_t, collection))
+    {
+        uint64_t * id = malloc(sizeof(uint64_t));
+        if (!id)
+            return -1;
+        *id = collection->root->id;
+        VEC_push(store->collection_ids, id);
+    }
+    return 0;
+}
+
 int ti_store_create(void)
 {
     char * storage_path = ti()->cfg->storage_path;
@@ -82,6 +102,7 @@ int ti_store_create(void)
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
     store->last_stored_event_id = 0;
+    store->collection_ids = NULL;
 
     if (    !store->prev_path ||
             !store->store_path ||
@@ -120,6 +141,7 @@ void ti_store_destroy(void)
     free(store->id_stat_fn);
     free(store->names_fn);
     free(store->users_fn);
+    vec_destroy(store->collection_ids, free);
     free(store);
     store = NULL;
 }
@@ -212,6 +234,8 @@ int ti_store_store(void)
     log_info("stored thingsdb until "TI_EVENT_ID" to: `%s`",
             store->last_stored_event_id, store->store_path);
 
+    rc = store__collection_ids();
+
     goto done;
 
 failed:
@@ -293,6 +317,8 @@ int ti_store_restore(void)
     }
 
     store->last_stored_event_id = ti()->node->cevid;
+
+    rc = store__collection_ids();
 
 stop:
     if (namesmap)

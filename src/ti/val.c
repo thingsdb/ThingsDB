@@ -460,7 +460,7 @@ _Bool ti_val_is_valid_name(ti_val_t * val)
                 ((ti_raw_t *) val)->n);
 }
 
-size_t ti_val_iterator_n(ti_val_t * val)
+size_t ti_val_get_len(ti_val_t * val)
 {
     switch (val->tp)
     {
@@ -487,26 +487,12 @@ int ti_val_gen_ids(ti_val_t * val)
             ti_thing_unmark_new((ti_thing_t *) val);
             break;
         }
-        if (ti_thing_gen_id((ti_thing_t *) val))
-            return -1;
-        break;
+        return ti_thing_gen_id((ti_thing_t *) val);
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
-        {
-            for (vec_each(((ti_varr_t *) val)->vec, ti_thing_t, thing))
-            {
-                if (thing->tp != TI_VAL_THING)
-                    continue;
-
-                if (thing->id)
-                {
-                    ti_thing_unmark_new(thing);
-                    continue;
-                }
-                if (ti_thing_gen_id(thing))
+            for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+                if (ti_val_gen_ids(v))
                     return -1;
-            }
-        }
     }
     return 0;
 }

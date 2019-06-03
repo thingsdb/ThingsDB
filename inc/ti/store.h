@@ -7,6 +7,7 @@
 typedef struct ti_store_s ti_store_t;
 
 #include <inttypes.h>
+#include <util/vec.h>
 
 int ti_store_create(void);
 void ti_store_destroy(void);
@@ -25,6 +26,7 @@ struct ti_store_s
     char * tmp_path;
     char * users_fn;
     size_t fn_offset;
+    vec_t * collection_ids;      /* stored collection id's, uint64_t */
     uint64_t last_stored_event_id;
 };
 

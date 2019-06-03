@@ -9,7 +9,42 @@
 #include <ti/closure.h>
 #include <util/logger.h>
 
-static int varr__to_tuple(ti_varr_t ** varr);
+static int varr__to_tuple(ti_varr_t ** varr)
+{
+    ti_varr_t * tuple = *varr;
+
+    if (tuple->flags & TI_ARR_FLAG_TUPLE)
+        return 0;
+
+    if (tuple->ref == 1)
+    {
+        tuple->flags |= TI_ARR_FLAG_TUPLE;
+        return 0;
+    }
+
+    tuple = malloc(sizeof(ti_varr_t));
+    if (!tuple)
+        return -1;
+
+    tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
+    tuple->flags = TI_ARR_FLAG_TUPLE | ((*varr)->flags & TI_ARR_FLAG_THINGS);
+    tuple->vec = vec_dup((*varr)->vec);
+
+    if (!tuple->vec)
+    {
+        free(tuple);
+        return -1;
+    }
+
+    for (vec_each(tuple->vec, ti_val_t, val))
+        ti_incref(val);
+
+    assert ((*varr)->ref > 1);
+    ti_decref(*varr);
+    *varr = tuple;
+    return 0;
+}
 
 ti_varr_t * ti_varr_create(size_t sz)
 {
@@ -140,39 +175,4 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
-static int varr__to_tuple(ti_varr_t ** varr)
-{
-    ti_varr_t * tuple = *varr;
 
-    if (tuple->flags & TI_ARR_FLAG_TUPLE)
-        return 0;
-
-    if (tuple->ref == 1)
-    {
-        tuple->flags |= TI_ARR_FLAG_TUPLE;
-        return 0;
-    }
-
-    tuple = malloc(sizeof(ti_varr_t));
-    if (!tuple)
-        return -1;
-
-    tuple->ref = 1;
-    tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_ARR_FLAG_TUPLE | ((*varr)->flags & TI_ARR_FLAG_THINGS);
-    tuple->vec = vec_dup((*varr)->vec);
-
-    if (!tuple->vec)
-    {
-        free(tuple);
-        return -1;
-    }
-
-    for (vec_each(tuple->vec, ti_val_t, val))
-        ti_incref(val);
-
-    assert ((*varr)->ref > 1);
-    ti_decref(*varr);
-    *varr = tuple;
-    return 0;
-}

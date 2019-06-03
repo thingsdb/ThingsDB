@@ -51,6 +51,46 @@ class TestTypes(TestBase):
             blob(0);
         ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
 
+    async def test_thing(self, client):
+        self.assertEqual(await client.query(r'''
+            [{}.id(), [{}][0].id()];
+        '''), [0, 0])
+
+        self.assertEqual(await client.query(r'''
+            $tmp = {a: [{}], b: {}};
+            [$tmp.a[0].id(), $tmp.b.id(), $tmp.id()];
+        '''), [0, 0, 0])
+
+        self.assertEqual(await client.query(r'''
+           {t: 0}.t;
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            $tmp = {t: {}};
+            t = $tmp.t;
+            $tmp.t.id();
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            t = {};
+            t.id();
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            a = [{}];
+            a[0].id();
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            a = [[{}]];
+            a[0][0].id();
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            t = {t: {}};
+            t.t.id();
+        '''), 0)
+
 
 if __name__ == '__main__':
     run_test(TestTypes())

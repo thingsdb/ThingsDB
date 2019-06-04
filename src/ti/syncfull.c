@@ -79,27 +79,27 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
     if (*ft == SYNCFULL__COLLECTION_DAT_FILE)
     {
         size_t i = 0;
-        ti_collection_t * collection;
-        vec_t * collections = ti()->collections->vec;
+        uint64_t * collection_id;
+        vec_t * collection_ids = ti()->store->collection_ids;
         char * path = ti()->store->store_path;
 
         if (*target_id)
-            for (vec_each(collections, ti_collection_t, collection))
-                if (++i && collection->root->id == *target_id)
+            for (vec_each(collection_ids, uint64_t, collection_id))
+                if (++i && *collection_id == *target_id)
                     break;
 
         while (1)
         {
-            collection = vec_get_or_null(collections, i);
-            if (!collection)
+            collection_id = vec_get_or_null(collection_ids, i);
+            if (!collection_id)
                 return false;       /* finished, no more files to sync */
 
-            *target_id = collection->root->id;
+            *target_id = *collection_id;
 
             if (ti_store_collection_is_stored(path, *target_id))
                 break;
 
-            /* skip collections which are not stored (yet) */
+            log_error("path is missing for: "TI_COLLECTION_ID, *target_id);
             ++i;
         }
     }

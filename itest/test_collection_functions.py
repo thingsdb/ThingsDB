@@ -31,9 +31,9 @@ class TestCollectionFunctions(TestBase):
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
 
-        # expected gc should be 1, by the `indexof` test
+        # expected no garbage collection
         counters = await client.query('counters();', target=client.node)
-        self.assertEqual(counters['garbage_collected'], 1)
+        self.assertEqual(counters['garbage_collected'], 0)
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(
@@ -331,7 +331,6 @@ class TestCollectionFunctions(TestBase):
             await client.query('id(nil, nil);')
 
     async def test_indexof(self, client):
-        """This test requires garbage collection for cleanup."""
         await client.query(r'x = [42, "thingsdb", t(id()), 42, false, nil];')
 
         with self.assertRaisesRegex(
@@ -353,6 +352,9 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query('x.indexof("ThingsDb");'), None)
         self.assertIs(await client.query('x.indexof(true);'), None)
         self.assertIs(await client.query(r'x.indexof({});'), None)
+
+        # cleanup garbage, the reference to the collection
+        await client.query(r'''x.splice(2, 1);''')
 
     async def test_int(self, client):
         with self.assertRaisesRegex(

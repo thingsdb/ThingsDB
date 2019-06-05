@@ -7,7 +7,7 @@ from lib.client import get_client
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadRequestError
-from thingsdb.target import Target
+from thingsdb.scope import Scope
 
 
 class TestGC(TestBase):
@@ -20,7 +20,7 @@ class TestGC(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = Target('stuff')
+        stuff = Scope('stuff')
 
         await client.query(r'''
             a = {};

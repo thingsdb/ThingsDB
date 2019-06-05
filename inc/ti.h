@@ -34,10 +34,6 @@
 #include <uv.h>
 #include <qpack.h>
 
-typedef struct ti_s ti_t;
-
-extern ti_t ti_;
-
 #define ti_term(signum__) do {\
     if (signum__ != SIGINT) log_critical("raise at: %s:%d,%s (%s)", \
     __FILE__, __LINE__, __func__, strsignal(signum__)); \

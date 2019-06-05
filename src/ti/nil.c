@@ -1,7 +1,7 @@
 /*
  * ti/nil.c
  */
-#include <ti.h>
+#include <tiinc.h>
 #include <ti/nil.h>
 #include <ti/val.h>
 #include <stdlib.h>

@@ -34,6 +34,9 @@
 
 typedef unsigned char uchar;
 
+typedef struct ti_s ti_t;
+extern ti_t ti_;
+
 #ifdef UNUSED
 #elif defined(__GNUC__)
 # define UNUSED(x) UNUSED_ ## x __attribute__((unused))
@@ -60,6 +63,5 @@ enum
     TI_FLAG_INDEXING        =1<<2,
     TI_FLAG_LOCKED          =1<<3,
 };
-
 
 #endif  /* TIINC_H_ */

@@ -1,14 +1,14 @@
 from .collection import Collection
-from .target import Target
+from .scope import Scope
 
 ROOT_TARGET = 0
 
 
 class Root:
 
-    async def new_collection(self, target: Target):
+    async def new_collection(self, scope: Scope):
         await self.query(
-            f'new_collection("{target._target}")',
+            f'new_collection("{scope._scopet}")',
             target=self.thingsdb)
 
     async def get_collection(self, name):

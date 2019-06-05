@@ -4,7 +4,7 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.target import Target
+from thingsdb.scope import Scope
 
 
 class TestMultiNode(TestBase):
@@ -19,7 +19,7 @@ class TestMultiNode(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = Target('stuff')
+        stuff = Scope('stuff')
 
         await client.query(r'''
             counter = 0;

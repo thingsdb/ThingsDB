@@ -90,6 +90,7 @@ int syncpart_write(
 {
     off_t sz;
     FILE * fp;
+
     fp = fopen(fn, offset ? "ab" : "wb");
     if (!fp)
     {

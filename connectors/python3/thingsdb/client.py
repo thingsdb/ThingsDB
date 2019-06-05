@@ -8,8 +8,6 @@ import collections
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
-from .protocol import REQ_QUERY_NODE
-from .protocol import REQ_QUERY_THINGSDB
 from .protocol import REQ_QUERY_COLLECTION
 from .protocol import REQ_WATCH
 from .protocol import PROTOMAP
@@ -17,7 +15,9 @@ from .protocol import proto_unkown
 from .protocol import ON_WATCH
 from .watch import WatchMixin
 from .root import Root
-from .target import Target
+from .scope import Scope
+from .scope import ThingsDBScope
+from .scope import NodeScope
 
 
 class Client(WatchMixin, Root):
@@ -25,9 +25,9 @@ class Client(WatchMixin, Root):
     MAX_RECONNECT_WAIT_TIME = 120
     MAX_RECONNECT_TIMEOUT = 10
 
-    # Target, used for Client().query(target=...)
-    node = Target('scope:node', _proto=REQ_QUERY_NODE)
-    thingsdb = Target('scope:thingsdb', _proto=REQ_QUERY_THINGSDB)
+    # Scopes, used for Client().query(target=...)
+    node = NodeScope
+    thingsdb = ThingsDBScope
 
     def __init__(self, auto_reconnect=True, auto_watch=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
@@ -41,7 +41,7 @@ class Client(WatchMixin, Root):
         self._things = weakref.WeakValueDictionary()
         self._watching = weakref.WeakSet()
         self._auto_watch = auto_watch
-        self._target = self.thingsdb  # default target
+        self._scope = self.thingsdb  # default scope
         self._pool_idx = 0
         self._reconnecting = False
 
@@ -184,7 +184,7 @@ class Client(WatchMixin, Root):
 
         if watch_ids:
             for collection_id, thing_ids in watch_ids.items():
-                await self.watch(things=thing_ids, target=collection_id)
+                await self.watch(things=thing_ids, scope=collection_id)
         elif self._auto_watch:
             await self.watch()
 
@@ -213,30 +213,30 @@ class Client(WatchMixin, Root):
             timeout=timeout)
         await future
 
-    def use(self, target):
-        if isinstance(target, (int, str)):
-            target = Target(target)
-        assert isinstance(target, Target)
-        self._target = target
+    def use(self, scope):
+        if isinstance(scope, (int, str)):
+            scope = Scope(scope)
+        assert isinstance(scope, Scope)
+        self._scope = scope
 
-    def get_target(self):
-        return self._target
+    def get_scope(self):
+        return self._scope
 
-    def _get_target_instance(self, target):
-        if isinstance(target, (int, str)):
-            return Target(target)
+    def _get_scope_instance(self, scope):
+        if isinstance(scope, (int, str)):
+            return Scope(scope)
 
-        return self._target if target is None else target
+        return self._scope if scope is None else scope
 
     async def query(
                 self, query: str, deep=None, all_=False, blobs=None,
                 target=None, timeout=None, as_list=False):
-        target = self._get_target_instance(target)
+        scope = self._get_scope_instance(target)
 
-        if target.is_collection():
+        if scope.is_collection():
             data = {
                 'query': query,
-                'collection': target._target,
+                'collection': scope._scope,
             }
             if blobs:
                 data['blobs'] = blobs
@@ -249,7 +249,7 @@ class Client(WatchMixin, Root):
                 'query': query
             }
 
-        future = self._write_package(target._proto, data, timeout=timeout)
+        future = self._write_package(scope._proto, data, timeout=timeout)
         result = await future
         if all_:
             if not as_list and len(result) == 1:
@@ -260,19 +260,19 @@ class Client(WatchMixin, Root):
         return result
 
     def watch(self, things=[], target=None, timeout=None):
-        target = self._get_target_instance(target)
+        scope = self._get_scope_instance(target)
         data = {
             'things': [t if isinstance(t, int) else t._id for t in things],
-            'collection': target._target
-        } if target.is_collection() else None
+            'collection': scope._scope
+        } if scope.is_collection() else None
         return self._write_package(REQ_WATCH, data, timeout=timeout)
 
     def unwatch(self, things, target=None, timeout=None):
-        target = self._get_target_instance(target)
+        scope = self._get_scope_instance(target)
         data = {
             'things': [t if isinstance(t, int) else t._id for t in things],
-            'collection': target._target
-        } if target.is_collection() else None
+            'collection': scope._scope
+        } if scope.is_collection() else None
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
     def _on_package_received(self, pkg):

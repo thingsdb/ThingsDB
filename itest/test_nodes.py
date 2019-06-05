@@ -4,7 +4,7 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.target import Target
+from thingsdb.scope import Scope
 from thingsdb.exceptions import NodeError
 
 
@@ -17,7 +17,7 @@ class TestNodes(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = Target('stuff')
+        stuff = Scope('stuff')
 
         await self.node1.join_until_ready(client)
         await self.node2.join_until_ready(client)

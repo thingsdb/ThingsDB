@@ -7,7 +7,9 @@
 #include <qpack.h>
 #include <ti/ex.h>
 
+#ifndef SYNCPART_SIZE
 #define SYNCPART_SIZE 131072UL
+#endif
 
 int syncpart_to_packer(
         qp_packer_t * packer,

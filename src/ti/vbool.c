@@ -6,7 +6,6 @@
 #include <ti/vbool.h>
 #include <stdbool.h>
 
-
 static ti_vbool_t vbool__true = {
         .ref = 1,
         .tp = TI_VAL_BOOL,
@@ -18,7 +17,6 @@ static ti_vbool_t vbool__false = {
         .tp = TI_VAL_BOOL,
         .bool_ = false,
 };
-
 
 ti_vbool_t * ti_vbool_get(_Bool b)
 {

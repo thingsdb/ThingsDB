@@ -1,8 +1,8 @@
 from thingsdb.client import Client
-from thingsdb.target import Target
+from thingsdb.scope import Scope
 
 
 async def create_target(client: Client, name: str):
-    target = Target(name)
+    target = Scope(name)
     await client.new_collection(target)
     return target

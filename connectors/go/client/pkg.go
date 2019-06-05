@@ -44,14 +44,14 @@ func (p *pkg) setData(b *[]byte, size uint32) {
 }
 
 // pack returns a byte array containing a header with serialized data.
-func pkgPack(pid uint16, tp uint8, v interface{}) ([]byte, error) {
+func pkgPack(pid uint16, tp Proto, v interface{}) ([]byte, error) {
 	var err error
 	var data []byte
 
-	pkg := make([]byte, pkgHeaderSize, PkgInitCapacity)
+	pkg := make([]byte, pkgHeaderSize, pkgInitCapacity)
 
 	if v != nil {
-		data, err = qpack.PackTo(pkg, v)
+		err = qpack.PackTo(&pkg, v)
 		if err != nil {
 			return nil, err
 		}
@@ -64,8 +64,8 @@ func pkgPack(pid uint16, tp uint8, v interface{}) ([]byte, error) {
 	binary.LittleEndian.PutUint16(pkg[4:], pid)
 
 	// set package type and check bit.
-	pkg[6] = tp
-	pkg[7] = '\xff' ^ tp
+	pkg[6] = uint8(tp)
+	pkg[7] = '\xff' ^ uint8(tp)
 
 	return pkg, nil
 }

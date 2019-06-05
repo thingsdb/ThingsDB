@@ -28,8 +28,8 @@ func NewConn(host string, port uint16) *Conn {
 		host:    host,
 		port:    port,
 		pid:     0,
-		buf:     NewBuffer(),
-		respMap: make(map[uint16]chan *Pkg),
+		buf:     newBuffer(),
+		respMap: make(map[uint16]chan *pkg),
 		OnClose: nil,
 		LogCh:   nil,
 	}
@@ -66,7 +66,7 @@ func (conn *Conn) Connect() error {
 
 // Authenticate can be used to authenticate a connection.
 func (conn *Conn) Authenticate(username, password string) error {
-	_, err = conn.Write(
+	_, err := conn.write(
 		ProtoReqAuth,
 		[]string{username, password},
 		10)
@@ -80,13 +80,13 @@ func (conn *Conn) IsConnected() bool {
 
 // Query sends a query and returns the result.
 func (conn *Conn) Query(scope Scope, query string, timeout uint16) (interface{}, error) {
-	return conn.write(Scope.protocol, []interface{}{query, nil}, timeout)
+	return conn.write(scope.protocol, []interface{}{query, nil}, timeout)
 }
 
 // Close will close an open connection.
 func (conn *Conn) Close() {
 	if conn.buf.conn != nil {
-		conn.sendLog("closing connection to %s:%d", conn.host, conn.port)
+		conn.writeLog("closing connection to %s:%d", conn.host, conn.port)
 		conn.buf.conn.Close()
 	}
 }
@@ -97,12 +97,12 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 
 	select {
 	case pkg := <-respCh:
-		switch pkg.tp {
+		switch Proto(pkg.tp) {
 		case ProtoResQuery:
 			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
 		case ProtoResPing, ProtoResAuth:
 			result = nil
-		case CprotoErrMsg, CprotoErrUserAccess, CprotoErrPool, CprotoErrServer, CprotoErrQuery, CprotoErrInsert, CprotoErrAdmin:
+		case ProtoErrOverflow:
 			err = NewErrorFromByte(pkg.data)
 		default:
 			err = fmt.Errorf("unknown package type: %d", pkg.tp)
@@ -123,7 +123,7 @@ func (conn *Conn) increPid() uint16 {
 }
 
 func (conn *Conn) getRespCh(pid uint16, b []byte, timeout uint16) (interface{}, error) {
-	respCh := make(chan *Pkg, 1)
+	respCh := make(chan *pkg, 1)
 
 	conn.mux.Lock()
 	conn.respMap[pid] = respCh
@@ -147,7 +147,7 @@ func (conn *Conn) getRespCh(pid uint16, b []byte, timeout uint16) (interface{}, 
 	return result, err
 }
 
-func (conn *Conn) write(tp uint8, data interface{}, timeout uint16) (interface{}, error) {
+func (conn *Conn) write(tp Proto, data interface{}, timeout uint16) (interface{}, error) {
 	pid := conn.increPid()
 	b, err := pkgPack(pid, tp, data)
 
@@ -161,17 +161,17 @@ func (conn *Conn) write(tp uint8, data interface{}, timeout uint16) (interface{}
 func (conn *Conn) listen() {
 	for {
 		select {
-		case pkg := <-conn.buf.DataCh:
+		case pkg := <-conn.buf.pkgCh:
 			conn.mux.Lock()
 			if respCh, ok := conn.respMap[pkg.pid]; ok {
 				conn.mux.Unlock()
 				respCh <- pkg
 			} else {
 				conn.mux.Unlock()
-				conn.sendLog("no response channel found for pid %d, probably the task has been cancelled ot timed out.", pkg.pid)
+				conn.writeLog("no response channel found for pid %d, probably the task has been cancelled ot timed out.", pkg.pid)
 			}
-		case err := <-conn.buf.ErrCh:
-			conn.sendLog("%s (%s:%d)", niceErr(err), conn.host, conn.port)
+		case err := <-conn.buf.errCh:
+			conn.writeLog("%s (%s:%d)", niceErr(err), conn.host, conn.port)
 			conn.buf.conn.Close()
 			conn.buf.conn = nil
 			if conn.OnClose != nil {

@@ -1,7 +1,7 @@
 package client
 
 // Proto is used as protocol type used by ThingsDB.
-type Proto int
+type Proto uint8
 
 const (
 	// ProtoReqPing requires `nil`
@@ -22,7 +22,6 @@ const (
 	// ProtoResQuery responds with `[{..}, {..}...] or {...}`
 	ProtoResQuery Proto = 66
 
-	// ProtoResQuery responds with `{error_msg: `
+	// ProtoErrOverflow responds with `{error_msg: ..., error_code: ...}`
 	ProtoErrOverflow Proto = 96
-	TI_PROTO_CLIENT_ERR_OVERFLOW
 )

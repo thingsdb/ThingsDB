@@ -6,19 +6,20 @@ import qpack "github.com/transceptor-technology/go-qpack"
 type ErrorCode int
 
 const (
-	// UnpackError when no error can be created from qpack data.
-	UnpackError   ErrorCode = -1
+	// UnpackError - invalid qpack data when create a new Error
+	UnpackError ErrorCode = -1
+	// OverflowError - interger overflow
 	OverflowError ErrorCode = 96
 )
 
 // Error can be returned by the siridb package.
 type Error struct {
 	msg  string
-	code int
+	code ErrorCode
 }
 
 // NewError returns a pointer to a new Error.
-func NewError(msg string, code int) *Error {
+func NewError(msg string, code ErrorCode) *Error {
 	return &Error{
 		msg:  msg,
 		code: code,
@@ -37,12 +38,12 @@ func NewErrorFromByte(b []byte) *Error {
 	errMap := result.(map[string]interface{})
 	return &Error{
 		msg:  errMap["error_msg"].(string),
-		code: errMap["error_code"].(int),
+		code: errMap["error_code"].(ErrorCode),
 	}
 }
 
-// Msg returns the error msg.
-func (e *Error) Msg() string { return e.msg }
+// Error returns the error msg.
+func (e *Error) Error() string { return e.msg }
 
-// Code returns the error code.
-func (e *Error) Code() uint8 { return e.code }
+// Code returns the error type.
+func (e *Error) Code() ErrorCode { return e.code }

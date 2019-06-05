@@ -17,21 +17,21 @@ type buffer struct {
 // newBuffer retur a pointer to a new buffer.
 func newBuffer() *buffer {
 	return &buffer{
-		buf:   make([]byte, 0),
+		data:  make([]byte, 0),
 		len:   0,
 		pkg:   nil,
 		conn:  nil,
-		pkgCh: make(chan *Pkg),
+		pkgCh: make(chan *pkg),
 		errCh: make(chan error, 1),
 	}
 }
 
-// Read listens on a connection for data.
+// read listens on a connection for data.
 func (buf buffer) read() {
 	for {
 		// try to read the data
 		wbuf := make([]byte, 8192)
-		n, err := buf.conn.Read(buf)
+		n, err := buf.conn.Read(wbuf)
 
 		if err != nil {
 			// send an error if it's encountered
@@ -39,21 +39,21 @@ func (buf buffer) read() {
 			return
 		}
 
-		wbuf.len += uint32(n)
+		buf.len += uint32(n)
 		buf.data = append(buf.data, wbuf[:n]...)
 
 		for buf.len >= pkgHeaderSize {
 			if buf.pkg == nil {
 				buf.pkg, err = newPkg(buf.data)
 				if err != nil {
-					buffer.errCh <- err
+					buf.errCh <- err
 					return
 				}
 			}
 
-			total := buffer.pkg.size + pkgHeaderSize
+			total := buf.pkg.size + pkgHeaderSize
 
-			if buffer.len < total {
+			if buf.len < total {
 				break
 			}
 

@@ -1,0 +1,191 @@
+package client
+
+import (
+	"fmt"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/transceptor-technology/go-qpack"
+)
+
+// Conn is a ThingsDB connection to a single node.
+type Conn struct {
+	host    string
+	port    uint16
+	pid     uint16
+	buf     *buffer
+	respMap map[uint16]chan *pkg
+	OnClose func()
+	LogCh   chan string
+	mux     sync.Mutex
+}
+
+// NewConn creates a new connection
+func NewConn(host string, port uint16) *Conn {
+	return &Conn{
+		host:    host,
+		port:    port,
+		pid:     0,
+		buf:     NewBuffer(),
+		respMap: make(map[uint16]chan *Pkg),
+		OnClose: nil,
+		LogCh:   nil,
+	}
+}
+
+// ToString returns a string representing the connection and port.
+func (conn *Conn) ToString() string {
+	if strings.Count(conn.host, ":") > 0 {
+		return fmt.Sprintf("[%s]:%d", conn.host, conn.port)
+	}
+	return fmt.Sprintf("%s:%d", conn.host, conn.port)
+}
+
+// Connect creates the TCP connection to the node.
+func (conn *Conn) Connect() error {
+	if conn.IsConnected() {
+		return nil
+	}
+
+	cn, err := net.Dial("tcp", conn.ToString())
+
+	if err != nil {
+		return err
+	}
+
+	conn.writeLog("connected to %s:%d", conn.host, conn.port)
+	conn.buf.conn = cn
+
+	go conn.buf.read()
+	go conn.listen()
+
+	return nil
+}
+
+// Authenticate can be used to authenticate a connection.
+func (conn *Conn) Authenticate(username, password string) error {
+	_, err = conn.Write(
+		ProtoReqAuth,
+		[]string{username, password},
+		10)
+	return err
+}
+
+// IsConnected returns true when connected.
+func (conn *Conn) IsConnected() bool {
+	return conn.buf.conn != nil
+}
+
+// Query sends a query and returns the result.
+func (conn *Conn) Query(scope Scope, query string, timeout uint16) (interface{}, error) {
+	return conn.write(Scope.protocol, []interface{}{query, nil}, timeout)
+}
+
+// Close will close an open connection.
+func (conn *Conn) Close() {
+	if conn.buf.conn != nil {
+		conn.sendLog("closing connection to %s:%d", conn.host, conn.port)
+		conn.buf.conn.Close()
+	}
+}
+
+func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
+	var result interface{}
+	var err error
+
+	select {
+	case pkg := <-respCh:
+		switch pkg.tp {
+		case ProtoResQuery:
+			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
+		case ProtoResPing, ProtoResAuth:
+			result = nil
+		case CprotoErrMsg, CprotoErrUserAccess, CprotoErrPool, CprotoErrServer, CprotoErrQuery, CprotoErrInsert, CprotoErrAdmin:
+			err = NewErrorFromByte(pkg.data)
+		default:
+			err = fmt.Errorf("unknown package type: %d", pkg.tp)
+		}
+	case <-timeoutCh:
+		err = fmt.Errorf("query timeout reached")
+	}
+
+	return result, err
+}
+
+func (conn *Conn) increPid() uint16 {
+	conn.mux.Lock()
+	pid := conn.pid
+	conn.pid++
+	conn.mux.Unlock()
+	return pid
+}
+
+func (conn *Conn) getRespCh(pid uint16, b []byte, timeout uint16) (interface{}, error) {
+	respCh := make(chan *Pkg, 1)
+
+	conn.mux.Lock()
+	conn.respMap[pid] = respCh
+	conn.mux.Unlock()
+
+	conn.buf.conn.Write(b)
+
+	timeoutCh := make(chan bool, 1)
+
+	go func() {
+		time.Sleep(time.Duration(timeout) * time.Second)
+		timeoutCh <- true
+	}()
+
+	result, err := getResult(respCh, timeoutCh)
+
+	conn.mux.Lock()
+	delete(conn.respMap, pid)
+	conn.mux.Unlock()
+
+	return result, err
+}
+
+func (conn *Conn) write(tp uint8, data interface{}, timeout uint16) (interface{}, error) {
+	pid := conn.increPid()
+	b, err := pkgPack(pid, tp, data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return conn.getRespCh(pid, b, timeout)
+}
+
+func (conn *Conn) listen() {
+	for {
+		select {
+		case pkg := <-conn.buf.DataCh:
+			conn.mux.Lock()
+			if respCh, ok := conn.respMap[pkg.pid]; ok {
+				conn.mux.Unlock()
+				respCh <- pkg
+			} else {
+				conn.mux.Unlock()
+				conn.sendLog("no response channel found for pid %d, probably the task has been cancelled ot timed out.", pkg.pid)
+			}
+		case err := <-conn.buf.ErrCh:
+			conn.sendLog("%s (%s:%d)", niceErr(err), conn.host, conn.port)
+			conn.buf.conn.Close()
+			conn.buf.conn = nil
+			if conn.OnClose != nil {
+				conn.OnClose()
+			}
+		}
+	}
+}
+
+func (conn *Conn) writeLog(s string, a ...interface{}) {
+	msg := fmt.Sprintf(s, a...)
+	if conn.LogCh == nil {
+		fmt.Println(msg)
+	} else {
+		conn.LogCh <- msg
+	}
+}

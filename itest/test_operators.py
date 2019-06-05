@@ -56,6 +56,27 @@ class TestOperators(TestBase):
             : 'unknown';
         '''), 'John')
 
+    async def test_logical_operators(self, client):
+        self.assertTrue(await client.query('(true && true)'))
+        self.assertFalse(await client.query('(true && false)'))
+        self.assertFalse(await client.query('(false && true)'))
+        self.assertFalse(await client.query('(false && false)'))
+
+        self.assertTrue(await client.query('(true || true)'))
+        self.assertTrue(await client.query('(true || false)'))
+        self.assertTrue(await client.query('(false || true)'))
+        self.assertFalse(await client.query('(false || false)'))
+
+        self.assertTrue(await client.query('(1 || 0 && 0)'))
+        self.assertFalse(await client.query('((1 || 0) && 0)'))
+
+    async def test_not_operator(self, client):
+        self.assertTrue(await client.query('!false'))
+        self.assertFalse(await client.query('!true'))
+
+        self.assertFalse(await client.query('!!false'))
+        self.assertTrue(await client.query('!!true'))
+
 
 if __name__ == '__main__':
     run_test(TestOperators())

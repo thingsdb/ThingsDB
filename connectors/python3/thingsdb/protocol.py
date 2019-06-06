@@ -10,7 +10,7 @@ from .exceptions import InternalError
 from .exceptions import MaxQuotaError
 from .exceptions import NodeError
 from .exceptions import OverflowError
-from .exceptions import QueryError
+from .exceptions import SyntaxError
 from .exceptions import ZeroDivisionError
 
 
@@ -42,7 +42,7 @@ RES_ERR_AUTH = 99
 RES_ERR_FORBIDDEN = 100
 RES_ERR_INDEX = 101
 RES_ERR_BAD_REQUEST = 102
-RES_ERR_QUERY = 103
+RES_ERR_SYNTAX = 103
 RES_ERR_NODE = 104
 RES_ERR_ASSERTION = 105
 RES_ERR_INTERNAL = 127
@@ -69,8 +69,8 @@ PROTOMAP = {
         lambda f, d: f.set_exception(IndexError(errdata=d)),
     RES_ERR_BAD_REQUEST:
         lambda f, d: f.set_exception(BadRequestError(errdata=d)),
-    RES_ERR_QUERY:
-        lambda f, d: f.set_exception(QueryError(errdata=d)),
+    RES_ERR_SYNTAX:
+        lambda f, d: f.set_exception(SyntaxError(errdata=d)),
     RES_ERR_NODE:
         lambda f, d: f.set_exception(NodeError(errdata=d)),
     RES_ERR_ASSERTION:

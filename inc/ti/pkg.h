@@ -35,8 +35,8 @@ struct ti_pkg_s
 
 /* setting ntp is to avoid ~ unsigned warn */
 #define ti_pkg_check(pkg__) (\
-        ((pkg__)->tp == ((pkg__)->ntp ^= 0xff)) && \
-        ((pkg__)->tp != ((pkg__)->ntp ^= 0xff)) && \
+        (pkg__)->tp == ((pkg__)->ntp ^= 0xff) && \
+        (pkg__)->tp != ((pkg__)->ntp ^= 0xff) && \
         (pkg__)->n <= TI_PKG_MAX_SIZE)
 
 /* return total package size, header + data size */

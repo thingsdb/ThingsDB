@@ -286,11 +286,11 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
         e->msg[EX_MAX_SZ] = '\0';
 
-        log_warning("invalid query: `%s` (%s)", query->querystr, e->msg);
+        log_warning("invalid syntax: `%s` (%s)", query->querystr, e->msg);
 
         /* we will certainly not hit the max size, but just to be safe */
         e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
-        e->nr = EX_QUERY_ERROR;
+        e->nr = EX_SYNTAX_ERROR;
         goto finish;
     }
 finish:

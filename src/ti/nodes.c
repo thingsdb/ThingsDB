@@ -1265,7 +1265,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_ERR_FORBIDDEN:
     case TI_PROTO_CLIENT_ERR_INDEX:
     case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
-    case TI_PROTO_CLIENT_ERR_QUERY:
+    case TI_PROTO_CLIENT_ERR_SYNTAX:
     case TI_PROTO_CLIENT_ERR_NODE:
     case TI_PROTO_CLIENT_ERR_ASSERTION:
     case TI_PROTO_CLIENT_ERR_INTERNAL:

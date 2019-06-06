@@ -71,8 +71,8 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     case EX_BAD_DATA:
         tp = TI_PROTO_CLIENT_ERR_BAD_REQUEST;
         break;
-    case EX_QUERY_ERROR:
-        tp = TI_PROTO_CLIENT_ERR_QUERY;
+    case EX_SYNTAX_ERROR:
+        tp = TI_PROTO_CLIENT_ERR_SYNTAX;
         break;
     case EX_NODE_ERROR:
         tp = TI_PROTO_CLIENT_ERR_NODE;

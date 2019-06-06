@@ -52,8 +52,9 @@ typedef enum
      * 96..127 client errors
      */
 
+    /* integer overflow error */
     TI_PROTO_CLIENT_ERR_OVERFLOW    =96,
-    /* zero division error */
+    /* zero division or module error */
     TI_PROTO_CLIENT_ERR_ZERO_DIV    =97,
     /* max quota is reached */
     TI_PROTO_CLIENT_ERR_MAX_QUOTA   =98,
@@ -65,8 +66,8 @@ typedef enum
     TI_PROTO_CLIENT_ERR_INDEX       =101,
     /* invalid request, incorrect package type, invalid QPack data */
     TI_PROTO_CLIENT_ERR_BAD_REQUEST =102,
-    /* query syntax error */
-    TI_PROTO_CLIENT_ERR_QUERY       =103,
+    /* syntax error in query */
+    TI_PROTO_CLIENT_ERR_SYNTAX       =103,
     /* node is (currently) unable to respond to the request */
     TI_PROTO_CLIENT_ERR_NODE        =104,
     /* assertion statement has failed */

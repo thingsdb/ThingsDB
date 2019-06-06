@@ -61,7 +61,7 @@ const char * ex_str(ex_enum errnr)
         return "requested resource not found";
     case EX_BAD_DATA:
         return "unable to handle request due to invalid data";
-    case EX_QUERY_ERROR:
+    case EX_SYNTAX_ERROR:
         return "syntax error in query";
     case EX_NODE_ERROR:
         return "node is temporary unable to handle the request";

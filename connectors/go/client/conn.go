@@ -102,7 +102,9 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
 		case ProtoResPing, ProtoResAuth:
 			result = nil
-		case ProtoErrOverflow:
+		case ProtoErrOverflow, ProtoErrZeroDiv, ProtoErrMaxQuota, ProtoErrAuth,
+			ProtoErrForbidden, ProtoErrIndex, ProtoErrBadRequest, ProtoErrSyntax,
+			ProtoErrNode, ProtoErrAssertion, ProtoErrInternal:
 			err = NewErrorFromByte(pkg.data)
 		default:
 			err = fmt.Errorf("unknown package type: %d", pkg.tp)
@@ -129,7 +131,9 @@ func (conn *Conn) getRespCh(pid uint16, b []byte, timeout uint16) (interface{}, 
 	conn.respMap[pid] = respCh
 	conn.mux.Unlock()
 
-	conn.buf.conn.Write(b)
+	if conn.buf.conn != nil {
+		conn.buf.conn.Write(b)
+	}
 
 	timeoutCh := make(chan bool, 1)
 
@@ -148,6 +152,9 @@ func (conn *Conn) getRespCh(pid uint16, b []byte, timeout uint16) (interface{}, 
 }
 
 func (conn *Conn) write(tp Proto, data interface{}, timeout uint16) (interface{}, error) {
+	if !conn.IsConnected() {
+		return nil, fmt.Errorf("not connected")
+	}
 	pid := conn.increPid()
 	b, err := pkgPack(pid, tp, data)
 

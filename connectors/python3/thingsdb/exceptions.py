@@ -40,7 +40,7 @@ class BadRequestError(ThingsDBError):
     pass
 
 
-class QueryError(ThingsDBError):
+class SyntaxError(ThingsDBError):
     pass
 
 

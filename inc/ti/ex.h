@@ -22,7 +22,7 @@ typedef enum
     EX_FORBIDDEN            =-123,
     EX_INDEX_ERROR          =-122,
     EX_BAD_DATA             =-121,
-    EX_QUERY_ERROR          =-120,
+    EX_SYNTAX_ERROR          =-120,
     EX_NODE_ERROR           =-119,
     EX_ASSERT_ERROR         =-118,
 

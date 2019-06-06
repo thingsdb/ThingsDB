@@ -182,8 +182,9 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     if (!ti_pkg_check(pkg))
     {
         log_error(
-                "invalid package from `%s`, closing connection",
-                ti_stream_name(stream));
+                "invalid package (type=%u invert=%u size=%u) from `%s`, "
+                "closing connection",
+                pkg->tp, pkg->ntp, pkg->n, ti_stream_name(stream));
         ti_stream_close(stream);
         return;
     }

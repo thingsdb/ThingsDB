@@ -373,8 +373,8 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
         case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
             i = EX_BAD_DATA;
             break;
-        case TI_PROTO_CLIENT_ERR_QUERY:
-            i = EX_QUERY_ERROR;
+        case TI_PROTO_CLIENT_ERR_SYNTAX:
+            i = EX_SYNTAX_ERROR;
             break;
         case TI_PROTO_CLIENT_ERR_NODE:
             i = EX_NODE_ERROR;
@@ -400,7 +400,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
             VAL__CMP("FORBIDDEN") ? EX_FORBIDDEN :
             VAL__CMP("INDEX_ERROR") ? EX_INDEX_ERROR :
             VAL__CMP("BAD_REQUEST") ? EX_BAD_DATA :
-            VAL__CMP("QUERY_ERROR") ? EX_QUERY_ERROR :
+            VAL__CMP("QUERY_ERROR") ? EX_SYNTAX_ERROR :
             VAL__CMP("NODE_ERROR") ? EX_NODE_ERROR :
             VAL__CMP("ASSERTION_ERROR") ? EX_ASSERT_ERROR :
             VAL__CMP("INTERNAL_ERROR") ? EX_INTERNAL :

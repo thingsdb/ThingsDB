@@ -842,6 +842,18 @@ static int query__node_db_unpack(
             continue;
         }
 
+        if (qp_is_raw_equal_str(&key, "all"))
+        {
+            if (!qp_is_bool(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+            if (qp_is_true(val.tp))
+                query->flags |= TI_QUERY_FLAG_ALL;
+            continue;
+        }
+
         log_debug(
                 "unexpected `query` key in map: `%.*s`",
                 key.len, (const char *) key.via.raw);

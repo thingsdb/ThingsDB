@@ -79,8 +79,8 @@ func (conn *Conn) IsConnected() bool {
 }
 
 // Query sends a query and returns the result.
-func (conn *Conn) Query(scope Scope, query string, timeout uint16) (interface{}, error) {
-	return conn.write(scope.protocol, []interface{}{query, nil}, timeout)
+func (conn *Conn) Query(r Req) (interface{}, error) {
+	return conn.write(r.GetProtocol(), r.AsMap(), r.GetTimeout())
 }
 
 // Close will close an open connection.

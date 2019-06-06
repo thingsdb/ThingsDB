@@ -248,6 +248,8 @@ class Client(WatchMixin, Root):
             data = {
                 'query': query
             }
+            if all_:
+                data['all'] = True
 
         future = self._write_package(scope._proto, data, timeout=timeout)
         result = await future

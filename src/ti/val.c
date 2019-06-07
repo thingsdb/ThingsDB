@@ -33,6 +33,7 @@ static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
 static ti_val_t * val__sblob;
 static ti_val_t * val__sarray;
+static ti_val_t * val__sset;
 static ti_val_t * val__sthing;
 static ti_val_t * val__sclosure;
 
@@ -47,6 +48,7 @@ int ti_val_init_common(void)
     val__sfalse = (ti_val_t *) ti_raw_from_fmt("false");
     val__sblob = (ti_val_t *) ti_raw_from_fmt("<blob>");
     val__sarray = (ti_val_t *) ti_raw_from_fmt("<array>");
+    val__sset = (ti_val_t *) ti_raw_from_fmt("<set>");
     val__sthing = (ti_val_t *) ti_raw_from_fmt("<thing>");
     val__sclosure = (ti_val_t *) ti_raw_from_fmt("<closure>");
 
@@ -66,6 +68,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sfalse);
     ti_val_drop(val__sblob);
     ti_val_drop(val__sarray);
+    ti_val_drop(val__sset);
     ti_val_drop(val__sthing);
     ti_val_drop(val__sclosure);
 }
@@ -94,6 +97,9 @@ void ti_val_destroy(ti_val_t * val)
         return;
     case TI_VAL_ARR:
         ti_varr_destroy((ti_varr_t *) val);
+        return;
+    case TI_VAL_SET:
+        ti_vset_destroy((ti_vset_t *) val);
         return;
     case TI_VAL_CLOSURE:
         ti_closure_destroy((ti_closure_t *) val);
@@ -250,6 +256,10 @@ int ti_val_convert_to_str(ti_val_t ** val)
         v = val__sarray;
         ti_incref(v);
         break;
+    case TI_VAL_SET:
+        v = val__sset;
+        ti_incref(v);
+        break;
     case TI_VAL_CLOSURE:
         v = val__sclosure;
         ti_incref(v);
@@ -273,6 +283,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
                 ti_val_str(*val), TI_VAL_INT_S);
@@ -343,6 +354,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
                 ti_val_str(*val));
@@ -445,6 +457,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return true;
     case TI_VAL_ARR:
         return !!((ti_varr_t *) val)->vec->n;
+    case TI_VAL_SET:
+        return !!((ti_vset_t *) val)->imap->n;
     case TI_VAL_THING:
     case TI_VAL_CLOSURE:
         return true;
@@ -468,6 +482,8 @@ size_t ti_val_get_len(ti_val_t * val)
         return ((ti_raw_t *) val)->n;
     case TI_VAL_ARR:
         return ((ti_varr_t *) val)->vec->n;
+    case TI_VAL_SET:
+        return ((ti_vset_t *) val)->imap->n;
     case TI_VAL_THING:
         return ((ti_thing_t *) val)->props->n;
     }
@@ -493,6 +509,26 @@ int ti_val_gen_ids(ti_val_t * val)
             for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;
+        break;
+    case TI_VAL_SET:
+        if (((ti_vset_t *) val)->imap->n)
+        {
+            vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
+            if (!vec)
+                return -1;
+
+            for (vec_each(vec, ti_thing_t, thing))
+            {
+                if (thing->id)
+                {
+                    ti_thing_unmark_new(thing);
+                    continue;
+                }
+
+                if (ti_thing_gen_id(thing))
+                    return -1;
+            }
+        }
     }
     return 0;
 }

@@ -23,6 +23,32 @@ await collection.assign('y', 123)
 interrupted = False
 
 
+class Thing:
+    pass
+
+
+class Collection(Thing):
+    pass
+
+
+class Label(Thing):
+    name = TString()
+    description = TString()
+
+
+class Labels(Thing):
+    vec = TArrayOf(Label)
+
+
+class Conditions(Thing):
+    labels = TArrayOf(Label)
+
+
+class OsData(Collection):
+    labels = Labels
+    conditions = Conditions
+
+
 async def test():
     client = Client()
     await client.connect('localhost', 9200)

@@ -18,6 +18,7 @@ typedef enum
     TI_VAL_REGEX,
     TI_VAL_THING,
     TI_VAL_ARR,     /* array, list or tuple */
+    TI_VAL_SET,     /* set of things */
     TI_VAL_CLOSURE,
 } ti_val_enum;
 
@@ -32,6 +33,7 @@ typedef enum
 #define TI_VAL_ARR_S        "array"
 #define TI_VAL_ARR_LIST_S   "list"
 #define TI_VAL_ARR_TUPLE_S  "tuple"
+#define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
 
 typedef enum
@@ -39,6 +41,7 @@ typedef enum
     TI_VAL_KIND_THING   ='#',
     TI_VAL_KIND_CLOSURE ='$',
     TI_VAL_KIND_REGEX   ='*',
+    TI_VAL_KIND_SET     ='!',
 } ti_val_kind;
 
 enum

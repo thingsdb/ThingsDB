@@ -18,7 +18,6 @@ class WatchMixin:
         if pkg.tp == ON_NODE_STATUS:
             return self._on_node_status(pkg.data)
 
-
     def _on_watch_init(self, data):
         thing_dict = data['thing']
         thing_id = thing_dict.pop('#')

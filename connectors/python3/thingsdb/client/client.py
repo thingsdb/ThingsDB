@@ -14,13 +14,13 @@ from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .protocol import ON_WATCH
 from .watch import WatchMixin
-from .root import Root
+from .buildin import Buildin
 from .scope import Scope
 from .scope import ThingsDBScope
 from .scope import NodeScope
 
 
-class Client(WatchMixin, Root):
+class Client(Buildin):
 
     MAX_RECONNECT_WAIT_TIME = 120
     MAX_RECONNECT_TIMEOUT = 10
@@ -29,7 +29,7 @@ class Client(WatchMixin, Root):
     node = NodeScope
     thingsdb = ThingsDBScope
 
-    def __init__(self, auto_reconnect=True, auto_watch=True, loop=None):
+    def __init__(self, auto_reconnect=True, watch_hook=None, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._username = None
         self._password = None
@@ -40,7 +40,6 @@ class Client(WatchMixin, Root):
         self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()
         self._watching = weakref.WeakSet()
-        self._auto_watch = auto_watch
         self._scope = self.thingsdb  # default scope
         self._pool_idx = 0
         self._reconnecting = False
@@ -185,7 +184,7 @@ class Client(WatchMixin, Root):
         if watch_ids:
             for collection_id, thing_ids in watch_ids.items():
                 await self.watch(things=thing_ids, scope=collection_id)
-        elif self._auto_watch:
+        elif self._reconnect:
             await self.watch()
 
     def get_num_watch(self):
@@ -203,7 +202,7 @@ class Client(WatchMixin, Root):
         self._password = password
         await self._authenticate(timeout)
 
-        if self._auto_watch:
+        if self._reconnect:
             await self.watch()
 
     async def _authenticate(self, timeout):
@@ -261,18 +260,18 @@ class Client(WatchMixin, Root):
 
         return result
 
-    def watch(self, things=[], target=None, timeout=None):
+    def watch(self, ids=[], target=None, timeout=None):
         scope = self._get_scope_instance(target)
         data = {
-            'things': [t if isinstance(t, int) else t._id for t in things],
+            'things': ids,
             'collection': scope._scope
         } if scope.is_collection() else None
         return self._write_package(REQ_WATCH, data, timeout=timeout)
 
-    def unwatch(self, things, target=None, timeout=None):
+    def unwatch(self, ids=[], target=None, timeout=None):
         scope = self._get_scope_instance(target)
         data = {
-            'things': [t if isinstance(t, int) else t._id for t in things],
+            'things': ids,
             'collection': scope._scope
         } if scope.is_collection() else None
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
@@ -296,6 +295,10 @@ class Client(WatchMixin, Root):
             return
 
         PROTOMAP.get(pkg.tp, proto_unkown)(future, pkg.data)
+
+    def _on_node_status(self, status):
+        if status == 'SHUTTING_DOWN':
+            asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
     async def _timer(self, pid, timeout):
         await asyncio.sleep(timeout)

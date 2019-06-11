@@ -36,17 +36,16 @@ class Label(Thing):
     description = TString()
 
 
-class Labels(Thing):
-    vec = TArrayOf(Label)
-
-
-class Conditions(Thing):
-    labels = TArrayOf(Label)
+class Condition(Thing):
+    name = TString()
+    description = TString()
+    labels = TArray()
 
 
 class OsData(Collection):
-    labels = Labels
-    conditions = Conditions
+    labels = TArray()
+    conditions = TArray()
+
 
 
 async def test():

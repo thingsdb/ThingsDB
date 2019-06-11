@@ -7,6 +7,7 @@
 #include <ti/vbool.h>
 #include <ti/vint.h>
 #include <ti/vfloat.h>
+#include <ti/vset.h>
 #include <util/logger.h>
 
 #define CAST_MAX 9223372036854775808.0
@@ -52,6 +53,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -75,6 +77,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -98,6 +101,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -118,6 +122,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -125,6 +130,27 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+        goto type_err;
+    case TI_VAL_SET:
+        switch ((ti_val_enum) (*b)->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+            goto type_err;
+        case TI_VAL_SET:
+            bool_ = ((ti_vset_t *) a)->imap->n >= ((ti_vset_t *) b)->imap->n;
+            break;
+        case TI_VAL_CLOSURE:
+            goto type_err;
+        }
+        break;
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -166,6 +192,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -189,6 +216,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -212,6 +240,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -232,6 +261,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -239,6 +269,27 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+        goto type_err;
+    case TI_VAL_SET:
+        switch ((ti_val_enum) (*b)->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+            goto type_err;
+        case TI_VAL_SET:
+            bool_ = ((ti_vset_t *) a)->imap->n > ((ti_vset_t *) b)->imap->n;
+            break;
+        case TI_VAL_CLOSURE:
+            goto type_err;
+        }
+        break;
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -280,6 +331,7 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -303,6 +355,7 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -326,6 +379,7 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -346,6 +400,7 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -353,6 +408,27 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+        goto type_err;
+    case TI_VAL_SET:
+        switch ((ti_val_enum) (*b)->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+            goto type_err;
+        case TI_VAL_SET:
+            bool_ = ((ti_vset_t *) a)->imap->n <= ((ti_vset_t *) b)->imap->n;
+            break;
+        case TI_VAL_CLOSURE:
+            goto type_err;
+        }
+        break;
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -394,6 +470,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -417,6 +494,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -440,6 +518,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -460,6 +539,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -467,6 +547,27 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+        goto type_err;
+    case TI_VAL_SET:
+        switch ((ti_val_enum) (*b)->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+            goto type_err;
+        case TI_VAL_SET:
+            bool_ = ((ti_vset_t *) a)->imap->n < ((ti_vset_t *) b)->imap->n;
+            break;
+        case TI_VAL_CLOSURE:
+            goto type_err;
+        }
+        break;
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -526,6 +627,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -549,6 +651,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -574,6 +677,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -594,6 +698,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -601,6 +706,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -675,6 +781,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -698,6 +805,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -724,6 +832,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -733,6 +842,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -796,6 +906,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -819,6 +930,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -842,6 +954,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -851,6 +964,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -914,6 +1028,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -943,6 +1058,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -972,6 +1088,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -981,6 +1098,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1039,6 +1157,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1077,6 +1196,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1109,6 +1229,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1118,6 +1239,7 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1177,6 +1299,7 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1214,6 +1337,7 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1246,6 +1370,7 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1255,6 +1380,7 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1304,6 +1430,7 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1328,6 +1455,7 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1337,6 +1465,7 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1378,6 +1507,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1402,6 +1532,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1411,6 +1542,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1452,6 +1584,7 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1476,6 +1609,7 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             goto type_err;
         }
@@ -1485,6 +1619,7 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         goto type_err;
     }
@@ -1597,6 +1732,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             return false;
         }
@@ -1617,6 +1753,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             return false;
         }
@@ -1637,6 +1774,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             return false;
         }
@@ -1656,6 +1794,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
+        case TI_VAL_SET:
         case TI_VAL_CLOSURE:
             return false;
         }
@@ -1663,6 +1802,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         return a == b;
     }

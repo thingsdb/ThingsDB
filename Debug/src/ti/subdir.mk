@@ -67,6 +67,7 @@ C_SRCS += \
 ../src/ti/version.c \
 ../src/ti/vfloat.c \
 ../src/ti/vint.c \
+../src/ti/vset.c \
 ../src/ti/wareq.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
@@ -136,6 +137,7 @@ OBJS += \
 ./src/ti/version.o \
 ./src/ti/vfloat.o \
 ./src/ti/vint.o \
+./src/ti/vset.o \
 ./src/ti/wareq.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
@@ -205,6 +207,7 @@ C_DEPS += \
 ./src/ti/version.d \
 ./src/ti/vfloat.d \
 ./src/ti/vint.d \
+./src/ti/vset.d \
 ./src/ti/wareq.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \

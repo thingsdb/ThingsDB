@@ -15,6 +15,7 @@
 #include <ti/vbool.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
+#include <ti/vset.h>
 #include <util/logger.h>
 #include <util/strx.h>
 
@@ -573,6 +574,8 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
             if (ti_val_to_packer(v, pckr, flags, fetch))
                 return -1;
         return qp_close_array(*pckr);
+    case TI_VAL_SET:
+        return ti_vset_to_packer((ti_vset_t *) val, pckr, flags, fetch);
     case TI_VAL_CLOSURE:
         return ti_closure_to_packer((ti_closure_t *) val, pckr);
     }
@@ -603,11 +606,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     case TI_VAL_REGEX:
         return ti_regex_to_file((ti_regex_t *) val, f);
     case TI_VAL_THING:
-        return (
-                qp_fadd_type(f, QP_MAP1) ||
-                qp_fadd_raw(f, (const uchar *) "#", 1) ||
-                qp_fadd_int(f, ((ti_thing_t *) val)->id)
-        );
+        return ti_thing_id_to_file((ti_thing_t *) val, f);
     case TI_VAL_ARR:
     {
         vec_t * vec = ((ti_varr_t *) val)->vec;
@@ -620,6 +619,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
         return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
     }
+    case TI_VAL_SET:
+        return ti_vset_to_file((ti_vset_t *) val, f);
     case TI_VAL_CLOSURE:
         return ti_closure_to_file((ti_closure_t *) val, f);
     }
@@ -642,7 +643,8 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_ARR:                return ti_varr_is_list((ti_varr_t *) val)
                                         ? TI_VAL_ARR_LIST_S
                                         : TI_VAL_ARR_TUPLE_S;
-    case TI_VAL_CLOSURE:              return TI_VAL_CLOSURE_S;
+    case TI_VAL_SET:                return TI_VAL_SET_S;
+    case TI_VAL_CLOSURE:            return TI_VAL_CLOSURE_S;
     }
     assert (0);
     return "unknown";
@@ -669,6 +671,10 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ARR:
         if (ti_varr_to_list((ti_varr_t **) val))
+            ex_set_alloc(e);
+        break;
+    case TI_VAL_SET:
+        if (ti_vset_assign((ti_vset_t **) val))
             ex_set_alloc(e);
         break;
     }
@@ -718,6 +724,30 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
             log_error(e.msg);
         return (ti_val_t *) regex;
     }
+    case TI_VAL_KIND_SET:
+    {
+        ti_thing_t * thing;
+        ti_vset_t * vset = ti_vset_create();
+        ssize_t arrsz = qp_next(unp, NULL);
+        if (!vset || sz != 1 || !qp_is_array(arrsz))
+            return NULL;
+        arrsz = arrsz == QP_ARRAY_OPEN ? -1 : arrsz - QP_ARRAY0;
+        while (--arrsz)
+        {
+            if (qp_is_close(qp_next(unp, NULL)))
+                return (ti_val_t *) vset;
+            --unp->pt;
+            thing = (ti_thing_t *) val__unp_map(unp, things);
+            if (    !thing ||
+                    !ti_val_is_thing((ti_val_t *) thing) ||
+                    ti_vset_add(vset, thing))
+            {
+                ti_vset_destroy(vset);
+                return NULL;
+            }
+        }
+        return (ti_val_t *) vset;
+    }
     }
     assert (0);
     return NULL;
@@ -745,6 +775,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_ARR:
+    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_QP:

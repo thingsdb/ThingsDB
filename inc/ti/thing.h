@@ -42,6 +42,7 @@ _Bool ti_thing_has_watchers(ti_thing_t * thing);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
         qp_packer_t ** packer);
+static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f);
 static inline int ti_thing_to_map(ti_thing_t * thing);
 static inline _Bool ti_thing_is_new(ti_thing_t * thing);
 static inline void ti_thing_mark_new(ti_thing_t * thing);
@@ -69,6 +70,15 @@ static inline int ti_thing_id_to_packer(
             qp_add_raw(*packer, (const unsigned char *) "#", 1) ||
             qp_add_int(*packer, thing->id) ||
             qp_close_map(*packer));
+}
+
+static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f)
+{
+    return (
+            qp_fadd_type(f, QP_MAP1) ||
+            qp_fadd_raw(f, (const uchar *) "#", 1) ||
+            qp_fadd_int(f, thing->id)
+    );
 }
 
 /* returns IMAP_ERR_EXIST if the thing is already in the map */

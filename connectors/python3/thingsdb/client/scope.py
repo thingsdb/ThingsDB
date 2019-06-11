@@ -1,3 +1,4 @@
+from typing import Union
 from .protocol import REQ_QUERY_COLLECTION
 from .protocol import REQ_QUERY_NODE
 from .protocol import REQ_QUERY_THINGSDB
@@ -5,7 +6,7 @@ from .protocol import REQ_QUERY_THINGSDB
 
 class Scope:
 
-    def __init__(self, scope: str, _proto=REQ_QUERY_COLLECTION):
+    def __init__(self, scope: Union[int, str], _proto=REQ_QUERY_COLLECTION):
         self._scope = scope
         self._proto = _proto
 

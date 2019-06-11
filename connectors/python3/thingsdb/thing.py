@@ -14,7 +14,6 @@ class Thing:
         '_props',
         '_attrs',
         '_on_watch',
-        '_is_fetched',
         '__weakref__',
     )
 
@@ -24,7 +23,6 @@ class Thing:
         self._props = {}
         self._attrs = None
         self._on_watch = OnWatch
-        self._is_fetched = False
 
     def __new__(cls, collection, id):
         client = collection._client
@@ -59,13 +57,6 @@ class Thing:
     def _assign(self, prop, value):
         self._props[prop] = self._unpack(prop, value)
 
-    def __getattr__(self, name):
-        if name in self._props:
-            return self._props[name]
-        is_fetched = 'fetched' if self._is_fetched else 'not fetched'
-        raise AttributeError(
-            f'{self} has no property `{name}` (thing is {is_fetched})')
-
     def _job_assign(self, job):
         for prop, value in job.items():
             self._assign(prop, value)
@@ -77,31 +68,12 @@ class Thing:
         for old_prop, new_prop in job.items():
             self._props[new_prop] = self._props.pop(old_prop)
 
-    def _job_set(self, job):
-        for attr, value in job.items():
-            self._attrs[attr].extend((self._unpack(None, v) for v in value))
-
     def _job_splice(self, job):
         for prop, value in job.items():
             index, count, new, *items = value
             arr = self._props[prop]
             arr[index:index+count] = (self._unpack(None, v) for v in items)
             arr.apply_watch(slice(index, index+new))
-
-    def _job_unset(self, job):
-        try:
-            del self._attrs[job]
-        except KeyError:
-            pass
-
-    def _apply_watch_class(self, watchclass, arr):
-        client = self._collection._client
-        asyncio.ensure_future(
-            client.watch(
-                (t.set_watcher(watchclass) for t in arr),
-                collection=self._collection._id),
-            loop=client._loop
-        )
 
     async def assign(self, name, value, **kwargs):
         blobs = kwargs.pop('blobs', [])
@@ -111,24 +83,6 @@ class Thing:
 
         await self._query(f't({self._id}).{name}={value!r}', **kwargs)
 
-    async def fetch(self):
-        thing_dict = await self._query(f't({self._id})')
-        for prop, value in thing_dict.items():
-            self._assign(prop, value)
-        self._is_fetched = True
-
-    async def watch(self, **kwargs):
-        return await self._collection._client.watch(
-            [self],
-            collection=self._collection._id
-        )
-
-    async def unwatch(self, **kwargs):
-        return await self._collection._client.unwatch(
-            [self],
-            collection=self._collection._id
-        )
-
     def id(self):
         return self._id
 
@@ -137,12 +91,6 @@ class Thing:
 
     def prop(self, prop, d=None):
         return self._props.get(prop, d)
-
-    def attr(self, attr, d=None):
-        return self._attrs.get(attr, d)
-
-    def is_fetched(self):
-        return self._is_fetched
 
     def set_watcher(self, watchclass):
         assert watchclass.on_init
@@ -154,7 +102,6 @@ class Thing:
     def on_watch_init(self, thing_dict):
         for prop, value in thing_dict.items():
             self._assign(prop, value)
-        self._is_fetched = True
 
     def on_watch_update(self, jobs, _map={
         'assign': _job_assign,

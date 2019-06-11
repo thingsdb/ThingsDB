@@ -1,17 +1,17 @@
 import asyncio
 import logging
 from .package import Package
-from .exceptions import AssertionError
-from .exceptions import AuthError
-from .exceptions import BadRequestError
-from .exceptions import ForbiddenError
-from .exceptions import IndexError
-from .exceptions import InternalError
-from .exceptions import MaxQuotaError
-from .exceptions import NodeError
-from .exceptions import OverflowError
-from .exceptions import SyntaxError
-from .exceptions import ZeroDivisionError
+from ..exceptions import AssertionError
+from ..exceptions import AuthError
+from ..exceptions import BadRequestError
+from ..exceptions import ForbiddenError
+from ..exceptions import IndexError
+from ..exceptions import InternalError
+from ..exceptions import MaxQuotaError
+from ..exceptions import NodeError
+from ..exceptions import OverflowError
+from ..exceptions import SyntaxError
+from ..exceptions import ZeroDivisionError
 
 
 REQ_PING = 32
@@ -47,7 +47,7 @@ RES_ERR_NODE = 104
 RES_ERR_ASSERTION = 105
 RES_ERR_INTERNAL = 127
 
-ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL, ON_NODE_STATUS)
+ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL)
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),

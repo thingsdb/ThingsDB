@@ -12,8 +12,10 @@ from .protocol import REQ_QUERY_COLLECTION
 from .protocol import REQ_WATCH
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
-from .protocol import ON_WATCH
-from .watch import WatchMixin
+from .protocol import ON_WATCH_INI
+from .protocol import ON_WATCH_UPD
+from .protocol import ON_WATCH_DEL
+from .protocol import ON_NODE_STATUS
 from .buildin import Buildin
 from .scope import Scope
 from .scope import ThingsDBScope
@@ -38,8 +40,7 @@ class Client(Buildin):
         self._requests = {}
         self._pid = 0
         self._reconnect = auto_reconnect
-        self._things = weakref.WeakValueDictionary()
-        self._watching = weakref.WeakSet()
+        self._things = weakref.WeakValueDictionary()  # watching these things
         self._scope = self.thingsdb  # default scope
         self._pool_idx = 0
         self._reconnecting = False
@@ -178,17 +179,14 @@ class Client(Buildin):
 
         # re-watch all watching things
         watch_ids = collections.defaultdict(list)
-        for t in self._watching:
-            watch_ids[t._collection._id].append(t)
+        for t in self._things.values():
+            watch_ids[t._collection._id].append(t._id)
 
         if watch_ids:
             for collection_id, thing_ids in watch_ids.items():
-                await self.watch(things=thing_ids, scope=collection_id)
+                await self.watch(ids=thing_ids, target=collection_id)
         elif self._reconnect:
             await self.watch()
-
-    def get_num_watch(self):
-        return len(self._watching)
 
     def get_num_things(self):
         return len(self._things)
@@ -263,7 +261,7 @@ class Client(Buildin):
     def watch(self, ids=[], target=None, timeout=None):
         scope = self._get_scope_instance(target)
         data = {
-            'things': ids,
+            'things': [ids] if isinstance(ids, int) else ids,
             'collection': scope._scope
         } if scope.is_collection() else None
         return self._write_package(REQ_WATCH, data, timeout=timeout)
@@ -271,14 +269,51 @@ class Client(Buildin):
     def unwatch(self, ids=[], target=None, timeout=None):
         scope = self._get_scope_instance(target)
         data = {
-            'things': ids,
+            'things': [ids] if isinstance(ids, int) else ids,
             'collection': scope._scope
         } if scope.is_collection() else None
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
-    def _on_package_received(self, pkg):
-        if pkg.tp in ON_WATCH:
-            self._on_watch_received(pkg)
+    def _on_watch_init(self, data):
+        thing_dict = data['thing']
+        thing = self._things.get(thing_dict.pop('#'))
+        if thing is None:
+            return
+        asyncio.ensure_future(
+            thing._on_watch_init(thing_dict),
+            loop=self._loop
+        )
+
+    def _on_watch_update(self, data):
+        thing = self._things.get(data.pop('#'))
+        if thing is None:
+            return
+
+        asyncio.ensure_future(
+            thing._on_watch_update(data.pop('jobs')),
+            loop=self._loop
+        )
+
+    def _on_watch_delete(self, data):
+        thing = self._things.get(data.pop('#'))
+        if thing is None:
+            return
+
+        asyncio.ensure_future(thing._on_watch_delete(), loop=self._loop)
+
+    def _on_node_status(self, status):
+        if status == 'SHUTTING_DOWN':
+            asyncio.ensure_future(self.reconnect(), loop=self._loop)
+
+    def _on_package_received(self, pkg, _map={
+        ON_NODE_STATUS: _on_node_status,
+        ON_WATCH_INI: _on_watch_init,
+        ON_WATCH_UPD: _on_watch_update,
+        ON_WATCH_DEL: _on_watch_delete
+    }):
+        on_watch = _map.get(pkg.tp)
+        if on_watch:
+            on_watch(self, pkg.data)
             return
 
         try:
@@ -295,10 +330,6 @@ class Client(Buildin):
             return
 
         PROTOMAP.get(pkg.tp, proto_unkown)(future, pkg.data)
-
-    def _on_node_status(self, status):
-        if status == 'SHUTTING_DOWN':
-            asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
     async def _timer(self, pid, timeout):
         await asyncio.sleep(timeout)

@@ -31,7 +31,7 @@ class Client(Buildin):
     node = NodeScope
     thingsdb = ThingsDBScope
 
-    def __init__(self, auto_reconnect=True, watch_hook=None, loop=None):
+    def __init__(self, auto_reconnect=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._username = None
         self._password = None
@@ -178,13 +178,14 @@ class Client(Buildin):
         await self._authenticate(timeout=5)
 
         # re-watch all watching things
-        watch_ids = collections.defaultdict(list)
+        collections = set()
         for t in self._things.values():
-            watch_ids[t._collection._id].append(t._id)
+            t._to_wqueue()
+            collections.add(t._collection)
 
-        if watch_ids:
-            for collection_id, thing_ids in watch_ids.items():
-                await self.watch(ids=thing_ids, target=collection_id)
+        if collections:
+            for collection in collections:
+                await collection.go_wqueue()
         elif self._reconnect:
             await self.watch()
 
@@ -219,16 +220,17 @@ class Client(Buildin):
     def get_scope(self):
         return self._scope
 
-    def _get_scope_instance(self, scope):
-        if isinstance(scope, (int, str)):
-            return Scope(scope)
-
-        return self._scope if scope is None else scope
+    def _make_scope(self, scope):
+        if isinstance(scope, Scope):
+            return scope
+        if scope is None:
+            return self._scope
+        return Scope(scope)
 
     async def query(
                 self, query: str, deep=None, all_=False, blobs=None,
                 target=None, timeout=None, as_list=False):
-        scope = self._get_scope_instance(target)
+        scope = self._make_scope(target)
 
         if scope.is_collection():
             data = {
@@ -258,13 +260,8 @@ class Client(Buildin):
 
         return result
 
-    def watch(self, ids=[], target=None, timeout=None):
-        scope = self._get_scope_instance(target)
-        data = {
-            'things': [ids] if isinstance(ids, int) else ids,
-            'collection': scope._scope
-        } if scope.is_collection() else None
-        return self._write_package(REQ_WATCH, data, timeout=timeout)
+    def watch(self):
+        return self._write_package(REQ_WATCH, None, timeout=None)
 
     def unwatch(self, ids=[], target=None, timeout=None):
         scope = self._get_scope_instance(target)
@@ -280,7 +277,7 @@ class Client(Buildin):
         if thing is None:
             return
         asyncio.ensure_future(
-            thing._on_watch_init(thing_dict),
+            thing.on_watch_init(data['event'], thing_dict),
             loop=self._loop
         )
 
@@ -290,7 +287,7 @@ class Client(Buildin):
             return
 
         asyncio.ensure_future(
-            thing._on_watch_update(data.pop('jobs')),
+            thing.on_watch_update(data['event'], data.pop('jobs')),
             loop=self._loop
         )
 
@@ -299,7 +296,7 @@ class Client(Buildin):
         if thing is None:
             return
 
-        asyncio.ensure_future(thing._on_watch_delete(), loop=self._loop)
+        asyncio.ensure_future(thing.on_watch_delete(), loop=self._loop)
 
     def _on_node_status(self, status):
         if status == 'SHUTTING_DOWN':

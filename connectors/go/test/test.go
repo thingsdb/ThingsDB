@@ -6,17 +6,19 @@ import (
 	"../client"
 )
 
+type TIface interface {
+}
+
+type TModel struct {
+}
+
 type Label struct {
 	name        string
 	description string
 }
 
-type Labels struct {
-	vec []Label
-}
-
-type Oversight struct {
-	labels Labels
+type OsData struct {
+	labels []Label
 }
 
 // var oversight Collection

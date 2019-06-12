@@ -19,5 +19,5 @@ class Scope:
         return self._scope
 
 
-ThingsDBScope = Scope('scope:thingsdb', _proto=REQ_QUERY_THINGSDB)
-NodeScope = Scope('scope:node', _proto=REQ_QUERY_NODE)
+thingsdb = Scope('scope:thingsdb', _proto=REQ_QUERY_THINGSDB)
+node = Scope('scope:node', _proto=REQ_QUERY_NODE)

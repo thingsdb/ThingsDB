@@ -11,6 +11,7 @@ from thingsdb.model import Thing, Collection, array_of
 
 
 interrupted = False
+osdata = None
 
 
 class Label(Thing):
@@ -21,10 +22,12 @@ class Label(Thing):
     def get_name(self):
         return self.name if self else 'unknown'
 
+    async def on_update(self, event_id, jobs):
+        await super().on_update(event_id, jobs)
+        print('on update: ', jobs)
+
 
 class Condition(Thing):
-
-    __slots__ = tuple()
 
     name = str
     description = str
@@ -35,9 +38,11 @@ class OsData(Collection):
 
     labels = array_of(Label)
     conditions = array_of(Condition)
+    other = array_of(Thing)
 
 
 async def test():
+    global osdata
     client = Client()
 
     await client.connect('localhost', 9200)
@@ -45,14 +50,16 @@ async def test():
 
     osdata = OsData(client)
 
+    print(await client.node())
+
     while True:
         if interrupted:
             break
 
         if osdata:
             print([label.name for label in osdata.labels if label])
-
-        await asyncio.sleep(0.2)
+            print([str(x) for x in osdata.other])
+        await asyncio.sleep(1.2)
 
     print('-----------------------------------------------------------------')
 

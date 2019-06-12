@@ -1,10 +1,8 @@
 import asyncio
-import struct
 import logging
 import qpack
 import weakref
 import random
-import collections
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
@@ -17,19 +15,13 @@ from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import ON_NODE_STATUS
 from .buildin import Buildin
-from .scope import Scope
-from .scope import ThingsDBScope
-from .scope import NodeScope
+from .scope import Scope, thingsdb
 
 
 class Client(Buildin):
 
     MAX_RECONNECT_WAIT_TIME = 120
     MAX_RECONNECT_TIMEOUT = 10
-
-    # Scopes, used for Client().query(target=...)
-    node = NodeScope
-    thingsdb = ThingsDBScope
 
     def __init__(self, auto_reconnect=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
@@ -41,7 +33,7 @@ class Client(Buildin):
         self._pid = 0
         self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()  # watching these things
-        self._scope = self.thingsdb  # default scope
+        self._scope = thingsdb  # default scope
         self._pool_idx = 0
         self._reconnecting = False
 
@@ -277,7 +269,7 @@ class Client(Buildin):
         if thing is None:
             return
         asyncio.ensure_future(
-            thing.on_watch_init(data['event'], thing_dict),
+            thing.on_init(data['event'], thing_dict),
             loop=self._loop
         )
 
@@ -287,7 +279,7 @@ class Client(Buildin):
             return
 
         asyncio.ensure_future(
-            thing.on_watch_update(data['event'], data.pop('jobs')),
+            thing.on_update(data['event'], data.pop('jobs')),
             loop=self._loop
         )
 
@@ -296,7 +288,7 @@ class Client(Buildin):
         if thing is None:
             return
 
-        asyncio.ensure_future(thing.on_watch_delete(), loop=self._loop)
+        asyncio.ensure_future(thing.on_delete(), loop=self._loop)
 
     def _on_node_status(self, status):
         if status == 'SHUTTING_DOWN':

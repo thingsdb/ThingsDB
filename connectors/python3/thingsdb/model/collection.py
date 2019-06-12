@@ -1,5 +1,5 @@
 import asyncio
-from ..client.scope import Scope
+from ..client.scope import Scope, thingsdb
 from ..client.protocol import REQ_WATCH
 from .thing import Thing
 
@@ -20,15 +20,11 @@ class Collection(Scope, Thing):
         asyncio.ensure_future(self._async_init(), loop=client._loop)
 
     def __new__(cls, client):
-        return super().__new__(cls, None, None)
+        # make sure Thing.__new__ will not be called
+        return Scope.__new__(cls)
 
     async def _async_init(self):
-        try:
-            collection_id = await self._client.query('id()', target=self)
-        except IndexError:
-            collection_id = await self._client.query(
-                f'new_collection("{self.__class__.__name__}");',
-                target=self._client.thingsdb)
+        collection_id = await self._client.query('id()', target=self)
         Thing._init(self, collection_id, self)
         self._collection.go_wqueue()
 

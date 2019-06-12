@@ -7,7 +7,7 @@ from lib.client import get_client
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadRequestError
-from thingsdb.scope import Scope
+from thingsdb import scope
 
 
 class TestGC(TestBase):
@@ -20,7 +20,7 @@ class TestGC(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = Scope('stuff')
+        stuff = scope.Scope('stuff')
 
         await client.query(r'''
             a = {};
@@ -59,7 +59,7 @@ class TestGC(TestBase):
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
 
-        counters = await client.query('counters();', target=client.node)
+        counters = await client.query('counters();', target=scope.node)
         self.assertEqual(counters['garbage_collected'], 1)
 
 

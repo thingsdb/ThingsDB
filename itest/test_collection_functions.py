@@ -11,6 +11,7 @@ from thingsdb.exceptions import BadRequestError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
+from thingsdb import scope
 
 
 class TestCollectionFunctions(TestBase):
@@ -31,7 +32,7 @@ class TestCollectionFunctions(TestBase):
         await self.node1.join_until_ready(client)
 
         # expected no garbage collection
-        counters = await client.query('counters();', target=client.node)
+        counters = await client.query('counters();', target=scope.node)
         self.assertEqual(counters['garbage_collected'], 0)
 
     async def test_assert(self, client):

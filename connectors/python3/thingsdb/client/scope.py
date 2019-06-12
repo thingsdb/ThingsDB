@@ -7,6 +7,10 @@ from .protocol import REQ_QUERY_THINGSDB
 class Scope:
 
     def __init__(self, scope: Union[int, str], _proto=REQ_QUERY_COLLECTION):
+        if not isinstance(scope, (int, str)):
+            raise TypeError(
+                f'invalid scope type `{scope.__class__.__name__}`, '
+                f'expecting `int` or `str`')
         self._scope = scope
         self._proto = _proto
 

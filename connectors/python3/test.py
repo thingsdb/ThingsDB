@@ -13,6 +13,41 @@ from thingsdb.model import Thing, Collection, array_of
 interrupted = False
 osdata = None
 
+"""
+
+missing functions:
+  isnil --> returns true if the given value == nil
+  isthing --> return `true` if the given value is a `thing`
+  type  --> returns a string for the given type
+  set   --> create a new `set` value, or convert from given array
+  add   --> adds a thing to a set
+  has   --> returns `true` if is contains a given thing or id
+  find  --> on set, reurns the `first` thing when a given closure
+            evaluates to true
+  pop   --> on set, some "random" thing is popped, or by a given thing or id
+            and `nil` is re
+  remove--> on set, by closure
+  array --> convert to array (al least a `set`)
+
+
+
+client.new_handle(
+    name='new_label',
+    args=['$name', '$description'],
+    code=r'''
+        assert(isstr($name), '$name must be a string');
+        assert(isstr($description), '$description must be a string');
+        assert(
+            isnil(labels.find(|label| (label.name == $name)),
+            '$name mst be unique'
+        );
+        labels.push({
+            name: $name,
+            description: $description,
+        });
+''')
+"""
+
 
 class Label(Thing):
 

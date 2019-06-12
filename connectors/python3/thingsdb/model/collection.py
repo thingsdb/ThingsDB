@@ -12,8 +12,6 @@ class Collection(Scope, Thing):
         '_wqueue',
     )
 
-    _instance = None
-
     def __init__(self, client):
         Scope.__init__(self, self.__class__.__name__)
         self._client = client
@@ -22,9 +20,7 @@ class Collection(Scope, Thing):
         asyncio.ensure_future(self._async_init(), loop=client._loop)
 
     def __new__(cls, client):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls, None, None)
-        return cls._instance
+        return super().__new__(cls, None, None)
 
     async def _async_init(self):
         try:

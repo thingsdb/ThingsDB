@@ -50,7 +50,7 @@ async def test():
             break
 
         if osdata:
-            print([label.get_name() for label in osdata.labels])
+            print([label.name for label in osdata.labels if label])
 
         await asyncio.sleep(0.2)
 

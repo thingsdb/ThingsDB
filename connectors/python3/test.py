@@ -63,17 +63,24 @@ class Label(Thing):
 
 
 class Condition(Thing):
-
     name = str
     description = str
     labels = array_of(Label)
 
 
-class OsData(Collection):
+class Host(Thing):
+    name = str
 
+
+class Hosts(Thing):
+    vec = array_of(Host)
+
+
+class OsData(Collection):
     labels = array_of(Label)
     conditions = array_of(Condition)
     other = list
+    hosts = Hosts
 
 
 async def test(client):

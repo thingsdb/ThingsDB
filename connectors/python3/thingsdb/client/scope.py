@@ -14,13 +14,15 @@ class Scope:
         self._scope = scope
         self._proto = _proto
 
-    def is_collection(self) -> bool:
-        return self._proto == REQ_QUERY_COLLECTION
 
-    def name(self):
-        if isinstance(self._scope, int):
-            return f'collection:{self._scope}'
-        return self._scope
+def scope_is_collection(scope) -> bool:
+    return scope._proto == REQ_QUERY_COLLECTION
+
+
+def scope_get_name(scope):
+    if isinstance(scope._scope, int):
+        return f'collection:{scope._scope}'
+    return scope._scope
 
 
 thingsdb = Scope('scope:thingsdb', _proto=REQ_QUERY_THINGSDB)

@@ -12,18 +12,20 @@ class Collection(Scope, Thing):
         '_wqueue',
     )
 
-    def __init__(self, client):
+    def __init__(self, client, build=False, rebuild=False):
         Scope.__init__(self, self.__class__.__name__)
         self._client = client
         self._wqueue = set()
         self._event_id = 0
         asyncio.ensure_future(self._async_init(), loop=client._loop)
 
-    def __new__(cls, client):
+    def __new__(cls, *args, **kwargs):
         # make sure Thing.__new__ will not be called
         return Scope.__new__(cls)
 
-    async def _async_init(self):
+    async def _async_init(self, build=False, rebuild=False):
+        if rebbuild:
+            self._client.del_collection()
         collection_id = await self._client.query('id()', target=self)
         Thing._init(self, collection_id, self)
         self._collection.go_wqueue()

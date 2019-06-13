@@ -15,7 +15,7 @@ from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import ON_NODE_STATUS
 from .buildin import Buildin
-from .scope import Scope, thingsdb
+from .scope import Scope, thingsdb, scope_is_collection, scope_get_name
 
 
 class Client(Buildin):
@@ -212,6 +212,9 @@ class Client(Buildin):
     def get_scope(self):
         return self._scope
 
+    def get_scope_name(self):
+        return scope_get_name(self._scope)
+
     def _make_scope(self, scope):
         if isinstance(scope, Scope):
             return scope
@@ -224,7 +227,7 @@ class Client(Buildin):
                 target=None, timeout=None, as_list=False):
         scope = self._make_scope(target)
 
-        if scope.is_collection():
+        if scope_is_collection(scope):
             data = {
                 'query': query,
                 'collection': scope._scope,
@@ -260,7 +263,7 @@ class Client(Buildin):
         data = {
             'things': [ids] if isinstance(ids, int) else ids,
             'collection': scope._scope
-        } if scope.is_collection() else None
+        } if scope_is_collection(scope) else None
         return self._write_package(REQ_UNWATCH, data, timeout=timeout)
 
     def _on_watch_init(self, data):

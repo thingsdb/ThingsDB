@@ -73,30 +73,30 @@ class OsData(Collection):
 
     labels = array_of(Label)
     conditions = array_of(Condition)
-    other = array_of(Thing)
+    other = list
 
 
-async def test():
+async def test(client):
     global osdata
-    client = Client()
 
     await client.connect('localhost', 9200)
-    await client.authenticate('admin', 'pass')
+    try:
+        await client.authenticate('admin', 'pass')
 
-    osdata = OsData(client)
+        osdata = OsData(client)
 
-    print(await client.node())
+        print(await client.node())
 
-    while True:
-        if interrupted:
-            break
+        while True:
+            if interrupted:
+                break
 
-        if osdata:
-            print([label.name for label in osdata.labels if label])
-            print([str(x) for x in osdata.other])
-        await asyncio.sleep(1.2)
-
-    print('-----------------------------------------------------------------')
+            if osdata:
+                print([label.name for label in osdata.labels if label])
+                print([str(x) for x in osdata.other])
+            await asyncio.sleep(1.2)
+    finally:
+        client.close()
 
 
 def signal_handler(signal, frame):
@@ -106,9 +106,12 @@ def signal_handler(signal, frame):
 
 
 if __name__ == '__main__':
+    client = Client()
     signal.signal(signal.SIGINT, signal_handler)
 
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test())
+    loop.run_until_complete(test(client))
+    loop.run_until_complete(client.wait_closed())
+    print('-----------------------------------------------------------------')

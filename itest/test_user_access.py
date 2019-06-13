@@ -7,6 +7,7 @@ from lib.client import get_client
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadRequestError
+from thingsdb import scope
 
 
 class TestUserAccess(TestBase):
@@ -33,7 +34,7 @@ class TestUserAccess(TestBase):
             self.node0,
             username='test',
             password='test',
-            auto_watch=False)
+            auto_reconnect=False)
 
         error_msg = 'user .* is missing the required privileges'
 
@@ -97,22 +98,22 @@ class TestUserAccess(TestBase):
         }])
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''nodes();''', target=client.node)
+            await testcl.query(r'''nodes();''', target=scope.node)
 
         await client.query(r'''
             grant(':node', "test", READ);
         ''')
 
-        await testcl.query(r'''nodes();''', target=client.node)
+        await testcl.query(r'''nodes();''', target=scope.node)
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl.query(r'''reset_counters();''', target=client.node)
+            await testcl.query(r'''reset_counters();''', target=scope.node)
 
         await client.query(r'''
             grant(':node', "test", MODIFY);
         ''')
 
-        await testcl.query(r'''reset_counters();''', target=client.node)
+        await testcl.query(r'''reset_counters();''', target=scope.node)
 
         await client.query(r'''del_user('test');''')
 

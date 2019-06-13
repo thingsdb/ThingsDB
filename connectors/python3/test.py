@@ -4,119 +4,99 @@ import logging
 import pprint
 import signal
 from thingsdb.client import Client
+from thingsdb.client.scope import Scope
 from thingsdb.exceptions import ThingsDBError
+from thingsdb.exceptions import IndexError
+from thingsdb.model import Thing, Collection, array_of
 
-'''
-
-from thingsdb.client import Client
-from thingsdb.exceptions import ThingsDBError
-client = Client()
-await client.connect('localhost', 9200)
-await client.authenticate('iris', 'siri')
-collection = await client.get_collection('Test')
-
-await collection.watch()
-await collection.assign('y', 123)
-
-'''
 
 interrupted = False
+osdata = None
+
+"""
+
+missing functions:
+  isnil --> returns true if the given value == nil
+  isthing --> return `true` if the given value is a `thing`
+  type  --> returns a string for the given type
+  set   --> create a new `set` value, or convert from given array
+  add   --> adds a thing to a set
+  has   --> returns `true` if is contains a given thing or id
+  find  --> on set, reurns the `first` thing when a given closure
+            evaluates to true
+  pop   --> on set, some "random" thing is popped, or by a given thing or id
+            and `nil` is re
+  remove--> on set, by closure
+  array --> convert to array (al least a `set`)
 
 
-class Thing:
-    pass
 
-
-class Collection(Thing):
-    pass
+client.new_handle(
+    name='new_label',
+    args=['$name', '$description'],
+    code=r'''
+        assert(isstr($name), '$name must be a string');
+        assert(isstr($description), '$description must be a string');
+        assert(
+            isnil(labels.find(|label| (label.name == $name)),
+            '$name mst be unique'
+        );
+        labels.push({
+            name: $name,
+            description: $description,
+        });
+''')
+"""
 
 
 class Label(Thing):
-    name = TString()
-    description = TString()
+
+    name = str
+    description = str
+
+    def get_name(self):
+        return self.name if self else 'unknown'
+
+    async def on_update(self, event_id, jobs):
+        await super().on_update(event_id, jobs)
+        print('on update: ', jobs)
 
 
 class Condition(Thing):
-    name = TString()
-    description = TString()
-    labels = TArray()
+
+    name = str
+    description = str
+    labels = array_of(Label)
 
 
 class OsData(Collection):
-    labels = TArray()
-    conditions = TArray()
+
+    labels = array_of(Label)
+    conditions = array_of(Condition)
+    other = list
 
 
+async def test(client):
+    global osdata
 
-async def test():
-    client = Client()
     await client.connect('localhost', 9200)
-
-    # Authenticte
     try:
         await client.authenticate('admin', 'pass')
-    except ThingsDBError as e:
-        print(e)
 
-    client.use('osdata')
+        osdata = OsData(client)
 
-    start = time.time()
-    try:
-        res = await client.query(r'''
-        /*
-         * test query
-         */
-        /* del_collection('test2'); */
-        collections();
-        /* set_loglevel(WARNING); */
+        print(await client.node())
 
-        ''', timeout=2, target=0)
-    except ThingsDBError as e:
-        print(f"{e.__class__.__name__}: {e}")
-    else:
-        print('Time: {}'.format(time.time() - start))
-        pprint.pprint(res)
+        while True:
+            if interrupted:
+                break
 
-    print('-----------------------------------------------------------------')
-
-    start = time.time()
-    try:
-        res = await client.query(r'''
-
-        /*
-        Oversight.nodes.push({
-            address: 'localhost',
-            secret: 'secret001',
-            port: 8721,
-        });
-        */
-
-        $a = _ => _;
-
-        Oversight.nodes.map($a);
-
-        /*
-        Oversight.nodes.map(n, i => n.secret = ("somesecret" + str(i)));
-        */
-
-        /*
-        Labels.labels[0].name = '!!! New Name2 !!!';
-        */
-
-        /*
-        Labels.labels.splice(-1, 1);
-        */
-
-        Labels.labels.map(_ => _);
-
-        ''', blobs=["bla"], timeout=2)
-    except ThingsDBError as e:
-        print(f"{e.__class__.__name__}: {e}")
-    else:
-        print('Time: {}'.format(time.time() - start))
-        pprint.pprint(res)
-
-    print('-----------------------------------------------------------------')
+            if osdata:
+                print([label.name for label in osdata.labels if label])
+                print([str(x) for x in osdata.other])
+            await asyncio.sleep(1.2)
+    finally:
+        client.close()
 
 
 def signal_handler(signal, frame):
@@ -126,9 +106,12 @@ def signal_handler(signal, frame):
 
 
 if __name__ == '__main__':
+    client = Client()
     signal.signal(signal.SIGINT, signal_handler)
 
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test())
+    loop.run_until_complete(test(client))
+    loop.run_until_complete(client.wait_closed())
+    print('-----------------------------------------------------------------')

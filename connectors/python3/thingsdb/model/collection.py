@@ -24,8 +24,8 @@ class Collection(Scope, Thing):
         return Scope.__new__(cls)
 
     async def _async_init(self, build=False, rebuild=False):
-        if rebbuild:
-            self._client.del_collection()
+        if rebuild:
+            self._client.del_collection(self)
         collection_id = await self._client.query('id()', target=self)
         Thing._init(self, collection_id, self)
         self._collection.go_wqueue()

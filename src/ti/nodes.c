@@ -27,7 +27,7 @@ static ti_node_t * nodes__z[63];    /* same zone */
 static ti_nodes_t * nodes;
 static ti_nodes_t nodes_;
 
-static const char * nodes__scevid    = "global_event_status";
+static const char * nodes__status    = "global_status";
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
@@ -175,6 +175,19 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         assert (*ti()->args->secret);
         assert (ti()->build);
+
+        if (ti_version_cmp(TI_VERSION, version) < 0)
+        {
+            log_error(
+                "ignore connection request from `%s` because the node is "
+                "running on version `%s` while this node version `%s`; "
+                "usually this is fine but while building at least the same "
+                "version is required",
+                ti_stream_name(stream),
+                version,
+                TI_VERSION);
+            goto failed;
+        }
 
         if (ti()->build->status == TI_BUILD_REQ_SETUP)
         {
@@ -847,13 +860,13 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_stream_name(stream));
 }
 
-static const char * nodes__get_scevid_fn(void)
+static const char * nodes__get_status_fn(void)
 {
-    if (nodes->scevid_fn)
-        return nodes->scevid_fn;
+    if (nodes->status_fn)
+        return nodes->status_fn;
 
-    nodes->scevid_fn = fx_path_join(ti()->cfg->storage_path, nodes__scevid);
-    return nodes->scevid_fn;
+    nodes->status_fn = fx_path_join(ti()->cfg->storage_path, nodes__status);
+    return nodes->status_fn;
 }
 
 int ti_nodes_create(void)
@@ -864,7 +877,7 @@ int ti_nodes_create(void)
     nodes->tcp.data = NULL;
     nodes->cevid = 0;
     nodes->sevid = 0;
-    nodes->scevid_fn = NULL;
+    nodes->status_fn = NULL;
 
     nodes->vec = vec_new(0);
     ti()->nodes = nodes;
@@ -877,7 +890,7 @@ void ti_nodes_destroy(void)
     if (!nodes)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
-    free(nodes->scevid_fn);
+    free(nodes->status_fn);
     ti()->nodes = nodes = NULL;
 }
 
@@ -885,7 +898,7 @@ int ti_nodes_read_scevid(void)
 {
     int rc = -1;
     uint64_t cevid, sevid;
-    const char * fn = nodes__get_scevid_fn();
+    const char * fn = nodes__get_status_fn();
     FILE * f;
 
     if (!fn)
@@ -925,12 +938,12 @@ stop:
     return rc;
 }
 
-int ti_nodes_write_scevid(void)
+int ti_nodes_write_global_status(void)
 {
     int rc = 0;
     uint64_t cevid = ti_nodes_cevid();
     uint64_t sevid = ti_nodes_sevid();
-    const char * fn = nodes__get_scevid_fn();
+    const char * fn = nodes__get_status_fn();
     FILE * f;
 
     if (!fn)
@@ -946,7 +959,10 @@ int ti_nodes_write_scevid(void)
         return -1;
     }
 
-    log_debug("save global committed "TI_EVENT_ID" to disk", cevid);
+    log_debug("save global committed "TI_EVENT_ID", "
+            "global stored "TI_EVENT_ID" and "
+            "lowest known version id `TIto disk", cevid);
+    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
     log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
 
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
@@ -1122,6 +1138,29 @@ uint64_t ti_nodes_sevid(void)
 
     return nodes->sevid;
 }
+
+void ti_nodes_update_version_id(uint8_t version_id)
+{
+    if (version_id == nodes->version_id)
+        return;
+
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->version_id < version_id)
+            version_id = node->version_id;
+
+    if (version_id < nodes->version_id)
+    {
+        log_error(
+                "calculated version id is less than the lowest known: %u < %u",
+                version_id, nodes->version_id);
+        nodes->version_id = version_id;
+        return;
+    }
+
+    if (version_id > nodes->version_id)
+        nodes->version_id = version_id;
+}
+
 
 ti_node_t * ti_nodes_new_node(
         uint8_t zone,

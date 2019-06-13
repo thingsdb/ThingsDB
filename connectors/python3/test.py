@@ -7,7 +7,7 @@ from thingsdb.client import Client
 from thingsdb.client.scope import Scope
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import IndexError
-from thingsdb.model import Thing, Collection, array_of
+from thingsdb.model import Thing, Collection, array_of, required, optional
 
 
 interrupted = False
@@ -51,8 +51,8 @@ client.new_handle(
 
 class Label(Thing):
 
-    name = str
-    description = str
+    name = optional(str)
+    description = optional(str)
 
     def get_name(self):
         return self.name if self else 'unknown'
@@ -77,10 +77,11 @@ class Hosts(Thing):
 
 
 class OsData(Collection):
-    labels = array_of(Label)
-    conditions = array_of(Condition)
-    other = list
+    labels = required(array_of(Label))
+    conditions = required(array_of(Condition))
+    other = required(list)
     hosts = Hosts
+    name = optional(str)
 
 
 async def test(client):

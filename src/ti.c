@@ -420,7 +420,7 @@ void ti_stop(void)
 
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
-        (void) ti_nodes_write_scevid();
+        (void) ti_nodes_write_global_status();
     }
     ti__stop();
     uv_stop(ti()->loop);

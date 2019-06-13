@@ -159,12 +159,12 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
     if (ti_val_is_raw(val))
     {
         ti_raw_t * raw = (ti_raw_t *) val;
-        if (raw->n && ti_raw_startswith(&node, raw))
+        if (ti_raw_endswith(raw, &node))
         {
             *target_id = TI_SCOPE_NODE;
             return &ti()->access_node;
         }
-        if (raw->n && ti_raw_startswith(&thingsdb, raw))
+        if (ti_raw_endswith(raw, &thingsdb))
         {
             *target_id = TI_SCOPE_THINGSDB;
             return &ti()->access_thingsdb;

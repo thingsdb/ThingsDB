@@ -8,6 +8,9 @@
 #define TI_VERSION_MINOR 1
 #define TI_VERSION_PATCH 4
 
+/* The version id is used to test compatibility with functions */
+#define TI_VERSION_ID 0
+
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha release versions.
  * This should be an empty string when building a final release.

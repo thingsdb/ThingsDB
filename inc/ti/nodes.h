@@ -15,7 +15,7 @@ typedef struct ti_nodes_s ti_nodes_t;
 int ti_nodes_create(void);
 void ti_nodes_destroy(void);
 int ti_nodes_read_scevid(void);
-int ti_nodes_write_scevid(void);
+int ti_nodes_write_global_status(void);
 int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
@@ -26,6 +26,7 @@ _Bool ti_nodes_ignore_sync(void);
 _Bool ti_nodes_require_sync(void);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
+void ti_nodes_update_version_id(uint8_t version_id);
 ti_node_t * ti_nodes_new_node(
         uint8_t zone,
         uint16_t port,
@@ -52,8 +53,10 @@ struct ti_nodes_s
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set
                                the initial value at startup */
-    char * scevid_fn;       /* this file contains the last known committed
-                               and stored event id's by ALL nodes */
+    uint8_t version_id;     /* lowest version id by ALL nodes */
+    char * status_fn;       /* this file contains the last known committed
+                               and stored event id's by ALL nodes, and the
+                               lowest known version id */
 
 };
 

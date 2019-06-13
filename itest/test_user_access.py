@@ -109,8 +109,9 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl.query(r'''reset_counters();''', target=scope.node)
 
+        # scope:node should work, as long as it ends with :node
         await client.query(r'''
-            grant(':node', "test", MODIFY);
+            grant('scope:node', "test", MODIFY);
         ''')
 
         await testcl.query(r'''reset_counters();''', target=scope.node)

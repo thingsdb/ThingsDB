@@ -22,6 +22,7 @@ int ti_build_setup(
         uint8_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_zone,
+        uint8_t from_node_version_id,
         uint16_t from_node_port,
         ti_stream_t * stream);
 
@@ -32,6 +33,7 @@ struct ti_build_s
     uint8_t from_node_id;
     uint8_t from_node_status;
     uint8_t from_node_zone;
+    uint8_t from_node_version_id;
     uint16_t from_node_port;
 };
 

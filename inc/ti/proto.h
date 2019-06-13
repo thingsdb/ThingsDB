@@ -67,7 +67,7 @@ typedef enum
     /* invalid request, incorrect package type, invalid QPack data */
     TI_PROTO_CLIENT_ERR_BAD_REQUEST =102,
     /* syntax error in query */
-    TI_PROTO_CLIENT_ERR_SYNTAX       =103,
+    TI_PROTO_CLIENT_ERR_SYNTAX      =103,
     /* node is (currently) unable to respond to the request */
     TI_PROTO_CLIENT_ERR_NODE        =104,
     /* assertion statement has failed */

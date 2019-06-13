@@ -1,6 +1,5 @@
 import logging
-import pprint
-from .arrayof import ArrayOf
+from .keys import ARRAY_OF, REQUIRED, OPTIONAL
 
 
 class Thing:
@@ -30,14 +29,24 @@ class Thing:
             thing._init(id, collection)
         return thing
 
+    def __init_subclass__(cls):
+        cls.__required__ = dict()
+        cls.__optional__ = list()
+
+        for key, val in cls.__dict__.items():
+            if hasattr(val, REQUIRED):
+                cls.__required__[key] = val
+            if hasattr(val, OPTIONAL):
+                cls.__optional__.append(key)
+
     def __bool__(self):
         return bool(self._event_id)
 
     def __repr__(self):
         return f't({self._id})'
 
-    def __str__(self):
-        return pprint.pformat(self.__dict__, indent=4)
+    def as_dict(self):
+        return self.__dict__
 
     def _to_wqueue(self):
         self._collection._wqueue.add(self._id)
@@ -45,7 +54,7 @@ class Thing:
     def _check(self, attr, value):
         if issubclass(attr, Thing):
             if not isinstance(value, dict):
-                return value, False
+                return value, bool(value is None and hasattr(attr, OPTIONAL))
 
             thing_id = value.get('#')
             if thing_id is None:
@@ -53,13 +62,13 @@ class Thing:
             thing = attr(thing_id, self._collection)
             return thing, True
         elif not issubclass(attr, value.__class__):
-            return value, False
+            return value, bool(value is None and hasattr(attr, OPTIONAL))
 
         is_valid = True
-
-        if issubclass(attr, ArrayOf):
+        array_of = getattr(attr, ARRAY_OF, None)
+        if array_of is not None:
             for i, v in enumerate(value):
-                value[i], check = self._check(attr.type_, v)
+                value[i], check = self._check(array_of, v)
                 is_valid = is_valid and check
             value = attr(value)
 
@@ -85,7 +94,7 @@ class Thing:
                     logging.debug(
                         f'property `{prop}` on `{self}` is not defined by '
                         f'`{self.__class__.__name__}` and will be ignored')
-                elif issubclass(attr, ArrayOf) \
+                elif hasattr(attr, ARRAY_OF) \
                         and issubclass(attr, val.__class__):
                     logging.debug(
                         f'property `{prop}` on `{self}` is expecting an array '
@@ -145,6 +154,16 @@ class Thing:
         if not self._do_event(event_id):
             return
         self._job_assign(data)
+        for prop, cls in self.__required__.items():
+            if prop not in self.__dict__:
+                logging.critical(
+                    f'property `{prop}` is not set on `{self}` but is marked '
+                    f'as required. a default value will be applied')
+                setattr(self, prop, cls())
+        for prop in self.__optional__:
+            if prop not in self.__dict__:
+                setattr(self, prop, None)
+
         self._collection.go_wqueue()
 
     async def on_update(self, event_id, jobs):

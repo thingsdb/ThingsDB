@@ -105,8 +105,8 @@ static void away__work(uv_work_t * UNUSED(work))
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 
-    /* write global event status to disk */
-    (void) ti_nodes_write_scevid();
+    /* write global status to disk */
+    (void) ti_nodes_write_global_status();
 
     uv_mutex_unlock(ti()->events->lock);
 }

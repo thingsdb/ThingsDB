@@ -9,6 +9,7 @@
 #include <ti/req.h>
 #include <ti/ex.h>
 #include <ti/sync.h>
+#include <ti/version.h>
 #include <ti.h>
 #include <util/logger.h>
 
@@ -42,6 +43,7 @@ int ti_build_setup(
         uint8_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_zone,
+        uint8_t from_node_version_id,
         uint16_t from_node_port,
         ti_stream_t * stream)
 {
@@ -64,6 +66,7 @@ int ti_build_setup(
     build->from_node_id = from_node_id;
     build->from_node_status = from_node_status;
     build->from_node_zone = from_node_zone;
+    build->from_node_version_id = from_node_version_id;
     build->from_node_port = from_node_port;
 
     if (ti_req_create(
@@ -112,6 +115,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
 
             node->status = build->from_node_status;
             node->zone = build->from_node_zone;
+            node->version_id = build->from_node_version_id;
         }
     }
 
@@ -120,7 +124,10 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->cevid = 0;
     ti_node->sevid = 0;
     ti_node->next_thing_id = 0;
+    ti_node->version_id = TI_VERSION_ID;
     ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
+
+    ti_nodes_update_version_id(TI_VERSION_ID);
 
     if (ti_save())
         goto failed;
@@ -131,7 +138,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_archive_init())
         goto failed;
 
-    if (ti_nodes_write_scevid())
+    if (ti_nodes_write_global_status())
         goto failed;
 
     if (ti_away_start())

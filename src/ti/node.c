@@ -42,6 +42,7 @@ ti_node_t * ti_node_create(
     node->id = id;
     node->status = TI_NODE_STAT_OFFLINE;
     node->zone = zone;
+    node->version_id = 0;
     node->next_retry = 0;
     node->retry_counter = 0;
     node->cevid = 0;

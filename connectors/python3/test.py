@@ -100,8 +100,10 @@ async def test(client):
                 break
 
             if osdata:
+                print([osdata['labels']])
                 print([label.name for label in osdata.labels if label])
                 print([str(x) for x in osdata.other])
+                print(osdata.hosts.vec)
             await asyncio.sleep(1.2)
     finally:
         client.close()

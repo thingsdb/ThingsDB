@@ -87,6 +87,7 @@ class Definition(Grammar):
     f_refs = Keyword('refs')
     f_remove = Keyword('remove')
     f_ret = Keyword('ret')
+    f_set = Keyword('set')
     f_startswith = Keyword('startswith')
     f_str = Keyword('str')
     f_t = Keyword('t')
@@ -150,6 +151,7 @@ class Definition(Grammar):
         f_refs,         # () -> reference counter
         f_remove,       # (closue, alt) -> remove and return first value...
         f_ret,          # () -> nil
+        f_set,          # ([]) -> new set
         f_startswith,   # (str) -> bool
         f_str,          # (x) -> raw
         f_t,            # (int thing_id) -> thing

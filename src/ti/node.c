@@ -42,7 +42,7 @@ ti_node_t * ti_node_create(
     node->id = id;
     node->status = TI_NODE_STAT_OFFLINE;
     node->zone = zone;
-    node->version_id = 0;
+    node->syntax_ver = 0;
     node->next_retry = 0;
     node->retry_counter = 0;
     node->cevid = 0;
@@ -175,20 +175,23 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
         qp_add_int(*packer, node->sevid) ||
         qp_add_int(*packer, node->status) ||
         qp_add_int(*packer, node->zone) ||
+        qp_add_int(*packer, TI_VERSION_SYNTAX) ||
         qp_close_array(*packer)
     );
 }
 
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
 {
-    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone;
+    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone, qpsyntax;
+    uint8_t syntax_ver;
 
     if (    !qp_is_array(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qpnext_thing_id)) ||
             !qp_is_int(qp_next(unp, &qpcevid)) ||
             !qp_is_int(qp_next(unp, &qpsevid)) ||
             !qp_is_int(qp_next(unp, &qpstatus)) ||
-            !qp_is_int(qp_next(unp, &qpzone)))
+            !qp_is_int(qp_next(unp, &qpzone)) ||
+            !qp_is_int(qp_next(unp, &qpsyntax)))
         return -1;
 
     node->next_thing_id = (uint64_t) qpnext_thing_id.via.int64;
@@ -196,6 +199,18 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
     node->sevid = (uint64_t) qpsevid.via.int64;
     node->status = (uint8_t) qpstatus.via.int64;
     node->zone = (uint8_t) qpzone.via.int64;
+    syntax_ver = (uint8_t) qpsyntax.via.int64;
+
+    if (syntax_ver != node->syntax_ver)
+    {
+        if (syntax_ver < node->syntax_ver)
+            log_warning(
+                    "got an unexpected syntax version update for `%s` "
+                    "(current "TI_SYNTAX", received "TI_SYNTAX")",
+                    ti_node_name(node), node->syntax_ver, syntax_ver);
+        ti_nodes_update_syntax_ver(syntax_ver);
+        node->syntax_ver = (uint8_t) qpsyntax.via.int64;
+    }
 
     return 0;
 }

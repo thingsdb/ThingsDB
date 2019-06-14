@@ -29,6 +29,7 @@ static ti_val_t * val__from_unp(
         qp_unpacker_t * unp,
         imap_t * things);
 
+static ti_val_t * val__sempty;
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
@@ -44,6 +45,7 @@ static char val__buf[VAL__BUF_SZ];
 
 int ti_val_init_common(void)
 {
+    val__sempty = (ti_val_t *) ti_raw_from_fmt("");
     val__snil = (ti_val_t *) ti_raw_from_fmt("nil");
     val__strue = (ti_val_t *) ti_raw_from_fmt("true");
     val__sfalse = (ti_val_t *) ti_raw_from_fmt("false");
@@ -53,8 +55,9 @@ int ti_val_init_common(void)
     val__sthing = (ti_val_t *) ti_raw_from_fmt("<thing>");
     val__sclosure = (ti_val_t *) ti_raw_from_fmt("<closure>");
 
-    if (!val__snil || !val__strue || !val__sfalse || !val__sblob ||
-        !val__sarray || !val__sthing || !val__sclosure)
+    if (!val__sempty || !val__snil || !val__strue || !val__sfalse ||
+        !val__sblob || !val__sarray || !val__sset || !val__sthing ||
+        !val__sclosure)
     {
         ti_val_drop_common();
         return -1;
@@ -64,6 +67,7 @@ int ti_val_init_common(void)
 
 void ti_val_drop_common(void)
 {
+    ti_val_drop(val__sempty);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
@@ -140,6 +144,12 @@ ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
     if (qp_is_close(tp))
         return NULL;
     return val__from_unp(&qp_val, unp, things);
+}
+
+ti_val_t * ti_val_empty_str(void)
+{
+    ti_incref(val__sempty);
+    return val__sempty;
 }
 
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
@@ -286,8 +296,8 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `%s`",
-                ti_val_str(*val), TI_VAL_INT_S);
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_INT_S"`",
+                ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
         return 0;
@@ -339,6 +349,51 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");
+    return e->nr;
+}
+
+int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
+{
+    switch((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_CLOSURE:
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
+                ti_val_str(*val));
+        break;
+    case TI_VAL_ARR:
+    {
+        vec_t * vec = ((ti_varr_t *) *val)->vec;
+        ti_vset_t * vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_alloc(e);
+            break;
+        }
+
+        for (vec_each(vec, ti_val_t, v))
+        {
+            if (ti_vset_add_val(vset, v, e))
+            {
+                ti_vset_destroy(vset);
+                return e->nr;
+            }
+        }
+
+        ti_val_drop(*val);
+        *val = (ti_val_t *) vset;
+        break;
+    }
+    case TI_VAL_SET:
+        break;
+    }
     return e->nr;
 }
 

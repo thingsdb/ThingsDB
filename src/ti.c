@@ -609,6 +609,8 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.node->id) ||
         qp_add_raw_from_str(*packer, "version") ||
         qp_add_raw_from_str(*packer, TI_VERSION) ||
+        qp_add_raw_from_str(*packer, "syntax_version") ||
+        qp_add_raw_from_str(*packer, TI_VERSION_SYNTAX_STR) ||
         qp_add_raw_from_str(*packer, "libqpack_version") ||
         qp_add_raw_from_str(*packer, qp_version()) ||
         qp_add_raw_from_str(*packer, "libcleri_version") ||

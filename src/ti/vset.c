@@ -107,3 +107,25 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
 
     return 0;
 }
+
+/*
+ * Increments the reference for each moved value to the set.
+ */
+int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
+{
+    if (!ti_val_is_thing(val))
+        ex_set(e, EX_BAD_DATA, "cannot add type `%s` to a "TI_VAL_SET_S,
+                ti_val_str(val));
+    else switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))
+    {
+    case IMAP_ERR_EXIST:
+        break;
+    case IMAP_ERR_ALLOC:
+        ex_set_alloc(e);
+        break;
+    case IMAP_SUCCESS:
+        ti_incref(val);
+        break;
+    }
+    return e->nr;
+}

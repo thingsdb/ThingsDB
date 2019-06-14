@@ -64,6 +64,7 @@ static int cq__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e);
@@ -1189,9 +1190,16 @@ static int cq__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
+        if (nargs == 0)
+        {
+            assert (query->rval == NULL);
+            query->rval = (ti_val_t *) ti_vint_create(0);
+            return e->nr;
+        }
         ex_set(e, EX_BAD_DATA,
-                "function `int` takes 1 argument but %d were given", n);
+                "function `int` takes at most 1 argument but %d were given",
+                nargs);
         return e->nr;
     }
 
@@ -2202,6 +2210,38 @@ static int cq__f_ret(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    int nargs = langdef_nd_n_function_params(nd);
+
+    if (nargs > 1)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `set` takes at most 1 argument but %d "
+                "were given", nargs);
+        return e->nr;
+    }
+
+    if (nargs == 1)
+    {
+        return (
+            ti_cq_scope(query, nd->children->node, e) ||
+            ti_val_convert_to_set(query->rval, e)
+        );
+    }
+
+    assert (query->rval == NULL);
+
+    query->rval = (ti_val_t *) ti_vset_create();
+    if (!query->rval)
+        ex_set_alloc(e);
+
+    return e->nr;
+}
+
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -2435,9 +2475,16 @@ static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
+        if (nargs == 0)
+        {
+            assert (query->rval == NULL);
+            query->rval = ti_val_empty_str();
+            return e->nr;
+        }
         ex_set(e, EX_BAD_DATA,
-                "function `str` takes 1 argument but %d were given", n);
+                "function `str` takes at most 1 argument but %d were given",
+                nargs);
         return e->nr;
     }
 
@@ -2808,6 +2855,10 @@ static int cq__function(
         return cq__f_rename(query, params, e);
     case CLERI_GID_F_RET:
         return cq__f_ret(query, params, e);
+    case CLERI_GID_F_SET:
+        if (is_scope)
+            return cq__f_set(query, params, e);
+        break;
     case CLERI_GID_F_SPLICE:
         return cq__f_splice(query, params, e);
     case CLERI_GID_F_STARTSWITH:

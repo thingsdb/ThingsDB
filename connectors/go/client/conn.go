@@ -83,6 +83,13 @@ func (conn *Conn) Query(r Req) (interface{}, error) {
 	return conn.write(r.GetProtocol(), r.AsMap(), r.GetTimeout())
 }
 
+// QueryTo sends a query and returns the result.
+func (conn *Conn) QueryTo(to *interface{}, r Req) error {
+	res, err := conn.write(r.GetProtocol(), r.AsMap(), r.GetTimeout())
+
+	return err
+}
+
 // Close will close an open connection.
 func (conn *Conn) Close() {
 	if conn.buf.conn != nil {

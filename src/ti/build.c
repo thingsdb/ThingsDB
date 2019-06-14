@@ -43,7 +43,7 @@ int ti_build_setup(
         uint8_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_zone,
-        uint8_t from_node_version_id,
+        uint8_t from_node_syntax_ver,
         uint16_t from_node_port,
         ti_stream_t * stream)
 {
@@ -66,7 +66,7 @@ int ti_build_setup(
     build->from_node_id = from_node_id;
     build->from_node_status = from_node_status;
     build->from_node_zone = from_node_zone;
-    build->from_node_version_id = from_node_version_id;
+    build->from_node_syntax_ver = from_node_syntax_ver;
     build->from_node_port = from_node_port;
 
     if (ti_req_create(
@@ -115,7 +115,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
 
             node->status = build->from_node_status;
             node->zone = build->from_node_zone;
-            node->version_id = build->from_node_version_id;
+            node->syntax_ver = build->from_node_syntax_ver;
         }
     }
 
@@ -124,10 +124,10 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->cevid = 0;
     ti_node->sevid = 0;
     ti_node->next_thing_id = 0;
-    ti_node->version_id = TI_VERSION_ID;
+    ti_node->syntax_ver = TI_VERSION_SYNTAX;
     ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
 
-    ti_nodes_update_version_id(TI_VERSION_ID);
+    ti_nodes_update_syntax_ver(TI_VERSION_SYNTAX);
 
     if (ti_save())
         goto failed;

@@ -30,20 +30,31 @@ class Thing:
         return thing
 
     def __init_subclass__(cls):
-        cls.__required__ = dict()
-        cls.__optional__ = list()
+        required = dict()
+        optional = list()
 
         for key, val in cls.__dict__.items():
-            if hasattr(val, REQUIRED):
-                cls.__required__[key] = val
-            if hasattr(val, OPTIONAL):
-                cls.__optional__.append(key)
+            if isinstance(val, type):
+                print(key, ' IS TYPE: ', isinstance(val, type))
+                if hasattr(val, REQUIRED):
+                    required[key] = val
+                if hasattr(val, OPTIONAL):
+                    optional.append(key)
+
+        cls.__optional__ = tuple(optional)
+        cls.__required__ = required
 
     def __bool__(self):
         return bool(self._event_id)
 
     def __repr__(self):
         return f't({self._id})'
+
+    def __iter__(self):
+        return self.__dict__.__iter__()
+
+    def __getitem__(self, prop):
+        return self.__dict__[prop]
 
     def as_dict(self):
         return self.__dict__
@@ -52,17 +63,20 @@ class Thing:
         self._collection._wqueue.add(self._id)
 
     def _check(self, attr, value):
+        if value is None:
+            return value, hasattr(attr, OPTIONAL)
+
         if issubclass(attr, Thing):
             if not isinstance(value, dict):
-                return value, bool(value is None and hasattr(attr, OPTIONAL))
+                return value, False
 
             thing_id = value.get('#')
             if thing_id is None:
                 return value, False
-            thing = attr(thing_id, self._collection)
-            return thing, True
-        elif not issubclass(attr, value.__class__):
-            return value, bool(value is None and hasattr(attr, OPTIONAL))
+            return attr(thing_id, self._collection), True
+
+        if not issubclass(attr, value.__class__):
+            return value, False
 
         is_valid = True
         array_of = getattr(attr, ARRAY_OF, None)

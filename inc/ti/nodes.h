@@ -7,6 +7,7 @@
 #include <uv.h>
 #include <ti/node.h>
 #include <ti/rpkg.h>
+#include <ti/ex.h>
 #include <util/vec.h>
 #include <qpack.h>
 
@@ -26,7 +27,7 @@ _Bool ti_nodes_ignore_sync(void);
 _Bool ti_nodes_require_sync(void);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
-void ti_nodes_update_version_id(uint8_t version_id);
+void ti_nodes_update_syntax_ver(uint8_t syntax_ver);
 ti_node_t * ti_nodes_new_node(
         uint8_t zone,
         uint16_t port,
@@ -40,6 +41,7 @@ ti_node_t * ti_nodes_random_ready_node(void);
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_nodes_info_to_packer(qp_packer_t ** packer);
 ti_val_t * ti_nodes_info_as_qpval(void);
+int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e);
 
 struct ti_nodes_s
 {
@@ -53,10 +55,10 @@ struct ti_nodes_s
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set
                                the initial value at startup */
-    uint8_t version_id;     /* lowest version id by ALL nodes */
+    uint8_t syntax_ver;     /* lowest syntax version by ALL nodes */
     char * status_fn;       /* this file contains the last known committed
                                and stored event id's by ALL nodes, and the
-                               lowest known version id */
+                               lowest known syntax version */
 
 };
 

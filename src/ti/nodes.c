@@ -85,13 +85,15 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         qp_cevid,
         qp_sevid,
         qp_status,
-        qp_zone;
+        qp_zone,
+        qp_syntax_ver;
 
     uint8_t
         this_node_id,
         from_node_id,
         from_node_status,
-        from_node_zone;
+        from_node_zone,
+        from_node_syntax_ver;
 
     uint16_t from_node_port;
     ti_node_t * node, * this_node = ti()->node;
@@ -116,7 +118,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_int(qp_next(&unpacker, &qp_cevid)) ||
             !qp_is_int(qp_next(&unpacker, &qp_sevid)) ||
             !qp_is_int(qp_next(&unpacker, &qp_status)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_zone)))
+            !qp_is_int(qp_next(&unpacker, &qp_zone)) ||
+            !qp_is_int(qp_next(&unpacker, &qp_syntax_ver)))
     {
         log_error(
                 "invalid connection request from `%s`",
@@ -129,6 +132,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     from_node_port = (uint16_t) qp_from_node_port.via.int64;
     from_node_status = (uint8_t) qp_status.via.int64;
     from_node_zone = (uint8_t) qp_zone.via.int64;
+    from_node_syntax_ver = (uint8_t) qp_syntax_ver.via.int64;
 
     if (from_node_id == this_node_id)
     {
@@ -214,6 +218,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 from_node_id,
                 from_node_status,
                 from_node_zone,
+                from_node_syntax_ver,
                 from_node_port,
                 stream);
 
@@ -230,6 +235,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         (void) qp_add_int(packer, 0);                       /* sevid */
         (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);   /* status */
         (void) qp_add_int(packer, ti_args_get_zone());      /* zone */
+        (void) qp_add_int(packer, TI_VERSION_SYNTAX);       /* syntax version*/
         (void) qp_close_array(packer);
 
         goto send;
@@ -277,9 +283,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     node->status = from_node_status;
     node->zone = from_node_zone;
+    node->syntax_ver = from_node_syntax_ver;
     node->cevid = (uint64_t) qp_cevid.via.int64;
     node->sevid = (uint64_t) qp_sevid.via.int64;
     node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
+
+    ti_nodes_update_syntax_ver(from_node_zone);
 
     if (node->stream)
     {
@@ -961,7 +970,7 @@ int ti_nodes_write_global_status(void)
 
     log_debug("save global committed "TI_EVENT_ID", "
             "global stored "TI_EVENT_ID" and "
-            "lowest known version id `TIto disk", cevid);
+            "lowest known syntax version `TIto disk", cevid);
     log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
     log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
 
@@ -1139,26 +1148,26 @@ uint64_t ti_nodes_sevid(void)
     return nodes->sevid;
 }
 
-void ti_nodes_update_version_id(uint8_t version_id)
+void ti_nodes_update_syntax_ver(uint8_t syntax_ver)
 {
-    if (version_id == nodes->version_id)
+    if (syntax_ver == nodes->syntax_ver)
         return;
 
     for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->version_id < version_id)
-            version_id = node->version_id;
+        if (node->syntax_ver < syntax_ver)
+            syntax_ver = node->syntax_ver;
 
-    if (version_id < nodes->version_id)
+    if (syntax_ver < nodes->syntax_ver)
     {
         log_error(
-                "calculated version id is less than the lowest known: %u < %u",
-                version_id, nodes->version_id);
-        nodes->version_id = version_id;
+                "new "TI_SYNTAX" is older than the current "TI_SYNTAX,
+                syntax_ver, nodes->syntax_ver);
+        nodes->syntax_ver = syntax_ver;
         return;
     }
 
-    if (version_id > nodes->version_id)
-        nodes->version_id = version_id;
+    if (syntax_ver > nodes->syntax_ver)
+        nodes->syntax_ver = syntax_ver;
 }
 
 
@@ -1378,15 +1387,21 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 
 int ti_nodes_info_to_packer(qp_packer_t ** packer)
 {
+    static char syntax_buf[5]; /* vXXX_ */
     ti_node_t * this_node = ti()->node;
+
     if (qp_add_array(packer))
         return -1;
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
+        (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
+
         if (qp_add_map(packer) ||
             qp_add_raw_from_str(*packer, "node_id") ||
             qp_add_int(*packer, node->id) ||
+            qp_add_raw_from_str(*packer, "syntax_version") ||
+            qp_add_raw_from_str(*packer, syntax_buf) ||
             qp_add_raw_from_str(*packer, "status") ||
             qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
             qp_add_raw_from_str(*packer, "commited_event_id") ||
@@ -1432,4 +1447,13 @@ ti_val_t * ti_nodes_info_as_qpval(void)
 fail:
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;
+}
+
+int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e)
+{
+    if (nodes_.syntax_ver >= syntax_ver)
+        return 0;
+    ex_set(e, EX_SYNTAX_ERROR,
+            "not all nodes are running the required "TI_SYNTAX, syntax_ver);
+    return e->nr;
 }

@@ -17,6 +17,7 @@
 #define TI_NODE_ID "`node:%u`"
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
+#define TI_SYNTAX "syntax v%u"
 
 #define TI_SCOPE_NODE 1
 #define TI_SCOPE_THINGSDB 0

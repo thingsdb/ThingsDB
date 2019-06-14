@@ -77,16 +77,17 @@ int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
-static inline _Bool ti_val_is_closure(ti_val_t * val);
+static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
+static inline _Bool ti_val_is_closure(ti_val_t * val);
 static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
+static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline _Bool ti_val_is_nil(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_regex(ti_val_t * val);
+static inline _Bool ti_val_is_set(ti_val_t * val);
 static inline _Bool ti_val_is_thing(ti_val_t * val);
-static inline _Bool ti_val_is_array(ti_val_t * val);
-static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
@@ -144,6 +145,11 @@ static inline _Bool ti_val_is_regex(ti_val_t * val)
     return val->tp == TI_VAL_REGEX;
 }
 
+static inline _Bool ti_val_is_set(ti_val_t * val)
+{
+    return val->tp == TI_VAL_SET;
+}
+
 static inline _Bool ti_val_is_thing(ti_val_t * val)
 {
     return val->tp == TI_VAL_THING;
@@ -169,6 +175,7 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
     return (
         val->tp == TI_VAL_RAW ||
         val->tp == TI_VAL_ARR ||
+        val->tp == TI_VAL_SET ||
         val->tp == TI_VAL_THING
     );
 }

@@ -9,6 +9,7 @@ class Collection(Scope, Thing):
     __slots__ = (
         '_client',
         '_scope',
+        '_proto',
         '_wqueue',
     )
 

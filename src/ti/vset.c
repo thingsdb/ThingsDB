@@ -44,12 +44,13 @@ int ti_vset_to_packer(
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
         qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) "!", 1))
+        qp_add_raw(*packer, (const uchar * ) "!", 1) ||
+        qp_add_array(packer))
         return -1;
     fetch-=2;  /* one for the set and one for each thing */
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (((flags & TI_VAL_PACK_NEW) && (t->flags & TI_THING_FLAG_NEW)) ||
+        if (((flags & TI_VAL_PACK_NEW) && ti_thing_is_new(t)) ||
             ((~flags & TI_VAL_PACK_NEW) && fetch > 0))
         {
             if (ti_thing_to_packer(t, packer, flags, fetch))
@@ -61,7 +62,7 @@ int ti_vset_to_packer(
                 return -1;
         }
     }
-    return qp_close_map(*packer);
+    return qp_close_array(*packer) || qp_close_map(*packer);
 }
 
 int ti_vset_to_file(ti_vset_t * vset, FILE * f)

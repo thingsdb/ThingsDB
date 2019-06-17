@@ -9,6 +9,6 @@
 #include <cleri/cleri.h>
 
 int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-
+int ti_cq_optscope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 #endif /* TI_CQ_H_ */

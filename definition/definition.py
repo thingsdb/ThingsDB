@@ -60,10 +60,12 @@ class Definition(Grammar):
     # build-in get functions
     f_assert = Keyword('assert')
     f_blob = Keyword('blob')
+    f_bool = Keyword('bool')
     f_endswith = Keyword('endswith')
     f_filter = Keyword('filter')
     f_findindex = Keyword('findindex')
     f_find = Keyword('find')
+    f_has = Keyword('has')
     f_hasprop = Keyword('hasprop')
     f_id = Keyword('id')
     f_indexof = Keyword('indexof')
@@ -124,10 +126,12 @@ class Definition(Grammar):
         # build-in functions
         f_assert,       # (statement, [msg], [code])
         f_blob,         # (int inx_in_blobs) -> raw
+        f_bool,         # () -> bool
         f_endswith,     # (str) -> bool
         f_filter,       # (closure) -> [return values where return is true]
         f_findindex,    # (closure) -> return the index of the first value..
         f_find,         # (closure, alt) -> return first value where true...
+        f_has,          # (thing) -> bool
         f_hasprop,      # (str) -> bool
         f_id,           # () -> int
         f_indexof,      # (v) -> int or nil

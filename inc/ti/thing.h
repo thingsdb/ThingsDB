@@ -47,6 +47,7 @@ static inline int ti_thing_to_map(ti_thing_t * thing);
 static inline _Bool ti_thing_is_new(ti_thing_t * thing);
 static inline void ti_thing_mark_new(ti_thing_t * thing);
 static inline void ti_thing_unmark_new(ti_thing_t * thing);
+static inline uint64_t ti_thing_key(ti_thing_t * thing);
 
 struct ti_thing_s
 {
@@ -56,8 +57,8 @@ struct ti_thing_s
     uint16_t _pad16;
 
     uint64_t id;
-    vec_t * props;          /* vec contains ti_prop_t */
     imap_t * things;        /* thing is added to this map */
+    vec_t * props;          /* vec contains ti_prop_t */
     vec_t * watchers;       /* vec contains ti_watch_t,
                                NULL if no watchers,  */
 };
@@ -99,4 +100,9 @@ static inline void ti_thing_unmark_new(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_NEW;
 }
+static inline uint64_t ti_thing_key(ti_thing_t * thing)
+{
+    return (uintptr_t) thing;
+}
+
 #endif /* TI_THING_H_ */

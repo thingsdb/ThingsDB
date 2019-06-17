@@ -516,6 +516,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_SET:
         return !!((ti_vset_t *) val)->imap->n;
     case TI_VAL_THING:
+        return !!((ti_thing_t *) val)->props->n;
     case TI_VAL_CLOSURE:
         return true;
     }
@@ -614,8 +615,13 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
     case TI_VAL_REGEX:
         return ti_regex_to_packer((ti_regex_t *) val, pckr);
     case TI_VAL_THING:
+        /*
+         * TI_VAL_PACK_NEW and TI_THING_FLAG_NEW are used for tasks.
+         * Tasks require the complete `new` thing so they can be created by
+         * all nodes.
+         */
         return flags & TI_VAL_PACK_NEW
-            ? (((ti_thing_t *) val)->flags & TI_THING_FLAG_NEW
+            ? (ti_thing_is_new((ti_thing_t *) val)
                 ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
                 : ti_thing_id_to_packer((ti_thing_t *) val, pckr))
             : (fetch-- > 0

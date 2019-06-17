@@ -179,6 +179,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
     if (ti_thing_to_map(thing))
         return -1;
 
+    /* we do need recursion on new types */
     for (vec_each(thing->props, ti_prop_t, prop))
         if (ti_val_gen_ids(prop->val))
             return -1;

@@ -20,7 +20,7 @@ static ti_vbool_t vbool__false = {
 
 ti_vbool_t * ti_vbool_get(_Bool b)
 {
-    ti_vbool_t * vbool = b ? &vbool__true : & vbool__false;
+    ti_vbool_t * vbool = b ? &vbool__true : &vbool__false;
     ti_incref(vbool);
     return vbool;
 }

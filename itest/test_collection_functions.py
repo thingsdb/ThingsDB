@@ -27,6 +27,7 @@ class TestCollectionFunctions(TestBase):
         client.use('stuff')
 
         await self.run_tests(client)
+        # return  # uncomment to skip garbage collection test
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
@@ -112,6 +113,42 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 IndexError, 'blob index out of range'):
             await client.query('blob(0);')
+
+    async def test_bool(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `bool`'):
+            await client.query('nil.bool();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `bool` takes at most 1 argument but 2 were given'):
+            await client.query('bool(1, 2);')
+
+        self.assertFalse(await client.query('bool();'))
+        self.assertFalse(await client.query('bool(false);'))
+        self.assertFalse(await client.query('bool(nil);'))
+        self.assertFalse(await client.query('bool(0);'))
+        self.assertFalse(await client.query('bool(-0);'))
+        self.assertFalse(await client.query('bool(0.0);'))
+        self.assertFalse(await client.query('bool(-0.0);'))
+        self.assertFalse(await client.query('bool("");'))
+        self.assertFalse(await client.query('bool([]);'))
+        self.assertFalse(await client.query('bool(set());'))
+        self.assertFalse(await client.query(r'bool({});'))
+
+        self.assertTrue(await client.query('bool(true);'))
+        self.assertTrue(await client.query('bool(!nil);'))
+        self.assertTrue(await client.query('bool(1);'))
+        self.assertTrue(await client.query('bool(-1);'))
+        self.assertTrue(await client.query('bool(1.1);'))
+        self.assertTrue(await client.query('bool(-1.1);'))
+        self.assertTrue(await client.query('bool("abc");'))
+        self.assertTrue(await client.query('bool([0]);'))
+        self.assertTrue(await client.query(r'bool(set([{}]));'))
+        self.assertTrue(await client.query(r'bool({answer: 42});'))
+        self.assertTrue(await client.query('bool(//);'))
+        self.assertTrue(await client.query('bool(||nil);'))
 
     async def test_del(self, client):
         await client.query(r'greet = "Hello world";')
@@ -286,6 +323,32 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x.findindex(|v|(v==42));'), 0)
         self.assertEqual(await client.query('x.findindex(|v|isstr(v));'), 1)
 
+    async def test_has(self, client):
+        await client.query(r'''
+            iris = {name: "Iris"};
+            cato = {name: "Cato"};
+            s = set([iris]);
+        ''')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `thing` has no function `has`'):
+            await client.query('has(iris);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `has` takes 1 argument but 0 were given'):
+            await client.query('s.has();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `has` expects argument 1 to be of '
+                r'type `thing` but got type `int` instead'):
+            await client.query('s.has(0);')
+
+        self.assertTrue(await client.query('s.has(iris);'))
+        self.assertFalse(await client.query('s.has(cato);'))
+
     async def test_hasprop(self, client):
         await client.query(r'x = 0.0;')
 
@@ -364,8 +427,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `int` takes 1 argument but 0 were given'):
-            await client.query('int();')
+                'function `int` takes at most 1 argument but 2 were given'):
+            await client.query('int(1, 2);')
 
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -398,6 +461,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             await client.query('int("-0x8000000000000000");'),
             -0x8000000000000000)
+        self.assertEqual(await client.query('int();'), 0)
         self.assertEqual(await client.query('int(3.14);'), 3)
         self.assertEqual(await client.query('int(-3.14);'), -3)
         self.assertEqual(await client.query('int(42.9);'), 42)
@@ -422,6 +486,7 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isarray("test");'))
         self.assertFalse(await client.query(r'isarray({});'))
         self.assertFalse(await client.query('isarray(x[1]);'))
+        self.assertFalse(await client.query('isarray(set());'))
 
     async def test_isascii(self, client):
         with self.assertRaisesRegex(
@@ -485,6 +550,24 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isinf( 42 ); '))
         self.assertFalse(await client.query('isinf( true ); '))
 
+    async def test_isint(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isint` takes 1 argument but 0 were given'):
+            await client.query('isint();')
+
+        self.assertTrue(await client.query('isint( 0 ); '))
+        self.assertTrue(await client.query('isint( -0 ); '))
+        self.assertTrue(await client.query('isint( 42 );'))
+        self.assertFalse(await client.query('isint( 0.0 ); '))
+        self.assertFalse(await client.query('isint( -0.0 ); '))
+        self.assertFalse(await client.query('isint( inf ); '))
+        self.assertFalse(await client.query('isint( -inf ); '))
+        self.assertFalse(await client.query('isint( nan ); '))
+        self.assertFalse(await client.query('isint( "ԉ" ); '))
+        self.assertFalse(await client.query('isint( nil );'))
+        self.assertFalse(await client.query('isint( set() );'))
+
     async def test_islist(self, client):
         await client.query('x = [[0, 1], nil]; y = x[0];')
         with self.assertRaisesRegex(
@@ -500,6 +583,7 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('islist("test");'))
         self.assertFalse(await client.query(r'islist({});'))
         self.assertFalse(await client.query('islist(x[1]);'))
+        self.assertFalse(await client.query('islist(set());'))
 
     async def test_isnan(self, client):
         with self.assertRaisesRegex(
@@ -516,6 +600,7 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('isnan( [] ); '))
         self.assertTrue(await client.query(r'isnan( {} ); '))
         self.assertTrue(await client.query('isnan( "3" ); '))
+        self.assertTrue(await client.query('isnan( set() ); '))
 
     async def test_israw(self, client):
         with self.assertRaisesRegex(
@@ -584,6 +669,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'"xy".len();'), 2)
         self.assertEqual(await client.query(r'["x", "y"].len();'), 2)
         self.assertEqual(await client.query(r'[["x", "y"]][0].len();'), 2)
+        self.assertEqual(await client.query(r'set([{}, {}]).len();'), 2)
 
     async def test_lower(self, client):
         with self.assertRaisesRegex(
@@ -855,6 +941,34 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query('(x = 1).ret();'), None)
         self.assertEqual(await client.query('ret(); x;'), 1)
 
+    async def test_set(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `set`'):
+            await client.query('nil.set();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `set` takes at most 1 argument but 2 were given'):
+            await client.query('set(1, 2);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to `set`'):
+            await client.query('set(nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot add type `int` to a set'):
+            await client.query('set([1, 2, 3]);')
+
+        self.assertEqual(await client.query('set();'), {'!': []})
+        self.assertEqual(await client.query('set([]);'), {'!': []})
+        self.assertEqual(await client.query('set(set());'), {'!': []})
+        self.assertEqual(
+            await client.query(r'set([{}, {}]);'),
+            {'!': [{'#': 0}, {'#': 0}]})
+
     async def test_splice(self, client):
         await client.query('list = [];')
         self.assertEqual(await client.query('list.splice(0, 0, "a")'), [])
@@ -950,9 +1064,11 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `str` takes 1 argument but 0 were given'):
-            await client.query('str();')
+                'function `str` takes at most 1 argument but 2 were given'):
+            await client.query('str(1, 2);')
 
+        self.assertEqual(await client.query('str();'), "")
+        self.assertEqual(await client.query('str(3.14);'), "3.14")
         self.assertEqual(await client.query('str(3.14);'), "3.14")
         self.assertEqual(await client.query('str(-3.14);'), "-3.14")
         self.assertEqual(await client.query('str(42);'), "42")

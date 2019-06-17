@@ -82,6 +82,57 @@ class TestThingsDBFunctions(TestBase):
         self.assertIs(collections[0]["quota_array_size"], None)
         self.assertIs(collections[0]["quota_raw_size"], None)
 
+    async def test_del_collection(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `del_collection` takes 1 argument '
+                'but 0 were given'):
+            await client.query('del_collection();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'expecting type `raw` or `int` as collection '
+                'but got type `float` instead'):
+            await client.query('del_collection(1.0);')
+
+        with self.assertRaisesRegex(IndexError, 'collection `A` not found'):
+            await client.query('del_collection("A");')
+
+        with self.assertRaisesRegex(IndexError, '`collection:1234` not found'):
+            await client.query('del_collection(1234);')
+
+        test1 = await client.query('new_collection("test1");')
+        test2 = await client.query('new_collection("test2");')
+
+        self.assertIs(await client.query('del_collection("test1");'), None)
+        self.assertIs(await client.query(f'del_collection({test2});'), None)
+
+    async def test_del_user(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `del_user` takes 1 argument but 0 were given'):
+            await client.query('del_user();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `del_user` expects argument 1 to be of type `raw` '
+                r'but got type `int` instead'):
+            await client.query('del_user(42);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'user `` not found'):
+            await client.query('del_user("");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'it is not possible to delete your own user account'):
+            await client.query('del_user("admin");')
+
+        await client.query('new_user("iris", "pass");')
+
+        self.assertIs(await client.query('del_user("iris");'), None)
+
 
 if __name__ == '__main__':
     run_test(TestThingsDBFunctions())

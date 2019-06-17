@@ -34,9 +34,6 @@ struct ti_vset_s
     imap_t * imap;      /* key: thing_key / value: *ti_things_t */
 };
 
-#endif  /* TI_VSET_H_ */
-
-
 /*
  * Returns 0 if the given `thing` is added to the set.
  * (does NOT increment the reference count)
@@ -50,3 +47,5 @@ static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing)
 {
     return imap_get(vset->imap, ti_thing_key(thing)) != NULL;
 }
+
+#endif  /* TI_VSET_H_ */

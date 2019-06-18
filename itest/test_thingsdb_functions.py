@@ -133,6 +133,34 @@ class TestThingsDBFunctions(TestBase):
 
         self.assertIs(await client.query('del_user("iris");'), None)
 
+    async def test_grant(self, client):
+        await client.query('new_user("iris", "pass");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `grant` requires 3 arguments but 0 were given'):
+            await client.query('grant();')
+
+        with self.assertRaisesRegex(IndexError, 'collection `A` not found'):
+            await client.query('grant("A", "x", FULL);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `grant` expects argument 2 to be of type `raw` '
+                r'but got type `nil` instead'):
+            await client.query('grant("stuff", nil, FULL);')
+
+        with self.assertRaisesRegex(IndexError, 'user `X` not found'):
+            await client.query('grant("stuff", "X", FULL);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `grant` expects argument 3 to be of type `int` '
+                r'but got type `nil` instead'):
+            await client.query('grant("stuff", "iris", nil);')
+
+        await client.query('del_user("iris");')
+
 
 if __name__ == '__main__':
     run_test(TestThingsDBFunctions())

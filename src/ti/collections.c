@@ -135,8 +135,7 @@ ti_collection_t * ti_collections_create_collection(
     if (!ti_name_is_valid_strn(name, n))
     {
         ex_set(e, EX_BAD_DATA,
-                "collection name should be a valid name, "
-                "see "TI_DOCS"#names");
+                "collection name should be a valid name"TI_SEE_DOC("#names"));
         goto fail0;
     }
 

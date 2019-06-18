@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define SPLICE_DOC_ TI_SEE_DOC("#splice")
+
 static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -17,7 +19,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `splice`",
+                "type `%s` has no function `splice`"SPLICE_DOC_,
                 ti_val_str((ti_val_t *) varr));
         goto done;
     }
@@ -27,7 +29,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` requires at least 2 arguments "
-                "but %d %s given",
+                "but %d %s given"SPLICE_DOC_,
                 n, n == 1 ? "was" : "were");
         goto done;
     }
@@ -35,7 +37,8 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (from_scope && ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use function `splice` while the list is in use");
+                "cannot use function `splice` while the list is in use"
+                SPLICE_DOC_);
         goto done;
     }
 
@@ -46,7 +49,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));
         goto done;
     }
@@ -63,7 +66,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));
         goto done;
     }
@@ -85,8 +88,8 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (new_n >= query->target->quota->max_array_size)
     {
         ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached, "
-                "see "TI_DOCS"#quotas", query->target->quota->max_array_size);
+                "maximum array size quota of %zu has been reached"
+                TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
         goto done;
     }
 

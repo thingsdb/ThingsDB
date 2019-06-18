@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define ASSERT_DOC_ TI_SEE_DOC("#assert")
+
 static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
@@ -11,7 +13,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` requires at least 1 argument but 0 "
-                "were given");
+                "were given"ASSERT_DOC_);
         return e->nr;
     }
 
@@ -19,7 +21,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` takes at most 3 arguments but %d "
-                "were given", nargs);
+                "were given"ASSERT_DOC_, nargs);
         return e->nr;
     }
 
@@ -45,7 +47,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 2 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"ASSERT_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -55,7 +57,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects a message "
-                "to have valid UTF8 encoding");
+                "to have valid UTF8 encoding"ASSERT_DOC_);
         return e->nr;
     }
 
@@ -76,7 +78,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"ASSERT_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -87,7 +89,7 @@ static int cq__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `assert` expects a custom error_code between "
-                "1 and 32 but got %"PRId64" instead", code->int_);
+                "1 and 32 but got %"PRId64" instead"ASSERT_DOC_, code->int_);
         return e->nr;
     }
 

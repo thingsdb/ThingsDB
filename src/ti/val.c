@@ -152,6 +152,12 @@ ti_val_t * ti_val_empty_str(void)
     return val__sempty;
 }
 
+/*
+ * Returns an address to the `assess` object by a given value and set the
+ * argument `target_id` to the collection ID, or TI_SCOPE_THINGSDB or
+ * TI_SCOPE_NODE. If no valid target is found, `e` will be set with an
+ * appropriate error message.
+ */
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
 {
     ti_collection_t * collection;
@@ -455,7 +461,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
             break;
         default:
             ex_set(e, EX_INDEX_ERROR,
-                    "unknown error number: %"PRId64", see "TI_DOCS"#errors",
+                    "unknown error number: %"PRId64 TI_SEE_DOC("#errors"),
                     (*(ti_vint_t **) val)->int_);
             return e->nr;
         }
@@ -477,7 +483,7 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
         if (i == 0)
         {
             ex_set(e, EX_INDEX_ERROR,
-                    "unknown error: `%.*s`, see "TI_DOCS"#errors",
+                    "unknown error: `%.*s`"TI_SEE_DOC("#errors"),
                     (int) (*(ti_raw_t **) val)->n,
                     (const char *) (*(ti_raw_t **) val)->data);
             return e->nr;

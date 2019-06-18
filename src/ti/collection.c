@@ -84,8 +84,7 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
     if (!ti_name_is_valid_strn(name, n))
     {
         ex_set(e, EX_BAD_DATA,
-                "collection name should be a valid name, "
-                "see "TI_DOCS"#names");
+                "collection name should be a valid name"TI_SEE_DOC("#names"));
         return false;
     }
 
@@ -100,8 +99,7 @@ int ti_collection_rename(
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_BAD_DATA,
-                "collection name should be a valid name, "
-                "see "TI_DOCS"#names");
+                "collection name should be a valid name"TI_SEE_DOC("#names"));
         return -1;
     }
 

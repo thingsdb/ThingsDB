@@ -4,8 +4,9 @@
 #ifndef TIINC_H_
 #define TIINC_H_
 
-#define TI_URL "https://thinkdb.net"
-#define TI_DOCS TI_URL"/docs/"
+#define TI_URL "https://thingsdb.github.io"
+#define TI_DOC(__fn) TI_URL"/ThingsDocs/"__fn
+#define TI_SEE_DOC(__fn) "; see "TI_DOC(__fn)
 
 #define TI_DEFAULT_CLIENT_PORT 9200
 #define TI_DEFAULT_NODE_PORT 9220
@@ -18,7 +19,6 @@
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_SYNTAX "syntax v%u"
-
 #define TI_SCOPE_NODE 1
 #define TI_SCOPE_THINGSDB 0
 

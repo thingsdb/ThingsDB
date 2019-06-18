@@ -1230,9 +1230,25 @@ int ti_nodes_listen(void)
     }
 
     if (is_ipv6)
-        (void) uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr);
+    {
+        if (uv_ip6_addr(ip, cfg->node_port, (struct sockaddr_in6 *) &addr))
+        {
+            log_error(
+                    "cannot create IPv6 address from `[%s]:%d`",
+                    ip, cfg->client_port);
+            return -1;
+        }
+    }
     else
-        (void) uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr);
+    {
+        if (uv_ip4_addr(ip, cfg->node_port, (struct sockaddr_in *) &addr))
+        {
+            log_error(
+                    "cannot create IPv4 address from `%s:%d`",
+                    ip, cfg->client_port);
+            return -1;
+        }
+    }
 
     if ((rc = uv_tcp_bind(
             &nodes->tcp,

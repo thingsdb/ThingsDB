@@ -167,7 +167,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 r'function `del` can only be used on things with an id > 0; '
-                r'\(things which are assigned automatically receive an id\)'):
+                r'things which are assigned automatically receive an id;'):
             await client.query('{x:1}.del("x");')
 
         with self.assertRaisesRegex(
@@ -885,7 +885,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 'function `rename` can only be used on things with an id > 0; '
-                r'\(things which are assigned automatically receive an id\)'):
+                r'things which are assigned automatically receive an id;'):
             await client.query('{x:1}.rename("x", "y");')
 
         with self.assertRaisesRegex(
@@ -1148,12 +1148,12 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('try((10 // 0), nil, 97);'), None)
         with self.assertRaisesRegex(
                 IndexError,
-                'unknown error: `UNKNOWN`, see https:.*'):
+                'unknown error: `UNKNOWN`; see https:.*'):
             await client.query('try( (10 // 0), nil, "UNKNOWN");')
 
         with self.assertRaisesRegex(
                 IndexError,
-                'unknown error number: 0, see https:.*'):
+                'unknown error number: 0; see https:.*'):
             await client.query('try( (10 // 0), nil, 0);')
 
         with self.assertRaisesRegex(

@@ -94,8 +94,7 @@ int ti_query_node_unpack(
 {
     assert (e->nr == 0);
     const char * ebad =
-            "invalid `query-node` request, "
-            "see "TI_DOCS"#query-node";
+            "invalid `query-node` request"TI_SEE_DOC("#query-node");
     return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
 }
 
@@ -108,8 +107,7 @@ int ti_query_thingsdb_unpack(
 {
     assert (e->nr == 0);
     const char * ebad =
-            "invalid `query-thingsdb` request, "
-            "see "TI_DOCS"#query-thingsdb";
+            "invalid `query-thingsdb` request"TI_SEE_DOC("#query-thingsdb");
     return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
 }
 
@@ -122,8 +120,7 @@ int ti_query_collection_unpack(
 {
     assert (e->nr == 0);
     const char * ebad =
-            "invalid `query-collection` request, "
-            "see "TI_DOCS"#query-collection";
+            "invalid `query-collection` request"TI_SEE_DOC("#query-thingsdb");
 
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
@@ -251,8 +248,8 @@ int ti_query_collection_unpack(
 
     if (query->target && max_raw >= query->target->quota->max_raw_size)
         ex_set(e, EX_MAX_QUOTA,
-                "maximum raw size quota of %zu bytes is reached, "
-                "see "TI_DOCS"#quotas", query->target->quota->max_raw_size);
+                "maximum raw size quota of %zu bytes is reached"
+                TI_SEE_DOC("#quotas"), query->target->quota->max_raw_size);
 
 finish:
     return e->nr;

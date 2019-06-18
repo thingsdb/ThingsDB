@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define REVOKE_DOC_ TI_SEE_DOC("#revoke")
+
 static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -19,8 +21,8 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (n != 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `revoke` requires 3 arguments but %d %s given, "
-            "see: "TI_DOCS"#grant",
+                "function `revoke` requires 3 arguments but %d %s given"
+                REVOKE_DOC_,
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
@@ -49,7 +51,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `revoke` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s`, see: "TI_DOCS"#grant",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"REVOKE_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -74,7 +76,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `revoke` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s`, see: "TI_DOCS"#grant",
+            "type `"TI_VAL_INT_S"` but got type `%s`"REVOKE_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -90,7 +92,8 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (query->user == user && (mask & TI_AUTH_GRANT))
     {
         ex_set(e, EX_BAD_DATA,
-                "it is not possible to revoke your own `GRANT` privileges");
+                "it is not possible to revoke your own `GRANT` privileges"
+                REVOKE_DOC_);
         return e->nr;
     }
 

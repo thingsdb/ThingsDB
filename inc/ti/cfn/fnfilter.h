@@ -52,8 +52,8 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (query->target->things->n >= query->target->quota->max_things)
         {
             ex_set(e, EX_MAX_QUOTA,
-                    "maximum things quota of %zu has been reached, "
-                    "see "TI_DOCS"#quotas", query->target->quota->max_things);
+                    "maximum things quota of %zu has been reached"
+                    TI_SEE_DOC("#quotas"), query->target->quota->max_things);
             goto failed;
         }
 

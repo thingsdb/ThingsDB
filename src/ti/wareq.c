@@ -56,7 +56,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 {
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
-    const char * ebad = "invalid watch request, see "TI_DOCS"#watch";
+    const char * ebad = "invalid watch request"TI_SEE_DOC("#watch");
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
@@ -93,7 +93,8 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
             if (wareq->thing_ids || !qp_is_array(tp))
             {
-                log_warning("double `things` or not an array in watch request");
+                log_warning(
+                        "double `things` or not an array in watch request");
                 ex_set(e, EX_BAD_DATA, ebad);
                 goto finish;
             }

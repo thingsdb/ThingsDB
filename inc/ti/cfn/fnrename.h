@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define RENAME_DOC_ TI_SEE_DOC("#rename")
+
 static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -19,7 +21,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `rename`",
+                "type `%s` has no function `rename`"RENAME_DOC_,
                 ti_val_str((ti_val_t *) thing));
         goto done;
     }
@@ -27,8 +29,8 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `rename` takes 2 arguments but %d %s given",
-                nargs, nargs == 1 ? "was" : "were");
+                "function `rename` takes 2 arguments but %d %s given"
+                RENAME_DOC_, nargs, nargs == 1 ? "was" : "were");
         goto done;
     }
 
@@ -36,15 +38,16 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `rename` can only be used on things with an id > 0; "
-                "(things which are assigned automatically receive an id)");
+                "things which are assigned automatically receive an id"
+                RENAME_DOC_);
         goto done;
     }
 
     if (ti_scope_in_use_thing(query->scope->prev, thing))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use `rename` while thing "TI_THING_ID" is in use",
-                thing->id);
+                "cannot use `rename` while thing "TI_THING_ID" is in use"
+                RENAME_DOC_, thing->id);
         goto done;
     }
 
@@ -60,7 +63,7 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `rename` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"RENAME_DOC_,
                 ti_val_str(query->rval));
         goto done;
     }
@@ -74,8 +77,8 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_name_is_valid_strn((const char *) from_raw->data, from_raw->n))
         {
             ex_set(e, EX_BAD_DATA,
-                    "function `rename` expects argument 1 to be a valid name, "
-                    "see "TI_DOCS"#names");
+                    "function `rename` expects argument 1 to be a valid name"
+                    TI_SEE_DOC("#names"));
         }
         else
         {
@@ -96,14 +99,14 @@ static int cq__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "function `rename` expects argument 2 to be a valid name, "
-                    "see "TI_DOCS"#names");
+                    TI_SEE_DOC("#names"));
         }
         else
         {
             ex_set(e, EX_BAD_DATA,
                     "function `rename` expects argument 2 to be of "
-                    "type `"TI_VAL_RAW_S"` but got type `%s` instead",
-                    ti_val_str(query->rval));
+                    "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+                    RENAME_DOC_, ti_val_str(query->rval));
         }
         goto done;
     }

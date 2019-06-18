@@ -15,6 +15,18 @@ osdata = None
 
 """
 
+requires GRANT
+
+add_token('iris', nil, 'used for bla bla')
+
+token: x-charater str
+issue_date:  ts
+expire_date: nil
+
+
+tokens
+
+
 missing functions:
   isnil --> returns true if the given value == nil
   isthing --> return `true` if the given value is a `thing`

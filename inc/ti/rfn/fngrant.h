@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define GRANT_DOC_ TI_SEE_DOC("#grant")
+
 static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -8,20 +10,19 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    int n;
+    int nargs;
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
     uint64_t mask, target_id;
     vec_t ** access_;
 
-    n = langdef_nd_n_function_params(nd);
-    if (n != 3)
+    nargs = langdef_nd_n_function_params(nd);
+    if (nargs != 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `grant` requires 3 arguments but %d %s given, "
-            "see: "TI_DOCS"#grant",
-            n, n == 1 ? "was" : "were");
+            "function `grant` requires 3 arguments but %d %s given"GRANT_DOC_,
+            nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -49,7 +50,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `grant` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got `%s`, see: "TI_DOCS"#grant",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"GRANT_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -74,7 +75,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `grant` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` but got `%s`, see: "TI_DOCS"#grant",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"GRANT_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }

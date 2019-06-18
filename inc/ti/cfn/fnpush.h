@@ -41,8 +41,8 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (new_n >= query->target->quota->max_array_size)
     {
         ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached, "
-                "see "TI_DOCS"#quotas", query->target->quota->max_array_size);
+                "maximum array size quota of %zu has been reached"
+                TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
         goto done;
     }
 

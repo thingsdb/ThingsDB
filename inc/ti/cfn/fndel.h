@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define DEL_DOC_ TI_SEE_DOC("#del")
+
 static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -15,16 +17,17 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `del`",
+                "type `%s` has no function `del`"DEL_DOC_,
                 ti_val_str((ti_val_t *) thing));
         goto done;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `del` takes 1 argument but %d were given", n);
+                "function `del` takes 1 argument but %d were given"DEL_DOC_,
+                nargs);
         goto done;
     }
 
@@ -32,14 +35,15 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `del` can only be used on things with an id > 0; "
-                "(things which are assigned automatically receive an id)");
+                "things which are assigned automatically receive an id"
+                DEL_DOC_);
         goto done;
     }
 
     if (ti_scope_in_use_thing(query->scope->prev, thing))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use `del` while thing "TI_THING_ID" is in use",
+                "cannot use `del` while thing "TI_THING_ID" is in use"DEL_DOC_,
                 thing->id);
         goto done;
     }
@@ -53,7 +57,7 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"DEL_DOC_,
                 ti_val_str(query->rval));
         goto done;
     }
@@ -73,8 +77,8 @@ static int cq__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         else
         {
             ex_set(e, EX_BAD_DATA,
-                    "function `del` expects argument 1 to be a valid name, "
-                    "see "TI_DOCS"#names");
+                    "function `del` expects argument 1 to be a valid name"
+                    TI_SEE_DOC("#names"));
         }
         goto done;
     }

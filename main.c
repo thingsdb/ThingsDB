@@ -3,7 +3,7 @@
  *
  * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
  * home page         : https://thingsdb.net
- * copyright         : 2018, Jeroen van der Heijden
+ * copyright         : 2019, Jeroen van der Heijden
  *
  * This code will be release as open source but the exact license might be
  * changed to something else than MIT.

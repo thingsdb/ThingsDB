@@ -321,6 +321,18 @@ static int ti__cfg_str(
                 *str ? *str : "disabled");
         return 0;
     }
+    if (*option->val->string == '\0')
+    {
+        if (*str)
+            log_warning(
+                    "missing `%s` in `%s` (%s), "
+                    "using default value `%s`",
+                    option_name,
+                    cfg_file,
+                    cfgparser_errmsg(rc),
+                    *str);
+        return 0;
+    }
 
     free(*str);
     *str = strdup(option->val->string);

@@ -10,7 +10,11 @@
 
 #define TI_DEFAULT_CLIENT_PORT 9200
 #define TI_DEFAULT_NODE_PORT 9220
+
+/* HTTP status port binding, 0=disabled, 1-65535=enabled */
 #define TI_DEFAULT_HTTP_STATUS_PORT 0
+
+/* Incremental events are stored until this threshold is reached */
 #define TI_DEFAULT_THRESHOLD_FULL_STORAGE 1000UL
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"

@@ -13,6 +13,15 @@ class Thing:
 
     __strict__ = True
 
+    def id(self):
+        return self._id
+
+    def event_id(self):
+        return self._event_id
+
+    def as_dict(self):
+        return self.__dict__
+
     def _init(self, id, collection):
         self._id = id
         self._collection = collection
@@ -55,9 +64,6 @@ class Thing:
 
     def __getitem__(self, prop):
         return self.__dict__[prop]
-
-    def as_dict(self):
-        return self.__dict__
 
     def _to_wqueue(self):
         self._collection._wqueue.add(self._id)
@@ -147,8 +153,8 @@ class Thing:
                             f'`{self.__class__.__name__}`')
                 setattr(self, nprop, value)
 
-    def _job_splice(self, job):
-        for prop, value in job.items():
+    def _job_splice(self, splice_job):
+        for prop, value in splice_job.items():
             index, count, new, *items = value
             try:
                 arr = getattr(self, prop)
@@ -164,7 +170,29 @@ class Thing:
                         f'item which is not of the specified type')
                 arr[index:index+count] = items
 
+    def _job_add(self, add_job):
+        for prop, things in add_job.items():
+            try:
+                set_ = getattr(self, prop)
+            except AttributeError:
+                logging.debug(
+                    f'cannot use add on property `{prop}` because '
+                    f'the property is missing on `{self}`')
+            else:
+                items, is_valid = self._check(arr.__class__, items)
+                if not is_valid and self.__class__.__strict__:
+                    logging.critical(
+                        f'splice on property `{prop}` on `{self}` got an '
+                        f'item which is not of the specified type')
+                arr[index:index+count] = items
+
+
     async def on_init(self, event_id, data):
+        """Called when an `init-watch` package is received.
+        This method can be implemented be a custom thing but do not forget
+        to make the `super().on_init(event_id, data)` call, unless you know
+        what you are doing.
+        """
         if not self._do_event(event_id):
             return
         self._job_assign(data)
@@ -181,6 +209,11 @@ class Thing:
         self._collection.go_wqueue()
 
     async def on_update(self, event_id, jobs):
+        """Called when an `update-watch` package is received.
+        This method can be implemented be a custom thing but do not forget
+        to make the `super().on_update(event_id, jobs)` call, unless you know
+        what you are doing.
+        """
         if not self._do_event(event_id):
             return
         for job_dict in jobs:
@@ -192,6 +225,11 @@ class Thing:
         self._collection.go_wqueue()
 
     async def on_delete(self):
+        """Called when an `delete-watch` package is received.
+        This method can be implemented be a custom thing but do not forget
+        to make the `super().on_delete()` call, unless you know
+        what you are doing.
+        """
         self._collection._client._things.pop(self._id)
 
     _UPDMAP = {
@@ -199,6 +237,8 @@ class Thing:
         'del': _job_del,
         'rename': _job_rename,
         'splice': _job_splice,
+        'add': _job_add,
+        'remove': job_remove,
     }
 
 

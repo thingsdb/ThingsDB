@@ -10,7 +10,7 @@ static cleri_node_t * closure__node_from_strn(const char * str, size_t n);
 static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n);
 
 /*
- * Return an closure with is bound to the query. The node for this closure can
+ * Return a closure which is bound to the query. The node for this closure can
  * only be used for as long as the 'query' exists in memory. If the closure
  * will be stored for later usage, a call to `ti_closure_unbound` must be
  * made.

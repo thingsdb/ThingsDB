@@ -6,6 +6,10 @@ def array_of(cls):
     return type('ArrayOf', (list, ), {ARRAY_OF: cls})
 
 
+def set_of(cls):
+    return type('SetOf'), (set, ), {SET_OF: cls}
+
+
 def required(cls):
     if isinstance(cls, Thing):
         alt = dict

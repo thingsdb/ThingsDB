@@ -14,12 +14,12 @@ static int varr__to_tuple(ti_varr_t ** varr)
     ti_varr_t * tuple = *varr;
 
     if (tuple->flags & TI_ARR_FLAG_TUPLE)
-        return 0;
+        return 0;  /* tuples cannot change so we do not require a copy */
 
     if (tuple->ref == 1)
     {
         tuple->flags |= TI_ARR_FLAG_TUPLE;
-        return 0;
+        return 0;  /* with only one reference we do not require a copy */
     }
 
     tuple = malloc(sizeof(ti_varr_t));
@@ -76,24 +76,25 @@ void ti_varr_destroy(ti_varr_t * varr)
 
 /*
  * does not increment `*v` reference counter but the value might change to
- * a (new) tuple.
+ * a (new) tuple pointer.
  */
 int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 {
-    assert (ti_varr_is_list(to));
+    assert (ti_varr_is_list(to));  /* `to` must be a list */
     ti_val_t * val = *v;
 
     switch (val->tp)
     {
     case TI_VAL_QP:
-        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
+    case TI_VAL_SET:
+        ex_set(e, EX_BAD_DATA, "cannot add type `%s` to a list",
                 ti_val_str(val));
         return e->nr;
     case TI_VAL_CLOSURE:
         if (ti_closure_wse((ti_closure_t * ) val))
         {
             ex_set(e, EX_BAD_DATA,
-                "an closure function with side effects cannot be assigned");
+                "closure functions with side effects cannot be assigned");
             return e->nr;
         }
         if (ti_closure_unbound((ti_closure_t * ) val))

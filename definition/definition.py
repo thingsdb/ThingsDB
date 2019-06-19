@@ -87,7 +87,6 @@ class Definition(Grammar):
     f_map = Keyword('map')
     f_now = Keyword('now')
     f_refs = Keyword('refs')
-    f_remove = Keyword('remove')
     f_ret = Keyword('ret')
     f_set = Keyword('set')
     f_startswith = Keyword('startswith')
@@ -98,9 +97,11 @@ class Definition(Grammar):
     f_upper = Keyword('upper')
 
     # build-in update functions
+    f_add = Keyword('add')
     f_del = Keyword('del')
     f_pop = Keyword('pop')
     f_push = Keyword('push')
+    f_remove = Keyword('remove')
     f_rename = Keyword('rename')
     f_splice = Keyword('splice')
 
@@ -153,7 +154,6 @@ class Definition(Grammar):
         f_map,          # (closure) -> [return values]
         f_now,          # () -> timestamp as double seconds.nanoseconds
         f_refs,         # () -> reference counter
-        f_remove,       # (closue, alt) -> remove and return first value...
         f_ret,          # () -> nil
         f_set,          # ([]) -> new set
         f_startswith,   # (str) -> bool
@@ -163,9 +163,11 @@ class Definition(Grammar):
         f_try,
         f_upper,        # () -> str
         # build-in `event` functions
+        f_add,
         f_del,
         f_pop,
         f_push,
+        f_remove,       # (closue/thing, alt) -> remove and return first value...
         f_rename,       #
         f_splice,       #
         # any name

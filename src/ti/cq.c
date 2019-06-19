@@ -7,7 +7,6 @@
  *  3. Lazy evaluate each argument
  *
  */
-#include <ti/cfn/fn.h>
 #include <ti/cfn/fnassert.h>
 #include <ti/cfn/fnblob.h>
 #include <ti/cfn/fnbool.h>

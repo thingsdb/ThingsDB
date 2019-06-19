@@ -1,7 +1,6 @@
 /*
  * ti/rq.c
  */
-#include <ti/rfn/fn.h>
 #include <ti/rfn/fncollection.h>
 #include <ti/rfn/fncollections.h>
 #include <ti/rfn/fncounters.h>

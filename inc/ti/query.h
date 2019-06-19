@@ -7,7 +7,7 @@
 enum
 {
     TI_QUERY_FLAG_COLLECTION_EVENT      =1<<0,
-    TI_QUERY_FLAG_ROOT_EVENT            =1<<1,
+    TI_QUERY_FLAG_THINGSDB_EVENT        =1<<1,
     TI_QUERY_FLAG_ROOT_NESTED           =1<<2,
     TI_QUERY_FLAG_OVERFLOW              =1<<3,
     TI_QUERY_FLAG_ALL                   =1<<4,
@@ -92,7 +92,7 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
 {
     return query->flags & (
             TI_QUERY_FLAG_COLLECTION_EVENT |
-            TI_QUERY_FLAG_ROOT_EVENT
+            TI_QUERY_FLAG_THINGSDB_EVENT
     );
 }
 

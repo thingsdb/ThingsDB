@@ -105,6 +105,10 @@ async def test(client):
 
         osdata = OsData(client)
 
+        dutycalls = DutyCalls(client)
+
+        dutycalls.users
+
         print(await client.node())
 
         while True:

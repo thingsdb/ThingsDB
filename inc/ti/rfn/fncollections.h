@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define COLLECTIONS_DOC_ TI_SEE_DOC("#collections")
+
 static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -9,10 +11,10 @@ static int rq__f_collections(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `collections` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `collections` takes 0 arguments but %d %s given"
+                COLLECTIONS_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 

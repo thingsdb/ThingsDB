@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define NEW_NODE_DOC_ TI_SEE_DOC("#new_node")
+
 static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -20,20 +22,20 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     struct in6_addr sa6;
     struct sockaddr_storage addr;
     char * addrstr;
-    int port, n = langdef_nd_n_function_params(nd);
+    int port, nargs = langdef_nd_n_function_params(nd);
 
-    if (n < 2)
+    if (nargs < 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` requires at least 2 arguments but %d %s given",
-            n, n == 1 ? "was" : "were");
+            "function `new_node` requires at least 2 arguments but %d %s given"
+            NEW_NODE_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
-    else if (n > 3)
+    else if (nargs > 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_node` takes at most 3 arguments but %d were given",
-            n);
+            "function `new_node` takes at most 3 arguments but %d were given"
+            NEW_NODE_DOC_, nargs);
         return e->nr;
     }
 
@@ -45,7 +47,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_NODE_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -55,7 +57,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "a `secret` is required "
-            "and should only contain graphical characters");
+            "and should only contain graphical characters"NEW_NODE_DOC_);
         return e->nr;
     }
 
@@ -77,7 +79,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_node` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_NODE_DOC_,
             ti_val_str(query->rval));
         goto fail0;
     }
@@ -98,7 +100,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (n == 3)
+    if (nargs == 3)
     {
         int64_t iport;
         ti_val_drop(query->rval);
@@ -113,7 +115,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                 "function `new_node` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"NEW_NODE_DOC_,
                 ti_val_str(query->rval));
             goto fail1;
         }

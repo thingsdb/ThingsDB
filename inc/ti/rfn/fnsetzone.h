@@ -1,9 +1,11 @@
 #include <ti/rfn/fn.h>
 
+#define SET_ZONE_DOC_ TI_SEE_DOC("#set_zone")
+
 static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_node(query, nd, e));
-    assert (!query->ev);
+    assert (!query->ev);    /* node queries do never create an event */
     assert (e->nr == 0);
     assert (query->rval == NULL);
 
@@ -17,10 +19,10 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `set_zone` takes 1 argument but %d were given",
-                n);
+                "function `set_zone` takes 1 argument but %d were given"
+                SET_ZONE_DOC_, nargs);
         return e->nr;
     }
 
@@ -31,7 +33,7 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_zone` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"SET_ZONE_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -41,8 +43,8 @@ static int rq__f_set_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (izone < 0 || izone > 0xff)
     {
         ex_set(e, EX_BAD_DATA,
-            "`zone` should be an integer between 0 and 255, got %"PRId64,
-            izone);
+            "`zone` should be an integer between 0 and 255, got %"PRId64
+            SET_ZONE_DOC_, izone);
         return e->nr;
     }
 

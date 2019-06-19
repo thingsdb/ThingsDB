@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define ID_DOC_ TI_SEE_DOC("#id")
+
 static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -10,17 +12,17 @@ static int cq__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `id`",
+                "type `%s` has no function `id`"ID_DOC_,
                 ti_val_str((ti_val_t *) thing));
         goto done;
     }
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `id` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `id` takes 0 arguments but %d %s given"ID_DOC_,
+                nargs, nargs == 1 ? "was" : "were");
         goto done;
     }
 

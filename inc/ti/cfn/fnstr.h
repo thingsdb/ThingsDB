@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define STR_DOC_ TI_SEE_DOC("#str")
+
 static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -15,8 +17,8 @@ static int cq__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
         ex_set(e, EX_BAD_DATA,
-                "function `str` takes at most 1 argument but %d were given",
-                nargs);
+                "function `str` takes at most 1 argument but %d were given"
+                STR_DOC_, nargs);
         return e->nr;
     }
 

@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define NEW_USER_DOC_ TI_SEE_DOC("#new_user")
+
 static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -9,17 +11,17 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     char * passstr = NULL;
-    int n;
+    int nargs;
     ti_user_t * nuser;
     ti_raw_t * rname;
     ti_task_t * task;
 
-    n = langdef_nd_n_function_params(nd);
-    if (n != 2)
+    nargs = langdef_nd_n_function_params(nd);
+    if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `new_user` requires 2 arguments but %d %s given",
-            n, n == 1 ? "was" : "were");
+            "function `new_user` requires 2 arguments but %d %s given"
+            NEW_USER_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -30,7 +32,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_USER_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -45,7 +47,7 @@ static int rq__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `new_user` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_USER_DOC_,
             ti_val_str(query->rval));
         goto done;
     }

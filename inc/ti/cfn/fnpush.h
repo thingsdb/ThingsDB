@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define PUSH_DOC_ TI_SEE_DOC("#push")
+
 static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -15,7 +17,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `push`",
+                "type `%s` has no function `push`"PUSH_DOC_,
                 ti_val_str((ti_val_t *) varr));
         goto done;
     }
@@ -24,14 +26,14 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least 1 argument but 0 "
-                "were given");
+                "were given"PUSH_DOC_);
         goto done;
     }
 
     if (from_scope && ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use function `push` while the list is in use");
+            "cannot use function `push` while the list is in use"PUSH_DOC_);
         goto done;
     }
 

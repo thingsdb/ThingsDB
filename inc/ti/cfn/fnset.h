@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define SET_DOC_ TI_SEE_DOC("#set")
+
 static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -11,7 +13,7 @@ static int cq__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `set` takes at most 1 argument but %d "
-                "were given", nargs);
+                "were given"SET_DOC_, nargs);
         return e->nr;
     }
 

@@ -1,9 +1,11 @@
 #include <ti/rfn/fn.h>
 
+#define SET_LOGLEVEL_DOC_ TI_SEE_DOC("#set_loglevel")
+
 static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_node(query, nd, e));
-    assert (!query->ev);
+    assert (!query->ev);    /* node queries do never create an event */
     assert (e->nr == 0);
     assert (query->rval == NULL);
     int log_level;
@@ -16,10 +18,10 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `set_loglevel` takes 1 argument but %d were given",
-                n);
+                "function `set_loglevel` takes 1 argument but %d were given"
+                SET_LOGLEVEL_DOC_, nargs);
         return e->nr;
     }
 
@@ -30,7 +32,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_loglevel` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead",
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"SET_LOGLEVEL_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }

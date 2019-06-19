@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define DEL_COLLECTION_DOC_ TI_SEE_DOC("#del_collection")
+
 static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -14,10 +16,10 @@ static int rq__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `del_collection` takes 1 argument but %d were given",
-                n);
+                "function `del_collection` takes 1 argument but %d were given"
+                DEL_COLLECTION_DOC_, nargs);
         return e->nr;
     }
 

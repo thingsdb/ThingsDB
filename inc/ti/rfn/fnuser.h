@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define USER_DOC_ TI_SEE_DOC("#user")
+
 static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -12,10 +14,10 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `user` takes 1 argument but %d were given",
-                n);
+                "function `user` takes 1 argument but %d were given"USER_DOC_,
+                nargs);
         return e->nr;
     }
 
@@ -26,7 +28,7 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"USER_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }

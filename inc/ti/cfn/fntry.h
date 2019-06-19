@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define TRY_DOC_ TI_SEE_DOC("#try")
+
 static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -14,7 +16,7 @@ static int cq__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `try` requires at least 1 argument but 0 "
-                "were given");
+                "were given"TRY_DOC_);
         return e->nr;
     }
 

@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define REMOVE_DOC_ TI_SEE_DOC("#remove")
+
 static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -16,7 +18,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `remove`",
+                "type `%s` has no function `remove`"REMOVE_DOC_,
                 ti_val_str((ti_val_t *) varr));
         goto done;
     }
@@ -25,7 +27,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` requires at least 1 argument but 0 "
-                "were given");
+                "were given"REMOVE_DOC_);
         goto done;
     }
 
@@ -33,14 +35,15 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` takes at most 2 arguments but %d "
-                "were given", nargs);
+                "were given"REMOVE_DOC_, nargs);
         goto done;
     }
 
     if (from_scope && ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
-                "cannot use function `remove` while the list is in use");
+                "cannot use function `remove` while the list is in use"
+                REMOVE_DOC_);
         goto done;
     }
 
@@ -54,7 +57,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"REMOVE_DOC_,
                 ti_val_str((ti_val_t *) closure));
         goto done;
     }

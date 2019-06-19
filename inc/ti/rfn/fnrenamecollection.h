@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define RENAME_COLLECTION_DOC_ TI_SEE_DOC("#rename_collection")
+
 static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -8,17 +10,17 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
-    int n;
+    int nargs;
     ti_task_t * task;
     ti_collection_t * collection;
 
-    n = langdef_nd_n_function_params(nd);
-    if (n != 2)
+    nargs = langdef_nd_n_function_params(nd);
+    if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_collection` requires 2 arguments "
-            "but %d %s given",
-            n, n == 1 ? "was" : "were");
+            "but %d %s given"RENAME_COLLECTION_DOC_,
+            nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -38,8 +40,8 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     {
         ex_set(e, EX_BAD_DATA,
             "function `rename_collection` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
-            ti_val_str(query->rval));
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+            RENAME_COLLECTION_DOC_, ti_val_str(query->rval));
         return e->nr;
     }
 

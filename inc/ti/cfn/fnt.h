@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define T_DOC_ TI_SEE_DOC("#t")
+
 static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -13,7 +15,7 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `t` requires at least 1 argument but 0 "
-                "were given");
+                "were given"T_DOC_);
         return e->nr;
     }
 
@@ -32,7 +34,7 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                 "function `t` expects argument %d to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"T_DOC_,
                 arg, ti_val_str(query->rval));
             goto failed;
         }
@@ -63,14 +65,14 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_scope_push_thing(&query->scope, thing))
                     ex_set_alloc(e);
 
-                return e->nr; /* only one thing, no array */
+                return e->nr;  /* only one thing, no `varr` array */
             }
 
             varr = ti_varr_create(nargs);
             if (!varr)
             {
                 ex_set_alloc(e);
-                return e->nr;
+                return e->nr;  /* save to return, `varr` is not created */
             }
         }
 

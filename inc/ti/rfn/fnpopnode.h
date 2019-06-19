@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define POP_NODE_DOC_ TI_SEE_DOC("#pop_node")
+
 static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -14,10 +16,10 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `pop_node` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `pop_node` takes 0 arguments but %d %s given"
+                POP_NODE_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -27,8 +29,8 @@ static int rq__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (node->status >= TI_NODE_STAT_SYNCHRONIZING)
     {
         ex_set(e, EX_NODE_ERROR,
-                TI_NODE_ID" is still active, shutdown the node before removal",
-                node->id);
+                TI_NODE_ID" is still active, shutdown the node before removal"
+                POP_NODE_DOC_, node->id);
         return e->nr;
     }
 

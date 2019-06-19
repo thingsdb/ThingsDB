@@ -1,5 +1,7 @@
 #include <ti/rfn/fn.h>
 
+#define SET_QUOTA_DOC_ TI_SEE_DOC("#set_quota")
+
 static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_thingsdb(query, nd, e));
@@ -14,14 +16,14 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_collection_t * collection;
     ti_task_t * task;
     uint64_t collection_id;
-    int n = langdef_nd_n_function_params(nd);
+    int nargs = langdef_nd_n_function_params(nd);
 
-    if (n != 3)
+    if (nargs != 3)
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `quota` takes 3 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `quota` takes 3 arguments but %d %s given"
+                SET_QUOTA_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -44,7 +46,7 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
             "function `quota` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead",
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_QUOTA_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -63,8 +65,8 @@ static int rq__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_int(query->rval) && !ti_val_is_nil(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-            "function `quota` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` or "TI_VAL_NIL_S"` but got type `%s` instead",
+            "function `quota` expects argument 3 to be of type `"TI_VAL_INT_S
+            "` or "TI_VAL_NIL_S"` but got type `%s` instead"SET_QUOTA_DOC_,
             ti_val_str(query->rval));
         return e->nr;
     }

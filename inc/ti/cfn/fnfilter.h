@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define FILTER_DOC_ TI_SEE_DOC("#filter")
+
 static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -12,16 +14,17 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (iterval->tp != TI_VAL_ARR && iterval->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `filter`",
+                "type `%s` has no function `filter`"FILTER_DOC_,
                 ti_val_str(iterval));
         goto failed;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `filter` takes 1 argument but %d were given", n);
+                "function `filter` takes 1 argument but %d were given"
+                FILTER_DOC_, nargs);
         goto failed;
     }
 
@@ -35,7 +38,7 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `filter` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead",
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FILTER_DOC_,
                 ti_val_str((ti_val_t *) closure));
         goto failed;
     }

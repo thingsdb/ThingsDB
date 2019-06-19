@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define INDEXOF_DOC_ TI_SEE_DOC("#indexof")
+
 static int cq__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -11,16 +13,17 @@ static int cq__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list((ti_val_t *) varr))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `indexof`",
+                "type `%s` has no function `indexof`"INDEXOF_DOC_,
                 ti_val_str((ti_val_t *) varr));
         goto done;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `indexof` takes 1 argument but %d were given", n);
+                "function `indexof` takes 1 argument but %d were given"
+                INDEXOF_DOC_, nargs);
         goto done;
     }
 

@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define BLOB_DOC_ TI_SEE_DOC("#blob")
+
 static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -10,9 +12,10 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `blob` takes 1 argument but %d were given", n);
+                "function `blob` takes 1 argument but %d were given"BLOB_DOC_,
+                nargs);
         return e->nr;
     }
 
@@ -23,7 +26,7 @@ static int cq__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `blob` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"BLOB_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }

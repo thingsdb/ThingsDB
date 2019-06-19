@@ -1,9 +1,11 @@
 #include <ti/rfn/fn.h>
 
+#define RESET_COUNTERS_DOC_ TI_SEE_DOC("#reset_counters")
+
 static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (!rq__is_not_node(query, nd, e));
-    assert (!query->ev);
+    assert (!query->ev);    /* node queries do never create an event */
     assert (e->nr == 0);
     assert (query->rval == NULL);
 
@@ -14,10 +16,10 @@ static int rq__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `reset_counters` takes 0 arguments but %d %s given",
-                n, n == 1 ? "was" : "were");
+                "function `reset_counters` takes 0 arguments but %d %s given"
+                RESET_COUNTERS_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 

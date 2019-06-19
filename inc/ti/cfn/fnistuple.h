@@ -1,5 +1,7 @@
 #include <ti/cfn/fn.h>
 
+#define ISTUPLE_DOC_ TI_SEE_DOC("#istuple")
+
 static int cq__f_istuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -9,9 +11,10 @@ static int cq__f_istuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
-        int n = langdef_nd_n_function_params(nd);
+        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `istuple` takes 1 argument but %d were given", n);
+                "function `istuple` takes 1 argument but %d were given"
+                ISTUPLE_DOC_, nargs);
         return e->nr;
     }
 

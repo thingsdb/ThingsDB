@@ -51,7 +51,7 @@ void ti_closure_destroy(ti_closure_t * closure)
     if (!closure)
         return;
 
-    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
+    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
     {
         free(closure->node->data);
         cleri__node_free(closure->node);
@@ -64,8 +64,8 @@ int ti_closure_unbound(ti_closure_t * closure)
 {
     cleri_node_t * node;
 
-    assert (~closure->flags & TI_CLOSURE_FLAG_WSE);
-    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
+    assert (~closure->flags & TI_VFLAG_CLOSURE_WSE);
+    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
         return 0;
 
     node = closure__node_from_strn(closure->node->str, closure->node->len);
@@ -73,7 +73,7 @@ int ti_closure_unbound(ti_closure_t * closure)
         return -1;
 
     closure->node = node;
-    closure->flags &= ~TI_CLOSURE_FLAG_QBOUND;
+    closure->flags &= ~TI_VFLAG_CLOSURE_QBOUND;
 
     return 0;
 }
@@ -83,7 +83,7 @@ int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
+    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
     {
         return -(
             qp_add_map(packer) ||
@@ -115,7 +115,7 @@ int ti_closure_to_file(ti_closure_t * closure, FILE * f)
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~closure->flags & TI_CLOSURE_FLAG_QBOUND)
+    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
     {
         return -(
             qp_fadd_type(f, QP_MAP1) ||

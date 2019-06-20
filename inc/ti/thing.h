@@ -4,12 +4,6 @@
 #ifndef TI_THING_H_
 #define TI_THING_H_
 
-enum
-{
-    TI_THING_FLAG_SWEEP     =1<<0,
-    TI_THING_FLAG_NEW       =1<<1,
-};
-
 typedef struct ti_thing_s  ti_thing_t;
 
 #include <qpack.h>
@@ -90,15 +84,15 @@ static inline int ti_thing_to_map(ti_thing_t * thing)
 
 static inline _Bool ti_thing_is_new(ti_thing_t * thing)
 {
-    return thing->flags & TI_THING_FLAG_NEW;
+    return thing->flags & TI_VFLAG_THING_NEW;
 }
 static inline void ti_thing_mark_new(ti_thing_t * thing)
 {
-    thing->flags |= TI_THING_FLAG_NEW;
+    thing->flags |= TI_VFLAG_THING_NEW;
 }
 static inline void ti_thing_unmark_new(ti_thing_t * thing)
 {
-    thing->flags &= ~TI_THING_FLAG_NEW;
+    thing->flags &= ~TI_VFLAG_THING_NEW;
 }
 static inline uint64_t ti_thing_key(ti_thing_t * thing)
 {

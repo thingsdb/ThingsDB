@@ -266,3 +266,30 @@ if __name__ == '__main__':
         hfile.write(h)
 
     print('Finished export to c')
+
+
+'''
+users.filter(
+    |user| (
+        user.memberships.find(
+            |membership| (
+                membership.workspace == t(22)
+            )
+        ).channels.indexof(t(29)) != nil))
+
+
+'''
+
+'''
+channel = {channel: 'Test'};
+workspace = {
+    channels = [
+        channel
+    ]
+};
+user = {
+    name: 'iris',
+    memberships: [{
+        workspace: workspace
+    }]
+}

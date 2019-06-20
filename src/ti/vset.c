@@ -16,6 +16,7 @@ ti_vset_t * ti_vset_create(void)
 
     vset->ref = 1;
     vset->tp = TI_VAL_SET;
+    vset->flags = TI_VFLAG_UNASSIGNED;
 
     vset->imap = imap_create();
     if (!vset->imap)
@@ -87,7 +88,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     ti_vset_t * vset = *vsetaddr;
 
     if (vset->ref == 1)
-        return 0;
+        goto done;
 
     if (!(vec = imap_vec(vset->imap)) ||
         !(vset = ti_vset_create()))
@@ -106,6 +107,8 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     ti_decref(*vsetaddr);
     *vsetaddr = vset;
 
+done:
+    ti_vset_set_assigned(vset);
     return 0;
 }
 

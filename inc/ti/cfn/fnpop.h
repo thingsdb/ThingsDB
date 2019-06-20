@@ -8,7 +8,6 @@ static int cq__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    _Bool from_scope = !query->rval;
     ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
 
     if (!ti_val_is_list((ti_val_t *) varr))
@@ -28,7 +27,8 @@ static int cq__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (from_scope && ti_scope_current_val_in_use(query->scope))
+    LOGC("Scope name: %s", query->scope->name ? query->scope->name->str : "not set");
+    if (ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
                 "cannot use function `pop` while the list is in use"POP_DOC_);

@@ -16,13 +16,16 @@ typedef struct ti_scope_s ti_scope_t;
 
 ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing);
 void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until);
-int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val);
-int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing);
+
 _Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing);
 _Bool ti_scope_in_use_name(
         ti_scope_t * scope,
         ti_thing_t * thing,
         ti_name_t * name);
+_Bool ti_scope_in_use_val(
+        ti_scope_t * scope,
+        ti_thing_t * thing,
+        ti_val_t * val);
 int ti_scope_local_from_closure(
         ti_scope_t * scope,
         ti_closure_t * closure,
@@ -31,45 +34,41 @@ ti_val_t *  ti_scope_find_local_val(ti_scope_t * scope, ti_name_t * name);
 ti_val_t *  ti_scope_local_val(ti_scope_t * scope, ti_name_t * name);
 int ti_scope_polute_prop(ti_scope_t * scope, ti_prop_t * prop);
 int ti_scope_polute_val(ti_scope_t * scope, ti_val_t * val, int64_t idx);
+static inline void ti_scope_set_name_val(
+        ti_scope_t * scope,
+        ti_name_t * name,
+        ti_val_t * val);
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
-static inline _Bool ti_scope_is_thing(ti_scope_t * scope);
-static inline _Bool ti_scope_is_raw(ti_scope_t * scope);
 static inline _Bool ti_scope_has_local_name(
         ti_scope_t * scope,
         ti_name_t * name);
-static inline ti_val_t * ti_scope_weak_get_val(ti_scope_t * scope);
 
 struct ti_scope_s
 {
     ti_scope_t * prev;
     ti_thing_t * thing; /* with reference */
     ti_name_t * name;   /* weak reference to name or NULL */
-    ti_val_t * val;     /* weak reference to value */
+    ti_val_t * val;     /* weak reference to val or NULL */
     vec_t * local;      /* ti_prop_t (local props closure functions */
 };
 
-
-static inline ti_val_t * ti_scope_weak_get_val(ti_scope_t * scope)
+static inline void ti_scope_set_name_val(
+        ti_scope_t * scope,
+        ti_name_t * name,
+        ti_val_t * val)
 {
-    return scope->name ? scope->val : (ti_val_t *) scope->thing;
-}
+    assert (scope->name == NULL);
+    assert (scope->val == NULL);
 
-static inline _Bool ti_scope_is_thing(ti_scope_t * scope)
-{
-    assert (scope->thing);
-    return !scope->name;
-}
-
-static inline _Bool ti_scope_is_raw(ti_scope_t * scope)
-{
-    return scope->name && ti_val_is_raw(scope->val);
+    scope->name = name;
+    scope->val = val;
 }
 
 static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope)
 {
-    return !scope->val
+    return !scope->name
             ? false
-            : ti_scope_in_use_name(scope->prev, scope->thing, scope->name);
+            : ti_scope_in_use_val(scope->prev, scope->thing, scope->val);
 }
 
 /* only in the current scope */

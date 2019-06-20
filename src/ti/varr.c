@@ -13,12 +13,12 @@ static int varr__to_tuple(ti_varr_t ** varr)
 {
     ti_varr_t * tuple = *varr;
 
-    if (tuple->flags & TI_ARR_FLAG_TUPLE)
+    if (tuple->flags & TI_VFLAG_ARR_TUPLE)
         return 0;
 
     if (tuple->ref == 1)
     {
-        tuple->flags |= TI_ARR_FLAG_TUPLE;
+        tuple->flags |= TI_VFLAG_ARR_TUPLE;
         return 0;
     }
 
@@ -28,7 +28,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_ARR_FLAG_TUPLE | ((*varr)->flags & TI_ARR_FLAG_THINGS);
+    tuple->flags = TI_VFLAG_ARR_TUPLE | ((*varr)->flags & TI_VFLAG_ARR_MHT);
     tuple->vec = vec_dup((*varr)->vec);
 
     if (!tuple->vec)
@@ -54,7 +54,7 @@ ti_varr_t * ti_varr_create(size_t sz)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = 0;
+    varr->flags = TI_VFLAG_UNASSIGNED;
 
     varr->vec = vec_new(sz);
     if (!varr->vec)
@@ -112,10 +112,10 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
             }
             val = *v;
         }
-        to->flags |= ((ti_varr_t *) val)->flags & TI_ARR_FLAG_THINGS;
+        to->flags |= ((ti_varr_t *) val)->flags & TI_VFLAG_ARR_MHT;
         break;
     case TI_VAL_THING:
-        to->flags |= TI_ARR_FLAG_THINGS;
+        to->flags |= TI_VFLAG_ARR_MHT;
         break;
     }
 
@@ -134,7 +134,7 @@ _Bool ti_varr_has_things(ti_varr_t * varr)
                 return true;
 
         /* Remove the flag since no `things` are found in the array */
-        varr->flags &= ~TI_ARR_FLAG_THINGS;
+        varr->flags &= ~TI_VFLAG_ARR_MHT;
     }
     return false;
 }
@@ -147,7 +147,8 @@ int ti_varr_to_list(ti_varr_t ** varr)
     {
         /* This can never happen to a tuple since a tuple is always nested
          * and therefore always has more than one reference */
-        assert (~list->flags & TI_ARR_FLAG_TUPLE);
+        assert (~list->flags & TI_VFLAG_ARR_TUPLE);
+        ti_varr_set_assigned(list);
         return 0;
     }
 
@@ -157,7 +158,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_ARR_FLAG_THINGS;
+    list->flags = (*varr)->flags & TI_VFLAG_ARR_MHT;
     list->vec = vec_dup((*varr)->vec);
 
     if (!list->vec)

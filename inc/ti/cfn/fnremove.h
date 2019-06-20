@@ -8,7 +8,6 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    _Bool from_scope = !query->rval;
     _Bool found;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
@@ -39,7 +38,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (from_scope && ti_scope_current_val_in_use(query->scope))
+    if (ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
                 "cannot use function `remove` while the list is in use"

@@ -36,6 +36,17 @@ typedef enum
 #define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
 
+enum
+{
+    TI_VFLAG_THING_SWEEP     =1<<0,      /* marked for sweep */
+    TI_VFLAG_THING_NEW       =1<<1,      /* thing is new */
+    TI_VFLAG_CLOSURE_QBOUND  =1<<2,      /* closure bound to query string */
+    TI_VFLAG_CLOSURE_WSE     =1<<3,      /* closure with side effects */
+    TI_VFLAG_ARR_TUPLE       =1<<4,      /* array is immutable */
+    TI_VFLAG_ARR_MHT         =1<<5,      /* array may-have-things */
+    TI_VFLAG_UNASSIGNED      =1<<6,      /* set or list is not assigned */
+};
+
 typedef enum
 {
     TI_VAL_KIND_THING   ='#',
@@ -94,11 +105,12 @@ static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
 
+
 struct ti_val_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _pad8;
+    uint8_t flags;
     uint16_t _pad16;
 };
 

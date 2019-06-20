@@ -22,7 +22,7 @@ static void things__gc_mark_varr(ti_varr_t * varr)
         case TI_VAL_THING:
         {
             ti_thing_t * thing = (ti_thing_t *) val;
-            if (thing->flags & TI_THING_FLAG_SWEEP)
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
                 things__gc_mark_thing(thing);
             continue;
         }
@@ -40,7 +40,7 @@ static void things__gc_mark_varr(ti_varr_t * varr)
 
 static void things__gc_mark_thing(ti_thing_t * thing)
 {
-    thing->flags &= ~TI_THING_FLAG_SWEEP;
+    thing->flags &= ~TI_VFLAG_THING_SWEEP;
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         switch(prop->val->tp)
@@ -48,7 +48,7 @@ static void things__gc_mark_thing(ti_thing_t * thing)
         case TI_VAL_THING:
         {
             ti_thing_t * thing = (ti_thing_t *) prop->val;
-            if (thing->flags & TI_THING_FLAG_SWEEP)
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
                 things__gc_mark_thing(thing);
             continue;
         }
@@ -143,26 +143,26 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     (void) ti_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->flags & TI_THING_FLAG_SWEEP)
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
             thing->ref = 0;
 
     (void) ti_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->flags & TI_THING_FLAG_SWEEP)
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
             ti_thing_clear(thing);
 
     (void) ti_sleep(100);
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        if (thing->flags & TI_THING_FLAG_SWEEP)
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
         {
             ++n;
             ti_thing_destroy(thing);
             continue;
         }
-        thing->flags |= TI_THING_FLAG_SWEEP;
+        thing->flags |= TI_VFLAG_THING_SWEEP;
     }
 
     free(things_vec);

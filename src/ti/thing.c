@@ -79,7 +79,7 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
-    thing->flags = TI_THING_FLAG_SWEEP;
+    thing->flags = TI_VFLAG_THING_SWEEP;
 
     thing->id = id;
     thing->things = things;

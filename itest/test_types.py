@@ -50,7 +50,7 @@ class TestTypes(TestBase):
             blob(0);
         ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
 
-    async def test_thing(self, client):
+    async def _test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];
         '''), [0, 0])

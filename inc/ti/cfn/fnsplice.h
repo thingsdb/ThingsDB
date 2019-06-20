@@ -8,7 +8,6 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    _Bool from_scope = !query->rval;
     int32_t n, x, l;
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
@@ -34,7 +33,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (from_scope && ti_scope_current_val_in_use(query->scope))
+    if (ti_scope_current_val_in_use(query->scope))
     {
         ex_set(e, EX_BAD_DATA,
                 "cannot use function `splice` while the list is in use"

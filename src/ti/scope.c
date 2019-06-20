@@ -19,8 +19,7 @@ ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing)
 
     nscope->prev = scope;
     nscope->thing = ti_grab(thing);
-    nscope->name = NULL;
-    nscope->val = NULL;
+    nscope->name = nscope->val = NULL;
     nscope->local = NULL;
 
     return nscope;
@@ -42,29 +41,6 @@ void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until)
     *scope = until;
 }
 
-int ti_scope_push_name(ti_scope_t ** scope, ti_name_t * name, ti_val_t * val)
-{
-    assert ((*scope)->name == NULL);
-    assert ((*scope)->val == NULL);
-
-    (*scope)->name = name;
-    (*scope)->val = val;
-
-    return (val->tp == TI_VAL_THING)
-            ? ti_scope_push_thing(scope, (ti_thing_t *) val)
-            : 0;
-}
-
-int ti_scope_push_thing(ti_scope_t ** scope, ti_thing_t * thing)
-{
-    ti_scope_t * nscope = ti_scope_enter(*scope, thing);
-    if (!nscope)
-        return -1;
-
-    *scope = nscope;
-    return 0;
-}
-
 _Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing)
 {
     for (; scope; scope = scope->prev)
@@ -79,8 +55,23 @@ _Bool ti_scope_in_use_name(
         ti_name_t * name)
 {
     for (; scope; scope = scope->prev)
+    {
         if (scope->thing == thing && scope->name == name)
             return true;
+    }
+    return false;
+}
+
+_Bool ti_scope_in_use_val(
+        ti_scope_t * scope,
+        ti_thing_t * thing,
+        ti_val_t * val)
+{
+    for (; scope; scope = scope->prev)
+    {
+        if (scope->thing == thing && scope->val == val)
+            return true;
+    }
     return false;
 }
 

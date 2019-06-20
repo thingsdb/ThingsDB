@@ -622,7 +622,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
         return ti_regex_to_packer((ti_regex_t *) val, pckr);
     case TI_VAL_THING:
         /*
-         * TI_VAL_PACK_NEW and TI_THING_FLAG_NEW are used for tasks.
+         * TI_VAL_PACK_NEW and TI_VFLAG_THING_NEW are used for tasks.
          * Tasks require the complete `new` thing so they can be created by
          * all nodes.
          */
@@ -828,12 +828,12 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     assert (ti_varr_is_list(varr));
 
     if (ti_val_is_list(val))
-        ((ti_varr_t *) val)->flags |= TI_ARR_FLAG_TUPLE;
+        ((ti_varr_t *) val)->flags |= TI_VFLAG_ARR_TUPLE;
 
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_THING:
-        varr->flags |= TI_ARR_FLAG_THINGS;
+        varr->flags |= TI_VFLAG_ARR_MHT;
         break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -878,6 +878,7 @@ static ti_val_t * val__from_unp(
         ti_varr_t * varr = ti_varr_create(sz);
         if (!varr)
             return NULL;
+        ti_varr_set_assigned(varr);
 
         while (sz--)
         {

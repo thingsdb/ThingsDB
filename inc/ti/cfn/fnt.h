@@ -62,8 +62,6 @@ static int cq__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 assert (nargs == 1);
                 ti_incref(thing);
                 query->rval = (ti_val_t *) thing;
-                if (ti_scope_push_thing(&query->scope, thing))
-                    ex_set_alloc(e);
 
                 return e->nr;  /* only one thing, no `varr` array */
             }

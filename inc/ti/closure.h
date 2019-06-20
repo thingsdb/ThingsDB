@@ -4,19 +4,13 @@
 #ifndef TI_CLOSURE_H_
 #define TI_CLOSURE_H_
 
-enum
-{
-    TI_CLOSURE_FLAG_QBOUND        =1<<0,      /* bound to query string */
-    TI_CLOSURE_FLAG_WSE           =1<<1,      /* with side effects */
-};
-
 typedef struct ti_closure_s ti_closure_t;
 
 #include <stdint.h>
 #include <cleri/cleri.h>
 #include <qpack.h>
 #include <ti.h>
-
+#include <ti/val.h>
 
 ti_closure_t * ti_closure_from_node(cleri_node_t * node);
 ti_closure_t * ti_closure_from_strn(const char * str, size_t n);
@@ -41,7 +35,7 @@ static inline _Bool ti_closure_wse(ti_closure_t * closure)
 {
     return (
         closure->node->str != closure->node->data &&
-        (((intptr_t) closure->node->data) & TI_CLOSURE_FLAG_WSE)
+        (((uintptr_t) closure->node->data) & TI_VFLAG_CLOSURE_WSE)
     );
 }
 

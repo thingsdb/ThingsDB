@@ -189,8 +189,8 @@ static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
 
             nd->data = (void *) ((uintptr_t) (
                     query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
-                        ? TI_CLOSURE_FLAG_QBOUND|TI_CLOSURE_FLAG_WSE
-                        : TI_CLOSURE_FLAG_QBOUND));
+                        ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
+                        : TI_VFLAG_CLOSURE_QBOUND));
 
             query->flags |= flags;
         }
@@ -814,24 +814,10 @@ ti_val_t * ti_query_val_pop(ti_query_t * query)
         return val;
     }
 
-    if (query->scope->val)
-    {
-        ti_incref(query->scope->val);
-        return query->scope->val;
-    }
+    assert (query->scope->name == NULL);
 
     ti_incref(query->scope->thing);
     return (ti_val_t *) query->scope->thing;
-}
-
-const char * ti_query_val_str(ti_query_t * query)
-{
-    return query->rval
-            ? ti_val_str(query->rval)
-            : (query->scope->val
-                    ? ti_val_str(query->scope->val)
-                    : TI_VAL_THING_S
-            );
 }
 
 ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)

@@ -459,13 +459,6 @@ static int cq__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto done;
         }
 
-        if (query->rval->tp == TI_VAL_THING &&
-            ti_scope_push_thing(&query->scope, (ti_thing_t *) query->rval))
-        {
-            ex_set_alloc(e);
-            goto done;
-        }
-
         if (!child->next)
             break;
 
@@ -509,8 +502,8 @@ static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_scope_push_name(&query->scope, name, val))
-        ex_set_alloc(e);
+    ti_scope_set_name_val(query->scope, name, val);
+
 
 done:
     ti_val_drop((ti_val_t *) thing);
@@ -521,6 +514,7 @@ done:
 static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+    assert (query->rval);
 
     cleri_children_t * child = nd           /* sequence */
                     ->children->next;       /* first is .(dot), next choice */
@@ -528,6 +522,21 @@ static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node = child->node       /* choice */
             ->children->node;               /* function, assignment,
                                                name */
+
+    if (ti_val_is_thing(query->rval))
+    {
+        ti_scope_t * tmp_scope = ti_scope_enter(
+                query->scope,
+                (ti_thing_t *) query->rval);
+
+        if (!tmp_scope)
+        {
+            ex_set_alloc(e);
+            return e->nr;
+        }
+
+        query->scope = tmp_scope;
+    }
 
     switch (node->cl_obj->gid)
     {
@@ -731,14 +740,17 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
-    assert (ti_scope_is_thing(query->scope));
+    assert (query->rval == NULL);
 
     ti_name_t * name;
     ti_val_t * val;
 
     name = ti_names_weak_get(nd->str, nd->len);
+
+    /* first try to find the name in a local scopes */
     val = name ? ti_scope_find_local_val(query->scope, name) : NULL;
 
+    /* next, try the root in case the `name` is not found */
     if (!val && name)
         val = ti_thing_prop_weak_get(query->target->root, name);
 
@@ -750,8 +762,11 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_push_name(&query->scope, name, val))
-        ex_set_alloc(e);
+    ti_scope_set_name(query->scope, name);
+
+    /* set the query return value */
+    query->rval = val;
+    ti_incref(val);
 
     return e->nr;
 }
@@ -823,9 +838,6 @@ static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (ti_scope_push_thing(&query->scope, thing))
-        goto alloc_err;
-
     query->rval = (ti_val_t *) thing;
     return 0;
 
@@ -843,7 +855,7 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_TMP);
     assert (nd->len >= 2);
     assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
-    assert (ti_scope_is_thing(query->scope));
+    assert (query->rval == NULL);
 
     ti_name_t * name;
     ti_prop_t * prop;
@@ -859,11 +871,11 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_scope_push_name(&query->scope, name, prop->val))
-        ex_set_alloc(e);
+    ti_scope_set_name(query->scope, name);
 
-    ti_val_drop(query->rval);
-    query->rval = NULL;
+    /* set the query return value */
+    query->rval = prop->val;
+    ti_incref(query->rval);
 
     return e->nr;
 }
@@ -1070,14 +1082,16 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (node->children && cq__index(query, node, e))
         goto onerror;
 
+    /* chain */
     if (child->next && cq__chain(query, child->next->node, e))
         goto onerror;
 
-    if (!query->rval)
-    {
-        query->rval = ti_scope_weak_get_val(query->scope);
-        ti_incref(query->rval);
-    }
+    assert(query->rval);
+//    if (!query->rval)
+//    {
+//        query->rval = ti_scope_weak_get_val(query->scope);
+//        ti_incref(query->rval);
+//    }
 
     if (nots)
     {

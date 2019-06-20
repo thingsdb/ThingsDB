@@ -29,7 +29,8 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_scope_current_val_in_use(query->scope))
+    if (ti_varr_is_assigned(varr) &&
+        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot use function `push` while the list is in use"PUSH_DOC_);
@@ -71,7 +72,7 @@ static int cq__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (from_scope)
+    if (ti_varr_is_assigned(varr))
     {
         ti_task_t * task;
         assert (query->scope->thing);

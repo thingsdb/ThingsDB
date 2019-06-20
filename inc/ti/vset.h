@@ -49,10 +49,12 @@ static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing)
 {
     return imap_get(vset->imap, ti_thing_key(thing)) != NULL;
 }
+
 static inline void ti_vset_set_assigned(ti_vset_t * vset)
 {
     vset->flags &= ~TI_VFLAG_UNASSIGNED;
 }
+
 static inline _Bool ti_vset_is_assigned(ti_vset_t * vset)
 {
     return ~vset->flags & TI_VFLAG_UNASSIGNED;

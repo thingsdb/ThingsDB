@@ -814,7 +814,11 @@ ti_val_t * ti_query_val_pop(ti_query_t * query)
         return val;
     }
 
-    assert (query->scope->name == NULL);
+    if (query->scope->val)
+    {
+        ti_incref(query->scope->val);
+        return query->scope->val;
+    }
 
     ti_incref(query->scope->thing);
     return (ti_val_t *) query->scope->thing;

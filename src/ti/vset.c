@@ -88,7 +88,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     ti_vset_t * vset = *vsetaddr;
 
     if (vset->ref == 1)
-        goto done;
+        goto done;  /* with only one reference we do not require a copy */
 
     if (!(vec = imap_vec(vset->imap)) ||
         !(vset = ti_vset_create()))

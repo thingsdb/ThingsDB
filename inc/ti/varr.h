@@ -9,7 +9,6 @@ typedef struct ti_varr_s ti_varr_t;
 #include <inttypes.h>
 #include <util/vec.h>
 #include <ti/ex.h>
-#include <ti/val.h>
 
 ti_varr_t * ti_varr_create(size_t sz);
 void ti_varr_destroy(ti_varr_t * varr);
@@ -31,6 +30,8 @@ struct ti_varr_s
     vec_t * vec;
 };
 
+#include <ti/val.h>
+
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
 {
     return varr->flags & TI_VFLAG_ARR_MHT;
@@ -45,10 +46,12 @@ static inline _Bool ti_varr_is_tuple(ti_varr_t * varr)
 {
     return varr->flags & TI_VFLAG_ARR_TUPLE;
 }
+
 static inline void ti_varr_set_assigned(ti_varr_t * varr)
 {
     varr->flags &= ~TI_VFLAG_UNASSIGNED;
 }
+
 static inline _Bool ti_varr_is_assigned(ti_varr_t * varr)
 {
     return ~varr->flags & TI_VFLAG_UNASSIGNED;

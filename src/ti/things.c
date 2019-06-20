@@ -4,12 +4,14 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/prop.h>
 #include <ti/names.h>
-#include <ti/watch.h>
+#include <ti/prop.h>
 #include <ti/things.h>
-#include <util/logger.h>
 #include <ti/val.h>
+#include <ti/varr.h>
+#include <ti/vset.h>
+#include <ti/watch.h>
+#include <util/logger.h>
 
 static void things__gc_mark_thing(ti_thing_t * thing);
 
@@ -34,8 +36,16 @@ static void things__gc_mark_varr(ti_varr_t * varr)
                 things__gc_mark_varr(varr);
             continue;
         }
+
         }
     }
+}
+
+inline static int things__set_cb(ti_thing_t * thing, void * UNUSED(arg))
+{
+    if (thing->flags & TI_VFLAG_THING_SWEEP)
+        things__gc_mark_thing(thing);
+    return 0;
 }
 
 static void things__gc_mark_thing(ti_thing_t * thing)
@@ -59,6 +69,14 @@ static void things__gc_mark_thing(ti_thing_t * thing)
             if (ti_varr_may_have_things(varr))
                 things__gc_mark_varr(varr);
             continue;
+        }
+
+        case TI_VAL_SET:
+        {
+            ti_vset_t * vset = (ti_vset_t *) prop->val;
+            (void) imap_walk(vset->imap, (imap_cb) things__set_cb, NULL);
+            continue;
+
         }
         }
     }

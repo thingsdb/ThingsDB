@@ -22,10 +22,7 @@ _Bool ti_scope_in_use_name(
         ti_scope_t * scope,
         ti_thing_t * thing,
         ti_name_t * name);
-_Bool ti_scope_in_use_val(
-        ti_scope_t * scope,
-        ti_thing_t * thing,
-        ti_val_t * val);
+_Bool ti_scope_in_use_val(ti_scope_t * scope, ti_val_t * val);
 int ti_scope_local_from_closure(
         ti_scope_t * scope,
         ti_closure_t * closure,
@@ -38,7 +35,6 @@ static inline void ti_scope_set_name_val(
         ti_scope_t * scope,
         ti_name_t * name,
         ti_val_t * val);
-static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope);
 static inline _Bool ti_scope_has_local_name(
         ti_scope_t * scope,
         ti_name_t * name);
@@ -62,13 +58,6 @@ static inline void ti_scope_set_name_val(
 
     scope->name = name;
     scope->val = val;
-}
-
-static inline _Bool ti_scope_current_val_in_use(ti_scope_t * scope)
-{
-    return !scope->name
-            ? false
-            : ti_scope_in_use_val(scope->prev, scope->thing, scope->val);
 }
 
 /* only in the current scope */

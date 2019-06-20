@@ -504,7 +504,6 @@ static int cq__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_scope_set_name_val(query->scope, name, val);
 
-
 done:
     ti_val_drop((ti_val_t *) thing);
 
@@ -762,11 +761,7 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_scope_set_name(query->scope, name);
-
-    /* set the query return value */
-    query->rval = val;
-    ti_incref(val);
+    ti_scope_set_name_val(query->scope, name, val);
 
     return e->nr;
 }
@@ -871,11 +866,7 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_scope_set_name(query->scope, name);
-
-    /* set the query return value */
-    query->rval = prop->val;
-    ti_incref(query->rval);
+    ti_scope_set_name_val(query->scope, name, prop->val);
 
     return e->nr;
 }
@@ -1086,12 +1077,16 @@ int ti_cq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (child->next && cq__chain(query, child->next->node, e))
         goto onerror;
 
-    assert(query->rval);
-//    if (!query->rval)
-//    {
-//        query->rval = ti_scope_weak_get_val(query->scope);
-//        ti_incref(query->rval);
-//    }
+    if (!query->rval)
+    {
+        /* The scope value must exist since only `TMP` and `NAME` are not
+         * setting `query->rval` and they both set the scope value.
+         */
+        assert (query->scope->val);
+
+        query->rval = query->scope->val;
+        ti_incref(query->rval);
+    }
 
     if (nots)
     {

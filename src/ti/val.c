@@ -717,8 +717,7 @@ const char * ti_val_str(ti_val_t * val)
     return "unknown";
 }
 
-
-/* checks PROP, QP, CLOSURE, ARR */
+/* checks for QP, CLOSURE, ARR, SET */
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 {
     switch ((*val)->tp)
@@ -731,7 +730,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
         if (ti_closure_wse((ti_closure_t * ) *val))
         {
             ex_set(e, EX_BAD_DATA,
-                    "an closure function with side effects cannot be assigned");
+                "closure functions with side effects cannot be assigned");
         }
         else if (ti_closure_unbound((ti_closure_t * ) *val))
             ex_set_alloc(e);

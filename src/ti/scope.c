@@ -19,7 +19,8 @@ ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing)
 
     nscope->prev = scope;
     nscope->thing = ti_grab(thing);
-    nscope->name = nscope->val = NULL;
+    nscope->name = NULL;
+    nscope->val = NULL;
     nscope->local = NULL;
 
     return nscope;
@@ -62,16 +63,11 @@ _Bool ti_scope_in_use_name(
     return false;
 }
 
-_Bool ti_scope_in_use_val(
-        ti_scope_t * scope,
-        ti_thing_t * thing,
-        ti_val_t * val)
+_Bool ti_scope_in_use_val(ti_scope_t * scope, ti_val_t * val)
 {
     for (; scope; scope = scope->prev)
-    {
-        if (scope->thing == thing && scope->val == val)
+        if (scope->val == val)
             return true;
-    }
     return false;
 }
 

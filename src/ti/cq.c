@@ -28,7 +28,9 @@
 #include <ti/cfn/fnisint.h>
 #include <ti/cfn/fnislist.h>
 #include <ti/cfn/fnisnan.h>
+#include <ti/cfn/fnisnil.h>
 #include <ti/cfn/fnisraw.h>
+#include <ti/cfn/fnisthing.h>
 #include <ti/cfn/fnistuple.h>
 #include <ti/cfn/fnisutf8.h>
 #include <ti/cfn/fnlen.h>
@@ -137,9 +139,17 @@ static int cq__function(
         if (is_scope)
             return cq__f_isnan(query, params, e);
         break;
+    case CLERI_GID_F_ISNIL:
+        if (is_scope)
+            return cq__f_isnil(query, params, e);
+        break;
     case CLERI_GID_F_ISRAW:
         if (is_scope)
             return cq__f_israw(query, params, e);
+        break;
+    case CLERI_GID_F_ISTHING:
+        if (is_scope)
+            return cq__f_isthing(query, params, e);
         break;
     case CLERI_GID_F_ISTUPLE:
         if (is_scope)

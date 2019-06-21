@@ -69,8 +69,8 @@ static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)
             regex->code,
             (PCRE2_SPTR8) raw->data,
             raw->n,
-            0,                     // start looking at this point
-            0,                     // OPTIONS
+            0,                     /* start looking at this point */
+            0,                     /* OPTIONS */
             regex->match_data,
             NULL) >= 0;
 }

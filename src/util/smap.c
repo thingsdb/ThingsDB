@@ -724,7 +724,7 @@ static int smap__node_resize(smap_node_t * node, uint8_t pos)
         smap_nodes_t * tmp;
         uint8_t diff = pos - node->offset - node->sz + 1;
         uint8_t oldn = node->sz;
-        node->sz += diff;  // assert node->n > 0
+        node->sz += diff;  /* assert node->n > 0 */
         tmp = realloc(node->nodes, node->sz * sizeof(smap_nodes_t));
         if (!tmp)
         {

@@ -78,8 +78,10 @@ class Definition(Grammar):
     f_isint = Keyword('isint')
     f_islist = Keyword('islist')
     f_isnan = Keyword('isnan')
+    f_isnil = Keyword('isnil')
     f_israw = Keyword('israw')
     f_isstr = Keyword('isstr')  # alias for isutf8 (if isutf8, then is isascii)
+    f_isthing = Keyword('isthing')
     f_istuple = Keyword('istuple')
     f_isutf8 = Keyword('isutf8')
     f_len = Keyword('len')
@@ -138,17 +140,19 @@ class Definition(Grammar):
         f_indexof,      # (v) -> int or nil
         f_int,          # (x) -> int
         f_isarray,      # (x) -> bool
-        f_isascii,
-        f_isbool,
-        f_isfloat,
+        f_isascii,      # (x) -> bool
+        f_isbool,       # (x) -> bool
+        f_isfloat,      # (x) -> bool
         f_isinf,        # (float) -> bool
-        f_isint,
+        f_isint,        # (x) -> bool
         f_islist,       # (x) -> bool
-        f_isnan,        # (float) -> bool
-        f_israw,
+        f_isnan,        # (x) -> bool
+        f_isnil,        # (x) -> bool
+        f_israw,        # (x) -> bool
         f_isstr,        # alias for isutf8 (if isutf8, then is isascii)
-        f_istuple,
-        f_isutf8,
+        f_isthing,      # (x) -> bool
+        f_istuple,      # (x) -> bool
+        f_isutf8,       # (x) -> bool
         f_len,          # () -> int
         f_lower,        # () -> str
         f_map,          # (closure) -> [return values]
@@ -268,42 +272,3 @@ if __name__ == '__main__':
         hfile.write(h)
 
     print('Finished export to c')
-
-
-'''
-users.filter(
-    |user| (
-        user.memberships.find(
-            |membership| (
-                membership.workspace == t(22)
-            )
-        ).channels.indexof(t(29)) != nil))
-
-users.filter(
-    |user| (
-        user.memberships.find(
-            |membership| (
-                membership.workspace == workspace
-            )
-        ).channels.indexof(channel) != nil
-    )
-)
-
-'''
-
-'''
-channel = {channel: 'Test'};
-workspace = {
-    channels: [
-        channel
-    ]
-};
-user = {
-    name: 'iris',
-    memberships: [{
-        workspace: workspace,
-        channels: [channel]
-    }]
-};
-users = [user];
-'''

@@ -602,6 +602,15 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('isnan( "3" ); '))
         self.assertTrue(await client.query('isnan( set() ); '))
 
+    async def test_isnil(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isnil` takes 1 argument but 0 were given'):
+            await client.query('isnil();')
+
+        self.assertTrue(await client.query('isnil( nil ); '))
+        self.assertFalse(await client.query('isnil( 0 ); '))
+
     async def test_israw(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -616,6 +625,17 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(
                 'israw(blob(0));',
                 blobs=(pickle.dumps('binary'), )))
+
+    async def test_isthing(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isthing` takes 1 argument but 0 were given'):
+            await client.query('isthing();')
+
+        self.assertTrue(await client.query(r'isthing( {} ); '))
+        self.assertTrue(await client.query(r'isthing( t(id()) ); '))
+        self.assertFalse(await client.query('isthing( [] ); '))
+        self.assertFalse(await client.query('isthing( set() ); '))
 
     async def test_istuple(self, client):
         await client.query('x = [[0, 1], nil]; y = x[0];')

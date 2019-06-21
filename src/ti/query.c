@@ -239,7 +239,6 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     qpx_packer_t * packer;
     size_t sz = 0;
     vec_t * tasks = query->ev->_tasks;
-//    omap_iter_t iter = omap_ite_r(query->ev->tasks);
 
     for (vec_each(tasks, ti_task_t, task))
         sz += task->approx_sz;

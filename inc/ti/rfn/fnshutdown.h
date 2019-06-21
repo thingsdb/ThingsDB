@@ -14,7 +14,6 @@ static int rq__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->user, TI_AUTH_MODIFY, e))
         return e->nr;
 
-    /* TODO: require the `current` node id as argument and verification? */
     if (!langdef_nd_fun_has_zero_params(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);

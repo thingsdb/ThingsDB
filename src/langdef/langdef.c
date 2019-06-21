@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-06-17 15:43:24
+ * Created at: 2019-06-21 12:23:51
  */
 
 #include <langdef/langdef.h>
@@ -58,8 +58,10 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_isint = cleri_keyword(CLERI_GID_F_ISINT, "isint", CLERI_CASE_SENSITIVE);
     cleri_t * f_islist = cleri_keyword(CLERI_GID_F_ISLIST, "islist", CLERI_CASE_SENSITIVE);
     cleri_t * f_isnan = cleri_keyword(CLERI_GID_F_ISNAN, "isnan", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isnil = cleri_keyword(CLERI_GID_F_ISNIL, "isnil", CLERI_CASE_SENSITIVE);
     cleri_t * f_israw = cleri_keyword(CLERI_GID_F_ISRAW, "israw", CLERI_CASE_SENSITIVE);
     cleri_t * f_isstr = cleri_keyword(CLERI_GID_F_ISSTR, "isstr", CLERI_CASE_SENSITIVE);
+    cleri_t * f_isthing = cleri_keyword(CLERI_GID_F_ISTHING, "isthing", CLERI_CASE_SENSITIVE);
     cleri_t * f_istuple = cleri_keyword(CLERI_GID_F_ISTUPLE, "istuple", CLERI_CASE_SENSITIVE);
     cleri_t * f_isutf8 = cleri_keyword(CLERI_GID_F_ISUTF8, "isutf8", CLERI_CASE_SENSITIVE);
     cleri_t * f_len = cleri_keyword(CLERI_GID_F_LEN, "len", CLERI_CASE_SENSITIVE);
@@ -67,7 +69,6 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
     cleri_t * f_now = cleri_keyword(CLERI_GID_F_NOW, "now", CLERI_CASE_SENSITIVE);
     cleri_t * f_refs = cleri_keyword(CLERI_GID_F_REFS, "refs", CLERI_CASE_SENSITIVE);
-    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
     cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
     cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
@@ -76,9 +77,11 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * f_test = cleri_keyword(CLERI_GID_F_TEST, "test", CLERI_CASE_SENSITIVE);
     cleri_t * f_try = cleri_keyword(CLERI_GID_F_TRY, "try", CLERI_CASE_SENSITIVE);
     cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
+    cleri_t * f_add = cleri_keyword(CLERI_GID_F_ADD, "add", CLERI_CASE_SENSITIVE);
     cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
     cleri_t * f_pop = cleri_keyword(CLERI_GID_F_POP, "pop", CLERI_CASE_SENSITIVE);
     cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
+    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
     cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
     cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
@@ -129,7 +132,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            44,
+            47,
             f_assert,
             f_blob,
             f_bool,
@@ -150,8 +153,10 @@ cleri_grammar_t * compile_langdef(void)
             f_isint,
             f_islist,
             f_isnan,
+            f_isnil,
             f_israw,
             f_isstr,
+            f_isthing,
             f_istuple,
             f_isutf8,
             f_len,
@@ -159,7 +164,6 @@ cleri_grammar_t * compile_langdef(void)
             f_map,
             f_now,
             f_refs,
-            f_remove,
             f_ret,
             f_set,
             f_startswith,
@@ -168,9 +172,11 @@ cleri_grammar_t * compile_langdef(void)
             f_test,
             f_try,
             f_upper,
+            f_add,
             f_del,
             f_pop,
             f_push,
+            f_remove,
             f_rename,
             f_splice,
             name

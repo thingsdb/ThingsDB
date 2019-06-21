@@ -54,13 +54,16 @@ class TestGC(TestBase):
         await client.query(r'''
             n = {};
             del('a');
+            del('x');
         ''', target=stuff)
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
 
         counters = await client.query('counters();', target=scope.node)
-        self.assertEqual(counters['garbage_collected'], 1)
+
+        # expecting `a` and `a.other` inside the garbage collection
+        self.assertEqual(counters['garbage_collected'], 2)
 
 
 if __name__ == '__main__':

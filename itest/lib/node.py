@@ -56,6 +56,7 @@ class Node:
 
         self.ip_support = options.pop('ip_support', 'ALL')
         self.pipe_client_name = options.pop('pipe_client_name', None)
+        self.threshold_full_storage = options.pop('threshold_full_storage', 10)
 
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
@@ -147,6 +148,10 @@ class Node:
 
         config.set('thingsdb', 'bind_client_addr', self.bind_client_addr)
         config.set('thingsdb', 'bind_node_addr', self.bind_node_addr)
+        config.set(
+            'thingsdb',
+            'threshold_full_storage',
+            self.threshold_full_storage)
 
         config.set('thingsdb', 'ip_support', self.ip_support)
 

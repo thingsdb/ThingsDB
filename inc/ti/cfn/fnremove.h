@@ -50,19 +50,20 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_cq_scope(query, nd->children->node, e))
         goto done;
 
-    closure = (ti_closure_t *) query->rval;
-    query->rval = NULL;
-
-    if (closure->tp != TI_VAL_CLOSURE)
+    if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"REMOVE_DOC_,
-                ti_val_str((ti_val_t *) closure));
+                ti_val_str(query->rval));
         goto done;
     }
 
-    if (ti_scope_local_from_closure(query->scope, closure, e))
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_try_lock(closure, e) ||
+        ti_scope_local_from_closure(query->scope, closure, e))
         goto done;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
@@ -121,6 +122,7 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 done:
+    ti_closure_unlock(closure);
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop((ti_val_t *) varr);
     return e->nr;

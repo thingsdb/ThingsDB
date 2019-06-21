@@ -31,19 +31,20 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_cq_scope(query, nd->children->node, e))
         goto failed;
 
-    closure = (ti_closure_t *) query->rval;
-    query->rval = NULL;
-
-    if (closure->tp != TI_VAL_CLOSURE)
+    if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `filter` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FILTER_DOC_,
-                ti_val_str((ti_val_t *) closure));
+                ti_val_str(query->rval));
         goto failed;
     }
 
-    if (ti_scope_local_from_closure(query->scope, closure, e))
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_try_lock(closure, e) ||
+        ti_scope_local_from_closure(query->scope, closure, e))
         goto failed;
 
     switch (iterval->tp)
@@ -52,13 +53,8 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing;
 
-        if (query->target->things->n >= query->target->quota->max_things)
-        {
-            ex_set(e, EX_MAX_QUOTA,
-                    "maximum things quota of %zu has been reached"
-                    TI_SEE_DOC("#quotas"), query->target->quota->max_things);
+        if (ti_quota_things(query->target->quota, query->target->things->n, e))
             goto failed;
-        }
 
         thing = ti_thing_create(0, query->target->things);
         if (!thing)
@@ -129,6 +125,7 @@ failed:
     if (!e->nr)  /* all not set errors are allocation errors */
         ex_set_alloc(e);
 done:
+    ti_closure_unlock(closure);
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop(iterval);
     return e->nr;

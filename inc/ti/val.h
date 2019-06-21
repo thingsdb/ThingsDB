@@ -42,9 +42,10 @@ enum
     TI_VFLAG_THING_NEW       =1<<1,      /* thing is new */
     TI_VFLAG_CLOSURE_QBOUND  =1<<2,      /* closure bound to query string */
     TI_VFLAG_CLOSURE_WSE     =1<<3,      /* closure with side effects */
-    TI_VFLAG_ARR_TUPLE       =1<<4,      /* array is immutable */
-    TI_VFLAG_ARR_MHT         =1<<5,      /* array may-have-things */
-    TI_VFLAG_UNASSIGNED      =1<<6,      /* set or list is not assigned */
+    TI_VFLAG_CLOSURE_LOCK    =1<<4,      /* closure in use (no recursion) */
+    TI_VFLAG_ARR_TUPLE       =1<<5,      /* array is immutable */
+    TI_VFLAG_ARR_MHT         =1<<6,      /* array may-have-things */
+    TI_VFLAG_UNASSIGNED      =1<<7,      /* set or list is not assigned */
 };
 
 typedef enum
@@ -116,7 +117,8 @@ struct ti_val_s
 
 static inline void ti_val_drop(ti_val_t * val)
 {
-    if (val && !--val->ref) ti_val_destroy(val);
+    if (val && !--val->ref)
+        ti_val_destroy(val);
 }
 
 static inline _Bool ti_val_is_arr(ti_val_t * val)

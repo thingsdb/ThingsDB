@@ -50,7 +50,7 @@ class TestTypes(TestBase):
             blob(0);
         ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
 
-    async def _test_thing(self, client):
+    async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];
         '''), [0, 0])
@@ -89,6 +89,29 @@ class TestTypes(TestBase):
             t = {t: {}};
             t.t.id();
         '''), 0)
+
+    async def test_closure(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'closures cannot be used recursively'):
+            await client.query(r'''
+                a = ||map(($b = a));
+                map(a);
+            ''')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'closures with side effects cannot be assigned'):
+            await client.query(r'''
+                b = ||(x = 1);
+            ''')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'closures with side effects cannot be assigned'):
+            await client.query(r'''
+                [||x = 1];
+            ''')
 
 
 if __name__ == '__main__':

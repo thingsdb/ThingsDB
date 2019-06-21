@@ -805,6 +805,11 @@ finish:
     ti_query_destroy(query);
 }
 
+/*
+ * Removes and returns the `query->rval` if set. The reference will be moved
+ * so the value is returned with a reference. If `query->rval` is not set,
+ * a value from the scope is returned with a new reference.
+ */
 ti_val_t * ti_query_val_pop(ti_query_t * query)
 {
     if (query->rval)

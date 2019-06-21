@@ -35,6 +35,8 @@ ti_closure_t * ti_closure_from_strn(const char * str, size_t n)
     if (!closure)
         return NULL;
 
+    closure->ref = 1;
+    closure->tp = TI_VAL_CLOSURE;
     closure->flags = 0;
     closure->node = closure__node_from_strn(str, n);
     if (!closure->node)

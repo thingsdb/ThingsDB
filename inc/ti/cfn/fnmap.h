@@ -46,7 +46,8 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     n = ti_val_get_len(iterval);
 
-    if (ti_scope_local_from_closure(query->scope, closure, e))
+    if (ti_closure_try_lock(closure, e) ||
+        ti_scope_local_from_closure(query->scope, closure, e))
         goto failed;
 
     retvarr = ti_varr_create(n);
@@ -102,6 +103,7 @@ failed:
         ex_set_alloc(e);
 
 done:
+    ti_closure_unlock(closure);
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop(iterval);
     return e->nr;

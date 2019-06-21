@@ -513,7 +513,6 @@ done:
 static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
-    assert (query->rval);
 
     cleri_children_t * child = nd           /* sequence */
                     ->children->next;       /* first is .(dot), next choice */
@@ -522,18 +521,25 @@ static int cq__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->node;               /* function, assignment,
                                                name */
 
-    if (ti_val_is_thing(query->rval))
-    {
-        ti_scope_t * tmp_scope = ti_scope_enter(
-                query->scope,
-                (ti_thing_t *) query->rval);
+    /* In case the query value is a `thing` without a scope of it's own,
+     * a scope must be created and this seems to be the right place since
+     * then the functions, assignments and chains can use the correct scope.
+     */
+    ti_thing_t * thing = (ti_thing_t *) (query->rval
+            ? (ti_val_is_thing(query->rval)
+                    ? query->rval : NULL)
+            : (query->scope->val && ti_val_is_thing(query->scope->val)
+                    ? query->scope->val : NULL));
 
+    if (thing)
+    {
+        /* the scope value is a thing without an empty scope */
+        ti_scope_t * tmp_scope = ti_scope_enter(query->scope, thing);
         if (!tmp_scope)
         {
             ex_set_alloc(e);
             return e->nr;
         }
-
         query->scope = tmp_scope;
     }
 

@@ -279,19 +279,31 @@ users.filter(
             )
         ).channels.indexof(t(29)) != nil))
 
+users.filter(
+    |user| (
+        user.memberships.find(
+            |membership| (
+                membership.workspace == workspace
+            )
+        ).channels.indexof(channel) != nil
+    )
+)
 
 '''
 
 '''
 channel = {channel: 'Test'};
 workspace = {
-    channels = [
+    channels: [
         channel
     ]
 };
 user = {
     name: 'iris',
     memberships: [{
-        workspace: workspace
+        workspace: workspace,
+        channels: [channel]
     }]
-}
+};
+users = [user];
+'''

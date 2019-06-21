@@ -6,11 +6,37 @@
 #include <langdef/langdef.h>
 #include <ti/closure.h>
 
-static struct closure__ubound_s
+static typedef struct closure__ubound_s
 {
-    char * query;
+    const char * query;
     vec_t * nd_val_cache;
-};
+} closure__ubound_t;
+
+static closure__ubound_t * closure__ubound_create(const char * query, size_t n)
+{
+    closure__ubound_t * ubound = malloc(sizeof(closure__ubound_t));
+    if (!ubound)
+        return NULL;
+
+    ubound->query = query;
+    ubound->nd_val_cache = vec_new(n);
+
+    if (ubound->nd_val_cache)
+    {
+        free(ubound);
+        return NULL;
+    }
+
+    return ubound;
+}
+
+static void closure__ubound_destroy(closure__ubound_t * ubound)
+{
+    if (!ubound)
+        return;
+    vec_destroy(ubound->nd_val_cache, (vec_destroy_cb) ti_val_drop);
+    free(ubound);
+}
 
 static int closure__gen_primitives(vec_t * cache, cleri_node_t * nd, ex_t * e)
 {
@@ -67,12 +93,16 @@ static cleri_node_t * closure__node_from_strn(
         size_t n,
         ex_t * e)
 {
+    closure__ubound_t * ubound;
     ti_syntax_t syntax;
     cleri_parse_t * res;
     cleri_node_t * node;
-    char * query = strndup(str, n);
+    const char * query = strndup(str, n);
     if (!query)
+    {
+        ex_set_alloc(e);
         return NULL;
+    }
 
     ti_syntax_init(&syntax);
 
@@ -80,15 +110,27 @@ static cleri_node_t * closure__node_from_strn(
             ti()->langdef,
             query,
             CLERI_FLAG_EXPECTING_DISABLED); /* only error position */
-    if (!res || !res->is_valid)
-        goto fail;
+    if (!res)
+    {
+        ex_set_alloc(e);
+        goto fail0;
+    }
+
+    if (!res->is_valid)
+    {
+        ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
+        goto fail1;
+    }
 
     node = res->tree->children->node        /* Sequence (START) */
             ->children->next->node;         /* List of statements */
 
     /* we should have exactly one statement */
     if (!node->children || node->children->next)
-        goto fail;
+    {
+        ex_set(e, EX_BAD_DATA, "closure is expecting exactly one node");
+        goto fail1;
+    }
 
     node = node                             /* List of statements */
             ->children->node                /* Sequence - scope */
@@ -96,22 +138,35 @@ static cleri_node_t * closure__node_from_strn(
             ->children->node;               /* closure */
 
     if (node->cl_obj->gid != CLERI_GID_CLOSURE)
-        goto fail;
-
-    node->data = query;
+    {
+        ex_set(e, EX_INDEX_ERROR, "node is not a closure");
+        goto fail1;
+    }
 
     ti_syntax_investigate(&syntax, node);
+
+    ubound = closure__ubound_create(query, syntax.nd_val_cache_n);
+    if (!ubound)
+    {
+        ex_set_alloc(e);
+        goto fail1;
+    }
+
+    node->data = ubound;
+    if (closure__gen_primitives(ubound->nd_val_cache, node, e))
+        goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
     ++node->ref;
 
     cleri_parse_free(res);
-
     return node;
 
-fail:
-    if (res)
-        cleri_parse_free(res);
+fail2:
+    closure__ubound_destroy(ubound);
+fail1:
+    cleri_parse_free(res);
+fail0:
     free(query);
     return NULL;
 }
@@ -174,7 +229,7 @@ ti_closure_t * ti_closure_from_strn(const char * str, size_t n, ex_t * e)
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->flags = 0;
-    closure->node = closure__node_from_strn(str, n);
+    closure->node = closure__node_from_strn(str, n, e);
     if (!closure->node)
     {
         free(closure);
@@ -191,7 +246,7 @@ void ti_closure_destroy(ti_closure_t * closure)
 
     if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
     {
-        free(closure->node->data);
+        closure__ubound_destroy((closure__ubound_t *) closure->node->data);
         cleri__node_free(closure->node);
     }
 

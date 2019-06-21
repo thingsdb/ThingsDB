@@ -4,16 +4,6 @@
 #ifndef TI_QUERY_H_
 #define TI_QUERY_H_
 
-enum
-{
-    TI_QUERY_FLAG_COLLECTION_EVENT      =1<<0,
-    TI_QUERY_FLAG_THINGSDB_EVENT        =1<<1,
-    TI_QUERY_FLAG_ROOT_NESTED           =1<<2,
-    TI_QUERY_FLAG_OVERFLOW              =1<<3,
-    TI_QUERY_FLAG_ALL                   =1<<4,
-    TI_QUERY_FLAG_NODE                  =1<<5,
-};
-
 typedef struct ti_query_s ti_query_t;
 
 #include <cleri/cleri.h>
@@ -26,6 +16,7 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/raw.h>
 #include <ti/scope.h>
 #include <ti/user.h>
+#include <ti/syntax.h>
 #include <ti/stream.h>
 #include <util/omap.h>
 
@@ -63,13 +54,14 @@ void ti_query_send(ti_query_t * query, ex_t * e);
 ti_val_t * ti_query_val_pop(ti_query_t * query);
 ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name);
 static inline _Bool ti_query_will_update(ti_query_t * query);
+static inline void ti_set_collection_event(ti_query_t * query);
+static inline void ti_set_thingsdb_event(ti_query_t * query);
 
 struct ti_query_s
 {
-    uint32_t nd_cache_count;    /* count while investigate */
-    uint16_t pkg_id;
-    uint8_t flags;
-    uint8_t deep;               /* fetch level */
+
+    ti_syntax_t syntax;         /* syntax binding */
+
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* target NULL means root */
     char * querystr;            /* 0 terminated query string */
@@ -83,16 +75,24 @@ struct ti_query_s
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */
-    vec_t * nd_cache;           /* cleri_node_t, for node cache cleanup */
+    vec_t * nd_val_cache;       /* ti_val_t, for node cache cleanup */
     ti_scope_t * scope;         /* scope status */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)
 {
-    return query->flags & (
-            TI_QUERY_FLAG_COLLECTION_EVENT |
-            TI_QUERY_FLAG_THINGSDB_EVENT
-    );
+    return query->syntax.flags & TI_SYNTAX_FLAG_EVENT;
 }
+
+static inline void ti_set_collection_event(ti_query_t * query)
+{
+    query->syntax.flags |= !!query->target & TI_SYNTAX_FLAG_EVENT;
+}
+
+static inline void ti_set_thingsdb_event(ti_query_t * query)
+{
+    query->syntax.flags |= !query->target & TI_SYNTAX_FLAG_EVENT;
+}
+
 
 #endif /* TI_QUERY_H_ */

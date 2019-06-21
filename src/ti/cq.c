@@ -64,150 +64,188 @@ static int cq__function(
     cleri_node_t * fname, * params;
 
     fname = nd                      /* sequence */
-            ->children->node        /* choice */
-            ->children->node;       /* keyword or name node */
+            ->children->node;       /* name node */
 
     params = nd                             /* sequence */
             ->children->next->next->node;   /* list of scope (arguments) */
 
 
-    switch (fname->cl_obj->gid)
+    switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
     {
-    case CLERI_GID_F_ASSERT:
+    case TI_FN_0:
+        break;
+    case TI_FN_ASSERT:
         if (is_scope)
             return cq__f_assert(query, params, e);
         break;
-    case CLERI_GID_F_BLOB:
+    case TI_FN_BLOB:
         if (is_scope)
             return cq__f_blob(query, params, e);
         break;
-    case CLERI_GID_F_BOOL:
+    case TI_FN_BOOL:
         if (is_scope)
             return cq__f_bool(query, params, e);
         break;
-    case CLERI_GID_F_ENDSWITH:
+    case TI_FN_ENDSWITH:
         return cq__f_endswith(query, params, e);
-    case CLERI_GID_F_DEL:
+    case TI_FN_DEL:
         return cq__f_del(query, params, e);
-    case CLERI_GID_F_FILTER:
+    case TI_FN_FILTER:
         return cq__f_filter(query, params, e);
-    case CLERI_GID_F_FIND:
+    case TI_FN_FIND:
         return cq__f_find(query, params, e);
-    case CLERI_GID_F_FINDINDEX:
+    case TI_FN_FINDINDEX:
         return cq__f_findindex(query, params, e);
-    case CLERI_GID_F_HAS:
+    case TI_FN_HAS:
         return cq__f_has(query, params, e);
-    case CLERI_GID_F_HASPROP:
+    case TI_FN_HASPROP:
         return cq__f_hasprop(query, params, e);
-    case CLERI_GID_F_ID:
+    case TI_FN_ID:
         return cq__f_id(query, params, e);
-    case CLERI_GID_F_INDEXOF:
+    case TI_FN_INDEXOF:
         return cq__f_indexof(query, params, e);
-    case CLERI_GID_F_INT:
+    case TI_FN_INT:
         if (is_scope)
             return cq__f_int(query, params, e);
         break;
-    case CLERI_GID_F_ISARRAY:
+    case TI_FN_ISARRAY:
         if (is_scope)
             return cq__f_isarray(query, params, e);
         break;
-    case CLERI_GID_F_ISASCII:
+    case TI_FN_ISASCII:
         if (is_scope)
             return cq__f_isascii(query, params, e);
         break;
-    case CLERI_GID_F_ISBOOL:
+    case TI_FN_ISBOOL:
         if (is_scope)
             return cq__f_isbool(query, params, e);
         break;
-    case CLERI_GID_F_ISFLOAT:
+    case TI_FN_ISFLOAT:
         if (is_scope)
             return cq__f_isfloat(query, params, e);
         break;
-    case CLERI_GID_F_ISINF:
+    case TI_FN_ISINF:
         if (is_scope)
             return cq__f_isinf(query, params, e);
         break;
-    case CLERI_GID_F_ISINT:
+    case TI_FN_ISINT:
         if (is_scope)
             return cq__f_isint(query, params, e);
         break;
-    case CLERI_GID_F_ISLIST:
+    case TI_FN_ISLIST:
         if (is_scope)
             return cq__f_islist(query, params, e);
         break;
-    case CLERI_GID_F_ISNAN:
+    case TI_FN_ISNAN:
         if (is_scope)
             return cq__f_isnan(query, params, e);
         break;
-    case CLERI_GID_F_ISNIL:
+    case TI_FN_ISNIL:
         if (is_scope)
             return cq__f_isnil(query, params, e);
         break;
-    case CLERI_GID_F_ISRAW:
+    case TI_FN_ISRAW:
         if (is_scope)
             return cq__f_israw(query, params, e);
         break;
-    case CLERI_GID_F_ISTHING:
+    case TI_FN_ISTHING:
         if (is_scope)
             return cq__f_isthing(query, params, e);
         break;
-    case CLERI_GID_F_ISTUPLE:
+    case TI_FN_ISTUPLE:
         if (is_scope)
             return cq__f_istuple(query, params, e);
         break;
-    case CLERI_GID_F_ISSTR:
-    case CLERI_GID_F_ISUTF8:
+    case TI_FN_ISSTR:
+    case TI_FN_ISUTF8:
         if (is_scope)
             return cq__f_isutf8(query, params, e);
         break;
-    case CLERI_GID_F_LEN:
+    case TI_FN_LEN:
         return cq__f_len(query, params, e);
-    case CLERI_GID_F_LOWER:
+    case TI_FN_LOWER:
         return cq__f_lower(query, params, e);
-    case CLERI_GID_F_MAP:
+    case TI_FN_MAP:
         return cq__f_map(query, params, e);
-    case CLERI_GID_F_NOW:
+    case TI_FN_NOW:
         if (is_scope)
             return cq__f_now(query, params, e);
         break;
-    case CLERI_GID_F_POP:
+    case TI_FN_POP:
         return cq__f_pop(query, params, e);
-    case CLERI_GID_F_PUSH:
+    case TI_FN_PUSH:
         return cq__f_push(query, params, e);
-    case CLERI_GID_F_REFS:
+    case TI_FN_REFS:
         if (is_scope)
             return cq__f_refs(query, params, e);
         break;
-    case CLERI_GID_F_REMOVE:
+    case TI_FN_REMOVE:
         return cq__f_remove(query, params, e);
-    case CLERI_GID_F_RENAME:
+    case TI_FN_RENAME:
         return cq__f_rename(query, params, e);
-    case CLERI_GID_F_RET:
+    case TI_FN_RET:
         return cq__f_ret(query, params, e);
-    case CLERI_GID_F_SET:
+    case TI_FN_SET:
         if (is_scope)
             return cq__f_set(query, params, e);
         break;
-    case CLERI_GID_F_SPLICE:
+    case TI_FN_SPLICE:
         return cq__f_splice(query, params, e);
-    case CLERI_GID_F_STARTSWITH:
+    case TI_FN_STARTSWITH:
         return cq__f_startswith(query, params, e);
-    case CLERI_GID_F_STR:
+    case TI_FN_STR:
         if (is_scope)
             return cq__f_str(query, params, e);
         break;
-    case CLERI_GID_F_T:
+    case TI_FN_T:
         if (is_scope)
             return cq__f_t(query, params, e);
         break;
-    case CLERI_GID_F_TEST:
+    case TI_FN_TEST:
         return cq__f_test(query, params, e);
-    case CLERI_GID_F_TRY:
+    case TI_FN_TRY:
         if (is_scope)
             return cq__f_try(query, params, e);
         break;
-    case CLERI_GID_F_UPPER:
+    case TI_FN_UPPER:
         return cq__f_upper(query, params, e);
+
+    case TI_FN_COLLECTION:
+    case TI_FN_COLLECTIONS:
+    case TI_FN_DEL_COLLECTION:
+    case TI_FN_DEL_USER:
+    case TI_FN_GRANT:
+    case TI_FN_NEW_COLLECTION:
+    case TI_FN_NEW_NODE:
+    case TI_FN_NEW_USER:
+    case TI_FN_POP_NODE:
+    case TI_FN_RENAME_COLLECTION:
+    case TI_FN_RENAME_USER:
+    case TI_FN_REPLACE_NODE:
+    case TI_FN_REVOKE:
+    case TI_FN_SET_PASSWORD:
+    case TI_FN_SET_QUOTA:
+    case TI_FN_USER:
+    case TI_FN_USERS:
+        ex_set(e, EX_INDEX_ERROR,
+                "`%.*s` is undefined in the `collection` scope; "
+                "You might want to query the `thingsdb` scope?",
+                fname->len,
+                fname->str);
+        return e->nr;
+    case TI_FN_COUNTERS:
+    case TI_FN_NODE:
+    case TI_FN_NODES:
+    case TI_FN_RESET_COUNTERS:
+    case TI_FN_SET_LOGLEVEL:
+    case TI_FN_SET_ZONE:
+    case TI_FN_SHUTDOWN:
+        ex_set(e, EX_INDEX_ERROR,
+                "`%.*s` is undefined in the `collection` scope; "
+                "You might want to query the `node` scope?",
+                fname->len,
+                fname->str);
+        return e->nr;
     }
 
     /* set error */
@@ -686,8 +724,8 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
-            assert (vec_space(query->nd_cache));
-            VEC_push(query->nd_cache, node->data);
+            assert (vec_space(query->nd_val_cache));
+            VEC_push(query->nd_val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -706,8 +744,8 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set(e, EX_OVERFLOW, "integer overflow");
                 return e->nr;
             }
-            assert (vec_space(query->nd_cache));
-            VEC_push(query->nd_cache, node->data);
+            assert (vec_space(query->nd_val_cache));
+            VEC_push(query->nd_val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -721,8 +759,8 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             node->data = ti_regex_from_strn(node->str, node->len, e);
             if (!node->data)
                 return e->nr;
-            assert (vec_space(query->nd_cache));
-            VEC_push(query->nd_cache, node->data);
+            assert (vec_space(query->nd_val_cache));
+            VEC_push(query->nd_val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -736,8 +774,8 @@ static int cq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
-            assert (vec_space(query->nd_cache));
-            VEC_push(query->nd_cache, node->data);
+            assert (vec_space(query->nd_val_cache));
+            VEC_push(query->nd_val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);

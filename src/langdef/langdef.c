@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-06-21 12:23:51
+ * Created at: 2019-06-21 12:38:17
  */
 
 #include <langdef/langdef.h>
@@ -38,52 +38,6 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * tmp = cleri_regex(CLERI_GID_TMP, "^\\$[A-Za-z_][0-9A-Za-z_]*");
-    cleri_t * f_assert = cleri_keyword(CLERI_GID_F_ASSERT, "assert", CLERI_CASE_SENSITIVE);
-    cleri_t * f_blob = cleri_keyword(CLERI_GID_F_BLOB, "blob", CLERI_CASE_SENSITIVE);
-    cleri_t * f_bool = cleri_keyword(CLERI_GID_F_BOOL, "bool", CLERI_CASE_SENSITIVE);
-    cleri_t * f_endswith = cleri_keyword(CLERI_GID_F_ENDSWITH, "endswith", CLERI_CASE_SENSITIVE);
-    cleri_t * f_filter = cleri_keyword(CLERI_GID_F_FILTER, "filter", CLERI_CASE_SENSITIVE);
-    cleri_t * f_findindex = cleri_keyword(CLERI_GID_F_FINDINDEX, "findindex", CLERI_CASE_SENSITIVE);
-    cleri_t * f_find = cleri_keyword(CLERI_GID_F_FIND, "find", CLERI_CASE_SENSITIVE);
-    cleri_t * f_has = cleri_keyword(CLERI_GID_F_HAS, "has", CLERI_CASE_SENSITIVE);
-    cleri_t * f_hasprop = cleri_keyword(CLERI_GID_F_HASPROP, "hasprop", CLERI_CASE_SENSITIVE);
-    cleri_t * f_id = cleri_keyword(CLERI_GID_F_ID, "id", CLERI_CASE_SENSITIVE);
-    cleri_t * f_indexof = cleri_keyword(CLERI_GID_F_INDEXOF, "indexof", CLERI_CASE_SENSITIVE);
-    cleri_t * f_int = cleri_keyword(CLERI_GID_F_INT, "int", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isarray = cleri_keyword(CLERI_GID_F_ISARRAY, "isarray", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isascii = cleri_keyword(CLERI_GID_F_ISASCII, "isascii", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isbool = cleri_keyword(CLERI_GID_F_ISBOOL, "isbool", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isfloat = cleri_keyword(CLERI_GID_F_ISFLOAT, "isfloat", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isinf = cleri_keyword(CLERI_GID_F_ISINF, "isinf", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isint = cleri_keyword(CLERI_GID_F_ISINT, "isint", CLERI_CASE_SENSITIVE);
-    cleri_t * f_islist = cleri_keyword(CLERI_GID_F_ISLIST, "islist", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isnan = cleri_keyword(CLERI_GID_F_ISNAN, "isnan", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isnil = cleri_keyword(CLERI_GID_F_ISNIL, "isnil", CLERI_CASE_SENSITIVE);
-    cleri_t * f_israw = cleri_keyword(CLERI_GID_F_ISRAW, "israw", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isstr = cleri_keyword(CLERI_GID_F_ISSTR, "isstr", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isthing = cleri_keyword(CLERI_GID_F_ISTHING, "isthing", CLERI_CASE_SENSITIVE);
-    cleri_t * f_istuple = cleri_keyword(CLERI_GID_F_ISTUPLE, "istuple", CLERI_CASE_SENSITIVE);
-    cleri_t * f_isutf8 = cleri_keyword(CLERI_GID_F_ISUTF8, "isutf8", CLERI_CASE_SENSITIVE);
-    cleri_t * f_len = cleri_keyword(CLERI_GID_F_LEN, "len", CLERI_CASE_SENSITIVE);
-    cleri_t * f_lower = cleri_keyword(CLERI_GID_F_LOWER, "lower", CLERI_CASE_SENSITIVE);
-    cleri_t * f_map = cleri_keyword(CLERI_GID_F_MAP, "map", CLERI_CASE_SENSITIVE);
-    cleri_t * f_now = cleri_keyword(CLERI_GID_F_NOW, "now", CLERI_CASE_SENSITIVE);
-    cleri_t * f_refs = cleri_keyword(CLERI_GID_F_REFS, "refs", CLERI_CASE_SENSITIVE);
-    cleri_t * f_ret = cleri_keyword(CLERI_GID_F_RET, "ret", CLERI_CASE_SENSITIVE);
-    cleri_t * f_set = cleri_keyword(CLERI_GID_F_SET, "set", CLERI_CASE_SENSITIVE);
-    cleri_t * f_startswith = cleri_keyword(CLERI_GID_F_STARTSWITH, "startswith", CLERI_CASE_SENSITIVE);
-    cleri_t * f_str = cleri_keyword(CLERI_GID_F_STR, "str", CLERI_CASE_SENSITIVE);
-    cleri_t * f_t = cleri_keyword(CLERI_GID_F_T, "t", CLERI_CASE_SENSITIVE);
-    cleri_t * f_test = cleri_keyword(CLERI_GID_F_TEST, "test", CLERI_CASE_SENSITIVE);
-    cleri_t * f_try = cleri_keyword(CLERI_GID_F_TRY, "try", CLERI_CASE_SENSITIVE);
-    cleri_t * f_upper = cleri_keyword(CLERI_GID_F_UPPER, "upper", CLERI_CASE_SENSITIVE);
-    cleri_t * f_add = cleri_keyword(CLERI_GID_F_ADD, "add", CLERI_CASE_SENSITIVE);
-    cleri_t * f_del = cleri_keyword(CLERI_GID_F_DEL, "del", CLERI_CASE_SENSITIVE);
-    cleri_t * f_pop = cleri_keyword(CLERI_GID_F_POP, "pop", CLERI_CASE_SENSITIVE);
-    cleri_t * f_push = cleri_keyword(CLERI_GID_F_PUSH, "push", CLERI_CASE_SENSITIVE);
-    cleri_t * f_remove = cleri_keyword(CLERI_GID_F_REMOVE, "remove", CLERI_CASE_SENSITIVE);
-    cleri_t * f_rename = cleri_keyword(CLERI_GID_F_RENAME, "rename", CLERI_CASE_SENSITIVE);
-    cleri_t * f_splice = cleri_keyword(CLERI_GID_F_SPLICE, "splice", CLERI_CASE_SENSITIVE);
     cleri_t * primitives = cleri_choice(
         CLERI_GID_PRIMITIVES,
         CLERI_FIRST_MATCH,
@@ -129,58 +83,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
         4,
-        cleri_choice(
-            CLERI_NONE,
-            CLERI_FIRST_MATCH,
-            47,
-            f_assert,
-            f_blob,
-            f_bool,
-            f_endswith,
-            f_filter,
-            f_findindex,
-            f_find,
-            f_has,
-            f_hasprop,
-            f_id,
-            f_indexof,
-            f_int,
-            f_isarray,
-            f_isascii,
-            f_isbool,
-            f_isfloat,
-            f_isinf,
-            f_isint,
-            f_islist,
-            f_isnan,
-            f_isnil,
-            f_israw,
-            f_isstr,
-            f_isthing,
-            f_istuple,
-            f_isutf8,
-            f_len,
-            f_lower,
-            f_map,
-            f_now,
-            f_refs,
-            f_ret,
-            f_set,
-            f_startswith,
-            f_str,
-            f_t,
-            f_test,
-            f_try,
-            f_upper,
-            f_add,
-            f_del,
-            f_pop,
-            f_push,
-            f_remove,
-            f_rename,
-            f_splice,
-            name
-        ),
+        name,
         cleri_token(CLERI_NONE, "("),
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")

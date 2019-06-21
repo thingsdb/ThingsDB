@@ -35,151 +35,180 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * fname, * params;
 
     fname = nd                      /* sequence */
-            ->children->node        /* choice */
-            ->children->node;       /* keyword or name node */
+            ->children->node;       /* name node */
 
     params = nd                             /* sequence */
             ->children->next->next->node;   /* list of scope (arguments) */
 
-    /* a function has at least size 1 */
-    switch (*fname->str)
+    switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
     {
-    case 'c':
-        if (langdef_nd_match_str(fname, "collection"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_collection(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "collections"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_collections(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "counters"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_counters(query, params, e)
-            );
+    case TI_FN_0:
+    case TI_FN_ASSERT:
+    case TI_FN_BLOB:
+    case TI_FN_BOOL:
+    case TI_FN_DEL:
+    case TI_FN_ENDSWITH:
+    case TI_FN_FILTER:
+    case TI_FN_FIND:
+    case TI_FN_FINDINDEX:
+    case TI_FN_HAS:
+    case TI_FN_HASPROP:
+    case TI_FN_ID:
+    case TI_FN_INDEXOF:
+    case TI_FN_INT:
+    case TI_FN_ISARRAY:
+    case TI_FN_ISASCII:
+    case TI_FN_ISBOOL:
+    case TI_FN_ISFLOAT:
+    case TI_FN_ISINF:
+    case TI_FN_ISINT:
+    case TI_FN_ISLIST:
+    case TI_FN_ISNAN:
+    case TI_FN_ISNIL:
+    case TI_FN_ISRAW:
+    case TI_FN_ISSTR:
+    case TI_FN_ISTHING:
+    case TI_FN_ISTUPLE:
+    case TI_FN_ISUTF8:
+    case TI_FN_LEN:
+    case TI_FN_LOWER:
+    case TI_FN_MAP:
+    case TI_FN_NOW:
+    case TI_FN_POP:
+    case TI_FN_PUSH:
+    case TI_FN_REFS:
+    case TI_FN_REMOVE:
+    case TI_FN_RENAME:
+    case TI_FN_RET:
+    case TI_FN_SET:
+    case TI_FN_SPLICE:
+    case TI_FN_STARTSWITH:
+    case TI_FN_STR:
+    case TI_FN_T:
+    case TI_FN_TEST:
+    case TI_FN_TRY:
+    case TI_FN_UPPER:
         break;
-    case 'd':
-        if (langdef_nd_match_str(fname, "del_collection"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_del_collection(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "del_user"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_del_user(query, params, e)
-            );
-        break;
-    case 'g':
-        if (langdef_nd_match_str(fname, "grant"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_grant(query, params, e)
-            );
-        break;
-    case 'n':
-        if (langdef_nd_match_str(fname, "new_collection"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_new_collection(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "new_node"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_new_node(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "new_user"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_new_user(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "node"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_node(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "nodes"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_nodes(query, params, e)
-            );
-        break;
-    case 'p':
-        if (langdef_nd_match_str(fname, "pop_node"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_pop_node(query, params, e)
-            );
-        break;
-    case 'r':
-        if (langdef_nd_match_str(fname, "rename_collection"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_rename_collection(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "rename_user"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_rename_user(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "replace_node"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_replace_node(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "reset_counters"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_reset_counters(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "revoke"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_revoke(query, params, e)
-            );
-        break;
-    case 's':
-        if (langdef_nd_match_str(fname, "set_loglevel"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_set_loglevel(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "set_password"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_set_password(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "set_quota"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_set_quota(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "set_zone"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_set_zone(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "shutdown"))
-            return (
-                rq__is_not_node(query, fname, e) ||
-                rq__f_shutdown(query, params, e)
-            );
-        break;
-    case 'u':
-        if (langdef_nd_match_str(fname, "user"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_user(query, params, e)
-            );
-        if (langdef_nd_match_str(fname, "users"))
-            return (
-                rq__is_not_thingsdb(query, fname, e) ||
-                rq__f_users(query, params, e)
-            );
-        break;
+    case TI_FN_COLLECTION:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_collection(query, params, e)
+        );
+    case TI_FN_COLLECTIONS:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_collections(query, params, e)
+        );
+    case TI_FN_COUNTERS:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_counters(query, params, e)
+        );
+    case TI_FN_DEL_COLLECTION:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_del_collection(query, params, e)
+        );
+    case TI_FN_DEL_USER:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_del_user(query, params, e)
+        );
+    case TI_FN_GRANT:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_grant(query, params, e)
+        );
+    case TI_FN_NEW_COLLECTION:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_new_collection(query, params, e)
+        );
+    case TI_FN_NEW_NODE:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_new_node(query, params, e)
+        );
+    case TI_FN_NEW_USER:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_new_user(query, params, e)
+        );
+    case TI_FN_NODE:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_node(query, params, e)
+        );
+    case TI_FN_NODES:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_nodes(query, params, e)
+        );
+    case TI_FN_POP_NODE:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_pop_node(query, params, e)
+        );
+    case TI_FN_RENAME_COLLECTION:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_rename_collection(query, params, e)
+        );
+    case TI_FN_RENAME_USER:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_rename_user(query, params, e)
+        );
+    case TI_FN_REPLACE_NODE:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_replace_node(query, params, e)
+        );
+    case TI_FN_RESET_COUNTERS:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_reset_counters(query, params, e)
+        );
+    case TI_FN_REVOKE:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_revoke(query, params, e)
+        );
+    case TI_FN_SET_PASSWORD:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_set_password(query, params, e)
+        );
+    case TI_FN_SET_LOGLEVEL:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_set_loglevel(query, params, e)
+        );
+    case TI_FN_SET_QUOTA:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_set_quota(query, params, e)
+        );
+    case TI_FN_SET_ZONE:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_set_zone(query, params, e)
+        );
+    case TI_FN_SHUTDOWN:
+        return (
+            rq__is_not_node(query, fname, e) ||
+            rq__f_shutdown(query, params, e)
+        );
+    case TI_FN_USER:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_user(query, params, e)
+        );
+    case TI_FN_USERS:
+        return (
+            rq__is_not_thingsdb(query, fname, e) ||
+            rq__f_users(query, params, e)
+        );
     }
 
     ex_set(e, EX_INDEX_ERROR,
@@ -315,6 +344,8 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_T_FLOAT:
         query->rval = (ti_val_t *) ti_vfloat_create(strx_to_double(node->str));
+        if (!query->rval)
+            ex_set_alloc(e);
         break;
     case CLERI_GID_T_INT:
         query->rval = (ti_val_t *) ti_vint_create(strx_to_int64(node->str));
@@ -345,13 +376,13 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
-    _Bool nested = query->flags & TI_QUERY_FLAG_ROOT_NESTED;
+    _Bool nested = query->flags & TI_QUERY_FLAG_NESTED;
     int nots = 0;
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
                     ->children;                     /* first child, not */
 
-    query->flags |= TI_QUERY_FLAG_ROOT_NESTED;
+    query->flags |= TI_QUERY_FLAG_NESTED;
 
     for (nchild = child->node->children; nchild; nchild = nchild->next)
         ++nots;
@@ -395,7 +426,7 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nested)
         {
             ex_set(e, EX_BAD_DATA,
-                    "root functions are not allowed as arguments");
+                "functions are not allowed as arguments in the current scope");
             return e->nr;
         }
         if (rq__function(query, node, e))
@@ -468,7 +499,7 @@ static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
         return false;
 
     ex_set(e, EX_INDEX_ERROR,
-            "`%.*s` is undefined in this `node` scope; "
+            "`%.*s` is undefined in the `node` scope; "
             "You might want to query the `thingsdb` scope?",
             n->len,
             n->str);
@@ -478,6 +509,6 @@ static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
 int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    query->flags &= ~TI_QUERY_FLAG_ROOT_NESTED;
+    query->flags &= ~TI_QUERY_FLAG_NESTED;
     return rq__scope(query, nd, e);
 }

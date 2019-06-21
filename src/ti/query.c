@@ -22,212 +22,6 @@
 /* maximum value we allow for the `deep` argument */
 #define QUERY__MAX_DEEP 0x7f
 
-/* definition required since this is used recursive by more functions */
-static void query__investigate_recursive(ti_query_t *, cleri_node_t *);
-
-static inline _Bool query__requires_thingsdb_event(cleri_node_t * fname_nd)
-{
-    /* a function has at least size 1 */
-    switch (*fname_nd->str)
-    {
-    case 'd':
-        return (
-            langdef_nd_match_str(fname_nd, "del_collection") ||
-            langdef_nd_match_str(fname_nd, "del_user")
-        );
-    case 'g':
-        return (
-            langdef_nd_match_str(fname_nd, "grant")
-        );
-    case 'n':
-        return (
-            langdef_nd_match_str(fname_nd, "new_collection") ||
-            langdef_nd_match_str(fname_nd, "new_node") ||
-            langdef_nd_match_str(fname_nd, "new_user")
-        );
-    case 'p':
-        return (
-            langdef_nd_match_str(fname_nd, "pop_node")
-        );
-    case 'r':
-        return (
-            langdef_nd_match_str(fname_nd, "rename_collection") ||
-            langdef_nd_match_str(fname_nd, "rename_user") ||
-            langdef_nd_match_str(fname_nd, "replace_node") ||
-            langdef_nd_match_str(fname_nd, "revoke")
-        );
-    case 's':
-        return (
-            langdef_nd_match_str(fname_nd, "set_password") ||
-            langdef_nd_match_str(fname_nd, "set_quota")
-        );
-    }
-    return false;
-}
-
-static _Bool query__swap_opr(
-        ti_query_t * query,
-        cleri_children_t * parent,
-        uint32_t parent_gid)
-{
-    cleri_node_t * node;
-    cleri_node_t * nd = parent->node;
-    cleri_children_t * chilcollection;
-    uint32_t gid;
-
-    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
-            nd->cl_obj->tp == CLERI_TP_PRIO ||
-            nd->cl_obj->tp == CLERI_TP_THIS);
-
-    node = nd->cl_obj->tp == CLERI_TP_PRIO ?
-            nd->children->node :
-            nd->children->node->children->node;
-
-    if (node->cl_obj->gid == CLERI_GID_SCOPE)
-    {
-        query__investigate_recursive(query, node);
-        return false;
-    }
-
-    assert (node->cl_obj->tp == CLERI_TP_SEQUENCE);
-
-    gid = node->children->next->node->children->node->cl_obj->gid;
-
-    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD && gid <= CLERI_GID_OPR7_CMP_OR);
-
-    chilcollection = node->children->next->next;
-
-    (void) query__swap_opr(query, node->children, gid);
-    if (query__swap_opr(query, chilcollection, gid))
-    {
-        cleri_node_t * tmp;
-        cleri_children_t * bchilda;
-        parent->node = chilcollection->node;
-        tmp = chilcollection->node->cl_obj->tp == CLERI_TP_PRIO ?
-                chilcollection->node->children->node :
-                chilcollection->node->children->node->children->node;
-        bchilda = tmp->children;
-        gid = tmp->cl_obj->gid;
-        tmp = bchilda->node;
-        bchilda->node = nd;
-        chilcollection->node = tmp;
-    }
-
-    return gid > parent_gid;
-}
-
-static void query__investigate_array(ti_query_t * query, cleri_node_t * nd)
-{
-    uintptr_t sz = 0;
-    cleri_children_t * child = nd          /* sequence */
-            ->children->next->node         /* list */
-            ->children;
-    for (; child; child = child->next->next)
-    {
-        query__investigate_recursive(query, child->node);
-        ++sz;
-
-        if (!child->next)
-            break;
-    }
-    nd->data = (void *) sz;
-}
-
-static void query__investigate_recursive(ti_query_t * query, cleri_node_t * nd)
-{
-    switch (nd->cl_obj->gid)
-    {
-    case CLERI_GID_ARRAY:
-        query__investigate_array(query, nd);
-        return;
-    case CLERI_GID_FUNCTION:
-        switch (nd                              /* sequence */
-                ->children->node                /* choice */
-                ->children->node->cl_obj->gid)  /* keyword or name */
-        {
-        case CLERI_GID_F_NOW:
-        case CLERI_GID_F_ID:
-        case CLERI_GID_F_RET:
-        case CLERI_GID_F_LEN:
-            return;  /* arguments will be ignored */
-        case CLERI_GID_F_POP:
-            query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
-            return; /* arguments will be ignored */
-        case CLERI_GID_F_DEL:
-        case CLERI_GID_F_PUSH:
-        case CLERI_GID_F_REMOVE:
-        case CLERI_GID_F_RENAME:
-        case CLERI_GID_F_SPLICE:
-            query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
-            break;
-        case CLERI_GID_NAME:
-            if (query__requires_thingsdb_event(nd->children->node->children->node))
-                query->flags |= TI_QUERY_FLAG_THINGSDB_EVENT;
-            return;  /* arguments can be ignored */
-        }
-        /* skip to arguments */
-        query__investigate_recursive(
-                query,
-                nd->children->next->next->node);
-        return;
-    case CLERI_GID_ASSIGNMENT:
-        query->flags |= TI_QUERY_FLAG_COLLECTION_EVENT;
-        /* skip to scope */
-        query__investigate_recursive(
-                query,
-                nd->children->next->next->node);
-        return;
-    case CLERI_GID_CLOSURE:
-        {
-            uint8_t flags = query->flags;
-
-            query->flags = 0;
-            /* investigate the scope if required, the rest can be skipped */
-            query__investigate_recursive(
-                query,
-                nd->children->next->next->next->node);
-
-            nd->data = (void *) ((uintptr_t) (
-                    query->flags & TI_QUERY_FLAG_COLLECTION_EVENT
-                        ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
-                        : TI_VFLAG_CLOSURE_QBOUND));
-
-            query->flags |= flags;
-        }
-        return;
-    case CLERI_GID_COMMENT:
-        /* all with children we can skip */
-        return;
-    case CLERI_GID_PRIMITIVES:
-        switch (nd->children->node->cl_obj->gid)
-        {
-            case CLERI_GID_T_INT:
-            case CLERI_GID_T_FLOAT:
-            case CLERI_GID_T_STRING:
-            case CLERI_GID_T_REGEX:
-                ++query->nd_cache_count;
-                nd->children->node->data = NULL;    /* init data to null */
-        }
-        return;
-    case CLERI_GID_OPERATIONS:
-        (void) query__swap_opr(query, nd->children->next, 0);
-        if (nd->children->next->next->next)             /* optional (seq) */
-        {
-            nd = nd->children->next->next->next->node;  /* sequence */
-            query__investigate_recursive(
-                    query,
-                    nd->children->next->node);
-            query__investigate_recursive(
-                    query,
-                    nd->children->next->next->next->node);
-        }
-        return;
-    }
-
-    for (cleri_children_t * child = nd->children; child; child = child->next)
-        query__investigate_recursive(query, child->node);
-}
-
 /*
  *  tasks are ordered for low to high thing ids
  *   { [0, 0]: {0: [ {'job':...} ] } }
@@ -354,7 +148,7 @@ static int query__node_db_unpack(
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
 
-    query->pkg_id = pkg_id;
+    query->syntax.pkg_id = pkg_id;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
 
@@ -392,7 +186,7 @@ static int query__node_db_unpack(
                 goto finish;
             }
             if (qp_is_true(val.tp))
-                query->flags |= TI_QUERY_FLAG_ALL;
+                query->syntax.flags |= TI_SYNTAX_FLAG_ALL;
             continue;
         }
 
@@ -416,8 +210,9 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
 
     query->scope = NULL;
     query->rval = NULL;
-    query->deep = 1;
-    query->flags = 0;
+    query->syntax.deep = 1;
+    query->syntax.flags = 0;
+    query->syntax.nd_val_cache_n = 0;
     query->target = NULL;  /* root */
     query->parseres = NULL;
     query->stream = ti_grab(stream);
@@ -426,8 +221,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->ev = NULL;
     query->blobs = NULL;
     query->querystr = NULL;
-    query->nd_cache_count = 0;
-    query->nd_cache = NULL;
+    query->nd_val_cache = NULL;
     query->tmpvars = NULL;
 
     return query;
@@ -441,7 +235,7 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->nd_cache, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(query->nd_val_cache, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->results, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
@@ -494,7 +288,7 @@ int ti_query_collection_unpack(
     qp_obj_t key, val;
     size_t max_raw = 0;
 
-    query->pkg_id = pkg_id;
+    query->syntax.pkg_id = pkg_id;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
 
@@ -555,7 +349,7 @@ int ti_query_collection_unpack(
                 goto finish;
             }
 
-            query->deep = (uint8_t) val.via.int64;
+            query->syntax.deep = (uint8_t) val.via.int64;
             continue;
         }
 
@@ -567,7 +361,7 @@ int ti_query_collection_unpack(
                 goto finish;
             }
             if (qp_is_true(val.tp))
-                query->flags |= TI_QUERY_FLAG_ALL;
+                query->syntax.flags |= TI_SYNTAX_FLAG_ALL;
             continue;
         }
 
@@ -675,31 +469,23 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     while(child)
     {
         ++nstatements;
-        query__investigate_recursive(query, child->node);  /* scope */
+        ti_syntax_investigate(&query->syntax, child->node);  /* scope */
 
         if (!child->next)
             break;
         child = child->next->next;                  /* skip delimiter */
     }
 
-    nstatements = ((query->flags & TI_QUERY_FLAG_ALL) || !nstatements)
+    nstatements = ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) || !nstatements)
             ? nstatements : 1;
 
     query->results = vec_new(nstatements);
     if (!query->results || (
-            query->nd_cache_count && !(
-                    query->nd_cache = vec_new(query->nd_cache_count)
+            query->syntax.nd_val_cache_n && !(
+                    query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)
             )
     ))
         ex_set_alloc(e);
-
-    /* remove flag which is not applicable */
-    query->flags &= query->target
-            ? ~TI_QUERY_FLAG_THINGSDB_EVENT
-            : ~TI_QUERY_FLAG_COLLECTION_EVENT;
-
-    if (query->flags & TI_QUERY_FLAG_OVERFLOW)
-        ex_set(e, EX_OVERFLOW, "integer overflow");
 
     return e->nr;
 }
@@ -733,7 +519,7 @@ void ti_query_run(ti_query_t * query)
         if (!child->next || !(child = child->next->next))
             break;
 
-        if (query->flags & TI_QUERY_FLAG_ALL)
+        if (query->syntax.flags & TI_SYNTAX_FLAG_ALL)
             VEC_push(query->results, query->rval);
         else
             ti_val_drop(query->rval);
@@ -761,11 +547,11 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (e->nr)
         goto pkg_err;
 
-    packer = qpx_packer_create(65536, query->deep + 1);
+    packer = qpx_packer_create(65536, query->syntax.deep + 1);
     if (!packer)
         goto alloc_err;
 
-    (void) ((query->flags & TI_QUERY_FLAG_ALL) && qp_add_array(&packer));
+    (void) ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) && qp_add_array(&packer));
 
     /* we should have a result for each statement */
     assert (query->results->n == query->results->sz);
@@ -774,15 +560,15 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     for (vec_each(query->results, ti_val_t, rval))
     {
         assert (rval);
-        if (ti_val_to_packer(rval, &packer, 0, query->deep))
+        if (ti_val_to_packer(rval, &packer, 0, query->syntax.deep))
             goto alloc_err;
     }
 
-    if ((query->flags & TI_QUERY_FLAG_ALL) && qp_close_array(packer))
+    if ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) && qp_close_array(packer))
         goto alloc_err;
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);
-    pkg->id = query->pkg_id;
+    pkg->id = query->syntax.pkg_id;
 
     goto finish;
 
@@ -792,7 +578,7 @@ alloc_err:
     ex_set_alloc(e);
 
 pkg_err:
-    pkg = ti_pkg_client_err(query->pkg_id, e);
+    pkg = ti_pkg_client_err(query->syntax.pkg_id, e);
 
 finish:
     if (!pkg || ti_stream_write_pkg(query->stream, pkg))

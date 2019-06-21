@@ -13,11 +13,12 @@ typedef struct ti_closure_s ti_closure_t;
 #include <tiinc.h>
 #include <ti/val.h>
 #include <ti/ex.h>
+#include <ti/syntax.h>
 
 ti_closure_t * ti_closure_from_node(cleri_node_t * node);
-ti_closure_t * ti_closure_from_strn(const char * str, size_t n);
+ti_closure_t * ti_closure_from_strn(const char * str, size_t n, ex_t * e);
 void ti_closure_destroy(ti_closure_t * closure);
-int ti_closure_unbound(ti_closure_t * closure);
+int ti_closure_unbound(ti_closure_t * closure, ex_t * e);
 int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer);
 int ti_closure_to_file(ti_closure_t * closure, FILE * f);
 uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n);

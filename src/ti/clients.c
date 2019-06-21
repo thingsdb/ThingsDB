@@ -283,8 +283,6 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
         goto failed;
     }
 
-    query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-
     if (ti_query_node_unpack(query, pkg->id, pkg->data, pkg->n, e))
         goto failed;
 

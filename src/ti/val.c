@@ -57,11 +57,16 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
                         sz)
                 : NULL;
     case TI_VAL_KIND_CLOSURE:
+    {
+        ex_t e = { .nr=0 };
+        ti_closure_t * closure;
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
             return NULL;
-        return (ti_val_t *) ti_closure_from_strn(
-                (char *) qp_tmp.via.raw,
-                qp_tmp.len);
+        closure = ti_closure_from_strn((char *) qp_tmp.via.raw, qp_tmp.len, &e);
+        if (!closure)
+            log_error(e.msg);
+        return (ti_val_t *) closure;
+    }
     case TI_VAL_KIND_REGEX:
     {
         ex_t e = { .nr=0 };
@@ -918,7 +923,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
             ex_set(e, EX_BAD_DATA,
                 "closures with side effects cannot be assigned");
         }
-        else if (ti_closure_unbound((ti_closure_t * ) *val))
+        else if (ti_closure_unbound((ti_closure_t * ) *val, e))
             ex_set_alloc(e);
         break;
     case TI_VAL_ARR:

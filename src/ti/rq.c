@@ -376,13 +376,13 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
-    _Bool nested = query->flags & TI_QUERY_FLAG_NESTED;
+    _Bool nested = query->syntax.flags & TI_SYNTAX_FLAG_NESTED;
     int nots = 0;
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
                     ->children;                     /* first child, not */
 
-    query->flags |= TI_QUERY_FLAG_NESTED;
+    query->syntax.flags |= TI_SYNTAX_FLAG_NESTED;
 
     for (nchild = child->node->children; nchild; nchild = nchild->next)
         ++nots;
@@ -482,7 +482,7 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
 {
-    if (q->flags & TI_QUERY_FLAG_NODE)
+    if (q->syntax.flags & TI_SYNTAX_FLAG_NODE)
         return false;
 
     ex_set(e, EX_INDEX_ERROR,
@@ -495,7 +495,7 @@ static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
 
 static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
 {
-    if (~q->flags & TI_QUERY_FLAG_NODE)
+    if (~q->syntax.flags & TI_SYNTAX_FLAG_NODE)
         return false;
 
     ex_set(e, EX_INDEX_ERROR,
@@ -509,6 +509,6 @@ static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
 int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    query->flags &= ~TI_QUERY_FLAG_NESTED;
+    query->syntax.flags &= ~TI_SYNTAX_FLAG_NESTED;
     return rq__scope(query, nd, e);
 }

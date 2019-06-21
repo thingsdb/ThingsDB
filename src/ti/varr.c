@@ -97,7 +97,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
                 "closures with side effects cannot be assigned");
             return e->nr;
         }
-        if (ti_closure_unbound((ti_closure_t * ) val))
+        if (ti_closure_unbound((ti_closure_t * ) val, e))
         {
             ex_set_alloc(e);
             return e->nr;

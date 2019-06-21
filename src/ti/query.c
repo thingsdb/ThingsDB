@@ -257,6 +257,7 @@ int ti_query_node_unpack(
     assert (e->nr == 0);
     const char * ebad =
             "invalid `query-node` request"TI_SEE_DOC("#query-node");
+    query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
     return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
 }
 
@@ -270,6 +271,7 @@ int ti_query_thingsdb_unpack(
     assert (e->nr == 0);
     const char * ebad =
             "invalid `query-thingsdb` request"TI_SEE_DOC("#query-thingsdb");
+    query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
     return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
 }
 
@@ -288,6 +290,7 @@ int ti_query_collection_unpack(
     qp_obj_t key, val;
     size_t max_raw = 0;
 
+    query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
     query->syntax.pkg_id = pkg_id;
 
     qp_unpacker_init2(&unpacker, data, n, 0);

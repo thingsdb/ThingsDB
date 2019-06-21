@@ -54,8 +54,6 @@ void ti_query_send(ti_query_t * query, ex_t * e);
 ti_val_t * ti_query_val_pop(ti_query_t * query);
 ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name);
 static inline _Bool ti_query_will_update(ti_query_t * query);
-static inline void ti_set_collection_event(ti_query_t * query);
-static inline void ti_set_thingsdb_event(ti_query_t * query);
 
 struct ti_query_s
 {
@@ -83,16 +81,5 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
 {
     return query->syntax.flags & TI_SYNTAX_FLAG_EVENT;
 }
-
-static inline void ti_set_collection_event(ti_query_t * query)
-{
-    query->syntax.flags |= !!query->target & TI_SYNTAX_FLAG_EVENT;
-}
-
-static inline void ti_set_thingsdb_event(ti_query_t * query)
-{
-    query->syntax.flags |= !query->target & TI_SYNTAX_FLAG_EVENT;
-}
-
 
 #endif /* TI_QUERY_H_ */

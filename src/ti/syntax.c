@@ -1,11 +1,16 @@
 /*
  * ti/syntax.c
  */
-#include <ti/syntax.c>
+#include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <langdef/langdef.h>
+#include <ti/syntax.h>
+#include <ti/val.h>
+#include <tiinc.h>
+#include <util/logger.h>
 
-#define SYNTAX__MAP_FN(__ev, __q, __nd, __str, __fn, __ret)                  \
+#define SYNTAX__X(__ev, __q, __nd, __str, __fn, __ret)                      \
 do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
 {                                                                           \
     __nd->data = (void *) ((uintptr_t) __fn);                               \
@@ -15,22 +20,35 @@ do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
 
 /* set collection event, used for collection scope */
 #define syntax__cev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__MAP_FN(ti_set_collection_event, __q, __nd, __str, __fn, __ret)
+        SYNTAX__X(syntax__set_collection_event, __q, __nd, __str, __fn, __ret)
 
 /* set thingsdb event, used for thingsdb scope */
 #define syntax__tev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__MAP_FN(ti_set_thingsdb_event, __q, __nd, __str, __fn, __ret)
+        SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn, __ret)
 
 /* no event, used for collection scope */
 #define syntax__nev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__MAP_FN((void), __q, __nd, __str, __fn, __ret)
+        SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
 
 /* no event, used for node and thingsdb scope */
 #define syntax__sev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__MAP_FN((void), __q, __nd, __str, __fn, __ret)
+        SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
+
+static inline void syntax__set_collection_event(ti_syntax_t * syntax)
+{
+    syntax->flags |= syntax->flags & TI_SYNTAX_FLAG_COLLECTION
+            ? TI_SYNTAX_FLAG_EVENT : 0;
+}
+
+static inline void syntax__set_thingsdb_event(ti_syntax_t * syntax)
+{
+    syntax->flags |= ~syntax->flags & TI_SYNTAX_FLAG_COLLECTION
+            ? TI_SYNTAX_FLAG_EVENT : 0;
+}
+
 
 /* returns `true` if the arguments of the function need evaluation */
-static inline _Bool syntax__map_fn(ti_query_t * q, cleri_node_t * nd)
+static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
 {
     /* a function name has at least size 1 */
     switch (*nd->str)
@@ -164,7 +182,7 @@ static _Bool syntax__swap_opr(
 
     if (node->cl_obj->gid == CLERI_GID_SCOPE)
     {
-        syntax__investigate_recursive(syntax, node);
+        ti_syntax_investigate(syntax, node);
         return false;
     }
 
@@ -225,7 +243,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
             ti_syntax_investigate(syntax, nd->children->next->next->node);
         return;
     case CLERI_GID_ASSIGNMENT:
-        ti_set_collection_event(syntax);
+        syntax__set_collection_event(syntax);
         /* skip to scope */
         ti_syntax_investigate(syntax, nd->children->next->next->node);
         return;
@@ -233,17 +251,22 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         {
             uint8_t flags = syntax->flags;
 
-            syntax->flags = 0;
-            /* investigate the scope if required, the rest can be skipped */
+            /* temporary remove the `event` flag to discover if the closure
+             * sets the `event` flag.
+             */
+            syntax->flags &= ~TI_SYNTAX_FLAG_EVENT;
+
+            /* investigate the scope, the rest can be skipped */
             ti_syntax_investigate(
                     syntax,
-                nd->children->next->next->next->node);
+                    nd->children->next->next->next->node);
 
             nd->data = (void *) ((uintptr_t) (
                     syntax->flags & TI_SYNTAX_FLAG_EVENT
                         ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
                         : TI_VFLAG_CLOSURE_QBOUND));
 
+            /* apply the original flags */
             syntax->flags |= flags;
         }
         return;

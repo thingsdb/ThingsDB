@@ -5,14 +5,24 @@
 #include <util/logger.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
+#include <ti/regex.h>
+#include <util/strx.h>
 
-static typedef struct closure__ubound_s
+/*
+ * Assigned closures require to own a `query` string, and they need to prepare
+ * all the `primitives` cached values since a query which is using the closure
+ * does not have space to store these. (and it improves the performance of
+ * the closure)
+ */
+typedef struct closure__ubound_s
 {
-    const char * query;
+    char * query;
     vec_t * nd_val_cache;
 } closure__ubound_t;
 
-static closure__ubound_t * closure__ubound_create(const char * query, size_t n)
+static closure__ubound_t * closure__ubound_create(char * query, size_t n)
 {
     closure__ubound_t * ubound = malloc(sizeof(closure__ubound_t));
     if (!ubound)
@@ -21,7 +31,7 @@ static closure__ubound_t * closure__ubound_create(const char * query, size_t n)
     ubound->query = query;
     ubound->nd_val_cache = vec_new(n);
 
-    if (ubound->nd_val_cache)
+    if (!ubound->nd_val_cache)
     {
         free(ubound);
         return NULL;
@@ -35,6 +45,7 @@ static void closure__ubound_destroy(closure__ubound_t * ubound)
     if (!ubound)
         return;
     vec_destroy(ubound->nd_val_cache, (vec_destroy_cb) ti_val_drop);
+    free(ubound->query);
     free(ubound);
 }
 
@@ -42,7 +53,8 @@ static int closure__gen_primitives(vec_t * cache, cleri_node_t * nd, ex_t * e)
 {
     if (nd->cl_obj->gid == CLERI_GID_PRIMITIVES)
     {
-        switch (nd->children->node->cl_obj->gid)
+        nd = nd->children->node;
+        switch (nd->cl_obj->gid)
         {
         case CLERI_GID_T_FLOAT:
             assert (!nd->data);
@@ -97,7 +109,7 @@ static cleri_node_t * closure__node_from_strn(
     ti_syntax_t syntax;
     cleri_parse_t * res;
     cleri_node_t * node;
-    const char * query = strndup(str, n);
+    char * query = strndup(str, n);
     if (!query)
     {
         ex_set_alloc(e);
@@ -143,7 +155,8 @@ static cleri_node_t * closure__node_from_strn(
         goto fail1;
     }
 
-    ti_syntax_investigate(&syntax, node);
+    /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
+    ti_syntax_investigate(&syntax, node->children->next->next->next->node);
 
     ubound = closure__ubound_create(query, syntax.nd_val_cache_n);
     if (!ubound)
@@ -268,7 +281,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     closure->node = node;
     closure->flags &= ~TI_VFLAG_CLOSURE_QBOUND;
 
-    return 0;
+    return e->nr;
 }
 
 int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)

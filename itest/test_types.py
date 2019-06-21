@@ -113,6 +113,12 @@ class TestTypes(TestBase):
                 [||x = 1];
             ''')
 
+        # test two-level deel nesting
+        self.assertEqual(await client.query(r'''
+            b = |k1|map(|k2|(k1 + k2));
+            map(b);
+        '''), [["aa", "ab"], ["ba", "bb"]])
+
 
 if __name__ == '__main__':
     run_test(TestTypes())

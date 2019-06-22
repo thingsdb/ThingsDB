@@ -968,11 +968,11 @@ int ti_nodes_write_global_status(void)
         return -1;
     }
 
-    log_debug("save global committed "TI_EVENT_ID", "
+    log_debug(
+            "save global committed "TI_EVENT_ID", "
             "global stored "TI_EVENT_ID" and "
-            "lowest known syntax version `TIto disk", cevid);
-    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
-    log_debug("save global stored "TI_EVENT_ID" to disk", sevid);
+            "lowest known "TI_SYNTAX" to disk",
+            cevid, sevid, nodes->syntax_ver);
 
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
         fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)

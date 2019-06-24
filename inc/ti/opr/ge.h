@@ -116,10 +116,7 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
-            goto type_err;
         case TI_VAL_SET:
-            bool_ = ((ti_vset_t *) a)->imap->n >= ((ti_vset_t *) b)->imap->n;
-            break;
         case TI_VAL_CLOSURE:
             goto type_err;
         }

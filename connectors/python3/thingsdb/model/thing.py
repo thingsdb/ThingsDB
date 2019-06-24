@@ -186,7 +186,6 @@ class Thing:
                         f'item which is not of the specified type')
                 arr[index:index+count] = items
 
-
     async def on_init(self, event_id, data):
         """Called when an `init-watch` package is received.
         This method can be implemented be a custom thing but do not forget
@@ -237,8 +236,6 @@ class Thing:
         'del': _job_del,
         'rename': _job_rename,
         'splice': _job_splice,
-        'add': _job_add,
-        'remove': job_remove,
     }
 
 

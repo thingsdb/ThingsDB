@@ -17,6 +17,9 @@
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
 
+#include <ti/varr.h>
+#include <ti/vset.h>
+#include <ti/regex.h>
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
@@ -173,7 +176,7 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
             return false;
         case TI_VAL_QP:
         case TI_VAL_RAW:
-            return ti_raw_equal((ti_raw_t *) a, (ti_raw_t *) b);
+            return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_ARR:
@@ -183,11 +186,66 @@ _Bool ti_opr_eq(ti_val_t * a, ti_val_t * b)
         }
         break;
     case TI_VAL_REGEX:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+            return false;
+        case TI_VAL_REGEX:
+            return ti_regex_eq((ti_regex_t *) a, (ti_regex_t *) b);
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+            return false;
+        }
+        break;
     case TI_VAL_THING:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
         return a == b;
+    case TI_VAL_ARR:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+            return false;
+        case TI_VAL_ARR:
+            return ti_varr_eq((ti_varr_t *) a, (ti_varr_t *) b);
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+            return false;
+        }
+        break;
+    case TI_VAL_SET:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+            return false;
+        case TI_VAL_SET:
+            return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
+        case TI_VAL_CLOSURE:
+            return false;
+        }
+        break;
+    case TI_VAL_CLOSURE:
+        return false;
     }
     return false;
 }

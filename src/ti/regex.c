@@ -99,5 +99,3 @@ void ti_regex_destroy(ti_regex_t * regex)
     ti_val_drop((ti_val_t *) regex->pattern);
     free(regex);
 }
-
-

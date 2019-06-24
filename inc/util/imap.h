@@ -33,6 +33,8 @@ void * imap_get(imap_t * imap, uint64_t id);
 void * imap_pop(imap_t * imap, uint64_t id);
 int imap_walk(imap_t * imap, imap_cb cb, void * arg);
 void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
+_Bool imap__eq_(imap_t * a, imap_t * b);
+static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
 vec_t * imap_vec_pop(imap_t * imap);
 void imap_union_ref(
@@ -66,5 +68,9 @@ struct imap_s
     imap_node_t nodes[];
 };
 
+static inline _Bool imap_eq(imap_t * a, imap_t * b)
+{
+    return a == b || (a->n == b->n && (!a->n || imap__eq_(a, b)));
+}
 
 #endif /* IMAP_H_ */

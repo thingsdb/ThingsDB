@@ -19,7 +19,7 @@
 #include <util/logger.h>
 #include <util/strx.h>
 
-#define VAL__CMP(__s) ti_raw_equal_strn((*(ti_raw_t **) val), __s, strlen(__s))
+#define VAL__CMP(__s) ti_raw_eq_strn((*(ti_raw_t **) val), __s, strlen(__s))
 
 static ti_val_t * val__sempty;
 static ti_val_t * val__snil;

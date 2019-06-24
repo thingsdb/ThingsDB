@@ -31,6 +31,7 @@ void ti_regex_destroy(ti_regex_t * regex);
 static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer);
 static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f);
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw);
+static inline _Bool ti_regex_eq(ti_regex_t * ra, ti_regex_t * rb);
 
 struct ti_regex_s
 {
@@ -73,6 +74,11 @@ static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)
             0,                     /* OPTIONS */
             regex->match_data,
             NULL) >= 0;
+}
+
+static inline _Bool ti_regex_eq(ti_regex_t * ra, ti_regex_t * rb)
+{
+    return ti_raw_eq(ra->pattern, rb->pattern);
 }
 
 #endif  /* TI_REGEX_H_ */

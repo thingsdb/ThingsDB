@@ -119,6 +119,26 @@ class TestTypes(TestBase):
             map(b);
         '''), [["aa", "ab"], ["ba", "bb"]])
 
+    async def test_set(self, client):
+        self.assertTrue(await client.query(r'''
+            ( set() == set() )
+        '''))
+
+        self.assertTrue(await client.query(r'''
+            a = {}; b = a;
+            ( set([a]) == set([b]) )
+        '''))
+
+        self.assertTrue(await client.query(r'''
+            a = {};
+            ( set([a]) != set([]) )
+        '''))
+
+        self.assertTrue(await client.query(r'''
+            a = {}; b = {};
+            ( set([a]) != set([b]) )
+        '''))
+
 
 if __name__ == '__main__':
     run_test(TestTypes())

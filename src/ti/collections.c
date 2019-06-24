@@ -190,7 +190,7 @@ fail0:
 ti_collection_t * ti_collections_get_by_raw(const ti_raw_t * raw)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_raw_equal(collection->name, raw))
+        if (ti_raw_eq(collection->name, raw))
             return collection;
     return NULL;
 }
@@ -199,7 +199,7 @@ ti_collection_t * ti_collections_get_by_raw(const ti_raw_t * raw)
 ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_raw_equal_strn(collection->name, str, n))
+        if (ti_raw_eq_strn(collection->name, str, n))
             return collection;
     return NULL;
 }

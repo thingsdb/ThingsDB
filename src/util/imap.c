@@ -3,8 +3,10 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <ti/ref.h>
 #include <util/imap.h>
+#include <util/logger.h>
 
 #define IMAP_NODE_SZ 32
 
@@ -15,6 +17,7 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data);
 static void * imap__pop(imap_node_t * node, uint64_t id);
 static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
+static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
 static void imap__union_ref(imap_node_t * dest, imap_node_t * node);
 static void imap__intersection_ref(
@@ -280,6 +283,31 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg)
         }
     }
 }
+
+/*
+ * Returns `true` if the given imap objects are equal
+ */
+_Bool imap__eq_(imap_t * a, imap_t * b)
+{
+    imap_node_t * nda, * ndb;
+    assert (a != b && a->n == b->n && a->n);
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        nda = a->nodes + i;
+        ndb = b->nodes + i;
+
+        LOGC("%p %p", nda->data, ndb->data);
+
+        if (nda->data != ndb->data ||
+            !nda->nodes != !ndb->nodes ||
+            (nda->nodes && !imap__eq(nda, ndb)))
+            return false;
+    }
+
+    return true;
+}
+
 
 /*
  * Returns a pointer to imap->vec or NULL in case an allocation error has
@@ -774,6 +802,24 @@ static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n)
             imap__walkn(nd, cb, arg, n);
         }
     }
+}
+
+static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
+{
+    imap_node_t * nda, * ndb;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        nda = nodea->nodes + i;
+        ndb = nodeb->nodes + i;
+
+        if (nda->data != ndb->data ||
+            !nda->nodes != !ndb->nodes ||
+            (nda->nodes && !imap__eq(nda, ndb)))
+            return false;
+    }
+
+    return true;
 }
 
 static void imap__vec(imap_node_t * node, vec_t * vec)

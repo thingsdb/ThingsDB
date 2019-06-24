@@ -193,7 +193,7 @@ ti_user_t * ti_users_get_by_id(uint64_t id)
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 {
     for (vec_each(users->vec, ti_user_t, user))
-        if (ti_raw_equal_strn(user->name, name, n))
+        if (ti_raw_eq_strn(user->name, name, n))
             return user;
     return NULL;
 }

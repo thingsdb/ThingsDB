@@ -32,8 +32,8 @@ ti_raw_t * ti_raw_cat_strn_strn(
         size_t bn);
 _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
 _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
-static inline _Bool ti_raw_equal(const ti_raw_t * a, const ti_raw_t * b);
-static inline _Bool ti_raw_equal_strn(
+static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b);
+static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n);
@@ -53,12 +53,12 @@ struct ti_raw_s
     unsigned char data[];
 };
 
-static inline _Bool ti_raw_equal(const ti_raw_t * a, const ti_raw_t * b)
+static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b)
 {
     return a == b || (a->n == b->n && !memcmp(a->data, b->data, a->n));
 }
 
-static inline _Bool ti_raw_equal_strn(
+static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n)

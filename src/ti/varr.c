@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti/varr.h>
 #include <ti/val.h>
+#include <ti/opr.h>
 #include <ti/closure.h>
 #include <util/logger.h>
 
@@ -177,4 +178,17 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
+/*
+ * Do not use this method, but the in-line method ti_varr_eq() instead
+ */
+_Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb)
+{
+    size_t i = 0;
+
+    assert (varra != varrb && varra->vec->n == varrb->vec->n);
+    for (vec_each(varra->vec, ti_val_t, va), ++i)
+        if (!ti_opr_eq(va, vec_get(varrb->vec, i)))
+            return false;
+    return true;
+}
 

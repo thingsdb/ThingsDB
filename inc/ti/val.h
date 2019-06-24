@@ -38,14 +38,43 @@ typedef enum
 
 enum
 {
-    TI_VFLAG_THING_SWEEP     =1<<0,      /* marked for sweep */
-    TI_VFLAG_THING_NEW       =1<<1,      /* thing is new */
-    TI_VFLAG_CLOSURE_QBOUND  =1<<2,      /* closure bound to query string */
-    TI_VFLAG_CLOSURE_WSE     =1<<3,      /* closure with side effects */
-    TI_VFLAG_CLOSURE_LOCK    =1<<4,      /* closure in use (no recursion) */
-    TI_VFLAG_ARR_TUPLE       =1<<5,      /* array is immutable */
-    TI_VFLAG_ARR_MHT         =1<<6,      /* array may-have-things */
-    TI_VFLAG_UNASSIGNED      =1<<7,      /* set or list is not assigned */
+    TI_VFLAG_THING_SWEEP     =1<<0,      /* marked for sweep; each thing is
+                                            initially marked and while running
+                                            garbage collection this mark is
+                                            removed as long as the `thing` is
+                                            attached to the collection. */
+    TI_VFLAG_THING_NEW       =1<<1,      /* thing is new; new things require
+                                            a full `dump` in a task while
+                                            existing things only can contain
+                                            the `id`.*/
+    TI_VFLAG_CLOSURE_QBOUND  =1<<2,      /* closure bound to query string;
+                                            one time closures do not own the
+                                            closure string but refer the full
+                                            query string.*/
+    TI_VFLAG_CLOSURE_WSE     =1<<3,      /* closure with side effects;
+                                            when closure make changes they
+                                            require an event and thus have
+                                            side effects and cannot be assigned
+                                            because we could never detect the
+                                            need for an event while
+                                            investigating the query. */
+    TI_VFLAG_CLOSURE_LOCK    =1<<4,      /* closure in use; required for
+                                            recursion detection which is not
+                                            allowed with closures */
+    TI_VFLAG_ARR_TUPLE       =1<<5,      /* array is immutable; nested, and
+                                            only nested array's are tuples;
+                                            once a tuple is direct assigned to
+                                            a thing, it converts back to a
+                                            mutable list. */
+    TI_VFLAG_ARR_MHT         =1<<6,      /* array may-have-things; some code
+                                            might skip arrays without this flag
+                                            while searching for things; */
+    TI_VFLAG_UNASSIGNED      =1<<7,      /* set or list is not assigned;
+                                            the assigned status is required
+                                            to decide if changes to the
+                                            collection require a task and new
+                                            things inside the collection need
+                                            new id's. */
 };
 
 typedef enum

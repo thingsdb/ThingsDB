@@ -74,6 +74,8 @@ static int cq__function(
     {
     case TI_FN_0:
         break;
+    case TI_FN_ADD:
+        return cq__f_add(query, params, e);
     case TI_FN_ASSERT:
         if (is_scope)
             return cq__f_assert(query, params, e);

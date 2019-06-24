@@ -39,8 +39,11 @@ struct ti_vset_s
 };
 
 /*
- * Returns 0 if the given `thing` is added to the set.
+ * Returns IMAP_SUCCESS (0) if the given `thing` is added to the set.
  * (does NOT increment the reference count)
+ * If the given thing already is in the set, the return value is
+ * IMAP_ERR_EXIST (-2) and in case of an memory allocation error the return
+ * value is IMAP_ERR_ALLOC (-1).
  */
 static inline int ti_vset_add(ti_vset_t * vset, ti_thing_t * thing)
 {

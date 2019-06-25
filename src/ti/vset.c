@@ -114,22 +114,26 @@ done:
 
 /*
  * Increments the reference for each moved value to the set.
+ * The return value is <0 in case of an error and `e` will contain the reason,
+ * If 0, then the `thing` was already in the set, and 1 if it was added.
  */
 int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 {
     if (!ti_val_is_thing(val))
+    {
         ex_set(e, EX_BAD_DATA, "cannot add type `%s` to a "TI_VAL_SET_S,
                 ti_val_str(val));
+        return e->nr;
+    }
     else switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))
     {
     case IMAP_ERR_EXIST:
-        break;
+        return 0;
     case IMAP_ERR_ALLOC:
         ex_set_alloc(e);
-        break;
+        return e->nr;
     case IMAP_SUCCESS:
         ti_incref(val);
-        break;
     }
-    return e->nr;
+    return 1;
 }

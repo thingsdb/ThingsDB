@@ -1,6 +1,6 @@
 #include <ti/cfn/fn.h>
 
-#define PUSH_DOC_ TI_SEE_DOC("#add")
+#define ADD_DOC_ TI_SEE_DOC("#add")
 
 static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -10,47 +10,36 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
-    uint32_t current_n, new_n;
+    vec_t * added = vec_new(nargs);  /* weak references to things */
     ti_vset_t * vset = (ti_vset_t *) ti_query_val_pop(query);
+
+    if (!added)
+    {
+        ex_set_alloc(e);
+        goto done;
+    }
 
     if (!ti_val_is_set((ti_val_t *) vset))
     {
         ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `push`"PUSH_DOC_,
-                ti_val_str((ti_val_t *) varr));
+                "type `%s` has no function `add`"ADD_DOC_,
+                ti_val_str((ti_val_t *) vset));
         goto done;
     }
 
     if (!nargs)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `push` requires at least 1 argument but 0 "
-                "were given"PUSH_DOC_);
+                "function `add` requires at least 1 argument but 0 "
+                "were given"ADD_DOC_);
         goto done;
     }
 
-    if (ti_varr_is_assigned(varr) &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
+    if (ti_vset_is_assigned(vset) &&
+        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
     {
         ex_set(e, EX_BAD_DATA,
-            "cannot use function `push` while the list is in use"PUSH_DOC_);
-        goto done;
-    }
-
-    current_n = varr->vec->n;
-    new_n = current_n + nargs;
-
-    if (new_n >= query->target->quota->max_array_size)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
-        goto done;
-    }
-
-    if (vec_resize(&varr->vec, new_n))
-    {
-        ex_set_alloc(e);
+            "cannot use function `add` while the set is in use"ADD_DOC_);
         goto done;
     }
 
@@ -58,21 +47,28 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
+        int rc;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_cq_scope(query, child->node, e))
             goto failed;
 
-        if (ti_varr_append(varr, (void **) &query->rval, e))
+        rc = ti_vset_add_val(vset, query->rval, e);
+
+        if (rc < 0)
             goto failed;
 
+        if (rc > 0)
+            VEC_push(added, query->rval);  /* at least the `set` has a
+                                              reference now */
+        ti_val_drop(query->rval);
         query->rval = NULL;
 
         if (!child->next)
             break;
     }
 
-    if (ti_varr_is_assigned(varr))
+    if (added->n && ti_vset_is_assigned(vset))
     {
         ti_task_t * task;
         assert (query->scope->thing);
@@ -81,19 +77,17 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto failed;
 
-        if (ti_task_add_splice(
+        if (ti_task_add_add(
                 task,
                 query->scope->name,
-                varr,
-                current_n,
-                0,
-                nargs))
+                added))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
 
     assert (e->nr == 0);
-    query->rval = (ti_val_t *) ti_vint_create((int64_t) varr->vec->n);
+
+    query->rval = (ti_val_t *) ti_vint_create((int64_t) added->n);
     if (query->rval)
         goto done;
 
@@ -101,13 +95,11 @@ alloc_err:
     ex_set_alloc(e);
 
 failed:
-    while (varr->vec->n > current_n)
-    {
-        ti_val_drop(vec_pop(varr->vec));
-    }
-    (void) vec_shrink(&varr->vec);
+    while (added->n)
+        ti_val_drop((ti_val_t *) ti_vset_pop(vset, vec_pop(added)));
 
 done:
-    ti_val_drop((ti_val_t *) varr);
+    free(added);
+    ti_val_drop((ti_val_t *) vset);
     return e->nr;
 }

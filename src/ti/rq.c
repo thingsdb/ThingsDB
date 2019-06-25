@@ -43,6 +43,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
     {
     case TI_FN_0:
+    case TI_FN_ADD:
     case TI_FN_ASSERT:
     case TI_FN_BLOB:
     case TI_FN_BOOL:

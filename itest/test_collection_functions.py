@@ -36,6 +36,11 @@ class TestCollectionFunctions(TestBase):
         counters = await client.query('counters();', target=scope.node)
         self.assertEqual(counters['garbage_collected'], 0)
 
+    async def test_add(self, client):
+        await client.query(r's = set(); a = {}; b = {}; c = {};')
+        self.assertEqual(await client.query('[s.add(a, b), s.len()'), [2, 2])
+        self.assertEqual(await client.query('[s.add(b, c), s.len()]'), [1, 3])
+
     async def test_assert(self, client):
         with self.assertRaisesRegex(
                 AssertionError,

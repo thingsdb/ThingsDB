@@ -577,7 +577,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
 
         for (vec_each(vec, ti_val_t, v))
         {
-            if (ti_vset_add_val(vset, v, e))
+            if (ti_vset_add_val(vset, v, e) < 0)
             {
                 ti_vset_destroy(vset);
                 return e->nr;
@@ -752,12 +752,9 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_THING:
         /* new things 'under' an existing thing will get their own event,
          * so break */
-        if (((ti_thing_t *) val)->id)
-        {
-            ti_thing_unmark_new((ti_thing_t *) val);
-            break;
-        }
-        return ti_thing_gen_id((ti_thing_t *) val);
+        if (!((ti_thing_t *) val)->id)
+            return ti_thing_gen_id((ti_thing_t *) val);
+        break;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
             for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
@@ -772,16 +769,8 @@ int ti_val_gen_ids(ti_val_t * val)
                 return -1;
 
             for (vec_each(vec, ti_thing_t, thing))
-            {
-                if (thing->id)
-                {
-                    ti_thing_unmark_new(thing);
-                    continue;
-                }
-
-                if (ti_thing_gen_id(thing))
+                if (!thing->id && ti_thing_gen_id(thing))
                     return -1;
-            }
         }
     }
     return 0;
@@ -817,13 +806,19 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
          * Tasks require the complete `new` thing so they can be created by
          * all nodes.
          */
-        return flags & TI_VAL_PACK_NEW
-            ? (ti_thing_is_new((ti_thing_t *) val)
-                ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
-                : ti_thing_id_to_packer((ti_thing_t *) val, pckr))
-            : (fetch-- > 0
-                ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
-                : ti_thing_id_to_packer((ti_thing_t *) val, pckr));
+        if (flags & TI_VAL_PACK_NEW)
+        {
+            ti_thing_t * thing = (ti_thing_t *) val;
+            if (ti_thing_is_new(thing))
+            {
+                ti_thing_unmark_new(thing);
+                return ti_thing_to_packer(thing, pckr, flags, fetch);
+            }
+            return ti_thing_id_to_packer(thing, pckr);
+        }
+        return fetch-- > 0
+            ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
+            : ti_thing_id_to_packer((ti_thing_t *) val, pckr);
     case TI_VAL_ARR:
         if (qp_add_array(pckr))
             return -1;

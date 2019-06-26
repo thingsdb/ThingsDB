@@ -31,6 +31,7 @@
 #include <ti/cfn/fnisnan.h>
 #include <ti/cfn/fnisnil.h>
 #include <ti/cfn/fnisraw.h>
+#include <ti/cfn/fnisset.h>
 #include <ti/cfn/fnisthing.h>
 #include <ti/cfn/fnistuple.h>
 #include <ti/cfn/fnisutf8.h>
@@ -150,6 +151,10 @@ static int cq__function(
     case TI_FN_ISRAW:
         if (is_scope)
             return cq__f_israw(query, params, e);
+        break;
+    case TI_FN_ISSET:
+        if (is_scope)
+            return cq__f_isset(query, params, e);
         break;
     case TI_FN_ISTHING:
         if (is_scope)

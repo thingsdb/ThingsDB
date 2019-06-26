@@ -100,6 +100,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "isnan", TI_FN_ISNAN, true);
         syntax__nev_fn(q, nd, "isnil", TI_FN_ISNIL, true);
         syntax__nev_fn(q, nd, "israw", TI_FN_ISRAW, true);
+        syntax__nev_fn(q, nd, "isset", TI_FN_ISSET, true);
         syntax__nev_fn(q, nd, "isstr", TI_FN_ISSTR, true);
         syntax__nev_fn(q, nd, "isthing", TI_FN_ISTHING, true);
         syntax__nev_fn(q, nd, "istuple", TI_FN_ISTUPLE, true);
@@ -159,7 +160,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     }
 
-    nd->cl_obj->gid = TI_FN_0;  /* unknown function */
+    nd->data = (void *) ((uintptr_t) TI_FN_0);  /* unknown function */
     return false;
 }
 

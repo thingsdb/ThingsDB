@@ -36,10 +36,39 @@ class TestCollectionFunctions(TestBase):
         counters = await client.query('counters();', target=scope.node)
         self.assertEqual(counters['garbage_collected'], 0)
 
+    async def test_unknown(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'unknown function `unknown`'):
+            await client.query('unknown();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `unknown`'):
+            await client.query('nil.unknown();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                '`new_node` is undefined in the `collection` scope; '
+                'You might want to query the `thingsdb` scope?'):
+            await client.query('new_node();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                '`counters` is undefined in the `collection` scope; '
+                'You might want to query the `node` scope?'):
+            await client.query('counters();')
+
     async def test_add(self, client):
         await client.query(r's = set(); a = {}; b = {}; c = {};')
-        self.assertEqual(await client.query('[s.add(a, b), s.len()'), [2, 2])
+        self.assertEqual(await client.query('[s.add(a, b), s.len()]'), [2, 2])
         self.assertEqual(await client.query('[s.add(b, c), s.len()]'), [1, 3])
+        self.assertEqual(await client.query(r'[s.add({}), s.len()]'), [1, 4])
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot add type `nil` to a set'):
+            await client.query(r's.add(a, b, {}, nil);')
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(
@@ -631,6 +660,19 @@ class TestCollectionFunctions(TestBase):
                 'israw(blob(0));',
                 blobs=(pickle.dumps('binary'), )))
 
+    async def test_isset(self, client):
+        await client.query(r'sa = set(); sb = set([ {} ]);')
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `isset` takes 1 argument but 0 were given'):
+            await client.query('isset();')
+
+        self.assertFalse(await client.query(r'isset({});'))
+        self.assertFalse(await client.query('isset([]);'))
+        self.assertTrue(await client.query('isset(set());'))
+        self.assertTrue(await client.query('isset(sa);'))
+        self.assertTrue(await client.query('isset(sb);'))
+
     async def test_isthing(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -985,7 +1027,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 'cannot add type `int` to a set'):
-            await client.query('set([1, 2, 3]);')
+            await client.query(r'set([{}, t(id()), 3]);')
 
         self.assertEqual(await client.query('set();'), {'!': []})
         self.assertEqual(await client.query('set([]);'), {'!': []})

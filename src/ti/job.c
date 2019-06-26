@@ -5,8 +5,84 @@
 #include <ti.h>
 #include <ti/job.h>
 #include <ti/val.h>
+#include <ti/vset.h>
+#include <ti/varr.h>
 #include <ti/name.h>
 #include <ti/names.h>
+
+/*
+ * Returns 0 on success
+ * - for example: {'prop': [new_count, values...]}
+ */
+static int job__add(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (thing);
+    assert (unp);
+
+    ssize_t n;
+    ti_vset_t * vset;
+    ti_name_t * name;
+    ti_thing_t * t;
+
+    qp_obj_t qp_prop, qp_n;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, &qp_prop)) ||
+        !qp_is_array(qp_next(unp, NULL)) ||
+        !qp_is_int(qp_next(unp, &qp_n)) || qp_n.via.int64 <= 0)
+    {
+        log_critical(
+                "job `add` to set on "TI_THING_ID": "
+                "missing map, property or new_count",
+                thing->id);
+        return -1;
+    }
+
+    n = qp_n.via.int64;
+
+    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    if (!name || !(vset = (ti_vset_t *) ti_thing_prop_weak_get(thing, name)))
+    {
+        log_critical(
+                "job `add` to set on "TI_THING_ID": "
+                "missing property: `%.*s`",
+                thing->id,
+                (int) qp_prop.len, (char *) qp_prop.via.raw);
+        return -1;
+    }
+
+    if (!ti_val_is_set((ti_val_t *) vset))
+    {
+        log_critical(
+                "job `add` to set on "TI_THING_ID": "
+                "expecting a `"TI_VAL_SET_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) vset));
+        return -1;
+    }
+
+    while(n--)
+    {
+        t = (ti_thing_t *) ti_val_from_unp(unp, collection->things);
+
+        if (!t || !ti_val_is_thing((ti_val_t *) t) || ti_vset_add(vset, t))
+        {
+            log_critical(
+                    "job `add` to set on "TI_THING_ID": "
+                    "error while reading value for property: `%s`",
+                    thing->id,
+                    name->str);
+            ti_val_drop((ti_val_t *) t);
+            return -1;
+        }
+    }
+
+    return 0;
+}
 
 /*
  * Returns 0 on success
@@ -329,7 +405,9 @@ int ti_job_run(
     switch (*raw)
     {
     case 'a':
-        return job__assign(collection, thing, unp);
+        return *(raw+1) == 'd'
+                ? job__add(collection, thing, unp)
+                : job__assign(collection, thing, unp);
     case 'd':
         return job__del(thing, unp);
     case 'r':

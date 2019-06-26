@@ -97,6 +97,7 @@ typedef enum
     TI_FN_ISNAN,
     TI_FN_ISNIL,
     TI_FN_ISRAW,
+    TI_FN_ISSET,
     TI_FN_ISSTR,
     TI_FN_ISTHING,
     TI_FN_ISTUPLE,

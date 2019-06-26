@@ -67,6 +67,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_ISNAN:
     case TI_FN_ISNIL:
     case TI_FN_ISRAW:
+    case TI_FN_ISSET:
     case TI_FN_ISSTR:
     case TI_FN_ISTHING:
     case TI_FN_ISTUPLE:

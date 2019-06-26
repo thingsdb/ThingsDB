@@ -111,23 +111,13 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
         goto failed;
 
     for (vec_each(added, ti_thing_t, thing))
-    {
-        if (thing->id)
-        {
-            ti_thing_unmark_new(thing);
-            continue;
-        }
-
-        if (ti_thing_gen_id(thing))
-            return -1;
-
-        if (ti_val_to_packer(
+        if ((!thing->id && ti_thing_gen_id(thing)) ||
+            ti_val_to_packer(
                 (ti_val_t *) thing,
                 &packer,
                 TI_VAL_PACK_NEW,
                 0))
             goto failed;
-    }
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
         goto failed;

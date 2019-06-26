@@ -51,17 +51,29 @@ int ti_vset_to_packer(
     fetch-=2;  /* one for the set and one for each thing */
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (((flags & TI_VAL_PACK_NEW) && ti_thing_is_new(t)) ||
-            ((~flags & TI_VAL_PACK_NEW) && fetch > 0))
+        if (flags & TI_VAL_PACK_NEW)
+        {
+            if (ti_thing_is_new(t))
+            {
+                ti_thing_unmark_new(t);
+                if (ti_thing_to_packer(t, packer, flags, fetch))
+                    return -1;
+                continue;
+            }
+            if (ti_thing_id_to_packer(t, packer))
+                return -1;
+            continue;
+        }
+
+        if (fetch > 0)
         {
             if (ti_thing_to_packer(t, packer, flags, fetch))
                 return -1;
+            continue;
         }
-        else
-        {
-            if (ti_thing_id_to_packer(t, packer))
-                return -1;
-        }
+
+        if (ti_thing_id_to_packer(t, packer))
+            return -1;
     }
     return qp_close_array(*packer) || qp_close_map(*packer);
 }

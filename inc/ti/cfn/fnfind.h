@@ -17,7 +17,7 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `find`"FIND_DOC_,
                 ti_val_str((ti_val_t *) varr));
-        goto failed;
+        goto fail1;
     }
 
     if (nargs < 1)
@@ -25,7 +25,7 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `find` requires at least 1 argument but 0 "
                 "were given"FIND_DOC_);
-        goto failed;
+        goto fail1;
     }
 
     if (nargs > 2)
@@ -33,11 +33,11 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `find` takes at most 2 arguments but %d "
                 "were given"FIND_DOC_, nargs);
-        goto failed;
+        goto fail1;
     }
 
     if (ti_cq_scope(query, nd->children->node, e))
-        goto failed;
+        goto fail1;
 
     if (!ti_val_is_closure(query->rval))
     {
@@ -45,25 +45,30 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `find` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FIND_DOC_,
                 ti_val_str(query->rval));
-        goto failed;
+        goto fail1;
     }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_closure_try_lock(closure, e) ||
-        ti_scope_local_from_closure(query->scope, closure, e))
-        goto failed;
+    if (ti_closure_try_lock(closure, e))
+        goto fail1;
+
+    if (ti_scope_local_from_closure(query->scope, closure, e))
+        goto fail2;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         _Bool found;
 
         if (ti_scope_polute_val(query->scope, v, idx))
-            goto failed;
+        {
+            ex_set_alloc(e);
+            goto fail2;
+        }
 
         if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
-            goto failed;
+            goto fail2;
 
         found = ti_val_as_bool(query->rval);
         ti_val_drop(query->rval);
@@ -82,22 +87,18 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */
-        if (ti_cq_scope(query, nd->children->next->next->node, e))
-            goto failed;
+        (void) ti_cq_scope(query, nd->children->next->next->node, e);
     }
     else
     {
         query->rval = (ti_val_t *) ti_nil_get();
     }
 
-    goto done;
-
-failed:
-    if (!e->nr)  /* all not set errors are allocation errors */
-        ex_set_alloc(e);
-
 done:
+fail2:
     ti_closure_unlock(closure);
+
+fail1:
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop((ti_val_t *) varr);
 

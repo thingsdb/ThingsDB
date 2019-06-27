@@ -250,16 +250,18 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? LOGGER_CRITICAL
         : -1;
 
-    if (i >= 0)
+    if (i < 0)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "property `%.*s` is undefined",
+                (int) nd->len, nd->str);
+    }
+    else
     {
         query->rval = (ti_val_t *) ti_vint_create(i);
         if (!query->rval)
             ex_set_alloc(e);
     }
-    else
-        ex_set(e, EX_INDEX_ERROR,
-                "property `%.*s` is undefined",
-                (int) nd->len, nd->str);
 
     return e->nr;
 }

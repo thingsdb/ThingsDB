@@ -61,11 +61,9 @@ static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e)
     return (closure->flags |= TI_VFLAG_CLOSURE_LOCK) & 0;
 }
 
-/* May be called when `closure` is NULL */
 static inline void ti_closure_unlock(ti_closure_t * closure)
 {
-    if (closure)
-        closure->flags &= ~TI_VFLAG_CLOSURE_LOCK;
+    closure->flags &= ~TI_VFLAG_CLOSURE_LOCK;
 }
 
 

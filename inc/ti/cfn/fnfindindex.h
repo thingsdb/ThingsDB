@@ -16,7 +16,7 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `findindex`"FINDINDEX_DOC_,
                 ti_val_str((ti_val_t *) varr));
-        goto done;
+        goto fail1;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -25,11 +25,11 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `findindex` takes 1 argument but %d were given"
                 FINDINDEX_DOC_, nargs);
-        goto done;
+        goto fail1;
     }
 
     if (ti_cq_scope(query, nd->children->node, e))
-        goto done;
+        goto fail1;
 
     if (!ti_val_is_closure(query->rval))
     {
@@ -37,15 +37,17 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `findindex` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
                 FINDINDEX_DOC_, ti_val_str(query->rval));
-        goto done;
+        goto fail1;
     }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_closure_try_lock(closure, e) ||
-        ti_scope_local_from_closure(query->scope, closure, e))
-        goto done;
+    if (ti_closure_try_lock(closure, e))
+        goto fail1;
+
+    if (ti_scope_local_from_closure(query->scope, closure, e))
+        goto fail2;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
@@ -54,11 +56,11 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_scope_polute_val(query->scope, v, idx))
         {
             ex_set_alloc(e);
-            goto done;
+            goto fail2;
         }
 
         if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
-            goto done;
+            goto fail2;
 
         found = ti_val_as_bool(query->rval);
         ti_val_drop(query->rval);
@@ -78,7 +80,10 @@ static int cq__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 done:
+fail2:
     ti_closure_unlock(closure);
+
+fail1:
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop((ti_val_t *) varr);
 

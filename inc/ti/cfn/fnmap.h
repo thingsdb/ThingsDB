@@ -17,7 +17,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `map`"MAP_DOC_,
                 ti_val_str(iterval));
-        goto failed;
+        goto fail1;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -26,11 +26,11 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `map` takes 1 argument but %d were given"MAP_DOC_,
                 nargs);
-        goto failed;
+        goto fail1;
     }
 
     if (ti_cq_scope(query, nd->children->node, e))
-        goto failed;
+        goto fail1;
 
     if (!ti_val_is_closure(query->rval))
     {
@@ -38,7 +38,7 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `map` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"MAP_DOC_,
                 ti_val_str(query->rval));
-        goto failed;
+        goto fail1;
     }
 
     closure = (ti_closure_t *) query->rval;
@@ -46,13 +46,15 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     n = ti_val_get_len(iterval);
 
-    if (ti_closure_try_lock(closure, e) ||
-        ti_scope_local_from_closure(query->scope, closure, e))
-        goto failed;
+    if (ti_closure_try_lock(closure, e))
+        goto fail1;
+
+    if (ti_scope_local_from_closure(query->scope, closure, e))
+        goto fail2;
 
     retvarr = ti_varr_create(n);
     if (!retvarr)
-        goto failed;
+        goto fail2;
 
     switch (iterval->tp)
     {
@@ -60,13 +62,13 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         for (vec_each(((ti_thing_t *) iterval)->props, ti_prop_t, p))
         {
             if (ti_scope_polute_prop(query->scope, p))
-                goto failed;
+                goto fail2;
 
             if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
-                goto failed;
+                goto fail2;
 
             if (ti_varr_append(retvarr, (void **) &query->rval, e))
-                goto failed;
+                goto fail2;
 
             query->rval = NULL;
         }
@@ -77,13 +79,13 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
         {
             if (ti_scope_polute_val(query->scope, v, idx))
-                goto failed;
+                goto fail2;
 
             if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
-                goto failed;
+                goto fail2;
 
             if (ti_varr_append(retvarr, (void **) &query->rval, e))
-                goto failed;
+                goto fail2;
 
             query->rval = NULL;
         }
@@ -97,13 +99,15 @@ static int cq__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     goto done;
 
-failed:
-    ti_val_drop((ti_val_t *) retvarr);
-    if (!e->nr)  /* all not set errors are allocation errors */
+fail2:
+    if (!e->nr)
         ex_set_alloc(e);
+    ti_val_drop((ti_val_t *) retvarr);
 
 done:
     ti_closure_unlock(closure);
+
+fail1:
     ti_val_drop((ti_val_t *) closure);
     ti_val_drop(iterval);
     return e->nr;

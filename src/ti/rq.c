@@ -227,7 +227,7 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
 
-    int flags
+    int i
         = langdef_nd_match_str(nd, "READ")
         ? TI_AUTH_READ
         : langdef_nd_match_str(nd, "MODIFY")
@@ -248,11 +248,11 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? LOGGER_ERROR
         : langdef_nd_match_str(nd, "CRITICAL")
         ? LOGGER_CRITICAL
-        : 0;
+        : -1;
 
-    if (flags)
+    if (i >= 0)
     {
-        query->rval = (ti_val_t *) ti_vint_create(flags);
+        query->rval = (ti_val_t *) ti_vint_create(i);
         if (!query->rval)
             ex_set_alloc(e);
     }

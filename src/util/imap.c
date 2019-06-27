@@ -297,8 +297,6 @@ _Bool imap__eq_(imap_t * a, imap_t * b)
         nda = a->nodes + i;
         ndb = b->nodes + i;
 
-        LOGC("%p %p", nda->data, ndb->data);
-
         if (nda->data != ndb->data ||
             !nda->nodes != !ndb->nodes ||
             (nda->nodes && !imap__eq(nda, ndb)))

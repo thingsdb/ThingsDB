@@ -34,14 +34,9 @@ static ti_val_t * val__sclosure;
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
 
-static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
+static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
 {
     qp_obj_t qp_kind, qp_tmp;
-    ssize_t sz = qp_next(unp, NULL);
-
-    assert (qp_is_map(sz));
-
-    sz = sz == QP_MAP_OPEN ? -1 : sz - QP_MAP0;
 
     if (!sz || !qp_is_raw(qp_next(unp, &qp_kind)) || qp_kind.len != 1)
         return NULL;
@@ -86,16 +81,17 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
     {
         ti_thing_t * thing;
         ti_vset_t * vset = ti_vset_create();
-        ssize_t arrsz = qp_next(unp, NULL);
+        ssize_t tsz, arrsz = qp_next(unp, NULL);
         if (!vset || sz != 1 || !qp_is_array(arrsz))
             return NULL;
+
+        ti_vset_set_assigned(vset);
         arrsz = arrsz == QP_ARRAY_OPEN ? -1 : arrsz - QP_ARRAY0;
-        while (--arrsz)
+
+        while (arrsz-- && qp_is_map((tsz = qp_next(unp, &qp_tmp))))
         {
-            if (qp_is_close(qp_next(unp, NULL)))
-                return (ti_val_t *) vset;
-            --unp->pt;
-            thing = (ti_thing_t *) val__unp_map(unp, things);
+            tsz = tsz == QP_MAP_OPEN ? -1 : tsz - QP_MAP0;
+            thing = (ti_thing_t *) val__unp_map(unp, things, tsz);
             if (    !thing ||
                     !ti_val_is_thing((ti_val_t *) thing) ||
                     ti_vset_add(vset, thing))
@@ -104,6 +100,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things)
                 return NULL;
             }
         }
+
         return (ti_val_t *) vset;
     }
     }
@@ -195,8 +192,7 @@ static ti_val_t * val__from_unp(
     case QP_MAP3:
     case QP_MAP4:
     case QP_MAP5:
-        --unp->pt;  /* reset to map */
-        return val__unp_map(unp, things);
+        return val__unp_map(unp, things, (ssize_t) qp_val->tp - QP_MAP0);
     case QP_TRUE:
         return (ti_val_t *) ti_vbool_get(true);
     case QP_FALSE:
@@ -224,8 +220,7 @@ static ti_val_t * val__from_unp(
         return (ti_val_t *) varr;
     }
     case QP_MAP_OPEN:
-        --unp->pt;  /* reset to map */
-        return val__unp_map(unp, things);
+        return val__unp_map(unp, things, -1);
     default:
         assert (0);
         return NULL;

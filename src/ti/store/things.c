@@ -231,7 +231,6 @@ int ti_store_things_restore_data(
             ti_incref(name);
         }
     }
-
     rc = 0;
 
 fail2:

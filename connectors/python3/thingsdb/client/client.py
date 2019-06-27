@@ -223,8 +223,8 @@ class Client(Buildin):
         return Scope(scope)
 
     async def query(
-                self, query: str, deep=None, all_=False, blobs=None,
-                target=None, timeout=None, as_list=False):
+                self, query: str, deep=None, blobs=None, target=None,
+                timeout=None):
         scope = self._make_scope(target)
 
         if scope_is_collection(scope):
@@ -236,22 +236,13 @@ class Client(Buildin):
                 data['blobs'] = blobs
             if deep is not None and deep != 1:
                 data['deep'] = deep
-            if all_:
-                data['all'] = True
         else:
             data = {
                 'query': query
             }
-            if all_:
-                data['all'] = True
 
         future = self._write_package(scope._proto, data, timeout=timeout)
         result = await future
-        if all_:
-            if not as_list and len(result) == 1:
-                result = result[0]
-        elif as_list:
-            result = [result]
 
         return result
 

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti/varr.h>
 #include <ti/val.h>
+#include <ti/vset.h>
 #include <ti/opr.h>
 #include <ti/closure.h>
 #include <util/logger.h>
@@ -82,46 +83,51 @@ void ti_varr_destroy(ti_varr_t * varr)
 int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
-    ti_val_t * val = *v;
 
-    switch (val->tp)
+    switch (((ti_val_t *) *v)->tp)
     {
     case TI_VAL_QP:
-    case TI_VAL_SET:
         ex_set(e, EX_BAD_DATA, "cannot add type `%s` to a list",
-                ti_val_str(val));
+                ti_val_str((ti_val_t *) *v));
         return e->nr;
+    case TI_VAL_SET:
+        if (ti_vset_to_tuple((ti_vset_t **) v))
+        {
+            ex_set_alloc(e);
+            return e->nr;
+        }
+        to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
+        break;
     case TI_VAL_CLOSURE:
-        if (ti_closure_wse((ti_closure_t * ) val))
+        if (ti_closure_wse((ti_closure_t *) *v))
         {
             ex_set(e, EX_BAD_DATA,
                 "closures with side effects cannot be assigned");
             return e->nr;
         }
-        if (ti_closure_unbound((ti_closure_t * ) val, e))
+        if (ti_closure_unbound((ti_closure_t *) *v, e))
         {
             ex_set_alloc(e);
             return e->nr;
         }
         break;
     case TI_VAL_ARR:
-        if (ti_varr_is_list((ti_varr_t *) val))
+        if (ti_varr_is_list((ti_varr_t *) *v))
         {
             if (varr__to_tuple((ti_varr_t **) v))
             {
                 ex_set_alloc(e);
                 return e->nr;
             }
-            val = *v;
         }
-        to->flags |= ((ti_varr_t *) val)->flags & TI_VFLAG_ARR_MHT;
+        to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
         break;
     case TI_VAL_THING:
         to->flags |= TI_VFLAG_ARR_MHT;
         break;
     }
 
-    if (vec_push(&to->vec, val))
+    if (vec_push(&to->vec, *v))
         ex_set_alloc(e);
 
     return e->nr;

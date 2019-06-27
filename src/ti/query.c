@@ -178,18 +178,6 @@ static int query__node_db_unpack(
             continue;
         }
 
-        if (qp_is_raw_equal_str(&key, "all"))
-        {
-            if (!qp_is_bool(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
-            if (qp_is_true(val.tp))
-                query->syntax.flags |= TI_SYNTAX_FLAG_ALL;
-            continue;
-        }
-
         log_debug(
                 "unexpected `query` key in map: `%.*s`",
                 key.len, (const char *) key.via.raw);
@@ -217,7 +205,6 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->parseres = NULL;
     query->stream = ti_grab(stream);
     query->user = ti_grab(user);
-    query->results = NULL;
     query->ev = NULL;
     query->blobs = NULL;
     query->querystr = NULL;
@@ -236,12 +223,12 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
 
     vec_destroy(query->nd_val_cache, (vec_destroy_cb) ti_val_drop);
-    vec_destroy(query->results, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
     ti_user_drop(query->user);
     ti_collection_drop(query->target);
     ti_event_drop(query->ev);
+    ti_val_drop(query->rval);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
     free(query->querystr);
     free(query);
@@ -356,18 +343,6 @@ int ti_query_collection_unpack(
             continue;
         }
 
-        if (qp_is_raw_equal_str(&key, "all"))
-        {
-            if (!qp_is_bool(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
-            if (qp_is_true(val.tp))
-                query->syntax.flags |= TI_SYNTAX_FLAG_ALL;
-            continue;
-        }
-
         if (qp_is_raw_equal_str(&key, "blobs"))
         {
             ssize_t n;
@@ -460,7 +435,6 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
     cleri_children_t * child;
-    int nstatements = 0;
 
     assert (e->nr == 0);
 
@@ -471,7 +445,6 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
 
     while(child)
     {
-        ++nstatements;
         ti_syntax_investigate(&query->syntax, child->node);  /* scope */
 
         if (!child->next)
@@ -479,15 +452,8 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
-    nstatements = ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) || !nstatements)
-            ? nstatements : 1;
-
-    query->results = vec_new(nstatements);
-    if (!query->results || (
-            query->syntax.nd_val_cache_n && !(
-                    query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)
-            )
-    ))
+    if (query->syntax.nd_val_cache_n &&
+        !(query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)))
         ex_set_alloc(e);
 
     return e->nr;
@@ -504,39 +470,27 @@ void ti_query_run(ti_query_t * query)
         ->children;                 /* first child or NULL */
 
     if (!child)
-        goto failed;
+        goto stop;
 
-    while (child)
+    while (1)
     {
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (query->target
                 ? ti_cq_scope(query, child->node, e)
                 : ti_rq_scope(query, child->node, e))
-        {
-            ti_val_drop(query->rval);
-            query->rval = NULL;
-            goto failed;
-        }
+            break;
+
+        ti_scope_leave(&query->scope, NULL);
 
         if (!child->next || !(child = child->next->next))
             break;
 
-        if (query->syntax.flags & TI_SYNTAX_FLAG_ALL)
-            VEC_push(query->results, query->rval);
-        else
-            ti_val_drop(query->rval);
-
+        ti_val_drop(query->rval);
         query->rval = NULL;
-        ti_scope_leave(&query->scope, NULL);
     }
 
-    VEC_push(query->results, query->rval);
-    query->rval = NULL;
-    ti_scope_leave(&query->scope, NULL);
-
-failed:
-
+stop:
     if (query->ev)
         query__event_handle(query);  /* error here will be logged only */
 
@@ -554,20 +508,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (!packer)
         goto alloc_err;
 
-    (void) ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) && qp_add_array(&packer));
-
-    /* we should have a result for each statement */
-    assert (query->results->n == query->results->sz);
-
-    /* ti_query_t or ti_root_t */
-    for (vec_each(query->results, ti_val_t, rval))
-    {
-        assert (rval);
-        if (ti_val_to_packer(rval, &packer, 0, query->syntax.deep))
-            goto alloc_err;
-    }
-
-    if ((query->syntax.flags & TI_SYNTAX_FLAG_ALL) && qp_close_array(packer))
+    if (ti_val_to_packer(query->rval, &packer, 0, query->syntax.deep))
         goto alloc_err;
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);

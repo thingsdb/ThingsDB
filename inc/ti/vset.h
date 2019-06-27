@@ -19,6 +19,7 @@ int ti_vset_to_packer(
         qp_packer_t ** packer,
         int flags,
         int fetch);
+int ti_vset_to_tuple(ti_vset_t ** vsetaddr);
 int ti_vset_to_file(ti_vset_t * vset, FILE * f);
 int ti_vset_assign(ti_vset_t ** vsetaddr);
 int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e);

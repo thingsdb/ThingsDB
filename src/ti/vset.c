@@ -78,6 +78,35 @@ int ti_vset_to_packer(
     return qp_close_array(*packer) || qp_close_map(*packer);
 }
 
+int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
+{
+    ti_varr_t * tuple;
+    vec_t * vec = imap_vec_pop((*vsetaddr)->imap);
+    if (!vec)
+        goto failed;
+
+    tuple = malloc(sizeof(ti_varr_t));
+    if (!tuple)
+        goto failed;
+
+    tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
+    tuple->flags = TI_VFLAG_ARR_TUPLE|(vec->n ? TI_VFLAG_ARR_MHT : 0);
+    tuple->vec = vec;
+
+    for (vec_each(tuple->vec, ti_val_t, val))
+        ti_incref(val);
+
+    ti_val_drop((ti_val_t *) *vsetaddr);
+    *vsetaddr = (ti_vset_t *) tuple;
+
+    return 0;
+
+failed:
+    free(vec);
+    return -1;
+}
+
 int ti_vset_to_file(ti_vset_t * vset, FILE * f)
 {
     vec_t * vec = imap_vec(vset->imap);

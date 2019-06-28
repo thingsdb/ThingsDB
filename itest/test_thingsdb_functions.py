@@ -29,6 +29,50 @@ class TestThingsDBFunctions(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_unknown(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `unknown` is undefined'):
+            await client.query('unknown();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `node` is undefined in the `thingsdb` scope; '
+                'You might want to query the `node` scope?'):
+            await client.query('node();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'closures are not supported in the `thingsdb` scope'):
+            await client.query('||nil;')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'temporary variable are not supported '
+                'in the `thingsdb` scope'):
+            await client.query('$tmp = 1;')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'assignments are not supported in the `thingsdb` scope'):
+            await client.query('tmp = 1;')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'indexing is not supported in the `thingsdb` scope'):
+            await client.query('[users()][0];')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'chaining is not supported in the `thingsdb` scope'):
+            await client.query('[users()].map();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'functions are not allowed as arguments '
+                'in the `thingsdb` scope'):
+            await client.query('new_user(users(), "bla");')
+
     async def test_collection(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -38,8 +82,8 @@ class TestThingsDBFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadRequestError,
                 'expecting type `raw` or `int` as collection '
-                'but got type `nil` instead'):
-            await client.query('collection(nil);')
+                'but got type `list` instead'):
+            await client.query('collection([]);')
 
         with self.assertRaisesRegex(IndexError, 'collection `yes!` not found'):
             await client.query('collection("yes!");')

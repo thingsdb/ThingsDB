@@ -284,7 +284,7 @@
 ## Get status
 
 ```
-wget -q -O - http://node.local:8000/status
+wget -q -O - http://node.local:8080/status
 ```
 
 ## Special thanks to:

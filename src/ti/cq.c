@@ -11,6 +11,7 @@
 #include <ti/cfn/fnassert.h>
 #include <ti/cfn/fnblob.h>
 #include <ti/cfn/fnbool.h>
+#include <ti/cfn/fncontains.h>
 #include <ti/cfn/fndel.h>
 #include <ti/cfn/fnendswith.h>
 #include <ti/cfn/fnfilter.h>
@@ -90,6 +91,8 @@ static int cq__function(
         if (is_scope)
             return cq__f_bool(query, params, e);
         break;
+    case TI_FN_CONTAINS:
+        return cq__f_contains(query, params, e);
     case TI_FN_ENDSWITH:
         return cq__f_endswith(query, params, e);
     case TI_FN_DEL:

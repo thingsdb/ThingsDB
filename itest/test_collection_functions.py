@@ -184,6 +184,39 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('bool(//);'))
         self.assertTrue(await client.query('bool(||nil);'))
 
+    async def test_contains(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `contains`'):
+            await client.query('nil.contains("world!");')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `contains` takes 1 argument but 2 were given'):
+            await client.query('"Hi World!".contains("x", 2)')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `contains` expects argument 1 to be of '
+                r'type `raw` but got type `int` instead'):
+            await client.query('"Hi World!".contains(1);')
+
+        self.assertTrue(await client.query(r'''
+            "Hi World!".contains("")
+        '''))
+        self.assertTrue(await client.query(r'''
+            "Hi World!".contains("World")
+        '''))
+        self.assertTrue(await client.query(r'''
+            "Hi World!".contains("H")
+        '''))
+        self.assertTrue(await client.query(r'''
+            "Hi World!".contains("!")
+        '''))
+        self.assertFalse(await client.query(r'''
+            "Hi World!".contains("world")
+        '''))
+
     async def test_del(self, client):
         await client.query(r'greet = "Hello world";')
 
@@ -801,7 +834,7 @@ class TestCollectionFunctions(TestBase):
         now = await client.query('now();')
         diff = time.time() - now
         self.assertGreater(diff, 0.0)
-        self.assertLess(diff, 0.01)
+        self.assertLess(diff, 0.02)
 
     async def test_pop(self, client):
         await client.query('list = [1, 2, 3];')

@@ -62,6 +62,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "bool", TI_FN_BOOL, true);
         break;
     case 'c':
+        syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
         syntax__sev_fn(q, nd, "collection", TI_FN_COLLECTION, true);
         syntax__sev_fn(q, nd, "collections", TI_FN_COLLECTIONS, false);
         syntax__sev_fn(q, nd, "counters", TI_FN_COUNTERS, true);

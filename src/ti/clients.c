@@ -143,8 +143,8 @@ static void clients__query_db_collection(
             ex_set_internal(e);
             goto finish;
         }
-        /* the response to the client will be done on a callback on the
-         * query forward so we simply return;
+        /* the response to the client will be handled by a callback on the
+         * query forward request so we simply return;
          */
         return;
     }

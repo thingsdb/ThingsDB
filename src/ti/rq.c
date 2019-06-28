@@ -83,7 +83,6 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_REFS:
     case TI_FN_REMOVE:
     case TI_FN_RENAME:
-    case TI_FN_RET:
     case TI_FN_SET:
     case TI_FN_SPLICE:
     case TI_FN_STARTSWITH:

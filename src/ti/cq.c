@@ -45,7 +45,6 @@
 #include <ti/cfn/fnrefs.h>
 #include <ti/cfn/fnremove.h>
 #include <ti/cfn/fnrename.h>
-#include <ti/cfn/fnret.h>
 #include <ti/cfn/fnset.h>
 #include <ti/cfn/fnsplice.h>
 #include <ti/cfn/fnstartswith.h>
@@ -194,8 +193,6 @@ static int cq__function(
         return cq__f_remove(query, params, e);
     case TI_FN_RENAME:
         return cq__f_rename(query, params, e);
-    case TI_FN_RET:
-        return cq__f_ret(query, params, e);
     case TI_FN_SET:
         if (is_scope)
             return cq__f_set(query, params, e);

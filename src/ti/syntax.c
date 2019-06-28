@@ -131,7 +131,6 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
         syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
-        syntax__nev_fn(q, nd, "ret", TI_FN_RET, false);
         syntax__sev_fn(q, nd, "reset_counters", TI_FN_RESET_COUNTERS, false);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
         syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER, true);

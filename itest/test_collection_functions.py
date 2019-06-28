@@ -1101,17 +1101,6 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('rename("y", "y"); y;'), 42)
         self.assertEqual(await client.query('x = 6; rename("y", "x"); x;'), 42)
 
-    async def test_ret(self, client):
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'function `ret` takes 0 arguments but 1 was given'):
-            await client.query('ret(nil);')
-
-        self.assertIs(await client.query('ret();'), None)
-        self.assertIs(await client.query('map(||true).ret();'), None)
-        self.assertIs(await client.query('(x = 1).ret();'), None)
-        self.assertEqual(await client.query('ret(); x;'), 1)
-
     async def test_set(self, client):
         with self.assertRaisesRegex(
                 IndexError,

@@ -43,6 +43,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
     {
     case TI_FN_0:
+        break;
     case TI_FN_ADD:
     case TI_FN_ASSERT:
     case TI_FN_BLOB:
@@ -90,7 +91,13 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_TEST:
     case TI_FN_TRY:
     case TI_FN_UPPER:
-        break;
+        ex_set(e, EX_INDEX_ERROR,
+                "function `%.*s` is undefined in the `%s` scope; "
+                "You might want to query a `collection` scope?",
+                fname->len,
+                fname->str,
+                ti_query_scope_name(query));
+        return e->nr;
     case TI_FN_COLLECTION:
         return (
             rq__is_not_thingsdb(query, fname, e) ||
@@ -214,7 +221,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     ex_set(e, EX_INDEX_ERROR,
-            "`%.*s` is undefined",
+            "function `%.*s` is undefined",
             fname->len,
             fname->str);
 
@@ -374,6 +381,45 @@ static int rq__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int rq__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
+
+    ti_varr_t * varr;
+    uintptr_t sz = (uintptr_t) nd->data;
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* list */
+            ->children;
+
+    varr = ti_varr_create(sz);
+    if (!varr)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
+    for (; child; child = child->next->next)
+    {
+        if (ti_rq_scope(query, child->node, e))
+            goto failed;
+
+        if (ti_varr_append(varr, (void **) &query->rval, e))
+            goto failed;
+
+        query->rval = NULL;
+
+        if (!child->next)
+            break;
+    }
+
+    query->rval = (ti_val_t *) varr;
+    return 0;
+
+failed:
+    ti_val_drop((ti_val_t *) varr);
+    return e->nr;
+}
+
 static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
@@ -398,13 +444,18 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
-        ex_set(e, EX_BAD_DATA, "arrays are not supported at root");
-        return e->nr;
+        if (rq__array(query, node, e))
+            return e->nr;
+        break;
     case CLERI_GID_CLOSURE:
-        ex_set(e, EX_BAD_DATA, "closure functions are not supported at root");
+        ex_set(e, EX_BAD_DATA,
+                "closures are not supported in the `%s` scope",
+                ti_query_scope_name(query));
         return e->nr;
     case CLERI_GID_ASSIGNMENT:
-        ex_set(e, EX_BAD_DATA, "assignments are not supported at root");
+        ex_set(e, EX_BAD_DATA,
+                "assignments are not supported in the `%s` scope",
+                ti_query_scope_name(query));
         return e->nr;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
@@ -428,7 +479,8 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nested)
         {
             ex_set(e, EX_BAD_DATA,
-                "functions are not allowed as arguments in the current scope");
+                "functions are not allowed as arguments in the `%s` scope",
+                ti_query_scope_name(query));
             return e->nr;
         }
         if (rq__function(query, node, e))
@@ -443,8 +495,16 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_THING:
-        ex_set(e, EX_BAD_DATA, "things are not supported at root");
+        ex_set(e, EX_BAD_DATA,
+                "new things are not supported in the `%s` scope",
+                ti_query_scope_name(query));
         break;
+    case CLERI_GID_TMP:
+    case CLERI_GID_TMP_ASSIGN:
+        ex_set(e, EX_BAD_DATA,
+                "temporary variable are not supported in the `%s` scope",
+                ti_query_scope_name(query));
+            return e->nr;
     default:
         assert (0);  /* all possible should be handled */
         return -1;
@@ -459,13 +519,15 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (node->children)
     {
-        ex_set(e, EX_BAD_DATA, "indexing is not supported at root");
+        ex_set(e, EX_BAD_DATA, "indexing is not supported in the `%s` scope",
+                ti_query_scope_name(query));
         return e->nr;
     }
 
     if (child->next)
     {
-        ex_set(e, EX_BAD_DATA, "chaining is not supported at root");
+        ex_set(e, EX_BAD_DATA, "chaining is not supported in the `%s` scope",
+                ti_query_scope_name(query));
         return e->nr;
     }
 
@@ -488,8 +550,8 @@ static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
         return false;
 
     ex_set(e, EX_INDEX_ERROR,
-            "`%.*s` is undefined in the `thingsdb` scope; "
-            "You want to query a `node` scope?",
+            "function `%.*s` is undefined in the `thingsdb` scope; "
+            "You might want to query the `node` scope?",
             n->len,
             n->str);
     return true;
@@ -501,7 +563,7 @@ static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
         return false;
 
     ex_set(e, EX_INDEX_ERROR,
-            "`%.*s` is undefined in the `node` scope; "
+            "function `%.*s` is undefined in the `node` scope; "
             "You might want to query the `thingsdb` scope?",
             n->len,
             n->str);

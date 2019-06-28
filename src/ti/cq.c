@@ -236,7 +236,7 @@ static int cq__function(
     case TI_FN_USER:
     case TI_FN_USERS:
         ex_set(e, EX_INDEX_ERROR,
-                "`%.*s` is undefined in the `collection` scope; "
+                "function `%.*s` is undefined in the `collection` scope; "
                 "You might want to query the `thingsdb` scope?",
                 fname->len,
                 fname->str);
@@ -249,7 +249,7 @@ static int cq__function(
     case TI_FN_SET_ZONE:
     case TI_FN_SHUTDOWN:
         ex_set(e, EX_INDEX_ERROR,
-                "`%.*s` is undefined in the `collection` scope; "
+                "function `%.*s` is undefined in the `collection` scope; "
                 "You might want to query the `node` scope?",
                 fname->len,
                 fname->str);
@@ -260,7 +260,7 @@ static int cq__function(
     if (is_scope)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "unknown function `%.*s`",
+                "function `%.*s` is undefined",
                 fname->len,
                 fname->str);
     }

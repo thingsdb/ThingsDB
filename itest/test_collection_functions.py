@@ -39,7 +39,7 @@ class TestCollectionFunctions(TestBase):
     async def test_unknown(self, client):
         with self.assertRaisesRegex(
                 IndexError,
-                'unknown function `unknown`'):
+                'function `unknown` is undefined'):
             await client.query('unknown();')
 
         with self.assertRaisesRegex(
@@ -49,13 +49,13 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 IndexError,
-                '`new_node` is undefined in the `collection` scope; '
+                'function `new_node` is undefined in the `collection` scope; '
                 'You might want to query the `thingsdb` scope?'):
             await client.query('new_node();')
 
         with self.assertRaisesRegex(
                 IndexError,
-                '`counters` is undefined in the `collection` scope; '
+                'function `counters` is undefined in the `collection` scope; '
                 'You might want to query the `node` scope?'):
             await client.query('counters();')
 

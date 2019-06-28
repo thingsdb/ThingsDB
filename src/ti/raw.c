@@ -1,6 +1,7 @@
 /*
  * raw.c
  */
+#define _GNU_SOURCE
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -247,40 +248,8 @@ ti_raw_t * ti_raw_cat_strn_strn(
     return r;
 }
 
-_Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b)
+_Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b)
 {
-    assert (a->tp == TI_VAL_RAW);
-    assert (b->tp == TI_VAL_RAW);
-    uchar * au, * bu;
-
-    if (a->n < b->n)
-        return false;
-
-    au = a->data;
-    bu = b->data;
-
-    for (size_t n = b->n; n; --n, ++au, ++bu)
-        if (*au != *bu)
-            return false;
-
-    return true;
-}
-
-_Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b)
-{
-    assert (a->tp == TI_VAL_RAW);
-    assert (b->tp == TI_VAL_RAW);
-    uchar * au, * bu;
-
-    if (a->n < b->n)
-        return false;
-
-    au = a->data + a->n;
-    bu = b->data + b->n;
-
-    for (size_t n = b->n; n; --n)
-        if (*--au != *--bu)
-            return false;
-
-    return true;
+    /* memmem requires _GNU_SOURCE */
+    return !!memmem(a->data, a->n, b->data, b->n);
 }

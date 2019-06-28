@@ -30,8 +30,9 @@ ti_raw_t * ti_raw_cat_strn_strn(
         size_t an,
         const char * bs,
         size_t bn);
-_Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
-_Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
+_Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b);
+static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
+static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b);
 static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
@@ -64,6 +65,16 @@ static inline _Bool ti_raw_eq_strn(
         size_t n)
 {
     return a->n == n && !memcmp(a->data, s, n);
+}
+
+static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b)
+{
+    return a->n >= b->n && memcmp(a->data, b->data, b->n) == 0;
+}
+
+static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b)
+{
+    return a->n >= b->n && memcmp(a->data + a->n - b->n, b->data, b->n) == 0;
 }
 
 #endif /* TI_RAW_H_ */

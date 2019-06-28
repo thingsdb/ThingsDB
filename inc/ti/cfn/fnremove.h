@@ -133,7 +133,6 @@ static int cq__f_remove_set_from_closure(
 {
     ti_closure_t * closure = (ti_closure_t *) query->rval;
     vec_t * vec = imap_vec(vset->imap);
-
     query->rval = NULL;
     if (!vec)
     {
@@ -150,7 +149,6 @@ static int cq__f_remove_set_from_closure(
         goto fail1;
     }
 
-
     if (ti_closure_try_lock(closure, e))
         goto fail1;
 
@@ -162,7 +160,7 @@ static int cq__f_remove_set_from_closure(
         if (ti_scope_polute_val(
                 query->scope,
                 (ti_val_t *) t,
-                ti_thing_key(t)))
+                t->id))
         {
             ex_set_alloc(e);
             goto fail2;
@@ -230,13 +228,16 @@ static void cq__f_remove_set(
         }
 
         if (cq__f_remove_set_from_closure(&removed, vset, query, nargs, e))
-            goto fail1;
+            goto failed;
+
+        assert (query->rval == NULL);
 
         for (vec_each(removed, ti_thing_t, t))
             (void *) ti_vset_pop(vset, t);
     }
     else
     {
+        size_t narg;
         cleri_children_t * child = nd->children;
 
         removed = vec_new(nargs);
@@ -246,53 +247,72 @@ static void cq__f_remove_set(
             return;
         }
 
-        for (; child; child = child->next->next)
+        for (narg = 1;;++narg)
         {
             if (!ti_val_is_thing(query->rval))
             {
                 ex_set(e, EX_BAD_DATA,
-                        "function `remove` expects a `"TI_VAL_CLOSURE_S"` "
-                        "or `things` as arguments but got type `%s` instead"
-                        REMOVE_SET_DOC_, ti_val_str(query->rval));
-                goto fail1;
+                        narg == 1
+                        ?
+                        "function `remove` expects argument %d to be "
+                        "a `"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
+                        "but got type `%s` instead"REMOVE_SET_DOC_
+                        :
+                        "function `remove` expects argument %d to be "
+                        "of type `"TI_VAL_THING_S"` "
+                        "but got type `%s` instead"REMOVE_SET_DOC_,
+                        narg, ti_val_str(query->rval));
+
+                goto failed;
             }
 
             if (ti_vset_pop(vset, (ti_thing_t *) query->rval))
-            {
                 VEC_push(removed, query->rval);
-            }
+
+            ti_val_drop(query->rval);
+            query->rval = NULL;
 
             if (!child->next || !(child = child->next->next))
                 break;
 
-            if (ti_cq_scope(query, nd->children->node, e))
-                goto fail1;
-
+            if (ti_cq_scope(query, child->node, e))
+                goto failed;
         }
     }
 
-    if (removed->n)
+    if (removed->n && ti_vset_is_assigned(vset))
     {
+        ti_task_t * task;
+        assert (query->scope->thing);
+        assert (query->scope->name);
+        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        if (!task)
+            goto failed;
 
-
-        if (ti_vset_is_assigned(vset))
+        if (ti_task_add_remove(
+                task,
+                query->scope->name,
+                removed))
         {
-            ti_task_t * task;
-            assert (query->scope->thing);
-            assert (query->scope->name);
-            task = ti_task_get_task(query->ev, query->scope->thing, e);
-            if (!task)
-                goto fail1;
-
-            if (ti_task_add_remove(
-                    task,
-                    query->scope->name,
-                    removed))
-                ex_set_alloc(e);
+            ex_set_alloc(e);
+            goto failed;
         }
     }
 
-fail1:
+    assert (query->rval == NULL);
+    query->rval = (ti_val_t *) ti_varr_from_vec(removed);
+    if (query->rval)
+        return;
+
+    ex_set_alloc(e);
+
+failed:
+    while (removed->n)
+        /* if the `thing` is already in the set, then the set still owns the
+         * thing, else the thing was owned by the `removed` vector so in
+         * neither case we have o adjust the reference counter */
+        if (ti_vset_add(vset, vec_pop(removed)) == IMAP_ERR_ALLOC)
+            ex_set_alloc(e);
     free(removed);
 }
 
@@ -302,7 +322,6 @@ static int cq__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    vec_t * removed;
     ti_val_t * val = ti_query_val_pop(query);
 
     if (ti_val_is_list(val))

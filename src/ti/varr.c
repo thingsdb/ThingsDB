@@ -68,6 +68,20 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
+ti_varr_t * ti_varr_from_vec(vec_t * vec)
+{
+    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    if (!varr)
+        return NULL;
+
+    varr->ref = 1;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = TI_VFLAG_UNASSIGNED;
+
+    varr->vec = vec;
+    return varr;
+}
+
 void ti_varr_destroy(ti_varr_t * varr)
 {
     if (!varr)

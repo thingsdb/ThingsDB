@@ -206,6 +206,103 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: {'prop': [del_count, thing_ids...]}
+ */
+static int job__remove(
+        ti_collection_t * collection,
+        ti_thing_t * thing,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (thing);
+    assert (unp);
+
+    ssize_t n;
+    ti_vset_t * vset;
+    ti_name_t * name;
+    qp_obj_t qp_prop, qp_i;
+    ti_thing_t * t;
+    uint64_t thing_id;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, &qp_prop)) ||
+        !qp_is_array(qp_next(unp, NULL)) ||
+        !qp_is_int(qp_next(unp, &qp_i)))
+    {
+        log_critical(
+                "job `remove` from set on "TI_THING_ID": "
+                "missing map, property or delete_count",
+                thing->id);
+        return -1;
+    }
+
+    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    if (!name || !(vset = (ti_vset_t *) ti_thing_prop_weak_get(thing, name)))
+    {
+        log_critical(
+                "job `remove` from set on "TI_THING_ID": "
+                "missing property: `%.*s`",
+                thing->id,
+                (int) qp_prop.len, (char *) qp_prop.via.raw);
+        return -1;
+    }
+
+    if (!ti_val_is_set((ti_val_t *) vset))
+    {
+        log_critical(
+                "job `remove` from set on "TI_THING_ID": "
+                "expecting a `"TI_VAL_SET_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) vset));
+        return -1;
+    }
+
+    n = qp_i.via.int64;
+
+    if (n < 0)
+    {
+        log_critical(
+                "job `remove` from set on "TI_THING_ID": "
+                "incorrect values "
+                "(delete_count: %zd)",
+                thing->id, n);
+        return -1;
+    }
+
+    while(n--)
+    {
+        if (!qp_is_int(qp_next(unp, &qp_i)))
+        {
+            log_critical(
+                    "job `remove` from set on "TI_THING_ID": "
+                    "error reading integer value for property: `%s`",
+                    thing->id,
+                    name->str);
+            return -1;
+        }
+
+        thing_id = (uint64_t) qp_i.via.int64;
+        t = imap_get(collection->things, thing_id);
+
+        if (!t || !ti_vset_pop(vset, t))
+        {
+            log_error(
+                    "job `remove` from set on "TI_THING_ID": "
+                    "missing thing: "TI_THING_ID,
+                    thing->id,
+                    thing_id);
+            continue;
+        }
+
+        ti_val_drop((ti_val_t *) t);
+    }
+
+    return 0;
+}
+
+
+/*
+ * Returns 0 on success
  * - for example: {'from': 'to'}
  */
 static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
@@ -411,7 +508,9 @@ int ti_job_run(
     case 'd':
         return job__del(thing, unp);
     case 'r':
-        return job__rename(thing, unp);
+        return *(raw+2) == 'm'
+                ? job__remove(collection, thing, unp)
+                : job__rename(thing, unp);
     case 's':
         return job__splice(collection, thing, unp);
     }

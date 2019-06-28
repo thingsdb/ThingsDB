@@ -880,7 +880,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('refs("Test RefCount")'), 2)
         self.assertEqual(await client.query('x = "Test RefCount"; refs(x)'), 3)
 
-    async def test_remove(self, client):
+    async def test_remove_list(self, client):
         await client.query('list = [1, 2, 3];')
         self.assertEqual(await client.query('list.remove(|x|(x>1));'), 2)
         self.assertEqual(await client.query('list.remove(|x|(x>1));'), 3)
@@ -922,6 +922,77 @@ class TestCollectionFunctions(TestBase):
                 'function `remove` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
             await client.query('list.remove(nil);')
+
+    async def test_remove_set(self, client):
+        await client.query(r'''
+        t = {name: 'ThingsDB'};
+        s = set([t, {name: 'Iris'}, {name: 'Cato'}]);
+        ''')
+
+        removed = await client.query('s.remove(|T| (T == t));', deep=2)
+
+        self.assertEqual(len(removed), 1)
+        self.assertEqual(removed[0]['name'], 'ThingsDB')
+        self.assertEqual(await client.query('s.remove(||nil);'), [])
+
+        removed = await client.query('s.remove(||true);')
+
+        self.assertEqual(len(removed), 2)
+
+        await client.query(r'''
+            i = {name: 'Iris'};
+            c = {name: 'Cato'};
+            s.add(t, i, c);
+        ''')
+
+        removed = await client.query(
+            's.remove(|_, id| (id == t.id()));',
+            deep=2)
+        self.assertEqual(len(removed), 1)
+        self.assertEqual(removed[0]['name'], 'ThingsDB')
+
+        removed = await client.query('s.remove(t, i, c);')
+
+        self.assertEqual(len(removed), 2)
+
+        await client.query(r's.add(t, i, c);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `remove`'):
+            await client.query('nil.remove(||true);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `remove` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('s.remove();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `remove` takes at most 1 argument '
+                'when using a `closure` but 2 were given'):
+            await client.query('s.remove(||true, nil);')
+
+        # with self.assertRaisesRegex(
+        #         BadRequestError,
+        #         'cannot use function `remove` while the set is in use'):
+        #     await client.query('s.map(||s.remove(||true));')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `remove` expects argument 1 to be a `closure` '
+                'or type `thing` but got type `nil` instead'):
+            await client.query('s.remove(nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `remove` expects argument 2 to be of type `thing` '
+                'but got type `nil` instead'):
+            await client.query('s.remove(t, nil);')
+
+        # check if `t` is restored
+        self.assertEqual(await client.query('s.len();'), 3)
 
     async def test_rename(self, client):
         await client.query('x = 42;')

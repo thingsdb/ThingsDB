@@ -44,7 +44,6 @@ class Thing:
 
         for key, val in cls.__dict__.items():
             if isinstance(val, type):
-                print(key, ' IS TYPE: ', isinstance(val, type))
                 if hasattr(val, REQUIRED):
                     required[key] = val
                 if hasattr(val, OPTIONAL):
@@ -67,6 +66,24 @@ class Thing:
 
     def _to_wqueue(self):
         self._collection._wqueue.add(self._id)
+
+    @classmethod
+    async def _build(cls, id, client, collection):
+        for prop, clz in cls.__required__.items():
+            alt = clz.__dict__[REQUIRED]
+            if issubclass(alt, (list, tuple)):
+                await client.query(
+                    f't({id}).{prop} = [];',
+                    target=collection)
+            elif issubclass(alt, Thing):
+                nid = await client.query(
+                    f'(t({id}).{prop} = {{}}).id();',
+                    target=collection)
+                await clz._build(nid, client, collection)
+            elif issubclass(alt, set):
+                await client.query(
+                    f't({id}).{prop} = set();',
+                    target=collection)
 
     def _check(self, attr, value):
         if value is None:

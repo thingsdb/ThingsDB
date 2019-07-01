@@ -1382,6 +1382,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'type({});'), "thing")
         self.assertEqual(await client.query('type(set());'), "set")
         self.assertEqual(await client.query('type(||nil);'), "closure")
+        self.assertEqual(await client.query('type(//);'), "regex")
 
     async def test_upper(self, client):
         with self.assertRaisesRegex(

@@ -99,6 +99,17 @@ class OsData(Collection):
     name = optional(str)
 
 
+async def initial_data(client, collection):
+    client.use(collection)
+    await client.query(r'''
+        ulabels.add(
+            {name: "Label1"},
+            {name: "Label2"},
+            {name: "Label3"},
+        );
+    ''')
+
+
 async def test(client):
     global osdata
 
@@ -106,7 +117,7 @@ async def test(client):
     try:
         await client.authenticate('admin', 'pass')
 
-        osdata = OsData(client)
+        osdata = OsData(client, build=initial_data)
 
         print(await client.node())
 
@@ -115,6 +126,7 @@ async def test(client):
                 break
 
             if osdata:
+                print(osdata.ulabels)
                 print([label.name for label in osdata.ulabels if label])
             await asyncio.sleep(1.2)
     finally:

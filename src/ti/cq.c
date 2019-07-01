@@ -17,6 +17,7 @@
 #include <ti/cfn/fnfilter.h>
 #include <ti/cfn/fnfind.h>
 #include <ti/cfn/fnfindindex.h>
+#include <ti/cfn/fnfloat.h>
 #include <ti/cfn/fnhas.h>
 #include <ti/cfn/fnhasprop.h>
 #include <ti/cfn/fnid.h>
@@ -68,10 +69,8 @@ static int cq__function(
 
     fname = nd                      /* sequence */
             ->children->node;       /* name node */
-
     params = nd                             /* sequence */
             ->children->next->next->node;   /* list of scope (arguments) */
-
 
     switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
     {
@@ -103,6 +102,10 @@ static int cq__function(
         return cq__f_find(query, params, e);
     case TI_FN_FINDINDEX:
         return cq__f_findindex(query, params, e);
+    case TI_FN_FLOAT:
+        if (is_scope)
+            return cq__f_float(query, params, e);
+        break;
     case TI_FN_HAS:
         return cq__f_has(query, params, e);
     case TI_FN_HASPROP:

@@ -109,6 +109,7 @@ ti_val_t * ti_val_empty_str(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id);
 int ti_val_convert_to_str(ti_val_t ** val);
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
+int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);

@@ -407,6 +407,44 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x.findindex(|v|(v==42));'), 0)
         self.assertEqual(await client.query('x.findindex(|v|isstr(v));'), 1)
 
+    async def test_float(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `float`'):
+            await client.query('nil.float();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `float` takes at most 1 argument but 2 were given'):
+            await client.query('float(1, 2);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `closure` to `float`'):
+            await client.query('float(||nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to `float`'):
+            await client.query('float(nil);')
+
+        self.assertEqual(
+            await client.query('int("0x7fffffffffffffff");'),
+            0x7fffffffffffffff)
+        self.assertEqual(
+            await client.query('int("-0x8000000000000000");'),
+            -0x8000000000000000)
+        self.assertEqual(await client.query('float();'), 0.0)
+        self.assertEqual(await client.query('float(3.14);'), 3.14)
+        self.assertEqual(await client.query('float(42);'), 42.0)
+        self.assertEqual(await client.query('float(true);'), 1.0)
+        self.assertEqual(await client.query('float(false);'), 0.0)
+        self.assertEqual(await client.query('int(true);'), 1)
+        self.assertEqual(await client.query('int(false);'), 0)
+        self.assertEqual(await client.query('float("3.14");'), 3.14)
+        self.assertEqual(await client.query('float("-0.314e+1");'), -3.14)
+        self.assertEqual(await client.query('float("");'), 0.0)
+
     async def test_has(self, client):
         await client.query(r'''
             iris = {name: "Iris"};

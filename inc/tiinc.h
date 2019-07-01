@@ -83,6 +83,7 @@ typedef enum
     TI_FN_FILTER,
     TI_FN_FIND,
     TI_FN_FINDINDEX,
+    TI_FN_FLOAT,
     TI_FN_HAS,
     TI_FN_HASPROP,
     TI_FN_ID,

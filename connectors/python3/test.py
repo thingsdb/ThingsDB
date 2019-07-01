@@ -97,6 +97,7 @@ class OsData(Collection):
     other = required(list)
     hosts = Hosts
     name = optional(str)
+    counter = required(int)
 
 
 async def initial_data(client, collection):
@@ -117,7 +118,7 @@ async def test(client):
     try:
         await client.authenticate('admin', 'pass')
 
-        osdata = OsData(client, build=initial_data)
+        osdata = OsData(client, rebuild=initial_data)
 
         print(await client.node())
 

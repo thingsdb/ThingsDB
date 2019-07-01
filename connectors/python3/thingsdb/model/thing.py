@@ -84,6 +84,16 @@ class Thing:
                 await client.query(
                     f't({id}).{prop} = set();',
                     target=collection)
+            else:
+                fun = {
+                    str: 'str',
+                    float: 'float',
+                    int: 'int',
+                    bool: 'bool'
+                }[alt]
+                await client.query(
+                    f't({id}).{prop} = {fun}();',
+                    target=collection)
 
     def _check(self, attr, value):
         if value is None:

@@ -79,6 +79,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "filter", TI_FN_FILTER, true);
         syntax__nev_fn(q, nd, "find", TI_FN_FIND, true);
         syntax__nev_fn(q, nd, "findindex", TI_FN_FINDINDEX, true);
+        syntax__nev_fn(q, nd, "float", TI_FN_FLOAT, true);
         break;
     case 'g':
         syntax__tev_fn(q, nd, "grant", TI_FN_GRANT, true);

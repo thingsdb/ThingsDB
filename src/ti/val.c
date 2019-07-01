@@ -18,6 +18,7 @@
 #include <ti/vset.h>
 #include <util/logger.h>
 #include <util/strx.h>
+#include <math.h>
 
 #define VAL__CMP(__s) ti_raw_eq_strn((*(ti_raw_t **) val), __s, strlen(__s))
 
@@ -541,6 +542,70 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");
+    return e->nr;
+}
+
+int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
+{
+    double d = 0.0;
+    switch((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
+                ti_val_str(*val));
+        return e->nr;
+    case TI_VAL_INT:
+        d = (double) (*(ti_vint_t **) val)->int_;
+        break;
+    case TI_VAL_FLOAT:
+        return 0;
+    case TI_VAL_BOOL:
+        d = (double) (*(ti_vbool_t **) val)->bool_;
+        break;
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+    {
+        ti_raw_t * raw = *((ti_raw_t **) val);
+
+        if (errno == ERANGE)
+            errno = 0;
+
+        if (raw->n >= VAL__BUF_SZ)
+        {
+            char * dup = strndup((const char *) raw->data, raw->n);
+            if (!dup)
+            {
+                ex_set_alloc(e);
+                return e->nr;
+            }
+            d = strtod(dup, NULL);
+            free(dup);
+        }
+        else
+        {
+            memcpy(val__buf, raw->data, raw->n);
+            val__buf[raw->n] = '\0';
+            d = strtod(val__buf, NULL);
+        }
+        if (errno == ERANGE)
+        {
+            assert (d == HUGE_VAL || d == -HUGE_VAL);
+            d = d == HUGE_VAL ? INFINITY : -INFINITY;
+            errno = 0;
+        }
+
+        break;
+    }
+    }
+
+    if (ti_val_make_float(val, d))
+        ex_set_alloc(e);
+
     return e->nr;
 }
 

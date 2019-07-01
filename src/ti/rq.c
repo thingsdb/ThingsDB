@@ -54,6 +54,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_FILTER:
     case TI_FN_FIND:
     case TI_FN_FINDINDEX:
+    case TI_FN_FLOAT:
     case TI_FN_HAS:
     case TI_FN_HASPROP:
     case TI_FN_ID:

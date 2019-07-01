@@ -290,6 +290,11 @@ class TestCollectionFunctions(TestBase):
                 age: 6,
                 likes: ['k3', 'swimming', 'red', 6],
             };
+            cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            girls = set([iris, cato]);
         ''')
         with self.assertRaisesRegex(
                 IndexError,
@@ -323,10 +328,22 @@ class TestCollectionFunctions(TestBase):
             (await client.query('iris.likes.filter(|_v, i|(i > 1));')),
             ['red', 6])
 
+        self.assertEqual(
+            (await client.query('girls.filter(|v|(v.age == 6))', deep=3))
+            ['!'][0]['age'],
+            6)
+
+        self.assertEqual(
+            (await client.query(
+                'girls.filter(|_v, i|(i == cato.id()))',
+                deep=3))['!'][0]['age'],
+            5)
+
         self.assertEqual(await client.query('iris.filter(||nil);'), {'#': 0})
         self.assertEqual(await client.query('iris.likes.filter(||nil);'), [])
         self.assertEqual(await client.query(r'{}.filter(||true)'), {'#': 0})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
+        self.assertEqual(await client.query(r'set().filter(||1)'), {'!': []})
 
     async def test_find(self, client):
         await client.query(r'x = [42, "gallaxy"];')
@@ -1343,6 +1360,28 @@ class TestCollectionFunctions(TestBase):
                 ZeroDivisionError,
                 'division or modulo by zero'):
             await client.query('try( (10 // 0), nil, "INDEX_ERROR");')
+
+    async def test_type(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `raw` has no function `type`'):
+            await client.query('"".type();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `type` takes 1 argument but 0 were given'):
+            await client.query('type();')
+
+        self.assertEqual(await client.query('type(nil);'), "nil")
+        self.assertEqual(await client.query('type(true);'), "bool")
+        self.assertEqual(await client.query('type(1);'), "int")
+        self.assertEqual(await client.query('type(0.0);'), "float")
+        self.assertEqual(await client.query('type("Hi");'), "raw")
+        self.assertEqual(await client.query('type([]);'), "list")
+        self.assertEqual(await client.query('type([[]][0]);'), "tuple")
+        self.assertEqual(await client.query(r'type({});'), "thing")
+        self.assertEqual(await client.query('type(set());'), "set")
+        self.assertEqual(await client.query('type(||nil);'), "closure")
 
     async def test_upper(self, client):
         with self.assertRaisesRegex(

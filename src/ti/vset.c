@@ -51,7 +51,7 @@ int ti_vset_to_packer(
     fetch-=2;  /* one for the set and one for each thing */
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (flags & TI_VAL_PACK_NEW)
+        if (flags & TI_VAL_PACK_TASK)
         {
             if (ti_thing_is_new(t))
             {

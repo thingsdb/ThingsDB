@@ -1,5 +1,5 @@
 from .thing import Thing
-from .keys import ARRAY_OF, REQUIRED, OPTIONAL
+from .keys import ARRAY_OF, SET_OF, REQUIRED, OPTIONAL
 
 
 def array_of(cls):
@@ -7,7 +7,7 @@ def array_of(cls):
 
 
 def set_of(cls):
-    return type('SetOf'), (set, ), {SET_OF: cls}
+    return type('SetOf', (set, ), {SET_OF: cls})
 
 
 def required(cls):

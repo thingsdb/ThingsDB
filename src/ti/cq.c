@@ -52,6 +52,7 @@
 #include <ti/cfn/fnt.h>
 #include <ti/cfn/fntest.h>
 #include <ti/cfn/fntry.h>
+#include <ti/cfn/fntype.h>
 #include <ti/cfn/fnupper.h>
 
 static int cq__function(
@@ -214,6 +215,10 @@ static int cq__function(
     case TI_FN_TRY:
         if (is_scope)
             return cq__f_try(query, params, e);
+        break;
+    case TI_FN_TYPE:
+        if (is_scope)
+            return cq__f_type(query, params, e);
         break;
     case TI_FN_UPPER:
         return cq__f_upper(query, params, e);

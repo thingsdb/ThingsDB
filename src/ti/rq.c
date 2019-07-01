@@ -90,6 +90,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_T:
     case TI_FN_TEST:
     case TI_FN_TRY:
+    case TI_FN_TYPE:
     case TI_FN_UPPER:
         ex_set(e, EX_INDEX_ERROR,
                 "function `%.*s` is undefined in the `%s` scope; "

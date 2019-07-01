@@ -1,5 +1,5 @@
 import logging
-from .keys import ARRAY_OF, REQUIRED, OPTIONAL
+from .keys import ARRAY_OF, SET_OF, REQUIRED, OPTIONAL
 
 
 class Thing:
@@ -81,10 +81,28 @@ class Thing:
                 return value, False
             return attr(thing_id, self._collection), True
 
+        is_valid = True
+
+        if issubclass(attr, set):
+            try:
+                value = value['!']
+            except (AttributeError, KeyError):
+                return value, False
+            except TypeError:
+                value = value[1:]
+
+            set_of = getattr(attr, SET_OF, None)
+            if set_of is not None:
+                for i, v in enumerate(value):
+                    value[i], check = self._check(set_of, v)
+                    is_valid = is_valid and check
+                value = attr(value)
+
+            return value, is_valid
+
         if not issubclass(attr, value.__class__):
             return value, False
 
-        is_valid = True
         array_of = getattr(attr, ARRAY_OF, None)
         if array_of is not None:
             for i, v in enumerate(value):
@@ -179,12 +197,25 @@ class Thing:
                     f'cannot use add on property `{prop}` because '
                     f'the property is missing on `{self}`')
             else:
-                items, is_valid = self._check(arr.__class__, items)
+                things, is_valid = self._check(set_.__class__, things)
+
                 if not is_valid and self.__class__.__strict__:
                     logging.critical(
-                        f'splice on property `{prop}` on `{self}` got an '
+                        f'job `add` on property `{prop}` on `{self}` got an '
                         f'item which is not of the specified type')
-                arr[index:index+count] = items
+                set_.update(things)
+
+    def _job_remove(self, remove_job):
+        for prop, thing_ids in remove_job.items():
+            try:
+                set_ = getattr(self, prop)
+            except AttributeError:
+                logging.debug(
+                    f'cannot use add on property `{prop}` because '
+                    f'the property is missing on `{self}`')
+            else:
+                thing_ids = set(thing_ids[1:])
+                set_.difference_update({t for t in set_ if t._id in thing_ids})
 
     async def on_init(self, event_id, data):
         """Called when an `init-watch` package is received.
@@ -236,6 +267,8 @@ class Thing:
         'del': _job_del,
         'rename': _job_rename,
         'splice': _job_splice,
+        'add': _job_add,
+        'remove': _job_remove,
     }
 
 

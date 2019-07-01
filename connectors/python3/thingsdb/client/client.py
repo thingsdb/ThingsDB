@@ -242,9 +242,7 @@ class Client(Buildin):
             }
 
         future = self._write_package(scope._proto, data, timeout=timeout)
-        result = await future
-
-        return result
+        return await future
 
     def watch(self):
         return self._write_package(REQ_WATCH, None, timeout=None)

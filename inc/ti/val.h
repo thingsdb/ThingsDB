@@ -87,7 +87,7 @@ typedef enum
 
 enum
 {
-    TI_VAL_PACK_NEW     =1<<0,
+    TI_VAL_PACK_TASK     =1<<0,
 };
 
 typedef struct ti_val_s ti_val_t;

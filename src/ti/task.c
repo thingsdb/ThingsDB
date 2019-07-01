@@ -115,7 +115,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
             ti_val_to_packer(
                 (ti_val_t *) thing,
                 &packer,
-                TI_VAL_PACK_NEW,
+                TI_VAL_PACK_TASK,
                 0))
             goto failed;
 
@@ -160,7 +160,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto failed;
 
-    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_NEW, 0))
+    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_TASK, 0))
         goto failed;
 
     if (qp_close_map(packer) || qp_close_map(packer))
@@ -858,7 +858,7 @@ int ti_task_add_splice(
             if (ti_val_to_packer(
                     vec_get(varr->vec, i),
                     &packer,
-                    TI_VAL_PACK_NEW,
+                    TI_VAL_PACK_TASK,
                     0))
                 goto failed;
     }

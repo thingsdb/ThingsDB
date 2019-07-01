@@ -7,7 +7,9 @@ from thingsdb.client import Client
 from thingsdb.client.scope import Scope
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import IndexError
-from thingsdb.model import Thing, Collection, array_of, required, optional
+from thingsdb.model import (
+    Thing, Collection, array_of, set_of, required, optional
+)
 
 
 interrupted = False
@@ -90,6 +92,7 @@ class Hosts(Thing):
 
 class OsData(Collection):
     labels = required(array_of(Label))
+    ulabels = required(set_of(Label))
     conditions = required(array_of(Condition))
     other = required(list)
     hosts = Hosts
@@ -105,10 +108,6 @@ async def test(client):
 
         osdata = OsData(client)
 
-        dutycalls = DutyCalls(client)
-
-        dutycalls.users
-
         print(await client.node())
 
         while True:
@@ -116,10 +115,7 @@ async def test(client):
                 break
 
             if osdata:
-                print([osdata['labels']])
-                print([label.name for label in osdata.labels if label])
-                print([str(x) for x in osdata.other])
-                print(osdata.hosts.vec)
+                print([label.name for label in osdata.ulabels if label])
             await asyncio.sleep(1.2)
     finally:
         client.close()

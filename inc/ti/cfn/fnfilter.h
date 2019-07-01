@@ -11,7 +11,9 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_closure_t * closure = NULL;
     ti_val_t * iterval = ti_query_val_pop(query);
 
-    if (iterval->tp != TI_VAL_ARR && iterval->tp != TI_VAL_THING)
+    if (    iterval->tp != TI_VAL_ARR &&
+            iterval->tp != TI_VAL_SET &&
+            iterval->tp != TI_VAL_THING)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `filter`"FILTER_DOC_,
@@ -114,6 +116,34 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         (void) vec_shrink(&varr->vec);
         break;
+    }
+    case TI_VAL_SET:
+    {
+        vec_t * vec = imap_vec(((ti_vset_t *) iterval)->imap);
+        ti_vset_t * vset = ti_vset_create();
+        if (!vset || !vec)
+            goto fail2;
+
+        retval = (ti_val_t *) vset;
+
+        for (vec_each(vec, ti_thing_t, t))
+        {
+            if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
+                goto fail2;
+
+            if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
+                goto fail2;
+
+            if (ti_val_as_bool(query->rval))
+            {
+                if (ti_vset_add(vset, t))
+                    goto fail2;
+                ti_incref(t);
+            }
+
+            ti_val_drop(query->rval);
+            query->rval = NULL;
+        }
     }
     }
 

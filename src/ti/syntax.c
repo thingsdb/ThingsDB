@@ -152,6 +152,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "t", TI_FN_T, true);
         syntax__nev_fn(q, nd, "test", TI_FN_TEST, true);
         syntax__nev_fn(q, nd, "try", TI_FN_TRY, true);
+        syntax__nev_fn(q, nd, "type", TI_FN_TYPE, true);
         break;
     case 'u':
         syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, true);

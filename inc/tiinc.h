@@ -119,6 +119,7 @@ typedef enum
     TI_FN_T,
     TI_FN_TEST,
     TI_FN_TRY,
+    TI_FN_TYPE,
     TI_FN_UPPER,
 
     /* thingsdb functions */

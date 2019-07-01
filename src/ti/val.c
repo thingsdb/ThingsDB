@@ -797,11 +797,11 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
         return ti_regex_to_packer((ti_regex_t *) val, pckr);
     case TI_VAL_THING:
         /*
-         * TI_VAL_PACK_NEW and TI_VFLAG_THING_NEW are used for tasks.
+         * TI_VAL_PACK_TASK and TI_VFLAG_THING_NEW are used for tasks.
          * Tasks require the complete `new` thing so they can be created by
          * all nodes.
          */
-        if (flags & TI_VAL_PACK_NEW)
+        if (flags & TI_VAL_PACK_TASK)
         {
             ti_thing_t * thing = (ti_thing_t *) val;
             if (ti_thing_is_new(thing))

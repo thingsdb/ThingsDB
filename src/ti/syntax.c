@@ -51,7 +51,7 @@ static inline void syntax__set_thingsdb_event(ti_syntax_t * syntax)
 static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
 {
     /* a function name has at least size 1 */
-    switch (*nd->str)
+    switch ((ti_alpha_lower_t) *nd->str)
     {
     case 'a':
         syntax__cev_fn(q, nd, "add", TI_FN_ADD, true);
@@ -108,6 +108,9 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "istuple", TI_FN_ISTUPLE, true);
         syntax__nev_fn(q, nd, "isutf8", TI_FN_ISUTF8, true);
         break;
+    case 'j':
+    case 'k':
+        break;
     case 'l':
         syntax__nev_fn(q, nd, "len", TI_FN_LEN, false);
         syntax__nev_fn(q, nd, "lower", TI_FN_LOWER, true);
@@ -123,10 +126,14 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
         syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER, true);
         break;
+    case 'o':
+        break;
     case 'p':
         syntax__cev_fn(q, nd, "pop", TI_FN_POP, true);
         syntax__cev_fn(q, nd, "push", TI_FN_PUSH, true);
         syntax__tev_fn(q, nd, "pop_node", TI_FN_POP_NODE, false);
+        break;
+    case 'q':
         break;
     case 'r':
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
@@ -159,6 +166,12 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, true);
         syntax__sev_fn(q, nd, "user", TI_FN_USER, true);
         syntax__sev_fn(q, nd, "users", TI_FN_USERS, false);
+        break;
+    case 'v':
+    case 'w':
+    case 'x':
+    case 'y':
+    case 'z':
         break;
     }
 

@@ -152,5 +152,34 @@ typedef enum
     TI_FN_SHUTDOWN,
 } ti_fn_enum_t;
 
+typedef enum
+{
+    TI_a = 'a',
+    TI_b,
+    TI_c,
+    TI_d,
+    TI_e,
+    TI_f,
+    TI_g,
+    TI_h,
+    TI_i,
+    TI_j,
+    TI_k,
+    TI_l,
+    TI_m,
+    TI_n,
+    TI_o,
+    TI_p,
+    TI_q,
+    TI_r,
+    TI_s,
+    TI_t,
+    TI_u,
+    TI_v,
+    TI_w,
+    TI_x,
+    TI_y,
+    TI_z,
+} ti_alpha_lower_t;
 
 #endif  /* TIINC_H_ */

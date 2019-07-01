@@ -152,7 +152,7 @@ static ti_val_t * val__from_unp(
         qp_unpacker_t * unp,
         imap_t * things)
 {
-    switch(qp_val->tp)
+    switch((qp_types_t) qp_val->tp)
     {
     case QP_RAW:
         return (ti_val_t *) ti_raw_create(qp_val->via.raw, qp_val->len);
@@ -790,16 +790,26 @@ _Bool ti_val_is_valid_name(ti_val_t * val)
 
 size_t ti_val_get_len(ti_val_t * val)
 {
-    switch (val->tp)
+    switch ((ti_val_enum) val->tp)
     {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+        break;
     case TI_VAL_RAW:
         return ((ti_raw_t *) val)->n;
+    case TI_VAL_REGEX:
+        break;
+    case TI_VAL_THING:
+        return ((ti_thing_t *) val)->props->n;
     case TI_VAL_ARR:
         return ((ti_varr_t *) val)->vec->n;
     case TI_VAL_SET:
         return ((ti_vset_t *) val)->imap->n;
-    case TI_VAL_THING:
-        return ((ti_thing_t *) val)->props->n;
+    case TI_VAL_CLOSURE:
+        break;
     }
     assert (0);
     return 0;
@@ -807,8 +817,16 @@ size_t ti_val_get_len(ti_val_t * val)
 
 int ti_val_gen_ids(ti_val_t * val)
 {
-    switch (val->tp)
+    switch ((ti_val_enum) val->tp)
     {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+        break;
     case TI_VAL_THING:
         /* new things 'under' an existing thing will get their own event,
          * so break */
@@ -832,6 +850,9 @@ int ti_val_gen_ids(ti_val_t * val)
                 if (!thing->id && ti_thing_gen_id(thing))
                     return -1;
         }
+        break;
+    case TI_VAL_CLOSURE:
+        break;
     }
     return 0;
 }
@@ -942,7 +963,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
 const char * ti_val_str(ti_val_t * val)
 {
-    switch (val->tp)
+    switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:                return TI_VAL_NIL_S;
     case TI_VAL_INT:                return TI_VAL_INT_S;
@@ -965,11 +986,26 @@ const char * ti_val_str(ti_val_t * val)
 /* checks for QP, CLOSURE, ARR, SET */
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 {
-    switch ((*val)->tp)
+    assert ((*val)->tp != TI_VAL_QP);
+
+    switch ((ti_val_enum) (*val)->tp)
     {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
     case TI_VAL_QP:
-        ex_set(e, EX_BAD_DATA, "type `%s` cannot be assigned",
-                ti_val_str(*val));
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+        break;
+    case TI_VAL_ARR:
+        if (ti_varr_to_list((ti_varr_t **) val))
+            ex_set_alloc(e);
+        break;
+    case TI_VAL_SET:
+        if (ti_vset_assign((ti_vset_t **) val))
+            ex_set_alloc(e);
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_wse((ti_closure_t * ) *val))
@@ -978,14 +1014,6 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
                 "closures with side effects cannot be assigned");
         }
         else if (ti_closure_unbound((ti_closure_t * ) *val, e))
-            ex_set_alloc(e);
-        break;
-    case TI_VAL_ARR:
-        if (ti_varr_to_list((ti_varr_t **) val))
-            ex_set_alloc(e);
-        break;
-    case TI_VAL_SET:
-        if (ti_vset_assign((ti_vset_t **) val))
             ex_set_alloc(e);
         break;
     }

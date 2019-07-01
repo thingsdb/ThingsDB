@@ -11,7 +11,14 @@
 #include <util/fx.h>
 #include <util/util.h>
 
+/*
+ * Archive file format: < hex_first_event >_< hex_last_event >.qp
+ * Both the first and last event are inclusive inside the file.
+ */
 #define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".qp"
+/*
+ * Archive file length (exclusive a terminator character).
+ */
 #define ARCHIVE__FILE_LEN 36
 
 ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)

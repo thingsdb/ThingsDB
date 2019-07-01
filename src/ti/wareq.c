@@ -248,7 +248,8 @@ static void wareq__watch_cb(uv_async_t * task)
         (void) qp_add_int(packer, ti()->node->cevid);
         (void) qp_add_raw_from_str(packer, "thing");
 
-        if (    ti_thing_to_packer(thing, &packer, 0, 0) ||
+        /* fetch exactly one level, options = 1 */
+        if (    ti_thing_to_packer(thing, &packer, 1 /* options */) ||
                 qp_close_map(packer))
         {
             log_critical(EX_ALLOC_S);

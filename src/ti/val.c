@@ -836,7 +836,7 @@ int ti_val_gen_ids(ti_val_t * val)
     return 0;
 }
 
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int options)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -866,29 +866,28 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int flags, int fetch)
          * Tasks require the complete `new` thing so they can be created by
          * all nodes.
          */
-        if (flags & TI_VAL_PACK_TASK)
+        if (options < 0)
         {
             ti_thing_t * thing = (ti_thing_t *) val;
             if (ti_thing_is_new(thing))
             {
                 ti_thing_unmark_new(thing);
-                return ti_thing_to_packer(thing, pckr, flags, fetch);
+                return ti_thing_to_packer(thing, pckr, options);
             }
             return ti_thing_id_to_packer(thing, pckr);
         }
-        return fetch-- > 0
-            ? ti_thing_to_packer((ti_thing_t *) val, pckr, flags, fetch)
+        return options > 0
+            ? ti_thing_to_packer((ti_thing_t *) val, pckr, options)
             : ti_thing_id_to_packer((ti_thing_t *) val, pckr);
     case TI_VAL_ARR:
         if (qp_add_array(pckr))
             return -1;
-        fetch--;
         for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
-            if (ti_val_to_packer(v, pckr, flags, fetch))
+            if (ti_val_to_packer(v, pckr, options))
                 return -1;
         return qp_close_array(*pckr);
     case TI_VAL_SET:
-        return ti_vset_to_packer((ti_vset_t *) val, pckr, flags, fetch);
+        return ti_vset_to_packer((ti_vset_t *) val, pckr, options);
     case TI_VAL_CLOSURE:
         return ti_closure_to_packer((ti_closure_t *) val, pckr);
     }

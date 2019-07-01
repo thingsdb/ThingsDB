@@ -85,11 +85,6 @@ typedef enum
     TI_VAL_KIND_SET     ='!',
 } ti_val_kind;
 
-enum
-{
-    TI_VAL_PACK_TASK     =1<<0,
-};
-
 typedef struct ti_val_s ti_val_t;
 
 #include <qpack.h>
@@ -116,7 +111,7 @@ _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int flags, int fetch);
+int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e);

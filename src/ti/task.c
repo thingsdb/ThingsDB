@@ -11,6 +11,9 @@
 #include <util/qpx.h>
 #include <util/cryptx.h>
 
+/* negative value is used for packing tasks */
+const int pack_task = -1;
+
 static inline void task__upd_approx_sz(ti_task_t * task, ti_raw_t * raw)
 {
     task->approx_sz += (37 + raw->n);
@@ -112,11 +115,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
 
     for (vec_each(added, ti_thing_t, thing))
         if ((!thing->id && ti_thing_gen_id(thing)) ||
-            ti_val_to_packer(
-                (ti_val_t *) thing,
-                &packer,
-                TI_VAL_PACK_TASK,
-                0))
+            ti_val_to_packer((ti_val_t *) thing, &packer, pack_task))
             goto failed;
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
@@ -160,7 +159,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto failed;
 
-    if (ti_val_to_packer(val, &packer, TI_VAL_PACK_TASK, 0))
+    if (ti_val_to_packer(val, &packer, pack_task))
         goto failed;
 
     if (qp_close_map(packer) || qp_close_map(packer))
@@ -855,11 +854,7 @@ int ti_task_add_splice(
             goto failed;
 
         for (c = i + n; i < c; ++i)
-            if (ti_val_to_packer(
-                    vec_get(varr->vec, i),
-                    &packer,
-                    TI_VAL_PACK_TASK,
-                    0))
+            if (ti_val_to_packer(vec_get(varr->vec, i), &packer, pack_task))
                 goto failed;
     }
 

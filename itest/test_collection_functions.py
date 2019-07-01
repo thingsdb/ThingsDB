@@ -329,14 +329,13 @@ class TestCollectionFunctions(TestBase):
             ['red', 6])
 
         self.assertEqual(
-            (await client.query('girls.filter(|v|(v.age == 6))', deep=3))
+            (await client.query('girls.filter(|v|(v.age == 6))'))
             ['!'][0]['age'],
             6)
 
         self.assertEqual(
             (await client.query(
-                'girls.filter(|_v, i|(i == cato.id()))',
-                deep=3))['!'][0]['age'],
+                'girls.filter(|_v, i|(i == cato.id()))'))['!'][0]['age'],
             5)
 
         self.assertEqual(await client.query('iris.filter(||nil);'), {'#': 0})
@@ -346,7 +345,19 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'set().filter(||1)'), {'!': []})
 
     async def test_find(self, client):
-        await client.query(r'x = [42, "gallaxy"];')
+        await client.query(r'''
+            x = [42, "gallaxy"];
+            iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+            cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            g = set([iris, cato]);
+            ''')
 
         with self.assertRaisesRegex(
                 IndexError,
@@ -371,6 +382,8 @@ class TestCollectionFunctions(TestBase):
                 'but got type `int` instead'):
             await client.query('x.find(0);')
 
+        iris, cato = await client.query('[iris, cato];')
+
         self.assertIs(await client.query('[].find(||true);'), None)
         self.assertIs(await client.query('[].find(||false);'), None)
         self.assertEqual(await client.query('x.find(||true);'), 42)
@@ -379,6 +392,9 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x.find(|_,i|(i>=1));'), "gallaxy")
         self.assertIs(await client.query('x.find(||nil);'), None)
         self.assertEqual(await client.query('x.find(||nil, 42);'), 42)
+        self.assertEqual(await client.query('g.find(|t|(t.age==5));'), cato)
+        self.assertEqual(await client.query(
+            'g.find(|_,i|(i==iris.id()));'), iris)
 
     async def test_findindex(self, client):
         await client.query(r'x = [42, ""];')
@@ -1035,7 +1051,7 @@ class TestCollectionFunctions(TestBase):
         s = set([t, {name: 'Iris'}, {name: 'Cato'}]);
         ''')
 
-        removed = await client.query('s.remove(|T| (T == t));', deep=2)
+        removed = await client.query('s.remove(|T| (T == t));')
 
         self.assertEqual(len(removed), 1)
         self.assertEqual(removed[0]['name'], 'ThingsDB')
@@ -1051,9 +1067,7 @@ class TestCollectionFunctions(TestBase):
             s.add(t, i, c);
         ''')
 
-        removed = await client.query(
-            's.remove(|_, id| (id == t.id()));',
-            deep=2)
+        removed = await client.query('s.remove(|_, id| (id == t.id()));')
         self.assertEqual(len(removed), 1)
         self.assertEqual(removed[0]['name'], 'ThingsDB')
 
@@ -1362,7 +1376,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(t['x'], 42)
         self.assertFalse(await client.query(r'isarray(t(t.id()));'))
         self.assertTrue(await client.query(r'isarray(t(t.id(), ));'))
-        stuff, t = await client.query('t(id(), {});'.format(id), deep=3)
+        stuff, t = await client.query('t(id(), {});'.format(id), deep=2)
         self.assertEqual(stuff['t'], t)
 
     async def test_try(self, client):

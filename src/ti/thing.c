@@ -259,21 +259,21 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
     return false;
 }
 
-int ti_thing_to_packer(
-        ti_thing_t * thing,
-        qp_packer_t ** packer,
-        int flags,
-        int fetch)
+int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
 {
+    assert (options);  /* should be either positive or negative, not 0 */
+
     if (    qp_add_map(packer) ||
             qp_add_raw(*packer, (const uchar *) "#", 1) ||
             qp_add_int(*packer, thing->id))
         return -1;
 
+    --options;
+
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                ti_val_to_packer(prop->val, packer, flags, fetch))
+                ti_val_to_packer(prop->val, packer, options))
             return -1;
     }
 

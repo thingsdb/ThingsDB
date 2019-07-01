@@ -36,11 +36,7 @@ void ti_vset_destroy(ti_vset_t * vset)
     free(vset);
 }
 
-int ti_vset_to_packer(
-        ti_vset_t * vset,
-        qp_packer_t ** packer,
-        int flags,
-        int fetch)
+int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** packer, int options)
 {
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
@@ -48,15 +44,14 @@ int ti_vset_to_packer(
         qp_add_raw(*packer, (const uchar * ) "!", 1) ||
         qp_add_array(packer))
         return -1;
-    fetch-=2;  /* one for the set and one for each thing */
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (flags & TI_VAL_PACK_TASK)
+        if (options < 0)
         {
             if (ti_thing_is_new(t))
             {
                 ti_thing_unmark_new(t);
-                if (ti_thing_to_packer(t, packer, flags, fetch))
+                if (ti_thing_to_packer(t, packer, options))
                     return -1;
                 continue;
             }
@@ -65,9 +60,9 @@ int ti_vset_to_packer(
             continue;
         }
 
-        if (fetch > 0)
+        if (options > 0)
         {
-            if (ti_thing_to_packer(t, packer, flags, fetch))
+            if (ti_thing_to_packer(t, packer, options))
                 return -1;
             continue;
         }

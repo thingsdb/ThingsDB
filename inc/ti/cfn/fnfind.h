@@ -10,13 +10,13 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     int64_t idx = 0;
     ti_closure_t * closure = NULL;
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
+    ti_val_t * val = ti_query_val_pop(query);
 
-    if (!ti_val_is_array((ti_val_t *) varr))
+    if (!ti_val_is_array(val) && !ti_val_is_set(val))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `find`"FIND_DOC_,
-                ti_val_str((ti_val_t *) varr));
+                ti_val_str(val));
         goto fail1;
     }
 
@@ -57,30 +57,71 @@ static int cq__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_scope_local_from_closure(query->scope, closure, e))
         goto fail2;
 
-    for (vec_each(varr->vec, ti_val_t, v), ++idx)
+    switch (val->tp)
     {
-        _Bool found;
+    case TI_VAL_ARR:
+        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v), ++idx)
+        {
+            _Bool found;
 
-        if (ti_scope_polute_val(query->scope, v, idx))
+            if (ti_scope_polute_val(query->scope, v, idx))
+            {
+                ex_set_alloc(e);
+                goto fail2;
+            }
+
+            if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
+                goto fail2;
+
+            found = ti_val_as_bool(query->rval);
+            ti_val_drop(query->rval);
+
+            if (found)
+            {
+                query->rval = v;
+                ti_incref(v);
+                goto done;
+            }
+
+            query->rval = NULL;
+        }
+        break;
+    case TI_VAL_SET:
+    {
+        vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
+        if (!vec)
         {
             ex_set_alloc(e);
             goto fail2;
         }
 
-        if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
-            goto fail2;
-
-        found = ti_val_as_bool(query->rval);
-        ti_val_drop(query->rval);
-
-        if (found)
+        for (vec_each(vec, ti_thing_t, t))
         {
-            query->rval = v;
-            ti_incref(v);
-            goto done;
-        }
+            _Bool found;
 
-        query->rval = NULL;
+            if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
+            {
+                ex_set_alloc(e);
+                goto fail2;
+            }
+
+            if (ti_cq_optscope(query, ti_closure_scope_nd(closure), e))
+                goto fail2;
+
+            found = ti_val_as_bool(query->rval);
+            ti_val_drop(query->rval);
+
+            if (found)
+            {
+                query->rval = (ti_val_t *) t;
+                ti_incref(t);
+                goto done;
+            }
+
+            query->rval = NULL;
+        }
+        break;
+    }
     }
 
     assert (query->rval == NULL);
@@ -100,7 +141,7 @@ fail2:
 
 fail1:
     ti_val_drop((ti_val_t *) closure);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_drop(val);
 
     return e->nr;
 }

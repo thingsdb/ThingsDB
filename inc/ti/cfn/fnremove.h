@@ -157,10 +157,7 @@ static int cq__f_remove_set_from_closure(
 
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (ti_scope_polute_val(
-                query->scope,
-                (ti_val_t *) t,
-                t->id))
+        if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
         {
             ex_set_alloc(e);
             goto fail2;

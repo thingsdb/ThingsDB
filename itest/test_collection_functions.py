@@ -793,6 +793,11 @@ class TestCollectionFunctions(TestBase):
                 age: 6,
                 likes: ['k3', 'swimming', 'red', 6],
             };
+            cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            girls = set([iris, cato]);
         ''')
         with self.assertRaisesRegex(
                 IndexError,
@@ -812,6 +817,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query(r'[].map(||nil)'), [])
         self.assertEqual(await client.query(r'{}.map(||nil)'), [])
+        self.assertEqual(await client.query(r'set().map(||nil)'), [])
 
         self.assertEqual(
             set(await client.query('iris.map(|k|k.upper());')),
@@ -824,6 +830,18 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             await client.query('iris.likes.map(|v, i|[v, i])'),
             [['k3', 0], ['swimming', 1], ['red', 2], [6, 3]])
+
+        self.assertEqual(
+            set(await client.query('girls.map(|g| g.name);')),
+            set(['Iris', 'Cato'])
+        )
+
+        iris_id, cato_id = await client.query('[iris.id(), cato.id()];')
+
+        self.assertEqual(
+            set(await client.query('girls.map(|_, id| id);')),
+            set([iris_id, cato_id])
+        )
 
     async def test_now(self, client):
         with self.assertRaisesRegex(
@@ -1007,10 +1025,10 @@ class TestCollectionFunctions(TestBase):
                 'when using a `closure` but 2 were given'):
             await client.query('s.remove(||true, nil);')
 
-        # with self.assertRaisesRegex(
-        #         BadRequestError,
-        #         'cannot use function `remove` while the set is in use'):
-        #     await client.query('s.map(||s.remove(||true));')
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot use function `remove` while the set is in use'):
+            await client.query('s.map(||s.remove(||true));')
 
         with self.assertRaisesRegex(
                 BadRequestError,

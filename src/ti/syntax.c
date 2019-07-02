@@ -230,6 +230,16 @@ static _Bool syntax__swap_opr(
     return gid > parent_gid;
 }
 
+/*
+ * Investigates the following:
+ *
+ * - array sizes (stored to node->data)
+ * - function bindings (stored to node->data)
+ * - event requirement (set as syntax flags)
+ * - closure detection and event requirement (set as flag to node->data)
+ * - re-arrange operations to honor compare order
+ * - count primitives cache requirements
+ */
 void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     switch (nd->cl_obj->gid)

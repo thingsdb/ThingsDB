@@ -22,16 +22,16 @@ do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
 #define syntax__cev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X(syntax__set_collection_event, __q, __nd, __str, __fn, __ret)
 
-/* set thingsdb event, used for thingsdb scope */
-#define syntax__tev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn, __ret)
-
 /* no event, used for collection scope */
 #define syntax__nev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
 
-/* no event, used for node and thingsdb scope */
-#define syntax__sev_fn(__q, __nd, __str, __fn, __ret) \
+/* set thingsdb event, used for thingsdb scope */
+#define syntax__tev_fn(__q, __nd, __str, __fn, __ret) \
+        SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn, __ret)
+
+/* zero (no) event, used for node and thingsdb scope */
+#define syntax__zev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
 
 static inline void syntax__set_collection_event(ti_syntax_t * syntax)
@@ -63,9 +63,9 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'c':
         syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
-        syntax__sev_fn(q, nd, "collection", TI_FN_COLLECTION, true);
-        syntax__sev_fn(q, nd, "collections", TI_FN_COLLECTIONS, false);
-        syntax__sev_fn(q, nd, "counters", TI_FN_COUNTERS, true);
+        syntax__zev_fn(q, nd, "collection", TI_FN_COLLECTION, true);
+        syntax__zev_fn(q, nd, "collections", TI_FN_COLLECTIONS, false);
+        syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS, false);
         break;
     case 'd':
         syntax__cev_fn(q, nd, "del", TI_FN_DEL, true);
@@ -113,23 +113,23 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'l':
         syntax__nev_fn(q, nd, "len", TI_FN_LEN, false);
-        syntax__nev_fn(q, nd, "lower", TI_FN_LOWER, true);
+        syntax__nev_fn(q, nd, "lower", TI_FN_LOWER, false);
         break;
     case 'm':
         syntax__nev_fn(q, nd, "map", TI_FN_MAP, true);
         break;
     case 'n':
         syntax__nev_fn(q, nd, "now", TI_FN_NOW, false);
-        syntax__sev_fn(q, nd, "node", TI_FN_NODE, true);
-        syntax__sev_fn(q, nd, "nodes", TI_FN_NODES, false);
         syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION, true);
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
         syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER, true);
+        syntax__zev_fn(q, nd, "node", TI_FN_NODE, true);
+        syntax__zev_fn(q, nd, "nodes", TI_FN_NODES, false);
         break;
     case 'o':
         break;
     case 'p':
-        syntax__cev_fn(q, nd, "pop", TI_FN_POP, true);
+        syntax__cev_fn(q, nd, "pop", TI_FN_POP, false);
         syntax__cev_fn(q, nd, "push", TI_FN_PUSH, true);
         syntax__tev_fn(q, nd, "pop_node", TI_FN_POP_NODE, false);
         break;
@@ -139,22 +139,22 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
         syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
-        syntax__sev_fn(q, nd, "reset_counters", TI_FN_RESET_COUNTERS, false);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
         syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER, true);
         syntax__tev_fn(q, nd, "replace_node", TI_FN_REPLACE_NODE, true);
         syntax__tev_fn(q, nd, "revoke", TI_FN_REVOKE, true);
+        syntax__zev_fn(q, nd, "reset_counters", TI_FN_RESET_COUNTERS, false);
         break;
     case 's':
         syntax__cev_fn(q, nd, "splice", TI_FN_SPLICE, true);
         syntax__nev_fn(q, nd, "set", TI_FN_SET, true);
         syntax__nev_fn(q, nd, "startswith", TI_FN_STARTSWITH, true);
         syntax__nev_fn(q, nd, "str", TI_FN_STR, true);
-        syntax__sev_fn(q, nd, "set_loglevel", TI_FN_SET_LOGLEVEL, true);
-        syntax__sev_fn(q, nd, "set_zone", TI_FN_SET_ZONE, true);
-        syntax__sev_fn(q, nd, "shutdown", TI_FN_SHUTDOWN, true);
         syntax__tev_fn(q, nd, "set_password", TI_FN_SET_PASSWORD, true);
         syntax__tev_fn(q, nd, "set_quota", TI_FN_SET_QUOTA, true);
+        syntax__zev_fn(q, nd, "set_loglevel", TI_FN_SET_LOGLEVEL, true);
+        syntax__zev_fn(q, nd, "set_zone", TI_FN_SET_ZONE, true);
+        syntax__zev_fn(q, nd, "shutdown", TI_FN_SHUTDOWN, false);
         break;
     case 't':
         syntax__nev_fn(q, nd, "t", TI_FN_T, true);
@@ -163,9 +163,9 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "type", TI_FN_TYPE, true);
         break;
     case 'u':
-        syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, true);
-        syntax__sev_fn(q, nd, "user", TI_FN_USER, true);
-        syntax__sev_fn(q, nd, "users", TI_FN_USERS, false);
+        syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, false);
+        syntax__zev_fn(q, nd, "user", TI_FN_USER, true);
+        syntax__zev_fn(q, nd, "users", TI_FN_USERS, false);
         break;
     case 'v':
     case 'w':
@@ -230,30 +230,44 @@ static _Bool syntax__swap_opr(
     return gid > parent_gid;
 }
 
-static void syntax__investigate_array(ti_syntax_t * syntax, cleri_node_t * nd)
-{
-    uintptr_t sz = 0;
-    cleri_children_t * child = nd          /* sequence */
-            ->children->next->node         /* list */
-            ->children;
-    for (; child; child = child->next->next)
-    {
-        ti_syntax_investigate(syntax, child->node);
-        ++sz;
-
-        if (!child->next)
-            break;
-    }
-    nd->data = (void *) sz;
-}
-
 void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     switch (nd->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
-        syntax__investigate_array(syntax, nd);
+    {
+        uintptr_t sz = 0;
+        cleri_children_t * child = nd          /* sequence */
+                ->children->next->node         /* list */
+                ->children;
+        for (; child; child = child->next->next)
+        {
+            ti_syntax_investigate(syntax, child->node);  /* scope */
+            ++sz;
+
+            if (!child->next)
+                break;
+        }
+        nd->data = (void *) sz;
         return;
+    }
+    case CLERI_GID_THING:
+    {
+        cleri_children_t * child = nd          /* sequence */
+                ->children->next->node         /* list */
+                ->children;
+        for (; child; child = child->next->next)
+        {
+            /* sequence(name: scope) (only investigate the scopes */
+            ti_syntax_investigate(
+                    syntax,
+                    child->node->children->next->next->node);  /* scope */
+
+            if (!child->next)
+                break;
+        }
+        return;
+    }
     case CLERI_GID_FUNCTION:
         if (syntax__map_fn(syntax, nd->children->node))
             /* investigate arguments */
@@ -261,6 +275,8 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         return;
     case CLERI_GID_ASSIGNMENT:
         syntax__set_collection_event(syntax);
+        /* fall through */
+    case CLERI_GID_TMP_ASSIGN:
         /* skip to scope */
         ti_syntax_investigate(syntax, nd->children->next->next->node);
         return;
@@ -287,8 +303,10 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
             syntax->flags |= flags;
         }
         return;
+    case CLERI_GID_TMP:
+    case CLERI_GID_NAME:
+    case CLERI_GID_O_NOT:
     case CLERI_GID_COMMENT:
-        /* all with children we can skip */
         return;
     case CLERI_GID_PRIMITIVES:
         switch (nd->children->node->cl_obj->gid)

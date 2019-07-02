@@ -291,27 +291,36 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         ti_syntax_investigate(syntax, nd->children->next->next->node);
         return;
     case CLERI_GID_CLOSURE:
-        {
-            uint8_t flags = syntax->flags;
+    {
+        uint8_t flags = syntax->flags;
 
-            /* temporary remove the `event` flag to discover if the closure
-             * sets the `event` flag.
-             */
-            syntax->flags &= ~TI_SYNTAX_FLAG_EVENT;
+        /* temporary remove the `event` flag to discover if the closure
+         * sets the `event` flag.
+         */
+        syntax->flags &= ~TI_SYNTAX_FLAG_EVENT;
 
-            /* investigate the scope, the rest can be skipped */
+        /* investigate the scope, the rest can be skipped */
+        ti_syntax_investigate(
+                syntax,
+                nd->children->next->next->next->node);
+
+        nd->data = (void *) ((uintptr_t) (
+                syntax->flags & TI_SYNTAX_FLAG_EVENT
+                    ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
+                    : TI_VFLAG_CLOSURE_QBOUND));
+
+        /* apply the original flags */
+        syntax->flags |= flags;
+        return;
+    }
+    case CLERI_GID_INDEX:
+        for (   cleri_children_t * child = nd->children;
+                child;
+                child = child->next)
+            /* sequence('[', scope, ']') (only investigate the scopes */
             ti_syntax_investigate(
                     syntax,
-                    nd->children->next->next->next->node);
-
-            nd->data = (void *) ((uintptr_t) (
-                    syntax->flags & TI_SYNTAX_FLAG_EVENT
-                        ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
-                        : TI_VFLAG_CLOSURE_QBOUND));
-
-            /* apply the original flags */
-            syntax->flags |= flags;
-        }
+                    child->node->children->next->node);  /* scope */
         return;
     case CLERI_GID_TMP:
     case CLERI_GID_NAME:

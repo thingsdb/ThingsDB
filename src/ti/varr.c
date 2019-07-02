@@ -56,7 +56,7 @@ ti_varr_t * ti_varr_create(size_t sz)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = TI_VFLAG_UNASSIGNED;
+    varr->flags = 0;
 
     varr->vec = vec_new(sz);
     if (!varr->vec)
@@ -76,7 +76,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = TI_VFLAG_UNASSIGNED;
+    varr->flags = 0;
 
     varr->vec = vec;
     return varr;
@@ -104,7 +104,6 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
         /* can only be added to unassigned arrays and since the `QP` type is
          * only used at root, and arrays cannot be assigned at root, the `to`
          * array must be an unassigned array */
-        assert (!ti_varr_is_assigned(to));
         break;
     case TI_VAL_SET:
         if (ti_vset_to_tuple((ti_vset_t **) v))
@@ -172,7 +171,6 @@ int ti_varr_to_list(ti_varr_t ** varr)
         /* This can never happen to a tuple since a tuple is always nested
          * and therefore always has more than one reference */
         assert (~list->flags & TI_VFLAG_ARR_TUPLE);
-        ti_varr_set_assigned(list);
         return 0;
     }
 

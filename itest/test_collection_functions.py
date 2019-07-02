@@ -395,6 +395,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('g.find(|t|(t.age==5));'), cato)
         self.assertEqual(await client.query(
             'g.find(|_,i|(i==iris.id()));'), iris)
+        self.assertIs(await client.query('g.find(||nil);'), None)
 
     async def test_findindex(self, client):
         await client.query(r'x = [42, ""];')

@@ -13,6 +13,7 @@ static void cq__f_remove_list(
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_closure_t * closure = NULL;
+    _Bool is_attached = ti_scope_is_attached(query->scope);
 
     assert (ti_val_is_list((ti_val_t *) varr));
 
@@ -32,7 +33,7 @@ static void cq__f_remove_list(
         goto fail1;
     }
 
-    if (ti_varr_is_assigned(varr) &&
+    if (is_attached &&
         ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
     {
         ex_set(e, EX_BAD_DATA,
@@ -81,7 +82,7 @@ static void cq__f_remove_list(
             query->rval = v;  /* we can move the reference here */
             (void) vec_remove(varr->vec, idx);
 
-            if (ti_varr_is_assigned(varr))
+            if (is_attached)
             {
                 ti_task_t * task;
                 assert (query->scope->thing);
@@ -192,6 +193,7 @@ static void cq__f_remove_set(
 {
     vec_t * removed = NULL;
     const int nargs = langdef_nd_n_function_params(nd);
+    _Bool is_attached = ti_scope_is_attached(query->scope);
 
     assert (ti_val_is_set((ti_val_t *) vset));
 
@@ -203,7 +205,7 @@ static void cq__f_remove_set(
         return;
     }
 
-    if (ti_vset_is_assigned(vset) &&
+    if (is_attached &&
         ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
     {
         ex_set(e, EX_BAD_DATA,
@@ -277,12 +279,9 @@ static void cq__f_remove_set(
         }
     }
 
-    if (removed->n && ti_vset_is_assigned(vset))
+    if (removed->n && is_attached)
     {
-        ti_task_t * task;
-        assert (query->scope->thing);
-        assert (query->scope->name);
-        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
         if (!task)
             goto failed;
 

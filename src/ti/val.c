@@ -86,7 +86,6 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
         if (!vset || sz != 1 || !qp_is_array(arrsz))
             return NULL;
 
-        ti_vset_set_assigned(vset);
         arrsz = arrsz == QP_ARRAY_OPEN ? -1 : arrsz - QP_ARRAY0;
 
         while (arrsz-- && qp_is_map((tsz = qp_next(unp, &qp_tmp))))
@@ -173,7 +172,6 @@ static ti_val_t * val__from_unp(
         ti_varr_t * varr = ti_varr_create(sz);
         if (!varr)
             return NULL;
-        ti_varr_set_assigned(varr);
 
         while (sz--)
         {

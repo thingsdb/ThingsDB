@@ -102,6 +102,27 @@ class TestTypes(TestBase):
             t.t.id();
         '''), 0)
 
+        self.assertGreater(await client.query(r'''
+            t = {l: []};
+            t.l.push({a: {}});
+            t.l[0].id();
+        '''), 0)
+
+        self.assertGreater(await client.query(r'''
+            t.l[0].a.id();
+        '''), 0)
+
+        self.assertEqual(await client.query(r'''
+            $t = {l: []};
+            $t.l.push({a: {}});
+            [$t.l[0].id(), $t.l[0].a.id()];
+        '''), [0, 0])
+
+    async def test_array(self, client):
+        self.assertEqual(await client.query(r'''
+            ({}.t = [1, 2, 3]).push(4);
+        '''), 4)
+
     async def test_closure(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,

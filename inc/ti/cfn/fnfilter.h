@@ -76,7 +76,8 @@ static int cq__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             if (ti_val_as_bool(query->rval))
             {
-                if (ti_thing_prop_set(thing, p->name, p->val))
+                if (    ti_val_make_assignable(&p->val, e) ||
+                        ti_thing_prop_set(thing, p->name, p->val))
                     goto fail2;
                 ti_incref(p->name);
                 ti_incref(p->val);

@@ -20,9 +20,6 @@ _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb);
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr);
 static inline _Bool ti_varr_is_list(ti_varr_t * varr);
 static inline _Bool ti_varr_is_tuple(ti_varr_t * varr);
-static inline void ti_varr_set_assigned(ti_varr_t * varr);
-static inline _Bool ti_varr_is_assigned(ti_varr_t * varr);
-static inline _Bool ti_varr_is_assigned(ti_varr_t * varr);
 static inline _Bool ti_varr_eq(ti_varr_t * va, ti_varr_t * vb);
 
 struct ti_varr_s
@@ -49,16 +46,6 @@ static inline _Bool ti_varr_is_list(ti_varr_t * varr)
 static inline _Bool ti_varr_is_tuple(ti_varr_t * varr)
 {
     return varr->flags & TI_VFLAG_ARR_TUPLE;
-}
-
-static inline void ti_varr_set_assigned(ti_varr_t * varr)
-{
-    varr->flags &= ~TI_VFLAG_UNASSIGNED;
-}
-
-static inline _Bool ti_varr_is_assigned(ti_varr_t * varr)
-{
-    return ~varr->flags & TI_VFLAG_UNASSIGNED;
 }
 
 static inline _Bool ti_varr_eq(ti_varr_t * va, ti_varr_t * vb)

@@ -884,12 +884,15 @@ static int cq__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         scope = child->node                         /* sequence */
                 ->children->next->next->node;       /* scope */
 
-        if (ti_cq_scope(query, scope, e))
+        if (    ti_cq_scope(query, scope, e) ||
+                ti_val_make_assignable(&query->rval, e))
             goto err;
 
         name = ti_names_get(name_nd->str, name_nd->len);
         if (!name)
             goto alloc_err;
+
+
 
         if (ti_thing_prop_set(thing, name, query->rval))
         {

@@ -18,10 +18,12 @@ ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing)
         return NULL;
 
     nscope->prev = scope;
-    nscope->thing = ti_grab(thing);
+    nscope->thing = thing;      /* not null, increase reference */
     nscope->name = NULL;
     nscope->val = NULL;
     nscope->local = NULL;
+
+    ti_incref(thing);  /* is not allowed to be NULL */
 
     return nscope;
 }

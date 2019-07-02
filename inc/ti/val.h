@@ -69,12 +69,6 @@ enum
     TI_VFLAG_ARR_MHT         =1<<6,      /* array may-have-things; some code
                                             might skip arrays without this flag
                                             while searching for things; */
-    TI_VFLAG_UNASSIGNED      =1<<7,      /* set or list is not assigned;
-                                            the assigned status is required
-                                            to decide if changes to the
-                                            collection require a task and new
-                                            things inside the collection need
-                                            new id's. */
 };
 
 typedef enum

@@ -14,6 +14,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int64_t i, c;
     ti_varr_t * retv;
     ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
+    _Bool is_attached = ti_scope_is_attached(query->scope);
 
     if (!ti_val_is_list((ti_val_t *) varr))
     {
@@ -33,7 +34,7 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_varr_is_assigned(varr) &&
+    if (is_attached &&
         ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
     {
         ex_set(e, EX_BAD_DATA,
@@ -130,11 +131,9 @@ static int cq__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_varr_is_assigned(varr))
+    if (is_attached)
     {
-        ti_task_t * task;
-
-        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
         if (!task)
             goto failed;
 

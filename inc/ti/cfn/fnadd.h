@@ -12,6 +12,7 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
     vec_t * added = vec_new(nargs);  /* weak references to things */
     ti_vset_t * vset = (ti_vset_t *) ti_query_val_pop(query);
+    _Bool is_attached = ti_scope_is_attached(query->scope);
 
     if (!added)
     {
@@ -35,8 +36,8 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_vset_is_assigned(vset) &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
+    if (    is_attached &&
+            ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot use function `add` while the set is in use"ADD_DOC_);
@@ -68,12 +69,9 @@ static int cq__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (added->n && ti_vset_is_assigned(vset))
+    if (added->n && is_attached)
     {
-        ti_task_t * task;
-        assert (query->scope->thing);
-        assert (query->scope->name);
-        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
         if (!task)
             goto failed;
 

@@ -38,6 +38,7 @@ static inline void ti_scope_set_name_val(
 static inline _Bool ti_scope_has_local_name(
         ti_scope_t * scope,
         ti_name_t * name);
+static inline _Bool ti_scope_is_attached(ti_scope_t * scope);
 
 struct ti_scope_s
 {
@@ -68,4 +69,8 @@ static inline _Bool ti_scope_has_local_name(
     return !!ti_scope_local_val(scope, name);
 }
 
+static inline _Bool ti_scope_is_attached(ti_scope_t * scope)
+{
+    return scope->thing->id && scope->name;
+}
 #endif  /* TI_SCOPE_H_ */

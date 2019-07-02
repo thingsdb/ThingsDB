@@ -23,8 +23,6 @@ _Bool ti__vset_eq(ti_vset_t * va, ti_vset_t * vb);
 static inline int ti_vset_add(ti_vset_t * vset, ti_thing_t * thing);
 static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing);
 static inline ti_thing_t * ti_vset_pop(ti_vset_t * vset, ti_thing_t * thing);
-static inline void ti_vset_set_assigned(ti_vset_t * vset);
-static inline _Bool ti_vset_is_assigned(ti_vset_t * vset);
 static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb);
 
 struct ti_vset_s
@@ -56,16 +54,6 @@ static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing)
 static inline ti_thing_t * ti_vset_pop(ti_vset_t * vset, ti_thing_t * thing)
 {
     return imap_pop(vset->imap, ti_thing_key(thing));
-}
-
-static inline void ti_vset_set_assigned(ti_vset_t * vset)
-{
-    vset->flags &= ~TI_VFLAG_UNASSIGNED;
-}
-
-static inline _Bool ti_vset_is_assigned(ti_vset_t * vset)
-{
-    return ~vset->flags & TI_VFLAG_UNASSIGNED;
 }
 
 static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb)

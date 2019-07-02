@@ -82,6 +82,22 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
+    async def test_ids(self, client):
+        zeros, ids = await client.query(r'''
+            $a = {b: {c: {}}};
+            $a.b.c.d = {};
+            x = [$a.id(), $a.b.id(), $a.b.c.id(), $a.b.c.d.id()];
+            a = $a;
+            y = [$a.id(), $a.b.id(), $a.b.c.id(), $a.b.c.d.id()];
+            [x, y];
+        ''')
+
+        self.assertEqual(zeros, [0, 0, 0, 0])
+        self.assertGreater(ids[0], 1)
+        self.assertGreater(ids[1], ids[0])
+        self.assertGreater(ids[2], ids[1])
+        self.assertGreater(ids[3], ids[2])
+
 
 if __name__ == '__main__':
     run_test(TestNested())

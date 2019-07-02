@@ -28,7 +28,8 @@ int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options);
-_Bool ti_thing_has_watchers(ti_thing_t * thing);
+_Bool ti__thing_has_watchers_(ti_thing_t * thing);
+static inline _Bool ti_thing_has_watchers(ti_thing_t * thing);
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,
         qp_packer_t ** packer);
@@ -52,6 +53,11 @@ struct ti_thing_s
     vec_t * watchers;       /* vec contains ti_watch_t,
                                NULL if no watchers,  */
 };
+
+static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
+{
+    return thing->watchers && ti__thing_has_watchers_(thing);
+}
 
 static inline int ti_thing_id_to_packer(
         ti_thing_t * thing,

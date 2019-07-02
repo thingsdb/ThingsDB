@@ -749,6 +749,9 @@ int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
+/*
+ * Can be called on any value type and returns `true` or `false`.
+ */
 _Bool ti_val_as_bool(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
@@ -786,6 +789,9 @@ _Bool ti_val_is_valid_name(ti_val_t * val)
                 ((ti_raw_t *) val)->n);
 }
 
+/*
+ * Can only be called on values which have a length.
+ */
 size_t ti_val_get_len(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
@@ -813,6 +819,10 @@ size_t ti_val_get_len(ti_val_t * val)
     return 0;
 }
 
+/*
+ * Must be called when, and only when generating a new `task`. New ID's must
+ * also be present in a task so other nodes will consume the same ID's.
+ */
 int ti_val_gen_ids(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
@@ -826,12 +836,18 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_REGEX:
         break;
     case TI_VAL_THING:
-        /* new things 'under' an existing thing will get their own event,
-         * so break */
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
+        /*
+         * New things 'under' an existing thing will get their own event,
+         * so here we do not need recursion.
+         */
         break;
     case TI_VAL_ARR:
+        /*
+         * Here the code really benefits from the `may-have-things` flag since
+         * must attached arrays will contain "only" things, or no things.
+         */
         if (ti_varr_may_have_things((ti_varr_t *) val))
             for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
                 if (ti_val_gen_ids(v))

@@ -159,7 +159,8 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
                 ti_val_str(val));
         return e->nr;
     }
-    else switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))
+
+    switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))
     {
     case IMAP_ERR_EXIST:
         return 0;

@@ -78,6 +78,10 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     return epkg;
 }
 
+/*
+ * Void function, although errors can happen. Each error is critical since this
+ * results in subscribers inconsistency.
+ */
 static void query__task_to_watchers(ti_query_t * query)
 {
     vec_t * tasks = query->ev->_tasks;
@@ -114,6 +118,10 @@ static void query__task_to_watchers(ti_query_t * query)
     }
 }
 
+/*
+ * Void function, although errors can happen. Each error is critical since this
+ * results in nodes and subscribers inconsistency.
+ */
 static void query__event_handle(ti_query_t * query)
 {
     ti_epkg_t * epkg = query__epkg_event(query);
@@ -452,8 +460,11 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
         child = child->next->next;                  /* skip delimiter */
     }
 
-    if (query->syntax.nd_val_cache_n &&
-        !(query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)))
+    /*
+     * Create value cache for primitives. (if required)
+     */
+    if (    query->syntax.nd_val_cache_n &&
+            !(query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)))
         ex_set_alloc(e);
 
     return e->nr;
@@ -492,7 +503,7 @@ void ti_query_run(ti_query_t * query)
 
 stop:
     if (query->ev)
-        query__event_handle(query);  /* error here will be logged only */
+        query__event_handle(query);  /* errors will be logged only */
 
     ti_query_send(query, e);
 }

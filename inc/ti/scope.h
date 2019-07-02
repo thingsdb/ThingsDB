@@ -69,6 +69,12 @@ static inline _Bool ti_scope_has_local_name(
     return !!ti_scope_local_val(scope, name);
 }
 
+/*
+ * This function should be used to determine if a change to an array or set
+ * should generate a task (or not). Only if the `running` block scope is
+ * attached to the collection, then a task must be created, and thus, nested
+ * things must generate id's if required.
+ */
 static inline _Bool ti_scope_is_attached(ti_scope_t * scope)
 {
     return scope->thing->id && scope->name;

@@ -179,7 +179,10 @@ int ti_thing_gen_id(ti_thing_t * thing)
     if (ti_thing_to_map(thing))
         return -1;
 
-    /* we do need recursion on new types */
+    /*
+     * Recursion is required since nested things did not generate a task
+     * as long as their parent was not attached to the collection.
+     */
     for (vec_each(thing->props, ti_prop_t, prop))
         if (ti_val_gen_ids(prop->val))
             return -1;
@@ -280,10 +283,9 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
     return qp_close_map(*packer);
 }
 
-_Bool ti_thing_has_watchers(ti_thing_t * thing)
+_Bool ti__thing_has_watchers_(ti_thing_t * thing)
 {
-    if (!thing->watchers)
-        return false;
+    assert (thing->watchers);
     for (vec_each(thing->watchers, ti_watch_t, watch))
         if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
             return true;

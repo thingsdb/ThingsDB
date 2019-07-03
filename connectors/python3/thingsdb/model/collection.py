@@ -28,7 +28,10 @@ class Collection(Scope, Thing):
 
     async def _async_init(self, build=False, rebuild=False):
         if rebuild:
-            await self._client.del_collection(self)
+            try:
+                await self._client.del_collection(self)
+            except IndexError:
+                pass
             build = rebuild
         try:
             collection_id = await self._client.query('id()', target=self)

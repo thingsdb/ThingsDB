@@ -470,7 +470,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
                         TI_EVENT_ID" will be skipped because "TI_EVENT_ID
                         " is already committed",
                         ev->id, *cevid_p);
-                ti_event_log("skipped", ev);
+                ti_event_log("event is skipped", ev, LOGGER_ERROR);
 
                 ++ti()->counters->events_skipped;
             }
@@ -529,15 +529,14 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 /* logging is done, but we increment the failed counter and
                  * log the full event */
                 ++ti()->counters->events_failed;
-                ti_event_log("failed", ev);
+                ti_event_log("event has failed", ev, LOGGER_ERROR);
             }
             break;
         case TI_EVENT_TP_SLAVE:
             assert (0);
         }
 
-        if (Logger.level == LOGGER_DEBUG)
-            ti_event_log("processed", ev);
+        ti_event_log("event is processed", ev, LOGGER_DEBUG);
 
         /* update counters */
         ti_counters_upd_commit_event(&ev->time);

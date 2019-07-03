@@ -112,6 +112,13 @@ const char * logger_level_name(int log_level)
     return LOGGER_LEVEL_NAMES[log_level];
 }
 
+void log_with_level(int log_level, const char * fmt, ...)
+{
+    uv_mutex_lock(&Logger.lock);
+    LOGGER_LOG_STUFF(log_level)
+    uv_mutex_unlock(&Logger.lock);
+}
+
 void log__debug(const char * fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_DEBUG)
 

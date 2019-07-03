@@ -42,7 +42,11 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);
-void ti_event_log(const char * prefix, ti_event_t * ev);
+static inline void ti_event_log(
+        const char * prefix,
+        ti_event_t * ev,
+        int log_level);
+void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level);
 const char * ti_event_status_str(ti_event_t * ev);
 
 union ti_event_u
@@ -67,5 +71,14 @@ struct ti_event_s
     struct timespec time;       /* timing an event, used for elapsed time etc.
                                 */
 };
+
+static inline void ti_event_log(
+        const char * prefix,
+        ti_event_t * ev,
+        int log_level)
+{
+    if (Logger.level <= log_level)
+        ti__event_log_(prefix, ev, log_level);
+}
 
 #endif /* TI_EVENT_H_ */

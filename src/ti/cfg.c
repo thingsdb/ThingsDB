@@ -204,7 +204,7 @@ static void ti__cfg_port(
 
     if (rc != CFGPARSER_SUCCESS)
     {
-        log_warning(
+        log_debug(
                 "missing `%s` in `%s` (%s), "
                 "using default value %u",
                 option_name,

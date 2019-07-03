@@ -89,7 +89,9 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
     (void) qp_close_map(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_UPD);
-    qp_print(pkg->data, pkg->n);
+
+    qpx_log("generated task for subscribers:",
+            pkg->data, pkg->n, LOGGER_DEBUG);
 
     return pkg;
 }

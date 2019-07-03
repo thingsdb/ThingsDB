@@ -94,3 +94,20 @@ char * qpx_raw_to_str(const qp_raw_t * raw)
     str[raw->n] = '\0';
     return str;
 }
+
+void qpx__log_(
+        const char * prelog,
+        const uchar * data,
+        size_t n,
+        int log_level)
+{
+    log_with_level(log_level, prelog);
+
+    uv_mutex_lock(&Logger.lock);
+
+    fprintf(Logger.ostream, "\t");
+    qp_fprint(Logger.ostream, data, n);
+    fprintf(Logger.ostream, "\n");
+
+    uv_mutex_unlock(&Logger.lock);
+}

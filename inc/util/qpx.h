@@ -8,6 +8,7 @@
 #include <qpack.h>
 #include <ti/pkg.h>
 #include <ti/raw.h>
+#include <util/logger.h>
 
 typedef qp_packer_t qpx_packer_t;
 
@@ -23,6 +24,16 @@ void qpx_unpacker_init(
         const unsigned char * pt,
         size_t len);
 char * qpx_raw_to_str(const qp_raw_t * raw);
+void qpx__log_(
+        const char * prelog,
+        const uchar * data,
+        size_t n,
+        int log_level);
+static inline void qpx_log(
+        const char * prelog,
+        const uchar * data,
+        size_t n,
+        int log_level);
 
 static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
 {
@@ -43,4 +54,13 @@ static inline _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * str)
     );
 }
 
+static inline void qpx_log(
+        const char * prelog,
+        const uchar * data,
+        size_t n,
+        int log_level)
+{
+    if (Logger.level <= log_level)
+        qpx__log_(prelog, data, n, log_level);
+}
 #endif /* TI_QPX_H_ */

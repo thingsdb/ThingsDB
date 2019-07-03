@@ -118,7 +118,7 @@ async def test(client):
     try:
         await client.authenticate('admin', 'pass')
 
-        osdata = OsData(client, rebuild=setup_initial_data)
+        osdata = OsData(client, build=setup_initial_data)
 
         print(await client.node())
 

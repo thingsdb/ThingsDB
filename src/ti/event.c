@@ -187,10 +187,12 @@ int ti_event_run(ti_event_t * ev)
     return 0;
 }
 
-void ti_event_log(const char * prefix, ti_event_t * ev)
+void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
 {
-    (void) fprintf(
-            Logger.ostream, "\t%s "TI_EVENT_ID" (", prefix, ev->id);
+    log_with_level(log_level, "%s, event details:", prefix);
+
+    uv_mutex_lock(&Logger.lock);
+    (void) fprintf(Logger.ostream, "\t"TI_EVENT_ID" (", ev->id);
 
     switch ((ti_event_tp_enum) ev->tp)
     {
@@ -209,6 +211,7 @@ void ti_event_log(const char * prefix, ti_event_t * ev)
     }
 
     (void) fprintf(Logger.ostream, ")\n");
+    uv_mutex_unlock(&Logger.lock);
 }
 
 const char * ti_event_status_str(ti_event_t * ev)

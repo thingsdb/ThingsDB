@@ -32,6 +32,7 @@ void logger_destroy(void);
 void logger_set_level(int log_level);
 const char * logger_level_name(int log_level);
 
+void log_with_level(int log_level, const char * fmt, ...);
 void log__debug(const char * fmt, ...);
 void log__info(const char * fmt, ...);
 void log__warning(const char * fmt, ...);

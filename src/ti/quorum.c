@@ -16,7 +16,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     uint8_t nnodes = ti()->nodes->vec->n;
     uint8_t sz = nnodes - 1;
 
-    quorum = malloc(sizeof(ti_quorum_t) + sz * sizeof(ti_req_t *));
+    quorum = malloc(sizeof(ti_quorum_t));
     if (!quorum)
         return NULL;
 
@@ -52,9 +52,6 @@ void ti_quorum_go(ti_quorum_t * quorum)
         if (quorum->cb_)
             quorum->cb_(quorum->data, false);
 
-        for (size_t i = 0; i < quorum->sz; ++i)
-            ti_req_destroy(quorum->requests[i]);
-
         free(quorum);
     }
 }
@@ -62,7 +59,6 @@ void ti_quorum_go(ti_quorum_t * quorum)
 void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
 {
     ti_quorum_t * quorum = req->data;
-    quorum->requests[quorum->n++] = req;
     if (status == 0)
     {
         switch (req->pkg_res->tp)
@@ -78,5 +74,6 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
             ti_pkg_log(req->pkg_res);
         }
     }
+    ti_req_destroy(req);
     ti_quorum_go(quorum);
 }

@@ -5,7 +5,6 @@
 #define TI_QUORUM_H_
 
 typedef struct ti_quorum_s ti_quorum_t;
-typedef struct ti_quorum_res_s ti_quorum_res_t;
 
 #include <uv.h>
 #include <ti/req.h>
@@ -21,14 +20,13 @@ static inline int ti_quorum_shrink_one(ti_quorum_t * quorum);
 
 struct ti_quorum_s
 {
-    uint8_t n;
-    uint8_t accepted;
-    uint8_t sz;
-    uint8_t quorum;
-    uint8_t reject_threshold;
-    void * data;
-    ti_quorum_cb cb_;
-    ti_req_t * requests[];
+    uint8_t n;                  /* number of received answers */
+    uint8_t accepted;           /* accepted answers */
+    uint8_t sz;                 /* expected answers */
+    uint8_t quorum;             /* minimal required accepted answers */
+    uint8_t reject_threshold;   /* maximum rejected answers */
+    ti_quorum_cb cb_;           /* store the callback function */
+    void * data;                /* public data binding */
 };
 
 /* only call this if something goes wrong before making the requests,
@@ -39,9 +37,12 @@ static inline void ti_quorum_destroy(ti_quorum_t * quorum)
     free(quorum);
 }
 
+/*
+ * Returns `0` if successful or `-1` if the quorum can no longer be reached
+ */
 static inline int ti_quorum_shrink_one(ti_quorum_t * quorum)
 {
-    return quorum->sz ? --quorum->sz >= quorum->quorum ? 0 : -1 : -1;
+    return (quorum->sz && --quorum->sz >= quorum->quorum) ? 0 : -1;
 }
 
 #endif /* TI_QUORUM_H_ */

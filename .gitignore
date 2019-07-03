@@ -83,3 +83,6 @@ connectors/python3/dist/
 
 # Go test build
 connectors/go/test/test
+
+# Backup git
+.git-old/

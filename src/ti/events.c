@@ -387,7 +387,8 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         {
             free(dup);
             if (ti_quorum_shrink_one(quorum))
-                log_error("failed to reach quorum while the previous check"
+                log_error(
+                        "failed to reach quorum while the previous check"
                         "was successful");
         }
     }
@@ -564,7 +565,7 @@ static inline ssize_t events__trigger(void)
     return events->queue->n
             ? (
                     uv_async_send(events->evloop)
-                        ? -1                          /* in case or an error */
+                        ? -1                          /* error */
                         : (ssize_t) events->queue->n  /* current size */
             )
             : 0;

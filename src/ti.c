@@ -659,6 +659,8 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.events->next_event_id) ||
         qp_add_raw_from_str(*packer, "next_thing_id") ||
         qp_add_int(*packer, ti_.node->next_thing_id) ||
+        qp_add_raw_from_str(*packer, "cached_names") ||
+        qp_add_int(*packer, ti_.names->n) ||
         qp_close_map(*packer)
     );
 }

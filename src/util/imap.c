@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <ti/ref.h>
 #include <util/imap.h>
 #include <util/logger.h>
+#include <tiinc.h>
 
 #define IMAP_NODE_SZ 32
 
@@ -389,7 +389,7 @@ void imap_union_ref(
                 if (dest_nd->data)
                 {
                     /* we are sure there is a reference left */
-                    TI_ref_dec((ti_ref_t *) imap_nd->data);
+                    ti_decref((ti_ref_t *) imap_nd->data);
                 }
                 else
                 {
@@ -520,7 +520,7 @@ void imap_difference_ref(
                 if (dest_nd->data)
                 {
                     /* we are sure to have one reference left */
-                    TI_ref_dec((ti_ref_t *) dest_nd->data);
+                    ti_decref((ti_ref_t *) dest_nd->data);
                     dest_nd->data = NULL;
                     dest->n--;
 
@@ -585,7 +585,7 @@ void imap_symmetric_difference_ref(
                 if (dest_nd->data)
                 {
                     /* we are sure to have one reference left */
-                    TI_ref_dec((ti_ref_t *) dest_nd->data);
+                    ti_decref((ti_ref_t *) dest_nd->data);
 
                     /* but now we are not sure anymore */
                     (*decref_cb)(imap_nd->data);
@@ -855,7 +855,7 @@ static void imap__union_ref(imap_node_t * dest, imap_node_t * node)
             if (dest_nd->data)
             {
                 /* we are sure there is a reference left */
-                TI_ref_dec((ti_ref_t *) node_nd->data);
+                ti_decref((ti_ref_t *) node_nd->data);
             }
             else
             {
@@ -955,13 +955,13 @@ static void imap__difference_ref(
         {
             if (dest_nd->data)
             {
-                /* we are sure to have one ref left */
-                TI_ref_dec((ti_ref_t *) dest_nd->data);
+                /* we are sure to have one reference left */
+                ti_decref((ti_ref_t *) dest_nd->data);
                 dest_nd->data = NULL;
                 dest->sz--;
 
             }
-            /* now we are not sure anymore if we have ref left */
+            /* now we are not sure anymore if we have reference left */
             (*decref_cb)(node_nd->data);
         }
 
@@ -1006,8 +1006,8 @@ static void imap__symmetric_difference_ref(
         {
             if (dest_nd->data)
             {
-                /* we are sure to have one ref left */
-                TI_ref_dec((ti_ref_t *) dest_nd->data);
+                /* we are sure to have one reference left */
+                ti_decref((ti_ref_t *) dest_nd->data);
 
                 /* but now we are not sure anymore */
                 (*decref_cb)(node_nd->data);

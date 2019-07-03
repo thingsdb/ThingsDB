@@ -3,7 +3,6 @@
  */
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/ref.h>
 #include <ti/proto.h>
 #include <ti/write.h>
 #include <util/logger.h>

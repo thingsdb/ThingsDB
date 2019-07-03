@@ -53,6 +53,9 @@ extern ti_t ti_;
 
 #define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
 
+#include <inttypes.h>
+typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
+
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
 #define ti_decref(x) (--(x)->ref)  /* use only when x->ref > 1 */

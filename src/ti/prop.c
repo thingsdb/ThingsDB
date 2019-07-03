@@ -1,5 +1,5 @@
 /*
- * prop.c
+ * ti/prop.c
  */
 #include <stdlib.h>
 #include <ti.h>

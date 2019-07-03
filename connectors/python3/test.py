@@ -100,7 +100,7 @@ class OsData(Collection):
     counter = required(int)
 
 
-async def initial_data(client, collection):
+async def setup_initial_data(client, collection):
     client.use(collection)
     await client.query(r'''
         ulabels.add(
@@ -118,7 +118,7 @@ async def test(client):
     try:
         await client.authenticate('admin', 'pass')
 
-        osdata = OsData(client, rebuild=initial_data)
+        osdata = OsData(client, rebuild=setup_initial_data)
 
         print(await client.node())
 

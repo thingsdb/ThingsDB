@@ -1,5 +1,5 @@
 /*
- * pipe.c
+ * ti/pipe.c
  */
 #include <stdlib.h>
 #include <ti/pipe.h>

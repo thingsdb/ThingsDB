@@ -114,10 +114,12 @@ async def setup_initial_data(client, collection):
 async def test(client):
     global osdata
 
-    await client.connect('localhost', 9200)
-    try:
-        await client.authenticate('admin', 'pass')
+    await client.connect_pool([
+        ('localhost', 9200),
+        ('localhost', 9201),
+    ], 'admin', 'pass')
 
+    try:
         osdata = OsData(client, build=setup_initial_data)
 
         print(await client.node())

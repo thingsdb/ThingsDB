@@ -13,7 +13,7 @@ const char * ti_user_def_name = "admin";
 const char * ti_user_def_pass = "pass";
 const unsigned int ti_min_name = 1;
 const unsigned int ti_max_name = 128;
-const unsigned int ti_min_pass = 1;
+const unsigned int ti_min_pass = 0;
 const unsigned int ti_max_pass = 128;
 
 static int user__pack_access(

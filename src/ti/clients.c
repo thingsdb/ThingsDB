@@ -211,7 +211,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
-    qp_obj_t name, pass;
+    qp_obj_t name, pass, token;
     ti_user_t * user;
     ex_t * e = ex_use();
 

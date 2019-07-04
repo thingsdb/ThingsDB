@@ -10,6 +10,7 @@ typedef struct ti_user_s  ti_user_t;
 #include <ti/raw.h>
 #include <ti/val.h>
 #include <ti/ex.h>
+#include <util/vec.h>
 
 extern const char * ti_user_def_name;
 extern const char * ti_user_def_pass;
@@ -37,6 +38,7 @@ struct ti_user_s
     uint64_t id;
     ti_raw_t * name;
     char * encpass;
+    vec_t * tokens;     /* ti_token_t */
 };
 
 #endif /* TI_USER_H_ */

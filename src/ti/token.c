@@ -6,14 +6,17 @@
 #include <string.h>
 #include <util/util.h>
 
-ti_token_t * ti_token_create(uint64_t expire_ts, const char * description)
+ti_token_t * ti_token_create(
+        uint64_t expire_ts,
+        const char * description,
+        size_t description_sz)
 {
     ti_token_t * token = malloc(sizeof(ti_token_t));
     if (!token)
         return NULL;
 
     token->expire_ts = expire_ts;
-    token->description = strdup(description);
+    token->description = strndup(description, description_sz);
     if (!token->description)
     {
         free(token);

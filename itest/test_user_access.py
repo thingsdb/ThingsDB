@@ -25,7 +25,8 @@ class TestUserAccess(TestBase):
         client = await get_client(self.node0)
 
         await client.query(r'''
-            new_user("test", "test");
+            new_user("test");
+            set_password("test", "test");
             new_collection("junk");
             del_collection("stuff");
         ''')
@@ -45,7 +46,7 @@ class TestUserAccess(TestBase):
             await testcl.query(r'''map(||nil);''', target='junk')
 
         await client.query(r'''
-            grant(':thingsdb', "test", MODIFY);
+            grant(':thingsdb', "test", GRANT);
             grant('junk', 'test', READ);
         ''')
 
@@ -84,7 +85,7 @@ class TestUserAccess(TestBase):
             'user_id': 1
         }, {
             'access': [{
-                'privileges': 'READ|MODIFY',
+                'privileges': 'READ|MODIFY|GRANT',
                 'target': ':thingsdb'
             }, {
                 'privileges': 'READ',

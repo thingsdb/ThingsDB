@@ -254,6 +254,72 @@ done:
     return rc;
 }
 
+int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(23, 1);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "del_expired");
+    (void) qp_add_int(packer, after_ts);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
+int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(54, 1);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "del_token");
+    (void) qp_add_raw(packer, (const uchar *) key, sizeof(ti_token_key_t));
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
 {
     int rc;
@@ -419,6 +485,54 @@ done:
     return rc;
 }
 
+int ti_task_add_new_token(
+        ti_task_t * task,
+        ti_user_t * user,
+        ti_token_t * token)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(256, 2);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "new_token");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int(packer, user->id);
+    (void) qp_add_raw_from_str(packer, "key");
+    (void) qp_add_raw(packer,
+            (const uchar *) token->key,
+            sizeof(ti_token_key_t));
+    (void) qp_add_raw_from_str(packer, "expire_ts");
+    (void) qp_add_int(packer, token->expire_ts);
+    (void) qp_add_raw_from_str(packer, "description");
+    (void) qp_add_raw_from_str(packer, token->description);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
 {
     int rc;
@@ -435,8 +549,6 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw(packer, user->name->data, user->name->n);
-    (void) qp_add_raw_from_str(packer, "password");
-    (void) qp_add_raw_from_str(packer, user->encpass);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -755,7 +867,10 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
     (void) qp_add_raw_from_str(packer, "id");
     (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "password");
-    (void) qp_add_raw_from_str(packer, user->encpass);
+    if (user->encpass)
+        (void) qp_add_raw_from_str(packer, user->encpass);
+    else
+        (void) qp_add_null(packer);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

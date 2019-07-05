@@ -53,24 +53,27 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rq__scope(query, nd->children->next->next->node, e))
         goto done;
 
-    if (!ti_val_is_raw(query->rval))
+    if (ti_val_is_raw(query->rval))
+    {
+        passstr = ti_raw_to_str((ti_raw_t *) query->rval);
+        if (!passstr)
+        {
+            ex_set_alloc(e);
+            goto done;
+        }
+
+        if (!ti_user_pass_check(passstr, e))
+            goto done;
+    }
+    else if (!ti_val_is_nil(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
             "function `set_password` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_PASSWORD_DOC_,
+            "type `"TI_VAL_RAW_S"` or `"TI_VAL_NIL_S"` but got "
+            "type `%s` instead"SET_PASSWORD_DOC_,
             ti_val_str(query->rval));
         goto done;
     }
-
-    passstr = ti_raw_to_str((ti_raw_t *) query->rval);
-    if (!passstr)
-    {
-        ex_set_alloc(e);
-        goto done;
-    }
-
-    if (!ti_user_pass_check(passstr, e))
-        goto done;
 
     if (ti_user_set_pass(user, passstr))
     {

@@ -12,7 +12,10 @@ typedef char ti_token_key_t[40];            /* token using 40 characters */
 #include <ti/val.h>
 #include <ti/ex.h>
 
-ti_token_t * ti_token_create(uint64_t expire_ts, const char * description);
+ti_token_t * ti_token_create(
+        uint64_t expire_ts,
+        const char * description,
+        size_t description_sz);
 void ti_token_destroy(ti_token_t * token);
 
 struct ti_token_s

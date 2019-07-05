@@ -22,6 +22,7 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/pkg.h>
 #include <ti/collection.h>
 #include <ti/user.h>
+#include <ti/token.h>
 #include <ti/quota.h>
 #include <util/vec.h>
 
@@ -33,6 +34,8 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added);
 int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val);
 int ti_task_add_del(ti_task_t * task, ti_raw_t * name);
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);
+int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts);
+int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key);
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_grant(
         ti_task_t * task,
@@ -44,6 +47,10 @@ int ti_task_add_new_collection(
         ti_collection_t * collection,
         ti_user_t * user);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
+int ti_task_add_new_token(
+        ti_task_t * task,
+        ti_user_t * user,
+        ti_token_t * token);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);

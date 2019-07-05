@@ -25,8 +25,7 @@ void util_random_key(char * buf, size_t n)
     const char charset[] = \
             "abcdefghijklmnopqrstuvwxyz" \
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
-            "!@#$%^&*()-=_+[]{};:,./<>?" \
-            "0123456789~";
+            "0123456789";
     const int sz = (sizeof(charset) - 1);
     int key;
     while (n--)

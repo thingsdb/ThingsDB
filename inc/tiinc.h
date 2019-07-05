@@ -26,6 +26,11 @@
 #define TI_SCOPE_NODE 1
 #define TI_SCOPE_THINGSDB 0
 
+/* Max token expiration dates */
+#define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
+#define TI_MAX_EXPIRATION_LONG 4294967295L
+
+
 /*
  * File name schema to check version info on created files.
  */
@@ -130,10 +135,13 @@ typedef enum
     TI_FN_COLLECTION,
     TI_FN_COLLECTIONS,
     TI_FN_DEL_COLLECTION,
+    TI_FN_DEL_EXPIRED,
+    TI_FN_DEL_TOKEN,
     TI_FN_DEL_USER,
     TI_FN_GRANT,
     TI_FN_NEW_COLLECTION,
     TI_FN_NEW_NODE,
+    TI_FN_NEW_TOKEN,
     TI_FN_NEW_USER,
     TI_FN_POP_NODE,
     TI_FN_RENAME_COLLECTION,

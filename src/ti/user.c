@@ -12,21 +12,40 @@
 const char * ti_user_def_name = "admin";
 const char * ti_user_def_pass = "pass";
 const unsigned int ti_min_name = 1;
-const unsigned int ti_max_name = 128;
-const unsigned int ti_min_pass = 0;
-const unsigned int ti_max_pass = 128;
+const unsigned int ti_max_name = 128;  /* max name = 127 + \0 */
+const unsigned int ti_min_pass = 1;
+const unsigned int ti_max_pass = 128;  /* max pass = 127 + \0 */
 
 static int user__pack_access(
         ti_user_t * user,
         qp_packer_t ** packer,
         vec_t * access_,
         const unsigned char * target,
-        size_t n);
+        size_t n)
+{
+    for (vec_each(access_, ti_auth_t, auth))
+    {
+        if (auth->user == user)
+        {
+            if (qp_add_map(packer) ||
+                qp_add_raw_from_str(*packer, "target") ||
+                qp_add_raw(*packer, target, n) ||
+                qp_add_raw_from_str(*packer, "privileges") ||
+                qp_add_raw_from_str(
+                        *packer,
+                        ti_auth_mask_to_str(auth->mask)) ||
+                qp_close_map(*packer))
+                return -1;
+            break;
+        }
+    }
+    return 0;
+}
 
 ti_user_t * ti_user_create(
         uint64_t id,
         const char * name,
-        size_t n,
+        size_t name_n,
         const char * encrpass)
 {
     ti_user_t * user = malloc(sizeof(ti_user_t));
@@ -35,10 +54,11 @@ ti_user_t * ti_user_create(
 
     user->id = id;
     user->ref = 1;
-    user->name = ti_raw_create((uchar *) name, n);
-    user->encpass = strdup(encrpass);
+    user->name = ti_raw_create((uchar *) name, name_n);
+    user->encpass = encrpass ? strdup(encrpass) : NULL;
+    user->tokens = vec_new(0);
 
-    if (!user->name || !user->encpass)
+    if (!user->name || (encrpass && !user->encpass) || !user->tokens)
     {
         ti_user_drop(user);
         return NULL;
@@ -53,7 +73,24 @@ void ti_user_drop(ti_user_t * user)
     {
         free(user->encpass);
         ti_val_drop((ti_val_t *) user->name);
+        vec_destroy(user->tokens, (vec_destroy_cb) ti_token_destroy);
         free(user);
+    }
+}
+
+void ti_user_del_expired(ti_user_t * user, uint64_t after_ts)
+{
+    ti_token_t * token;
+    for (size_t n = 0, m = user->tokens->n; n < m; )
+    {
+        token = user->tokens->data[n];
+        if (token->expire_ts && token->expire_ts < after_ts)
+        {
+            vec_swap_remove(user->tokens, n);
+            --m;
+            continue;
+        }
+        ++n;
     }
 }
 
@@ -131,6 +168,14 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
+    if (!pass)
+    {
+        /* clear password */
+        free(user->encpass);
+        user->encpass = NULL;
+        return 0;
+    }
+
     /* generate a random salt */
     cryptx_gen_salt(salt);
 
@@ -200,28 +245,12 @@ fail:
     return (ti_val_t * ) ruser;
 }
 
-static int user__pack_access(
-        ti_user_t * user,
-        qp_packer_t ** packer,
-        vec_t * access_,
-        const unsigned char * target,
-        size_t n)
+ti_token_t * ti_user_del_token_by_key(ti_user_t * user, ti_token_key_t * key)
 {
-    for (vec_each(access_, ti_auth_t, auth))
-    {
-        if (auth->user == user)
-        {
-            if (qp_add_map(packer) ||
-                qp_add_raw_from_str(*packer, "target") ||
-                qp_add_raw(*packer, target, n) ||
-                qp_add_raw_from_str(*packer, "privileges") ||
-                qp_add_raw_from_str(
-                        *packer,
-                        ti_auth_mask_to_str(auth->mask)) ||
-                qp_close_map(*packer))
-                return -1;
-            break;
-        }
-    }
-    return 0;
+    size_t idx = 0;
+    for (vec_each(user->tokens, ti_token_t, token), ++idx)
+        if (memcmp(token->key, key, sizeof(ti_token_key_t) == 0))
+            return vec_swap_remove(user->tokens, idx);
+    return NULL;
 }
+

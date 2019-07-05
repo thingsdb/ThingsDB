@@ -43,7 +43,7 @@ ti_epkg_t * ti_epkg_initial(void)
     /* encrypt the users password */
     cryptx(ti_user_def_pass, salt, encrypted);
 
-    packer = qpx_packer_create(512, 5);
+    packer = qpx_packer_create(1024, 5);
     if (!packer)
         return NULL;
 
@@ -66,6 +66,14 @@ ti_epkg_t * ti_epkg_initial(void)
     (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "username");
     (void) qp_add_raw_from_str(packer, ti_user_def_name);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "set_password");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "id");
+    (void) qp_add_int(packer, user_id);
     (void) qp_add_raw_from_str(packer, "password");
     (void) qp_add_raw_from_str(packer, encrypted);
     (void) qp_close_map(packer);

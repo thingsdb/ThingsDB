@@ -48,6 +48,7 @@ typedef enum
 typedef struct ex_s ex_t;
 
 ex_t * ex_use(void);
+void ex_init(ex_t * e);
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
 const char * ex_str(ex_enum errnr);

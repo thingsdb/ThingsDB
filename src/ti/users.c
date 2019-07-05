@@ -58,10 +58,10 @@ ti_user_t * ti_users_new_user(
     if (!ti_user_name_check(name, n, e))
         goto done;
 
-    if (!ti_user_pass_check(passstr, e))
+    if (passstr && !ti_user_pass_check(passstr, e))
         goto done;
 
-    user = ti_user_create(ti_next_thing_id(), name, n, "");
+    user = ti_user_create(ti_next_thing_id(), name, n, NULL);
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
@@ -167,7 +167,6 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
     if (name->len < ti_min_name || name->len >= ti_max_name)
         goto failed;
 
-    /* TODO: remove min_pass */
     if (pass->len < ti_min_pass || pass->len >= ti_max_pass)
         goto failed;
 
@@ -175,6 +174,9 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
     {
         if (qpx_obj_eq_raw(name, user->name))
         {
+            if (!user->encpass)
+                goto failed;
+
             memcpy(passbuf, pass->via.raw, pass->len);
             passbuf[pass->len] = '\0';
 
@@ -193,7 +195,7 @@ failed:
 /*
  * Returns a `borrowed` user or NULL if not found and `e` is set.
  */
-ti_user_t * ti_users_user_by_token(qp_obj_t * qp_token, ex_t * e)
+ti_user_t * ti_users_auth_by_token(qp_obj_t * qp_token, ex_t * e)
 {
     uint64_t now_ts = util_now_tsec();
     const size_t key_sz = sizeof(ti_token_key_t);
@@ -203,9 +205,6 @@ ti_user_t * ti_users_user_by_token(qp_obj_t * qp_token, ex_t * e)
 
     for (vec_each(users->vec, ti_user_t, user))
     {
-        if (!user->tokens)
-            continue;
-
         for (vec_each(user->tokens, ti_token_t, token))
         {
             if (memcmp(token->key, qp_token->via.raw, key_sz) == 0)
@@ -221,7 +220,7 @@ invalid:
     ex_set(e, EX_AUTH_ERROR, "invalid token");
     return NULL;
 expired:
-    ex_set(e, EX_AUTH_ERROR, "token is expired");
+    ex_set(e, EX_AUTH_ERROR, "token is expired"TI_SEE_DOC("#del_expired"));
     return NULL;
 }
 
@@ -266,4 +265,18 @@ fail:
     return (ti_val_t *) rusers;
 }
 
+void ti_users_del_expired(uint64_t after_ts)
+{
+    for (vec_each(users->vec, ti_user_t, user))
+        ti_user_del_expired(user, after_ts);
+}
+
+ti_token_t * ti_users_del_token_by_key(ti_token_key_t * key)
+{
+    ti_token_t * token;
+    for (vec_each(users->vec, ti_user_t, user))
+        if ((token = ti_user_del_token_by_key(user, key)))
+            return token;
+    return NULL;
+}
 

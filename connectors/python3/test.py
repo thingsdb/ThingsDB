@@ -19,7 +19,7 @@ osdata = None
 
 requires GRANT
 
-add_token('iris', nil, 'used for bla bla')
+new_token('iris', nil, 'used for bla bla')
 
 token: x-charater str
 issue_date:  ts
@@ -30,7 +30,7 @@ Tokens
 
 add_token('user', ts > now() or nil, 'bla bla')
 REQUIRES --> GRANT on ThingsDB scope
-TAKS --> add_token({
+TAKS --> new_token({
     user: user_id,
     expire_ts: ts,
     description: '...'

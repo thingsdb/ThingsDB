@@ -1,4 +1,16 @@
-#include <ti/cfn/fn.h>
+#ifndef TI_FNNOW_H_
+#define TI_FNNOW_H_
+
+/*
+ * This file is shared across all scopes and collections
+ */
+
+#include <ti/query.h>
+#include <langdef/nd.h>
+#include <ti/ex.h>
+#include <ti/vfloat.h>
+#include <cleri/cleri.h>
+#include <util/util.h>
 
 #define NOW_DOC_ TI_SEE_DOC("#now")
 
@@ -22,3 +34,5 @@ static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
+
+#endif /* TI_FNNOW_H_ */

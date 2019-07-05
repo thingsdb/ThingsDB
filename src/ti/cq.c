@@ -229,10 +229,13 @@ static int cq__function(
     case TI_FN_COLLECTION:
     case TI_FN_COLLECTIONS:
     case TI_FN_DEL_COLLECTION:
+    case TI_FN_DEL_EXPIRED:
+    case TI_FN_DEL_TOKEN:
     case TI_FN_DEL_USER:
     case TI_FN_GRANT:
     case TI_FN_NEW_COLLECTION:
     case TI_FN_NEW_NODE:
+    case TI_FN_NEW_TOKEN:
     case TI_FN_NEW_USER:
     case TI_FN_POP_NODE:
     case TI_FN_RENAME_COLLECTION:

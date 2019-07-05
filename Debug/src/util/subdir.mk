@@ -11,6 +11,7 @@ C_SRCS += \
 ../src/util/fx.c \
 ../src/util/guid.c \
 ../src/util/imap.c \
+../src/util/iso8601.c \
 ../src/util/link.c \
 ../src/util/lock.c \
 ../src/util/logger.c \
@@ -31,6 +32,7 @@ OBJS += \
 ./src/util/fx.o \
 ./src/util/guid.o \
 ./src/util/imap.o \
+./src/util/iso8601.o \
 ./src/util/link.o \
 ./src/util/lock.o \
 ./src/util/logger.o \
@@ -51,6 +53,7 @@ C_DEPS += \
 ./src/util/fx.d \
 ./src/util/guid.d \
 ./src/util/imap.d \
+./src/util/iso8601.d \
 ./src/util/link.d \
 ./src/util/lock.d \
 ./src/util/logger.d \

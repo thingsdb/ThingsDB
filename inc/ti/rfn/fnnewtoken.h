@@ -166,7 +166,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         description_sz = raw->n;
     }
 
-    token = ti_token_create(exp_date, description, description_sz);
+    token = ti_token_create(NULL, exp_date, description, description_sz);
     if (!token || ti_user_add_token(user, token))
     {
         ti_token_destroy(token);

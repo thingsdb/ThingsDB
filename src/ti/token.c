@@ -7,6 +7,7 @@
 #include <util/util.h>
 
 ti_token_t * ti_token_create(
+        ti_token_key_t * key,
         uint64_t expire_ts,
         const char * description,
         size_t description_sz)
@@ -23,7 +24,10 @@ ti_token_t * ti_token_create(
         return NULL;
     }
 
-    util_random_key(token->key, sizeof(ti_token_key_t));
+    if (key)
+        memcpy(token->key, key, sizeof(ti_token_key_t));
+    else
+        util_random_key(token->key, sizeof(ti_token_key_t));
 
     return token;
 }

@@ -17,7 +17,7 @@ int ti_store_users_store(const char * fn)
 {
     ti_users_t * users = ti()->users;
     int rc = -1;
-    qp_packer_t * packer = qp_packer_create(1024);
+    qp_packer_t * packer = qp_packer_create2(users->vec->n * 256, 5);
     if (!packer)
         return -1;
 
@@ -33,8 +33,26 @@ int ti_store_users_store(const char * fn)
         if (qp_add_array(&packer) ||
             qp_add_int(packer, user->id) ||
             qp_add_raw(packer, user->name->data, user->name->n) ||
-            qp_add_raw_from_str(packer, user->encpass) ||
-            qp_close_array(packer))
+            (user->encpass
+                    ? qp_add_raw_from_str(packer, user->encpass)
+                    : qp_add_null(packer)) ||
+            qp_add_array(&packer))
+            goto stop;
+
+        for (vec_each(user->tokens, ti_token_t, token))
+        {
+            if (qp_add_array(&packer) ||
+                qp_add_raw(
+                        packer,
+                        (const uchar *) token->key,
+                        sizeof(ti_token_key_t)) ||
+                qp_add_int(packer, token->expire_ts) ||
+                qp_add_raw_from_str(packer, token->description) ||
+                qp_close_array(packer))
+                goto stop;
+        }
+
+        if (qp_close_array(packer) || qp_close_array(packer))
             goto stop;
     }
 
@@ -52,13 +70,15 @@ stop:
 
 int ti_store_users_restore(const char * fn)
 {
-    ex_t * e = ex_use();
+    ex_t e;
     int rcode, rc = -1;
     ssize_t n;
     qp_unpacker_t unpacker;
     qp_res_t * res;
     uchar * data = fx_read(fn, &n);
     qp_res_t * qusers;
+
+    ex_init(&e);
 
     if (!data || ti_users_clear())
         return -1;
@@ -81,37 +101,69 @@ int ti_store_users_restore(const char * fn)
     for (uint32_t i = 0; i < qusers->via.array->n; i++)
     {
         qp_res_t * quser = qusers->via.array->values + i;
-        qp_res_t * qid, * qname, * qpass;
-        char * encrypted, * name;
+        qp_res_t * qid, * qname, * qpass, *qtokes;
+        char * encrypted = NULL, * name;
         uint64_t user_id, namelen;
         ti_user_t * user;
 
         if (quser->tp != QP_RES_ARRAY ||
-                quser->via.array->n != 3 ||
+                quser->via.array->n != 4 ||
             !(qid = quser->via.array->values) ||
             !(qname = quser->via.array->values + 1) ||
             !(qpass = quser->via.array->values + 2) ||
+            !(qtokes = quser->via.array->values + 3) ||
             qid->tp != QP_RES_INT64 ||
             qname->tp != QP_RES_RAW ||
-            qpass->tp != QP_RES_RAW)
-        {
+            (qpass->tp != QP_RES_RAW && qpass->tp != QP_RES_NULL) ||
+            qtokes->tp != QP_RES_ARRAY)
             goto stop;
-        }
 
         user_id = (uint64_t) qid->via.int64;
         name = (char *) qname->via.raw->data;
         namelen = qname->via.raw->n;
-        encrypted = qpx_raw_to_str(qpass->via.raw);
-        if (!encrypted)
-            goto stop;
-
-        user = ti_users_load_user(user_id, name, namelen, encrypted, e);
+        if (qpass->tp == QP_RES_RAW)
+        {
+            encrypted = qpx_raw_to_str(qpass->via.raw);
+            if (!encrypted)
+                goto stop;
+        }
+        user = ti_users_load_user(user_id, name, namelen, encrypted, &e);
         free(encrypted);
 
         if (!user)
         {
-            log_critical(e->msg);
+            log_critical(e.msg);
             goto stop;
+        }
+
+        for (uint32_t t = 0; t < qtokes->via.array->n; t++)
+        {
+            ti_token_t * token;
+            uint64_t expire_ts;
+            qp_res_t * qtoken = qtokes->via.array->values + t;
+            qp_res_t * qkey, * qexpire, * qdescription;
+            if (qtoken->tp != QP_RES_ARRAY ||
+                    qtoken->via.array->n != 3 ||
+                !(qkey = quser->via.array->values) ||
+                !(qexpire = quser->via.array->values + 1) ||
+                !(qdescription = quser->via.array->values + 2) ||
+                (   qkey->tp != QP_RES_RAW ||
+                    qkey->via.raw->n != sizeof(ti_token_key_t)) ||
+                qexpire->tp != QP_RES_INT64 ||
+                qdescription->tp != QP_RES_RAW)
+                goto stop;
+
+            expire_ts = (uint64_t) qexpire->via.int64;
+            token = ti_token_create(
+                    (ti_token_key_t *) qkey->via.raw->data,
+                    expire_ts,
+                    (const char *) qdescription->via.raw->data,
+                    qdescription->via.raw->n);
+            if (!token || ti_user_add_token(user, token))
+            {
+                ti_token_destroy(token);
+                goto stop;
+            }
         }
     }
 

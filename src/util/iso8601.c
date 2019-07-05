@@ -1,5 +1,5 @@
 /*
- * util/iso8601.c - Library to parse ISO 8601 dates.
+ * util/iso8601.c - parse ISO 8601 dates.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -95,80 +95,59 @@ int64_t iso8601_parse_date(const char * str)
     /* read year */
     TZ_DIGITS
     if (len != 4)
-    {
         return -1;
-    }
 
     TZ_RESULT("%Y", 0)
     if (*pt != '-')
-    {
         return -1;
-    }
     pt++;
 
     /* read month */
     TZ_DIGITS
     if (!len || len > 2)
-    {
         return -1;
-    }
 
     TZ_RESULT("%Y-%m", 0)
     if (*pt != '-')
-    {
         return -1;
-    }
     pt++;
 
     /* read day */
     TZ_DIGITS
     if (!len || len > 2)
-    {
         return -1;
-    }
 
     TZ_RESULT("%Y-%m-%d", 1)
     if (*pt != ' ' && (use_t = 1) && *pt != 'T')
-    {
         return -1;
-    }
     pt++;
 
     /* read hours */
     for (len = 0; *pt && isdigit(*pt); pt++, len++);
 
     if (!len || len > 2)
-    {
         return -1;
-    }
 
     TZ_RESULT((use_t) ? "%Y-%m-%dT%H" : "%Y-%m-%d %H", 1)
     if (*pt != ':')
-    {
         return -1;
-    }
+
     pt++;
 
     /* read minutes */
     TZ_DIGITS
     if (!len || len > 2)
-    {
         return -1;
-    }
 
     TZ_RESULT((use_t) ? "%Y-%m-%dT%H:%M" : "%Y-%m-%d %H:%M", 1)
     if (*pt != ':')
-    {
         return -1;
-    }
     pt++;
 
     /* read seconds */
     TZ_DIGITS
     if (!len || len > 2)
-    {
         return -1;
-    }
 
     TZ_RESULT((use_t) ? "%Y-%m-%dT%H:%M:%S" : "%Y-%m-%d %H:%M:%S", 1)
 

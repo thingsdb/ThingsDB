@@ -292,6 +292,7 @@ static int rjob__new_token(qp_unpacker_t * unp)
             !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: id */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: key */
             !qp_is_raw(qp_next(unp, &qp_key)) ||        /* value: key */
+            qp_key.len != sizeof(ti_token_key_t) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: expire_ts */
             !qp_is_int(qp_next(unp, &qp_expire)) ||     /* value: expire_ts */
             qp_expire.via.int64 < 0 ||
@@ -311,6 +312,7 @@ static int rjob__new_token(qp_unpacker_t * unp)
     }
 
     token = ti_token_create(
+            (ti_token_key_t *) qp_key.via.raw,
             qp_expire.via.int64,
             (const char *) qp_desc.via.raw,
             qp_desc.len);

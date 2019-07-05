@@ -5,6 +5,8 @@
 #define UTIL_H_
 
 #include <sys/time.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 typedef struct timespec util_time_t;
 

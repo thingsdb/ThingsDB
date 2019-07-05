@@ -59,6 +59,10 @@ class TestCollectionFunctions(TestBase):
                 'You might want to query the `node` scope?'):
             await client.query('counters();')
 
+        self.assertIs(await client.query(r'''
+
+        '''), None)
+
     async def test_add(self, client):
         await client.query(r's = set(); a = {}; b = {}; c = {};')
         self.assertEqual(await client.query('[s.add(a, b), s.len()]'), [2, 2])

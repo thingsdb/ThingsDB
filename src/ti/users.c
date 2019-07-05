@@ -198,7 +198,7 @@ ti_user_t * ti_users_user_by_token(qp_obj_t * qp_token, ex_t * e)
     uint64_t now_ts = util_now_tsec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
-    if (!qp_is_raw(qp_token) || qp_token->len != key_sz)
+    if (!qp_is_raw(qp_token->tp) || qp_token->len != key_sz)
         goto invalid;
 
     for (vec_each(users->vec, ti_user_t, user))

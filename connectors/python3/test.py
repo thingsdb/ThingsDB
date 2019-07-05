@@ -44,9 +44,6 @@ del_expired()  /* removes all expired tokens */
 REQUIRES --> GRANT on ThingsDB scope
 --> del_expired(ts)
 
-tokens('user')  /* list all tokens whithout arguments */
-REQUIRES --> GRANT on ThingsDB scope
-
 
 
 ## Missing functions:

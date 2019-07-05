@@ -14,6 +14,7 @@
 #include <ti/epkg.h>
 #include <ti/proto.h>
 #include <ti/query.h>
+#include <ti/nil.h>
 #include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
@@ -481,7 +482,10 @@ void ti_query_run(ti_query_t * query)
         ->children;                 /* first child or NULL */
 
     if (!child)
+    {
+        query->rval = (ti_val_t *) ti_nil_get();
         goto stop;
+    }
 
     while (1)
     {

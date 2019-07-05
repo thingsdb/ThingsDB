@@ -12,6 +12,12 @@ static int rq__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_user_t * user;
     ti_raw_t * uname;
 
+    /* check for privileges */
+    if (ti_access_check_err(
+            ti()->access_thingsdb,
+            query->user, TI_AUTH_GRANT, e))
+        return e->nr;
+
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);

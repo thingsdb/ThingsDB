@@ -1,10 +1,9 @@
 from thingsdb.client import Client
 
 
-async def get_client(*nodes, username='admin', password='pass', **kwargs):
+async def get_client(*nodes, auth=['admin', 'pass'], **kwargs):
     client = Client(**kwargs)
     await client.connect_pool(
         pool=[node.address_info for node in nodes],
-        username=username,
-        password=password)
+        auth=auth)
     return client

@@ -34,7 +34,7 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e);
 int ti_user_set_pass(ti_user_t * user, const char * pass);
 int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer);
 ti_val_t * ti_user_as_qpval(ti_user_t * user);
-ti_token_t * ti_user_del_token_by_key(ti_user_t * user, ti_token_key_t * key);
+ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key);
 
 struct ti_user_s
 {

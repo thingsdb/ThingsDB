@@ -271,11 +271,11 @@ void ti_users_del_expired(uint64_t after_ts)
         ti_user_del_expired(user, after_ts);
 }
 
-ti_token_t * ti_users_del_token_by_key(ti_token_key_t * key)
+ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key)
 {
     ti_token_t * token;
     for (vec_each(users->vec, ti_user_t, user))
-        if ((token = ti_user_del_token_by_key(user, key)))
+        if ((token = ti_user_pop_token_by_key(user, key)))
             return token;
     return NULL;
 }

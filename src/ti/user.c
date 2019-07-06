@@ -8,6 +8,7 @@
 #include <ti/user.h>
 #include <util/cryptx.h>
 #include <util/strx.h>
+#include <util/util.h>
 
 const char * ti_user_def_name = "admin";
 const char * ti_user_def_pass = "pass";
@@ -40,6 +41,45 @@ static int user__pack_access(
         }
     }
     return 0;
+}
+
+static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
+{
+    uint64_t now = util_now_tsec();
+    const size_t key_sz = sizeof(ti_token_key_t);
+
+    if (qp_add_raw_from_str(*packer, "tokens") ||
+        qp_add_array(packer))
+        return -1;
+
+    for (vec_each(user->tokens, ti_token_t, token))
+    {
+        char * status, * expires_at;
+        if (token->expire_ts)
+        {
+            status = token->expire_ts > now ? "OK" : "EXPIRED";
+            expires_at = "Soon";  /* TODO: nice date string */
+        }
+        else
+        {
+            status = "OK";
+            expires_at = "Never";
+        }
+
+        if (qp_add_map(packer) ||
+            qp_add_raw_from_str(*packer, "key") ||
+            qp_add_raw(*packer, (const uchar *) token->key, key_sz) ||
+            qp_add_raw_from_str(*packer, "status") ||
+            qp_add_raw_from_str(*packer, status) ||
+            qp_add_raw_from_str(*packer, "expires_at") ||
+            qp_add_raw_from_str(*packer, expires_at) ||
+            qp_add_raw_from_str(*packer, "description") ||
+            qp_add_raw_from_str(*packer, token->description) ||
+            qp_close_map(*packer))
+            return -1;
+    }
+
+    return qp_close_array(*packer);
 }
 
 ti_user_t * ti_user_create(
@@ -86,7 +126,7 @@ void ti_user_del_expired(ti_user_t * user, uint64_t after_ts)
         token = user->tokens->data[n];
         if (token->expire_ts && token->expire_ts < after_ts)
         {
-            vec_swap_remove(user->tokens, n);
+            ti_token_destroy(vec_swap_remove(user->tokens, n));
             --m;
             continue;
         }
@@ -225,7 +265,13 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
             return -1;
     }
 
-    return -(qp_close_array(*packer) || qp_close_map(*packer));
+    if (qp_close_array(*packer))
+        return -1;
+
+    if (user__pack_tokens(user, packer))
+        return -1;
+
+    return qp_close_map(*packer);
 }
 
 ti_val_t * ti_user_as_qpval(ti_user_t * user)
@@ -245,11 +291,11 @@ fail:
     return (ti_val_t * ) ruser;
 }
 
-ti_token_t * ti_user_del_token_by_key(ti_user_t * user, ti_token_key_t * key)
+ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key)
 {
     size_t idx = 0;
     for (vec_each(user->tokens, ti_token_t, token), ++idx)
-        if (memcmp(token->key, key, sizeof(ti_token_key_t) == 0))
+        if (memcmp(token->key, key, sizeof(ti_token_key_t)) == 0)
             return vec_swap_remove(user->tokens, idx);
     return NULL;
 }

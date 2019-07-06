@@ -20,7 +20,7 @@ class TestUserAccess(TestBase):
         await self.node0.init_and_run()
 
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):
-            await get_client(self.node0, username='test1', password='test')
+            await get_client(self.node0, auth=['test1', 'test'])
 
         client = await get_client(self.node0)
 
@@ -32,10 +32,18 @@ class TestUserAccess(TestBase):
             del_collection("stuff");
         ''')
 
+        token1 = await client.query(r'''
+            new_token('test2');
+        ''')
+
         testcl1 = await get_client(
             self.node0,
-            username='test1',
-            password='test',
+            auth=['test1', 'test'],
+            auto_reconnect=False)
+
+        testcl2 = await get_client(
+            self.node0,
+            auth=token1,
             auto_reconnect=False)
 
         error_msg = 'user .* is missing the required privileges'
@@ -97,6 +105,19 @@ class TestUserAccess(TestBase):
             }],
             'name': 'test1',
             'user_id': 4
+        }, {
+            'access': [{
+                'privileges': 'READ|MODIFY|GRANT',
+                'target': ':thingsdb'
+            }, {
+                'privileges': 'READ',
+                'target': 'junk'
+            }, {
+                'privileges': 'READ|WATCH',
+                'target': 'some_collection'
+            }],
+            'name': 'test2',
+            'user_id': 5
         }])
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):

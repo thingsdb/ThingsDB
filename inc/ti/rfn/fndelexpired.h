@@ -29,9 +29,6 @@ static int rq__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (rq__scope(query, nd->children->node, e))
-        return e->nr;
-
     after_ts = util_now_tsec();
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);

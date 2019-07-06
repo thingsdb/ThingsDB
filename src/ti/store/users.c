@@ -116,7 +116,9 @@ int ti_store_users_restore(const char * fn)
             qname->tp != QP_RES_RAW ||
             (qpass->tp != QP_RES_RAW && qpass->tp != QP_RES_NULL) ||
             qtokes->tp != QP_RES_ARRAY)
+        {
             goto stop;
+        }
 
         user_id = (uint64_t) qid->via.int64;
         name = (char *) qname->via.raw->data;
@@ -143,15 +145,17 @@ int ti_store_users_restore(const char * fn)
             qp_res_t * qtoken = qtokes->via.array->values + t;
             qp_res_t * qkey, * qexpire, * qdescription;
             if (qtoken->tp != QP_RES_ARRAY ||
-                    qtoken->via.array->n != 3 ||
-                !(qkey = quser->via.array->values) ||
-                !(qexpire = quser->via.array->values + 1) ||
-                !(qdescription = quser->via.array->values + 2) ||
+                qtoken->via.array->n != 3 ||
+                !(qkey = qtoken->via.array->values) ||
+                !(qexpire = qtoken->via.array->values + 1) ||
+                !(qdescription = qtoken->via.array->values + 2) ||
                 (   qkey->tp != QP_RES_RAW ||
                     qkey->via.raw->n != sizeof(ti_token_key_t)) ||
                 qexpire->tp != QP_RES_INT64 ||
                 qdescription->tp != QP_RES_RAW)
+            {
                 goto stop;
+            }
 
             expire_ts = (uint64_t) qexpire->via.int64;
             token = ti_token_create(

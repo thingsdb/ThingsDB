@@ -52,13 +52,15 @@ static int rq__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    token = ti_users_del_token_by_key((ti_token_key_t *) rkey->data);
+    token = ti_users_pop_token_by_key((ti_token_key_t *) rkey->data);
     if (!token)
     {
         ex_set(e, EX_INDEX_ERROR, "token `%.*s` not found",
                 rkey->n, (char *) rkey->data);
         return e->nr;
     }
+
+    ti_token_destroy(token);
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)

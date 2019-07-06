@@ -26,7 +26,7 @@
 #define TI_SCOPE_NODE 1
 #define TI_SCOPE_THINGSDB 0
 
-/* Max token expiration dates */
+/* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 

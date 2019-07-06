@@ -9,6 +9,7 @@
 #include <util/cryptx.h>
 #include <util/strx.h>
 #include <util/util.h>
+#include <util/iso8601.h>
 
 const char * ti_user_def_name = "admin";
 const char * ti_user_def_pass = "pass";
@@ -54,11 +55,11 @@ static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
 
     for (vec_each(user->tokens, ti_token_t, token))
     {
-        char * status, * expires_at;
+        const char * status, * expires_at;
         if (token->expire_ts)
         {
             status = token->expire_ts > now ? "OK" : "EXPIRED";
-            expires_at = "Soon";  /* TODO: nice date string */
+            expires_at = iso8601_time_str((const time_t *) &token->expire_ts);
         }
         else
         {
@@ -71,10 +72,12 @@ static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
             qp_add_raw(*packer, (const uchar *) token->key, key_sz) ||
             qp_add_raw_from_str(*packer, "status") ||
             qp_add_raw_from_str(*packer, status) ||
-            qp_add_raw_from_str(*packer, "expires_at") ||
+            qp_add_raw_from_str(*packer, "expiration_time") ||
             qp_add_raw_from_str(*packer, expires_at) ||
-            qp_add_raw_from_str(*packer, "description") ||
-            qp_add_raw_from_str(*packer, token->description) ||
+            (*token->description && (
+                qp_add_raw_from_str(*packer, "description") ||
+                qp_add_raw_from_str(*packer, token->description)
+            )) ||
             qp_close_map(*packer))
             return -1;
     }

@@ -16,7 +16,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_user_t * user;
     ti_task_t * task;
     cleri_children_t * child;
-    uint64_t exp_date = 0;
+    uint64_t exp_time = 0;
     ti_token_t * token;
     size_t description_sz = 0;
     char * description = NULL;
@@ -93,7 +93,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ts > TI_MAX_EXPIRATION_DOUDLE)
                 goto errfuture;
 
-            exp_date = (uint64_t) ts;
+            exp_time = (uint64_t) ts;
         }
         else if (ti_val_is_int(query->rval))
         {
@@ -104,7 +104,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ts > TI_MAX_EXPIRATION_LONG)
                 goto errfuture;
 
-            exp_date = (uint64_t) ts;
+            exp_time = (uint64_t) ts;
         }
         else if (ti_val_is_raw(query->rval))
         {
@@ -118,7 +118,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ts > TI_MAX_EXPIRATION_LONG)
                 goto errfuture;
 
-            exp_date = (uint64_t) ts;
+            exp_time = (uint64_t) ts;
         }
         else if (!ti_val_is_nil(query->rval))
         {
@@ -166,7 +166,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         description_sz = raw->n;
     }
 
-    token = ti_token_create(NULL, exp_date, description, description_sz);
+    token = ti_token_create(NULL, exp_time, description, description_sz);
     if (!token || ti_user_add_token(user, token))
     {
         ti_token_destroy(token);
@@ -193,16 +193,16 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 errpast:
     ex_set(e, EX_BAD_DATA,
-        "cannot set an expiration date in the past"NEW_TOKEN_DOC_);
+        "cannot set an expiration time in the past"NEW_TOKEN_DOC_);
     return e->nr;
 
 errfuture:
     ex_set(e, EX_BAD_DATA,
-        "expiration date is too far in the future"NEW_TOKEN_DOC_);
+        "expiration time is too far in the future"NEW_TOKEN_DOC_);
     return e->nr;
 
 errinvalid:
     ex_set(e, EX_BAD_DATA,
-        "invalid date string as expiration date"NEW_TOKEN_DOC_);
+        "invalid date/time string as expiration time"NEW_TOKEN_DOC_);
     return e->nr;
 }

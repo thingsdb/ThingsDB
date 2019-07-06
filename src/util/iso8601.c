@@ -14,6 +14,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
+/* length 27 =  "2000-00-00 00:00:00+01.00Z" + 1 */
+static char iso8601__buf[27];
+
 #define TZ_DIGITS \
     for (len = 0; *pt && isdigit(*pt); pt++, len++);
 
@@ -156,14 +159,26 @@ int64_t iso8601_parse_date(const char * str)
 
 int64_t iso8601_parse_date_n(const char * str, size_t n)
 {
-    static const size_t max_n = strlen("2000-00-00 00:00:00+01.00Z") + 1;
-    char buf[max_n];
 
-    if (n >= max_n)
+    if (n >= sizeof(iso8601__buf))
         return -1;
 
-    memcpy(buf, str, n);
-    buf[n] = '\0';
+    memcpy(iso8601__buf, str, n);
+    iso8601__buf[n] = '\0';
 
-    return iso8601_parse_date(buf);
+    return iso8601_parse_date(iso8601__buf);
+}
+
+const char * iso8601_time_str(const time_t * ts)
+{
+    struct tm * tm_info;
+
+    tm_info = gmtime(ts);
+
+    (void) strftime(
+            iso8601__buf,
+            sizeof(iso8601__buf),
+            "%Y-%m-%d %H:%M:%SZ",
+            tm_info);
+    return iso8601__buf;
 }

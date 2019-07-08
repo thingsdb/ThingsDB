@@ -17,7 +17,7 @@ int ti_store_users_store(const char * fn)
 {
     ti_users_t * users = ti()->users;
     int rc = -1;
-    qp_packer_t * packer = qp_packer_create2(users->vec->n * 256, 5);
+    qp_packer_t * packer = qp_packer_create2(512 + (users->vec->n * 512), 5);
     if (!packer)
         return -1;
 

@@ -49,7 +49,7 @@ class TestUserAccess(TestBase):
         error_msg = 'user .* is missing the required privileges'
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''new_collection('some_collection');''')
+            await testcl1.query(r'''new_collection('Collection');''')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''map(||nil);''', target='junk')
@@ -60,23 +60,25 @@ class TestUserAccess(TestBase):
         ''')
 
         await testcl1.query(r'''
-            new_collection('some_collection');
-            grant('some_collection', 'admin', GRANT);
+            new_collection('Collection');
+            grant('Collection', 'admin', GRANT);
+            grant('Collection', 'test2', READ);
         ''')
 
-        await testcl1.query(r'''x = 1;''', target='some_collection')
+        await testcl1.query(r'''x = 42;''', target='Collection')
         await testcl1.query(r'''map(||nil);''', target='junk')
+        self.assertEqual(await testcl2.query('x', target='Collection'), 42)
 
         with self.assertRaisesRegex(
                 BadRequestError,
                 'it is not possible to revoke your own `GRANT` privileges'):
             await testcl1.query(
-                r'''revoke('some_collection', 'test1', MODIFY);''')
+                r'''revoke('Collection', 'test1', MODIFY);''')
 
-        await client.query(r'''revoke('some_collection', 'test1', MODIFY);''')
+        await client.query(r'''revoke('Collection', 'test1', MODIFY);''')
 
-        users_access = await testcl1.query(r'''users();''')
-        self.assertEqual(users_access, [{
+        users_access = await testcl1.query(r'''user('admin');''')
+        self.assertEqual(users_access, {
             'access': [{
                 'privileges': 'FULL',
                 'target': ':node'
@@ -88,37 +90,12 @@ class TestUserAccess(TestBase):
                 'target': 'junk'
             }, {
                 'privileges': 'READ|MODIFY|GRANT',
-                'target': 'some_collection'
+                'target': 'Collection'
             }],
             'name': 'admin',
+            'tokens': [],
             'user_id': 1
-        }, {
-            'access': [{
-                'privileges': 'READ|MODIFY|GRANT',
-                'target': ':thingsdb'
-            }, {
-                'privileges': 'READ',
-                'target': 'junk'
-            }, {
-                'privileges': 'READ|WATCH',
-                'target': 'some_collection'
-            }],
-            'name': 'test1',
-            'user_id': 4
-        }, {
-            'access': [{
-                'privileges': 'READ|MODIFY|GRANT',
-                'target': ':thingsdb'
-            }, {
-                'privileges': 'READ',
-                'target': 'junk'
-            }, {
-                'privileges': 'READ|WATCH',
-                'target': 'some_collection'
-            }],
-            'name': 'test2',
-            'user_id': 5
-        }])
+        })
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''nodes();''', target=scope.node)
@@ -147,7 +124,7 @@ class TestUserAccess(TestBase):
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):
-            await get_client(self.node0, username='test1', password='test')
+            await get_client(self.node0, auth=['test1', 'test'])
 
         testcl1.close()
         client.close()

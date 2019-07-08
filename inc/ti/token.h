@@ -5,7 +5,7 @@
 #define TI_TOKEN_H_
 
 typedef struct ti_token_s ti_token_t;
-typedef char ti_token_key_t[40];            /* token using 40 characters */
+typedef char ti_token_key_t[50];            /* token using 50 characters */
 
 #include <stdint.h>
 #include <ti/raw.h>

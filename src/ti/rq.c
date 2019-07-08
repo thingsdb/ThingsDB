@@ -50,6 +50,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_0:
         break;
     case TI_FN_ADD:
+    case TI_FN_ARRAY:
     case TI_FN_ASSERT:
     case TI_FN_BLOB:
     case TI_FN_BOOL:

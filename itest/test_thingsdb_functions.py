@@ -67,12 +67,6 @@ class TestThingsDBFunctions(TestBase):
                 'chaining is not supported in the `thingsdb` scope'):
             await client.query('[users()].map();')
 
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'functions are not allowed as arguments '
-                'in the `thingsdb` scope'):
-            await client.query('new_user(users(), "bla");')
-
     async def test_collection(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
@@ -173,12 +167,12 @@ class TestThingsDBFunctions(TestBase):
                 'it is not possible to delete your own user account'):
             await client.query('del_user("admin");')
 
-        await client.query('new_user("iris", "pass");')
+        await client.query('new_user("iris");')
 
         self.assertIs(await client.query('del_user("iris");'), None)
 
     async def test_grant(self, client):
-        await client.query('new_user("iris", "pass");')
+        await client.query('new_user("iris");')
 
         with self.assertRaisesRegex(
                 BadRequestError,

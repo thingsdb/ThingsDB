@@ -28,14 +28,6 @@ expire_date: nil
 
 Tokens
 
-add_token('user', ts > now() or nil, 'bla bla')
-REQUIRES --> GRANT on ThingsDB scope
-TAKS --> new_token({
-    user: user_id,
-    expire_ts: ts,
-    description: '...'
-})
-
 del_token('key)
 REQUIRES --> GRANT on ThingsDB scope
 TASK --> del_token(key)
@@ -44,10 +36,6 @@ del_expired()  /* removes all expired tokens */
 REQUIRES --> GRANT on ThingsDB scope
 --> del_expired(ts)
 
-
-
-## Missing functions:
-  array --> convert to array (al least a `set`)
 
 
 ## Handlers

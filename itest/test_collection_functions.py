@@ -74,6 +74,26 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r's.add(a, b, {}, nil);')
 
+    async def test_array(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `array`'):
+            await client.query('nil.array();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `array` takes at most 1 argument but 2 were given'):
+            await client.query('array(1, 2);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to `array`'):
+            await client.query('array(nil);')
+
+        self.assertEqual(await client.query('array();'), [])
+        self.assertEqual(await client.query('array( [] );'), [])
+        self.assertEqual(await client.query(r'array(set([{}]));'), [{'#': 0}])
+
     async def test_assert(self, client):
         with self.assertRaisesRegex(
                 AssertionError,

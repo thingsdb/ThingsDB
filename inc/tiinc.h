@@ -82,6 +82,7 @@ typedef enum
     TI_FN_0,                /* unknown function */
     /* collection functions */
     TI_FN_ADD,
+    TI_FN_ARRAY,
     TI_FN_ASSERT,
     TI_FN_BLOB,
     TI_FN_BOOL,

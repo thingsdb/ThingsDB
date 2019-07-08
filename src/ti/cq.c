@@ -8,6 +8,7 @@
  *
  */
 #include <ti/cfn/fnadd.h>
+#include <ti/cfn/fnarray.h>
 #include <ti/cfn/fnassert.h>
 #include <ti/cfn/fnblob.h>
 #include <ti/cfn/fnbool.h>
@@ -78,6 +79,10 @@ static int cq__function(
         break;
     case TI_FN_ADD:
         return cq__f_add(query, params, e);
+    case TI_FN_ARRAY:
+        if (is_scope)
+            return cq__f_array(query, params, e);
+        break;
     case TI_FN_ASSERT:
         if (is_scope)
             return cq__f_assert(query, params, e);

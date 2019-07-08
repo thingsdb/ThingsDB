@@ -55,6 +55,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     {
     case 'a':
         syntax__cev_fn(q, nd, "add", TI_FN_ADD, true);
+        syntax__nev_fn(q, nd, "array", TI_FN_ARRAY, true);
         syntax__nev_fn(q, nd, "assert", TI_FN_ASSERT, true);
         break;
     case 'b':

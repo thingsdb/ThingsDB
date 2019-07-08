@@ -64,7 +64,7 @@ static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
         else
         {
             status = "OK";
-            expires_at = "Never";
+            expires_at = "never";
         }
 
         if (qp_add_map(packer) ||

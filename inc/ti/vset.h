@@ -32,7 +32,7 @@ struct ti_vset_s
     uint8_t tp;
     uint8_t flags;
     uint16_t _pad1;
-    imap_t * imap;      /* key: thing_key / value: *ti_things_t */
+    imap_t * imap;      /* key: thing_key() / value: *ti_things_t */
 };
 
 /*

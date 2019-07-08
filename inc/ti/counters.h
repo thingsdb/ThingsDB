@@ -21,8 +21,13 @@ ti_val_t * ti_counters_as_qpval(void);
 struct ti_counters_s
 {
     struct timespec reset_time;     /* time when counters were reset */
-    uint64_t queries_received;      /* queries where this node acted as the
-                                       master node
+    uint64_t queries_success;       /* node queries where this node acted as
+                                       the master node and the query was
+                                       successful finished
+                                    */
+    uint64_t queries_with_error;    /* node queries where this node acted as
+                                       the master node but the query has
+                                       returned with an error
                                     */
     uint64_t events_with_gap;       /* events which are committed but at least
                                        one event id was skipped

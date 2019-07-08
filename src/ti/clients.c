@@ -100,7 +100,7 @@ fail0:
     return -1;
 }
 
-static void clients__query_db_collection(
+static void clients__query_thingsdb_or_collection(
         ti_stream_t * stream,
         ti_pkg_t * pkg,
         ti_query_unpack_cb unpack_cb)
@@ -185,6 +185,7 @@ static void clients__query_db_collection(
     return;
 
 finish:
+    ++ti()->counters->queries_with_error;
     ti_query_destroy(query);
 
     if (e->nr)
@@ -308,6 +309,7 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
     return;
 
 failed:
+    ++ti()->counters->queries_with_error;
     ti_query_destroy(query);
 
     assert (e->nr);
@@ -324,7 +326,7 @@ static inline void clients__on_query_thingsdb(
         ti_stream_t * stream,
         ti_pkg_t * pkg)
 {
-    return clients__query_db_collection(
+    return clients__query_thingsdb_or_collection(
             stream,
             pkg,
             ti_query_thingsdb_unpack);
@@ -335,7 +337,7 @@ static inline void clients__on_query_collection(
         ti_stream_t * stream,
         ti_pkg_t * pkg)
 {
-    return clients__query_db_collection(
+    return clients__query_thingsdb_or_collection(
             stream,
             pkg,
             ti_query_collection_unpack);

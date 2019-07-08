@@ -526,6 +526,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (ti_val_to_packer(query->rval, &packer, query->syntax.deep))
         goto alloc_err;
 
+    ++ti()->counters->queries_success;
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);
     pkg->id = query->syntax.pkg_id;
 
@@ -537,6 +538,7 @@ alloc_err:
     ex_set_alloc(e);
 
 pkg_err:
+    ++ti()->counters->queries_with_error;
     pkg = ti_pkg_client_err(query->syntax.pkg_id, e);
 
 finish:

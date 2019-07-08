@@ -39,9 +39,10 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 11)
+        self.assertEqual(len(counters), 12)
 
-        self.assertIn("queries_received", counters)
+        self.assertIn("queries_success", counters)
+        self.assertIn("queries_with_error", counters)
         self.assertIn("events_with_gap", counters)
         self.assertIn("events_skipped", counters)
         self.assertIn("events_failed", counters)
@@ -53,7 +54,8 @@ class TestNodeFunctions(TestBase):
         self.assertIn("longest_event_duration", counters)
         self.assertIn("average_event_duration", counters)
 
-        self.assertTrue(isinstance(counters["queries_received"], int))
+        self.assertTrue(isinstance(counters["queries_success"], int))
+        self.assertTrue(isinstance(counters["queries_with_error"], int))
         self.assertTrue(isinstance(counters["events_with_gap"], int))
         self.assertTrue(isinstance(counters["events_skipped"], int))
         self.assertTrue(isinstance(counters["events_failed"], int))
@@ -64,6 +66,18 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["garbage_collected"], int))
         self.assertTrue(isinstance(counters["longest_event_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
+
+    async def test_reset_counters(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `reset_counters` takes 0 arguments but 1 was given'):
+            await client.query('reset_counters(1);')
+
+        counters = await client.query('counters();')
+        self.assertGreater(counters["queries_with_error"], 0)
+        self.assertIs(await client.query('reset_counters();'), None)
+        counters = await client.query('counters();')
+        self.assertEqual(counters["queries_with_error"], 0)
 
 
 if __name__ == '__main__':

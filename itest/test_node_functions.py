@@ -145,6 +145,26 @@ class TestNodeFunctions(TestBase):
         counters = await client.query('counters();')
         self.assertEqual(counters["queries_with_error"], 0)
 
+    async def test_set_zone(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `set_zone` takes 1 argument but 0 were given'):
+            await client.query('set_zone();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `set_zone` expects argument 1 to be of type `int` '
+                r'but got type `nil` instead'):
+            await client.query('set_zone(nil);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                '`zone` should be an integer value between 0 and 255, '
+                'got -1'):
+            await client.query('set_zone(-1);')
+
+        self.assertEqual(await client.query('set_zone(42);'), None)
+
 
 if __name__ == '__main__':
     run_test(TestNodeFunctions())

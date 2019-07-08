@@ -570,9 +570,6 @@ failed:
     ti_stream_drop(stream);
 }
 
-
-
-
 int ti_clients_create(void)
 {
     clients = &clients_;

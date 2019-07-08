@@ -1,3 +1,4 @@
+import datetime
 from .scope import node, thingsdb, Scope
 from typing import Union as U
 
@@ -22,6 +23,12 @@ class Buildin:
             f'del_collection({collection!r})',
             target=thingsdb)
 
+    async def del_expired(self):
+        return await self.query('del_expired()', target=thingsdb)
+
+    async def del_token(self, key: str):
+        return await self.query(f'del_token({key!r})', target=thingsdb)
+
     async def del_user(self, name: str):
         return await self.query(f'del_user({name!r})', target=thingsdb)
 
@@ -34,6 +41,21 @@ class Buildin:
 
     async def new_collection(self, name: str):
         return await self.query(f'new_collection({name!r})', target=thingsdb)
+
+    async def new_token(
+            self,
+            user: str,
+            expiration_time: datetime.datetime = None,
+            description: str = ''):
+
+        if expiration_time is None:
+            expiration_time = 'nil'
+        else:
+            expiration_time = int(datetime.datetime.timestamp(expiration_time))
+
+        return await self.query(
+            f'new_token({user!r}, {expiration_time}, {description!r})',
+            target=thingsdb)
 
     async def node(self):
         return await self.query('node()', target=node)
@@ -51,8 +73,20 @@ class Buildin:
             f'grant({target!r}, {user!r}, {mask})',
             target=thingsdb)
 
+    async def set_loglevel(self, loglevel: str):
+        assert loglevel in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        return await self.query(f'set_loglevel({loglevel})', target=node)
+
+    async def set_zone(self, zone: int):
+        return await self.query(f'set_zone({zone})', target=node)
+
     async def shutdown(self):
         return await self.query('shutdown()', target=node)
+
+    async def user(self, user: str = None):
+        if user is None:
+            return await self.query('user()', target=thingsdb)
+        return await self.query(f'user({user!r})', target=thingsdb)
 
     async def users(self):
         return await self.query('users()', target=thingsdb)

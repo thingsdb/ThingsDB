@@ -257,7 +257,7 @@
         - [x] `rename_collection`
         - [x] `reset_counters`
         - [x] `revoke`
-        - [x] `set_loglevel`
+        - [x] `set_log_level`
         - [x] `set_password`
         - [x] `set_quota`
         - [x] `set_zone`

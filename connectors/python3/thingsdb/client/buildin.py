@@ -73,9 +73,9 @@ class Buildin:
             f'grant({target!r}, {user!r}, {mask})',
             target=thingsdb)
 
-    async def set_loglevel(self, loglevel: str):
-        assert loglevel in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-        return await self.query(f'set_loglevel({loglevel})', target=node)
+    async def set_log_level(self, log_level: str):
+        assert log_level in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        return await self.query(f'set_log_level({log_level})', target=node)
 
     async def set_zone(self, zone: int):
         return await self.query(f'set_zone({zone})', target=node)

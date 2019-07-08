@@ -661,6 +661,10 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.node->next_thing_id) ||
         qp_add_raw_from_str(*packer, "cached_names") ||
         qp_add_int(*packer, ti_.names->n) ||
+        qp_add_raw_from_str(*packer, "http_status_port") ||
+        (ti_.cfg->http_status_port
+                ? qp_add_int(*packer, ti_.cfg->http_status_port)
+                : qp_add_raw_from_str(*packer, "disabled")) ||
         qp_close_map(*packer)
     );
 }

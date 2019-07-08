@@ -75,7 +75,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node();')
 
-        self.assertEqual(len(node), 27)
+        self.assertEqual(len(node), 28)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -104,6 +104,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("next_event_id", node)
         self.assertIn("next_thing_id", node)
         self.assertIn("cached_names", node)
+        self.assertIn('http_status_port', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -132,6 +133,36 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["next_event_id"], int))
         self.assertTrue(isinstance(node["next_thing_id"], int))
         self.assertTrue(isinstance(node["cached_names"], int))
+        self.assertTrue(isinstance(node["http_status_port"], (int, str)))
+
+    async def test_nodes(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `nodes` takes 0 arguments but 1 was given'):
+            await client.query('nodes(nil);')
+
+        nodes = await client.query('nodes();')
+        node = nodes.pop()
+
+        self.assertEqual(len(node), 8)
+
+        self.assertIn("address", node)
+        self.assertIn("committed_event_id", node)
+        self.assertIn("next_thing_id", node)
+        self.assertIn("node_id", node)
+        self.assertIn("port", node)
+        self.assertIn("status", node)
+        self.assertIn('stored_event_id', node)
+        self.assertIn('syntax_version', node)
+
+        self.assertTrue(isinstance(node["address"], str))
+        self.assertTrue(isinstance(node["committed_event_id"], int))
+        self.assertTrue(isinstance(node["next_thing_id"], int))
+        self.assertTrue(isinstance(node["node_id"], int))
+        self.assertTrue(isinstance(node["port"], int))
+        self.assertTrue(isinstance(node["status"], str))
+        self.assertTrue(isinstance(node["stored_event_id"], int))
+        self.assertTrue(isinstance(node["syntax_version"], str))
 
     async def test_reset_counters(self, client):
         with self.assertRaisesRegex(
@@ -144,6 +175,29 @@ class TestNodeFunctions(TestBase):
         self.assertIs(await client.query('reset_counters();'), None)
         counters = await client.query('counters();')
         self.assertEqual(counters["queries_with_error"], 0)
+
+    async def test_set_log_level(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `set_log_level` takes 1 argument but 0 were given'):
+            await client.query('set_log_level();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                r'function `set_log_level` expects argument 1 to be of '
+                r'type `int` but got type `raw` instead'):
+            await client.query('set_log_level("DEBUG");')
+
+        prev = (await client.node())['log_level']
+
+        self.assertIs(await client.query('set_log_level(ERROR);'), None)
+        self.assertEqual((await client.node())['log_level'], 'ERROR')
+        self.assertIs(await client.query('set_log_level(0);'), None)
+        self.assertEqual((await client.node())['log_level'], 'DEBUG')
+        self.assertIs(await client.query(f'set_log_level({prev});'), None)
+        self.assertEqual((await client.node())['log_level'], prev)
+
+
 
 
 if __name__ == '__main__':

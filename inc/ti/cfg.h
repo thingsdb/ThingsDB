@@ -17,6 +17,8 @@ struct ti_cfg_s
     uint16_t client_port;
     uint16_t node_port;
     uint16_t http_status_port;
+    uint8_t zone;
+    uint8_t pad0_;
     size_t threshold_full_storage;      /* if the number of events changes
                                            stored on disk is equal or greater
                                            than this threshold, then a full-

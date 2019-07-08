@@ -25,7 +25,7 @@ static int rq__f_set_loglevel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (rq__scope(query, nd->children->node, e))
+    if (ti_rq_scope(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))

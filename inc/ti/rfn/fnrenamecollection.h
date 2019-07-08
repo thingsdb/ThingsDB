@@ -24,7 +24,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
     }
 
-    if (rq__scope(query, nd->children->node, e))
+    if (ti_rq_scope(query, nd->children->node, e))
         return e->nr;
 
     assert (e->nr == 0);
@@ -33,7 +33,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
     assert (collection);
 
-    if (rq__scope(query, nd->children->next->next->node, e))
+    if (ti_rq_scope(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

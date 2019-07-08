@@ -28,7 +28,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* revoke target, target maybe NULL for root */
-    if (rq__scope(query, nd->children->node, e))
+    if (ti_rq_scope(query, nd->children->node, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &target_id);
@@ -44,7 +44,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* revoke user */
     ti_val_drop(query->rval);
     query->rval = NULL;
-    if (rq__scope(query, nd->children->next->next->node, e))
+    if (ti_rq_scope(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
@@ -69,7 +69,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* revoke mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
-    if (rq__scope(query, nd->children->next->next->next->next->node, e))
+    if (ti_rq_scope(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))

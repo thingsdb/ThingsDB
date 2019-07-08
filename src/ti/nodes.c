@@ -234,7 +234,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         (void) qp_add_int(packer, 0);                       /* cevid */
         (void) qp_add_int(packer, 0);                       /* sevid */
         (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);   /* status */
-        (void) qp_add_int(packer, ti_args_get_zone());      /* zone */
+        (void) qp_add_int(packer, ti()->cfg->zone);         /* zone */
         (void) qp_add_int(packer, TI_VERSION_SYNTAX);       /* syntax version*/
         (void) qp_close_array(packer);
 

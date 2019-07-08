@@ -159,7 +159,7 @@ int ti_build(void)
     cryptx("ThingsDB", salt, encrypted);
 
     ti_.node = ti_nodes_new_node(
-            ti_args_get_zone(),
+            ti()->cfg->zone,
             ti_.cfg->node_port,
             "0.0.0.0",
             encrypted);
@@ -710,8 +710,7 @@ static int ti__unpack(qp_res_t * res)
     if (!ti_.node)
         goto failed;
 
-    if (ti_args_has_zone())
-        ti_.node->zone = ti_args_get_zone();
+    ti_.node->zone = ti()->cfg->zone;
 
     return 0;
 

@@ -40,7 +40,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     child = nd->children;
-    if (rq__scope(query, child->node, e))
+    if (ti_rq_scope(query, child->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
@@ -72,7 +72,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    if (rq__scope(query, child->node, e))
+    if (ti_rq_scope(query, child->node, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -108,7 +108,7 @@ static int rq__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         child = child->next->next;
 
         /* Read the port number from arguments */
-        if (rq__scope(query, child->node, e))
+        if (ti_rq_scope(query, child->node, e))
             goto fail1;
 
         if (!ti_val_is_int(query->rval))

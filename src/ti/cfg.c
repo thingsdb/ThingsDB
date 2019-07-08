@@ -25,6 +25,10 @@ static void ti__cfg_port(
         const char * cfg_file,
         const char * option_name,
         uint16_t * port);
+static void ti__cfg_zone(
+        cfgparser_t * parser,
+        const char * cfg_file,
+        uint8_t * zone);
 static void ti__cfg_ip_support(cfgparser_t * parser, const char * cfg_file);
 static int ti__cfg_str(
         cfgparser_t * parser,
@@ -51,6 +55,7 @@ int ti_cfg_create(void)
     cfg->bind_node_addr = strdup("127.0.0.1");
     cfg->storage_path = strdup("/var/lib/thingsdb/");
     cfg->pipe_client_name = NULL;
+    cfg->zone = 0;
 
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->storage_path)
         ti_cfg_destroy();
@@ -113,6 +118,7 @@ int ti_cfg_parse(const char * cfg_file)
     ti__cfg_port(parser, cfg_file, "listen_client_port", &cfg->client_port);
     ti__cfg_port(parser, cfg_file, "listen_node_port", &cfg->node_port);
     ti__cfg_port(parser, cfg_file, "http_status_port", &cfg->http_status_port);
+    ti__cfg_zone(parser, cfg_file, &cfg->zone);
     ti__cfg_ip_support(parser, cfg_file);
     ti__cfg_threshold_full_storage(parser, cfg_file);
 
@@ -229,8 +235,49 @@ static void ti__cfg_port(
         return;
     }
 
-    *port = option->val->integer;
+    *port = (uint16_t) option->val->integer;
 }
+
+static void ti__cfg_zone(
+        cfgparser_t * parser,
+        const char * cfg_file,
+        uint8_t * zone)
+{
+    const int min_ = 0;
+    const int max_ = 255;
+
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    rc = cfgparser_get_option(&option, parser, ti__cfg_section, "zone");
+
+    if (rc != CFGPARSER_SUCCESS)
+    {
+        log_debug(
+                "missing `zone` in `%s` (%s), "
+                "using default value %u",
+                cfg_file,
+                cfgparser_errmsg(rc),
+                *zone);
+        return;
+    }
+    if (    option->tp != CFGPARSER_TP_INTEGER ||
+            option->val->integer < min_ ||
+            option->val->integer > max_)
+    {
+        log_warning(
+                "error reading `zone` in `%s` "
+                "(expecting a value between %d and %d), "
+                "using default value %u",
+                cfg_file,
+                min_,
+                max_,
+                *zone);
+        return;
+    }
+
+    *zone = (uint8_t) option->val->integer;
+}
+
 
 static void ti__cfg_ip_support(cfgparser_t * parser, const char * cfg_file)
 {

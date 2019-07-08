@@ -44,7 +44,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     child = nd->children;
-    if (rq__scope(query, child->node, e))
+    if (ti_rq_scope(query, child->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
@@ -81,7 +81,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         child = child->next->next;
-        if (rq__scope(query, child->node, e))
+        if (ti_rq_scope(query, child->node, e))
             return e->nr;
 
         if (ti_val_is_float(query->rval))
@@ -140,7 +140,7 @@ static int rq__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         child = child->next->next;
-        if (rq__scope(query, child->node, e))
+        if (ti_rq_scope(query, child->node, e))
             return e->nr;
 
         if (!ti_val_is_raw(query->rval))

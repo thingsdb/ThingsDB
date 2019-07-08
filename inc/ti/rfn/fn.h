@@ -22,7 +22,6 @@
 #include <util/strx.h>
 #include <uv.h>
 
-static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e);
 static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e);
 

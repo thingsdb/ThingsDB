@@ -25,7 +25,6 @@
 #include <ti/rfn/fnsetloglevel.h>
 #include <ti/rfn/fnsetpassword.h>
 #include <ti/rfn/fnsetquota.h>
-#include <ti/rfn/fnsetzone.h>
 #include <ti/rfn/fnshutdown.h>
 #include <ti/rfn/fnuser.h>
 #include <ti/rfn/fnusers.h>
@@ -217,11 +216,6 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             rq__is_not_thingsdb(query, fname, e) ||
             rq__f_set_quota(query, params, e)
         );
-    case TI_FN_SET_ZONE:
-        return (
-            rq__is_not_node(query, fname, e) ||
-            rq__f_set_zone(query, params, e)
-        );
     case TI_FN_SHUTDOWN:
         return (
             rq__is_not_node(query, fname, e) ||
@@ -320,7 +314,7 @@ static int rq__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     if (nd->cl_obj->gid == CLERI_GID_SCOPE)
-        return rq__scope(query, nd, e);
+        return ti_rq_scope(query, nd, e);
 
     gid = nd->children->next->node->children->node->cl_obj->gid;
 
@@ -450,17 +444,40 @@ failed:
     return e->nr;
 }
 
-static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
+{
+    if (q->syntax.flags & TI_SYNTAX_FLAG_NODE)
+        return false;
+
+    ex_set(e, EX_INDEX_ERROR,
+            "function `%.*s` is undefined in the `thingsdb` scope; "
+            "You might want to query the `node` scope?",
+            n->len,
+            n->str);
+    return true;
+}
+
+static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
+{
+    if (~q->syntax.flags & TI_SYNTAX_FLAG_NODE)
+        return false;
+
+    ex_set(e, EX_INDEX_ERROR,
+            "function `%.*s` is undefined in the `node` scope; "
+            "You might want to query the `thingsdb` scope?",
+            n->len,
+            n->str);
+    return true;
+}
+
+int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
 
-//    _Bool nested = query->syntax.flags & TI_SYNTAX_FLAG_NESTED;
     int nots = 0;
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
                     ->children;                     /* first child, not */
-
-//    query->syntax.flags |= TI_SYNTAX_FLAG_NESTED;
 
     for (nchild = child->node->children; nchild; nchild = nchild->next)
         ++nots;
@@ -496,7 +513,7 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             node = node->children->next->next->next->node   /* choice */
                    ->children->node;                        /* sequence */
-            if (rq__scope(
+            if (ti_rq_scope(
                     query,
                     ti_val_as_bool(query->rval)
                         ? node->children->next->node        /* scope, true */
@@ -506,13 +523,6 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         break;
     case CLERI_GID_FUNCTION:
-//        if (nested)
-//        {
-//            ex_set(e, EX_BAD_DATA,
-//                "functions are not allowed as arguments in the `%s` scope",
-//                ti_query_scope_name(query));
-//            return e->nr;
-//        }
         if (rq__function(query, node, e))
             return e->nr;
         break;
@@ -572,38 +582,4 @@ static int rq__scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     return e->nr;
-}
-
-static _Bool rq__is_not_node(ti_query_t * q, cleri_node_t * n, ex_t * e)
-{
-    if (q->syntax.flags & TI_SYNTAX_FLAG_NODE)
-        return false;
-
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `thingsdb` scope; "
-            "You might want to query the `node` scope?",
-            n->len,
-            n->str);
-    return true;
-}
-
-static _Bool rq__is_not_thingsdb(ti_query_t * q, cleri_node_t * n, ex_t * e)
-{
-    if (~q->syntax.flags & TI_SYNTAX_FLAG_NODE)
-        return false;
-
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `node` scope; "
-            "You might want to query the `thingsdb` scope?",
-            n->len,
-            n->str);
-    return true;
-}
-
-/* TODO: cleanup this function is nested can really be removed */
-int ti_rq_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-//    query->syntax.flags &= ~TI_SYNTAX_FLAG_NESTED;
-    return rq__scope(query, nd, e);
 }

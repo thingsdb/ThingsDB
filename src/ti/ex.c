@@ -23,6 +23,14 @@ ex_t * ex_use(void)
     return &ex__e;
 }
 
+void ex_init(ex_t * e)
+{
+    e->nr = 0;
+    e->n = 0;
+    e->msg[0] = '\0';
+    e->msg[EX_MAX_SZ] = '\0';
+}
+
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
 {
     va_list args;

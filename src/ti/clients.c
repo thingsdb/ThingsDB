@@ -211,22 +211,26 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
-    qp_obj_t name, pass;
+    qp_obj_t name, pass, token;
     ti_user_t * user;
     ex_t * e = ex_use();
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
-    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_raw(qp_next(&unpacker, &name)) ||
-            !qp_is_raw(qp_next(&unpacker, &pass)))
+    if (    !qp_is_raw(qp_next(&unpacker, &token)) && (
+                !qp_is_array(token.tp) ||
+                !qp_is_raw(qp_next(&unpacker, &name)) ||
+                !qp_is_raw(qp_next(&unpacker, &pass))))
     {
         ex_set(e, EX_BAD_DATA, "invalid authentication request");
         log_error("%s from `%s`", e->msg, ti_stream_name(stream));
         resp = ti_pkg_client_err(pkg->id, e);
         goto finish;
     }
-    user = ti_users_auth(&name, &pass, e);
+
+    user = qp_is_raw(token.tp)
+            ? ti_users_auth_by_token(&token, e)
+            : ti_users_auth(&name, &pass, e);
     if (e->nr)
     {
         assert (user == NULL);

@@ -55,6 +55,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     {
     case 'a':
         syntax__cev_fn(q, nd, "add", TI_FN_ADD, true);
+        syntax__nev_fn(q, nd, "array", TI_FN_ARRAY, true);
         syntax__nev_fn(q, nd, "assert", TI_FN_ASSERT, true);
         break;
     case 'b':
@@ -70,6 +71,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     case 'd':
         syntax__cev_fn(q, nd, "del", TI_FN_DEL, true);
         syntax__tev_fn(q, nd, "del_collection", TI_FN_DEL_COLLECTION, true);
+        syntax__tev_fn(q, nd, "del_expired", TI_FN_DEL_EXPIRED, false);
+        syntax__tev_fn(q, nd, "del_token", TI_FN_DEL_TOKEN, true);
         syntax__tev_fn(q, nd, "del_user", TI_FN_DEL_USER, true);
         break;
     case 'e':
@@ -122,6 +125,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "now", TI_FN_NOW, false);
         syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION, true);
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
+        syntax__tev_fn(q, nd, "new_token", TI_FN_NEW_TOKEN, true);
         syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER, true);
         syntax__zev_fn(q, nd, "node", TI_FN_NODE, true);
         syntax__zev_fn(q, nd, "nodes", TI_FN_NODES, false);

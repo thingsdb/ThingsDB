@@ -42,6 +42,29 @@ static int rjob__del_collection(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: after_is
+ */
+static int rjob__del_expired(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    uint64_t after_ts;
+    qp_obj_t qp_after_ts;
+
+    if (!qp_is_int(qp_next(unp, &qp_after_ts)))
+    {
+        log_critical("job `del_expired`: invalid format");
+        return -1;
+    }
+
+    after_ts = (uint64_t) qp_after_ts.via.int64;
+
+    ti_users_del_expired(after_ts);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: id
  */
 static int rjob__del_user(qp_unpacker_t * unp)
@@ -138,11 +161,13 @@ static int rjob__grant(qp_unpacker_t * unp)
 static int rjob__new_collection(qp_unpacker_t * unp)
 {
     assert (unp);
-    ex_t * e = ex_use();
+    ex_t e;
     qp_obj_t qp_name, qp_user, qp_root;
     uint64_t user_id, root_id;
     ti_user_t * user;
     ti_collection_t * collection;
+
+    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: name */
@@ -171,10 +196,10 @@ static int rjob__new_collection(qp_unpacker_t * unp)
             (const char *) qp_name.via.raw,
             qp_name.len,
             user,
-            e);
+            &e);
     if (!collection)
     {
-        log_critical("job `new_collection`: %s", e->msg);
+        log_critical("job `new_collection`: %s", e.msg);
         return -1;
     }
 
@@ -249,25 +274,76 @@ static int rjob__new_node(ti_event_t * ev, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'id': id, 'username':value, 'password':value}
+ * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
+ */
+static int rjob__new_token(qp_unpacker_t * unp)
+{
+    assert (unp);
+    ex_t e;
+    qp_obj_t qp_user, qp_key, qp_expire, qp_desc;
+    uint64_t user_id;
+    ti_user_t * user;
+    ti_token_t * token;
+
+    ex_init(&e);
+
+    if (    !qp_is_map(qp_next(unp, NULL)) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
+            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: id */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: key */
+            !qp_is_raw(qp_next(unp, &qp_key)) ||        /* value: key */
+            qp_key.len != sizeof(ti_token_key_t) ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: expire_ts */
+            !qp_is_int(qp_next(unp, &qp_expire)) ||     /* value: expire_ts */
+            qp_expire.via.int64 < 0 ||
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: description */
+            !qp_is_raw(qp_next(unp, &qp_desc)))         /* value: description */
+    {
+        log_critical("job `new_token`: invalid format");
+        return -1;
+    }
+
+    user_id = (uint64_t) qp_user.via.int64;
+    user = ti_users_get_by_id(user_id);
+    if (!user)
+    {
+        log_critical("job `new_token`: "TI_USER_ID" not found", user_id);
+        return -1;
+    }
+
+    token = ti_token_create(
+            (ti_token_key_t *) qp_key.via.raw,
+            qp_expire.via.int64,
+            (const char *) qp_desc.via.raw,
+            qp_desc.len);
+    if (!token || ti_user_add_token(user, token))
+    {
+        ti_token_destroy(token);
+        log_critical(EX_ALLOC_S);
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id': id, 'username':value}
  */
 static int rjob__new_user(qp_unpacker_t * unp)
 {
     assert (unp);
-    int rc = -1;
-    ex_t * e = ex_use();
-    qp_obj_t qp_id, qp_name, qp_pass;
+    ex_t e;
+    qp_obj_t qp_id, qp_name;
     uint64_t user_id;
-    char * encrypted;
 
+    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
             !qp_is_int(qp_next(unp, &qp_id)) ||         /* value: id */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: username */
-            !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value: username */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
-            !qp_is_raw(qp_next(unp, &qp_pass)))         /* value: password */
+            !qp_is_raw(qp_next(unp, &qp_name)))         /* value: username */
     {
         log_critical("job `new_user`: invalid format");
         return -1;
@@ -275,29 +351,18 @@ static int rjob__new_user(qp_unpacker_t * unp)
 
     user_id = (uint64_t) qp_id.via.int64;
 
-    encrypted = qpx_obj_raw_to_str(&qp_pass);
-    if (!encrypted)
-    {
-        log_critical(EX_ALLOC_S);
-        return -1;
-    }
-
     if (!ti_users_load_user(
             user_id,
             (const char *) qp_name.via.raw,
             qp_name.len,
-            encrypted,
-            e))
+            NULL,
+            &e))
     {
-        log_critical("job `new_user`: %s", e->msg);
-        goto done;
+        log_critical("job `new_user`: %s", e.msg);
+        return -1;
     }
 
-    rc = 0;
-
-done:
-    free(encrypted);
-    return rc;
+    return 0;
 }
 
 /*
@@ -346,11 +411,13 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
 {
     assert (unp);
 
-    ex_t * e = ex_use();
+    ex_t e;
     ti_collection_t * collection;
     uint64_t id;
     qp_obj_t qp_id, qp_name;
     ti_raw_t * rname;
+
+    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -375,16 +442,16 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
-        ex_set_alloc(e);
+        ex_set_alloc(&e);
         return -1;
     }
 
-    assert (e->nr == 0);
+    assert (e.nr == 0);
 
-    (void) ti_collection_rename(collection, rname, e);
+    (void) ti_collection_rename(collection, rname, &e);
     ti_val_drop((ti_val_t *) rname);
 
-    return e->nr;
+    return e.nr;
 }
 
 /*
@@ -395,11 +462,13 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 {
     assert (unp);
 
-    ex_t * e = ex_use();
+    ex_t e;
     ti_user_t * user;
     uint64_t id;
     qp_obj_t qp_id, qp_name;
     ti_raw_t * rname;
+
+    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -423,16 +492,16 @@ static int rjob__rename_user(qp_unpacker_t * unp)
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
-        ex_set_alloc(e);
+        ex_set_alloc(&e);
         return -1;
     }
 
-    assert (e->nr == 0);
+    assert (e.nr == 0);
 
-    ti_user_rename(user, rname, e);
+    ti_user_rename(user, rname, &e);
     ti_val_drop((ti_val_t *) rname);
 
-    return e->nr;
+    return e.nr;
 }
 
 /*
@@ -447,10 +516,12 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 static int rjob__replace_node(ti_event_t * ev, qp_unpacker_t * unp)
 {
     assert (unp);
-    ex_t * e = ex_use();
+    ex_t e;
     qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
     uint8_t node_id;
     ti_node_t * node;
+
+    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -490,10 +561,10 @@ static int rjob__replace_node(ti_event_t * ev, qp_unpacker_t * unp)
     node->port = (uint16_t) qp_port.via.int64;
     memcpy(node->secret, qp_secret.via.raw, qp_secret.len);
 
-    if (ti_node_update_sockaddr(node, e) == 0)
+    if (ti_node_update_sockaddr(node, &e) == 0)
         ev->flags |= TI_EVENT_FLAG_SAVE;
 
-    return e->nr;
+    return e.nr;
 }
 
 /*
@@ -555,7 +626,7 @@ static int rjob__revoke(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'id':user_id, 'password': encpass}
+ * - for example: {'id':user_id, 'password': encpass/null}
  */
 static int rjob__set_password(qp_unpacker_t * unp)
 {
@@ -563,13 +634,15 @@ static int rjob__set_password(qp_unpacker_t * unp)
     qp_obj_t qp_user, qp_pass;
     uint64_t user_id;
     ti_user_t * user;
-    char * encrypted;
+    char * encrypted = NULL;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
             !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: id */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
-            !qp_is_raw(qp_next(unp, &qp_pass)))         /* value: password */
+            (   !qp_is_raw(qp_next(unp, &qp_pass)) &&   /* value: password */
+                !qp_is_null(qp_pass.tp)                 /*        or null */
+            ))
     {
         log_critical("job `set_password`: invalid format");
         return -1;
@@ -583,11 +656,14 @@ static int rjob__set_password(qp_unpacker_t * unp)
         return -1;
     }
 
-    encrypted = qpx_obj_raw_to_str(&qp_pass);
-    if (!encrypted)
+    if (qp_is_raw(qp_pass.tp))
     {
-        log_critical(EX_ALLOC_S);
-        return -1;
+        encrypted = qpx_obj_raw_to_str(&qp_pass);
+        if (!encrypted)
+        {
+            log_critical(EX_ALLOC_S);
+            return -1;
+        }
     }
 
     free(user->encpass);
@@ -657,6 +733,8 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
     case 'd':
         if (qpx_obj_eq_str(&qp_job_name, "del_collection"))
             return rjob__del_collection(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "del_expired"))
+            return rjob__del_expired(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_user"))
             return rjob__del_user(unp);
         break;
@@ -669,6 +747,8 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
             return rjob__new_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_node"))
             return rjob__new_node(ev, unp);
+        if (qpx_obj_eq_str(&qp_job_name, "new_token"))
+            return rjob__new_token(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_user"))
             return rjob__new_user(unp);
         break;

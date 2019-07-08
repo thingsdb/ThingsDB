@@ -7,10 +7,10 @@
 enum
 {
     TI_SYNTAX_FLAG_EVENT        =1<<0,
-    TI_SYNTAX_FLAG_NESTED       =1<<1,
-    TI_SYNTAX_FLAG_NODE         =1<<2,
-    TI_SYNTAX_FLAG_THINGSDB     =1<<3,
-    TI_SYNTAX_FLAG_COLLECTION   =1<<4,
+    TI_SYNTAX_FLAG_NODE         =1<<1,
+    TI_SYNTAX_FLAG_THINGSDB     =1<<2,
+    TI_SYNTAX_FLAG_COLLECTION   =1<<3,
+//    TI_SYNTAX_FLAG_NESTED       =1<<1,
 };
 
 typedef struct ti_syntax_s ti_syntax_t;

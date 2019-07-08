@@ -59,6 +59,7 @@ void ti_quorum_go(ti_quorum_t * quorum)
 void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
 {
     ti_quorum_t * quorum = req->data;
+    ++quorum->n;
     if (status == 0)
     {
         switch (req->pkg_res->tp)

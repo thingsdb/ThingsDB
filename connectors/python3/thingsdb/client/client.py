@@ -25,8 +25,7 @@ class Client(Buildin):
 
     def __init__(self, auto_reconnect=True, loop=None):
         self._loop = loop if loop else asyncio.get_event_loop()
-        self._username = None
-        self._password = None
+        self._auth = None
         self._pool = None
         self._protocol = None
         self._requests = {}
@@ -43,7 +42,7 @@ class Client(Buildin):
     def is_connected(self) -> bool:
         return bool(self._protocol and self._protocol.transport)
 
-    async def connect_pool(self, pool, username, password) -> None:
+    async def connect_pool(self, pool, auth) -> None:
         """Connect using a connection pool.
 
         Argument `pool` should be an iterable with node address strings, or
@@ -62,7 +61,7 @@ class Client(Buildin):
             'node01.local',             # address as string
             'node02.local',             # port will default to 9200
             ('node03.local', 9201),     # ..or with an eplicit/alternative port
-        ])
+        ], )
         ```
         """
         assert self.is_connected() is False
@@ -70,12 +69,22 @@ class Client(Buildin):
         self._pool = tuple((
             (address, 9200) if isinstance(address, str) else address
             for address in pool))
-        self._username = username
-        self._password = password
-
+        self._auth = self._auth_check(auth)
         self._pool = tuple(pool)
         self._pool_idx = random.randint(0, len(pool) - 1)
         await self.reconnect()
+
+    @staticmethod
+    def _auth_check(auth):
+        assert ((
+            isinstance(auth, (list, tuple)) and
+            len(auth) == 2 and
+            isinstance(auth[0], str) and
+            isinstance(auth[1], str)
+        ) or (
+            isinstance(auth, str)
+        )), 'expecting an auth token string or [username, password]'
+        return auth
 
     async def connect(self, host, port=9200, timeout=5) -> None:
         assert self.is_connected() is False
@@ -188,9 +197,8 @@ class Client(Buildin):
         if self._protocol and self._protocol.close_future:
             await self._protocol.close_future
 
-    async def authenticate(self, username, password, timeout=5):
-        self._username = username
-        self._password = password
+    async def authenticate(self, auth, timeout=5):
+        self._auth = self._auth_check(auth)
         await self._authenticate(timeout)
 
         if self._reconnect:
@@ -199,7 +207,7 @@ class Client(Buildin):
     async def _authenticate(self, timeout):
         future = self._write_package(
             REQ_AUTH,
-            data=(self._username, self._password),
+            data=self._auth,
             timeout=timeout)
         await future
 

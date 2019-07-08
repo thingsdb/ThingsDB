@@ -607,6 +607,32 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
+int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
+{
+    switch((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_CLOSURE:
+        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_ARR_S"`",
+                ti_val_str(*val));
+        break;
+    case TI_VAL_ARR:
+        break;
+    case TI_VAL_SET:
+        if (ti_vset_to_list((ti_vset_t **) val))
+            ex_set_alloc(e);
+        break;
+    }
+    return e->nr;
+}
+
 int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
 {
     switch((ti_val_enum) (*val)->tp)

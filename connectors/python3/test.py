@@ -19,31 +19,26 @@ osdata = None
 
 requires GRANT
 
-add_token('iris', nil, 'used for bla bla')
+new_token('iris', nil, 'used for bla bla')
 
 token: x-charater str
 issue_date:  ts
 expire_date: nil
 
 
-tokens
+Tokens
+
+del_token('key)
+REQUIRES --> GRANT on ThingsDB scope
+TASK --> del_token(key)
+
+del_expired()  /* removes all expired tokens */
+REQUIRES --> GRANT on ThingsDB scope
+--> del_expired(ts)
 
 
-missing functions:
-  isnil --> returns true if the given value == nil
-  isthing --> return `true` if the given value is a `thing`
-  type  --> returns a string for the given type
-  set   --> create a new `set` value, or convert from given array
-  add   --> adds a thing to a set
-  has   --> returns `true` if is contains a given thing or id
-  find  --> on set, reurns the `first` thing when a given closure
-            evaluates to true
-  pop   --> on set, some "random" thing is popped, or by a given thing or id
-            and `nil` is re
-  remove--> on set, by closure
-  array --> convert to array (al least a `set`)
 
-
+## Handlers
 
 client.new_handle(
     name='new_label',

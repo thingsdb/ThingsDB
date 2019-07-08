@@ -9,9 +9,11 @@
 #include <ti/auth.h>
 #include <ti/proto.h>
 #include <ti/users.h>
+#include <ti/token.h>
 #include <util/cryptx.h>
 #include <util/logger.h>
 #include <util/qpx.h>
+#include <util/util.h>
 #include <util/vec.h>
 
 static ti_users_t * users = NULL;
@@ -56,10 +58,10 @@ ti_user_t * ti_users_new_user(
     if (!ti_user_name_check(name, n, e))
         goto done;
 
-    if (!ti_user_pass_check(passstr, e))
+    if (passstr && !ti_user_pass_check(passstr, e))
         goto done;
 
-    user = ti_user_create(ti_next_thing_id(), name, n, "");
+    user = ti_user_create(ti_next_thing_id(), name, n, NULL);
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
@@ -150,8 +152,15 @@ void ti_users_del_user(ti_user_t * user)
     }
 }
 
+/*
+ * Both `name` and `pass` must have been checked to be of `raw` type.
+ * Returns a `borrowed` user or NULL if not found and `e` is set.
+ */
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 {
+    assert (qp_is_raw(name->tp));
+    assert (qp_is_raw(pass->tp));
+
     char passbuf[ti_max_pass];
     char pw[CRYPTX_SZ];
 
@@ -165,6 +174,9 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
     {
         if (qpx_obj_eq_raw(name, user->name))
         {
+            if (!user->encpass)
+                goto failed;
+
             memcpy(passbuf, pass->via.raw, pass->len);
             passbuf[pass->len] = '\0';
 
@@ -177,6 +189,38 @@ ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
 
 failed:
     ex_set(e, EX_AUTH_ERROR, "invalid username or password");
+    return NULL;
+}
+
+/*
+ * Returns a `borrowed` user or NULL if not found and `e` is set.
+ */
+ti_user_t * ti_users_auth_by_token(qp_obj_t * qp_token, ex_t * e)
+{
+    uint64_t now_ts = util_now_tsec();
+    const size_t key_sz = sizeof(ti_token_key_t);
+
+    if (!qp_is_raw(qp_token->tp) || qp_token->len != key_sz)
+        goto invalid;
+
+    for (vec_each(users->vec, ti_user_t, user))
+    {
+        for (vec_each(user->tokens, ti_token_t, token))
+        {
+            if (memcmp(token->key, qp_token->via.raw, key_sz) == 0)
+            {
+                if (token->expire_ts && token->expire_ts < now_ts)
+                    goto expired;
+                return user;
+            }
+        }
+    }
+    /* bubble down to `invalid token` if not found */
+invalid:
+    ex_set(e, EX_AUTH_ERROR, "invalid token");
+    return NULL;
+expired:
+    ex_set(e, EX_AUTH_ERROR, "token is expired"TI_SEE_DOC("#del_expired"));
     return NULL;
 }
 
@@ -221,4 +265,18 @@ fail:
     return (ti_val_t *) rusers;
 }
 
+void ti_users_del_expired(uint64_t after_ts)
+{
+    for (vec_each(users->vec, ti_user_t, user))
+        ti_user_del_expired(user, after_ts);
+}
+
+ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key)
+{
+    ti_token_t * token;
+    for (vec_each(users->vec, ti_user_t, user))
+        if ((token = ti_user_pop_token_by_key(user, key)))
+            return token;
+    return NULL;
+}
 

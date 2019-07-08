@@ -26,7 +26,7 @@ typedef enum
      * 32..63 client requests
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
-    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [username, password]             */
+    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
     TI_PROTO_CLIENT_REQ_QUERY_NODE          =34,    /* {query:...}   */
     TI_PROTO_CLIENT_REQ_QUERY_THINGSDB      =35,    /* {query:...}   */
     TI_PROTO_CLIENT_REQ_QUERY_COLLECTION    =36,    /* { collection:..

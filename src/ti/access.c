@@ -6,7 +6,49 @@
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/users.h>
+#include <ti.h>
 #include <util/logger.h>
+
+/*
+ * Helper function to add more info to an authentication (forbidden) error.
+ */
+static void access__helper_str(
+        const vec_t * access,
+        char ** prefix,
+        char ** name,
+        size_t * name_sz)
+{
+    if (access == ti()->access_thingsdb)
+    {
+        *prefix = "scope";
+        *name = ":thingsdb";
+        *name_sz = strlen(":thingsdb");
+        return;
+    }
+
+    if (access == ti()->access_node)
+    {
+        *prefix = "scope";
+        *name = ":node";
+        *name_sz = strlen(":node");
+        return;
+    }
+
+    *prefix = "collection";
+
+    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    {
+        if (access == collection->access)
+        {
+            *name = (char *) collection->name->data;
+            *name_sz = collection->name->n;
+            return;
+        }
+    }
+
+    *name = "unknown";
+    *name_sz = strlen("unknown");
+}
 
 int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
 {
@@ -52,7 +94,9 @@ _Bool ti_access_check(const vec_t * access, ti_user_t * user, uint64_t mask)
     return false;
 }
 
-/* Return 0 if the user has the required privileges or EX_FORBIDDEN if not
+
+/*
+ * Return 0 if the user has the required privileges or EX_FORBIDDEN if not
  * with e->msg set
  */
 int ti_access_check_err(
@@ -62,13 +106,24 @@ int ti_access_check_err(
         ex_t * e)
 {
     assert (e->nr == 0);
+
     if (!ti_access_check(access, user, mask))
+    {
+        char * prefix, * name;
+        size_t name_sz;
+        access__helper_str(access, &prefix, &name, &name_sz);
+
         ex_set(e, EX_FORBIDDEN,
-                "user `%.*s` is missing the required privileges (`%s`)",
+                "user `%.*s` is missing the required privileges (`%s`) "
+                "on %s `%.*s`"TI_SEE_DOC("#grant"),
                 (int) user->name->n, (char *) user->name->data,
-                ti_auth_mask_to_str(mask));
+                ti_auth_mask_to_str(mask),
+                prefix,
+                name_sz, name);
+    }
     return e->nr;
 }
+
 
 
 

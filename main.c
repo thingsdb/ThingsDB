@@ -57,8 +57,6 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    log_debug("running with cleri version: %s", cleri_version());
-
     rc = ti_cfg_parse(ti()->args->config);
     if (rc)
         goto stop;

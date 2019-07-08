@@ -59,6 +59,10 @@ class TestCollectionFunctions(TestBase):
                 'You might want to query the `node` scope?'):
             await client.query('counters();')
 
+        self.assertIs(await client.query(r'''
+
+        '''), None)
+
     async def test_add(self, client):
         await client.query(r's = set(); a = {}; b = {}; c = {};')
         self.assertEqual(await client.query('[s.add(a, b), s.len()]'), [2, 2])
@@ -69,6 +73,26 @@ class TestCollectionFunctions(TestBase):
                 BadRequestError,
                 'cannot add type `nil` to a set'):
             await client.query(r's.add(a, b, {}, nil);')
+
+    async def test_array(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `array`'):
+            await client.query('nil.array();')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `array` takes at most 1 argument but 2 were given'):
+            await client.query('array(1, 2);')
+
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'cannot convert type `nil` to `array`'):
+            await client.query('array(nil);')
+
+        self.assertEqual(await client.query('array();'), [])
+        self.assertEqual(await client.query('array( [] );'), [])
+        self.assertEqual(await client.query(r'array(set([{}]));'), [{'#': 0}])
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(

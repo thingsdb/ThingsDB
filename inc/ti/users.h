@@ -29,10 +29,12 @@ ti_user_t * ti_users_load_user(
 int ti_users_clear(void);
 void ti_users_del_user(ti_user_t * user);
 ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e);
+ti_user_t * ti_users_auth_by_token(qp_obj_t * qp_token, ex_t * e);
 ti_user_t * ti_users_get_by_id(uint64_t id);
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n);
 ti_val_t * ti_users_as_qpval(void);
-
+void ti_users_del_expired(uint64_t after_ts);
+ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key);
 
 struct ti_users_s
 {

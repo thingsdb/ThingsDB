@@ -206,10 +206,10 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             rq__is_not_thingsdb(query, fname, e) ||
             rq__f_set_password(query, params, e)
         );
-    case TI_FN_SET_LOGLEVEL:
+    case TI_FN_SET_LOG_LEVEL:
         return (
             rq__is_not_node(query, fname, e) ||
-            rq__f_set_loglevel(query, params, e)
+            rq__f_set_log_level(query, params, e)
         );
     case TI_FN_SET_QUOTA:
         return (

@@ -647,11 +647,11 @@ int ti_node_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, ti_.archive->archfiles->n) ||
         qp_add_raw_from_str(*packer, "local_stored_event_id") ||
         qp_add_int(*packer, ti_.node->sevid) ||
-        qp_add_raw_from_str(*packer, "local_commited_event_id") ||
+        qp_add_raw_from_str(*packer, "local_committed_event_id") ||
         qp_add_int(*packer, ti_.node->cevid) ||
         qp_add_raw_from_str(*packer, "global_stored_event_id") ||
         qp_add_int(*packer, ti_nodes_sevid()) ||
-        qp_add_raw_from_str(*packer, "global_commited_event_id") ||
+        qp_add_raw_from_str(*packer, "global_committed_event_id") ||
         qp_add_int(*packer, ti_nodes_cevid()) ||
         qp_add_raw_from_str(*packer, "db_stored_event_id") ||
         qp_add_int(*packer, ti_.store->last_stored_event_id) ||

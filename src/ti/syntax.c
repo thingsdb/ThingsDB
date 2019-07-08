@@ -156,7 +156,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "str", TI_FN_STR, true);
         syntax__tev_fn(q, nd, "set_password", TI_FN_SET_PASSWORD, true);
         syntax__tev_fn(q, nd, "set_quota", TI_FN_SET_QUOTA, true);
-        syntax__zev_fn(q, nd, "set_loglevel", TI_FN_SET_LOGLEVEL, true);
+        syntax__zev_fn(q, nd, "set_log_level", TI_FN_SET_LOG_LEVEL, true);
         syntax__zev_fn(q, nd, "shutdown", TI_FN_SHUTDOWN, false);
         break;
     case 't':

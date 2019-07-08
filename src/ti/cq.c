@@ -261,7 +261,7 @@ static int cq__function(
     case TI_FN_NODE:
     case TI_FN_NODES:
     case TI_FN_RESET_COUNTERS:
-    case TI_FN_SET_LOGLEVEL:
+    case TI_FN_SET_LOG_LEVEL:
     case TI_FN_SHUTDOWN:
         ex_set(e, EX_INDEX_ERROR,
                 "function `%.*s` is undefined in the `collection` scope; "

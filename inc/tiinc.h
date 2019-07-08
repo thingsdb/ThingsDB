@@ -159,7 +159,7 @@ typedef enum
     TI_FN_NODE,
     TI_FN_NODES,
     TI_FN_RESET_COUNTERS,
-    TI_FN_SET_LOGLEVEL,
+    TI_FN_SET_LOG_LEVEL,
     TI_FN_SHUTDOWN,
 } ti_fn_enum_t;
 

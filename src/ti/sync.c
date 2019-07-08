@@ -16,6 +16,7 @@ enum
 };
 
 static ti_sync_t * sync_;
+static ti_sync_t sync__;
 
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat));
 static void sync__destroy(uv_handle_t * UNUSED(handle));
@@ -25,9 +26,7 @@ static void sync__finish(void);
 
 int ti_sync_create(void)
 {
-    sync_ = malloc(sizeof(ti_nodes_t));
-    if (!sync_)
-        return -1;
+    sync_ = &sync__;
 
     sync_->repeat = malloc(sizeof(uv_timer_t));
     sync_->status = SYNC__STAT_INIT;
@@ -91,7 +90,6 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
     {
         ti_node_drop(sync_->node);
         free(sync_->repeat);
-        free(sync_);
     }
     sync_ = ti()->sync = NULL;
 }

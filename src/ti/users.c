@@ -16,13 +16,12 @@
 #include <util/util.h>
 #include <util/vec.h>
 
-static ti_users_t * users = NULL;
+static ti_users_t * users;
+static ti_users_t users_;
 
 int ti_users_create(void)
 {
-    users = malloc(sizeof(ti_users_t));
-    if (!users)
-        goto failed;
+    users = &users_;
 
     users->vec = vec_new(1);
     if (!users->vec)
@@ -32,7 +31,6 @@ int ti_users_create(void)
     return 0;
 
 failed:
-    free(users);
     users = NULL;
     return -1;
 }
@@ -42,7 +40,6 @@ void ti_users_destroy(void)
     if (!users)
         return;
     vec_destroy(users->vec, (vec_destroy_cb) ti_user_drop);
-    free(users);
     ti()->users = users = NULL;
 }
 

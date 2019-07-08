@@ -14,13 +14,12 @@
 #include <ti.h>
 #include <util/vec.h>
 
-static ti_collections_t * collections = NULL;
+static ti_collections_t * collections;
+static ti_collections_t collections_;
 
 int ti_collections_create(void)
 {
-    collections = malloc(sizeof(ti_collections_t));
-    if (!collections)
-        return -1;
+    collections = &collections_;
 
     collections->vec = vec_new(1);
     collections->dropped = vec_new(1);
@@ -48,7 +47,6 @@ void ti_collections_destroy(void)
     assert (collections->dropped->n == 0);
     vec_destroy(collections->dropped, NULL);
 
-    free(collections);
     ti()->collections = collections = NULL;
 }
 

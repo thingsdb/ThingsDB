@@ -27,6 +27,7 @@
 #define EVENTS__MAX_ID_GAP  10000
 
 static ti_events_t * events;
+static ti_events_t events_;
 
 static void events__destroy(uv_handle_t * UNUSED(handle));
 static void events__new_id(ti_event_t * ev);
@@ -43,9 +44,7 @@ static inline _Bool events__max_id_gap(uint64_t event_id);
  */
 int ti_events_create(void)
 {
-    events = ti()->events = malloc(sizeof(ti_events_t));
-    if (!events)
-        goto failed;
+    events = &events_;
 
     events->is_started = false;
     events->queue = queue_new(4);
@@ -62,6 +61,7 @@ int ti_events_create(void)
     if (!events->queue || !events->evloop)
         goto failed;
 
+    ti()->events = events;
     return 0;
 
 failed:
@@ -318,7 +318,6 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     uv_mutex_destroy(events->lock);
     free(events->lock);
     free(events->evloop);
-    free(events);
     events = ti()->events = NULL;
 }
 

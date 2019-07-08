@@ -7,6 +7,11 @@
 #include <util/logger.h>
 
 static struct timespec util__now;
+static const char util__charset[63] = \
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+        "abcdefghijklmnopqrstuvwxyz" \
+        "0123456789";
+static const int uril__charset_sz = (sizeof(util__charset) - 1);
 
 double util_now(void)
 {
@@ -22,15 +27,10 @@ uint64_t util_now_tsec(void)
 
 void util_random_key(char * buf, size_t n)
 {
-    const char charset[] = \
-            "abcdefghijklmnopqrstuvwxyz" \
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
-            "0123456789";
-    const int sz = (sizeof(charset) - 1);
-    int key;
+    int idx;
     while (n--)
     {
-        key = rand() % sz;
-        buf[n] = charset[key];
+        idx = rand() % uril__charset_sz;
+        buf[n] = util__charset[idx];
     }
 }

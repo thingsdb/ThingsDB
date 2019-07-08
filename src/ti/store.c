@@ -30,6 +30,7 @@ static const char * store__names_fn             = "names.qp";
 static const char * store__users_fn             = "users.qp";
 
 static ti_store_t * store;
+static ti_store_t store_;
 
 static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
 {
@@ -74,9 +75,7 @@ int ti_store_create(void)
 {
     char * storage_path = ti()->cfg->storage_path;
     assert (storage_path);
-    store = malloc(sizeof(ti_store_t));
-    if (!store)
-        goto fail0;
+    store = &store_;
 
     /* path names */
     store->tmp_path = fx_path_join(storage_path, store__tmp_path);
@@ -122,7 +121,6 @@ int ti_store_create(void)
 fail1:
     ti_store_destroy();
 fail0:
-    free(store);
     store = NULL;
     return -1;
 }
@@ -142,8 +140,7 @@ void ti_store_destroy(void)
     free(store->names_fn);
     free(store->users_fn);
     vec_destroy(store->collection_ids, free);
-    free(store);
-    store = NULL;
+    ti()->store = store = NULL;
 }
 
 /*

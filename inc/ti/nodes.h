@@ -59,7 +59,6 @@ struct ti_nodes_s
     char * status_fn;       /* this file contains the last known committed
                                and stored event id's by ALL nodes, and the
                                lowest known syntax version */
-
 };
 
 #endif /* TI_NODES_H_ */

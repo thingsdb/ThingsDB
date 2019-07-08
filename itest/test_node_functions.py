@@ -67,6 +67,72 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["longest_event_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
 
+    async def test_node(self, client):
+        with self.assertRaisesRegex(
+                BadRequestError,
+                'function `node` takes 0 arguments but 1 was given'):
+            await client.query('node(nil);')
+
+        node = await client.query('node();')
+
+        self.assertEqual(len(node), 27)
+
+        self.assertIn("node_id", node)
+        self.assertIn("version", node)
+        self.assertIn("syntax_version", node)
+        self.assertIn("libqpack_version", node)
+        self.assertIn("libcleri_version", node)
+        self.assertIn("libuv_version", node)
+        self.assertIn("libpcre2_version", node)
+        self.assertIn("status", node)
+        self.assertIn("zone", node)
+        self.assertIn("log_level", node)
+        self.assertIn("hostname", node)
+        self.assertIn("client_port", node)
+        self.assertIn("node_port", node)
+        self.assertIn("ip_support", node)
+        self.assertIn("storage_path", node)
+        self.assertIn("uptime", node)
+        self.assertIn("events_in_queue", node)
+        self.assertIn("archived_in_memory", node)
+        self.assertIn("archive_files", node)
+        self.assertIn("local_stored_event_id", node)
+        self.assertIn("local_commited_event_id", node)
+        self.assertIn("global_stored_event_id", node)
+        self.assertIn("global_commited_event_id", node)
+        self.assertIn("db_stored_event_id", node)
+        self.assertIn("next_event_id", node)
+        self.assertIn("next_thing_id", node)
+        self.assertIn("cached_names", node)
+
+        self.assertTrue(isinstance(node["node_id"], int))
+        self.assertTrue(isinstance(node["version"], str))
+        self.assertTrue(isinstance(node["syntax_version"], str))
+        self.assertTrue(isinstance(node["libqpack_version"], str))
+        self.assertTrue(isinstance(node["libcleri_version"], str))
+        self.assertTrue(isinstance(node["libuv_version"], str))
+        self.assertTrue(isinstance(node["libpcre2_version"], str))
+        self.assertTrue(isinstance(node["status"], str))
+        self.assertTrue(isinstance(node["zone"], int))
+        self.assertTrue(isinstance(node["log_level"], str))
+        self.assertTrue(isinstance(node["hostname"], str))
+        self.assertTrue(isinstance(node["client_port"], int))
+        self.assertTrue(isinstance(node["node_port"], int))
+        self.assertTrue(isinstance(node["ip_support"], str))
+        self.assertTrue(isinstance(node["storage_path"], str))
+        self.assertTrue(isinstance(node["uptime"], float))
+        self.assertTrue(isinstance(node["events_in_queue"], int))
+        self.assertTrue(isinstance(node["archived_in_memory"], int))
+        self.assertTrue(isinstance(node["archive_files"], int))
+        self.assertTrue(isinstance(node["local_stored_event_id"], int))
+        self.assertTrue(isinstance(node["local_commited_event_id"], int))
+        self.assertTrue(isinstance(node["global_stored_event_id"], int))
+        self.assertTrue(isinstance(node["global_commited_event_id"], int))
+        self.assertTrue(isinstance(node["db_stored_event_id"], int))
+        self.assertTrue(isinstance(node["next_event_id"], int))
+        self.assertTrue(isinstance(node["next_thing_id"], int))
+        self.assertTrue(isinstance(node["cached_names"], int))
+
     async def test_reset_counters(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,

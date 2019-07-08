@@ -8,15 +8,13 @@
 #include <util/util.h>
 
 static ti_counters_t * counters;
+static ti_counters_t counters_;
 
 int ti_counters_create(void)
 {
-    counters = malloc(sizeof(ti_counters_t));
-    if (!counters)
-        return -1;
+    counters = &counters_;
 
     ti_counters_reset();
-
     ti()->counters = counters;
 
     return 0;
@@ -24,7 +22,6 @@ int ti_counters_create(void)
 
 void ti_counters_destroy(void)
 {
-    free(counters);
     counters = ti()->counters = NULL;
 }
 

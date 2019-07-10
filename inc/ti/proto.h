@@ -36,8 +36,8 @@ typedef enum
                                                          all: true/false
                                                        }
                                                      */
-    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}           */
-    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}           */
+    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}       */
+    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}       */
 
     /*
      * 64..95 client responses

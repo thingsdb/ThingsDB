@@ -79,7 +79,9 @@ enum
 
 typedef enum
 {
-    TI_FN_0,                /* unknown function */
+    /* unknown function */
+    TI_FN_0,
+
     /* collection functions */
     TI_FN_ADD,
     TI_FN_ARRAY,

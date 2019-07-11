@@ -38,9 +38,7 @@ _Bool ti_name_is_valid_strn(const char * str, size_t n)
         return false;
 
     while(--n)
-    {
         if (!isalnum(str[n]) && str[n] != '_')
             return false;
-    }
     return true;
 }

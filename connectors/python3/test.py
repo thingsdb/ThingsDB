@@ -37,37 +37,57 @@ client.new_handle(
 ''')
 
 Requires: MODIFY
+new_procedure("
 
-new_procedure(
-    ".thingsdb",    /* collection or scope, ONLY thingsdb scope */
-    "new_user",     /* procedure name */
-    ["$name"],      /* arguments */
-    "new_user($name); add_token($name);"    /* body */
-)
+new_user_with_token ($name) {
+    new_user(
+        $name
+    );
+    new_token(
+        $name
+    );
+}
 
-del_procedure(
-    ".thingsdb",     /* collection or socpe */
-    "handler_name",  /* handler name */
-)
+");
+--> int
+123
 
-rename_procedure(
-    ".thingsdb",     /* collection or socpe */
-    "handler_name",  /* handler name */
-    "new_handler_name",  /* new_handler name */
-)
+del_procedure("new_user_with_token");
+--> nil
+
+rename_procedure("old", "new");
+--> nil
+
+procedure_def("name");
+--> raw
+"
+new_user_with_token ($name) {
+    new_user(
+        $name
+    );
+    new_token(
+        $name
+    );
+}
+"
+
+
+procedure_info();
+--> qpack
+{
+    procedure_id: 123,
+    name: 'blabla',
+    arguments: 3,
+    event: true/false
+}
+
+procedures_info();
+--> qpack
+[...]
 
 
 Running requires CALL
 [target, handle_name, args...]
-
-procedure(
-    ".thingsdb",
-    "name",
-)
-
-procedures(
-    ["collection_or_scope"]     /* if not given, .thingsdb scope */
-);
 
 
 """

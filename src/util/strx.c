@@ -226,7 +226,7 @@ _Bool strx_is_printablen(const char * str, size_t n)
 _Bool strx_is_asciin(const char * str, size_t n)
 {
     for (; n--; str++)
-        if (*str < 0)
+        if (*str <= 0)
             return false;
     return true;
 }

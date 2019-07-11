@@ -147,7 +147,8 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                     "function `new_token` expects argument 3 to be of "
-                    "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_TOKEN_DOC_,
+                    "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+                    NEW_TOKEN_DOC_,
                     ti_val_str(query->rval));
             return e->nr;
         }

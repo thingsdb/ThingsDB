@@ -138,10 +138,9 @@ class Definition(Grammar):
         Optional(chain),
     )
 
-    START = Sequence(
-        comment,
-        List(scope, delimiter=Sequence(';', comment)),
-    )
+    statements = List(scope, delimiter=Sequence(';', comment))
+
+    START = Sequence(comment, statements)
 
     @classmethod
     def translate(cls, elem):
@@ -151,8 +150,6 @@ class Definition(Grammar):
     def test(self, str):
         print('{} : {}'.format(
             str.strip(), self.parse(str).as_str(self.translate)))
-
-
 
 
 if __name__ == '__main__':

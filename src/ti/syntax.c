@@ -316,6 +316,18 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         syntax->flags |= flags;
         return;
     }
+    case CLERI_GID_STATEMENTS:
+    {
+        cleri_children_t * child = nd->children;
+        while(child)
+        {
+            ti_syntax_investigate(syntax, child->node);  /* scope */
+            if (!child->next)
+                break;
+            child = child->next->next;                  /* skip delimiter */
+        }
+        return;
+    }
     case CLERI_GID_INDEX:
         for (   cleri_children_t * child = nd->children;
                 child;
@@ -328,7 +340,9 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
     case CLERI_GID_TMP:
     case CLERI_GID_NAME:
     case CLERI_GID_O_NOT:
+        return;
     case CLERI_GID_COMMENT:
+        assert (0);  /* comment is already filtered */
         return;
     case CLERI_GID_PRIMITIVES:
         switch (nd->children->node->cl_obj->gid)

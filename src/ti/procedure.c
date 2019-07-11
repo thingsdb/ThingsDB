@@ -49,6 +49,7 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
 ti_procedure_t * ti_procedure_from_strn(const char * str, size_t n, ex_t * e)
 {
     size_t count;
+    cleri_parse_t * res = NULL;
     const char * start;
     const char * pt = str;
     ti_name_t * argname;
@@ -129,13 +130,56 @@ ti_procedure_t * ti_procedure_from_strn(const char * str, size_t n, ex_t * e)
         if (pt <= start)
             goto missing_end;
         --pt;
+        assert(n);  /* must be > 0 */
         --n;
         if (*pt == '}')
             break;
     }
 
+    procedure->body = strndup(start, n);
+    if (!procedure->body)
+        goto alloc_error;
 
 
+    res = cleri_parse2(
+            ti()->langdef,
+            procedure->body,
+            CLERI_FLAG_EXPECTING_DISABLED|
+            CLERI_FLAG_EXCLUDE_OPTIONAL);  /* only error position */
+    if (!res)
+        goto alloc_error;
+
+    if (!res->is_valid)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "cannot create procedure: error in body at position `%zd`"
+                TI_SEE_DOC("#new_procedure"),
+                ((size_t) (start - str)) + res->pos);
+        goto failed;
+    }
+
+    procedure->node = res->tree         /* root */
+            ->children->node            /* sequence <comment, list> */
+            ->children->next->node;     /* list statements */
+    /*
+     * The node will be destroyed when the procedure is destroyed, make sure
+     * it stays alive after the parse result is destroyed.
+     */
+    ++procedure->node->ref;
+
+    ti_syntax_investigate(&procedure->syntax, procedure->node);
+
+    if (procedure->syntax.nd_val_cache_n)
+    {
+        procedure->nd_val_cache = vec_new(procedure->syntax.nd_val_cache_n);
+        if (!procedure->nd_val_cache)
+            goto alloc_error;
+
+        ti_ncache_gen_primitives(procedure->nd_val_cache, procedure->node);
+    }
+
+    cleri_parse_free(res);
+    return procedure;
 
 invalid_name:
     ex_set(e, EX_BAD_DATA,
@@ -184,6 +228,8 @@ alloc_error:
     goto failed;
 
 failed:
+    if (res)
+        cleri_parse_free(res);
     ti_procedure_destroy(procedure);
     return NULL;
 }

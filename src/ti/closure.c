@@ -2,110 +2,22 @@
  * ti/closure.h
  */
 #include <assert.h>
-#include <util/logger.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
+#include <ti/ncache.h>
+#include <ti/regex.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <ti/regex.h>
+#include <util/logger.h>
 #include <util/strx.h>
 
-/*
- * Assigned closures require to own a `query` string, and they need to prepare
- * all the `primitives` cached values since a query which is using the closure
- * does not have space to store these. (and it improves the performance of
- * the closure)
- */
-typedef struct closure__ubound_s
-{
-    char * query;
-    vec_t * nd_val_cache;
-} closure__ubound_t;
-
-static closure__ubound_t * closure__ubound_create(char * query, size_t n)
-{
-    closure__ubound_t * ubound = malloc(sizeof(closure__ubound_t));
-    if (!ubound)
-        return NULL;
-
-    ubound->query = query;
-    ubound->nd_val_cache = vec_new(n);
-
-    if (!ubound->nd_val_cache)
-    {
-        free(ubound);
-        return NULL;
-    }
-
-    return ubound;
-}
-
-static void closure__ubound_destroy(closure__ubound_t * ubound)
-{
-    if (!ubound)
-        return;
-    vec_destroy(ubound->nd_val_cache, (vec_destroy_cb) ti_val_drop);
-    free(ubound->query);
-    free(ubound);
-}
-
-static int closure__gen_primitives(vec_t * cache, cleri_node_t * nd, ex_t * e)
-{
-    if (nd->cl_obj->gid == CLERI_GID_PRIMITIVES)
-    {
-        nd = nd->children->node;
-        switch (nd->cl_obj->gid)
-        {
-        case CLERI_GID_T_FLOAT:
-            assert (!nd->data);
-            nd->data = ti_vfloat_create(strx_to_double(nd->str));
-            break;
-        case CLERI_GID_T_INT:
-            assert (!nd->data);
-            nd->data = ti_vint_create(strx_to_int64(nd->str));
-            if (errno == ERANGE)
-            {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
-                return e->nr;
-            }
-            break;
-        case CLERI_GID_T_REGEX:
-            assert (!nd->data);
-            nd->data = ti_regex_from_strn(nd->str, nd->len, e);
-            if (!nd->data)
-                return e->nr;
-            break;
-        case CLERI_GID_T_STRING:
-            assert (!nd->data);
-            nd->data = ti_raw_from_ti_string(nd->str, nd->len);
-            break;
-
-        default:
-            return 0;
-        }
-        assert (vec_space(cache));
-
-        if (nd->data)
-            VEC_push(cache, nd->data);
-        else
-            ex_set_alloc(e);
-
-        return e->nr;
-    }
-
-    for (cleri_children_t * child = nd->children; child; child = child->next)
-        if (closure__gen_primitives(cache, child->node, e))
-            return e->nr;
-
-    return e->nr;
-}
 
 static cleri_node_t * closure__node_from_strn(
         const char * str,
         size_t n,
         ex_t * e)
 {
-    closure__ubound_t * ubound;
+    ti_ncache_t * ncache;
     ti_syntax_t syntax;
     cleri_parse_t * res;
     cleri_node_t * node;
@@ -121,7 +33,8 @@ static cleri_node_t * closure__node_from_strn(
     res = cleri_parse2(
             ti()->langdef,
             query,
-            CLERI_FLAG_EXPECTING_DISABLED); /* only error position */
+            CLERI_FLAG_EXPECTING_DISABLED|
+            CLERI_FLAG_EXCLUDE_OPTIONAL); /* only error position */
     if (!res)
     {
         ex_set_alloc(e);
@@ -158,15 +71,15 @@ static cleri_node_t * closure__node_from_strn(
     /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
     ti_syntax_investigate(&syntax, node->children->next->next->next->node);
 
-    ubound = closure__ubound_create(query, syntax.nd_val_cache_n);
-    if (!ubound)
+    ncache = ti_ncache_create(query, syntax.nd_val_cache_n);
+    if (!ncache)
     {
         ex_set_alloc(e);
         goto fail1;
     }
 
-    node->data = ubound;
-    if (closure__gen_primitives(ubound->nd_val_cache, node, e))
+    node->data = ncache;
+    if (ti_ncache_gen_primitives(ncache->nd_val_cache, node, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
@@ -176,7 +89,7 @@ static cleri_node_t * closure__node_from_strn(
     return node;
 
 fail2:
-    closure__ubound_destroy(ubound);
+    ti_ncache_destroy(ncache);
 fail1:
     cleri_parse_free(res);
 fail0:
@@ -258,7 +171,7 @@ void ti_closure_destroy(ti_closure_t * closure)
 
     if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
     {
-        closure__ubound_destroy((closure__ubound_t *) closure->node->data);
+        ti_ncache_destroy((ti_ncache_t *) closure->node->data);
         cleri__node_free(closure->node);
     }
 

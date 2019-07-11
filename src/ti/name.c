@@ -1,5 +1,5 @@
 /*
- * name.c
+ * ti/name.c
  */
 #include <string.h>
 #include <ctype.h>

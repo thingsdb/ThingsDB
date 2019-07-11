@@ -418,11 +418,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
     if (!query->parseres->is_valid)
     {
-        int i = cleri_parse_strn(
-                e->msg,
-                EX_MAX_SZ,
-                query->parseres,
-                &langdef_translate);
+        int i = cleri_parse_strn(e->msg, EX_MAX_SZ, query->parseres, NULL);
 
         assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
 
@@ -440,23 +436,14 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
 int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
-    cleri_children_t * child;
-
+    cleri_node_t * node;
     assert (e->nr == 0);
 
-    child = query->parseres->tree   /* root */
-            ->children->node        /* sequence <comment, list> */
-            ->children->next->node  /* list */
-            ->children;             /* first child or NULL */
+    node = query->parseres->tree        /* root */
+            ->children->node            /* sequence <comment, list> */
+            ->children->next->node;     /* list statements */
 
-    while(child)
-    {
-        ti_syntax_investigate(&query->syntax, child->node);  /* scope */
-
-        if (!child->next)
-            break;
-        child = child->next->next;                  /* skip delimiter */
-    }
+    ti_syntax_investigate(&query->syntax, node);
 
     /*
      * Create value cache for primitives. (if required)

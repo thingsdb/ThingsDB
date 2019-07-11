@@ -391,8 +391,6 @@ no_collection_scope:
     return e->nr;
 }
 
-
-
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
@@ -443,14 +441,15 @@ failed:
 static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
-    assert (query->ev);
-    assert (query->target);  /* only collection scope */
 
     ti_thing_t * thing;
     ti_name_t * name;
     ti_task_t * task = NULL;
     ti_val_t * left_val = NULL;     /* assign to prevent warning */
-    size_t max_props = query->target->quota->max_props;  /* collection scope */
+    size_t max_props = query->target
+            ? query->target->quota->max_props
+            : TI_QUOTA_NOT_SET;     /* check for target since assign is
+                                       possible when chained in all scopes */
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
     cleri_node_t * assign_nd = nd               /* sequence */
@@ -521,6 +520,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
+        assert (query->target);  /* only in a collection scope */
         task = ti_task_get_task(query->ev, thing, e);
 
         if (!task)

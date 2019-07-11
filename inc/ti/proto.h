@@ -38,7 +38,7 @@ typedef enum
                                                      */
     TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}       */
     TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}       */
-
+    TI_PROTO_CLIENT_REQ_CALL    =50,    /* [target, procedure, arguments..] */
     /*
      * 64..95 client responses
      */

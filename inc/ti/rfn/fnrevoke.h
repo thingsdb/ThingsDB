@@ -21,13 +21,13 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (n != 3)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `revoke` requires 3 arguments but %d %s given"
+                "function `revoke` takes 3 arguments but %d %s given"
                 REVOKE_DOC_,
             n, n == 1 ? "was" : "were");
         return e->nr;
     }
 
-    /* revoke target, target maybe NULL for root */
+    /* target */
     if (ti_rq_scope(query, nd->children->node, e))
         return e->nr;
 
@@ -41,7 +41,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    /* revoke user */
+    /* user */
     ti_val_drop(query->rval);
     query->rval = NULL;
     if (ti_rq_scope(query, nd->children->next->next->node, e))
@@ -66,7 +66,7 @@ static int rq__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    /* revoke mask */
+    /* mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
     if (ti_rq_scope(query, nd->children->next->next->next->next->node, e))

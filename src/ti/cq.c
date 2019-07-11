@@ -41,7 +41,6 @@
 #include <ti/cfn/fnlen.h>
 #include <ti/cfn/fnlower.h>
 #include <ti/cfn/fnmap.h>
-#include <ti/cfn/fnnow.h>
 #include <ti/cfn/fnpop.h>
 #include <ti/cfn/fnpush.h>
 #include <ti/cfn/fnrefs.h>
@@ -56,6 +55,7 @@
 #include <ti/cfn/fntry.h>
 #include <ti/cfn/fntype.h>
 #include <ti/cfn/fnupper.h>
+#include <ti/ufn/fnnow.h>
 
 static int cq__function(
         ti_query_t * query,
@@ -188,7 +188,7 @@ static int cq__function(
         return cq__f_map(query, params, e);
     case TI_FN_NOW:
         if (is_scope)
-            return cq__f_now(query, params, e);
+            return q__f_now(query, params, e);
         break;
     case TI_FN_POP:
         return cq__f_pop(query, params, e);
@@ -817,6 +817,7 @@ static int cq__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_NAME);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
     assert (query->rval == NULL);
+    assert (query->scope->thing == query->target->root);
 
     ti_name_t * name;
     ti_val_t * val;
@@ -931,6 +932,7 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->len >= 2);
     assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
     assert (query->rval == NULL);
+    assert (query->scope->thing == query->target->root);
 
     ti_name_t * name;
     ti_prop_t * prop;
@@ -954,8 +956,8 @@ static int cq__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_TMP_ASSIGN);
+    assert (query->scope->thing == query->target->root);
 
-    ti_thing_t * thing;
     ti_name_t * name;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
     cleri_node_t * name_nd = nd                 /* sequence */
@@ -965,37 +967,30 @@ static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
-    thing = (ti_thing_t *) ti_query_val_pop(query);
-    assert (thing->tp == TI_VAL_THING);
-
     name = ti_names_get(name_nd->str, name_nd->len);
     if (!name)
         goto alloc_err;
 
-    if (assign_nd->len == 1)
-        prop = NULL;
-    else
-    {
-        /* apply to existing variable */
-        assert (assign_nd->len == 2);
-        assert (assign_nd->str[1] == '=');
-        prop = ti_query_tmpprop_get(query, name);
-        if (!prop)
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "`%.*s` is undefined", (int) name->n, name->str);
-            goto failed;
-        }
-        ti_decref(name);  /* we already have a reference to name */
-    }
-
     /* should also work in chain because then scope->local must be NULL */
     if (    ti_scope_has_local_name(query->scope, name) ||
-            ti_scope_in_use_name(query->scope, thing, name))
+            ti_scope_in_use_name(query->scope, query->target->root, name))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot assign a new value to `%.*s` while the variable is in use",
             (int) name->n, name->str);
+        goto failed;
+    }
+
+    prop = ti_query_tmpprop_get(query, name);
+
+    if (prop)
+    {
+        ti_decref(name);  /* we already have a reference to name */
+    }
+    else if (assign_nd->len == 2)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "`%.*s` is undefined", (int) name->n, name->str);
         goto failed;
     }
 
@@ -1004,41 +999,34 @@ static int cq__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     assert (query->rval);
 
-    if (assign_nd->len == 2)
-    {
-        assert (prop);
-        if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
-            goto failed;
-    }
-
     if (prop)
     {
+        if (    assign_nd->len == 2 &&
+                ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
+            goto failed;
         ti_val_drop(prop->val);
         prop->val = query->rval;
     }
     else
     {
+        assert (assign_nd->len == 1);
         prop = ti_prop_create(name, query->rval);
         if (!prop)
             goto alloc_err;
 
-        if (query->tmpvars)
-        {
-            if (vec_push(&query->tmpvars, prop))
-                goto alloc_err_with_prop;
-        }
-        else
+        if (!query->tmpvars)
         {
             query->tmpvars = vec_new(1);
             if (!query->tmpvars)
                 goto alloc_err_with_prop;
             VEC_push(query->tmpvars, prop);
         }
+        else if (vec_push(&query->tmpvars, prop))
+            goto alloc_err_with_prop;
     }
 
     ti_incref(query->rval);
-
-    goto done;
+    return e->nr;
 
 alloc_err_with_prop:
     /* prop->name will be dropped and prop->val is still on query->rval */
@@ -1049,9 +1037,6 @@ alloc_err:
 
 failed:
     ti_name_drop(name);
-
-done:
-    ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }
 

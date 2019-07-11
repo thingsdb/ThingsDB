@@ -21,16 +21,16 @@ static void access__helper_str(
     if (access == ti()->access_thingsdb)
     {
         *prefix = "scope";
-        *name = ":thingsdb";
-        *name_sz = strlen(":thingsdb");
+        *name = ".thingsdb";
+        *name_sz = strlen(".thingsdb");
         return;
     }
 
     if (access == ti()->access_node)
     {
         *prefix = "scope";
-        *name = ":node";
-        *name_sz = strlen(":node");
+        *name = ".node";
+        *name_sz = strlen(".node");
         return;
     }
 

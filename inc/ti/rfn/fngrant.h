@@ -21,12 +21,12 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs != 3)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `grant` requires 3 arguments but %d %s given"GRANT_DOC_,
+            "function `grant` takes 3 arguments but %d %s given"GRANT_DOC_,
             nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
-    /* grant target, target maybe NULL for root */
+    /* target */
     if (ti_rq_scope(query, nd->children->node, e))
         return e->nr;
 
@@ -40,7 +40,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    /* grant user */
+    /* user */
     ti_val_drop(query->rval);
     query->rval = NULL;
     if (ti_rq_scope(query, nd->children->next->next->node, e))
@@ -65,7 +65,7 @@ static int rq__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    /* grant mask */
+    /* mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
     if (ti_rq_scope(query, nd->children->next->next->next->next->node, e))

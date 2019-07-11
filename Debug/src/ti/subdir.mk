@@ -33,6 +33,7 @@ C_SRCS += \
 ../src/ti/opr.c \
 ../src/ti/pipe.c \
 ../src/ti/pkg.c \
+../src/ti/procedures.c \
 ../src/ti/prom.c \
 ../src/ti/prop.c \
 ../src/ti/proto.c \
@@ -104,6 +105,7 @@ OBJS += \
 ./src/ti/opr.o \
 ./src/ti/pipe.o \
 ./src/ti/pkg.o \
+./src/ti/procedures.o \
 ./src/ti/prom.o \
 ./src/ti/prop.o \
 ./src/ti/proto.o \
@@ -175,6 +177,7 @@ C_DEPS += \
 ./src/ti/opr.d \
 ./src/ti/pipe.d \
 ./src/ti/pkg.d \
+./src/ti/procedures.d \
 ./src/ti/prom.d \
 ./src/ti/prop.d \
 ./src/ti/proto.d \

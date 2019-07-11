@@ -249,11 +249,11 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
         return -1;
 
     if (user__pack_access(
-            user, packer, ti()->access_node, (uchar *) ":node", 5))
+            user, packer, ti()->access_node, (uchar *) ".node", 5))
         return -1;
 
     if (user__pack_access(
-            user, packer, ti()->access_thingsdb, (uchar *) ":thingsdb", 9))
+            user, packer, ti()->access_thingsdb, (uchar *) ".thingsdb", 9))
         return -1;
 
 

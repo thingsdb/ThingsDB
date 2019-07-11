@@ -349,12 +349,12 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
     static ti_raw_t node = {
             tp: TI_VAL_RAW,
             n: 5,
-            data: ":node"
+            data: ".node"
     };
     static ti_raw_t thingsdb = {
             tp: TI_VAL_RAW,
             n: 9,
-            data: ":thingsdb"
+            data: ".thingsdb"
     };
 
     if (ti_val_is_raw(val))
@@ -382,7 +382,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
 
         ex_set(e, EX_INDEX_ERROR,
                 "%s `%.*s` not found",
-                (raw->n && raw->data[0] == ':') ? "scope" : "collection",
+                (raw->n && raw->data[0] == '.') ? "scope" : "collection",
                 raw->n, (const char *) raw->data);
         return NULL;
     }
@@ -1023,7 +1023,7 @@ const char * ti_val_str(ti_val_t * val)
     return "unknown";
 }
 
-/* checks for QP, CLOSURE, ARR, SET */
+/* checks for CLOSURE, ARR, SET */
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 {
     assert ((*val)->tp != TI_VAL_QP);

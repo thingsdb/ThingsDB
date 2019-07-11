@@ -14,7 +14,7 @@
 
 #define NOW_DOC_ TI_SEE_DOC("#now")
 
-static int cq__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int q__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);

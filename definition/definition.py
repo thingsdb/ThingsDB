@@ -153,6 +153,8 @@ class Definition(Grammar):
             str.strip(), self.parse(str).as_str(self.translate)))
 
 
+
+
 if __name__ == '__main__':
     definition = Definition()
 

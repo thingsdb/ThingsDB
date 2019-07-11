@@ -1,7 +1,6 @@
 /*
  * ti/rq.c
  */
-#include <ti/cfn/fnnow.h>
 #include <ti/rfn/fncollection.h>
 #include <ti/rfn/fncollections.h>
 #include <ti/rfn/fncounters.h>
@@ -28,6 +27,7 @@
 #include <ti/rfn/fnshutdown.h>
 #include <ti/rfn/fnuser.h>
 #include <ti/rfn/fnusers.h>
+#include <ti/ufn/fnnow.h>
 
 
 static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -85,7 +85,7 @@ static int rq__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_FN_MAP:
         goto errcscope;
     case TI_FN_NOW:
-        return cq__f_now(query, params, e);
+        return q__f_now(query, params, e);
     case TI_FN_POP:
     case TI_FN_PUSH:
     case TI_FN_REFS:
@@ -263,6 +263,8 @@ static int rq__name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? TI_AUTH_MODIFY
         : langdef_nd_match_str(nd, "WATCH")
         ? TI_AUTH_WATCH
+        : langdef_nd_match_str(nd, "CALL")
+        ? TI_AUTH_CALL
         : langdef_nd_match_str(nd, "GRANT")
         ? TI_AUTH_GRANT
         : langdef_nd_match_str(nd, "FULL")

@@ -19,7 +19,7 @@ static int rq__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `rename_user` requires 2 arguments but %d %s given"
+            "function `rename_user` takes 2 arguments but %d %s given"
             RENAME_USER_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }

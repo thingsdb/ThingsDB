@@ -9,6 +9,7 @@ from test_node_functions import TestNodeFunctions
 from test_nodes import TestNodes
 from test_operators import TestOperators
 from test_thingsdb_functions import TestThingsDBFunctions
+from test_tmpvar import TestTemporaryVariable
 from test_types import TestTypes
 from test_user_access import TestUserAccess
 
@@ -22,5 +23,6 @@ if __name__ == '__main__':
     run_test(TestNodes())
     run_test(TestOperators())
     run_test(TestThingsDBFunctions())
+    run_test(TestTemporaryVariable())
     run_test(TestTypes())
     run_test(TestUserAccess())

@@ -17,26 +17,6 @@ osdata = None
 
 """
 
-requires GRANT
-
-new_token('iris', nil, 'used for bla bla')
-
-token: x-charater str
-issue_date:  ts
-expire_date: nil
-
-
-Tokens
-
-del_token('key)
-REQUIRES --> GRANT on ThingsDB scope
-TASK --> del_token(key)
-
-del_expired()  /* removes all expired tokens */
-REQUIRES --> GRANT on ThingsDB scope
---> del_expired(ts)
-
-
 
 ## Handlers
 
@@ -55,6 +35,41 @@ client.new_handle(
             description: $description,
         });
 ''')
+
+Requires: MODIFY
+
+new_procedure(
+    ".thingsdb",    /* collection or scope, ONLY thingsdb scope */
+    "new_user",     /* procedure name */
+    ["$name"],      /* arguments */
+    "new_user($name); add_token($name);"    /* body */
+)
+
+del_procedure(
+    ".thingsdb",     /* collection or socpe */
+    "handler_name",  /* handler name */
+)
+
+rename_procedure(
+    ".thingsdb",     /* collection or socpe */
+    "handler_name",  /* handler name */
+    "new_handler_name",  /* new_handler name */
+)
+
+
+Running requires CALL
+[target, handle_name, args...]
+
+procedure(
+    ".thingsdb",
+    "name",
+)
+
+procedures(
+    ["collection_or_scope"]     /* if not given, .thingsdb scope */
+);
+
+
 """
 
 

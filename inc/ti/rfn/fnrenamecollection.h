@@ -18,7 +18,7 @@ static int rq__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `rename_collection` requires 2 arguments "
+            "function `rename_collection` takes 2 arguments "
             "but %d %s given"RENAME_COLLECTION_DOC_,
             nargs, nargs == 1 ? "was" : "were");
         return e->nr;

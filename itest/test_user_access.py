@@ -55,7 +55,7 @@ class TestUserAccess(TestBase):
             await testcl1.query(r'''map(||nil);''', target='junk')
 
         await client.query(r'''
-            grant(':thingsdb', "test1", GRANT);
+            grant('.thingsdb', "test1", GRANT);
             grant('junk', 'test1', READ);
         ''')
 
@@ -81,10 +81,10 @@ class TestUserAccess(TestBase):
         self.assertEqual(users_access, {
             'access': [{
                 'privileges': 'FULL',
-                'target': ':node'
+                'target': '.node'
             }, {
                 'privileges': 'FULL',
-                'target': ':thingsdb'
+                'target': '.thingsdb'
             }, {
                 'privileges': 'FULL',
                 'target': 'junk'
@@ -101,7 +101,7 @@ class TestUserAccess(TestBase):
             await testcl1.query(r'''nodes();''', target=scope.node)
 
         await client.query(r'''
-            grant(':node', "test1", READ);
+            grant('.node', "test1", READ);
         ''')
 
         await testcl1.query(r'''nodes();''', target=scope.node)
@@ -109,9 +109,9 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''reset_counters();''', target=scope.node)
 
-        # scope:node should work, as long as it ends with :node
+        # scope.node should work, as long as it ends with `.node`
         await client.query(r'''
-            grant('scope:node', "test1", MODIFY);
+            grant('scope.node', "test1", MODIFY);
         ''')
 
         await testcl1.query(r'''reset_counters();''', target=scope.node)

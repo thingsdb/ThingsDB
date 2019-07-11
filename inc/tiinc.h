@@ -135,6 +135,8 @@ typedef enum
     TI_FN_UPPER,
 
     /* thingsdb functions */
+    /* TODO: change to _INFO functions */
+    /* TODO: rename to set_ functions */
     TI_FN_COLLECTION,
     TI_FN_COLLECTIONS,
     TI_FN_DEL_COLLECTION,

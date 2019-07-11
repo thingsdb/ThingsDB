@@ -26,6 +26,6 @@ def scope_get_name(scope):
 
 
 # The scope names are checked by the `grant` and `revoke` functions and must
-# end with :thingsdb and :node respectively
-thingsdb = Scope('scope:thingsdb', _proto=REQ_QUERY_THINGSDB)
-node = Scope('scope:node', _proto=REQ_QUERY_NODE)
+# end with `.thingsdb` and `.node` respectively
+thingsdb = Scope('scope.thingsdb', _proto=REQ_QUERY_THINGSDB)
+node = Scope('scope.node', _proto=REQ_QUERY_NODE)

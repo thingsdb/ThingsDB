@@ -62,14 +62,15 @@ struct ti_query_s
     ti_syntax_t syntax;         /* syntax binding */
 
     ti_val_t * rval;            /* return value of a statement */
-    ti_collection_t * target;   /* target NULL means root */
+    ti_collection_t * target;   /* with reference,
+                                   NULL when target is node or thingsdb */
     char * querystr;            /* 0 terminated query string */
-    cleri_parse_t * parseres;
+    cleri_parse_t * parseres;   /* parse result */
     ti_stream_t * stream;       /* with reference */
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
     vec_t * blobs;              /* ti_raw_t */
-    vec_t * tmpvars;            /* temporary variable */
+    vec_t * tmpvars;            /* ti_prop_t - temporary variable */
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */

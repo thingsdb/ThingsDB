@@ -198,7 +198,5 @@ class TestNodeFunctions(TestBase):
         self.assertEqual((await client.node())['log_level'], prev)
 
 
-
-
 if __name__ == '__main__':
     run_test(TestNodeFunctions())

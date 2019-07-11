@@ -210,7 +210,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->syntax.deep = 1;
     query->syntax.flags = 0;
     query->syntax.nd_val_cache_n = 0;
-    query->target = NULL;  /* root */
+    query->target = NULL;  /* node or thingsdb when NULL */
     query->parseres = NULL;
     query->stream = ti_grab(stream);
     query->user = ti_grab(user);

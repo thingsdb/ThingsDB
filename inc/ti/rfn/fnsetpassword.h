@@ -20,7 +20,7 @@ static int rq__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs != 2)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `set_password` requires 2 arguments but %d %s given"
+            "function `set_password` takes 2 arguments but %d %s given"
             SET_PASSWORD_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }

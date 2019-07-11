@@ -17,6 +17,7 @@
 #include <ti/req.h>
 #include <ti/fwd.h>
 #include <ti/write.h>
+#include <ti/procedure.h>
 #include <util/qpx.h>
 
 
@@ -461,6 +462,54 @@ finish:
         ti_wareq_destroy(wareq);
 }
 
+static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_node_t * node = ti()->node;
+    ti_user_t * user = stream->via.user;
+    ex_t * e = ex_use();
+    ti_pkg_t * resp = NULL;
+    vec_t * access_;
+    ti_procedure_t * procedure;
+
+    if (!user)
+    {
+        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    if (node->status <= TI_NODE_STAT_BUILDING)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+    /* TODO: handle the call */
+
+//    access_ = wareq ? wareq->target->access : ti()->access_node;
+
+    if (ti_access_check_err(access_, user, TI_AUTH_CALL, e))
+        goto finish;
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
+    if (!resp)
+        ex_set_alloc(e);
+
+finish:
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+
+//    if (e->nr || (wareq && ti_wareq_run(wareq)))
+//        ti_wareq_destroy(wareq);
+}
+
 static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
@@ -486,6 +535,10 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_UNWATCH:
         clients__on_unwatch(stream, pkg);
         break;
+    case TI_PROTO_CLIENT_REQ_CALL:
+        clients__on_unwatch(stream, pkg);
+        break;
+
     default:
         log_error(
                 "unexpected package type `%u` from `%s`)",

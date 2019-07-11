@@ -18,7 +18,7 @@ C_SRCS += \
 ../src/ti/collections.c \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
-../src/ti/cq.c \
+../src/ti/do.c \
 ../src/ti/epkg.c \
 ../src/ti/event.c \
 ../src/ti/events.c \
@@ -45,7 +45,6 @@ C_SRCS += \
 ../src/ti/req.c \
 ../src/ti/rjob.c \
 ../src/ti/rpkg.c \
-../src/ti/rq.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
 ../src/ti/store.c \
@@ -90,7 +89,7 @@ OBJS += \
 ./src/ti/collections.o \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
-./src/ti/cq.o \
+./src/ti/do.o \
 ./src/ti/epkg.o \
 ./src/ti/event.o \
 ./src/ti/events.o \
@@ -117,7 +116,6 @@ OBJS += \
 ./src/ti/req.o \
 ./src/ti/rjob.o \
 ./src/ti/rpkg.o \
-./src/ti/rq.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
 ./src/ti/store.o \
@@ -162,7 +160,7 @@ C_DEPS += \
 ./src/ti/collections.d \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
-./src/ti/cq.d \
+./src/ti/do.d \
 ./src/ti/epkg.d \
 ./src/ti/event.d \
 ./src/ti/events.d \
@@ -189,7 +187,6 @@ C_DEPS += \
 ./src/ti/req.d \
 ./src/ti/rjob.d \
 ./src/ti/rpkg.d \
-./src/ti/rq.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \
 ./src/ti/store.d \

@@ -64,6 +64,7 @@ struct ti_query_s
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* with reference,
                                    NULL when target is node or thingsdb */
+    ti_thing_t * root;          /* thing0 or target->root */
     char * querystr;            /* 0 terminated query string */
     cleri_parse_t * parseres;   /* parse result */
     ti_stream_t * stream;       /* with reference */

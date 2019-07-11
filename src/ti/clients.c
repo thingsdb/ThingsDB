@@ -536,7 +536,7 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         clients__on_unwatch(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_CALL:
-        clients__on_unwatch(stream, pkg);
+        clients__on_call(stream, pkg);
         break;
 
     default:

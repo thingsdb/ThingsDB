@@ -43,29 +43,8 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                'closures are not supported in the `thingsdb` scope'):
-            await client.query('||nil;')
-
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'temporary variable are not supported '
-                'in the `thingsdb` scope'):
-            await client.query('$tmp = 1;')
-
-        with self.assertRaisesRegex(
-                BadRequestError,
                 'assignments are not supported in the `thingsdb` scope'):
             await client.query('tmp = 1;')
-
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'indexing is not supported in the `thingsdb` scope'):
-            await client.query('[users()][0];')
-
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'chaining is not supported in the `thingsdb` scope'):
-            await client.query('[users()].map();')
 
     async def test_collection(self, client):
         with self.assertRaisesRegex(
@@ -176,7 +155,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `grant` requires 3 arguments but 0 were given'):
+                'function `grant` takes 3 arguments but 0 were given'):
             await client.query('grant();')
 
         with self.assertRaisesRegex(IndexError, 'collection `A` not found'):

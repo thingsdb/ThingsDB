@@ -10,12 +10,11 @@
 #include <ti/closure.h>
 #include <ti.h>
 #include <ti/collections.h>
-#include <ti/cq.h>
+#include <ti/do.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
 #include <ti/query.h>
 #include <ti/nil.h>
-#include <ti/rq.h>
 #include <ti/task.h>
 #include <util/qpx.h>
 #include <util/strx.h>
@@ -48,9 +47,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, query->ev->id);
     /* store `no tasks` as target 0, this will save space and a lookup */
-    (void) qp_add_int(packer, query->target && tasks->n
-            ? query->target->root->id
-            : 0);
+    (void) qp_add_int(packer, tasks->n ? query->root->id : 0);
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);
@@ -487,13 +484,13 @@ void ti_query_run(ti_query_t * query)
         goto stop;
     }
 
+    query->root = query->target ? query->target->root : ti()->thing0;
+
     while (1)
     {
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        if (query->target
-                ? ti_cq_scope(query, child->node, e)
-                : ti_rq_scope(query, child->node, e))
+        if (ti_do_scope(query, child->node, e))
             break;
 
         ti_scope_leave(&query->scope, NULL);

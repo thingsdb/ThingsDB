@@ -212,7 +212,6 @@ static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
         closure__node_to_buf(child->node, buf, n);
 }
 
-
 /*
  * Return a closure which is bound to the query. The node for this closure can
  * only be used for as long as the 'query' exists in memory. If the closure

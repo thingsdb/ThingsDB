@@ -23,6 +23,7 @@ const char * ti_proto_str(ti_proto_e tp)
         return "CLIENT_REQ_QUERY_COLLECTION";
     case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
     case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
+    case TI_PROTO_CLIENT_REQ_CALL:          return "CLIENT_REQ_CALL";
 
     case TI_PROTO_CLIENT_RES_PING:          return "CLIENT_RES_PING";
     case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";

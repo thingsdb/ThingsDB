@@ -23,7 +23,7 @@ class TestNodes(TestBase):
         await self.node2.join_until_ready(client)
 
         self.assertEqual(
-            len(await client.query(r'nodes();', target=scope.node)), 3)
+            len(await client.query(r'nodes_info();', target=scope.node)), 3)
 
         with self.assertRaisesRegex(
                 NodeError,
@@ -35,12 +35,12 @@ class TestNodes(TestBase):
         await client.query(r'pop_node();')
 
         self.assertEqual(
-            len(await client.query(r'nodes();', target=scope.node)), 2)
+            len(await client.query(r'nodes_info();', target=scope.node)), 2)
 
         await self.node3.join_until_ready(client)
 
         self.assertEqual(
-            len(await client.query(r'nodes();', target=scope.node)), 3)
+            len(await client.query(r'nodes_info();', target=scope.node)), 3)
 
         await self.node4.wait_join(secret='letsgo')
 
@@ -54,7 +54,7 @@ class TestNodes(TestBase):
         await self.node1.shutdown()
         await client.query('replace_node(1, "letsgo", "127.0.0.1", 9224);')
 
-        nodes = await client.query(r'nodes();', target=scope.node)
+        nodes = await client.query(r'nodes_info();', target=scope.node)
         self.assertEqual(len(nodes), 3)
 
         await client.query('hello = "world";', target=stuff)
@@ -85,7 +85,7 @@ class TestNodes(TestBase):
         await asyncio.sleep(50)  # 50 seconds should be enough to sync
 
         client = await get_client(self.node0)
-        nodes = await client.query(r'nodes();', target=scope.node)
+        nodes = await client.query(r'nodes_info();', target=scope.node)
         for node in nodes:
             self.assertEqual(node['committed_event_id'], 9)
 

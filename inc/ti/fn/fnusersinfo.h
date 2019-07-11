@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define USERS_DOC_ TI_SEE_DOC("#users")
+#define USERS_INFO_DOC_ TI_SEE_DOC("#users_info")
 
-static int do__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_users_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
     assert (e->nr == 0);
@@ -19,7 +19,8 @@ static int do__f_users(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `users` takes 0 arguments but %d %s given"USERS_DOC_,
+                "function `users-info` takes 0 arguments but %d %s given"
+                USERS_INFO_DOC_,
                 nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }

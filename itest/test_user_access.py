@@ -98,13 +98,13 @@ class TestUserAccess(TestBase):
         })
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''nodes();''', target=scope.node)
+            await testcl1.query(r'''nodes_info();''', target=scope.node)
 
         await client.query(r'''
             grant('.node', "test1", READ);
         ''')
 
-        await testcl1.query(r'''nodes();''', target=scope.node)
+        await testcl1.query(r'''nodes_info();''', target=scope.node)
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''reset_counters();''', target=scope.node)

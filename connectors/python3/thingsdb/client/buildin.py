@@ -5,13 +5,15 @@ from typing import Union as U
 
 class Buildin:
 
-    async def collection(self, collection: U[Scope, int, str]):
+    async def collection_info(self, collection: U[Scope, int, str]):
         if isinstance(collection, Scope):
             collection = collection._scope
-        return await self.query(f'collection({collection!r})', target=thingsdb)
+        return await self.query(
+            f'collection_info({collection!r})',
+            target=thingsdb)
 
-    async def collections(self):
-        return await self.query('collections()', target=thingsdb)
+    async def collections_info(self):
+        return await self.query('collections_info()', target=thingsdb)
 
     async def counters(self):
         return await self.query('counters()', target=node)
@@ -57,11 +59,11 @@ class Buildin:
             f'new_token({user!r}, {expiration_time}, {description!r})',
             target=thingsdb)
 
-    async def node(self):
-        return await self.query('node()', target=node)
+    async def node_info(self):
+        return await self.query('node_info()', target=node)
 
-    async def nodes(self):
-        return await self.query('nodes()', target=node)
+    async def nodes_info(self):
+        return await self.query('nodes_info()', target=node)
 
     async def reset_counters(self):
         return await self.query('reset_counters()', target=node)
@@ -83,10 +85,10 @@ class Buildin:
     async def shutdown(self):
         return await self.query('shutdown()', target=node)
 
-    async def user(self, user: str = None):
+    async def user_info(self, user: str = None):
         if user is None:
-            return await self.query('user()', target=thingsdb)
-        return await self.query(f'user({user!r})', target=thingsdb)
+            return await self.query('user_info()', target=thingsdb)
+        return await self.query(f'user_info({user!r})', target=thingsdb)
 
-    async def users(self):
-        return await self.query('users()', target=thingsdb)
+    async def users_info(self):
+        return await self.query('users_info()', target=thingsdb)

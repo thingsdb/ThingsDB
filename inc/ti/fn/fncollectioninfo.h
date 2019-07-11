@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define COLLECTION_DOC_ TI_SEE_DOC("#collection")
+#define COLLECTION_INFO_DOC_ TI_SEE_DOC("#collection_info")
 
-static int do__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_collection_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
     assert (e->nr == 0);
@@ -15,8 +15,8 @@ static int do__f_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `collection` takes 1 argument but %d were given"
-                COLLECTION_DOC_, nargs);
+                "function `collection_info` takes 1 argument but %d were given"
+                COLLECTION_INFO_DOC_, nargs);
         return e->nr;
     }
 

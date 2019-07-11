@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define USER_DOC_ TI_SEE_DOC("#user")
+#define USER_INFO_DOC_ TI_SEE_DOC("#user_info")
 
-static int do__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
     assert (e->nr == 0);
@@ -16,8 +16,8 @@ static int do__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs > 1)
     {
         ex_set(e, EX_BAD_DATA,
-            "function `user` takes at most 1 argument but %d were given"
-            USER_DOC_, nargs);
+            "function `user_info` takes at most 1 argument but %d were given"
+                USER_INFO_DOC_, nargs);
         return e->nr;
     }
 
@@ -43,8 +43,9 @@ static int do__f_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_raw(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
-                "function `user` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"USER_DOC_,
+                "function `user_info` expects argument 1 to be of "
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+                USER_INFO_DOC_,
                 ti_val_str(query->rval));
             return e->nr;
         }

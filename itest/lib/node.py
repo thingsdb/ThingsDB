@@ -106,9 +106,7 @@ class Node:
         ''', target=scope.thingsdb)
         while timeout is None or timeout:
             try:
-                res = await client.query(f'''
-                    nodes();
-                 ''', target=scope.node)
+                res = await client.nodes_info()
             except NodeError:
                 pass
             else:

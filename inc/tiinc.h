@@ -137,8 +137,8 @@ typedef enum
     /* thingsdb functions */
     /* TODO: change to _INFO functions */
     /* TODO: rename to set_ functions */
-    TI_FN_COLLECTION,
-    TI_FN_COLLECTIONS,
+    TI_FN_COLLECTION_INFO,
+    TI_FN_COLLECTIONS_INFO,
     TI_FN_DEL_COLLECTION,
     TI_FN_DEL_EXPIRED,
     TI_FN_DEL_TOKEN,
@@ -155,13 +155,13 @@ typedef enum
     TI_FN_REVOKE,
     TI_FN_SET_PASSWORD,
     TI_FN_SET_QUOTA,
-    TI_FN_USER,
-    TI_FN_USERS,
+    TI_FN_USER_INFO,
+    TI_FN_USERS_INFO,
 
     /* node functions */
     TI_FN_COUNTERS,
-    TI_FN_NODE,
-    TI_FN_NODES,
+    TI_FN_NODE_INFO,
+    TI_FN_NODES_INFO,
     TI_FN_RESET_COUNTERS,
     TI_FN_SET_LOG_LEVEL,
     TI_FN_SHUTDOWN,

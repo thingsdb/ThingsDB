@@ -72,6 +72,23 @@ procedures(
 
 """
 
+new_procudure("
+new_user($name) {
+    new_user($name)
+    $key = new_token($name);
+    grant(':thingsdb', $name, CALL);
+    grant('OsData', $name, CALL);
+    grant(':node', $name, WATCH);
+    $key;
+}
+")
+
+
+
+tiken_key = new_user('rik')
+
+
+
 
 class Label(Thing):
 
@@ -132,7 +149,7 @@ async def test(client):
     try:
         osdata = OsData(client, build=setup_initial_data)
 
-        print(await client.node())
+        print(await client.node_info())
 
         while True:
             if interrupted:

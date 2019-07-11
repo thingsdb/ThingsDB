@@ -8,8 +8,8 @@
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
-#include <ti/fn/fncollection.h>
-#include <ti/fn/fncollections.h>
+#include <ti/fn/fncollectioninfo.h>
+#include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndel.h>
@@ -49,8 +49,8 @@
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewtoken.h>
 #include <ti/fn/fnnewuser.h>
-#include <ti/fn/fnnode.h>
-#include <ti/fn/fnnodes.h>
+#include <ti/fn/fnnodeinfo.h>
+#include <ti/fn/fnnodesinfo.h>
 #include <ti/fn/fnnow.h>
 #include <ti/fn/fnpop.h>
 #include <ti/fn/fnpopnode.h>
@@ -76,8 +76,8 @@
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
 #include <ti/fn/fnupper.h>
-#include <ti/fn/fnuser.h>
-#include <ti/fn/fnusers.h>
+#include <ti/fn/fnuserinfo.h>
+#include <ti/fn/fnusersinfo.h>
 
 #define do__collection_fn(__fn)                         \
 if (is_chained)                                         \
@@ -288,10 +288,10 @@ static int do__function(
         return do__f_upper(query, params, e);
 
     /* thingsdb scope */
-    case TI_FN_COLLECTION:
-        do__thingsdb_fn(do__f_collection);
-    case TI_FN_COLLECTIONS:
-        do__thingsdb_fn(do__f_collections);
+    case TI_FN_COLLECTION_INFO:
+        do__thingsdb_fn(do__f_collection_info);
+    case TI_FN_COLLECTIONS_INFO:
+        do__thingsdb_fn(do__f_collections_info);
     case TI_FN_DEL_COLLECTION:
         do__thingsdb_fn(do__f_del_collection);
     case TI_FN_DEL_EXPIRED:
@@ -324,18 +324,18 @@ static int do__function(
         do__thingsdb_fn(do__f_set_password);
     case TI_FN_SET_QUOTA:
         do__thingsdb_fn(do__f_set_quota);
-    case TI_FN_USER:
-        do__thingsdb_fn(do__f_user);
-    case TI_FN_USERS:
-        do__thingsdb_fn(do__f_users);
+    case TI_FN_USER_INFO:
+        do__thingsdb_fn(do__f_user_info);
+    case TI_FN_USERS_INFO:
+        do__thingsdb_fn(do__f_users_info);
 
     /* node scope */
     case TI_FN_COUNTERS:
         do__node_fn(do__f_counters);
-    case TI_FN_NODE:
-        do__node_fn(do__f_node);
-    case TI_FN_NODES:
-        do__node_fn(do__f_nodes);
+    case TI_FN_NODE_INFO:
+        do__node_fn(do__f_node_info);
+    case TI_FN_NODES_INFO:
+        do__node_fn(do__f_nodes_info);
     case TI_FN_RESET_COUNTERS:
         do__node_fn(do__f_reset_counters);
     case TI_FN_SET_LOG_LEVEL:

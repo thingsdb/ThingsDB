@@ -67,13 +67,13 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["longest_event_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
 
-    async def test_node(self, client):
+    async def test_node_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `node` takes 0 arguments but 1 was given'):
-            await client.query('node(nil);')
+                'function `node_info` takes 0 arguments but 1 was given'):
+            await client.query('node_info(nil);')
 
-        node = await client.query('node();')
+        node = await client.query('node_info();')
 
         self.assertEqual(len(node), 28)
 
@@ -135,13 +135,13 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["cached_names"], int))
         self.assertTrue(isinstance(node["http_status_port"], (int, str)))
 
-    async def test_nodes(self, client):
+    async def test_nodes_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `nodes` takes 0 arguments but 1 was given'):
-            await client.query('nodes(nil);')
+                'function `nodes_info` takes 0 arguments but 1 was given'):
+            await client.query('nodes_info(nil);')
 
-        nodes = await client.query('nodes();')
+        nodes = await client.query('nodes_info();')
         node = nodes.pop()
 
         self.assertEqual(len(node), 8)
@@ -188,14 +188,14 @@ class TestNodeFunctions(TestBase):
                 r'type `int` but got type `raw` instead'):
             await client.query('set_log_level("DEBUG");')
 
-        prev = (await client.node())['log_level']
+        prev = (await client.node_info())['log_level']
 
         self.assertIs(await client.query('set_log_level(ERROR);'), None)
-        self.assertEqual((await client.node())['log_level'], 'ERROR')
+        self.assertEqual((await client.node_info())['log_level'], 'ERROR')
         self.assertIs(await client.query('set_log_level(0);'), None)
-        self.assertEqual((await client.node())['log_level'], 'DEBUG')
+        self.assertEqual((await client.node_info())['log_level'], 'DEBUG')
         self.assertIs(await client.query(f'set_log_level({prev});'), None)
-        self.assertEqual((await client.node())['log_level'], prev)
+        self.assertEqual((await client.node_info())['log_level'], prev)
 
 
 if __name__ == '__main__':

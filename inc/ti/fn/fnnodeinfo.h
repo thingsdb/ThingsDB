@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define NODES_DOC_ TI_SEE_DOC("#nodes")
+#define NODE_INFO_DOC_ TI_SEE_DOC("#node_info")
 
-static int do__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_node_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (query->syntax.flags & TI_SYNTAX_FLAG_NODE);
     assert (!query->ev);    /* node queries do never create an event */
@@ -14,12 +14,13 @@ static int do__f_nodes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `nodes` takes 0 arguments but %d %s given"NODES_DOC_,
+                "function `node_info` takes 0 arguments but %d %s given"
+                NODE_INFO_DOC_,
                 nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
-    query->rval = ti_nodes_info_as_qpval();
+    query->rval = ti_node_as_qpval();
     if (!query->rval)
         ex_set_alloc(e);
 

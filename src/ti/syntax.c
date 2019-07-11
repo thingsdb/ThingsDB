@@ -64,8 +64,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'c':
         syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
-        syntax__zev_fn(q, nd, "collection", TI_FN_COLLECTION, true);
-        syntax__zev_fn(q, nd, "collections", TI_FN_COLLECTIONS, false);
+        syntax__zev_fn(q, nd, "collection_info", TI_FN_COLLECTION_INFO, true);
+        syntax__zev_fn(q, nd, "collections_info", TI_FN_COLLECTIONS_INFO, false);
         syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS, false);
         break;
     case 'd':
@@ -127,8 +127,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
         syntax__tev_fn(q, nd, "new_token", TI_FN_NEW_TOKEN, true);
         syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER, true);
-        syntax__zev_fn(q, nd, "node", TI_FN_NODE, true);
-        syntax__zev_fn(q, nd, "nodes", TI_FN_NODES, false);
+        syntax__zev_fn(q, nd, "node_info", TI_FN_NODE_INFO, true);
+        syntax__zev_fn(q, nd, "nodes_info", TI_FN_NODES_INFO, false);
         break;
     case 'o':
         break;
@@ -167,8 +167,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'u':
         syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, false);
-        syntax__zev_fn(q, nd, "user", TI_FN_USER, true);
-        syntax__zev_fn(q, nd, "users", TI_FN_USERS, false);
+        syntax__zev_fn(q, nd, "user_info", TI_FN_USER_INFO, true);
+        syntax__zev_fn(q, nd, "users_info", TI_FN_USERS_INFO, false);
         break;
     case 'v':
     case 'w':

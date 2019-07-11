@@ -37,49 +37,50 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 IndexError,
-                'function `node` is undefined in the `thingsdb` scope; '
+                'function `node_info` is undefined in the `thingsdb` scope; '
                 'You might want to query the `node` scope?'):
-            await client.query('node();')
+            await client.query('node_info();')
 
         with self.assertRaisesRegex(
                 BadRequestError,
                 'assignments are not supported in the `thingsdb` scope'):
             await client.query('tmp = 1;')
 
-    async def test_collection(self, client):
+    async def test_collection_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `collection` takes 1 argument but 0 were given'):
-            await client.query('collection();')
+                'function `collection_info` takes 1 argument but 0 were given'):
+            await client.query('collection_info();')
 
         with self.assertRaisesRegex(
                 BadRequestError,
                 'expecting type `raw` or `int` as collection '
                 'but got type `list` instead'):
-            await client.query('collection([]);')
+            await client.query('collection_info([]);')
 
         with self.assertRaisesRegex(IndexError, 'collection `yes!` not found'):
-            await client.query('collection("yes!");')
+            await client.query('collection_info("yes!");')
 
         with self.assertRaisesRegex(IndexError, '`collection:0` not found'):
-            await client.query('collection(0);')
+            await client.query('collection_info(0);')
 
         with self.assertRaisesRegex(IndexError, r'`collection:\d+` not found'):
-            await client.query('collection(-1);')
+            await client.query('collection_info(-1);')
 
-        collection = await client.query('collection("stuff");')
+        collection = await client.query('collection_info("stuff");')
         self.assertTrue(isinstance(collection, dict))
         self.assertEqual(
-            await client.query(f'collection({collection["collection_id"]});'),
+            await client.query(
+                f'collection_info({collection["collection_id"]});'),
             collection)
 
-    async def test_collections(self, client):
+    async def test_collections_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `collections` takes 0 arguments but 1 was given'):
-            await client.query('collections(nil);')
+                'function `collections_info` takes 0 arguments but 1 was given'):
+            await client.query('collections_info(nil);')
 
-        collections = await client.query('collections();')
+        collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)
         self.assertEqual(len(collections[0]), 7)
 

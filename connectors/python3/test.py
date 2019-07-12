@@ -17,41 +17,6 @@ osdata = None
 
 """
 
-
-## Handlers
-
-client.new_handle(
-    name='new_label',
-    args=['$name', '$description'],
-    code=r'''
-        assert(isstr($name), '$name must be a string');
-        assert(isstr($description), '$description must be a string');
-        assert(
-            isnil(labels.find(|label| (label.name == $name)),
-            '$name mst be unique'
-        );
-        labels.push({
-            name: $name,
-            description: $description,
-        });
-''')
-
-Requires: MODIFY
-new_procedure("
-
-new_user_with_token ($name) {
-    new_user(
-        $name
-    );
-    new_token(
-        $name
-    );
-}
-
-");
---> int
-123
-
 del_procedure("new_user_with_token");
 --> nil
 
@@ -71,7 +36,6 @@ new_user_with_token ($name) {
 }
 "
 
-
 procedure_info();
 --> qpack
 {
@@ -89,6 +53,17 @@ procedures_info();
 Running requires CALL
 [target, handle_name, args...]
 
+
+TODO: docs
+- procedures   (general overview)
+- call-request (call request explained)
+- f_call
+- f_calle
+- f_new_procedure
+- f_del_procedure
+- f_rename_procedure
+- f_procedure_def
+- f_procedure_fmt ?? --> format a procedure?
 
 """
 

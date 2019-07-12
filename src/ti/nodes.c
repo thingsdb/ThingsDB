@@ -560,6 +560,102 @@ finish:
     }
 }
 
+static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    uint64_t user_id;
+    ex_t * e = ex_use();
+    vec_t * access_;
+    ti_user_t * user;
+    qp_unpacker_t unpacker;
+    ti_pkg_t * resp = NULL;
+    ti_query_t * query = NULL;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti()->node;
+    qp_obj_t qp_user_id, qp_query, qp_is_thingsdb;
+    ti_query_unpack_cb unpack_cb;
+
+    if (!other_node)
+    {
+        ex_set(e, EX_AUTH_ERROR,
+                "got a forwarded call from an unauthorized connection: `%s`",
+                ti()->hostname);
+        goto finish;
+    }
+
+    if (this_node->status != TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_AWAY_SOON)
+    {
+        ex_set(e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle call requests",
+                ti()->hostname);
+        goto finish;
+    }
+
+    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+
+    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
+            !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
+            !qp_is_raw(qp_next(&unpacker, &qp_query)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid call request from "TI_NODE_ID" to "TI_NODE_ID,
+                other_node->id, this_node->id);
+        goto finish;
+    }
+
+    user_id = (uint64_t) qp_user_id.via.int64;
+    user = ti_users_get_by_id(user_id);
+
+    if (!user)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "cannot find "TI_USER_ID" which is used by a call from "
+                TI_NODE_ID" to "TI_NODE_ID,
+                user_id, other_node->id, this_node->id);
+        goto finish;
+    }
+
+    query = ti_query_create(stream, user);
+    if (!query)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
+
+    if (ti_query_unpack_)
+
+    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    if (ti_access_check_err(access_, query->user, TI_AUTH_CALL, e))
+        goto finish;
+
+
+    if (ti_query_will_update(query))
+    {
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e))
+            goto finish;
+
+        if (ti_events_create_new_event(query, e))
+            goto finish;
+
+        return;
+    }
+
+    ti_query_run(query);
+    return;
+
+finish:
+    ti_query_destroy(query);
+
+    if (e->nr)
+        resp = ti_pkg_client_err(pkg->id, e);
+
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_ALLOC_S);
+    }
+}
+
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;

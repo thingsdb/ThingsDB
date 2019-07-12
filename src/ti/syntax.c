@@ -147,6 +147,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     case 'p':
         syntax__cev_fn(q, nd, "pop", TI_FN_POP, false);
         syntax__cev_fn(q, nd, "push", TI_FN_PUSH, true);
+        syntax__nev_fn(q, nd, "procedure_def", TI_FN_PROCEDURE_DEF, true);
         syntax__tev_fn(q, nd, "pop_node", TI_FN_POP_NODE, false);
         break;
     case 'q':

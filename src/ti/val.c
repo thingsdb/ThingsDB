@@ -45,7 +45,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
     case TI_VAL_KIND_THING:
-        return qp_is_int(qp_next(unp, &qp_tmp))
+        return qp_is_int(qp_next(unp, &qp_tmp)) && things
                 ? (ti_val_t *) ti_things_thing_from_unp(
                         things,
                         (uint64_t) qp_tmp.via.int64,

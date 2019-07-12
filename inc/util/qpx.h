@@ -34,6 +34,9 @@ static inline void qpx_log(
         const uchar * data,
         size_t n,
         int log_level);
+static inline _Bool qpx_obj_endswith_raw(
+        const qp_obj_t * obj,
+        const ti_raw_t * raw);
 
 static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
 {
@@ -62,5 +65,15 @@ static inline void qpx_log(
 {
     if (Logger.level <= log_level)
         qpx__log_(prelog, data, n, log_level);
+}
+
+static inline _Bool qpx_obj_endswith_raw(
+        const qp_obj_t * obj,
+        const ti_raw_t * raw)
+{
+    return (
+        obj->len >= raw->n &&
+        memcmp(obj->via.raw + obj->len - raw->n, raw->data, raw->n) == 0
+    );
 }
 #endif /* TI_QPX_H_ */

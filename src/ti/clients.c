@@ -26,7 +26,7 @@
 static ti_clients_t * clients;
 static ti_clients_t clients_;
 
-static void clients__fwd_query_cb(ti_req_t * req, ex_enum status)
+static void clients__fwd_cb(ti_req_t * req, ex_enum status)
 {
     ti_pkg_t * resp;
     ti_fwd_t * fwd = req->data;
@@ -57,6 +57,48 @@ finish:
     ti_req_destroy(req);
 }
 
+static int clients__fwd_call(
+        ti_node_t * to_node,
+        ti_stream_t * src_stream,
+        ti_pkg_t * orig_pkg)
+{
+    qpx_packer_t * packer;
+    ti_fwd_t * fwd;
+    ti_pkg_t * pkg_req = NULL;
+
+    fwd = ti_fwd_create(orig_pkg->id, src_stream);
+    if (!fwd)
+        goto fail0;
+
+    packer = qpx_packer_create(orig_pkg->n + 24, 1);
+    if (!packer)
+        goto fail1;
+
+    (void) qp_add_array(&packer);
+    (void) qp_add_int(packer, src_stream->via.user->id);
+    (void) qp_add_raw(packer, orig_pkg->data, orig_pkg->n);
+    (void) qp_close_array(packer);
+
+    /* this cannot fail */
+    pkg_req = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_CALL);
+
+    if (ti_req_create(
+            to_node->stream,
+            pkg_req,
+            TI_PROTO_NODE_REQ_CALL_TIMEOUT,
+            clients__fwd_cb,
+            fwd))
+        goto fail1;
+
+    return 0;
+
+fail1:
+    free(pkg_req);
+    ti_fwd_destroy(fwd);
+fail0:
+    return -1;
+}
+
 static int clients__fwd_query(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
@@ -71,7 +113,7 @@ static int clients__fwd_query(
     if (!fwd)
         goto fail0;
 
-    packer = qpx_packer_create(orig_pkg->n + 20, 1);
+    packer = qpx_packer_create(orig_pkg->n + 24, 1);
     if (!packer)
         goto fail1;
 
@@ -88,7 +130,7 @@ static int clients__fwd_query(
             to_node->stream,
             pkg_req,
             TI_PROTO_NODE_REQ_QUERY_TIMEOUT,
-            clients__fwd_query_cb,
+            clients__fwd_cb,
             fwd))
         goto fail1;
 
@@ -464,9 +506,9 @@ finish:
 
 static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_node_t * node = ti()->node;
     ti_user_t * user = stream->via.user;
     ex_t * e = ex_use();
+    ti_node_t * this_node = ti()->node;
     ti_pkg_t * resp = NULL;
     vec_t * access_;
     ti_procedure_t * procedure;
@@ -477,12 +519,34 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status <= TI_NODE_STAT_BUILDING)
+    if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
+    }
+
+    if (this_node->status < TI_NODE_STAT_READY)
+    {
+        ti_node_t * other_node = ti_nodes_random_ready_node();
+        if (!other_node)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                    "node `%s` is unable to handle query requests",
+                    ti()->hostname);
+            goto finish;
+        }
+
+        if (clients__fwd_call(other_node, stream, pkg))
+        {
+            ex_set_internal(e);
+            goto finish;
+        }
+        /* the response to the client will be handled by a callback on the
+         * query forward request so we simply return;
+         */
+        return;
     }
 
     /* TODO: handle the call */

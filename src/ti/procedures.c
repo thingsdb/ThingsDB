@@ -22,3 +22,14 @@ ti_procedure_t * ti_procedures_by_name(vec_t * procedures, ti_raw_t * name)
             return p;
     return NULL;
 }
+
+ti_procedure_t * ti_procedures_by_strn(
+        vec_t * procedures,
+        const char * str,
+        size_t n)
+{
+    for (vec_each(procedures, ti_procedure_t, p))
+        if (ti_raw_eq_strn(p->name, str, n))
+            return p;
+    return NULL;
+}

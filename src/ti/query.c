@@ -258,6 +258,102 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
+int ti_query_callunpack(
+        ti_query_t * query,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
+{
+    const char * ebad = "invalid `call` request"TI_SEE_DOC("#call-request");
+    ti_collection_t * collection;
+    static ti_raw_t node = {
+            tp: TI_VAL_RAW,
+            n: 5,
+            data: ".node"
+    };
+    static ti_raw_t thingsdb = {
+            tp: TI_VAL_RAW,
+            n: 9,
+            data: ".thingsdb"
+    };
+    qp_unpacker_t unpacker;
+    qp_obj_t qp_target, qp_procedure;
+    ti_procedure_t * procedure;
+    vec_t * procedures;
+    size_t idx = 0;
+    assert (e->nr == 0);
+    query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+    query->syntax.pkg_id = pkg_id;
+
+    qp_unpacker_init2(&unpacker, data, n, 0);
+
+    if (!qp_is_array(qp_next(&unpacker, NULL)))
+    {
+        ex_set(e, EX_BAD_DATA, ebad);
+        return e->nr;
+    }
+
+    (void) qp_next(&unpacker, &qp_target);
+    if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
+    {
+        ex_set(e, EX_BAD_DATA, ebad);
+        return e->nr;
+    }
+
+    if (qpx_obj_endswith_raw(&qp_target, &node))
+    {
+        ex_set(e, EX_BAD_DATA, ebad);
+        return e->nr;
+    }
+
+    if (qpx_obj_endswith_raw(&qp_target, &thingsdb))
+    {
+        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        query->root = ti()->thing0;
+        procedures = ti()->procedures;
+    }
+    else
+    {
+        query->target = ti_collections_get_by_qp_obj(&qp_target, e);
+        if (e->nr)
+            return e->nr;
+        ti_incref(query->target);
+        procedures = query->target->procedures;
+    }
+
+    procedure = ti_procedures_by_strn(
+            procedures,
+            (const char *) qp_procedure.via.raw,
+            qp_procedure.len);
+
+    if (!procedure)
+    {
+        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` not found",
+                (int) qp_procedure.len,
+                (char *) qp_procedure.via.raw);
+        return e->nr;
+    }
+
+    for (vec_each(procedure->arguments, ti_prop_t, prop), ++idx)
+    {
+        prop->val = ti_val_from_unp(&unpacker, NULL);
+        if (!prop->val)
+        {
+            x_set(e, EX_INDEX_ERROR,
+                "argument `%zu` for procedure `%.*s` is invalid (or missing)",
+                idx,
+                (int) qp_procedure.len,
+                (char *) qp_procedure.via.raw);
+            return e->nr;
+        }
+    }
+
+
+
+    qp_next(&unpacker, &qp_obj)
+}
+
 int ti_query_node_unpack(
         ti_query_t * query,
         uint16_t pkg_id,

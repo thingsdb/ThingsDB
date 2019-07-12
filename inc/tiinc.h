@@ -138,6 +138,7 @@ typedef enum
     TI_FN_CALL,
     TI_FN_CALLE,
     TI_FN_NEW_PROCEDURE,
+    TI_FN_PROCEDURE_DEF,
 
     /* thingsdb functions */
     TI_FN_COLLECTION_INFO,

@@ -8,6 +8,7 @@ C_SRCS += \
 ../src/ti/store/collection.c \
 ../src/ti/store/collections.c \
 ../src/ti/store/names.c \
+../src/ti/store/procedures.c \
 ../src/ti/store/status.c \
 ../src/ti/store/things.c \
 ../src/ti/store/users.c 
@@ -17,6 +18,7 @@ OBJS += \
 ./src/ti/store/collection.o \
 ./src/ti/store/collections.o \
 ./src/ti/store/names.o \
+./src/ti/store/procedures.o \
 ./src/ti/store/status.o \
 ./src/ti/store/things.o \
 ./src/ti/store/users.o 
@@ -26,6 +28,7 @@ C_DEPS += \
 ./src/ti/store/collection.d \
 ./src/ti/store/collections.d \
 ./src/ti/store/names.d \
+./src/ti/store/procedures.d \
 ./src/ti/store/status.d \
 ./src/ti/store/things.d \
 ./src/ti/store/users.d 

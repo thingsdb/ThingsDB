@@ -513,7 +513,7 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * this_node = ti()->node;
     ti_pkg_t * resp = NULL;
     vec_t * access_;
-    ti_query_t * query;
+    ti_query_t * query = NULL;
 
     if (!user)
     {

@@ -571,8 +571,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, qp_query, qp_is_thingsdb;
-    ti_query_unpack_cb unpack_cb;
+    qp_obj_t qp_user_id, qp_query;
 
     if (!other_node)
     {
@@ -1436,6 +1435,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);
+        break;
+    case TI_PROTO_NODE_REQ_CALL:
+        nodes__on_req_call(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_CONNECT:
         nodes__on_req_connect(stream, pkg);

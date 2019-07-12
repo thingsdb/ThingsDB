@@ -92,8 +92,9 @@ struct ti_s
     ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_users_t * users;
-    vec_t * access_node;
-    vec_t * access_thingsdb;
+    vec_t * access_node;        /* ti_access_t */
+    vec_t * access_thingsdb;    /* ti_access_t */
+    vec_t * procedures;         /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;

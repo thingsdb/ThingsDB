@@ -46,6 +46,7 @@ struct ti_collection_s
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
     vec_t * access;         /* ti_auth_t */
+    vec_t * procedures;     /* ti_procedure_t */
     ti_thing_t * root;
     ti_quota_t * quota;
     uv_mutex_t * lock;      /* only for watch/unwatch/away-mode */

@@ -8,6 +8,8 @@
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
+#include <ti/fn/fncall.h>
+#include <ti/fn/fncalle.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
@@ -47,6 +49,7 @@
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnnewcollection.h>
 #include <ti/fn/fnnewnode.h>
+#include <ti/fn/fnnewprocedure.h>
 #include <ti/fn/fnnewtoken.h>
 #include <ti/fn/fnnewuser.h>
 #include <ti/fn/fnnodeinfo.h>
@@ -100,6 +103,13 @@ if (do__no_node_scope(query))                           \
     goto no_node_scope;                                 \
 return __fn(query, params, e)
 
+#define do__thingsdb_or_collection_fn(__fn)             \
+if (is_chained)                                         \
+    break;                                              \
+if (do__no_thingsdb_or_collection_scope(query))         \
+    goto no_thingsdb_or_collection_scope;               \
+return __fn(query, params, e)
+
 static inline int do__no_node_scope(ti_query_t * query)
 {
     return ~query->syntax.flags & TI_SYNTAX_FLAG_NODE;
@@ -113,6 +123,11 @@ static inline int do__no_thingsdb_scope(ti_query_t * query)
 static inline int do__no_collection_scope(ti_query_t * query)
 {
     return ~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION;
+}
+
+static inline int do__no_thingsdb_or_collection_scope(ti_query_t * query)
+{
+    return query->syntax.flags & TI_SYNTAX_FLAG_NODE;
 }
 
 static int do__function(
@@ -287,6 +302,14 @@ static int do__function(
     case TI_FN_UPPER:
         return do__f_upper(query, params, e);
 
+    /* both thingsdb and collection scope */
+    case TI_FN_CALL:
+        do__thingsdb_or_collection_fn(do__f_call);
+    case TI_FN_CALLE:
+        do__thingsdb_or_collection_fn(do__f_calle);
+    case TI_FN_NEW_PROCEDURE:
+        do__thingsdb_or_collection_fn(do__f_new_procedure);
+
     /* thingsdb scope */
     case TI_FN_COLLECTION_INFO:
         do__thingsdb_fn(do__f_collection_info);
@@ -361,6 +384,15 @@ static int do__function(
                 fname->len,
                 fname->str);
     }
+    return e->nr;
+
+no_thingsdb_or_collection_scope:
+    ex_set(e, EX_INDEX_ERROR,
+            "function `%.*s` is undefined in the `%s` scope; "
+            "You might want to query the `thingsdb` or a `collection` scope?",
+            fname->len,
+            fname->str,
+            ti_query_scope_name(query));
     return e->nr;
 
 no_node_scope:

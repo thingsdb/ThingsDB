@@ -485,6 +485,40 @@ done:
     return rc;
 }
 
+int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(procedure->def->n + 20, 1);
+
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "new_procedure");
+    (void) qp_add_raw(packer, procedure->def->data, procedure->def->n);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+}
+
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,

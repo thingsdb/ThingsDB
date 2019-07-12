@@ -19,6 +19,7 @@
 #include <ti/user.h>
 #include <ti/sync.h>
 #include <ti/users.h>
+#include <ti/procedure.h>
 #include <ti/version.h>
 #include <ti/web.h>
 #include <tiinc.h>
@@ -57,6 +58,7 @@ int ti_create(void)
     ti_.store = NULL;
     ti_.access_node = vec_new(0);
     ti_.access_thingsdb = vec_new(0);
+    ti_.procedures = vec_new(0);
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
@@ -76,6 +78,7 @@ int ti_create(void)
             ti_sync_create() ||
             !ti_.access_node ||
             !ti_.access_thingsdb ||
+            !ti_.procedures ||
             !ti_.langdef)
     {
         /* ti_stop() is never called */
@@ -101,17 +104,26 @@ void ti_destroy(void)
     ti_nodes_destroy();
     ti_collections_destroy();
     ti_users_destroy();
-    ti_names_destroy();
     ti_store_destroy();
     ti_val_drop((ti_val_t *) ti_.thing0);
-    ti_counters_destroy();  /* very last since counters can be updated */
+
     vec_destroy(ti_.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti_.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(ti_.procedures, (vec_destroy_cb) ti_procedure_destroy);
+
+    /* remove late since counters can be updated */
+    ti_counters_destroy();
+
+    /* names should be removed late since they are
+     * used by for example procedures */
+    ti_names_destroy();
+
+    /* remove late */
+    ti_val_drop_common();
+
     if (ti_.langdef)
         cleri_grammar_free(ti_.langdef);
     memset(&ti_, 0, sizeof(ti_t));
-
-    ti_val_drop_common();
 }
 
 int ti_init_logger(void)

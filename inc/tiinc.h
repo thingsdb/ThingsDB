@@ -111,9 +111,9 @@ typedef enum
     TI_FN_ISNIL,
     TI_FN_ISRAW,
     TI_FN_ISSET,
-    TI_FN_ISSTR,
     TI_FN_ISTHING,
     TI_FN_ISTUPLE,
+    TI_FN_ISSTR,        /* alias */
     TI_FN_ISUTF8,
     TI_FN_LEN,
     TI_FN_LOWER,
@@ -133,6 +133,11 @@ typedef enum
     TI_FN_TRY,
     TI_FN_TYPE,
     TI_FN_UPPER,
+
+    /* both thingsdb and collection scopes */
+    TI_FN_CALL,
+    TI_FN_CALLE,
+    TI_FN_NEW_PROCEDURE,
 
     /* thingsdb functions */
     TI_FN_COLLECTION_INFO,

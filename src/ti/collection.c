@@ -11,6 +11,7 @@
 #include <ti/name.h>
 #include <ti/names.h>
 #include <ti/thing.h>
+#include <ti/procedure.h>
 #include <ti.h>
 #include <util/strx.h>
 #include <util/fx.h>
@@ -33,13 +34,14 @@ ti_collection_t * ti_collection_create(
     collection->name = ti_raw_create((uchar *) name, n);
     collection->things = imap_create();
     collection->access = vec_new(1);
+    collection->procedures = vec_new(0);
     collection->quota = ti_quota_create();
     collection->lock = malloc(sizeof(uv_mutex_t));
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->access ||
-        !collection->quota || !collection->lock ||
+        !collection->procedures || !collection->quota || !collection->lock ||
         uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
@@ -56,6 +58,7 @@ void ti_collection_drop(ti_collection_t * collection)
 
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
 
     ti_val_drop((ti_val_t *) collection->root);
 

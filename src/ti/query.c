@@ -141,7 +141,7 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_drop(epkg);
 }
 
-static int query__node_db_unpack(
+static int query__node_tdb_unpack(
         const char * ebad,
         ti_query_t * query,
         uint16_t pkg_id,
@@ -155,6 +155,7 @@ static int query__node_db_unpack(
     qp_obj_t key, val;
 
     query->syntax.pkg_id = pkg_id;
+    query->root = ti()->thing0;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
 
@@ -181,6 +182,23 @@ static int query__node_db_unpack(
                 goto finish;
             }
 
+            continue;
+        }
+
+        if (qp_is_raw_equal_str(&key, "deep"))
+        {
+            if (!qp_is_int(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+            if (val.via.int64 < 0 || val.via.int64 > QUERY__MAX_DEEP)
+            {
+                ex_set(e, EX_BAD_DATA, ebad);
+                goto finish;
+            }
+
+            query->syntax.deep = (uint8_t) val.via.int64;
             continue;
         }
 
@@ -251,7 +269,7 @@ int ti_query_node_unpack(
     const char * ebad =
             "invalid `query-node` request"TI_SEE_DOC("#query-node");
     query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-    return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_tdb_unpack(ebad, query, pkg_id, data, n, e);
 }
 
 int ti_query_thingsdb_unpack(
@@ -265,7 +283,7 @@ int ti_query_thingsdb_unpack(
     const char * ebad =
             "invalid `query-thingsdb` request"TI_SEE_DOC("#query-thingsdb");
     query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-    return query__node_db_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_tdb_unpack(ebad, query, pkg_id, data, n, e);
 }
 
 int ti_query_collection_unpack(
@@ -291,7 +309,7 @@ int ti_query_collection_unpack(
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
         ex_set(e, EX_BAD_DATA, ebad);
-        goto finish;
+        return e->nr;
     }
 
     while(qp_is_raw(qp_next(&unpacker, &key)))
@@ -301,7 +319,7 @@ int ti_query_collection_unpack(
             if (query->querystr || !qp_is_raw(qp_next(&unpacker, &val)))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                return e->nr;
             }
 
             if (val.len > max_raw)
@@ -311,7 +329,7 @@ int ti_query_collection_unpack(
             if (!query->querystr)
             {
                 ex_set_alloc(e);
-                goto finish;
+                return e->nr;
             }
             continue;
         }
@@ -321,13 +339,13 @@ int ti_query_collection_unpack(
             if (query->target)
             {
                 ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                return e->nr;
             }
 
             (void) qp_next(&unpacker, &val);
             query->target = ti_collections_get_by_qp_obj(&val, e);
             if (e->nr)
-                goto finish;
+                return e->nr;
             ti_incref(query->target);
             continue;
         }
@@ -337,12 +355,12 @@ int ti_query_collection_unpack(
             if (!qp_is_int(qp_next(&unpacker, &val)))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                return e->nr;
             }
             if (val.via.int64 < 0 || val.via.int64 > QUERY__MAX_DEEP)
             {
                 ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                return e->nr;
             }
 
             query->syntax.deep = (uint8_t) val.via.int64;
@@ -357,7 +375,7 @@ int ti_query_collection_unpack(
             if (query->blobs || !qp_is_array(tp))
             {
                 ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                return e->nr;
             }
 
             n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
@@ -366,7 +384,7 @@ int ti_query_collection_unpack(
             if (!query->blobs)
             {
                 ex_set_alloc(e);
-                goto finish;
+                return e->nr;
             }
 
             while(n-- && qp_is_raw(qp_next(&unpacker, &val)))
@@ -375,7 +393,7 @@ int ti_query_collection_unpack(
                 if (!blob || vec_push(&query->blobs, blob))
                 {
                     ex_set_alloc(e);
-                    goto finish;
+                    return e->nr;
                 }
 
                 if (blob->n > max_raw)
@@ -390,14 +408,18 @@ int ti_query_collection_unpack(
     }
 
     if (!query->querystr || !query->target)
+    {
         ex_set(e, EX_BAD_DATA, ebad);
+        return e->nr;
+    }
 
-    if (query->target && max_raw >= query->target->quota->max_raw_size)
+    query->root = query->target->root;
+
+    if (max_raw >= query->target->quota->max_raw_size)
         ex_set(e, EX_MAX_QUOTA,
                 "maximum raw size quota of %zu bytes is reached"
                 TI_SEE_DOC("#quotas"), query->target->quota->max_raw_size);
 
-finish:
     return e->nr;
 }
 
@@ -470,8 +492,6 @@ void ti_query_run(ti_query_t * query)
         query->rval = (ti_val_t *) ti_nil_get();
         goto stop;
     }
-
-    query->root = query->target ? query->target->root : ti()->thing0;
 
     while (1)
     {

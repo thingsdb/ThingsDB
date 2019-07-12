@@ -2,13 +2,16 @@
  * ti/rjob.c
  */
 #include <assert.h>
-#include <ti/rjob.h>
-#include <ti/val.h>
 #include <ti.h>
-#include <ti/users.h>
 #include <ti/access.h>
-#include <util/qpx.h>
+#include <ti/procedure.h>
+#include <ti/procedures.h>
+#include <ti/rjob.h>
+#include <ti/syntax.h>
+#include <ti/users.h>
+#include <ti/val.h>
 #include <util/cryptx.h>
+#include <util/qpx.h>
 
 /*
  * Returns 0 on success
@@ -270,6 +273,61 @@ static int rjob__new_node(ti_event_t * ev, qp_unpacker_t * unp)
     ev->flags |= TI_EVENT_FLAG_SAVE;
 
     return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: 'def'
+ */
+static int rjob__new_procedure(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    int rc;
+    ex_t e;
+    qp_obj_t qp_def;
+    ti_syntax_t syntax;
+    ti_procedure_t * procedure;
+
+    ex_init(&e);
+
+    syntax.nd_val_cache_n = 0;
+    syntax.flags = TI_SYNTAX_FLAG_COLLECTION;
+
+    if (!qp_is_raw(qp_next(unp, &qp_def)))
+    {
+        log_critical(
+                "job `new_procedure` for `.thingsdb`: "
+                "missing definition data");
+        return -1;
+    }
+
+    procedure = ti_procedure_from_strn(
+            (const char *) qp_def.via.raw,
+            qp_def.len,
+            &syntax, &e);
+
+    if (!procedure)
+    {
+        log_critical("job `new_procedure` for `.thingsdb`: %s",
+                e.msg);
+        return -1;
+    }
+
+    rc = ti_procedures_add(&ti()->procedures, procedure);
+    if (rc == 0)
+        return 0;  /* success */
+
+    if (rc < 0)
+        log_critical(EX_ALLOC_S);
+    else
+        log_critical(
+                "job `new_procedure` for `.thingsdb`: "
+                "procedure `%.*s` already exists",
+                (int) procedure->name->n, (char *) procedure->name->data);
+
+    ti_procedure_destroy(procedure);
+    return -1;
 }
 
 /*
@@ -747,6 +805,8 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
             return rjob__new_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_node"))
             return rjob__new_node(ev, unp);
+        if (qpx_obj_eq_str(&qp_job_name, "new_procedure"))
+            return rjob__new_procedure(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_token"))
             return rjob__new_token(unp);
         if (qpx_obj_eq_str(&qp_job_name, "new_user"))

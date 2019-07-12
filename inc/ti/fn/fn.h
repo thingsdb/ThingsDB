@@ -16,8 +16,10 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr.h>
+#include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/regex.h>
+#include <ti/syntax.h>
 #include <ti/task.h>
 #include <ti/users.h>
 #include <ti/vbool.h>

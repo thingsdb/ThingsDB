@@ -4,13 +4,26 @@
 
 static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);
+    assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);  /* no node scope */
     assert (e->nr == 0);
     assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
+    int rc;
+    ti_syntax_t syntax;
     ti_raw_t * raw;
+    ti_task_t * task;
+    ti_procedure_t * procedure;
+    vec_t ** procedures = query->target
+            ? &query->target->procedures
+            : &ti()->procedures;
+
+    syntax.nd_val_cache_n = 0;
+    syntax.flags = query->syntax.flags & (
+            TI_SYNTAX_FLAG_NODE|
+            TI_SYNTAX_FLAG_THINGSDB|
+            TI_SYNTAX_FLAG_COLLECTION);
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
@@ -44,6 +57,41 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    procedure = ti_procedure_from_raw(raw, &syntax, e);
+    if (!procedure)
+        return e->nr;
 
+    rc = ti_procedures_add(procedures, procedure);
+    if (rc < 0)
+        goto alloc_error;
+    if (rc > 0)
+    {
+        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` already exists",
+                (int) procedure->name->n, (char *) procedure->name->data);
+        goto failed;
+    }
+
+    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    if (!task)
+        goto undo;
+
+    if (ti_task_add_new_procedure(task, procedure))
+        goto undo;
+
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) procedure->name;
+    ti_incref(query->rval);
+
+    return e->nr;
+
+undo:
+    (void) vec_pop(*procedures);
+
+alloc_error:
+    if (!e->nr)
+        ex_set_alloc(e);
+
+failed:
+    ti_procedure_destroy(procedure);
     return e->nr;
 }

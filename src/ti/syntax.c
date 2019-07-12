@@ -18,21 +18,25 @@ do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
     return __ret;                                                           \
 } while(0)
 
-/* set collection event, used for collection scope */
+/* set 'c'ollection event, used for collection scope */
 #define syntax__cev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X(syntax__set_collection_event, __q, __nd, __str, __fn, __ret)
 
-/* no event, used for collection scope */
+/* 'n'o event, used for collection scope */
 #define syntax__nev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
 
-/* set thingsdb event, used for thingsdb scope */
+/* set 't'hingsdb event, used for thingsdb scope */
 #define syntax__tev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn, __ret)
 
-/* zero (no) event, used for node and thingsdb scope */
+/* 'z'ero (no) event, used for node and thingsdb scope */
 #define syntax__zev_fn(__q, __nd, __str, __fn, __ret) \
         SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
+
+/* set 'b'oth thingsdb and collection event */
+#define syntax__bev_fn(__q, __nd, __str, __fn, __ret) \
+        SYNTAX__X(syntax__set_both_event, __q, __nd, __str, __fn, __ret)
 
 static inline void syntax__set_collection_event(ti_syntax_t * syntax)
 {
@@ -42,10 +46,15 @@ static inline void syntax__set_collection_event(ti_syntax_t * syntax)
 
 static inline void syntax__set_thingsdb_event(ti_syntax_t * syntax)
 {
-    syntax->flags |= ~syntax->flags & TI_SYNTAX_FLAG_COLLECTION
+    syntax->flags |= syntax->flags & TI_SYNTAX_FLAG_THINGSDB
             ? TI_SYNTAX_FLAG_EVENT : 0;
 }
 
+static inline void syntax__set_both_event(ti_syntax_t * syntax)
+{
+    syntax->flags |= ~syntax->flags & TI_SYNTAX_FLAG_NODE
+            ? TI_SYNTAX_FLAG_EVENT : 0;
+}
 
 /* returns `true` if the arguments of the function need evaluation */
 static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
@@ -63,6 +72,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "bool", TI_FN_BOOL, true);
         break;
     case 'c':
+        syntax__bev_fn(q, nd, "calle", TI_FN_CALLE, true);
+        syntax__nev_fn(q, nd, "call", TI_FN_CALL, true);
         syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
         syntax__zev_fn(q, nd, "collection_info", TI_FN_COLLECTION_INFO, true);
         syntax__zev_fn(q, nd, "collections_info", TI_FN_COLLECTIONS_INFO, false);
@@ -122,6 +133,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "map", TI_FN_MAP, true);
         break;
     case 'n':
+        syntax__bev_fn(q, nd, "new_procedure", TI_FN_NEW_PROCEDURE, true);
         syntax__nev_fn(q, nd, "now", TI_FN_NOW, false);
         syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION, true);
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);

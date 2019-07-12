@@ -24,6 +24,7 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/user.h>
 #include <ti/token.h>
 #include <ti/quota.h>
+#include <ti/procedure.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
@@ -47,6 +48,7 @@ int ti_task_add_new_collection(
         ti_collection_t * collection,
         ti_user_t * user);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
+int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,

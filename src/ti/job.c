@@ -4,11 +4,14 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/job.h>
-#include <ti/val.h>
-#include <ti/vset.h>
-#include <ti/varr.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/procedure.h>
+#include <ti/procedures.h>
+#include <ti/syntax.h>
+#include <ti/val.h>
+#include <ti/varr.h>
+#include <ti/vset.h>
 
 /*
  * Returns 0 on success
@@ -202,6 +205,66 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
     }
 
     return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: 'def'
+ */
+static int job__new_procedure(
+        ti_collection_t * collection,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (unp);
+
+    int rc;
+    ex_t e;
+    qp_obj_t qp_def;
+    ti_syntax_t syntax;
+    ti_procedure_t * procedure;
+
+    ex_init(&e);
+    syntax.nd_val_cache_n = 0;
+    syntax.flags = TI_SYNTAX_FLAG_COLLECTION;
+
+    if (!qp_is_raw(qp_next(unp, &qp_def)))
+    {
+        log_critical(
+                "job `new_procedure` for "TI_COLLECTION_ID": "
+                "missing definition data",
+                collection->root->id);
+        return -1;
+    }
+
+    procedure = ti_procedure_from_strn(
+            (const char *) qp_def.via.raw,
+            qp_def.len,
+            &syntax, &e);
+
+    if (!procedure)
+    {
+        log_critical("job `new_procedure` for "TI_COLLECTION_ID": %s",
+                collection->root->id,
+                e.msg);
+        return -1;
+    }
+
+    rc = ti_procedures_add(&collection->procedures, procedure);
+    if (rc == 0)
+        return 0;  /* success */
+
+    if (rc < 0)
+        log_critical(EX_ALLOC_S);
+    else
+        log_critical(
+                "job `new_procedure` for "TI_COLLECTION_ID": "
+                "procedure `%.*s` already exists",
+                collection->root->id,
+                (int) procedure->name->n, (char *) procedure->name->data);
+
+    ti_procedure_destroy(procedure);
+    return -1;
 }
 
 /*
@@ -467,7 +530,9 @@ static int job__splice(
 
         if (ti_varr_append(varr, (void **) &val, &e))
         {
-            log_critical("job `splice` array on "TI_THING_ID": %s", e.msg);
+            log_critical("job `splice` array on "TI_THING_ID": %s",
+                    thing->id,
+                    e.msg);
             ti_val_drop(val);
             return -1;
         }
@@ -509,6 +574,8 @@ int ti_job_run(
                 : job__assign(collection, thing, unp);
     case 'd':
         return job__del(thing, unp);
+    case 'n':
+        return job__new_procedure(collection, unp);
     case 'r':
         return *(raw+2) == 'm'
                 ? job__remove(collection, thing, unp)

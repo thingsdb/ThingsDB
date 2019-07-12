@@ -8,6 +8,7 @@
 #include <ti/store/access.h>
 #include <ti/store/collection.h>
 #include <ti/store/collections.h>
+#include <ti/store/procedures.h>
 #include <ti/store/names.h>
 #include <ti/store/status.h>
 #include <ti/store/things.h>
@@ -27,6 +28,7 @@ static const char * store__access_thingsdb_fn   = "access_thingsdb.qp";
 static const char * store__collections_fn       = "collections.qp";
 static const char * store__id_stat_fn           = "idstat.qp";
 static const char * store__names_fn             = "names.qp";
+static const char * store__procedures_fn        = "procedures.qp";
 static const char * store__users_fn             = "users.qp";
 
 static ti_store_t * store;
@@ -48,6 +50,7 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->collections_fn + store->fn_offset, path, n);
     memcpy(store->id_stat_fn + store->fn_offset, path, n);
     memcpy(store->names_fn + store->fn_offset, path, n);
+    memcpy(store->procedures_fn + store->fn_offset, path, n);
     memcpy(store->users_fn + store->fn_offset, path, n);
 }
 
@@ -99,6 +102,7 @@ int ti_store_create(void)
             store__collections_fn);
     store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
+    store->procedures_fn = fx_path_join(store->tmp_path, store__procedures_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
     store->last_stored_event_id = 0;
     store->collection_ids = NULL;
@@ -110,6 +114,7 @@ int ti_store_create(void)
             !store->collections_fn ||
             !store->id_stat_fn ||
             !store->names_fn ||
+            !store->procedures_fn ||
             !store->users_fn)
         goto fail1;
 
@@ -138,6 +143,7 @@ void ti_store_destroy(void)
     free(store->collections_fn);
     free(store->id_stat_fn);
     free(store->names_fn);
+    free(store->procedures_fn);
     free(store->users_fn);
     vec_destroy(store->collection_ids, free);
     ti()->store = store = NULL;
@@ -173,7 +179,10 @@ int ti_store_store(void)
             ti_store_access_store(
                     ti()->access_thingsdb,
                     store->access_thingsdb_fn) ||
-            ti_store_collections_store(store->collections_fn))
+            ti_store_collections_store(store->collections_fn) ||
+            ti_store_procedures_store(
+                    ti()->procedures,
+                    store->procedures_fn))
         goto failed;
 
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
@@ -206,7 +215,10 @@ int ti_store_store(void)
                         store_collection->collection_fn) ||
                 ti_store_things_store_data(
                         collection->things,
-                        store_collection->props_fn)
+                        store_collection->props_fn) ||
+                ti_store_procedures_store(
+                        collection->procedures,
+                        store_collection->procedures_fn)
             );
         }
         ti_store_collection_destroy(store_collection);
@@ -274,7 +286,10 @@ int ti_store_restore(void)
             ti_store_access_restore(
                     &ti()->access_thingsdb,
                     store->access_thingsdb_fn) ||
-            ti_store_collections_restore(store->collections_fn));
+            ti_store_collections_restore(store->collections_fn) ||
+            ti_store_procedures_restore(
+                    &ti()->procedures,
+                    store->procedures_fn));
 
     if (rc)
         goto stop;
@@ -288,6 +303,9 @@ int ti_store_restore(void)
                 ti_store_access_restore(
                         &collection->access,
                         store_collection->access_fn) ||
+                ti_store_procedures_restore(
+                        &collection->procedures,
+                        store_collection->procedures_fn) ||
                 ti_store_things_restore(
                         collection->things,
                         store_collection->things_fn) ||

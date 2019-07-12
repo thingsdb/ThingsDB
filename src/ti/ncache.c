@@ -3,8 +3,13 @@
  */
 #include <assert.h>
 #include <util/logger.h>
+#include <util/strx.h>
 #include <ti/ncache.h>
 #include <ti/val.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
+#include <ti/regex.h>
+#include <ti/raw.h>
 #include <langdef/langdef.h>
 
 /*

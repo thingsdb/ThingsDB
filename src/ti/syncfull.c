@@ -25,12 +25,14 @@ typedef enum
     SYNCFULL__USERS_FILE,
     SYNCFULL__ACCESS_NODE_FILE,
     SYNCFULL__ACCESS_THINGSDB_FILE,
+    SYNCFULL__PROCEDURES_FILE,
     SYNCFULL__NAMES_FILE,
     SYNCFULL__COLLECTIONS_FILE,
     SYNCFULL__ID_STAT_FILE,
     /* collection files */
     SYNCFULL__COLLECTION_DAT_FILE,
     SYNCFULL__COLLECTION_ACCESS_FILE,
+    SYNCFULL__COLLECTION_PROCEDURES_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
     SYNCFULL__COLLECTION_PROPS_FILE,
     /* end */
@@ -49,6 +51,8 @@ static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
         return strdup(ti()->store->access_node_fn);
     case SYNCFULL__ACCESS_THINGSDB_FILE:
         return strdup(ti()->store->access_thingsdb_fn);
+    case SYNCFULL__PROCEDURES_FILE:
+        return strdup(ti()->store->procedures_fn);
     case SYNCFULL__NAMES_FILE:
         return strdup(ti()->store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:
@@ -59,6 +63,8 @@ static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
         return ti_store_collection_dat_fn(path, target_id);
     case SYNCFULL__COLLECTION_ACCESS_FILE:
         return ti_store_collection_access_fn(path, target_id);
+    case SYNCFULL__COLLECTION_PROCEDURES_FILE:
+        return ti_store_collection_procedures_fn(path, target_id);
     case SYNCFULL__COLLECTION_THINGS_FILE:
         return ti_store_collection_things_fn(path, target_id);
     case SYNCFULL__COLLECTION_PROPS_FILE:

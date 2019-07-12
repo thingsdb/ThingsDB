@@ -303,6 +303,7 @@ ti_procedure_t * ti_procedure_from_strn(
 
 int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
 {
+    size_t argn = procedure->arguments->n;
     cleri_children_t * child = procedure->node->children;
     vec_t * tmpvars;
 
@@ -336,8 +337,6 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
         if (ti_do_scope(query, child->node, e))
             break;
 
-        ti_scope_leave(&query->scope, NULL);
-
         if (!child->next || !(child = child->next->next))
             break;
 
@@ -349,6 +348,9 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
     procedure->flags &= ~TI_RPOCEDURE_FLAG_LOCK;
 
     /* restore original temporary variable */
+    while (query->tmpvars->n > argn)
+        ti_prop_destroy(vec_pop(query->tmpvars));
+    procedure->arguments = query->tmpvars;   /* may be re-allocated */
     query->tmpvars = tmpvars;
 
     return e->nr;

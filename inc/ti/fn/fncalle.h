@@ -73,6 +73,7 @@ static int do__f_calle(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_do_scope(query, child->node, e))
             return e->nr;
 
+        ti_val_drop(prop->val);
         prop->val = query->rval;
         query->rval = NULL;
     }

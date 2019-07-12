@@ -71,7 +71,7 @@ static cleri_node_t * closure__node_from_strn(
     /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
     ti_syntax_investigate(&syntax, node->children->next->next->next->node);
 
-    ncache = ti_ncache_create(query, syntax.nd_val_cache_n);
+    ncache = ti_ncache_create(query, syntax.val_cache_n);
     if (!ncache)
     {
         ex_set_alloc(e);
@@ -79,7 +79,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node->data = ncache;
-    if (ti_ncache_gen_primitives(ncache->nd_val_cache, node, e))
+    if (ti_ncache_gen_primitives(ncache->val_cache, node, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */

@@ -8,6 +8,7 @@ from .protocol import Protocol
 from .protocol import REQ_AUTH
 from .protocol import REQ_QUERY_COLLECTION
 from .protocol import REQ_WATCH
+from .protocol import REQ_CALL
 from .protocol import PROTOMAP
 from .protocol import proto_unkown
 from .protocol import ON_WATCH_INI
@@ -250,6 +251,14 @@ class Client(Buildin):
             }
 
         future = self._write_package(scope._proto, data, timeout=timeout)
+        return await future
+
+    async def call(self, procedure: str, *args, target=None, ):
+        scope = self._make_scope(target)
+        future = self._write_package(
+            REQ_CALL,
+            [scope._scope, procedure, *args],
+            timeout=None)
         return await future
 
     def watch(self):

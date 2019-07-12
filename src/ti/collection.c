@@ -58,7 +58,7 @@ void ti_collection_drop(ti_collection_t * collection)
 
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
-    vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
+    vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_drop);
 
     ti_val_drop((ti_val_t *) collection->root);
 

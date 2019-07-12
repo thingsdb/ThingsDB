@@ -17,7 +17,7 @@ int ti_ncache_gen_primitives(vec_t * vcache, cleri_node_t * node, ex_t * e);
 struct ti_ncache_s
 {
     char * query;
-    vec_t * nd_val_cache;
+    vec_t * val_cache;
 };
 
 

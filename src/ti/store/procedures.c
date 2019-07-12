@@ -51,7 +51,7 @@ int ti_store_procedures_restore(vec_t ** procedures, const char * fn)
 
     ex_init(&e);
 
-    syntax.nd_val_cache_n = 0;
+    syntax.val_cache_n = 0;
     syntax.flags = *procedures == ti()->procedures
             ? TI_SYNTAX_FLAG_THINGSDB
             : TI_SYNTAX_FLAG_COLLECTION;

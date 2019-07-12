@@ -77,7 +77,7 @@ class TestUserAccess(TestBase):
 
         await client.query(r'''revoke('Collection', 'test1', MODIFY);''')
 
-        users_access = await testcl1.query(r'''user('admin');''')
+        users_access = await testcl1.query(r'''user_info('admin');''')
         self.assertEqual(users_access, {
             'access': [{
                 'privileges': 'FULL',

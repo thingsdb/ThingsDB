@@ -19,7 +19,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? &query->target->procedures
             : &ti()->procedures;
 
-    syntax.nd_val_cache_n = 0;
+    syntax.val_cache_n = 0;
     syntax.flags = query->syntax.flags & (
             TI_SYNTAX_FLAG_NODE|
             TI_SYNTAX_FLAG_THINGSDB|
@@ -92,6 +92,6 @@ alloc_error:
         ex_set_alloc(e);
 
 failed:
-    ti_procedure_destroy(procedure);
+    ti_procedure_drop(procedure);
     return e->nr;
 }

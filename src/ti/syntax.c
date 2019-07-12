@@ -364,7 +364,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
             case CLERI_GID_T_FLOAT:
             case CLERI_GID_T_STRING:
             case CLERI_GID_T_REGEX:
-                ++syntax->nd_val_cache_n;
+                ++syntax->val_cache_n;
                 nd->children->node->data = NULL;    /* init data to null */
         }
         return;
@@ -386,7 +386,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
 
 void ti_syntax_init(ti_syntax_t * syntax)
 {
-    syntax->nd_val_cache_n = 0;
+    syntax->val_cache_n = 0;
     syntax->flags = 0;
 
     /*

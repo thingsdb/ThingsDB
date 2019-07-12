@@ -67,24 +67,6 @@ TODO: docs
 
 """
 
-new_procudure("
-new_user($name) {
-    new_user($name)
-    $key = new_token($name);
-    grant(':thingsdb', $name, CALL);
-    grant('OsData', $name, CALL);
-    grant(':node', $name, WATCH);
-    $key;
-}
-")
-
-
-
-tiken_key = new_user('rik')
-
-
-
-
 class Label(Thing):
 
     name = optional(str)
@@ -138,22 +120,26 @@ async def test(client):
 
     await client.connect_pool([
         ('localhost', 9200),
-        ('localhost', 9201),
-    ], 'admin', 'pass')
+        # ('localhost', 9201),
+    ], ['admin', 'pass'])
 
     try:
-        osdata = OsData(client, build=setup_initial_data)
+        client.use('stuff')
+        print(await client.call('bla'))
+        print(await client.call('bla'))
+        print(await client.call('bla'))
+        # osdata = OsData(client, build=setup_initial_data)
 
-        print(await client.node_info())
+        # print(await client.node_info())
 
         while True:
             if interrupted:
                 break
 
-            if osdata:
-                print(osdata.ulabels)
-                print([label.name for label in osdata.ulabels if label])
-            await asyncio.sleep(1.2)
+        #     if osdata:
+        #         print(osdata.ulabels)
+        #         print([label.name for label in osdata.ulabels if label])
+        #     await asyncio.sleep(1.2)
     finally:
         client.close()
 

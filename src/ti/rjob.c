@@ -291,7 +291,7 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
 
     ex_init(&e);
 
-    syntax.nd_val_cache_n = 0;
+    syntax.val_cache_n = 0;
     syntax.flags = TI_SYNTAX_FLAG_COLLECTION;
 
     if (!qp_is_raw(qp_next(unp, &qp_def)))
@@ -326,7 +326,7 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
                 "procedure `%.*s` already exists",
                 (int) procedure->name->n, (char *) procedure->name->data);
 
-    ti_procedure_destroy(procedure);
+    ti_procedure_drop(procedure);
     return -1;
 }
 

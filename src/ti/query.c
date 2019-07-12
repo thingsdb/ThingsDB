@@ -11,6 +11,7 @@
 #include <ti.h>
 #include <ti/collections.h>
 #include <ti/do.h>
+#include <ti/procedures.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
 #include <ti/query.h>
@@ -224,15 +225,16 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->rval = NULL;
     query->syntax.deep = 1;
     query->syntax.flags = 0;
-    query->syntax.nd_val_cache_n = 0;
+    query->syntax.val_cache_n = 0;
     query->target = NULL;  /* node or thingsdb when NULL */
     query->parseres = NULL;
+    query->procedure = NULL;
     query->stream = ti_grab(stream);
     query->user = ti_grab(user);
     query->ev = NULL;
     query->blobs = NULL;
     query->querystr = NULL;
-    query->nd_val_cache = NULL;
+    query->val_cache = NULL;
     query->tmpvars = NULL;
 
     return query;
@@ -246,7 +248,8 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->nd_val_cache, (vec_destroy_cb) ti_val_drop);
+    ti_procedure_drop(query->procedure);
+    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
     vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
     ti_user_drop(query->user);
@@ -254,6 +257,7 @@ void ti_query_destroy(ti_query_t * query)
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
+
     free(query->querystr);
     free(query);
 }
@@ -266,7 +270,6 @@ int ti_query_callunpack(
         ex_t * e)
 {
     const char * ebad = "invalid `call` request"TI_SEE_DOC("#call-request");
-    ti_collection_t * collection;
     static ti_raw_t node = {
             tp: TI_VAL_RAW,
             n: 5,
@@ -281,9 +284,10 @@ int ti_query_callunpack(
     qp_obj_t qp_target, qp_procedure;
     ti_procedure_t * procedure;
     vec_t * procedures;
+    ti_val_t * argval;
     size_t idx = 0;
     assert (e->nr == 0);
-    query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+    query->syntax.flags |= TI_SYNTAX_FLAG_CALLED;
     query->syntax.pkg_id = pkg_id;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
@@ -319,6 +323,8 @@ int ti_query_callunpack(
         if (e->nr)
             return e->nr;
         ti_incref(query->target);
+        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        query->root = query->target->root;
         procedures = query->target->procedures;
     }
 
@@ -335,23 +341,49 @@ int ti_query_callunpack(
         return e->nr;
     }
 
+    if (procedure->flags & TI_PROCEDURE_FLAG_EVENT)
+        query->syntax.flags |= TI_SYNTAX_FLAG_EVENT;
+
+    query->val_cache = vec_new(procedure->arguments->n);
+    if (!query->val_cache)
+    {
+        ex_set_alloc(e);
+        return e->nr;
+    }
+
     for (vec_each(procedure->arguments, ti_prop_t, prop), ++idx)
     {
-        prop->val = ti_val_from_unp(&unpacker, NULL);
-        if (!prop->val)
+        /*
+         * Make things explicit NULL, existing things should be parsed using
+         * and integer and the t() function, and new things must be created
+         * by the procedure and not given as argument.
+         */
+        argval = ti_val_from_unp(&unpacker, NULL);
+        if (!argval)
         {
-            x_set(e, EX_INDEX_ERROR,
+            ex_set(e, EX_INDEX_ERROR,
                 "argument `%zu` for procedure `%.*s` is invalid (or missing)",
                 idx,
                 (int) qp_procedure.len,
                 (char *) qp_procedure.via.raw);
             return e->nr;
         }
+        VEC_push(query->val_cache, argval);
     }
 
+    if (!qp_is_close(qp_next(&unpacker, NULL)))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+            "too much arguments for procedure `%.*s`",
+            (int) qp_procedure.len,
+            (char *) qp_procedure.via.raw);
+        return e->nr;
+    }
 
+    query->procedure = procedure;
+    ti_incref(procedure);
 
-    qp_next(&unpacker, &qp_obj)
+    return 0;
 }
 
 int ti_query_node_unpack(
@@ -566,8 +598,8 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     /*
      * Create value cache for primitives. (if required)
      */
-    if (    query->syntax.nd_val_cache_n &&
-            !(query->nd_val_cache = vec_new(query->syntax.nd_val_cache_n)))
+    if (    query->syntax.val_cache_n &&
+            !(query->val_cache = vec_new(query->syntax.val_cache_n)))
         ex_set_alloc(e);
 
     return e->nr;
@@ -577,6 +609,12 @@ void ti_query_run(ti_query_t * query)
 {
     cleri_children_t * child;
     ex_t * e = ex_use();
+
+    if (query->syntax.flags & TI_SYNTAX_FLAG_CALLED)
+    {
+        (void) ti_procedure_run(query, e);
+        goto stop;
+    }
 
     child = query->parseres->tree   /* root */
         ->children->node            /* sequence <comment, list> */

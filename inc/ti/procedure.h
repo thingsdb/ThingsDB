@@ -20,7 +20,7 @@ enum
 #include <ti/query.h>
 #include <ti/raw.h>
 
-void ti_procedure_destroy(ti_procedure_t * procedure);
+void ti_procedure_drop(ti_procedure_t * procedure);
 ti_procedure_t * ti_procedure_from_raw(
         ti_raw_t * def,
         ti_syntax_t * syntax,
@@ -31,14 +31,18 @@ ti_procedure_t * ti_procedure_from_strn(
         ti_syntax_t * syntax,
         ex_t * e);
 int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e);
+int ti_procedure_run(ti_query_t * query, ex_t * e);
 
 struct ti_procedure_s
 {
-    int flags;
+    uint32_t ref;
+    uint16_t pad0_;
+    uint8_t flags;
+    uint8_t pad1_;
     ti_raw_t * def;         /* full procedure definition */
     ti_raw_t * name;
     vec_t * arguments;      /* ti_prop_t */
-    vec_t * nd_val_cache;   /* cached primitives */
+    vec_t * val_cache;   /* cached primitives */
     cleri_node_t * node;
 };
 

@@ -228,11 +228,13 @@ static void clients__query_thingsdb_or_collection(
     return;
 
 finish:
-    ++ti()->counters->queries_with_error;
     ti_query_destroy(query);
 
     if (e->nr)
+    {
+        ++ti()->counters->queries_with_error;
         resp = ti_pkg_client_err(pkg->id, e);
+    }
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -511,7 +513,7 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * this_node = ti()->node;
     ti_pkg_t * resp = NULL;
     vec_t * access_;
-    ti_procedure_t * procedure;
+    ti_query_t * query;
 
     if (!user)
     {
@@ -549,29 +551,44 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    /* TODO: handle the call */
+    query = ti_query_create(stream, user);
+    if (!query)
+    {
+        ex_set_alloc(e);
+        goto finish;
+    }
 
-//    access_ = wareq ? wareq->target->access : ti()->access_node;
-
-    if (ti_access_check_err(access_, user, TI_AUTH_CALL, e))
+    if (ti_query_callunpack(query, pkg->id, pkg->data, pkg->n, e))
         goto finish;
 
-    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
-    if (!resp)
-        ex_set_alloc(e);
+    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e))
+        goto finish;
+
+    if (ti_query_will_update(query))
+    {
+        if (ti_events_create_new_event(query, e))
+            goto finish;
+        return;
+    }
+
+    ti_query_run(query);
+    return;
 
 finish:
+    ti_query_destroy(query);
+
     if (e->nr)
+    {
+        ++ti()->counters->queries_with_error;
         resp = ti_pkg_client_err(pkg->id, e);
+    }
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
         log_error(EX_ALLOC_S);
     }
-
-//    if (e->nr || (wareq && ti_wareq_run(wareq)))
-//        ti_wareq_destroy(wareq);
 }
 
 static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)

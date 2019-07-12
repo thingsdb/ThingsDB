@@ -5,6 +5,7 @@
 
 /*
  * Returns 0 if added, >0 if already exists or <0 in case of an error
+ * Does NOT increment the reference count
  */
 int ti_procedures_add(vec_t ** procedures, ti_procedure_t * procedure)
 {
@@ -15,6 +16,7 @@ int ti_procedures_add(vec_t ** procedures, ti_procedure_t * procedure)
     return vec_push(procedures, procedure);
 }
 
+/* returns a weak reference to a procedure or NULL if not found */
 ti_procedure_t * ti_procedures_by_name(vec_t * procedures, ti_raw_t * name)
 {
     for (vec_each(procedures, ti_procedure_t, p))
@@ -23,6 +25,7 @@ ti_procedure_t * ti_procedures_by_name(vec_t * procedures, ti_raw_t * name)
     return NULL;
 }
 
+/* returns a weak reference to a procedure or NULL if not found */
 ti_procedure_t * ti_procedures_by_strn(
         vec_t * procedures,
         const char * str,

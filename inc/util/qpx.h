@@ -72,6 +72,7 @@ static inline _Bool qpx_obj_endswith_raw(
         const ti_raw_t * raw)
 {
     return (
+        obj->tp == QP_RAW &&
         obj->len >= raw->n &&
         memcmp(obj->via.raw + obj->len - raw->n, raw->data, raw->n) == 0
     );

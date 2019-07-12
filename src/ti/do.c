@@ -883,8 +883,8 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
-            assert (vec_space(query->nd_val_cache));
-            VEC_push(query->nd_val_cache, node->data);
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -903,8 +903,8 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set(e, EX_OVERFLOW, "integer overflow");
                 return e->nr;
             }
-            assert (vec_space(query->nd_val_cache));
-            VEC_push(query->nd_val_cache, node->data);
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -918,8 +918,8 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             node->data = ti_regex_from_strn(node->str, node->len, e);
             if (!node->data)
                 return e->nr;
-            assert (vec_space(query->nd_val_cache));
-            VEC_push(query->nd_val_cache, node->data);
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);
@@ -933,8 +933,8 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_alloc(e);
                 return e->nr;
             }
-            assert (vec_space(query->nd_val_cache));
-            VEC_push(query->nd_val_cache, node->data);
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
         }
         query->rval = node->data;
         ti_incref(query->rval);

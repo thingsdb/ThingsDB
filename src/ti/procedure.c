@@ -25,31 +25,32 @@ static ti_procedure_t * procedure__create(void)
     if (!procedure)
         return NULL;
 
+    procedure->ref = 1;
     procedure->flags = 0;
     procedure->def = NULL;
     procedure->name = NULL;
     procedure->arguments = vec_new(0);
-    procedure->nd_val_cache = NULL;
+    procedure->val_cache = NULL;
     procedure->node = NULL;
 
     if (!procedure->arguments)
     {
-        ti_procedure_destroy(procedure);
+        ti_procedure_drop(procedure);
         return NULL;
     }
 
     return procedure;
 }
 
-void ti_procedure_destroy(ti_procedure_t * procedure)
+void ti_procedure_drop(ti_procedure_t * procedure)
 {
-    if (!procedure)
+    if (!procedure || --procedure->ref)
         return;
 
     ti_val_drop((ti_val_t *) procedure->def);
     ti_val_drop((ti_val_t *) procedure->name);
     vec_destroy(procedure->arguments, (vec_destroy_cb) ti_prop_destroy);
-    vec_destroy(procedure->nd_val_cache, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(procedure->val_cache, (vec_destroy_cb) ti_val_drop);
 
     if (procedure->node)
         cleri__node_free(procedure->node);
@@ -209,11 +210,11 @@ ti_procedure_t * ti_procedure_from_raw(
     if (syntax->flags & TI_SYNTAX_FLAG_EVENT)
         procedure->flags |= TI_PROCEDURE_FLAG_EVENT;
 
-    if (syntax->nd_val_cache_n)
+    if (syntax->val_cache_n)
     {
-        procedure->nd_val_cache = vec_new(syntax->nd_val_cache_n);
-        if (!procedure->nd_val_cache || ti_ncache_gen_primitives(
-                procedure->nd_val_cache,
+        procedure->val_cache = vec_new(syntax->val_cache_n);
+        if (!procedure->val_cache || ti_ncache_gen_primitives(
+                procedure->val_cache,
                 procedure->node,
                 e))
             goto alloc_error;
@@ -278,7 +279,7 @@ alloc_error:
 failed:
     if (res)
         cleri_parse_free(res);
-    ti_procedure_destroy(procedure);
+    ti_procedure_drop(procedure);
     return NULL;
 }
 
@@ -354,4 +355,18 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
     query->tmpvars = tmpvars;
 
     return e->nr;
+}
+
+int ti_procedure_run(ti_query_t * query, ex_t * e)
+{
+    ti_procedure_t * procedure = query->procedure;
+    size_t idx = 0;
+
+    assert (procedure);
+    assert (procedure->arguments->n == query->val_cache->n);
+
+    for (vec_each(procedure->arguments, ti_prop_t, prop), ++idx)
+        prop->val = query->val_cache->data[idx];
+
+    return ti_procedure_call(procedure, query, e);
 }

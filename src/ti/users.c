@@ -239,7 +239,7 @@ ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
     return NULL;
 }
 
-ti_val_t * ti_users_as_qpval(void)
+ti_val_t * ti_users_info_as_qpval(void)
 {
     ti_raw_t * rusers = NULL;
     qp_packer_t * packer = qp_packer_create2(4 + (192 * users->vec->n), 4);
@@ -249,7 +249,7 @@ ti_val_t * ti_users_as_qpval(void)
     (void) qp_add_array(&packer);
 
     for (vec_each(users->vec, ti_user_t, user))
-        if (ti_user_to_packer(user, &packer))
+        if (ti_user_info_to_packer(user, &packer))
             goto fail;
 
     if (qp_close_array(packer))

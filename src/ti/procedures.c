@@ -36,3 +36,27 @@ ti_procedure_t * ti_procedures_by_strn(
             return p;
     return NULL;
 }
+
+ti_val_t * ti_procedures_info_as_qpval(vec_t * procedures)
+{
+    ti_raw_t * rprocedures = NULL;
+    qp_packer_t * packer = qp_packer_create2(4 + (192 * procedures->n), 4);
+    if (!packer)
+        return NULL;
+
+    (void) qp_add_array(&packer);
+
+    for (vec_each(procedures, ti_procedure_t, procedure))
+        if (ti_procedure_info_to_packer(procedure, &packer))
+            goto fail;
+
+    if (qp_close_array(packer))
+        goto fail;
+
+    rprocedures = ti_raw_from_packer(packer);
+
+fail:
+    qp_packer_destroy(packer);
+    return (ti_val_t *) rprocedures;
+
+}

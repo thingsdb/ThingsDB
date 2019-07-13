@@ -1,9 +1,10 @@
 #include <ti/fn/fn.h>
 
-#define PROCEDURE_DEF_DOC_ TI_SEE_DOC("#procedure_def")
+#define PROCEDURE_INFO_DOC_ TI_SEE_DOC("#procedure_info")
 
-static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
@@ -17,8 +18,8 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `procedure_def` takes 1 argument but %d were given"
-                PROCEDURE_DEF_DOC_, nargs);
+                "function `procedure_info` takes 1 argument but %d were given"
+                PROCEDURE_INFO_DOC_, nargs);
         return e->nr;
     }
 
@@ -28,9 +29,9 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `procedure_def` expects argument 1 to be of "
+                "function `procedure_info` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                PROCEDURE_DEF_DOC_,
+                PROCEDURE_INFO_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -45,8 +46,9 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) procedure->def;
-    ti_incref(query->rval);
+    query->rval = ti_procedure_info_as_qpval(procedure);
+    if (!query->rval)
+        ex_set_alloc(e);
 
     return e->nr;
 }

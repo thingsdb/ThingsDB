@@ -237,7 +237,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     return 0;
 }
 
-int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
+int ti_user_info_to_packer(ti_user_t * user, qp_packer_t ** packer)
 {
     if (qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "user_id") ||
@@ -277,14 +277,14 @@ int ti_user_to_packer(ti_user_t * user, qp_packer_t ** packer)
     return qp_close_map(*packer);
 }
 
-ti_val_t * ti_user_as_qpval(ti_user_t * user)
+ti_val_t * ti_user_info_as_qpval(ti_user_t * user)
 {
     ti_raw_t * ruser = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);
     if (!packer)
         return NULL;
 
-    if (ti_user_to_packer(user, &packer))
+    if (ti_user_info_to_packer(user, &packer))
         goto fail;
 
     ruser = ti_raw_from_packer(packer);

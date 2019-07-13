@@ -63,9 +63,11 @@ TODO: docs
 - f_del_procedure
 - f_rename_procedure
 - f_procedure_def
-- f_procedure_fmt ?? --> format a procedure?
+- f_procedure_fmt ?? --> format a procedure?  this can work in place!!
+- deep  (change to syntax => deep)
 
 """
+
 
 class Label(Thing):
 

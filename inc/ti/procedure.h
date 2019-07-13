@@ -37,6 +37,7 @@ int ti_procedure_info_to_packer(
         ti_procedure_t * procedure,
         qp_packer_t ** packer);
 ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure);
+int ti_procedure_fmt(ti_procedure_t * procedure);
 
 struct ti_procedure_s
 {
@@ -44,10 +45,11 @@ struct ti_procedure_s
     uint16_t pad0_;
     uint8_t flags;
     uint8_t deep;
-    ti_raw_t * def;         /* full procedure definition */
-    ti_raw_t * name;
-    vec_t * arguments;      /* ti_prop_t */
-    vec_t * val_cache;   /* cached primitives */
+    ti_raw_t * def;             /* full procedure definition */
+    ti_raw_t * name;            /* name of the procedure */
+    ti_raw_t * doc;             /* documentation, may be null */
+    vec_t * arguments;          /* ti_prop_t */
+    vec_t * val_cache;          /* cached primitives */
     cleri_node_t * node;
 };
 

@@ -551,19 +551,18 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
 int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
-    cleri_node_t * node;
+    cleri_children_t * seqchildren;
     assert (e->nr == 0);
 
-    node = query->parseres->tree        /* root */
+    seqchildren = query->parseres->tree /* root */
             ->children->node            /* sequence <comment, list, [deep]> */
-            ->children->next->node;     /* list statements */
+            ->children;
 
-    ti_syntax_investigate(&query->syntax, node);
+    /* list statements */
+    ti_syntax_investigate(&query->syntax, seqchildren->next->node);
 
-    query->syntax.deep = ti_query_get_deep(
-            query->parseres->tree       /* root */
-            ->children->node            /* sequence <comment, list, [deep]> */
-            ->children->next->next, e); /* `e` might be set */
+    /* optional deep */
+    query->syntax.deep = ti_query_get_deep(seqchildren->next->next, e);
 
     /*
      * Create value cache for primitives. (if required)

@@ -53,6 +53,15 @@ procedures_info();
 Running requires CALL
 [target, handle_name, args...]
 
+user_with_token = new_procedure("
+user_with_token ($name) {
+    /*
+     *   create a new user and assign a new token
+     */
+    new_user($name);
+    new_tkoen($name);
+}
+");
 
 TODO: docs
 - procedures   (general overview)

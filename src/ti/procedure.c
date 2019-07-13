@@ -48,11 +48,13 @@ void ti_procedure_drop(ti_procedure_t * procedure)
 
     ti_val_drop((ti_val_t *) procedure->def);
     ti_val_drop((ti_val_t *) procedure->name);
+    ti_val_drop((ti_val_t *) procedure->doc);
     vec_destroy(procedure->arguments, (vec_destroy_cb) ti_prop_destroy);
     vec_destroy(procedure->val_cache, (vec_destroy_cb) ti_val_drop);
 
     if (procedure->node)
         cleri__node_free(procedure->node);
+
     free(procedure);
 }
 
@@ -63,10 +65,10 @@ ti_procedure_t * ti_procedure_from_raw(
 {
     size_t n = def->n, count;
     cleri_parse_t * res = NULL;
+    cleri_children_t * seqchildren;
     char * start, * pt = (char *) def->data;
     ti_name_t * argname;
     ti_prop_t * prop;
-    ;
     ti_procedure_t * procedure = procedure__create();
     if (!procedure)
         goto alloc_error;
@@ -195,9 +197,35 @@ ti_procedure_t * ti_procedure_from_raw(
         goto failed;
     }
 
-    procedure->node = res->tree         /* root */
+    seqchildren = res->tree             /* root */
             ->children->node            /* sequence <comment, list, [deep]> */
-            ->children->next->node;     /* list statements */
+            ->children;
+
+    procedure->doc = seqchildren->node->children
+        ? ti_raw_from_strn(
+                seqchildren->node->children->node->str,
+                seqchildren->node->children->node->len)
+        : NULL;
+
+    if (!procedure->doc && seqchildren->next->node->children)
+    {
+        cleri_node_t * node;
+        /* try first statement as doc in case this is a string */
+        node = seqchildren->next->node              /* list */
+                      ->children->node              /* first scope */
+                      ->children->next->node        /* choice */
+                      ->children->node;             /* may be primitives */
+
+        if (    node->cl_obj->gid == CLERI_GID_PRIMITIVES &&
+                node->children->node->cl_obj->gid == CLERI_GID_T_STRING)
+            procedure->doc = ti_raw_from_ti_string(node->str, node->len);
+    }
+
+    procedure->node = seqchildren->next->node;      /* list statements */
+    procedure->deep = ti_query_get_deep(seqchildren->next->next, e);
+    if (e->nr)
+        goto failed;
+
     /*
      * The node will be destroyed when the procedure is destroyed, make sure
      * it stays alive after the parse result is destroyed.
@@ -205,12 +233,7 @@ ti_procedure_t * ti_procedure_from_raw(
     ++procedure->node->ref;
 
     ti_syntax_investigate(syntax, procedure->node);
-    procedure->deep = ti_query_get_deep(
-            res->tree                   /* root */
-            ->children->node            /* sequence <comment, list, [deep]> */
-            ->children->next->next, e); /* `e` might be set */
-    if (e->nr)
-        goto failed;
+
 
     if (syntax->flags & TI_SYNTAX_FLAG_EVENT)
         procedure->flags |= TI_PROCEDURE_FLAG_EVENT;
@@ -386,6 +409,10 @@ int ti_procedure_info_to_packer(
     if (qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, procedure->name->data, procedure->name->n) ||
+        qp_add_raw_from_str(*packer, "doc") ||
+        (procedure->doc
+            ? qp_add_raw(*packer, procedure->doc->data, procedure->doc->n)
+            : qp_add_raw_from_str(*packer, "")) ||
         qp_add_raw_from_str(*packer, "requires_event") ||
         qp_add_bool(*packer, procedure->flags & TI_PROCEDURE_FLAG_EVENT) ||
         qp_add_raw_from_str(*packer, "arguments") ||
@@ -414,4 +441,9 @@ ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure)
 fail:
     qp_packer_destroy(packer);
     return (ti_val_t * ) rprocedure;
+}
+
+int ti_procedure_fmt(ti_procedure_t * procedure)
+{
+    return 0;
 }

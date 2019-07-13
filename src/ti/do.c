@@ -58,6 +58,7 @@
 #include <ti/fn/fnpop.h>
 #include <ti/fn/fnpopnode.h>
 #include <ti/fn/fnproceduredef.h>
+#include <ti/fn/fnproceduredoc.h>
 #include <ti/fn/fnprocedureinfo.h>
 #include <ti/fn/fnproceduresinfo.h>
 #include <ti/fn/fnpush.h>
@@ -314,6 +315,8 @@ static int do__function(
         do__thingsdb_or_collection_fn(do__f_new_procedure);
     case TI_FN_PROCEDURE_DEF:
         do__thingsdb_or_collection_fn(do__f_procedure_def);
+    case TI_FN_PROCEDURE_DOC:
+        do__thingsdb_or_collection_fn(do__f_procedure_doc);
     case TI_FN_PROCEDURE_INFO:
         do__thingsdb_or_collection_fn(do__f_procedure_info);
     case TI_FN_PROCEDURES_INFO:

@@ -231,9 +231,7 @@ class Client(Buildin):
             return self._scope
         return Scope(scope)
 
-    async def query(
-                self, query: str, deep=None, blobs=None, target=None,
-                timeout=None):
+    async def query(self, query: str, blobs=None, target=None, timeout=None):
         scope = self._make_scope(target)
 
         if scope_is_collection(scope):
@@ -243,8 +241,6 @@ class Client(Buildin):
             }
             if blobs:
                 data['blobs'] = blobs
-            if deep is not None and deep != 1:
-                data['deep'] = deep
         else:
             data = {
                 'query': query

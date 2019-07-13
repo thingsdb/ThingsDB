@@ -1401,7 +1401,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(t['x'], 42)
         self.assertFalse(await client.query(r'isarray(t(t.id()));'))
         self.assertTrue(await client.query(r'isarray(t(t.id(), ));'))
-        stuff, t = await client.query('t(id(), {});'.format(id), deep=2)
+        stuff, t = await client.query('t(id(), {}); => 2'.format(id))
         self.assertEqual(stuff['t'], t)
 
     async def test_try(self, client):

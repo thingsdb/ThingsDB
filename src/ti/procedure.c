@@ -197,7 +197,7 @@ ti_procedure_t * ti_procedure_from_raw(
     }
 
     procedure->node = res->tree         /* root */
-            ->children->node            /* sequence <comment, list> */
+            ->children->node            /* sequence <comment, list, [deep]> */
             ->children->next->node;     /* list statements */
     /*
      * The node will be destroyed when the procedure is destroyed, make sure
@@ -206,6 +206,12 @@ ti_procedure_t * ti_procedure_from_raw(
     ++procedure->node->ref;
 
     ti_syntax_investigate(syntax, procedure->node);
+    procedure->deep = ti_query_get_deep(
+            res->tree                   /* root */
+            ->children->node            /* sequence <comment, list, [deep]> */
+            ->children->next->next, e); /* `e` might be set */
+    if (e->nr)
+        goto failed;
 
     if (syntax->flags & TI_SYNTAX_FLAG_EVENT)
         procedure->flags |= TI_PROCEDURE_FLAG_EVENT;
@@ -367,6 +373,9 @@ int ti_procedure_run(ti_query_t * query, ex_t * e)
 
     for (vec_each(procedure->arguments, ti_prop_t, prop), ++idx)
         prop->val = query->val_cache->data[idx];
+
+    /* set deep level */
+    query->syntax.deep = procedure->deep;
 
     return ti_procedure_call(procedure, query, e);
 }

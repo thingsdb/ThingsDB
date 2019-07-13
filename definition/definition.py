@@ -120,6 +120,8 @@ class Definition(Grammar):
         Optional(chain),
     )
 
+    # maybe we can optimize since for example `name` is captured tree times
+    # it might be even better to optimize libcleri for handling these cases
     scope = Sequence(
         o_not,
         Choice(
@@ -140,7 +142,9 @@ class Definition(Grammar):
 
     statements = List(scope, delimiter=Sequence(';', comment))
 
-    START = Sequence(comment, statements)
+    deep = Sequence('=>', t_int)
+
+    START = Sequence(comment, statements, Optional(deep))
 
     @classmethod
     def translate(cls, elem):

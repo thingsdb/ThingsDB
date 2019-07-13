@@ -142,7 +142,7 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_drop(epkg);
 }
 
-static int query__node_tdb_unpack(
+static int query__node_or_thingsdb_unpack(
         const char * ebad,
         ti_query_t * query,
         uint16_t pkg_id,
@@ -186,23 +186,6 @@ static int query__node_tdb_unpack(
             continue;
         }
 
-        if (qp_is_raw_equal_str(&key, "deep"))
-        {
-            if (!qp_is_int(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
-            if (val.via.int64 < 0 || val.via.int64 > QUERY__MAX_DEEP)
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
-
-            query->syntax.deep = (uint8_t) val.via.int64;
-            continue;
-        }
-
         log_debug(
                 "unexpected `query` key in map: `%.*s`",
                 key.len, (const char *) key.via.raw);
@@ -223,7 +206,6 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
 
     query->scope = NULL;
     query->rval = NULL;
-    query->syntax.deep = 1;
     query->syntax.flags = 0;
     query->syntax.val_cache_n = 0;
     query->target = NULL;  /* node or thingsdb when NULL */
@@ -397,7 +379,7 @@ int ti_query_node_unpack(
     const char * ebad =
             "invalid `query-node` request"TI_SEE_DOC("#query-node");
     query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-    return query__node_tdb_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_or_thingsdb_unpack(ebad, query, pkg_id, data, n, e);
 }
 
 int ti_query_thingsdb_unpack(
@@ -411,7 +393,7 @@ int ti_query_thingsdb_unpack(
     const char * ebad =
             "invalid `query-thingsdb` request"TI_SEE_DOC("#query-thingsdb");
     query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-    return query__node_tdb_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_or_thingsdb_unpack(ebad, query, pkg_id, data, n, e);
 }
 
 int ti_query_collection_unpack(
@@ -475,23 +457,6 @@ int ti_query_collection_unpack(
             if (e->nr)
                 return e->nr;
             ti_incref(query->target);
-            continue;
-        }
-
-        if (qp_is_raw_equal_str(&key, "deep"))
-        {
-            if (!qp_is_int(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                return e->nr;
-            }
-            if (val.via.int64 < 0 || val.via.int64 > QUERY__MAX_DEEP)
-            {
-                ex_set(e, EX_BAD_DATA, ebad);
-                return e->nr;
-            }
-
-            query->syntax.deep = (uint8_t) val.via.int64;
             continue;
         }
 
@@ -590,10 +555,15 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     assert (e->nr == 0);
 
     node = query->parseres->tree        /* root */
-            ->children->node            /* sequence <comment, list> */
+            ->children->node            /* sequence <comment, list, [deep]> */
             ->children->next->node;     /* list statements */
 
     ti_syntax_investigate(&query->syntax, node);
+
+    query->syntax.deep = ti_query_get_deep(
+            query->parseres->tree       /* root */
+            ->children->node            /* sequence <comment, list, [deep]> */
+            ->children->next->next, e); /* `e` might be set */
 
     /*
      * Create value cache for primitives. (if required)
@@ -617,7 +587,7 @@ void ti_query_run(ti_query_t * query)
     }
 
     child = query->parseres->tree   /* root */
-        ->children->node            /* sequence <comment, list> */
+        ->children->node            /* sequence <comment, list, [deep]> */
         ->children->next->node      /* list */
         ->children;                 /* first child or NULL */
 
@@ -722,4 +692,23 @@ ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)
         if (prop->name == name)
             return prop;
     return NULL;
+}
+
+uint8_t ti_query_get_deep(cleri_children_t * child, ex_t * e)
+{
+    int64_t deepi;
+    if (!child)
+        return 1;
+
+    assert (child->node->cl_obj->gid == CLERI_GID_DEEP);
+
+    deepi = strx_to_int64(child->node->children->next->node->str);
+    if (deepi < 0 || deepi > QUERY__MAX_DEEP)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting a `deep` value between 0 and %d, got "PRId64,
+                QUERY__MAX_DEEP, deepi);
+        return 1;
+    }
+    return (uint8_t) deepi;
 }

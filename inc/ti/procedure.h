@@ -38,7 +38,7 @@ struct ti_procedure_s
     uint32_t ref;
     uint16_t pad0_;
     uint8_t flags;
-    uint8_t pad1_;
+    uint8_t deep;
     ti_raw_t * def;         /* full procedure definition */
     ti_raw_t * name;
     vec_t * arguments;      /* ti_prop_t */

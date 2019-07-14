@@ -120,6 +120,12 @@ class Definition(Grammar):
         Optional(chain),
     )
 
+    block = Sequence(
+        '{',
+        comment,
+        List(scope, delimiter=Sequence(';', comment), mi=1),
+        '}')
+
     # maybe we can optimize since for example `name` is captured tree times
     # it might be even better to optimize libcleri for handling these cases
     scope = Sequence(
@@ -135,6 +141,7 @@ class Definition(Grammar):
             thing,
             array,
             operations,
+            block,
         ),
         index,
         Optional(chain),

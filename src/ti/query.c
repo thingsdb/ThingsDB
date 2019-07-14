@@ -603,6 +603,7 @@ void ti_query_run(ti_query_t * query)
         if (ti_do_scope(query, child->node, e))
             break;
 
+        /* TODO: check if scope_leave is still required */
         ti_scope_leave(&query->scope, NULL);
 
         if (!child->next || !(child = child->next->next))

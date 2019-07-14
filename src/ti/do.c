@@ -600,6 +600,31 @@ done:
     return e->nr;
 }
 
+static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
+
+    cleri_children_t * child = nd           /* seq<{, comment, list, }> */
+            ->children->next->next->node    /* list statements */
+            ->children;                     /* first child, not empty */
+
+    assert (child);
+
+    while (1)
+    {
+        if (ti_do_scope(query, child->node, e))
+            return e->nr;
+
+        if (!child->next || !(child = child->next->next))
+            break;
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+    }
+
+    return e->nr;
+}
+
 static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -1286,6 +1311,10 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto on_error;
         }
         if (do__assignment(query, node, e))
+            goto on_error;
+        break;
+    case CLERI_GID_BLOCK:
+        if (do__block(query, node, e))
             goto on_error;
         break;
     case CLERI_GID_FUNCTION:

@@ -281,6 +281,20 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         nd->data = (void *) sz;
         return;
     }
+    case CLERI_GID_BLOCK:
+    {
+        cleri_children_t * child = nd           /* seq<{, comment, list, }> */
+                ->children->next->next->node    /* list statements */
+                ->children;                     /* first child, not empty */
+        while (1)
+        {
+            assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+            ti_syntax_investigate(syntax, child->node);  /* scope */
+            if (!child->next || !(child = child->next->next))
+                break;
+        }
+        return;
+    }
     case CLERI_GID_THING:
     {
         cleri_children_t * child = nd          /* sequence */

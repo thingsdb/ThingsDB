@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-07-13 16:54:32
+ * Created at: 2019-07-15 00:26:17
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -18,6 +18,7 @@ enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name
     CLERI_GID_ARRAY,
     CLERI_GID_ASSIGNMENT,
+    CLERI_GID_BLOCK,
     CLERI_GID_CHAIN,
     CLERI_GID_CLOSURE,
     CLERI_GID_COMMENT,

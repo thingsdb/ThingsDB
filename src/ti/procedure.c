@@ -443,7 +443,7 @@ fail:
     return (ti_val_t * ) rprocedure;
 }
 
-int ti_procedure_fmt(ti_procedure_t * procedure)
-{
-    return 0;
-}
+//int ti_procedure_fmt(ti_procedure_t * procedure)
+//{
+//    return 0;
+//}

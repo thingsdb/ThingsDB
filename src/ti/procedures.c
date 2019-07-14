@@ -60,3 +60,24 @@ fail:
     return (ti_val_t *) rprocedures;
 
 }
+
+ti_procedure_t * ti_procedures_pop_name(vec_t * procedures, ti_raw_t * name)
+{
+    size_t idx = 0;
+    for (vec_each(procedures, ti_procedure_t, p), ++idx)
+        if (ti_raw_eq(p->name, name))
+            return vec_swap_remove(procedures, idx);
+    return NULL;
+}
+
+ti_procedure_t * ti_procedures_pop_strn(
+        vec_t * procedures,
+        const char * str,
+        size_t n)
+{
+    size_t idx = 0;
+    for (vec_each(procedures, ti_procedure_t, p), ++idx)
+        if (ti_raw_eq_strn(p->name, str, n))
+            return vec_swap_remove(procedures, idx);
+    return NULL;
+}

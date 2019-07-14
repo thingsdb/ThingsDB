@@ -17,6 +17,7 @@
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelexpired.h>
+#include <ti/fn/fndelprocedure.h>
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fnendswith.h>
@@ -311,16 +312,18 @@ static int do__function(
         do__thingsdb_or_collection_fn(do__f_call);
     case TI_FN_CALLE:
         do__thingsdb_or_collection_fn(do__f_calle);
+    case TI_FN_DEL_PROCEDURE:
+        do__thingsdb_or_collection_fn(do__f_del_procedure);
     case TI_FN_NEW_PROCEDURE:
         do__thingsdb_or_collection_fn(do__f_new_procedure);
+    case TI_FN_PROCEDURES_INFO:
+        do__thingsdb_or_collection_fn(do__f_procedures_info);
     case TI_FN_PROCEDURE_DEF:
         do__thingsdb_or_collection_fn(do__f_procedure_def);
     case TI_FN_PROCEDURE_DOC:
         do__thingsdb_or_collection_fn(do__f_procedure_doc);
     case TI_FN_PROCEDURE_INFO:
         do__thingsdb_or_collection_fn(do__f_procedure_info);
-    case TI_FN_PROCEDURES_INFO:
-        do__thingsdb_or_collection_fn(do__f_procedures_info);
 
     /* thingsdb scope */
     case TI_FN_COLLECTION_INFO:

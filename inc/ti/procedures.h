@@ -15,5 +15,10 @@ ti_procedure_t * ti_procedures_by_strn(
         const char * str,
         size_t n);
 ti_val_t * ti_procedures_info_as_qpval(vec_t * procedures);
+ti_procedure_t * ti_procedures_pop_name(vec_t * procedures, ti_raw_t * name);
+ti_procedure_t * ti_procedures_pop_strn(
+        vec_t * procedures,
+        const char * str,
+        size_t n);
 
 #endif /* TI_PROCEDURES_H_ */

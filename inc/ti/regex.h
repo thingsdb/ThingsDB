@@ -13,6 +13,7 @@ typedef struct ti_regex_s ti_regex_t;
 #include <pcre2.h>
 #include <stddef.h>
 #include <ti/raw.h>
+#include <ti/val.h>
 #include <ti/ex.h>
 
 
@@ -49,7 +50,7 @@ static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer)
 {
     return -(
         qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) "*", 1) ||
+        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_REGEX, 1) ||
         qp_add_raw(*packer, regex->pattern->data, regex->pattern->n) ||
         qp_close_map(*packer)
     );
@@ -59,7 +60,7 @@ static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f)
 {
     return -(
         qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) "*", 1) ||
+        qp_fadd_raw(f, (const uchar * ) TI_KIND_S_REGEX, 1) ||
         qp_fadd_raw(f, regex->pattern->data, regex->pattern->n)
     );
 }

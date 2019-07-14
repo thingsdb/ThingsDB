@@ -205,7 +205,7 @@ int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
     {
         return -(
             qp_add_map(packer) ||
-            qp_add_raw(*packer, (const uchar * ) "$", 1) ||
+            qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
             qp_add_raw(
                     *packer,
                     (const uchar * ) closure->node->str,
@@ -219,7 +219,7 @@ int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
 
     rc = -(
         qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) "$", 1) ||
+        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
         qp_add_raw(*packer, buf, n) ||
         qp_close_map(*packer)
     );
@@ -237,7 +237,7 @@ int ti_closure_to_file(ti_closure_t * closure, FILE * f)
     {
         return -(
             qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) "$", 1) ||
+            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
             qp_fadd_raw(f, (const uchar * ) closure->node->str, closure->node->len)
         );
     }
@@ -246,7 +246,7 @@ int ti_closure_to_file(ti_closure_t * closure, FILE * f)
         return -1;
     rc = -(
         qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) "$", 1) ||
+        qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
         qp_fadd_raw(f, buf, n)
     );
     free(buf);

@@ -137,11 +137,12 @@ typedef enum
     /* both thingsdb and collection scopes */
     TI_FN_CALL,
     TI_FN_CALLE,
+    TI_FN_DEL_PROCEDURE,
     TI_FN_NEW_PROCEDURE,
+    TI_FN_PROCEDURES_INFO,
     TI_FN_PROCEDURE_DEF,
     TI_FN_PROCEDURE_DOC,
     TI_FN_PROCEDURE_INFO,
-    TI_FN_PROCEDURES_INFO,
 
     /* thingsdb functions */
     TI_FN_COLLECTION_INFO,

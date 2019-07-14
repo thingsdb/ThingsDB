@@ -75,7 +75,7 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
     if (!packer)
         return NULL;
     (void) qp_add_map(&packer);
-    (void) qp_add_raw(packer, (const uchar *) "#", 1);
+    (void) qp_add_raw(packer, (const uchar *) TI_KIND_S_THING, 1);
     (void) qp_add_int(packer, task->thing->id);
     (void) qp_add_raw_from_str(packer, "event");
     (void) qp_add_int(packer, task->event_id);
@@ -285,6 +285,40 @@ done:
     if (packer)
         qp_packer_destroy(packer);
     return rc;
+}
+
+int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
+{
+    int rc;
+    ti_raw_t * job = NULL;
+    qp_packer_t * packer = qp_packer_create2(24 + name->n, 1);
+    if (!packer)
+        goto failed;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "del_procedure");
+    (void) qp_add_raw(packer, name->data, name->n);
+    (void) qp_close_map(packer);
+
+    job = ti_raw_from_packer(packer);
+    if (!job)
+        goto failed;
+
+    if (vec_push(&task->jobs, job))
+        goto failed;
+
+    rc = 0;
+    task__upd_approx_sz(task, job);
+    goto done;
+
+failed:
+    ti_val_drop((ti_val_t *) job);
+    rc = -1;
+done:
+    if (packer)
+        qp_packer_destroy(packer);
+    return rc;
+
 }
 
 int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)

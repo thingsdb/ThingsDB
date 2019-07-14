@@ -209,6 +209,47 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: 'name'
+ */
+static int job__del_procedure(
+        ti_collection_t * collection,
+        qp_unpacker_t * unp)
+{
+    assert (collection);
+    assert (unp);
+
+    qp_obj_t qp_name;
+    ti_procedure_t * procedure;
+
+    if (!qp_is_raw(qp_next(unp, &qp_name)))
+    {
+        log_critical(
+                "job `del_procedure` in "TI_COLLECTION_ID": "
+                "missing procedure name",
+                collection->root->id);
+        return -1;
+    }
+
+    procedure = ti_procedures_pop_strn(
+            collection->procedures,
+            (const char *) qp_name.via.raw,
+            qp_name.len);
+
+    if (!procedure)
+    {
+        log_critical(
+                "job `del_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
+                (int) qp_name.len, (const char *) qp_name.via.raw,
+                collection->root->id);
+        return -1;
+    }
+
+    ti_procedure_drop(procedure);
+    return 0;  /* success */
+}
+
+/*
+ * Returns 0 on success
  * - for example: 'def'
  */
 static int job__new_procedure(
@@ -573,7 +614,9 @@ int ti_job_run(
                 ? job__add(collection, thing, unp)
                 : job__assign(collection, thing, unp);
     case 'd':
-        return job__del(thing, unp);
+        return qp_job_name.len == 3
+                ? job__del(thing, unp)
+                : job__del_procedure(collection, unp);
     case 'n':
         return job__new_procedure(collection, unp);
     case 'r':

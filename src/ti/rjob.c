@@ -68,6 +68,40 @@ static int rjob__del_expired(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: 'name'
+ */
+static int rjob__del_procedure(qp_unpacker_t * unp)
+{
+    assert (unp);
+
+    qp_obj_t qp_name;
+    ti_procedure_t * procedure;
+
+    if (!qp_is_raw(qp_next(unp, &qp_name)))
+    {
+        log_critical("job `del_procedure`: missing procedure name");
+        return -1;
+    }
+
+    procedure = ti_procedures_pop_strn(
+            ti()->procedures,
+            (const char *) qp_name.via.raw,
+            qp_name.len);
+
+    if (!procedure)
+    {
+        log_critical(
+                "job `del_procedure` cannot find `%.*s`",
+                (int) qp_name.len, (const char *) qp_name.via.raw);
+        return -1;
+    }
+
+    ti_procedure_drop(procedure);
+    return 0;  /* success */
+}
+
+/*
+ * Returns 0 on success
  * - for example: id
  */
 static int rjob__del_user(qp_unpacker_t * unp)
@@ -793,6 +827,8 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
             return rjob__del_collection(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_expired"))
             return rjob__del_expired(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "del_procedure"))
+            return rjob__del_procedure(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_user"))
             return rjob__del_user(unp);
         break;

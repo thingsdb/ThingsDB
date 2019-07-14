@@ -44,7 +44,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
 
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
-    case TI_VAL_KIND_THING:
+    case TI_KIND_C_THING:
         return qp_is_int(qp_next(unp, &qp_tmp)) && things
                 ? (ti_val_t *) ti_things_thing_from_unp(
                         things,
@@ -52,7 +52,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
                         unp,
                         sz)
                 : NULL;
-    case TI_VAL_KIND_CLOSURE:
+    case TI_KIND_C_CLOSURE:
     {
         ex_t e = { .nr=0 };
         ti_closure_t * closure;
@@ -63,7 +63,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
             log_error(e.msg);
         return (ti_val_t *) closure;
     }
-    case TI_VAL_KIND_REGEX:
+    case TI_KIND_C_REGEX:
     {
         ex_t e = { .nr=0 };
         ti_regex_t * regex;
@@ -78,7 +78,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
             log_error(e.msg);
         return (ti_val_t *) regex;
     }
-    case TI_VAL_KIND_SET:
+    case TI_KIND_C_SET:
     {
         ti_thing_t * thing;
         ti_vset_t * vset = ti_vset_create();

@@ -73,11 +73,24 @@ enum
 
 typedef enum
 {
-    TI_VAL_KIND_THING   ='#',
-    TI_VAL_KIND_CLOSURE ='$',
-    TI_VAL_KIND_REGEX   ='*',
-    TI_VAL_KIND_SET     ='!',
+    /*
+     * Reserved:
+     *   + positive big type
+     *   - negative big type
+     *   @ date type
+     *   ! exception type
+     */
+    TI_KIND_C_THING   ='#',
+    TI_KIND_C_CLOSURE ='$',
+    TI_KIND_C_REGEX   ='*',
+    TI_KIND_C_SET     ='^',
+
 } ti_val_kind;
+
+#define TI_KIND_S_THING "#"
+#define TI_KIND_S_CLOSURE "$"
+#define TI_KIND_S_REGEX "*"
+#define TI_KIND_S_SET "^"
 
 typedef struct ti_val_s ti_val_t;
 

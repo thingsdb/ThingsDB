@@ -80,6 +80,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS, false);
         break;
     case 'd':
+        syntax__bev_fn(q, nd, "del_procedure", TI_FN_DEL_PROCEDURE, true);
         syntax__cev_fn(q, nd, "del", TI_FN_DEL, true);
         syntax__tev_fn(q, nd, "del_collection", TI_FN_DEL_COLLECTION, true);
         syntax__tev_fn(q, nd, "del_expired", TI_FN_DEL_EXPIRED, false);

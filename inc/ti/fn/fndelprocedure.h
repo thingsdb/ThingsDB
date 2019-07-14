@@ -1,15 +1,17 @@
 #include <ti/fn/fn.h>
 
-#define PROCEDURE_DEF_DOC_ TI_SEE_DOC("#procedure_def")
+#define DEL_PROCEDURE_DOC_ TI_SEE_DOC("#del_procedure")
 
-static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);  /* no node scope */
     assert (e->nr == 0);
+    assert (query->ev);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
     assert (query->rval == NULL);
 
     ti_procedure_t * procedure;
+    ti_task_t * task;
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
@@ -18,8 +20,8 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `procedure_def` takes 1 argument but %d were given"
-                PROCEDURE_DEF_DOC_, nargs);
+                "function `del_procedure` takes 1 argument but %d were given"
+                DEL_PROCEDURE_DOC_, nargs);
         return e->nr;
     }
 
@@ -29,14 +31,14 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `procedure_def` expects argument 1 to be of "
+                "function `del_procedure` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                PROCEDURE_DEF_DOC_,
+                DEL_PROCEDURE_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
+    procedure = ti_procedures_pop_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
     {
         ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` not found",
@@ -44,10 +46,17 @@ static int do__f_procedure_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (char *) ((ti_raw_t *) query->rval)->data);
         return e->nr;
     }
+    ti_procedure_drop(procedure);
+
+    task = ti_task_get_task(query->ev, query->root, e);
+    if (!task)
+        return e->nr;
+
+    if (ti_task_add_del_procedure(task, (ti_raw_t *) query->rval))
+        ex_set_alloc(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) procedure->def;
-    ti_incref(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;
 }

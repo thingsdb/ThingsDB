@@ -41,7 +41,7 @@ int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** packer, int options)
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
         qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) "!", 1) ||
+        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_SET, 1) ||
         qp_add_array(packer))
         return -1;
     for (vec_each(vec, ti_thing_t, t))
@@ -115,7 +115,7 @@ int ti_vset_to_file(ti_vset_t * vset, FILE * f)
     vec_t * vec = imap_vec(vset->imap);
     if (    !vec ||
             qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) "!", 1) ||
+            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_SET, 1) ||
             qp_fadd_type(f, vec->n > 5 ? QP_ARRAY_OPEN: QP_ARRAY0 + vec->n))
         return -1;
 

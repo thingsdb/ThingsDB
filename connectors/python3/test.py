@@ -17,51 +17,51 @@ osdata = None
 
 """
 
-del_procedure("new_user_with_token");
---> nil
+try($tmp = procedure_def($name));
 
-rename_procedure("old", "new");
---> nil
 
-procedure_def("name");
---> raw
-"
-new_user_with_token ($name) {
-    new_user(
-        $name
-    );
-    new_token(
-        $name
-    );
-}
-"
+new_procedure("
+set_procedure ($name)
 
-procedure_info();
---> qpack
-{
-    procedure_id: 123,
-    name: 'blabla',
-    arguments: 3,
-    event: true/false
+new_procedure("
+
+replace_procedure ($old, $def) {
+    'Replaces procedure `old` with a new procedure definition given by `def`';
+
+    /* Backup old procedure */
+    $backup = procedure_def($old);
+
+    /* Delete old procedure */
+    del_procedure($old);
+
+    /* TODO: Here we actually want to catch the error  as ti_val_t */
+    $ret = try( new_procedure($def) );
+
+    (iserror($ret)) ? {
+        new_procedure($backup);
+        raise ($ret);
+    } : $ret;
 }
 
-procedures_info();
---> qpack
-[...]
 
-
-Running requires CALL
-[target, handle_name, args...]
-
-user_with_token = new_procedure("
-user_with_token ($name) {
-    /*
-     *   create a new user and assign a new token
-     */
-    new_user($name);
-    new_tkoen($name);
-}
 ");
+
+TODO: exception
+error as ti_val_t
+
+- Remove `alt` in try, but return error instead.
+- Only `try` should convert ex_t to a ex_t value as query result.
+- Create function `raise( error ) which puts an error back to ex_t
+-
+- Maybe add statement blocks?
+- Add functions like index_error(), error(code > 0, string)  (build-in error < 0)
+- Change proto to a general error proto, and force the client to act on
+  code/message.
+- store errors like {'!': msg, 'error_code': x}
+
+
+
+")
 
 TODO: docs
 - procedures   (general overview)
@@ -70,8 +70,9 @@ TODO: docs
 - f_calle
 - f_new_procedure
 - f_del_procedure
-- f_rename_procedure
+- f_rename_procedure ???
 - f_procedure_def
+- f_procedure_doc
 - f_procedure_fmt ?? --> format a procedure?  this can work in place!!
 - deep  (change to syntax => deep)
 

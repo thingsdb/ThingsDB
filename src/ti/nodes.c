@@ -45,7 +45,7 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
     stream = ti_stream_create(TI_STREAM_TCP_IN_NODE, &ti_nodes_pkg_cb);
     if (!stream)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 
@@ -149,7 +149,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!version || !min_ver)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto failed;
     }
 
@@ -225,7 +225,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         packer = qpx_packer_create(32, 1);
         if (!packer)
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             goto failed;
         }
 
@@ -327,7 +327,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     packer = qpx_packer_create(32, 1);
     if (!packer)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto failed;
     }
 
@@ -406,7 +406,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -449,7 +449,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -512,7 +512,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto finish;
     }
 
@@ -556,7 +556,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -617,7 +617,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto finish;
     }
 
@@ -648,7 +648,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -670,7 +670,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!packer || ti_to_packer(&packer))
     {
         qpx_packer_destroy(packer);
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 
@@ -680,7 +680,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
     }
 }
 
@@ -730,7 +730,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_away_syncer(stream, start))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto finish;
     }
 
@@ -743,7 +743,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -788,7 +788,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -829,7 +829,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -871,7 +871,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -914,7 +914,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -1414,17 +1414,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     switch (pkg->tp)
     {
     case TI_PROTO_CLIENT_RES_QUERY:
-    case TI_PROTO_CLIENT_ERR_OVERFLOW:
-    case TI_PROTO_CLIENT_ERR_ZERO_DIV:
-    case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
-    case TI_PROTO_CLIENT_ERR_AUTH:
-    case TI_PROTO_CLIENT_ERR_FORBIDDEN:
-    case TI_PROTO_CLIENT_ERR_INDEX:
-    case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
-    case TI_PROTO_CLIENT_ERR_SYNTAX:
-    case TI_PROTO_CLIENT_ERR_NODE:
-    case TI_PROTO_CLIENT_ERR_ASSERTION:
-    case TI_PROTO_CLIENT_ERR_INTERNAL:
+    case TI_PROTO_CLIENT_RES_ERROR:
         ti_stream_on_response(stream, pkg);
         break;
     case TI_PROTO_NODE_EVENT:

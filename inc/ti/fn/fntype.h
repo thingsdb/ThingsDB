@@ -26,7 +26,7 @@ static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = (ti_val_t *) ti_raw_from_strn(type_str, strlen(type_str));
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

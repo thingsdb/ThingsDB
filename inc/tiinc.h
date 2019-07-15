@@ -121,6 +121,7 @@ typedef enum
     TI_FN_NOW,
     TI_FN_POP,
     TI_FN_PUSH,
+    TI_FN_RAISE,
     TI_FN_REFS,
     TI_FN_REMOVE,
     TI_FN_RENAME,
@@ -173,6 +174,10 @@ typedef enum
     TI_FN_RESET_COUNTERS,
     TI_FN_SET_LOG_LEVEL,
     TI_FN_SHUTDOWN,
+
+    /* error functions */
+    TI_FN_ERROR,
+
 } ti_fn_enum_t;
 
 typedef enum

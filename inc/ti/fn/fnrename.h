@@ -138,7 +138,7 @@ static int do__f_rename(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 done:
     ti_val_drop((ti_val_t *) from_raw);

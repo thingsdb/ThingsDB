@@ -45,7 +45,7 @@ static int do__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_pop_node(task, node_id))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     query->rval = (ti_val_t *) ti_nil_get();
 

@@ -124,7 +124,7 @@ int ti_scope_local_from_closure(
     goto done;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 done:
     return e->nr;

@@ -89,7 +89,7 @@ undo:
 
 alloc_error:
     if (!e->nr)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
 failed:
     ti_procedure_drop(procedure);

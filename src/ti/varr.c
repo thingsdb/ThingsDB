@@ -108,7 +108,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
     case TI_VAL_SET:
         if (ti_vset_to_tuple((ti_vset_t **) v))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             return e->nr;
         }
         to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
@@ -122,7 +122,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
         }
         if (ti_closure_unbound((ti_closure_t *) *v, e))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             return e->nr;
         }
         break;
@@ -131,7 +131,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
         {
             if (varr__to_tuple((ti_varr_t **) v))
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
         }
@@ -143,7 +143,7 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
     }
 
     if (vec_push(&to->vec, *v))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

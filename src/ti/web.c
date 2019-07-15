@@ -218,7 +218,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
     web_request = malloc(sizeof(ti_web_request_t));
     if (!web_request)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 

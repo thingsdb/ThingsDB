@@ -104,7 +104,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     secret = ti_raw_to_str(rsecret);
     if (!secret)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -136,7 +136,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     addrstr = ti_raw_to_str(raddr);
     if (!addrstr)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail0;
     }
 
@@ -219,14 +219,14 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_replace_node(task, node))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
 fail1:
     free(addrstr);

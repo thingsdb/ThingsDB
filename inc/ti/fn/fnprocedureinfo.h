@@ -48,7 +48,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = ti_procedure_info_as_qpval(procedure);
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

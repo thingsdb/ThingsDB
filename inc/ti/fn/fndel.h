@@ -88,7 +88,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_task_add_del(task, rname))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 

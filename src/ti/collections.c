@@ -110,7 +110,7 @@ int ti_collections_gc_collect_dropped(void)
         if (ti_things_gc(things, NULL))
         {
             rc = -1;
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             continue;
         }
 
@@ -160,7 +160,7 @@ ti_collection_t * ti_collections_create_collection(
     collection = ti_collection_create(&guid, name, n);
     if (!collection || vec_push(&collections->vec, collection))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail0;
     }
 
@@ -171,7 +171,7 @@ ti_collection_t * ti_collections_create_collection(
             user,
             TI_AUTH_MASK_FULL))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail1;
     }
 

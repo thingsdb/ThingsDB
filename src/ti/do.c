@@ -63,6 +63,7 @@
 #include <ti/fn/fnprocedureinfo.h>
 #include <ti/fn/fnproceduresinfo.h>
 #include <ti/fn/fnpush.h>
+#include <ti/fn/fnraise.h>
 #include <ti/fn/fnrefs.h>
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrename.h>
@@ -86,6 +87,11 @@
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
+
+#define do__no_chain_fn(__fn)                           \
+if (is_chained)                                         \
+    break;                                              \
+return __fn(query, params, e)
 
 #define do__collection_fn(__fn)                         \
 if (is_chained)                                         \
@@ -160,19 +166,13 @@ static int do__function(
     case TI_FN_ADD:
         return do__f_add(query, params, e);
     case TI_FN_ARRAY:
-        if (is_chained)
-            break;
-        return do__f_array(query, params, e);
+        do__no_chain_fn(do__f_array);
     case TI_FN_ASSERT:
-        if (is_chained)
-            break;
-        return do__f_assert(query, params, e);
+        do__no_chain_fn(do__f_assert);
     case TI_FN_BLOB:
         do__collection_fn(do__f_blob);
     case TI_FN_BOOL:
-        if (is_chained)
-            break;
-        return do__f_bool(query, params, e);
+        do__no_chain_fn(do__f_bool);
     case TI_FN_CONTAINS:
         return do__f_contains(query, params, e);
     case TI_FN_ENDSWITH:
@@ -186,9 +186,7 @@ static int do__function(
     case TI_FN_FINDINDEX:
         return do__f_findindex(query, params, e);
     case TI_FN_FLOAT:
-        if (is_chained)
-            break;
-        return do__f_float(query, params, e);
+        do__no_chain_fn(do__f_float);
     case TI_FN_HAS:
         return do__f_has(query, params, e);
     case TI_FN_HASPROP:
@@ -198,66 +196,36 @@ static int do__function(
     case TI_FN_INDEXOF:
         return do__f_indexof(query, params, e);
     case TI_FN_INT:
-        if (is_chained)
-            break;
-        return do__f_int(query, params, e);
+        do__no_chain_fn(do__f_int);
     case TI_FN_ISARRAY:
-        if (is_chained)
-            break;
-        return do__f_isarray(query, params, e);
+        do__no_chain_fn(do__f_isarray);
     case TI_FN_ISASCII:
-        if (is_chained)
-            break;
-        return do__f_isascii(query, params, e);
+        do__no_chain_fn(do__f_isascii);
     case TI_FN_ISBOOL:
-        if (is_chained)
-            break;
-        return do__f_isbool(query, params, e);
+        do__no_chain_fn(do__f_isbool);
     case TI_FN_ISFLOAT:
-        if (is_chained)
-            break;
-        return do__f_isfloat(query, params, e);
+        do__no_chain_fn(do__f_isfloat);
     case TI_FN_ISINF:
-        if (is_chained)
-            break;
-        return do__f_isinf(query, params, e);
+        do__no_chain_fn(do__f_isinf);
     case TI_FN_ISINT:
-        if (is_chained)
-            break;
-        return do__f_isint(query, params, e);
+        do__no_chain_fn(do__f_isint);
     case TI_FN_ISLIST:
-        if (is_chained)
-            break;
-        return do__f_islist(query, params, e);
+        do__no_chain_fn(do__f_islist);
     case TI_FN_ISNAN:
-        if (is_chained)
-            break;
-        return do__f_isnan(query, params, e);
+        do__no_chain_fn(do__f_isnan);
     case TI_FN_ISNIL:
-        if (is_chained)
-            break;
-        return do__f_isnil(query, params, e);
+        do__no_chain_fn(do__f_isnil);
     case TI_FN_ISRAW:
-        if (is_chained)
-            break;
-        return do__f_israw(query, params, e);
+        do__no_chain_fn(do__f_israw);
     case TI_FN_ISSET:
-        if (is_chained)
-            break;
-        return do__f_isset(query, params, e);
+        do__no_chain_fn(do__f_isset);
     case TI_FN_ISTHING:
-        if (is_chained)
-            break;
-        return do__f_isthing(query, params, e);
+        do__no_chain_fn(do__f_isthing);
     case TI_FN_ISTUPLE:
-        if (is_chained)
-            break;
-        return do__f_istuple(query, params, e);
+        do__no_chain_fn(do__f_istuple);
     case TI_FN_ISSTR:
     case TI_FN_ISUTF8:
-        if (is_chained)
-            break;
-        return do__f_isutf8(query, params, e);
+        do__no_chain_fn(do__f_isutf8);
     case TI_FN_LEN:
         return do__f_len(query, params, e);
     case TI_FN_LOWER:
@@ -265,45 +233,35 @@ static int do__function(
     case TI_FN_MAP:
         return do__f_map(query, params, e);
     case TI_FN_NOW:
-        if (is_chained)
-            break;
-        return q__f_now(query, params, e);
+        do__no_chain_fn(q__f_now);
     case TI_FN_POP:
         return do__f_pop(query, params, e);
     case TI_FN_PUSH:
         return do__f_push(query, params, e);
+    case TI_FN_RAISE:
+        do__no_chain_fn(do__f_raise);
     case TI_FN_REFS:
-        if (is_chained)
-            break;
-        return do__f_refs(query, params, e);
+        do__no_chain_fn(do__f_refs);
     case TI_FN_REMOVE:
         return do__f_remove(query, params, e);
     case TI_FN_RENAME:
         return do__f_rename(query, params, e);
     case TI_FN_SET:
-        if (is_chained)
-            break;
-        return do__f_set(query, params, e);
+        do__no_chain_fn(do__f_set);
     case TI_FN_SPLICE:
         return do__f_splice(query, params, e);
     case TI_FN_STARTSWITH:
         return do__f_startswith(query, params, e);
     case TI_FN_STR:
-        if (is_chained)
-            break;
-        return do__f_str(query, params, e);
+        do__no_chain_fn(do__f_str);
     case TI_FN_T:
         do__collection_fn(do__f_t);
     case TI_FN_TEST:
         return do__f_test(query, params, e);
     case TI_FN_TRY:
-        if (is_chained)
-            break;
-        return do__f_try(query, params, e);
+        do__no_chain_fn(do__f_try);
     case TI_FN_TYPE:
-        if (is_chained)
-            break;
-        return do__f_type(query, params, e);
+        do__no_chain_fn(do__f_type);
     case TI_FN_UPPER:
         return do__f_upper(query, params, e);
 
@@ -459,7 +417,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = ti_varr_create(sz);
     if (!varr)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -590,7 +548,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 fail1:
     ti_name_drop(name);
@@ -689,7 +647,7 @@ static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     (int64_t) ((ti_raw_t *) val)->data[idx]);
             if (!query->rval)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 goto done;
             }
             break;
@@ -781,7 +739,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_scope_t * tmp_scope = ti_scope_enter(query->scope, thing);
         if (!tmp_scope)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             return e->nr;
         }
         query->scope = tmp_scope;
@@ -826,7 +784,7 @@ static int do__closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = (ti_val_t *) ti_closure_from_node(nd);
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }
@@ -917,7 +875,7 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             node->data = ti_vfloat_create(strx_to_double(node->str));
             if (!node->data)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             assert (vec_space(query->val_cache));
@@ -932,7 +890,7 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             node->data = ti_vint_create(strx_to_int64(node->str));
             if (!node->data)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             if (errno == ERANGE)
@@ -967,7 +925,7 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             node->data = ti_raw_from_ti_string(node->str, node->len);
             if (!node->data)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             assert (vec_space(query->val_cache));
@@ -1025,7 +983,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         query->rval = (ti_val_t *) ti_vint_create(i);
         if (!query->rval)
-            ex_set_alloc(e);
+            ex_set_mem(e);
     }
 
     return e->nr;
@@ -1143,7 +1101,7 @@ static int do__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return 0;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 err:
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
@@ -1258,7 +1216,7 @@ alloc_err_with_prop:
     free(prop);
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 failed:
     ti_name_drop(name);
@@ -1288,7 +1246,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->scope = ti_scope_enter(current_scope, query->root);
     if (!query->scope)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -1336,13 +1294,21 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_drop(query->rval);
             query->rval = NULL;
             node = node->children->next->next->next->node;  /* sequence */
-            if (ti_do_scope(
-                    query,
-                    bool_
-                        ? node->children->next->node        /* scope, true */
-                        : node->children->next->next->next->node, /* false */
-                    e))
-                goto on_error;
+            if (bool_)
+            {
+                if (ti_do_scope(query, node->children->next->node, e))
+                    goto on_error;
+            }
+            else if (node->children->next->next) /* else case */
+            {
+                node = node->children->next->next->node;  /* else sequence */
+                if (ti_do_scope(query, node->children->next->node, e))
+                    goto on_error;
+            }
+            else  /* no else case, just nil */
+            {
+                query->rval = (ti_val_t *) ti_nil_get();
+            }
         }
         break;
     case CLERI_GID_PRIMITIVES:

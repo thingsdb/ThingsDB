@@ -21,7 +21,7 @@ static int do__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = ti_counters_as_qpval();
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

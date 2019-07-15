@@ -145,7 +145,7 @@ static size_t away__syncers(void)
                     fa_event_id == UINT64_MAX ? fs_event_id + 1 : fa_event_id,
                     fs_event_id);
                 if (ti_syncfull_start(syncer->stream))
-                    log_critical(EX_ALLOC_S);
+                    log_critical(EX_MEMORY_S);
                 continue;
             }
 
@@ -160,7 +160,7 @@ static size_t away__syncers(void)
             }
             if (rc < 0)
             {
-                log_critical(EX_ALLOC_S);
+                log_critical(EX_MEMORY_S);
             }
         }
     }
@@ -350,7 +350,7 @@ static void away__req_away_id(void)
 
 failed:
     ti_quorum_destroy(quorum);
-    log_critical(EX_ALLOC_S);
+    log_critical(EX_MEMORY_S);
     away->status = AWAY__STATUS_IDLE;
 }
 

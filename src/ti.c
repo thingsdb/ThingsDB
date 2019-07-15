@@ -570,7 +570,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     client_rpkg = ti_client_status_rpkg();
     if (!client_rpkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto fail;
     }
     ti_clients_write_rpkg(client_rpkg);
@@ -598,7 +598,7 @@ void ti_broadcast_node_info(void)
     node_rpkg = ti_node_status_rpkg();
     if (!node_rpkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto fail;
     }
 

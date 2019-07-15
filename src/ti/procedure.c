@@ -301,7 +301,7 @@ missing_body_end:
     goto failed;
 
 alloc_error:
-    ex_set_alloc(e);
+    ex_set_mem(e);
     goto failed;
 
 failed:
@@ -321,7 +321,7 @@ ti_procedure_t * ti_procedure_from_strn(
     ti_raw_t * def = ti_raw_from_strn(str, n);
     if (!def)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return NULL;
     }
 

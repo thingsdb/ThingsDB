@@ -141,7 +141,7 @@ ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
     pkg = ti_pkg_dup(pkg);
     if (!pkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return NULL;
     }
 
@@ -161,7 +161,7 @@ ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
     if (!epkg)
     {
         free(pkg);
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
     }
 
     return epkg;

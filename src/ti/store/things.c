@@ -30,7 +30,7 @@ int ti_store_things_store(imap_t * things, const char * fn)
     things_vec = imap_vec(things);
     if (!things_vec)
     {
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
         goto stop;
     }
 

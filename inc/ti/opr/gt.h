@@ -28,6 +28,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -52,6 +53,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -76,6 +78,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -97,6 +100,7 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -118,10 +122,12 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         goto type_err;
     }
 

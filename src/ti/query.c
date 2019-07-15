@@ -95,14 +95,14 @@ static void query__task_to_watchers(ti_query_t * query)
             ti_pkg_t * pkg = ti_task_pkg_watch(task);
             if (!pkg)
             {
-                log_critical(EX_ALLOC_S);
+                log_critical(EX_MEMORY_S);
                 break;
             }
 
             rpkg = ti_rpkg_create(pkg);
             if (!rpkg)
             {
-                log_critical(EX_ALLOC_S);
+                log_critical(EX_MEMORY_S);
                 break;
             }
 
@@ -129,7 +129,7 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_t * epkg = query__epkg_event(query);
     if (!epkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 
@@ -139,7 +139,7 @@ static void query__event_handle(ti_query_t * query)
 
     /* store event package in archive */
     if (ti_archive_push(epkg))
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
 
     ti_nodes_write_rpkg((ti_rpkg_t *) epkg);
     ti_epkg_drop(epkg);
@@ -189,7 +189,7 @@ static int query__node_or_thingsdb_unpack(
             query->querystr = qpx_obj_raw_to_str(&val);
             if (!query->querystr)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 goto finish;
             }
 
@@ -344,7 +344,7 @@ int ti_query_callunpack(
     query->val_cache = vec_new(procedure->arguments->n);
     if (!query->val_cache)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -455,7 +455,7 @@ int ti_query_collection_unpack(
             query->querystr = qpx_obj_raw_to_str(&val);
             if (!query->querystr)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             continue;
@@ -502,7 +502,7 @@ int ti_query_collection_unpack(
             query->blobs = vec_new(n < 0 ? 8 : n);
             if (!query->blobs)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
 
@@ -525,7 +525,7 @@ int ti_query_collection_unpack(
                 blob = ti_raw_create(val.via.raw, val.len);
                 if (!blob || vec_push(&query->blobs, blob))
                 {
-                    ex_set_alloc(e);
+                    ex_set_mem(e);
                     return e->nr;
                 }
 
@@ -573,7 +573,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
     if (!query->parseres)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -615,7 +615,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
      */
     if (    query->syntax.val_cache_n &&
             !(query->val_cache = vec_new(query->syntax.val_cache_n)))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }
@@ -689,7 +689,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
 alloc_err:
     if (packer)
         qp_packer_destroy(packer);
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 pkg_err:
     ++ti()->counters->queries_with_error;
@@ -699,7 +699,7 @@ finish:
     if (!pkg || ti_stream_write_pkg(query->stream, pkg))
     {
         free(pkg);
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
     }
 
     ti_query_destroy(query);

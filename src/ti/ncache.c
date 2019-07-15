@@ -83,7 +83,7 @@ int ti_ncache_gen_primitives(vec_t * vcache, cleri_node_t * node, ex_t * e)
         if (node->data)
             VEC_push(vcache, node->data);
         else
-            ex_set_alloc(e);
+            ex_set_mem(e);
 
         return e->nr;
     }

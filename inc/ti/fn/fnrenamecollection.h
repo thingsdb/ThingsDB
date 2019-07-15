@@ -53,7 +53,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
 
     if (ti_task_add_rename_collection(task, collection))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -58,7 +58,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_del_user(task, user))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     /* this will remove the user so it cannot be used after here */
     ti_users_del_user(user);

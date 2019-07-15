@@ -103,7 +103,7 @@ class Definition(Grammar):
             ), THIS)
         ),
         ')',
-        Optional(Sequence('?', scope, ':', scope)),
+        Optional(Sequence('?', scope, Optional(Sequence(':', scope)))),
     )
 
     assignment = Sequence(name, Tokens(ASSIGN_TOKENS), scope)

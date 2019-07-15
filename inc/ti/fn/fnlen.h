@@ -28,7 +28,7 @@ static int do__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = (ti_val_t *) ti_vint_create((int64_t) ti_val_get_len(val));
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
 done:
     ti_val_drop(val);

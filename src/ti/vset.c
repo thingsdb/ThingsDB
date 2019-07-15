@@ -173,7 +173,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
     case IMAP_ERR_EXIST:
         return 0;
     case IMAP_ERR_ALLOC:
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     case IMAP_SUCCESS:
         ti_incref(val);

@@ -393,7 +393,10 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
             cleri_children_t * child = \
                     nd->children->next->next->next->node->children->next;
             ti_syntax_investigate(syntax, child->node);
-            ti_syntax_investigate(syntax, child->next->next->node);
+            if (child->next)  /* else case */
+                ti_syntax_investigate(
+                        syntax,
+                        child->next->node->children->next->node);
         }
         return;
     }

@@ -36,7 +36,7 @@ static void clients__fwd_cb(ti_req_t * req, ex_enum status)
         ex_set(e, status, ex_str(status));
         resp = ti_pkg_client_err(fwd->orig_pkg_id, e);
         if (!resp)
-            log_error(EX_ALLOC_S);
+            log_error(EX_MEMORY_S);
         goto finish;
     }
 
@@ -44,13 +44,13 @@ static void clients__fwd_cb(ti_req_t * req, ex_enum status)
     if (resp)
         resp->id = fwd->orig_pkg_id;
     else
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
 
 finish:
     if (resp && ti_stream_write_pkg(fwd->stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 
     ti_fwd_destroy(fwd);
@@ -195,7 +195,7 @@ static void clients__query_thingsdb_or_collection(
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto finish;
     }
 
@@ -239,7 +239,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -249,7 +249,7 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -297,7 +297,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -329,7 +329,7 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto failed;
     }
 
@@ -363,7 +363,7 @@ failed:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -416,7 +416,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         wareq = ti_wareq_create(stream, "watch");
         if (!wareq)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto finish;
         }
 
@@ -431,7 +431,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
     if (!resp)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
 finish:
     if (e->nr)
@@ -440,7 +440,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 
     if (e->nr || ti_wareq_init(stream) || (wareq && ti_wareq_run(wareq)))
@@ -475,7 +475,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
         wareq = ti_wareq_create(stream, "unwatch");
         if (!wareq)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto finish;
         }
 
@@ -490,7 +490,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
     if (!resp)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
 finish:
     if (e->nr)
@@ -499,7 +499,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 
     if (e->nr || (wareq && ti_wareq_run(wareq)))
@@ -554,7 +554,7 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto finish;
     }
 
@@ -587,7 +587,7 @@ finish:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
     }
 }
 
@@ -644,7 +644,7 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
     stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &clients__pkg_cb);
     if (!stream)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 
@@ -682,7 +682,7 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
     stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &clients__pkg_cb);
     if (!stream)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 

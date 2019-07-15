@@ -171,7 +171,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!token || ti_user_add_token(user, token))
     {
         ti_token_destroy(token);
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -180,7 +180,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_new_token(task, user, token))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_raw_from_strn(
@@ -188,7 +188,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             sizeof(ti_token_key_t));
 
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 

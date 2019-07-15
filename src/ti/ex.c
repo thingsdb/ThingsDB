@@ -81,7 +81,7 @@ const char * ex_str(ex_enum errnr)
         return "request is cancelled";
     case EX_WRITE_UV:
         return "cannot write to socket";
-    case EX_ALLOC:
+    case EX_MEMORY:
         return "memory allocation error";
     case EX_INTERNAL:
         return "internal error";
@@ -91,7 +91,6 @@ const char * ex_str(ex_enum errnr)
     case EX_CUSTOM_05: case EX_CUSTOM_06: case EX_CUSTOM_07: case EX_CUSTOM_08:
     case EX_CUSTOM_09: case EX_CUSTOM_0A: case EX_CUSTOM_0B: case EX_CUSTOM_0C:
     case EX_CUSTOM_0D: case EX_CUSTOM_0E: case EX_CUSTOM_0F: case EX_CUSTOM_10:
-
     case EX_CUSTOM_11: case EX_CUSTOM_12: case EX_CUSTOM_13: case EX_CUSTOM_14:
     case EX_CUSTOM_15: case EX_CUSTOM_16: case EX_CUSTOM_17: case EX_CUSTOM_18:
     case EX_CUSTOM_19: case EX_CUSTOM_1A: case EX_CUSTOM_1B: case EX_CUSTOM_1C:

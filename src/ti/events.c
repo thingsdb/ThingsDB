@@ -133,14 +133,14 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 
     if (queue_reserve(&events->queue, 1))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
     ev = ti_event_create(TI_EVENT_TP_MASTER);
     if (!ev)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -251,14 +251,14 @@ static ti_event_t * events__slave_new(ti_node_t * node, uint64_t event_id)
 
     if (queue_reserve(&events->queue, 1))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return NULL;
     }
 
     ev = ti_event_create(TI_EVENT_TP_SLAVE);
     if (!ev)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return NULL;
     }
 
@@ -347,7 +347,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     quorum = ti_quorum_new((ti_quorum_cb) events__on_req_event_id, ev);
     if (!quorum)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -355,7 +355,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     if (!packer)
     {
         ti_quorum_destroy(quorum);
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 

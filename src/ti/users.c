@@ -66,7 +66,7 @@ ti_user_t * ti_users_new_user(
     {
         ti_user_drop(user);
         user = NULL;
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 
@@ -102,7 +102,7 @@ ti_user_t * ti_users_load_user(
     {
         ti_user_drop(user);
         user = NULL;
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 

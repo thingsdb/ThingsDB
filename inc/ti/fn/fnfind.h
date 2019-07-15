@@ -66,7 +66,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             if (ti_scope_polute_val(query->scope, v, idx))
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 goto fail2;
             }
 
@@ -91,7 +91,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
         if (!vec)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto fail2;
         }
 
@@ -101,7 +101,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 goto fail2;
             }
 

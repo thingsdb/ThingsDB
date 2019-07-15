@@ -24,7 +24,7 @@ static cleri_node_t * closure__node_from_strn(
     char * query = strndup(str, n);
     if (!query)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return NULL;
     }
 
@@ -37,7 +37,7 @@ static cleri_node_t * closure__node_from_strn(
             CLERI_FLAG_EXCLUDE_OPTIONAL); /* only error position */
     if (!res)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail0;
     }
 
@@ -74,7 +74,7 @@ static cleri_node_t * closure__node_from_strn(
     ncache = ti_ncache_create(query, syntax.val_cache_n);
     if (!ncache)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail1;
     }
 

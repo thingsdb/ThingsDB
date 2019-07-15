@@ -82,7 +82,7 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_set_quota(task, collection_id, qtp, quota))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
     else
         ti_collection_set_quota(collection, qtp, quota);
 

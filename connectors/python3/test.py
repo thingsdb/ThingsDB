@@ -60,6 +60,12 @@ error as ti_val_t
 - store errors like {'!': msg, 'error_code': x}
 
 
+assert()
+error('bla bla', [code=1])   code 1..32
+overflow_error()
+equal between error, -> compare error_code
+
+
 
 ")
 

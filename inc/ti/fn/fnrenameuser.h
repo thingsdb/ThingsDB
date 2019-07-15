@@ -63,7 +63,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     if (!rname)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -78,7 +78,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_rename_user(task, user))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     return e->nr;
 }

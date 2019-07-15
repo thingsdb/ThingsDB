@@ -67,7 +67,7 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_del_token(task, (ti_token_key_t *) rkey->data))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -184,7 +184,7 @@ static int rjob__grant(qp_unpacker_t * unp)
             : &ti()->access_thingsdb,
               user, mask))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -300,7 +300,7 @@ static int rjob__new_node(ti_event_t * ev, qp_unpacker_t * unp)
 
     if (!ti_nodes_new_node(0, port, addr, (const char *) qp_secret.via.raw))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -353,7 +353,7 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
         return 0;  /* success */
 
     if (rc < 0)
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
     else
         log_critical(
                 "job `new_procedure` for `.thingsdb`: "
@@ -411,7 +411,7 @@ static int rjob__new_token(qp_unpacker_t * unp)
     if (!token || ti_user_add_token(user, token))
     {
         ti_token_destroy(token);
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -534,7 +534,7 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
-        ex_set_alloc(&e);
+        ex_set_mem(&e);
         return -1;
     }
 
@@ -584,7 +584,7 @@ static int rjob__rename_user(qp_unpacker_t * unp)
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
-        ex_set_alloc(&e);
+        ex_set_mem(&e);
         return -1;
     }
 
@@ -753,7 +753,7 @@ static int rjob__set_password(qp_unpacker_t * unp)
         encrypted = qpx_obj_raw_to_str(&qp_pass);
         if (!encrypted)
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             return -1;
         }
     }

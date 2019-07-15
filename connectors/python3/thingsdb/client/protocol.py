@@ -3,14 +3,19 @@ import logging
 from .package import Package
 from ..exceptions import AssertionError
 from ..exceptions import AuthError
-from ..exceptions import BadRequestError
+from ..exceptions import BadDataError
 from ..exceptions import ForbiddenError
 from ..exceptions import IndexError
 from ..exceptions import InternalError
 from ..exceptions import MaxQuotaError
+from ..exceptions import MemoryError
 from ..exceptions import NodeError
 from ..exceptions import OverflowError
+from ..exceptions import RequestCancelError
+from ..exceptions import RequestTimeoutError
 from ..exceptions import SyntaxError
+from ..exceptions import ThingsDBError
+from ..exceptions import WriteUVError
 from ..exceptions import ZeroDivisionError
 
 
@@ -31,24 +36,53 @@ RES_QUERY = 66
 RES_WATCH = 80
 RES_UNWATCH = 81
 
+RES_ERROR = 96
+
 ON_WATCH_INI = 16
 ON_WATCH_UPD = 17
 ON_WATCH_DEL = 18
 ON_NODE_STATUS = 19
 
-RES_ERR_OVERFLOW = 96
-RES_ERR_ZERO_DIV = 97
-RES_ERR_MAX_QUOTA = 98
-RES_ERR_AUTH = 99
-RES_ERR_FORBIDDEN = 100
-RES_ERR_INDEX = 101
-RES_ERR_BAD_REQUEST = 102
-RES_ERR_SYNTAX = 103
-RES_ERR_NODE = 104
-RES_ERR_ASSERTION = 105
-RES_ERR_INTERNAL = 127
-
 ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL)
+
+# ThingsDB build-in errors
+EX_OVERFLOW = -127
+EX_ZERO_DIV = -126
+EX_MAX_QUOTA = -125
+EX_AUTH_ERROR = -124
+EX_FORBIDDEN = -123
+EX_INDEX_ERROR = -122
+EX_BAD_DATA = -121
+EX_SYNTAX_ERROR = -120
+EX_NODE_ERROR = -119
+EX_ASSERT_ERROR = -118
+
+# ThingsDB internal errors
+EX_REQUEST_TIMEOUT = -5
+EX_REQUEST_CANCEL = -4
+EX_WRITE_UV = -3
+EX_MEMORY = -2
+EX_INTERNAL = -1
+
+
+ERRMAP = {
+    EX_OVERFLOW: OverflowError,
+    EX_ZERO_DIV: ZeroDivisionError,
+    EX_MAX_QUOTA: MaxQuotaError,
+    EX_AUTH_ERROR: AuthError,
+    EX_FORBIDDEN: ForbiddenError,
+    EX_INDEX_ERROR: IndexError,
+    EX_BAD_DATA: BadDataError,
+    EX_SYNTAX_ERROR: SyntaxError,
+    EX_NODE_ERROR: NodeError,
+    EX_ASSERT_ERROR: AssertionError,
+    EX_REQUEST_TIMEOUT: RequestTimeoutError,
+    EX_REQUEST_CANCEL: RequestCancelError,
+    EX_WRITE_UV: WriteUVError,
+    EX_MEMORY: MemoryError,
+    EX_INTERNAL: InternalError,
+}
+
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
@@ -56,28 +90,10 @@ PROTOMAP = {
     RES_QUERY: lambda f, d: f.set_result(d),
     RES_WATCH: lambda f, d: f.set_result(None),
     RES_UNWATCH: lambda f, d: f.set_result(None),
-    RES_ERR_OVERFLOW:
-        lambda f, d: f.set_exception(OverflowError(errdata=d)),
-    RES_ERR_ZERO_DIV:
-        lambda f, d: f.set_exception(ZeroDivisionError(errdata=d)),
-    RES_ERR_MAX_QUOTA:
-        lambda f, d: f.set_exception(MaxQuotaError(errdata=d)),
-    RES_ERR_AUTH:
-        lambda f, d: f.set_exception(AuthError(errdata=d)),
-    RES_ERR_FORBIDDEN:
-        lambda f, d: f.set_exception(ForbiddenError(errdata=d)),
-    RES_ERR_INDEX:
-        lambda f, d: f.set_exception(IndexError(errdata=d)),
-    RES_ERR_BAD_REQUEST:
-        lambda f, d: f.set_exception(BadRequestError(errdata=d)),
-    RES_ERR_SYNTAX:
-        lambda f, d: f.set_exception(SyntaxError(errdata=d)),
-    RES_ERR_NODE:
-        lambda f, d: f.set_exception(NodeError(errdata=d)),
-    RES_ERR_ASSERTION:
-        lambda f, d: f.set_exception(AssertionError(errdata=d)),
-    RES_ERR_INTERNAL:
-        lambda f, d: f.set_exception(InternalError(errdata=d)),
+    RES_ERROR:
+        lambda f, d: f.set_exception(ERRMAP.get(
+            d['error_code'],
+            ThingsDBError)(errdata=d)),
 }
 
 

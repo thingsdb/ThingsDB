@@ -47,7 +47,7 @@ int syncpart_to_packer(
     buff = malloc(sz);
     if (!buff)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto fail1;
     }
 

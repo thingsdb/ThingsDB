@@ -28,7 +28,7 @@ static int do__f_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
     query->rval = (ti_val_t *) ti_varr_create(0);
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

@@ -104,7 +104,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_revoke(task, target_id, user, mask))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

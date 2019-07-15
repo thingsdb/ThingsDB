@@ -18,7 +18,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     regex = malloc(sizeof(ti_regex_t));
     if (!regex)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail0;
     }
 
@@ -28,7 +28,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     regex->pattern = ti_raw_create((uchar *) str, n);
     if (!regex->pattern)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail0;
     }
 
@@ -74,7 +74,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
 
     if (!regex->match_data)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail2;
     }
 

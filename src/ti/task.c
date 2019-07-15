@@ -55,7 +55,7 @@ ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
 
 failed:
     ti_task_destroy(task);
-    ex_set_alloc(e);
+    ex_set_mem(e);
     return NULL;
 }
 

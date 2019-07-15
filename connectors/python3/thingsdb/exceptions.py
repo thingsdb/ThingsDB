@@ -1,7 +1,8 @@
-_IndexError = IndexError
-_ZeroDivisionError = ZeroDivisionError
-_OverflowError = OverflowError
 _AssertionError = AssertionError
+_IndexError = IndexError
+_MemoryError = MemoryError
+_OverflowError = OverflowError
+_ZeroDivisionError = ZeroDivisionError
 
 
 class ThingsDBError(Exception):
@@ -36,7 +37,7 @@ class IndexError(ThingsDBError, _IndexError):
     pass
 
 
-class BadRequestError(ThingsDBError):
+class BadDataError(ThingsDBError):
     pass
 
 
@@ -49,6 +50,22 @@ class NodeError(ThingsDBError):
 
 
 class AssertionError(ThingsDBError, _AssertionError):
+    pass
+
+
+class RequestTimeoutError(ThingsDBError):
+    pass
+
+
+class RequestCancelError(ThingsDBError):
+    pass
+
+
+class WriteUVError(ThingsDBError):
+    pass
+
+
+class MemoryError(ThingsDBError, _MemoryError):
     pass
 
 

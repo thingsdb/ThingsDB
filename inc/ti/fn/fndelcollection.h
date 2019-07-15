@@ -37,7 +37,7 @@ static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_del_collection(task, collection_id))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
     else
         (void) ti_collections_del_collection(collection_id);
 

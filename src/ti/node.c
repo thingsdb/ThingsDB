@@ -227,7 +227,7 @@ int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
     tmp_sockaddr = malloc(sizeof(struct sockaddr_storage));
     if (!tmp_sockaddr)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -316,7 +316,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     packer = qpx_packer_create(192, 2);
     if (!packer)
     {
-        log_error(EX_ALLOC_S);
+        log_error(EX_MEMORY_S);
         goto failed;
     }
 

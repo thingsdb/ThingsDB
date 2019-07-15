@@ -125,7 +125,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     packer = qpx_packer_create(9, 0);
     if (!packer)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 
@@ -139,7 +139,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
             sync__on_res_sync,
             NULL))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         free(pkg);
         return;
     }

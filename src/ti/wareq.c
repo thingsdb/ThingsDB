@@ -104,7 +104,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             wareq->thing_ids = vec_new(n < 0 ? 8 : n);
             if (!wareq->thing_ids)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 goto finish;
             }
 
@@ -116,14 +116,14 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
                 uint64_t * id = malloc(sizeof(uint64_t));
                 if (!id)
                 {
-                    ex_set_alloc(e);
+                    ex_set_mem(e);
                     goto finish;
                 }
                 *id = (uint64_t) val.via.int64;
                 #endif
                 if (vec_push(&wareq->thing_ids, (void *) id))
                 {
-                    ex_set_alloc(e);
+                    ex_set_mem(e);
                     goto finish;
                 }
             }
@@ -159,7 +159,7 @@ int ti_wareq_init(ti_stream_t * stream)
         ti_watch_t * watch = ti_thing_watch(ti()->thing0, stream);
         if (!watch)
         {
-            log_error(EX_ALLOC_S);
+            log_error(EX_MEMORY_S);
             /*
              * This is not critical, it does however mean that the client will
              * not receive broadcast messages
@@ -232,14 +232,14 @@ static void wareq__watch_cb(uv_async_t * task)
         watch = ti_thing_watch(thing, wareq->stream);
         if (!watch)
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             break;
         }
 
         packer = qpx_packer_create(512, 4);
         if (!packer)
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             break;
         }
 
@@ -252,7 +252,7 @@ static void wareq__watch_cb(uv_async_t * task)
         if (    ti_thing_to_packer(thing, &packer, 1 /* options */) ||
                 qp_close_map(packer))
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             qp_packer_destroy(packer);
             break;
         }

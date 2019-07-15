@@ -18,7 +18,7 @@ static int q__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = (ti_val_t *) ti_vfloat_create(util_now());
     if (!query->rval)
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }

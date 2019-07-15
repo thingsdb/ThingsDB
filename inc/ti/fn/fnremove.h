@@ -67,7 +67,7 @@ static void do__f_remove_list(
     {
         if (ti_scope_polute_val(query->scope, v, idx))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto fail2;
         }
 
@@ -98,7 +98,7 @@ static void do__f_remove_list(
                         idx,
                         1,
                         0))
-                    ex_set_alloc(e);
+                    ex_set_mem(e);
             }
 
             goto done;
@@ -137,7 +137,7 @@ static int do__f_remove_set_from_closure(
     query->rval = NULL;
     if (!vec)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto fail1;
     }
 
@@ -160,7 +160,7 @@ static int do__f_remove_set_from_closure(
     {
         if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto fail2;
         }
 
@@ -169,7 +169,7 @@ static int do__f_remove_set_from_closure(
 
         if (ti_val_as_bool(query->rval) && vec_push(removed, t))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto fail2;
         }
 
@@ -222,7 +222,7 @@ static void do__f_remove_set(
         removed = vec_new(1);
         if (!removed)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             return;
         }
 
@@ -242,7 +242,7 @@ static void do__f_remove_set(
         removed = vec_new(nargs);
         if (!removed)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             return;
         }
 
@@ -290,7 +290,7 @@ static void do__f_remove_set(
                 query->scope->name,
                 removed))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto failed;
         }
     }
@@ -300,7 +300,7 @@ static void do__f_remove_set(
     if (query->rval)
         return;
 
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 failed:
     while (removed->n)
@@ -308,7 +308,7 @@ failed:
          * thing, else the thing was owned by the `removed` vector so in
          * neither case we have o adjust the reference counter */
         if (ti_vset_add(vset, vec_pop(removed)) == IMAP_ERR_ALLOC)
-            ex_set_alloc(e);
+            ex_set_mem(e);
     free(removed);
 }
 

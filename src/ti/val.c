@@ -14,6 +14,7 @@
 #include <ti/val.h>
 #include <ti/vbool.h>
 #include <ti/vfloat.h>
+#include <ti/verror.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
 #include <util/logger.h>
@@ -103,6 +104,22 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
 
         return (ti_val_t *) vset;
     }
+    case TI_KIND_C_ERROR:
+    {
+        qp_obj_t qp_msg, qp_code;
+        if (    sz != 2 ||
+                !qp_is_raw(qp_next(unp, &qp_msg)) ||
+                qp_msg.len > EX_MAX_SZ ||
+                !qp_is_raw(qp_next(unp, NULL)) ||
+                !qp_is_int(qp_next(unp, &qp_code)) ||
+                qp_code.via.int64 < 127 || qp_code.via.int64 > 32)
+            return NULL;
+
+        return (ti_val_t *) ti_verror_create(
+                (const char *) qp_msg.via.raw,
+                qp_msg.len,
+                (int8_t) qp_code.via.int64);
+    }
     }
     assert (0);
     return NULL;
@@ -127,6 +144,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         break;
     case TI_VAL_ARR:
     {
@@ -277,6 +295,7 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_QP:
     case TI_VAL_RAW:
+    case TI_VAL_ERROR:
         free(val);
         return;
     case TI_VAL_REGEX:
@@ -466,6 +485,15 @@ int ti_val_convert_to_str(ti_val_t ** val)
         v = val__sclosure;
         ti_incref(v);
         break;
+    case TI_VAL_ERROR:
+        v = (ti_val_t *) ti_raw_from_strn(
+                (*(ti_verror_t **) val)->msg,
+                (*(ti_verror_t **) val)->msg_n);
+        if (!v)
+            return -1;
+        break;
+        ti_incref(v);
+        break;
     default:
         assert(0);
         v = NULL;
@@ -514,7 +542,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
             char * dup = strndup((const char *) raw->data, raw->n);
             if (!dup)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             i = strtoll(dup, NULL, 0);
@@ -531,10 +559,13 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 
         break;
     }
+    case TI_VAL_ERROR:
+        i = ((ti_verror_t *) val)->code;
+        break;
     }
 
     if (ti_val_make_int(val, i))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 
@@ -578,7 +609,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
             char * dup = strndup((const char *) raw->data, raw->n);
             if (!dup)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;
             }
             d = strtod(dup, NULL);
@@ -599,10 +630,13 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
 
         break;
     }
+    case TI_VAL_ERROR:
+        d = (double) (*(ti_verror_t **) val)->code;
+        break;
     }
 
     if (ti_val_make_float(val, d))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 }
@@ -620,6 +654,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_ARR_S"`",
                 ti_val_str(*val));
         break;
@@ -627,7 +662,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_SET:
         if (ti_vset_to_list((ti_vset_t **) val))
-            ex_set_alloc(e);
+            ex_set_mem(e);
         break;
     }
     return e->nr;
@@ -646,6 +681,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
         break;
@@ -655,7 +691,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
         ti_vset_t * vset = ti_vset_create();
         if (!vset)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             break;
         }
 
@@ -675,103 +711,6 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_SET:
         break;
     }
-    return e->nr;
-}
-
-int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e)
-{
-    int64_t i;
-    uint64_t u;
-    switch((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_QP:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to an `errnr`",
-                ti_val_str(*val));
-        return e->nr;
-    case TI_VAL_INT:
-        i = (*(ti_vint_t **) val)->int_;
-        u = i == LLONG_MIN ? 0 : (uint64_t) llabs(i);
-        switch(u)
-        {
-        case TI_PROTO_CLIENT_ERR_OVERFLOW:
-            i = EX_OVERFLOW;
-            break;
-        case TI_PROTO_CLIENT_ERR_ZERO_DIV:
-            i = EX_ZERO_DIV;
-            break;
-        case TI_PROTO_CLIENT_ERR_MAX_QUOTA:
-            i = EX_MAX_QUOTA;
-            break;
-        case TI_PROTO_CLIENT_ERR_AUTH:
-            i = EX_AUTH_ERROR;
-            break;
-        case TI_PROTO_CLIENT_ERR_FORBIDDEN:
-            i = EX_FORBIDDEN;
-            break;
-        case TI_PROTO_CLIENT_ERR_INDEX:
-            i = EX_INDEX_ERROR;
-            break;
-        case TI_PROTO_CLIENT_ERR_BAD_REQUEST:
-            i = EX_BAD_DATA;
-            break;
-        case TI_PROTO_CLIENT_ERR_SYNTAX:
-            i = EX_SYNTAX_ERROR;
-            break;
-        case TI_PROTO_CLIENT_ERR_NODE:
-            i = EX_NODE_ERROR;
-            break;
-        case TI_PROTO_CLIENT_ERR_ASSERTION:
-            i = EX_ASSERT_ERROR;
-            break;
-        case TI_PROTO_CLIENT_ERR_INTERNAL:
-            i = EX_INTERNAL;
-            break;
-        default:
-            ex_set(e, EX_INDEX_ERROR,
-                    "unknown error number: %"PRId64 TI_SEE_DOC("#errors"),
-                    (*(ti_vint_t **) val)->int_);
-            return e->nr;
-        }
-        break;
-    case TI_VAL_RAW:
-        i = VAL__CMP("OVERFLOW_ERROR") ? EX_OVERFLOW :
-            VAL__CMP("ZERO_DIV_ERROR") ? EX_ZERO_DIV :
-            VAL__CMP("MAX_QUOTA_ERROR") ? EX_MAX_QUOTA :
-            VAL__CMP("AUTH_ERROR") ? EX_AUTH_ERROR :
-            VAL__CMP("FORBIDDEN") ? EX_FORBIDDEN :
-            VAL__CMP("INDEX_ERROR") ? EX_INDEX_ERROR :
-            VAL__CMP("BAD_REQUEST") ? EX_BAD_DATA :
-            VAL__CMP("QUERY_ERROR") ? EX_SYNTAX_ERROR :
-            VAL__CMP("NODE_ERROR") ? EX_NODE_ERROR :
-            VAL__CMP("ASSERTION_ERROR") ? EX_ASSERT_ERROR :
-            VAL__CMP("INTERNAL_ERROR") ? EX_INTERNAL :
-            0;
-
-        if (i == 0)
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "unknown error: `%.*s`"TI_SEE_DOC("#errors"),
-                    (int) (*(ti_raw_t **) val)->n,
-                    (const char *) (*(ti_raw_t **) val)->data);
-            return e->nr;
-        }
-        break;
-    default:
-        assert (0);
-        i = 0;
-    }
-
-    if (ti_val_make_int(val, i))
-        ex_set_alloc(e);
-
     return e->nr;
 }
 
@@ -802,6 +741,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_THING:
         return !!((ti_thing_t *) val)->props->n;
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         return true;
     }
     assert (0);
@@ -840,6 +780,8 @@ size_t ti_val_get_len(ti_val_t * val)
         return ((ti_vset_t *) val)->imap->n;
     case TI_VAL_CLOSURE:
         break;
+    case TI_VAL_ERROR:
+        return ((ti_verror_t *) val)->msg_n;
     }
     assert (0);
     return 0;
@@ -892,6 +834,7 @@ int ti_val_gen_ids(ti_val_t * val)
         }
         break;
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         break;
     }
     return 0;
@@ -951,6 +894,8 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int options)
         return ti_vset_to_packer((ti_vset_t *) val, pckr, options);
     case TI_VAL_CLOSURE:
         return ti_closure_to_packer((ti_closure_t *) val, pckr);
+    case TI_VAL_ERROR:
+        return ti_verror_to_packer((ti_verror_t *) val, pckr);
     }
 
     assert(0);
@@ -996,6 +941,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return ti_vset_to_file((ti_vset_t *) val, f);
     case TI_VAL_CLOSURE:
         return ti_closure_to_file((ti_closure_t *) val, f);
+    case TI_VAL_ERROR:
+        return ti_verror_to_file((ti_verror_t *) val, f);
     }
     assert (0);
     return -1;
@@ -1018,6 +965,7 @@ const char * ti_val_str(ti_val_t * val)
                                         : TI_VAL_ARR_TUPLE_S;
     case TI_VAL_SET:                return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:            return TI_VAL_CLOSURE_S;
+    case TI_VAL_ERROR:              return TI_VAL_ERROR_S;
     }
     assert (0);
     return "unknown";
@@ -1041,11 +989,11 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ARR:
         if (ti_varr_to_list((ti_varr_t **) val))
-            ex_set_alloc(e);
+            ex_set_mem(e);
         break;
     case TI_VAL_SET:
         if (ti_vset_assign((ti_vset_t **) val))
-            ex_set_alloc(e);
+            ex_set_mem(e);
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_wse((ti_closure_t * ) *val))
@@ -1054,7 +1002,9 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
                 "closures with side effects cannot be assigned");
         }
         else if (ti_closure_unbound((ti_closure_t * ) *val, e))
-            ex_set_alloc(e);
+            ex_set_mem(e);
+        break;
+    case TI_VAL_ERROR:
         break;
     }
     return e->nr;

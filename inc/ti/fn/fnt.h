@@ -71,7 +71,7 @@ static int do__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             varr = ti_varr_create(nargs);
             if (!varr)
             {
-                ex_set_alloc(e);
+                ex_set_mem(e);
                 return e->nr;  /* save to return, `varr` is not created */
             }
         }

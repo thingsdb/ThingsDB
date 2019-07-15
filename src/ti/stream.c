@@ -139,7 +139,7 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
         stream->buf = malloc(sugsz);
         if (stream->buf == NULL)
         {
-            log_error(EX_ALLOC_S);
+            log_error(EX_MEMORY_S);
             buf->base = NULL;
             buf->len = 0;
             return;
@@ -198,7 +198,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
             char * tmp = realloc(stream->buf, total_sz);
             if (!tmp)
             {
-                log_error(EX_ALLOC_S);
+                log_error(EX_MEMORY_S);
                 ti_stream_close(stream);
                 return;
             }

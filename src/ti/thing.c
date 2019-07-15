@@ -20,7 +20,7 @@ static void thing__watch_del(ti_thing_t * thing)
     qpx_packer_t * packer = qpx_packer_create(12, 1);
     if (!packer)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
     (void) ti_thing_id_to_packer(thing, &packer);
@@ -30,7 +30,7 @@ static void thing__watch_del(ti_thing_t * thing)
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return;
     }
 

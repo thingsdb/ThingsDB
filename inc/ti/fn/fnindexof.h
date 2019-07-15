@@ -37,7 +37,7 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_drop(query->rval);
             query->rval = (ti_val_t *) ti_vint_create(idx);
             if (!query->rval)
-                ex_set_alloc(e);
+                ex_set_mem(e);
             goto done;
         }
     }

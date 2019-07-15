@@ -65,7 +65,7 @@ void ti_collection_drop(ti_collection_t * collection)
     if (!collection->things->n)
         imap_destroy(collection->things, NULL);
     else if (ti_collections_add_for_collect(collection->things))
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
 
     ti_quota_destroy(collection->quota);
     uv_mutex_destroy(collection->lock);

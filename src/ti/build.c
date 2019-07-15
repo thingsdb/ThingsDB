@@ -57,7 +57,7 @@ int ti_build_setup(
     pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SETUP, NULL, 0);
     if (!pkg)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 

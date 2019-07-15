@@ -20,6 +20,7 @@ typedef enum
     TI_VAL_ARR,     /* array, list or tuple */
     TI_VAL_SET,     /* set of things */
     TI_VAL_CLOSURE,
+    TI_VAL_ERROR,
 } ti_val_enum;
 
 #define TI_VAL_NIL_S        "nil"
@@ -35,6 +36,7 @@ typedef enum
 #define TI_VAL_ARR_TUPLE_S  "tuple"
 #define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
+#define TI_VAL_ERROR_S    "error"
 
 enum
 {
@@ -78,19 +80,20 @@ typedef enum
      *   + positive big type
      *   - negative big type
      *   @ date type
-     *   ! exception type
      */
-    TI_KIND_C_THING   ='#',
-    TI_KIND_C_CLOSURE ='$',
-    TI_KIND_C_REGEX   ='*',
-    TI_KIND_C_SET     ='^',
+    TI_KIND_C_THING     ='#',
+    TI_KIND_C_CLOSURE   ='$',
+    TI_KIND_C_REGEX     ='*',
+    TI_KIND_C_SET       ='^',
+    TI_KIND_C_ERROR     ='!',
 
 } ti_val_kind;
 
-#define TI_KIND_S_THING "#"
-#define TI_KIND_S_CLOSURE "$"
-#define TI_KIND_S_REGEX "*"
-#define TI_KIND_S_SET "^"
+#define TI_KIND_S_THING     "#"
+#define TI_KIND_S_CLOSURE   "$"
+#define TI_KIND_S_REGEX     "*"
+#define TI_KIND_S_SET       "^"
+#define TI_KIND_S_ERROR     "!"
 
 typedef struct ti_val_s ti_val_t;
 
@@ -114,7 +117,6 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_array(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
-int ti_val_convert_to_errnr(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
@@ -127,6 +129,7 @@ static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
 static inline _Bool ti_val_is_closure(ti_val_t * val);
+static inline _Bool ti_val_is_error(ti_val_t * val);
 static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
@@ -138,7 +141,6 @@ static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
-
 
 struct ti_val_s
 {
@@ -159,14 +161,19 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
     return val->tp == TI_VAL_ARR;
 }
 
+static inline _Bool ti_val_is_bool(ti_val_t * val)
+{
+    return val->tp == TI_VAL_BOOL;
+}
+
 static inline _Bool ti_val_is_closure(ti_val_t * val)
 {
     return val->tp == TI_VAL_CLOSURE;
 }
 
-static inline _Bool ti_val_is_bool(ti_val_t * val)
+static inline _Bool ti_val_is_error(ti_val_t * val)
 {
-    return val->tp == TI_VAL_BOOL;
+    return val->tp == TI_VAL_ERROR;
 }
 
 static inline _Bool ti_val_is_float(ti_val_t * val)
@@ -223,9 +230,10 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
 {
     return (
         val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_THING ||
         val->tp == TI_VAL_ARR ||
         val->tp == TI_VAL_SET ||
-        val->tp == TI_VAL_THING
+        val->tp == TI_VAL_ERROR
     );
 }
 

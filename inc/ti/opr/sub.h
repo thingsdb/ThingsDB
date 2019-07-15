@@ -35,6 +35,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -59,6 +60,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -86,6 +88,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             goto type_err;
         }
         break;
@@ -96,6 +99,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
         goto type_err;
     }
 
@@ -104,14 +108,14 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
 type_float:
 
     if (ti_val_make_float(b, float_))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 
 type_int:
 
     if (ti_val_make_int(b, int_))
-        ex_set_alloc(e);
+        ex_set_mem(e);
 
     return e->nr;
 

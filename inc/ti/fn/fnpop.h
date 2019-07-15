@@ -61,7 +61,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 varr->vec->n,
                 1,
                 0))
-            ex_set_alloc(e);
+            ex_set_mem(e);
     }
 
 done:

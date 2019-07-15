@@ -50,7 +50,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (vec_resize(&varr->vec, new_n))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 
@@ -95,7 +95,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 failed:
     while (varr->vec->n > current_n)

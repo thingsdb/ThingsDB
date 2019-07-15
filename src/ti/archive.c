@@ -180,7 +180,7 @@ static int archive__to_disk(void)
 
     if (vec_push(&archive->archfiles, archfile))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         goto fail2;
     }
 
@@ -286,7 +286,7 @@ int ti_archive_rmdir(void)
 
     if (!archive_path)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -353,7 +353,7 @@ int ti_archive_load(void)
         archfile = ti_archfile_upsert(archive->path, file_list[n]->d_name);
         if (!archfile)
         {
-            log_critical(EX_ALLOC_S);
+            log_critical(EX_MEMORY_S);
             rc = -1;
             continue;
         }

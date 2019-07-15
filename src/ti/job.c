@@ -126,7 +126,7 @@ static int job__assign(
     name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
     if (!name)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -296,7 +296,7 @@ static int job__new_procedure(
         return 0;  /* success */
 
     if (rc < 0)
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
     else
         log_critical(
                 "job `new_procedure` for "TI_COLLECTION_ID": "
@@ -442,7 +442,7 @@ static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
     to_name = ti_names_get((const char *) qp_to.via.raw, qp_to.len);
     if (!to_name)
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
@@ -541,7 +541,7 @@ static int job__splice(
 
     if (new_n > cur_n && vec_resize(&varr->vec, new_n))
     {
-        log_critical(EX_ALLOC_S);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 

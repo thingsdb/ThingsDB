@@ -4,8 +4,8 @@
 #ifndef TI_EX_H_
 #define TI_EX_H_
 
-#define EX_ALLOC_S \
-    "allocation error in `%s` at %s:%d", __func__, __FILE__, __LINE__
+#define EX_MEMORY_S \
+    "memory allocation error in `%s` at %s:%d", __func__, __FILE__, __LINE__
 
 #define EX_INTERNAL_S \
     "internal error in `%s` at %s:%d", __func__, __FILE__, __LINE__
@@ -15,6 +15,7 @@
 
 typedef enum
 {
+    /* build-in errors -127..-100 */
     EX_OVERFLOW             =-127,
     EX_ZERO_DIV             =-126,
     EX_MAX_QUOTA            =-125,
@@ -22,23 +23,25 @@ typedef enum
     EX_FORBIDDEN            =-123,
     EX_INDEX_ERROR          =-122,
     EX_BAD_DATA             =-121,
-    EX_SYNTAX_ERROR          =-120,
+    EX_SYNTAX_ERROR         =-120,
     EX_NODE_ERROR           =-119,
     EX_ASSERT_ERROR         =-118,
 
+    /* internal errors -99..-1  (not catchable with try() function) */
     EX_REQUEST_TIMEOUT      =-5,
     EX_REQUEST_CANCEL       =-4,
     EX_WRITE_UV             =-3,
-    EX_ALLOC                =-2,
+    EX_MEMORY               =-2,
     EX_INTERNAL             =-1,
 
-    EX_SUCCESS              =0,  /* not an error */
+    /* not an error */
+    EX_SUCCESS              =0,
 
+    /* custom errors 1..32 */
     EX_CUSTOM_01, EX_CUSTOM_02, EX_CUSTOM_03, EX_CUSTOM_04,
     EX_CUSTOM_05, EX_CUSTOM_06, EX_CUSTOM_07, EX_CUSTOM_08,
     EX_CUSTOM_09, EX_CUSTOM_0A, EX_CUSTOM_0B, EX_CUSTOM_0C,
     EX_CUSTOM_0D, EX_CUSTOM_0E, EX_CUSTOM_0F, EX_CUSTOM_10,
-
     EX_CUSTOM_11, EX_CUSTOM_12, EX_CUSTOM_13, EX_CUSTOM_14,
     EX_CUSTOM_15, EX_CUSTOM_16, EX_CUSTOM_17, EX_CUSTOM_18,
     EX_CUSTOM_19, EX_CUSTOM_1A, EX_CUSTOM_1B, EX_CUSTOM_1C,
@@ -61,7 +64,7 @@ struct ex_s
     char msg[EX_MAX_SZ + 1];    /* 0 terminated message */
 };
 
-#define ex_set_alloc(e__) ex_set((e__), EX_ALLOC, EX_ALLOC_S)
+#define ex_set_mem(e__) ex_set((e__), EX_MEMORY, EX_MEMORY_S)
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
 
 #endif /* TI_EX_H_ */

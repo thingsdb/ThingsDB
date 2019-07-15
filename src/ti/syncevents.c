@@ -68,7 +68,7 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
 
     if (!packer || !epkg)
     {
-        ex_set_alloc(e);  /* can leak a few bytes */
+        ex_set_mem(e);  /* can leak a few bytes */
         return NULL;
     }
 

@@ -90,7 +90,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_access_grant(access_, user, mask))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return e->nr;
     }
 
@@ -99,7 +99,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_task_add_grant(task, target_id, user, mask))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

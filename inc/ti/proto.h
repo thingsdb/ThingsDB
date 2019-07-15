@@ -40,40 +40,20 @@ typedef enum
     TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}       */
     TI_PROTO_CLIENT_REQ_CALL    =50,    /* [target, procedure, arguments..] */
     /*
-     * 64..95 client responses
+     * 64..127 client responses
      */
     TI_PROTO_CLIENT_RES_PING    =64,    /* empty */
     TI_PROTO_CLIENT_RES_AUTH    =65,    /* empty */
     TI_PROTO_CLIENT_RES_QUERY   =66,    /* [{}, {}, ...] */
     TI_PROTO_CLIENT_RES_WATCH   =80,    /* empty */
     TI_PROTO_CLIENT_RES_UNWATCH =81,    /* empty */
+    TI_PROTO_CLIENT_RES_ERROR   =96,    /* {error_msg:..., error_code: x} */
 
     /*
      * 96..127 client errors
      */
 
     /* integer overflow error */
-    TI_PROTO_CLIENT_ERR_OVERFLOW    =96,
-    /* zero division or module error */
-    TI_PROTO_CLIENT_ERR_ZERO_DIV    =97,
-    /* max quota is reached */
-    TI_PROTO_CLIENT_ERR_MAX_QUOTA   =98,
-    /* authentication failed or request without authentication */
-    TI_PROTO_CLIENT_ERR_AUTH        =99,
-    /* no access for the requested task */
-    TI_PROTO_CLIENT_ERR_FORBIDDEN   =100,
-    /* some index is not found */
-    TI_PROTO_CLIENT_ERR_INDEX       =101,
-    /* invalid request, incorrect package type, invalid QPack data */
-    TI_PROTO_CLIENT_ERR_BAD_REQUEST =102,
-    /* syntax error in query */
-    TI_PROTO_CLIENT_ERR_SYNTAX      =103,
-    /* node is (currently) unable to respond to the request */
-    TI_PROTO_CLIENT_ERR_NODE        =104,
-    /* assertion statement has failed */
-    TI_PROTO_CLIENT_ERR_ASSERTION   =105,
-    /* internal server error, for example allocation error */
-    TI_PROTO_CLIENT_ERR_INTERNAL    =127,
 
     /*
      * protocol definition for node connections

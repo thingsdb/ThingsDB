@@ -30,18 +30,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_CLIENT_RES_QUERY:         return "CLIENT_RES_QUERY";
     case TI_PROTO_CLIENT_RES_WATCH:         return "CLIENT_RES_WATCH";
     case TI_PROTO_CLIENT_RES_UNWATCH:       return "CLIENT_RES_UNWATCH";
-
-    case TI_PROTO_CLIENT_ERR_OVERFLOW:      return "CLIENT_ERR_OVERFLOW";
-    case TI_PROTO_CLIENT_ERR_ZERO_DIV:      return "CLIENT_ERR_ZERO_DIV";
-    case TI_PROTO_CLIENT_ERR_MAX_QUOTA:     return "CLIENT_ERR_MAX_QUOTA";
-    case TI_PROTO_CLIENT_ERR_AUTH:          return "CLIENT_ERR_AUTH";
-    case TI_PROTO_CLIENT_ERR_FORBIDDEN:     return "CLIENT_ERR_FORBIDDEN";
-    case TI_PROTO_CLIENT_ERR_INDEX:         return "CLIENT_ERR_INDEX";
-    case TI_PROTO_CLIENT_ERR_BAD_REQUEST:   return "CLIENT_ERR_BAD_REQUEST";
-    case TI_PROTO_CLIENT_ERR_SYNTAX:         return "CLIENT_ERR_QUERY";
-    case TI_PROTO_CLIENT_ERR_NODE:          return "CLIENT_ERR_NODE";
-    case TI_PROTO_CLIENT_ERR_ASSERTION:     return "CLIENT_ERR_ASSERTION";
-    case TI_PROTO_CLIENT_ERR_INTERNAL:      return "CLIENT_ERR_INTERNAL";
+    case TI_PROTO_CLIENT_RES_ERROR:         return "CLIENT_RES_ERROR";
 
     case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";

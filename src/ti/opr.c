@@ -17,9 +17,10 @@
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
 
-#include <ti/varr.h>
-#include <ti/vset.h>
 #include <ti/regex.h>
+#include <ti/varr.h>
+#include <ti/verror.h>
+#include <ti/vset.h>
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
@@ -120,6 +121,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -141,6 +143,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -162,6 +165,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -182,6 +186,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -201,6 +206,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -222,6 +228,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return ti_varr_eq((ti_varr_t *) a, (ti_varr_t *) b);
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
@@ -241,11 +248,31 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_SET:
             return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
         case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
             return false;
         }
         break;
     case TI_VAL_CLOSURE:
         return false;
+    case TI_VAL_ERROR:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+            return false;
+        case TI_VAL_ERROR:
+            return ((ti_verror_t *) a)->code == ((ti_verror_t *) b)->code;
+        }
+        break;
     }
     return false;
 }

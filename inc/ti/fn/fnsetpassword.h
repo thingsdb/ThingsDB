@@ -58,7 +58,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         passstr = ti_raw_to_str((ti_raw_t *) query->rval);
         if (!passstr)
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto done;
         }
 
@@ -77,7 +77,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_user_set_pass(user, passstr))
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 
@@ -86,7 +86,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
 
     if (ti_task_add_set_password(task, user))
-        ex_set_alloc(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -55,7 +55,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_scope_polute_val(query->scope, v, idx))
         {
-            ex_set_alloc(e);
+            ex_set_mem(e);
             goto fail2;
         }
 
@@ -69,7 +69,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             query->rval = (ti_val_t *) ti_vint_create(idx);
             if (!query->rval)
-                ex_set_alloc(e);
+                ex_set_mem(e);
 
             goto done;
         }

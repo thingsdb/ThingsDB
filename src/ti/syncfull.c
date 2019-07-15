@@ -353,7 +353,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     packer = qpx_packer_create(48 , 1);
     if (!packer)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         return NULL;
     }
 

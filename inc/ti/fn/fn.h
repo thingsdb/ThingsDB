@@ -24,6 +24,7 @@
 #include <ti/users.h>
 #include <ti/vbool.h>
 #include <ti/vfloat.h>
+#include <ti/verror.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
 #include <tiinc.h>

@@ -15,7 +15,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!added)
     {
-        ex_set_alloc(e);
+        ex_set_mem(e);
         goto done;
     }
 
@@ -89,7 +89,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
 
 alloc_err:
-    ex_set_alloc(e);
+    ex_set_mem(e);
 
 failed:
     while (added->n)

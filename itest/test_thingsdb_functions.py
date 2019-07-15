@@ -49,7 +49,8 @@ class TestThingsDBFunctions(TestBase):
     async def test_collection_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `collection_info` takes 1 argument but 0 were given'):
+                'function `collection_info` takes 1 argument '
+                'but 0 were given'):
             await client.query('collection_info();')
 
         with self.assertRaisesRegex(
@@ -77,7 +78,8 @@ class TestThingsDBFunctions(TestBase):
     async def test_collections_info(self, client):
         with self.assertRaisesRegex(
                 BadRequestError,
-                'function `collections_info` takes 0 arguments but 1 was given'):
+                'function `collections_info` takes 0 arguments '
+                'but 1 was given'):
             await client.query('collections_info(nil);')
 
         collections = await client.query('collections_info();')

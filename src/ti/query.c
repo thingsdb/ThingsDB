@@ -23,6 +23,9 @@
 /* maximum value we allow for the `deep` argument */
 #define QUERY__MAX_DEEP 0x7f
 
+#define QUERY_DOC_ TI_SEE_DOC("#query")
+#define CALL_REQUEST_DOC_ TI_SEE_DOC("#call-request")
+
 /*
  *  tasks are ordered for low to high thing ids
  *   { [0, 0]: {0: [ {'job':...} ] } }
@@ -143,7 +146,6 @@ static void query__event_handle(ti_query_t * query)
 }
 
 static int query__node_or_thingsdb_unpack(
-        const char * ebad,
         ti_query_t * query,
         uint16_t pkg_id,
         const uchar * data,
@@ -162,7 +164,7 @@ static int query__node_or_thingsdb_unpack(
 
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA, "invalid request"QUERY_DOC_);
         goto finish;
     }
 
@@ -170,10 +172,18 @@ static int query__node_or_thingsdb_unpack(
     {
         if (qp_is_raw_equal_str(&key, "query"))
         {
-            if (query->querystr || !qp_is_raw(qp_next(&unpacker, &val)))
+            if (query->querystr)
             {
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
+                ex_set(e, EX_BAD_DATA,
+                        "`query` found twice in the request"QUERY_DOC_);
+                return e->nr;
+            }
+
+            if (!qp_is_raw(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting `query` to be or type `raw`"QUERY_DOC_);
+                return e->nr;
             }
 
             query->querystr = qpx_obj_raw_to_str(&val);
@@ -192,7 +202,7 @@ static int query__node_or_thingsdb_unpack(
     }
 
     if (!query->querystr)
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA, "missing `query` in request"QUERY_DOC_);
 
 finish:
     return e->nr;
@@ -251,7 +261,6 @@ int ti_query_callunpack(
         size_t n,
         ex_t * e)
 {
-    const char * ebad = "invalid `call` request"TI_SEE_DOC("#call-request");
     static ti_raw_t node = {
             tp: TI_VAL_RAW,
             n: 5,
@@ -276,20 +285,26 @@ int ti_query_callunpack(
 
     if (!qp_is_array(qp_next(&unpacker, NULL)))
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA,
+                "expecting a `call` request to contain an array"
+                CALL_REQUEST_DOC_);
         return e->nr;
     }
 
     (void) qp_next(&unpacker, &qp_target);
     if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA,
+                "expecting the array to a call request to have a "
+                "second value of type `raw`"CALL_REQUEST_DOC_);
         return e->nr;
     }
 
     if (qpx_obj_endswith_raw(&qp_target, &node))
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA,
+                "cannot make a `call` request to the `node` scope"
+                CALL_REQUEST_DOC_);
         return e->nr;
     }
 
@@ -376,10 +391,8 @@ int ti_query_node_unpack(
         ex_t * e)
 {
     assert (e->nr == 0);
-    const char * ebad =
-            "invalid `query-node` request"TI_SEE_DOC("#query-node");
     query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-    return query__node_or_thingsdb_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_or_thingsdb_unpack(query, pkg_id, data, n, e);
 }
 
 int ti_query_thingsdb_unpack(
@@ -390,10 +403,8 @@ int ti_query_thingsdb_unpack(
         ex_t * e)
 {
     assert (e->nr == 0);
-    const char * ebad =
-            "invalid `query-thingsdb` request"TI_SEE_DOC("#query-thingsdb");
     query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-    return query__node_or_thingsdb_unpack(ebad, query, pkg_id, data, n, e);
+    return query__node_or_thingsdb_unpack(query, pkg_id, data, n, e);
 }
 
 int ti_query_collection_unpack(
@@ -404,8 +415,6 @@ int ti_query_collection_unpack(
         ex_t * e)
 {
     assert (e->nr == 0);
-    const char * ebad =
-            "invalid `query-collection` request"TI_SEE_DOC("#query-thingsdb");
 
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
@@ -418,7 +427,7 @@ int ti_query_collection_unpack(
 
     if (!qp_is_map(qp_next(&unpacker, NULL)))
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA, "invalid request"QUERY_DOC_);
         return e->nr;
     }
 
@@ -426,9 +435,17 @@ int ti_query_collection_unpack(
     {
         if (qp_is_raw_equal_str(&key, "query"))
         {
-            if (query->querystr || !qp_is_raw(qp_next(&unpacker, &val)))
+            if (query->querystr)
             {
-                ex_set(e, EX_BAD_DATA, ebad);
+                ex_set(e, EX_BAD_DATA,
+                        "`query` found twice in the request"QUERY_DOC_);
+                return e->nr;
+            }
+
+            if (!qp_is_raw(qp_next(&unpacker, &val)))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting `query` to be or type `raw`"QUERY_DOC_);
                 return e->nr;
             }
 
@@ -448,7 +465,8 @@ int ti_query_collection_unpack(
         {
             if (query->target)
             {
-                ex_set(e, EX_BAD_DATA, ebad);
+                ex_set(e, EX_BAD_DATA,
+                        "`target` found twice in the request"QUERY_DOC_);
                 return e->nr;
             }
 
@@ -465,9 +483,17 @@ int ti_query_collection_unpack(
             ssize_t n;
             qp_types_t tp = qp_next(&unpacker, NULL);
 
-            if (query->blobs || !qp_is_array(tp))
+            if (query->blobs)
             {
-                ex_set(e, EX_BAD_DATA, ebad);
+                ex_set(e, EX_BAD_DATA,
+                        "`blobs` found twice in the request"QUERY_DOC_);
+                return e->nr;
+            }
+
+            if (!qp_is_array(tp))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting `blobs` to be an array"QUERY_DOC_);
                 return e->nr;
             }
 
@@ -480,9 +506,23 @@ int ti_query_collection_unpack(
                 return e->nr;
             }
 
-            while(n-- && qp_is_raw(qp_next(&unpacker, &val)))
+            while(n--)
             {
-                ti_raw_t * blob = ti_raw_create(val.via.raw, val.len);
+                ti_raw_t * blob;
+                tp = qp_next(&unpacker, &val);
+
+                if (qp_is_close(tp))
+                    break;
+
+                if (!qp_is_raw(tp))
+                {
+                    ex_set(e, EX_BAD_DATA,
+                            "expecting a `blobs` array to contain type `raw`"
+                            QUERY_DOC_);
+                    return e->nr;
+                }
+
+                blob = ti_raw_create(val.via.raw, val.len);
                 if (!blob || vec_push(&query->blobs, blob))
                 {
                     ex_set_alloc(e);
@@ -500,9 +540,15 @@ int ti_query_collection_unpack(
                 key.len, (const char *) key.via.raw);
     }
 
-    if (!query->querystr || !query->target)
+    if (!query->querystr)
     {
-        ex_set(e, EX_BAD_DATA, ebad);
+        ex_set(e, EX_BAD_DATA, "missing `query` in request"QUERY_DOC_);
+        return e->nr;
+    }
+
+    if (!query->target)
+    {
+        ex_set(e, EX_BAD_DATA, "missing `collection` in request"QUERY_DOC_);
         return e->nr;
     }
 

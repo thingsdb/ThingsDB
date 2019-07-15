@@ -52,7 +52,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!strx_is_utf8n((const char *) raw->data, raw->n))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `new_procedure` expects a procedure "
+                "function `new_procedure` expects a definition "
                 "to have valid UTF8 encoding"NEW_PROCEDURE_DOC_);
         return e->nr;
     }

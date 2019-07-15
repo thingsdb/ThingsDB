@@ -80,7 +80,7 @@ struct ti_query_s
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
     vec_t * blobs;              /* ti_raw_t */
-    vec_t * tmpvars;            /* ti_prop_t - temporary variable */
+    vec_t * vars;               /* ti_prop_t - variable */
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */

@@ -1168,7 +1168,7 @@ static int do__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!prop)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "temporary variable `%.*s` is undefined",
+                "variable `%.*s` is undefined",
                 (int) nd->len, nd->str);
         return e->nr;
     }
@@ -1239,14 +1239,14 @@ static int do__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!prop)
             goto alloc_err;
 
-        if (!query->tmpvars)
+        if (!query->vars)
         {
-            query->tmpvars = vec_new(1);
-            if (!query->tmpvars)
+            query->vars = vec_new(1);
+            if (!query->vars)
                 goto alloc_err_with_prop;
-            VEC_push(query->tmpvars, prop);
+            VEC_push(query->vars, prop);
         }
-        else if (vec_push(&query->tmpvars, prop))
+        else if (vec_push(&query->vars, prop))
             goto alloc_err_with_prop;
     }
 

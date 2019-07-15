@@ -12,9 +12,9 @@ from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 
 
-class TestTemporaryVariable(TestBase):
+class TestVariable(TestBase):
 
-    title = 'Test temporary variable'
+    title = 'Test variable'
 
     @default_test_setup(num_nodes=1, seed=1)
     async def run(self):
@@ -35,4 +35,4 @@ class TestTemporaryVariable(TestBase):
 
 
 if __name__ == '__main__':
-    run_test(TestTemporaryVariable())
+    run_test(TestVariable())

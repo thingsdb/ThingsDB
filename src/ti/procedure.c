@@ -334,7 +334,7 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
 {
     size_t argn = procedure->arguments->n;
     cleri_children_t * child = procedure->node->children;
-    vec_t * tmpvars;
+    vec_t * vars;
 
     assert (query->rval == NULL);
 
@@ -355,9 +355,9 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
     /* lock procedure */
     procedure->flags |= TI_RPOCEDURE_FLAG_LOCK;
 
-    /* store and replace temporary variable */
-    tmpvars = query->tmpvars;
-    query->tmpvars = procedure->arguments;
+    /* store and replace variable */
+    vars = query->vars;
+    query->vars = procedure->arguments;
 
     while (1)
     {
@@ -376,11 +376,14 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
     /* unlock procedure */
     procedure->flags &= ~TI_RPOCEDURE_FLAG_LOCK;
 
-    /* restore original temporary variable */
-    while (query->tmpvars->n > argn)
-        ti_prop_destroy(vec_pop(query->tmpvars));
-    procedure->arguments = query->tmpvars;   /* may be re-allocated */
-    query->tmpvars = tmpvars;
+    /* restore original variable */
+    while (query->vars->n > argn)
+        ti_prop_destroy(vec_pop(query->vars));
+
+    /* need to re-assign since `query->vars` may be a new pointer
+     * after a re-allocation */
+    procedure->arguments = query->vars;
+    query->vars = vars;
 
     return e->nr;
 }

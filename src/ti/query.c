@@ -227,7 +227,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->blobs = NULL;
     query->querystr = NULL;
     query->val_cache = NULL;
-    query->tmpvars = NULL;
+    query->vars = NULL;
 
     return query;
 }
@@ -242,7 +242,7 @@ void ti_query_destroy(ti_query_t * query)
 
     ti_procedure_drop(query->procedure);
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
-    vec_destroy(query->tmpvars, (vec_destroy_cb) ti_prop_destroy);
+    vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
     ti_stream_drop(query->stream);
     ti_user_drop(query->user);
     ti_collection_drop(query->target);
@@ -731,10 +731,10 @@ ti_val_t * ti_query_val_pop(ti_query_t * query)
 
 ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)
 {
-    if (!query->tmpvars)
+    if (!query->vars)
         return NULL;
 
-    for (vec_each(query->tmpvars, ti_prop_t, prop))
+    for (vec_each(query->vars, ti_prop_t, prop))
         if (prop->name == name)
             return prop;
     return NULL;

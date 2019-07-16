@@ -2,7 +2,7 @@
 
 #define ERROR_DOC_ TI_SEE_DOC("#error")
 
-static int do__f_error(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
@@ -16,8 +16,19 @@ static int do__f_error(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (nargs == 0)
+
     if (ti_do_scope(query, nd->children->node, e))
         return e->nr;
+
+    if (!ti_val_is_int(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "function `error` expects argument 1 to be of "
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"ERROR_DOC_,
+            ti_val_str(query->rval));
+        goto failed;
+    }
 
     if (!ti_val_is_raw(query->rval))
     {

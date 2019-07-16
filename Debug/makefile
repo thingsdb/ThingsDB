@@ -33,7 +33,7 @@ all: thingsdb
 # Tool invocations
 thingsdb: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
-	@echo 'Invoking: Cross GCC Linker'
+	@echo 'Invoking: GCC C Linker'
 	gcc  -o "thingsdb" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '

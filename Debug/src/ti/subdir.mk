@@ -226,7 +226,7 @@ C_DEPS += \
 # Each subdirectory must supply rules for building sources it contributes
 src/ti/%.o: ../src/ti/%.c
 	@echo 'Building file: $<'
-	@echo 'Invoking: Cross GCC Compiler'
+	@echo 'Invoking: GCC C Compiler'
 	gcc -std=gnu11 -I../inc -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '

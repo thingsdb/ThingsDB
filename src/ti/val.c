@@ -57,9 +57,18 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
     {
         ex_t e = { .nr=0 };
         ti_closure_t * closure;
+        ti_syntax_t syntax;
+        ti_syntax_init(
+                &syntax,
+                things ? TI_SYNTAX_FLAG_COLLECTION : TI_SYNTAX_FLAG_THINGSDB);
+
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
             return NULL;
-        closure = ti_closure_from_strn((char *) qp_tmp.via.raw, qp_tmp.len, &e);
+
+        closure = ti_closure_from_strn(
+                &syntax,
+                (char *) qp_tmp.via.raw,
+                qp_tmp.len, &e);
         if (!closure)
             log_error(e.msg);
         return (ti_val_t *) closure;
@@ -999,12 +1008,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
             ex_set_mem(e);
         break;
     case TI_VAL_CLOSURE:
-        if (ti_closure_wse((ti_closure_t * ) *val))
-        {
-            ex_set(e, EX_BAD_DATA,
-                "closures with side effects cannot be assigned");
-        }
-        else if (ti_closure_unbound((ti_closure_t * ) *val, e))
+        if (ti_closure_unbound((ti_closure_t * ) *val, e))
             ex_set_mem(e);
         break;
     case TI_VAL_ERROR:

@@ -114,12 +114,6 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
         to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
         break;
     case TI_VAL_CLOSURE:
-        if (ti_closure_wse((ti_closure_t *) *v))
-        {
-            ex_set(e, EX_BAD_DATA,
-                "closures with side effects cannot be assigned");
-            return e->nr;
-        }
         if (ti_closure_unbound((ti_closure_t *) *v, e))
         {
             ex_set_mem(e);

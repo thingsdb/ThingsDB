@@ -43,7 +43,8 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_closure_try_lock(closure, e))
+    if (    ti_closure_try_wse(closure, query, e) ||
+            ti_closure_try_lock(closure, e))
         goto fail1;
 
     if (ti_scope_local_from_closure(query->scope, closure, e))

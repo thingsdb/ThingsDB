@@ -1766,6 +1766,30 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('"U".upper();'), "U")
         self.assertEqual(await client.query('"hi !!".upper();'), "HI !!")
 
+    async def test_wse(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `wse`'):
+            await client.query('nil.wse();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `wse` takes 1 argument but 0 were given'):
+            await client.query('wse();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `wse` takes 1 argument but 0 were given'):
+            await client.query('wse();')
+
+            res = await client.query(r'''
+                x = 0;
+                a = |v| x += v;
+                wse([1 ,2 ,3, 4].map(a));
+                x;
+            ''')
+            self.assertEqual(res, 10)
+
     async def test_zero_div_err(self, client):
         with self.assertRaisesRegex(
                 BadDataError,

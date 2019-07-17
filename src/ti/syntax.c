@@ -201,6 +201,8 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'v':
     case 'w':
+        syntax__bev_fn(q, nd, "wse", TI_FN_WSE, true);
+        break;
     case 'x':
     case 'y':
     case 'z':
@@ -338,28 +340,24 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         ti_syntax_investigate(syntax, nd->children->next->next->node);
         return;
     case CLERI_GID_CLOSURE:
-    {
-        uint8_t flags = syntax->flags;
-
-        /* temporary remove the `event` flag to discover if the closure
-         * sets the `event` flag.
-         */
-        syntax->flags &= ~TI_SYNTAX_FLAG_EVENT;
-
         /* investigate the scope, the rest can be skipped */
         ti_syntax_investigate(
                 syntax,
                 nd->children->next->next->next->node);
 
+        /*
+         * Set the the correct scope flag so when we use the closure we
+         * can assign `node->data` as flags which is required when we
+         * investigate the scope. (don't case about the node scope)
+         *
+         * Setting the `WSE` flag is done when the closure gets unbound
+         * from the query, and only then the flag will be used.
+         */
         nd->data = (void *) ((uintptr_t) (
-                syntax->flags & TI_SYNTAX_FLAG_EVENT
-                    ? TI_VFLAG_CLOSURE_QBOUND|TI_VFLAG_CLOSURE_WSE
-                    : TI_VFLAG_CLOSURE_QBOUND));
-
-        /* apply the original flags */
-        syntax->flags |= flags;
+                (syntax->flags & TI_SYNTAX_FLAG_THINGSDB)
+                    ? TI_VFLAG_CLOSURE_BTSCOPE
+                    : TI_VFLAG_CLOSURE_BCSCOPE));
         return;
-    }
     case CLERI_GID_STATEMENTS:
     {
         cleri_children_t * child = nd->children;
@@ -418,11 +416,10 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         ti_syntax_investigate(syntax, child->node);
 }
 
-void ti_syntax_init(ti_syntax_t * syntax)
+void ti_syntax_init(ti_syntax_t * syntax, uint8_t flags)
 {
     syntax->val_cache_n = 0;
-    syntax->flags = 0;
-
+    syntax->flags = flags;
     /*
      * Properties `deep` and `pkg_id` are only used by `ti_query_t` and
      * are not initialized here.

@@ -90,6 +90,7 @@
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
+#include <ti/fn/fnwse.h>
 
 #define do__no_chain_fn(__fn)                           \
 if (is_chained)                                         \
@@ -271,6 +272,8 @@ static int do__function(
         do__no_chain_fn(do__f_type);
     case TI_FN_UPPER:
         return do__f_upper(query, params, e);
+    case TI_FN_WSE:
+        do__no_chain_fn(do__f_wse);
 
     /* both thingsdb and collection scope */
     case TI_FN_CALL:

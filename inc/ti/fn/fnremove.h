@@ -57,7 +57,8 @@ static void do__f_remove_list(
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_closure_try_lock(closure, e))
+    if (    ti_closure_try_wse(closure, query, e) ||
+            ti_closure_try_lock(closure, e))
         goto fail1;
 
     if (ti_scope_local_from_closure(query->scope, closure, e))
@@ -150,7 +151,8 @@ static int do__f_remove_set_from_closure(
         goto fail1;
     }
 
-    if (ti_closure_try_lock(closure, e))
+    if (    ti_closure_try_wse(closure, query, e) ||
+            ti_closure_try_lock(closure, e))
         goto fail1;
 
     if (ti_scope_local_from_closure(query->scope, closure, e))

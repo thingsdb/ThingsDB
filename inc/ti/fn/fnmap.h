@@ -48,7 +48,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     n = ti_val_get_len(iterval);
 
-    if (ti_closure_try_lock(closure, e))
+    if (    ti_closure_try_wse(closure, query, e) ||
+            ti_closure_try_lock(closure, e))
         goto fail1;
 
     if (ti_scope_local_from_closure(query->scope, closure, e))

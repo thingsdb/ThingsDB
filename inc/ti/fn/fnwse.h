@@ -1,29 +1,30 @@
 #include <ti/fn/fn.h>
 
-#define INT_DOC_ TI_SEE_DOC("#int")
+#define WSE_DOC_ TI_SEE_DOC("#wse")
 
-static int do__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
+    _Bool has_wse_flag;
+
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        if (nargs == 0)
-        {
-            assert (query->rval == NULL);
-            query->rval = (ti_val_t *) ti_vint_create(0);
-            return e->nr;
-        }
         ex_set(e, EX_BAD_DATA,
-                "function `int` takes at most 1 argument but %d were given"
-                INT_DOC_, nargs);
+                "function `wse` takes 1 argument but %d were given"
+                WSE_DOC_, nargs);
         return e->nr;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
-        return e->nr;
+    has_wse_flag = query->syntax.flags & TI_SYNTAX_FLAG_WSE;
+    query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
 
-    return ti_val_convert_to_int(&query->rval, e);
+    (void) ti_do_scope(query, nd->children->node, e);
+
+    if (!has_wse_flag)
+        query->syntax.flags &= ~TI_SYNTAX_FLAG_WSE;
+
+    return e->nr;
 }

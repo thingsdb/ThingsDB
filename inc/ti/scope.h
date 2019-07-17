@@ -46,7 +46,7 @@ struct ti_scope_s
     ti_thing_t * thing; /* with reference */
     ti_name_t * name;   /* weak reference to name or NULL */
     ti_val_t * val;     /* weak reference to val or NULL */
-    vec_t * local;      /* ti_prop_t (local props closure functions */
+    vec_t * local;      /* ti_prop_t (storing variable) */
 };
 
 static inline void ti_scope_set_name_val(

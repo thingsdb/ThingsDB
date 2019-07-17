@@ -36,7 +36,7 @@ typedef enum
 #define TI_VAL_ARR_TUPLE_S  "tuple"
 #define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
-#define TI_VAL_ERROR_S    "error"
+#define TI_VAL_ERROR_S      "error"
 
 enum
 {
@@ -49,26 +49,31 @@ enum
                                             a full `dump` in a task while
                                             existing things only can contain
                                             the `id`.*/
-    TI_VFLAG_CLOSURE_QBOUND  =1<<2,      /* closure bound to query string;
-                                            one time closures do not own the
-                                            closure string but refer the full
-                                            query string.*/
-    TI_VFLAG_CLOSURE_WSE     =1<<3,      /* closure with side effects;
+    TI_VFLAG_CLOSURE_BTSCOPE =1<<2,      /* closure bound to query string
+                                            within the ThingsDB scope;
+                                            when not stored, closures do not
+                                            own the closure string but refer
+                                            the full query string.*/
+    TI_VFLAG_CLOSURE_BCSCOPE =1<<3,      /* closure bound to query string
+                                            within a collection scope;
+                                            when not stored, closures do not
+                                            own the closure string but refer
+                                            the full query string. */
+    TI_VFLAG_CLOSURE_WSE     =1<<4,      /* stored closure with side effects;
                                             when closure make changes they
-                                            require an event and thus have
-                                            side effects and cannot be assigned
-                                            because we could never detect the
-                                            need for an event while
-                                            investigating the query. */
-    TI_VFLAG_CLOSURE_LOCK    =1<<4,      /* closure in use; required for
+                                            require an event and thus must be
+                                            wrapped by wse() so we can know
+                                            an event is created.
+                                            (only stored closures) */
+    TI_VFLAG_CLOSURE_LOCK    =1<<5,      /* closure in use; required for
                                             recursion detection which is not
                                             allowed with closures */
-    TI_VFLAG_ARR_TUPLE       =1<<5,      /* array is immutable; nested, and
+    TI_VFLAG_ARR_TUPLE       =1<<6,      /* array is immutable; nested, and
                                             only nested array's are tuples;
                                             once a tuple is direct assigned to
                                             a thing, it converts back to a
                                             mutable list. */
-    TI_VFLAG_ARR_MHT         =1<<6,      /* array may-have-things; some code
+    TI_VFLAG_ARR_MHT         =1<<7,      /* array may-have-things; some code
                                             might skip arrays without this flag
                                             while searching for things; */
 };

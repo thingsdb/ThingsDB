@@ -11,14 +11,20 @@
 #include <util/logger.h>
 #include <util/strx.h>
 
+#define TI_CLOSURE_QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
+
+static inline _Bool closure__is_unbound(ti_closure_t * closure)
+{
+    return (~closure->flags & TI_CLOSURE_QBOUND) == TI_CLOSURE_QBOUND;
+}
 
 static cleri_node_t * closure__node_from_strn(
+        ti_syntax_t * syntax,
         const char * str,
         size_t n,
         ex_t * e)
 {
     ti_ncache_t * ncache;
-    ti_syntax_t syntax;
     cleri_parse_t * res;
     cleri_node_t * node;
     char * query = strndup(str, n);
@@ -27,8 +33,6 @@ static cleri_node_t * closure__node_from_strn(
         ex_set_mem(e);
         return NULL;
     }
-
-    ti_syntax_init(&syntax);
 
     res = cleri_parse2(
             ti()->langdef,
@@ -69,9 +73,9 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
-    ti_syntax_investigate(&syntax, node->children->next->next->next->node);
+    ti_syntax_investigate(syntax, node->children->next->next->next->node);
 
-    ncache = ti_ncache_create(query, syntax.val_cache_n);
+    ncache = ti_ncache_create(query, syntax->val_cache_n);
     if (!ncache)
     {
         ex_set_mem(e);
@@ -139,13 +143,20 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node)
 
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
+    /*
+     * Either TI_VFLAG_CLOSURE_BTSCOPE or TI_VFLAG_CLOSURE_BCSCOPE is stored
+     * within `node->data`, and no other flags.
+     */
     closure->flags = (uintptr_t) node->data;
     closure->node = node;
 
     return closure;
 }
 
-ti_closure_t * ti_closure_from_strn(const char * str, size_t n, ex_t * e)
+ti_closure_t * ti_closure_from_strn(
+        ti_syntax_t * syntax,
+        const char * str,
+        size_t n, ex_t * e)
 {
     ti_closure_t * closure = malloc(sizeof(ti_closure_t));
     if (!closure)
@@ -153,8 +164,10 @@ ti_closure_t * ti_closure_from_strn(const char * str, size_t n, ex_t * e)
 
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
-    closure->flags = 0;
-    closure->node = closure__node_from_strn(str, n, e);
+    closure->node = closure__node_from_strn(syntax, str, n, e);
+    closure->flags = syntax->flags & TI_SYNTAX_FLAG_EVENT
+            ? TI_VFLAG_CLOSURE_WSE
+            : 0;
     if (!closure->node)
     {
         free(closure);
@@ -169,7 +182,7 @@ void ti_closure_destroy(ti_closure_t * closure)
     if (!closure)
         return;
 
-    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
+    if (closure__is_unbound(closure))
     {
         ti_ncache_destroy((ti_ncache_t *) closure->node->data);
         cleri__node_free(closure->node);
@@ -181,17 +194,33 @@ void ti_closure_destroy(ti_closure_t * closure)
 int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
 {
     cleri_node_t * node;
+    ti_syntax_t syntax;
 
-    assert (~closure->flags & TI_VFLAG_CLOSURE_WSE);
-    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
+    if (closure__is_unbound(closure))
         return e->nr;
 
-    node = closure__node_from_strn(closure->node->str, closure->node->len, e);
+    if (ti_closure_try_lock(closure, e))
+        return e->nr;
+
+    ti_syntax_init(&syntax, closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
+            ? TI_SYNTAX_FLAG_THINGSDB
+            : TI_SYNTAX_FLAG_COLLECTION);
+
+    node = closure__node_from_strn(
+            &syntax,
+            closure->node->str,
+            closure->node->len, e);
     if (!node)
+    {
+        ti_closure_unlock(closure);
         return e->nr;
+    }
 
+    /* overwrite the existing flags, this will also unlock */
+    closure->flags = syntax.flags & TI_SYNTAX_FLAG_EVENT
+            ? TI_VFLAG_CLOSURE_WSE
+            : 0;
     closure->node = node;
-    closure->flags &= ~TI_VFLAG_CLOSURE_QBOUND;
 
     return e->nr;
 }
@@ -201,7 +230,7 @@ int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
+    if (!closure__is_unbound(closure))
     {
         return -(
             qp_add_map(packer) ||
@@ -213,6 +242,7 @@ int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
             qp_close_map(*packer)
         );
     }
+
     buf = ti_closure_uchar(closure, &n);
     if (!buf)
         return -1;
@@ -233,7 +263,7 @@ int ti_closure_to_file(ti_closure_t * closure, FILE * f)
     uchar * buf;
     size_t n = 0;
     int rc;
-    if (~closure->flags & TI_VFLAG_CLOSURE_QBOUND)
+    if (!closure__is_unbound(closure))
     {
         return -(
             qp_fadd_type(f, QP_MAP1) ||
@@ -264,3 +294,15 @@ uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n)
     return buf;
 }
 
+int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
+{
+    if (    (closure->flags & TI_VFLAG_CLOSURE_WSE) &&
+            (~query->syntax.flags & TI_SYNTAX_FLAG_WSE))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "stored closures with side effects must be "
+                "wrapped using `wse(...)`"TI_SEE_DOC("#wse"));
+        return -1;
+    }
+    return 0;
+}

@@ -134,16 +134,20 @@ class TestTypes(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'closures with side effects cannot be assigned'):
+                r'stored closures with side effects must be '
+                r'wrapped using '):
             await client.query(r'''
                 b = ||(x = 1);
+                [1 ,2 ,3].map(b);
             ''')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'closures with side effects cannot be assigned'):
+                r'stored closures with side effects must be '
+                r'wrapped using '):
             await client.query(r'''
-                [||x = 1];
+                a = [||x = 1];
+                [1 ,2 ,3].map(a[0]);
             ''')
 
         # test two-level deel nesting

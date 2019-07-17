@@ -22,7 +22,7 @@ typedef struct ti_syntax_s ti_syntax_t;
 #include <cleri/cleri.h>
 
 
-void ti_syntax_init(ti_syntax_t * syntax);
+void ti_syntax_init(ti_syntax_t * syntax, uint8_t flags);
 void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd);
 
 struct ti_syntax_s

@@ -54,7 +54,8 @@ error as ti_val_t
 - Create function `raise( error ) which puts an error back to ex_t
 -
 - Maybe add statement blocks?
-- Add functions like index_error(), error(code > 0, string)  (build-in error < 0)
+- Add functions like index_error(), error(code > 0, string)
+  (build-in error < 0)
 - Change proto to a general error proto, and force the client to act on
   code/message.
 - store errors like {'!': msg, 'error_code': x}

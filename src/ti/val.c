@@ -107,12 +107,15 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
     case TI_KIND_C_ERROR:
     {
         qp_obj_t qp_msg, qp_code;
-        if (    sz != 2 ||
+        if (    sz != 3 ||
+                !qp_is_raw(qp_next(unp, NULL)) ||       /* definition */
+                !qp_is_raw(qp_next(unp, NULL)) ||       /* error_msg */
                 !qp_is_raw(qp_next(unp, &qp_msg)) ||
                 qp_msg.len > EX_MAX_SZ ||
-                !qp_is_raw(qp_next(unp, NULL)) ||
+                !qp_is_raw(qp_next(unp, NULL)) ||       /* error_code */
                 !qp_is_int(qp_next(unp, &qp_code)) ||
-                qp_code.via.int64 < 127 || qp_code.via.int64 > 32)
+                qp_code.via.int64 < EX_MIN_ERR ||
+                qp_code.via.int64 > EX_MAX_BUILD_IN_ERR)
             return NULL;
 
         return (ti_val_t *) ti_verror_create(
@@ -560,7 +563,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         break;
     }
     case TI_VAL_ERROR:
-        i = ((ti_verror_t *) val)->code;
+        i = (*((ti_verror_t **) val))->code;
         break;
     }
 

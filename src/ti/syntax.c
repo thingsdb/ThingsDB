@@ -66,8 +66,11 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__cev_fn(q, nd, "add", TI_FN_ADD, true);
         syntax__nev_fn(q, nd, "array", TI_FN_ARRAY, true);
         syntax__nev_fn(q, nd, "assert", TI_FN_ASSERT, true);
+        syntax__nev_fn(q, nd, "assert_err", TI_FN_ASSERT_ERR, true);
+        syntax__nev_fn(q, nd, "auth_err", TI_FN_AUTH_ERR, true);
         break;
     case 'b':
+        syntax__nev_fn(q, nd, "bad_data_err", TI_FN_BAD_DATA_ERR, true);
         syntax__nev_fn(q, nd, "blob", TI_FN_BLOB, true);
         syntax__nev_fn(q, nd, "bool", TI_FN_BOOL, true);
         break;
@@ -89,12 +92,14 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'e':
         syntax__nev_fn(q, nd, "endswith", TI_FN_ENDSWITH, true);
+        syntax__nev_fn(q, nd, "err", TI_FN_ERR, true);
         break;
     case 'f':
         syntax__nev_fn(q, nd, "filter", TI_FN_FILTER, true);
         syntax__nev_fn(q, nd, "find", TI_FN_FIND, true);
         syntax__nev_fn(q, nd, "findindex", TI_FN_FINDINDEX, true);
         syntax__nev_fn(q, nd, "float", TI_FN_FLOAT, true);
+        syntax__nev_fn(q, nd, "forbidden_err", TI_FN_FORBIDDEN_ERR, true);
         break;
     case 'g':
         syntax__tev_fn(q, nd, "grant", TI_FN_GRANT, true);
@@ -105,11 +110,13 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'i':
         syntax__nev_fn(q, nd, "id", TI_FN_ID, false);
+        syntax__nev_fn(q, nd, "index_err", TI_FN_INDEX_ERR, true);
         syntax__nev_fn(q, nd, "indexof", TI_FN_INDEXOF, true);
         syntax__nev_fn(q, nd, "int", TI_FN_INT, true);
         syntax__nev_fn(q, nd, "isarray", TI_FN_ISARRAY, true);
         syntax__nev_fn(q, nd, "isascii", TI_FN_ISASCII, true);
         syntax__nev_fn(q, nd, "isbool", TI_FN_ISBOOL, true);
+        syntax__nev_fn(q, nd, "iserror", TI_FN_ISERROR, true);
         syntax__nev_fn(q, nd, "isfloat", TI_FN_ISFLOAT, true);
         syntax__nev_fn(q, nd, "isinf", TI_FN_ISINF, true);
         syntax__nev_fn(q, nd, "isint", TI_FN_ISINT, true);
@@ -131,10 +138,12 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "lower", TI_FN_LOWER, false);
         break;
     case 'm':
+        syntax__nev_fn(q, nd, "max_quota_err", TI_FN_MAX_QUOTA_ERR, true);
         syntax__nev_fn(q, nd, "map", TI_FN_MAP, true);
         break;
     case 'n':
         syntax__bev_fn(q, nd, "new_procedure", TI_FN_NEW_PROCEDURE, true);
+        syntax__nev_fn(q, nd, "node_err", TI_FN_NODE_ERR, true);
         syntax__nev_fn(q, nd, "now", TI_FN_NOW, false);
         syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION, true);
         syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
@@ -144,6 +153,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__zev_fn(q, nd, "nodes_info", TI_FN_NODES_INFO, false);
         break;
     case 'o':
+        syntax__nev_fn(q, nd, "overflow_err", TI_FN_OVERFLOW_ERR, true);
         break;
     case 'p':
         syntax__cev_fn(q, nd, "pop", TI_FN_POP, false);
@@ -159,6 +169,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     case 'r':
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
         syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
+        syntax__nev_fn(q, nd, "raise", TI_FN_RAISE, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
         syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER, true);
@@ -171,6 +182,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "set", TI_FN_SET, true);
         syntax__nev_fn(q, nd, "startswith", TI_FN_STARTSWITH, true);
         syntax__nev_fn(q, nd, "str", TI_FN_STR, true);
+        syntax__nev_fn(q, nd, "syntax_err", TI_FN_SYNTAX_ERR, true);
         syntax__tev_fn(q, nd, "set_password", TI_FN_SET_PASSWORD, true);
         syntax__tev_fn(q, nd, "set_quota", TI_FN_SET_QUOTA, true);
         syntax__zev_fn(q, nd, "set_log_level", TI_FN_SET_LOG_LEVEL, true);
@@ -192,6 +204,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     case 'x':
     case 'y':
     case 'z':
+        syntax__nev_fn(q, nd, "zero_div_err", TI_FN_ZERO_DIV_ERR, true);
         break;
     }
 

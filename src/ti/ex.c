@@ -55,49 +55,24 @@ const char * ex_str(ex_enum errnr)
 {
     switch (errnr)
     {
-    case EX_OVERFLOW:
-        return "integer overflow";
-    case EX_ZERO_DIV:
-        return "division or module by zero";
-    case EX_MAX_QUOTA:
-        return "max quota is reached";
-    case EX_AUTH_ERROR:
-        return "authentication error";
-    case EX_FORBIDDEN:
-        return "forbidden (access denied)";
-    case EX_INDEX_ERROR:
-        return "requested resource not found";
-    case EX_BAD_DATA:
-        return "unable to handle request due to invalid data";
-    case EX_SYNTAX_ERROR:
-        return "syntax error in query";
-    case EX_NODE_ERROR:
-        return "node is temporary unable to handle the request";
-    case EX_ASSERT_ERROR:
-        return "assertion statement has failed";
-    case EX_REQUEST_TIMEOUT:
-        return "request timed out";
-    case EX_REQUEST_CANCEL:
-        return "request is cancelled";
-    case EX_WRITE_UV:
-        return "cannot write to socket";
-    case EX_MEMORY:
-        return "memory allocation error";
-    case EX_INTERNAL:
-        return "internal error";
-    case EX_SUCCESS:
-        return "success";
-    case EX_CUSTOM_01: case EX_CUSTOM_02: case EX_CUSTOM_03: case EX_CUSTOM_04:
-    case EX_CUSTOM_05: case EX_CUSTOM_06: case EX_CUSTOM_07: case EX_CUSTOM_08:
-    case EX_CUSTOM_09: case EX_CUSTOM_0A: case EX_CUSTOM_0B: case EX_CUSTOM_0C:
-    case EX_CUSTOM_0D: case EX_CUSTOM_0E: case EX_CUSTOM_0F: case EX_CUSTOM_10:
-    case EX_CUSTOM_11: case EX_CUSTOM_12: case EX_CUSTOM_13: case EX_CUSTOM_14:
-    case EX_CUSTOM_15: case EX_CUSTOM_16: case EX_CUSTOM_17: case EX_CUSTOM_18:
-    case EX_CUSTOM_19: case EX_CUSTOM_1A: case EX_CUSTOM_1B: case EX_CUSTOM_1C:
-    case EX_CUSTOM_1D: case EX_CUSTOM_1E: case EX_CUSTOM_1F: case EX_CUSTOM_20:
-        return "assertion statement has failed (with custom error code)";
+    case EX_OVERFLOW:           return EX_OVERFLOW_X;
+    case EX_ZERO_DIV:           return EX_ZERO_DIV_X;
+    case EX_MAX_QUOTA:          return EX_MAX_QUOTA_X;
+    case EX_AUTH_ERROR:         return EX_AUTH_ERROR_X;
+    case EX_FORBIDDEN:          return EX_FORBIDDEN_X;
+    case EX_INDEX_ERROR:        return EX_INDEX_ERROR_X;
+    case EX_BAD_DATA:           return EX_BAD_DATA_X;
+    case EX_SYNTAX_ERROR:       return EX_SYNTAX_ERROR_X;
+    case EX_NODE_ERROR:         return EX_NODE_ERROR_X;
+    case EX_ASSERT_ERROR:       return EX_ASSERT_ERROR_X;
+    case EX_REQUEST_TIMEOUT:    return EX_REQUEST_TIMEOUT_X;
+    case EX_REQUEST_CANCEL:     return EX_REQUEST_CANCEL_X;
+    case EX_WRITE_UV:           return EX_WRITE_UV_X;
+    case EX_MEMORY:             return EX_MEMORY_X;
+    case EX_INTERNAL:           return EX_INTERNAL_X;
+    case EX_SUCCESS:            return EX_SUCCESS_X;
     }
     assert (0);
-    return "unknown";
+    return "unknown error";
 }
 

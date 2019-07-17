@@ -23,8 +23,8 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     errnr = ti_do_scope(query, child->node, e);
 
-    if (errnr >= -99 && errnr <= 0)
-        return errnr;   /* return when successful or internal errors */
+    if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= 0)
+        return errnr;   /* do not catch success or internal errors */
 
     /* make sure the return value is dropped */
     ti_val_drop(query->rval);
@@ -40,7 +40,6 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1)
     {
-        LOGC("HERE...");
         query->rval = (ti_val_t *) verror;
         assert (e->nr == 0);
         return e->nr;
@@ -49,7 +48,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    for (child = child->next->next; child; child = child->next->next)
+    while (1)
     {
         if (ti_do_scope(query, child->node, e))
             goto failed;
@@ -57,7 +56,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_error(query->rval))
         {
             ex_set(e, EX_BAD_DATA,
-                "function `error` expects arguments 2 to X to be of "
+                "function `try` expects arguments 2..X to be of "
                 "type `"TI_VAL_ERROR_S"` but got type `%s` instead"
                 TRY_DOC_,
                 ti_val_str(query->rval));
@@ -76,7 +75,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         query->rval = NULL;
 
-        if (!child->next)
+        if (!child->next || !(child = child->next->next))
             break;
     }
 

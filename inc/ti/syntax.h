@@ -12,7 +12,8 @@ enum
     TI_SYNTAX_FLAG_COLLECTION   =1<<2,
 
     TI_SYNTAX_FLAG_EVENT        =1<<3,
-    TI_SYNTAX_FLAG_CALLED       =1<<4,
+    TI_SYNTAX_FLAG_WSE          =1<<4,
+    TI_SYNTAX_FLAG_CALLED       =1<<5,
 };
 
 typedef struct ti_syntax_s ti_syntax_t;

@@ -21,6 +21,8 @@
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fnendswith.h>
+#include <ti/fn/fnerr.h>
+#include <ti/fn/fnerrors.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
@@ -34,6 +36,7 @@
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
+#include <ti/fn/fniserror.h>
 #include <ti/fn/fnisfloat.h>
 #include <ti/fn/fnisinf.h>
 #include <ti/fn/fnisint.h>
@@ -177,6 +180,8 @@ static int do__function(
         return do__f_contains(query, params, e);
     case TI_FN_ENDSWITH:
         return do__f_endswith(query, params, e);
+    case TI_FN_ERR:
+        do__no_chain_fn(do__f_err);
     case TI_FN_DEL:
         return do__f_del(query, params, e);
     case TI_FN_FILTER:
@@ -203,6 +208,8 @@ static int do__function(
         do__no_chain_fn(do__f_isascii);
     case TI_FN_ISBOOL:
         do__no_chain_fn(do__f_isbool);
+    case TI_FN_ISERROR:
+        do__no_chain_fn(do__f_iserror);
     case TI_FN_ISFLOAT:
         do__no_chain_fn(do__f_isfloat);
     case TI_FN_ISINF:
@@ -338,6 +345,28 @@ static int do__function(
         do__node_fn(do__f_set_log_level);
     case TI_FN_SHUTDOWN:
         do__node_fn(do__f_shutdown);
+
+    /* explicit error functions */
+    case TI_FN_OVERFLOW_ERR:
+        do__no_chain_fn(do__f_overflow_err);
+    case TI_FN_ZERO_DIV_ERR:
+        do__no_chain_fn(do__f_zero_div_err);
+    case TI_FN_MAX_QUOTA_ERR:
+        do__no_chain_fn(do__f_max_quota_err);
+    case TI_FN_AUTH_ERR:
+        do__no_chain_fn(do__f_auth_err);
+    case TI_FN_FORBIDDEN_ERR:
+        do__no_chain_fn(do__f_forbidden_err);
+    case TI_FN_INDEX_ERR:
+        do__no_chain_fn(do__f_index_err);
+    case TI_FN_BAD_DATA_ERR:
+        do__no_chain_fn(do__f_bad_data_err);
+    case TI_FN_SYNTAX_ERR:
+        do__no_chain_fn(do__f_syntax_err);
+    case TI_FN_NODE_ERR:
+        do__no_chain_fn(do__f_node_err);
+    case TI_FN_ASSERT_ERR:
+        do__no_chain_fn(do__f_assert_err);
     }
 
     if (is_chained)

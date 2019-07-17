@@ -7,11 +7,22 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadRequestError
+from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import ThingsDBError
 from thingsdb import scope
+from thingsdb.client.protocol import EX_OVERFLOW
+from thingsdb.client.protocol import EX_ZERO_DIV
+from thingsdb.client.protocol import EX_MAX_QUOTA
+from thingsdb.client.protocol import EX_AUTH_ERROR
+from thingsdb.client.protocol import EX_FORBIDDEN
+from thingsdb.client.protocol import EX_INDEX_ERROR
+from thingsdb.client.protocol import EX_BAD_DATA
+from thingsdb.client.protocol import EX_SYNTAX_ERROR
+from thingsdb.client.protocol import EX_NODE_ERROR
+from thingsdb.client.protocol import EX_ASSERT_ERROR
 
 
 class TestCollectionFunctions(TestBase):
@@ -70,7 +81,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'[s.add({}), s.len()]'), [1, 4])
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot add type `nil` to a set'):
             await client.query(r's.add(a, b, {}, nil);')
 
@@ -81,12 +92,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.array();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `array` takes at most 1 argument but 2 were given'):
             await client.query('array(1, 2);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `nil` to `array`'):
             await client.query('array(nil);')
 
@@ -101,52 +112,132 @@ class TestCollectionFunctions(TestBase):
             await client.query('assert((1>2));')
 
         try:
-            await client.query('assert((1>2), "my custom message", 6);')
+            await client.query('assert((1>2), "my custom message");')
         except AssertionError as e:
             self.assertEqual(str(e), 'my custom message')
-            self.assertEqual(e.error_code, 6)
+            self.assertEqual(e.error_code, EX_ASSERT_ERROR)
         else:
             raise Exception('AssertionError not raised')
 
         self.assertEqual(await client.query('assert((2>1)); 42;'), 42)
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `assert` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('assert();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
-                'function `assert` takes at most 3 arguments '
-                'but 4 were given'):
-            await client.query('assert(true, "x", 1, nil);')
+                BadDataError,
+                'function `assert` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('assert(true, "x", 1);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `assert` expects argument 2 to be of '
                 'type `raw` but got type `nil` instead'):
             await client.query('assert(false, nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
-                'function `assert` expects a message '
-                'to have valid UTF8 encoding'):
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
             await client.query(
                 'assert(false, blob(0));',
                 blobs=(pickle.dumps({}), ))
 
         with self.assertRaisesRegex(
-                BadRequestError,
-                'function `assert` expects argument 3 to be of '
-                'type `int` but got type `nil` instead'):
-            await client.query('assert(false, "msg", nil);')
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'assert(false, blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+    async def test_assert_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `assert_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('assert_err("bla", 2);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
-                'function `assert` expects a custom error_code between '
-                '1 and 32 but got 0 instead'):
-            await client.query('assert(false, "msg", 0);')
+                BadDataError,
+                'function `assert_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('assert_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'assert_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('assert_err();')
+        self.assertEqual(err['error_code'], EX_ASSERT_ERROR)
+        self.assertEqual(err['error_msg'], "assertion statement has failed")
+
+        err = await client.query('assert_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_ASSERT_ERROR)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
+    async def test_auth_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `auth_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('auth_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `auth_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('auth_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'auth_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('auth_err();')
+        self.assertEqual(err['error_code'], EX_AUTH_ERROR)
+        self.assertEqual(err['error_msg'], "authentication error")
+
+        err = await client.query('auth_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_AUTH_ERROR)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
+    async def test_bad_data_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `bad_data_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('bad_data_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `bad_data_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('bad_data_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'bad_data_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('bad_data_err();')
+        self.assertEqual(err['error_code'], EX_BAD_DATA)
+        self.assertEqual(
+            err['error_msg'],
+            "unable to handle request due to invalid data")
+
+        err = await client.query('bad_data_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_BAD_DATA)
+        self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_blob(self, client):
         self.assertIs(await client.query(
@@ -158,12 +249,12 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(isinstance(pickle.loads(a), list))
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `blob` takes 1 argument but 0 were given'):
             await client.query('blob();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `blob` expects argument 1 to be of '
                 'type `int` but got type `nil` instead'):
             await client.query('blob(nil);')
@@ -179,7 +270,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.bool();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `bool` takes at most 1 argument but 2 were given'):
             await client.query('bool(1, 2);')
 
@@ -215,12 +306,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.contains("world!");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `contains` takes 1 argument but 2 were given'):
             await client.query('"Hi World!".contains("x", 2)')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `contains` expects argument 1 to be of '
                 r'type `raw` but got type `int` instead'):
             await client.query('"Hi World!".contains(1);')
@@ -250,30 +341,30 @@ class TestCollectionFunctions(TestBase):
             await client.query('greet.del("x");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `del` takes 1 argument '
                 'but 0 were given'):
             await client.query('del();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `del` can only be used on things with an id > 0; '
                 r'things which are assigned automatically receive an id;'):
             await client.query('{x:1}.del("x");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'cannot use `del` while thing `#\d+` is in use'):
             await client.query('map( ||del("greet") );')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `del` expects argument 1 to be of type `raw` '
                 r'but got type `nil` instead'):
             await client.query('del(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `del` expects argument 1 to be a valid name.*'):
             await client.query('del("");')
 
@@ -292,12 +383,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.endswith("world!");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `endswith` takes 1 argument but 2 were given'):
             await client.query('"Hi World!".endswith("x", 2)')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `endswith` expects argument 1 to be of '
                 r'type `raw` but got type `int` instead'):
             await client.query('"Hi World!".endswith(1);')
@@ -326,12 +417,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.filter(||true);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `filter` takes 1 argument but 0 were given'):
             await client.query('filter();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `filter` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
             await client.query('filter(nil);')
@@ -389,19 +480,19 @@ class TestCollectionFunctions(TestBase):
             await client.query('find(||true);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `find` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('x.find();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `find` takes at most 2 arguments '
                 'but 3 were given'):
             await client.query('x.find(||true, 2, 3);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `find` expects argument 1 to be a `closure` '
                 'but got type `int` instead'):
             await client.query('x.find(0);')
@@ -430,12 +521,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('findindex(||true);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `findindex` takes 1 argument but 2 were given'):
             await client.query('x.findindex(0, 1);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `findindex` expects argument 1 to be a `closure` '
                 'but got type `bool` instead'):
             await client.query('x.findindex(true);')
@@ -455,17 +546,17 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.float();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `float` takes at most 1 argument but 2 were given'):
             await client.query('float(1, 2);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `closure` to `float`'):
             await client.query('float(||nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `nil` to `float`'):
             await client.query('float(nil);')
 
@@ -486,6 +577,34 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('float("-0.314e+1");'), -3.14)
         self.assertEqual(await client.query('float("");'), 0.0)
 
+    async def test_forbidden_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `forbidden_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('forbidden_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `forbidden_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('forbidden_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'forbidden_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('forbidden_err();')
+        self.assertEqual(err['error_code'], EX_FORBIDDEN)
+        self.assertEqual(err['error_msg'], "forbidden (access denied)")
+
+        err = await client.query('forbidden_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_FORBIDDEN)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
     async def test_has(self, client):
         await client.query(r'''
             iris = {name: "Iris"};
@@ -499,12 +618,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('has(iris);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `has` takes 1 argument but 0 were given'):
             await client.query('s.has();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `has` expects argument 1 to be of '
                 r'type `thing` but got type `int` instead'):
             await client.query('s.has(0);')
@@ -521,12 +640,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('x.hasprop("x");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `hasprop` takes 1 argument but 0 were given'):
             await client.query('hasprop();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `hasprop` expects argument 1 to be of '
                 r'type `raw` but got type `int` instead'):
             await client.query('hasprop(id());')
@@ -547,12 +666,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.id();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `id` takes 0 arguments but 1 was given'):
             await client.query('id(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `id` takes 0 arguments but 2 were given'):
             await client.query('id(nil, nil);')
 
@@ -565,7 +684,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('indexof("x");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `indexof` takes 1 argument but 0 were given'):
             await client.query('x.indexof();')
 
@@ -582,6 +701,34 @@ class TestCollectionFunctions(TestBase):
         # cleanup garbage, the reference to the collection
         await client.query(r'''x.splice(2, 1);''')
 
+    async def test_index_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `index_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('index_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `index_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('index_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'index_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('index_err();')
+        self.assertEqual(err['error_code'], EX_INDEX_ERROR)
+        self.assertEqual(err['error_msg'], "requested resource not found")
+
+        err = await client.query('index_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_INDEX_ERROR)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
     async def test_int(self, client):
         with self.assertRaisesRegex(
                 IndexError,
@@ -589,17 +736,17 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.int();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `int` takes at most 1 argument but 2 were given'):
             await client.query('int(1, 2);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `regex` to `int`'):
             await client.query('int(/.*/);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `nil` to `int`'):
             await client.query('int(nil);')
 
@@ -637,7 +784,7 @@ class TestCollectionFunctions(TestBase):
     async def test_isarray(self, client):
         await client.query('x = [[0, 1], nil]; y = x[0];')
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isarray` takes 1 argument but 0 were given'):
             await client.query('isarray();')
 
@@ -653,7 +800,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isascii(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isascii` takes 1 argument but 0 were given'):
             await client.query('isascii();')
 
@@ -668,7 +815,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isbool(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isbool` takes 1 argument but 3 were given'):
             await client.query('isbool(1, 2, 3);')
 
@@ -679,9 +826,22 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isbool([]);'))
         self.assertFalse(await client.query('isbool(nil);'))
 
+    async def test_iserror(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `iserror` takes 1 argument but 2 were given'):
+            await client.query('iserror(1, 2);')
+
+        self.assertTrue(await client.query('iserror( err() ); '))
+        self.assertTrue(await client.query('iserror( zero_div_err() ); '))
+        self.assertTrue(await client.query('iserror( try ((1/0)) ); '))
+        self.assertFalse(await client.query('iserror( "ԉ" ); '))
+        self.assertFalse(await client.query('iserror([]);'))
+        self.assertFalse(await client.query('iserror(nil);'))
+
     async def test_isfloat(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isfloat` takes 1 argument but 0 were given'):
             await client.query('isfloat();')
 
@@ -696,12 +856,12 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isinf(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isinf` takes 1 argument but 0 were given'):
             await client.query('isinf();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isinf` expects argument 1 to be of '
                 'type `float` but got type `nil` instead'):
             await client.query('isinf(nil);')
@@ -715,7 +875,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isint(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isint` takes 1 argument but 0 were given'):
             await client.query('isint();')
 
@@ -734,7 +894,7 @@ class TestCollectionFunctions(TestBase):
     async def test_islist(self, client):
         await client.query('x = [[0, 1], nil]; y = x[0];')
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `islist` takes 1 argument but 0 were given'):
             await client.query('islist();')
 
@@ -750,7 +910,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isnan(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isnan` takes 1 argument but 0 were given'):
             await client.query('isnan();')
 
@@ -767,7 +927,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isnil(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isnil` takes 1 argument but 0 were given'):
             await client.query('isnil();')
 
@@ -776,7 +936,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_israw(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `israw` takes 1 argument but 0 were given'):
             await client.query('israw();')
 
@@ -792,7 +952,7 @@ class TestCollectionFunctions(TestBase):
     async def test_isset(self, client):
         await client.query(r'sa = set(); sb = set([ {} ]);')
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isset` takes 1 argument but 0 were given'):
             await client.query('isset();')
 
@@ -804,7 +964,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isthing(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isthing` takes 1 argument but 0 were given'):
             await client.query('isthing();')
 
@@ -816,7 +976,7 @@ class TestCollectionFunctions(TestBase):
     async def test_istuple(self, client):
         await client.query('x = [[0, 1], nil]; y = x[0];')
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `istuple` takes 1 argument but 0 were given'):
             await client.query('istuple();')
 
@@ -831,7 +991,7 @@ class TestCollectionFunctions(TestBase):
 
     async def test_isutf8(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `isutf8` takes 1 argument but 0 were given'):
             await client.query('isutf8();')
 
@@ -853,7 +1013,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.len();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `len` takes 0 arguments but 1 was given'):
             await client.query('len(nil);')
 
@@ -874,7 +1034,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.lower();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `lower` takes 0 arguments but 1 was given'):
             await client.query('"Hello World".lower(nil);')
 
@@ -901,12 +1061,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.map(||nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `map` takes 1 argument but 0 were given'):
             await client.query('map();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `map` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
             await client.query('map(nil);')
@@ -939,9 +1099,67 @@ class TestCollectionFunctions(TestBase):
             set([iris_id, cato_id])
         )
 
+    async def test_max_quota_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `max_quota_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('max_quota_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `max_quota_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('max_quota_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'max_quota_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('max_quota_err();')
+        self.assertEqual(err['error_code'], EX_MAX_QUOTA)
+        self.assertEqual(err['error_msg'], "max quota is reached")
+
+        err = await client.query('max_quota_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_MAX_QUOTA)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
+    async def test_node_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `node_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('node_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `node_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('node_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'node_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('node_err();')
+        self.assertEqual(err['error_code'], EX_NODE_ERROR)
+        self.assertEqual(
+            err['error_msg'],
+            "node is temporary unable to handle the request")
+
+        err = await client.query('node_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_NODE_ERROR)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
     async def test_now(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `now` takes 0 arguments but 2 were given'):
             await client.query('now(0, 1);')
 
@@ -949,6 +1167,34 @@ class TestCollectionFunctions(TestBase):
         diff = time.time() - now
         self.assertGreater(diff, 0.0)
         self.assertLess(diff, 0.02)
+
+    async def test_overflow_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `overflow_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('overflow_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `overflow_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('overflow_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'overflow_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('overflow_err();')
+        self.assertEqual(err['error_code'], EX_OVERFLOW)
+        self.assertEqual(err['error_msg'], "integer overflow")
+
+        err = await client.query('overflow_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_OVERFLOW)
+        self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_pop(self, client):
         await client.query('list = [1, 2, 3];')
@@ -968,12 +1214,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('a = [list]; a[0].pop();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `pop` takes 0 arguments but 1 was given'):
             await client.query('list.pop(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot use function `pop` while the list is in use'):
             await client.query('list.map(||list.pop());')
 
@@ -999,15 +1245,42 @@ class TestCollectionFunctions(TestBase):
             await client.query('a = [list]; a[0].push(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `push` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('list.push();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot use function `push` while the list is in use'):
             await client.query('list.map(||list.push(4));')
+
+    async def test_raise(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `raise`'):
+            await client.query('nil.raise();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `raise` takes at most 1 argument but 2 were given'):
+            await client.query('raise(err(), 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `raise` expects argument 1 to be of type `error` '
+                'but got type `nil` instead'):
+            await client.query('raise(nil);')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'error:-100'):
+            await client.query('raise();')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'my custom error'):
+            await client.query('raise(err(-100, "my custom error"));')
 
     async def test_refs(self, client):
         with self.assertRaisesRegex(
@@ -1016,7 +1289,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('"".refs();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `refs` takes 1 argument but 0 were given'):
             await client.query('refs();')
 
@@ -1048,24 +1321,24 @@ class TestCollectionFunctions(TestBase):
             await client.query('a = [list]; a[0].remove(||true);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('list.remove();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` takes at most 2 arguments '
                 'but 3 were given'):
             await client.query('list.remove(||true, 2, 3);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot use function `remove` while the list is in use'):
             await client.query('list.map(||list.remove(||true));')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
             await client.query('list.remove(nil);')
@@ -1108,30 +1381,30 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.remove(||true);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('s.remove();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` takes at most 1 argument '
                 'when using a `closure` but 2 were given'):
             await client.query('s.remove(||true, nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot use function `remove` while the set is in use'):
             await client.query('s.map(||s.remove(||true));')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` expects argument 1 to be a `closure` '
                 'or type `thing` but got type `nil` instead'):
             await client.query('s.remove(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `remove` expects argument 2 to be of type `thing` '
                 'but got type `nil` instead'):
             await client.query('s.remove(t, nil);')
@@ -1148,42 +1421,42 @@ class TestCollectionFunctions(TestBase):
             await client.query('x.rename("a", "b");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `rename` takes 2 arguments '
                 'but 1 was given'):
             await client.query('rename("x")')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `rename` takes 2 arguments '
                 'but 0 were given'):
             await client.query('rename()')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `rename` takes 2 arguments '
                 'but 3 were given'):
             await client.query('rename("x", "y", "z")')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `rename` can only be used on things with an id > 0; '
                 r'things which are assigned automatically receive an id;'):
             await client.query('{x:1}.rename("x", "y");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'cannot use `rename` while thing `#\d+` is in use'):
             await client.query('map( ||rename("x", "y") );')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `rename` expects argument 1 to be of '
                 r'type `raw` but got type `nil` instead'):
             await client.query('rename(nil, "y")')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `rename` expects argument 1 to be a valid name.*'):
             await client.query('rename("", "y");')
 
@@ -1193,13 +1466,13 @@ class TestCollectionFunctions(TestBase):
             await client.query('rename("a", "b");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `rename` expects argument 2 to be of '
                 r'type `raw` but got type `nil` instead'):
             await client.query('rename("x", nil)')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `rename` expects argument 2 to be a valid name.*'):
             await client.query('rename("x", "!");')
 
@@ -1220,17 +1493,17 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.set();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `set` takes at most 1 argument but 2 were given'):
             await client.query('set(1, 2);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot convert type `nil` to `set`'):
             await client.query('set(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot add type `int` to a set'):
             await client.query(r'set([{}, t(id()), 3]);')
 
@@ -1271,30 +1544,30 @@ class TestCollectionFunctions(TestBase):
             await client.query('a = [list]; a[0].splice(nil);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `splice` requires at least 2 arguments '
                 'but 0 were given'):
             await client.query('list.splice();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `splice` requires at least 2 arguments '
                 'but 1 was given'):
             await client.query('list.splice(0);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'cannot use function `splice` while the list is in use'):
             await client.query('list.map(||list.splice(0, 1));')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `splice` expects argument 1 to be of '
                 r'type `int` but got type `float` instead'):
             await client.query('list.splice(0.0, 0)')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `splice` expects argument 2 to be of '
                 r'type `int` but got type `nil` instead'):
             await client.query('list.splice(0, nil)')
@@ -1306,19 +1579,19 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.startswith("world!");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `startswith` takes 1 argument '
                 'but 2 were given'):
             await client.query('"Hi World!".startswith("x", 2)')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `startswith` takes 1 argument '
                 'but 0 were given'):
             await client.query('"Hi World!".startswith()')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `startswith` expects argument 1 to be of '
                 r'type `raw` but got type `list` instead'):
             await client.query('"Hi World!".startswith([]);')
@@ -1335,7 +1608,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.str();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `str` takes at most 1 argument but 2 were given'):
             await client.query('str(1, 2);')
 
@@ -1355,6 +1628,34 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'str({});'), "<thing>")
         self.assertEqual(await client.query('str(||nil);'), "<closure>")
 
+    async def test_syntax_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `syntax_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('syntax_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `syntax_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('syntax_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'syntax_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('syntax_err();')
+        self.assertEqual(err['error_code'], EX_SYNTAX_ERROR)
+        self.assertEqual(err['error_msg'], "syntax error in query")
+
+        err = await client.query('syntax_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_SYNTAX_ERROR)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
     async def test_test(self, client):
         with self.assertRaisesRegex(
                 IndexError,
@@ -1362,12 +1663,12 @@ class TestCollectionFunctions(TestBase):
             await client.query('(/.*/).test();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `test` takes 1 argument but 0 were given'):
             await client.query('"".test();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `test` expects argument 1 to be of '
                 r'type `regex` but got type `raw` instead'):
             await client.query('"".test("abc");')
@@ -1380,13 +1681,13 @@ class TestCollectionFunctions(TestBase):
 
     async def test_t(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `t` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('t();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `t` expects argument 1 to be of '
                 r'type `int` but got type `nil` instead'):
             await client.query('t(nil);')
@@ -1406,37 +1707,26 @@ class TestCollectionFunctions(TestBase):
 
     async def test_try(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `try` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('try();')
 
-        self.assertEqual(await client.query('try( (10 // 2) );'), 5)
-        self.assertEqual(await client.query('try( (10 // 0) );'), None)
-        self.assertIs(await client.query('try( (10 // 0), false );'), False)
-        self.assertEqual(
-            await client.query('try((10 // 0), nil, "ZERO_DIV_ERROR");'), None)
-        self.assertEqual(await client.query('try((10 // 0), nil, -97);'), None)
-        self.assertEqual(await client.query('try((10 // 0), nil, 97);'), None)
         with self.assertRaisesRegex(
-                IndexError,
-                'unknown error: `UNKNOWN`; see https:.*'):
-            await client.query('try( (10 // 0), nil, "UNKNOWN");')
+                BadDataError,
+                r'function `try` expects arguments 2..X to be of '
+                r'type `error` but got type `nil` instead'):
+            await client.query('try((10 //0), nil);')
 
-        with self.assertRaisesRegex(
-                IndexError,
-                'unknown error number: 0; see https:.*'):
-            await client.query('try( (10 // 0), nil, 0);')
-
-        with self.assertRaisesRegex(
-                BadRequestError,
-                'cannot convert type `nil` to an `errnr`'):
-            await client.query('try( (10 // 0), nil, nil);')
+        self.assertIs(await client.query('iserror(try( (10 // 2) ));'), False)
+        self.assertIs(await client.query('iserror(try( (10 // 0) ));'), True)
+        self.assertIs(await client.query(
+            'iserror(try( (10 // 0), zero_div_err() ));'), True)
 
         with self.assertRaisesRegex(
                 ZeroDivisionError,
                 'division or modulo by zero'):
-            await client.query('try( (10 // 0), nil, "INDEX_ERROR");')
+            await client.query('try( (10 // 0), index_err());')
 
     async def test_type(self, client):
         with self.assertRaisesRegex(
@@ -1445,7 +1735,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('"".type();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `type` takes 1 argument but 0 were given'):
             await client.query('type();')
 
@@ -1468,13 +1758,41 @@ class TestCollectionFunctions(TestBase):
             await client.query('nil.upper();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `upper` takes 0 arguments but 1 was given'):
             await client.query('"Hello World".upper(nil);')
 
         self.assertEqual(await client.query('"".upper();'), "")
         self.assertEqual(await client.query('"U".upper();'), "U")
         self.assertEqual(await client.query('"hi !!".upper();'), "HI !!")
+
+    async def test_zero_div_err(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `zero_div_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('zero_div_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `zero_div_err` expects argument 1 to be of '
+                'type `raw` but got type `nil` instead'):
+            await client.query('zero_div_err(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'error messages must have valid UTF8 encoding'):
+            await client.query(
+                'zero_div_err(blob(0));',
+                blobs=(pickle.dumps({}), ))
+
+        err = await client.query('zero_div_err();')
+        self.assertEqual(err['error_code'], EX_ZERO_DIV)
+        self.assertEqual(err['error_msg'], "division or module by zero")
+
+        err = await client.query('zero_div_err("my custom error msg");')
+        self.assertEqual(err['error_code'], EX_ZERO_DIV)
+        self.assertEqual(err['error_msg'], "my custom error msg")
 
 
 if __name__ == '__main__':

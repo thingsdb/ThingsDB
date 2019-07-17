@@ -67,6 +67,7 @@ C_SRCS += \
 ../src/ti/val.c \
 ../src/ti/varr.c \
 ../src/ti/vbool.c \
+../src/ti/verror.c \
 ../src/ti/version.c \
 ../src/ti/vfloat.c \
 ../src/ti/vint.c \
@@ -140,6 +141,7 @@ OBJS += \
 ./src/ti/val.o \
 ./src/ti/varr.o \
 ./src/ti/vbool.o \
+./src/ti/verror.o \
 ./src/ti/version.o \
 ./src/ti/vfloat.o \
 ./src/ti/vint.o \
@@ -213,6 +215,7 @@ C_DEPS += \
 ./src/ti/val.d \
 ./src/ti/varr.d \
 ./src/ti/vbool.d \
+./src/ti/verror.d \
 ./src/ti/version.d \
 ./src/ti/vfloat.d \
 ./src/ti/vint.d \

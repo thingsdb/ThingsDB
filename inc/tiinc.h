@@ -91,6 +91,7 @@ typedef enum
     TI_FN_CONTAINS,
     TI_FN_DEL,
     TI_FN_ENDSWITH,
+    TI_FN_ERR,
     TI_FN_FILTER,
     TI_FN_FIND,
     TI_FN_FINDINDEX,
@@ -103,6 +104,7 @@ typedef enum
     TI_FN_ISARRAY,
     TI_FN_ISASCII,
     TI_FN_ISBOOL,
+    TI_FN_ISERROR,
     TI_FN_ISFLOAT,
     TI_FN_ISINF,
     TI_FN_ISINT,
@@ -175,9 +177,17 @@ typedef enum
     TI_FN_SET_LOG_LEVEL,
     TI_FN_SHUTDOWN,
 
-    /* error functions */
-    TI_FN_ERROR,
-
+    /* explicit error functions */
+    TI_FN_OVERFLOW_ERR,
+    TI_FN_ZERO_DIV_ERR,
+    TI_FN_MAX_QUOTA_ERR,
+    TI_FN_AUTH_ERR,
+    TI_FN_FORBIDDEN_ERR,
+    TI_FN_INDEX_ERR,
+    TI_FN_BAD_DATA_ERR,
+    TI_FN_SYNTAX_ERR,
+    TI_FN_NODE_ERR,
+    TI_FN_ASSERT_ERR,
 } ti_fn_enum_t;
 
 typedef enum

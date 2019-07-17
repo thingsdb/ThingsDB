@@ -7,7 +7,7 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadRequestError
+from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
@@ -42,19 +42,19 @@ class TestThingsDBFunctions(TestBase):
             await client.query('node_info();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'assignments are not supported in the `thingsdb` scope'):
             await client.query('tmp = 1;')
 
     async def test_collection_info(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `collection_info` takes 1 argument '
                 'but 0 were given'):
             await client.query('collection_info();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'expecting type `raw` or `int` as collection '
                 'but got type `list` instead'):
             await client.query('collection_info([]);')
@@ -77,7 +77,7 @@ class TestThingsDBFunctions(TestBase):
 
     async def test_collections_info(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `collections_info` takes 0 arguments '
                 'but 1 was given'):
             await client.query('collections_info(nil);')
@@ -104,13 +104,13 @@ class TestThingsDBFunctions(TestBase):
 
     async def test_del_collection(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `del_collection` takes 1 argument '
                 'but 0 were given'):
             await client.query('del_collection();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'expecting type `raw` or `int` as collection '
                 'but got type `float` instead'):
             await client.query('del_collection(1.0);')
@@ -129,12 +129,12 @@ class TestThingsDBFunctions(TestBase):
 
     async def test_del_user(self, client):
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `del_user` takes 1 argument but 0 were given'):
             await client.query('del_user();')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `del_user` expects argument 1 to be of type `raw` '
                 r'but got type `int` instead'):
             await client.query('del_user(42);')
@@ -145,7 +145,7 @@ class TestThingsDBFunctions(TestBase):
             await client.query('del_user("");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'it is not possible to delete your own user account'):
             await client.query('del_user("admin");')
 
@@ -157,7 +157,7 @@ class TestThingsDBFunctions(TestBase):
         await client.query('new_user("iris");')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 'function `grant` takes 3 arguments but 0 were given'):
             await client.query('grant();')
 
@@ -165,7 +165,7 @@ class TestThingsDBFunctions(TestBase):
             await client.query('grant("A", "x", FULL);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `grant` expects argument 2 to be of type `raw` '
                 r'but got type `nil` instead'):
             await client.query('grant("stuff", nil, FULL);')
@@ -174,7 +174,7 @@ class TestThingsDBFunctions(TestBase):
             await client.query('grant("stuff", "X", FULL);')
 
         with self.assertRaisesRegex(
-                BadRequestError,
+                BadDataError,
                 r'function `grant` expects argument 3 to be of type `int` '
                 r'but got type `nil` instead'):
             await client.query('grant("stuff", "iris", nil);')

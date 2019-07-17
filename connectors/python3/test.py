@@ -73,7 +73,6 @@ TODO: docs
 - procedures   (general overview)
 - call-request (call request explained)
 - f_call
-- f_calle
 - f_new_procedure
 - f_del_procedure
 - f_rename_procedure ???
@@ -81,6 +80,13 @@ TODO: docs
 - f_procedure_doc
 - f_procedure_fmt ?? --> format a procedure?  this can work in place!!
 - deep  (change to syntax => deep)
+
+TODO: root with `.`
+access the collection root with a `.`
+then we can remove $variable
+
+introduce `wse`
+then we can remove `calle`
 
 """
 

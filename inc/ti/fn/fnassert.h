@@ -6,7 +6,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
-    cleri_node_t * assert_node = nd->children->node;
+    cleri_node_t * assert_node;
 
     if (nargs < 1)
     {
@@ -15,6 +15,9 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "were given"ASSERT_DOC_);
         return e->nr;
     }
+
+    /* now we know for sure it has at least the first node */
+    assert_node = nd->children->node;
 
     if (nargs > 2)
     {

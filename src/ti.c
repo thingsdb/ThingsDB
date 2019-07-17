@@ -19,6 +19,7 @@
 #include <ti/user.h>
 #include <ti/sync.h>
 #include <ti/users.h>
+#include <ti/verror.h>
 #include <ti/procedure.h>
 #include <ti/version.h>
 #include <ti/web.h>
@@ -155,6 +156,12 @@ int ti_init_logger(void)
 
 int ti_init(void)
 {
+    ti_names_inject_common();
+    ti_verror_init();
+
+    if (ti_val_init_common())
+        return -1;
+
     ti_.fn = strx_cat(ti_.cfg->storage_path, ti__fn);
     ti_.node_fn = strx_cat(ti_.cfg->storage_path, ti__node_fn);
     return (ti_.fn && ti_.node_fn) ? ti_store_create() : -1;
@@ -320,10 +327,7 @@ int ti_run(void)
 {
     int rc, attempts;
 
-    ti_names_inject_common();
 
-    if (ti_val_init_common())
-        return -1;
 
     if (uv_loop_init(&loop_))
         return -1;

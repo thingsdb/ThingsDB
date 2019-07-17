@@ -13,8 +13,8 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nargs == 0)
         {
             assert (query->rval == NULL);
-            query->rval = (ti_val_t *) ti_vint_create(0);
-            return e->nr;
+            query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
+            goto done;
         }
         ex_set(e, EX_BAD_DATA,
                 "function `raise` takes at most 1 argument but %d were given"
@@ -25,7 +25,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_scope(query, nd->children->node, e))
         return e->nr;
 
-    if (!ti_is_error(query->rval))
+    if (!ti_val_is_error(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
             "function `raise` expects argument 1 to be of "
@@ -34,6 +34,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+done:
     ti_verror_to_e((ti_verror_t *) query->rval, e);
     return e->nr;
 }

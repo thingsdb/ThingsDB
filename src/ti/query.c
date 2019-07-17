@@ -20,9 +20,6 @@
 #include <util/qpx.h>
 #include <util/strx.h>
 
-/* maximum value we allow for the `deep` argument */
-#define QUERY__MAX_DEEP 0x7f
-
 #define QUERY_DOC_ TI_SEE_DOC("#query")
 #define CALL_REQUEST_DOC_ TI_SEE_DOC("#call-request")
 
@@ -217,6 +214,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->scope = NULL;
     query->rval = NULL;
     query->syntax.flags = 0;
+    query->syntax.deep = 1;
     query->syntax.val_cache_n = 0;
     query->target = NULL;  /* node or thingsdb when NULL */
     query->parseres = NULL;
@@ -607,9 +605,6 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     /* list statements */
     ti_syntax_investigate(&query->syntax, seqchildren->next->node);
 
-    /* optional deep */
-    query->syntax.deep = ti_query_get_deep(seqchildren->next->next, e);
-
     /*
      * Create value cache for primitives. (if required)
      */
@@ -622,7 +617,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
 
 void ti_query_run(ti_query_t * query)
 {
-    cleri_children_t * child;
+    cleri_children_t * child, * seqchild;
     ex_t * e = ex_use();
 
     if (query->syntax.flags & TI_SYNTAX_FLAG_CALLED)
@@ -631,10 +626,11 @@ void ti_query_run(ti_query_t * query)
         goto stop;
     }
 
-    child = query->parseres->tree   /* root */
-        ->children->node            /* sequence <comment, list, [deep]> */
-        ->children->next->node      /* list */
-        ->children;                 /* first child or NULL */
+    seqchild = query->parseres->tree    /* root */
+        ->children->node                /* sequence <comment, list, [deep]> */
+        ->children->next;               /* list */
+
+    child = seqchild->node->children;   /* first child or NULL */
 
     if (!child)
     {
@@ -650,6 +646,7 @@ void ti_query_run(ti_query_t * query)
             break;
 
         /* TODO: check if scope_leave is still required */
+        assert (query->scope == NULL);
         ti_scope_leave(&query->scope, NULL);
 
         if (!child->next || !(child = child->next->next))
@@ -658,6 +655,9 @@ void ti_query_run(ti_query_t * query)
         ti_val_drop(query->rval);
         query->rval = NULL;
     }
+
+    /* optional deep */
+    ti_do_may_set_deep(&query->syntax.deep, seqchild->next, e);
 
 stop:
     if (query->ev)
@@ -738,23 +738,4 @@ ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)
         if (prop->name == name)
             return prop;
     return NULL;
-}
-
-uint8_t ti_query_get_deep(cleri_children_t * child, ex_t * e)
-{
-    int64_t deepi;
-    if (!child)
-        return 1;
-
-    assert (child->node->cl_obj->gid == CLERI_GID_DEEP);
-
-    deepi = strx_to_int64(child->node->children->next->node->str);
-    if (deepi < 0 || deepi > QUERY__MAX_DEEP)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "expecting a `deep` value between 0 and %d, got "PRId64,
-                QUERY__MAX_DEEP, deepi);
-        return 1;
-    }
-    return (uint8_t) deepi;
 }

@@ -15,6 +15,8 @@
 #include <ctype.h>
 #include <util/logger.h>
 
+#define PROCEDURE__DEEP_UNSET 255
+
 #define procedure__skip_white_space() \
 for (;n && isspace(*pt); ++pt, --n)
 
@@ -222,7 +224,9 @@ ti_procedure_t * ti_procedure_from_raw(
     }
 
     procedure->node = seqchildren->next->node;      /* list statements */
-    procedure->deep = ti_query_get_deep(seqchildren->next->next, e);
+
+    procedure->deep = PROCEDURE__DEEP_UNSET;
+    ti_do_may_set_deep(&procedure->deep, seqchildren->next->next, e);
     if (e->nr)
         goto failed;
 
@@ -390,6 +394,7 @@ int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e)
 
 int ti_procedure_run(ti_query_t * query, ex_t * e)
 {
+    int rc;
     ti_procedure_t * procedure = query->procedure;
     size_t idx = 0;
 
@@ -399,10 +404,12 @@ int ti_procedure_run(ti_query_t * query, ex_t * e)
     for (vec_each(procedure->arguments, ti_prop_t, prop), ++idx)
         prop->val = query->val_cache->data[idx];
 
-    /* set deep level */
-    query->syntax.deep = procedure->deep;
+    rc = ti_procedure_call(procedure, query, e);
 
-    return ti_procedure_call(procedure, query, e);
+    if (procedure->deep != PROCEDURE__DEEP_UNSET)
+        query->syntax.deep = procedure->deep;
+
+    return rc;
 }
 
 int ti_procedure_info_to_packer(
@@ -445,8 +452,3 @@ fail:
     qp_packer_destroy(packer);
     return (ti_val_t * ) rprocedure;
 }
-
-//int ti_procedure_fmt(ti_procedure_t * procedure)
-//{
-//    return 0;
-//}

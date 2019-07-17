@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-07-15 15:39:22
+ * Created at: 2019-07-17 22:31:36
  */
 
 #include <langdef/langdef.h>
@@ -159,9 +159,15 @@ cleri_grammar_t * compile_langdef(void)
         scope,
         cleri_token(CLERI_NONE, "]")
     ), 0, 0);
+    cleri_t * deephint = cleri_sequence(
+        CLERI_GID_DEEPHINT,
+        2,
+        cleri_token(CLERI_NONE, "=>"),
+        t_int
+    );
     cleri_t * block = cleri_sequence(
         CLERI_GID_BLOCK,
-        4,
+        5,
         cleri_token(CLERI_NONE, "{"),
         comment,
         cleri_list(CLERI_NONE, scope, cleri_sequence(
@@ -170,6 +176,7 @@ cleri_grammar_t * compile_langdef(void)
             cleri_token(CLERI_NONE, ";"),
             comment
         ), 1, 0, 1),
+        cleri_optional(CLERI_NONE, deephint),
         cleri_token(CLERI_NONE, "}")
     );
     cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, scope, cleri_sequence(
@@ -178,18 +185,12 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, ";"),
         comment
     ), 0, 0, 1);
-    cleri_t * deep = cleri_sequence(
-        CLERI_GID_DEEP,
-        2,
-        cleri_token(CLERI_NONE, "=>"),
-        t_int
-    );
     cleri_t * START = cleri_sequence(
         CLERI_GID_START,
         3,
         comment,
         statements,
-        cleri_optional(CLERI_NONE, deep)
+        cleri_optional(CLERI_NONE, deephint)
     );
     cleri_ref_set(scope, cleri_sequence(
         CLERI_GID_SCOPE,

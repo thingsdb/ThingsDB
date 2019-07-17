@@ -1782,13 +1782,15 @@ class TestCollectionFunctions(TestBase):
                 'function `wse` takes 1 argument but 0 were given'):
             await client.query('wse();')
 
-            res = await client.query(r'''
+        res = await client.query(r'''
+            wse({
                 x = 0;
                 a = |v| x += v;
-                wse([1 ,2 ,3, 4].map(a));
+                [1 ,2 ,3, 4].map(a);
                 x;
-            ''')
-            self.assertEqual(res, 10)
+            });
+        ''')
+        self.assertEqual(res, 10)
 
     async def test_zero_div_err(self, client):
         with self.assertRaisesRegex(

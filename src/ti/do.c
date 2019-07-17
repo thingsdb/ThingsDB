@@ -92,6 +92,9 @@
 #include <ti/fn/fnusersinfo.h>
 #include <ti/fn/fnwse.h>
 
+/* maximum value we allow for the `deep` argument */
+#define DO__MAX_DEEP_HINT 0x7f
+
 #define do__no_chain_fn(__fn)                           \
 if (is_chained)                                         \
     break;                                              \
@@ -594,9 +597,12 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
-    cleri_children_t * child = nd           /* seq<{, comment, list, }> */
-            ->children->next->next->node    /* list statements */
-            ->children;                     /* first child, not empty */
+    cleri_children_t * child, * seqchild;
+
+    seqchild = nd                       /* <{ comment, list s, [deep] }> */
+        ->children->next->next;         /* list statements */
+
+    child = seqchild->node->children;  /* first child, not empty */
 
     assert (child);
 
@@ -611,6 +617,9 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
     }
+
+    /* optional deep */
+    ti_do_may_set_deep(&query->syntax.deep, seqchild->next, e);
 
     return e->nr;
 }
@@ -1404,8 +1413,30 @@ int ti_do_optscope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
     if (!nd)
     {
+        /* TODO: check if optscope is still required */
+        assert (0);
         query->rval = (ti_val_t *) ti_nil_get();
         return e->nr;
     }
     return ti_do_scope(query, nd, e);
+}
+
+void ti__do_may_set_deep_(uint8_t * deep, cleri_children_t * child, ex_t * e)
+{
+    int64_t deepi;
+    assert (child);
+    assert (child->node->cl_obj->gid == CLERI_GID_DEEPHINT);
+    deepi = strx_to_int64(child->node->children->next->node->str);
+    if (errno == ERANGE)
+        deepi = -1;
+
+    if (deepi < 0 || deepi > DO__MAX_DEEP_HINT)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting a `deep` value between 0 and %d, got "PRId64,
+                DO__MAX_DEEP_HINT, deepi);
+        return;
+    }
+
+    *deep = (uint8_t) deepi;
 }

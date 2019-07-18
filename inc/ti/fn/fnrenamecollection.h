@@ -27,11 +27,13 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     if (ti_do_scope(query, nd->children->node, e))
         return e->nr;
 
-    assert (e->nr == 0);
     collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
     assert (collection);
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
 
     if (ti_do_scope(query, nd->children->next->next->node, e))
         return e->nr;

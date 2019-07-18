@@ -181,6 +181,37 @@ class TestThingsDBFunctions(TestBase):
 
         await client.query('del_user("iris");')
 
+    async def test_rename_collection(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `rename_collection` takes 2 arguments '
+                'but 0 were given'):
+            await client.query('rename_collection();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'expecting type `raw` or `int` as collection '
+                'but got type `float` instead'):
+            await client.query('rename_collection(1.0, "bla");')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'collection name must be valid'):
+            await client.query('rename_collection("stuff", "4bla");')
+
+        with self.assertRaisesRegex(IndexError, 'collection `A` not found'):
+            await client.query('rename_collection("A", "B");')
+
+        with self.assertRaisesRegex(IndexError, '`collection:1234` not found'):
+            await client.query('rename_collection(1234, "B");')
+
+        test = await client.query('new_collection("test1");')
+        self.assertIs(
+            await client.query('rename_collection("test1", "test2");'),
+            None)
+
+        self.assertIs(await client.query('del_collection("test2");'), None)
+
 
 if __name__ == '__main__':
     run_test(TestThingsDBFunctions())

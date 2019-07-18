@@ -102,7 +102,7 @@ int ti_collection_rename(
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_BAD_DATA,
-                "collection name should be a valid name"TI_SEE_DOC("#names"));
+                "collection name must be valid"TI_SEE_DOC("#names"));
         return -1;
     }
 

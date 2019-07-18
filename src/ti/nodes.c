@@ -1505,6 +1505,8 @@ int ti_nodes_info_to_packer(qp_packer_t ** packer)
             qp_add_raw_from_str(*packer, syntax_buf) ||
             qp_add_raw_from_str(*packer, "status") ||
             qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
+            qp_add_raw_from_str(*packer, "zone") ||
+            qp_add_int(*packer, node->zone) ||
             qp_add_raw_from_str(*packer, "committed_event_id") ||
             qp_add_int(*packer, node->cevid) ||
             qp_add_raw_from_str(*packer, "stored_event_id") ||

@@ -12,14 +12,14 @@ enum
     TI_AUTH_NO_ACCESS   =0,     /* default */
     TI_AUTH_READ        =1<<0,  /* allow queries without events */
     TI_AUTH_MODIFY      =1<<1,  /* allow queries which require an event */
-    TI_AUTH_WATCH       =1<<2,  /* watch/unwatch */
-    TI_AUTH_CALL        =1<<3,  /* watch/unwatch */
-    TI_AUTH_GRANT       =1<<4,  /* grant/revoke */
+    TI_AUTH_GRANT       =1<<2,  /* grant/revoke */
+    TI_AUTH_WATCH       =1<<3,  /* watch/unwatch */
+    TI_AUTH_CALL        =1<<4,  /* call */
     TI_AUTH_MASK_FULL   =1<<0|  /* READ   */
                          1<<1|  /* MODIFY */
-                         1<<2|  /* WATCH  */
-                         1<<3|  /* CALL  */
-                         1<<4,  /* GRANT  */
+                         1<<2|  /* GRANT  */
+                         1<<3|  /* WATCH  */
+                         1<<4,  /* CALL   */
 };
 
 

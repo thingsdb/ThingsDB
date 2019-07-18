@@ -20,9 +20,9 @@ static struct ti__auth_repr_s ti__auth_map[TI__AUTH_REPR_SZ] = {
         {.str="FULL",           .mask=TI_AUTH_MASK_FULL},
         {.str="READ",           .mask=TI_AUTH_READ},
         {.str="MODIFY",         .mask=TI_AUTH_MODIFY},
+        {.str="GRANT",          .mask=TI_AUTH_GRANT},
         {.str="WATCH",          .mask=TI_AUTH_WATCH},
         {.str="CALL",           .mask=TI_AUTH_CALL},
-        {.str="GRANT",          .mask=TI_AUTH_GRANT},
 };
 
 ti_auth_t * ti_auth_create(ti_user_t * user, uint16_t mask)

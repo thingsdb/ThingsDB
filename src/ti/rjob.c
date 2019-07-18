@@ -102,6 +102,39 @@ static int rjob__del_procedure(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
+ * - for example: 'key'
+ */
+static int rjob__del_token(qp_unpacker_t * unp)
+{
+    assert (unp);
+    qp_obj_t qp_key;
+    ti_token_t * token;
+
+    if (    !qp_is_raw(qp_next(unp, &qp_key)) ||
+            qp_key.len != sizeof(ti_token_key_t))
+    {
+        log_critical(
+                "job `del_token` for `.thingsdb`: "
+                "missing or invalid token key");
+        return -1;
+    }
+
+    token = ti_users_pop_token_by_key((ti_token_key_t *) qp_key.via.raw);
+
+    if (!token)
+    {
+        log_critical("job `del_token` for `.thingsdb`: "
+                "token key `%.*s` not found",
+                (int) qp_key.len, (char *) qp_key.via.raw);
+        return -1;
+    }
+
+    ti_token_destroy(token);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: id
  */
 static int rjob__del_user(qp_unpacker_t * unp)
@@ -820,6 +853,7 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
         return -1;
     }
 
+    /* TODO: add del_token task */
     switch (*qp_job_name.via.raw)
     {
     case 'd':
@@ -829,6 +863,8 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
             return rjob__del_expired(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_procedure"))
             return rjob__del_procedure(unp);
+        if (qpx_obj_eq_str(&qp_job_name, "del_token"))
+            return rjob__del_token(unp);
         if (qpx_obj_eq_str(&qp_job_name, "del_user"))
             return rjob__del_user(unp);
         break;

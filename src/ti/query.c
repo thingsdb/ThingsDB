@@ -476,6 +476,7 @@ int ti_query_collection_unpack(
             continue;
         }
 
+        /* TODO: add to node and thingsdb scope */
         if (qp_is_raw_equal_str(&key, "blobs"))
         {
             ssize_t n;

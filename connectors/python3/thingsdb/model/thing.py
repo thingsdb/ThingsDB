@@ -112,7 +112,7 @@ class Thing:
 
         if issubclass(attr, set):
             try:
-                value = value['!']
+                value = value['$']
             except (AttributeError, KeyError):
                 return value, False
             except TypeError:

@@ -142,33 +142,30 @@ async def setup_initial_data(client, collection):
     ''')
 
 
+class MyCollection(Collection):
+    greet = required(str)
+
+
+'''
+Hello, welcome to ThingsDB
+
+'''
+
 async def test(client):
     global osdata
 
-    await client.connect_pool([
-        ('localhost', 9200),
-        # ('localhost', 9201),
-    ], ['admin', 'pass'])
+    await client.connect_pool(
+        'thingsgui.net',
+        'fdfdsghgfjgfjf86576fjfurfryurfjd')
 
     try:
-        client.use('stuff')
-        print(await client.call('bla'))
-        print(await client.call('bla'))
-        print(await client.call('bla'))
-        # osdata = OsData(client, build=setup_initial_data)
-
-        # print(await client.node_info())
-
-        while True:
-            if interrupted:
-                break
-
-        #     if osdata:
-        #         print(osdata.ulabels)
-        #         print([label.name for label in osdata.ulabels if label])
-        #     await asyncio.sleep(1.2)
+        my_collection = MyCollection(client)
+        print(my_collection.greet)
     finally:
         client.close()
+
+await client.query('.greet;')
+
 
 
 def signal_handler(signal, frame):

@@ -87,17 +87,17 @@ typedef enum
      *   @ date type
      */
     TI_KIND_C_THING     ='#',
-    TI_KIND_C_CLOSURE   ='$',
+    TI_KIND_C_CLOSURE   ='>',
     TI_KIND_C_REGEX     ='*',
-    TI_KIND_C_SET       ='^',
+    TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
 
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
-#define TI_KIND_S_CLOSURE   "$"
+#define TI_KIND_S_CLOSURE   ">"
 #define TI_KIND_S_REGEX     "*"
-#define TI_KIND_S_SET       "^"
+#define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 
 typedef struct ti_val_s ti_val_t;

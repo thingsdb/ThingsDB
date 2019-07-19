@@ -72,7 +72,7 @@ static void do__f_remove_list(
             goto fail2;
         }
 
-        if (ti_do_optscope(query, ti_closure_scope_nd(closure), e))
+        if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
             goto fail2;
 
         found = ti_val_as_bool(query->rval);
@@ -166,7 +166,7 @@ static int do__f_remove_set_from_closure(
             goto fail2;
         }
 
-        if (ti_do_optscope(query, ti_closure_scope_nd(closure), e))
+        if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
             goto fail2;
 
         if (ti_val_as_bool(query->rval) && vec_push(removed, t))

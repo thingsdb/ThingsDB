@@ -15,7 +15,6 @@ typedef struct ti_scope_s ti_scope_t;
 #include <ti/val.h>
 
 ti_scope_t * ti_scope_enter(ti_scope_t * scope, ti_thing_t * thing);
-void ti_scope_leave(ti_scope_t ** scope, ti_scope_t * until);
 
 _Bool ti_scope_in_use_thing(ti_scope_t * scope, ti_thing_t * thing);
 _Bool ti_scope_in_use_name(

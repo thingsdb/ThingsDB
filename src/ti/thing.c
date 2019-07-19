@@ -46,31 +46,6 @@ static void thing__watch_del(ti_thing_t * thing)
     ti_rpkg_drop(rpkg);
 }
 
-static int thing__set(vec_t ** vec, ti_name_t * name, ti_val_t * val)
-{
-    ti_prop_t * prop;
-
-    for (vec_each(*vec, ti_prop_t, p))
-    {
-        if (p->name == name)
-        {
-            ti_decref(name);
-            ti_val_drop(p->val);
-            p->val = val;
-            return 0;
-        }
-    }
-
-    prop = ti_prop_create(name, val);
-    if (!prop || vec_push(vec, prop))
-    {
-        free(prop);
-        return -1;
-    }
-
-    return 0;
-}
-
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 {
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
@@ -117,21 +92,42 @@ void ti_thing_clear(ti_thing_t * thing)
         ti_prop_destroy(prop);
 }
 
-ti_val_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
+ti_prop_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
 {
     for (vec_each(thing->props, ti_prop_t, prop))
         if (prop->name == name)
-            return prop->val;
+            return prop;
     return NULL;
 }
 
 /*
  * does not increment the `name` and `val` reference counters.
  */
-int ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
-    return thing__set(&thing->props, name, val);
+    ti_prop_t * prop;
+
+    for (vec_each(thing->props, ti_prop_t, p))
+    {
+        if (p->name == name)
+        {
+            ti_decref(name);
+            ti_val_drop(p->val);
+            p->val = val;
+            return 0;
+        }
+    }
+
+    prop = ti_prop_create(name, val);
+    if (!prop || vec_push(&thing->props, prop))
+    {
+        free(prop);
+        return -1;
+    }
+
+    return 0;
 }
+
 
 /* Returns true if the property is removed, false if not found */
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)

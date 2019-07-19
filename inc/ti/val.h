@@ -65,9 +65,9 @@ enum
                                             wrapped by wse() so we can know
                                             an event is created.
                                             (only stored closures) */
-    TI_VFLAG_CLOSURE_LOCK    =1<<5,      /* closure in use; required for
-                                            recursion detection which is not
-                                            allowed with closures */
+    TI_VFLAG_LOCK            =1<<5,      /* closure or thing in use;
+                                            required for recursion or iteration
+                                            detection. */
     TI_VFLAG_ARR_TUPLE       =1<<6,      /* array is immutable; nested, and
                                             only nested array's are tuples;
                                             once a tuple is direct assigned to
@@ -146,7 +146,8 @@ static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
-
+static inline int ti_val_ensure_lock(ti_val_t * val);
+static inline void ti_val_unlock(ti_val_t * val);
 struct ti_val_s
 {
     uint32_t ref;
@@ -242,9 +243,35 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
     );
 }
 
+static inline _Bool ti_val_is_locked(ti_val_t * val, ex_t * e)
+{
+    if (val->flags & TI_VFLAG_LOCK)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "cannot change type `%s` while the value is in use",
+            ti_val_str(val));
+        return true;
+    }
+    return false;
+}
+
 static inline _Bool ti_val_overflow_cast(double d)
 {
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
+}
+
+/* returns `lock_was_set`: 0 if already locked, 1 if a new lock is set */
+static inline int ti_val_ensure_lock(ti_val_t * val)
+{
+    return (val->flags & TI_VFLAG_LOCK)
+            ? 0
+            : !!(val->flags |= TI_VFLAG_LOCK);
+}
+
+static inline void ti_val_unlock(ti_val_t * val, int lock_was_set)
+{
+    if (lock_was_set)
+        val->flags &= ~TI_VFLAG_LOCK;
 }
 
 

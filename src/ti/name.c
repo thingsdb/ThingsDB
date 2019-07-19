@@ -23,13 +23,11 @@ ti_name_t * ti_name_create(const char * str, size_t n)
     return name;
 }
 
-void ti_name_drop(ti_name_t * name)
+/* call `ti_name_drop(..)`, not this function */
+void ti_name_destroy(ti_name_t * name)
 {
-    if (name && !--name->ref)
-    {
-        (void) smap_pop(ti()->names, name->str);
-        ti_name_destroy(name);
-    }
+    (void) smap_pop(ti()->names, name->str);
+    free(name);
 }
 
 _Bool ti_name_is_valid_strn(const char * str, size_t n)

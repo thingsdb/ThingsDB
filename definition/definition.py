@@ -18,7 +18,6 @@ from pyleri import (
 
 
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
-RE_TMP = r'^\$[A-Za-z_][0-9A-Za-z_]*'
 ASSIGN_TOKENS = '= += -= *= /= %= &= ^= |='
 
 
@@ -56,9 +55,18 @@ class Definition(Grammar):
     comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
 
     name = Regex(RE_NAME)
-    tmp = Regex(RE_TMP)
+    var = Regex(RE_NAME)
 
-    primitives = Choice(
+    scope = Ref()
+    chain = Ref()
+
+    t_closure = Sequence('|', List(var), '|', scope)
+
+    thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
+    array = Sequence('[', List(scope), ']')
+    function = Sequence(name, '(', List(scope), ')')
+
+    immutable = Choice(
         t_false,
         t_nil,
         t_true,
@@ -66,16 +74,8 @@ class Definition(Grammar):
         t_int,
         t_string,
         t_regex,
+        t_closure,
     )
-
-    scope = Ref()
-    chain = Ref()
-
-    thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
-    array = Sequence('[', List(scope), ']')
-
-    closure = Sequence('|', List(name), '|', scope)
-    function = Sequence(name, '(', List(scope), ')')
 
     opr0_mul_div_mod = Tokens('* / % //')
     opr1_add_sub = Tokens('+ -')
@@ -107,7 +107,7 @@ class Definition(Grammar):
     )
 
     assignment = Sequence(name, Tokens(ASSIGN_TOKENS), scope)
-    tmp_assign = Sequence(tmp, Tokens(ASSIGN_TOKENS), scope)
+    var_assign = Sequence(var, Tokens(ASSIGN_TOKENS), scope)
 
     index = Repeat(
         Sequence('[', scope, ']')
@@ -134,13 +134,11 @@ class Definition(Grammar):
     scope = Sequence(
         o_not,
         Choice(
-            primitives,
+            chain,
+            immutable,
             function,
-            assignment,
-            tmp_assign,
-            name,
-            closure,
-            tmp,
+            var_assign,
+            var,
             thing,
             array,
             operations,

@@ -211,7 +211,6 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     if (!query)
         return NULL;
 
-    query->scope = NULL;
     query->rval = NULL;
     query->syntax.flags = 0;
     query->syntax.deep = 1;
@@ -225,7 +224,18 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->blobs = NULL;
     query->querystr = NULL;
     query->val_cache = NULL;
-    query->vars = NULL;
+    query->vars = vec_new(7);  /* with some initial size; we could find the
+                                * exact number in the syntax (maybe), but then
+                                * we also must allow closures to still grow
+                                * this vector, so a fixed size may be the best
+                                */
+    query->chained = ti_chained_create(7);
+
+    if (!query->vars || !query->chained)
+    {
+        ti_query_destroy(query);
+        return NULL;
+    }
 
     return query;
 }
@@ -238,9 +248,15 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    ti_procedure_drop(query->procedure);
-    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
+    assert (query->vars->n == NULL);  /* should be empty, but not NULL */
     vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
+
+    ti_chained_destroy(query->chained);
+
+    /* TODO: remove procedure */
+    ti_procedure_drop(query->procedure);
+
+    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
     ti_stream_drop(query->stream);
     ti_user_drop(query->user);
     ti_collection_drop(query->target);
@@ -646,10 +662,6 @@ void ti_query_run(ti_query_t * query)
         if (ti_do_scope(query, child->node, e))
             break;
 
-        /* TODO: check if scope_leave is still required */
-        assert (query->scope == NULL);
-        ti_scope_leave(&query->scope, NULL);
-
         if (!child->next || !(child = child->next->next))
             break;
 
@@ -706,36 +718,9 @@ finish:
     ti_query_destroy(query);
 }
 
-/*
- * Removes and returns the `query->rval` if set. The reference will be moved
- * so the value is returned with a reference. If `query->rval` is not set,
- * a value from the scope is returned with a new reference.
- */
-ti_val_t * ti_query_val_pop(ti_query_t * query)
+ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)
 {
-    if (query->rval)
-    {
-        ti_val_t * val = query->rval;
-        query->rval = NULL;
-        return val;
-    }
-
-    if (query->scope->val)
-    {
-        ti_incref(query->scope->val);
-        return query->scope->val;
-    }
-
-    ti_incref(query->scope->thing);
-    return (ti_val_t *) query->scope->thing;
-}
-
-ti_prop_t * ti_query_tmpprop_get(ti_query_t * query, ti_name_t * name)
-{
-    if (!query->vars)
-        return NULL;
-
-    for (vec_each(query->vars, ti_prop_t, prop))
+    for (vec_each_rev(query->vars, ti_prop_t, prop))
         if (prop->name == name)
             return prop;
     return NULL;

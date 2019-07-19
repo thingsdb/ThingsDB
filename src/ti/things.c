@@ -131,7 +131,7 @@ ti_thing_t * ti_things_thing_from_unp(
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
         val = ti_val_from_unp(unp, things);
 
-        if (!val || !name || ti_thing_prop_set(thing, name, val))
+        if (!val || !name || !ti_thing_prop_set(thing, name, val))
         {
             ti_val_drop(val);
             ti_name_drop(name);

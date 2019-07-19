@@ -15,8 +15,8 @@ void ti_prop_destroy(ti_prop_t * prop);
 
 struct ti_prop_s
 {
-    ti_name_t * name;
-    ti_val_t * val;
+    ti_name_t * name;   /* with reference */
+    ti_val_t * val;     /* with reference */
 };
 
 #endif /* TI_PROP_H_ */

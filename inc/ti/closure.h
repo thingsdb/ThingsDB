@@ -51,18 +51,18 @@ static inline cleri_node_t * ti_closure_scope_nd(ti_closure_t * closure)
 /* returns 0 on a successful lock, -1 if not */
 static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e)
 {
-    if (closure->flags & TI_VFLAG_CLOSURE_LOCK)
+    if (closure->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_BAD_DATA,
                 "closures cannot be used recursively"TI_SEE_DOC("#closure"));
         return -1;
     }
-    return (closure->flags |= TI_VFLAG_CLOSURE_LOCK) & 0;
+    return (closure->flags |= TI_VFLAG_LOCK) & 0;
 }
 
 static inline void ti_closure_unlock(ti_closure_t * closure)
 {
-    closure->flags &= ~TI_VFLAG_CLOSURE_LOCK;
+    closure->flags &= ~TI_VFLAG_LOCK;
 }
 
 #endif  /* TI_CLOSURE_H_ */

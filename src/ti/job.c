@@ -48,7 +48,7 @@ static int job__add(
     n = qp_n.via.int64;
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_prop_weak_get(thing, name)))
+    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
@@ -141,7 +141,7 @@ static int job__assign(
         goto fail;
     }
 
-    if (ti_thing_prop_set(thing, name, val))
+    if (!ti_thing_prop_set(thing, name, val))
     {
         log_critical(
                 "job `assign` to "TI_THING_ID": "
@@ -341,7 +341,7 @@ static int job__remove(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_prop_weak_get(thing, name)))
+    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
@@ -496,7 +496,7 @@ static int job__splice(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(varr = (ti_varr_t *) ti_thing_prop_weak_get(thing, name)))
+    if (!name || !(varr = (ti_varr_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "

@@ -50,7 +50,7 @@ ti_name_t * ti_names_get(const char * str, size_t n)
     name = ti_name_create(str, n);
     if (!name || (rc = smap_add(names, name->str, name)))
     {
-        ti_name_destroy(name);
+        free(name);
         return NULL;
     }
     return name;

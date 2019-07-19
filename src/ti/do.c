@@ -434,6 +434,8 @@ no_collection_scope:
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
+    assert (query->rval == NULL);
+
 
     ti_varr_t * varr;
     uintptr_t sz = (uintptr_t) nd->data;
@@ -478,14 +480,29 @@ failed:
     return e->nr;
 }
 
+static ti_prop_t * do__get_prop(ti_thing_t * thing, cleri_node_t * nd, ex_t * e)
+{
+    ti_name_t * name;
+    ti_prop_t * prop;
+
+    name = ti_names_weak_get(nd->str, nd->len);
+    prop = name ? ti_thing_prop_weak_get(thing, name) : NULL;
+
+    if (!prop)
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id, (int) nd->len, nd->str);
+    return prop;
+}
+
 static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
+    assert (query->rval);
 
     ti_thing_t * thing;
-    ti_name_t * name;
-    ti_task_t * task = NULL;
-    ti_val_t * left_val = NULL;     /* assign to prevent warning */
+    ti_task_t * task;
+    ti_prop_t * prop;
     size_t max_props = query->target
             ? query->target->quota->max_props
             : TI_QUOTA_NOT_SET;     /* check for target since assign is
@@ -497,96 +514,83 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
-    thing = (ti_thing_t *) ti_query_val_pop(query);
-
-    if (thing->tp != TI_VAL_THING)
+    if (!ti_val_isthing(query->rval))
     {
         ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
                 ti_val_str((ti_val_t *) thing));
-        goto done;
+        return e->nr;
     }
 
-    name = ti_names_get(name_nd->str, name_nd->len);
-    if (!name)
-        goto alloc_err;
-
-    if (assign_nd->len == 1)
-    {
-        /* assign_nd == '=', a new assignment */
-        if (thing->props->n == max_props)
-        {
-            ex_set(e, EX_MAX_QUOTA,
-                    "maximum properties quota of %zu has been reached"
-                    TI_SEE_DOC("#quotas"), max_props);
-            goto fail1;
-        }
-    }
-    else
-    {
-        /* apply to existing variable */
-        assert (assign_nd->len == 2);
-        assert (assign_nd->str[1] == '=');
-
-        left_val = ti_thing_prop_weak_get(thing, name);
-        if (!left_val)
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "`%.*s` is undefined", (int) name->n, name->str);
-            goto fail1;
-        }
-    }
-
-    /* should also work in chain because then scope->local must be NULL */
-    if (    ti_scope_has_local_name(query->scope, name) ||
-            ti_scope_in_use_name(query->scope, thing, name))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot assign a new value to `%.*s` while the property is in use",
-            (int) name->n, name->str);
-        goto fail1;
-    }
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
 
     if (ti_do_scope(query, scope_nd, e))
-        goto fail1;
+        goto done;
 
     if (assign_nd->len == 2)
     {
-        assert (left_val);
-        if (ti_opr_a_to_b(left_val, assign_nd, &query->rval, e))
-            goto fail1;
+        prop = do__get_prop(thing, name_nd, e);
+        if (!prop)
+            goto done;
+
+        if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
+            goto done;
+
+        ti_val_drop(prop->val);
+        prop->val = query->rval;
     }
-    else if (ti_val_make_assignable(&query->rval, e))
-        goto fail1;
+    else
+    {
+        ti_name_t * name;
+
+        if (thing->flags & TI_VFLAG_LOCK)
+        {
+            ex_set_err(e, EX_BAD_DATA,
+                "cannot assign properties while "TI_THING_ID" is in use",
+                thing->id);
+            goto done;
+        }
+
+        if (thing->props->n == max_props)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                "maximum properties quota of %zu has been reached"
+                TI_SEE_DOC("#quotas"), max_props);
+            goto done;
+        }
+
+        if (ti_val_make_assignable(&query->rval, e))
+            goto done;
+
+        name = ti_names_get(name_nd->str, name_nd->len);
+        if (!name)
+            goto alloc_err;
+
+        prop = ti_thing_prop_set(thing, name, query->rval);
+        if (!prop)
+        {
+            ti_name_drop(name);
+            goto alloc_err;
+        }
+    }
+    ti_incref(prop->val);
 
     if (thing->id)
     {
         assert (query->target);  /* only in a collection scope */
         task = ti_task_get_task(query->ev, thing, e);
-
         if (!task)
-            goto fail1;
+            goto done;
 
-        if (ti_task_add_assign(task, name, query->rval))
+        if (ti_task_add_assign(task, prop->name, prop->val))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
-
-    if (ti_thing_prop_set(thing, name, query->rval))
-    {
-        if (task)
-            free(vec_pop(task->jobs));
-        goto alloc_err;
-    }
-
-    ti_incref(query->rval);
 
     goto done;
 
 alloc_err:
     ex_set_mem(e);
-
-fail1:
-    ti_name_drop(name);
 
 done:
     ti_val_drop((ti_val_t *) thing);
@@ -715,47 +719,10 @@ done:
     return e->nr;
 }
 
-static int do__chain_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_NAME);
-    assert (ti_name_is_valid_strn(nd->str, nd->len));
-
-    ti_name_t * name;
-    ti_val_t * val;
-    ti_thing_t * thing = (ti_thing_t *) ti_query_val_pop(query);
-
-    if (thing->tp != TI_VAL_THING)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no property `%.*s`",
-                ti_val_str((ti_val_t *) thing),
-                (int) nd->len, nd->str);
-        goto done;
-    }
-
-    name = ti_names_weak_get(nd->str, nd->len);
-    val = name ? ti_thing_prop_weak_get(thing, name) : NULL;
-
-    if (!val)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
-                thing->id, (int) nd->len, nd->str);
-        goto done;
-    }
-
-    ti_scope_set_name_val(query->scope, name, val);
-
-done:
-    ti_val_drop((ti_val_t *) thing);
-
-    return e->nr;
-}
-
 static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+    assert (query->rval);
 
     cleri_children_t * child = nd           /* sequence */
                     ->children->next;       /* first is .(dot), next choice */
@@ -763,33 +730,16 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node = child->node       /* choice */
             ->children->node;               /* function, assignment,
                                                name */
+    cleri_node_t * index_node = child->next->node;
 
-    /* In case the query value is a `thing` without a scope of it's own,
-     * a scope must be created and this seems to be the right place since
-     * then the functions, assignments and chains can use the correct scope.
-     */
-    ti_thing_t * thing = (ti_thing_t *) (query->rval
-            ? (ti_val_is_thing(query->rval)
-                    ? query->rval : NULL)
-            : (query->scope->val && ti_val_is_thing(query->scope->val)
-                    ? query->scope->val : NULL));
+    int chainn = query->chained->n;
 
-    if (thing)
-    {
-        /* the scope value is a thing without an empty scope */
-        ti_scope_t * tmp_scope = ti_scope_enter(query->scope, thing);
-        if (!tmp_scope)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        query->scope = tmp_scope;
-    }
+    child = child->next->next;          /* set to chain child (or NULL) */
 
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_FUNCTION:
-        if (do__function(query, node, true, e))
+        if (do__function(query, node, true  /* is_chained */, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
@@ -797,36 +747,53 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_NAME:
-        if (do__chain_name(query, node, e))
+    {
+        ti_prop_t * prop;
+        ti_thing_t * thing;
+
+        if (!ti_val_isthing(query->rval))
+        {
+            ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
+                    ti_val_str((ti_val_t *) thing));
             return e->nr;
+        }
+
+        thing = (ti_thing_t *) query->rval;
+
+        prop = do__get_prop(thing, node, e);
+        if (!prop)
+            return e->nr;
+
+        if (thing->id && (index_node->children || child))
+        {
+            if (ti_chained_append(query->chained, thing, prop->name))
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+        }
+
+        query->rval = prop->val;
+        ti_incref(query->rval);
+        ti_val_drop((ti_val_t *) thing);
+
         break;
+    }
     default:
         assert (0);  /* all possible should be handled */
-        return -1;
+        goto done;
     }
 
-    child = child->next;
-    node = child->node;
+    if (index_node->children && do__index(query, index_node, e))
+        goto done;
 
-    if (node->children && do__index(query, node, e))
-        return e->nr;
-
-    child = child->next;
     if (!child)
-        return e->nr;
+        goto done;
 
     (void) do__chain(query, child->node, e);
-    return e->nr;
-}
 
-static int do__closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (nd->cl_obj->gid == CLERI_GID_CLOSURE);
-
-    query->rval = (ti_val_t *) ti_closure_from_node(nd);
-    if (!query->rval)
-        ex_set_mem(e);
-
+done:
+    ti_chained_leave(query->chained, chainn);
     return e->nr;
 }
 
@@ -896,9 +863,9 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_PRIMITIVES);
+    assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
     assert (!e->nr);
 
     cleri_node_t * node = nd            /* choice */
@@ -907,6 +874,21 @@ static int do__primitives(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     switch (node->cl_obj->gid)
     {
+    case CLERI_GID_T_CLOSURE:
+        if (!node->data)
+        {
+            node->data = (ti_val_t *) ti_closure_from_node(nd);
+            if (!node->data)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
+        }
+        query->rval = node->data;
+        ti_incref(query->rval);
+        break;
     case CLERI_GID_T_FALSE:
         query->rval = (ti_val_t *) ti_vbool_get(false);
         break;
@@ -1017,7 +999,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (i < 0)
     {
         ex_set(e, EX_INDEX_ERROR,
-                "`%.*s` is undefined",
+                "variable `%.*s` is undefined",
                 (int) nd->len, nd->str);
     }
     else
@@ -1026,43 +1008,6 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!query->rval)
             ex_set_mem(e);
     }
-
-    return e->nr;
-}
-
-/* changes scope->name and/or scope->thing */
-static int do__scope_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_NAME);
-    assert (ti_name_is_valid_strn(nd->str, nd->len));
-    assert (query->rval == NULL);
-    assert (query->scope->thing == query->root);
-
-    ti_name_t * name;
-    ti_val_t * val;
-
-    name = ti_names_weak_get(nd->str, nd->len);
-
-    /* first try to find the name in a local scopes */
-    val = name ? ti_scope_find_local_val(query->scope, name) : NULL;
-
-    /* next, try the root in case the `name` is not found */
-    if (!val && name)
-        val = ti_thing_prop_weak_get(query->root, name);
-
-    if (!val)
-    {
-        if (do__no_collection_scope(query))
-            return do__fixed_name(query, nd, e);
-
-        ex_set(e, EX_INDEX_ERROR,
-                "`%.*s` is undefined",
-                (int) nd->len, nd->str);
-        return e->nr;
-    }
-
-    ti_scope_set_name_val(query->scope, name, val);
 
     return e->nr;
 }
@@ -1126,7 +1071,7 @@ static int do__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        if (ti_thing_prop_set(thing, name, query->rval))
+        if (!ti_thing_prop_set(thing, name, query->rval))
         {
             ti_name_drop(name);
             goto alloc_err;
@@ -1148,39 +1093,55 @@ err:
     return e->nr;
 }
 
-/* changes scope->name and/or scope->thing */
-static int do__tmp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_TMP);
-    assert (nd->len >= 2);
-    assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
-    assert (query->rval == NULL);
-    assert (query->scope->thing == query->root);
-
     ti_name_t * name;
     ti_prop_t * prop;
 
     name = ti_names_weak_get(nd->str, nd->len);
-    prop = name ? ti_query_tmpprop_get(query, name) : NULL;
+    prop = name ? ti_query_var_get(query, name) : NULL;
 
     if (!prop)
-    {
         ex_set(e, EX_INDEX_ERROR,
                 "variable `%.*s` is undefined",
                 (int) nd->len, nd->str);
+
+    return prop;
+}
+
+/* changes scope->name and/or scope->thing */
+static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->gid == CLERI_GID_VAR);
+    assert (nd->len >= 2);
+    assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
+    assert (query->rval == NULL);
+    assert (ti_chained_get(query->chained) == NULL);
+
+    ti_prop_t * prop = do__get_var(query, nd, e);
+
+    if (!prop)
+    {
+        if (do__no_collection_scope(query))
+        {
+            e->nr = 0;
+            return do__fixed_name(query, nd, e);
+        }
         return e->nr;
     }
 
-    ti_scope_set_name_val(query->scope, name, prop->val);
+    query->rval = prop->val;
+    ti_incref(query->rval);
 
     return e->nr;
 }
 
-static int do__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_TMP_ASSIGN);
-    assert (query->scope->thing == query->root);
+    assert (nd->cl_obj->gid == CLERI_GID_VAR_ASSIGN);
+    assert (query->rval == NULL);
+    assert (ti_chained_get(query->chained) == NULL);
 
     ti_name_t * name;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
@@ -1191,63 +1152,42 @@ static int do__tmp_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
+
+    if (ti_do_scope(query, scope_nd, e))
+        return e->nr;
+
+    if (assign_nd->len == 2)
+    {
+        prop = do__get_var(query, nd, e);
+        if (!prop)
+            return e->nr;
+
+        if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
+            return e->nr;
+
+        ti_val_drop(prop->val);
+        prop->val = query->rval;
+        ti_incref(prop->val);
+        return e->nr;
+    }
+
+    /*
+     * We must make variable assignable because if we for example later `push`
+     * to an assigned array then we require a copy.
+     */
+    if (ti_val_make_assignable(&query->rval, e))
+        goto failed;
+
     name = ti_names_get(name_nd->str, name_nd->len);
     if (!name)
         goto alloc_err;
 
-    /* should also work in chain because then scope->local must be NULL */
-    if (    ti_scope_has_local_name(query->scope, name) ||
-            ti_scope_in_use_name(query->scope, query->root, name))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot assign a new value to `%.*s` while the variable is in use",
-            (int) name->n, name->str);
-        goto failed;
-    }
+    prop = ti_prop_create(name, query->rval);
+    if (!prop)
+        goto alloc_err;
 
-    prop = ti_query_tmpprop_get(query, name);
-
-    if (prop)
-    {
-        ti_decref(name);  /* we already have a reference to name */
-    }
-    else if (assign_nd->len == 2)
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "`%.*s` is undefined", (int) name->n, name->str);
-        goto failed;
-    }
-
-    if (ti_do_scope(query, scope_nd, e))
-        goto failed;
-
-    assert (query->rval);
-
-    if (prop)
-    {
-        if (    assign_nd->len == 2 &&
-                ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
-            goto failed;
-        ti_val_drop(prop->val);
-        prop->val = query->rval;
-    }
-    else
-    {
-        assert (assign_nd->len == 1);
-        prop = ti_prop_create(name, query->rval);
-        if (!prop)
-            goto alloc_err;
-
-        if (!query->vars)
-        {
-            query->vars = vec_new(1);
-            if (!query->vars)
-                goto alloc_err_with_prop;
-            VEC_push(query->vars, prop);
-        }
-        else if (vec_push(&query->vars, prop))
-            goto alloc_err_with_prop;
-    }
+    if (vec_push(&query->vars, prop))
+        goto alloc_err_with_prop;
 
     ti_incref(query->rval);
     return e->nr;
@@ -1270,8 +1210,8 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     int nots = 0;
+    uint32_t current_varn;
     cleri_node_t * node;
-    ti_scope_t * current_scope;
     cleri_children_t * nchild, * child = nd         /* sequence */
             ->children;                             /* first child, not */
 
@@ -1280,16 +1220,14 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     child = child->next;
     node = child->node                      /* choice */
-            ->children->node;               /* primitives, function,
+            ->children->node;               /* immutable, function,
                                                assignment, name, thing,
                                                array, compare, closure */
-    current_scope = query->scope;
-    query->scope = ti_scope_enter(current_scope, query->root);
-    if (!query->scope)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
+
+    /* make sure the current chain points to NULL */
+    ti_chained_null(query->chained);
+
+    current_varn = query->vars->n;
 
     switch (node->cl_obj->gid)
     {
@@ -1297,19 +1235,10 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__array(query, node, e))
             goto on_error;
         break;
-    case CLERI_GID_CLOSURE:
-        if (do__closure(query, node, e))
-            goto on_error;
-        break;
-    case CLERI_GID_ASSIGNMENT:
-        if (do__no_collection_scope(query))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "assignments are not supported in the `%s` scope",
-                    ti_query_scope_name(query));
-            goto on_error;
-        }
-        if (do__assignment(query, node, e))
+    case CLERI_GID_CHAIN:
+        query->rval = query->root;
+        ti_incref(query->rval);
+        if (do__chain(query, node, e))
             goto on_error;
         break;
     case CLERI_GID_BLOCK:
@@ -1317,11 +1246,11 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto on_error;
         break;
     case CLERI_GID_FUNCTION:
-        if (do__function(query, node, false, e))
+        if (do__function(query, node, false /* is_chained */, e))
             goto on_error;
         break;
-    case CLERI_GID_NAME:
-        if (do__scope_name(query, node, e))
+    case CLERI_GID_IMMUTABLE:
+        if (do__immutable(query, node, e))
             goto on_error;
         break;
     case CLERI_GID_OPERATIONS:
@@ -1352,20 +1281,16 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
         }
         break;
-    case CLERI_GID_PRIMITIVES:
-        if (do__primitives(query, node, e))
-            goto on_error;
-        break;
     case CLERI_GID_THING:
         if (do__scope_thing(query, node, e))
             goto on_error;
         break;
-    case CLERI_GID_TMP:
-        if (do__tmp(query, node, e))
+    case CLERI_GID_VAR:
+        if (do__var(query, node, e))
             goto on_error;
         break;
-    case CLERI_GID_TMP_ASSIGN:
-        if (do__tmp_assign(query, node, e))
+    case CLERI_GID_VAR_ASSIGN:
+        if (do__var_assign(query, node, e))
             goto on_error;
         break;
 
@@ -1385,16 +1310,16 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (child->next && do__chain(query, child->next->node, e))
         goto on_error;
 
-    if (!query->rval)
-    {
-        /* The scope value must exist since only `TMP` and `NAME` are not
-         * setting `query->rval` and they both set the scope value.
-         */
-        assert (query->scope->val);
-
-        query->rval = query->scope->val;
-        ti_incref(query->rval);
-    }
+//    if (!query->rval)
+//    {
+//        /* The scope value must exist since only `TMP` and `NAME` are not
+//         * setting `query->rval` and they both set the scope value.
+//         */
+//        assert (query->scope->val);
+//
+//        query->rval = query->scope->val;
+//        ti_incref(query->rval);
+//    }
 
     if (nots)
     {
@@ -1404,21 +1329,9 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 on_error:
-    ti_scope_leave(&query->scope, current_scope);
+    while (query->vars->n > current_varn)
+        ti_prop_destroy(vec_pop(query->vars));
     return e->nr;
-}
-
-int ti_do_optscope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (query->rval == NULL);
-    if (!nd)
-    {
-        /* TODO: check if optscope is still required */
-        assert (0);
-        query->rval = (ti_val_t *) ti_nil_get();
-        return e->nr;
-    }
-    return ti_do_scope(query, nd, e);
 }
 
 void ti__do_may_set_deep_(uint8_t * deep, cleri_children_t * child, ex_t * e)

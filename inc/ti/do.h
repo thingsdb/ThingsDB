@@ -11,7 +11,6 @@
 #include <inttypes.h>
 
 int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-int ti_do_optscope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 void ti__do_may_set_deep_(uint8_t * deep, cleri_children_t * child, ex_t * e);
 static inline void ti_do_may_set_deep(
         uint8_t * deep,

@@ -10,15 +10,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
-    _Bool is_attached = ti_scope_is_attached(query->scope);
+    ti_varr_t * varr;
+    ti_chain_t * chain = ti_chained_get(query->chained);
 
-    if (!ti_val_is_list((ti_val_t *) varr))
+    if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `push`"PUSH_DOC_,
-                ti_val_str((ti_val_t *) varr));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!nargs)
@@ -26,16 +26,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least 1 argument but 0 "
                 "were given"PUSH_DOC_);
-        goto done;
+        return e->nr;
     }
 
-    if (is_attached &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot use function `push` while the list is in use"PUSH_DOC_);
-        goto done;
-    }
+    if (ti_val_is_locked(query->rval, e) ||
+        ti_chained_in_use(query->chained, chain, e))
+        return e->nr;
+
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
 
     current_n = varr->vec->n;
     new_n = current_n + nargs;
@@ -61,10 +60,10 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_do_scope(query, child->node, e))
-            goto failed;
+            goto fail1;
 
         if (ti_varr_append(varr, (void **) &query->rval, e))
-            goto failed;
+            goto fail1;
 
         query->rval = NULL;
 
@@ -72,15 +71,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (is_attached)
+    if (chain)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto failed;
+            goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                query->scope->name,
+                chain->name,
                 varr,
                 current_n,
                 0,
@@ -97,7 +96,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 alloc_err:
     ex_set_mem(e);
 
-failed:
+fail1:
     while (varr->vec->n > current_n)
     {
         ti_val_drop(vec_pop(varr->vec));

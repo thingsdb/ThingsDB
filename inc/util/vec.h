@@ -42,6 +42,14 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
     v__ < e__ && ((var__ = *v__) || 1); \
     v__++
 
+/* use vec_each_rev in a for loop to go through all values reverserd.
+ * do not change the vec while iterating over the values */
+#define vec_each_rev(vec__, dt__, var__) \
+    dt__ * var__, \
+    ** e__ = (dt__ **) (vec__)->data, \
+    ** v__ = v__ + (vec__)->n; \
+    v__ < e__ && ((var__ = *(--v__)) || 1);
+
 struct vec_s
 {
     uint32_t n;

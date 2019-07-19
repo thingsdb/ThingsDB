@@ -11,9 +11,9 @@ typedef struct ti_name_s ti_name_t;
 #include <ti/val.h>
 
 ti_name_t * ti_name_create(const char * str, size_t n);
-void ti_name_drop(ti_name_t * name);
+void ti_name_destroy(ti_name_t * name);
 _Bool ti_name_is_valid_strn(const char * str, size_t n);
-static inline void ti_name_destroy(ti_name_t * name);
+static inline void ti_name_drop(ti_name_t * name);
 
 /*
  * name can be cast to raw. the difference is in `char str[]`, but the other
@@ -29,9 +29,11 @@ struct ti_name_s
     char str[];             /* null terminated string */
 };
 
-static inline void ti_name_destroy(ti_name_t * name)
+
+static inline void ti_name_drop(ti_name_t * name)
 {
-    free(name);
+    if (name && !--name->ref)
+        ti_name_destroy(name);
 }
 
 #endif /* TI_NAME_H_ */

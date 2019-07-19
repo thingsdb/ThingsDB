@@ -74,7 +74,7 @@ int vec_push(vec_t ** vaddr, void * data)
     {
         size_t sz = vec->sz;
 
-        if (sz < 4)
+        if (sz < 2)
             vec->sz++;
         else if (sz < 64)
             vec->sz *= 2;

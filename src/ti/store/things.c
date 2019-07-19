@@ -225,7 +225,7 @@ int ti_store_things_restore_data(
                 goto fail2;
             }
 
-            if (ti_thing_prop_set(thing, name, val))
+            if (!ti_thing_prop_set(thing, name, val))
                 goto fail2;
 
             ti_incref(name);

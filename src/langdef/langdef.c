@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-07-17 22:31:36
+ * Created at: 2019-07-19 08:50:47
  */
 
 #include <langdef/langdef.h>
@@ -37,21 +37,17 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
     cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
-    cleri_t * tmp = cleri_regex(CLERI_GID_TMP, "^\\$[A-Za-z_][0-9A-Za-z_]*");
-    cleri_t * primitives = cleri_choice(
-        CLERI_GID_PRIMITIVES,
-        CLERI_FIRST_MATCH,
-        7,
-        t_false,
-        t_nil,
-        t_true,
-        t_float,
-        t_int,
-        t_string,
-        t_regex
-    );
+    cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * scope = cleri_ref();
     cleri_t * chain = cleri_ref();
+    cleri_t * t_closure = cleri_sequence(
+        CLERI_GID_T_CLOSURE,
+        4,
+        cleri_token(CLERI_NONE, "|"),
+        cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_token(CLERI_NONE, "|"),
+        scope
+    );
     cleri_t * thing = cleri_sequence(
         CLERI_GID_THING,
         3,
@@ -72,14 +68,6 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "]")
     );
-    cleri_t * closure = cleri_sequence(
-        CLERI_GID_CLOSURE,
-        4,
-        cleri_token(CLERI_NONE, "|"),
-        cleri_list(CLERI_NONE, name, cleri_token(CLERI_NONE, ","), 0, 0, 1),
-        cleri_token(CLERI_NONE, "|"),
-        scope
-    );
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
         4,
@@ -87,6 +75,19 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, "("),
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
+    );
+    cleri_t * immutable = cleri_choice(
+        CLERI_GID_IMMUTABLE,
+        CLERI_FIRST_MATCH,
+        8,
+        t_false,
+        t_nil,
+        t_true,
+        t_float,
+        t_int,
+        t_string,
+        t_regex,
+        t_closure
     );
     cleri_t * opr0_mul_div_mod = cleri_tokens(CLERI_GID_OPR0_MUL_DIV_MOD, "// * / %");
     cleri_t * opr1_add_sub = cleri_tokens(CLERI_GID_OPR1_ADD_SUB, "+ -");
@@ -145,10 +146,10 @@ cleri_grammar_t * compile_langdef(void)
         cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
         scope
     );
-    cleri_t * tmp_assign = cleri_sequence(
-        CLERI_GID_TMP_ASSIGN,
+    cleri_t * var_assign = cleri_sequence(
+        CLERI_GID_VAR_ASSIGN,
         3,
-        tmp,
+        var,
         cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
         scope
     );
@@ -199,14 +200,12 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            11,
-            primitives,
+            9,
+            chain,
+            immutable,
             function,
-            assignment,
-            tmp_assign,
-            name,
-            closure,
-            tmp,
+            var_assign,
+            var,
             thing,
             array,
             operations,

@@ -11,15 +11,18 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_name_t * name;
     ti_raw_t * rname;
-    ti_thing_t * thing = (ti_thing_t *) ti_query_val_pop(query);
+    ti_thing_t * thing;
 
-    if (thing->tp != TI_VAL_THING)
+    if (!ti_val_isthing(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `del`"DEL_DOC_,
                 ti_val_str((ti_val_t *) thing));
-        goto done;
+        return e->nr;
     }
+
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
@@ -30,20 +33,11 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (!thing->id)
+    if (thing->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `del` can only be used on things with an id > 0; "
-                "things which are assigned automatically receive an id"
-                DEL_DOC_);
-        goto done;
-    }
-
-    if (ti_scope_in_use_thing(query->scope->prev, thing))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "cannot use `del` while thing "TI_THING_ID" is in use"DEL_DOC_,
-                thing->id);
+            "cannot delete properties while "TI_THING_ID" is in use"DEL_DOC_,
+            thing->id);
         goto done;
     }
 
@@ -82,14 +76,17 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    task = ti_task_get_task(query->ev, thing, e);
-    if (!task)
-        goto done;
-
-    if (ti_task_add_del(task, rname))
+    if (thing->id)
     {
-        ex_set_mem(e);
-        goto done;
+        task = ti_task_get_task(query->ev, thing, e);
+        if (!task)
+            goto done;
+
+        if (ti_task_add_del(task, rname))
+        {
+            ex_set_mem(e);
+            goto done;
+        }
     }
 
     ti_val_drop(query->rval);
@@ -97,6 +94,5 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 done:
     ti_val_drop((ti_val_t *) thing);
-
     return e->nr;
 }

@@ -72,13 +72,13 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_scope_polute_prop(query->scope, p))
                 goto fail2;
 
-            if (ti_do_optscope(query, ti_closure_scope_nd(closure), e))
+            if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))
             {
                 if (    ti_val_make_assignable(&p->val, e) ||
-                        ti_thing_prop_set(thing, p->name, p->val))
+                        !ti_thing_prop_set(thing, p->name, p->val))
                     goto fail2;
                 ti_incref(p->name);
                 ti_incref(p->val);
@@ -103,7 +103,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_scope_polute_val(query->scope, v, idx))
                 goto fail2;
 
-            if (ti_do_optscope(query, ti_closure_scope_nd(closure), e))
+            if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))
@@ -133,7 +133,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
                 goto fail2;
 
-            if (ti_do_optscope(query, ti_closure_scope_nd(closure), e))
+            if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))

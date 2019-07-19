@@ -29,6 +29,7 @@ int ti_chained_append(
 
     if (chained->n == chained->sz)
     {
+        ti_chained_t * tmp;
         int sz = chained->sz;
 
         if (sz < 2)
@@ -38,7 +39,7 @@ int ti_chained_append(
         else
             chained->sz += 32;
 
-        vec_t * tmp = realloc(
+        tmp = realloc(
                 chained,
                 sizeof(ti_chained_t) + chained->sz * sizeof(ti_chain_t));
 
@@ -54,7 +55,7 @@ int ti_chained_append(
 
     chained->current = chained->n;
 
-    chain = chained->chain[chained->n++];
+    chain = &chained->chain[chained->n++];
     chain->thing = thing;
     chain->name = name;
 
@@ -63,7 +64,6 @@ int ti_chained_append(
 
     return 0;
 }
-
 
 _Bool ti__chained_in_use_(
         ti_chained_t * chained,
@@ -95,7 +95,7 @@ void ti__chained_leave_(ti_chained_t * chained, int until)
     ti_chain_t * chain;
     do
     {
-        chain = chained->chain[--chained->n];
+        chain = &chained->chain[--chained->n];
         ti_val_drop(chain->thing);
         ti_name_drop(chain->name);
     }

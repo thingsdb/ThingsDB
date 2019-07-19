@@ -126,7 +126,7 @@ typedef enum
     TI_FN_RAISE,
     TI_FN_REFS,
     TI_FN_REMOVE,
-    TI_FN_RENAME,
+//    TI_FN_RENAME,
     TI_FN_SET,
     TI_FN_SPLICE,
     TI_FN_STARTSWITH,

@@ -3,26 +3,21 @@
 #define REMOVE_LIST_DOC_ TI_SEE_DOC("#remove-list")
 #define REMOVE_SET_DOC_ TI_SEE_DOC("#remove-set")
 
-static void do__f_remove_list(
-        ti_varr_t * varr,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     _Bool found;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
-    ti_closure_t * closure = NULL;
-    _Bool is_attached = ti_scope_is_attached(query->scope);
-
-    assert (ti_val_is_list((ti_val_t *) varr));
+    ti_closure_t * closure;
+    ti_varr_t * varr;
+    ti_chain_t * chain = ti_chained_get(query->chained);
 
     if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` requires at least 1 argument but 0 "
                 "were given"REMOVE_LIST_DOC_);
-        goto fail1;
+        return;
     }
 
     if (nargs > 2)
@@ -30,17 +25,15 @@ static void do__f_remove_list(
         ex_set(e, EX_BAD_DATA,
                 "function `remove` takes at most 2 arguments but %d "
                 "were given"REMOVE_LIST_DOC_, nargs);
-        goto fail1;
+        return;
     }
 
-    if (is_attached &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "cannot use function `remove` while the list is in use"
-                REMOVE_LIST_DOC_);
-        goto fail1;
-    }
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
+        return;
+
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
 
     if (ti_do_scope(query, nd->children->node, e))
         goto fail1;
@@ -58,22 +51,21 @@ static void do__f_remove_list(
     query->rval = NULL;
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock(closure, e))
-        goto fail1;
-
-    if (ti_scope_local_from_closure(query->scope, closure, e))
+            ti_closure_try_lock_and_use(closure, query, e))
         goto fail2;
+
+    vec_extend(&query->vars, closure->vars->data, closure->vars->n);
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
-        if (ti_scope_polute_val(query->scope, v, idx))
+        if (ti_closure_vars_val_idx(closure, v, idx))
         {
             ex_set_mem(e);
-            goto fail2;
+            goto fail3;
         }
 
-        if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
-            goto fail2;
+        if (ti_do_scope(query, ti_closure_scope(closure), e))
+            goto fail3;
 
         found = ti_val_as_bool(query->rval);
         ti_val_drop(query->rval);
@@ -83,18 +75,16 @@ static void do__f_remove_list(
             query->rval = v;  /* we can move the reference here */
             (void) vec_remove(varr->vec, idx);
 
-            if (is_attached)
+            if (chain)
             {
                 ti_task_t * task;
-                assert (query->scope->thing);
-                assert (query->scope->name);
-                task = ti_task_get_task(query->ev, query->scope->thing, e);
+                task = ti_task_get_task(query->ev, chain->thing, e);
                 if (!task)
-                    goto fail2;
+                    goto fail3;
 
                 if (ti_task_add_splice(
                         task,
-                        query->scope->name,
+                        chain->name,
                         NULL,
                         idx,
                         1,
@@ -119,11 +109,15 @@ static void do__f_remove_list(
     }
 
 done:
+fail3:
+    ti_closure_unlock_use(closure, query);
+
 fail2:
-    ti_closure_unlock(closure);
+    ti_val_drop((ti_val_t *) closure);
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
+    ti_val_drop((ti_val_t *) varr);
 }
 
 static int do__f_remove_set_from_closure(
@@ -152,21 +146,18 @@ static int do__f_remove_set_from_closure(
     }
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock(closure, e))
+            ti_closure_try_lock_and_use(closure, query, e))
         goto fail1;
-
-    if (ti_scope_local_from_closure(query->scope, closure, e))
-        goto fail2;
 
     for (vec_each(vec, ti_thing_t, t))
     {
-        if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
+        if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
         {
             ex_set_mem(e);
             goto fail2;
         }
 
-        if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
+        if (ti_do_scope(query, ti_closure_scope(closure), e))
             goto fail2;
 
         if (ti_val_as_bool(query->rval) && vec_push(removed, t))
@@ -180,7 +171,7 @@ static int do__f_remove_set_from_closure(
     }
 
 fail2:
-    ti_closure_unlock(closure);
+    ti_closure_unlock_use(closure, query);
 
 fail1:
     ti_val_drop((ti_val_t *) closure);
@@ -188,16 +179,14 @@ fail1:
 }
 
 static void do__f_remove_set(
-        ti_vset_t * vset,
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
 {
     vec_t * removed = NULL;
     const int nargs = langdef_nd_n_function_params(nd);
-    _Bool is_attached = ti_scope_is_attached(query->scope);
-
-    assert (ti_val_is_set((ti_val_t *) vset));
+    ti_chain_t * chain = ti_chained_get(query->chained);
+    ti_vset_t * vset;
 
     if (nargs < 1)
     {
@@ -207,17 +196,15 @@ static void do__f_remove_set(
         return;
     }
 
-    if (is_attached &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "cannot use function `remove` while the set is in use"
-                REMOVE_SET_DOC_);
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
         return;
-    }
+
+    vset = (ti_vset_t *) query->rval;
+    query->rval = NULL;
 
     if (ti_do_scope(query, nd->children->node, e))
-        return;
+        goto fail0;
 
     if (ti_val_is_closure(query->rval))
     {
@@ -225,11 +212,11 @@ static void do__f_remove_set(
         if (!removed)
         {
             ex_set_mem(e);
-            return;
+            goto fail0;
         }
 
         if (do__f_remove_set_from_closure(&removed, vset, query, nargs, e))
-            goto failed;
+            goto fail1;
 
         assert (query->rval == NULL);
 
@@ -245,7 +232,7 @@ static void do__f_remove_set(
         if (!removed)
         {
             ex_set_mem(e);
-            return;
+            goto fail0;
         }
 
         for (narg = 1;;++narg)
@@ -264,7 +251,7 @@ static void do__f_remove_set(
                         "but got type `%s` instead"REMOVE_SET_DOC_,
                         narg, ti_val_str(query->rval));
 
-                goto failed;
+                goto fail1;
             }
 
             if (ti_vset_pop(vset, (ti_thing_t *) query->rval))
@@ -277,23 +264,23 @@ static void do__f_remove_set(
                 break;
 
             if (ti_do_scope(query, child->node, e))
-                goto failed;
+                goto fail1;
         }
     }
 
-    if (removed->n && is_attached)
+    if (removed->n && chain)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto failed;
+            goto fail1;
 
         if (ti_task_add_remove(
                 task,
-                query->scope->name,
+                chain->name,
                 removed))
         {
             ex_set_mem(e);
-            goto failed;
+            goto fail1;
         }
     }
 
@@ -304,7 +291,7 @@ static void do__f_remove_set(
 
     ex_set_mem(e);
 
-failed:
+fail1:
     while (removed->n)
         /* if the `thing` is already in the set, then the set still owns the
          * thing, else the thing was owned by the `removed` vector so in
@@ -312,6 +299,10 @@ failed:
         if (ti_vset_add(vset, vec_pop(removed)) == IMAP_ERR_ALLOC)
             ex_set_mem(e);
     free(removed);
+
+fail0:
+    ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
+    ti_val_drop((ti_val_t *) vset);
 }
 
 static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -319,18 +310,16 @@ static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = ti_query_val_pop(query);
 
-    if (ti_val_is_list(val))
-        do__f_remove_list((ti_varr_t *) val, query, nd, e);
-    else if (ti_val_is_set(val))
-        do__f_remove_set((ti_vset_t *) val, query, nd, e);
+    if (ti_val_is_list(query->rval))
+        do__f_remove_list(query, nd, e);
+    else if (ti_val_is_set(query->rval))
+        do__f_remove_set(query, nd, e);
     else
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `remove`"
                 REMOVE_LIST_DOC_ REMOVE_SET_DOC_,
-                ti_val_str(val));
+                ti_val_str(query->rval));
 
-    ti_val_drop(val);
     return e->nr;
 }

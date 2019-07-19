@@ -10,6 +10,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <stdint.h>
 #include <ti/name.h>
 #include <ti/val.h>
+#include <ti/prop.h>
 #include <ti/watch.h>
 #include <ti/stream.h>
 #include <util/vec.h>

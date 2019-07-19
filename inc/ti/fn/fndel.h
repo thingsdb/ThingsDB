@@ -13,16 +13,14 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rname;
     ti_thing_t * thing;
 
-    if (!ti_val_isthing(query->rval))
+
+    if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `del`"DEL_DOC_,
-                ti_val_str((ti_val_t *) thing));
+                ti_val_str(query->rval));
         return e->nr;
     }
-
-    thing = (ti_thing_t *) query->rval;
-    query->rval = NULL;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
@@ -30,21 +28,28 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `del` takes 1 argument but %d were given"DEL_DOC_,
                 nargs);
-        goto done;
+        return e->nr;
     }
 
-    if (thing->flags & TI_VFLAG_LOCK)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot delete properties while "TI_THING_ID" is in use"DEL_DOC_,
-            thing->id);
-        goto done;
-    }
+    /*
+     * This is a check for `iteration`.
+     *
+     * // without lock it breaks even with normal variable, luckily map puts
+     * // a lock.
+     * tmp.map(|| {
+     *     tmp.del('x');
+     * }
+     */
+    if (ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
 
     name_nd = nd->children->node;
 
     if (ti_do_scope(query, name_nd, e))
-        goto done;
+        goto unlock;
 
     if (!ti_val_is_raw(query->rval))
     {
@@ -52,11 +57,34 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `del` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"DEL_DOC_,
                 ti_val_str(query->rval));
-        goto done;
+        goto unlock;
     }
 
     rname = (ti_raw_t *) query->rval;
     name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    /*
+     * In use check for the following scenario:
+     *
+     * // create `del` task before `assign` task.
+     * .store.a = {
+     *      .del('store');
+     *  };
+     *
+     *  // but this is no problem:
+     * .store.a = {
+     *      .del('something');
+     *  };
+     *
+     */
+    if (thing->id && name)
+    {
+        ti_chain_t chain;
+        chain.thing = thing;
+        chain.name = name;
+        if (ti_chained_in_use(query->chained, &chain, e))
+            goto unlock;
+    }
 
     if (!name || !ti_thing_del(thing, name))
     {
@@ -73,26 +101,27 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     "function `del` expects argument 1 to be a valid name"
                     TI_SEE_DOC("#names"));
         }
-        goto done;
+        goto unlock;
     }
 
     if (thing->id)
     {
         task = ti_task_get_task(query->ev, thing, e);
         if (!task)
-            goto done;
+            goto unlock;
 
         if (ti_task_add_del(task, rname))
         {
             ex_set_mem(e);
-            goto done;
+            goto unlock;
         }
     }
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
-done:
+unlock:
+    ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }

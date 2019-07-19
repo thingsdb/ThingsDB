@@ -147,7 +147,7 @@ static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
 static inline int ti_val_ensure_lock(ti_val_t * val);
-static inline void ti_val_unlock(ti_val_t * val);
+static inline void ti_val_unlock(ti_val_t * val, int lock_was_set);
 struct ti_val_s
 {
     uint32_t ref;
@@ -243,24 +243,43 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
     );
 }
 
-static inline _Bool ti_val_is_locked(ti_val_t * val, ex_t * e)
+static inline _Bool ti_val_overflow_cast(double d)
+{
+    return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
+}
+
+/*
+ * Return 0 when a new lock is set, or -1 if failed and `e` is set.
+ *
+ * Use `ti_val_try_lock(..)` if you require a lock but no current lock
+ * may be set. This is when you make changes, for example with `push`.
+ *
+ * Call `ti_val_unlock(..)` with `true` as second argument after a successful
+ * lock.
+ */
+static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
 {
     if (val->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_BAD_DATA,
             "cannot change type `%s` while the value is in use",
             ti_val_str(val));
-        return true;
+        return -1;
     }
-    return false;
+
+    return (val->flags |= TI_VFLAG_LOCK) & 0;
 }
 
-static inline _Bool ti_val_overflow_cast(double d)
-{
-    return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
-}
-
-/* returns `lock_was_set`: 0 if already locked, 1 if a new lock is set */
+/*
+ * Returns `lock_was_set`: 0 if already locked, 1 if a new lock is set
+ *
+ * Use `ti_val_ensure_lock(..)` if you require a lock but it does not matter
+ * if the value is already locked by someone else. The return value can be
+ * used with the `ti_val_unlock(..)` function.
+ *
+ * For example in the `map(..)` function requires a lock but since `map`
+ * does not make changes it is no problem if another lock was set.
+ */
 static inline int ti_val_ensure_lock(ti_val_t * val)
 {
     return (val->flags & TI_VFLAG_LOCK)

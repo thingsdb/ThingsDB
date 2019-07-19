@@ -59,12 +59,9 @@ int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
 void ti_query_send(ti_query_t * query, ex_t * e);
-ti_val_t * ti_query_val_pop(ti_query_t * query);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
-
-
 
 struct ti_query_s
 {
@@ -81,10 +78,10 @@ struct ti_query_s
                                    is a node stream */
     vec_t * blobs;              /* ti_raw_t */
     vec_t * vars;               /* ti_prop_t - variable */
-    vec_t * chained;           /* ti_chain_t */
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */
+    ti_chained_t * chained;     /* ti_chain_t */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
 //    ti_scope_t * scope;         /* scope status */
 };

@@ -5,8 +5,10 @@
 #include <langdef/langdef.h>
 #include <ti/closure.h>
 #include <ti/ncache.h>
+#include <ti/names.h>
 #include <ti/regex.h>
 #include <ti/vfloat.h>
+#include <ti/nil.h>
 #include <ti/vint.h>
 #include <util/logger.h>
 #include <util/strx.h>
@@ -66,7 +68,7 @@ static cleri_node_t * closure__node_from_strn(
             ->children->next->node          /* Choice */
             ->children->node;               /* closure */
 
-    if (node->cl_obj->gid != CLERI_GID_CLOSURE)
+    if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
         ex_set(e, EX_INDEX_ERROR, "node is not a closure");
         goto fail1;
@@ -129,6 +131,52 @@ static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
         closure__node_to_buf(child->node, buf, n);
 }
 
+static vec_t * closure__create_vars(ti_closure_t * closure)
+{
+    vec_t * vars;
+    size_t n;
+    cleri_children_t * child, * first;
+
+    first = closure->node               /* sequence */
+            ->children->next->node      /* list */
+            ->children;                 /* first child */
+
+    for (n = 0, child = first; child && ++n; child = child->next->next)
+        if (!child->next)
+            break;
+
+    vars = vec_new(n);
+    if (!vars)
+        return NULL;
+
+    for (child = first; child; child = child->next->next)
+    {
+        ti_val_t * val = (ti_val_t *) ti_nil_get();
+        ti_name_t * name = ti_names_get(child->node->str, child->node->len);
+        ti_prop_t * prop;
+        if (!name)
+            goto failed;
+
+        prop = ti_prop_create(name, val);
+        if (!prop)
+        {
+            ti_name_drop(name);
+            ti_val_drop(val);
+            goto failed;
+        }
+
+        VEC_push(vars, prop);
+        if (!child->next)
+            break;
+    }
+
+    return vars;
+
+failed:
+    vec_destroy(vars, (vec_destroy_cb) ti_prop_destroy);
+    return NULL;
+}
+
 /*
  * Return a closure which is bound to the query. The node for this closure can
  * only be used for as long as the 'query' exists in memory. If the closure
@@ -149,7 +197,12 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node)
      */
     closure->flags = (uintptr_t) node->data;
     closure->node = node;
-
+    closure->vars = closure__create_vars(closure);
+    if (!closure->vars)
+    {
+        ti_closure_destroy(closure);
+        return NULL;
+    }
     return closure;
 }
 
@@ -168,9 +221,11 @@ ti_closure_t * ti_closure_from_strn(
     closure->flags = syntax->flags & TI_SYNTAX_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
-    if (!closure->node)
+    closure->vars = closure__create_vars(closure);
+
+    if (!closure->node || !closure->vars)
     {
-        free(closure);
+        ti_closure_destroy(closure);
         return NULL;
     }
 
@@ -182,12 +237,13 @@ void ti_closure_destroy(ti_closure_t * closure)
     if (!closure)
         return;
 
-    if (closure__is_unbound(closure))
+    if (closure__is_unbound(closure) && closure->node)
     {
         ti_ncache_destroy((ti_ncache_t *) closure->node->data);
         cleri__node_free(closure->node);
     }
 
+    vec_destroy(closure->vars, (vec_destroy_cb) ti_prop_destroy);
     free(closure);
 }
 
@@ -294,6 +350,64 @@ uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n)
     return buf;
 }
 
+int ti_closure_lock_and_use(
+        ti_closure_t * closure,
+        ti_query_t * query,
+        ex_t * e)
+{
+    if (vec_extend(&query->vars, closure->vars->data, closure->vars->n))
+    {
+        ex_set_mem(e);
+        return -1;
+    }
+
+    closure->flags |= TI_VFLAG_LOCK;
+    return 0;
+}
+
+int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
+{
+    size_t n = 0;
+    for (vec_each(closure->vars, ti_prop_t, p), ++n)
+    {
+       switch (n)
+       {
+       case 0:
+           ti_val_drop(p->val);
+           p->val = v;
+           ti_incref(p->val);
+           break;
+       case 1:
+           ti_val_drop(p->val);
+           p->val = (ti_val_t *) ti_vint_create(i);
+           if (!p->val)
+               return -1;
+           break;
+       default:
+           return 0;
+       }
+    }
+    return 0;
+}
+
+void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
+{
+    assert (query->vars->n >= closure->vars->n);
+
+    closure->flags &= ~TI_VFLAG_LOCK;
+    query->vars->n -= closure->vars->n;
+
+    for (vec_each(closure->vars, ti_prop_t, p))
+    {
+        if (!ti_val_is_nil(p->val))
+        {
+            ti_val_drop(p->val);
+            p->val = (ti_val_t *) ti_nil_get();
+        }
+    }
+}
+
+/* cannot be static in-line due to syntax */
 int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
     if (    (closure->flags & TI_VFLAG_CLOSURE_WSE) &&

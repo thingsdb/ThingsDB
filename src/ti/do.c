@@ -255,8 +255,8 @@ static int do__function(
         do__no_chain_fn(do__f_refs);
     case TI_FN_REMOVE:
         return do__f_remove(query, params, e);
-    case TI_FN_RENAME:
-        return do__f_rename(query, params, e);
+//    case TI_FN_RENAME:
+//        return do__f_rename(query, params, e);
     case TI_FN_SET:
         do__no_chain_fn(do__f_set);
     case TI_FN_SPLICE:
@@ -376,22 +376,17 @@ static int do__function(
     }
 
     if (is_chained)
-    {
-        ti_val_t * val = ti_query_val_pop(query);
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `%.*s`",
-                ti_val_str(val),
+                ti_val_str(query->rval),
                 fname->len,
                 fname->str);
-        ti_val_drop(val);
-    }
     else
-    {
         ex_set(e, EX_INDEX_ERROR,
                 "function `%.*s` is undefined",
                 fname->len,
                 fname->str);
-    }
+
     return e->nr;
 
 no_thingsdb_or_collection_scope:
@@ -514,7 +509,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * scope_nd = nd                /* sequence */
             ->children->next->next->node;       /* scope */
 
-    if (!ti_val_isthing(query->rval))
+    if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
                 ti_val_str((ti_val_t *) thing));
@@ -533,6 +528,16 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!prop)
             goto done;
 
+        /* TODO: do we need the "in use" check here? */
+//        if (thing->id)
+//        {
+//            ti_chain_t chain;
+//            chain.thing = thing;
+//            chain.name = prop->name;
+//            if (ti_chained_in_use(query->chained, &chain, e))
+//                goto done;
+//        }
+
         if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
             goto done;
 
@@ -543,9 +548,14 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_name_t * name;
 
+        /*
+         * TODO: Validate that we really do not require a lock. I think not,
+         * the scope is already processed above and if we do require a lock,
+         * the lock must be placed before processing the scope.
+         */
         if (thing->flags & TI_VFLAG_LOCK)
         {
-            ex_set_err(e, EX_BAD_DATA,
+            ex_set(e, EX_BAD_DATA,
                 "cannot assign properties while "TI_THING_ID" is in use",
                 thing->id);
             goto done;
@@ -565,6 +575,19 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         name = ti_names_get(name_nd->str, name_nd->len);
         if (!name)
             goto alloc_err;
+
+        /* TODO: do we need the "in use" check here? */
+//        if (thing->id)
+//        {
+//            ti_chain_t chain;
+//            chain.thing = thing;
+//            chain.name = name;
+//            if (ti_chained_in_use(query->chained, &chain, e))
+//            {
+//                ti_name_drop(name);
+//                goto done;
+//            }
+//        }
 
         prop = ti_thing_prop_set(thing, name, query->rval);
         if (!prop)
@@ -636,9 +659,10 @@ static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     cleri_children_t * child;
     cleri_node_t * node;
-    ti_val_t * val = ti_query_val_pop(query);
     int64_t idx;
     ssize_t n;
+    ti_val_t * val = query->rval;
+    query->rval = NULL;
 
     /* multiple indexes are possible, for example x[0][0] */
     for (child = nd->children; child; child = child->next)
@@ -751,7 +775,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_prop_t * prop;
         ti_thing_t * thing;
 
-        if (!ti_val_isthing(query->rval))
+        if (!ti_val_is_thing(query->rval))
         {
             ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
                     ti_val_str((ti_val_t *) thing));
@@ -766,7 +790,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (thing->id && (index_node->children || child))
         {
-            if (ti_chained_append(query->chained, thing, prop->name))
+            if (ti_chained_append(&query->chained, thing, prop->name))
             {
                 ex_set_mem(e);
                 return e->nr;
@@ -1236,7 +1260,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto on_error;
         break;
     case CLERI_GID_CHAIN:
-        query->rval = query->root;
+        query->rval = (ti_val_t *) query->root;
         ti_incref(query->rval);
         if (do__chain(query, node, e))
             goto on_error;

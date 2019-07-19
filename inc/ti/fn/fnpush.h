@@ -29,8 +29,8 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_val_is_locked(query->rval, e) ||
-        ti_chained_in_use(query->chained, chain, e))
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;
@@ -104,6 +104,7 @@ fail1:
     (void) vec_shrink(&varr->vec);
 
 done:
+    ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
     return e->nr;
 }

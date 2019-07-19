@@ -27,6 +27,7 @@ static inline _Bool ti_chained_in_use(
         ti_chained_t * chained,
         ti_chain_t * chain,
         ex_t * e);
+void ti__chained_leave_(ti_chained_t * chained, int until);
 static inline void ti_chained_destroy(ti_chained_t * chained);
 static inline ti_chain_t * ti_chained_get(ti_chained_t * chained);
 static inline void ti_chained_null(ti_chained_t * chained);
@@ -63,7 +64,7 @@ static inline void ti_chained_destroy(ti_chained_t * chained)
 static inline ti_chain_t * ti_chained_get(ti_chained_t * chained)
 {
     assert (chained->current == -1 || chained->current == chained->n -1);
-    return chained->current < 0 ? NULL : chained->chain[chained->current];
+    return chained->current < 0 ? NULL : &chained->chain[chained->current];
 }
 
 static inline void ti_chained_leave(ti_chained_t * chained, int until)

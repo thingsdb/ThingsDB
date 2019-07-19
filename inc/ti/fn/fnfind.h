@@ -71,7 +71,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 goto fail2;
             }
 
-            if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
+            if (ti_do_scope(query, ti_closure_scope(closure), e))
                 goto fail2;
 
             found = ti_val_as_bool(query->rval);
@@ -106,7 +106,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 goto fail2;
             }
 
-            if (ti_do_scope(query, ti_closure_scope_nd(closure), e))
+            if (ti_do_scope(query, ti_closure_scope(closure), e))
                 goto fail2;
 
             found = ti_val_as_bool(query->rval);

@@ -9,14 +9,14 @@ static int do__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_raw_t * rname;
     ti_name_t * name;
-    ti_thing_t * thing = (ti_thing_t *) ti_query_val_pop(query);
+    ti_thing_t * thing;
 
-    if (!ti_val_is_thing((ti_val_t *) thing))
+    if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `hasprop`"HASPROP_DOC_,
-                ti_val_str((ti_val_t *) thing));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -25,11 +25,14 @@ static int do__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `hasprop` takes 1 argument but %d were given"
                 HASPROP_DOC_, nargs);
-        goto done;
+        return e->nr;
     }
 
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
+
     if (ti_do_scope(query, nd->children->node, e))
-        goto done;
+        goto fail1;
 
     if (!ti_val_is_raw(query->rval))
     {
@@ -37,7 +40,7 @@ static int do__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `hasprop` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"HASPROP_DOC_,
                 ti_val_str(query->rval));
-        goto done;
+        goto fail1;
     }
 
     rname = (ti_raw_t *) query->rval;
@@ -47,7 +50,7 @@ static int do__f_hasprop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_vbool_get(
             name && ti_thing_val_weak_get(thing, name));
 
-done:
+fail1:
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }

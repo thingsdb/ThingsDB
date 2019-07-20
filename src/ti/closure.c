@@ -85,7 +85,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node->data = ncache;
-    if (ti_ncache_gen_primitives(ncache->val_cache, node, e))
+    if (ti_ncache_gen_immutable(ncache->val_cache, node, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
@@ -183,7 +183,7 @@ failed:
  * will be stored for later usage, a call to `ti_closure_unbound` must be
  * made.
  */
-ti_closure_t * ti_closure_from_node(cleri_node_t * node)
+ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t * flags)
 {
     ti_closure_t * closure = malloc(sizeof(ti_closure_t));
     if (!closure)
@@ -192,10 +192,9 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node)
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     /*
-     * Either TI_VFLAG_CLOSURE_BTSCOPE or TI_VFLAG_CLOSURE_BCSCOPE is stored
-     * within `node->data`, and no other flags.
+     * TODO: flags check;
      */
-    closure->flags = (uintptr_t) node->data;
+    closure->flags = flags;
     closure->node = node;
     closure->vars = closure__create_vars(closure);
     if (!closure->vars)
@@ -252,12 +251,16 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     cleri_node_t * node;
     ti_syntax_t syntax;
 
-    if (closure__is_unbound(closure))
-        return e->nr;
+    LOGC("HERE...1!!!!");
 
+    if (closure__is_unbound(closure))
+        return 0;
+
+    LOGC("HERE...2!!!!");
     if (ti_closure_try_lock(closure, e))
         return e->nr;
 
+    LOGC("HERE...3!!!!");
     ti_syntax_init(&syntax, closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
             ? TI_SYNTAX_FLAG_THINGSDB
             : TI_SYNTAX_FLAG_COLLECTION);
@@ -271,6 +274,8 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
         ti_closure_unlock(closure);
         return e->nr;
     }
+
+    LOGC("HERE!!!!");
 
     /* overwrite the existing flags, this will also unlock */
     closure->flags = syntax.flags & TI_SYNTAX_FLAG_EVENT
@@ -362,6 +367,30 @@ int ti_closure_lock_and_use(
     }
 
     closure->flags |= TI_VFLAG_LOCK;
+    return 0;
+}
+int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
+{
+    size_t n = 0;
+    for (vec_each(closure->vars, ti_prop_t, p), ++n)
+    {
+        switch (n)
+        {
+        case 0:
+            ti_val_drop(p->val);
+            p->val = (ti_val_t *) prop->name;
+            ti_incref(p->val);
+            break;
+        case 1:
+            p->val = prop->val;
+            ti_incref(p->val);
+            if (ti_val_make_assignable(&p->val, e))
+                return e->nr;
+            break;
+        default:
+            return 0;
+        }
+    }
     return 0;
 }
 

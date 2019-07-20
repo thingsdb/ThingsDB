@@ -7,15 +7,16 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
-    _Bool is_attached = ti_scope_is_attached(query->scope);
+    ti_varr_t * varr;
+    ti_chain_t * chain = ti_chained_get(query->chained);
 
-    if (!ti_val_is_list((ti_val_t *) varr))
+
+    if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `pop`"POP_DOC_,
-                ti_val_str((ti_val_t *) varr));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!langdef_nd_fun_has_zero_params(nd))
@@ -24,39 +25,34 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `pop` takes 0 arguments but %d %s given"POP_DOC_,
                 nargs, nargs == 1 ? "was" : "were");
-        goto done;
+        return e->nr;
     }
 
-    if (is_attached &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "cannot use function `pop` while the list is in use"POP_DOC_);
-        goto done;
-    }
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
 
+    varr = (ti_varr_t*) query->rval;
     query->rval = vec_pop(varr->vec);
 
     if (!query->rval)
     {
         ex_set(e, EX_INDEX_ERROR, "pop from empty array"POP_DOC_);
-        goto done;
+        goto fail1;
     }
 
     (void) vec_shrink(&varr->vec);
 
-    if (is_attached)
+    if (chain)
     {
         ti_task_t * task;
-        assert (query->scope->thing);
-        assert (query->scope->name);
-        task = ti_task_get_task(query->ev, query->scope->thing, e);
+        task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto done;
+            goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                query->scope->name,
+                chain->name,
                 NULL,
                 varr->vec->n,
                 1,
@@ -64,7 +60,8 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
     }
 
-done:
+fail1:
+    ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
     return e->nr;
 }

@@ -8,14 +8,14 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     size_t idx = 0;
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
+    ti_varr_t * varr;
 
-    if (!ti_val_is_list((ti_val_t *) varr))
+    if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `indexof`"INDEXOF_DOC_,
-                ti_val_str((ti_val_t *) varr));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -24,11 +24,14 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `indexof` takes 1 argument but %d were given"
                 INDEXOF_DOC_, nargs);
-        goto done;
+        return e->nr;
     }
 
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
+
     if (ti_do_scope(query, nd->children->node, e))
-        goto done;
+        goto fail1;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
@@ -46,6 +49,7 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 done:
+fail1:
     ti_val_drop((ti_val_t *) varr);
     return e->nr;
 }

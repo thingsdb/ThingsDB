@@ -114,7 +114,7 @@ ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
             ti_decref(name);
             ti_val_drop(p->val);
             p->val = val;
-            return 0;
+            return p;
         }
     }
 
@@ -122,10 +122,10 @@ ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
     if (!prop || vec_push(&thing->props, prop))
     {
         free(prop);
-        return -1;
+        return NULL;
     }
 
-    return 0;
+    return prop;
 }
 
 

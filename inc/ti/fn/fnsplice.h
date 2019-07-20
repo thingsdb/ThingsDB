@@ -12,15 +12,15 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint32_t current_n, new_n;
     int64_t i, c;
     ti_varr_t * retv;
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
-    _Bool is_attached = ti_scope_is_attached(query->scope);
+    ti_varr_t * varr;
+    ti_chain_t * chain = ti_chained_get(query->chained);
 
-    if (!ti_val_is_list((ti_val_t *) varr))
+    if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `splice`"SPLICE_DOC_,
-                ti_val_str((ti_val_t *) varr));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     n = langdef_nd_n_function_params(nd);
@@ -30,20 +30,18 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `splice` requires at least 2 arguments "
                 "but %d %s given"SPLICE_DOC_,
                 n, n == 1 ? "was" : "were");
-        goto done;
+        return e->nr;
     }
 
-    if (is_attached &&
-        ti_scope_in_use_val(query->scope->prev, (ti_val_t *) varr))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "cannot use function `splice` while the list is in use"
-                SPLICE_DOC_);
-        goto done;
-    }
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
 
     if (ti_do_scope(query, child->node, e))
-        goto done;
+        goto fail1;
 
     if (!ti_val_is_int(query->rval))
     {
@@ -51,7 +49,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `splice` expects argument 1 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));
-        goto done;
+        goto fail1;
     }
 
     i = ((ti_vint_t *) query->rval)->int_;
@@ -60,7 +58,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     child = child->next->next;
 
     if (ti_do_scope(query, child->node, e))
-        goto done;
+        goto fail1;
 
     if (!ti_val_is_int(query->rval))
     {
@@ -68,7 +66,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `splice` expects argument 2 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));
-        goto done;
+        goto fail1;
     }
 
     c = ((ti_vint_t *) query->rval)->int_;
@@ -90,20 +88,20 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
                 TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
-        goto done;
+        goto fail1;
     }
 
     if (new_n > current_n && vec_resize(&varr->vec, new_n))
     {
         ex_set_mem(e);
-        goto done;
+        goto fail1;
     }
 
     retv = ti_varr_create(c);
     if (!retv)
     {
         ex_set_mem(e);
-        goto done;
+        goto fail1;
     }
 
     for (x = i, l = i + c; x < l; ++x)
@@ -122,23 +120,23 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_do_scope(query, child->node, e))
-            goto failed;
+            goto fail2;
 
         if (ti_varr_append(varr, (void **) &query->rval, e))
-            goto failed;
+            goto fail2;
 
         query->rval = NULL;
     }
 
-    if (is_attached)
+    if (chain)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto failed;
+            goto fail2;
 
         if (ti_task_add_splice(
                 task,
-                query->scope->name,
+                chain->name,
                 varr,
                 i,
                 c,
@@ -161,7 +159,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 alloc_err:
     ex_set_mem(e);
 
-failed:
+fail2:
     while (x--)
         ti_val_drop(vec_pop(varr->vec));
 
@@ -178,6 +176,8 @@ failed:
     varr->vec->n = current_n;
 
 done:
+fail1:
+    ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
     return e->nr;
 }

@@ -10,6 +10,7 @@
 #include <ti/vint.h>
 #include <ti/regex.h>
 #include <ti/raw.h>
+#include <ti/closure.h>
 #include <langdef/langdef.h>
 
 /*
@@ -44,13 +45,17 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
     free(ncache);
 }
 
-int ti_ncache_gen_primitives(vec_t * vcache, cleri_node_t * node, ex_t * e)
+int ti_ncache_gen_immutable(vec_t * vcache, cleri_node_t * node, ex_t * e)
 {
-    if (node->cl_obj->gid == CLERI_GID_PRIMITIVES)
+    if (node->cl_obj->gid == CLERI_GID_IMMUTABLE)
     {
         node = node->children->node;
         switch (node->cl_obj->gid)
         {
+        case CLERI_GID_T_CLOSURE:
+            assert (!node->data);
+            node->data = ti_closure_from_node(node);
+            break;
         case CLERI_GID_T_FLOAT:
             assert (!node->data);
             node->data = ti_vfloat_create(strx_to_double(node->str));
@@ -75,6 +80,7 @@ int ti_ncache_gen_primitives(vec_t * vcache, cleri_node_t * node, ex_t * e)
             node->data = ti_raw_from_ti_string(node->str, node->len);
             break;
 
+
         default:
             return 0;
         }
@@ -89,7 +95,7 @@ int ti_ncache_gen_primitives(vec_t * vcache, cleri_node_t * node, ex_t * e)
     }
 
     for (cleri_children_t * child = node->children; child; child = child->next)
-        if (ti_ncache_gen_primitives(vcache, child->node, e))
+        if (ti_ncache_gen_immutable(vcache, child->node, e))
             return e->nr;
 
     return e->nr;

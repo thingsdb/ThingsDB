@@ -9,15 +9,17 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     const int nargs = langdef_nd_n_function_params(nd);
     int64_t idx = 0;
-    ti_closure_t * closure = NULL;
-    ti_val_t * val = ti_query_val_pop(query);
+    ti_closure_t * closure;
+    ti_val_t * iterval;
+    int lock_was_set;
 
-    if (!ti_val_is_array(val) && !ti_val_is_set(val))
+    if (    !ti_val_is_array(query->rval) &&
+            !ti_val_is_set(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `find`"FIND_DOC_,
-                ti_val_str(val));
-        goto fail1;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (nargs < 1)
@@ -25,7 +27,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `find` requires at least 1 argument but 0 "
                 "were given"FIND_DOC_);
-        goto fail1;
+        return e->nr;
     }
 
     if (nargs > 2)
@@ -33,11 +35,15 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `find` takes at most 2 arguments but %d "
                 "were given"FIND_DOC_, nargs);
-        goto fail1;
+        return e->nr;
     }
 
+    lock_was_set = ti_val_ensure_lock(query->rval);
+    iterval = query->rval;
+    query->rval = NULL;
+
     if (ti_do_scope(query, nd->children->node, e))
-        goto fail1;
+        goto fail0;
 
     if (!ti_val_is_closure(query->rval))
     {
@@ -45,27 +51,24 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `find` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FIND_DOC_,
                 ti_val_str(query->rval));
-        goto fail1;
+        goto fail0;
     }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock(closure, e))
+            ti_closure_try_lock_and_use(closure, query, e))
         goto fail1;
 
-    if (ti_scope_local_from_closure(query->scope, closure, e))
-        goto fail2;
-
-    switch (val->tp)
+    switch (iterval->tp)
     {
     case TI_VAL_ARR:
-        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v), ++idx)
+        for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
         {
             _Bool found;
 
-            if (ti_scope_polute_val(query->scope, v, idx))
+            if (ti_closure_vars_val_idx(closure, v, idx))
             {
                 ex_set_mem(e);
                 goto fail2;
@@ -89,7 +92,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case TI_VAL_SET:
     {
-        vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
+        vec_t * vec = imap_vec(((ti_vset_t *) iterval)->imap);
         if (!vec)
         {
             ex_set_mem(e);
@@ -100,7 +103,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             _Bool found;
 
-            if (ti_scope_polute_val(query->scope, (ti_val_t *) t, t->id))
+            if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
             {
                 ex_set_mem(e);
                 goto fail2;
@@ -138,11 +141,13 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 done:
 fail2:
-    ti_closure_unlock(closure);
+    ti_closure_unlock_use(closure, query);
 
 fail1:
     ti_val_drop((ti_val_t *) closure);
-    ti_val_drop(val);
 
+fail0:
+    ti_val_unlock(iterval, lock_was_set);
+    ti_val_drop(iterval);
     return e->nr;
 }

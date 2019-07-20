@@ -16,7 +16,7 @@ typedef struct ti_closure_s ti_closure_t;
 #include <ti/syntax.h>
 #include <ti/query.h>
 
-ti_closure_t * ti_closure_from_node(cleri_node_t * node);
+ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t * flags);
 ti_closure_t * ti_closure_from_strn(
         ti_syntax_t * syntax,
         const char * str,
@@ -30,6 +30,7 @@ int ti_closure_lock_and_use(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e);
+int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e);
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i);
 void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query);
 int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e);

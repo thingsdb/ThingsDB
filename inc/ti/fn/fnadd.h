@@ -10,21 +10,21 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     vec_t * added = vec_new(nargs);  /* weak references to things */
-    ti_vset_t * vset = (ti_vset_t *) ti_query_val_pop(query);
-    _Bool is_attached = ti_scope_is_attached(query->scope);
+    ti_vset_t * vset;
+    ti_chain_t * chain = ti_chained_get(query->chained);
 
     if (!added)
     {
         ex_set_mem(e);
-        goto done;
+        goto fail0;
     }
 
-    if (!ti_val_is_set((ti_val_t *) vset))
+    if (!ti_val_is_set(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `add`"ADD_DOC_,
-                ti_val_str((ti_val_t *) vset));
-        goto done;
+                ti_val_str(query->rval));
+        goto fail0;
     }
 
     if (!nargs)
@@ -32,16 +32,15 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `add` requires at least 1 argument but 0 "
                 "were given"ADD_DOC_);
-        goto done;
+        goto fail0;
     }
 
-    if (    is_attached &&
-            ti_scope_in_use_val(query->scope->prev, (ti_val_t *) vset))
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot use function `add` while the set is in use"ADD_DOC_);
-        goto done;
-    }
+    if (ti_chained_in_use(query->chained, chain, e) ||
+        ti_val_try_lock(query->rval, e))
+        goto fail0;
+
+    vset = (ti_vset_t *) query->rval;
+    query->rval = NULL;
 
     assert (child);
 
@@ -51,12 +50,12 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
         if (ti_do_scope(query, child->node, e))
-            goto failed;
+            goto fail1;
 
         rc = ti_vset_add_val(vset, query->rval, e);
 
         if (rc < 0)
-            goto failed;
+            goto fail1;
 
         if (rc > 0)
             VEC_push(added, query->rval);  /* at least the `set` has a
@@ -68,15 +67,15 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (added->n && is_attached)
+    if (added->n && chain)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, query->scope->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto failed;
+            goto fail1;
 
         if (ti_task_add_add(
                 task,
-                query->scope->name,
+                chain->name,
                 added))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
@@ -91,12 +90,14 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 alloc_err:
     ex_set_mem(e);
 
-failed:
+fail1:
     while (added->n)
         ti_val_drop((ti_val_t *) ti_vset_pop(vset, vec_pop(added)));
 
 done:
-    free(added);
     ti_val_drop((ti_val_t *) vset);
+
+fail0:
+    free(added);
     return e->nr;
 }

@@ -8,15 +8,16 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     size_t idx = 0;
-    ti_varr_t * varr = (ti_varr_t *) ti_query_val_pop(query);
-    ti_closure_t * closure = NULL;
+    ti_varr_t * varr;
+    ti_closure_t * closure;
+    int lock_was_set;
 
-    if (!ti_val_is_array((ti_val_t *) varr))
+    if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `findindex`"FINDINDEX_DOC_,
-                ti_val_str((ti_val_t *) varr));
-        goto fail1;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -25,11 +26,15 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `findindex` takes 1 argument but %d were given"
                 FINDINDEX_DOC_, nargs);
-        goto fail1;
+        return e->nr;
     }
 
+    lock_was_set = ti_val_ensure_lock(query->rval);
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
+
     if (ti_do_scope(query, nd->children->node, e))
-        goto fail1;
+        goto fail0;
 
     if (!ti_val_is_closure(query->rval))
     {
@@ -37,24 +42,22 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `findindex` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
                 FINDINDEX_DOC_, ti_val_str(query->rval));
-        goto fail1;
+        goto fail0;
     }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock(closure, e))
+            ti_closure_try_lock_and_use(closure, query, e))
         goto fail1;
 
-    if (ti_scope_local_from_closure(query->scope, closure, e))
-        goto fail2;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         _Bool found;
 
-        if (ti_scope_polute_val(query->scope, v, idx))
+        if (ti_closure_vars_val_idx(closure, v, idx))
         {
             ex_set_mem(e);
             goto fail2;
@@ -82,11 +85,13 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 done:
 fail2:
-    ti_closure_unlock(closure);
+    ti_closure_unlock_use(closure, query);
 
 fail1:
     ti_val_drop((ti_val_t *) closure);
-    ti_val_drop((ti_val_t *) varr);
 
+fail0:
+    ti_val_unlock((ti_val_t *) varr, lock_was_set);
+    ti_val_drop((ti_val_t *) varr);
     return e->nr;
 }

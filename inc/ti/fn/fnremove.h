@@ -54,8 +54,6 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_closure_try_lock_and_use(closure, query, e))
         goto fail2;
 
-    vec_extend(&query->vars, closure->vars->data, closure->vars->n);
-
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         if (ti_closure_vars_val_idx(closure, v, idx))

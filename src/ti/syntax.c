@@ -168,7 +168,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'r':
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
-        syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
+//        syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
         syntax__nev_fn(q, nd, "raise", TI_FN_RAISE, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
@@ -335,28 +335,9 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
     case CLERI_GID_ASSIGNMENT:
         syntax__set_collection_event(syntax);
         /* fall through */
-    case CLERI_GID_TMP_ASSIGN:
+    case CLERI_GID_VAR_ASSIGN:
         /* skip to scope */
         ti_syntax_investigate(syntax, nd->children->next->next->node);
-        return;
-    case CLERI_GID_CLOSURE:
-        /* investigate the scope, the rest can be skipped */
-        ti_syntax_investigate(
-                syntax,
-                nd->children->next->next->next->node);
-
-        /*
-         * Set the the correct scope flag so when we use the closure we
-         * can assign `node->data` as flags which is required when we
-         * investigate the scope. (don't case about the node scope)
-         *
-         * Setting the `WSE` flag is done when the closure gets unbound
-         * from the query, and only then the flag will be used.
-         */
-        nd->data = (void *) ((uintptr_t) (
-                (syntax->flags & TI_SYNTAX_FLAG_THINGSDB)
-                    ? TI_VFLAG_CLOSURE_BTSCOPE
-                    : TI_VFLAG_CLOSURE_BCSCOPE));
         return;
     case CLERI_GID_STATEMENTS:
     {
@@ -379,22 +360,29 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
                     syntax,
                     child->node->children->next->node);  /* scope */
         return;
-    case CLERI_GID_TMP:
+    case CLERI_GID_VAR:
     case CLERI_GID_NAME:
     case CLERI_GID_O_NOT:
         return;
     case CLERI_GID_COMMENT:
         assert (0);  /* comment is already filtered */
         return;
-    case CLERI_GID_PRIMITIVES:
-        switch (nd->children->node->cl_obj->gid)
+    case CLERI_GID_IMMUTABLE:
+        nd = nd->children->node;
+        switch (nd->cl_obj->gid)
         {
-            case CLERI_GID_T_INT:
-            case CLERI_GID_T_FLOAT:
-            case CLERI_GID_T_STRING:
-            case CLERI_GID_T_REGEX:
-                ++syntax->val_cache_n;
-                nd->children->node->data = NULL;    /* init data to null */
+        case CLERI_GID_T_CLOSURE:
+            /* investigate the scope, the rest can be skipped */
+            ti_syntax_investigate(
+                    syntax,
+                    nd->children->next->next->next->node);
+            /* fall through */
+        case CLERI_GID_T_INT:
+        case CLERI_GID_T_FLOAT:
+        case CLERI_GID_T_STRING:
+        case CLERI_GID_T_REGEX:
+            ++syntax->val_cache_n;
+            nd->data = NULL;        /* init data to null */
         }
         return;
     case CLERI_GID_OPERATIONS:

@@ -96,7 +96,7 @@ void ti__chained_leave_(ti_chained_t * chained, int until)
     do
     {
         chain = &chained->chain[--chained->n];
-        ti_val_drop(chain->thing);
+        ti_val_drop((ti_val_t *) chain->thing);
         ti_name_drop(chain->name);
     }
     while (chained->n > until);

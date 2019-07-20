@@ -95,6 +95,11 @@
 /* maximum value we allow for the `deep` argument */
 #define DO__MAX_DEEP_HINT 0x7f
 
+#define do__chain_fn(__fn)                              \
+if (!is_chained)                                        \
+    break;                                              \
+return __fn(query, params, e)
+
 #define do__no_chain_fn(__fn)                           \
 if (is_chained)                                         \
     break;                                              \
@@ -201,7 +206,7 @@ static int do__function(
     case TI_FN_HASPROP:
         return do__f_hasprop(query, params, e);
     case TI_FN_ID:
-        return do__f_id(query, params, e);
+        do__chain_fn(do__f_id);
     case TI_FN_INDEXOF:
         return do__f_indexof(query, params, e);
     case TI_FN_INT:
@@ -512,7 +517,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
-                ti_val_str((ti_val_t *) thing));
+                ti_val_str(query->rval));
         return e->nr;
     }
 
@@ -778,7 +783,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_thing(query->rval))
         {
             ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
-                    ti_val_str((ti_val_t *) thing));
+                    ti_val_str(query->rval));
             return e->nr;
         }
 
@@ -901,7 +906,7 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_CLOSURE:
         if (!node->data)
         {
-            node->data = (ti_val_t *) ti_closure_from_node(nd);
+            node->data = (ti_val_t *) ti_closure_from_node(node);
             if (!node->data)
             {
                 ex_set_mem(e);
@@ -1138,8 +1143,7 @@ static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
-    assert (nd->len >= 2);
-    assert (ti_name_is_valid_strn(nd->str + 1, nd->len - 1));
+    assert (ti_name_is_valid_strn(nd->str, nd->len));
     assert (query->rval == NULL);
     assert (ti_chained_get(query->chained) == NULL);
 

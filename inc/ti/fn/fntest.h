@@ -7,15 +7,15 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
-    ti_val_t * val = ti_query_val_pop(query);
+    ti_raw_t * raw;
     _Bool has_match;
 
-    if (!ti_val_is_raw(val))
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `test`"TEST_DOC_,
-                ti_val_str(val));
-        goto done;
+                ti_val_str(query->rval));
+        return e->nr;
     }
 
     if (!langdef_nd_fun_has_one_param(nd))
@@ -24,11 +24,14 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `test` takes 1 argument but %d were given"TEST_DOC_,
                 nargs);
-        goto done;
+        return e->nr;
     }
 
+    raw = (ti_raw_t *) query->rval;
+    query->rval = NULL;
+
     if (ti_do_scope(query, nd->children->node, e))
-        goto done;
+        goto failed;
 
     if (!ti_val_is_regex(query->rval))
     {
@@ -36,14 +39,14 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "function `test` expects argument 1 to be "
             "of type `"TI_VAL_REGEX_S"` but got type `%s` instead"TEST_DOC_,
             ti_val_str(query->rval));
-        goto done;
+        goto failed;
     }
 
-    has_match = ti_regex_test((ti_regex_t *) query->rval, (ti_raw_t *) val);
+    has_match = ti_regex_test((ti_regex_t *) query->rval, raw);
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_match);
 
-done:
-    ti_val_drop(val);
+failed:
+    ti_val_drop((ti_val_t *) raw);
     return e->nr;
 }

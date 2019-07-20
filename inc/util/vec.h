@@ -47,7 +47,7 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
 #define vec_each_rev(vec__, dt__, var__) \
     dt__ * var__, \
     ** e__ = (dt__ **) (vec__)->data, \
-    ** v__ = v__ + (vec__)->n; \
+    ** v__ = e__ + (vec__)->n; \
     v__ < e__ && ((var__ = *(--v__)) || 1);
 
 struct vec_s

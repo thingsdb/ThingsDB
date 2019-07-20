@@ -218,7 +218,7 @@ ti_procedure_t * ti_procedure_from_raw(
                       ->children->next->node        /* choice */
                       ->children->node;             /* may be primitives */
 
-        if (    node->cl_obj->gid == CLERI_GID_PRIMITIVES &&
+        if (    node->cl_obj->gid == CLERI_GID_IMMUTABLE &&
                 node->children->node->cl_obj->gid == CLERI_GID_T_STRING)
             procedure->doc = ti_raw_from_ti_string(node->str, node->len);
     }
@@ -245,7 +245,7 @@ ti_procedure_t * ti_procedure_from_raw(
     if (syntax->val_cache_n)
     {
         procedure->val_cache = vec_new(syntax->val_cache_n);
-        if (!procedure->val_cache || ti_ncache_gen_primitives(
+        if (!procedure->val_cache || ti_ncache_gen_immutable(
                 procedure->val_cache,
                 procedure->node,
                 e))

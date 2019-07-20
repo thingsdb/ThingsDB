@@ -223,7 +223,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->flags = syntax->flags & TI_SYNTAX_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
-    closure->vars = closure__create_vars(closure);
+    closure->vars = closure->node ? closure__create_vars(closure) : NULL;
 
     if (!closure->node || !closure->vars)
     {

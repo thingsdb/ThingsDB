@@ -16,7 +16,7 @@ typedef struct ti_closure_s ti_closure_t;
 #include <ti/syntax.h>
 #include <ti/query.h>
 
-ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t * flags);
+ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags);
 ti_closure_t * ti_closure_from_strn(
         ti_syntax_t * syntax,
         const char * str,

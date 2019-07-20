@@ -48,7 +48,7 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
     dt__ * var__, \
     ** e__ = (dt__ **) (vec__)->data, \
     ** v__ = e__ + (vec__)->n; \
-    v__ < e__ && ((var__ = *(--v__)) || 1);
+    v__ > e__ && ((var__ = *(--v__)) || 1);
 
 struct vec_s
 {

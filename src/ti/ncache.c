@@ -45,7 +45,11 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
     free(ncache);
 }
 
-int ti_ncache_gen_immutable(vec_t * vcache, cleri_node_t * node, ex_t * e)
+int ti_ncache_gen_immutable(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * node,
+        ex_t * e)
 {
     if (node->cl_obj->gid == CLERI_GID_IMMUTABLE)
     {
@@ -54,7 +58,11 @@ int ti_ncache_gen_immutable(vec_t * vcache, cleri_node_t * node, ex_t * e)
         {
         case CLERI_GID_T_CLOSURE:
             assert (!node->data);
-            node->data = ti_closure_from_node(node);
+            node->data = ti_closure_from_node(
+                    node,
+                    (syntax->flags & TI_SYNTAX_FLAG_THINGSDB)
+                                ? TI_VFLAG_CLOSURE_BTSCOPE
+                                : TI_VFLAG_CLOSURE_BCSCOPE);
             break;
         case CLERI_GID_T_FLOAT:
             assert (!node->data);
@@ -95,7 +103,7 @@ int ti_ncache_gen_immutable(vec_t * vcache, cleri_node_t * node, ex_t * e)
     }
 
     for (cleri_children_t * child = node->children; child; child = child->next)
-        if (ti_ncache_gen_immutable(vcache, child->node, e))
+        if (ti_ncache_gen_immutable(syntax, vcache, child->node, e))
             return e->nr;
 
     return e->nr;

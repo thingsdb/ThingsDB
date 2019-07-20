@@ -246,6 +246,7 @@ ti_procedure_t * ti_procedure_from_raw(
     {
         procedure->val_cache = vec_new(syntax->val_cache_n);
         if (!procedure->val_cache || ti_ncache_gen_immutable(
+                syntax,
                 procedure->val_cache,
                 procedure->node,
                 e))

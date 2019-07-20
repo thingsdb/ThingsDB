@@ -248,9 +248,7 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    assert (query->vars->n == 0);  /* should be empty, but not NULL */
     vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
-
     ti_chained_destroy(query->chained);
 
     /* TODO: remove procedure */

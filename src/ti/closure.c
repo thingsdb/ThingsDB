@@ -26,6 +26,7 @@ static cleri_node_t * closure__node_from_strn(
         size_t n,
         ex_t * e)
 {
+    assert (e->nr == 0);
     ti_ncache_t * ncache;
     cleri_parse_t * res;
     cleri_node_t * node;
@@ -65,8 +66,10 @@ static cleri_node_t * closure__node_from_strn(
 
     node = node                             /* List of statements */
             ->children->node                /* Sequence - scope */
-            ->children->next->node          /* Choice */
+            ->children->next->node          /* Choice - scope */
+            ->children->node                /* Choice - immutable */
             ->children->node;               /* closure */
+
 
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
@@ -85,7 +88,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node->data = ncache;
-    if (ti_ncache_gen_immutable(ncache->val_cache, node, e))
+    if (ti_ncache_gen_immutable(syntax, ncache->val_cache, node, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
@@ -183,7 +186,7 @@ failed:
  * will be stored for later usage, a call to `ti_closure_unbound` must be
  * made.
  */
-ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t * flags)
+ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
 {
     ti_closure_t * closure = malloc(sizeof(ti_closure_t));
     if (!closure)
@@ -251,16 +254,12 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     cleri_node_t * node;
     ti_syntax_t syntax;
 
-    LOGC("HERE...1!!!!");
-
     if (closure__is_unbound(closure))
         return 0;
 
-    LOGC("HERE...2!!!!");
     if (ti_closure_try_lock(closure, e))
         return e->nr;
 
-    LOGC("HERE...3!!!!");
     ti_syntax_init(&syntax, closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
             ? TI_SYNTAX_FLAG_THINGSDB
             : TI_SYNTAX_FLAG_COLLECTION);
@@ -274,8 +273,6 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
         ti_closure_unlock(closure);
         return e->nr;
     }
-
-    LOGC("HERE!!!!");
 
     /* overwrite the existing flags, this will also unlock */
     closure->flags = syntax.flags & TI_SYNTAX_FLAG_EVENT

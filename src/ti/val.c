@@ -1009,7 +1009,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t * ) *val, e))
-            ex_set_mem(e);
+            return e->nr;
         break;
     case TI_VAL_ERROR:
         break;

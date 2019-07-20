@@ -630,6 +630,7 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
     cleri_children_t * child, * seqchild;
+    uint32_t current_varn = query->vars->n;
 
     seqchild = nd                       /* <{ comment, list s, [deep] }> */
         ->children->next->next;         /* list statements */
@@ -652,6 +653,9 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* optional deep */
     ti_do_may_set_deep(&query->syntax.deep, seqchild->next, e);
+
+    while (query->vars->n > current_varn)
+        ti_prop_destroy(vec_pop(query->vars));
 
     return e->nr;
 }
@@ -906,7 +910,12 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_CLOSURE:
         if (!node->data)
         {
-            node->data = (ti_val_t *) ti_closure_from_node(node);
+
+            node->data = (ti_val_t *) ti_closure_from_node(
+                    node,
+                    (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
+                        ? TI_VFLAG_CLOSURE_BTSCOPE
+                        : TI_VFLAG_CLOSURE_BCSCOPE);
             if (!node->data)
             {
                 ex_set_mem(e);
@@ -1238,7 +1247,6 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     int nots = 0;
-    uint32_t current_varn;
     cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
             ->children;                             /* first child, not */
@@ -1255,7 +1263,6 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* make sure the current chain points to NULL */
     ti_chained_null(query->chained);
 
-    current_varn = query->vars->n;
 
     switch (node->cl_obj->gid)
     {
@@ -1357,8 +1364,6 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 on_error:
-    while (query->vars->n > current_varn)
-        ti_prop_destroy(vec_pop(query->vars));
     return e->nr;
 }
 

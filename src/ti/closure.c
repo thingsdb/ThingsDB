@@ -363,7 +363,9 @@ int ti_closure_lock_and_use(
         return -1;
     }
 
+    closure->locked_n = query->vars->n;
     closure->flags |= TI_VFLAG_LOCK;
+
     return 0;
 }
 int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
@@ -421,8 +423,15 @@ void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
     assert (query->vars->n >= closure->vars->n);
 
     closure->flags &= ~TI_VFLAG_LOCK;
+
+    /* drop temporary added props */
+    while (query->vars->n > closure->locked_n)
+        ti_prop_destroy(vec_pop(query->vars));
+
+    /* restore `old` size so closure keeps ownership of it's own props */
     query->vars->n -= closure->vars->n;
 
+    /* reset props to `nil` */
     for (vec_each(closure->vars, ti_prop_t, p))
     {
         if (!ti_val_is_nil(p->val))

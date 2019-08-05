@@ -48,6 +48,8 @@ struct ti_closure_s
     uint8_t tp;
     uint8_t flags;
     uint16_t _pad16;
+    uint32_t locked_n;
+    uint32_t _pad32;
     vec_t * vars;               /* ti_prop_t - arguments */
     cleri_node_t * node;
 };

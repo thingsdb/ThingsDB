@@ -176,7 +176,7 @@ static int do__function(
 
    /* collection scope */
     case TI_FN_ADD:
-        return do__f_add(query, params, e);
+        do__chain_fn(do__f_add);
     case TI_FN_ARRAY:
         do__no_chain_fn(do__f_array);
     case TI_FN_ASSERT:
@@ -186,29 +186,29 @@ static int do__function(
     case TI_FN_BOOL:
         do__no_chain_fn(do__f_bool);
     case TI_FN_CONTAINS:
-        return do__f_contains(query, params, e);
+        do__chain_fn(do__f_contains);
     case TI_FN_ENDSWITH:
-        return do__f_endswith(query, params, e);
+        do__chain_fn(do__f_endswith);
     case TI_FN_ERR:
         do__no_chain_fn(do__f_err);
     case TI_FN_DEL:
-        return do__f_del(query, params, e);
+        do__chain_fn(do__f_del);
     case TI_FN_FILTER:
-        return do__f_filter(query, params, e);
+        do__chain_fn(do__f_filter);
     case TI_FN_FIND:
-        return do__f_find(query, params, e);
+        do__chain_fn(do__f_find);
     case TI_FN_FINDINDEX:
-        return do__f_findindex(query, params, e);
+        do__chain_fn(do__f_findindex);
     case TI_FN_FLOAT:
         do__no_chain_fn(do__f_float);
     case TI_FN_HAS:
-        return do__f_has(query, params, e);
+        do__chain_fn(do__f_has);
     case TI_FN_HASPROP:
-        return do__f_hasprop(query, params, e);
+        do__chain_fn(do__f_hasprop);
     case TI_FN_ID:
         do__chain_fn(do__f_id);
     case TI_FN_INDEXOF:
-        return do__f_indexof(query, params, e);
+        do__chain_fn(do__f_indexof);
     case TI_FN_INT:
         do__no_chain_fn(do__f_int);
     case TI_FN_ISARRAY:
@@ -243,43 +243,43 @@ static int do__function(
     case TI_FN_ISUTF8:
         do__no_chain_fn(do__f_isutf8);
     case TI_FN_LEN:
-        return do__f_len(query, params, e);
+        do__chain_fn(do__f_len);
     case TI_FN_LOWER:
-        return do__f_lower(query, params, e);
+        do__chain_fn(do__f_lower);
     case TI_FN_MAP:
-        return do__f_map(query, params, e);
+        do__chain_fn(do__f_map);
     case TI_FN_NOW:
         do__no_chain_fn(q__f_now);
     case TI_FN_POP:
-        return do__f_pop(query, params, e);
+        do__chain_fn(do__f_pop);
     case TI_FN_PUSH:
-        return do__f_push(query, params, e);
+        do__chain_fn(do__f_push);
     case TI_FN_RAISE:
         do__no_chain_fn(do__f_raise);
     case TI_FN_REFS:
         do__no_chain_fn(do__f_refs);
     case TI_FN_REMOVE:
-        return do__f_remove(query, params, e);
+        do__chain_fn(do__f_remove);
 //    case TI_FN_RENAME:
 //        return do__f_rename(query, params, e);
     case TI_FN_SET:
         do__no_chain_fn(do__f_set);
     case TI_FN_SPLICE:
-        return do__f_splice(query, params, e);
+        do__chain_fn(do__f_splice);
     case TI_FN_STARTSWITH:
-        return do__f_startswith(query, params, e);
+        do__chain_fn(do__f_startswith);
     case TI_FN_STR:
         do__no_chain_fn(do__f_str);
     case TI_FN_T:
         do__collection_fn(do__f_t);
     case TI_FN_TEST:
-        return do__f_test(query, params, e);
+        do__chain_fn(do__f_test);
     case TI_FN_TRY:
         do__no_chain_fn(do__f_try);
     case TI_FN_TYPE:
         do__no_chain_fn(do__f_type);
     case TI_FN_UPPER:
-        return do__f_upper(query, params, e);
+        do__chain_fn(do__f_upper);
     case TI_FN_WSE:
         do__no_chain_fn(do__f_wse);
 

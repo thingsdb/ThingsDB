@@ -38,7 +38,7 @@ typedef enum
                                                      */
     TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}       */
     TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}       */
-    TI_PROTO_CLIENT_REQ_CALL    =50,    /* [target, procedure, arguments..] */
+    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [target, procedure, arguments..] */
     /*
      * 64..127 client responses
      */
@@ -71,7 +71,7 @@ typedef enum
 
     /* expects a client response which will be forwarded back to the client */
     TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, is_db, {query...}] */
-    TI_PROTO_NODE_REQ_CALL      =163,   /* [user_id, [call]] */
+    TI_PROTO_NODE_REQ_RUN       =163,   /* [user_id, [call]] */
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
@@ -123,7 +123,7 @@ typedef enum
 } ti_proto_e;
 
 #define TI_PROTO_NODE_REQ_QUERY_TIMEOUT 120
-#define TI_PROTO_NODE_REQ_CALL_TIMEOUT 120
+#define TI_PROTO_NODE_REQ_RUN_TIMEOUT 120
 #define TI_PROTO_NODE_REQ_CONNECT_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5

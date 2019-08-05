@@ -57,7 +57,7 @@ finish:
     ti_req_destroy(req);
 }
 
-static int clients__fwd_call(
+static int clients__fwd_run(
         ti_node_t * to_node,
         ti_stream_t * src_stream,
         ti_pkg_t * orig_pkg)
@@ -80,12 +80,12 @@ static int clients__fwd_call(
     (void) qp_close_array(packer);
 
     /* this cannot fail */
-    pkg_req = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_CALL);
+    pkg_req = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_RUN);
 
     if (ti_req_create(
             to_node->stream,
             pkg_req,
-            TI_PROTO_NODE_REQ_CALL_TIMEOUT,
+            TI_PROTO_NODE_REQ_RUN_TIMEOUT,
             clients__fwd_cb,
             fwd))
         goto fail1;
@@ -506,7 +506,7 @@ finish:
         ti_wareq_destroy(wareq);
 }
 
-static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_user_t * user = stream->via.user;
     ex_t * e = ex_use();
@@ -540,7 +540,7 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
         }
 
-        if (clients__fwd_call(other_node, stream, pkg))
+        if (clients__fwd_run(other_node, stream, pkg))
         {
             ex_set_internal(e);
             goto finish;
@@ -558,7 +558,7 @@ static void clients__on_call(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_callunpack(query, pkg->id, pkg->data, pkg->n, e))
+    if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
@@ -616,8 +616,8 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_UNWATCH:
         clients__on_unwatch(stream, pkg);
         break;
-    case TI_PROTO_CLIENT_REQ_CALL:
-        clients__on_call(stream, pkg);
+    case TI_PROTO_CLIENT_REQ_RUN:
+        clients__on_run(stream, pkg);
         break;
 
     default:

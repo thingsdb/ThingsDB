@@ -15,9 +15,11 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raw;
     ti_task_t * task;
     ti_procedure_t * procedure;
+    ti_closure_t * closure;
     vec_t ** procedures = query->target
             ? &query->target->procedures
             : &ti()->procedures;
+    int nargs = langdef_nd_n_function_params(nd);
 
     syntax.val_cache_n = 0;
     syntax.flags = query->syntax.flags & (
@@ -25,12 +27,11 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             TI_SYNTAX_FLAG_THINGSDB|
             TI_SYNTAX_FLAG_COLLECTION);
 
-    if (!langdef_nd_fun_has_one_param(nd))
+    if (nargs != 2)
     {
-        int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `new_procedure` takes 1 argument but %d were given"
-                NEW_PROCEDURE_DOC_, nargs);
+                "function `new_procedure` takes 2 arguments but %d %s given"
+                NEW_PROCEDURE_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -48,14 +49,39 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     raw = (ti_raw_t *) query->rval;
+    query->rval = NULL;
 
-    if (!strx_is_utf8n((const char *) raw->data, raw->n))
+    if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `new_procedure` expects a definition "
-                "to have valid UTF8 encoding"NEW_PROCEDURE_DOC_);
-        return e->nr;
+                "procedure name should be a valid name"TI_SEE_DOC("#names"));
+        goto fail0;
     }
+
+    if (ti_do_scope(query, nd->children->next->next->node, e))
+        goto fail0;;
+
+    if (!ti_val_is_closure(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "function `new_procedure` expects argument 2 to be "
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
+                NEW_PROCEDURE_DOC_,
+                ti_val_str(query->rval));
+        goto fail0;
+    }
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_unbound(closure, e))
+        goto fail1;
+
+
+
+
+
+
 
     procedure = ti_procedure_from_raw(raw, &syntax, e);
     if (!procedure)
@@ -93,5 +119,11 @@ alloc_error:
 
 failed:
     ti_procedure_drop(procedure);
+
+fail1:
+    ti_val_drop((ti_val_t *) closure);
+
+fail0:
+    ti_val_drop((ti_val_t *) raw);
     return e->nr;
 }

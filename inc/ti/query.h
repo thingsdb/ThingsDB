@@ -31,7 +31,7 @@ typedef int (*ti_query_unpack_cb) (
 
 ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_callunpack(
+int ti_query_run_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
         const uchar * data,

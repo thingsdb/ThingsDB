@@ -621,7 +621,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_callunpack(query, pkg->id, pkg->data, pkg->n, e))
+    if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
@@ -1426,7 +1426,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);
         break;
-    case TI_PROTO_NODE_REQ_CALL:
+    case TI_PROTO_NODE_REQ_RUN:
         nodes__on_req_call(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_CONNECT:

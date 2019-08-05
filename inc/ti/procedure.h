@@ -6,12 +6,6 @@
 
 typedef struct ti_procedure_s ti_procedure_t;
 
-enum
-{
-    TI_RPOCEDURE_FLAG_LOCK   = 1<<0,
-    TI_PROCEDURE_FLAG_EVENT  = 1<<1,
-};
-
 #include <cleri/cleri.h>
 #include <inttypes.h>
 #include <util/vec.h>
@@ -19,6 +13,7 @@ enum
 #include <ti/ex.h>
 #include <ti/query.h>
 #include <ti/raw.h>
+#include <ti/closure.h>
 #include <ti/val.h>
 
 void ti_procedure_drop(ti_procedure_t * procedure);
@@ -41,16 +36,8 @@ int ti_procedure_fmt(ti_procedure_t * procedure);
 
 struct ti_procedure_s
 {
-    uint32_t ref;
-    uint16_t pad0_;
-    uint8_t flags;
-    uint8_t deep;
-    ti_raw_t * def;             /* full procedure definition */
     ti_raw_t * name;            /* name of the procedure */
-    ti_raw_t * doc;             /* documentation, may be null */
-    vec_t * arguments;          /* ti_prop_t */
-    vec_t * val_cache;          /* cached primitives */
-    cleri_node_t * node;
+    ti_closure_t * closure;     /* closure */
 };
 
 

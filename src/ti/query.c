@@ -266,7 +266,7 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-int ti_query_callunpack(
+int ti_query_run_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
         const uchar * data,
@@ -290,7 +290,7 @@ int ti_query_callunpack(
     ti_val_t * argval;
     size_t idx = 0;
     assert (e->nr == 0);
-    query->syntax.flags |= TI_SYNTAX_FLAG_CALLED;
+    query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
@@ -635,7 +635,7 @@ void ti_query_run(ti_query_t * query)
     cleri_children_t * child, * seqchild;
     ex_t * e = ex_use();
 
-    if (query->syntax.flags & TI_SYNTAX_FLAG_CALLED)
+    if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
     {
         (void) ti_procedure_run(query, e);
         goto stop;

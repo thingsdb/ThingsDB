@@ -15,15 +15,14 @@ const char * ti_proto_str(ti_proto_e tp)
 
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
     case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
-    case TI_PROTO_CLIENT_REQ_QUERY_NODE:
-        return "CLIENT_REQ_QUERY_NODE";
+    case TI_PROTO_CLIENT_REQ_QUERY_NODE:    return "CLIENT_REQ_QUERY_NODE";
     case TI_PROTO_CLIENT_REQ_QUERY_THINGSDB:
         return "CLIENT_REQ_QUERY_THINGSDB";
     case TI_PROTO_CLIENT_REQ_QUERY_COLLECTION:
         return "CLIENT_REQ_QUERY_COLLECTION";
     case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
     case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
-    case TI_PROTO_CLIENT_REQ_CALL:          return "CLIENT_REQ_CALL";
+    case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
 
     case TI_PROTO_CLIENT_RES_PING:          return "CLIENT_RES_PING";
     case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";
@@ -36,7 +35,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
-    case TI_PROTO_NODE_REQ_CALL:            return "NODE_REQ_CALL";
+    case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";
 
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
     case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
@@ -62,7 +61,7 @@ const char * ti_proto_str(ti_proto_e tp)
     case TI_PROTO_NODE_RES_SYNCEPART:       return "NODE_RES_SYNCEPART";
     case TI_PROTO_NODE_RES_SYNCEDONE:       return "NODE_RES_SYNCEDONE";
 
-    case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES_CONNECT";
+    case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES";
     case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";
     case TI_PROTO_NODE_ERR_AWAY:            return "NODE_ERR_AWAY";
 

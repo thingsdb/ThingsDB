@@ -75,7 +75,6 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "bool", TI_FN_BOOL, true);
         break;
     case 'c':
-        syntax__bev_fn(q, nd, "calle", TI_FN_CALLE, true);
         syntax__nev_fn(q, nd, "call", TI_FN_CALL, true);
         syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
         syntax__zev_fn(q, nd, "collection_info", TI_FN_COLLECTION_INFO, true);
@@ -171,6 +170,7 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
 //        syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
         syntax__nev_fn(q, nd, "raise", TI_FN_RAISE, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
+        syntax__nev_fn(q, nd, "run", TI_FN_RUN, true);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
         syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER, true);
         syntax__tev_fn(q, nd, "replace_node", TI_FN_REPLACE_NODE, true);

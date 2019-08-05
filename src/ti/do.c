@@ -9,7 +9,6 @@
 #include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fncall.h>
-#include <ti/fn/fncalle.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
@@ -185,6 +184,8 @@ static int do__function(
         do__collection_fn(do__f_blob);
     case TI_FN_BOOL:
         do__no_chain_fn(do__f_bool);
+    case TI_FN_CALL:
+        do__chain_fn(do__f_call);
     case TI_FN_CONTAINS:
         do__chain_fn(do__f_contains);
     case TI_FN_ENDSWITH:
@@ -284,10 +285,6 @@ static int do__function(
         do__no_chain_fn(do__f_wse);
 
     /* both thingsdb and collection scope */
-    case TI_FN_CALL:
-        do__thingsdb_or_collection_fn(do__f_call);
-    case TI_FN_CALLE:
-        do__thingsdb_or_collection_fn(do__f_calle);
     case TI_FN_DEL_PROCEDURE:
         do__thingsdb_or_collection_fn(do__f_del_procedure);
     case TI_FN_NEW_PROCEDURE:

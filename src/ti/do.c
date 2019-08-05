@@ -1195,7 +1195,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (assign_nd->len == 2)
     {
-        prop = do__get_var(query, nd, e);
+        prop = do__get_var(query, name_nd, e);
         if (!prop)
             return e->nr;
 

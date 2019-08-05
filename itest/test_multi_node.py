@@ -22,7 +22,7 @@ class TestMultiNode(TestBase):
         stuff = Scope('stuff')
 
         await client.query(r'''
-            counter = 0;
+            .counter = 0;
         ''', target=stuff)
 
         await self.node1.join_until_ready(client)
@@ -40,11 +40,11 @@ class TestMultiNode(TestBase):
 
         for _ in range(expected_counter):
             await client.query(r'''
-                counter += 1;
+                .counter += 1;
             ''', target=stuff)
 
         # the client points to the same node so we expect the correct result
-        counter = await client.query(r'counter;', target=stuff)
+        counter = await client.query(r'.counter;', target=stuff)
         assert (counter == expected_counter)
 
         # a little sleep to make sure all nodes have time to process the events
@@ -62,7 +62,7 @@ class TestMultiNode(TestBase):
             # will loose a connection and should reconnect while no
             # queries get lost.
             for _ in range(20):
-                counter = await client.query(r'counter;', target=stuff)
+                counter = await client.query(r'.counter;', target=stuff)
                 assert (counter == expected_counter)
                 await asyncio.sleep(0.2)
 

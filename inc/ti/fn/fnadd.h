@@ -95,6 +95,7 @@ fail1:
         ti_val_drop((ti_val_t *) ti_vset_pop(vset, vec_pop(added)));
 
 done:
+    ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
     ti_val_drop((ti_val_t *) vset);
 
 fail0:

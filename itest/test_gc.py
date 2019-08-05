@@ -23,15 +23,15 @@ class TestGC(TestBase):
         stuff = scope.Scope('stuff')
 
         await client.query(r'''
-            a = {};
-            a.other = {theanswer: 42, ref: a};
-            x = a.other;
+            .a = {};
+            .a.other = {theanswer: 42, ref: .a};
+            .x = .a.other;
         ''', target=stuff)
 
         await client.query(r'''
-            b = {name: 'Iris'};
-            b.me = b;
-            del('b');
+            .b = {name: 'Iris'};
+            .b.me = .b;
+            .del('b');
         ''', target=stuff)
 
         await self.node0.shutdown()
@@ -40,21 +40,21 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         for _ in range(10):
-            await client.query(r'''counter = 1;''', target=stuff)
+            await client.query(r'''.counter = 1;''', target=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
 
         await asyncio.sleep(4)
 
-        x, other = await client.query(r'[x, a.other]; =>2', target=stuff)
+        x, other = await client.query(r'[.x, .a.other]; =>2', target=stuff)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 
         await client.query(r'''
-            n = {};
-            del('a');
-            del('x');
+            .n = {};
+            .del('a');
+            .del('x');
         ''', target=stuff)
 
         # add another node so away node and gc is forced

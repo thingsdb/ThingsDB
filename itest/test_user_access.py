@@ -52,7 +52,7 @@ class TestUserAccess(TestBase):
             await testcl1.query(r'''new_collection('Collection');''')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''map(||nil);''', target='junk')
+            await testcl1.query(r'''.map(||nil);''', target='junk')
 
         await client.query(r'''
             grant('.thingsdb', "test1", GRANT);
@@ -65,9 +65,9 @@ class TestUserAccess(TestBase):
             grant('Collection', 'test2', READ);
         ''')
 
-        await testcl1.query(r'''x = 42;''', target='Collection')
-        await testcl1.query(r'''map(||nil);''', target='junk')
-        self.assertEqual(await testcl2.query('x', target='Collection'), 42)
+        await testcl1.query(r'''.x = 42;''', target='Collection')
+        await testcl1.query(r'''.map(||nil);''', target='junk')
+        self.assertEqual(await testcl2.query('.x', target='Collection'), 42)
 
         with self.assertRaisesRegex(
                 BadDataError,
@@ -120,7 +120,7 @@ class TestUserAccess(TestBase):
 
         # queries should no longer work
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''map(||nil);''', target='junk')
+            await testcl1.query(r'''.map(||nil);''', target='junk')
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):

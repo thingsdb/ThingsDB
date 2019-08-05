@@ -48,11 +48,11 @@ class TestOperators(TestBase):
         '''), 'a')
 
         self.assertEqual(await client.query(r'''
-           $initial = 'J';
-           $name = ($initial == 'M') ? 'Mike'
-            : ($initial == 'J') ? 'John'
-            : ($initial == 'C') ? 'Catherina'
-            : ($initial == 'T') ? 'Thomas'
+           initial = 'J';
+           name = (initial == 'M') ? 'Mike'
+            : (initial == 'J') ? 'John'
+            : (initial == 'C') ? 'Catherina'
+            : (initial == 'T') ? 'Thomas'
             : 'unknown';
         '''), 'John')
 

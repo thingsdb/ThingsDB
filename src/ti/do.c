@@ -561,7 +561,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (thing->flags & TI_VFLAG_LOCK)
         {
             ex_set(e, EX_BAD_DATA,
-                "cannot assign properties while "TI_THING_ID" is in use",
+                "cannot assign properties while "TI_THING_ID" is being used",
                 thing->id);
             goto done;
         }
@@ -1006,7 +1006,7 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_NAME);
+    assert (nd->cl_obj->gid == CLERI_GID_VAR);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
 
     int i
@@ -1263,35 +1263,42 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* make sure the current chain points to NULL */
     ti_chained_null(query->chained);
 
-
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_ARRAY:
         if (do__array(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_CHAIN:
+        if (!query->target)
+        {
+            ex_set(e, EX_INDEX_ERROR,
+                    "the `root` of the `%s` scope is inaccessible; "
+                    "You might want to query a `collection` scope?",
+                    ti_query_scope_name(query));
+            return e->nr;
+        }
         query->rval = (ti_val_t *) query->root;
         ti_incref(query->rval);
         if (do__chain(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_BLOCK:
         if (do__block(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_FUNCTION:
         if (do__function(query, node, false /* is_chained */, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_IMMUTABLE:
         if (do__immutable(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_OPERATIONS:
         /* skip the sequence , jump to the priority list */
         if (do__operations(query, node->children->next->node, e))
-            goto on_error;
+            return e->nr;
 
         if (node->children->next->next->next)   /* optional (sequence) */
         {
@@ -1302,13 +1309,13 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (bool_)
             {
                 if (ti_do_scope(query, node->children->next->node, e))
-                    goto on_error;
+                    return e->nr;
             }
             else if (node->children->next->next) /* else case */
             {
                 node = node->children->next->next->node;  /* else sequence */
                 if (ti_do_scope(query, node->children->next->node, e))
-                    goto on_error;
+                    return e->nr;
             }
             else  /* no else case, just nil */
             {
@@ -1318,15 +1325,15 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_THING:
         if (do__scope_thing(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_VAR:
         if (do__var(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
     case CLERI_GID_VAR_ASSIGN:
         if (do__var_assign(query, node, e))
-            goto on_error;
+            return e->nr;
         break;
 
     default:
@@ -1339,22 +1346,11 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* handle index */
     if (node->children && do__index(query, node, e))
-        goto on_error;
+        return e->nr;
 
     /* chain */
     if (child->next && do__chain(query, child->next->node, e))
-        goto on_error;
-
-//    if (!query->rval)
-//    {
-//        /* The scope value must exist since only `TMP` and `NAME` are not
-//         * setting `query->rval` and they both set the scope value.
-//         */
-//        assert (query->scope->val);
-//
-//        query->rval = query->scope->val;
-//        ti_incref(query->rval);
-//    }
+        return e->nr;
 
     if (nots)
     {
@@ -1363,7 +1359,6 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = (ti_val_t *) ti_vbool_get((nots & 1) ^ b);
     }
 
-on_error:
     return e->nr;
 }
 

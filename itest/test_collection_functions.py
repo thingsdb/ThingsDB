@@ -75,15 +75,18 @@ class TestCollectionFunctions(TestBase):
         '''), None)
 
     async def test_add(self, client):
-        await client.query(r's = set(); a = {}; b = {}; c = {};')
-        self.assertEqual(await client.query('[s.add(a, b), s.len()]'), [2, 2])
-        self.assertEqual(await client.query('[s.add(b, c), s.len()]'), [1, 3])
-        self.assertEqual(await client.query(r'[s.add({}), s.len()]'), [1, 4])
+        await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
+        self.assertEqual(
+            await client.query('[.s.add(.a, .b), .s.len()]'), [2, 2])
+        self.assertEqual(
+            await client.query('[.s.add(.b, .c), .s.len()]'), [1, 3])
+        self.assertEqual(
+            await client.query(r'[.s.add({}), .s.len()]'), [1, 4])
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'cannot add type `nil` to a set'):
-            await client.query(r's.add(a, b, {}, nil);')
+            await client.query(r'.s.add(.a, .b, {}, nil);')
 
     async def test_array(self, client):
         with self.assertRaisesRegex(
@@ -241,10 +244,10 @@ class TestCollectionFunctions(TestBase):
 
     async def test_blob(self, client):
         self.assertIs(await client.query(
-            'objects = [blob(0), blob(1)]; nil;',
+            '.objects = [blob(0), blob(1)]; nil;',
             blobs=(pickle.dumps({}), pickle.dumps([]))), None)
 
-        d, a = await client.query('objects;')
+        d, a = await client.query('.objects;')
         self.assertTrue(isinstance(pickle.loads(d), dict))
         self.assertTrue(isinstance(pickle.loads(a), list))
 
@@ -333,48 +336,42 @@ class TestCollectionFunctions(TestBase):
         '''))
 
     async def test_del(self, client):
-        await client.query(r'greet = "Hello world";')
+        await client.query(r'.greet = "Hello world";')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `raw` has no function `del`'):
-            await client.query('greet.del("x");')
+            await client.query('.greet.del("x");')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `del` takes 1 argument '
                 'but 0 were given'):
-            await client.query('del();')
+            await client.query('.del();')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'function `del` can only be used on things with an id > 0; '
-                r'things which are assigned automatically receive an id;'):
-            await client.query('{x:1}.del("x");')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'cannot use `del` while thing `#\d+` is in use'):
-            await client.query('map( ||del("greet") );')
+                r'cannot change type `thing` while the value is being used'):
+            await client.query('.map( ||.del("greet") );')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `del` expects argument 1 to be of type `raw` '
                 r'but got type `nil` instead'):
-            await client.query('del(nil);')
+            await client.query('.del(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `del` expects argument 1 to be a valid name.*'):
-            await client.query('del("");')
+            await client.query('.del("");')
 
         with self.assertRaisesRegex(
                 IndexError,
                 r'thing `#\d+` has no property `x`'):
-            await client.query(' del("x");')
+            await client.query('.del("x");')
 
-        self.assertIs(await client.query(r'del("greet");'), None)
-        self.assertFalse(await client.query(r'hasprop("greet");'))
+        self.assertIs(await client.query(r'.del("greet");'), None)
+        self.assertFalse(await client.query(r'.hasprop("greet");'))
 
     async def test_endswith(self, client):
         with self.assertRaisesRegex(
@@ -400,16 +397,16 @@ class TestCollectionFunctions(TestBase):
 
     async def test_filter(self, client):
         await client.query(r'''
-            iris = {
+            .iris = {
                 name: 'Iris',
                 age: 6,
                 likes: ['k3', 'swimming', 'red', 6],
             };
-            cato = {
+            .cato = {
                 name: 'Cato',
                 age: 5,
             };
-            girls = set([iris, cato]);
+            .girls = set([.iris, .cato]);
         ''')
         with self.assertRaisesRegex(
                 IndexError,
@@ -419,125 +416,127 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `filter` takes 1 argument but 0 were given'):
-            await client.query('filter();')
+            await client.query('.filter();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `filter` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
-            await client.query('filter(nil);')
+            await client.query('.filter(nil);')
 
         self.assertEqual(
-            (await client.query('iris.filter(|k|(k == "name"));')),
+            (await client.query('.iris.filter(|k|(k == "name"));')),
             {'#': 0, 'name': 'Iris'})
 
         self.assertEqual(
-            (await client.query('iris.filter(|_k, v|(v == 6));')),
+            (await client.query('.iris.filter(|_k, v|(v == 6));')),
             {'#': 0, 'age': 6})
 
         self.assertEqual(
-            (await client.query('iris.likes.filter(|v|isstr(v));')),
+            (await client.query('.iris.likes.filter(|v|isstr(v));')),
             ['k3', 'swimming', 'red'])
 
         self.assertEqual(
-            (await client.query('iris.likes.filter(|_v, i|(i > 1));')),
+            (await client.query('.iris.likes.filter(|_v, i|(i > 1));')),
             ['red', 6])
 
         self.assertEqual(
-            (await client.query('girls.filter(|v|(v.age == 6))'))
+            (await client.query('.girls.filter(|v|(v.age == 6))'))
             ['$'][0]['age'],
             6)
 
         self.assertEqual(
             (await client.query(
-                'girls.filter(|_v, i|(i == cato.id()))'))['$'][0]['age'],
+                '.girls.filter(|_v, i|(i == .cato.id()))'))['$'][0]['age'],
             5)
 
-        self.assertEqual(await client.query('iris.filter(||nil);'), {'#': 0})
-        self.assertEqual(await client.query('iris.likes.filter(||nil);'), [])
+        self.assertEqual(await client.query('.iris.filter(||nil);'), {'#': 0})
+        self.assertEqual(await client.query('.iris.likes.filter(||nil);'), [])
         self.assertEqual(await client.query(r'{}.filter(||true)'), {'#': 0})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
         self.assertEqual(await client.query(r'set().filter(||1)'), {'$': []})
 
     async def test_find(self, client):
         await client.query(r'''
-            x = [42, "gallaxy"];
-            iris = {
+            .x = [42, "gallaxy"];
+            .iris = {
                 name: 'Iris',
                 age: 6,
                 likes: ['k3', 'swimming', 'red', 6],
             };
-            cato = {
+            .cato = {
                 name: 'Cato',
                 age: 5,
             };
-            g = set([iris, cato]);
+            .g = set([.iris, .cato]);
             ''')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `thing` has no function `find`'):
-            await client.query('find(||true);')
+            await client.query('.find(||true);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `find` requires at least 1 argument '
                 'but 0 were given'):
-            await client.query('x.find();')
+            await client.query('.x.find();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `find` takes at most 2 arguments '
                 'but 3 were given'):
-            await client.query('x.find(||true, 2, 3);')
+            await client.query('.x.find(||true, 2, 3);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `find` expects argument 1 to be a `closure` '
                 'but got type `int` instead'):
-            await client.query('x.find(0);')
+            await client.query('.x.find(0);')
 
-        iris, cato = await client.query('[iris, cato];')
+        iris, cato = await client.query('[.iris, .cato];')
 
         self.assertIs(await client.query('[].find(||true);'), None)
         self.assertIs(await client.query('[].find(||false);'), None)
-        self.assertEqual(await client.query('x.find(||true);'), 42)
-        self.assertEqual(await client.query('x.find(|v|(v==42));'), 42)
-        self.assertEqual(await client.query('x.find(|_,i|(i>=0));'), 42)
-        self.assertEqual(await client.query('x.find(|_,i|(i>=1));'), "gallaxy")
-        self.assertIs(await client.query('x.find(||nil);'), None)
-        self.assertEqual(await client.query('x.find(||nil, 42);'), 42)
-        self.assertEqual(await client.query('g.find(|t|(t.age==5));'), cato)
+        self.assertEqual(await client.query('.x.find(||true);'), 42)
+        self.assertEqual(await client.query('.x.find(|v|(v==42));'), 42)
+        self.assertEqual(await client.query('.x.find(|_,i|(i>=0));'), 42)
         self.assertEqual(await client.query(
-            'g.find(|_,i|(i==iris.id()));'), iris)
-        self.assertIs(await client.query('g.find(||nil);'), None)
+            '.x.find(|_,i|(i>=1));'),
+            "gallaxy")
+        self.assertIs(await client.query('.x.find(||nil);'), None)
+        self.assertEqual(await client.query('.x.find(||nil, 42);'), 42)
+        self.assertEqual(await client.query('.g.find(|t|(t.age==5));'), cato)
+        self.assertEqual(await client.query(
+            '.g.find(|_,i|(i==.iris.id()));'), iris)
+        self.assertIs(await client.query('.g.find(||nil);'), None)
 
     async def test_findindex(self, client):
-        await client.query(r'x = [42, ""];')
+        await client.query(r'.x = [42, ""];')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `thing` has no function `findindex`'):
-            await client.query('findindex(||true);')
+            await client.query('.findindex(||true);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `findindex` takes 1 argument but 2 were given'):
-            await client.query('x.findindex(0, 1);')
+            await client.query('.x.findindex(0, 1);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `findindex` expects argument 1 to be a `closure` '
                 'but got type `bool` instead'):
-            await client.query('x.findindex(true);')
+            await client.query('.x.findindex(true);')
 
         self.assertIs(await client.query('[].findindex(||true);'), None)
         self.assertIs(await client.query('[].findindex(||false);'), None)
-        self.assertEqual(await client.query('x.findindex(||true);'), 0)
-        self.assertIs(await client.query('x.findindex(||false);'), None)
-        self.assertEqual(await client.query('x.findindex(|_,i|(i>0));'), 1)
-        self.assertEqual(await client.query('x.findindex(|v|(v==42));'), 0)
-        self.assertEqual(await client.query('x.findindex(|v|isstr(v));'), 1)
+        self.assertEqual(await client.query('.x.findindex(||true);'), 0)
+        self.assertIs(await client.query('.x.findindex(||false);'), None)
+        self.assertEqual(await client.query('.x.findindex(|_,i|(i>0));'), 1)
+        self.assertEqual(await client.query('.x.findindex(|v|(v==42));'), 0)
+        self.assertEqual(await client.query('.x.findindex(|v|isstr(v));'), 1)
 
     async def test_float(self, client):
         with self.assertRaisesRegex(
@@ -607,57 +606,57 @@ class TestCollectionFunctions(TestBase):
 
     async def test_has(self, client):
         await client.query(r'''
-            iris = {name: "Iris"};
-            cato = {name: "Cato"};
-            s = set([iris]);
+            .iris = {name: "Iris"};
+            .cato = {name: "Cato"};
+            .s = set([.iris]);
         ''')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `thing` has no function `has`'):
-            await client.query('has(iris);')
+            await client.query('.has(.iris);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `has` takes 1 argument but 0 were given'):
-            await client.query('s.has();')
+            await client.query('.s.has();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `has` expects argument 1 to be of '
                 r'type `thing` but got type `int` instead'):
-            await client.query('s.has(0);')
+            await client.query('.s.has(0);')
 
-        self.assertTrue(await client.query('s.has(iris);'))
-        self.assertFalse(await client.query('s.has(cato);'))
+        self.assertTrue(await client.query('.s.has(.iris);'))
+        self.assertFalse(await client.query('.s.has(.cato);'))
 
     async def test_hasprop(self, client):
-        await client.query(r'x = 0.0;')
+        await client.query(r'.x = 0.0;')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `float` has no function `hasprop`'):
-            await client.query('x.hasprop("x");')
+            await client.query('.x.hasprop("x");')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `hasprop` takes 1 argument but 0 were given'):
-            await client.query('hasprop();')
+            await client.query('.hasprop();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `hasprop` expects argument 1 to be of '
                 r'type `raw` but got type `int` instead'):
-            await client.query('hasprop(id());')
+            await client.query('.hasprop(.id());')
 
-        self.assertTrue(await client.query('hasprop("x");'))
-        self.assertFalse(await client.query('hasprop("y");'))
+        self.assertTrue(await client.query('.hasprop("x");'))
+        self.assertFalse(await client.query('.hasprop("y");'))
 
     async def test_id(self, client):
-        o = await client.query(r'o = {};')
+        o = await client.query(r'.o = {};')
         self.assertTrue(isinstance(o['#'], int))
         self.assertGreater(o['#'], 0)
-        self.assertEqual(await client.query(r'o.id();'), o['#'])
+        self.assertEqual(await client.query(r'.o.id();'), o['#'])
         self.assertEqual(await client.query(r'{}.id();'), 0)
 
         with self.assertRaisesRegex(
@@ -668,38 +667,38 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `id` takes 0 arguments but 1 was given'):
-            await client.query('id(nil);')
+            await client.query('.id(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `id` takes 0 arguments but 2 were given'):
-            await client.query('id(nil, nil);')
+            await client.query('.id(nil, nil);')
 
     async def test_indexof(self, client):
-        await client.query(r'x = [42, "thingsdb", t(id()), 42, false, nil];')
+        await client.query(r'.x = [42, "thingsdb", t(.id()), 42, false, nil];')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `thing` has no function `indexof`'):
-            await client.query('indexof("x");')
+            await client.query('.indexof("x");')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `indexof` takes 1 argument but 0 were given'):
-            await client.query('x.indexof();')
+            await client.query('.x.indexof();')
 
-        self.assertEqual(await client.query('x.indexof(42);'), 0)
-        self.assertEqual(await client.query('x.indexof("thingsdb");'), 1)
-        self.assertEqual(await client.query('x.indexof(t(id()));'), 2)
-        self.assertEqual(await client.query('x.indexof(false);'), 4)
-        self.assertEqual(await client.query('x.indexof(nil);'), 5)
-        self.assertIs(await client.query('x.indexof(42.1);'), None)
-        self.assertIs(await client.query('x.indexof("ThingsDb");'), None)
-        self.assertIs(await client.query('x.indexof(true);'), None)
-        self.assertIs(await client.query(r'x.indexof({});'), None)
+        self.assertEqual(await client.query('.x.indexof(42);'), 0)
+        self.assertEqual(await client.query('.x.indexof("thingsdb");'), 1)
+        self.assertEqual(await client.query('.x.indexof(t(.id()));'), 2)
+        self.assertEqual(await client.query('.x.indexof(false);'), 4)
+        self.assertEqual(await client.query('.x.indexof(nil);'), 5)
+        self.assertIs(await client.query('.x.indexof(42.1);'), None)
+        self.assertIs(await client.query('.x.indexof("ThingsDb");'), None)
+        self.assertIs(await client.query('.x.indexof(true);'), None)
+        self.assertIs(await client.query(r'.x.indexof({});'), None)
 
         # cleanup garbage, the reference to the collection
-        await client.query(r'''x.splice(2, 1);''')
+        await client.query(r'''.x.splice(2, 1);''')
 
     async def test_index_err(self, client):
         with self.assertRaisesRegex(
@@ -782,20 +781,20 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int("-3.14");'), -3)
 
     async def test_isarray(self, client):
-        await client.query('x = [[0, 1], nil]; y = x[0];')
+        await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `isarray` takes 1 argument but 0 were given'):
             await client.query('isarray();')
 
         self.assertTrue(await client.query('isarray([]);'))
-        self.assertTrue(await client.query('isarray(x);'))
-        self.assertTrue(await client.query('isarray(y);'))
-        self.assertTrue(await client.query('isarray(x[0]);'))
+        self.assertTrue(await client.query('isarray(.x);'))
+        self.assertTrue(await client.query('isarray(.y);'))
+        self.assertTrue(await client.query('isarray(.x[0]);'))
         self.assertFalse(await client.query('isarray(0);'))
         self.assertFalse(await client.query('isarray("test");'))
         self.assertFalse(await client.query(r'isarray({});'))
-        self.assertFalse(await client.query('isarray(x[1]);'))
+        self.assertFalse(await client.query('isarray(.x[1]);'))
         self.assertFalse(await client.query('isarray(set());'))
 
     async def test_isascii(self, client):
@@ -821,7 +820,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertTrue(await client.query('isbool( true ); '))
         self.assertTrue(await client.query('isbool( false ); '))
-        self.assertTrue(await client.query('isbool( isint(id()) ); '))
+        self.assertTrue(await client.query('isbool( isint(.id()) ); '))
         self.assertFalse(await client.query('isbool( "ԉ" ); '))
         self.assertFalse(await client.query('isbool([]);'))
         self.assertFalse(await client.query('isbool(nil);'))
@@ -892,20 +891,20 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isint( set() );'))
 
     async def test_islist(self, client):
-        await client.query('x = [[0, 1], nil]; y = x[0];')
+        await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `islist` takes 1 argument but 0 were given'):
             await client.query('islist();')
 
         self.assertTrue(await client.query('islist([]);'))
-        self.assertTrue(await client.query('islist(x);'))
-        self.assertTrue(await client.query('islist(y);'))
-        self.assertFalse(await client.query('islist(x[0]);'))
+        self.assertTrue(await client.query('islist(.x);'))
+        self.assertTrue(await client.query('islist(.y);'))
+        self.assertFalse(await client.query('islist(.x[0]);'))
         self.assertFalse(await client.query('islist(0);'))
         self.assertFalse(await client.query('islist("test");'))
         self.assertFalse(await client.query(r'islist({});'))
-        self.assertFalse(await client.query('islist(x[1]);'))
+        self.assertFalse(await client.query('islist(.x[1]);'))
         self.assertFalse(await client.query('islist(set());'))
 
     async def test_isnan(self, client):
@@ -950,7 +949,7 @@ class TestCollectionFunctions(TestBase):
                 blobs=(pickle.dumps('binary'), )))
 
     async def test_isset(self, client):
-        await client.query(r'sa = set(); sb = set([ {} ]);')
+        await client.query(r'.sa = set(); .sb = set([ {} ]);')
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `isset` takes 1 argument but 0 were given'):
@@ -959,8 +958,8 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'isset({});'))
         self.assertFalse(await client.query('isset([]);'))
         self.assertTrue(await client.query('isset(set());'))
-        self.assertTrue(await client.query('isset(sa);'))
-        self.assertTrue(await client.query('isset(sb);'))
+        self.assertTrue(await client.query('isset(.sa);'))
+        self.assertTrue(await client.query('isset(.sb);'))
 
     async def test_isthing(self, client):
         with self.assertRaisesRegex(
@@ -969,25 +968,25 @@ class TestCollectionFunctions(TestBase):
             await client.query('isthing();')
 
         self.assertTrue(await client.query(r'isthing( {} ); '))
-        self.assertTrue(await client.query(r'isthing( t(id()) ); '))
+        self.assertTrue(await client.query(r'isthing( t(.id()) ); '))
         self.assertFalse(await client.query('isthing( [] ); '))
         self.assertFalse(await client.query('isthing( set() ); '))
 
     async def test_istuple(self, client):
-        await client.query('x = [[0, 1], nil]; y = x[0];')
+        await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `istuple` takes 1 argument but 0 were given'):
             await client.query('istuple();')
 
         self.assertFalse(await client.query('istuple([]);'))
-        self.assertFalse(await client.query('istuple(x);'))
-        self.assertFalse(await client.query('istuple(y);'))
-        self.assertTrue(await client.query('istuple(x[0]);'))
+        self.assertFalse(await client.query('istuple(.x);'))
+        self.assertFalse(await client.query('istuple(.y);'))
+        self.assertTrue(await client.query('istuple(.x[0]);'))
         self.assertFalse(await client.query('istuple(0);'))
         self.assertFalse(await client.query('istuple("test");'))
         self.assertFalse(await client.query(r'istuple({});'))
-        self.assertFalse(await client.query('istuple(x[1]);'))
+        self.assertFalse(await client.query('istuple(.x[1]);'))
 
     async def test_isutf8(self, client):
         with self.assertRaisesRegex(
@@ -1015,7 +1014,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `len` takes 0 arguments but 1 was given'):
-            await client.query('len(nil);')
+            await client.query('.len(nil);')
 
         self.assertEqual(await client.query(r'{}.len();'), 0)
         self.assertEqual(await client.query(r'"".len();'), 0)
@@ -1044,16 +1043,16 @@ class TestCollectionFunctions(TestBase):
 
     async def test_map(self, client):
         await client.query(r'''
-            iris = {
+            .iris = {
                 name: 'Iris',
                 age: 6,
                 likes: ['k3', 'swimming', 'red', 6],
             };
-            cato = {
+            .cato = {
                 name: 'Cato',
                 age: 5,
             };
-            girls = set([iris, cato]);
+            .girls = set([.iris, .cato]);
         ''')
         with self.assertRaisesRegex(
                 IndexError,
@@ -1063,39 +1062,40 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `map` takes 1 argument but 0 were given'):
-            await client.query('map();')
+            await client.query('.map();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `map` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
-            await client.query('map(nil);')
+            await client.query('.map(nil);')
 
         self.assertEqual(await client.query(r'[].map(||nil)'), [])
         self.assertEqual(await client.query(r'{}.map(||nil)'), [])
         self.assertEqual(await client.query(r'set().map(||nil)'), [])
 
         self.assertEqual(
-            set(await client.query('iris.map(|k|k.upper());')),
+            set(await client.query('.iris.map(|k|k.upper());')),
             set({'NAME', 'AGE', 'LIKES'}))
 
         self.assertEqual(
-            set(await client.query('iris.map(|_, v| (isarray(v)) ? true:v);')),
+            set(await client.query(
+                '.iris.map(|_, v| (isarray(v)) ? true:v);')),
             set({'Iris', 6, True}))
 
         self.assertEqual(
-            await client.query('iris.likes.map(|v, i|[v, i])'),
+            await client.query('.iris.likes.map(|v, i|[v, i])'),
             [['k3', 0], ['swimming', 1], ['red', 2], [6, 3]])
 
         self.assertEqual(
-            set(await client.query('girls.map(|g| g.name);')),
+            set(await client.query('.girls.map(|g| g.name);')),
             set(['Iris', 'Cato'])
         )
 
-        iris_id, cato_id = await client.query('[iris.id(), cato.id()];')
+        iris_id, cato_id = await client.query('[.iris.id(), .cato.id()];')
 
         self.assertEqual(
-            set(await client.query('girls.map(|_, id| id);')),
+            set(await client.query('.girls.map(|_, id| id);')),
             set([iris_id, cato_id])
         )
 
@@ -1197,10 +1197,10 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_pop(self, client):
-        await client.query('list = [1, 2, 3];')
-        self.assertEqual(await client.query('list.pop()'), 3)
-        self.assertEqual(await client.query('list.pop()'), 2)
-        self.assertEqual(await client.query('list;'), [1])
+        await client.query('.list = [1, 2, 3];')
+        self.assertEqual(await client.query('.list.pop()'), 3)
+        self.assertEqual(await client.query('.list.pop()'), 2)
+        self.assertEqual(await client.query('.list;'), [1])
         self.assertIs(await client.query('[nil].pop()'), None)
 
         with self.assertRaisesRegex(
@@ -1211,17 +1211,18 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 IndexError,
                 'type `tuple` has no function `pop`'):
-            await client.query('a = [list]; a[0].pop();')
+            await client.query('.a = [.list]; .a[0].pop();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `pop` takes 0 arguments but 1 was given'):
-            await client.query('list.pop(nil);')
+            await client.query('.list.pop(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot use function `pop` while the list is in use'):
-            await client.query('list.map(||list.pop());')
+                r'cannot change property `list` on `#\d+` '
+                r'while the property is being used'):
+            await client.query('.list.map(||.list.pop());')
 
         with self.assertRaisesRegex(
                 IndexError,
@@ -1229,10 +1230,10 @@ class TestCollectionFunctions(TestBase):
             await client.query('[].pop();')
 
     async def test_push(self, client):
-        await client.query('list = [];')
-        self.assertEqual(await client.query('list.push("a")'), 1)
-        self.assertEqual(await client.query('list.push("b", "c")'), 3)
-        self.assertEqual(await client.query('list;'), ['a', 'b', 'c'])
+        await client.query('.list = [];')
+        self.assertEqual(await client.query('.list.push("a")'), 1)
+        self.assertEqual(await client.query('.list.push("b", "c")'), 3)
+        self.assertEqual(await client.query('.list;'), ['a', 'b', 'c'])
 
         with self.assertRaisesRegex(
                 IndexError,
@@ -1242,18 +1243,19 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 IndexError,
                 'type `tuple` has no function `push`'):
-            await client.query('a = [list]; a[0].push(nil);')
+            await client.query('.a = [.list]; .a[0].push(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `push` requires at least 1 argument '
                 'but 0 were given'):
-            await client.query('list.push();')
+            await client.query('.list.push();')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot use function `push` while the list is in use'):
-            await client.query('list.map(||list.push(4));')
+                r'cannot change property `list` on `#\d+` '
+                r'while the property is being used'):
+            await client.query('.list.map(||.list.push(4));')
 
     async def test_raise(self, client):
         with self.assertRaisesRegex(
@@ -1296,17 +1298,17 @@ class TestCollectionFunctions(TestBase):
         self.assertGreater(await client.query('refs(nil);'), 1)
         self.assertGreater(await client.query('refs(true);'), 1)
         self.assertGreater(await client.query('refs(false);'), 1)
-        self.assertEqual(await client.query('refs(t(id()));'), 3)
+        self.assertEqual(await client.query('refs(t(.id()));'), 2)
         self.assertEqual(await client.query('refs("Test RefCount")'), 2)
         self.assertEqual(await client.query('x = "Test RefCount"; refs(x)'), 3)
 
     async def test_remove_list(self, client):
-        await client.query('list = [1, 2, 3];')
-        self.assertEqual(await client.query('list.remove(|x|(x>1));'), 2)
-        self.assertEqual(await client.query('list.remove(|x|(x>1));'), 3)
-        self.assertEqual(await client.query('list;'), [1])
-        self.assertIs(await client.query('list.remove(||false);'), None)
-        self.assertEqual(await client.query('list.remove(||false, "");'), '')
+        await client.query('.list = [1, 2, 3];')
+        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 2)
+        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 3)
+        self.assertEqual(await client.query('.list;'), [1])
+        self.assertIs(await client.query('.list.remove(||false);'), None)
+        self.assertEqual(await client.query('.list.remove(||false, "");'), '')
         self.assertIs(await client.query('[].remove(||true);'), None)
         self.assertEqual(await client.query('["pi"].remove(||true);'), 'pi')
 
@@ -1318,62 +1320,63 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 IndexError,
                 'type `tuple` has no function `remove`'):
-            await client.query('a = [list]; a[0].remove(||true);')
+            await client.query('.a = [.list]; .a[0].remove(||true);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` requires at least 1 argument '
                 'but 0 were given'):
-            await client.query('list.remove();')
+            await client.query('.list.remove();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` takes at most 2 arguments '
                 'but 3 were given'):
-            await client.query('list.remove(||true, 2, 3);')
+            await client.query('.list.remove(||true, 2, 3);')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot use function `remove` while the list is in use'):
-            await client.query('list.map(||list.remove(||true));')
+                r'cannot change property `list` on `#\d+` '
+                r'while the property is being used'):
+            await client.query('.list.map(||.list.remove(||true));')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):
-            await client.query('list.remove(nil);')
+            await client.query('.list.remove(nil);')
 
     async def test_remove_set(self, client):
         await client.query(r'''
-        t = {name: 'ThingsDB'};
-        s = set([t, {name: 'Iris'}, {name: 'Cato'}]);
+        .t = {name: 'ThingsDB'};
+        .s = set([.t, {name: 'Iris'}, {name: 'Cato'}]);
         ''')
 
-        removed = await client.query('s.remove(|T| (T == t));')
+        removed = await client.query('.s.remove(|T| (T == .t));')
 
         self.assertEqual(len(removed), 1)
         self.assertEqual(removed[0]['name'], 'ThingsDB')
-        self.assertEqual(await client.query('s.remove(||nil);'), [])
+        self.assertEqual(await client.query('.s.remove(||nil);'), [])
 
-        removed = await client.query('s.remove(||true);')
+        removed = await client.query('.s.remove(||true);')
 
         self.assertEqual(len(removed), 2)
 
         await client.query(r'''
-            i = {name: 'Iris'};
-            c = {name: 'Cato'};
-            s.add(t, i, c);
+            .i = {name: 'Iris'};
+            .c = {name: 'Cato'};
+            .s.add(.t, .i, .c);
         ''')
 
-        removed = await client.query('s.remove(|_, id| (id == t.id()));')
+        removed = await client.query('.s.remove(|_, id| (id == .t.id()));')
         self.assertEqual(len(removed), 1)
         self.assertEqual(removed[0]['name'], 'ThingsDB')
 
-        removed = await client.query('s.remove(t, i, c);')
+        removed = await client.query('.s.remove(.t, .i, .c);')
 
         self.assertEqual(len(removed), 2)
 
-        await client.query(r's.add(t, i, c);')
+        await client.query(r'.s.add(.t, .i, .c);')
 
         with self.assertRaisesRegex(
                 IndexError,
@@ -1384,107 +1387,108 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'function `remove` requires at least 1 argument '
                 'but 0 were given'):
-            await client.query('s.remove();')
+            await client.query('.s.remove();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` takes at most 1 argument '
                 'when using a `closure` but 2 were given'):
-            await client.query('s.remove(||true, nil);')
+            await client.query('.s.remove(||true, nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot use function `remove` while the set is in use'):
-            await client.query('s.map(||s.remove(||true));')
+                r'cannot change property `s` on `#\d+` '
+                r'while the property is being used'):
+            await client.query('.s.map(||.s.remove(||true));')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` expects argument 1 to be a `closure` '
                 'or type `thing` but got type `nil` instead'):
-            await client.query('s.remove(nil);')
+            await client.query('.s.remove(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `remove` expects argument 2 to be of type `thing` '
                 'but got type `nil` instead'):
-            await client.query('s.remove(t, nil);')
+            await client.query('.s.remove(.t, nil);')
 
         # check if `t` is restored
-        self.assertEqual(await client.query('s.len();'), 3)
+        self.assertEqual(await client.query('.s.len();'), 3)
 
-    async def test_rename(self, client):
-        await client.query('x = 42;')
+    # async def _test_rename(self, client):
+    #     await client.query('.x = 42;')
 
-        with self.assertRaisesRegex(
-                IndexError,
-                'type `int` has no function `rename`'):
-            await client.query('x.rename("a", "b");')
+    #     with self.assertRaisesRegex(
+    #             IndexError,
+    #             'type `int` has no function `rename`'):
+    #         await client.query('.x.rename("a", "b");')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `rename` takes 2 arguments '
-                'but 1 was given'):
-            await client.query('rename("x")')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             'function `rename` takes 2 arguments '
+    #             'but 1 was given'):
+    #         await client.query('rename("x")')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `rename` takes 2 arguments '
-                'but 0 were given'):
-            await client.query('rename()')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             'function `rename` takes 2 arguments '
+    #             'but 0 were given'):
+    #         await client.query('rename()')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `rename` takes 2 arguments '
-                'but 3 were given'):
-            await client.query('rename("x", "y", "z")')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             'function `rename` takes 2 arguments '
+    #             'but 3 were given'):
+    #         await client.query('rename("x", "y", "z")')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `rename` can only be used on things with an id > 0; '
-                r'things which are assigned automatically receive an id;'):
-            await client.query('{x:1}.rename("x", "y");')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             'function `rename` can only be used on things with an id > 0; '
+    #             r'things which are assigned automatically receive an id;'):
+    #         await client.query('{x:1}.rename("x", "y");')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'cannot use `rename` while thing `#\d+` is in use'):
-            await client.query('map( ||rename("x", "y") );')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             r'cannot use `rename` while thing `#\d+` is in use'):
+    #         await client.query('map( ||rename("x", "y") );')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'function `rename` expects argument 1 to be of '
-                r'type `raw` but got type `nil` instead'):
-            await client.query('rename(nil, "y")')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             r'function `rename` expects argument 1 to be of '
+    #             r'type `raw` but got type `nil` instead'):
+    #         await client.query('rename(nil, "y")')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'function `rename` expects argument 1 to be a valid name.*'):
-            await client.query('rename("", "y");')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             r'function `rename` expects argument 1 to be a valid name.*'):
+    #         await client.query('rename("", "y");')
 
-        with self.assertRaisesRegex(
-                IndexError,
-                r'thing `#\d+` has no property `a`'):
-            await client.query('rename("a", "b");')
+    #     with self.assertRaisesRegex(
+    #             IndexError,
+    #             r'thing `#\d+` has no property `a`'):
+    #         await client.query('rename("a", "b");')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'function `rename` expects argument 2 to be of '
-                r'type `raw` but got type `nil` instead'):
-            await client.query('rename("x", nil)')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             r'function `rename` expects argument 2 to be of '
+    #             r'type `raw` but got type `nil` instead'):
+    #         await client.query('rename("x", nil)')
 
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'function `rename` expects argument 2 to be a valid name.*'):
-            await client.query('rename("x", "!");')
+    #     with self.assertRaisesRegex(
+    #             BadDataError,
+    #             r'function `rename` expects argument 2 to be a valid name.*'):
+    #         await client.query('rename("x", "!");')
 
-        self.assertEqual(await client.query('rename("x", "y"); y;'), 42)
+    #     self.assertEqual(await client.query('rename("x", "y"); y;'), 42)
 
-        with self.assertRaisesRegex(
-                IndexError,
-                r'`x` is undefined'):
-            await client.query('x;')
+    #     with self.assertRaisesRegex(
+    #             IndexError,
+    #             r'`x` is undefined'):
+    #         await client.query('x;')
 
-        self.assertEqual(await client.query('rename("y", "y"); y;'), 42)
-        self.assertEqual(await client.query('x = 6; rename("y", "x"); x;'), 42)
+    #     self.assertEqual(await client.query('rename("y", "y"); y;'), 42)
+    #     self.assertEqual(await client.query('x = 6; rename("y", "x"); x;'), 42)
 
     async def test_set(self, client):
         with self.assertRaisesRegex(
@@ -1505,7 +1509,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'cannot add type `int` to a set'):
-            await client.query(r'set([{}, t(id()), 3]);')
+            await client.query(r'set([{}, t(.id()), 3]);')
 
         self.assertEqual(await client.query('set();'), {'$': []})
         self.assertEqual(await client.query('set([]);'), {'$': []})
@@ -1515,62 +1519,63 @@ class TestCollectionFunctions(TestBase):
             {'$': [{'#': 0}, {'#': 0}]})
 
     async def test_splice(self, client):
-        await client.query('list = [];')
-        self.assertEqual(await client.query('list.splice(0, 0, "a")'), [])
-        self.assertEqual(await client.query('list.splice(1, 0, "d", "e")'), [])
-        self.assertEqual(await client.query('list.splice(1, 0, "b", "d")'), [])
-        self.assertEqual(await client.query('list.splice(2, 1, "c")'), ['d'])
-        self.assertEqual(await client.query('list.splice(0, 2)'), ['a', 'b'])
-        self.assertEqual(await client.query('list;'), ['c', 'd', 'e'])
+        await client.query('.li = [];')
+        self.assertEqual(await client.query('.li.splice(0, 0, "a")'), [])
+        self.assertEqual(await client.query('.li.splice(1, 0, "d", "e")'), [])
+        self.assertEqual(await client.query('.li.splice(1, 0, "b", "d")'), [])
+        self.assertEqual(await client.query('.li.splice(2, 1, "c")'), ['d'])
+        self.assertEqual(await client.query('.li.splice(0, 2)'), ['a', 'b'])
+        self.assertEqual(await client.query('.li;'), ['c', 'd', 'e'])
 
-        self.assertEqual(await client.query('list.splice(-2, 1)'), ['d'])
-        self.assertEqual(await client.query('list.splice(5, 1)'), [])
-        self.assertEqual(await client.query('list.splice(-5, 1)'), [])
-        self.assertEqual(await client.query('list.splice(0, -1)'), [])
+        self.assertEqual(await client.query('.li.splice(-2, 1)'), ['d'])
+        self.assertEqual(await client.query('.li.splice(5, 1)'), [])
+        self.assertEqual(await client.query('.li.splice(-5, 1)'), [])
+        self.assertEqual(await client.query('.li.splice(0, -1)'), [])
 
-        self.assertEqual(await client.query('list;'), ['c', 'e'])
-        self.assertEqual(await client.query('list.splice(0, 10)'), ['c', 'e'])
-        self.assertEqual(await client.query('list.splice(5, 10, 1, 2, 3)'), [])
-        self.assertEqual(await client.query('list;'), [1, 2, 3])
+        self.assertEqual(await client.query('.li;'), ['c', 'e'])
+        self.assertEqual(await client.query('.li.splice(0, 10)'), ['c', 'e'])
+        self.assertEqual(await client.query('.li.splice(5, 10, 1, 2, 3)'), [])
+        self.assertEqual(await client.query('.li;'), [1, 2, 3])
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `thing` has no function `splice`'):
-            await client.query('splice();')
+            await client.query('.splice();')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'type `tuple` has no function `splice`'):
-            await client.query('a = [list]; a[0].splice(nil);')
+            await client.query('a = [.li]; a[0].splice(nil);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `splice` requires at least 2 arguments '
                 'but 0 were given'):
-            await client.query('list.splice();')
+            await client.query('.li.splice();')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'function `splice` requires at least 2 arguments '
                 'but 1 was given'):
-            await client.query('list.splice(0);')
+            await client.query('.li.splice(0);')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot use function `splice` while the list is in use'):
-            await client.query('list.map(||list.splice(0, 1));')
+                r'cannot change property `li` on `#\d+` '
+                r'while the property is being used'):
+            await client.query('.li.map(||.li.splice(0, 1));')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `splice` expects argument 1 to be of '
                 r'type `int` but got type `float` instead'):
-            await client.query('list.splice(0.0, 0)')
+            await client.query('.li.splice(0.0, 0)')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `splice` expects argument 2 to be of '
                 r'type `int` but got type `nil` instead'):
-            await client.query('list.splice(0, nil)')
+            await client.query('.li.splice(0, nil)')
 
     async def test_startswith(self, client):
         with self.assertRaisesRegex(
@@ -1697,12 +1702,12 @@ class TestCollectionFunctions(TestBase):
                 'collection `stuff` has no `thing` with id -1'):
             await client.query('t(-1);')
 
-        id = await client.query(r'(t = {x:42}).id();')
+        id = await client.query(r'(.t = {x:42}).id();')
         t = await client.query('t({});'.format(id))
         self.assertEqual(t['x'], 42)
-        self.assertFalse(await client.query(r'isarray(t(t.id()));'))
-        self.assertTrue(await client.query(r'isarray(t(t.id(), ));'))
-        stuff, t = await client.query('t(id(), {}); => 2'.format(id))
+        self.assertFalse(await client.query(r'isarray(t(.t.id()));'))
+        self.assertTrue(await client.query(r'isarray(t(.t.id(), ));'))
+        stuff, t = await client.query('t(.id(), {}); => 2'.format(id))
         self.assertEqual(stuff['t'], t)
 
     async def test_try(self, client):

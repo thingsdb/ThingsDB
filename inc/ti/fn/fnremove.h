@@ -102,9 +102,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         (void) ti_do_scope(query, nd->children->next->next->node, e);
     }
     else
-    {
         query->rval = (ti_val_t *) ti_nil_get();
-    }
 
 done:
 fail3:
@@ -285,7 +283,7 @@ static void do__f_remove_set(
     assert (query->rval == NULL);
     query->rval = (ti_val_t *) ti_varr_from_vec(removed);
     if (query->rval)
-        return;
+        goto done;
 
     ex_set_mem(e);
 
@@ -299,6 +297,7 @@ fail1:
     free(removed);
 
 fail0:
+done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
     ti_val_drop((ti_val_t *) vset);
 }

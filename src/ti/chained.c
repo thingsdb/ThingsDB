@@ -79,7 +79,7 @@ _Bool ti__chained_in_use_(
         {
             ex_set(e, EX_BAD_DATA,
                     "cannot change property `%s` on "TI_THING_ID
-                    " while the property is in use",
+                    " while the property is being used",
                     chain->name->str, chain->thing->id);
             return true;
         }

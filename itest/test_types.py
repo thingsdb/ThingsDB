@@ -56,8 +56,8 @@ class TestTypes(TestBase):
         '''), [0, 0])
 
         self.assertEqual(await client.query(r'''
-            $tmp = {a: [{}], b: {}};
-            [$tmp.a[0].id(), $tmp.b.id(), $tmp.id()];
+            tmp = {a: [{}], b: {}};
+            [tmp.a[0].id(), tmp.b.id(), tmp.id()];
         '''), [0, 0, 0])
 
         self.assertEqual(await client.query(r'''
@@ -77,45 +77,45 @@ class TestTypes(TestBase):
         '''), {'#': 0, 'a': {'#': 0, 't': 0}})
 
         self.assertGreater(await client.query(r'''
-            $tmp = {t: {}};
-            t = $tmp.t;
-            $tmp.t.id();
+            tmp = {t: {}};
+            .t = tmp.t;
+            tmp.t.id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            t = {};
-            t.id();
+            .t = {};
+            .t.id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            a = [{}];
-            a[0].id();
+            .a = [{}];
+            .a[0].id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            a = [[{}]];
-            a[0][0].id();
+            .a = [[{}]];
+            .a[0][0].id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            t = {t: {}};
-            t.t.id();
+            .t = {t: {}};
+            .t.t.id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            t = {l: []};
-            t.l.push({a: {}});
-            t.l[0].id();
+            .t = {l: []};
+            .t.l.push({a: {}});
+            .t.l[0].id();
         '''), 0)
 
         self.assertGreater(await client.query(r'''
-            t.l[0].a.id();
+            .t.l[0].a.id();
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-            $t = {l: []};
-            $t.l.push({a: {}});
-            [$t.l[0].id(), $t.l[0].a.id()];
+            t = {l: []};
+            t.l.push({a: {}});
+            [t.l[0].id(), t.l[0].a.id()];
         '''), [0, 0])
 
     async def test_array(self, client):
@@ -128,8 +128,8 @@ class TestTypes(TestBase):
                 BadDataError,
                 r'closures cannot be used recursively'):
             await client.query(r'''
-                a = ||map(($b = a));
-                map(a);
+                .a = ||.map((b = .a));
+                .map(.a);
             ''')
 
         with self.assertRaisesRegex(
@@ -137,8 +137,8 @@ class TestTypes(TestBase):
                 r'stored closures with side effects must be '
                 r'wrapped using '):
             await client.query(r'''
-                b = ||(x = 1);
-                [1 ,2 ,3].map(b);
+                .b = ||(.x = 1);
+                [1 ,2 ,3].map(.b);
             ''')
 
         with self.assertRaisesRegex(
@@ -146,14 +146,14 @@ class TestTypes(TestBase):
                 r'stored closures with side effects must be '
                 r'wrapped using '):
             await client.query(r'''
-                a = [||x = 1];
-                [1 ,2 ,3].map(a[0]);
+                .a = [||.x = 1];
+                [1 ,2 ,3].map(.a[0]);
             ''')
 
         # test two-level deel nesting
         self.assertEqual(await client.query(r'''
-            b = |k1|map(|k2|(k1 + k2));
-            map(b);
+            .b = |k1|.map(|k2|(k1 + k2));
+            .map(.b);
         '''), [["aa", "ab"], ["ba", "bb"]])
 
     async def test_set(self, client):
@@ -162,18 +162,18 @@ class TestTypes(TestBase):
         '''))
 
         self.assertTrue(await client.query(r'''
-            a = {}; b = a;
-            ( set([a, a]) == set([b]) )
+            .a = {}; .b = .a;
+            ( set([.a, .a]) == set([.b]) )
         '''))
 
         self.assertTrue(await client.query(r'''
-            a = {};
-            ( set([a]) != set([]) )
+            .a = {};
+            ( set([.a]) != set([]) )
         '''))
 
         self.assertTrue(await client.query(r'''
-            a = {}; b = {};
-            ( set([a]) != set([b]) )
+            .a = {}; .b = {};
+            ( set([.a]) != set([.b]) )
         '''))
 
 

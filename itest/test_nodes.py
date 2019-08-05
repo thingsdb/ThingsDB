@@ -47,7 +47,7 @@ class TestNodes(TestBase):
         with self.assertRaisesRegex(
                 NodeError,
                 r'`node:1` is still active, '
-                r'shutdown the current node and start '
+                r'shutdown the node and start '
                 r'the new node with `--secret ...`'):
             await client.query('replace_node(1, "letsgo", "127.0.0.1", 9224);')
 
@@ -57,15 +57,15 @@ class TestNodes(TestBase):
         nodes = await client.query(r'nodes_info();', target=scope.node)
         self.assertEqual(len(nodes), 3)
 
-        await client.query('hello = "world";', target=stuff)
+        await client.query('.hello = "world";', target=stuff)
 
         await asyncio.sleep(50)  # 50 seconds should be enough to sync
 
         cl3 = await get_client(self.node3)  # node:2
         cl4 = await get_client(self.node4)  # node:1
 
-        self.assertEqual((await cl3.query('hello;', target=stuff)), 'world')
-        self.assertEqual((await cl4.query('hello;', target=stuff)), 'world')
+        self.assertEqual((await cl3.query('.hello;', target=stuff)), 'world')
+        self.assertEqual((await cl4.query('.hello;', target=stuff)), 'world')
 
         cl3.close()
         cl4.close()

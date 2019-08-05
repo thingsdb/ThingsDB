@@ -42,9 +42,10 @@ class TestThingsDBFunctions(TestBase):
             await client.query('node_info();')
 
         with self.assertRaisesRegex(
-                BadDataError,
-                'assignments are not supported in the `thingsdb` scope'):
-            await client.query('tmp = 1;')
+                IndexError,
+                'the `root` of the `thingsdb` scope is inaccessible; '
+                'You might want to query a `collection` scope?'):
+            await client.query('.v = 1;')
 
     async def test_collection_info(self, client):
         with self.assertRaisesRegex(

@@ -41,55 +41,55 @@ class TestNested(TestBase):
 
     async def test_nested_closure_query(self, client):
         usera, userb = await client.query(r'''
-            channel = {};
-            workspace = {channels: [channel]};
-            usera = {
+            .channel = {};
+            .workspace = {channels: [.channel]};
+            .usera = {
                 memberships: [{
-                    workspace: workspace,
-                    channels: [channel]
+                    workspace: .workspace,
+                    channels: [.channel]
                 }]
             };
-            userb = {
+            .userb = {
                 memberships: [{
-                    workspace: workspace,
+                    workspace: .workspace,
                     channels: []
                 }]
             };
-            users = [usera, userb];
+            .users = [.usera, .userb];
         ''')
 
         self.assertEqual(await client.query(r'''
-            users.filter(
+            .users.filter(
                 |user| !isnil(
                     user.memberships.find(
                         |membership| (
-                            membership.workspace == workspace
+                            membership.workspace == .workspace
                         )
-                    ).channels.indexof(channel)
+                    ).channels.indexof(.channel)
                 )
             );
         '''), [usera])
 
         self.assertEqual(await client.query(r'''
-            users.filter(
+            .users.filter(
                 |user| isnil(
                     user.memberships.find(
                         |membership| (
-                            membership.workspace == workspace
+                            membership.workspace == .workspace
                         )
-                    ).channels.indexof(channel)
+                    ).channels.indexof(.channel)
                 )
             );
         '''), [userb])
 
     async def test_ids(self, client):
         zeros, ids = await client.query(r'''
-            $a = {b: {c: {}}};
-            $a.b.c.d = {};
-            x = [$a.id(), $a.b.id(), $a.b.c.id(), $a.b.c.d.id()];
-            a = $a;
-            y = [$a.id(), $a.b.id(), $a.b.c.id(), $a.b.c.d.id()];
-            [x, y];
+            a = {b: {c: {}}};
+            a.b.c.d = {};
+            .x = [a.id(), a.b.id(), a.b.c.id(), a.b.c.d.id()];
+            .a = a;
+            .y = [a.id(), a.b.id(), a.b.c.id(), a.b.c.d.id()];
+            [.x, .y];
         ''')
 
         self.assertEqual(zeros, [0, 0, 0, 0])

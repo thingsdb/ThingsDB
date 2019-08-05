@@ -144,7 +144,7 @@ class TestNodeFunctions(TestBase):
         nodes = await client.query('nodes_info();')
         node = nodes.pop()
 
-        self.assertEqual(len(node), 8)
+        self.assertEqual(len(node), 9)
 
         self.assertIn("address", node)
         self.assertIn("committed_event_id", node)
@@ -154,6 +154,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("status", node)
         self.assertIn('stored_event_id', node)
         self.assertIn('syntax_version', node)
+        self.assertIn('zone', node)
 
         self.assertTrue(isinstance(node["address"], str))
         self.assertTrue(isinstance(node["committed_event_id"], int))
@@ -163,6 +164,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["status"], str))
         self.assertTrue(isinstance(node["stored_event_id"], int))
         self.assertTrue(isinstance(node["syntax_version"], str))
+        self.assertTrue(isinstance(node["zone"], int))
 
     async def test_reset_counters(self, client):
         with self.assertRaisesRegex(

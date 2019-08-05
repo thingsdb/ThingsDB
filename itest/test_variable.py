@@ -24,11 +24,11 @@ class TestVariable(TestBase):
         client = await get_client(self.node0)
         client.use('stuff')
 
-        self.assertEqual(await client.query('$a=1;'), 1)
-        self.assertEqual(await client.query('$a=1; $a;'), 1)
-        self.assertEqual(await client.query('$a=1; $a=2; $a;'), 2)
-        self.assertEqual(await client.query('$a=1; $a=2; $a+=$a;'), 4)
-        self.assertEqual(await client.query('$a=1; $a=2; $a+=$a; $a;'), 4)
+        self.assertEqual(await client.query('a=1;'), 1)
+        self.assertEqual(await client.query('a=1; a;'), 1)
+        self.assertEqual(await client.query('a=1; a=2; a;'), 2)
+        self.assertEqual(await client.query('a=1; a=2; a+=a;'), 4)
+        self.assertEqual(await client.query('a=1; a=2; a+=a; a;'), 4)
 
         client.close()
         await client.wait_closed()

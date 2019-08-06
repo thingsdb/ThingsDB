@@ -78,14 +78,9 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
 
 
-
-
-
-
-
-    procedure = ti_procedure_from_raw(raw, &syntax, e);
+    procedure = ti_procedure_create(raw, closure);
     if (!procedure)
-        return e->nr;
+        goto alloc_error;
 
     rc = ti_procedures_add(procedures, procedure);
     if (rc < 0)
@@ -94,7 +89,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` already exists",
                 (int) procedure->name->n, (char *) procedure->name->data);
-        goto failed;
+        goto fail2;
     }
 
     task = ti_task_get_task(query->ev, query->root, e);
@@ -104,11 +99,10 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_procedure(task, procedure))
         goto undo;
 
-    ti_val_drop(query->rval);
     query->rval = (ti_val_t *) procedure->name;
     ti_incref(query->rval);
 
-    return e->nr;
+    goto done;
 
 undo:
     (void) vec_pop(*procedures);
@@ -117,9 +111,10 @@ alloc_error:
     if (!e->nr)
         ex_set_mem(e);
 
-failed:
+fail2:
     ti_procedure_drop(procedure);
 
+done:
 fail1:
     ti_val_drop((ti_val_t *) closure);
 

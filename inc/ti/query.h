@@ -71,8 +71,8 @@ struct ti_query_s
                                    NULL when target is node or thingsdb */
     ti_thing_t * root;          /* thing0 or target->root */
     char * querystr;            /* 0 terminated query string */
-    cleri_parse_t * parseres;   /* parse result */
-    ti_procedure_t * procedure; /* when called as procedure */
+    cleri_parse_t * parseres;   /* TODO: via->parse or procedure ? parse result */
+    ti_closure_t * closure;     /* when called as procedure */
     ti_stream_t * stream;       /* with reference */
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
@@ -83,7 +83,6 @@ struct ti_query_s
                                 */
     ti_chained_t * chained;     /* ti_chain_t */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
-//    ti_scope_t * scope;         /* scope status */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

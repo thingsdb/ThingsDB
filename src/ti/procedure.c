@@ -20,6 +20,20 @@
 #define procedure__skip_white_space() \
 for (;n && isspace(*pt); ++pt, --n)
 
+ti_procedure_t * ti_procedure_create(ti_raw_t * name, ti_closure_t * closure)
+{
+    ti_procedure_t * procedure = malloc(sizeof(ti_procedure_t));
+    if (!procedure)
+        return NULL;
+
+    assert (name && closure);
+
+    procedure->name = ti_grab(name);
+    procedure->closure = ti_grab(closure);
+
+    return procedure;
+}
+
 static ti_procedure_t * procedure__create(void)
 {
     ti_procedure_t * procedure = malloc(sizeof(ti_procedure_t));

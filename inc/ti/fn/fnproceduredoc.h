@@ -45,9 +45,8 @@ static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     ti_val_drop(query->rval);
-    query->rval = procedure->doc
-            ? (ti_val_t *) ti_grab(procedure->doc)
-            : ti_val_empty_str();
+    /* TODO: procedure doc */
+    query->rval = ti_val_empty_str();
 
     return e->nr;
 }

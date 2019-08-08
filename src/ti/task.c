@@ -523,14 +523,21 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
 {
     int rc;
     ti_raw_t * job = NULL;
-    qp_packer_t * packer = qp_packer_create2(procedure->def->n + 20, 1);
+    ti_ncache_t * ncache = procedure->closure->node->data;
+    size_t query_sz = strlen(ncache->query);
+    qp_packer_t * packer = qp_packer_create2(
+            procedure->name->n + query_sz + 20,
+            2);
 
     if (!packer)
         goto failed;
 
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "new_procedure");
-    (void) qp_add_raw(packer, procedure->def->data, procedure->def->n);
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw(packer, procedure->name->data, procedure->name->n);
+    (void) qp_add_raw(packer, (const uchar *) ncache->query, query_sz);
+    (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
     job = ti_raw_from_packer(packer);

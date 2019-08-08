@@ -250,7 +250,7 @@ static int job__del_procedure(
 
 /*
  * Returns 0 on success
- * - for example: 'def'
+ * - for example: '{name: closure}'
  */
 static int job__new_procedure(
         ti_collection_t * collection,
@@ -260,40 +260,40 @@ static int job__new_procedure(
     assert (unp);
 
     int rc;
-    ex_t e;
-    qp_obj_t qp_def;
-    ti_syntax_t syntax;
+    qp_obj_t qp_name;
     ti_procedure_t * procedure;
+    ti_closure_t * closure;
+    ti_raw_t * rname;
 
-    ex_init(&e);
-    syntax.val_cache_n = 0;
-    syntax.flags = TI_SYNTAX_FLAG_COLLECTION;
 
-    if (!qp_is_raw(qp_next(unp, &qp_def)))
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, &qp_name)))
     {
         log_critical(
                 "job `new_procedure` for "TI_COLLECTION_ID": "
-                "missing definition data",
+                "missing map or name",
                 collection->root->id);
         return -1;
     }
 
-    procedure = ti_procedure_from_strn(
-            (const char *) qp_def.via.raw,
-            qp_def.len,
-            &syntax, &e);
 
-    if (!procedure)
-    {
-        log_critical("job `new_procedure` for "TI_COLLECTION_ID": %s",
-                collection->root->id,
-                e.msg);
-        return -1;
-    }
+    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    closure = (ti_closure_t *) ti_val_from_unp(&unp, collection->things);
+    procedure = NULL;
+
+    if (!rname || !closure || ti_val_is_closure((ti_val_t *) closure) ||
+        !(procedure = ti_procedure_create(rname, closure)))
+        goto failed;
+
 
     rc = ti_procedures_add(&collection->procedures, procedure);
     if (rc == 0)
+    {
+        ti_decref(rname);
+        ti_decref(closure);
+
         return 0;  /* success */
+    }
 
     if (rc < 0)
         log_critical(EX_MEMORY_S);
@@ -304,7 +304,10 @@ static int job__new_procedure(
                 collection->root->id,
                 (int) procedure->name->n, (char *) procedure->name->data);
 
-    ti_procedure_drop(procedure);
+failed:
+    ti_procedure_destroy(procedure);
+    ti_val_drop((ti_val_t *) rname);
+    ti_val_drop((ti_val_t *) closure);
     return -1;
 }
 

@@ -16,7 +16,9 @@ typedef struct ti_procedure_s ti_procedure_t;
 #include <ti/closure.h>
 #include <ti/val.h>
 
-void ti_procedure_drop(ti_procedure_t * procedure);
+ti_procedure_t * ti_procedure_create(ti_raw_t * name, ti_closure_t * closure);
+void ti_procedure_destroy(ti_procedure_t * procedure);
+
 ti_procedure_t * ti_procedure_from_raw(
         ti_raw_t * def,
         ti_syntax_t * syntax,
@@ -26,13 +28,10 @@ ti_procedure_t * ti_procedure_from_strn(
         size_t n,
         ti_syntax_t * syntax,
         ex_t * e);
-int ti_procedure_call(ti_procedure_t * procedure, ti_query_t * query, ex_t * e);
-int ti_procedure_run(ti_query_t * query, ex_t * e);
 int ti_procedure_info_to_packer(
         ti_procedure_t * procedure,
         qp_packer_t ** packer);
 ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure);
-int ti_procedure_fmt(ti_procedure_t * procedure);
 
 struct ti_procedure_s
 {

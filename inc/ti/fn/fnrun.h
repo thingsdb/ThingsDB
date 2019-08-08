@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define CALL_DOC_ TI_SEE_DOC("#call")
+#define RUN_DOC_ TI_SEE_DOC("#run")
 
-static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
@@ -11,6 +11,7 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_procedure_t * procedure;
+    vec_t * arguments;
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
@@ -18,8 +19,8 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!nargs)
     {
         ex_set(e, EX_BAD_DATA,
-                "function `call` requires at least 1 argument but 0 "
-                "were given"CALL_DOC_);
+                "function `run` requires at least 1 argument but 0 "
+                "were given"RUN_DOC_);
         return e->nr;
     }
 
@@ -29,8 +30,8 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "function `call` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"CALL_DOC_,
+                "function `run` expects argument 1 to be of "
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"RUN_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -44,7 +45,27 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (procedure->flags & TI_PROCEDURE_FLAG_EVENT)
+    arguments = vec_new(nargs);
+
+    for (vec_each(procedure->closure->vars, ti_prop_t, prop))
+    {
+        child = child->next->next;
+
+        if (ti_do_scope(query, child->node, e))
+            return e->nr;
+
+        prop->val = query->rval;
+        query->rval = NULL;
+    }
+
+
+    if (ti_closure_try_wse(procedure->closure, query, e) ||
+        ti_closure_try_lock_and_use(procedure->closure))
+    {
+
+    }
+
+    if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
     {
         ex_set(e, EX_BAD_DATA,
                 "procedure `%.*s` requires an event and must be called "
@@ -71,16 +92,7 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    for (vec_each(procedure->arguments, ti_prop_t, prop))
-    {
-        child = child->next->next;
 
-        if (ti_do_scope(query, child->node, e))
-            return e->nr;
-
-        prop->val = query->rval;
-        query->rval = NULL;
-    }
 
     return ti_procedure_call(procedure, query, e);
 }

@@ -289,7 +289,8 @@ int ti_store_restore(void)
             ti_store_collections_restore(store->collections_fn) ||
             ti_store_procedures_restore(
                     &ti()->procedures,
-                    store->procedures_fn));
+                    store->procedures_fn,
+                    NULL));
 
     if (rc)
         goto stop;
@@ -303,9 +304,6 @@ int ti_store_restore(void)
                 ti_store_access_restore(
                         &collection->access,
                         store_collection->access_fn) ||
-                ti_store_procedures_restore(
-                        &collection->procedures,
-                        store_collection->procedures_fn) ||
                 ti_store_things_restore(
                         collection->things,
                         store_collection->things_fn) ||
@@ -315,7 +313,12 @@ int ti_store_restore(void)
                 ti_store_things_restore_data(
                         collection->things,
                         namesmap,
-                        store_collection->props_fn)
+                        store_collection->props_fn) ||
+                ti_store_procedures_restore(
+                        &collection->procedures,
+                        store_collection->procedures_fn,
+                        collection->things)
+
         );
 
         ti_store_collection_destroy(store_collection);

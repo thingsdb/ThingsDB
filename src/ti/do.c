@@ -8,7 +8,6 @@
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
-#include <ti/fn/fncall.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
@@ -74,6 +73,7 @@
 #include <ti/fn/fnreplacenode.h>
 #include <ti/fn/fnresetcounters.h>
 #include <ti/fn/fnrevoke.h>
+#include <ti/fn/fnrun.h>
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>

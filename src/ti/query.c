@@ -296,7 +296,10 @@ int ti_query_run_unpack(
     vec_t * procedures;
     ti_val_t * argval;
     size_t idx = 0;
+
     assert (e->nr == 0);
+    assert (query->val_cache == NULL);
+
     query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 

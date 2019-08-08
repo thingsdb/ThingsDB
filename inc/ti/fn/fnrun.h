@@ -11,7 +11,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_procedure_t * procedure;
-    vec_t * arguments;
+    vec_t * args;
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
@@ -45,54 +45,28 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    arguments = vec_new(nargs);
-
-    for (vec_each(procedure->closure->vars, ti_prop_t, prop))
+    args = vec_new(nargs-1);
+    if (!args)
     {
-        child = child->next->next;
+        ex_set_mem(e);
+        return e->nr;
+    }
 
+    ti_val_drop((ti_val_t *) query->rval);
+    query->rval = NULL;
+
+    while (child->next && (child = child->next->next))
+    {
         if (ti_do_scope(query, child->node, e))
-            return e->nr;
+            goto failed;
 
-        prop->val = query->rval;
+        VEC_push(args, query->rval);
         query->rval = NULL;
     }
 
+    (void) ti_closure_call(procedure->closure, query, args, e);
 
-    if (ti_closure_try_wse(procedure->closure, query, e) ||
-        ti_closure_try_lock_and_use(procedure->closure))
-    {
-
-    }
-
-    if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "procedure `%.*s` requires an event and must be called "
-                "using `calle(%.*s);`"TI_SEE_DOC("#calle"),
-                (int) procedure->name->n,
-                (char *) procedure->name->data,
-                (int) nd->len,
-                nd->str);
-        return e->nr;
-    }
-
-    if ((int) procedure->arguments->n != nargs-1)
-    {
-        ex_set(e, EX_BAD_DATA, "procedure `%.*s` takes %u %s but %d %s given",
-                (int) procedure->name->n,
-                (char *) procedure->name->data,
-                procedure->arguments->n,
-                procedure->arguments->n == 1 ? "argument" : "arguments",
-                nargs-1,
-                nargs-1 == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    ti_val_drop(query->rval);
-    query->rval = NULL;
-
-
-
-    return ti_procedure_call(procedure, query, e);
+failed:
+    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+    return e->nr;
 }

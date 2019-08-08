@@ -8,6 +8,7 @@
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
+#include <ti/fn/fncall.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
@@ -59,7 +60,6 @@
 #include <ti/fn/fnnow.h>
 #include <ti/fn/fnpop.h>
 #include <ti/fn/fnpopnode.h>
-#include <ti/fn/fnproceduredef.h>
 #include <ti/fn/fnproceduredoc.h>
 #include <ti/fn/fnprocedureinfo.h>
 #include <ti/fn/fnproceduresinfo.h>
@@ -291,12 +291,12 @@ static int do__function(
         do__thingsdb_or_collection_fn(do__f_new_procedure);
     case TI_FN_PROCEDURES_INFO:
         do__thingsdb_or_collection_fn(do__f_procedures_info);
-    case TI_FN_PROCEDURE_DEF:
-        do__thingsdb_or_collection_fn(do__f_procedure_def);
     case TI_FN_PROCEDURE_DOC:
         do__thingsdb_or_collection_fn(do__f_procedure_doc);
     case TI_FN_PROCEDURE_INFO:
         do__thingsdb_or_collection_fn(do__f_procedure_info);
+    case TI_FN_RUN:
+        do__thingsdb_or_collection_fn(do__f_run);
 
     /* thingsdb scope */
     case TI_FN_COLLECTION_INFO:
@@ -1013,8 +1013,8 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? TI_AUTH_MODIFY
         : langdef_nd_match_str(nd, "WATCH")
         ? TI_AUTH_WATCH
-        : langdef_nd_match_str(nd, "CALL")
-        ? TI_AUTH_CALL
+        : langdef_nd_match_str(nd, "RUN")
+        ? TI_AUTH_RUN
         : langdef_nd_match_str(nd, "GRANT")
         ? TI_AUTH_GRANT
         : langdef_nd_match_str(nd, "FULL")

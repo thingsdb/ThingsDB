@@ -96,7 +96,7 @@ static int rjob__del_procedure(qp_unpacker_t * unp)
         return -1;
     }
 
-    ti_procedure_drop(procedure);
+    ti_procedure_destroy(procedure);
     return 0;  /* success */
 }
 
@@ -367,10 +367,10 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
 
 
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
-    closure = (ti_closure_t *) ti_val_from_unp(&unp, NULL);
+    closure = (ti_closure_t *) ti_val_from_unp(unp, NULL);
     procedure = NULL;
 
-    if (!rname || !closure || ti_val_is_closure((ti_val_t *) closure) ||
+    if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
         !(procedure = ti_procedure_create(rname, closure)))
         goto failed;
 

@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <ti.h>
 #include <ti/procedure.h>
+#include <ti/procedures.h>
 #include <ti/store/procedures.h>
 #include <unistd.h>
 #include <util/fx.h>
@@ -54,10 +55,7 @@ int ti_store_procedures_restore(
 {
     int rc = -1;
     int pagesize = getpagesize();
-    ti_thing_t * thing;
-    ti_name_t * name;
-    ti_val_t * val;
-    qp_obj_t qp_closure, qp_name;
+    qp_obj_t qp_name;
     struct stat st;
     ssize_t size;
     uchar * data;
@@ -101,7 +99,7 @@ int ti_store_procedures_restore(
         closure = (ti_closure_t *) ti_val_from_unp(&unp, things);
         procedure = NULL;
 
-        if (!rname || !closure || ti_val_is_closure((ti_val_t *) closure) ||
+        if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
             !(procedure = ti_procedure_create(rname, closure)) ||
             ti_procedures_add(procedures, procedure))
             goto fail3;

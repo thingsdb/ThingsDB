@@ -142,6 +142,68 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_drop(epkg);
 }
 
+static int query_unpack_blobs(
+        ti_query_t * query,
+        qp_unpacker_t * unp,
+        size_t * max_raw,
+        ex_t * e)
+{
+    qp_obj_t val;
+    ssize_t n;
+    qp_types_t tp = qp_next(unp, NULL);
+
+    if (query->blobs)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "`blobs` found twice in the request"QUERY_DOC_);
+        return e->nr;
+    }
+
+    if (!qp_is_array(tp))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting `blobs` to be an array"QUERY_DOC_);
+        return e->nr;
+    }
+
+    n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
+
+    query->blobs = vec_new(n < 0 ? 8 : n);
+    if (!query->blobs)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    while(n--)
+    {
+        ti_raw_t * blob;
+        tp = qp_next(unp, &val);
+
+        if (qp_is_close(tp))
+            break;
+
+        if (!qp_is_raw(tp))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "expecting a `blobs` array to contain type `raw`"
+                    QUERY_DOC_);
+            return e->nr;
+        }
+
+        blob = ti_raw_create(val.via.raw, val.len);
+        if (!blob || vec_push(&query->blobs, blob))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        if (blob->n > *max_raw)
+            *max_raw = blob->n;
+    }
+    return 0;
+}
+
 static int query__node_or_thingsdb_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
@@ -429,68 +491,6 @@ int ti_query_thingsdb_unpack(
     return query__node_or_thingsdb_unpack(query, pkg_id, data, n, e);
 }
 
-static int query_unpack_blobs(
-        ti_query_t * query,
-        qp_unpacker_t * unp,
-        size_t * max_raw,
-        ex_t * e)
-{
-    qp_obj_t val;
-    ssize_t n;
-    qp_types_t tp = qp_next(unp, NULL);
-
-    if (query->blobs)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "`blobs` found twice in the request"QUERY_DOC_);
-        return e->nr;
-    }
-
-    if (!qp_is_array(tp))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "expecting `blobs` to be an array"QUERY_DOC_);
-        return e->nr;
-    }
-
-    n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
-
-    query->blobs = vec_new(n < 0 ? 8 : n);
-    if (!query->blobs)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    while(n--)
-    {
-        ti_raw_t * blob;
-        tp = qp_next(unp, &val);
-
-        if (qp_is_close(tp))
-            break;
-
-        if (!qp_is_raw(tp))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "expecting a `blobs` array to contain type `raw`"
-                    QUERY_DOC_);
-            return e->nr;
-        }
-
-        blob = ti_raw_create(val.via.raw, val.len);
-        if (!blob || vec_push(&query->blobs, blob))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-
-        if (blob->n > *max_raw)
-            *max_raw = blob->n;
-    }
-    return 0;
-}
-
 int ti_query_collection_unpack(
         ti_query_t * query,
         uint16_t pkg_id,
@@ -658,7 +658,7 @@ void ti_query_run(ti_query_t * query)
 
     if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
     {
-        (void) ti_procedure_run(query, e);
+        (void) ti_closure_call(query->closure, query, query->val_cache, e);
         goto stop;
     }
 

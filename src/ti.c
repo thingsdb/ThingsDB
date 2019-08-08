@@ -110,7 +110,7 @@ void ti_destroy(void)
 
     vec_destroy(ti_.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti_.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
-    vec_destroy(ti_.procedures, (vec_destroy_cb) ti_procedure_drop);
+    vec_destroy(ti_.procedures, (vec_destroy_cb) ti_procedure_destroy);
 
     /* remove late since counters can be updated */
     ti_counters_destroy();

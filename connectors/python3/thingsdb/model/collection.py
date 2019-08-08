@@ -34,7 +34,7 @@ class Collection(Scope, Thing):
                 pass
             build = rebuild
         try:
-            collection_id = await self._client.query('id()', target=self)
+            collection_id = await self._client.query('.id()', target=self)
         except IndexError as e:
             if not build:
                 raise e

@@ -625,7 +625,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, query->user, TI_AUTH_CALL, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
         goto finish;
 
     if (ti_query_will_update(query))

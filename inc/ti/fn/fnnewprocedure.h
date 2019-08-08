@@ -11,7 +11,6 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
 
     int rc;
-    ti_syntax_t syntax;
     ti_raw_t * raw;
     ti_task_t * task;
     ti_procedure_t * procedure;
@@ -20,12 +19,6 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? &query->target->procedures
             : &ti()->procedures;
     int nargs = langdef_nd_n_function_params(nd);
-
-    syntax.val_cache_n = 0;
-    syntax.flags = query->syntax.flags & (
-            TI_SYNTAX_FLAG_NODE|
-            TI_SYNTAX_FLAG_THINGSDB|
-            TI_SYNTAX_FLAG_COLLECTION);
 
     if (nargs != 2)
     {
@@ -112,7 +105,7 @@ alloc_error:
         ex_set_mem(e);
 
 fail2:
-    ti_procedure_drop(procedure);
+    ti_procedure_destroy(procedure);
 
 done:
 fail1:

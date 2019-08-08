@@ -4,11 +4,12 @@
 #include <assert.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
-#include <ti/ncache.h>
+#include <ti/do.h>
 #include <ti/names.h>
+#include <ti/ncache.h>
+#include <ti/nil.h>
 #include <ti/regex.h>
 #include <ti/vfloat.h>
-#include <ti/nil.h>
 #include <ti/vint.h>
 #include <util/logger.h>
 #include <util/strx.h>
@@ -217,6 +218,8 @@ ti_closure_t * ti_closure_from_strn(
     if (!closure)
         return NULL;
 
+    LOGC("HERE");
+
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->node = closure__node_from_strn(syntax, str, n, e);
@@ -368,6 +371,7 @@ int ti_closure_lock_and_use(
 
     return 0;
 }
+
 int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
 {
     size_t n = 0;
@@ -419,6 +423,7 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
+/* Unlock use, resets all variable to `nil` */
 void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
 {
     assert (query->vars->n >= closure->vars->n);
@@ -455,4 +460,34 @@ int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
         return -1;
     }
     return 0;
+}
+
+int ti_closure_call(
+        ti_closure_t * closure,
+        ti_query_t * query,
+        vec_t * args,
+        ex_t * e)
+{
+    assert (closure);
+    assert (closure->vars);
+
+    ti_prop_t * prop;
+    size_t i, n = args->n <= closure->vars->n ? args->n : closure->vars->n;
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_try_lock_and_use(closure, query, e))
+        return e->nr;
+
+    for (i = 0; i < n; ++i)
+    {
+        prop = closure->vars->data[i];
+        ti_val_drop(prop->val);
+        prop->val = args->data[i];
+        ti_incref(prop->val);
+    }
+
+    (void) ti_do_scope(query, ti_closure_scope(closure), e);
+    ti_closure_unlock_use(closure, query);
+
+    return e->nr;
 }

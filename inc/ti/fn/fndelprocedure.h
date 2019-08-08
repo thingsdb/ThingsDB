@@ -46,7 +46,8 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (char *) ((ti_raw_t *) query->rval)->data);
         return e->nr;
     }
-    ti_procedure_drop(procedure);
+
+    ti_procedure_destroy(procedure);
 
     task = ti_task_get_task(query->ev, query->root, e);
     if (!task)

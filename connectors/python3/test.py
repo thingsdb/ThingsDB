@@ -151,21 +151,20 @@ Hello, welcome to ThingsDB
 
 '''
 
+
 async def test(client):
     global osdata
 
     await client.connect_pool(
-        'thingsgui.net',
-        'fdfdsghgfjgfjf86576fjfurfryurfjd')
+        ('localhost', ), ('admin', 'pass'))
 
     try:
-        my_collection = MyCollection(client)
-        print(my_collection.greet)
+        my_collection = MyCollection(client, build=True)
+        x = await client.run('add_one', 10, target='stuff')
+        print(x)
+        await asyncio.sleep(1)
     finally:
         client.close()
-
-await client.query('.greet;')
-
 
 
 def signal_handler(signal, frame):

@@ -12,8 +12,7 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_QP,      /* QPack data, only used on root for returning raw packed
-                       data */
+    TI_VAL_QP,      /* QPack data */
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,
@@ -27,7 +26,7 @@ typedef enum
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
 #define TI_VAL_BOOL_S       "bool"
-#define TI_VAL_QP_S         "qpack"
+#define TI_VAL_INFO_S       "info"
 #define TI_VAL_RAW_S        "raw"
 #define TI_VAL_REGEX_S      "regex"
 #define TI_VAL_THING_S      "thing"
@@ -91,6 +90,7 @@ typedef enum
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
+    TI_KIND_C_INFO      ='?',
 
 } ti_val_kind;
 
@@ -99,6 +99,7 @@ typedef enum
 #define TI_KIND_S_REGEX     "*"
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
+#define TI_KIND_S_INFO      "?"
 
 typedef struct ti_val_s ti_val_t;
 

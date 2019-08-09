@@ -132,6 +132,15 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
                 qp_msg.len,
                 (int8_t) qp_code.via.int64);
     }
+    case TI_KIND_C_INFO:
+    {
+        size_t n;
+        uchar * start;
+        unp->pt -= 2;
+        start = unp->pt;
+        qp_skip(unp);
+        ti_raw_create()
+
     }
     assert (0);
     return NULL;
@@ -968,7 +977,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_INT:                return TI_VAL_INT_S;
     case TI_VAL_FLOAT:              return TI_VAL_FLOAT_S;
     case TI_VAL_BOOL:               return TI_VAL_BOOL_S;
-    case TI_VAL_QP:                 return TI_VAL_QP_S;
+    case TI_VAL_QP:                 return TI_VAL_INFO_S;
     case TI_VAL_RAW:                return TI_VAL_RAW_S;
     case TI_VAL_REGEX:              return TI_VAL_REGEX_S;
     case TI_VAL_THING:              return TI_VAL_THING_S;
@@ -986,8 +995,6 @@ const char * ti_val_str(ti_val_t * val)
 /* checks for CLOSURE, ARR, SET */
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 {
-    assert ((*val)->tp != TI_VAL_QP);
-
     switch ((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_NIL:

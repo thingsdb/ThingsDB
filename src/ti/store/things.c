@@ -92,7 +92,10 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
             p = (intptr_t) prop->name;
 
             if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
+            {
+                assert (0);
                 goto stop;
+            }
         }
 
         if (found && qp_fadd_type(f, QP_MAP_CLOSE))

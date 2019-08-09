@@ -39,6 +39,7 @@ int ti_closure_call(
         ti_query_t * query,
         vec_t * args,
         ex_t * e);
+ti_raw_t * ti_closure_doc(ti_closure_t * closure);
 static inline cleri_node_t * ti_closure_scope(ti_closure_t * closure);
 static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e);
 static inline int ti_closure_try_lock_and_use(

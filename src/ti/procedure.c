@@ -27,6 +27,8 @@ ti_procedure_t * ti_procedure_create(ti_raw_t * name, ti_closure_t * closure)
     assert (closure);
 
     procedure->name = ti_grab(name);
+    procedure->doc = NULL;
+    procedure->def = NULL;
     procedure->closure = ti_grab(closure);
 
     return procedure;
@@ -38,18 +40,51 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
         return;
 
     ti_val_drop((ti_val_t *) procedure->name);
+    ti_val_drop((ti_val_t *) procedure->doc);
+    ti_val_drop((ti_val_t *) procedure->def);
     ti_val_drop((ti_val_t *) procedure->closure);
 
     free(procedure);
 }
 
+/* may return an empty string but never NULL */
+ti_raw_t * ti_procedure_doc(ti_procedure_t * procedure)
+{
+    if (!procedure->doc)
+        procedure->doc = ti_closure_doc(procedure->closure);
+    return procedure->doc;
+}
+
+/* may return an empty string but never NULL */
+ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
+{
+    if (!procedure->def)
+    {
+        uchar * def;
+        size_t n = 0;
+        def = ti_closure_uchar(procedure->closure, &n);
+        if (!def || !(procedure->def = ti_raw_create(def, n)))
+            procedure->def = (ti_raw_t *) ti_val_empty_str();
+        free(def);
+    }
+    return procedure->def;
+}
+
+
 int ti_procedure_info_to_packer(
         ti_procedure_t * procedure,
         qp_packer_t ** packer)
 {
+    ti_raw_t * doc = ti_procedure_doc(procedure);
+    ti_raw_t * def = ti_procedure_def(procedure);
+
     if (qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, procedure->name->data, procedure->name->n) ||
+        qp_add_raw_from_str(*packer, "doc") ||
+        qp_add_raw(*packer, doc->data, doc->n) ||
+        qp_add_raw_from_str(*packer, "definition") ||
+        qp_add_raw(*packer, def->data, def->n) ||
         qp_add_raw_from_str(*packer, "with_side_effects") ||
         qp_add_bool(*packer, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
         qp_add_raw_from_str(*packer, "arguments") ||

@@ -36,6 +36,8 @@ ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure);
 struct ti_procedure_s
 {
     ti_raw_t * name;            /* name of the procedure */
+    ti_raw_t * doc;             /* documentation, may be NULL */
+    ti_raw_t * def;             /* definition, may be NULL */
     ti_closure_t * closure;     /* closure */
 };
 

@@ -218,8 +218,6 @@ ti_closure_t * ti_closure_from_strn(
     if (!closure)
         return NULL;
 
-    LOGC("HERE");
-
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->node = closure__node_from_strn(syntax, str, n, e);
@@ -491,3 +489,95 @@ int ti_closure_call(
 
     return e->nr;
 }
+
+ti_raw_t * ti_closure_doc(ti_closure_t * closure)
+{
+    ti_raw_t * doc = NULL;
+    cleri_node_t * node = ti_closure_scope(closure)->children->next
+            ->node->children        /* node=choice */
+            ->node;                 /* the choice */
+
+    if (node->cl_obj->gid != CLERI_GID_BLOCK)
+        goto done;
+
+    if (node->children->next->node->children)
+    {
+        /* return comment as doc */
+        node = node->children->next->node->children->node;
+        doc = ti_raw_from_strn(node->str, node->len);
+        goto done;
+    }
+
+    node = node->children->next->next   /* node=block */
+            ->node->children            /* node=list mi=1 */
+            ->node->children->next      /* node=scope */
+            ->node->children            /* node=choice */
+            ->node;                     /* node=the choice */
+
+    if (    node->cl_obj->gid != CLERI_GID_IMMUTABLE ||
+            node->children->node->cl_obj->gid != CLERI_GID_T_STRING)
+        goto done;
+
+    doc = node->children->node->data;
+    ti_incref(doc);
+
+done:
+    return doc ? doc : (ti_raw_t *) ti_val_empty_str();
+}
+
+#define CLOSURE__SN_FMT(__buf, __sz, __n, __fmt, ...)                       \
+do {                                                                        \
+    int __nchars = snprintf(__buf, __n, __fmt, ##__VA_ARGS__);              \
+    if (__nchars < 0) return -1;                                            \
+    __sz += __nchars;                                                       \
+    if ((size_t) __nchars < __n) { __buf += __nchars; __n -= __nchars; }    \
+} while (0)
+
+#define CLOSURE__NODE_FMT(__buf, __sz, __n, __node)             \
+do {                                                            \
+    size_t __nchars = __node->len;                              \
+    const char * __str = __node->str;                           \
+    __sz += __nchars;                                           \
+    if (__nchars < __n)                                         \
+    {                                                           \
+        (void) memcpy(__buf, __str, __nchars);       \
+        __buf += __nchars;                                      \
+        __n -= __nchars;                                        \
+    }                                                           \
+} while (0)
+
+//static int closure__scope_fmt(
+//        cleri_node_t * node,
+//        char ** buf,
+//        size_t * n,
+//        size_t * indent)
+//{
+//
+//}
+//
+//static int closure__closure_fmt(
+//        cleri_node_t * node,
+//        char ** buf,
+//        size_t * n,
+//        size_t * indent)
+//{
+//    int sz = 0;
+//    cleri_children_t * child = node->children->next->node->children;
+//
+//    CLOSURE__SN_FMT(*buf, sz, *n, "|");
+//
+//    while (child)
+//    {
+//        CLOSURE__NODE_FMT(*buf, sz, *n, child->node);
+//
+//        if (!child->next || !(child = child->next->next))
+//            break;
+//
+//        CLOSURE__SN_FMT(*buf, sz, *n, ", ");
+//    }
+//
+//    CLOSURE__SN_FMT(*buf, sz, *n, "| ");
+//
+//
+//    return sz;
+//}

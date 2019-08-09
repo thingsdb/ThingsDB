@@ -77,7 +77,9 @@ class TestNested(TestBase):
                         |membership| (
                             membership.workspace == .workspace
                         )
-                    ).channels.indexof(.channel)
+                    ).channels.indexof(
+                        .channel
+                    )
                 )
             );
         '''), [userb])

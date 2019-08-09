@@ -100,11 +100,6 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 
     switch (((ti_val_t *) *v)->tp)
     {
-    case TI_VAL_QP:
-        /* can only be added to unassigned arrays and since the `QP` type is
-         * only used at root, and arrays cannot be assigned at root, the `to`
-         * array must be an unassigned array */
-        break;
     case TI_VAL_SET:
         if (ti_vset_to_tuple((ti_vset_t **) v))
         {

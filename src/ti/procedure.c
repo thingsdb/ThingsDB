@@ -79,10 +79,10 @@ int ti_procedure_info_to_packer(
     ti_raw_t * def = ti_procedure_def(procedure);
 
     if (qp_add_map(packer) ||
+        qp_add_raw_from_str(*packer, TI_KIND_S_INFO) ||
+        qp_add_raw(*packer, doc->data, doc->n) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, procedure->name->data, procedure->name->n) ||
-        qp_add_raw_from_str(*packer, "doc") ||
-        qp_add_raw(*packer, doc->data, doc->n) ||
         qp_add_raw_from_str(*packer, "definition") ||
         qp_add_raw(*packer, def->data, def->n) ||
         qp_add_raw_from_str(*packer, "with_side_effects") ||

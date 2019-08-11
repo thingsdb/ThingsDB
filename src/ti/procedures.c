@@ -37,28 +37,23 @@ ti_procedure_t * ti_procedures_by_strn(
     return NULL;
 }
 
-ti_val_t * ti_procedures_info_as_qpval(vec_t * procedures)
+ti_varr_t * ti_procedures_info(vec_t * procedures)
 {
-    ti_raw_t * rprocedures = NULL;
-    qp_packer_t * packer = qp_packer_create2(4 + (192 * procedures->n), 4);
-    if (!packer)
+    ti_varr_t * varr = ti_varr_create(procedures->n);
+    if (!varr)
         return NULL;
 
-    (void) qp_add_array(&packer);
-
     for (vec_each(procedures, ti_procedure_t, procedure))
-        if (ti_procedure_info_to_packer(procedure, &packer))
-            goto fail;
-
-    if (qp_close_array(packer))
-        goto fail;
-
-    rprocedures = ti_raw_from_packer(packer);
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t *) rprocedures;
-
+    {
+        ti_val_t * qpinfo = ti_procedure_info_as_qpval(procedure);
+        if (!qpinfo)
+        {
+            ti_val_drop((ti_val_t *) varr);
+            return NULL;
+        }
+        VEC_push(varr->vec, qpinfo);
+    }
+    return varr;
 }
 
 ti_procedure_t * ti_procedures_pop_name(vec_t * procedures, ti_raw_t * name)

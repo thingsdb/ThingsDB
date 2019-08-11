@@ -134,13 +134,20 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
     }
     case TI_KIND_C_INFO:
     {
-        size_t n;
-        uchar * start;
-        unp->pt -= 2;
+        const uchar * start;
+        ti_val_t * qpinfo;
+        unp->pt -= 3;  /* 2 for the string, the one before is the map */
+        assert (qp_is_map(*unp->pt));
         start = unp->pt;
         qp_skip(unp);
-        ti_raw_create()
-
+        LOGC("Size: %u", unp->pt - start);
+        LOGC("Pt: %u", *(unp->pt-1));
+        qpinfo = (ti_val_t *) ti_raw_create(start, unp->pt - start + 2);
+        if (!qpinfo)
+            return NULL;
+        qpinfo->tp = TI_VAL_QP;
+        return qpinfo;
+    }
     }
     assert (0);
     return NULL;
@@ -162,6 +169,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_QP:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
@@ -177,7 +185,6 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
         varr->flags |= arr->flags & TI_VFLAG_ARR_MHT;
         break;
     }
-    case TI_VAL_QP:
     case TI_VAL_SET:
         return -1;
     }
@@ -929,9 +936,6 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
 
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_QP:
-        assert (0);
-        return -1;
     case TI_VAL_NIL:
         return qp_fadd_type(f, QP_NULL);
     case TI_VAL_INT:
@@ -940,6 +944,8 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_double(f, ((ti_vfloat_t *) val)->float_);
     case TI_VAL_BOOL:
         return qp_fadd_bool(f, ((ti_vbool_t *) val)->bool_);
+    case TI_VAL_QP:
+        return qp_fadd_qp(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
     case TI_VAL_RAW:
         return qp_fadd_raw(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:

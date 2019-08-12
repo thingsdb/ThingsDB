@@ -155,6 +155,18 @@ Hello, welcome to ThingsDB
 async def test(client):
     global osdata
 
+    await client.connect('localhost')
+    await client.authenticate(['admin', 'pass'])
+    client.close()
+    await client.wait_closed()
+
+    await client.connect('localhost')
+    await client.authenticate(['admin', 'pass'])
+
+    client.close()
+    await client.wait_closed()
+
+
     await client.connect_pool(
         ('localhost', ), ('admin', 'pass'))
 

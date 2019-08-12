@@ -244,6 +244,8 @@ int ti_user_info_to_packer(ti_user_t * user, qp_packer_t ** packer)
         qp_add_int(*packer, user->id) ||
         qp_add_raw_from_str(*packer, "name") ||
         qp_add_raw(*packer, user->name->data, user->name->n) ||
+        qp_add_raw_from_str(*packer, "has_password") ||
+        qp_add_bool(*packer, !!user->encpass) ||
         qp_add_raw_from_str(*packer, "access") ||
         qp_add_array(packer))
         return -1;

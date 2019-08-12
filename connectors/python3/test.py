@@ -160,7 +160,7 @@ async def test(client):
 
     try:
         my_collection = MyCollection(client, build=True)
-        x = await client.run('add_one', 10, target='stuff')
+        x = await client.run('addone', 10, target='stuff')
         print(x)
         await asyncio.sleep(1)
     finally:

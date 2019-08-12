@@ -1177,7 +1177,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval == NULL);
     assert (ti_chained_get(query->chained) == NULL);
 
-    ti_name_t * name;
+    ti_name_t * name = NULL;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */

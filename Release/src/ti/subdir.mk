@@ -12,6 +12,7 @@ C_SRCS += \
 ../src/ti/away.c \
 ../src/ti/build.c \
 ../src/ti/cfg.c \
+../src/ti/chained.c \
 ../src/ti/clients.c \
 ../src/ti/closure.c \
 ../src/ti/collection.c \
@@ -70,6 +71,7 @@ C_SRCS += \
 ../src/ti/verror.c \
 ../src/ti/version.c \
 ../src/ti/vfloat.c \
+../src/ti/vinfo.c \
 ../src/ti/vint.c \
 ../src/ti/vset.c \
 ../src/ti/wareq.c \
@@ -86,6 +88,7 @@ OBJS += \
 ./src/ti/away.o \
 ./src/ti/build.o \
 ./src/ti/cfg.o \
+./src/ti/chained.o \
 ./src/ti/clients.o \
 ./src/ti/closure.o \
 ./src/ti/collection.o \
@@ -144,6 +147,7 @@ OBJS += \
 ./src/ti/verror.o \
 ./src/ti/version.o \
 ./src/ti/vfloat.o \
+./src/ti/vinfo.o \
 ./src/ti/vint.o \
 ./src/ti/vset.o \
 ./src/ti/wareq.o \
@@ -160,6 +164,7 @@ C_DEPS += \
 ./src/ti/away.d \
 ./src/ti/build.d \
 ./src/ti/cfg.d \
+./src/ti/chained.d \
 ./src/ti/clients.d \
 ./src/ti/closure.d \
 ./src/ti/collection.d \
@@ -218,6 +223,7 @@ C_DEPS += \
 ./src/ti/verror.d \
 ./src/ti/version.d \
 ./src/ti/vfloat.d \
+./src/ti/vinfo.d \
 ./src/ti/vint.d \
 ./src/ti/vset.d \
 ./src/ti/wareq.d \

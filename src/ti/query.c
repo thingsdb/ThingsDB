@@ -658,6 +658,11 @@ void ti_query_run(ti_query_t * query)
 
     if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
     {
+        if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
+        {
+            assert (query->ev);
+            query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
+        }
         (void) ti_closure_call(query->closure, query, query->val_cache, e);
         goto stop;
     }

@@ -469,16 +469,25 @@ int ti_closure_call(
     assert (closure);
     assert (closure->vars);
 
-    ti_prop_t * prop;
-    size_t i, n = args->n <= closure->vars->n ? args->n : closure->vars->n;
+    size_t i = 0;
+
+    if (args->n != closure->vars->n)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "this closure takes %d %s but %d %s given",
+                closure->vars->n,
+                closure->vars->n == 1 ? "argument" : "arguments",
+                args->n,
+                args->n == 1 ? "was" : "were");
+        return e->nr;
+    }
 
     if (ti_closure_try_wse(closure, query, e) ||
         ti_closure_try_lock_and_use(closure, query, e))
         return e->nr;
 
-    for (i = 0; i < n; ++i)
+    for (vec_each(closure->vars, ti_prop_t, prop), ++i)
     {
-        prop = closure->vars->data[i];
         ti_val_drop(prop->val);
         prop->val = args->data[i];
         ti_incref(prop->val);

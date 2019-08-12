@@ -18,6 +18,7 @@ ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n)
         return NULL;
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = n;
     memcpy(r->data, raw, n);
     return r;
@@ -31,6 +32,7 @@ ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
         return NULL;
     r->ref = 1;
     r->tp = TI_VAL_QP;
+    r->_flags = 0;
     r->n = packer->len;
     memcpy(r->data, packer->buffer, packer->len);
     return r;
@@ -64,6 +66,7 @@ ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = i;
 
     if (r->n < sz)
@@ -96,6 +99,7 @@ ti_raw_t * ti_raw_from_fmt(const char * fmt, ...)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = (uint32_t) sz;
 
     (void) vsnprintf((char *) r->data, r->n + 1, fmt, args1);
@@ -113,6 +117,7 @@ ti_raw_t * ti_raw_from_strn(const char * str, size_t n)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = n;
     memcpy(r->data, str, n);
     return r;
@@ -128,6 +133,7 @@ ti_raw_t * ti_raw_upper(ti_raw_t * raw)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = n;
     to = (char *) r->data;
 
@@ -147,6 +153,7 @@ ti_raw_t * ti_raw_lower(ti_raw_t * raw)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = n;
     to = (char *) r->data;
 
@@ -193,6 +200,7 @@ ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = n;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, b->data, b->n);
@@ -208,6 +216,7 @@ ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = nn;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, s, n);
@@ -223,6 +232,7 @@ ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = nn;
     memcpy(r->data, s, n);
     memcpy(r->data + n, b->data, b->n);
@@ -242,6 +252,7 @@ ti_raw_t * ti_raw_cat_strn_strn(
 
     r->ref = 1;
     r->tp = TI_VAL_RAW;
+    r->_flags = 0;
     r->n = nn;
     memcpy(r->data, as, an);
     memcpy(r->data + an, bs, bn);

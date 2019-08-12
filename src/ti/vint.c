@@ -85,6 +85,7 @@ ti_vint_t * ti_vint_create(int64_t i)
             return NULL;
         vint->ref = 1;
         vint->tp = TI_VAL_INT;
+        vint->_flags = 0;
         vint->int_ = i;
 
         return vint;

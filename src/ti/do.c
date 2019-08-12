@@ -592,11 +592,12 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         */
 
-        prop = ti_thing_prop_set(thing, name, query->rval);
+        prop = ti_thing_prop_set_e(thing, name, query->rval, e);
         if (!prop)
         {
+            assert (e->nr);
             ti_name_drop(name);
-            goto alloc_err;
+            goto done;
         }
     }
     ti_incref(prop->val);

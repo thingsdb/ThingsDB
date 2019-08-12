@@ -362,7 +362,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'function `del` expects argument 1 to be a valid name.*'):
+                r'expecting a valid name.*'):
             await client.query('.del("");')
 
         with self.assertRaisesRegex(

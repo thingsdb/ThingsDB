@@ -10,6 +10,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <stdint.h>
 #include <ti/name.h>
 #include <ti/val.h>
+#include <ti/raw.h>
 #include <ti/prop.h>
 #include <ti/watch.h>
 #include <ti/stream.h>
@@ -21,8 +22,21 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 ti_prop_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
-ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
+ti_prop_t * ti_thing_prop_add(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val);
+ti_prop_t * ti_thing_prop_set(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val);
+ti_prop_t * ti_thing_prop_set_e(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
+int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 int ti_thing_gen_id(ti_thing_t * thing);

@@ -27,7 +27,7 @@ class TestNested(TestBase):
         client.use('stuff')
 
         await self.run_tests(client)
-        # return  # uncomment to skip garbage collection test
+        return  # uncomment to skip garbage collection test
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
@@ -38,6 +38,29 @@ class TestNested(TestBase):
 
         client.close()
         await client.wait_closed()
+
+    async def test_assign(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot change type `list` while the value is being used'):
+            await client.query(r'''
+                .store = {};
+                .store.a = [1, 2, 3];
+                .store.a.push({
+                    .store.a = 4;
+                });
+            ''')
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot change type `list` while the value is being used'):
+            await client.query(r'''
+                .store = {};
+                store = .store;
+                store.a = [1, 2, 3];
+                store.a.push({
+                    store.a = 4;
+                });
+            ''')
 
     async def test_nested_closure_query(self, client):
         usera, userb = await client.query(r'''

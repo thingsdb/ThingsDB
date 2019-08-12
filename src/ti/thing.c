@@ -8,6 +8,7 @@
 #include <ti/proto.h>
 #include <ti/thing.h>
 #include <ti/val.h>
+#include <ti/names.h>
 #include <util/qpx.h>
 #include <util/logger.h>
 
@@ -101,7 +102,25 @@ ti_prop_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
 }
 
 /*
- * does not increment the `name` and `val` reference counters.
+ * Does not increment the `name` and `val` reference counters.
+ * Use only when you are sure the property does not yet exist.
+ */
+ti_prop_t * ti_thing_prop_add(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+{
+    assert (ti_thing_prop_weak_get(thing, name) == NULL);
+
+    ti_prop_t * prop = ti_prop_create(name, val);
+    if (!prop || vec_push(&thing->props, prop))
+    {
+        free(prop);
+        return NULL;
+    }
+
+    return prop;
+}
+
+/*
+ * Does not increment the `name` and `val` reference counters.
  */
 ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
 {
@@ -128,6 +147,39 @@ ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
     return prop;
 }
 
+/*
+ * Does not increment the `name` and `val` reference counters.
+ */
+ti_prop_t * ti_thing_prop_set_e(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_prop_t * prop;
+
+    for (vec_each(thing->props, ti_prop_t, p))
+    {
+        if (p->name == name)
+        {
+            if (ti_val_is_locked(p->val, e))
+                return NULL;
+            ti_decref(name);
+            ti_val_drop(p->val);
+            p->val = val;
+            return p;
+        }
+    }
+
+    prop = ti_prop_create(name, val);
+    if (!prop || vec_push(&thing->props, prop))
+    {
+        free(prop);
+        return NULL;
+    }
+
+    return prop;
+}
 
 /* Returns true if the property is removed, false if not found */
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
@@ -143,6 +195,42 @@ _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
     }
     return false;
 }
+
+/* Returns 0 if the property is removed, -1 in case of an error */
+int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+{
+    uint32_t i = 0;
+    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    if (name)
+    {
+        for (vec_each(thing->props, ti_prop_t, prop), ++i)
+        {
+            if (prop->name == name)
+            {
+                if (ti_val_is_locked(prop->val, e))
+                    return e->nr;
+                ti_prop_destroy(vec_swap_remove(thing->props, i));
+                return 0;
+            }
+        }
+    }
+
+    if (ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id,
+                (int) rname->n, (const char *) rname->data);
+    }
+    else
+    {
+        ex_set(e, EX_BAD_DATA, "expecting a valid name"TI_SEE_DOC("#names"));
+    }
+
+    return e->nr;
+}
+
 
 /*
  * Returns true if `from` is found and replaced by to, false if not found.

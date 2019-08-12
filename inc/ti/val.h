@@ -147,6 +147,8 @@ static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
+static inline int ti_val_is_locked(ti_val_t * val, ex_t * e);
+static inline int ti_val_try_lock(ti_val_t * val, ex_t * e);
 static inline int ti_val_ensure_lock(ti_val_t * val);
 static inline void ti_val_unlock(ti_val_t * val, int lock_was_set);
 struct ti_val_s
@@ -249,6 +251,18 @@ static inline _Bool ti_val_overflow_cast(double d)
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
+static inline int ti_val_is_locked(ti_val_t * val, ex_t * e)
+{
+    if (val->flags & TI_VFLAG_LOCK)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "cannot change type `%s` while the value is being used",
+            ti_val_str(val));
+        return -1;
+    }
+    return 0;
+}
+
 /*
  * Return 0 when a new lock is set, or -1 if failed and `e` is set.
  *
@@ -267,7 +281,6 @@ static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
             ti_val_str(val));
         return -1;
     }
-
     return (val->flags |= TI_VFLAG_LOCK) & 0;
 }
 

@@ -9,10 +9,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     cleri_node_t * name_nd;
     ti_task_t * task;
-    ti_name_t * name;
-    ti_raw_t * rname;
     ti_thing_t * thing;
-
 
     if (!ti_val_is_thing(query->rval))
     {
@@ -60,49 +57,8 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto unlock;
     }
 
-    rname = (ti_raw_t *) query->rval;
-    name = ti_names_weak_get((const char *) rname->data, rname->n);
-
-    /*
-     * In use check for the following scenario:
-     *
-     * // create `del` task before `assign` task.
-     * .store.a = {
-     *      .del('store');
-     *  };
-     *
-     *  // but this is no problem:
-     * .store.a = {
-     *      .del('something');
-     *  };
-     *
-     */
-    if (thing->id && name)
-    {
-        ti_chain_t chain;
-        chain.thing = thing;
-        chain.name = name;
-        if (ti_chained_in_use(query->chained, &chain, e))
-            goto unlock;
-    }
-
-    if (!name || !ti_thing_del(thing, name))
-    {
-        if (ti_name_is_valid_strn((const char *) rname->data, rname->n))
-        {
-            ex_set(e, EX_INDEX_ERROR,
-                    "thing "TI_THING_ID" has no property `%.*s`",
-                    thing->id,
-                    (int) rname->n, (const char *) rname->data);
-        }
-        else
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "function `del` expects argument 1 to be a valid name"
-                    TI_SEE_DOC("#names"));
-        }
+    if (ti_thing_del_e(thing, (ti_raw_t *) query->rval, e))
         goto unlock;
-    }
 
     if (thing->id)
     {
@@ -110,7 +66,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto unlock;
 
-        if (ti_task_add_del(task, rname))
+        if (ti_task_add_del(task, (ti_raw_t *) query->rval))
         {
             ex_set_mem(e);
             goto unlock;

@@ -560,7 +560,7 @@ finish:
     }
 }
 
-static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     uint64_t user_id;
     ex_t * e = ex_use();
@@ -576,7 +576,8 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!other_node)
     {
         ex_set(e, EX_AUTH_ERROR,
-                "got a forwarded call from an unauthorized connection: `%s`",
+                "got a forwarded run request from an "
+                "unauthorized connection: `%s`",
                 ti()->hostname);
         goto finish;
     }
@@ -585,7 +586,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
         this_node->status != TI_NODE_STAT_AWAY_SOON)
     {
         ex_set(e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle call requests",
+                "node `%s` is not ready to handle run requests",
                 ti()->hostname);
         goto finish;
     }
@@ -597,7 +598,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_raw(qp_next(&unpacker, &qp_query)))
     {
         ex_set(e, EX_BAD_DATA,
-                "invalid call request from "TI_NODE_ID" to "TI_NODE_ID,
+                "invalid run request from "TI_NODE_ID" to "TI_NODE_ID,
                 other_node->id, this_node->id);
         goto finish;
     }
@@ -621,7 +622,7 @@ static void nodes__on_req_call(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, e))
+    if (ti_query_run_unpack(query, pkg->id, qp_query.via.raw, qp_query.len, e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
@@ -1427,7 +1428,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         nodes__on_req_query(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_RUN:
-        nodes__on_req_call(stream, pkg);
+        nodes__on_req_run(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_CONNECT:
         nodes__on_req_connect(stream, pkg);

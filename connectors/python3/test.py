@@ -170,14 +170,14 @@ async def test(client):
         ('localhost', ), ('admin', 'pass'))
 
     try:
-        x = await client.query('israw(blob(0));', blobs=[r'bla'])
+        x = await client.run('add_x', 1, target='stuff')
         print(x)
-        my_collection = MyCollection(client, build=True)
-        x = await client.run('addone', 10, target='stuff')
-        print(x)
-        await asyncio.sleep(1)
+        # my_collection = MyCollection(client, build=True)
+        # x = await client.run('addone', 10, target='stuff')
+        # print(x)
     finally:
         client.close()
+
 
 
 def signal_handler(signal, frame):

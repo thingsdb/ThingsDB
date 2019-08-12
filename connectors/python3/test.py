@@ -166,11 +166,12 @@ async def test(client):
     client.close()
     await client.wait_closed()
 
-
     await client.connect_pool(
         ('localhost', ), ('admin', 'pass'))
 
     try:
+        x = await client.query('israw(blob(0));', blobs=[r'bla'])
+        print(x)
         my_collection = MyCollection(client, build=True)
         x = await client.run('addone', 10, target='stuff')
         print(x)

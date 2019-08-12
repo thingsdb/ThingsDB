@@ -195,9 +195,6 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
 
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
-    /*
-     * TODO: flags check;
-     */
     closure->flags = flags;
     closure->node = node;
     closure->vars = closure__create_vars(closure);

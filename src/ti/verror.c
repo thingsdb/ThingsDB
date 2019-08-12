@@ -9,7 +9,7 @@
 #define VERROR__MAX_MSG_SZ 56
 #define VERROR__CACHE_SZ ((-EX_MIN_ERR) + 1)
 
-static char verror__type_buf[10];  /* err(-xxx)  */
+static char verror__type_buf[10];  /* err(-XXX)  */
 
 typedef struct verror__s
 {

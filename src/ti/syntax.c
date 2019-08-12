@@ -199,11 +199,13 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__zev_fn(q, nd, "users_info", TI_FN_USERS_INFO, false);
         break;
     case 'v':
+        break;
     case 'w':
         syntax__bev_fn(q, nd, "wse", TI_FN_WSE, true);
         break;
     case 'x':
     case 'y':
+        break;
     case 'z':
         syntax__nev_fn(q, nd, "zero_div_err", TI_FN_ZERO_DIV_ERR, true);
         break;

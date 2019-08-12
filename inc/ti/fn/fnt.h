@@ -11,8 +11,6 @@ static int do__f_t(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_varr_t * varr = NULL;
     cleri_children_t * child = nd->children;    /* first in argument list */
 
-    /* TODO: check collection scope */
-
     if (!nargs)
     {
         ex_set(e, EX_BAD_DATA,

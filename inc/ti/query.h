@@ -71,7 +71,7 @@ struct ti_query_s
                                    NULL when target is node or thingsdb */
     ti_thing_t * root;          /* thing0 or target->root */
     char * querystr;            /* 0 terminated query string */
-    cleri_parse_t * parseres;   /* TODO: via->parse or procedure ? parse result */
+    cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
     ti_stream_t * stream;       /* with reference */
     ti_user_t * user;           /* with reference, required in case stream

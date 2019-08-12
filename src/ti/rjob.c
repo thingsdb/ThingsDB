@@ -855,7 +855,6 @@ int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
         return -1;
     }
 
-    /* TODO: add del_token task */
     switch (*qp_job_name.via.raw)
     {
     case 'd':

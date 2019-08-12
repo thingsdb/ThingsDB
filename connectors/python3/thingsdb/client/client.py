@@ -238,12 +238,13 @@ class Client(Buildin):
                 'query': query,
                 'collection': scope._scope,
             }
-            if blobs:
-                data['blobs'] = blobs
         else:
             data = {
                 'query': query
             }
+
+        if blobs:
+            data['blobs'] = blobs
 
         future = self._write_package(scope._proto, data, timeout=timeout)
         return await future

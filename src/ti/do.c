@@ -181,7 +181,7 @@ static int do__function(
     case TI_FN_ASSERT:
         do__no_chain_fn(do__f_assert);
     case TI_FN_BLOB:
-        do__collection_fn(do__f_blob);
+        do__no_chain_fn(do__f_blob);
     case TI_FN_BOOL:
         do__no_chain_fn(do__f_bool);
     case TI_FN_CALL:
@@ -530,15 +530,16 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!prop)
             goto done;
 
-        /* TODO: do we need the "in use" check here? */
-//        if (thing->id)
-//        {
-//            ti_chain_t chain;
-//            chain.thing = thing;
-//            chain.name = prop->name;
-//            if (ti_chained_in_use(query->chained, &chain, e))
-//                goto done;
-//        }
+        /* In-use check, probably not required
+        if (thing->id)
+        {
+            ti_chain_t chain;
+            chain.thing = thing;
+            chain.name = prop->name;
+            if (ti_chained_in_use(query->chained, &chain, e))
+                goto done;
+        }
+        */
 
         if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
             goto done;
@@ -551,9 +552,8 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_name_t * name;
 
         /*
-         * TODO: Validate that we really do not require a lock. I think not,
-         * the scope is already processed above and if we do require a lock,
-         * the lock must be placed before processing the scope.
+         * Does not require a lock, only check if another lock is set.
+         * A new lock is not required since the scope is already processed.
          */
         if (thing->flags & TI_VFLAG_LOCK)
         {
@@ -578,18 +578,19 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        /* TODO: do we need the "in use" check here? */
-//        if (thing->id)
-//        {
-//            ti_chain_t chain;
-//            chain.thing = thing;
-//            chain.name = name;
-//            if (ti_chained_in_use(query->chained, &chain, e))
-//            {
-//                ti_name_drop(name);
-//                goto done;
-//            }
-//        }
+        /* In-use check, probably not required
+        if (thing->id)
+        {
+            ti_chain_t chain;
+            chain.thing = thing;
+            chain.name = name;
+            if (ti_chained_in_use(query->chained, &chain, e))
+            {
+                ti_name_drop(name);
+                goto done;
+            }
+        }
+        */
 
         prop = ti_thing_prop_set(thing, name, query->rval);
         if (!prop)

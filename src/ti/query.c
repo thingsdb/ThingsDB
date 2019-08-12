@@ -215,7 +215,7 @@ static int query__node_or_thingsdb_unpack(
 
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
-    size_t max_raw = 0;  /* TODO: check on reasonable `max_raw` size ? */
+    size_t max_raw = 0;
 
     query->syntax.pkg_id = pkg_id;
     query->root = ti()->thing0;
@@ -256,7 +256,6 @@ static int query__node_or_thingsdb_unpack(
             continue;
         }
 
-        /* TODO: handle blobs function in node and thingsdb scope. */
         if (qp_is_raw_equal_str(&key, "blobs"))
         {
             if (query_unpack_blobs(query, &unpacker, &max_raw, e))

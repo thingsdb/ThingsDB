@@ -140,9 +140,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
         assert (qp_is_map(*unp->pt));
         start = unp->pt;
         qp_skip(unp);
-        LOGC("Size: %u", unp->pt - start);
-        LOGC("Pt: %u", *(unp->pt-1));
-        qpinfo = (ti_val_t *) ti_raw_create(start, unp->pt - start + 2);
+        qpinfo = (ti_val_t *) ti_raw_create(start, unp->pt - start);
         if (!qpinfo)
             return NULL;
         qpinfo->tp = TI_VAL_QP;

@@ -1028,5 +1028,65 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
+/*
+ * Checks for a lock recursively on mutable types
+ */
+int ti_val_has_mut_lock(ti_val_t * val, ex_t * e)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:
+        if (val->flags & TI_VFLAG_LOCK)
+            goto locked;
 
+//        for (vec_each(((ti_thing_t *) val)->props, ti_prop_t, prop))
+//            if (ti_val_has_mut_lock(prop->val, e))
+//                return e->nr;
+        return 0;
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+    case TI_VAL_RAW:
+    case TI_VAL_REGEX:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+        return 0;
+    case TI_VAL_ARR:
+        if (val->flags & TI_VFLAG_LOCK)
+            goto locked;
 
+        if (ti_varr_may_have_things((ti_varr_t *) val))
+            for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+                if (ti_val_has_mut_lock(v, e))
+                    return e->nr;
+        return 0;
+    case TI_VAL_SET:
+        if (val->flags & TI_VFLAG_LOCK)
+            goto locked;
+
+        if (((ti_vset_t *) val)->imap->n)
+        {
+            vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
+            if (!vec)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            for (vec_each(vec, ti_val_t, v))
+                if (ti_val_has_mut_lock(v, e))
+                    return e->n;
+        }
+        return 0;
+    }
+
+    assert (0);
+
+locked:
+    ex_set(e, EX_BAD_DATA,
+        "cannot remove type `%s` while the value is being used",
+        ti_val_str(val));
+
+    return e->nr;
+}

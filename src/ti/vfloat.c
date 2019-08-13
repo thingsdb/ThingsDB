@@ -30,7 +30,6 @@ ti_vfloat_t * ti_vfloat_create(double d)
 
     vfloat->ref = 1;
     vfloat->tp = TI_VAL_FLOAT;
-    vfloat->_flags = 0;
     vfloat->float_ = d;
 
     return vfloat;

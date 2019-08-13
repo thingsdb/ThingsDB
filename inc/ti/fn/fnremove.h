@@ -28,8 +28,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         return;
 
     varr = (ti_varr_t *) query->rval;
@@ -66,11 +65,15 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail3;
 
         found = ti_val_as_bool(query->rval);
-        ti_val_drop(query->rval);
 
         if (found)
         {
+            if (ti_val_has_mut_lock(v, e))
+                goto fail3;
+
+            ti_val_drop(query->rval);
             query->rval = v;  /* we can move the reference here */
+
             (void) vec_remove(varr->vec, idx);
 
             if (chain)
@@ -92,6 +95,8 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             goto done;
         }
+
+        ti_val_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -192,8 +197,7 @@ static void do__f_remove_set(
         return;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         return;
 
     vset = (ti_vset_t *) query->rval;
@@ -280,6 +284,10 @@ static void do__f_remove_set(
         }
     }
 
+    for (vec_each(removed, ti_val_t, v))
+        if (ti_val_has_mut_lock(v, e))
+            goto fail1;
+
     assert (query->rval == NULL);
     query->rval = (ti_val_t *) ti_varr_from_vec(removed);
     if (query->rval)
@@ -291,7 +299,7 @@ fail1:
     while (removed->n)
         /* if the `thing` is already in the set, then the set still owns the
          * thing, else the thing was owned by the `removed` vector so in
-         * neither case we have o adjust the reference counter */
+         * neither case we have to adjust the reference counter */
         if (ti_vset_add(vset, vec_pop(removed)) == IMAP_ERR_ALLOC)
             ex_set_mem(e);
     free(removed);

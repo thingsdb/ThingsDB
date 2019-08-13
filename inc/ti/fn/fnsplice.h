@@ -33,8 +33,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;
@@ -113,6 +112,9 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         (current_n - i - c) * sizeof(void*));
 
     varr->vec->n = i;
+
+    if (ti_val_has_mut_lock((ti_val_t *) retv, e))
+        goto fail2;
 
     for (x = 0; x < n; ++x)
     {

@@ -19,14 +19,7 @@ int ti_chained_append(
         ti_chained_t ** chainedaddr,
         ti_thing_t * thing,
         ti_name_t * name);
-_Bool ti__chained_in_use_(
-        ti_chained_t * chained,
-        ti_chain_t * chain,
-        ex_t * e);
-static inline _Bool ti_chained_in_use(
-        ti_chained_t * chained,
-        ti_chain_t * chain,
-        ex_t * e);
+_Bool ti_chained_thing_in_use(ti_chained_t * chained, ti_thing_t * thing);
 void ti__chained_leave_(ti_chained_t * chained, int until);
 static inline void ti_chained_destroy(ti_chained_t * chained);
 static inline ti_chain_t * ti_chained_get(ti_chained_t * chained);
@@ -46,14 +39,6 @@ struct ti_chained_s
     int n;
     ti_chain_t chain[];
 };
-
-static inline _Bool ti_chained_in_use(
-        ti_chained_t * chained,
-        ti_chain_t * chain,
-        ex_t * e)
-{
-    return chain ? ti__chained_in_use_(chained, chain, e) : false;
-}
 
 static inline void ti_chained_destroy(ti_chained_t * chained)
 {

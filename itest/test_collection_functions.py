@@ -1220,8 +1220,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot change property `list` on `#\d+` '
-                r'while the property is being used'):
+                r'cannot change type `list` while the value is being used'):
             await client.query('.list.map(||.list.pop());')
 
         with self.assertRaisesRegex(
@@ -1253,8 +1252,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot change property `list` on `#\d+` '
-                r'while the property is being used'):
+                r'cannot change type `list` while the value is being used'):
             await client.query('.list.map(||.list.push(4));')
 
     async def test_raise(self, client):
@@ -1336,8 +1334,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot change property `list` on `#\d+` '
-                r'while the property is being used'):
+                r'cannot change type `list` while the value is being used'):
             await client.query('.list.map(||.list.remove(||true));')
 
         with self.assertRaisesRegex(
@@ -1397,8 +1394,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot change property `s` on `#\d+` '
-                r'while the property is being used'):
+                r'cannot change type `set` while the value is being used'):
             await client.query('.s.map(||.s.remove(||true));')
 
         with self.assertRaisesRegex(
@@ -1415,80 +1411,6 @@ class TestCollectionFunctions(TestBase):
 
         # check if `t` is restored
         self.assertEqual(await client.query('.s.len();'), 3)
-
-    # async def _test_rename(self, client):
-    #     await client.query('.x = 42;')
-
-    #     with self.assertRaisesRegex(
-    #             IndexError,
-    #             'type `int` has no function `rename`'):
-    #         await client.query('.x.rename("a", "b");')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             'function `rename` takes 2 arguments '
-    #             'but 1 was given'):
-    #         await client.query('rename("x")')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             'function `rename` takes 2 arguments '
-    #             'but 0 were given'):
-    #         await client.query('rename()')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             'function `rename` takes 2 arguments '
-    #             'but 3 were given'):
-    #         await client.query('rename("x", "y", "z")')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             'function `rename` can only be used on things with an id > 0; '
-    #             r'things which are assigned automatically receive an id;'):
-    #         await client.query('{x:1}.rename("x", "y");')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             r'cannot use `rename` while thing `#\d+` is in use'):
-    #         await client.query('map( ||rename("x", "y") );')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             r'function `rename` expects argument 1 to be of '
-    #             r'type `raw` but got type `nil` instead'):
-    #         await client.query('rename(nil, "y")')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             r'function `rename` expects argument 1 to be a valid name.*'):
-    #         await client.query('rename("", "y");')
-
-    #     with self.assertRaisesRegex(
-    #             IndexError,
-    #             r'thing `#\d+` has no property `a`'):
-    #         await client.query('rename("a", "b");')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             r'function `rename` expects argument 2 to be of '
-    #             r'type `raw` but got type `nil` instead'):
-    #         await client.query('rename("x", nil)')
-
-    #     with self.assertRaisesRegex(
-    #             BadDataError,
-    #             r'function `rename` expects argument 2 to be a valid name.*'):
-    #         await client.query('rename("x", "!");')
-
-    #     self.assertEqual(await client.query('rename("x", "y"); y;'), 42)
-
-    #     with self.assertRaisesRegex(
-    #             IndexError,
-    #             r'`x` is undefined'):
-    #         await client.query('x;')
-
-    #     self.assertEqual(await client.query('rename("y", "y"); y;'), 42)
-    #     self.assertEqual(await client.query('x = 6; rename("y", "x"); x;'), 42)
 
     async def test_set(self, client):
         with self.assertRaisesRegex(
@@ -1561,8 +1483,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot change property `li` on `#\d+` '
-                r'while the property is being used'):
+                r'cannot change type `list` while the value is being used'):
             await client.query('.li.map(||.li.splice(0, 1));')
 
         with self.assertRaisesRegex(

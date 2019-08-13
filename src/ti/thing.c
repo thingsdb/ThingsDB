@@ -162,7 +162,7 @@ ti_prop_t * ti_thing_prop_set_e(
     {
         if (p->name == name)
         {
-            if (ti_val_is_locked(p->val, e))
+            if (ti_val_has_mut_lock(p->val, e))
                 return NULL;
             ti_decref(name);
             ti_val_drop(p->val);
@@ -208,7 +208,7 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         {
             if (prop->name == name)
             {
-                if (ti_val_is_locked(prop->val, e))
+                if (ti_val_has_mut_lock(prop->val, e))
                     return e->nr;
                 ti_prop_destroy(vec_swap_remove(thing->props, i));
                 return 0;

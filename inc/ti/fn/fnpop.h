@@ -28,8 +28,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t*) query->rval;
@@ -38,17 +37,18 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!query->rval)
     {
         ex_set(e, EX_INDEX_ERROR, "pop from empty array"POP_DOC_);
-        goto fail1;
+        goto done;
     }
 
-    (void) vec_shrink(&varr->vec);
+    if (ti_val_has_mut_lock(query->rval, e))
+        goto restore;
 
     if (chain)
     {
         ti_task_t * task;
         task = ti_task_get_task(query->ev, chain->thing, e);
         if (!task)
-            goto fail1;
+            goto restore;
 
         if (ti_task_add_splice(
                 task,
@@ -60,7 +60,15 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
     }
 
-fail1:
+    (void) vec_shrink(&varr->vec);
+
+    goto done;
+
+restore:
+    VEC_push(varr->vec, query->rval);
+    query->rval = NULL;
+
+done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
     return e->nr;

@@ -18,7 +18,7 @@ class TestNested(TestBase):
 
     title = 'Test nested and more complex queries'
 
-    @default_test_setup(num_nodes=2, seed=1)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -27,7 +27,7 @@ class TestNested(TestBase):
         client.use('stuff')
 
         await self.run_tests(client)
-        return  # uncomment to skip garbage collection test
+        # return  # uncomment to skip garbage collection test
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
@@ -35,14 +35,64 @@ class TestNested(TestBase):
         # expected no garbage collection
         counters = await client.query('counters();', target=scope.node)
         self.assertEqual(counters['garbage_collected'], 0)
+        self.assertEqual(counters['events_failed'], 0)
 
         client.close()
         await client.wait_closed()
 
+    async def test_remove(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot remove type `thing` while the value is being used'):
+            await client.query(r'''
+                .arr = [{
+                    name: 'Iris'
+                }];
+                .arr[0].age = {
+                    .arr.pop();
+                    6;
+                };
+            ''')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot remove type `thing` while the value is being used'):
+            await client.query(r'''
+                .arr = [[{
+                    name: 'Iris'
+                }]];
+                .arr[0][0].age = {
+                    .arr.pop();
+                    6;
+                };
+            ''')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot remove type `list` while the value is being used'):
+            await client.query(r'''
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .arr = [1, 2, 3];
+                    'c';
+                })
+            ''')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot remove type `list` while the value is being used'):
+            await client.query(r'''
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .del('arr');
+                    'c';
+                })
+            ''')
+
     async def test_assign(self, client):
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot change type `list` while the value is being used'):
+                'cannot remove type `list` while the value is being used'):
             await client.query(r'''
                 .store = {};
                 .store.a = [1, 2, 3];
@@ -52,13 +102,13 @@ class TestNested(TestBase):
             ''')
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot change type `list` while the value is being used'):
+                'cannot remove type `list` while the value is being used'):
             await client.query(r'''
                 .store = {};
                 store = .store;
                 store.a = [1, 2, 3];
                 store.a.push({
-                    store.a = 4;
+                    .store.del('a');
                 });
             ''')
 

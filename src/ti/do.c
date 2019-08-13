@@ -67,7 +67,6 @@
 #include <ti/fn/fnraise.h>
 #include <ti/fn/fnrefs.h>
 #include <ti/fn/fnremove.h>
-#include <ti/fn/fnrename.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameuser.h>
 #include <ti/fn/fnreplacenode.h>
@@ -261,8 +260,6 @@ static int do__function(
         do__no_chain_fn(do__f_refs);
     case TI_FN_REMOVE:
         do__chain_fn(do__f_remove);
-//    case TI_FN_RENAME:
-//        return do__f_rename(query, params, e);
     case TI_FN_SET:
         do__no_chain_fn(do__f_set);
     case TI_FN_SPLICE:
@@ -518,6 +515,9 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (ti_val_try_lock(query->rval, e))
+        return e->nr;
+
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
@@ -529,17 +529,6 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         prop = do__get_prop(thing, name_nd, e);
         if (!prop)
             goto done;
-
-        /* In-use check, probably not required
-        if (thing->id)
-        {
-            ti_chain_t chain;
-            chain.thing = thing;
-            chain.name = prop->name;
-            if (ti_chained_in_use(query->chained, &chain, e))
-                goto done;
-        }
-        */
 
         if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
             goto done;
@@ -555,13 +544,8 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * Does not require a lock, only check if another lock is set.
          * A new lock is not required since the scope is already processed.
          */
-        if (thing->flags & TI_VFLAG_LOCK)
-        {
-            ex_set(e, EX_BAD_DATA,
-                "cannot assign properties while "TI_THING_ID" is being used",
-                thing->id);
-            goto done;
-        }
+//        if (ti_val_is_locked((ti_val_t *) thing, e))
+//            goto done;
 
         if (thing->props->n == max_props)
         {
@@ -577,20 +561,6 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         name = ti_names_get(name_nd->str, name_nd->len);
         if (!name)
             goto alloc_err;
-
-        /* In-use check, probably not required
-        if (thing->id)
-        {
-            ti_chain_t chain;
-            chain.thing = thing;
-            chain.name = name;
-            if (ti_chained_in_use(query->chained, &chain, e))
-            {
-                ti_name_drop(name);
-                goto done;
-            }
-        }
-        */
 
         prop = ti_thing_prop_set_e(thing, name, query->rval, e);
         if (!prop)
@@ -620,6 +590,7 @@ alloc_err:
     ex_set_mem(e);
 
 done:
+    ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }

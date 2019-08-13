@@ -65,25 +65,11 @@ int ti_chained_append(
     return 0;
 }
 
-_Bool ti__chained_in_use_(
-        ti_chained_t * chained,
-        ti_chain_t * chain,
-        ex_t * e)
+_Bool ti_chained_thing_in_use(ti_chained_t * chained, ti_thing_t * thing)
 {
-    assert (chain);
-    /* look up until the last one, since this is the value we want to change */
-    for (int i = 0; i < chained->current; ++i)
-    {
-        if (chained->chain[i].thing == chain->thing &&
-                chained->chain[i].name == chain->name)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "cannot change property `%s` on "TI_THING_ID
-                    " while the property is being used",
-                    chain->name->str, chain->thing->id);
+    for (int i = 0; i < chained->n; ++i)
+        if (chained->chain[i].thing == thing)
             return true;
-        }
-    }
     return false;
 }
 

@@ -35,8 +35,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         goto fail0;
 
     vset = (ti_vset_t *) query->rval;

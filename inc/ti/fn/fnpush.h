@@ -29,8 +29,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_chained_in_use(query->chained, chain, e) ||
-        ti_val_try_lock(query->rval, e))
+    if (ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;

@@ -166,7 +166,6 @@ static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 'r':
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
-//        syntax__cev_fn(q, nd, "rename", TI_FN_RENAME, true);
         syntax__nev_fn(q, nd, "raise", TI_FN_RAISE, true);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
         syntax__nev_fn(q, nd, "run", TI_FN_RUN, true);

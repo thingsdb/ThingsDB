@@ -92,6 +92,7 @@ class TestUserAccess(TestBase):
                 'privileges': 'READ|MODIFY|GRANT',
                 'target': 'Collection'
             }],
+            'has_password': True,
             'name': 'admin',
             'tokens': [],
             'user_id': 1

@@ -131,6 +131,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
+int ti_val_has_mut_lock(ti_val_t * val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
@@ -147,7 +148,6 @@ static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
-static inline int ti_val_is_locked(ti_val_t * val, ex_t * e);
 static inline int ti_val_try_lock(ti_val_t * val, ex_t * e);
 static inline int ti_val_ensure_lock(ti_val_t * val);
 static inline void ti_val_unlock(ti_val_t * val, int lock_was_set);
@@ -249,18 +249,6 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
 static inline _Bool ti_val_overflow_cast(double d)
 {
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
-}
-
-static inline int ti_val_is_locked(ti_val_t * val, ex_t * e)
-{
-    if (val->flags & TI_VFLAG_LOCK)
-    {
-        ex_set(e, EX_BAD_DATA,
-            "cannot change type `%s` while the value is being used",
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
 }
 
 /*

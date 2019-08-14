@@ -102,6 +102,9 @@ static void away__work(uv_work_t * UNUSED(work))
     /* garbage collect */
     (void) ti_collections_gc();
 
+    /* shrinks dropped to a reasonable size */
+    (void) ti_events_resize_dropped();
+
     if (ti_archive_to_disk())
         log_critical("failed writing archived events to disk");
 

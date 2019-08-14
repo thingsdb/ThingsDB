@@ -24,10 +24,15 @@
 /*
  * Avoid extreme gaps between event id's
  */
-#define EVENTS__MAX_ID_GAP  10000
+#define EVENTS__MAX_ID_GAP 10000
 
+/*
+ *
+ */
+#define EVENTS__INIT_DROPPED_SZ 128
+
+ti_events_t events_;
 static ti_events_t * events;
-static ti_events_t events_;
 
 static void events__destroy(uv_handle_t * UNUSED(handle));
 static void events__new_id(ti_event_t * ev);
@@ -35,8 +40,25 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e);
 static void events__on_req_event_id(ti_event_t * ev, _Bool accepted);
 static int events__push(ti_event_t * ev);
 static void events__loop(uv_async_t * handle);
-static inline ssize_t events__trigger(void);
-static inline _Bool events__max_id_gap(uint64_t event_id);
+
+static inline ssize_t events__trigger(void)
+{
+    return events->queue->n
+            ? (
+                    uv_async_send(events->evloop)
+                        ? -1                          /* error */
+                        : (ssize_t) events->queue->n  /* current size */
+            )
+            : 0;
+}
+
+static inline _Bool events__max_id_gap(uint64_t event_id)
+{
+    return (
+        event_id > events->next_event_id &&
+        event_id - events->next_event_id > EVENTS__MAX_ID_GAP
+    );
+}
 
 /*
  * Returns 0 on success
@@ -47,10 +69,12 @@ int ti_events_create(void)
     events = &events_;
 
     events->is_started = false;
+    events->keep_dropped = false;
     events->queue = queue_new(4);
     events->evloop = malloc(sizeof(uv_async_t));
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
+    events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
 
     if (!events->lock || uv_mutex_init(events->lock))
     {
@@ -310,6 +334,28 @@ void ti_events_set_next_missing_id(uint64_t * event_id)
     ++(*event_id);
 }
 
+void ti_events_free_dropped(void)
+{
+    ti_thing_t * thing;
+
+    events->keep_dropped = false;
+
+    while ((thing = vec_pop(events->dropped)))
+        if (!thing->ref)
+            ti_thing_destroy(thing);
+
+    assert (events->dropped->n == 0);
+}
+
+/* Only call while not is use, so `n` must be zero */
+int ti_events_resize_dropped(void)
+{
+    assert (events->dropped->n == 0);
+    return events->dropped->sz == EVENTS__INIT_DROPPED_SZ
+            ? 0
+            : vec_resize(&events->dropped, EVENTS__INIT_DROPPED_SZ);
+}
+
 static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)
@@ -318,6 +364,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     uv_mutex_destroy(events->lock);
     free(events->lock);
     free(events->evloop);
+    vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
     events = ti()->events = NULL;
 }
 
@@ -559,21 +606,3 @@ stop:
     ti_connect_force_sync();
 }
 
-static inline ssize_t events__trigger(void)
-{
-    return events->queue->n
-            ? (
-                    uv_async_send(events->evloop)
-                        ? -1                          /* error */
-                        : (ssize_t) events->queue->n  /* current size */
-            )
-            : 0;
-}
-
-static inline _Bool events__max_id_gap(uint64_t event_id)
-{
-    return (
-        event_id > events->next_event_id &&
-        event_id - events->next_event_id > EVENTS__MAX_ID_GAP
-    );
-}

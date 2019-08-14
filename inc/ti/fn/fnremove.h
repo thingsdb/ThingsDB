@@ -5,7 +5,6 @@
 
 static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    _Bool found;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_closure_t * closure;
@@ -64,13 +63,8 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_do_scope(query, ti_closure_scope(closure), e))
             goto fail3;
 
-        found = ti_val_as_bool(query->rval);
-
-        if (found)
+        if (ti_val_as_bool(query->rval))
         {
-            if (ti_val_has_mut_lock(v, e))
-                goto fail3;
-
             ti_val_drop(query->rval);
             query->rval = v;  /* we can move the reference here */
 
@@ -283,10 +277,6 @@ static void do__f_remove_set(
             goto fail1;
         }
     }
-
-    for (vec_each(removed, ti_val_t, v))
-        if (ti_val_has_mut_lock(v, e))
-            goto fail1;
 
     assert (query->rval == NULL);
     query->rval = (ti_val_t *) ti_varr_from_vec(removed);

@@ -12,6 +12,24 @@
 #include <util/qpx.h>
 #include <util/logger.h>
 
+static inline int thing__prop_locked(
+        ti_thing_t * thing,
+        ti_prop_t * prop,
+        ex_t * e)
+{
+    if (prop->val->tp == TI_VAL_ARR && (prop->val->flags & TI_VFLAG_LOCK))
+    {
+        ex_set(e, EX_BAD_DATA,
+            "cannot remove property `%s` on "TI_THING_ID
+            " while the `%s` is being used",
+            prop->name->str,
+            thing->id,
+            ti_val_str(prop->val));
+        return -1;
+    }
+    return 0;
+}
+
 static void thing__watch_del(ti_thing_t * thing)
 {
     assert (thing->watchers);
@@ -72,11 +90,13 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
 
 void ti_thing_destroy(ti_thing_t * thing)
 {
-    if (!thing)
-        return;
-
+    assert (thing);
     if (thing->id)
+    {
+        if (ti_events_cache_dropped_thing(thing))
+            return;
         (void) imap_pop(thing->things, thing->id);
+    }
 
     if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);
@@ -162,7 +182,7 @@ ti_prop_t * ti_thing_prop_set_e(
     {
         if (p->name == name)
         {
-            if (ti_val_has_mut_lock(p->val, e))
+            if (thing__prop_locked(thing, p, e))
                 return NULL;
             ti_decref(name);
             ti_val_drop(p->val);
@@ -208,7 +228,7 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         {
             if (prop->name == name)
             {
-                if (ti_val_has_mut_lock(prop->val, e))
+                if (thing__prop_locked(thing, prop, e))
                     return e->nr;
                 ti_prop_destroy(vec_swap_remove(thing->props, i));
                 return 0;

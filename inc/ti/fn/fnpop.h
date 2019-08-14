@@ -40,9 +40,6 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_val_has_mut_lock(query->rval, e))
-        goto restore;
-
     if (chain)
     {
         ti_task_t * task;

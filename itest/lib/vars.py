@@ -45,6 +45,8 @@ try:
             '--tool=memcheck',
             '--error-exitcode=1',
             '--leak-check=full',
+            '--show-reachable=yes',
+            '--errors-for-leak-kinds=all',
         ],
         # full and vebose memcheck
         [
@@ -54,6 +56,8 @@ try:
             '--leak-check=full',
             '--show-leak-kinds=all',
             '--track-origins=yes',
+            '--show-reachable=yes',
+            '--errors-for-leak-kinds=all',
             '-v',
         ],
     ][int(os.environ.get('THINGSDB_MEMCHECK', 1))]

@@ -95,6 +95,7 @@ int ti_event_run(ti_event_t * ev)
     assert (ev->via.epkg->pkg->tp == TI_PROTO_NODE_EVENT ||
             ev->via.epkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
 
+    int rc = -1;
     ti_pkg_t * pkg = ev->via.epkg->pkg;
     qp_unpacker_t unpacker;
     qp_obj_t qp_target, thing_or_map;
@@ -110,7 +111,7 @@ int ti_event_run(ti_event_t * ev)
                                                                thing_id:task */
     {
         log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
-        return -1;
+        return rc;
     }
 
     target_id = (uint64_t) qp_target.via.int64;
@@ -124,12 +125,14 @@ int ti_event_run(ti_event_t * ev)
             log_critical(
                     "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
                     target_id, ev->id);
-            return -1;
+            return rc;
         }
         ti_incref(ev->target);
     }
 
     qp_next(&unpacker, &thing_or_map);
+
+    ti_events_keep_dropped();
 
     while (qp_is_int(thing_or_map.tp) && qp_is_array(qp_next(&unpacker, NULL)))
     {
@@ -145,13 +148,13 @@ int ti_event_run(ti_event_t * ev)
             /* can only happen if we have a collection */
             assert (ev->target);
             log_critical(
-                    "thing "TI_THING_ID" in "TI_EVENT_ID
-                    "not found in collection `%.*s`",
-                    thing_id, ev->id,
+                    "thing "TI_THING_ID" not found in collection `%.*s`, "
+                    "skip "TI_EVENT_ID,
+                    thing_id,
                     (int) ev->target->name->n,
-                    (const char *) ev->target->name->data);
-
-            return -1;
+                    (const char *) ev->target->name->data,
+                    ev->id);
+            goto failed;
         }
 
         if (ev->target)
@@ -165,7 +168,7 @@ int ti_event_run(ti_event_t * ev)
                             thing_id, ev->id,
                             (int) ev->target->name->n,
                             (const char *) ev->target->name->data);
-                    return -1;
+                    goto failed;
                 }
         }
         else
@@ -176,7 +179,7 @@ int ti_event_run(ti_event_t * ev)
                     log_critical(
                             "job for `root` in "TI_EVENT_ID" failed",
                             ev->id);
-                    return -1;
+                    goto failed;
                 }
         }
 
@@ -184,7 +187,12 @@ int ti_event_run(ti_event_t * ev)
             qp_next(&unpacker, &thing_or_map);
     }
 
-    return 0;
+    rc = 0;
+
+failed:
+    ti_events_free_dropped();
+
+    return rc;
 }
 
 void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)

@@ -18,59 +18,133 @@ class TestNested(TestBase):
 
     title = 'Test nested and more complex queries'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
 
-        client = await get_client(self.node0)
-        client.use('stuff')
+        client0 = await get_client(self.node0)
+        client0.use('stuff')
 
-        await self.run_tests(client)
-        # return  # uncomment to skip garbage collection test
+        # add another node for query validation
+        await self.node1.join_until_ready(client0)
+        await self.node2.join_until_ready(client0)
 
-        # add another node so away node and gc is forced
-        await self.node1.join_until_ready(client)
+        client1 = await get_client(self.node1)
+        client1.use('stuff')
+
+        client2 = await get_client(self.node1)
+        client2.use('stuff')
+
+        await self.run_tests(client0, client1, client2)
+        # await self.test_advanced_6_1(client0, client1, client2)
 
         # expected no garbage collection
-        counters = await client.query('counters();', target=scope.node)
-        self.assertEqual(counters['garbage_collected'], 0)
-        self.assertEqual(counters['events_failed'], 0)
+        for client in (client0, client1, client2):
+            counters = await client.query('counters();', target=scope.node)
+            self.assertEqual(counters['garbage_collected'], 0)
+            self.assertEqual(counters['events_failed'], 0)
 
-        client.close()
-        await client.wait_closed()
+            client.close()
+            await client.wait_closed()
 
-    async def test_remove(self, client):
+    async def test_advanced_0(self, client0, client1, client2):
+        self.assertEqual(await client0.query(r'''
+            .a = {};
+            tmp = .a;
+            tmp.test = "Test";
+            .a.test;
+        '''), 'Test')
+
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.a.test'), 'Test')
+
+    async def _test_advanced_1(self, client0, client1, client2):
+        self.assertEqual(await client0.query(r'''
+            .a = {};
+            tmp = .a;
+            .del('a');
+            tmp.x = "Still a reference";
+            .b = "Test";
+        '''), 'Test')
+
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.b'), 'Test')
+
+    async def test_advanced_1_0(self, client0, client1, client2):
+        # Copy is made so the `push` should not create an event
+        self.assertEqual(await client0.query(r'''
+            .arr = [1, 2, 3];
+            arr = .arr;
+            arr.push(4);
+            .arr;
+        '''), [1, 2, 3])
+
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [1, 2, 3])
+
+    async def test_advanced_2(self, client0, client1, client2):
+        await client0.query(r'''
+            .arr = [{
+                name: 'Iris'
+            }];
+            .arr[0].age = {
+                .arr.pop();
+                6;
+            };
+        ''')
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [])
+
+    async def test_advanced_2_1(self, client0, client1, client2):
+        await client0.query(r'''
+            .x = {
+                y: {
+                    z: {}
+                }
+            };
+
+            x = .x;
+            y = .x.y;
+            z = .x.y.z;
+
+            z.test = {
+                x.del('y');
+                'Test';
+            };
+
+            x.test = 'Test';
+        ''')
+
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            x = await client.query('.x')
+            self.assertEqual(x['test'], 'Test')
+
+    async def test_advanced_3(self, client0, client1, client2):
+        await client0.query(r'''
+            .arr = [[{
+                name: 'Iris'
+            }]];
+            .arr[0][0].age = {
+                .arr.pop();
+                6;
+            };
+        ''')
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [])
+
+    async def test_advanced_4(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot remove type `thing` while the value is being used'):
-            await client.query(r'''
-                .arr = [{
-                    name: 'Iris'
-                }];
-                .arr[0].age = {
-                    .arr.pop();
-                    6;
-                };
-            ''')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'cannot remove type `thing` while the value is being used'):
-            await client.query(r'''
-                .arr = [[{
-                    name: 'Iris'
-                }]];
-                .arr[0][0].age = {
-                    .arr.pop();
-                    6;
-                };
-            ''')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'cannot remove type `list` while the value is being used'):
-            await client.query(r'''
+                r'cannot remove property `arr` on `#\d+` while '
+                r'the `list` is being used'):
+            await client0.query(r'''
                 .arr = ['a', 'b'];
                 .arr.push({
                     .arr = [1, 2, 3];
@@ -78,10 +152,12 @@ class TestNested(TestBase):
                 })
             ''')
 
+    async def test_advanced_5(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot remove type `list` while the value is being used'):
-            await client.query(r'''
+                r'cannot remove property `arr` on `#\d+` while '
+                r'the `list` is being used'):
+            await client0.query(r'''
                 .arr = ['a', 'b'];
                 .arr.push({
                     .del('arr');
@@ -89,11 +165,42 @@ class TestNested(TestBase):
                 })
             ''')
 
-    async def test_assign(self, client):
+    async def test_advanced_6(self, client0, client1, client2):
+        await client0.query(r'''
+            .a = {name: 'Iris'};
+            tmp = .a;
+            .del('a');
+            .b = tmp;
+        ''')
+
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            iris = await client.query('.b')
+            self.assertEqual(iris['name'], 'Iris')
+
+    async def test_advanced_6_1(self, client0, client1, client2):
+        await client0.query(r'''
+            .a = {name: 'Iris'};
+            .store = {};
+        ''')
+
+        await client0.query(r'''
+            tmp = .a;
+            .del('a');
+            .store.a = tmp;
+        ''')
+
+        await asyncio.sleep(1.0)
+        for client in (client0, client1, client2):
+            iris = await client.query('.store.a')
+            self.assertEqual(iris['name'], 'Iris')
+
+    async def test_assign(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot remove type `list` while the value is being used'):
-            await client.query(r'''
+                r'cannot remove property `a` on `#\d+` while '
+                r'the `list` is being used'):
+            await client0.query(r'''
                 .store = {};
                 .store.a = [1, 2, 3];
                 .store.a.push({
@@ -102,8 +209,9 @@ class TestNested(TestBase):
             ''')
         with self.assertRaisesRegex(
                 BadDataError,
-                'cannot remove type `list` while the value is being used'):
-            await client.query(r'''
+                r'cannot remove property `a` on `#\d+` while '
+                r'the `list` is being used'):
+            await client0.query(r'''
                 .store = {};
                 store = .store;
                 store.a = [1, 2, 3];
@@ -112,8 +220,8 @@ class TestNested(TestBase):
                 });
             ''')
 
-    async def test_nested_closure_query(self, client):
-        usera, userb = await client.query(r'''
+    async def test_nested_closure_query(self, client0, client1, client2):
+        usera, userb = await client0.query(r'''
             .channel = {};
             .workspace = {channels: [.channel]};
             .usera = {
@@ -131,7 +239,7 @@ class TestNested(TestBase):
             .users = [.usera, .userb];
         ''')
 
-        self.assertEqual(await client.query(r'''
+        self.assertEqual(await client0.query(r'''
             .users.filter(
                 |user| !isnil(
                     user.memberships.find(
@@ -143,7 +251,7 @@ class TestNested(TestBase):
             );
         '''), [usera])
 
-        self.assertEqual(await client.query(r'''
+        self.assertEqual(await client0.query(r'''
             .users.filter(
                 |user| isnil(
                     user.memberships.find(
@@ -157,8 +265,8 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
-    async def test_ids(self, client):
-        zeros, ids = await client.query(r'''
+    async def test_ids(self, client0, client1, client2):
+        zeros, ids = await client0.query(r'''
             a = {b: {c: {}}};
             a.b.c.d = {};
             .x = [a.id(), a.b.id(), a.b.c.id(), a.b.c.d.id()];

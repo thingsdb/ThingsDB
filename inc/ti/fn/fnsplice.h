@@ -113,9 +113,6 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     varr->vec->n = i;
 
-    if (ti_val_has_mut_lock((ti_val_t *) retv, e))
-        goto fail2;
-
     for (x = 0; x < n; ++x)
     {
         child = child->next->next;

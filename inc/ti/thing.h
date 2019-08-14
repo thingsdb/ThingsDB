@@ -126,5 +126,4 @@ static inline ti_val_t * ti_thing_val_weak_get(
     return ti_thing_prop_weak_get(thing, name)->val;
 }
 
-
 #endif /* TI_THING_H_ */

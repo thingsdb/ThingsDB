@@ -17,7 +17,13 @@ static inline int thing__prop_locked(
         ti_prop_t * prop,
         ex_t * e)
 {
-    if (prop->val->tp == TI_VAL_ARR && (prop->val->flags & TI_VFLAG_LOCK))
+    /*
+     * Array and Sets are the only two values with are mutable and not set
+     * by reference (like things). An array is always type `list` since it
+     * is a value attached to a `prop` type.
+     */
+    if (    (prop->val->tp == TI_VAL_ARR || prop->val->tp == TI_VAL_SET) &&
+            (prop->val->flags & TI_VFLAG_LOCK))
     {
         ex_set(e, EX_BAD_DATA,
             "cannot remove property `%s` on "TI_THING_ID

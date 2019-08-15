@@ -302,6 +302,37 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('bool(//);'))
         self.assertTrue(await client.query('bool(||nil);'))
 
+    async def test_call(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `call`'):
+            await client.query('nil.call();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `call` is undefined'):
+            await client.query('call();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'this closure takes 0 arguments but 1 was given'):
+            await client.query('(||nil).call(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'stored closures with side effects must be wrapped '
+                r'using `wse\(...\)`'):
+            await client.query(r'''
+                .test = |x| .x = x;
+                .test.call(42);
+            ''')
+
+        self.assertEqual(await client.query('(|y|.y = y).call(42);'), 42)
+        self.assertEqual(await client.query('wse(.test.call(42));'), 42)
+
+        self.assertEqual(await client.query('.x'), 42)
+        self.assertEqual(await client.query('.y'), 42)
+
     async def test_contains(self, client):
         with self.assertRaisesRegex(
                 IndexError,
@@ -362,7 +393,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'expecting a valid name.*'):
+                r'property must be a valid name*'):
             await client.query('.del("");')
 
         with self.assertRaisesRegex(
@@ -1697,11 +1728,6 @@ class TestCollectionFunctions(TestBase):
                 IndexError,
                 'type `nil` has no function `wse`'):
             await client.query('nil.wse();')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `wse` takes 1 argument but 0 were given'):
-            await client.query('wse();')
 
         with self.assertRaisesRegex(
                 BadDataError,

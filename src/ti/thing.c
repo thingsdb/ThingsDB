@@ -242,7 +242,7 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         }
     }
 
-    if (ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "thing "TI_THING_ID" has no property `%.*s`",
@@ -251,7 +251,8 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     }
     else
     {
-        ex_set(e, EX_BAD_DATA, "expecting a valid name"TI_SEE_DOC("#names"));
+        ex_set(e, EX_BAD_DATA,
+                "property must be a valid name"TI_SEE_DOC("#names"));
     }
 
     return e->nr;

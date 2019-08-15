@@ -39,12 +39,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) rname->data, rname->n);
     if (!user)
-    {
-        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) rname->n,
-                (char *) rname->data);
-        return e->nr;
-    }
+        return ti_raw_err_not_found(rname, "user", e);
 
     ti_val_drop(query->rval);
     query->rval = NULL;

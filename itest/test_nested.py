@@ -18,7 +18,7 @@ class TestNested(TestBase):
 
     title = 'Test nested and more complex queries'
 
-    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=500)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -33,11 +33,10 @@ class TestNested(TestBase):
         client1 = await get_client(self.node1)
         client1.use('stuff')
 
-        client2 = await get_client(self.node1)
+        client2 = await get_client(self.node2)
         client2.use('stuff')
 
         await self.run_tests(client0, client1, client2)
-        # await self.test_advanced_6_1(client0, client1, client2)
 
         # expected no garbage collection
         for client in (client0, client1, client2):
@@ -48,7 +47,7 @@ class TestNested(TestBase):
             client.close()
             await client.wait_closed()
 
-    async def test_advanced_0(self, client0, client1, client2):
+    async def test_var_assign(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''
             .a = {};
             tmp = .a;
@@ -60,7 +59,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.a.test'), 'Test')
 
-    async def _test_advanced_1(self, client0, client1, client2):
+    async def test_var_assign_del(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''
             .a = {};
             tmp = .a;
@@ -73,7 +72,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.b'), 'Test')
 
-    async def test_advanced_1_0(self, client0, client1, client2):
+    async def test_tmp_push(self, client0, client1, client2):
         # Copy is made so the `push` should not create an event
         self.assertEqual(await client0.query(r'''
             .arr = [1, 2, 3];
@@ -86,7 +85,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [1, 2, 3])
 
-    async def test_advanced_2(self, client0, client1, client2):
+    async def test_assign_pop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [{
                 name: 'Iris'
@@ -100,7 +99,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
 
-    async def test_advanced_2_1(self, client0, client1, client2):
+    async def test_assign_del(self, client0, client1, client2):
         await client0.query(r'''
             .x = {
                 y: {
@@ -125,7 +124,7 @@ class TestNested(TestBase):
             x = await client.query('.x')
             self.assertEqual(x['test'], 'Test')
 
-    async def test_advanced_3(self, client0, client1, client2):
+    async def test_nested_pop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [[{
                 name: 'Iris'
@@ -139,7 +138,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
 
-    async def test_advanced_4(self, client0, client1, client2):
+    async def test_list_lock_assign(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
                 r'cannot remove property `arr` on `#\d+` while '
@@ -152,7 +151,7 @@ class TestNested(TestBase):
                 })
             ''')
 
-    async def test_advanced_5(self, client0, client1, client2):
+    async def test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
                 r'cannot remove property `arr` on `#\d+` while '
@@ -165,7 +164,7 @@ class TestNested(TestBase):
                 })
             ''')
 
-    async def test_advanced_6(self, client0, client1, client2):
+    async def test_assign_after_del(self, client0, client1, client2):
         await client0.query(r'''
             .a = {name: 'Iris'};
             tmp = .a;
@@ -178,7 +177,7 @@ class TestNested(TestBase):
             iris = await client.query('.b')
             self.assertEqual(iris['name'], 'Iris')
 
-    async def test_advanced_6_1(self, client0, client1, client2):
+    async def test_assign_after_del_split(self, client0, client1, client2):
         await client0.query(r'''
             .a = {name: 'Iris'};
             .store = {};
@@ -195,7 +194,7 @@ class TestNested(TestBase):
             iris = await client.query('.store.a')
             self.assertEqual(iris['name'], 'Iris')
 
-    async def test_assign(self, client0, client1, client2):
+    async def test_complex_assign_list(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
                 r'cannot remove property `a` on `#\d+` while '
@@ -216,6 +215,31 @@ class TestNested(TestBase):
                 store = .store;
                 store.a = [1, 2, 3];
                 store.a.push({
+                    .store.del('a');
+                });
+            ''')
+
+    async def test_complex_assign_set(self, client0, client1, client2):
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot remove property `a` on `#\d+` while '
+                r'the `set` is being used'):
+            await client0.query(r'''
+                .store = {};
+                .store.a = set([{}, {}, {}]);
+                .store.a.add({
+                    .store.a = 4;
+                });
+            ''')
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot remove property `a` on `#\d+` while '
+                r'the `set` is being used'):
+            await client0.query(r'''
+                .store = {};
+                store = .store;
+                store.a = set([{}, {}, {}]);
+                store.a.add({
                     .store.del('a');
                 });
             ''')

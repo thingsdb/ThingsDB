@@ -40,12 +40,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     procedure = ti_procedures_pop_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
-    {
-        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` not found",
-                (int) ((ti_raw_t *) query->rval)->n,
-                (char *) ((ti_raw_t *) query->rval)->data);
-        return e->nr;
-    }
+        return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
     ti_procedure_destroy(procedure);
 

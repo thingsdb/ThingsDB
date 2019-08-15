@@ -38,12 +38,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
-    {
-        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` not found",
-                (int) ((ti_raw_t *) query->rval)->n,
-                (char *) ((ti_raw_t *) query->rval)->data);
-        return e->nr;
-    }
+        return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
     args = vec_new(nargs-1);
     if (!args)

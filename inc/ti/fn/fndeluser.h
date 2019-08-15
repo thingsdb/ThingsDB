@@ -38,12 +38,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ruser = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) ruser->data, ruser->n);
     if (!user)
-    {
-        ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                (int) ruser->n,
-                (char *) ruser->data);
-        return e->nr;
-    }
+        return ti_raw_err_not_found(ruser, "user", e);
 
     if (query->user == user)
     {

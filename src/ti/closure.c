@@ -503,6 +503,23 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->node->children        /* node=choice */
             ->node;                 /* the choice */
 
+    if (node->cl_obj->gid == CLERI_GID_FUNCTION)
+    {
+        /*
+         * If the scope is a function, get the first argument, for example:
+         *   || wse({
+         *      "Read this doc string...";
+         *   });
+         */
+        node = node->children->next->next->node;  /* arguments */
+        if (node->children)
+            node = node->children
+                ->node->children->next  /* node=first argument (scope) */
+                ->node->children        /* node=choice */
+                ->node;                 /* the choice */
+        assert (node);
+    }
+
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
 

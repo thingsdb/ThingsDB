@@ -53,12 +53,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         uname = (ti_raw_t *) query->rval;
         user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
         if (!user)
-        {
-            ex_set(e, EX_INDEX_ERROR, "user `%.*s` not found",
-                    (int) uname->n,
-                    (char *) uname->data);
-            return e->nr;
-        }
+            return ti_raw_err_not_found(uname, "user", e);
 
         ti_val_drop(query->rval);
     }

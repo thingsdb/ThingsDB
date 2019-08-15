@@ -10,33 +10,32 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-#define SYNTAX__X(__ev, __q, __nd, __str, __fn, __ret)                      \
+#define SYNTAX__X(__ev, __q, __nd, __str, __fn)                             \
 do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
 {                                                                           \
     __nd->data = (void *) ((uintptr_t) __fn);                               \
     __ev(__q);                                                              \
-    return __ret;                                                           \
+    return;                                                                 \
 } while(0)
 
 /* set 'c'ollection event, used for collection scope */
-#define syntax__cev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X(syntax__set_collection_event, __q, __nd, __str, __fn, __ret)
+#define syntax__cev_fn(__q, __nd, __str, __fn) \
+        SYNTAX__X(syntax__set_collection_event, __q, __nd, __str, __fn)
 
 /* 'n'o event, used for collection scope */
-#define syntax__nev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
+#define syntax__nev_fn(__q, __nd, __str, __fn) \
+        SYNTAX__X((void), __q, __nd, __str, __fn)
 
 /* set 't'hingsdb event, used for thingsdb scope */
-#define syntax__tev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn, __ret)
-
+#define syntax__tev_fn(__q, __nd, __str, __fn) \
+        SYNTAX__X(syntax__set_thingsdb_event, __q, __nd, __str, __fn)
 /* 'z'ero (no) event, used for node and thingsdb scope */
-#define syntax__zev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X((void), __q, __nd, __str, __fn, __ret)
+#define syntax__zev_fn(__q, __nd, __str, __fn) \
+        SYNTAX__X((void), __q, __nd, __str, __fn)
 
 /* set 'b'oth thingsdb and collection event */
-#define syntax__bev_fn(__q, __nd, __str, __fn, __ret) \
-        SYNTAX__X(syntax__set_both_event, __q, __nd, __str, __fn, __ret)
+#define syntax__bev_fn(__q, __nd, __str, __fn) \
+        SYNTAX__X(syntax__set_both_event, __q, __nd, __str, __fn)
 
 static inline void syntax__set_collection_event(ti_syntax_t * syntax)
 {
@@ -56,162 +55,160 @@ static inline void syntax__set_both_event(ti_syntax_t * syntax)
             ? TI_SYNTAX_FLAG_EVENT : 0;
 }
 
-/* returns `true` if the arguments of the function need evaluation */
-static _Bool syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
+static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
 {
     /* a function name has at least size 1 */
     switch ((ti_alpha_lower_t) *nd->str)
     {
     case 'a':
-        syntax__cev_fn(q, nd, "add", TI_FN_ADD, true);
-        syntax__nev_fn(q, nd, "array", TI_FN_ARRAY, true);
-        syntax__nev_fn(q, nd, "assert", TI_FN_ASSERT, true);
-        syntax__nev_fn(q, nd, "assert_err", TI_FN_ASSERT_ERR, true);
-        syntax__nev_fn(q, nd, "auth_err", TI_FN_AUTH_ERR, true);
+        syntax__cev_fn(q, nd, "add", TI_FN_ADD);
+        syntax__nev_fn(q, nd, "array", TI_FN_ARRAY);
+        syntax__nev_fn(q, nd, "assert", TI_FN_ASSERT);
+        syntax__nev_fn(q, nd, "assert_err", TI_FN_ASSERT_ERR);
+        syntax__nev_fn(q, nd, "auth_err", TI_FN_AUTH_ERR);
         break;
     case 'b':
-        syntax__nev_fn(q, nd, "bad_data_err", TI_FN_BAD_DATA_ERR, true);
-        syntax__nev_fn(q, nd, "blob", TI_FN_BLOB, true);
-        syntax__nev_fn(q, nd, "bool", TI_FN_BOOL, true);
+        syntax__nev_fn(q, nd, "bad_data_err", TI_FN_BAD_DATA_ERR);
+        syntax__nev_fn(q, nd, "blob", TI_FN_BLOB);
+        syntax__nev_fn(q, nd, "bool", TI_FN_BOOL);
         break;
     case 'c':
-        syntax__nev_fn(q, nd, "call", TI_FN_CALL, true);
-        syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS, true);
-        syntax__zev_fn(q, nd, "collection_info", TI_FN_COLLECTION_INFO, true);
-        syntax__zev_fn(q, nd, "collections_info", TI_FN_COLLECTIONS_INFO, false);
-        syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS, false);
+        syntax__nev_fn(q, nd, "call", TI_FN_CALL);
+        syntax__nev_fn(q, nd, "contains", TI_FN_CONTAINS);
+        syntax__zev_fn(q, nd, "collection_info", TI_FN_COLLECTION_INFO);
+        syntax__zev_fn(q, nd, "collections_info", TI_FN_COLLECTIONS_INFO);
+        syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS);
         break;
     case 'd':
-        syntax__bev_fn(q, nd, "del_procedure", TI_FN_DEL_PROCEDURE, true);
-        syntax__cev_fn(q, nd, "del", TI_FN_DEL, true);
-        syntax__tev_fn(q, nd, "del_collection", TI_FN_DEL_COLLECTION, true);
-        syntax__tev_fn(q, nd, "del_expired", TI_FN_DEL_EXPIRED, false);
-        syntax__tev_fn(q, nd, "del_token", TI_FN_DEL_TOKEN, true);
-        syntax__tev_fn(q, nd, "del_user", TI_FN_DEL_USER, true);
+        syntax__bev_fn(q, nd, "del_procedure", TI_FN_DEL_PROCEDURE);
+        syntax__cev_fn(q, nd, "del", TI_FN_DEL);
+        syntax__tev_fn(q, nd, "del_collection", TI_FN_DEL_COLLECTION);
+        syntax__tev_fn(q, nd, "del_expired", TI_FN_DEL_EXPIRED);
+        syntax__tev_fn(q, nd, "del_token", TI_FN_DEL_TOKEN);
+        syntax__tev_fn(q, nd, "del_user", TI_FN_DEL_USER);
         break;
     case 'e':
-        syntax__nev_fn(q, nd, "endswith", TI_FN_ENDSWITH, true);
-        syntax__nev_fn(q, nd, "err", TI_FN_ERR, true);
+        syntax__nev_fn(q, nd, "endswith", TI_FN_ENDSWITH);
+        syntax__nev_fn(q, nd, "err", TI_FN_ERR);
         break;
     case 'f':
-        syntax__nev_fn(q, nd, "filter", TI_FN_FILTER, true);
-        syntax__nev_fn(q, nd, "find", TI_FN_FIND, true);
-        syntax__nev_fn(q, nd, "findindex", TI_FN_FINDINDEX, true);
-        syntax__nev_fn(q, nd, "float", TI_FN_FLOAT, true);
-        syntax__nev_fn(q, nd, "forbidden_err", TI_FN_FORBIDDEN_ERR, true);
+        syntax__nev_fn(q, nd, "filter", TI_FN_FILTER);
+        syntax__nev_fn(q, nd, "find", TI_FN_FIND);
+        syntax__nev_fn(q, nd, "findindex", TI_FN_FINDINDEX);
+        syntax__nev_fn(q, nd, "float", TI_FN_FLOAT);
+        syntax__nev_fn(q, nd, "forbidden_err", TI_FN_FORBIDDEN_ERR);
         break;
     case 'g':
-        syntax__tev_fn(q, nd, "grant", TI_FN_GRANT, true);
+        syntax__tev_fn(q, nd, "grant", TI_FN_GRANT);
         break;
     case 'h':
-        syntax__nev_fn(q, nd, "has", TI_FN_HAS, true);
-        syntax__nev_fn(q, nd, "hasprop", TI_FN_HASPROP, true);
+        syntax__nev_fn(q, nd, "has", TI_FN_HAS);
+        syntax__nev_fn(q, nd, "hasprop", TI_FN_HASPROP);
         break;
     case 'i':
-        syntax__nev_fn(q, nd, "id", TI_FN_ID, false);
-        syntax__nev_fn(q, nd, "index_err", TI_FN_INDEX_ERR, true);
-        syntax__nev_fn(q, nd, "indexof", TI_FN_INDEXOF, true);
-        syntax__nev_fn(q, nd, "int", TI_FN_INT, true);
-        syntax__nev_fn(q, nd, "isarray", TI_FN_ISARRAY, true);
-        syntax__nev_fn(q, nd, "isascii", TI_FN_ISASCII, true);
-        syntax__nev_fn(q, nd, "isbool", TI_FN_ISBOOL, true);
-        syntax__nev_fn(q, nd, "iserror", TI_FN_ISERROR, true);
-        syntax__nev_fn(q, nd, "isfloat", TI_FN_ISFLOAT, true);
-        syntax__nev_fn(q, nd, "isinf", TI_FN_ISINF, true);
-        syntax__nev_fn(q, nd, "isint", TI_FN_ISINT, true);
-        syntax__nev_fn(q, nd, "islist", TI_FN_ISLIST, true);
-        syntax__nev_fn(q, nd, "isnan", TI_FN_ISNAN, true);
-        syntax__nev_fn(q, nd, "isnil", TI_FN_ISNIL, true);
-        syntax__nev_fn(q, nd, "israw", TI_FN_ISRAW, true);
-        syntax__nev_fn(q, nd, "isset", TI_FN_ISSET, true);
-        syntax__nev_fn(q, nd, "isstr", TI_FN_ISSTR, true);
-        syntax__nev_fn(q, nd, "isthing", TI_FN_ISTHING, true);
-        syntax__nev_fn(q, nd, "istuple", TI_FN_ISTUPLE, true);
-        syntax__nev_fn(q, nd, "isutf8", TI_FN_ISUTF8, true);
+        syntax__nev_fn(q, nd, "id", TI_FN_ID);
+        syntax__nev_fn(q, nd, "index_err", TI_FN_INDEX_ERR);
+        syntax__nev_fn(q, nd, "indexof", TI_FN_INDEXOF);
+        syntax__nev_fn(q, nd, "int", TI_FN_INT);
+        syntax__nev_fn(q, nd, "isarray", TI_FN_ISARRAY);
+        syntax__nev_fn(q, nd, "isascii", TI_FN_ISASCII);
+        syntax__nev_fn(q, nd, "isbool", TI_FN_ISBOOL);
+        syntax__nev_fn(q, nd, "iserror", TI_FN_ISERROR);
+        syntax__nev_fn(q, nd, "isfloat", TI_FN_ISFLOAT);
+        syntax__nev_fn(q, nd, "isinf", TI_FN_ISINF);
+        syntax__nev_fn(q, nd, "isint", TI_FN_ISINT);
+        syntax__nev_fn(q, nd, "islist", TI_FN_ISLIST);
+        syntax__nev_fn(q, nd, "isnan", TI_FN_ISNAN);
+        syntax__nev_fn(q, nd, "isnil", TI_FN_ISNIL);
+        syntax__nev_fn(q, nd, "israw", TI_FN_ISRAW);
+        syntax__nev_fn(q, nd, "isset", TI_FN_ISSET);
+        syntax__nev_fn(q, nd, "isstr", TI_FN_ISSTR);
+        syntax__nev_fn(q, nd, "isthing", TI_FN_ISTHING);
+        syntax__nev_fn(q, nd, "istuple", TI_FN_ISTUPLE);
+        syntax__nev_fn(q, nd, "isutf8", TI_FN_ISUTF8);
         break;
     case 'j':
     case 'k':
         break;
     case 'l':
-        syntax__nev_fn(q, nd, "len", TI_FN_LEN, false);
-        syntax__nev_fn(q, nd, "lower", TI_FN_LOWER, false);
+        syntax__nev_fn(q, nd, "len", TI_FN_LEN);
+        syntax__nev_fn(q, nd, "lower", TI_FN_LOWER);
         break;
     case 'm':
-        syntax__nev_fn(q, nd, "max_quota_err", TI_FN_MAX_QUOTA_ERR, true);
-        syntax__nev_fn(q, nd, "map", TI_FN_MAP, true);
+        syntax__nev_fn(q, nd, "max_quota_err", TI_FN_MAX_QUOTA_ERR);
+        syntax__nev_fn(q, nd, "map", TI_FN_MAP);
         break;
     case 'n':
-        syntax__bev_fn(q, nd, "new_procedure", TI_FN_NEW_PROCEDURE, true);
-        syntax__nev_fn(q, nd, "node_err", TI_FN_NODE_ERR, true);
-        syntax__nev_fn(q, nd, "now", TI_FN_NOW, false);
-        syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION, true);
-        syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE, true);
-        syntax__tev_fn(q, nd, "new_token", TI_FN_NEW_TOKEN, true);
-        syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER, true);
-        syntax__zev_fn(q, nd, "node_info", TI_FN_NODE_INFO, true);
-        syntax__zev_fn(q, nd, "nodes_info", TI_FN_NODES_INFO, false);
+        syntax__bev_fn(q, nd, "new_procedure", TI_FN_NEW_PROCEDURE);
+        syntax__nev_fn(q, nd, "node_err", TI_FN_NODE_ERR);
+        syntax__nev_fn(q, nd, "now", TI_FN_NOW);
+        syntax__tev_fn(q, nd, "new_collection", TI_FN_NEW_COLLECTION);
+        syntax__tev_fn(q, nd, "new_node", TI_FN_NEW_NODE);
+        syntax__tev_fn(q, nd, "new_token", TI_FN_NEW_TOKEN);
+        syntax__tev_fn(q, nd, "new_user", TI_FN_NEW_USER);
+        syntax__zev_fn(q, nd, "node_info", TI_FN_NODE_INFO);
+        syntax__zev_fn(q, nd, "nodes_info", TI_FN_NODES_INFO);
         break;
     case 'o':
-        syntax__nev_fn(q, nd, "overflow_err", TI_FN_OVERFLOW_ERR, true);
+        syntax__nev_fn(q, nd, "overflow_err", TI_FN_OVERFLOW_ERR);
         break;
     case 'p':
-        syntax__cev_fn(q, nd, "pop", TI_FN_POP, false);
-        syntax__cev_fn(q, nd, "push", TI_FN_PUSH, true);
-        syntax__nev_fn(q, nd, "procedure_doc", TI_FN_PROCEDURE_DOC, true);
-        syntax__nev_fn(q, nd, "procedure_info", TI_FN_PROCEDURE_INFO, true);
-        syntax__nev_fn(q, nd, "procedures_info", TI_FN_PROCEDURES_INFO, false);
-        syntax__tev_fn(q, nd, "pop_node", TI_FN_POP_NODE, false);
+        syntax__cev_fn(q, nd, "pop", TI_FN_POP);
+        syntax__cev_fn(q, nd, "push", TI_FN_PUSH);
+        syntax__nev_fn(q, nd, "procedure_doc", TI_FN_PROCEDURE_DOC);
+        syntax__nev_fn(q, nd, "procedure_info", TI_FN_PROCEDURE_INFO);
+        syntax__nev_fn(q, nd, "procedures_info", TI_FN_PROCEDURES_INFO);
+        syntax__tev_fn(q, nd, "pop_node", TI_FN_POP_NODE);
         break;
     case 'q':
         break;
     case 'r':
-        syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE, true);
-        syntax__nev_fn(q, nd, "raise", TI_FN_RAISE, true);
-        syntax__nev_fn(q, nd, "refs", TI_FN_REFS, true);
-        syntax__nev_fn(q, nd, "run", TI_FN_RUN, true);
-        syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION, true);
-        syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER, true);
-        syntax__tev_fn(q, nd, "replace_node", TI_FN_REPLACE_NODE, true);
-        syntax__tev_fn(q, nd, "revoke", TI_FN_REVOKE, true);
-        syntax__zev_fn(q, nd, "reset_counters", TI_FN_RESET_COUNTERS, false);
+        syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE);
+        syntax__nev_fn(q, nd, "raise", TI_FN_RAISE);
+        syntax__nev_fn(q, nd, "refs", TI_FN_REFS);
+        syntax__nev_fn(q, nd, "run", TI_FN_RUN);
+        syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION);
+        syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER);
+        syntax__tev_fn(q, nd, "replace_node", TI_FN_REPLACE_NODE);
+        syntax__tev_fn(q, nd, "revoke", TI_FN_REVOKE);
+        syntax__zev_fn(q, nd, "reset_counters", TI_FN_RESET_COUNTERS);
         break;
     case 's':
-        syntax__cev_fn(q, nd, "splice", TI_FN_SPLICE, true);
-        syntax__nev_fn(q, nd, "set", TI_FN_SET, true);
-        syntax__nev_fn(q, nd, "startswith", TI_FN_STARTSWITH, true);
-        syntax__nev_fn(q, nd, "str", TI_FN_STR, true);
-        syntax__nev_fn(q, nd, "syntax_err", TI_FN_SYNTAX_ERR, true);
-        syntax__tev_fn(q, nd, "set_password", TI_FN_SET_PASSWORD, true);
-        syntax__tev_fn(q, nd, "set_quota", TI_FN_SET_QUOTA, true);
-        syntax__zev_fn(q, nd, "set_log_level", TI_FN_SET_LOG_LEVEL, true);
-        syntax__zev_fn(q, nd, "shutdown", TI_FN_SHUTDOWN, false);
+        syntax__cev_fn(q, nd, "splice", TI_FN_SPLICE);
+        syntax__nev_fn(q, nd, "set", TI_FN_SET);
+        syntax__nev_fn(q, nd, "startswith", TI_FN_STARTSWITH);
+        syntax__nev_fn(q, nd, "str", TI_FN_STR);
+        syntax__nev_fn(q, nd, "syntax_err", TI_FN_SYNTAX_ERR);
+        syntax__tev_fn(q, nd, "set_password", TI_FN_SET_PASSWORD);
+        syntax__tev_fn(q, nd, "set_quota", TI_FN_SET_QUOTA);
+        syntax__zev_fn(q, nd, "set_log_level", TI_FN_SET_LOG_LEVEL);
+        syntax__zev_fn(q, nd, "shutdown", TI_FN_SHUTDOWN);
         break;
     case 't':
-        syntax__nev_fn(q, nd, "t", TI_FN_T, true);
-        syntax__nev_fn(q, nd, "test", TI_FN_TEST, true);
-        syntax__nev_fn(q, nd, "try", TI_FN_TRY, true);
-        syntax__nev_fn(q, nd, "type", TI_FN_TYPE, true);
+        syntax__nev_fn(q, nd, "t", TI_FN_T);
+        syntax__nev_fn(q, nd, "test", TI_FN_TEST);
+        syntax__nev_fn(q, nd, "try", TI_FN_TRY);
+        syntax__nev_fn(q, nd, "type", TI_FN_TYPE);
         break;
     case 'u':
-        syntax__nev_fn(q, nd, "upper", TI_FN_UPPER, false);
-        syntax__zev_fn(q, nd, "user_info", TI_FN_USER_INFO, true);
-        syntax__zev_fn(q, nd, "users_info", TI_FN_USERS_INFO, false);
+        syntax__nev_fn(q, nd, "upper", TI_FN_UPPER);
+        syntax__zev_fn(q, nd, "user_info", TI_FN_USER_INFO);
+        syntax__zev_fn(q, nd, "users_info", TI_FN_USERS_INFO);
         break;
     case 'v':
         break;
     case 'w':
-        syntax__bev_fn(q, nd, "wse", TI_FN_WSE, true);
+        syntax__bev_fn(q, nd, "wse", TI_FN_WSE);
         break;
     case 'x':
     case 'y':
         break;
     case 'z':
-        syntax__nev_fn(q, nd, "zero_div_err", TI_FN_ZERO_DIV_ERR, true);
+        syntax__nev_fn(q, nd, "zero_div_err", TI_FN_ZERO_DIV_ERR);
         break;
     }
 
     nd->data = (void *) ((uintptr_t) TI_FN_0);  /* unknown function */
-    return false;
 }
 
 static _Bool syntax__swap_opr(
@@ -265,6 +262,12 @@ static _Bool syntax__swap_opr(
     return gid > parent_gid;
 }
 
+static inline void syntax__investigate(ti_syntax_t * syntax, cleri_node_t * nd)
+{
+    for (cleri_children_t * child = nd->children; child; child = child->next)
+        ti_syntax_investigate(syntax, child->node);
+}
+
 /*
  * Investigates the following:
  *
@@ -287,7 +290,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
                 ->children;
         for (; child; child = child->next->next)
         {
-            ti_syntax_investigate(syntax, child->node);  /* scope */
+            syntax__investigate(syntax, child->node);  /* scope */
             ++sz;
 
             if (!child->next)
@@ -304,7 +307,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         while (1)
         {
             assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-            ti_syntax_investigate(syntax, child->node);  /* scope */
+            syntax__investigate(syntax, child->node);  /* scope */
             if (!child->next || !(child = child->next->next))
                 break;
         }
@@ -318,7 +321,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         for (; child; child = child->next->next)
         {
             /* sequence(name: scope) (only investigate the scopes */
-            ti_syntax_investigate(
+            syntax__investigate(
                     syntax,
                     child->node->children->next->next->node);  /* scope */
 
@@ -328,23 +331,23 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         return;
     }
     case CLERI_GID_FUNCTION:
-        if (syntax__map_fn(syntax, nd->children->node))
-            /* investigate arguments */
-            ti_syntax_investigate(syntax, nd->children->next->next->node);
-        return;
+        syntax__map_fn(syntax, nd->children->node);
+        /* investigate arguments */
+        nd = nd->children->next->next->node;
+        break;
     case CLERI_GID_ASSIGNMENT:
         syntax__set_collection_event(syntax);
         /* fall through */
     case CLERI_GID_VAR_ASSIGN:
         /* skip to scope */
-        ti_syntax_investigate(syntax, nd->children->next->next->node);
-        return;
+        nd = nd->children->next->next->node;
+        break;
     case CLERI_GID_STATEMENTS:
     {
         cleri_children_t * child = nd->children;
         while(child)
         {
-            ti_syntax_investigate(syntax, child->node);  /* scope */
+            syntax__investigate(syntax, child->node);  /* scope */
             if (!child->next)
                 break;
             child = child->next->next;                  /* skip delimiter */
@@ -356,7 +359,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
                 child;
                 child = child->next)
             /* sequence('[', scope, ']') (only investigate the scopes */
-            ti_syntax_investigate(
+            syntax__investigate(
                     syntax,
                     child->node->children->next->node);  /* scope */
         return;
@@ -373,7 +376,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         {
         case CLERI_GID_T_CLOSURE:
             /* investigate the scope, the rest can be skipped */
-            ti_syntax_investigate(
+            syntax__investigate(
                     syntax,
                     nd->children->next->next->next->node);
             /* fall through */
@@ -391,9 +394,9 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         {
             cleri_children_t * child = \
                     nd->children->next->next->next->node->children->next;
-            ti_syntax_investigate(syntax, child->node);
+            syntax__investigate(syntax, child->node);
             if (child->next)  /* else case */
-                ti_syntax_investigate(
+                syntax__investigate(
                         syntax,
                         child->next->node->children->next->node);
         }

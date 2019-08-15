@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: Definition
- * Created at: 2019-07-19 08:50:47
+ * Created at: 2019-08-15 23:00:43
  */
 
 #include <langdef/langdef.h>
@@ -111,16 +111,16 @@ cleri_grammar_t * compile_langdef(void)
                 CLERI_THIS,
                 cleri_choice(
                     CLERI_NONE,
-                    CLERI_MOST_GREEDY,
+                    CLERI_FIRST_MATCH,
                     8,
-                    opr0_mul_div_mod,
-                    opr1_add_sub,
-                    opr2_bitwise_and,
-                    opr3_bitwise_xor,
-                    opr4_bitwise_or,
-                    opr5_compare,
+                    opr7_cmp_or,
                     opr6_cmp_and,
-                    opr7_cmp_or
+                    opr5_compare,
+                    opr4_bitwise_or,
+                    opr3_bitwise_xor,
+                    opr2_bitwise_and,
+                    opr1_add_sub,
+                    opr0_mul_div_mod
                 ),
                 CLERI_THIS
             )

@@ -91,15 +91,16 @@ class Definition(Grammar):
         Prio(
             scope,
             Sequence(THIS, Choice(
-                opr0_mul_div_mod,
-                opr1_add_sub,
-                opr2_bitwise_and,
-                opr3_bitwise_xor,
-                opr4_bitwise_or,
-                opr5_compare,
-                opr6_cmp_and,
+                # make sure `and` and `or` is on top so we can stop
+                # at the first match
                 opr7_cmp_or,
-                most_greedy=True,
+                opr6_cmp_and,
+                opr5_compare,
+                opr4_bitwise_or,
+                opr3_bitwise_xor,
+                opr2_bitwise_and,
+                opr1_add_sub,
+                opr0_mul_div_mod,
             ), THIS)
         ),
         ')',

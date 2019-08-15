@@ -88,7 +88,8 @@ static inline int ti_raw_err_not_found(
                 s, (int) raw->n, (const char *) raw->data);
     else
         ex_set(e, EX_BAD_DATA,
-                "%s must be a valid name"TI_SEE_DOC("#names"),
+                "%s name must follow the naming rules"
+                TI_SEE_DOC("#names"),
                 s);
     return e->nr;
 }

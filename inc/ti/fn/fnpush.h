@@ -11,14 +11,16 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
     ti_varr_t * varr;
-    ti_chain_t * chain = ti_chained_get(query->chained);
+    ti_chain_t chain;
+
+    ti_chain_move(&chain, &query->chain);
 
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `push`"PUSH_DOC_,
                 ti_val_str(query->rval));
-        return e->nr;
+        goto fail0;
     }
 
     if (!nargs)
@@ -26,11 +28,11 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `push` requires at least 1 argument but 0 "
                 "were given"PUSH_DOC_);
-        return e->nr;
+        goto fail0;
     }
 
     if (ti_val_try_lock(query->rval, e))
-        return e->nr;
+        goto fail0;
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -70,15 +72,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (chain)
+    if (ti_chain_is_set(&chain))
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
         if (!task)
             goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                chain->name,
+                chain.name,
                 varr,
                 current_n,
                 0,
@@ -105,5 +107,8 @@ fail1:
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
+
+fail0:
+    ti_chain_unset(&chain);
     return e->nr;
 }

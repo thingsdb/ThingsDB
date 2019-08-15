@@ -9,14 +9,16 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t idx = 0;
     ti_closure_t * closure;
     ti_varr_t * varr;
-    ti_chain_t * chain = ti_chained_get(query->chained);
+    ti_chain_t chain;
+
+    ti_chain_move(&chain, &query->chain);
 
     if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` requires at least 1 argument but 0 "
                 "were given"REMOVE_LIST_DOC_);
-        return;
+        goto fail0;
     }
 
     if (nargs > 2)
@@ -24,11 +26,11 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `remove` takes at most 2 arguments but %d "
                 "were given"REMOVE_LIST_DOC_, nargs);
-        return;
+        goto fail0;
     }
 
     if (ti_val_try_lock(query->rval, e))
-        return;
+        goto fail0;
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -70,16 +72,16 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             (void) vec_remove(varr->vec, idx);
 
-            if (chain)
+            if (ti_chain_is_set(&chain))
             {
                 ti_task_t * task;
-                task = ti_task_get_task(query->ev, chain->thing, e);
+                task = ti_task_get_task(query->ev, chain.thing, e);
                 if (!task)
                     goto fail3;
 
                 if (ti_task_add_splice(
                         task,
-                        chain->name,
+                        chain.name,
                         NULL,
                         idx,
                         1,
@@ -113,6 +115,8 @@ fail2:
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
+fail0:
+    ti_chain_unset(&chain);
 }
 
 static int do__f_remove_set_from_closure(
@@ -180,25 +184,27 @@ static void do__f_remove_set(
 {
     vec_t * removed = NULL;
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_chain_t * chain = ti_chained_get(query->chained);
     ti_vset_t * vset;
+    ti_chain_t chain;
+
+    ti_chain_move(&chain, &query->chain);
 
     if (nargs < 1)
     {
         ex_set(e, EX_BAD_DATA,
                 "function `remove` requires at least 1 argument but 0 "
                 "were given"REMOVE_SET_DOC_);
-        return;
+        goto fail0;
     }
 
     if (ti_val_try_lock(query->rval, e))
-        return;
+        goto fail0;
 
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
 
     if (ti_do_scope(query, nd->children->node, e))
-        goto fail0;
+        goto fail1;
 
     if (ti_val_is_closure(query->rval))
     {
@@ -206,11 +212,11 @@ static void do__f_remove_set(
         if (!removed)
         {
             ex_set_mem(e);
-            goto fail0;
+            goto fail1;
         }
 
         if (do__f_remove_set_from_closure(&removed, vset, query, nargs, e))
-            goto fail1;
+            goto fail2;
 
         assert (query->rval == NULL);
 
@@ -226,7 +232,7 @@ static void do__f_remove_set(
         if (!removed)
         {
             ex_set_mem(e);
-            goto fail0;
+            goto fail1;
         }
 
         for (narg = 1;;++narg)
@@ -245,7 +251,7 @@ static void do__f_remove_set(
                         "but got type `%s` instead"REMOVE_SET_DOC_,
                         narg, ti_val_str(query->rval));
 
-                goto fail1;
+                goto fail2;
             }
 
             if (ti_vset_pop(vset, (ti_thing_t *) query->rval))
@@ -258,23 +264,23 @@ static void do__f_remove_set(
                 break;
 
             if (ti_do_scope(query, child->node, e))
-                goto fail1;
+                goto fail2;
         }
     }
 
-    if (removed->n && chain)
+    if (removed->n && ti_chain_is_set(&chain))
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
         if (!task)
-            goto fail1;
+            goto fail2;
 
         if (ti_task_add_remove(
                 task,
-                chain->name,
+                chain.name,
                 removed))
         {
             ex_set_mem(e);
-            goto fail1;
+            goto fail2;
         }
     }
 
@@ -285,7 +291,7 @@ static void do__f_remove_set(
 
     ex_set_mem(e);
 
-fail1:
+fail2:
     while (removed->n)
         /* if the `thing` is already in the set, then the set still owns the
          * thing, else the thing was owned by the `removed` vector so in
@@ -294,10 +300,12 @@ fail1:
             ex_set_mem(e);
     free(removed);
 
-fail0:
+fail1:
 done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
     ti_val_drop((ti_val_t *) vset);
+fail0:
+    ti_chain_unset(&chain);
 }
 
 static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)

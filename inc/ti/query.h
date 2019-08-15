@@ -18,7 +18,7 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/user.h>
 #include <ti/syntax.h>
 #include <ti/stream.h>
-#include <ti/chained.h>
+#include <ti/chain.h>
 #include <ti/procedure.h>
 #include <util/omap.h>
 
@@ -66,6 +66,7 @@ static inline const char * ti_query_scope_name(ti_query_t * query);
 struct ti_query_s
 {
     ti_syntax_t syntax;         /* syntax binding */
+    ti_chain_t chain;           /* ti_chain_t */
     ti_val_t * rval;            /* return value of a statement */
     ti_collection_t * target;   /* with reference,
                                    NULL when target is node or thingsdb */
@@ -81,7 +82,6 @@ struct ti_query_s
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */
-    ti_chained_t * chained;     /* ti_chain_t */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
 };
 

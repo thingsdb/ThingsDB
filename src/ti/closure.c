@@ -71,7 +71,6 @@ static cleri_node_t * closure__node_from_strn(
             ->children->node                /* Choice - immutable */
             ->children->node;               /* closure */
 
-
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
         ex_set(e, EX_INDEX_ERROR, "node is not a closure");

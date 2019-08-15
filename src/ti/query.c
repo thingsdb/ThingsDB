@@ -299,9 +299,9 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
                                 * we also must allow closures to still grow
                                 * this vector, so a fixed size may be the best
                                 */
-    query->chained = ti_chained_create(7);
+    ti_chain_init(&query->chain);
 
-    if (!query->vars || !query->chained)
+    if (!query->vars)
     {
         ti_query_destroy(query);
         return NULL;
@@ -319,7 +319,7 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
 
     vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
-    ti_chained_destroy(query->chained);
+    assert (!ti_chain_is_set(&query->chain));
 
     ti_val_drop((ti_val_t *) query->closure);
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);

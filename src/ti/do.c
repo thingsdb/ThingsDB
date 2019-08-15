@@ -735,8 +735,6 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                                name */
     cleri_node_t * index_node = child->next->node;
 
-    int chainn = query->chained->n;
-
     child = child->next->next;          /* set to chain child (or NULL) */
 
     switch (node->cl_obj->gid)
@@ -768,13 +766,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
 
         if (thing->id && (index_node->children || child))
-        {
-            if (ti_chained_append(&query->chained, thing, prop->name))
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-        }
+            ti_chain_set(&query->chain, thing, prop->name);
 
         query->rval = prop->val;
         ti_incref(query->rval);
@@ -796,7 +788,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     (void) do__chain(query, child->node, e);
 
 done:
-    ti_chained_leave(query->chained, chainn);
+    ti_chain_unset(&query->chain);
     return e->nr;
 }
 
@@ -1124,7 +1116,7 @@ static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
     assert (ti_name_is_valid_strn(nd->str, nd->len));
     assert (query->rval == NULL);
-    assert (ti_chained_get(query->chained) == NULL);
+    assert (!ti_chain_is_set(&query->chain));
 
     ti_prop_t * prop = do__get_var(query, nd, e);
 
@@ -1148,7 +1140,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_VAR_ASSIGN);
     assert (query->rval == NULL);
-    assert (ti_chained_get(query->chained) == NULL);
+    assert (!ti_chain_is_set(&query->chain));
 
     ti_name_t * name = NULL;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
@@ -1230,8 +1222,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                                assignment, name, thing,
                                                array, compare, closure */
 
-    /* make sure the current chain points to NULL */
-    ti_chained_null(query->chained);
+    ti_chain_unset(&query->chain);
 
     switch (node->cl_obj->gid)
     {

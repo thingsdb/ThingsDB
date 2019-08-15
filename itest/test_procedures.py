@@ -16,7 +16,7 @@ from thingsdb import scope
 
 class TestProcedures(TestBase):
 
-    title = 'Test nested and more complex queries'
+    title = 'Test procedures'
 
     @default_test_setup(num_nodes=5, seed=1)
     async def run(self):
@@ -217,6 +217,96 @@ class TestProcedures(TestBase):
             client.close()
             await client.wait_closed()
 
+    async def test_del_procedure(self, client):
+        await client.query(r'''
+            new_procedure('test', |x| (x * 10));
+        ''')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `del_procedure`'):
+            await client.query('nil.del_procedure();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `del_procedure` takes 1 argument '
+                'but 0 were given'):
+            await client.query('del_procedure();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `del_procedure` expects argument 1 to be of '
+                r'type `raw` but got type `nil` instead'):
+            await client.query('del_procedure(nil);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                r'procedure `xxx` not found'):
+            await client.query('del_procedure("xxx");')
+
+        with self.assertRaisesRegex(
+                BaseException,
+                r'procedure name must follow the naming rules'):
+            await client.query('del_procedure("");')
+
+        self.assertIs(await client.query('del_procedure("test");'), None)
+
+    async def test_new_procedure(self, client):
+        await client.query(r'''
+            new_procedure('test', |x| (x * 10));
+        ''')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `new_procedure`'):
+            await client.query('nil.new_procedure();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `new_procedure` takes 2 arguments '
+                'but 1 was given'):
+            await client.query('new_procedure("create_user");')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `new_procedure` expects argument 1 to be of '
+                r'type `raw` but got type `nil` instead'):
+            await client.query('new_procedure(nil, ||nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `new_procedure` expects argument 2 to be '
+                r'a `closure` but got type `nil` instead'):
+            await client.query('new_procedure("create_user", nil);')
+
+        with self.assertRaisesRegex(
+                BaseException,
+                r'procedure name must follow the naming rules'):
+            await client.query('new_procedure("", ||nil);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                r'procedure `create_user` already exists'):
+            await client.query(
+                'new_procedure("create_user", ||nil);',
+                target=scope.thingsdb)
+
+        self.assertEqual(await client.query(r'''
+            new_procedure("create_user", |user| {
+                (!.hasprop('users')) ? {
+                    .users = [];
+                };
+                new_user = {
+                    name: user
+                };
+                .users.push(new_user);
+                new_user;
+            });
+        '''), 'create_user')
+
+        iris = await client.run('create_user', 'Iris')
+        self.assertEqual(iris['name'], 'Iris')
+
     async def test_run(self, client):
         await client.query(r'''
             new_procedure('test', |x| (x * 10));
@@ -247,7 +337,7 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 BaseException,
-                r'procedure must be a valid name'):
+                r'procedure name must follow the naming rules'):
             await client.query('run("");')
 
         with self.assertRaisesRegex(

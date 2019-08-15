@@ -8,15 +8,16 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     ti_varr_t * varr;
-    ti_chain_t * chain = ti_chained_get(query->chained);
+    ti_chain_t chain;
 
+    ti_chain_move(&chain, &query->chain);
 
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `pop`"POP_DOC_,
                 ti_val_str(query->rval));
-        return e->nr;
+        goto fail0;
     }
 
     if (!langdef_nd_fun_has_zero_params(nd))
@@ -25,11 +26,11 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_BAD_DATA,
                 "function `pop` takes 0 arguments but %d %s given"POP_DOC_,
                 nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
+        goto fail0;
     }
 
     if (ti_val_try_lock(query->rval, e))
-        return e->nr;
+        goto fail0;
 
     varr = (ti_varr_t*) query->rval;
     query->rval = vec_pop(varr->vec);
@@ -40,16 +41,16 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (chain)
+    if (ti_chain_is_set(&chain))
     {
         ti_task_t * task;
-        task = ti_task_get_task(query->ev, chain->thing, e);
+        task = ti_task_get_task(query->ev, chain.thing, e);
         if (!task)
             goto restore;
 
         if (ti_task_add_splice(
                 task,
-                chain->name,
+                chain.name,
                 NULL,
                 varr->vec->n,
                 1,
@@ -68,5 +69,8 @@ restore:
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
+
+fail0:
+    ti_chain_unset(&chain);
     return e->nr;
 }

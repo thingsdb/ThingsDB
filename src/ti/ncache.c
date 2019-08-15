@@ -103,8 +103,10 @@ int ti_ncache_gen_immutable(
     }
 
     for (cleri_children_t * child = node->children; child; child = child->next)
+    {
         if (ti_ncache_gen_immutable(syntax, vcache, child->node, e))
             return e->nr;
+    }
 
     return e->nr;
 }

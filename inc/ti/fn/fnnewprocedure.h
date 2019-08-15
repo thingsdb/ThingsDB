@@ -47,7 +47,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
     {
         ex_set(e, EX_BAD_DATA,
-                "procedure name should be a valid name"TI_SEE_DOC("#names"));
+                "procedure name must follow the naming rules"TI_SEE_DOC("#names"));
         goto fail0;
     }
 

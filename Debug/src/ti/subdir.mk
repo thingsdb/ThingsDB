@@ -12,7 +12,7 @@ C_SRCS += \
 ../src/ti/away.c \
 ../src/ti/build.c \
 ../src/ti/cfg.c \
-../src/ti/chained.c \
+../src/ti/chain.c \
 ../src/ti/clients.c \
 ../src/ti/closure.c \
 ../src/ti/collection.c \
@@ -87,7 +87,7 @@ OBJS += \
 ./src/ti/away.o \
 ./src/ti/build.o \
 ./src/ti/cfg.o \
-./src/ti/chained.o \
+./src/ti/chain.o \
 ./src/ti/clients.o \
 ./src/ti/closure.o \
 ./src/ti/collection.o \
@@ -162,7 +162,7 @@ C_DEPS += \
 ./src/ti/away.d \
 ./src/ti/build.d \
 ./src/ti/cfg.d \
-./src/ti/chained.d \
+./src/ti/chain.d \
 ./src/ti/clients.d \
 ./src/ti/closure.d \
 ./src/ti/collection.d \

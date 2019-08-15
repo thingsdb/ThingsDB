@@ -252,7 +252,8 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     else
     {
         ex_set(e, EX_BAD_DATA,
-                "property must be a valid name"TI_SEE_DOC("#names"));
+                "property name must follow the naming rules"
+                TI_SEE_DOC("#names"));
     }
 
     return e->nr;

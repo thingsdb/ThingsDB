@@ -141,8 +141,8 @@ class TestThingsDBFunctions(TestBase):
             await client.query('del_user(42);')
 
         with self.assertRaisesRegex(
-                IndexError,
-                'user `` not found'):
+                BadDataError,
+                'user name must follow the naming rules'):
             await client.query('del_user("");')
 
         with self.assertRaisesRegex(
@@ -197,7 +197,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'collection name must be valid'):
+                'collection name must follow the naming rules'):
             await client.query('rename_collection("stuff", "4bla");')
 
         with self.assertRaisesRegex(IndexError, 'collection `A` not found'):

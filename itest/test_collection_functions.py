@@ -393,7 +393,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'property must be a valid name*'):
+                r'property name must follow the naming rules'):
             await client.query('.del("");')
 
         with self.assertRaisesRegex(

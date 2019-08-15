@@ -11,7 +11,9 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
     vec_t * added = vec_new(nargs);  /* weak references to things */
     ti_vset_t * vset;
-    ti_chain_t * chain = ti_chained_get(query->chained);
+    ti_chain_t chain;
+
+    ti_chain_move(&chain, &query->chain);
 
     if (!added)
     {
@@ -66,15 +68,15 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             break;
     }
 
-    if (added->n && chain)
+    if (added->n && ti_chain_is_set(&chain))
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain->thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
         if (!task)
             goto fail1;
 
         if (ti_task_add_add(
                 task,
-                chain->name,
+                chain.name,
                 added))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
@@ -99,5 +101,6 @@ done:
 
 fail0:
     free(added);
+    ti_chain_unset(&chain);
     return e->nr;
 }

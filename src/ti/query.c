@@ -602,7 +602,8 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
             ti()->langdef,
             query->querystr,
             CLERI_FLAG_EXPECTING_DISABLED|
-            CLERI_FLAG_EXCLUDE_OPTIONAL);  /* only error position */
+            CLERI_FLAG_EXCLUDE_OPTIONAL|
+            CLERI_FLAG_EXCLUDE_FM_CHOICE);  /* only error position */
 
     if (!query->parseres)
     {

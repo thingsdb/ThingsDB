@@ -730,8 +730,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd           /* sequence */
                     ->children->next;       /* first is .(dot), next choice */
 
-    cleri_node_t * node = child->node       /* choice */
-            ->children->node;               /* function, assignment,
+    cleri_node_t * node = child->node;      /* function, assignment,
                                                name */
     cleri_node_t * index_node = child->next->node;
 
@@ -813,7 +812,7 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nd->cl_obj->gid == CLERI_GID_SCOPE)
         return ti_do_scope(query, nd, e);
 
-    gid = nd->children->next->node->children->node->cl_obj->gid;
+    gid = nd->children->next->node->cl_obj->gid;
 
     switch (gid)
     {
@@ -1221,10 +1220,9 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ++nots;
 
     child = child->next;
-    node = child->node                      /* choice */
-            ->children->node;               /* immutable, function,
-                                               assignment, name, thing,
-                                               array, compare, closure */
+    node = child->node;                 /* immutable, function,
+                                           assignment, name, thing,
+                                           array, compare, closure */
 
     ti_chain_unset(&query->chain);
 

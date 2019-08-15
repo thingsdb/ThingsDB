@@ -237,7 +237,7 @@ static _Bool syntax__swap_opr(
 
     assert (node->cl_obj->tp == CLERI_TP_SEQUENCE);
 
-    gid = node->children->next->node->children->node->cl_obj->gid;
+    gid = node->children->next->node->cl_obj->gid;
 
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD && gid <= CLERI_GID_OPR7_CMP_OR);
 

@@ -42,7 +42,8 @@ static cleri_node_t * closure__node_from_strn(
             ti()->langdef,
             query,
             CLERI_FLAG_EXPECTING_DISABLED|
-            CLERI_FLAG_EXCLUDE_OPTIONAL); /* only error position */
+            CLERI_FLAG_EXCLUDE_OPTIONAL|
+            CLERI_FLAG_EXCLUDE_FM_CHOICE); /* only error position */
     if (!res)
     {
         ex_set_mem(e);
@@ -67,8 +68,7 @@ static cleri_node_t * closure__node_from_strn(
 
     node = node                             /* List of statements */
             ->children->node                /* Sequence - scope */
-            ->children->next->node          /* Choice - scope */
-            ->children->node                /* Choice - immutable */
+            ->children->next->node          /* Choice - immutable */
             ->children->node;               /* closure */
 
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
@@ -499,7 +499,6 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
     cleri_node_t * node = ti_closure_scope(closure)->children->next
-            ->node->children        /* node=choice */
             ->node;                 /* the choice */
 
     if (node->cl_obj->gid == CLERI_GID_FUNCTION)
@@ -514,7 +513,6 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
         if (node->children)
             node = node->children
                 ->node->children->next  /* node=first argument (scope) */
-                ->node->children        /* node=choice */
                 ->node;                 /* the choice */
         assert (node);
     }
@@ -533,7 +531,6 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     node = node->children->next->next   /* node=block */
             ->node->children            /* node=list mi=1 */
             ->node->children->next      /* node=scope */
-            ->node->children            /* node=choice */
             ->node;                     /* node=the choice */
 
     if (    node->cl_obj->gid != CLERI_GID_IMMUTABLE ||

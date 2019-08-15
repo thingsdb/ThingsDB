@@ -1171,10 +1171,14 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * We must make variable assignable because if we for example later `push`
-     * to an assigned array then we require a copy.
+     * We must make variable assignable because we require a copy and need to
+     * convert for example a tuple to a list.
+     *
+     * Closures can be ignored here because they are not mutable and will
+     * unbound from the query if the `variable` is assigned or pushed to a list
      */
-    if (ti_val_make_assignable(&query->rval, e))
+    if (    !ti_val_is_closure(query->rval) &&
+            ti_val_make_assignable(&query->rval, e))
         goto failed;
 
     name = ti_names_get(name_nd->str, name_nd->len);

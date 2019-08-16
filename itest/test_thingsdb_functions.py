@@ -13,6 +13,7 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 
 
+
 class TestThingsDBFunctions(TestBase):
 
     title = 'Test thingsdb scope functions'

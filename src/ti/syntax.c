@@ -221,13 +221,9 @@ static _Bool syntax__swap_opr(
     cleri_children_t * chilcollection;
     uint32_t gid;
 
-    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
-            nd->cl_obj->tp == CLERI_TP_PRIO ||
-            nd->cl_obj->tp == CLERI_TP_THIS);
+    assert(nd->cl_obj->tp == CLERI_TP_PRIO);
 
-    node = nd->cl_obj->tp == CLERI_TP_PRIO ?
-            nd->children->node :
-            nd->children->node->children->node;
+    node = nd->children->node;
 
     if (node->cl_obj->gid == CLERI_GID_SCOPE)
     {

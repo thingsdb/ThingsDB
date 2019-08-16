@@ -795,16 +795,9 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     uint32_t gid;
     ti_val_t * a_val = NULL;
-    assert( nd->cl_obj->tp == CLERI_TP_RULE ||
-            nd->cl_obj->tp == CLERI_TP_PRIO ||
-            nd->cl_obj->tp == CLERI_TP_THIS);
+    assert( nd->cl_obj->tp == CLERI_TP_PRIO );
 
-    nd = nd->cl_obj->tp == CLERI_TP_PRIO ?
-            nd                          /* prio */
-            ->children->node :          /* compare sequence */
-            nd                          /* rule/this */
-            ->children->node            /* prio */
-            ->children->node;           /* compare sequence */
+    nd = nd->children->node;        /* compare sequence */
 
     assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
     assert (query->rval == NULL);

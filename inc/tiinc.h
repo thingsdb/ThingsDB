@@ -30,7 +30,6 @@
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
-
 /*
  * File name schema to check version info on created files.
  */
@@ -59,6 +58,7 @@ extern ti_t ti_;
 #define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
 
 #include <inttypes.h>
+#include <cleri/cleri.h>
 typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
 
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
@@ -68,6 +68,12 @@ typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */
 #define TI_MAX_HOSTNAME_SZ 256
+
+static const int TI_CLERI_PARSE_FLAGS =
+    CLERI_FLAG_EXPECTING_DISABLED|
+    CLERI_FLAG_EXCLUDE_OPTIONAL|
+    CLERI_FLAG_EXCLUDE_FM_CHOICE|
+    CLERI_FLAG_EXCLUDE_RULE_THIS;
 
 enum
 {

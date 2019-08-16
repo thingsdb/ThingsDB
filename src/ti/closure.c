@@ -38,12 +38,7 @@ static cleri_node_t * closure__node_from_strn(
         return NULL;
     }
 
-    res = cleri_parse2(
-            ti()->langdef,
-            query,
-            CLERI_FLAG_EXPECTING_DISABLED|
-            CLERI_FLAG_EXCLUDE_OPTIONAL|
-            CLERI_FLAG_EXCLUDE_FM_CHOICE); /* only error position */
+    res = cleri_parse2(ti()->langdef, query, TI_CLERI_PARSE_FLAGS);
     if (!res)
     {
         ex_set_mem(e);

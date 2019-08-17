@@ -89,6 +89,7 @@
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
+#include <ti/fn/fnvalues.h>
 #include <ti/fn/fnwse.h>
 
 /* maximum value we allow for the `deep` argument */
@@ -281,6 +282,8 @@ static int do__function(
         do__no_chain_fn(do__f_type);
     case TI_FN_UPPER:
         do__chain_fn(do__f_upper);
+    case TI_FN_VALUES:
+        do__chain_fn(do__f_values);
     case TI_FN_WSE:
         do__no_chain_fn(do__f_wse);
 

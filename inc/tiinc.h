@@ -143,6 +143,7 @@ typedef enum
     TI_FN_TRY,
     TI_FN_TYPE,
     TI_FN_UPPER,
+    TI_FN_VALUES,
     TI_FN_WSE,
 
     /* both thingsdb and collection scopes */

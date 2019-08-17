@@ -198,6 +198,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__zev_fn(q, nd, "users_info", TI_FN_USERS_INFO);
         break;
     case 'v':
+        syntax__nev_fn(q, nd, "values", TI_FN_VALUES);
         break;
     case 'w':
         syntax__bev_fn(q, nd, "wse", TI_FN_WSE);

@@ -1743,6 +1743,26 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('"U".upper();'), "U")
         self.assertEqual(await client.query('"hi !!".upper();'), "HI !!")
 
+    async def test_values(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `values`'):
+            await client.query('nil.values();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `values` is undefined'):
+            await client.query('values();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `values` takes 0 arguments but 1 was given'):
+            await client.query('.values(nil);')
+
+        self.assertEqual(await client.query(r'{}.values();'), [])
+        self.assertEqual(await client.query(r'{a:1}.values();'), [1])
+        self.assertEqual(await client.query(r'{a:1, b:2}.values();'), [1, 2])
+
     async def test_wse(self, client):
         with self.assertRaisesRegex(
                 IndexError,

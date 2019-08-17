@@ -259,6 +259,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     ti_collection_t * collection = NULL;
     switch (val->tp)
     {
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         collection = ti_collections_get_by_strn(
                 (const char *) ((ti_raw_t *) val)->data,

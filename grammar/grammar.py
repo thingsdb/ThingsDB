@@ -1,3 +1,5 @@
+"""Source ThingsDB language definition file.
+"""
 import re
 import sys
 from pyleri import (
@@ -35,7 +37,7 @@ class List(List_):
         super().__init__(*args, opt=opt, **kwargs)
 
 
-class Definition(Grammar):
+class LangDef(Grammar):
     RE_KEYWORDS = re.compile(RE_NAME)
 
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
@@ -164,9 +166,9 @@ class Definition(Grammar):
 
 
 if __name__ == '__main__':
-    definition = Definition()
+    langdef = LangDef()
 
-    definition.test(r'''
+    langdef.test(r'''
         /*
          * Test query parsing block
          */
@@ -174,7 +176,7 @@ if __name__ == '__main__':
     ''')
     # exit(0)
 
-    c, h = definition.export_c(target='langdef', headerf='<langdef/langdef.h>')
+    c, h = langdef.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:
         cfile.write(c)
 

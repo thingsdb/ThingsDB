@@ -47,6 +47,7 @@
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisutf8.h>
+#include <ti/fn/fnkeys.h>
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
@@ -242,6 +243,8 @@ static int do__function(
     case TI_FN_ISSTR:
     case TI_FN_ISUTF8:
         do__no_chain_fn(do__f_isutf8);
+    case TI_FN_KEYS:
+        do__chain_fn(do__f_keys);
     case TI_FN_LEN:
         do__chain_fn(do__f_len);
     case TI_FN_LOWER:
@@ -665,6 +668,7 @@ static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         switch (val->tp)
         {
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
             n = ((ti_raw_t *) val)->n;
             break;
@@ -690,6 +694,7 @@ static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         switch (val->tp)
         {
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
             query->rval = (ti_val_t *) ti_vint_create(
                     (int64_t) ((ti_raw_t *) val)->data[idx]);

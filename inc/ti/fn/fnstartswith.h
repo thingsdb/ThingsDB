@@ -33,7 +33,7 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_scope(query, nd->children->node, e))
         goto failed;
 
-    if (query->rval->tp != TI_VAL_RAW)
+    if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
                 "function `startswith` expects argument 1 to be of "

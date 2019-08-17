@@ -128,7 +128,9 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "isutf8", TI_FN_ISUTF8);
         break;
     case 'j':
+        break;
     case 'k':
+        syntax__nev_fn(q, nd, "keys", TI_FN_KEYS);
         break;
     case 'l':
         syntax__nev_fn(q, nd, "len", TI_FN_LEN);

@@ -17,7 +17,7 @@ ti_name_t * ti_name_create(const char * str, size_t n)
 
     memcpy(name->str, str, n);
     name->ref = 1;
-    name->tp = TI_VAL_RAW;
+    name->tp = TI_VAL_NAME;
     name->n = n;
     name->str[n] = '\0';
     return name;

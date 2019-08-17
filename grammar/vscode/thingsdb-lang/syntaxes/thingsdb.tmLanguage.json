@@ -1,0 +1,170 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "ThingsDB",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"match": ";",
+			"name": "punctuation.terminator.statement.thingsdb"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.node.thingsdb",
+				"match": "\\b(node_info|nodes_info|shutdown|counters|reset_counters)\\b\\(\\)",
+				"captures": {
+					"0": {
+						"name": "keyword.control.node.thingsdb"
+					}
+				}
+			}, {
+				"begin": "\\b(add|array|assert|blob|bool|call)\\b\\(",
+				"beginCaptures": {
+					"0": {
+						"name": "punctuation.definition.function.begin.thingsdb"
+					}
+				},
+				"end": "\\)",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.definition.function.end.thingsdb"
+					}
+				},
+				"name": "function.thingsdb"
+			}]
+		},
+		"strings": {
+			"patterns": [{
+				"captures": {
+					"1": {
+						"name": "punctuation.definition.string.begin.thingsdb"
+					},
+					"2": {
+						"name": "punctuation.definition.string.end.thingsdb"
+					}
+				},
+				"match": "(N)?(')[^']*(')",
+				"name": "string.quoted.single.thingsdb"
+			}, {
+				"captures": {
+					"1": {
+						"name": "punctuation.definition.string.begin.thingsdb"
+					},
+					"2": {
+						"name": "punctuation.definition.string.end.thingsdb"
+					}
+				},
+				"match": "(\")[^\"#]*(\")",
+				"name": "string.quoted.double.thingsdb"
+			}]
+		},
+		"comments": {
+			"patterns": [{
+				"begin": "/\\*",
+				"beginCaptures": {
+					"0": {
+						"name": "punctuation.definition.comment.begin.thingsdb"
+					}
+				},
+				"end": "\\*/",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.definition.comment.end.thingsdb"
+					}
+				},
+				"name": "comment.block.thingsdb"
+			}]
+		},
+		"numbers": {
+			"name": "constant.numeric.thingsdb",
+			"patterns": [
+				{
+					"include": "#number-float"
+				},
+				{
+					"include": "#number-dec"
+				},
+				{
+					"include": "#number-hex"
+				},
+				{
+					"include": "#number-oct"
+				},
+				{
+					"include": "#number-bin"
+				},
+				{
+					"include": "#number-long"
+				},
+				{
+					"name": "invalid.illegal.name.thingsdb",
+					"match": "\\b[0-9]+\\w+"
+				}
+			]
+		},
+		"number-float": {
+			"name": "constant.numeric.float.thingsdb",
+			"match": "(?x)\n  (?<! \\w)(?:\n    (?:\n      \\.[0-9](?: _?[0-9] )*\n      |\n      [0-9](?: _?[0-9] )* \\. [0-9](?: _?[0-9] )*\n      |\n      [0-9](?: _?[0-9] )* \\.\n    ) (?: [eE][+-]?[0-9](?: _?[0-9] )* )?\n    |\n    [0-9](?: _?[0-9] )* (?: [eE][+-]?[0-9](?: _?[0-9] )* )\n  )([jJ])?\\b\n",
+			"captures": {
+				"1": {
+					"name": "storage.type.imaginary.number.thingsdb"
+				}
+			}
+		},
+		"number-dec": {
+			"name": "constant.numeric.dec.thingsdb",
+			"match": "(?x)\n  (?<![\\w\\.])(?:\n      [1-9](?: _?[0-9] )*\n      |\n      0+\n      |\n      [0-9](?: _?[0-9] )* ([jJ])\n      |\n      0 ([0-9]+)(?![eE\\.])\n  )\\b\n",
+			"captures": {
+				"1": {
+					"name": "storage.type.imaginary.number.thingsdb"
+				},
+				"2": {
+					"name": "invalid.illegal.dec.thingsdb"
+				},
+				"3": {
+					"name": "invalid.illegal.dec.thingsdb"
+				}
+			}
+		},
+		"number-hex": {
+			"name": "constant.numeric.hex.thingsdb",
+			"match": "(?x)\n  (?<![\\w\\.])\n    (0[xX]) (_?[0-9a-fA-F])+\n  \\b\n",
+			"captures": {
+				"1": {
+					"name": "storage.type.number.thingsdb"
+				}
+			}
+		},
+		"number-oct": {
+			"name": "constant.numeric.oct.thingsdb",
+			"match": "(?x)\n  (?<![\\w\\.])\n    (0[oO]) (_?[0-7])+\n  \\b\n",
+			"captures": {
+				"1": {
+					"name": "storage.type.number.thingsdb"
+				}
+			}
+		},
+		"number-bin": {
+			"name": "constant.numeric.bin.thingsdb",
+			"match": "(?x)\n  (?<![\\w\\.])\n    (0[bB]) (_?[01])+\n  \\b\n",
+			"captures": {
+				"1": {
+					"name": "storage.type.number.thingsdb"
+				}
+			}
+		}
+	},
+	"scopeName": "source.ti"
+}

@@ -124,6 +124,7 @@ typedef enum
     TI_FN_ISTUPLE,
     TI_FN_ISSTR,        /* alias */
     TI_FN_ISUTF8,
+    TI_FN_KEYS,
     TI_FN_LEN,
     TI_FN_LOWER,
     TI_FN_MAP,

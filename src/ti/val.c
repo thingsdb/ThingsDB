@@ -168,6 +168,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
@@ -323,6 +324,9 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_RAW:
     case TI_VAL_ERROR:
         free(val);
+        return;
+    case TI_VAL_NAME:
+        ti_name_destroy((ti_name_t *) val);
         return;
     case TI_VAL_REGEX:
         ti_regex_destroy((ti_regex_t *) val);
@@ -483,6 +487,7 @@ int ti_val_convert_to_str(ti_val_t ** val)
         ti_incref(v);
         break;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         if (strx_is_utf8n(
                 (const char *) (*(ti_raw_t **) val)->data,
@@ -556,6 +561,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         i = (*(ti_vbool_t **) val)->bool_;
         break;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     {
         ti_raw_t * raw = *((ti_raw_t **) val);
@@ -623,6 +629,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         d = (double) (*(ti_vbool_t **) val)->bool_;
         break;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     {
         ti_raw_t * raw = *((ti_raw_t **) val);
@@ -676,6 +683,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
@@ -703,6 +711,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
@@ -756,6 +765,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_BOOL:
         return ((ti_vbool_t *) val)->bool_;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         return !!((ti_raw_t *) val)->n;
     case TI_VAL_REGEX:
@@ -776,9 +786,10 @@ _Bool ti_val_as_bool(ti_val_t * val)
 
 _Bool ti_val_is_valid_name(ti_val_t * val)
 {
-    return val->tp == TI_VAL_RAW && ti_name_is_valid_strn(
+    return  val->tp == TI_VAL_NAME || (
+            val->tp == TI_VAL_RAW && ti_name_is_valid_strn(
                 (const char *) ((ti_raw_t *) val)->data,
-                ((ti_raw_t *) val)->n);
+                ((ti_raw_t *) val)->n));
 }
 
 /*
@@ -794,6 +805,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_BOOL:
     case TI_VAL_QP:
         break;
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         return ((ti_raw_t *) val)->n;
     case TI_VAL_REGEX:
@@ -826,6 +838,7 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
         break;
@@ -883,6 +896,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int options)
                 *pckr,
                 ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         return qp_add_raw(
                 *pckr,
@@ -944,6 +958,7 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
         return qp_fadd_bool(f, ((ti_vbool_t *) val)->bool_);
     case TI_VAL_QP:
         return qp_fadd_qp(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         return qp_fadd_raw(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:
@@ -982,6 +997,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_FLOAT:              return TI_VAL_FLOAT_S;
     case TI_VAL_BOOL:               return TI_VAL_BOOL_S;
     case TI_VAL_QP:                 return TI_VAL_INFO_S;
+    case TI_VAL_NAME:
     case TI_VAL_RAW:                return TI_VAL_RAW_S;
     case TI_VAL_REGEX:              return TI_VAL_REGEX_S;
     case TI_VAL_THING:              return TI_VAL_THING_S;
@@ -1006,6 +1022,7 @@ int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:

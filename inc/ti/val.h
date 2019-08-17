@@ -13,6 +13,7 @@ typedef enum
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
     TI_VAL_QP,      /* QPack data */
+    TI_VAL_NAME,    /* RAW, stored in name cache */
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,
@@ -202,7 +203,7 @@ static inline _Bool ti_val_is_nil(ti_val_t * val)
 
 static inline _Bool ti_val_is_raw(ti_val_t * val)
 {
-    return val->tp == TI_VAL_RAW;
+    return val->tp == TI_VAL_RAW || val->tp == TI_VAL_NAME;
 }
 
 static inline _Bool ti_val_is_regex(ti_val_t * val)
@@ -239,6 +240,7 @@ static inline _Bool ti_val_has_len(ti_val_t * val)
 {
     return (
         val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_NAME ||
         val->tp == TI_VAL_THING ||
         val->tp == TI_VAL_ARR ||
         val->tp == TI_VAL_SET ||

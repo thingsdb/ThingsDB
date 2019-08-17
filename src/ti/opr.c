@@ -115,6 +115,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_BOOL:
             return OPR__INT(a) == OPR__BOOL(b);
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -137,6 +138,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_BOOL:
             return OPR__FLOAT(a) == OPR__BOOL(b);
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -159,6 +161,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_BOOL:
             return OPR__BOOL(a) == OPR__BOOL(b);
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -170,6 +173,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         }
         break;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
         {
@@ -179,6 +183,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_BOOL:
             return false;
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
             return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
         case TI_VAL_REGEX:
@@ -198,6 +203,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
             return false;
         case TI_VAL_REGEX:
@@ -220,6 +226,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -240,6 +247,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -262,6 +270,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:

@@ -29,6 +29,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
             int_ = OPR__INT(a) - OPR__BOOL(*b);
             goto type_int;
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -54,6 +55,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
             float_ = OPR__FLOAT(a) - OPR__BOOL(*b);
             goto type_float;
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -82,6 +84,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
             int_ = OPR__BOOL(a) - OPR__BOOL(*b);
             goto type_int;
         case TI_VAL_QP:
+        case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
@@ -93,6 +96,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         }
         break;
     case TI_VAL_QP:
+    case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:

@@ -4,8 +4,8 @@
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.
  *
- * Source class: Definition
- * Created at: 2019-08-15 23:00:43
+ * Source class: LangDef
+ * Created at: 2019-08-17 21:50:09
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_

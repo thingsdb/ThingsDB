@@ -1036,6 +1036,26 @@ class TestCollectionFunctions(TestBase):
                 'isutf8(blob(0));',
                 blobs=(pickle.dumps('binary'), )))
 
+    async def test_keys(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `keys`'):
+            await client.query('nil.keys();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `keys` is undefined'):
+            await client.query('keys();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `keys` takes 0 arguments but 1 was given'):
+            await client.query('.keys(nil);')
+
+        self.assertEqual(await client.query(r'{}.keys();'), [])
+        self.assertEqual(await client.query(r'{a:1}.keys();'), ['a'])
+        self.assertEqual(await client.query(r'{a:1, b:2}.keys();'), ['a', 'b'])
+
     async def test_len(self, client):
         with self.assertRaisesRegex(
                 IndexError,

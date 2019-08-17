@@ -308,6 +308,52 @@ class TestProcedures(TestBase):
         iris = await client.run('create_user', 'Iris')
         self.assertEqual(iris['name'], 'Iris')
 
+    async def test_procedure_doc(self, client):
+        await client.query(r'''
+            new_procedure('square', |x| {
+                "No side effects.";
+                (x * x);
+            });
+            new_procedure('set_a', |a| {
+                "With side effects.";
+                .a = a;
+            });
+        ''')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `procedure_doc`'):
+            await client.query('nil.procedure_doc();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `procedure_doc` takes 1 argument but 0 were given'):
+            await client.query('procedure_doc();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `procedure_doc` expects argument 1 to be of '
+                r'type `raw` but got type `float` instead'):
+            await client.query('procedure_doc(3.14);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                r'procedure `xxx` not found'):
+            await client.query('procedure_doc("xxx");')
+
+        with self.assertRaisesRegex(
+                BaseException,
+                r'procedure name must follow the naming rules'):
+            await client.query('procedure_doc("!test");')
+
+        self.assertEqual(
+            await client.query('procedure_doc("square");'),
+            'No side effects.')
+
+        self.assertEqual(
+            await client.query('procedure_doc("set_a");'),
+            'With side effects.')
+
     async def test_procedure_info(self, client):
 
         await client.query(r'''
@@ -394,52 +440,6 @@ class TestProcedures(TestBase):
             self.assertTrue(isinstance(info['name'], str))
             self.assertTrue(isinstance(info['?'], str))
             self.assertTrue(isinstance(info['definition'], str))
-
-    async def test_procedure_doc(self, client):
-        await client.query(r'''
-            new_procedure('square', |x| {
-                "No side effects.";
-                (x * x);
-            });
-            new_procedure('set_a', |a| {
-                "With side effects.";
-                .a = a;
-            });
-        ''')
-
-        with self.assertRaisesRegex(
-                IndexError,
-                'type `nil` has no function `procedure_doc`'):
-            await client.query('nil.procedure_doc();')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `procedure_doc` takes 1 argument but 0 were given'):
-            await client.query('procedure_doc();')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                r'function `procedure_doc` expects argument 1 to be of '
-                r'type `raw` but got type `float` instead'):
-            await client.query('procedure_doc(3.14);')
-
-        with self.assertRaisesRegex(
-                IndexError,
-                r'procedure `xxx` not found'):
-            await client.query('procedure_doc("xxx");')
-
-        with self.assertRaisesRegex(
-                BaseException,
-                r'procedure name must follow the naming rules'):
-            await client.query('procedure_doc("!test");')
-
-        self.assertEqual(
-            await client.query('procedure_doc("square");'),
-            'No side effects.')
-
-        self.assertEqual(
-            await client.query('procedure_doc("set_a");'),
-            'With side effects.')
 
     async def test_run(self, client):
         await client.query(r'''

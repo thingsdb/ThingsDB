@@ -384,17 +384,17 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         case CLERI_GID_T_STRING:
         case CLERI_GID_T_REGEX:
             ++syntax->val_cache_n;
-            nd->data = NULL;        /* init data to null */
+            nd->data = NULL;        /* initialize data to null */
         }
         return;
     case CLERI_GID_OPERATIONS:
         (void) syntax__swap_opr(syntax, nd->children->next, 0);
-        if (nd->children->next->next->next)             /* optional (seq) */
+        if (nd->children->next->next->next)     /* optional ? (sequence) */
         {
             cleri_children_t * child = \
                     nd->children->next->next->next->node->children->next;
             syntax__investigate(syntax, child->node);
-            if (child->next)  /* else case */
+            if (child->next)  /* else : case */
                 syntax__investigate(
                         syntax,
                         child->next->node->children->next->node);

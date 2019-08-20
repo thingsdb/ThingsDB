@@ -554,7 +554,7 @@ do {                                                            \
     __sz += __nchars;                                           \
     if (__nchars < __n)                                         \
     {                                                           \
-        (void) memcpy(__buf, __str, __nchars);       \
+        (void) memcpy(__buf, __str, __nchars);                  \
         __buf += __nchars;                                      \
         __n -= __nchars;                                        \
     }                                                           \

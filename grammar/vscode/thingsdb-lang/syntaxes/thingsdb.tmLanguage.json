@@ -23,26 +23,12 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.node.thingsdb",
-				"match": "\\b(node_info|nodes_info|shutdown|counters|reset_counters)\\b\\(\\)",
+				"match": "\\b(true|false|nil)\\b",
 				"captures": {
 					"0": {
 						"name": "keyword.control.node.thingsdb"
 					}
 				}
-			}, {
-				"begin": "\\b(add|array|assert|blob|bool|call)\\b\\(",
-				"beginCaptures": {
-					"0": {
-						"name": "punctuation.definition.function.begin.thingsdb"
-					}
-				},
-				"end": "\\)",
-				"endCaptures": {
-					"0": {
-						"name": "punctuation.definition.function.end.thingsdb"
-					}
-				},
-				"name": "function.thingsdb"
 			}]
 		},
 		"strings": {
@@ -164,7 +150,7 @@
 					"name": "storage.type.number.thingsdb"
 				}
 			}
-		}
+		},
 	},
 	"scopeName": "source.ti"
 }

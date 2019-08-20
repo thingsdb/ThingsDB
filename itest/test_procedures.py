@@ -50,6 +50,7 @@ class TestProcedures(TestBase):
             target=scope.thingsdb)
 
         await client0.query(r'''
+            // First set properties which we can later verify
             .r = 'Test Raw String';
             .t = {test: 'Thing', nested: {found: true}};
             .s = set([{test: 'Thing in Set'}]);
@@ -59,14 +60,19 @@ class TestProcedures(TestBase):
             .a = [[true, false], [false, true]];
             .l = [1, 2, 3];
 
+            // Create a closure
             .upd_list = |i| .l = .l.map(|x| (x + i));
 
+            // Create a procedure which calls a closure
             new_procedure('upd_list', |i| wse({
                 "Add a given value `i` to all values in `.l`";
                 .upd_list.call(i);
-                nil;
+                nil;  // Return nil
             }));
 
+            /*********************************
+             * Create some extra procedures. *
+             *********************************/
             new_procedure('missing_wse', |i| .upd_list.call(i));
 
             new_procedure('get_first', ||.l[0]);
@@ -83,12 +89,12 @@ class TestProcedures(TestBase):
 
             new_procedure('default_deep', || {
                 /* Return one level deep. */
-                .t;
+                .t;  // Return `t`
             });
 
             new_procedure('deep_two', || {
                 "Return two levels deep.";
-                .t;
+                .t;  // Return `t`
                 => 2
             });
         ''')
@@ -191,6 +197,9 @@ class TestProcedures(TestBase):
                 await client.query('procedure_doc("default_deep");'),
                 "/* Return one level deep. */"
             )
+
+            self.assertEqual(
+                await client.query('procedure_doc("validate");'), "")
 
             self.assertEqual(
                 await client.query('procedure_doc("deep_two");'),

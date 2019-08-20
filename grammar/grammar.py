@@ -54,7 +54,10 @@ class LangDef(Grammar):
     t_true = Keyword('true')
 
     o_not = Repeat(Token('!'))
-    comment = Repeat(Regex(r'(?s)/\\*.*?\\*/'))
+    comment = Repeat(Choice(
+        Regex(r'(?s)//.*?\r?\n'),  # Single line comment
+        Regex(r'(?s)/\\*.*?\\*/'),  # Block comment
+    ))
 
     name = Regex(RE_NAME)
     var = Regex(RE_NAME)

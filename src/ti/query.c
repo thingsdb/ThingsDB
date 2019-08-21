@@ -403,7 +403,7 @@ int ti_query_run_unpack(
         if (e->nr)
             return e->nr;
         ti_incref(query->target);
-        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
         query->root = query->target->root;
         procedures = query->target->procedures;
     }

@@ -17,7 +17,6 @@
 #include <ti/req.h>
 #include <ti/fwd.h>
 #include <ti/write.h>
-#include <ti/procedure.h>
 #include <util/qpx.h>
 
 

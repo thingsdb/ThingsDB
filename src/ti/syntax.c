@@ -214,6 +214,23 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
     nd->data = (void *) ((uintptr_t) TI_FN_0);  /* unknown function */
 }
 
+static inline void syntax__investigate(ti_syntax_t * syntax, cleri_node_t * nd)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_SCOPE ||
+            nd->cl_obj->gid == CLERI_GID_CHAIN);
+
+    /* skip . and !, goto choice */
+    ti_syntax_investigate(syntax, nd->children->next->node);
+
+    /* index */
+    if (nd->children->next->next->node->children)
+        ti_syntax_investigate(syntax, nd->children->next->next->node);
+
+    /* chain */
+    if (nd->children->next->next->next)
+        syntax__investigate(syntax, nd->children->next->next->next->node);
+}
+
 static _Bool syntax__swap_opr(
         ti_syntax_t * syntax,
         cleri_children_t * parent,
@@ -230,7 +247,7 @@ static _Bool syntax__swap_opr(
 
     if (node->cl_obj->gid == CLERI_GID_SCOPE)
     {
-        ti_syntax_investigate(syntax, node);
+        syntax__investigate(syntax, node);
         return false;
     }
 
@@ -259,15 +276,6 @@ static _Bool syntax__swap_opr(
     }
 
     return gid > parent_gid;
-}
-
-static inline void syntax__investigate(ti_syntax_t * syntax, cleri_node_t * nd)
-{
-    assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
-    for (   cleri_children_t * child = nd->children->next;  /* skip not's ! */
-            child;
-            child = child->next)
-        ti_syntax_investigate(syntax, child->node);
 }
 
 /*
@@ -315,10 +323,14 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         }
         return;
     }
+    case CLERI_GID_CHAIN:
+    case CLERI_GID_SCOPE:
+        syntax__investigate(syntax, nd);        /* scope/chain */
+        return;
     case CLERI_GID_THING:
     {
-        cleri_children_t * child = nd          /* sequence */
-                ->children->next->node         /* list */
+        cleri_children_t * child = nd           /* sequence */
+                ->children->next->node          /* list */
                 ->children;
         for (; child; child = child->next->next)
         {
@@ -333,17 +345,30 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         return;
     }
     case CLERI_GID_FUNCTION:
+    {
+        cleri_children_t * child = nd          /* sequence */
+                ->children->next->next->node   /* list (arguments) */
+                ->children;
+
+        /* map function to node */
         syntax__map_fn(syntax, nd->children->node);
+
         /* investigate arguments */
-        nd = nd->children->next->next->node;
-        break;
+        for (; child; child = child->next->next)
+        {
+            syntax__investigate(syntax, child->node);  /* scope */
+            if (!child->next)
+                break;
+        }
+        return;
+    }
     case CLERI_GID_ASSIGNMENT:
         syntax__set_collection_event(syntax);
         /* fall through */
     case CLERI_GID_VAR_ASSIGN:
-        /* skip to scope */
-        nd = nd->children->next->next->node;
-        break;
+        /* investigate the scope */
+        syntax__investigate(syntax, nd->children->next->next->node);
+        return;
     case CLERI_GID_STATEMENTS:
     {
         cleri_children_t * child = nd->children;
@@ -404,6 +429,8 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         }
         return;
     }
+
+    assert (0);  /* Everything should be handled */
 
     for (cleri_children_t * child = nd->children; child; child = child->next)
         ti_syntax_investigate(syntax, child->node);

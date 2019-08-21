@@ -1,0 +1,31 @@
+// Single line comment
+
+/*
+ * Block comment
+ */
+
+
+.store.arr.map(|x, idx| {
+    [x, idx];
+});
+
+b = true;
+n = nil;
+f = 4.0;
+i = 0x80;
+ss = 'String';
+sd = "String";
+t = {
+    name: 'Iris',
+    age: 6,
+    time: now(),
+};
+a = [0, 1, 2, 3,];
+S = set([t]);
+
+.id();
+
+refs(f);
+
+new_node('secret', '127.0.0.1', 9100);
+

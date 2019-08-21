@@ -263,7 +263,10 @@ static _Bool syntax__swap_opr(
 
 static inline void syntax__investigate(ti_syntax_t * syntax, cleri_node_t * nd)
 {
-    for (cleri_children_t * child = nd->children; child; child = child->next)
+    assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
+    for (   cleri_children_t * child = nd->children->next;  /* skip not's ! */
+            child;
+            child = child->next)
         ti_syntax_investigate(syntax, child->node);
 }
 

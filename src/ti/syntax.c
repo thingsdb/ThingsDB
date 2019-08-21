@@ -392,10 +392,10 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         return;
     case CLERI_GID_VAR:
     case CLERI_GID_NAME:
-    case CLERI_GID_O_NOT:
         return;
+    case CLERI_GID_O_NOT:
     case CLERI_GID_COMMENT:
-        assert (0);  /* comment is already filtered */
+        assert (0);  /* not's and comments are already filtered */
         return;
     case CLERI_GID_IMMUTABLE:
         nd = nd->children->node;

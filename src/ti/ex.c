@@ -71,6 +71,7 @@ const char * ex_str(ex_enum errnr)
     case EX_MEMORY:             return EX_MEMORY_X;
     case EX_INTERNAL:           return EX_INTERNAL_X;
     case EX_SUCCESS:            return EX_SUCCESS_X;
+    case EX_RETURN:             return EX_RETURN_X;
     }
     assert (0);
     return "unknown error";

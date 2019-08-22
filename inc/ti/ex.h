@@ -18,27 +18,28 @@
 #define EX_MIN_ERR -127
 #define EX_MAX_BUILD_IN_ERR -50
 
-#define EX_SUCCESS_X 			"success"
-#define EX_INTERNAL_X 			"internal error"
-#define EX_MEMORY_X 			"memory allocation error"
-#define EX_WRITE_UV_X			"cannot write to socket"
-#define EX_REQUEST_CANCEL_X 	"request is cancelled"
-#define EX_REQUEST_TIMEOUT_X	"request timed out"
-#define EX_ASSERT_ERROR_X 		"assertion statement has failed"
-#define EX_NODE_ERROR_X 		"node is temporary unable to handle the request"
-#define EX_SYNTAX_ERROR_X 		"syntax error in query"
-#define EX_BAD_DATA_X 			"unable to handle request due to invalid data"
-#define EX_INDEX_ERROR_X 		"requested resource not found"
-#define EX_FORBIDDEN_X 			"forbidden (access denied)"
-#define EX_AUTH_ERROR_X 		"authentication error"
-#define EX_MAX_QUOTA_X 			"max quota is reached"
-#define EX_ZERO_DIV_X 			"division or module by zero"
-#define EX_OVERFLOW_X 			"integer overflow"
+#define EX_RETURN_X             "success return"
+#define EX_SUCCESS_X            "success"
+#define EX_INTERNAL_X           "internal error"
+#define EX_MEMORY_X             "memory allocation error"
+#define EX_WRITE_UV_X           "cannot write to socket"
+#define EX_REQUEST_CANCEL_X     "request is cancelled"
+#define EX_REQUEST_TIMEOUT_X    "request timed out"
+#define EX_ASSERT_ERROR_X       "assertion statement has failed"
+#define EX_NODE_ERROR_X         "node is temporary unable to handle the request"
+#define EX_SYNTAX_ERROR_X       "syntax error in query"
+#define EX_BAD_DATA_X           "unable to handle request due to invalid data"
+#define EX_INDEX_ERROR_X        "requested resource not found"
+#define EX_FORBIDDEN_X          "forbidden (access denied)"
+#define EX_AUTH_ERROR_X         "authentication error"
+#define EX_MAX_QUOTA_X          "max quota is reached"
+#define EX_ZERO_DIV_X           "division or module by zero"
+#define EX_OVERFLOW_X           "integer overflow"
 
 
 typedef enum
 {
-	/* free user space errors -EX_MIN_ERR..-100 */
+    /* free user space errors -EX_MIN_ERR..-100 */
 
     /* reserved build-in errors -99..-EX_MAX_BUILD_IN_ERR */
 

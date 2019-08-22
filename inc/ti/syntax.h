@@ -27,7 +27,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd);
 
 struct ti_syntax_s
 {
-    uint32_t val_cache_n;    /* count while investigate */
+    uint32_t val_cache_n;       /* count while investigate */
     uint16_t pkg_id;            /* package id to return the query to */
     uint8_t flags;              /* query flags */
     uint8_t deep;               /* fetch level */

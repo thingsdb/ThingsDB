@@ -32,8 +32,6 @@ typedef enum
     TI_PROTO_CLIENT_REQ_QUERY_COLLECTION    =36,    /* { collection:..
                                                          query:..
                                                          blobs: []
-                                                         deep: 0..0x7f,
-                                                         all: true/false
                                                        }
                                                      */
     TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}       */

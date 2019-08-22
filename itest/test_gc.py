@@ -47,7 +47,8 @@ class TestGC(TestBase):
 
         await asyncio.sleep(4)
 
-        x, other = await client.query(r'[.x, .a.other]; =>2', target=stuff)
+        x, other = await client.query(
+            r'return([.x, .a.other], 2);', target=stuff)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 

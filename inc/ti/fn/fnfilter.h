@@ -74,7 +74,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_prop(closure, p, e))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))
@@ -105,7 +105,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_val_idx(closure, v, idx))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))
@@ -135,7 +135,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))

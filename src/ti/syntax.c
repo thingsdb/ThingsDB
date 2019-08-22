@@ -168,6 +168,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__cev_fn(q, nd, "remove", TI_FN_REMOVE);
         syntax__nev_fn(q, nd, "raise", TI_FN_RAISE);
         syntax__nev_fn(q, nd, "refs", TI_FN_REFS);
+        syntax__nev_fn(q, nd, "return", TI_FN_RETURN);
         syntax__nev_fn(q, nd, "run", TI_FN_RUN);
         syntax__tev_fn(q, nd, "rename_collection", TI_FN_RENAME_COLLECTION);
         syntax__tev_fn(q, nd, "rename_user", TI_FN_RENAME_USER);

@@ -72,6 +72,7 @@
 #include <ti/fn/fnrenameuser.h>
 #include <ti/fn/fnreplacenode.h>
 #include <ti/fn/fnresetcounters.h>
+#include <ti/fn/fnreturn.h>
 #include <ti/fn/fnrevoke.h>
 #include <ti/fn/fnrun.h>
 #include <ti/fn/fnset.h>
@@ -91,9 +92,6 @@
 #include <ti/fn/fnusersinfo.h>
 #include <ti/fn/fnvalues.h>
 #include <ti/fn/fnwse.h>
-
-/* maximum value we allow for the `deep` argument */
-#define DO__MAX_DEEP_HINT 0x7f
 
 #define do__chain_fn(__fn)                              \
 if (!is_chained)                                        \
@@ -264,6 +262,8 @@ static int do__function(
         do__no_chain_fn(do__f_refs);
     case TI_FN_REMOVE:
         do__chain_fn(do__f_remove);
+    case TI_FN_RETURN:
+        do__no_chain_fn(do__f_return);
     case TI_FN_SET:
         do__no_chain_fn(do__f_set);
     case TI_FN_SPLICE:
@@ -333,7 +333,7 @@ static int do__function(
     case TI_FN_REPLACE_NODE:
         do__thingsdb_fn(do__f_replace_node);
     case TI_FN_REVOKE:
-        do__thingsdb_fn(do__f_revoke);
+        return e->nr;do__thingsdb_fn(do__f_revoke);
     case TI_FN_SET_PASSWORD:
         do__thingsdb_fn(do__f_set_password);
     case TI_FN_SET_QUOTA:
@@ -485,6 +485,7 @@ static ti_prop_t * do__get_prop(ti_thing_t * thing, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_prop_t * prop;
 
+    /* TODO: can we cache the name on node->data */
     name = ti_names_weak_get(nd->str, nd->len);
     prop = name ? ti_thing_prop_weak_get(thing, name) : NULL;
 
@@ -608,7 +609,7 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child, * seqchild;
     uint32_t current_varn = query->vars->n;
 
-    seqchild = nd                       /* <{ comment, list s, [deep] }> */
+    seqchild = nd                       /* <{ comment, list s }> */
         ->children->next->next;         /* list statements */
 
     child = seqchild->node->children;  /* first child, not empty */
@@ -626,9 +627,6 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
     }
-
-    /* optional deep */
-    ti_do_may_set_deep(&query->syntax.deep, seqchild->next, e);
 
     while (query->vars->n > current_varn)
         ti_prop_destroy(vec_pop(query->vars));
@@ -1098,6 +1096,7 @@ static ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_prop_t * prop;
 
+    /* TODO: can we add the name with reference to node->data ? */
     name = ti_names_weak_get(nd->str, nd->len);
     prop = name ? ti_query_var_get(query, name) : NULL;
 
@@ -1324,24 +1323,4 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     return e->nr;
-}
-
-void ti__do_may_set_deep_(uint8_t * deep, cleri_children_t * child, ex_t * e)
-{
-    int64_t deepi;
-    assert (child);
-    assert (child->node->cl_obj->gid == CLERI_GID_DEEPHINT);
-    deepi = strx_to_int64(child->node->children->next->node->str);
-    if (errno == ERANGE)
-        deepi = -1;
-
-    if (deepi < 0 || deepi > DO__MAX_DEEP_HINT)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "expecting a `deep` value between 0 and %d, got "PRId64,
-                DO__MAX_DEEP_HINT, deepi);
-        return;
-    }
-
-    *deep = (uint8_t) deepi;
 }

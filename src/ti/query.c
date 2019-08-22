@@ -633,7 +633,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     assert (e->nr == 0);
 
     seqchildren = query->parseres->tree /* root */
-            ->children->node            /* sequence <comment, list, [deep]> */
+            ->children->node            /* sequence <comment, list> */
             ->children;
 
     /* list statements */
@@ -691,8 +691,8 @@ void ti_query_run(ti_query_t * query)
         query->rval = NULL;
     }
 
-    /* optional deep */
-    ti_do_may_set_deep(&query->syntax.deep, seqchild->next, e);
+    if (e->nr == EX_RETURN)
+        e->nr = 0;
 
 stop:
     if (query->ev)

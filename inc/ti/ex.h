@@ -10,6 +10,9 @@
 #define EX_INTERNAL_S \
     "internal error in `%s` at %s:%d", __func__, __FILE__, __LINE__
 
+#define EX_RETURN_S \
+    "return"
+
 #define EX_MAX_SZ 16383
 
 #define EX_MIN_ERR -127
@@ -52,20 +55,6 @@ typedef enum
     EX_ASSERT_ERROR         =-50,  /* EX_MAX_BUILD_IN_ERR */
 
     /* reserved internal errors -49..-1 (not catchable with try() function) */
-//	EX_RSV_INTERNAL_19		=-19,
-//	EX_RSV_INTERNAL_18		=-18,
-//	EX_RSV_INTERNAL_17		=-17,
-//	EX_RSV_INTERNAL_16		=-16,
-//	EX_RSV_INTERNAL_15		=-15,
-//	EX_RSV_INTERNAL_14		=-14,
-//	EX_RSV_INTERNAL_13		=-13,
-//	EX_RSV_INTERNAL_12		=-12,
-//	EX_RSV_INTERNAL_11		=-11,
-//	EX_RSV_INTERNAL_10		=-10,
-//	EX_RSV_INTERNAL_9		=-9,
-//	EX_RSV_INTERNAL_8		=-8,
-//	EX_RSV_INTERNAL_7		=-7,
-//	EX_RSV_INTERNAL_6		=-6,
 
     /* defined internal errors */
     EX_REQUEST_TIMEOUT      =-5,
@@ -76,6 +65,8 @@ typedef enum
 
     /* not an error */
     EX_SUCCESS              =0,
+    EX_RETURN               =1,     /* internal, set by the return function */
+
 } ex_enum;
 
 typedef struct ex_s ex_t;
@@ -96,5 +87,6 @@ struct ex_s
 
 #define ex_set_mem(e__) ex_set((e__), EX_MEMORY, EX_MEMORY_S)
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
+#define ex_set_return(e__) ex_setn((e__), EX_RETURN, EX_RETURN_S, 6)
 
 #endif /* TI_EX_H_ */

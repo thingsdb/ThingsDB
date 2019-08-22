@@ -484,7 +484,7 @@ int ti_closure_call(
         ti_incref(prop->val);
     }
 
-    (void) ti_do_scope(query, ti_closure_scope(closure), e);
+    (void) ti_closure_do_scope(closure, query, e);
     ti_closure_unlock_use(closure, query);
 
     return e->nr;

@@ -19,7 +19,7 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/syntax.h>
 #include <ti/stream.h>
 #include <ti/chain.h>
-#include <ti/procedure.h>
+#include <ti/closure.h>
 #include <util/omap.h>
 
 typedef int (*ti_query_unpack_cb) (

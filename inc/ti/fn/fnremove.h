@@ -62,7 +62,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail3;
         }
 
-        if (ti_do_scope(query, ti_closure_scope(closure), e))
+        if (ti_closure_do_scope(closure, query, e))
             goto fail3;
 
         if (ti_val_as_bool(query->rval))
@@ -156,7 +156,7 @@ static int do__f_remove_set_from_closure(
             goto fail2;
         }
 
-        if (ti_do_scope(query, ti_closure_scope(closure), e))
+        if (ti_closure_do_scope(closure, query, e))
             goto fail2;
 
         if (ti_val_as_bool(query->rval) && vec_push(removed, t))

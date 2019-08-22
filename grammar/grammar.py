@@ -126,13 +126,10 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    deephint = Sequence('=>', t_int)
-
     block = Sequence(
         '{',
         comment,
         List(scope, delimiter=Sequence(';', comment), mi=1),
-        Optional(deephint),
         '}')
 
     # maybe we can optimize since for example `name` is captured tree times
@@ -156,7 +153,7 @@ class LangDef(Grammar):
 
     statements = List(scope, delimiter=Sequence(';', comment))
 
-    START = Sequence(comment, statements, Optional(deephint))
+    START = Sequence(comment, statements)
 
     @classmethod
     def translate(cls, elem):

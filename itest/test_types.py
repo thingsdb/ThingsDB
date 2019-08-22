@@ -65,15 +65,15 @@ class TestTypes(TestBase):
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-           {a: {t: 0}}; => 0
+           return({a: {t: 0}}, 0);
         '''), {'#': 0})
 
         self.assertEqual(await client.query(r'''
-           {a: {t: 0}}; => 1
+           return({a: {t: 0}}, 1);
         '''), {'#': 0, 'a': {'#': 0}})
 
         self.assertEqual(await client.query(r'''
-           {a: {t: 0}}; => 2
+           return({a: {t: 0}}, 2);
         '''), {'#': 0, 'a': {'#': 0, 't': 0}})
 
         self.assertGreater(await client.query(r'''

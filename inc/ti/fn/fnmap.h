@@ -69,7 +69,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_prop(closure, p, e))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_varr_append(retvarr, (void **) &query->rval, e))
@@ -86,7 +86,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_val_idx(closure, v, idx))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_varr_append(retvarr, (void **) &query->rval, e))
@@ -106,7 +106,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
                 goto fail2;
 
-            if (ti_do_scope(query, ti_closure_scope(closure), e))
+            if (ti_closure_do_scope(closure, query, e))
                 goto fail2;
 
             if (ti_varr_append(retvarr, (void **) &query->rval, e))

@@ -1463,6 +1463,60 @@ class TestCollectionFunctions(TestBase):
         # check if `t` is restored
         self.assertEqual(await client.query('.s.len();'), 3)
 
+    async def test_return(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `return` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('return(1, 2 ,3);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `return` expects argument 2 to be of '
+                r'type `int` but got type `float` instead'):
+            await client.query('return(nil, 0.0);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'expecting a `deep` value between 0 and 127, got 200 instead'):
+            await client.query('return(nil, 200);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'expecting a `deep` value between 0 and 127, got -2 instead'):
+            await client.query('return(nil, -2);')
+
+        self.assertIs(await client.query(r'''
+            return();
+            "Not returned";
+        '''), None)
+
+        self.assertEqual(await client.query(r'''
+            return(42);
+            "Not returned";
+        '''), 42)
+
+        self.assertEqual(await client.query(r'''
+            [0, 1, 2].map(|x| {
+                return(x + 1);
+                0;
+            });
+        '''), [1, 2, 3])
+
+        self.assertEqual(await client.query(r'''
+            (|x| {
+                try(return(x + 1));
+                0;
+            }).call(41);
+        '''), 42)
+
+        self.assertEqual(await client.query(r'''
+            .a = 10;
+            .a = return(11);  // Return, so do not overwrite a
+        '''), 11)
+
+        self.assertEqual(await client.query('.a'), 12)
+
     async def test_set(self, client):
         with self.assertRaisesRegex(
                 IndexError,
@@ -1679,7 +1733,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(t['x'], 42)
         self.assertFalse(await client.query(r'isarray(t(.t.id()));'))
         self.assertTrue(await client.query(r'isarray(t(.t.id(), ));'))
-        stuff, t = await client.query('t(.id(), {}); => 2'.format(id))
+        stuff, t = await client.query(f'return(t(.id(), {id}), 2);')
         self.assertEqual(stuff['t'], t)
 
     async def test_try(self, client):

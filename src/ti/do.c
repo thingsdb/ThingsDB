@@ -14,6 +14,7 @@
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndel.h>
+#include <ti/fn/fndeep.h>
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelexpired.h>
 #include <ti/fn/fndelprocedure.h>
@@ -35,7 +36,7 @@
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
-#include <ti/fn/fniserror.h>
+#include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
 #include <ti/fn/fnisinf.h>
 #include <ti/fn/fnisint.h>
@@ -191,6 +192,8 @@ static int do__function(
         do__chain_fn(do__f_endswith);
     case TI_FN_ERR:
         do__no_chain_fn(do__f_err);
+    case TI_FN_DEEP:
+        do__no_chain_fn(do__f_deep);
     case TI_FN_DEL:
         do__chain_fn(do__f_del);
     case TI_FN_FILTER:
@@ -218,7 +221,7 @@ static int do__function(
     case TI_FN_ISBOOL:
         do__no_chain_fn(do__f_isbool);
     case TI_FN_ISERROR:
-        do__no_chain_fn(do__f_iserror);
+        do__no_chain_fn(do__f_iserr);
     case TI_FN_ISFLOAT:
         do__no_chain_fn(do__f_isfloat);
     case TI_FN_ISINF:

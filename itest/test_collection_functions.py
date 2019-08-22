@@ -366,6 +366,29 @@ class TestCollectionFunctions(TestBase):
             "Hi World!".contains("world")
         '''))
 
+    async def test_deep(self, client):
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `deep`'):
+            await client.query('nil.deep();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `deep` takes 0 arguments but 1 was given'):
+            await client.query('deep(nil);')
+
+        self.assertEqual(await client.query('deep();'), 1)
+
+        self.assertEqual(await client.query(r'''
+            ( ||return(nil, 0) ).call();
+            deep();
+        '''), 0)
+
+        self.assertEqual(await client.query(r'''
+            ( ||return(nil, 2) ).call();
+            deep();
+        '''), 2)
+
     async def test_del(self, client):
         await client.query(r'.greet = "Hello world";')
 
@@ -856,18 +879,18 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isbool([]);'))
         self.assertFalse(await client.query('isbool(nil);'))
 
-    async def test_iserror(self, client):
+    async def test_iserr(self, client):
         with self.assertRaisesRegex(
                 BadDataError,
-                'function `iserror` takes 1 argument but 2 were given'):
-            await client.query('iserror(1, 2);')
+                'function `iserr` takes 1 argument but 2 were given'):
+            await client.query('iserr(1, 2);')
 
-        self.assertTrue(await client.query('iserror( err() ); '))
-        self.assertTrue(await client.query('iserror( zero_div_err() ); '))
-        self.assertTrue(await client.query('iserror( try ((1/0)) ); '))
-        self.assertFalse(await client.query('iserror( "ԉ" ); '))
-        self.assertFalse(await client.query('iserror([]);'))
-        self.assertFalse(await client.query('iserror(nil);'))
+        self.assertTrue(await client.query('iserr( err() ); '))
+        self.assertTrue(await client.query('iserr( zero_div_err() ); '))
+        self.assertTrue(await client.query('iserr( try ((1/0)) ); '))
+        self.assertFalse(await client.query('iserr( "ԉ" ); '))
+        self.assertFalse(await client.query('iserr([]);'))
+        self.assertFalse(await client.query('iserr(nil);'))
 
     async def test_isfloat(self, client):
         with self.assertRaisesRegex(
@@ -1751,10 +1774,10 @@ class TestCollectionFunctions(TestBase):
                 r'type `error` but got type `nil` instead'):
             await client.query('try((10 //0), nil);')
 
-        self.assertIs(await client.query('iserror(try( (10 // 2) ));'), False)
-        self.assertIs(await client.query('iserror(try( (10 // 0) ));'), True)
+        self.assertIs(await client.query('iserr(try( (10 // 2) ));'), False)
+        self.assertIs(await client.query('iserr(try( (10 // 0) ));'), True)
         self.assertIs(await client.query(
-            'iserror(try( (10 // 0), zero_div_err() ));'), True)
+            'iserr(try( (10 // 0), zero_div_err() ));'), True)
 
         with self.assertRaisesRegex(
                 ZeroDivisionError,

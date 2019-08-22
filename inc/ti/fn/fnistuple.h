@@ -6,6 +6,7 @@ static int do__f_istuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
 
     _Bool is_tuple;
 

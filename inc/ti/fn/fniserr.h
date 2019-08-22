@@ -1,11 +1,12 @@
 #include <ti/fn/fn.h>
 
-#define ISERROR_DOC_ TI_SEE_DOC("#iserror")
+#define ISERROR_DOC_ TI_SEE_DOC("#iserr")
 
-static int do__f_iserror(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_iserr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
+    assert (query->rval == NULL);
 
     _Bool is_error;
 
@@ -13,7 +14,7 @@ static int do__f_iserror(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `iserror` takes 1 argument but %d were given"
+                "function `iserr` takes 1 argument but %d were given"
                 ISERROR_DOC_, nargs);
         return e->nr;
     }

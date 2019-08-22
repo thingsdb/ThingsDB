@@ -96,6 +96,7 @@ typedef enum
     TI_FN_BOOL,
     TI_FN_CALL,
     TI_FN_CONTAINS,
+    TI_FN_DEEP,
     TI_FN_DEL,
     TI_FN_ENDSWITH,
     TI_FN_ERR,

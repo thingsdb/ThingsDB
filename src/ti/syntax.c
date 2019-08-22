@@ -80,8 +80,9 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__zev_fn(q, nd, "counters", TI_FN_COUNTERS);
         break;
     case 'd':
+        syntax__cev_fn(q, nd, "del", TI_FN_DEL);  /* most frequent used */
         syntax__bev_fn(q, nd, "del_procedure", TI_FN_DEL_PROCEDURE);
-        syntax__cev_fn(q, nd, "del", TI_FN_DEL);
+        syntax__nev_fn(q, nd, "deep", TI_FN_DEEP);
         syntax__tev_fn(q, nd, "del_collection", TI_FN_DEL_COLLECTION);
         syntax__tev_fn(q, nd, "del_expired", TI_FN_DEL_EXPIRED);
         syntax__tev_fn(q, nd, "del_token", TI_FN_DEL_TOKEN);
@@ -113,7 +114,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "isarray", TI_FN_ISARRAY);
         syntax__nev_fn(q, nd, "isascii", TI_FN_ISASCII);
         syntax__nev_fn(q, nd, "isbool", TI_FN_ISBOOL);
-        syntax__nev_fn(q, nd, "iserror", TI_FN_ISERROR);
+        syntax__nev_fn(q, nd, "iserr", TI_FN_ISERROR);
         syntax__nev_fn(q, nd, "isfloat", TI_FN_ISFLOAT);
         syntax__nev_fn(q, nd, "isinf", TI_FN_ISINF);
         syntax__nev_fn(q, nd, "isint", TI_FN_ISINT);
@@ -137,8 +138,8 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "lower", TI_FN_LOWER);
         break;
     case 'm':
-        syntax__nev_fn(q, nd, "max_quota_err", TI_FN_MAX_QUOTA_ERR);
         syntax__nev_fn(q, nd, "map", TI_FN_MAP);
+        syntax__nev_fn(q, nd, "max_quota_err", TI_FN_MAX_QUOTA_ERR);
         break;
     case 'n':
         syntax__bev_fn(q, nd, "new_procedure", TI_FN_NEW_PROCEDURE);

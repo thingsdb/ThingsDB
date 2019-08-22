@@ -436,7 +436,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'function `procedures_info` takes 0 arguments but 1 was given'):
+                'function `procedures_info` takes 0 arguments '
+                'but 1 was given'):
             await client.query('procedures_info("set_a");')
 
         procedures_info = await client.query('procedures_info();')

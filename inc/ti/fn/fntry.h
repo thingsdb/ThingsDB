@@ -22,7 +22,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     errnr = ti_do_scope(query, child->node, e);
 
-    if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= 0)
+    if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= EX_RETURN)
         return errnr;   /* do not catch success or internal errors */
 
     /* make sure the return value is dropped */

@@ -64,7 +64,6 @@ class TestUserAccess(TestBase):
             grant('Collection', 'admin', GRANT);
             grant('Collection', 'test2', READ);
         ''')
-
         await testcl1.query(r'''.x = 42;''', target='Collection')
         await testcl1.query(r'''.map(||nil);''', target='junk')
         self.assertEqual(await testcl2.query('.x', target='Collection'), 42)

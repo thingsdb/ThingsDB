@@ -333,7 +333,7 @@ static int do__function(
     case TI_FN_REPLACE_NODE:
         do__thingsdb_fn(do__f_replace_node);
     case TI_FN_REVOKE:
-        return e->nr;do__thingsdb_fn(do__f_revoke);
+        do__thingsdb_fn(do__f_revoke);
     case TI_FN_SET_PASSWORD:
         do__thingsdb_fn(do__f_set_password);
     case TI_FN_SET_QUOTA:

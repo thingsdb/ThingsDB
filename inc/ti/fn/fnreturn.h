@@ -50,7 +50,8 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (deepi < 0 || deepi > RETURN_MAX_DEEP_HINT)
         {
             ex_set(e, EX_BAD_DATA,
-                    "expecting a `deep` value between 0 and %d, got "PRId64,
+                    "expecting a `deep` value between 0 and %d "
+                    "but got %"PRId64" instead",
                     RETURN_MAX_DEEP_HINT, deepi);
             return e->nr;
         }

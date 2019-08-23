@@ -5,17 +5,14 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/langdef/langdef.c \
-../src/langdef/nd.c \
 ../src/langdef/translate.c 
 
 OBJS += \
 ./src/langdef/langdef.o \
-./src/langdef/nd.o \
 ./src/langdef/translate.o 
 
 C_DEPS += \
 ./src/langdef/langdef.d \
-./src/langdef/nd.d \
 ./src/langdef/translate.d 
 
 

@@ -20,7 +20,6 @@ typedef struct ti_thing_s  ti_thing_t;
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
-ti_prop_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_prop_add(
         ti_thing_t * thing,
@@ -56,6 +55,9 @@ static inline void ti_thing_mark_new(ti_thing_t * thing);
 static inline void ti_thing_unmark_new(ti_thing_t * thing);
 static inline uint64_t ti_thing_key(ti_thing_t * thing);
 static inline ti_val_t * ti_thing_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name);
+static inline ti_prop_t * ti_thing_prop_weak_get(
         ti_thing_t * thing,
         ti_name_t * name);
 
@@ -124,7 +126,21 @@ static inline ti_val_t * ti_thing_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    return ti_thing_prop_weak_get(thing, name)->val;
+    for (vec_each(thing->props, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop->val;
+    return NULL;
 }
+
+static inline ti_prop_t * ti_thing_prop_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    for (vec_each(thing->props, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop;
+    return NULL;
+}
+
 
 #endif /* TI_THING_H_ */

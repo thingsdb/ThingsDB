@@ -30,7 +30,7 @@ static cleri_node_t * closure__node_from_strn(
     assert (e->nr == 0);
     ti_ncache_t * ncache;
     cleri_parse_t * res;
-    cleri_node_t * node;
+    cleri_node_t * node, * scope;
     char * query = strndup(str, n);
     if (!query)
     {
@@ -73,7 +73,8 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
-    ti_syntax_investigate(syntax, node->children->next->next->next->node);
+    scope = node->children->next->next->next->node;
+    ti_syntax_investigate(syntax, scope);
 
     ncache = ti_ncache_create(query, syntax->val_cache_n);
     if (!ncache)
@@ -83,7 +84,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node->data = ncache;
-    if (ti_ncache_gen_immutable(syntax, ncache->val_cache, node, e))
+    if (ti_ncache_gen_node_data(syntax, ncache->val_cache, scope, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */

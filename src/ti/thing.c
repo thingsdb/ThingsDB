@@ -119,13 +119,6 @@ void ti_thing_clear(ti_thing_t * thing)
         ti_prop_destroy(prop);
 }
 
-ti_prop_t * ti_thing_prop_weak_get(ti_thing_t * thing, ti_name_t * name)
-{
-    for (vec_each(thing->props, ti_prop_t, prop))
-        if (prop->name == name)
-            return prop;
-    return NULL;
-}
 
 /*
  * Does not increment the `name` and `val` reference counters.

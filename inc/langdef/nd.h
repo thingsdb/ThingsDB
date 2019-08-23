@@ -8,16 +8,10 @@
 #include <langdef/langdef.h>
 #include <string.h>
 
-static inline _Bool langdef_nd_is_function(cleri_node_t * nd);
 static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd);
 static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd);
+static inline int langdef_nd_n_function_params(cleri_node_t * nd);
 static inline _Bool langdef_nd_match_str(cleri_node_t * nd, char * str);
-int langdef_nd_n_function_params(cleri_node_t * nd);
-
-static inline _Bool langdef_nd_is_function(cleri_node_t * nd)
-{
-    return nd->cl_obj->gid == CLERI_GID_FUNCTION;
-}
 
 static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd)
 {
@@ -26,7 +20,12 @@ static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd)
 
 static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd)
 {
-    return nd->children && !nd->children->next;
+    return ((intptr_t) nd->data) == 1;
+}
+
+static inline int langdef_nd_n_function_params(cleri_node_t * nd)
+{
+    return (int) ((intptr_t) nd->data);
 }
 
 static inline _Bool langdef_nd_match_str(cleri_node_t * nd, char * str)

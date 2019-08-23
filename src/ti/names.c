@@ -7,10 +7,9 @@
 #include <ti/names.h>
 #include <ti/val.h>
 #include <util/logger.h>
-#include <util/smap.h>
 #include <util/vec.h>
 
-static smap_t * names;
+smap_t * names;
 
 #define NAMES__INJECT(__s) __s, strlen(__s)
 
@@ -33,8 +32,8 @@ void ti_names_destroy(void)
  */
 void ti_names_inject_common(void)
 {
-    (void) ti_names_get(NAMES__INJECT("$_"));
-    (void) ti_names_get(NAMES__INJECT("$tmp"));
+    (void) ti_names_get(NAMES__INJECT("_"));
+    (void) ti_names_get(NAMES__INJECT("tmp"));
 }
 
 /*
@@ -56,11 +55,3 @@ ti_name_t * ti_names_get(const char * str, size_t n)
     return name;
 }
 
-/*
- * returns a name when the name exists and with a borrowed reference, if the
- * name does not exists, NULL will be the return value.
- */
-ti_name_t * ti_names_weak_get(const char * str, size_t n)
-{
-    return smap_getn(names, str, n);
-}

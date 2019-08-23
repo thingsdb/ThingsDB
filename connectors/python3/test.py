@@ -157,27 +157,15 @@ async def test(client):
 
     await client.connect('localhost')
     await client.authenticate(['admin', 'pass'])
-    client.close()
-    await client.wait_closed()
-
-    await client.connect('localhost')
-    await client.authenticate(['admin', 'pass'])
-
-    client.close()
-    await client.wait_closed()
-
-    await client.connect_pool(
-        ('localhost', ), ('admin', 'pass'))
 
     try:
-        x = await client.run('add_x', 1, target='stuff')
+        x = await client.run('pp', 4, target='stuff')
         print(x)
         # my_collection = MyCollection(client, build=True)
         # x = await client.run('addone', 10, target='stuff')
         # print(x)
     finally:
         client.close()
-
 
 
 def signal_handler(signal, frame):

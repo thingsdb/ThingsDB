@@ -160,7 +160,7 @@ static int do__function(
         ex_t * e)
 {
     assert (e->nr == 0);
-    assert (langdef_nd_is_function(nd));
+    assert (nd->cl_obj->gid == CLERI_GID_FUNCTION);
 
     cleri_node_t * fname, * params;
 
@@ -486,19 +486,36 @@ failed:
     return e->nr;
 }
 
-static ti_prop_t * do__get_prop(ti_thing_t * thing, cleri_node_t * nd, ex_t * e)
+static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
 {
-    ti_name_t * name;
-    ti_prop_t * prop;
+    assert (nd->data == NULL);
 
-    /* TODO: can we cache the name on node->data */
-    name = ti_names_weak_get(nd->str, nd->len);
-    prop = name ? ti_thing_prop_weak_get(thing, name) : NULL;
+    ti_name_t * name = nd->data = ti_names_weak_get(nd->str, nd->len);
+    if (name)
+    {
+        ti_incref(name);
+        VEC_push(query->val_cache, name);
+    }
+    return name;
+}
+
+static inline ti_prop_t * do__get_prop(
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_prop_t * prop = nd->data
+            ? ti_thing_prop_weak_get(thing, nd->data)
+            : (do__cache_name(query, nd)
+                ? ti_thing_prop_weak_get(thing, nd->data)
+                : NULL);
 
     if (!prop)
         ex_set(e, EX_INDEX_ERROR,
                 "thing "TI_THING_ID" has no property `%.*s`",
                 thing->id, (int) nd->len, nd->str);
+
     return prop;
 }
 
@@ -539,7 +556,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (assign_nd->len == 2)
     {
-        prop = do__get_prop(thing, name_nd, e);
+        prop = do__get_prop(query, thing, name_nd, e);
         if (!prop)
             goto done;
 
@@ -772,7 +789,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         thing = (ti_thing_t *) query->rval;
 
-        prop = do__get_prop(thing, node, e);
+        prop = do__get_prop(query, thing, node, e);
         if (!prop)
             return e->nr;
 
@@ -1097,14 +1114,16 @@ err:
     return e->nr;
 }
 
-static ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline ti_prop_t * do__get_var(
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
-    ti_name_t * name;
-    ti_prop_t * prop;
-
-    /* TODO: can we add the name with reference to node->data ? */
-    name = ti_names_weak_get(nd->str, nd->len);
-    prop = name ? ti_query_var_get(query, name) : NULL;
+    ti_prop_t * prop = nd->data
+            ? ti_query_var_get(query, nd->data)
+            : (do__cache_name(query, nd)
+                ? ti_query_var_get(query, nd->data)
+                : NULL);
 
     if (!prop)
         ex_set(e, EX_INDEX_ERROR,

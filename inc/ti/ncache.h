@@ -13,7 +13,7 @@ typedef struct ti_ncache_s ti_ncache_t;
 
 ti_ncache_t * ti_ncache_create(char * query, size_t n);
 void ti_ncache_destroy(ti_ncache_t * ncache);
-int ti_ncache_gen_immutable(
+int ti_ncache_gen_node_data(
         ti_syntax_t * syntax,
         vec_t * vcache,
         cleri_node_t * node,

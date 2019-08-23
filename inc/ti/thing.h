@@ -37,6 +37,7 @@ ti_prop_t * ti_thing_prop_set_e(
         ex_t * e);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 int ti_thing_gen_id(ti_thing_t * thing);

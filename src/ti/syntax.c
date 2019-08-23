@@ -100,6 +100,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__nev_fn(q, nd, "forbidden_err", TI_FN_FORBIDDEN_ERR);
         break;
     case 'g':
+        syntax__nev_fn(q, nd, "get", TI_FN_GET);
         syntax__tev_fn(q, nd, "grant", TI_FN_GRANT);
         break;
     case 'h':

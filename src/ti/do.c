@@ -27,6 +27,7 @@
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
 #include <ti/fn/fnfloat.h>
+#include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
 #include <ti/fn/fnhasprop.h>
@@ -204,6 +205,8 @@ static int do__function(
         do__chain_fn(do__f_findindex);
     case TI_FN_FLOAT:
         do__no_chain_fn(do__f_float);
+    case TI_FN_GET:
+        do__chain_fn(do__f_get);
     case TI_FN_HAS:
         do__chain_fn(do__f_has);
     case TI_FN_HASPROP:

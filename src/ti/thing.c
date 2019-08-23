@@ -222,6 +222,27 @@ _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
     return false;
 }
 
+static inline void thing__set_not_found(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_raw_t * rname,
+        ex_t * e)
+{
+    if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id,
+                (int) rname->n, (const char *) rname->data);
+    }
+    else
+    {
+        ex_set(e, EX_BAD_DATA,
+                "property name must follow the naming rules"
+                TI_SEE_DOC("#names"));
+    }
+}
+
 /* Returns 0 if the property is removed, -1 in case of an error */
 int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
@@ -242,23 +263,23 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         }
     }
 
-    if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_INDEX_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
-                thing->id,
-                (int) rname->n, (const char *) rname->data);
-    }
-    else
-    {
-        ex_set(e, EX_BAD_DATA,
-                "property name must follow the naming rules"
-                TI_SEE_DOC("#names"));
-    }
-
+    thing__set_not_found(thing, name, rname, e);
     return e->nr;
 }
 
+ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+{
+    uint32_t i = 0;
+    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    if (name)
+        for (vec_each(thing->props, ti_prop_t, prop), ++i)
+            if (prop->name == name)
+                return prop;
+
+    thing__set_not_found(thing, name, rname, e);
+    return NULL;
+}
 
 /*
  * Returns true if `from` is found and replaced by to, false if not found.

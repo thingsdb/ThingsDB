@@ -570,13 +570,6 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_name_t * name;
 
-        /*
-         * Does not require a lock, only check if another lock is set.
-         * A new lock is not required since the scope is already processed.
-         */
-//        if (ti_val_is_locked((ti_val_t *) thing, e))
-//            goto done;
-
         if (thing->props->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
@@ -720,8 +713,8 @@ static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
         case TI_VAL_NAME:
         case TI_VAL_RAW:
-            query->rval = (ti_val_t *) ti_vint_create(
-                    (int64_t) ((ti_raw_t *) val)->data[idx]);
+            query->rval = (ti_val_t *) ti_raw_create(
+                    ((ti_raw_t *) val)->data + idx, 1);
             if (!query->rval)
             {
                 ex_set_mem(e);
@@ -810,10 +803,8 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (index_node->children && do__index(query, index_node, e))
         goto done;
 
-    if (!child)
-        goto done;
-
-    (void) do__chain(query, child->node, e);
+    if (child)
+        (void) do__chain(query, child->node, e);
 
 done:
     ti_chain_unset(&query->chain);

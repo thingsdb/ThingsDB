@@ -4,10 +4,8 @@
 
 static int do__f_shutdown(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_NODE);
-    assert (!query->ev);    /* node queries do never create an event */
-    assert (e->nr == 0);
-    assert (query->rval == NULL);
+    if (fn_not_node_scope("shutdown", query, e))
+        return e->nr;
 
     /* check for privileges */
     if (ti_access_check_err(ti()->access_node,

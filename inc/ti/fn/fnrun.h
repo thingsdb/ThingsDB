@@ -4,10 +4,6 @@
 
 static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_procedure_t * procedure;
@@ -15,6 +11,9 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
+
+    if (fn_not_thingsdb_or_collection_scope("run", query, e))
+        return e->nr;
 
     if (!nargs)
     {

@@ -4,14 +4,12 @@
 
 static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     ti_user_t * user;
     ti_raw_t * uname;
     int nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_not_thingsdb_scope("user_info", query, e))
+        return e->nr;
 
     if (nargs > 1)
     {

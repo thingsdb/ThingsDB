@@ -4,17 +4,14 @@
 
 static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);  /* no node scope */
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     ti_procedure_t * procedure;
     ti_task_t * task;
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
+
+    if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

@@ -4,10 +4,10 @@
 
 static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     _Bool has_wse_flag;
+
+    if (fn_chained("wse", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

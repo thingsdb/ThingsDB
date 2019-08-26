@@ -4,13 +4,13 @@
 
 static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     cleri_children_t * child = nd->children;    /* first in argument list */
     const int nargs = langdef_nd_n_function_params(nd);
     ex_enum errnr;
     ti_verror_t * verror;
+
+    if (fn_chained("try", query, e))
+        return e->nr;
 
     if (nargs < 1)
     {

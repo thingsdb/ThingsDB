@@ -4,15 +4,14 @@
 
 static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
     ti_verror_t * verror;
     ti_vint_t * vcode;
     int8_t code;
+
+    if (fn_chained("err", query, e))
+        return e->nr;
 
     if (nargs > 2)
     {

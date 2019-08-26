@@ -47,6 +47,29 @@ class TestNested(TestBase):
             client.close()
             await client.wait_closed()
 
+    async def test_push_loop(self, client0, client1, client2):
+        await client0.query(r'''
+            .arr = [1, 2];
+            .map(|k, v| {
+                v.push(3, 4);
+            });
+        ''')
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
+
+    async def test_push_loop(self, client0, client1, client2):
+        await client0.query(r'''
+            .arr = [1, 2];
+            .map(|k, v| {
+                v.push(3, 4);
+            });
+        ''')
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
+
+
     async def test_var_assign(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''
             .a = {};
@@ -141,7 +164,7 @@ class TestNested(TestBase):
     async def test_list_lock_assign(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `arr` on `#\d+` while '
+                r'cannot change or remove property `arr` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
                 .arr = ['a', 'b'];
@@ -154,7 +177,7 @@ class TestNested(TestBase):
     async def test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `arr` on `#\d+` while '
+                r'cannot change or remove property `arr` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
                 .arr = ['a', 'b'];
@@ -197,7 +220,7 @@ class TestNested(TestBase):
     async def test_complex_assign_list(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `a` on `#\d+` while '
+                r'cannot change or remove property `a` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
                 .store = {};
@@ -208,7 +231,7 @@ class TestNested(TestBase):
             ''')
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `a` on `#\d+` while '
+                r'cannot change or remove property `a` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
                 .store = {};
@@ -222,7 +245,7 @@ class TestNested(TestBase):
     async def test_complex_assign_set(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `a` on `#\d+` while '
+                r'cannot change or remove property `a` on `#\d+` while '
                 r'the `set` is being used'):
             await client0.query(r'''
                 .store = {};
@@ -233,7 +256,7 @@ class TestNested(TestBase):
             ''')
         with self.assertRaisesRegex(
                 BadDataError,
-                r'cannot remove property `a` on `#\d+` while '
+                r'cannot change or remove property `a` on `#\d+` while '
                 r'the `set` is being used'):
             await client0.query(r'''
                 .store = {};

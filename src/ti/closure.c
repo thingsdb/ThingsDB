@@ -378,8 +378,10 @@ int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
             ti_val_drop(p->val);
             p->val = prop->val;
             ti_incref(p->val);
-            if (ti_val_make_assignable(&p->val, e))
-                return e->nr;
+
+            /* TODO: Why? all properties are already assigned? */
+//            if (ti_val_make_assignable(&p->val, e))
+//                return e->nr;
             break;
         default:
             return 0;

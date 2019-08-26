@@ -4,18 +4,15 @@
 
 static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     int nargs;
     char * passstr = NULL;
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
     nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_not_thingsdb_scope("set_password", query, e))
+        return e->nr;
 
     if (nargs != 2)
     {

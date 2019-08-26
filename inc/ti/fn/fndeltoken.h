@@ -4,15 +4,12 @@
 
 static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     ti_token_t * token;
     ti_task_t * task;
     ti_raw_t * rkey;
+
+    if (fn_not_thingsdb_scope("del_token", query, e))
+        return e->nr;
 
     /* check for privileges */
     if (ti_access_check_err(

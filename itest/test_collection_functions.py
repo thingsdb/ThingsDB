@@ -425,7 +425,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('.del("x");')
 
         self.assertIs(await client.query(r'.del("greet");'), None)
-        self.assertFalse(await client.query(r'.hasprop("greet");'))
+        self.assertFalse(await client.query(r'.has("greet");'))
 
     async def test_endswith(self, client):
         with self.assertRaisesRegex(
@@ -688,7 +688,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('.iris.get("name");'), 'Iris')
 
-    async def test_has(self, client):
+    async def test_has_set(self, client):
         await client.query(r'''
             .iris = {name: "Iris"};
             .cato = {name: "Cato"};
@@ -697,8 +697,13 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 IndexError,
-                'type `thing` has no function `has`'):
-            await client.query('.has(.iris);')
+                'function `has` is undefined'):
+            await client.query('has(.iris);')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `has`'):
+            await client.query('nil.has(.iris);')
 
         with self.assertRaisesRegex(
                 BadDataError,
@@ -714,27 +719,27 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('.s.has(.iris);'))
         self.assertFalse(await client.query('.s.has(.cato);'))
 
-    async def test_hasprop(self, client):
+    async def test_has_thing(self, client):
         await client.query(r'.x = 0.0;')
 
         with self.assertRaisesRegex(
                 IndexError,
-                'type `float` has no function `hasprop`'):
-            await client.query('.x.hasprop("x");')
+                'type `float` has no function `has`'):
+            await client.query('.x.has("x");')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'function `hasprop` takes 1 argument but 0 were given'):
-            await client.query('.hasprop();')
+                'function `has` takes 1 argument but 0 were given'):
+            await client.query('.has();')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'function `hasprop` expects argument 1 to be of '
+                r'function `has` expects argument 1 to be of '
                 r'type `raw` but got type `int` instead'):
-            await client.query('.hasprop(.id());')
+            await client.query('.has(.id());')
 
-        self.assertTrue(await client.query('.hasprop("x");'))
-        self.assertFalse(await client.query('.hasprop("y");'))
+        self.assertTrue(await client.query('.has("x");'))
+        self.assertFalse(await client.query('.has("y");'))
 
     async def test_id(self, client):
         o = await client.query(r'.o = {};')
@@ -1045,6 +1050,22 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('isset(.sa);'))
         self.assertTrue(await client.query('isset(.sb);'))
 
+    async def test_isstr(self, client):
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `isstr` takes 1 argument but 0 were given'):
+            await client.query('isstr();')
+
+        self.assertTrue(await client.query('isstr( "pi" ); '))
+        self.assertTrue(await client.query('isstr( "" ); '))
+        self.assertTrue(await client.query('isstr( "ԉ" ); '))
+        self.assertFalse(await client.query('isstr([]);'))
+        self.assertFalse(await client.query('isstr(nil);'))
+        self.assertFalse(await client.query('isstr(123);'))
+        self.assertFalse(await client.query(
+                'isstr(blob(0));',
+                blobs=(pickle.dumps('binary'), )))
+
     async def test_isthing(self, client):
         with self.assertRaisesRegex(
                 BadDataError,
@@ -1081,10 +1102,9 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('isutf8( "pi" ); '))
         self.assertTrue(await client.query('isutf8( "" ); '))
         self.assertTrue(await client.query('isutf8( "ԉ" ); '))
-        self.assertTrue(await client.query('isstr( "ԉ" ); '))  # alias isstr
         self.assertFalse(await client.query('isutf8([]);'))
         self.assertFalse(await client.query('isutf8(nil);'))
-        self.assertFalse(await client.query('isstr(123);'))  # alias isstr
+        self.assertFalse(await client.query('isutf8(123);'))
         self.assertFalse(await client.query(
                 'isutf8(blob(0));',
                 blobs=(pickle.dumps('binary'), )))
@@ -1572,7 +1592,48 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('.a'), 10)
 
-    async def test_set(self, client):
+    async def test_set_property(self, client):
+        await client.query('.a = 1;')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `set`'):
+            await client.query('nil.set();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `set` takes 2 arguments but 0 were given'):
+            await client.query('.set();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'function `set` expects argument 1 to be of '
+                r'type `raw` but got type `nil` instead'):
+            await client.query('.set(nil, nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot change type `thing` while the value is being used'):
+            await client.query('.map(||.set("a", 42));')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot change or remove property `arr` on `#\d+` while '
+                r'the `list` is being used'):
+            await client.query(r'''
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .set('arr', [1, 2, 3]);
+                    'c';
+                })
+            ''')
+
+        self.assertEqual(await client.query('.set("a", 42);'), 42)
+        self.assertEqual(await client.query('.a;'), 42)
+        self.assertEqual(await client.query('.set("foo", "bar");'), "bar")
+        self.assertEqual(await client.query('.foo;'), "bar")
+
+    async def test_set_new_type(self, client):
         with self.assertRaisesRegex(
                 IndexError,
                 'type `nil` has no function `set`'):

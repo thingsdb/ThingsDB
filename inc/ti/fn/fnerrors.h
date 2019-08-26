@@ -8,13 +8,12 @@ static int do__make_err(
         const char * fn_name,
         const char * fn_doc)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
     ti_verror_t * verror;
+
+    if (fn_chained(fn_name, query, e))
+        return e->nr;
 
     if (nargs > 1)
     {
@@ -66,7 +65,6 @@ static inline int do__f_overflow_err(ti_query_t * query, cleri_node_t * nd, ex_t
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(
             query,
@@ -81,7 +79,6 @@ static inline int do__f_zero_div_err(ti_query_t * query, cleri_node_t * nd, ex_t
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(
             query,
@@ -96,7 +93,6 @@ static inline int do__f_max_quota_err(ti_query_t * query, cleri_node_t * nd, ex_
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_MAX_QUOTA,
@@ -108,7 +104,6 @@ static inline int do__f_auth_err(ti_query_t * query, cleri_node_t * nd, ex_t * e
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_AUTH_ERROR,
@@ -120,7 +115,6 @@ static inline int do__f_forbidden_err(ti_query_t * query, cleri_node_t * nd, ex_
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_FORBIDDEN,
@@ -132,7 +126,6 @@ static inline int do__f_index_err(ti_query_t * query, cleri_node_t * nd, ex_t * 
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_INDEX_ERROR,
@@ -144,7 +137,6 @@ static inline int do__f_bad_data_err(ti_query_t * query, cleri_node_t * nd, ex_t
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_BAD_DATA,
@@ -156,7 +148,6 @@ static inline int do__f_syntax_err(ti_query_t * query, cleri_node_t * nd, ex_t *
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_SYNTAX_ERROR,
@@ -168,7 +159,6 @@ static inline int do__f_node_err(ti_query_t * query, cleri_node_t * nd, ex_t * e
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_NODE_ERROR,
@@ -180,7 +170,6 @@ static inline int do__f_assert_err(ti_query_t * query, cleri_node_t * nd, ex_t *
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     return do__make_err(query, nd, e,
             EX_ASSERT_ERROR,

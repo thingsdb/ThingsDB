@@ -4,10 +4,8 @@
 
 static int do__f_collections_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
+    if (fn_not_thingsdb_scope("collections_info", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {

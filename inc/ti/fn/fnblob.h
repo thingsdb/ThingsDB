@@ -4,11 +4,11 @@
 
 static int do__f_blob(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     int n_blobs = query->blobs ? query->blobs->n : 0;
     int64_t idx;
+
+    if (fn_chained("blob", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

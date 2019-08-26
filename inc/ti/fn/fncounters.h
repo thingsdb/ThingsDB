@@ -4,11 +4,10 @@
 
 static int do__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_NODE);
+    if (fn_not_node_scope("counters", query, e))
+        return e->nr;
+
     assert (!query->ev);    /* node queries do never create an event */
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
 
     if (!langdef_nd_fun_has_zero_params(nd))
     {

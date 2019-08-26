@@ -4,14 +4,13 @@
 
 static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     ti_procedure_t * procedure;
     vec_t * procedures = query->target
             ? query->target->procedures
             : ti()->procedures;
+
+    if (fn_not_thingsdb_or_collection_scope("procedure_doc", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

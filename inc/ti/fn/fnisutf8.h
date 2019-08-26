@@ -2,21 +2,24 @@
 
 #define ISUTF8_DOC_ TI_SEE_DOC("#isutf8")
 
-static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f__isutf8(
+        const char * fnname,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     _Bool is_utf8;
     ti_raw_t * raw;
+
+    if (fn_chained(fnname, query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_BAD_DATA,
-                "function `isutf8` takes 1 argument but %d were given"
-                ISUTF8_DOC_, nargs);
+                "function `%s` takes 1 argument but %d were given"
+                ISUTF8_DOC_, fnname, nargs);
         return e->nr;
     }
 
@@ -31,4 +34,15 @@ static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_vbool_get(is_utf8);
 
     return e->nr;
+}
+
+static inline int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__f__isutf8("isutf8", query, nd, e);
+}
+
+
+static inline int do__f_isstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__f__isutf8("isstr", query, nd, e);
 }

@@ -4,11 +4,10 @@
 
 static int do__f_israw(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     _Bool is_raw;
+
+    if (fn_chained("israw", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

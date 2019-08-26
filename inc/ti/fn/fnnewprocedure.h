@@ -4,12 +4,6 @@
 
 static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (~query->syntax.flags & TI_SYNTAX_FLAG_NODE);  /* no node scope */
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     int rc;
     ti_raw_t * raw;
     ti_task_t * task;
@@ -19,6 +13,9 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? &query->target->procedures
             : &ti()->procedures;
     int nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e))
+        return e->nr;
 
     if (nargs != 2)
     {

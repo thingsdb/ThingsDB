@@ -3,438 +3,49 @@
  */
 #include <ti/auth.h>
 #include <ti/do.h>
-#include <ti/fn/fnadd.h>
-#include <ti/fn/fnarray.h>
-#include <ti/fn/fnassert.h>
-#include <ti/fn/fnblob.h>
-#include <ti/fn/fnbool.h>
-#include <ti/fn/fncall.h>
-#include <ti/fn/fncollectioninfo.h>
-#include <ti/fn/fncollectionsinfo.h>
-#include <ti/fn/fncontains.h>
-#include <ti/fn/fncounters.h>
-#include <ti/fn/fndel.h>
-#include <ti/fn/fndeep.h>
-#include <ti/fn/fndelcollection.h>
-#include <ti/fn/fndelexpired.h>
-#include <ti/fn/fndelprocedure.h>
-#include <ti/fn/fndeltoken.h>
-#include <ti/fn/fndeluser.h>
-#include <ti/fn/fnendswith.h>
-#include <ti/fn/fnerr.h>
-#include <ti/fn/fnerrors.h>
-#include <ti/fn/fnfilter.h>
-#include <ti/fn/fnfind.h>
-#include <ti/fn/fnfindindex.h>
-#include <ti/fn/fnfloat.h>
-#include <ti/fn/fnget.h>
-#include <ti/fn/fngrant.h>
-#include <ti/fn/fnhas.h>
-#include <ti/fn/fnhasprop.h>
-#include <ti/fn/fnid.h>
-#include <ti/fn/fnindexof.h>
-#include <ti/fn/fnint.h>
-#include <ti/fn/fnisarray.h>
-#include <ti/fn/fnisascii.h>
-#include <ti/fn/fnisbool.h>
-#include <ti/fn/fniserr.h>
-#include <ti/fn/fnisfloat.h>
-#include <ti/fn/fnisinf.h>
-#include <ti/fn/fnisint.h>
-#include <ti/fn/fnislist.h>
-#include <ti/fn/fnisnan.h>
-#include <ti/fn/fnisnil.h>
-#include <ti/fn/fnisraw.h>
-#include <ti/fn/fnisset.h>
-#include <ti/fn/fnisthing.h>
-#include <ti/fn/fnistuple.h>
-#include <ti/fn/fnisutf8.h>
-#include <ti/fn/fnkeys.h>
-#include <ti/fn/fnlen.h>
-#include <ti/fn/fnlower.h>
-#include <ti/fn/fnmap.h>
-#include <ti/fn/fnnewcollection.h>
-#include <ti/fn/fnnewnode.h>
-#include <ti/fn/fnnewprocedure.h>
-#include <ti/fn/fnnewtoken.h>
-#include <ti/fn/fnnewuser.h>
-#include <ti/fn/fnnodeinfo.h>
-#include <ti/fn/fnnodesinfo.h>
-#include <ti/fn/fnnow.h>
-#include <ti/fn/fnpop.h>
-#include <ti/fn/fnpopnode.h>
-#include <ti/fn/fnproceduredoc.h>
-#include <ti/fn/fnprocedureinfo.h>
-#include <ti/fn/fnproceduresinfo.h>
-#include <ti/fn/fnpush.h>
-#include <ti/fn/fnraise.h>
-#include <ti/fn/fnrefs.h>
-#include <ti/fn/fnremove.h>
-#include <ti/fn/fnrenamecollection.h>
-#include <ti/fn/fnrenameuser.h>
-#include <ti/fn/fnreplacenode.h>
-#include <ti/fn/fnresetcounters.h>
-#include <ti/fn/fnreturn.h>
-#include <ti/fn/fnrevoke.h>
-#include <ti/fn/fnrun.h>
-#include <ti/fn/fnset.h>
-#include <ti/fn/fnsetloglevel.h>
-#include <ti/fn/fnsetpassword.h>
-#include <ti/fn/fnsetquota.h>
-#include <ti/fn/fnshutdown.h>
-#include <ti/fn/fnsplice.h>
-#include <ti/fn/fnstartswith.h>
-#include <ti/fn/fnstr.h>
-#include <ti/fn/fnt.h>
-#include <ti/fn/fntest.h>
-#include <ti/fn/fntry.h>
-#include <ti/fn/fntype.h>
-#include <ti/fn/fnupper.h>
-#include <ti/fn/fnuserinfo.h>
-#include <ti/fn/fnusersinfo.h>
-#include <ti/fn/fnvalues.h>
-#include <ti/fn/fnwse.h>
-
-#define do__chain_fn(__fn)                              \
-if (!is_chained)                                        \
-    break;                                              \
-return __fn(query, params, e)
-
-#define do__no_chain_fn(__fn)                           \
-if (is_chained)                                         \
-    break;                                              \
-return __fn(query, params, e)
-
-#define do__collection_fn(__fn)                         \
-if (is_chained)                                         \
-    break;                                              \
-if (do__no_collection_scope(query))                     \
-    goto no_collection_scope;                           \
-return __fn(query, params, e)
-
-#define do__thingsdb_fn(__fn)                           \
-if (is_chained)                                         \
-    break;                                              \
-if (do__no_thingsdb_scope(query))                       \
-    goto no_thingsdb_scope;                             \
-return __fn(query, params, e)
-
-#define do__node_fn(__fn)                               \
-if (is_chained)                                         \
-    break;                                              \
-if (do__no_node_scope(query))                           \
-    goto no_node_scope;                                 \
-return __fn(query, params, e)
-
-#define do__thingsdb_or_collection_fn(__fn)             \
-if (is_chained)                                         \
-    break;                                              \
-if (do__no_thingsdb_or_collection_scope(query))         \
-    goto no_thingsdb_or_collection_scope;               \
-return __fn(query, params, e)
-
-static inline int do__no_node_scope(ti_query_t * query)
-{
-    return ~query->syntax.flags & TI_SYNTAX_FLAG_NODE;
-}
-
-static inline int do__no_thingsdb_scope(ti_query_t * query)
-{
-    return ~query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB;
-}
+#include <ti/regex.h>
+#include <ti/vint.h>
+#include <ti/task.h>
+#include <ti/names.h>
+#include <ti/nil.h>
+#include <ti/opr/oprinc.h>
+#include <cleri/cleri.h>
+#include <langdef/nd.h>
+#include <langdef/langdef.h>
+#include <util/strx.h>
 
 static inline int do__no_collection_scope(ti_query_t * query)
 {
     return ~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION;
 }
 
-static inline int do__no_thingsdb_or_collection_scope(ti_query_t * query)
-{
-    return query->syntax.flags & TI_SYNTAX_FLAG_NODE;
-}
+typedef int (*do__fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 
-static int do__function(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        _Bool is_chained,             /* scope or chain */
-        ex_t * e)
+static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_FUNCTION);
 
-    cleri_node_t * fname, * params;
-
-    fname = nd                      /* sequence */
+    cleri_node_t * fname = nd       /* sequence */
             ->children->node;       /* name node */
-    params = nd                             /* sequence */
-            ->children->next->next->node;   /* list of scope (arguments) */
 
-    switch ((ti_fn_enum_t) ((uintptr_t) fname->data))
+    if (!fname->data)
     {
-    case TI_FN_0:
-        break;
-
-   /* collection scope */
-    case TI_FN_ADD:
-        do__chain_fn(do__f_add);
-    case TI_FN_ARRAY:
-        do__no_chain_fn(do__f_array);
-    case TI_FN_ASSERT:
-        do__no_chain_fn(do__f_assert);
-    case TI_FN_BLOB:
-        do__no_chain_fn(do__f_blob);
-    case TI_FN_BOOL:
-        do__no_chain_fn(do__f_bool);
-    case TI_FN_CALL:
-        do__chain_fn(do__f_call);
-    case TI_FN_CONTAINS:
-        do__chain_fn(do__f_contains);
-    case TI_FN_ENDSWITH:
-        do__chain_fn(do__f_endswith);
-    case TI_FN_ERR:
-        do__no_chain_fn(do__f_err);
-    case TI_FN_DEEP:
-        do__no_chain_fn(do__f_deep);
-    case TI_FN_DEL:
-        do__chain_fn(do__f_del);
-    case TI_FN_FILTER:
-        do__chain_fn(do__f_filter);
-    case TI_FN_FIND:
-        do__chain_fn(do__f_find);
-    case TI_FN_FINDINDEX:
-        do__chain_fn(do__f_findindex);
-    case TI_FN_FLOAT:
-        do__no_chain_fn(do__f_float);
-    case TI_FN_GET:
-        do__chain_fn(do__f_get);
-    case TI_FN_HAS:
-        do__chain_fn(do__f_has);
-    case TI_FN_HASPROP:
-        do__chain_fn(do__f_hasprop);
-    case TI_FN_ID:
-        do__chain_fn(do__f_id);
-    case TI_FN_INDEXOF:
-        do__chain_fn(do__f_indexof);
-    case TI_FN_INT:
-        do__no_chain_fn(do__f_int);
-    case TI_FN_ISARRAY:
-        do__no_chain_fn(do__f_isarray);
-    case TI_FN_ISASCII:
-        do__no_chain_fn(do__f_isascii);
-    case TI_FN_ISBOOL:
-        do__no_chain_fn(do__f_isbool);
-    case TI_FN_ISERROR:
-        do__no_chain_fn(do__f_iserr);
-    case TI_FN_ISFLOAT:
-        do__no_chain_fn(do__f_isfloat);
-    case TI_FN_ISINF:
-        do__no_chain_fn(do__f_isinf);
-    case TI_FN_ISINT:
-        do__no_chain_fn(do__f_isint);
-    case TI_FN_ISLIST:
-        do__no_chain_fn(do__f_islist);
-    case TI_FN_ISNAN:
-        do__no_chain_fn(do__f_isnan);
-    case TI_FN_ISNIL:
-        do__no_chain_fn(do__f_isnil);
-    case TI_FN_ISRAW:
-        do__no_chain_fn(do__f_israw);
-    case TI_FN_ISSET:
-        do__no_chain_fn(do__f_isset);
-    case TI_FN_ISTHING:
-        do__no_chain_fn(do__f_isthing);
-    case TI_FN_ISTUPLE:
-        do__no_chain_fn(do__f_istuple);
-    case TI_FN_ISSTR:
-    case TI_FN_ISUTF8:
-        do__no_chain_fn(do__f_isutf8);
-    case TI_FN_KEYS:
-        do__chain_fn(do__f_keys);
-    case TI_FN_LEN:
-        do__chain_fn(do__f_len);
-    case TI_FN_LOWER:
-        do__chain_fn(do__f_lower);
-    case TI_FN_MAP:
-        do__chain_fn(do__f_map);
-    case TI_FN_NOW:
-        do__no_chain_fn(q__f_now);
-    case TI_FN_POP:
-        do__chain_fn(do__f_pop);
-    case TI_FN_PUSH:
-        do__chain_fn(do__f_push);
-    case TI_FN_RAISE:
-        do__no_chain_fn(do__f_raise);
-    case TI_FN_REFS:
-        do__no_chain_fn(do__f_refs);
-    case TI_FN_REMOVE:
-        do__chain_fn(do__f_remove);
-    case TI_FN_RETURN:
-        do__no_chain_fn(do__f_return);
-    case TI_FN_SET:
-        do__no_chain_fn(do__f_set);
-    case TI_FN_SPLICE:
-        do__chain_fn(do__f_splice);
-    case TI_FN_STARTSWITH:
-        do__chain_fn(do__f_startswith);
-    case TI_FN_STR:
-        do__no_chain_fn(do__f_str);
-    case TI_FN_T:
-        do__collection_fn(do__f_t);
-    case TI_FN_TEST:
-        do__chain_fn(do__f_test);
-    case TI_FN_TRY:
-        do__no_chain_fn(do__f_try);
-    case TI_FN_TYPE:
-        do__no_chain_fn(do__f_type);
-    case TI_FN_UPPER:
-        do__chain_fn(do__f_upper);
-    case TI_FN_VALUES:
-        do__chain_fn(do__f_values);
-    case TI_FN_WSE:
-        do__no_chain_fn(do__f_wse);
-
-    /* both thingsdb and collection scope */
-    case TI_FN_DEL_PROCEDURE:
-        do__thingsdb_or_collection_fn(do__f_del_procedure);
-    case TI_FN_NEW_PROCEDURE:
-        do__thingsdb_or_collection_fn(do__f_new_procedure);
-    case TI_FN_PROCEDURES_INFO:
-        do__thingsdb_or_collection_fn(do__f_procedures_info);
-    case TI_FN_PROCEDURE_DOC:
-        do__thingsdb_or_collection_fn(do__f_procedure_doc);
-    case TI_FN_PROCEDURE_INFO:
-        do__thingsdb_or_collection_fn(do__f_procedure_info);
-    case TI_FN_RUN:
-        do__thingsdb_or_collection_fn(do__f_run);
-
-    /* thingsdb scope */
-    case TI_FN_COLLECTION_INFO:
-        do__thingsdb_fn(do__f_collection_info);
-    case TI_FN_COLLECTIONS_INFO:
-        do__thingsdb_fn(do__f_collections_info);
-    case TI_FN_DEL_COLLECTION:
-        do__thingsdb_fn(do__f_del_collection);
-    case TI_FN_DEL_EXPIRED:
-        do__thingsdb_fn(do__f_del_expired);
-    case TI_FN_DEL_TOKEN:
-        do__thingsdb_fn(do__f_del_token);
-    case TI_FN_DEL_USER:
-        do__thingsdb_fn(do__f_del_user);
-    case TI_FN_GRANT:
-        do__thingsdb_fn(do__f_grant);
-    case TI_FN_NEW_COLLECTION:
-        do__thingsdb_fn(do__f_new_collection);
-    case TI_FN_NEW_NODE:
-        do__thingsdb_fn(do__f_new_node);
-    case TI_FN_NEW_TOKEN:
-        do__thingsdb_fn(do__f_new_token);
-    case TI_FN_NEW_USER:
-        do__thingsdb_fn(do__f_new_user);
-    case TI_FN_POP_NODE:
-        do__thingsdb_fn(do__f_pop_node);
-    case TI_FN_RENAME_COLLECTION:
-        do__thingsdb_fn(do__f_rename_collection);
-    case TI_FN_RENAME_USER:
-        do__thingsdb_fn(do__f_rename_user);
-    case TI_FN_REPLACE_NODE:
-        do__thingsdb_fn(do__f_replace_node);
-    case TI_FN_REVOKE:
-        do__thingsdb_fn(do__f_revoke);
-    case TI_FN_SET_PASSWORD:
-        do__thingsdb_fn(do__f_set_password);
-    case TI_FN_SET_QUOTA:
-        do__thingsdb_fn(do__f_set_quota);
-    case TI_FN_USER_INFO:
-        do__thingsdb_fn(do__f_user_info);
-    case TI_FN_USERS_INFO:
-        do__thingsdb_fn(do__f_users_info);
-
-    /* node scope */
-    case TI_FN_COUNTERS:
-        do__node_fn(do__f_counters);
-    case TI_FN_NODE_INFO:
-        do__node_fn(do__f_node_info);
-    case TI_FN_NODES_INFO:
-        do__node_fn(do__f_nodes_info);
-    case TI_FN_RESET_COUNTERS:
-        do__node_fn(do__f_reset_counters);
-    case TI_FN_SET_LOG_LEVEL:
-        do__node_fn(do__f_set_log_level);
-    case TI_FN_SHUTDOWN:
-        do__node_fn(do__f_shutdown);
-
-    /* explicit error functions */
-    case TI_FN_OVERFLOW_ERR:
-        do__no_chain_fn(do__f_overflow_err);
-    case TI_FN_ZERO_DIV_ERR:
-        do__no_chain_fn(do__f_zero_div_err);
-    case TI_FN_MAX_QUOTA_ERR:
-        do__no_chain_fn(do__f_max_quota_err);
-    case TI_FN_AUTH_ERR:
-        do__no_chain_fn(do__f_auth_err);
-    case TI_FN_FORBIDDEN_ERR:
-        do__no_chain_fn(do__f_forbidden_err);
-    case TI_FN_INDEX_ERR:
-        do__no_chain_fn(do__f_index_err);
-    case TI_FN_BAD_DATA_ERR:
-        do__no_chain_fn(do__f_bad_data_err);
-    case TI_FN_SYNTAX_ERR:
-        do__no_chain_fn(do__f_syntax_err);
-    case TI_FN_NODE_ERR:
-        do__no_chain_fn(do__f_node_err);
-    case TI_FN_ASSERT_ERR:
-        do__no_chain_fn(do__f_assert_err);
+        if (query->rval)
+            ex_set(e, EX_INDEX_ERROR,
+                    "type `%s` has no function `%.*s`",
+                    ti_val_str(query->rval),
+                    fname->len,
+                    fname->str);
+        else
+            ex_set(e, EX_INDEX_ERROR,
+                    "function `%.*s` is undefined",
+                    fname->len,
+                    fname->str);
+        return e->nr;
     }
 
-    if (is_chained)
-        ex_set(e, EX_INDEX_ERROR,
-                "type `%s` has no function `%.*s`",
-                ti_val_str(query->rval),
-                fname->len,
-                fname->str);
-    else
-        ex_set(e, EX_INDEX_ERROR,
-                "function `%.*s` is undefined",
-                fname->len,
-                fname->str);
-
-    return e->nr;
-
-no_thingsdb_or_collection_scope:
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `%s` scope; "
-            "You might want to query the `thingsdb` or a `collection` scope?",
-            fname->len,
-            fname->str,
-            ti_query_scope_name(query));
-    return e->nr;
-
-no_node_scope:
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `%s` scope; "
-            "You might want to query the `node` scope?",
-            fname->len,
-            fname->str,
-            ti_query_scope_name(query));
-    return e->nr;
-
-no_thingsdb_scope:
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `%s` scope; "
-            "You might want to query the `thingsdb` scope?",
-            fname->len,
-            fname->str,
-            ti_query_scope_name(query));
-    return e->nr;
-
-no_collection_scope:
-    ex_set(e, EX_INDEX_ERROR,
-            "function `%.*s` is undefined in the `%s` scope; "
-            "You might want to query a `collection` scope?",
-            fname->len,
-            fname->str,
-            ti_query_scope_name(query));
-    return e->nr;
+    return ((do__fn_cb) fname->data)(query, nd->children->next->next->node, e);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -761,7 +372,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_FUNCTION:
-        if (do__function(query, node, true  /* is_chained */, e))
+        if (do__function(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_ASSIGNMENT:
@@ -1267,7 +878,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_FUNCTION:
-        if (do__function(query, node, false /* is_chained */, e))
+        if (do__function(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_IMMUTABLE:

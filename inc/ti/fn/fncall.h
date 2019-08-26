@@ -4,14 +4,13 @@
 
 static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval);
-
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_closure_t * closure;
     vec_t * args;
+
+    if (fn_not_chained("call", query, e))
+        return e->nr;
 
     if (!ti_val_is_closure(query->rval))
     {

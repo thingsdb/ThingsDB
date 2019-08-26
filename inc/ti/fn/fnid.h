@@ -4,10 +4,10 @@
 
 static int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     ti_thing_t * thing;
+
+    if (fn_not_chained("id", query, e))
+        return e->nr;
 
     if (!ti_val_is_thing(query->rval))
     {

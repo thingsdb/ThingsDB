@@ -4,15 +4,12 @@
 
 static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     uint64_t collection_id;
     ti_collection_t * collection;
     ti_task_t * task;
+
+    if (fn_not_thingsdb_scope("del_collection", query, e))
+        return e->nr;
 
     if (!langdef_nd_fun_has_one_param(nd))
     {

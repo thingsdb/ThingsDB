@@ -4,10 +4,10 @@
 
 static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     ti_raw_t * raw;
+
+    if (fn_not_chained("upper", query, e))
+        return e->nr;
 
     if (!ti_val_is_raw(query->rval))
     {

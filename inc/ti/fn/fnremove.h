@@ -310,19 +310,24 @@ fail0:
 
 static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
+    if (fn_not_chained("remove", query, e))
+        return e->nr;
 
     if (ti_val_is_list(query->rval))
+    {
         do__f_remove_list(query, nd, e);
+    }
     else if (ti_val_is_set(query->rval))
+    {
         do__f_remove_set(query, nd, e);
+    }
     else
+    {
         ex_set(e, EX_INDEX_ERROR,
                 "type `%s` has no function `remove`"
                 REMOVE_LIST_DOC_ REMOVE_SET_DOC_,
                 ti_val_str(query->rval));
+    }
 
     return e->nr;
 }

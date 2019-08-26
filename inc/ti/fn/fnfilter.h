@@ -4,13 +4,13 @@
 
 static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     ti_val_t * retval = NULL;
     ti_closure_t * closure;
     ti_val_t * iterval;
     int lock_was_set;
+
+    if (fn_not_chained("filter", query, e))
+        return e->nr;
 
     if (    !ti_val_is_arr(query->rval) &&
             !ti_val_is_set(query->rval) &&

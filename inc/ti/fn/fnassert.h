@@ -4,11 +4,12 @@
 
 static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->rval == NULL);
-
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
     cleri_node_t * assert_node;
+
+    if (fn_chained("assert", query, e))
+        return e->nr;
 
     if (nargs < 1)
     {

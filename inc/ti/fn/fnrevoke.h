@@ -4,18 +4,15 @@
 
 static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     int n;
     ti_user_t * user;
     ti_raw_t * uname;
     ti_task_t * task;
     uint64_t mask, target_id;
     vec_t ** access_;
+
+    if (fn_not_thingsdb_scope("replace_node", query, e))
+        return e->nr;
 
     n = langdef_nd_n_function_params(nd);
     if (n != 3)

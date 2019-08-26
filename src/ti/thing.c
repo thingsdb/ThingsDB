@@ -26,7 +26,7 @@ static inline int thing__prop_locked(
             (prop->val->flags & TI_VFLAG_LOCK))
     {
         ex_set(e, EX_BAD_DATA,
-            "cannot remove property `%s` on "TI_THING_ID
+            "cannot change or remove property `%s` on "TI_THING_ID
             " while the `%s` is being used",
             prop->name->str,
             thing->id,

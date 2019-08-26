@@ -4,14 +4,14 @@
 
 static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     const int nargs = langdef_nd_n_function_params(nd);
     int64_t idx = 0;
     ti_closure_t * closure;
     ti_val_t * iterval;
     int lock_was_set;
+
+    if (fn_not_chained("find", query, e))
+        return e->nr;
 
     if (    !ti_val_is_array(query->rval) &&
             !ti_val_is_set(query->rval))

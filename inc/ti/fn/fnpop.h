@@ -4,11 +4,11 @@
 
 static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     ti_varr_t * varr;
     ti_chain_t chain;
+
+    if (fn_not_chained("pop", query, e))
+        return e->nr;
 
     ti_chain_move(&chain, &query->chain);
 

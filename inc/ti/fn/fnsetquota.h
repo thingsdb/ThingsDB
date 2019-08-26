@@ -4,12 +4,6 @@
 
 static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     ti_quota_enum_t qtp;
     size_t quota;
     ti_raw_t * rquota;
@@ -17,6 +11,9 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     uint64_t collection_id;
     int nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_not_thingsdb_scope("set_quota", query, e))
+        return e->nr;
 
     if (nargs != 3)
     {

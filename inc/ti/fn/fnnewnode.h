@@ -4,12 +4,6 @@
 
 static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB);
-    assert (e->nr == 0);
-    assert (query->ev);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-    assert (query->rval == NULL);
-
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
     char * secret;
@@ -23,6 +17,9 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     struct sockaddr_storage addr;
     char * addrstr;
     int port, nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_not_thingsdb_scope("new_node", query, e))
+        return e->nr;
 
     if (nargs < 2)
     {

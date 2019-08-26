@@ -4,17 +4,18 @@
 
 static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->tp == CLERI_TP_LIST);
-
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
-    vec_t * added = vec_new(nargs);  /* weak references to things */
+    vec_t * added;
     ti_vset_t * vset;
     ti_chain_t chain;
 
+    if (fn_not_chained("add", query, e))
+        return e->nr;
+
     ti_chain_move(&chain, &query->chain);
 
+    added = vec_new(nargs);  /* weak references to things */
     if (!added)
     {
         ex_set_mem(e);

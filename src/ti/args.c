@@ -53,99 +53,99 @@ int ti_args_parse(int argc, char *argv[])
         return -1;
 
     argparse_argument_t config_ = {
-            name: "config",
-            shortcut: 'c',
-            help: "define which ThingsDB configuration file to use",
-            action: ARGPARSE_STORE_STRING,
-            default_int32_t: 0,
-            pt_value_int32_t: NULL,
-            str_default: "/etc/thingsdb/thingsdb.conf",
-            str_value: args->config,
-            choices: NULL
+        .name = "config",
+        .shortcut = 'c',
+        .help = "define which ThingsDB configuration file to use",
+        .action = ARGPARSE_STORE_STRING,
+        .default_int32_t = 0,
+        .pt_value_int32_t = NULL,
+        .str_default = "/etc/thingsdb/thingsdb.conf",
+        .str_value = args->config,
+        .choices = NULL
     };
 
     argparse_argument_t init_ = {
-            name: "init",
-            shortcut: 0,
-            help: "initialize a new ThingsDB store",
-            action: ARGPARSE_STORE_TRUE,
-            default_int32_t: 0,
-            pt_value_int32_t: &args->init,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL,
+        .name = "init",
+        .shortcut = 0,
+        .help = "initialize a new ThingsDB store",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->init,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
     };
 
     argparse_argument_t secret_ = {
-            name: "secret",
-            shortcut: 0,
-            help: "set one time secret and wait for request to join",
-            action: ARGPARSE_STORE_STRING,
-            default_int32_t: 0,
-            pt_value_int32_t: NULL,
-            str_default: "",
-            str_value: args->secret,
-            choices: NULL,
+        .name = "secret",
+        .shortcut = 0,
+        .help = "set one time secret and wait for request to join",
+        .action = ARGPARSE_STORE_STRING,
+        .default_int32_t = 0,
+        .pt_value_int32_t = NULL,
+        .str_default = "",
+        .str_value = args->secret,
+        .choices = NULL,
     };
 
     argparse_argument_t force_ = {
-            name: "force",
-            shortcut: 0,
-            help: "force --init or --secret to remove existing data if exists",
-            action: ARGPARSE_STORE_TRUE,
-            default_int32_t: 0,
-            pt_value_int32_t: &args->force,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL,
+        .name = "force",
+        .shortcut = 0,
+        .help = "force --init or --secret to remove existing data if exists",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->force,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
     };
 
     argparse_argument_t rebuild_ = {
-            name: "rebuild",
-            shortcut: 0,
-            help: "rebuild the node (can only be used when having >1 nodes)",
-            action: ARGPARSE_STORE_TRUE,
-            default_int32_t: 0,
-            pt_value_int32_t: &args->rebuild,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL,
+        .name = "rebuild",
+        .shortcut = 0,
+        .help = "rebuild the node (can only be used when having >1 nodes)",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->rebuild,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
     };
 
     argparse_argument_t version_ = {
-            name: "version",
-            shortcut: 'v',
-            help: "show version information and exit",
-            action: ARGPARSE_STORE_TRUE,
-            default_int32_t: 0,
-            pt_value_int32_t: &args->version,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL
+        .name = "version",
+        .shortcut = 'v',
+        .help = "show version information and exit",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->version,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL
     };
 
     argparse_argument_t log_level_ = {
-            name: "log-level",
-            shortcut: 'l',
-            help: "set initial log level",
-            action: ARGPARSE_STORE_STR_CHOICE,
-            default_int32_t: 0,
-            pt_value_int32_t: NULL,
-            str_default: DEFAULT_LOG_LEVEL,
-            str_value: args->log_level,
-            choices: "debug,info,warning,error,critical"
+        .name = "log-level",
+        .shortcut = 'l',
+        .help = "set initial log level",
+        .action = ARGPARSE_STORE_STR_CHOICE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = NULL,
+        .str_default = DEFAULT_LOG_LEVEL,
+        .str_value = args->log_level,
+        .choices = "debug,info,warning,error,critical"
     };
 
     argparse_argument_t log_colorized_ = {
-            name: "log-colorized",
-            shortcut: 0,
-            help: "use colorized logging",
-            action: ARGPARSE_STORE_TRUE,
-            default_int32_t: 0,
-            pt_value_int32_t: &args->log_colorized,
-            str_default: NULL,
-            str_value: NULL,
-            choices: NULL,
+        .name = "log-colorized",
+        .shortcut = 0,
+        .help = "use colorized logging",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->log_colorized,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
     };
 
     if (    argparse_add_argument(parser, &config_) ||

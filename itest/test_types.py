@@ -49,6 +49,13 @@ class TestTypes(TestBase):
         self.assertEqual(await client.query(r'''
             blob(0);
         ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
+        self.assertTrue(await client.query(' ("Hello"[0] == "H") '))
+        self.assertTrue(await client.query(' ("Hello"[0][-1] == "H") '))
+        self.assertTrue(await client.query(' ("Hello"[-1] == "o") '))
+        self.assertTrue(await client.query(' ("Hello"[-4] == "e") '))
+        self.assertTrue(await client.query(' ("Hello" == "Hello") '))
+        self.assertTrue(await client.query(' ("Hello" != "hello") '))
+        self.assertTrue(await client.query(' ("Hello" != "Hello.") '))
 
     async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
@@ -150,7 +157,7 @@ class TestTypes(TestBase):
                 [1 ,2 ,3].map(.a[0]);
             ''')
 
-        # test two-level deel nesting
+        # test two-level deep nesting
         self.assertEqual(await client.query(r'''
             .b = |k1|.map(|k2|(k1 + k2));
             .map(.b);

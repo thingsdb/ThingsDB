@@ -82,7 +82,7 @@ failed:
 static int archive__init_queue(void)
 {
     assert (ti()->node);
-    int rc;
+    int rc = -1;
     ti_epkg_t * epkg;
     const uint64_t cevid = ti()->node->cevid;
     /*

@@ -23,7 +23,7 @@ static const int signals__signms[signals__nsigs] = {
         SIGPIPE
 };
 
-static uv_signal_t signals[signals__nsigs] = {0};
+static uv_signal_t signals[signals__nsigs];
 
 int ti_signals_init(void)
 {

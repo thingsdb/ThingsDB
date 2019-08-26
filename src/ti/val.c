@@ -396,14 +396,14 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
 {
     ti_collection_t * collection;
     static ti_raw_t node = {
-            tp: TI_VAL_RAW,
-            n: 5,
-            data: ".node"
+        .tp = TI_VAL_RAW,
+        .n = 5,
+        .data = ".node"
     };
     static ti_raw_t thingsdb = {
-            tp: TI_VAL_RAW,
-            n: 9,
-            data: ".thingsdb"
+        .tp = TI_VAL_RAW,
+        .n = 9,
+        .data = ".thingsdb"
     };
 
     if (ti_val_is_raw(val))

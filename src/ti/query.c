@@ -342,14 +342,14 @@ int ti_query_run_unpack(
         ex_t * e)
 {
     static ti_raw_t node = {
-            tp: TI_VAL_RAW,
-            n: 5,
-            data: ".node"
+        .tp = TI_VAL_RAW,
+        .n = 5,
+        .data = ".node"
     };
     static ti_raw_t thingsdb = {
-            tp: TI_VAL_RAW,
-            n: 9,
-            data: ".thingsdb"
+        .tp = TI_VAL_RAW,
+        .n = 9,
+        .data = ".thingsdb"
     };
     qp_unpacker_t unpacker;
     qp_obj_t qp_target, qp_procedure;

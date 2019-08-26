@@ -221,7 +221,7 @@ static void do__f_remove_set(
         assert (query->rval == NULL);
 
         for (vec_each(removed, ti_thing_t, t))
-            (void *) ti_vset_pop(vset, t);
+            (void) ti_vset_pop(vset, t);
     }
     else
     {

@@ -46,6 +46,9 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!prop)
         goto fail0;
 
+    if (thing->id)
+        ti_chain_set(&query->chain, thing, prop->name);
+
     ti_val_drop(query->rval);
     query->rval = prop->val;
     ti_incref(query->rval);

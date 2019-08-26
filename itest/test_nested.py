@@ -47,28 +47,33 @@ class TestNested(TestBase):
             client.close()
             await client.wait_closed()
 
-    async def test_push_loop(self, client0, client1, client2):
+    async def _test_push_loop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [1, 2];
             .map(|k, v| {
-                v.push(3, 4);
+                v.push(3, 4);  // changes the copy, not the original
             });
+        ''')
+        await asyncio.sleep(0.1)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.query('.arr'), [1, 2])
+
+    async def test_set_and_push(self, client0, client1, client2):
+        await client0.query(r'''
+            .set("arr", []).push(1, 2, 3, 4);
         ''')
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
-    async def test_push_loop(self, client0, client1, client2):
+    async def test_get_and_push(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [1, 2];
-            .map(|k, v| {
-                v.push(3, 4);
-            });
+            .get('arr').push(3, 4);
         ''')
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
-
 
     async def test_var_assign(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''

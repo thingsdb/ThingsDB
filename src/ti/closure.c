@@ -378,10 +378,16 @@ int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
             ti_val_drop(p->val);
             p->val = prop->val;
             ti_incref(p->val);
-
-            /* TODO: Why? all properties are already assigned? */
-//            if (ti_val_make_assignable(&p->val, e))
-//                return e->nr;
+            /*
+             * Re-assign variable since we require a copy of lists and sets.
+             * (otherwise no event will be created)
+             *
+             * TODO: consider using pointers when assigning to variable, but
+             * that requires sets and lists to have a reference to the thing
+             * they are assigned to.
+             */
+            if (ti_val_make_assignable(&p->val, e))
+                return e->nr;
             break;
         default:
             return 0;

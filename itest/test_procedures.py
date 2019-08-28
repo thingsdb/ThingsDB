@@ -501,6 +501,26 @@ class TestProcedures(TestBase):
         self.assertEqual(await client.query('run("test", 6);'), 60)
         self.assertEqual(await client.query('wse(run("test_wse", 42));'), 42)
 
+    async def test_thing_argument(self, client):
+        await client.query(r'''
+            new_procedure('test_save_thing', |t| .t = t);
+            new_procedure('test_another_thing', |t| .other = t);
+            new_procedure('as_named_args', |options| .name = options.name);
+        ''')
+
+        await client.run('test_save_thing', {'name': 'Iris', 'age': 6})
+        await client.run('as_named_args', {'name': 'Cato'})
+
+        iris = await client.query('.t')
+
+        self.assertEqual(iris['name'], 'Iris')
+        self.assertEqual(iris['age'], 6)
+        self.assertEqual(await client.query('.name'), 'Cato')
+
+        await client.run('test_another_thing', iris)
+
+        self.assertTrue(await client.query('(.other == .t)'))
+
 
 if __name__ == '__main__':
     run_test(TestProcedures())

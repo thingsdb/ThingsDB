@@ -251,9 +251,17 @@ class Client(Buildin):
 
     async def run(self, procedure: str, *args, target=None, ):
         scope = self._make_scope(target)
+
+        arguments = (
+            {'#': arg.get('#')}
+            if isinstance(arg, dict) and arg.get('#')
+            else arg
+            for arg in args
+        )
+
         future = self._write_package(
             REQ_RUN,
-            [scope._scope, procedure, *args],
+            [scope._scope, procedure, *arguments],
             timeout=None)
         return await future
 

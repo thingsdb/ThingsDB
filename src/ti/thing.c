@@ -119,6 +119,53 @@ void ti_thing_clear(ti_thing_t * thing)
         ti_prop_destroy(prop);
 }
 
+int ti_thing_props_from_unp(
+        ti_thing_t * thing,
+        imap_t * things,
+        qp_unpacker_t * unp,
+        ssize_t sz)
+{
+    while (sz--)
+    {
+        ti_val_t * val;
+        ti_name_t * name;
+        qp_obj_t qp_prop;
+        if (qp_is_close(qp_next(unp, &qp_prop)))
+            break;
+
+        if (!qp_is_raw(qp_prop.tp) || !ti_name_is_valid_strn(
+                (const char *) qp_prop.via.raw,
+                qp_prop.len))
+            return -1;
+
+        name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
+        val = ti_val_from_unp(unp, things);
+
+        if (!val || !name || !ti_thing_prop_set(thing, name, val))
+        {
+            ti_val_drop(val);
+            ti_name_drop(name);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+ti_thing_t * ti_thing_new_from_unp(
+        qp_unpacker_t * unp,
+        imap_t * things,        /* may be NULL */
+        ssize_t sz)             /* size, or -1 when MAP_OPEN */
+{
+    ti_thing_t * thing = ti_thing_create(0, things);
+
+    if (ti_thing_props_from_unp(thing, things, unp, sz))
+    {
+        ti_val_drop((ti_val_t *) thing);
+        return NULL;
+    }
+
+    return thing;
+}
 
 /*
  * Does not increment the `name` and `val` reference counters.

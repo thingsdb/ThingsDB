@@ -115,35 +115,13 @@ ti_thing_t * ti_things_thing_from_unp(
     if (thing_id >= ti()->node->next_thing_id)
         ti()->node->next_thing_id = thing_id + 1;
 
-    while (--sz)
+    --sz;  /* decrease one to unpack the remaining properties */
+    if (ti_thing_props_from_unp(thing, things, unp, sz))
     {
-        ti_val_t * val;
-        ti_name_t * name;
-        qp_obj_t qp_prop;
-        if (qp_is_close(qp_next(unp, &qp_prop)))
-            break;
-
-        if (!qp_is_raw(qp_prop.tp) || !ti_name_is_valid_strn(
-                (const char *) qp_prop.via.raw,
-                qp_prop.len))
-            goto failed;
-
-        name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
-        val = ti_val_from_unp(unp, things);
-
-        if (!val || !name || !ti_thing_prop_set(thing, name, val))
-        {
-            ti_val_drop(val);
-            ti_name_drop(name);
-            goto failed;
-        }
+        ti_val_drop((ti_val_t *) thing);
+        return NULL;
     }
-
     return thing;
-
-failed:
-    ti_val_drop((ti_val_t *) thing);
-    return NULL;
 }
 
 int ti_things_gc(imap_t * things, ti_thing_t * root)

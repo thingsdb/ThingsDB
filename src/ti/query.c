@@ -433,12 +433,9 @@ int ti_query_run_unpack(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        /*
-         * Make things explicit NULL, existing things should be parsed using
-         * and integer and the t() function, and new things must be created
-         * by the procedure and not given as argument.
-         */
-        argval = ti_val_from_unp(&unpacker, NULL);
+        argval = ti_val_from_unp(
+                &unpacker,
+                query->target ? query->target->things : NULL);
         if (!argval)
         {
             ex_set(e, EX_INDEX_ERROR,

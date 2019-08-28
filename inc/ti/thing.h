@@ -20,6 +20,15 @@ typedef struct ti_thing_s  ti_thing_t;
 ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
+int ti_thing_props_from_unp(
+        ti_thing_t * thing,
+        imap_t * things,
+        qp_unpacker_t * unp,
+        ssize_t sz);
+ti_thing_t * ti_thing_new_from_unp(
+        qp_unpacker_t * unp,
+        imap_t * things,
+        ssize_t sz);
 ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_prop_add(
         ti_thing_t * thing,

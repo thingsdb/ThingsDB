@@ -384,7 +384,7 @@ int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
              *
              * TODO: consider using pointers when assigning to variable, but
              * that requires sets and lists to have a reference to the thing
-             * they are assigned to.
+             * and name they are assigned to.
              */
             if (ti_val_make_assignable(&p->val, e))
                 return e->nr;
@@ -449,7 +449,16 @@ void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
 /* cannot be static in-line due to syntax */
 int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
-    if (    (closure->flags & TI_VFLAG_CLOSURE_WSE) &&
+    /*
+     * The current implementation never set's the `WSE` flag when bound to a
+     * scope, but nevertheless we check for explicit only the WSE flag for
+     * we might change the code so the WSE flag will be set, even when bound
+     */
+    if (    ((closure->flags & (
+                TI_VFLAG_CLOSURE_BTSCOPE|
+                TI_VFLAG_CLOSURE_BCSCOPE|
+                TI_VFLAG_CLOSURE_WSE
+            )) == TI_VFLAG_CLOSURE_WSE) &&
             (~query->syntax.flags & TI_SYNTAX_FLAG_WSE))
     {
         ex_set(e, EX_BAD_DATA,

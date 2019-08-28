@@ -103,7 +103,8 @@ class Label(Thing):
         return self.name if self else 'unknown'
 
     async def on_update(self, event_id, jobs):
-        await super().on_update(event_id, jobs)
+
+        # await super().on_update(event_id, jobs)
         print('on update: ', jobs)
 
 
@@ -157,13 +158,23 @@ async def test(client):
 
     await client.connect('localhost')
     await client.authenticate(['admin', 'pass'])
+    client.use('stuff')
+
+    osdata = OsData(client, build=True)
+
+    await asyncio.sleep(1)
 
     try:
-        x = await client.run('pp', 4, target='stuff')
-        print(x)
-        # my_collection = MyCollection(client, build=True)
+        x = await client.run('new_user', 'pietje')
+        # print(x)
+        my_collection = MyCollection(client, build=True)
         # x = await client.run('addone', 10, target='stuff')
         # print(x)
+
+        while True:
+            print([label.name for label in osdata.labels])
+            await asyncio.sleep(1)
+
     finally:
         client.close()
 

@@ -20,8 +20,8 @@
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncounters.h>
-#include <ti/fn/fndel.h>
 #include <ti/fn/fndeep.h>
+#include <ti/fn/fndel.h>
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelexpired.h>
 #include <ti/fn/fndelprocedure.h>
@@ -30,6 +30,7 @@
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
+#include <ti/fn/fnextend.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
@@ -181,6 +182,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         syntax__tev_fn(q, nd, "del_user", do__f_del_user);
         break;
     case 'e':
+        syntax__cev_fn(q, nd, "extend", do__f_extend);
         syntax__nev_fn(q, nd, "endswith", do__f_endswith);
         syntax__nev_fn(q, nd, "err", do__f_err);
         break;

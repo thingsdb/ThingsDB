@@ -449,6 +449,44 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('"Hi World!".endswith("World!")'))
         self.assertFalse(await client.query('"Hi World!".endswith("world!")'))
 
+    async def test_extend(self, client):
+        await client.query('.list = [];')
+        self.assertEqual(await client.query('.list.extend(["a"])'), 1)
+        self.assertEqual(await client.query('.list.extend(["b", "c"])'), 3)
+        self.assertEqual(await client.query('.list;'), ['a', 'b', 'c'])
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `nil` has no function `extend`'):
+            await client.query('nil.extend();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'function `extend` is undefined'):
+            await client.query('extend();')
+
+        with self.assertRaisesRegex(
+                IndexError,
+                'type `tuple` has no function `extend`'):
+            await client.query('.a = [.list]; .a[0].extend(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `extend` takes 1 argument '
+                'but 0 were given'):
+            await client.query('.list.extend();')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'function `extend` expects argument 1 to be of '
+                'type `array` but got type `nil` instead'):
+            await client.query('.list.extend(nil);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot change type `list` while the value is being used'):
+            await client.query('.list.map(||.list.extend([4]));')
+
     async def test_filter(self, client):
         await client.query(r'''
             .iris = {

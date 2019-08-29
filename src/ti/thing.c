@@ -123,7 +123,8 @@ int ti_thing_props_from_unp(
         ti_thing_t * thing,
         imap_t * things,
         qp_unpacker_t * unp,
-        ssize_t sz)
+        ssize_t sz,
+        ex_t * e)
 {
     while (sz--)
     {
@@ -131,37 +132,64 @@ int ti_thing_props_from_unp(
         ti_name_t * name;
         qp_obj_t qp_prop;
         if (qp_is_close(qp_next(unp, &qp_prop)))
-            break;
+            return e->nr;
 
-        if (!qp_is_raw(qp_prop.tp) || !ti_name_is_valid_strn(
-                (const char *) qp_prop.via.raw,
-                qp_prop.len))
-            return -1;
+        if (!qp_is_raw(qp_prop.tp))
+        {
+            ex_set(e, EX_BAD_DATA, "property names must be of type string");
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "property name must follow the naming rules"
+                    TI_SEE_DOC("#names"));
+            return e->nr;
+        }
 
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
-        val = ti_val_from_unp(unp, things);
+        val = ti_val_from_unp_e(unp, things, e);
 
         if (!val || !name || !ti_thing_prop_set(thing, name, val))
         {
+            if (!e->nr)
+                ex_set_mem(e);
             ti_val_drop(val);
             ti_name_drop(name);
-            return -1;
+            return e->nr;
         }
     }
-    return 0;
+    return e->nr;
 }
 
 ti_thing_t * ti_thing_new_from_unp(
         qp_unpacker_t * unp,
         imap_t * things,        /* may be NULL */
-        ssize_t sz)             /* size, or -1 when MAP_OPEN */
+        ssize_t sz,             /* size, or -1 when MAP_OPEN */
+        ex_t * e)
 {
-    ti_thing_t * thing = ti_thing_create(0, things);
+    ti_thing_t * thing;
 
-    if (ti_thing_props_from_unp(thing, things, unp, sz))
+    if (~unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "new things without an id can only be created from user input "
+                "and are unexpected when parsed from node data");
+        return NULL;
+    }
+
+    thing = ti_thing_create(0, things);
+    if (!thing)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    if (ti_thing_props_from_unp(thing, things, unp, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
-        return NULL;
+        return NULL;  /* error is set */
     }
 
     return thing;

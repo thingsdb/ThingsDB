@@ -51,6 +51,17 @@ void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n)
     e->msg[e->n] = '\0';
 }
 
+void ex_append(ex_t * e, const char * errmsg, ...)
+{
+    va_list args;
+    int n;
+    va_start(args, errmsg);
+    n = e->n + vsnprintf(e->msg + e->n, EX_MAX_SZ - e->n, errmsg, args);
+    e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
+    assert (e->n >= 0);
+    va_end(args);
+}
+
 const char * ex_str(ex_enum errnr)
 {
     switch (errnr)

@@ -148,7 +148,7 @@ static inline void syntax__set_both_event(ti_syntax_t * syntax)
             ? TI_SYNTAX_FLAG_EVENT : 0;
 }
 
-static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
+static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
 {
     /* a function name has at least size 1 */
     switch ((ti_alpha_lower_t) *nd->str)
@@ -273,7 +273,10 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd)
         break;
     case 's':
         syntax__cev_fn(q, nd, "splice", do__f_splice);
-        syntax__cev_fn(q, nd, "set", do__f_set);
+        if (chain)
+            syntax__cev_fn(q, nd, "set", do__f_set);
+        else
+            syntax__nev_fn(q, nd, "set", do__f_set);
         syntax__nev_fn(q, nd, "startswith", do__f_startswith);
         syntax__nev_fn(q, nd, "str", do__f_str);
         syntax__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
@@ -316,7 +319,10 @@ static inline void syntax__investigate(ti_syntax_t * syntax, cleri_node_t * nd)
             nd->cl_obj->gid == CLERI_GID_CHAIN);
 
     /* skip . and !, goto choice */
-    ti_syntax_investigate(syntax, nd->children->next->node);
+    ti_syntax_inv(
+            syntax,
+            nd->children->next->node,
+            nd->cl_obj->gid == CLERI_GID_CHAIN);
 
     /* index */
     if (nd->children->next->next->node->children)
@@ -385,7 +391,7 @@ static _Bool syntax__swap_opr(
  * - re-arrange operations to honor compare order
  * - count primitives cache requirements
  */
-void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
+void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
 {
     switch (nd->cl_obj->gid)
     {
@@ -447,7 +453,7 @@ void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
         cleri_children_t * child;
 
         /* map function to node */
-        syntax__map_fn(syntax, nd->children->node);
+        syntax__map_fn(syntax, nd->children->node, chain);
 
         /* list (arguments) */
         nd = nd->children->next->next->node;

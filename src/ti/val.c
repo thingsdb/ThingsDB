@@ -36,85 +36,121 @@ static ti_val_t * val__sclosure;
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
 
-
-
-static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
+static ti_val_t * val__unp_map(
+        qp_unpacker_t * unp,
+        imap_t * things,
+        ssize_t sz,
+        ex_t * e)
 {
     qp_obj_t qp_kind, qp_tmp;
     const unsigned char * restore_point;
     if (!sz)
-        return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz);
+        return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz, e);
 
     restore_point = unp->pt;
 
     if (!qp_is_raw(qp_next(unp, &qp_kind)) || !qp_kind.len)
+    {
+        ex_set(e, EX_BAD_DATA, "expecting a non-empty string key");
         return NULL;
+    }
 
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
     case TI_KIND_C_THING:
-        return qp_is_int(qp_next(unp, &qp_tmp)) && things
-                ? (ti_val_t *) ti_things_thing_from_unp(
-                        things,
-                        (uint64_t) qp_tmp.via.int64,
-                        unp,
-                        sz)
-                : NULL;
+        if (!things)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot unpack a `thing` without a collection");
+            return NULL;
+        }
+        if (!qp_is_int(qp_next(unp, &qp_tmp)))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "expecting an integer value as thing id");
+            return NULL;
+        }
+        return (ti_val_t *) ti_things_thing_from_unp(
+                things,
+                (uint64_t) qp_tmp.via.int64,
+                unp,
+                sz,
+                e);
     case TI_KIND_C_CLOSURE:
     {
-        ex_t e = { .nr=0 };
-        ti_closure_t * closure;
         ti_syntax_t syntax;
         ti_syntax_init(
                 &syntax,
                 things ? TI_SYNTAX_FLAG_COLLECTION : TI_SYNTAX_FLAG_THINGSDB);
 
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "closures must be written according the following syntax: "
+                    "{\""TI_KIND_S_CLOSURE"\": \"...\"");
             return NULL;
+        }
 
-        closure = ti_closure_from_strn(
+        return (ti_val_t *) ti_closure_from_strn(
                 &syntax,
                 (char *) qp_tmp.via.raw,
-                qp_tmp.len, &e);
-        if (!closure)
-            log_error(e.msg);
-        return (ti_val_t *) closure;
+                qp_tmp.len, e);
     }
     case TI_KIND_C_REGEX:
     {
-        ex_t e = { .nr=0 };
-        ti_regex_t * regex;
-
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "regular expressions must be written according the "
+                    "following syntax: {\""TI_KIND_S_REGEX"\": \"...\"");
             return NULL;
-        regex = ti_regex_from_strn(
+        }
+
+        return (ti_val_t *) ti_regex_from_strn(
                 (const char *) qp_tmp.via.raw,
                 qp_tmp.len,
-                &e);
-        if (!regex)
-            log_error(e.msg);
-        return (ti_val_t *) regex;
+                e);
     }
     case TI_KIND_C_SET:
     {
-        ti_thing_t * thing;
-        ti_vset_t * vset = ti_vset_create();
+        ti_val_t * vthing;
         ssize_t tsz, arrsz = qp_next(unp, NULL);
-        if (!vset || sz != 1 || !qp_is_array(arrsz))
+        ti_vset_t * vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
             return NULL;
-
+        }
+        if (sz != 1 || !qp_is_array(arrsz))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "sets must be written according the "
+                    "following syntax: {\""TI_KIND_S_SET"\": [...]");
+            return NULL;
+        }
         arrsz = arrsz == QP_ARRAY_OPEN ? -1 : arrsz - QP_ARRAY0;
 
-        while (arrsz-- && qp_is_map((tsz = qp_next(unp, &qp_tmp))))
+        while (arrsz--)
         {
-            tsz = tsz == QP_MAP_OPEN ? -1 : tsz - QP_MAP0;
-            thing = (ti_thing_t *) val__unp_map(unp, things, tsz);
-            if (    !thing ||
-                    !ti_val_is_thing((ti_val_t *) thing) ||
-                    ti_vset_add(vset, thing))
+            tsz = qp_next(unp, &qp_tmp);
+
+            if (qp_is_close(tsz))
+                break;
+
+            if (!qp_is_map(tsz))
             {
                 ti_vset_destroy(vset);
+                ex_set(e, EX_BAD_DATA, "sets can one contain things");
                 return NULL;
+            }
+
+            tsz = tsz == QP_MAP_OPEN ? -1 : tsz - QP_MAP0;
+            vthing = val__unp_map(unp, things, tsz, e);
+
+            if (!vthing || (ti_vset_add_val(vset, vthing, e) < 0))
+            {
+                ti_vset_destroy(vset);
+                return NULL;  /* `e` is set in both cases */
             }
         }
 
@@ -122,6 +158,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
     }
     case TI_KIND_C_ERROR:
     {
+        ti_verror_t * verror;
         qp_obj_t qp_msg, qp_code;
         if (    sz != 3 ||
                 !qp_is_raw(qp_next(unp, NULL)) ||       /* definition */
@@ -132,19 +169,40 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
                 !qp_is_int(qp_next(unp, &qp_code)) ||
                 qp_code.via.int64 < EX_MIN_ERR ||
                 qp_code.via.int64 > EX_MAX_BUILD_IN_ERR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "errors must be written according the "
+                    "following syntax: {"
+                    "\""TI_KIND_S_ERROR"\": \"..err()\","
+                    "\"error_msg\": \"..msg\","
+                    "\"error_code\": code}");
             return NULL;
+        }
 
-        return (ti_val_t *) ti_verror_create(
+        verror = ti_verror_create(
                 (const char *) qp_msg.via.raw,
                 qp_msg.len,
                 (int8_t) qp_code.via.int64);
+
+        if (!verror)
+            ex_set_mem(e);
+
+        return (ti_val_t *) verror;
     }
     case TI_KIND_C_INFO:
     {
         const uchar * start;
         ti_val_t * qpinfo;
-        if (qp_kind.len != 1)
+        if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+        {
+            ex_set(e, EX_BAD_DATA, "type `info` is not allowed as user input");
             return NULL;
+        }
+        if (qp_kind.len != 1)
+        {
+            ex_set(e, EX_BAD_DATA, "invalid info key");
+            return NULL;
+        }
         unp->pt = restore_point;    /* restore to the start the map */
         --unp->pt;          /* decrease one to restore to the map itself */
         assert (qp_is_map(*unp->pt));
@@ -152,7 +210,10 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
         qp_skip(unp);
         qpinfo = (ti_val_t *) ti_raw_create(start, unp->pt - start);
         if (!qpinfo)
+        {
+            ex_set_mem(e);
             return NULL;
+        }
         qpinfo->tp = TI_VAL_QP;
         return qpinfo;
     }
@@ -160,7 +221,7 @@ static ti_val_t * val__unp_map(qp_unpacker_t * unp, imap_t * things, ssize_t sz)
 
     /* restore the unpack pointer to the first property */
     unp->pt = restore_point;
-    return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz);
+    return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz, e);
 }
 
 /*
@@ -210,8 +271,7 @@ static ti_val_t * val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
         imap_t * things,
-        ex_t * e,
-        _Bool )
+        ex_t * e)
 {
     switch((qp_types_t) qp_val->tp)
     {
@@ -292,7 +352,7 @@ static ti_val_t * val__from_unp(
 
         while (!qp_is_close(qp_next(unp, &qp_v)))
         {
-            v = val__from_unp(&qp_v, unp, things);
+            v = val__from_unp(&qp_v, unp, things, e);
             if (!v || val__push(varr, v, e))
             {
                 ti_val_drop(v);
@@ -303,16 +363,24 @@ static ti_val_t * val__from_unp(
         return (ti_val_t *) varr;
     }
     case QP_MAP_OPEN:
-        return val__unp_map(unp, things, -1);
+        return val__unp_map(unp, things, -1, e);
     case QP_END:
+        ex_set(e, EX_INDEX_ERROR, "missing value");
+        return NULL;
     case QP_ERR:
+        ex_set(e, EX_BAD_DATA, "unexpected error while unpacking value");
+        return NULL;
     case QP_HOOK:
+        ex_set(e, EX_BAD_DATA, "hooks are not supported");
+        return NULL;
     case QP_ARRAY_CLOSE:
+        ex_set(e, EX_BAD_DATA, "unexpected array close in value data");
+        return NULL;
     case QP_MAP_CLOSE:
-        assert (0);
-        break;
+        ex_set(e, EX_BAD_DATA, "unexpected map close in value data");
+        return NULL;
     }
-
+    ex_set(e, EX_BAD_DATA, "unexpected code reached while unpacking value");
     return NULL;
 }
 
@@ -416,9 +484,17 @@ int ti_val_make_float(ti_val_t ** val, double d)
  */
 ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 {
+    ex_t e;
     qp_obj_t qp_val;
+    ti_val_t * val;
+
+    ex_init(&e);
+
     (void) qp_next(unp, &qp_val);
-    return val__from_unp(&qp_val, unp, things);
+    val = val__from_unp(&qp_val, unp, things, &e);
+    if (e.nr)
+        log_error("failed to unpack value: %s (%d) ", e.nr, e.msg);
+    return val;
 }
 
 /*
@@ -577,6 +653,8 @@ int ti_val_convert_to_str(ti_val_t ** val)
         break;
         ti_incref(v);
         break;
+    default:
+        return -1;  /* required otherwise `v` might be unset */
     }
 
     ti_val_drop(*val);

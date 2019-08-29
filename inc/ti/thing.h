@@ -24,11 +24,13 @@ int ti_thing_props_from_unp(
         ti_thing_t * thing,
         imap_t * things,
         qp_unpacker_t * unp,
-        ssize_t sz);
+        ssize_t sz,
+        ex_t * e);
 ti_thing_t * ti_thing_new_from_unp(
         qp_unpacker_t * unp,
         imap_t * things,
-        ssize_t sz);
+        ssize_t sz,
+        ex_t * e);
 ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_prop_add(
         ti_thing_t * thing,

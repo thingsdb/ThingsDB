@@ -23,7 +23,8 @@ typedef struct ti_syntax_s ti_syntax_t;
 
 
 void ti_syntax_init(ti_syntax_t * syntax, uint8_t flags);
-void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd);
+void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain);
+static inline void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd);
 
 struct ti_syntax_s
 {
@@ -32,5 +33,10 @@ struct ti_syntax_s
     uint8_t flags;              /* query flags */
     uint8_t deep;               /* fetch level */
 };
+
+static inline void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
+{
+    ti_syntax_inv(syntax, nd, false);
+}
 
 #endif /* TI_SYNTAX_H_ */

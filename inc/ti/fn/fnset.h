@@ -7,20 +7,41 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int nargs = langdef_nd_n_function_params(nd);
 
-    if (nargs > 1)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "function `set` takes at most 1 argument but %d "
-                "were given"SET_NEW_TYPE_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (nargs == 1)
+    if (nargs == 1 && nd->children->next == NULL)
     {
         return (
             ti_do_scope(query, nd->children->node, e) ||
             ti_val_convert_to_set(&query->rval, e)
         );
+    }
+
+    if (nargs)
+    {
+        cleri_children_t * child = nd->children;
+        ti_vset_t * vset = ti_vset_create();
+
+        if (!vset)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        do
+        {
+            if (ti_do_scope(query, child->node, e) ||
+                ti_vset_add_val(vset, query->rval, e) < 0)
+            {
+                ti_vset_destroy(vset);
+                return e->nr;
+            }
+
+            ti_val_drop(query->rval);
+            query->rval = NULL;
+        }
+        while (child->next && (child = child->next->next));
+
+        query->rval = (ti_val_t *) vset;
+        return e->nr;
     }
 
     assert (query->rval == NULL);

@@ -99,24 +99,52 @@ ti_thing_t * ti_things_thing_from_unp(
         imap_t * things,
         uint64_t thing_id,
         qp_unpacker_t * unp,
-        ssize_t sz)
+        ssize_t sz,
+        ex_t * e)
 {
     ti_thing_t * thing;
     thing = imap_get(things, thing_id);
     if (thing)
-        /* an existing thing cannot have properties inside the data and
-         * therefore the length must be equal to one */
-        return sz == 1 ? ti_grab(thing) : NULL;
+    {
+        if (sz != 1)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot directly assign properties to "TI_THING_ID" "
+                    "by adding properties to the data; "
+                    "change the thing to {\""TI_KIND_S_THING"\": %"PRIu64"}",
+                    thing_id, thing_id);
+            return NULL;
+        }
+        ti_incref(thing);
+        return thing;
+    }
+
+    if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    {
+        /*
+         * If not unpacking from an event, then new things should be created
+         * without an id.
+         */
+        ex_set(e, EX_INDEX_ERROR,
+                "thing "TI_THING_ID" not found; "
+                "if you want to create a new thing then remove the id and "
+                "only keep the properties",
+                thing_id);
+        return NULL;
+    }
 
     thing = ti_things_create_thing(things, thing_id);
     if (!thing)
+    {
+        ex_set_mem(e);
         return NULL;
+    }
 
     if (thing_id >= ti()->node->next_thing_id)
         ti()->node->next_thing_id = thing_id + 1;
 
     --sz;  /* decrease one to unpack the remaining properties */
-    if (ti_thing_props_from_unp(thing, things, unp, sz))
+    if (ti_thing_props_from_unp(thing, things, unp, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;

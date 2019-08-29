@@ -1679,11 +1679,6 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'function `set` takes at most 1 argument but 2 were given'):
-            await client.query('set(1, 2);')
-
-        with self.assertRaisesRegex(
-                BadDataError,
                 'cannot convert type `nil` to `set`'):
             await client.query('set(nil);')
 
@@ -1692,12 +1687,20 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `int` to a set'):
             await client.query(r'set([{}, t(.id()), 3]);')
 
+
+
         self.assertEqual(await client.query('set();'), {'$': []})
         self.assertEqual(await client.query('set([]);'), {'$': []})
         self.assertEqual(await client.query('set(set());'), {'$': []})
         self.assertEqual(
             await client.query(r'set([{}, {}]);'),
             {'$': [{'#': 0}, {'#': 0}]})
+        self.assertEqual(
+            await client.query(r'set({}, {});'),
+            {'$': [{'#': 0}, {'#': 0}]})
+        self.assertEqual(
+            await client.query(r'set({},);'),
+            {'$': [{'#': 0}]})
 
     async def test_splice(self, client):
         await client.query('.li = [];')

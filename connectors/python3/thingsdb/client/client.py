@@ -17,6 +17,7 @@ from .protocol import ON_WATCH_DEL
 from .protocol import ON_NODE_STATUS
 from .buildin import Buildin
 from .scope import Scope, thingsdb, scope_is_collection, scope_get_name
+from ..convert import convert
 
 
 class Client(Buildin):
@@ -249,15 +250,10 @@ class Client(Buildin):
         future = self._write_package(scope._proto, data, timeout=timeout)
         return await future
 
-    async def run(self, procedure: str, *args, target=None, ):
+    async def run(self, procedure: str, *args, target=None, convert_args=True):
         scope = self._make_scope(target)
 
-        arguments = (
-            {'#': arg.get('#')}
-            if isinstance(arg, dict) and arg.get('#')
-            else arg
-            for arg in args
-        )
+        arguments = (convert(arg) for arg in args) if convert_args else args
 
         future = self._write_package(
             REQ_RUN,

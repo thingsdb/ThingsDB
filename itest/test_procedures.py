@@ -103,6 +103,26 @@ class TestProcedures(TestBase):
             "Add a given value `i` to all values in `.l`"
         )
 
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'property name must follow the naming rules'
+                r'; see.*'
+                r'\(argument 0 for procedure `upd_list`\)'):
+            await client0.run('upd_list', {"0InvalidKey": 4})
+
+        with self.assertRaisesRegex(
+                IndexError,
+                r'thing `#42` not found; if you want to create a new thing '
+                r'then remove the id and only keep the properties '
+                r'\(argument 0 for procedure `upd_list`\)'):
+            await client0.run('upd_list', {"#": 42})
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'sets can one contain things '
+                r'\(argument 0 for procedure `upd_list`\)'):
+            await client0.run('upd_list', {"$": [1, 2, 3]})
+
         # add another node for query validation
         await self.node1.join_until_ready(client0)
         await self.node2.join_until_ready(client0)
@@ -132,8 +152,7 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     IndexError,
-                    r'argument `0` for procedure `upd_list` is invalid '
-                    r'\(or missing\)'):
+                    r'missing value \(argument 0 for procedure `upd_list`\)'):
                 await client.run('upd_list')
 
             with self.assertRaisesRegex(

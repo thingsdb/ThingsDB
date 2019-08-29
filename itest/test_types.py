@@ -170,7 +170,7 @@ class TestTypes(TestBase):
 
         self.assertTrue(await client.query(r'''
             .a = {}; .b = .a;
-            ( set([.a, .a]) == set([.b]) )
+            ( set(.a, .a) == set(.b,) )
         '''))
 
         self.assertTrue(await client.query(r'''

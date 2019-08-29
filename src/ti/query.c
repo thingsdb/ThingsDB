@@ -364,7 +364,7 @@ int ti_query_run_unpack(
     query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, 0);
+    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
 
     if (!qp_is_array(qp_next(&unpacker, NULL)))
     {
@@ -433,13 +433,14 @@ int ti_query_run_unpack(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        argval = ti_val_from_unp(
+        argval = ti_val_from_unp_e(
                 &unpacker,
-                query->target ? query->target->things : NULL);
+                query->target ? query->target->things : NULL,
+                e);
         if (!argval)
         {
-            ex_set(e, EX_INDEX_ERROR,
-                "argument `%zu` for procedure `%.*s` is invalid (or missing)",
+            assert (e->nr);
+            ex_append(e, " (argument %zu for procedure `%.*s`)",
                 idx,
                 (int) qp_procedure.len,
                 (char *) qp_procedure.via.raw);

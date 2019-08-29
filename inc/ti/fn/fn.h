@@ -90,6 +90,9 @@ static inline int fn_not_thingsdb_scope(
     return e->nr;
 }
 
+/*
+ * TODO: Remove? It is not used any more
+ */
 static inline int fn_not_collection_scope(
         const char * name,
         ti_query_t * query,

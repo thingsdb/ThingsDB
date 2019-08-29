@@ -43,6 +43,8 @@ class LangDef(Grammar):
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
+    thing_by_id = Regex(r'#[0-9]+')
+
     t_false = Keyword('false')
     t_float = Regex(
         r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
@@ -138,6 +140,7 @@ class LangDef(Grammar):
         o_not,
         Choice(
             chain,
+            thing_by_id,
             immutable,
             function,
             var_assign,

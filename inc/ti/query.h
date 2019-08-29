@@ -60,6 +60,10 @@ int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
 void ti_query_send(ti_query_t * query, ex_t * e);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
+ti_thing_t * ti_query_thing_from_id(
+        ti_query_t * query,
+        int64_t thing_id,
+        ex_t * e);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
 

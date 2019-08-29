@@ -802,7 +802,8 @@ class TestCollectionFunctions(TestBase):
             await client.query('.id(nil, nil);')
 
     async def test_indexof(self, client):
-        await client.query(r'.x = [42, "thingsdb", t(.id()), 42, false, nil];')
+        await client.query(
+            r'.x = [42, "thingsdb", thing(.id()), 42, false, nil];')
 
         with self.assertRaisesRegex(
                 IndexError,
@@ -816,7 +817,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('.x.indexof(42);'), 0)
         self.assertEqual(await client.query('.x.indexof("thingsdb");'), 1)
-        self.assertEqual(await client.query('.x.indexof(t(.id()));'), 2)
+        self.assertEqual(await client.query('.x.indexof(thing(.id()));'), 2)
         self.assertEqual(await client.query('.x.indexof(false);'), 4)
         self.assertEqual(await client.query('.x.indexof(nil);'), 5)
         self.assertIs(await client.query('.x.indexof(42.1);'), None)
@@ -1110,8 +1111,11 @@ class TestCollectionFunctions(TestBase):
                 'function `isthing` takes 1 argument but 0 were given'):
             await client.query('isthing();')
 
+        id = await client.query('.id();')
+
+        self.assertTrue(await client.query(f'isthing( #{id} ); '))
         self.assertTrue(await client.query(r'isthing( {} ); '))
-        self.assertTrue(await client.query(r'isthing( t(.id()) ); '))
+        self.assertTrue(await client.query(r'isthing( thing(.id()) ); '))
         self.assertFalse(await client.query('isthing( [] ); '))
         self.assertFalse(await client.query('isthing( set() ); '))
 
@@ -1458,7 +1462,7 @@ class TestCollectionFunctions(TestBase):
         self.assertGreater(await client.query('refs(nil);'), 1)
         self.assertGreater(await client.query('refs(true);'), 1)
         self.assertGreater(await client.query('refs(false);'), 1)
-        self.assertEqual(await client.query('refs(t(.id()));'), 2)
+        self.assertEqual(await client.query('refs(thing(.id()));'), 2)
         self.assertEqual(await client.query('refs("Test RefCount")'), 2)
         self.assertEqual(await client.query('x = "Test RefCount"; refs(x)'), 3)
 
@@ -1685,7 +1689,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 BadDataError,
                 'cannot add type `int` to a set'):
-            await client.query(r'set([{}, t(.id()), 3]);')
+            await client.query(r'set([{}, thing(.id()), 3]);')
 
         self.assertEqual(await client.query('set();'), {'$': []})
         self.assertEqual(await client.query('set([]);'), {'$': []})
@@ -1865,31 +1869,39 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'"Hi".test(/hi/);'))
         self.assertFalse(await client.query(r'"hello".test(/hello!.*/);'))
 
-    async def test_t(self, client):
+    async def test_thing(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
-                'function `t` requires at least 1 argument '
-                'but 0 were given'):
-            await client.query('t();')
+                IndexError,
+                'type `nil` has no function `thing`'):
+            await client.query('nil.thing();')
 
         with self.assertRaisesRegex(
                 BadDataError,
-                r'function `t` expects argument 1 to be of '
-                r'type `int` but got type `nil` instead'):
-            await client.query('t(nil);')
+                'function `thing` takes at most 1 argument but 2 were given'):
+            await client.query('thing(1, 2);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot convert type `regex` to `thing`'):
+            await client.query('thing(/.*/);')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'cannot convert type `nil` to `thing`'):
+            await client.query('thing(nil);')
 
         with self.assertRaisesRegex(
                 IndexError,
                 'collection `stuff` has no `thing` with id -1'):
-            await client.query('t(-1);')
+            await client.query('thing(-1);')
 
         id = await client.query(r'(.t = {x:42}).id();')
-        t = await client.query('t({});'.format(id))
+        t = await client.query(f'thing({id});')
         self.assertEqual(t['x'], 42)
-        self.assertFalse(await client.query(r'isarray(t(.t.id()));'))
-        self.assertTrue(await client.query(r'isarray(t(.t.id(), ));'))
-        stuff, t = await client.query(f'return(t(.id(), {id}), 2);')
+        self.assertEqual(await client.query('thing();'), {'#': 0})
+        stuff, t = await client.query(f'return([thing(.id()), #{id}], 2);')
         self.assertEqual(stuff['t'], t)
+        self.assertTrue(await client.query(f'( #{id} == thing(#{id}) );'))
 
     async def test_try(self, client):
         with self.assertRaisesRegex(

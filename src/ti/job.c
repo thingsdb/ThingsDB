@@ -91,7 +91,7 @@ static int job__add(
  * Returns 0 on success
  * - for example: {'prop':value}
  */
-static int job__assign(
+static int job__set(
         ti_collection_t * collection,
         ti_thing_t * thing,
         qp_unpacker_t * unp)
@@ -106,7 +106,7 @@ static int job__assign(
     if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_prop)))
     {
         log_critical(
-                "job `assign` to "TI_THING_ID": "
+                "job `set` to "TI_THING_ID": "
                 "missing map or property",
                 thing->id);
         return -1;
@@ -115,7 +115,7 @@ static int job__assign(
     if (!ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
     {
         log_critical(
-                "job `assign` to "TI_THING_ID": "
+                "job `set` to "TI_THING_ID": "
                 "invalid property: `%.*s`",
                 thing->id,
                 (int) qp_prop.len,
@@ -134,7 +134,7 @@ static int job__assign(
     if (!val)
     {
         log_critical(
-                "job `assign` to "TI_THING_ID": "
+                "job `set` to "TI_THING_ID": "
                 "error reading value for property: `%s`",
                 thing->id,
                 name->str);
@@ -144,7 +144,7 @@ static int job__assign(
     if (!ti_thing_prop_set(thing, name, val))
     {
         log_critical(
-                "job `assign` to "TI_THING_ID": "
+                "job `set` to "TI_THING_ID": "
                 "error setting property: `%s` (type: `%s`)",
                 thing->id,
                 name->str,
@@ -612,9 +612,7 @@ int ti_job_run(
     switch (*raw)
     {
     case 'a':
-        return *(raw+1) == 'd'
-                ? job__add(collection, thing, unp)
-                : job__assign(collection, thing, unp);
+        return job__add(collection, thing, unp);
     case 'd':
         return qp_job_name.len == 3
                 ? job__del(thing, unp)
@@ -626,7 +624,9 @@ int ti_job_run(
                 ? job__remove(collection, thing, unp)
                 : job__rename(thing, unp);
     case 's':
-        return job__splice(collection, thing, unp);
+        return *(raw+1) == 'e'
+                ? job__set(collection, thing, unp)
+                : job__splice(collection, thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);

@@ -141,7 +141,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto fail1;
 
-        if (ti_task_add_assign(task, prop->name, prop->val))
+        if (ti_task_add_set(task, prop->name, prop->val))
         {
             ex_set_mem(e);
             goto fail1;

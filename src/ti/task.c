@@ -144,7 +144,7 @@ done:
     return rc;
 }
 
-int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
+int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
 {
     int rc;
     ti_raw_t * job = NULL;
@@ -156,7 +156,7 @@ int ti_task_add_assign(ti_task_t * task, ti_name_t * name, ti_val_t * val)
         goto failed;
 
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "assign");
+    (void) qp_add_raw_from_str(packer, "set");
     (void) qp_add_map(&packer);
 
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))

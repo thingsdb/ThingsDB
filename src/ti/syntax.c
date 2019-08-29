@@ -92,8 +92,8 @@
 #include <ti/fn/fnsplice.h>
 #include <ti/fn/fnstartswith.h>
 #include <ti/fn/fnstr.h>
-#include <ti/fn/fnt.h>
 #include <ti/fn/fntest.h>
+#include <ti/fn/fnthing.h>
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
 #include <ti/fn/fnupper.h>
@@ -286,7 +286,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__zev_fn(q, nd, "shutdown", do__f_shutdown);
         break;
     case 't':
-        syntax__nev_fn(q, nd, "t", do__f_t);
+        syntax__nev_fn(q, nd, "thing", do__f_thing);  /* most frequent used */
         syntax__nev_fn(q, nd, "test", do__f_test);
         syntax__nev_fn(q, nd, "try", do__f_try);
         syntax__nev_fn(q, nd, "type", do__f_type);
@@ -447,6 +447,10 @@ void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
         }
         return;
     }
+    case CLERI_GID_THING_BY_ID:
+        nd->data = NULL;
+        ++syntax->val_cache_n;
+        return;
     case CLERI_GID_FUNCTION:
     {
         intptr_t nargs = 0;

@@ -213,7 +213,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto done;
 
-        if (ti_task_add_assign(task, prop->name, prop->val))
+        if (ti_task_add_set(task, prop->name, prop->val))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
@@ -481,6 +481,41 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        int64_t thing_id = strtoll(nd->str + 1, NULL, 10);
+        ti_thing_t * thing = ti_query_thing_from_id(query, thing_id, e);
+        if (!thing)
+            return e->nr;
+
+        nd->data = thing;
+        VEC_push(query->val_cache, thing);
+    }
+    else if (ti_val_is_int((ti_val_t *) nd->data))
+    {
+        /*
+         * Unbound closures do not cache `#` syntax. if we really wanted this,
+         * then it could be achieved by assigning the closure instead of `int`
+         * to this node cache. But the hard part is then the garbage collection
+         * because things keep attached to the stored closure but this is not
+         * detected by the current garbage collector.
+         */
+        ti_vint_t * thing_id = nd->data;
+        query->rval = (ti_val_t *) ti_query_thing_from_id(
+                query,
+                thing_id->int_,
+                e);
+        return e->nr;
+    }
+
+    query->rval = nd->data;
+    ti_incref(query->rval);
+
+    return e->nr;
+}
+
 static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
@@ -635,7 +670,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__scope_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     /*
      * Sequence('{', List(Sequence(name, ':', scope)), '}')
@@ -914,7 +949,11 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         break;
     case CLERI_GID_THING:
-        if (do__scope_thing(query, node, e))
+        if (do__thing(query, node, e))
+            return e->nr;
+        break;
+    case CLERI_GID_THING_BY_ID:
+        if (do__thing_by_id(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_VAR:

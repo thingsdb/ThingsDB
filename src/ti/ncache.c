@@ -231,6 +231,11 @@ int ti_ncache_gen_node_data(
         }
         return e->nr;
     }
+    case CLERI_GID_THING_BY_ID:
+        node->data = ti_vint_create(strtoll(node->str + 1, NULL, 10));
+        if (!node->data)
+            ex_set_mem(e);
+        return e->nr;
     case CLERI_GID_FUNCTION:
         return ncache__list(
                 syntax,

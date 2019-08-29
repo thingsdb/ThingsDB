@@ -380,11 +380,12 @@ int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
             ti_incref(p->val);
             /*
              * Re-assign variable since we require a copy of lists and sets.
-             * (otherwise no event will be created)
-             *
-             * TODO: consider using pointers when assigning to variable, but
+             * It is not possible to work with pointers unless we consider
+             * using pointers when assigning to variable, but
              * that requires sets and lists to have a reference to the thing
              * and name they are assigned to.
+             *
+             * TODO: consider the above behavior
              */
             if (ti_val_make_assignable(&p->val, e))
                 return e->nr;

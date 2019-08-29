@@ -148,7 +148,7 @@ class Thing:
         self._event_id = event_id
         return True
 
-    def _job_assign(self, attrs):
+    def _job_set(self, attrs):
         for prop, val in attrs.items():
             attr = getattr(self.__class__, prop, None)
             val, is_valid = (val, False) \
@@ -179,24 +179,6 @@ class Thing:
             logging.debug(
                 f'cannot delete property `{prop}` because it is '
                 f'missing on `{self}`')
-
-    def _job_rename(self, props):
-        for oprop, nprop in props.items():
-            try:
-                value = self.__dict__.pop(oprop)
-            except KeyError:
-                logging.debug(
-                    f'cannot rename property `{oprop}` because it is '
-                    f'missing on `{self}`')
-            else:
-                if self.__class__.__strict__:
-                    attr = getattr(self.__class__, nprop, None)
-                    if attr is None:
-                        logging.critical(
-                            f'property `{oprop}` is renamed to `{nprop}` on '
-                            f'`{self}` but the new property is not defined by '
-                            f'`{self.__class__.__name__}`')
-                setattr(self, nprop, value)
 
     def _job_splice(self, splice_job):
         for prop, value in splice_job.items():
@@ -252,7 +234,7 @@ class Thing:
         """
         if not self._do_event(event_id):
             return
-        self._job_assign(data)
+        self._job_set(data)
         for prop, cls in self.__required__.items():
             if prop not in self.__dict__:
                 logging.critical(
@@ -290,9 +272,8 @@ class Thing:
         self._collection._client._things.pop(self._id)
 
     _UPDMAP = {
-        'assign': _job_assign,
+        'set': _job_set,
         'del': _job_del,
-        'rename': _job_rename,
         'splice': _job_splice,
         'add': _job_add,
         'remove': _job_remove,

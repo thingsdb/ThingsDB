@@ -638,7 +638,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
     ti_syntax_investigate(&query->syntax, seqchildren->next->node);
 
     /*
-     * Create value cache for primitives. (if required)
+     * Create value cache for immutable, names and things.
      */
     if (    query->syntax.val_cache_n &&
             !(query->val_cache = vec_new(query->syntax.val_cache_n)))
@@ -744,4 +744,38 @@ ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)
         if (prop->name == name)
             return prop;
     return NULL;
+}
+
+ti_thing_t * ti_query_thing_from_id(
+        ti_query_t * query,
+        int64_t thing_id,
+        ex_t * e)
+{
+    ti_thing_t * thing;
+
+    if (!query->target)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "scope `%s` has no stored things; "
+                "You might want to query a `collection` scope?",
+                ti_query_scope_name(query));
+        return NULL;
+    }
+
+    thing = thing_id
+            ? ti_collection_thing_by_id(query->target, (uint64_t) thing_id)
+            : NULL;
+
+    if (!thing)
+    {
+        ex_set(e, EX_INDEX_ERROR,
+                "collection `%.*s` has no `thing` with id %"PRId64,
+                (int) query->target->name->n,
+                (char *) query->target->name->data,
+                thing_id);
+        return NULL;
+    }
+
+    ti_incref(thing);
+    return thing;
 }

@@ -1687,8 +1687,6 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `int` to a set'):
             await client.query(r'set([{}, t(.id()), 3]);')
 
-
-
         self.assertEqual(await client.query('set();'), {'$': []})
         self.assertEqual(await client.query('set([]);'), {'$': []})
         self.assertEqual(await client.query('set(set());'), {'$': []})

@@ -53,7 +53,7 @@ class TestProcedures(TestBase):
             // First set properties which we can later verify
             .r = 'Test Raw String';
             .t = {test: 'Thing', nested: {found: true}};
-            .s = set([{test: 'Thing in Set'}]);
+            .s = set({test: 'Thing in Set'},);
             .f = 3.14;
             .b = true;
             .n = nil;
@@ -94,7 +94,7 @@ class TestProcedures(TestBase):
 
             new_procedure('deep_two', || {
                 "Return two levels deep.";
-                return(t(.t.id()), 2);  // Returns  and uses t() function `t`
+                return(thing(.t.id()), 2);
             });
         ''')
 

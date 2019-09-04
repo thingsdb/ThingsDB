@@ -17,6 +17,7 @@
 #include <ti/query.h>
 #include <ti/nil.h>
 #include <ti/task.h>
+#include <ti/data.h>
 #include <util/qpx.h>
 #include <util/strx.h>
 
@@ -58,9 +59,9 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     {
         (void) qp_add_int(packer, task->thing->id);
         (void) qp_add_array(&packer);
-        for (vec_each(task->jobs, ti_raw_t, raw))
+        for (vec_each(task->jobs, ti_data_t, data))
         {
-            (void) qp_add_qp(packer, raw->data, raw->n);
+            (void) qp_add_qp(packer, data->data, data->n);
         }
         (void) qp_close_array(packer);
     }

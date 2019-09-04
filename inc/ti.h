@@ -107,13 +107,16 @@ static inline ti_t * ti(void)
     return &ti_;
 }
 
-/* return the next thing id and increment by one */
+/* Return the next thing id and increment by one. */
 static inline uint64_t ti_next_thing_id(void)
 {
     return ti_.node->next_thing_id++;
 }
 
-/* sleep in milliseconds (value must be between 0 and 999 */
+/*
+ * Sleep in milliseconds (value must be between 0 and 999)
+ * This function is used within the `away` thread to intentionally slow
+ * things down. */
 static inline int ti_sleep(int ms)
 {
     assert (ms < 1000);

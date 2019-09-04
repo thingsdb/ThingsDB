@@ -49,8 +49,9 @@ struct ti_raw_s
     uint32_t ref;
     uint8_t tp;
     uint8_t _flags;
-    uint16_t _pad1;
+    uint16_t _pad0;
     uint32_t n;
+    uint32_t _pad1;
     unsigned char data[];
 };
 

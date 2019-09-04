@@ -86,6 +86,10 @@ struct ti_node_s
     uint64_t next_thing_id;
     ti_stream_t * stream;           /* borrowed reference */
     uint16_t port;
+    /*
+     * Optionally, we could add `client_port` just for informational
+     * uint16_t client_port;
+     */
     struct sockaddr_storage * sockaddr_;
     char addr[INET6_ADDRSTRLEN];    /* null terminated (last known) address */
     char secret[CRYPTX_SZ];         /* null terminated encrypted secret */

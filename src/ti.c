@@ -520,15 +520,18 @@ _Bool ti_ask_continue(void)
 
 ti_rpkg_t * ti_node_status_rpkg(void)
 {
+    const size_t qpsize = 128;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(34, 1);
+    qpx_packer_t * packer = qpx_packer_create(qpsize, 1);
     ti_node_t * ti_node = ti()->node;
 
     if (!packer)
         return NULL;
 
     (void) ti_node_info_to_packer(ti_node, &packer);
+
+    assert_log(packer->len < qpsize, "node status size too small");
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_INFO);
     rpkg = ti_rpkg_create(pkg);
@@ -687,14 +690,17 @@ int ti_node_to_packer(qp_packer_t ** packer)
 
 ti_val_t * ti_node_as_qpval(void)
 {
+    const size_t qpsize = 1024;
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(1024, 1);
+    qp_packer_t * packer = qp_packer_create2(qpsize, 1);
     if (!packer)
         return NULL;
 
     raw = ti_node_to_packer(&packer)
             ? NULL
             : ti_raw_from_packer(packer);
+
+    assert_log(raw->n < qpsize, "node info size too small");
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;

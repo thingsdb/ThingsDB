@@ -313,7 +313,7 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
-    packer = qpx_packer_create(192, 2);
+    packer = qpx_packer_create(256, 2);
     if (!packer)
     {
         log_error(EX_MEMORY_S);

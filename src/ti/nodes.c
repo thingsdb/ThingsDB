@@ -222,7 +222,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 from_node_port,
                 stream);
 
-        packer = qpx_packer_create(32, 1);
+        packer = qpx_packer_create(128, 1);
         if (!packer)
         {
             log_critical(EX_MEMORY_S);
@@ -324,7 +324,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     /* try to update the address and port information if required */
     (void) ti_node_upd_addr_from_stream(node, stream, from_node_port);
 
-    packer = qpx_packer_create(32, 1);
+    packer = qpx_packer_create(128, 1);
     if (!packer)
     {
         log_critical(EX_MEMORY_S);

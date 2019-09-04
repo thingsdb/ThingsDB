@@ -33,7 +33,7 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
     qpx_packer_t * packer;
-    size_t sz = 0;
+    size_t sz = 24;
     vec_t * tasks = query->ev->_tasks;
 
     for (vec_each(tasks, ti_task_t, task))
@@ -68,7 +68,12 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
+    assert(packer->nest_sz == 3);
+
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT);
+
+    assert(pkg->n <= sz);
+
     epkg = ti_epkg_create(pkg, query->ev->id);
     if (!epkg)
     {

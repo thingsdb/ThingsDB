@@ -18,7 +18,7 @@ const int pack_task = -1;
 
 static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
 {
-    task->approx_sz += (37 + data->n);
+    task->approx_sz += data->n;
 }
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
@@ -30,7 +30,7 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     task->event_id = event_id;
     task->thing = ti_grab(thing);
     task->jobs = vec_new(1);
-    task->approx_sz = 0;
+    task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
     if (!task->jobs)
     {
         ti_task_destroy(task);

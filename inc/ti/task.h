@@ -57,7 +57,6 @@ int ti_task_add_new_token(
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
-int ti_task_add_rename(ti_task_t * task, ti_raw_t * from, ti_raw_t * to);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);

@@ -22,7 +22,7 @@
 #include <util/strx.h>
 
 #define QUERY_DOC_ TI_SEE_DOC("#query")
-#define CALL_REQUEST_DOC_ TI_SEE_DOC("#call-request")
+#define CALL_REQUEST_DOC_ TI_SEE_DOC("#procedures-api")
 
 /*
  *  tasks are ordered for low to high thing ids

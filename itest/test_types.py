@@ -14,7 +14,7 @@ from thingsdb.exceptions import OverflowError
 
 class TestTypes(TestBase):
 
-    title = 'Test ThingsDB types'
+    title = 'Test thingsdb types'
 
     @default_test_setup(num_nodes=1, seed=1)
     async def run(self):

@@ -4,10 +4,10 @@
 #ifndef TI_NODES_H_
 #define TI_NODES_H_
 
+#include <ex.h>
 #include <uv.h>
 #include <ti/node.h>
 #include <ti/rpkg.h>
-#include <ti/ex.h>
 #include <util/vec.h>
 #include <qpack.h>
 

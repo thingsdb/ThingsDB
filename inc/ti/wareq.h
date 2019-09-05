@@ -7,7 +7,7 @@
 typedef struct ti_wareq_s ti_wareq_t;
 
 #include <ti/pkg.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/collection.h>
 #include <ti/stream.h>
 #include <util/vec.h>

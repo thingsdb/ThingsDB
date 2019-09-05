@@ -10,7 +10,7 @@ typedef struct ti_verror_s ti_verror_t;
 
 #include <inttypes.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/raw.h>
 #include <tiinc.h>
 

@@ -2,12 +2,12 @@
  * ti/build.c
  */
 #include <assert.h>
+#include <ex.h>
 #include <ti/build.h>
 #include <ti/node.h>
 #include <ti/pkg.h>
 #include <ti/proto.h>
 #include <ti/req.h>
-#include <ti/ex.h>
 #include <ti/sync.h>
 #include <ti/version.h>
 #include <ti.h>

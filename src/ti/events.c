@@ -370,14 +370,14 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
 
 static void events__new_id(ti_event_t * ev)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
 
     /* remove the event from the queue */
     (void) queue_rmval(events->queue, ev);
 
-    if (events__req_event_id(ev, e))
+    if (events__req_event_id(ev, &e))
     {
-        ti_query_send(ev->via.query, e);
+        ti_query_send(ev->via.query, &e);
         ev->status = TI_EVENT_STAT_CACNCEL;
     }
 }
@@ -454,15 +454,14 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
 
         if (!ti_nodes_has_quorum())
         {
-            ex_t * e = ex_use();
+            ex_t e = {0};
             ev->status = TI_EVENT_STAT_CACNCEL;
-
-            ex_set(e, EX_NODE_ERROR,
+            ex_set(&e, EX_NODE_ERROR,
                     "node `%s` does not have the required quorum "
                     "of at least %u connected nodes",
                     ti_node_name(ti()->node),
                     ti_nodes_quorum());
-            ti_query_send(ev->via.query, e);
+            ti_query_send(ev->via.query, &e);
             goto done;
         }
 

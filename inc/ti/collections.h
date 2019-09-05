@@ -11,7 +11,7 @@ typedef struct ti_collections_s ti_collections_t;
 #include <ti/raw.h>
 #include <ti/stream.h>
 #include <qpack.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/val.h>
 
 int ti_collections_create(void);

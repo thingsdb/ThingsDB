@@ -656,7 +656,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
 void ti_query_run(ti_query_t * query)
 {
     cleri_children_t * child, * seqchild;
-    ex_t * e = ex_use();
+    ex_t e = {0};
 
     if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
     {
@@ -665,7 +665,7 @@ void ti_query_run(ti_query_t * query)
             assert (query->ev);
             query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
         }
-        (void) ti_closure_call(query->closure, query, query->val_cache, e);
+        (void) ti_closure_call(query->closure, query, query->val_cache, &e);
         goto stop;
     }
 
@@ -685,7 +685,7 @@ void ti_query_run(ti_query_t * query)
     {
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_scope(query, child->node, &e))
             break;
 
         if (!child->next || !(child = child->next->next))
@@ -695,14 +695,14 @@ void ti_query_run(ti_query_t * query)
         query->rval = NULL;
     }
 
-    if (e->nr == EX_RETURN)
-        e->nr = 0;
+    if (e.nr == EX_RETURN)
+        e.nr = 0;
 
 stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_send(query, e);
+    ti_query_send(query, &e);
 }
 
 void ti_query_send(ti_query_t * query, ex_t * e)

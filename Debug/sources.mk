@@ -15,9 +15,9 @@ C_DEPS :=
 SUBDIRS := \
 inc/lib \
 . \
+src \
 src/langdef \
 src/ti \
 src/ti/store \
-src \
 src/util \
 

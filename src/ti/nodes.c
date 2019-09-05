@@ -355,17 +355,17 @@ done:
 
 static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    _Bool accepted;
-    ex_t * e = ex_use();
+    ex_t e = {0};
     qp_unpacker_t unpacker;
     ti_pkg_t * resp = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
     qp_obj_t qp_event_id;
+    _Bool accepted;
 
     if (!this_node)
     {
-        ex_set(e, EX_AUTH_ERROR,
+        ex_set(&e, EX_AUTH_ERROR,
                 "got an `%s` request from an unauthorized connection: `%s`",
                 ti_proto_str(pkg->id), ti()->hostname);
         goto finish;
@@ -373,7 +373,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (this_node->status < TI_NODE_STAT_SYNCHRONIZING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle `%s` requests",
                 ti()->hostname, ti_proto_str(pkg->id));
         goto finish;
@@ -382,7 +382,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
     if (!qp_is_int(qp_next(&unpacker, &qp_event_id)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
                 "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
                 ti_proto_str(pkg->id), other_node->id, this_node->id);
         goto finish;
@@ -392,7 +392,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node,
             (uint64_t) qp_event_id.via.int64);
 
-    assert (e->nr == 0);
+    assert (e.nr == 0);
     resp = ti_pkg_new(
             pkg->id,
             accepted ? TI_PROTO_NODE_RES_EVENT_ID : TI_PROTO_NODE_ERR_EVENT_ID,
@@ -400,8 +400,8 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
             0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -412,14 +412,14 @@ finish:
 
 static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    _Bool accepted;
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
+    _Bool accepted;
 
     if (!node)
     {
-        ex_set(e, EX_AUTH_ERROR,
+        ex_set(&e, EX_AUTH_ERROR,
                 "got an away request from an unauthorized connection: `%s`",
                 ti()->hostname);
         goto finish;
@@ -427,7 +427,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (node->status < TI_NODE_STAT_SYNCHRONIZING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle away requests",
                 ti()->hostname);
         goto finish;
@@ -435,7 +435,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
 
     accepted = ti_away_accept(node->id);
 
-    assert (e->nr == 0);
+    assert (e.nr == 0);
     resp = ti_pkg_new(
             pkg->id,
             accepted ? TI_PROTO_NODE_RES_AWAY : TI_PROTO_NODE_ERR_AWAY,
@@ -443,8 +443,8 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
             0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -455,8 +455,8 @@ finish:
 
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     uint64_t user_id;
-    ex_t * e = ex_use();
     vec_t * access_;
     ti_user_t * user;
     qp_unpacker_t unpacker;
@@ -469,7 +469,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!other_node)
     {
-        ex_set(e, EX_AUTH_ERROR,
+        ex_set(&e, EX_AUTH_ERROR,
                 "got a forwarded query from an unauthorized connection: `%s`",
                 ti()->hostname);
         goto finish;
@@ -478,7 +478,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (this_node->status != TI_NODE_STAT_READY &&
         this_node->status != TI_NODE_STAT_AWAY_SOON)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
@@ -491,7 +491,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_bool(qp_next(&unpacker, &qp_is_thingsdb)) ||
             !qp_is_raw(qp_next(&unpacker, &qp_query)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
                 other_node->id, this_node->id);
         goto finish;
@@ -502,7 +502,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!user)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(&e, EX_INDEX_ERROR,
                 "cannot find "TI_USER_ID" which is used by a query from "
                 TI_NODE_ID" to "TI_NODE_ID,
                 user_id, other_node->id, this_node->id);
@@ -512,7 +512,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto finish;
     }
 
@@ -520,25 +520,20 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
             ? ti_query_thingsdb_unpack
             : ti_query_collection_unpack;
 
-    if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, e))
+    if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, &e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e))
-        goto finish;
 
-    if (ti_query_parse(query, e))
-        goto finish;
-
-    if (ti_query_investigate(query, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
+        ti_query_parse(query, &e) ||
+        ti_query_investigate(query, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e))
-            goto finish;
-
-        if (ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+            ti_events_create_new_event(query, &e))
             goto finish;
 
         return;
@@ -550,8 +545,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 finish:
     ti_query_destroy(query);
 
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -562,8 +557,8 @@ finish:
 
 static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     uint64_t user_id;
-    ex_t * e = ex_use();
     vec_t * access_;
     ti_user_t * user;
     qp_unpacker_t unpacker;
@@ -571,11 +566,11 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, qp_query;
+    qp_obj_t qpuser_id, qpquery;
 
     if (!other_node)
     {
-        ex_set(e, EX_AUTH_ERROR,
+        ex_set(&e, EX_AUTH_ERROR,
                 "got a forwarded run request from an "
                 "unauthorized connection: `%s`",
                 ti()->hostname);
@@ -585,7 +580,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (this_node->status != TI_NODE_STAT_READY &&
         this_node->status != TI_NODE_STAT_AWAY_SOON)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle run requests",
                 ti()->hostname);
         goto finish;
@@ -594,21 +589,21 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &qp_query)))
+            !qp_is_int(qp_next(&unpacker, &qpuser_id)) ||
+            !qp_is_raw(qp_next(&unpacker, &qpquery)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
                 "invalid run request from "TI_NODE_ID" to "TI_NODE_ID,
                 other_node->id, this_node->id);
         goto finish;
     }
 
-    user_id = (uint64_t) qp_user_id.via.int64;
+    user_id = (uint64_t) qpuser_id.via.int64;
     user = ti_users_get_by_id(user_id);
 
     if (!user)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(&e, EX_INDEX_ERROR,
                 "cannot find "TI_USER_ID" which is used by a call from "
                 TI_NODE_ID" to "TI_NODE_ID,
                 user_id, other_node->id, this_node->id);
@@ -618,20 +613,20 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto finish;
     }
 
-    if (ti_query_run_unpack(query, pkg->id, qp_query.via.raw, qp_query.len, e))
+    if (ti_query_run_unpack(query, pkg->id, qpquery.via.raw, qpquery.len, &e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_events_create_new_event(query, e))
+        if (ti_events_create_new_event(query, &e))
             goto finish;
 
         return;
@@ -643,8 +638,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 finish:
     ti_query_destroy(query);
 
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -687,7 +682,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
 
 static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
     qp_unpacker_t unpacker;
@@ -709,7 +704,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
                 "got a sync request from `%s` "
                 "but this node is not in `away` mode",
                 ti_stream_name(stream));
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not in `away` mode and therefore cannot handle "
                 "sync requests",
                 ti_name());
@@ -723,7 +718,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         log_error(
                 "got an invalid sync request from `%s`",
                 ti_stream_name(stream));
-        ex_set(e, EX_BAD_DATA, "invalid sync request");
+        ex_set(&e, EX_BAD_DATA, "invalid sync request");
         goto finish;
     }
 
@@ -731,15 +726,15 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_away_syncer(stream, start))
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto finish;
     }
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNC, NULL, 0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_node_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -753,7 +748,7 @@ static void nodes__on_req_syncpart(
         ti_pkg_t * pkg,
         nodes__part_cb part_cb)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
@@ -772,19 +767,19 @@ static void nodes__on_req_syncpart(
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
 
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
                 ti_name());
         goto finish;
     }
 
-    resp = part_cb(pkg, e);
-    assert (!resp ^ !e->nr);
+    resp = part_cb(pkg, &e);
+    assert (!resp ^ !e.nr);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_node_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -795,7 +790,7 @@ finish:
 
 static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
@@ -813,7 +808,7 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "got a `%s` from `%s` "
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
                 ti_name());
@@ -824,8 +819,8 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCFDONE, NULL, 0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_node_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -836,7 +831,7 @@ finish:
 
 static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
@@ -854,7 +849,7 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "got a `%s` from `%s` "
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
                 ti_name());
@@ -866,8 +861,8 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCADONE, NULL, 0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_node_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -878,7 +873,7 @@ finish:
 
 static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ex_t * e = ex_use();
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
 
@@ -896,7 +891,7 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "got a `%s` from `%s` "
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
                 ti_name());
@@ -909,8 +904,8 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
     resp = ti_pkg_new(pkg->id, TI_PROTO_NODE_RES_SYNCEDONE, NULL, 0);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_node_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_node_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {

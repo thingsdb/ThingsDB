@@ -10,7 +10,7 @@ typedef struct ti_pkg_s ti_pkg_t;
 
 #include <stdint.h>
 #include <stddef.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 ti_pkg_t * ti_pkg_new(
         uint16_t id,

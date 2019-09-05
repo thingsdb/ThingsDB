@@ -1,3 +1,4 @@
+
 /*
  * ti/closure.h
  */
@@ -12,7 +13,7 @@ typedef struct ti_closure_s ti_closure_t;
 #include <ti.h>
 #include <tiinc.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/syntax.h>
 #include <ti/query.h>
 #include <ti/do.h>

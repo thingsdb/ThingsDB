@@ -4,9 +4,9 @@
 #ifndef TI_QUOTA_H_
 #define TI_QUOTA_H_
 
+#include <ex.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <ti/ex.h>
 #include <tiinc.h>
 #include <qpack.h>
 

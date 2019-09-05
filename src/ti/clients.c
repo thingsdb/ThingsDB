@@ -6,13 +6,13 @@
 #include <ti/proto.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <ex.h>
 #include <ti/clients.h>
 #include <ti/users.h>
 #include <ti.h>
 #include <ti/query.h>
 #include <ti/wareq.h>
 #include <ti/auth.h>
-#include <ti/ex.h>
 #include <ti/access.h>
 #include <ti/req.h>
 #include <ti/fwd.h>
@@ -31,9 +31,9 @@ static void clients__fwd_cb(ti_req_t * req, ex_enum status)
     ti_fwd_t * fwd = req->data;
     if (status)
     {
-        ex_t * e = ex_use();
-        ex_set(e, status, ex_str(status));
-        resp = ti_pkg_client_err(fwd->orig_pkg_id, e);
+        ex_t e = {0};
+        ex_set(&e, status, ex_str(status));
+        resp = ti_pkg_client_err(fwd->orig_pkg_id, &e);
         if (!resp)
             log_error(EX_MEMORY_S);
         goto finish;
@@ -147,22 +147,22 @@ static void clients__query_thingsdb_or_collection(
         ti_pkg_t * pkg,
         ti_query_unpack_cb unpack_cb)
 {
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
-    ex_t * e = ex_use();
     ti_node_t * this_node = ti()->node;
     ti_user_t * user = stream->via.user;
     vec_t * access_;
 
     if (!user)
     {
-        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
         goto finish;
     }
 
     if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
@@ -174,7 +174,7 @@ static void clients__query_thingsdb_or_collection(
         ti_node_t * other_node = ti_nodes_random_ready_node();
         if (!other_node)
         {
-            ex_set(e, EX_NODE_ERROR,
+            ex_set(&e, EX_NODE_ERROR,
                     "node `%s` is unable to handle query requests",
                     ti()->hostname);
             goto finish;
@@ -182,7 +182,7 @@ static void clients__query_thingsdb_or_collection(
 
         if (clients__fwd_query(other_node, stream, pkg, is_query_for_thingsdb))
         {
-            ex_set_internal(e);
+            ex_set_internal(&e);
             goto finish;
         }
         /* the response to the client will be handled by a callback on the
@@ -194,30 +194,25 @@ static void clients__query_thingsdb_or_collection(
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto finish;
     }
 
-    if (unpack_cb(query, pkg->id, pkg->data, pkg->n, e))
+    if (unpack_cb(query, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
 
     /* the `unpack` call should check if a target is used or not */
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e))
-        goto finish;
 
-    if (ti_query_parse(query, e))
-        goto finish;
-
-    if (ti_query_investigate(query, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
+        ti_query_parse(query, &e) ||
+        ti_query_investigate(query, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e))
-            goto finish;
-
-        if (ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+            ti_events_create_new_event(query, &e))
             goto finish;
 
         return;
@@ -229,10 +224,10 @@ static void clients__query_thingsdb_or_collection(
 finish:
     ti_query_destroy(query);
 
-    if (e->nr)
+    if (e.nr)
     {
         ++ti()->counters->queries_with_error;
-        resp = ti_pkg_client_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, &e);
     }
 
     if (!resp || ti_stream_write_pkg(stream, resp))
@@ -254,11 +249,11 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 
 static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     ti_pkg_t * resp;
     qp_unpacker_t unpacker;
     qp_obj_t name, pass, token;
     ti_user_t * user;
-    ex_t * e = ex_use();
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -267,23 +262,23 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
                 !qp_is_raw(qp_next(&unpacker, &name)) ||
                 !qp_is_raw(qp_next(&unpacker, &pass))))
     {
-        ex_set(e, EX_BAD_DATA, "invalid authentication request");
-        log_error("%s from `%s`", e->msg, ti_stream_name(stream));
-        resp = ti_pkg_client_err(pkg->id, e);
+        ex_set(&e, EX_BAD_DATA, "invalid authentication request");
+        log_error("%s from `%s`", e.msg, ti_stream_name(stream));
+        resp = ti_pkg_client_err(pkg->id, &e);
         goto finish;
     }
 
     user = qp_is_raw(token.tp)
-            ? ti_users_auth_by_token(&token, e)
-            : ti_users_auth(&name, &pass, e);
-    if (e->nr)
+            ? ti_users_auth_by_token(&token, &e)
+            : ti_users_auth(&name, &pass, &e);
+    if (e.nr)
     {
         assert (user == NULL);
         log_warning(
                 "authentication failed `%s` from `%s`)",
-                e->msg,
+                e.msg,
                 ti_stream_name(stream));
-        resp = ti_pkg_client_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, &e);
     }
     else
     {
@@ -302,24 +297,24 @@ finish:
 
 static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
-    ex_t * e = ex_use();
     ti_node_t * this_node = ti()->node;
     ti_user_t * user = stream->via.user;
 
     if (!user)
     {
-        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
         goto failed;
     }
 
-    if (ti_access_check_err(ti()->access_node, user, TI_AUTH_READ, e))
+    if (ti_access_check_err(ti()->access_node, user, TI_AUTH_READ, &e))
         goto failed;
 
     if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto failed;
@@ -328,22 +323,18 @@ static void clients__on_query_node(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto failed;
     }
 
-    if (ti_query_node_unpack(query, pkg->id, pkg->data, pkg->n, e))
-        goto failed;
-
-    if (ti_query_parse(query, e))
-        goto failed;
-
-    if (ti_query_investigate(query, e))
+    if (ti_query_node_unpack(query, pkg->id, pkg->data, pkg->n, &e) ||
+        ti_query_parse(query, &e) ||
+        ti_query_investigate(query, &e))
         goto failed;
 
     if (ti_query_will_update(query))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
                 "this query would trigger an `event` which is not allowed "
                 "when sending a query to a node");
         goto failed;
@@ -356,8 +347,8 @@ failed:
     ++ti()->counters->queries_with_error;
     ti_query_destroy(query);
 
-    assert (e->nr);
-    resp = ti_pkg_client_err(pkg->id, e);
+    assert (e.nr);
+    resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -389,22 +380,22 @@ static inline void clients__on_query_collection(
 
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     ti_node_t * node = ti()->node;
     ti_user_t * user = stream->via.user;
     ti_wareq_t * wareq = NULL;
-    ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
     vec_t * access_;
 
     if (!user)
     {
-        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
         goto finish;
     }
 
     if (node->status <= TI_NODE_STAT_BUILDING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
@@ -415,26 +406,26 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
         wareq = ti_wareq_create(stream, "watch");
         if (!wareq)
         {
-            ex_set_mem(e);
+            ex_set_mem(&e);
             goto finish;
         }
 
-        if (ti_wareq_unpack(wareq, pkg, e))
+        if (ti_wareq_unpack(wareq, pkg, &e))
             goto finish;
     }
 
     access_ = wareq ? wareq->target->access : ti()->access_node;
 
-    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
     if (!resp)
-        ex_set_mem(e);
+        ex_set_mem(&e);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -442,28 +433,28 @@ finish:
         log_error(EX_MEMORY_S);
     }
 
-    if (e->nr || ti_wareq_init(stream) || (wareq && ti_wareq_run(wareq)))
+    if (e.nr || ti_wareq_init(stream) || (wareq && ti_wareq_run(wareq)))
         ti_wareq_destroy(wareq);
 }
 
 static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     ti_node_t * node = ti()->node;
     ti_user_t * user = stream->via.user;
     ti_wareq_t * wareq = NULL;
-    ex_t * e = ex_use();
     ti_pkg_t * resp = NULL;
     vec_t * access_;
 
     if (!user)
     {
-        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
         goto finish;
     }
 
     if (node->status <= TI_NODE_STAT_BUILDING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
@@ -474,26 +465,26 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
         wareq = ti_wareq_create(stream, "unwatch");
         if (!wareq)
         {
-            ex_set_mem(e);
+            ex_set_mem(&e);
             goto finish;
         }
 
-        if (ti_wareq_unpack(wareq, pkg, e))
+        if (ti_wareq_unpack(wareq, pkg, &e))
             goto finish;
     }
 
     access_ = wareq ? wareq->target->access : ti()->access_node;
 
-    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
     if (!resp)
-        ex_set_mem(e);
+        ex_set_mem(&e);
 
 finish:
-    if (e->nr)
-        resp = ti_pkg_client_err(pkg->id, e);
+    if (e.nr)
+        resp = ti_pkg_client_err(pkg->id, &e);
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
@@ -501,14 +492,14 @@ finish:
         log_error(EX_MEMORY_S);
     }
 
-    if (e->nr || (wareq && ti_wareq_run(wareq)))
+    if (e.nr || (wareq && ti_wareq_run(wareq)))
         ti_wareq_destroy(wareq);
 }
 
 static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
+    ex_t e = {0};
     ti_user_t * user = stream->via.user;
-    ex_t * e = ex_use();
     ti_node_t * this_node = ti()->node;
     ti_pkg_t * resp = NULL;
     vec_t * access_;
@@ -516,13 +507,13 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!user)
     {
-        ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
         goto finish;
     }
 
     if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
-        ex_set(e, EX_NODE_ERROR,
+        ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
                 ti()->hostname);
         goto finish;
@@ -533,7 +524,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         ti_node_t * other_node = ti_nodes_random_ready_node();
         if (!other_node)
         {
-            ex_set(e, EX_NODE_ERROR,
+            ex_set(&e, EX_NODE_ERROR,
                     "node `%s` is unable to handle query requests",
                     ti()->hostname);
             goto finish;
@@ -541,7 +532,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
         if (clients__fwd_run(other_node, stream, pkg))
         {
-            ex_set_internal(e);
+            ex_set_internal(&e);
             goto finish;
         }
         /* the response to the client will be handled by a callback on the
@@ -553,20 +544,20 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     query = ti_query_create(stream, user);
     if (!query)
     {
-        ex_set_mem(e);
+        ex_set_mem(&e);
         goto finish;
     }
 
-    if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, e))
+    if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
 
     access_ = query->target ? query->target->access : ti()->access_thingsdb;
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_events_create_new_event(query, e))
+        if (ti_events_create_new_event(query, &e))
             goto finish;
         return;
     }
@@ -577,10 +568,10 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 finish:
     ti_query_destroy(query);
 
-    if (e->nr)
+    if (e.nr)
     {
         ++ti()->counters->queries_with_error;
-        resp = ti_pkg_client_err(pkg->id, e);
+        resp = ti_pkg_client_err(pkg->id, &e);
     }
 
     if (!resp || ti_stream_write_pkg(stream, resp))

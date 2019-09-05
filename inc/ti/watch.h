@@ -10,7 +10,7 @@
 typedef struct ti_watch_s ti_watch_t;
 
 #include <ti/pkg.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/user.h>
 #include <ti/stream.h>
 #include <util/logger.h>

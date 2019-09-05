@@ -126,8 +126,7 @@ int ti_node_connect(ti_node_t * node)
 
     if (!node->sockaddr_)
     {
-        ex_t e;
-        ex_init(&e);
+        ex_t e = {0};
         if (ti_node_update_sockaddr(node, &e))
         {
             log_error(e.msg);

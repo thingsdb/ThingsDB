@@ -230,14 +230,11 @@ static int rjob__grant(qp_unpacker_t * unp)
  */
 static int rjob__new_collection(qp_unpacker_t * unp)
 {
-    assert (unp);
-    ex_t e;
+    ex_t e = {0};
     qp_obj_t qp_name, qp_user, qp_root;
     uint64_t user_id, root_id;
     ti_user_t * user;
     ti_collection_t * collection;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: name */
@@ -405,14 +402,10 @@ failed:
  */
 static int rjob__new_token(qp_unpacker_t * unp)
 {
-    assert (unp);
-    ex_t e;
     qp_obj_t qp_user, qp_key, qp_expire, qp_desc;
     uint64_t user_id;
     ti_user_t * user;
     ti_token_t * token;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
@@ -459,12 +452,9 @@ static int rjob__new_token(qp_unpacker_t * unp)
  */
 static int rjob__new_user(qp_unpacker_t * unp)
 {
-    assert (unp);
-    ex_t e;
+    ex_t e = {0};
     qp_obj_t qp_id, qp_name;
     uint64_t user_id;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
@@ -536,15 +526,11 @@ static int rjob__pop_node(ti_event_t * ev, qp_unpacker_t * unp)
  */
 static int rjob__rename_collection(qp_unpacker_t * unp)
 {
-    assert (unp);
-
-    ex_t e;
+    ex_t e = {0};
     ti_collection_t * collection;
     uint64_t id;
     qp_obj_t qp_id, qp_name;
     ti_raw_t * rname;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -555,7 +541,6 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
         log_critical("job `rename_collection`: invalid format");
         return -1;
     }
-
 
     id = qp_id.via.int64;
     collection = ti_collections_get_by_id(id);
@@ -587,15 +572,11 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
  */
 static int rjob__rename_user(qp_unpacker_t * unp)
 {
-    assert (unp);
-
-    ex_t e;
+    ex_t e = {0};
     ti_user_t * user;
     uint64_t id;
     qp_obj_t qp_id, qp_name;
     ti_raw_t * rname;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||
@@ -642,13 +623,10 @@ static int rjob__rename_user(qp_unpacker_t * unp)
  */
 static int rjob__replace_node(ti_event_t * ev, qp_unpacker_t * unp)
 {
-    assert (unp);
-    ex_t e;
+    ex_t e = {0};
     qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
     uint8_t node_id;
     ti_node_t * node;
-
-    ex_init(&e);
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
             !qp_is_raw(qp_next(unp, NULL)) ||

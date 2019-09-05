@@ -9,7 +9,7 @@ typedef struct ti_user_s  ti_user_t;
 #include <stdint.h>
 #include <ti/raw.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/token.h>
 #include <util/vec.h>
 

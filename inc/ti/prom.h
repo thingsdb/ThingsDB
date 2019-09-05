@@ -17,7 +17,7 @@ typedef union ti_prom_via_u ti_prom_via_t;
 #include <uv.h>
 #include <ti/req.h>
 #include <util/vec.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 typedef void (*ti_prom_cb)(ti_prom_t * prom);
 

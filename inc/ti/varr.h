@@ -8,7 +8,7 @@ typedef struct ti_varr_s ti_varr_t;
 
 #include <inttypes.h>
 #include <util/vec.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 ti_varr_t * ti_varr_create(size_t sz);
 ti_varr_t * ti_varr_from_vec(vec_t * vec);

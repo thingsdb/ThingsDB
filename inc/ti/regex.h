@@ -14,7 +14,7 @@ typedef struct ti_regex_s ti_regex_t;
 #include <stddef.h>
 #include <ti/raw.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 
 #define _TI_PCRE2_STRINGIFY_(num) #num

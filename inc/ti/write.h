@@ -9,7 +9,7 @@ typedef struct ti_write_s ti_write_t;
 #include <uv.h>
 #include <ti/stream.h>
 #include <ti/pkg.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 typedef void (*ti_write_cb)(ti_write_t * req, ex_enum status);
 

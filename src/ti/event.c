@@ -2,6 +2,7 @@
  * ti/event.c
  */
 #include <assert.h>
+#include <ex.h>
 #include <qpack.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -10,7 +11,6 @@
 #include <ti/job.h>
 #include <ti/rjob.h>
 #include <ti/event.h>
-#include <ti/ex.h>
 #include <ti/collections.h>
 #include <ti/node.h>
 #include <ti/proto.h>

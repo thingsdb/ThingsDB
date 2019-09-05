@@ -10,7 +10,7 @@ typedef struct ti_procedure_s ti_procedure_t;
 #include <inttypes.h>
 #include <util/vec.h>
 #include <ti/syntax.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/query.h>
 #include <ti/raw.h>
 #include <ti/closure.h>

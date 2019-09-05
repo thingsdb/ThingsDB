@@ -70,15 +70,13 @@ stop:
 
 int ti_store_users_restore(const char * fn)
 {
-    ex_t e;
+    ex_t e = {0};
     int rcode, rc = -1;
     ssize_t n;
     qp_unpacker_t unpacker;
     qp_res_t * res;
     uchar * data = fx_read(fn, &n);
     qp_res_t * qusers;
-
-    ex_init(&e);
 
     if (!data || ti_users_clear())
         return -1;

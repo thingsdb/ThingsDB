@@ -1,35 +1,14 @@
 /*
- * ti/ex.c
+ * ex.c
  */
 #include <assert.h>
+#include <ex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <ti/ex.h>
 #include <string.h>
 #include <util/logger.h>
 #include <uv.h>
-
-static ex_t ex__e;
-
-ex_t * ex_use(void)
-{
-    /* should only be called on the main thread */
-    assert (Logger.main_thread == uv_thread_self());
-    ex__e.nr = 0;
-    ex__e.n = 0;
-    ex__e.msg[0] = '\0';
-    ex__e.msg[EX_MAX_SZ] = '\0';
-    return &ex__e;
-}
-
-void ex_init(ex_t * e)
-{
-    e->nr = 0;
-    e->n = 0;
-    e->msg[0] = '\0';
-    e->msg[EX_MAX_SZ] = '\0';
-}
 
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
 {

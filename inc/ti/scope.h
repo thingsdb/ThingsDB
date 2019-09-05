@@ -7,8 +7,8 @@
 typedef struct ti_scope_s ti_scope_t;
 
 #include <cleri/cleri.h>
+#include <ex.h>
 #include <ti/closure.h>
-#include <ti/ex.h>
 #include <ti/name.h>
 #include <ti/prop.h>
 #include <ti/thing.h>

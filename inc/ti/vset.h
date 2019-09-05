@@ -10,7 +10,7 @@ typedef struct ti_vset_s ti_vset_t;
 #include <util/imap.h>
 #include <ti/thing.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 ti_vset_t * ti_vset_create(void);
 void ti_vset_destroy(ti_vset_t * vset);

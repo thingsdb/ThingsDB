@@ -4,8 +4,8 @@
 #ifndef SYNCPART_H_
 #define SYNCPART_H_
 
+#include <ex.h>
 #include <qpack.h>
-#include <ti/ex.h>
 
 #ifndef SYNCPART_SIZE
 #define SYNCPART_SIZE 131072UL

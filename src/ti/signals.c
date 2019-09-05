@@ -1,5 +1,5 @@
 /*
- * signals.c
+ * ti/signals.c
  */
 #include <signal.h>
 #include <stdlib.h>

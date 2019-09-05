@@ -1,8 +1,8 @@
 /*
- * ti/ex.h
+ * ex.h
  */
-#ifndef TI_EX_H_
-#define TI_EX_H_
+#ifndef EX_H_
+#define EX_H_
 
 #define EX_MEMORY_S \
     "memory allocation error in `%s` at %s:%d", __func__, __FILE__, __LINE__
@@ -72,8 +72,9 @@ typedef enum
 
 typedef struct ex_s ex_t;
 
-ex_t * ex_use(void);
-void ex_init(ex_t * e);
+#include <inttypes.h>
+#include <stddef.h>
+
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
 void ex_append(ex_t * e, const char * errmsg, ...);
@@ -91,4 +92,4 @@ struct ex_s
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
 #define ex_set_return(e__) ex_setn((e__), EX_RETURN, EX_RETURN_S, 6)
 
-#endif /* TI_EX_H_ */
+#endif /* EX_H_ */

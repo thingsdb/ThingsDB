@@ -12,7 +12,7 @@ typedef struct ti_collection_s  ti_collection_t;
 #include <ti/raw.h>
 #include <util/imap.h>
 #include <util/guid.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/quota.h>
 
 ti_collection_t * ti_collection_create(

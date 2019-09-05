@@ -10,7 +10,7 @@ typedef char ti_token_key_t[50];            /* token using 50 characters */
 #include <stdint.h>
 #include <ti/raw.h>
 #include <ti/val.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 ti_token_t * ti_token_create(
         ti_token_key_t * key,       /* NULL will generate a new key */

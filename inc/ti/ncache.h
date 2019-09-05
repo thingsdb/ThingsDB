@@ -7,7 +7,7 @@
 typedef struct ti_ncache_s ti_ncache_t;
 
 #include <cleri/cleri.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/syntax.h>
 #include <util/vec.h>
 

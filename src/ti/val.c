@@ -484,11 +484,9 @@ int ti_val_make_float(ti_val_t ** val, double d)
  */
 ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 {
-    ex_t e;
+    ex_t e = {0};
     qp_obj_t qp_val;
     ti_val_t * val;
-
-    ex_init(&e);
 
     (void) qp_next(unp, &qp_val);
     val = val__from_unp(&qp_val, unp, things, &e);

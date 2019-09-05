@@ -8,7 +8,7 @@ typedef struct ti_users_s ti_users_t;
 
 #include <stdint.h>
 #include <qpack.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/raw.h>
 #include <ti/user.h>
 #include <ti/val.h>

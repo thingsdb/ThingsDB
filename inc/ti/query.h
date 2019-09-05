@@ -9,7 +9,7 @@ typedef struct ti_query_s ti_query_t;
 #include <cleri/cleri.h>
 #include <ti/collection.h>
 #include <ti/event.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <ti/name.h>
 #include <ti/pkg.h>
 #include <ti/prop.h>

@@ -11,7 +11,7 @@ typedef struct ti_chain_s ti_chain_t;
 #include <ti/thing.h>
 #include <ti/val.h>
 #include <ti/name.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 void ti_chain_set(ti_chain_t * chain, ti_thing_t * thing, ti_name_t * name);
 void ti_chain_move(ti_chain_t * target, ti_chain_t * source);

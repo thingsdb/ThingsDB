@@ -112,7 +112,7 @@ typedef struct ti_val_s ti_val_t;
 #include <qpack.h>
 #include <stdint.h>
 #include <tiinc.h>
-#include <ti/ex.h>
+#include <ex.h>
 #include <util/imap.h>
 #include <util/vec.h>
 #include <ti/varr.h>

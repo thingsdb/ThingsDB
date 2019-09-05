@@ -474,14 +474,12 @@ static int job__splice(
     assert (thing);
     assert (unp);
 
-    ex_t e;
+    ex_t e = {0};
     ssize_t n, i, c, cur_n, new_n;
     ti_varr_t * varr;
     ti_name_t * name;
     qp_types_t tp;
     qp_obj_t qp_prop, qp_i, qp_c, qp_n;
-
-    ex_init(&e);
 
     if (!qp_is_map(qp_next(unp, NULL)) ||
         !qp_is_raw(qp_next(unp, &qp_prop)) ||

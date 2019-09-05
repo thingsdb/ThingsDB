@@ -8,7 +8,7 @@ typedef struct ti_quorum_s ti_quorum_t;
 
 #include <uv.h>
 #include <ti/req.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 typedef void (*ti_quorum_cb)(void * data, _Bool accepted);
 

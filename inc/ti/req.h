@@ -9,7 +9,7 @@ typedef struct ti_req_s ti_req_t;
 #include <uv.h>
 #include <ti/stream.h>
 #include <ti/pkg.h>
-#include <ti/ex.h>
+#include <ex.h>
 
 typedef void (*ti_req_cb)(ti_req_t * req, ex_enum status);
 

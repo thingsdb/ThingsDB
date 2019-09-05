@@ -73,15 +73,15 @@ class TestTypes(TestBase):
 
         self.assertEqual(await client.query(r'''
            return({a: {t: 0}}, 0);
-        '''), {'#': 0})
+        '''), {})
 
         self.assertEqual(await client.query(r'''
            return({a: {t: 0}}, 1);
-        '''), {'#': 0, 'a': {'#': 0}})
+        '''), {'a': {}})
 
         self.assertEqual(await client.query(r'''
            return({a: {t: 0}}, 2);
-        '''), {'#': 0, 'a': {'#': 0, 't': 0}})
+        '''), {'a': {'t': 0}})
 
         self.assertGreater(await client.query(r'''
             tmp = {t: {}};

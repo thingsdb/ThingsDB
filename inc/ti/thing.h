@@ -96,8 +96,9 @@ static inline int ti_thing_id_to_packer(
         qp_packer_t ** packer)
 {
     return (qp_add_map(packer) ||
-            qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_add_int(*packer, thing->id) ||
+            (thing->id && (
+                    qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
+                    qp_add_int(*packer, thing->id))) ||
             qp_close_map(*packer));
 }
 

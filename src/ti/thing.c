@@ -467,9 +467,12 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
 {
     assert (options);  /* should be either positive or negative, not 0 */
 
-    if (    qp_add_map(packer) ||
+    if (qp_add_map(packer))
+        return -1;
+
+    if (thing->id && (
             qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_add_int(*packer, thing->id))
+            qp_add_int(*packer, thing->id)))
         return -1;
 
     --options;

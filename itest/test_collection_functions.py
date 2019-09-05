@@ -106,7 +106,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('array();'), [])
         self.assertEqual(await client.query('array( [] );'), [])
-        self.assertEqual(await client.query(r'array(set([{}]));'), [{'#': 0}])
+        self.assertEqual(await client.query(r'array(set([{}]));'), [{}])
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(
@@ -518,11 +518,11 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(
             (await client.query('.iris.filter(|k|(k == "name"));')),
-            {'#': 0, 'name': 'Iris'})
+            {'name': 'Iris'})
 
         self.assertEqual(
             (await client.query('.iris.filter(|_k, v|(v == 6));')),
-            {'#': 0, 'age': 6})
+            {'age': 6})
 
         self.assertEqual(
             (await client.query('.iris.likes.filter(|v|isstr(v));')),
@@ -542,9 +542,9 @@ class TestCollectionFunctions(TestBase):
                 '.girls.filter(|_v, i|(i == .cato.id()))'))['$'][0]['age'],
             5)
 
-        self.assertEqual(await client.query('.iris.filter(||nil);'), {'#': 0})
+        self.assertEqual(await client.query('.iris.filter(||nil);'), {})
         self.assertEqual(await client.query('.iris.likes.filter(||nil);'), [])
-        self.assertEqual(await client.query(r'{}.filter(||true)'), {'#': 0})
+        self.assertEqual(await client.query(r'{}.filter(||true)'), {})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
         self.assertEqual(await client.query(r'set().filter(||1)'), {'$': []})
 
@@ -1696,13 +1696,13 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('set(set());'), {'$': []})
         self.assertEqual(
             await client.query(r'set([{}, {}]);'),
-            {'$': [{'#': 0}, {'#': 0}]})
+            {'$': [{}, {}]})
         self.assertEqual(
             await client.query(r'set({}, {});'),
-            {'$': [{'#': 0}, {'#': 0}]})
+            {'$': [{}, {}]})
         self.assertEqual(
             await client.query(r'set({},);'),
-            {'$': [{'#': 0}]})
+            {'$': [{}]})
 
     async def test_splice(self, client):
         await client.query('.li = [];')
@@ -1898,7 +1898,7 @@ class TestCollectionFunctions(TestBase):
         id = await client.query(r'(.t = {x:42}).id();')
         t = await client.query(f'thing({id});')
         self.assertEqual(t['x'], 42)
-        self.assertEqual(await client.query('thing();'), {'#': 0})
+        self.assertEqual(await client.query('thing();'), {})
         stuff, t = await client.query(f'return([thing(.id()), #{id}], 2);')
         self.assertEqual(stuff['t'], t)
         self.assertTrue(await client.query(f'( #{id} == thing(#{id}) );'))

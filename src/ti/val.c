@@ -841,12 +841,30 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
-    case TI_VAL_THING:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
         break;
+    case TI_VAL_THING:
+    {
+        ti_vset_t * vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
+            break;
+        }
+
+        if (ti_vset_add_val(vset, *val, e) < 0)
+        {
+            ti_vset_destroy(vset);
+            return e->nr;
+        }
+
+        ti_val_drop(*val);
+        *val = (ti_val_t *) vset;
+        break;
+    }
     case TI_VAL_ARR:
     {
         vec_t * vec = ((ti_varr_t *) *val)->vec;

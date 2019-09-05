@@ -1701,7 +1701,7 @@ class TestCollectionFunctions(TestBase):
             await client.query(r'set({}, {});'),
             {'$': [{}, {}]})
         self.assertEqual(
-            await client.query(r'set({},);'),
+            await client.query(r'set({});'),
             {'$': [{}]})
 
     async def test_splice(self, client):

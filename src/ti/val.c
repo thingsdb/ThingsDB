@@ -849,19 +849,13 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_THING:
     {
         ti_vset_t * vset = ti_vset_create();
-        if (!vset)
+        if (!vset || ti_vset_add(vset, (ti_thing_t *) *val))
         {
+            ti_vset_destroy(vset);
             ex_set_mem(e);
             break;
         }
 
-        if (ti_vset_add_val(vset, *val, e) < 0)
-        {
-            ti_vset_destroy(vset);
-            return e->nr;
-        }
-
-        ti_val_drop(*val);
         *val = (ti_val_t *) vset;
         break;
     }

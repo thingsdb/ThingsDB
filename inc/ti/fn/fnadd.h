@@ -44,9 +44,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
 
-    assert (child);
-
-    for (; child; child = child->next->next)
+    do
     {
         int rc;
         assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
@@ -64,10 +62,8 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                               reference now */
         ti_val_drop(query->rval);
         query->rval = NULL;
-
-        if (!child->next)
-            break;
     }
+    while (child->next && (child = child->next->next));
 
     if (added->n && ti_chain_is_set(&chain))
     {

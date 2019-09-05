@@ -43,8 +43,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_chain_is_set(&chain))
     {
-        ti_task_t * task;
-        task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
         if (!task)
             goto restore;
 

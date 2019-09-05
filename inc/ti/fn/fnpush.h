@@ -54,23 +54,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    assert (child);
-
-    for (; child; child = child->next->next)
+    do
     {
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
-
-        if (ti_do_scope(query, child->node, e))
-            goto fail1;
-
-        if (ti_varr_append(varr, (void **) &query->rval, e))
+        if (ti_do_scope(query, child->node, e) ||
+            ti_varr_append(varr, (void **) &query->rval, e))
             goto fail1;
 
         query->rval = NULL;
-
-        if (!child->next)
-            break;
     }
+    while (child->next && (child = child->next->next));
 
     if (ti_chain_is_set(&chain))
     {

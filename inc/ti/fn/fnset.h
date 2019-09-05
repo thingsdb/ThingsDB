@@ -55,7 +55,6 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_prop_t * prop;
-    ti_task_t * task;
     ti_thing_t * thing;
     ti_name_t * name;
     ti_raw_t * rname;
@@ -135,9 +134,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        assert (query->ev);
-        assert (query->target);  /* only in a collection scope */
-        task = ti_task_get_task(query->ev, thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, thing, e);
         if (!task)
             goto fail1;
 

@@ -118,12 +118,9 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (x = 0; x < n; ++x)
     {
         child = child->next->next;
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
 
-        if (ti_do_scope(query, child->node, e))
-            goto fail2;
-
-        if (ti_varr_append(varr, (void **) &query->rval, e))
+        if (ti_do_scope(query, child->node, e) ||
+            ti_varr_append(varr, (void **) &query->rval, e))
             goto fail2;
 
         query->rval = NULL;

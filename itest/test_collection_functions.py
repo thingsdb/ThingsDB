@@ -784,7 +784,7 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(isinstance(o['#'], int))
         self.assertGreater(o['#'], 0)
         self.assertEqual(await client.query(r'.o.id();'), o['#'])
-        self.assertEqual(await client.query(r'{}.id();'), 0)
+        self.assertIs(await client.query(r'{}.id();'), None)
 
         with self.assertRaisesRegex(
                 IndexError,

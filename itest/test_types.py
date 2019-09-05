@@ -60,12 +60,12 @@ class TestTypes(TestBase):
     async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];
-        '''), [0, 0])
+        '''), [None, None])
 
         self.assertEqual(await client.query(r'''
             tmp = {a: [{}], b: {}};
             [tmp.a[0].id(), tmp.b.id(), tmp.id()];
-        '''), [0, 0, 0])
+        '''), [None, None, None])
 
         self.assertEqual(await client.query(r'''
            {t: 0}.t;
@@ -123,7 +123,7 @@ class TestTypes(TestBase):
             t = {l: []};
             t.l.push({a: {}});
             [t.l[0].id(), t.l[0].a.id()];
-        '''), [0, 0])
+        '''), [None, None])
 
     async def test_array(self, client):
         self.assertEqual(await client.query(r'''

@@ -27,7 +27,10 @@ static int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     thing = (ti_thing_t *) query->rval;
-    query->rval = (ti_val_t *) ti_vint_create((int64_t) thing->id);
+    query->rval = thing->id
+            ? (ti_val_t *) ti_vint_create((int64_t) thing->id)
+            : (ti_val_t *) ti_nil_get();
+
     if (!query->rval)
         ex_set_mem(e);
 

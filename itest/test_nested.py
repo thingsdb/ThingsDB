@@ -318,7 +318,7 @@ class TestNested(TestBase):
         '''), [userb])
 
     async def test_ids(self, client0, client1, client2):
-        zeros, ids = await client0.query(r'''
+        nones, ids = await client0.query(r'''
             a = {b: {c: {}}};
             a.b.c.d = {};
             .x = [a.id(), a.b.id(), a.b.c.id(), a.b.c.d.id()];
@@ -327,7 +327,7 @@ class TestNested(TestBase):
             [.x, .y];
         ''')
 
-        self.assertEqual(zeros, [0, 0, 0, 0])
+        self.assertEqual(nones, [None, None, None, None])
         self.assertGreater(ids[0], 1)
         self.assertGreater(ids[1], ids[0])
         self.assertGreater(ids[2], ids[1])

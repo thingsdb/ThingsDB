@@ -3,6 +3,7 @@ from lib import run_test
 
 from test_collection_functions import TestCollectionFunctions
 from test_gc import TestGC
+from test_index_slice import TestIndexSlice
 from test_multi_node import TestMultiNode
 from test_nested import TestNested
 from test_node_functions import TestNodeFunctions
@@ -18,6 +19,7 @@ from test_variable import TestVariable
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())
     run_test(TestGC())
+    run_test(TestIndexSlice())
     run_test(TestMultiNode())
     run_test(TestNested())
     run_test(TestNodeFunctions())

@@ -98,7 +98,7 @@ ti_varr_t * ti_varr_from_slice(
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
 
-    n = n / step + !!(step % n);
+    n = n / step + !!(n % step);
     sz = (uint32_t) (n < 0 ? 0 : n);
 
     varr->vec = vec_new(sz);

@@ -421,6 +421,11 @@ done:
     return e->nr;
 }
 
+static int do__slice_arr_a(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+{
+    return 0;
+}
+
 static int do__index_numeric(
         ti_query_t * query,
         cleri_node_t * scope,
@@ -436,13 +441,16 @@ static int do__index_numeric(
     if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_BAD_DATA,
-                "expecting an index to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                "expecting an index of type `"TI_VAL_INT_S"` "
+                "but got type `%s` instead",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
     i = ((ti_vint_t * ) query->rval)->int_;
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
 
     if (i < 0)
         i += n;
@@ -454,7 +462,6 @@ static int do__index_numeric(
 
     return e->nr;
 }
-
 
 static int do__index_raw(ti_query_t * query, cleri_node_t * scope, ex_t * e)
 {
@@ -493,12 +500,66 @@ done:
     return e->nr;
 }
 
+static int do__index_arr_a(ti_query_t * query, cleri_node_t * index, ex_t * e)
+{
+    cleri_node_t * idx_scope = index->children->next->node->children->node;
+    cleri_node_t * ass_scope = index->children->next->next->next->node
+            ->children->next->node;
+    ti_varr_t * varr;
+    ti_chain_t chain;
+    size_t idx;
+
+    ti_chain_move(&chain, &query->chain);
+
+    if (ti_val_try_lock(query->rval, e))
+        goto fail0;
+
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
+
+    if (do__index_numeric(query, idx_scope, &idx, varr->vec->n, e))
+        goto fail1;
+
+    if (ti_do_scope(query, ass_scope, e))
+        goto fail1;
+
+    ti_val_drop((ti_val_t *) vec_get(varr->vec, idx));
+
+    varr->vec->data[idx] = query->rval;
+    ti_incref(query->rval);
+
+    if (ti_chain_is_set(&chain))
+    {
+        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        if (!task)
+            goto fail1;
+
+        if (ti_task_add_splice(
+                task,
+                chain.name,
+                varr,
+                idx,
+                1,
+                1))
+            ex_set_mem(e);
+    }
+
+fail1:
+    ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
+    ti_val_drop((ti_val_t *) varr);
+fail0:
+    ti_chain_unset(&chain);
+    return e->nr;
+}
+
 static int do__single_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (query->rval);
 
     ti_val_t * val = query->rval;
     cleri_node_t * slice = nd->children->next->node;
+
+    assert (slice->cl_obj->gid == CLERI_GID_SLICE);
 
     _Bool do_assign = !!nd->children->next->next->next;
     _Bool do_slice = (
@@ -522,14 +583,18 @@ static int do__single_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do_assign && ti_varr_is_tuple((ti_varr_t *) val))
             goto assign_error;
 
-        return do_slice
-                ? do__slice_arr(query, slice, e)
-                : do__index_arr(query, slice->children->node, e);
-        break;
+        return do_assign
+                ? do_slice
+                    ? do__slice_arr_a(query, nd, e)
+                    : do__index_arr_a(query, nd, e)
+                : do_slice
+                    ? do__slice_arr(query, slice, e)
+                    : do__index_arr(query, slice->children->node, e);
 
     case TI_VAL_THING:
         if (do_slice)
             goto slice_error;
+
         break;
     case TI_VAL_NIL:
     case TI_VAL_INT:

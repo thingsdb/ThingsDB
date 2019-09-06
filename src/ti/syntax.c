@@ -389,7 +389,9 @@ void syntax__index(ti_syntax_t * syntax, cleri_node_t * nd)
     if (nd->children->next->next->next)
     {
         syntax__set_collection_event(syntax);
-        syntax__investigate(syntax, nd->children->next->next->next->node);
+        syntax__investigate(syntax, nd                      /* sequence */
+                ->children->next->next->next->node          /* assignment */
+                ->children->next->node);                    /* scope */
     }
 
     for (; child; child = child->next)

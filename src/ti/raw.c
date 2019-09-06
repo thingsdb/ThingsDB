@@ -129,7 +129,7 @@ ti_raw_t * ti_raw_from_slice(
     uchar * from;
     ssize_t n = stop - start;
 
-    n = n / step + !!(step % n);
+    n = n / step + !!(n % step);
 
     if (n <= 0)
         return (ti_raw_t *) ti_val_empty_str();
@@ -145,13 +145,10 @@ ti_raw_t * ti_raw_from_slice(
     dest = raw->data;
     from = source->data + start;
 
-    do
-    {
-        *dest = *from;
-        from += step;
-        ++dest;
-    }
-    while (--n);
+    *dest = *from;
+
+    while (--n)
+        *(++dest) = *(from += step);
 
     return raw;
 }

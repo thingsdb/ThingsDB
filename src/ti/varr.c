@@ -82,6 +82,42 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     return varr;
 }
 
+ti_varr_t * ti_varr_from_slice(
+        ti_varr_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step)
+{
+    ssize_t n = stop - start;
+    uint32_t sz;
+    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    if (!varr)
+        return NULL;
+
+    varr->ref = 1;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = 0;
+
+    n = n / step + !!(step % n);
+    sz = (uint32_t) (n < 0 ? 0 : n);
+
+    varr->vec = vec_new(sz);
+    if (!varr->vec)
+    {
+        free(varr);
+        return NULL;
+    }
+
+    for (n = start; sz--; n += step)
+    {
+        ti_val_t * val = vec_get(source->vec, n);
+        ti_incref(val);
+        VEC_push(varr->vec, val);
+    }
+
+    return varr;
+}
+
 void ti_varr_destroy(ti_varr_t * varr)
 {
     if (!varr)

@@ -117,13 +117,15 @@ class LangDef(Grammar):
     assignment = Sequence(name, Tokens(ASSIGN_TOKENS), scope)
     var_assign = Sequence(var, Tokens(ASSIGN_TOKENS), scope)
 
-    index = Repeat(
-        Sequence('[', scope, ']')
-    )
+    # use slice also as single index, this allows a syntax of empty [] brackets
+    # but improves performance since we only have to check for a scope once.
+    slice = List(Optional(scope), delimiter=':', ma=3, opt=False)
+
+    index = Repeat(Sequence('[', slice, ']', Optional(Sequence('=', scope))))
 
     chain = Sequence(
         '.',
-        Choice(function, assignment, name),
+        Choice(function, assignment, name),  # TODO: Seq(name, Opt(assign))
         index,
         Optional(chain),
     )

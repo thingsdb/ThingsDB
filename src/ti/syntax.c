@@ -380,6 +380,23 @@ static _Bool syntax__swap_opr(
     return gid > parent_gid;
 }
 
+void syntax__index(ti_syntax_t * syntax, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* slice */
+            ->children;
+
+    if (nd->children->next->next->next)
+    {
+        syntax__set_collection_event(syntax);
+        syntax__investigate(syntax, nd->children->next->next->next->node);
+    }
+
+    for (; child; child = child->next)
+        if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
+            syntax__investigate(syntax, child->node);
+}
+
 /*
  * Investigates the following:
  *
@@ -501,10 +518,7 @@ void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
         for (   cleri_children_t * child = nd->children;
                 child;
                 child = child->next)
-            /* sequence('[', scope, ']') (only investigate the scopes */
-            syntax__investigate(
-                    syntax,
-                    child->node->children->next->node);  /* scope */
+            syntax__index(syntax, child->node);
         return;
     case CLERI_GID_VAR:
     case CLERI_GID_NAME:

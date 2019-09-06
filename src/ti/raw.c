@@ -118,6 +118,44 @@ ti_raw_t * ti_raw_from_strn(const char * str, size_t n)
     return r;
 }
 
+ti_raw_t * ti_raw_from_slice(
+        ti_raw_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step)
+{
+    ti_raw_t * raw;
+    uchar * dest;
+    uchar * from;
+    ssize_t n = stop - start;
+
+    n = n / step + !!(step % n);
+
+    if (n <= 0)
+        return (ti_raw_t *) ti_val_empty_str();
+
+    raw = malloc(sizeof(ti_raw_t) + n);
+    if (!raw)
+        return NULL;
+
+    raw->ref = 1;
+    raw->tp = TI_VAL_RAW;
+    raw->n = n;
+
+    dest = raw->data;
+    from = source->data + start;
+
+    do
+    {
+        *dest = *from;
+        from += step;
+        ++dest;
+    }
+    while (--n);
+
+    return raw;
+}
+
 ti_raw_t * ti_raw_upper(ti_raw_t * raw)
 {
     char * to, * from = (char *) raw->data;

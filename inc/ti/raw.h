@@ -17,6 +17,11 @@ ti_raw_t * ti_raw_from_packer(qp_packer_t * packer);
 ti_raw_t * ti_raw_from_ti_string(const char * src, size_t n);
 ti_raw_t * ti_raw_from_fmt(const char * fmt, ...);
 ti_raw_t * ti_raw_from_strn(const char * str, size_t n);
+ti_raw_t * ti_raw_from_slice(
+        ti_raw_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step);
 ti_raw_t * ti_raw_upper(ti_raw_t * raw);
 ti_raw_t * ti_raw_lower(ti_raw_t * raw);
 char * ti_raw_to_str(const ti_raw_t * raw);

@@ -14,6 +14,8 @@
 #include <langdef/langdef.h>
 #include <util/strx.h>
 
+#define SLICES_DOC_ TI_SEE_DOC("#slices")
+
 static inline int do__no_collection_scope(ti_query_t * query)
 {
     return ~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION;
@@ -234,6 +236,7 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
     cleri_children_t * child, * seqchild;
+
     uint32_t current_varn = query->vars->n;
 
     seqchild = nd                       /* <{ comment, list s }> */
@@ -261,98 +264,314 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline size_t do__slice_also_not_nil(ti_val_t * val, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_INDEX);
-    assert (nd->children);
+    if (!ti_val_is_nil(val))
+        ex_set(e, EX_BAD_DATA,
+               "slice indices must be of type `"TI_VAL_INT_S"` "
+               "or `"TI_VAL_NIL_S"` but got got type `%s` instead"
+               SLICES_DOC_, ti_val_str(val));
+    return e->nr;
+}
 
-    cleri_children_t * child;
-    cleri_node_t * node;
-    int64_t idx;
-    ssize_t n;
-    ti_val_t * val = query->rval;
-    query->rval = NULL;
+static int do__read_slice_indices(
+        ti_query_t * query,
+        cleri_node_t * slice,
+        ssize_t * start,
+        ssize_t * stop,
+        ssize_t * step,
+        ex_t * e)
+{
+    assert (query->rval == NULL);
 
-    /* multiple indexes are possible, for example x[0][0] */
-    for (child = nd->children; child; child = child->next)
+    const ssize_t n = *stop;
+    cleri_children_t * child = slice->children;
+    ssize_t * start_ = NULL;
+    ssize_t * stop_ = NULL;
+
+    if (!child || !(*stop))
+        return e->nr;
+
+    if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
     {
-        node = child->node              /* sequence  [ int ]  */
-            ->children->next->node;     /* scope */
-
-        if (ti_do_scope(query, node, e))
+        if (ti_do_scope(query, child->node, e))
             return e->nr;
 
-        if (!ti_val_is_int(query->rval))
+        if (ti_val_is_int(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
-                    "expecting an index to be of "
-                    "type `"TI_VAL_INT_S"` but got type `%s` instead",
-                    ti_val_str(query->rval));
+            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            if (i > 0)
+            {
+                *start = i >= n ? n - 1 : i;
+            }
+            else if (i < 0 && (i = n + i) > 0)
+            {
+                *start = i;
+            }
+            start_ = start;
+        }
+        else if (do__slice_also_not_nil(query->rval, e))
             return e->nr;
-        }
-
-        idx = ((ti_vint_t * ) query->rval)->int_;
-
-        switch (val->tp)
-        {
-        case TI_VAL_NAME:
-        case TI_VAL_RAW:
-            n = ((ti_raw_t *) val)->n;
-            break;
-        case TI_VAL_ARR:
-            n = ((ti_varr_t *) val)->vec->n;
-            break;
-        default:
-            ex_set(e, EX_BAD_DATA, "type `%s` is not indexable",
-                    ti_val_str(val));
-            goto done;
-        }
-
-        if (idx < 0)
-            idx += n;
-
-        if (idx < 0 || idx >= n)
-        {
-            ex_set(e, EX_INDEX_ERROR, "index out of range");
-            goto done;
-        }
 
         ti_val_drop(query->rval);
+        query->rval = NULL;
 
-        switch (val->tp)
+        child = child->next;
+    }
+
+    assert (child);  /* ':' */
+
+    child = child->next;
+    if (!child)
+        return e->nr;
+
+    if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
+    {
+        if (ti_do_scope(query, child->node, e))
+            return e->nr;
+
+        if (ti_val_is_int(query->rval))
         {
-        case TI_VAL_NAME:
-        case TI_VAL_RAW:
-            query->rval = (ti_val_t *) ti_raw_create(
-                    ((ti_raw_t *) val)->data + idx, 1);
-            if (!query->rval)
+            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            if (i < n)
             {
-                ex_set_mem(e);
-                goto done;
+                *stop = i < 0 ? ((n + i) < 0 ? 0 : n + i) : i;
             }
-            break;
-        case TI_VAL_ARR:
-            query->rval = vec_get(((ti_varr_t *) val)->vec, idx);
-            ti_incref(query->rval);
-            break;
-        default:
-            assert (0);
-            ex_set_internal(e);
-            goto done;
+            stop_ = stop;
         }
+        else if (do__slice_also_not_nil(query->rval, e))
+            return e->nr;
 
-        if (!child->next)
-            break;
+        ti_val_drop(query->rval);
+        query->rval = NULL;
 
-        ti_val_drop(val);
-        val = query->rval;
+        child = child->next;
+        if (!child)
+            return e->nr;
+    }
+
+    assert (child);  /* ':' */
+
+    child = child->next;
+
+    if (child)  /* must be scope since no more indices are allowed */
+    {
+        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+
+        if (ti_do_scope(query, child->node, e))
+            return e->nr;
+
+        if (ti_val_is_int(query->rval))
+        {
+            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            if (i < 0)
+            {
+                if (!start_)
+                    *start = n -1;
+                if (!stop_)
+                    *stop = -1;
+            }
+            *step = i;
+        }
+        else if (do__slice_also_not_nil(query->rval, e))
+            return e->nr;
+
+        ti_val_drop(query->rval);
         query->rval = NULL;
     }
 
-done:
-    ti_val_drop(val);
     return e->nr;
+}
+
+static int do__slice_raw(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+{
+    ti_raw_t * source = (ti_raw_t *) query->rval;
+    ssize_t start = 0, stop = (ssize_t) source->n, step = 1;
+
+    query->rval = NULL;
+
+    if (do__read_slice_indices(query, slice, &start, &stop, &step, e))
+        goto done;
+
+    query->rval = (ti_val_t *) ti_raw_from_slice(source, start, stop, step);
+    if (!query->rval)
+        ex_set_mem(e);
+
+done:
+    ti_val_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int do__slice_arr(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+{
+    ti_varr_t * source = (ti_varr_t *) query->rval;
+    ssize_t start = 0, stop = (ssize_t) source->vec->n, step = 1;
+
+    query->rval = NULL;
+
+    if (do__read_slice_indices(query, slice, &start, &stop, &step, e))
+        goto done;
+
+    query->rval = (ti_val_t *) ti_varr_from_slice(source, start, stop, step);
+    if (!query->rval)
+        ex_set_mem(e);
+
+done:
+    ti_val_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int do__index_numeric(
+        ti_query_t * query,
+        cleri_node_t * scope,
+        size_t * idx,
+        size_t n,
+        ex_t * e)
+{
+    ssize_t i;
+
+    if (ti_do_scope(query, scope, e))
+        return e->nr;
+
+    if (!ti_val_is_int(query->rval))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting an index to be of "
+                "type `"TI_VAL_INT_S"` but got type `%s` instead",
+                ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    i = ((ti_vint_t * ) query->rval)->int_;
+
+    if (i < 0)
+        i += n;
+
+    if (i < 0 || i >= (ssize_t) n)
+        ex_set(e, EX_INDEX_ERROR, "index out of range");
+    else
+        *idx = (size_t) i;
+
+    return e->nr;
+}
+
+
+static int do__index_raw(ti_query_t * query, cleri_node_t * scope, ex_t * e)
+{
+    ti_raw_t * source = (ti_raw_t *) query->rval;
+    size_t idx;
+
+    query->rval = NULL;
+
+    if (do__index_numeric(query, scope, &idx, source->n, e))
+        goto done;
+
+    query->rval = (ti_val_t *) ti_raw_create(source->data + idx, 1);
+    if (!query->rval)
+        ex_set_mem(e);
+
+done:
+    ti_val_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int do__index_arr(ti_query_t * query, cleri_node_t * scope, ex_t * e)
+{
+    ti_varr_t * source = (ti_varr_t *) query->rval;
+    size_t idx;
+
+    query->rval = NULL;
+
+    if (do__index_numeric(query, scope, &idx, source->vec->n, e))
+        goto done;
+
+    query->rval = vec_get(source->vec, idx);
+    ti_incref(query->rval);
+
+done:
+    ti_val_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int do__single_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (query->rval);
+
+    ti_val_t * val = query->rval;
+    cleri_node_t * slice = nd->children->next->node;
+
+    _Bool do_assign = !!nd->children->next->next->next;
+    _Bool do_slice = (
+            !slice->children ||
+            slice->children->next ||
+            slice->children->node->cl_obj->tp == CLERI_TP_TOKEN
+    );
+
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NAME:
+    case TI_VAL_RAW:
+        if (do_assign)
+            goto assign_error;
+
+        return do_slice
+                ? do__slice_raw(query, slice, e)
+                : do__index_raw(query, slice->children->node, e);
+
+    case TI_VAL_ARR:
+        if (do_assign && ti_varr_is_tuple((ti_varr_t *) val))
+            goto assign_error;
+
+        return do_slice
+                ? do__slice_arr(query, slice, e)
+                : do__index_arr(query, slice->children->node, e);
+        break;
+
+    case TI_VAL_THING:
+        if (do_slice)
+            goto slice_error;
+        break;
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_QP:
+    case TI_VAL_REGEX:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+        if (do_slice)
+            goto slice_error;
+        goto index_error;
+    }
+
+    assert (0);
+    return e->nr;
+
+slice_error:
+    ex_set(e, EX_BAD_DATA, "type `%s` has no slice support",
+            ti_val_str(val));
+    return e->nr;
+
+index_error:
+    ex_set(e, EX_BAD_DATA, "type `%s` is not indexable",
+            ti_val_str(val));
+    return e->nr;
+
+assign_error:
+    ex_set(e, EX_BAD_DATA, "type `%s` does not support index assignments",
+        ti_val_str(val));
+    return e->nr;
+}
+
+static inline int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_children_t * child = nd->children;
+
+    for (child = nd->children; child; child = child->next)
+        if (do__single_index(query, child->node, e))
+            return e->nr;
+    return 0;
 }
 
 static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -411,7 +630,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (index_node->children && do__index(query, index_node, e))
+    if (do__index(query, index_node, e))
         goto done;
 
     if (child)
@@ -974,7 +1193,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     node = child->node;
 
     /* handle index */
-    if (node->children && do__index(query, node, e))
+    if (do__index(query, node, e))
         return e->nr;
 
     /* chain */

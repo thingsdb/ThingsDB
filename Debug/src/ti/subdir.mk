@@ -25,6 +25,7 @@ C_SRCS += \
 ../src/ti/event.c \
 ../src/ti/events.c \
 ../src/ti/fwd.c \
+../src/ti/index.c \
 ../src/ti/job.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
@@ -100,6 +101,7 @@ OBJS += \
 ./src/ti/event.o \
 ./src/ti/events.o \
 ./src/ti/fwd.o \
+./src/ti/index.o \
 ./src/ti/job.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
@@ -175,6 +177,7 @@ C_DEPS += \
 ./src/ti/event.d \
 ./src/ti/events.d \
 ./src/ti/fwd.d \
+./src/ti/index.d \
 ./src/ti/job.d \
 ./src/ti/name.d \
 ./src/ti/names.d \

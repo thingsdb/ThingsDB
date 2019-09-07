@@ -121,7 +121,10 @@ class LangDef(Grammar):
     # but improves performance since we only have to check for a scope once.
     slice = List(Optional(scope), delimiter=':', ma=3, opt=False)
 
-    index = Repeat(Sequence('[', slice, ']', Optional(Sequence('=', scope))))
+    index = Repeat(Sequence(
+        '[', slice, ']',
+        Optional(Sequence(Tokens(ASSIGN_TOKENS), scope))
+    ))
 
     chain = Sequence(
         '.',

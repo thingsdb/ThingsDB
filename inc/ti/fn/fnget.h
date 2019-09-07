@@ -31,7 +31,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_scope(query, nd->children->node, e))
-        return e->nr;
+        goto fail0;
 
     if (!ti_val_is_raw(query->rval))
     {

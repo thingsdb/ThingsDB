@@ -187,6 +187,30 @@ static int ncache__opr(
         );
 }
 
+static int ncache__index(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * node,
+        ex_t * e)
+{
+    cleri_children_t * child = node        /* sequence */
+            ->children->next->node         /* slice */
+            ->children;
+
+    if (node->children->next->next->next &&
+        ncache__i(syntax, vcache, node                  /* sequence */
+            ->children->next->next->next->node          /* assignment */
+            ->children->next->node, e))                 /* scope */
+        return e->nr;
+
+    for (; child; child = child->next)
+        if (    child->node->cl_obj->gid == CLERI_GID_SCOPE &&
+                ncache__i(syntax, vcache, child->node, e))
+            return e->nr;
+
+    return e->nr;
+}
+
 /* return 0 on success, but not not always the current e->nr */
 int ti_ncache_gen_node_data(
         ti_syntax_t * syntax,
@@ -258,13 +282,8 @@ int ti_ncache_gen_node_data(
         for (   cleri_children_t * child = node->children;
                 child;
                 child = child->next)
-            /* sequence('[', scope, ']') (only investigate the scopes */
-            if (ncache__i(
-                    syntax,
-                    vcache,
-                    child->node->children->next->node,
-                    e))
-               return e->nr;
+            if (ncache__index(syntax, vcache, child->node, e))
+                return e->nr;
         return e->nr;
     case CLERI_GID_VAR:
     case CLERI_GID_NAME:

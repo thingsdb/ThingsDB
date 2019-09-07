@@ -126,11 +126,7 @@ void ti_varr_destroy(ti_varr_t * varr)
     free(varr);
 }
 
-/*
- * does not increment `*v` reference counter but the value might change to
- * a (new) tuple pointer.
- */
-int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
+int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
 
@@ -166,11 +162,21 @@ int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
         to->flags |= TI_VFLAG_ARR_MHT;
         break;
     }
-
-    if (vec_push(&to->vec, *v))
-        ex_set_mem(e);
-
     return e->nr;
+}
+
+/*
+ * does not increment `*v` reference counter but the value might change to
+ * a (new) tuple pointer.
+ */
+int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
+{
+    if (ti_varr_val_prepare(to, v, e))
+        return e->nr;
+
+    ti_val_drop((ti_val_t *) vec_get(to->vec, idx));
+    to->vec->data[idx] = *v;
+    return 0;
 }
 
 _Bool ti_varr_has_things(ti_varr_t * varr)

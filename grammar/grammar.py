@@ -20,7 +20,7 @@ from pyleri import (
 
 
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
-ASSIGN_TOKENS = '= += -= *= /= %= &= ^= |='
+ASSIGN_TOKENS = Tokens('= += -= *= /= %= &= ^= |=')
 
 
 class Choice(Choice_):
@@ -71,7 +71,7 @@ class LangDef(Grammar):
 
     thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
     array = Sequence('[', List(scope), ']')
-    function = Sequence(name, '(', List(scope), ')')
+    function = Sequence('(', List(scope), ')')
 
     immutable = Choice(
         t_false,
@@ -114,21 +114,22 @@ class LangDef(Grammar):
         Optional(Sequence('?', scope, Optional(Sequence(':', scope)))),
     )
 
-    assignment = Sequence(name, Tokens(ASSIGN_TOKENS), scope)
-    var_assign = Sequence(var, Tokens(ASSIGN_TOKENS), scope)
+    assign = Sequence(ASSIGN_TOKENS, scope)
 
-    # use slice also as single index, this allows a syntax of empty [] brackets
-    # but improves performance since we only have to check for a scope once.
+    name_opt_func_assign = Sequence(name, Optional(Choice(function, assign)))
+    var_opt_func_assign = Sequence(var, Optional(Choice(function, assign)))
+
+    # note: slice is also used for a simple index
     slice = List(Optional(scope), delimiter=':', ma=3, opt=False)
 
     index = Repeat(Sequence(
         '[', slice, ']',
-        Optional(Sequence(Tokens(ASSIGN_TOKENS), scope))
+        Optional(Sequence(ASSIGN_TOKENS, scope))
     ))
 
     chain = Sequence(
         '.',
-        Choice(function, assignment, name),  # TODO: Seq(name, Opt(assign))
+        name_opt_func_assign,
         index,
         Optional(chain),
     )
@@ -139,17 +140,13 @@ class LangDef(Grammar):
         List(scope, delimiter=Sequence(';', comment), mi=1),
         '}')
 
-    # maybe we can optimize since for example `name` is captured tree times
-    # it might be even better to optimize libcleri for handling these cases
     scope = Sequence(
         o_not,
         Choice(
             chain,
             thing_by_id,
             immutable,
-            function,
-            var_assign,
-            var,
+            var_opt_func_assign,
             thing,
             array,
             operations,

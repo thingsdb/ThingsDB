@@ -367,9 +367,9 @@ static _Bool syntax__swap_opr(
         cleri_node_t * tmp;
         cleri_children_t * bchilda;
         parent->node = chilcollection->node;
-        tmp = chilcollection->node->cl_obj->tp == CLERI_TP_PRIO ?
-                chilcollection->node->children->node :
-                chilcollection->node->children->node->children->node;
+        tmp = chilcollection->node->cl_obj->tp == CLERI_TP_PRIO
+                ? chilcollection->node->children->node
+                : chilcollection->node->children->node->children->node;
         bchilda = tmp->children;
         gid = tmp->cl_obj->gid;
         tmp = bchilda->node;
@@ -397,6 +397,31 @@ void syntax__index(ti_syntax_t * syntax, cleri_node_t * nd)
     for (; child; child = child->next)
         if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
             syntax__investigate(syntax, child->node);
+}
+
+void syntax__function(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
+{
+    intptr_t nargs = 0;
+    cleri_children_t * child;
+
+    /* map function to node */
+    syntax__map_fn(syntax, nd->children->node, chain);
+
+    /* list (arguments) */
+    nd = nd->children->next->node->children->next->node;
+
+    /* investigate arguments */
+    for (child = nd->children; child; child = child->next->next)
+    {
+        syntax__investigate(syntax, child->node);  /* scope */
+        ++nargs;
+
+        if (!child->next)
+            break;
+    }
+
+    /* bind `nargs` to node->data */
+    nd->data = (void *) nargs;
 }
 
 /*
@@ -436,13 +461,11 @@ void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
         cleri_children_t * child = nd           /* seq<{, comment, list, }> */
                 ->children->next->next->node    /* list statements */
                 ->children;                     /* first child, not empty */
-        for (; child; child = child->next->next)
+        do
         {
             syntax__investigate(syntax, child->node);  /* scope */
-
-            if (!child->next)
-                break;
         }
+        while (child->next && (child = child->next->next));
         return;
     }
     case CLERI_GID_CHAIN:
@@ -470,37 +493,46 @@ void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
         nd->data = NULL;
         ++syntax->val_cache_n;
         return;
-    case CLERI_GID_FUNCTION:
-    {
-        intptr_t nargs = 0;
-        cleri_children_t * child;
-
-        /* map function to node */
-        syntax__map_fn(syntax, nd->children->node, chain);
-
-        /* list (arguments) */
-        nd = nd->children->next->next->node;
-
-        /* investigate arguments */
-        for (child = nd->children; child; child = child->next->next)
+    case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
+        if (nd->children->next)
         {
-            syntax__investigate(syntax, child->node);  /* scope */
-            ++nargs;
-
-            if (!child->next)
+            switch (nd->children->next->node->cl_obj->gid)
+            {
+            case CLERI_GID_FUNCTION:
+                syntax__function(syntax, nd, chain);
+                return;
+            case CLERI_GID_ASSIGN:
+                syntax__set_collection_event(syntax);
+                syntax__investigate(
+                        syntax,
+                        nd->children->next->node->children->next->node);
                 break;
+            default:
+                assert (0);
+                return;
+            }
         }
-
-        /* bind `nargs` to node->data */
-        nd->data = (void *) nargs;
+        nd->children->node->data = NULL;
+        ++syntax->val_cache_n;
         return;
-    }
-    case CLERI_GID_ASSIGNMENT:
-        syntax__set_collection_event(syntax);
-        /* fall through */
-    case CLERI_GID_VAR_ASSIGN:
-        /* investigate the scope */
-        syntax__investigate(syntax, nd->children->next->next->node);
+    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+        if (nd->children->next)
+        {
+            switch (nd->children->next->node->cl_obj->gid)
+            {
+            case CLERI_GID_FUNCTION:
+                syntax__function(syntax, nd, chain);
+                return;
+            case CLERI_GID_ASSIGN:
+                syntax__investigate(
+                        syntax,
+                        nd->children->next->node->children->next->node);
+                break;
+            default:
+                assert (0);
+                return;
+            }
+        }
         nd->children->node->data = NULL;
         ++syntax->val_cache_n;
         return;
@@ -521,11 +553,6 @@ void ti_syntax_inv(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
                 child;
                 child = child->next)
             syntax__index(syntax, child->node);
-        return;
-    case CLERI_GID_VAR:
-    case CLERI_GID_NAME:
-        nd->data = NULL;
-        ++syntax->val_cache_n;
         return;
     case CLERI_GID_O_NOT:
     case CLERI_GID_COMMENT:

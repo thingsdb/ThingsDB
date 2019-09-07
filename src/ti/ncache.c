@@ -260,18 +260,32 @@ int ti_ncache_gen_node_data(
         if (!node->data)
             ex_set_mem(e);
         return e->nr;
-    case CLERI_GID_FUNCTION:
-        return ncache__list(
-                syntax,
-                vcache,
-                node->children->next->next->node->children,
-                e);
-    case CLERI_GID_ASSIGNMENT:
-    case CLERI_GID_VAR_ASSIGN:
-        return (
-            ncache__i(syntax, vcache, node->children->next->next->node, e) ||
-            ncache__gen_name(vcache, node->children->node, e)
-        );
+    case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
+    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+        if (!node->children->next)
+            return ncache__gen_name(vcache, node->children->node, e);
+
+        switch (node->children->next->node->cl_obj->gid)
+        {
+        case CLERI_GID_FUNCTION:
+            return ncache__list(
+                    syntax,
+                    vcache,
+                    node->children->next->node->children->next->node->children,
+                    e);
+        case CLERI_GID_ASSIGN:
+            return (ncache__i(
+                    syntax,
+                    vcache,
+                    node->children->next->node->children->next->node,
+                    e)
+            ) || ncache__gen_name(vcache, node->children->node, e);
+        default:
+            assert (0);
+            return -1;
+        }
+
+        break;
     case CLERI_GID_STATEMENTS:
         return ncache__list(
                 syntax,
@@ -285,9 +299,6 @@ int ti_ncache_gen_node_data(
             if (ncache__index(syntax, vcache, child->node, e))
                 return e->nr;
         return e->nr;
-    case CLERI_GID_VAR:
-    case CLERI_GID_NAME:
-        return ncache__gen_name(vcache, node, e);
     case CLERI_GID_O_NOT:
     case CLERI_GID_COMMENT:
         assert (0);

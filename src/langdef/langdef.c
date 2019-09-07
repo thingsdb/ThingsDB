@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-07 16:59:14
+ * Created at: 2019-09-07 20:27:07
  */
 
 #include <langdef/langdef.h>
@@ -77,8 +77,7 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
-        4,
-        name,
+        3,
         cleri_token(CLERI_NONE, "("),
         cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
@@ -146,19 +145,35 @@ cleri_grammar_t * compile_langdef(void)
             ))
         ))
     );
-    cleri_t * assignment = cleri_sequence(
-        CLERI_GID_ASSIGNMENT,
-        3,
-        name,
+    cleri_t * assign = cleri_sequence(
+        CLERI_GID_ASSIGN,
+        2,
         cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
         scope
     );
-    cleri_t * var_assign = cleri_sequence(
-        CLERI_GID_VAR_ASSIGN,
-        3,
+    cleri_t * name_opt_func_assign = cleri_sequence(
+        CLERI_GID_NAME_OPT_FUNC_ASSIGN,
+        2,
+        name,
+        cleri_optional(CLERI_NONE, cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            function,
+            assign
+        ))
+    );
+    cleri_t * var_opt_func_assign = cleri_sequence(
+        CLERI_GID_VAR_OPT_FUNC_ASSIGN,
+        2,
         var,
-        cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
-        scope
+        cleri_optional(CLERI_NONE, cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            function,
+            assign
+        ))
     );
     cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, scope), cleri_token(CLERI_NONE, ":"), 0, 3, 0);
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(
@@ -206,13 +221,11 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            10,
+            8,
             chain,
             thing_by_id,
             immutable,
-            function,
-            var_assign,
-            var,
+            var_opt_func_assign,
             thing,
             array,
             operations,
@@ -225,14 +238,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_CHAIN,
         4,
         cleri_token(CLERI_NONE, "."),
-        cleri_choice(
-            CLERI_NONE,
-            CLERI_FIRST_MATCH,
-            3,
-            function,
-            assignment,
-            name
-        ),
+        name_opt_func_assign,
         index,
         cleri_optional(CLERI_NONE, chain)
     ));

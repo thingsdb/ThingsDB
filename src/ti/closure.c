@@ -515,7 +515,12 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     cleri_node_t * node = ti_closure_scope(closure)->children->next
             ->node;                 /* the choice */
 
-    if (node->cl_obj->gid == CLERI_GID_FUNCTION)
+    if ((
+            node->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN ||
+            node->cl_obj->gid == CLERI_GID_NAME_OPT_FUNC_ASSIGN
+        ) &&
+            node->children->next &&
+            node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION)
     {
         /*
          * If the scope is a function, get the first argument, for example:
@@ -523,7 +528,9 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
          *      "Read this doc string...";
          *   });
          */
-        node = node->children->next->next->node;  /* arguments */
+        node = node->children->next->node       /* function */
+                ->children->next->node;         /* arguments */
+
         if (node->children)
             node = node->children
                 ->node->children->next  /* node=first argument (scope) */

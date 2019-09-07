@@ -26,10 +26,13 @@ typedef int (*do__fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_FUNCTION);
+    assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
 
     cleri_node_t * fname = nd       /* sequence */
             ->children->node;       /* name node */
+    cleri_node_t * args = nd        /* sequence */
+            ->children->next->node  /* function sequence */
+            ->children->next->node; /* arguments */
 
     if (!fname->data)
     {
@@ -47,14 +50,13 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    return ((do__fn_cb) fname->data)(query, nd->children->next->next->node, e);
+    return ((do__fn_cb) fname->data)(query, args, e);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
     assert (query->rval == NULL);
-
 
     ti_varr_t * varr;
     uintptr_t sz = (uintptr_t) nd->data;
@@ -79,10 +81,8 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
-        if (ti_do_scope(query, child->node, e))
-            goto failed;
-
-        if (ti_varr_append(varr, (void **) &query->rval, e))
+        if (ti_do_scope(query, child->node, e) ||
+            ti_varr_append(varr, (void **) &query->rval, e))
             goto failed;
 
         query->rval = NULL;
@@ -132,9 +132,9 @@ static inline ti_prop_t * do__get_prop(
     return prop;
 }
 
-static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_ASSIGNMENT);
+    assert (nd->cl_obj->gid == CLERI_GID_NAME_OPT_FUNC_ASSIGN);
     assert (query->rval);
 
     ti_thing_t * thing;
@@ -146,10 +146,9 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                        possible when chained in all scopes */
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
-    cleri_node_t * assign_nd = nd               /* sequence */
-            ->children->next->node;             /* assign tokens */
-    cleri_node_t * scope_nd = nd                /* sequence */
-            ->children->next->next->node;       /* scope */
+    cleri_children_t * assign_seq = nd                  /* sequence */
+            ->children->next->node->children;           /* first child */
+    cleri_node_t * tokens_nd = assign_seq->node;        /* tokens */
 
     if (!ti_val_is_thing(query->rval))
     {
@@ -164,13 +163,13 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, scope_nd, e))
+    if (ti_do_scope(query, assign_seq->next->node, e))
         goto done;
 
-    if (assign_nd->len == 2)
+    if (tokens_nd->len == 2)
     {
         prop = do__get_prop(query, thing, name_nd, e);
-        if (!prop || ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
+        if (!prop || ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
             goto done;
 
         ti_val_drop(prop->val);
@@ -203,6 +202,7 @@ static int do__assignment(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto done;
         }
     }
+
     ti_incref(prop->val);
 
     if (thing->id)
@@ -287,44 +287,51 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     switch (node->cl_obj->gid)
     {
-    case CLERI_GID_FUNCTION:
-        if (do__function(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_ASSIGNMENT:
-        if (do__assignment(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_NAME:
-    {
-        ti_prop_t * prop;
-        ti_thing_t * thing;
-
-        if (!ti_val_is_thing(query->rval))
+    case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
+        if (!node->children->next)
         {
-            ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
-                    ti_val_str(query->rval));
-            return e->nr;
+            ti_prop_t * prop;
+            ti_thing_t * thing;
+
+            if (!ti_val_is_thing(query->rval))
+            {
+                ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
+                        ti_val_str(query->rval));
+                return e->nr;
+            }
+
+            thing = (ti_thing_t *) query->rval;
+
+            prop = do__get_prop(query, thing, node->children->node, e);
+            if (!prop)
+                return e->nr;
+
+            if (thing->id && (index_node->children || child))
+                ti_chain_set(&query->chain, thing, prop->name);
+
+            query->rval = prop->val;
+            ti_incref(query->rval);
+            ti_val_drop((ti_val_t *) thing);
+            break;
         }
 
-        thing = (ti_thing_t *) query->rval;
-
-        prop = do__get_prop(query, thing, node, e);
-        if (!prop)
-            return e->nr;
-
-        if (thing->id && (index_node->children || child))
-            ti_chain_set(&query->chain, thing, prop->name);
-
-        query->rval = prop->val;
-        ti_incref(query->rval);
-        ti_val_drop((ti_val_t *) thing);
-
+        switch (node->children->next->node->cl_obj->gid)
+        {
+        case CLERI_GID_FUNCTION:
+            if (do__function(query, node, e))
+                return e->nr;
+            break;
+        case CLERI_GID_ASSIGN:
+            /* nothing is possible after assign since it ends with a scope */
+            return do__name_assign(query, node, e);
+        default:
+            assert (0);
+            return -1;
+        }
         break;
-    }
     default:
         assert (0);  /* all possible should be handled */
-        goto done;
+        return -1;
     }
 
     if (do__index(query, index_node, e))
@@ -391,6 +398,7 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     default:
         assert (0);
+        return -1;
     }
 
     ti_val_drop(a_val);
@@ -691,7 +699,6 @@ static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
-    assert (ti_name_is_valid_strn(nd->str, nd->len));
     assert (query->rval == NULL);
     assert (!ti_chain_is_set(&query->chain));
 
@@ -715,7 +722,7 @@ static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_VAR_ASSIGN);
+    assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN);
     assert (query->rval == NULL);
     assert (!ti_chain_is_set(&query->chain));
 
@@ -723,22 +730,20 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
-    cleri_node_t * assign_nd = nd               /* sequence */
-            ->children->next->node;             /* assign tokens */
-    cleri_node_t * scope_nd = nd                /* sequence */
-            ->children->next->next->node;       /* scope */
+    cleri_children_t * assign_seq = nd                  /* sequence */
+            ->children->next->node->children;           /* first child */
+    cleri_node_t * tokens_nd = assign_seq->node;        /* sequence */
 
-
-    if (ti_do_scope(query, scope_nd, e))
+    if (ti_do_scope(query, assign_seq->next->node, e))
         return e->nr;
 
-    if (assign_nd->len == 2)
+    if (tokens_nd->len == 2)
     {
         prop = do__get_var(query, name_nd, e);
         if (!prop)
             return e->nr;
 
-        if (ti_opr_a_to_b(prop->val, assign_nd, &query->rval, e))
+        if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
             return e->nr;
 
         ti_val_drop(prop->val);
@@ -819,17 +824,17 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti_query_scope_name(query));
             return e->nr;
         }
+
         query->rval = (ti_val_t *) query->root;
         ti_incref(query->rval);
+
         if (do__chain(query, node, e))
             return e->nr;
-        break;
+
+        /* nothing is possible after a chain */
+        goto nots;
     case CLERI_GID_BLOCK:
         if (do__block(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_FUNCTION:
-        if (do__function(query, node, e))
             return e->nr;
         break;
     case CLERI_GID_IMMUTABLE:
@@ -872,13 +877,30 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__thing_by_id(query, node, e))
             return e->nr;
         break;
-    case CLERI_GID_VAR:
-        if (do__var(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_VAR_ASSIGN:
-        if (do__var_assign(query, node, e))
-            return e->nr;
+    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+        if (!node->children->next)
+        {
+            if (do__var(query, node->children->node, e))
+                return e->nr;
+            break;
+        }
+
+        switch (node->children->next->node->cl_obj->gid)
+        {
+        case CLERI_GID_FUNCTION:
+            if (do__function(query, node, e))
+                return e->nr;
+            break;
+        case CLERI_GID_ASSIGN:
+            if (do__var_assign(query, node, e))
+                return e->nr;
+
+            /* nothing is possible after assign since it ends with a scope */
+            goto nots;
+        default:
+            assert (0);
+            return -1;
+        }
         break;
 
     default:
@@ -897,6 +919,7 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (child->next && do__chain(query, child->next->node, e))
         return e->nr;
 
+nots:
     if (nots)
     {
         _Bool b = ti_val_as_bool(query->rval);

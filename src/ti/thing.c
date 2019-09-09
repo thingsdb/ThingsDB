@@ -325,6 +325,7 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
             {
                 if (thing__prop_locked(thing, prop, e))
                     return e->nr;
+
                 ti_prop_destroy(vec_swap_remove(thing->props, i));
                 return 0;
             }
@@ -335,13 +336,24 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     return e->nr;
 }
 
-ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+ti_prop_t * ti_thing_weak_get(ti_thing_t * thing, ti_raw_t * rname)
 {
-    uint32_t i = 0;
     ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
 
     if (name)
-        for (vec_each(thing->props, ti_prop_t, prop), ++i)
+        for (vec_each(thing->props, ti_prop_t, prop))
+            if (prop->name == name)
+                return prop;
+
+    return NULL;
+}
+
+ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+{
+    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    if (name)
+        for (vec_each(thing->props, ti_prop_t, prop))
             if (prop->name == name)
                 return prop;
 

@@ -31,7 +31,6 @@ ti_thing_t * ti_thing_new_from_unp(
         imap_t * things,
         ssize_t sz,
         ex_t * e);
-ti_val_t * ti_thing_attr_weak_get(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_prop_add(
         ti_thing_t * thing,
         ti_name_t * name,
@@ -47,6 +46,7 @@ ti_prop_t * ti_thing_prop_set_e(
         ex_t * e);
 _Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+ti_prop_t * ti_thing_weak_get(ti_thing_t * thing, ti_raw_t * rname);
 ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);

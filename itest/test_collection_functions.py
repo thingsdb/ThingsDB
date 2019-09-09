@@ -711,19 +711,18 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 BadDataError,
-                'function `get` takes 1 argument but 0 were given'):
+                'function `get` requires at least 1 argument '
+                'but 0 were given'):
             await client.query('.get();')
 
         with self.assertRaisesRegex(
-                IndexError,
-                r'thing `#\d+` has no property `x`'):
-            await client.query('.get("x");')
+                BadDataError,
+                'function `get` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('.get("x", nil, nil);')
 
-        with self.assertRaisesRegex(
-                IndexError,
-                r'thing `#\d+` has no property `age`'):
-            await client.query('.iris.get("age");')
-
+        self.assertIs(await client.query('.iris.get("x");'), None)
+        self.assertEqual(await client.query('.iris.get("x", "?");'), '?')
         self.assertEqual(await client.query('.iris.get("name");'), 'Iris')
 
     async def test_has_set(self, client):

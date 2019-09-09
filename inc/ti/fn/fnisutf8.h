@@ -23,7 +23,7 @@ static int do__f__isutf8(
         return e->nr;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;

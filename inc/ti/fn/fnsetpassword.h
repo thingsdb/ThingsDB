@@ -22,7 +22,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
@@ -42,7 +42,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         goto done;
 
     if (ti_val_is_raw(query->rval))

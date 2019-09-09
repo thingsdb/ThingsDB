@@ -45,7 +45,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     name_nd = nd->children->node;
 
-    if (ti_do_scope(query, name_nd, e))
+    if (ti_do_statement(query, name_nd, e))
         goto unlock;
 
     if (!ti_val_is_raw(query->rval))

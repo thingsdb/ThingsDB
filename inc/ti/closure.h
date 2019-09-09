@@ -18,7 +18,7 @@ typedef struct ti_closure_s ti_closure_t;
 #include <ti/query.h>
 #include <ti/do.h>
 
-//int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+//int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags);
 ti_closure_t * ti_closure_from_strn(
@@ -116,7 +116,7 @@ static inline int ti_closure_do_scope(
         ti_query_t * query,
         ex_t * e)
 {
-    if (ti_do_scope(query, ti_closure_scope(closure), e) == EX_RETURN)
+    if (ti_do_statement(query, ti_closure_scope(closure), e) == EX_RETURN)
         e->nr = 0;
     return e->nr;
 }

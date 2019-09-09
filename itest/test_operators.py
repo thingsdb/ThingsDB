@@ -29,6 +29,13 @@ class TestOperators(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_swap(self, client):
+        self.assertEqual(await client.query('2 || 5 - 1'), 2)
+        self.assertEqual(await client.query('(2 || 5) - 1'), 1)
+        self.assertEqual(await client.query('2 - 2 && 1'), 0)
+        self.assertEqual(await client.query('2 - (2 && 1)'), 1)
+        self.assertEqual(await client.query('true ? 1 : 2;'), 1)
+
     async def test_ternary(self, client):
         """Make sure we do this better than PHP ;-)"""
         self.assertEqual(await client.query(r'''

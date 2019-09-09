@@ -38,7 +38,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     current_n = varr_dest->vec->n;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto fail1;
 
     if (!ti_val_is_list(query->rval))

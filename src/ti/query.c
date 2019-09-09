@@ -683,9 +683,9 @@ void ti_query_run(ti_query_t * query)
 
     while (1)
     {
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_scope(query, child->node, &e))
+        if (ti_do_statement(query, child->node, &e))
             break;
 
         if (!child->next || !(child = child->next->next))

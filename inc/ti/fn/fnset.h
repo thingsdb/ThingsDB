@@ -10,7 +10,7 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1 && nd->children->next == NULL)
     {
         return (
-            ti_do_scope(query, nd->children->node, e) ||
+            ti_do_statement(query, nd->children->node, e) ||
             ti_val_convert_to_set(&query->rval, e)
         );
     }
@@ -28,7 +28,7 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         do
         {
-            if (ti_do_scope(query, child->node, e) ||
+            if (ti_do_statement(query, child->node, e) ||
                 ti_vset_add_val(vset, query->rval, e) < 0)
             {
                 ti_vset_destroy(vset);
@@ -94,7 +94,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -109,7 +109,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         goto fail1;
 
     if (ti_val_make_assignable(&query->rval, e))

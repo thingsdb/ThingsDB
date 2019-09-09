@@ -47,9 +47,9 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         int rc;
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             goto fail1;
 
         rc = ti_vset_add_val(vset, query->rval, e);

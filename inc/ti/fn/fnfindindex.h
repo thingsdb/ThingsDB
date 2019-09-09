@@ -33,7 +33,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto fail0;
 
     if (!ti_val_is_closure(query->rval))

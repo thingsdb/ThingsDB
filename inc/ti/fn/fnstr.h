@@ -22,7 +22,7 @@ static int do__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (ti_val_convert_to_str(&query->rval))

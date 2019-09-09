@@ -33,7 +33,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int64_t deepi;
 
-        if (ti_do_scope(query, nd->children->next->next->node, e))
+        if (ti_do_statement(query, nd->children->next->next->node, e))
             return e->nr;
 
         if (!ti_val_is_int(query->rval))
@@ -62,7 +62,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->syntax.deep = (uint8_t) deepi;
     }
 
-    if (ti_do_scope(query, nd->children->node, e) == 0)
+    if (ti_do_statement(query, nd->children->node, e) == 0)
         ex_set_return(e);  /* on success */
 
     return e->nr;

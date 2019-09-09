@@ -2,6 +2,14 @@
 
 ## TODO list
 
+
+- childcollection -> rename to childb
+- systax_investigate -> entry point: statements only
+
+
+
+
+
 - [ ] Maybe implement a `set()` for things? For the implementation we could use an imap.
       This will make lookups very fast and set operations possible.
       Methods could be:

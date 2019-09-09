@@ -52,7 +52,7 @@ static inline int ncache__i(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_SCOPE ||
+    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION ||
             nd->cl_obj->gid == CLERI_GID_CHAIN);
 
     if (/* skip . and !, goto choice */
@@ -176,10 +176,7 @@ static int ncache__opr(
 
     node = node->children->node;
 
-    assert (node->cl_obj->gid == CLERI_GID_SCOPE ||
-            node->cl_obj->tp == CLERI_TP_SEQUENCE);
-
-    return node->cl_obj->gid == CLERI_GID_SCOPE
+    return node->cl_obj->gid == CLERI_GID_STATEMENT
         ? ncache__i(syntax, vcache, node, e)
         : (
             ncache__opr(syntax, vcache, node->children->node, e) ||
@@ -204,7 +201,7 @@ static int ncache__index(
         return e->nr;
 
     for (; child; child = child->next)
-        if (    child->node->cl_obj->gid == CLERI_GID_SCOPE &&
+        if (    child->node->cl_obj->gid == CLERI_GID_STATEMENT &&
                 ncache__i(syntax, vcache, child->node, e))
             return e->nr;
 
@@ -233,7 +230,6 @@ int ti_ncache_gen_node_data(
                 node->children->next->next->node->children,
                 e);
     case CLERI_GID_CHAIN:
-    case CLERI_GID_SCOPE:
         return ncache__i(syntax, vcache, node, e);
     case CLERI_GID_THING:
     {

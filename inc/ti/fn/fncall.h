@@ -32,7 +32,7 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     while (child)
     {
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             goto failed;
 
         VEC_push(args, query->rval);

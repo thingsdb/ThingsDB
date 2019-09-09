@@ -42,9 +42,9 @@ static int index__read_slice_indices(
     if (!child || !(*stop))
         return e->nr;
 
-    if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
+    if (child->node->cl_obj->gid == CLERI_GID_STATEMENT)
     {
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -75,9 +75,9 @@ static int index__read_slice_indices(
     if (!child)
         return e->nr;
 
-    if (child->node->cl_obj->gid == CLERI_GID_SCOPE)
+    if (child->node->cl_obj->gid == CLERI_GID_STATEMENT)
     {
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -106,9 +106,9 @@ static int index__read_slice_indices(
 
     if (child)  /* must be scope since no more indices are allowed */
     {
-        assert (child->node->cl_obj->gid == CLERI_GID_SCOPE);
+        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -209,7 +209,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail1;
     }
 
-    if (ti_do_scope(query, ass_scope->children->next->node, e))
+    if (ti_do_statement(query, ass_scope->children->next->node, e))
         goto fail1;
 
     if (!ti_val_is_array(query->rval))
@@ -284,7 +284,7 @@ static int index__numeric(
 {
     ssize_t i;
 
-    if (ti_do_scope(query, scope, e))
+    if (ti_do_statement(query, scope, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
@@ -367,7 +367,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     query->rval = NULL;
 
     if (index__numeric(query, idx_scope, &idx, varr->vec->n, e) ||
-        ti_do_scope(query, ass_scope->children->next->node, e))
+        ti_do_statement(query, ass_scope->children->next->node, e))
         goto fail1;
 
     if (ass_tokens->len == 2)
@@ -414,7 +414,7 @@ static int index__get(ti_query_t * query, cleri_node_t * scope, ex_t * e)
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, scope, e))
+    if (ti_do_statement(query, scope, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -470,7 +470,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_scope(query, idx_scope, e))
+    if (ti_do_statement(query, idx_scope, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -485,7 +485,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, ass_scope->children->next->node, e))
+    if (ti_do_statement(query, ass_scope->children->next->node, e))
         goto fail1;
 
     if (ass_tokens->len == 2)

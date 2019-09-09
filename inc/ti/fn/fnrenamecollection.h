@@ -20,7 +20,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
     }
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);
@@ -31,7 +31,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

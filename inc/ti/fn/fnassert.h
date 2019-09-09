@@ -30,7 +30,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_scope(query, assert_node, e) || ti_val_as_bool(query->rval))
+    if (ti_do_statement(query, assert_node, e) || ti_val_as_bool(query->rval))
         return e->nr;
 
     if (nargs == 1)
@@ -44,7 +44,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

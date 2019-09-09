@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-07 20:27:07
+ * Created at: 2019-09-09 23:58:45
  */
 
 #include <langdef/langdef.h>
@@ -45,7 +45,6 @@ cleri_grammar_t * compile_langdef(void)
     ), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]*");
-    cleri_t * scope = cleri_ref();
     cleri_t * chain = cleri_ref();
     cleri_t * t_closure = cleri_sequence(
         CLERI_GID_T_CLOSURE,
@@ -53,7 +52,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, "|"),
         cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "|"),
-        scope
+        CLERI_THIS
     );
     cleri_t * thing = cleri_sequence(
         CLERI_GID_THING,
@@ -64,7 +63,7 @@ cleri_grammar_t * compile_langdef(void)
             3,
             name,
             cleri_token(CLERI_NONE, ":"),
-            scope
+            CLERI_THIS
         ), cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
@@ -72,14 +71,14 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_ARRAY,
         3,
         cleri_token(CLERI_NONE, "["),
-        cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "]")
     );
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
         3,
         cleri_token(CLERI_NONE, "("),
-        cleri_list(CLERI_NONE, scope, cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
     cleri_t * immutable = cleri_choice(
@@ -105,51 +104,28 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR7_CMP_OR, "||");
     cleri_t * operations = cleri_sequence(
         CLERI_GID_OPERATIONS,
-        4,
-        cleri_token(CLERI_NONE, "("),
-        cleri_prio(
+        3,
+        CLERI_THIS,
+        cleri_choice(
             CLERI_NONE,
-            2,
-            scope,
-            cleri_sequence(
-                CLERI_NONE,
-                3,
-                CLERI_THIS,
-                cleri_choice(
-                    CLERI_NONE,
-                    CLERI_FIRST_MATCH,
-                    8,
-                    opr7_cmp_or,
-                    opr6_cmp_and,
-                    opr5_compare,
-                    opr4_bitwise_or,
-                    opr3_bitwise_xor,
-                    opr2_bitwise_and,
-                    opr1_add_sub,
-                    opr0_mul_div_mod
-                ),
-                CLERI_THIS
-            )
+            CLERI_FIRST_MATCH,
+            8,
+            opr7_cmp_or,
+            opr6_cmp_and,
+            opr5_compare,
+            opr4_bitwise_or,
+            opr3_bitwise_xor,
+            opr2_bitwise_and,
+            opr1_add_sub,
+            opr0_mul_div_mod
         ),
-        cleri_token(CLERI_NONE, ")"),
-        cleri_optional(CLERI_NONE, cleri_sequence(
-            CLERI_NONE,
-            3,
-            cleri_token(CLERI_NONE, "?"),
-            scope,
-            cleri_optional(CLERI_NONE, cleri_sequence(
-                CLERI_NONE,
-                2,
-                cleri_token(CLERI_NONE, ":"),
-                scope
-            ))
-        ))
+        CLERI_THIS
     );
     cleri_t * assign = cleri_sequence(
         CLERI_GID_ASSIGN,
         2,
         cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
-        scope
+        CLERI_THIS
     );
     cleri_t * name_opt_func_assign = cleri_sequence(
         CLERI_GID_NAME_OPT_FUNC_ASSIGN,
@@ -175,7 +151,7 @@ cleri_grammar_t * compile_langdef(void)
             assign
         ))
     );
-    cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, scope), cleri_token(CLERI_NONE, ":"), 0, 3, 0);
+    cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, CLERI_THIS), cleri_token(CLERI_NONE, ":"), 0, 3, 0);
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(
         CLERI_NONE,
         4,
@@ -186,7 +162,7 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_NONE,
             2,
             cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
-            scope
+            CLERI_THIS
         ))
     ), 0, 0);
     cleri_t * block = cleri_sequence(
@@ -194,7 +170,7 @@ cleri_grammar_t * compile_langdef(void)
         4,
         cleri_token(CLERI_NONE, "{"),
         comment,
-        cleri_list(CLERI_NONE, scope, cleri_sequence(
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_sequence(
             CLERI_NONE,
             2,
             cleri_token(CLERI_NONE, ";"),
@@ -202,20 +178,15 @@ cleri_grammar_t * compile_langdef(void)
         ), 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
-    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, scope, cleri_sequence(
-        CLERI_NONE,
-        2,
-        cleri_token(CLERI_NONE, ";"),
-        comment
-    ), 0, 0, 1);
-    cleri_t * START = cleri_sequence(
-        CLERI_GID_START,
-        2,
-        comment,
-        statements
+    cleri_t * parenthesis = cleri_sequence(
+        CLERI_GID_PARENTHESIS,
+        3,
+        cleri_token(CLERI_NONE, "("),
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")")
     );
-    cleri_ref_set(scope, cleri_sequence(
-        CLERI_GID_SCOPE,
+    cleri_t * expression = cleri_sequence(
+        CLERI_GID_EXPRESSION,
         4,
         o_not,
         cleri_choice(
@@ -228,12 +199,44 @@ cleri_grammar_t * compile_langdef(void)
             var_opt_func_assign,
             thing,
             array,
-            operations,
-            block
+            block,
+            parenthesis
         ),
         index,
         cleri_optional(CLERI_NONE, chain)
-    ));
+    );
+    cleri_t * ternary = cleri_sequence(
+        CLERI_GID_TERNARY,
+        4,
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, "?"),
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            cleri_token(CLERI_NONE, ":"),
+            CLERI_THIS
+        ))
+    );
+    cleri_t * statement = cleri_prio(
+        CLERI_GID_STATEMENT,
+        3,
+        expression,
+        operations,
+        ternary
+    );
+    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, cleri_sequence(
+        CLERI_NONE,
+        2,
+        cleri_token(CLERI_NONE, ";"),
+        comment
+    ), 0, 0, 1);
+    cleri_t * START = cleri_sequence(
+        CLERI_GID_START,
+        2,
+        comment,
+        statements
+    );
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
         4,

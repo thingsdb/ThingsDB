@@ -38,7 +38,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto done;
 
     if (!ti_val_is_raw(query->rval))
@@ -58,7 +58,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nargs == 2)
         {
             query->rval = NULL;
-            (void) ti_do_scope(query, nd->children->next->next->node, e);
+            (void) ti_do_statement(query, nd->children->next->next->node, e);
             goto done;
         }
 

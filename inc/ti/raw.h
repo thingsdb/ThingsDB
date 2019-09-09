@@ -36,7 +36,7 @@ ti_raw_t * ti_raw_cat_strn_strn(
         const char * bs,
         size_t bn);
 _Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b);
-int ti_raw_err_name_not_found(ti_raw_t * raw, const char * s, ex_t * e);
+int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e);
 static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b);
@@ -44,10 +44,6 @@ static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n);
-static inline int ti_raw_err_not_found(
-        ti_raw_t * raw,
-        const char * s,
-        ex_t * e);
 
 struct ti_raw_s
 {
@@ -80,23 +76,6 @@ static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b)
 static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b)
 {
     return a->n >= b->n && memcmp(a->data + a->n - b->n, b->data, b->n) == 0;
-}
-
-static inline int ti_raw_err_not_found(
-        ti_raw_t * raw,
-        const char * s,
-        ex_t * e)
-{
-    if (ti_name_is_valid_strn((const char *) raw->data, raw->n))
-        ex_set(e, EX_INDEX_ERROR,
-                "%s `%.*s` not found",
-                s, (int) raw->n, (const char *) raw->data);
-    else
-        ex_set(e, EX_BAD_DATA,
-                "%s name must follow the naming rules"
-                TI_SEE_DOC("#names"),
-                s);
-    return e->nr;
 }
 
 #endif /* TI_RAW_H_ */

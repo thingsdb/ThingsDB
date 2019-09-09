@@ -24,7 +24,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* target */
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &target_id);
@@ -40,7 +40,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* user */
     ti_val_drop(query->rval);
     query->rval = NULL;
-    if (ti_do_scope(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
@@ -60,7 +60,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
-    if (ti_do_scope(query, nd->children->next->next->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))

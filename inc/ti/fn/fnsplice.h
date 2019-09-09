@@ -41,7 +41,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, child->node, e))
+    if (ti_do_statement(query, child->node, e))
         goto fail1;
 
     if (!ti_val_is_int(query->rval))
@@ -58,7 +58,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    if (ti_do_scope(query, child->node, e))
+    if (ti_do_statement(query, child->node, e))
         goto fail1;
 
     if (!ti_val_is_int(query->rval))
@@ -119,7 +119,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         child = child->next->next;
 
-        if (ti_do_scope(query, child->node, e) ||
+        if (ti_do_statement(query, child->node, e) ||
             ti_varr_append(varr, (void **) &query->rval, e))
             goto fail2;
 

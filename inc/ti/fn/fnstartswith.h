@@ -30,7 +30,7 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto failed;
 
     if (!ti_val_is_raw(query->rval))

@@ -20,7 +20,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    errnr = ti_do_scope(query, child->node, e);
+    errnr = ti_do_statement(query, child->node, e);
 
     if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= EX_RETURN)
         return errnr;   /* do not catch success or internal errors */
@@ -49,7 +49,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     while (1)
     {
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             goto failed;
 
         if (!ti_val_is_error(query->rval))

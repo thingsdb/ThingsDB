@@ -35,7 +35,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto fail1;
 
     if (!ti_val_is_closure(query->rval))
@@ -100,7 +100,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */
-        (void) ti_do_scope(query, nd->children->next->next->node, e);
+        (void) ti_do_statement(query, nd->children->next->next->node, e);
     }
     else
         query->rval = (ti_val_t *) ti_nil_get();
@@ -203,7 +203,7 @@ static void do__f_remove_set(
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e))
         goto fail1;
 
     if (ti_val_is_closure(query->rval))
@@ -263,7 +263,7 @@ static void do__f_remove_set(
             if (!child->next || !(child = child->next->next))
                 break;
 
-            if (ti_do_scope(query, child->node, e))
+            if (ti_do_statement(query, child->node, e))
                 goto fail2;
         }
     }

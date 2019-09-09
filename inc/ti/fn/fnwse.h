@@ -21,7 +21,7 @@ static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     has_wse_flag = query->syntax.flags & TI_SYNTAX_FLAG_WSE;
     query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
 
-    (void) ti_do_scope(query, nd->children->node, e);
+    (void) ti_do_statement(query, nd->children->node, e);
 
     if (!has_wse_flag)
         query->syntax.flags &= ~TI_SYNTAX_FLAG_WSE;

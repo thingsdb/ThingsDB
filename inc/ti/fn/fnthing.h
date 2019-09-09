@@ -22,7 +22,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t id;
         ti_thing_t * thing;
 
-        if (ti_do_scope(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children->node, e) ||
             ti_val_is_thing(query->rval))
             return e->nr;
 

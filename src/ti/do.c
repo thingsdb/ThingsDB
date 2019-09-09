@@ -81,7 +81,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
-        if (ti_do_scope(query, child->node, e) ||
+        if (ti_do_statement(query, child->node, e) ||
             ti_varr_append(varr, (void **) &query->rval, e))
             goto failed;
 
@@ -163,7 +163,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_scope(query, assign_seq->next->node, e))
+    if (ti_do_statement(query, assign_seq->next->node, e))
         goto done;
 
     if (tokens_nd->len == 2)
@@ -245,7 +245,7 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     while (1)
     {
-        if (ti_do_scope(query, child->node, e))
+        if (ti_do_statement(query, child->node, e))
             return e->nr;
 
         if (!child->next || !(child = child->next->next))
@@ -347,21 +347,11 @@ done:
 
 static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    uint32_t gid;
-    ti_val_t * a_val = NULL;
-    assert( nd->cl_obj->tp == CLERI_TP_PRIO );
-
-    nd = nd->children->node;        /* compare sequence */
-
+    assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
     assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
     assert (query->rval == NULL);
 
-    if (nd->cl_obj->gid == CLERI_GID_SCOPE)
-        return ti_do_scope(query, nd, e);
-
-    gid = nd->children->next->node->cl_obj->gid;
-
-    switch (gid)
+    switch (nd->children->next->node->cl_obj->gid)
     {
     case CLERI_GID_OPR0_MUL_DIV_MOD:
     case CLERI_GID_OPR1_ADD_SUB:
@@ -369,39 +359,43 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_OPR3_BITWISE_XOR:
     case CLERI_GID_OPR4_BITWISE_OR:
     case CLERI_GID_OPR5_COMPARE:
-        if (do__operations(query, nd->children->node, e))
-            return e->nr;
-        a_val = query->rval;
-        query->rval = NULL;
-        if (do__operations(query, nd->children->next->next->node, e))
-            break;
-        (void) ti_opr_a_to_b(a_val, nd->children->next->node, &query->rval, e);
-        break;
+    {
+        ti_val_t * a;
 
+        if (ti_do_statement(query, nd->children->node, e))
+            return e->nr;
+
+        a = query->rval;
+        query->rval = NULL;
+
+        if (ti_do_statement(query, nd->children->next->next->node, e) == 0)
+            (void) ti_opr_a_to_b(a, nd->children->next->node, &query->rval, e);
+
+        ti_val_drop(a);
+        return e->nr;
+    }
     case CLERI_GID_OPR6_CMP_AND:
-        if (    do__operations(query, nd->children->node, e) ||
+        if (    ti_do_statement(query, nd->children->node, e) ||
                 !ti_val_as_bool(query->rval))
             return e->nr;
 
         ti_val_drop(query->rval);
         query->rval = NULL;
-        return do__operations(query, nd->children->next->next->node, e);
+        return ti_do_statement(query, nd->children->next->next->node, e);
 
     case CLERI_GID_OPR7_CMP_OR:
-        if (    do__operations(query, nd->children->node, e) ||
+        if (    ti_do_statement(query, nd->children->node, e) ||
                 ti_val_as_bool(query->rval))
             return e->nr;
 
         ti_val_drop(query->rval);
         query->rval = NULL;
-        return do__operations(query, nd->children->next->next->node, e);
-
+        return ti_do_statement(query, nd->children->next->next->node, e);
     default:
         assert (0);
         return -1;
     }
-
-    ti_val_drop(a_val);
+    assert (0);
     return e->nr;
 }
 
@@ -645,7 +639,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         scope = child->node                         /* sequence */
                 ->children->next->next->node;       /* scope */
 
-        if (    ti_do_scope(query, scope, e) ||
+        if (    ti_do_statement(query, scope, e) ||
                 ti_val_make_assignable(&query->rval, e))
             goto err;
 
@@ -734,7 +728,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->node->children;           /* first child */
     cleri_node_t * tokens_nd = assign_seq->node;        /* sequence */
 
-    if (ti_do_scope(query, assign_seq->next->node, e))
+    if (ti_do_statement(query, assign_seq->next->node, e))
         return e->nr;
 
     if (tokens_nd->len == 2)
@@ -789,13 +783,9 @@ failed:
     return e->nr;
 }
 
-int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_SCOPE);
-    assert (query->rval == NULL);
-
     int nots = 0;
-    cleri_node_t * node;
     cleri_children_t * nchild, * child = nd         /* sequence */
             ->children;                             /* first child, not */
 
@@ -803,18 +793,14 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ++nots;
 
     child = child->next;
-    node = child->node;                 /* immutable, function,
+    nd = child->node;                 /* immutable, function,
                                            assignment, name, thing,
                                            array, compare, closure */
 
     ti_chain_unset(&query->chain);
 
-    switch (node->cl_obj->gid)
+    switch (nd->cl_obj->gid)
     {
-    case CLERI_GID_ARRAY:
-        if (do__array(query, node, e))
-            return e->nr;
-        break;
     case CLERI_GID_CHAIN:
         if (!query->target)
         {
@@ -828,71 +814,35 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = (ti_val_t *) query->root;
         ti_incref(query->rval);
 
-        if (do__chain(query, node, e))
+        if (do__chain(query, nd, e))
             return e->nr;
 
         /* nothing is possible after a chain */
         goto nots;
-    case CLERI_GID_BLOCK:
-        if (do__block(query, node, e))
+    case CLERI_GID_THING_BY_ID:
+        if (do__thing_by_id(query, nd, e))
             return e->nr;
         break;
     case CLERI_GID_IMMUTABLE:
-        if (do__immutable(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_OPERATIONS:
-        /* skip the sequence , jump to the priority list */
-        if (do__operations(query, node->children->next->node, e))
-            return e->nr;
-
-        if (node->children->next->next->next)   /* optional (sequence) */
-        {
-            _Bool bool_ = ti_val_as_bool(query->rval);
-            ti_val_drop(query->rval);
-            query->rval = NULL;
-            node = node->children->next->next->next->node;  /* sequence */
-            if (bool_)
-            {
-                if (ti_do_scope(query, node->children->next->node, e))
-                    return e->nr;
-            }
-            else if (node->children->next->next) /* else case */
-            {
-                node = node->children->next->next->node;  /* else sequence */
-                if (ti_do_scope(query, node->children->next->node, e))
-                    return e->nr;
-            }
-            else  /* no else case, just nil */
-            {
-                query->rval = (ti_val_t *) ti_nil_get();
-            }
-        }
-        break;
-    case CLERI_GID_THING:
-        if (do__thing(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_THING_BY_ID:
-        if (do__thing_by_id(query, node, e))
+        if (do__immutable(query, nd, e))
             return e->nr;
         break;
     case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
-        if (!node->children->next)
+        if (!nd->children->next)
         {
-            if (do__var(query, node->children->node, e))
+            if (do__var(query, nd->children->node, e))
                 return e->nr;
             break;
         }
 
-        switch (node->children->next->node->cl_obj->gid)
+        switch (nd->children->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
-            if (do__function(query, node, e))
+            if (do__function(query, nd, e))
                 return e->nr;
             break;
         case CLERI_GID_ASSIGN:
-            if (do__var_assign(query, node, e))
+            if (do__var_assign(query, nd, e))
                 return e->nr;
 
             /* nothing is possible after assign since it ends with a scope */
@@ -902,17 +852,32 @@ int ti_do_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return -1;
         }
         break;
-
+    case CLERI_GID_THING:
+        if (do__thing(query, nd, e))
+            return e->nr;
+        break;
+    case CLERI_GID_ARRAY:
+        if (do__array(query, nd, e))
+            return e->nr;
+        break;
+    case CLERI_GID_BLOCK:
+        if (do__block(query, nd, e))
+            return e->nr;
+        break;
+    case CLERI_GID_PARENTHESIS:
+        if (ti_do_statement(query, nd->children->next->node, e))
+            return e->nr;
+        break;
     default:
         assert (0);  /* all possible should be handled */
         return -1;
     }
 
     child = child->next;
-    node = child->node;
+    nd = child->node;
 
     /* handle index */
-    if (do__index(query, node, e))
+    if (do__index(query, nd, e))
         return e->nr;
 
     /* chain */
@@ -928,4 +893,55 @@ nots:
     }
 
     return e->nr;
+}
+
+int do__ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (query->rval == NULL);
+
+    _Bool bool_;
+    if (ti_do_statement(query, nd->children->node, e))
+        return e->nr;
+
+    bool_ = ti_val_as_bool(query->rval);
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
+    if (bool_)
+    {
+        (void) ti_do_statement(query, nd->children->next->next->node, e);
+        return e->nr;
+    }
+
+    if (nd->children->next->next->next) /* else case */
+    {
+        nd = nd->children->next->next->next->node;  /* else sequence */
+        (void) ti_do_statement(query, nd->children->next->node, e);
+        return e->nr;
+    }
+
+    query->rval = (ti_val_t *) ti_nil_get();
+    return e->nr;
+}
+
+int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert (query->rval == NULL);
+
+    nd = nd->children->node;
+
+    switch (nd->cl_obj->gid)
+    {
+    case CLERI_GID_EXPRESSION:
+        return do__expression(query, nd, e);
+    case CLERI_GID_OPERATIONS:
+        return do__operations(query, nd, e);
+    case CLERI_GID_TERNARY:
+        return do__ternary(query, nd, e);
+    }
+
+    assert (0);
+    return -1;
 }

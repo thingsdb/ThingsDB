@@ -64,14 +64,13 @@ class LangDef(Grammar):
     name = Regex(RE_NAME)
     var = Regex(RE_NAME)
 
-    scope = Ref()
     chain = Ref()
 
-    t_closure = Sequence('|', List(var), '|', scope)
+    t_closure = Sequence('|', List(var), '|', THIS)
 
-    thing = Sequence('{', List(Sequence(name, ':', scope)), '}')
-    array = Sequence('[', List(scope), ']')
-    function = Sequence('(', List(scope), ')')
+    thing = Sequence('{', List(Sequence(name, ':', THIS)), '}')
+    array = Sequence('[', List(THIS), ']')
+    function = Sequence('(', List(THIS), ')')
 
     immutable = Choice(
         t_false,
@@ -93,38 +92,30 @@ class LangDef(Grammar):
     opr6_cmp_and = Token('&&')
     opr7_cmp_or = Token('||')
 
-    operations = Sequence(
-        '(',
-        Prio(
-            scope,
-            Sequence(THIS, Choice(
-                # make sure `and` and `or` is on top so we can stop
-                # at the first match
-                opr7_cmp_or,
-                opr6_cmp_and,
-                opr5_compare,
-                opr4_bitwise_or,
-                opr3_bitwise_xor,
-                opr2_bitwise_and,
-                opr1_add_sub,
-                opr0_mul_div_mod,
-            ), THIS)
-        ),
-        ')',
-        Optional(Sequence('?', scope, Optional(Sequence(':', scope)))),
-    )
+    operations = Sequence(THIS, Choice(
+        # make sure `and` and `or` is on top so we can stop
+        # at the first match
+        opr7_cmp_or,
+        opr6_cmp_and,
+        opr5_compare,
+        opr4_bitwise_or,
+        opr3_bitwise_xor,
+        opr2_bitwise_and,
+        opr1_add_sub,
+        opr0_mul_div_mod,
+    ), THIS)
 
-    assign = Sequence(ASSIGN_TOKENS, scope)
+    assign = Sequence(ASSIGN_TOKENS, THIS)
 
     name_opt_func_assign = Sequence(name, Optional(Choice(function, assign)))
     var_opt_func_assign = Sequence(var, Optional(Choice(function, assign)))
 
     # note: slice is also used for a simple index
-    slice = List(Optional(scope), delimiter=':', ma=3, opt=False)
+    slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)
 
     index = Repeat(Sequence(
         '[', slice, ']',
-        Optional(Sequence(ASSIGN_TOKENS, scope))
+        Optional(Sequence(ASSIGN_TOKENS, THIS))
     ))
 
     chain = Sequence(
@@ -137,10 +128,12 @@ class LangDef(Grammar):
     block = Sequence(
         '{',
         comment,
-        List(scope, delimiter=Sequence(';', comment), mi=1),
+        List(THIS, delimiter=Sequence(';', comment), mi=1),
         '}')
 
-    scope = Sequence(
+    parenthesis = Sequence('(', THIS, ')')
+
+    expression = Sequence(
         o_not,
         Choice(
             chain,
@@ -149,14 +142,23 @@ class LangDef(Grammar):
             var_opt_func_assign,
             thing,
             array,
-            operations,
             block,
+            parenthesis,
         ),
         index,
         Optional(chain),
     )
 
-    statements = List(scope, delimiter=Sequence(';', comment))
+    ternary = Sequence(
+        THIS,
+        '?',
+        THIS,
+        Optional(Sequence(':', THIS))
+    )
+
+    statement = Prio(expression, operations, ternary)
+
+    statements = List(statement, delimiter=Sequence(';', comment))
 
     START = Sequence(comment, statements)
 
@@ -174,10 +176,14 @@ if __name__ == '__main__':
     langdef = LangDef()
 
     langdef.test(r'''
-        /*
-         * Test query parsing block
-         */
-
+        (1 && 2) - 2;
+        true ? 4 : 5;
+        !true ? 4 : 5;
+        !(true ? 4 : 5);
+        .a = 1;
+        .a.b = 2;
+        !!!.a[0][1].c['bla'];
+        .map(|x, y| x == y);
     ''')
     # exit(0)
 

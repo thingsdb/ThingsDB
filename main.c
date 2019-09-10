@@ -9,14 +9,18 @@
  * changed to something else than MIT.
  */
 #include <locale.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <ti/archive.h>
+#include <ti/args.h>
+#include <ti/cfg.h>
 #include <ti/store.h>
 #include <ti/user.h>
 #include <ti/version.h>
-#include <ti/store.h>
 #include <ti.h>
+#include <time.h>
 #include <util/fx.h>
-#include <cleri/version.h>
+#include <util/logger.h>
 
 int main(int argc, char * argv[])
 {

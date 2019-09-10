@@ -90,26 +90,6 @@ static inline int fn_not_thingsdb_scope(
     return e->nr;
 }
 
-/*
- * TODO: Remove? It is not used any more
- */
-static inline int fn_not_collection_scope(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
-{
-    if (fn_chained(name, query, e))
-        return e->nr;
-
-    if (~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION)
-        ex_set(e, EX_INDEX_ERROR,
-            "function `%s` is undefined in the `%s` scope; "
-            "You might want to query a `collection` scope?",
-            name,
-            ti_query_scope_name(query));
-    return e->nr;
-}
-
 static inline int fn_not_thingsdb_or_collection_scope(
         const char * name,
         ti_query_t * query,

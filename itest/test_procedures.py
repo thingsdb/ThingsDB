@@ -321,7 +321,7 @@ class TestProcedures(TestBase):
 
         self.assertEqual(await client.query(r'''
             new_procedure("create_user", |user| {
-                (!.has('users')) ? {
+                .has('users') || {
                     .users = [];
                 };
                 new_user = {

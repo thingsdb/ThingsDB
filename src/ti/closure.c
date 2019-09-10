@@ -513,8 +513,9 @@ int ti_closure_call(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
-    cleri_node_t * node = ti_closure_statement(closure)->children->next
-            ->node;                 /* the choice */
+    cleri_node_t * node = ti_closure_statement(closure)
+            ->children->node                /* expression */
+            ->children->next->node;         /* the choice */
 
     if ((
             node->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN ||
@@ -533,9 +534,9 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
                 ->children->next->node;         /* arguments */
 
         if (node->children)
-            node = node->children
-                ->node->children->next  /* node=first argument (scope) */
-                ->node;                 /* the choice */
+            node = node->children->node         /* statement */
+            ->children->node                    /* expression */
+            ->children->next->node;             /* the choice */
         assert (node);
     }
 
@@ -552,7 +553,8 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 
     node = node->children->next->next   /* node=block */
             ->node->children            /* node=list mi=1 */
-            ->node->children->next      /* node=scope */
+            ->node->children            /* node=statement */
+            ->node->children->next      /* node=expression */
             ->node;                     /* node=the choice */
 
     if (    node->cl_obj->gid != CLERI_GID_IMMUTABLE ||

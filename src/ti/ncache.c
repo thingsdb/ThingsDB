@@ -149,23 +149,32 @@ static int ncache__index(
         cleri_node_t * nd,
         ex_t * e)
 {
-    cleri_children_t * child = nd       /* sequence */
-            ->children->next->node      /* slice */
-            ->children;
+    assert (nd->cl_obj->gid == CLERI_GID_INDEX);
 
-    if (nd->children->next->next->next &&
-        ncache__statement(
-                syntax,
-                vcache,
-                nd                                      /* sequence */
-                ->children->next->next->next->node      /* assignment */
-                ->children->next->node, e))             /* statement */
-        return e->nr;
+    cleri_children_t * child = nd->children;
 
-    for (; child; child = child->next)
-        if (    child->node->cl_obj->gid == CLERI_GID_STATEMENT &&
-                ncache__statement(syntax, vcache, child->node, e))
+    assert (child);
+    do
+    {
+        cleri_children_t * c = child->node      /* sequence */
+                ->children->next->node              /* slice */
+                ->children;
+
+        if (child->node->children->next->next->next &&
+            ncache__statement(
+                    syntax,
+                    vcache,
+                    child->node                             /* sequence */
+                    ->children->next->next->next->node      /* assignment */
+                    ->children->next->node, e))             /* statement */
             return e->nr;
+
+        for (; c; c = c->next)
+            if (c->node->cl_obj->gid == CLERI_GID_STATEMENT &&
+                ncache__statement(syntax, vcache, c->node, e))
+                return e->nr;
+    }
+    while((child = child->next));
 
     return e->nr;
 }
@@ -278,7 +287,7 @@ static int ncache__expr_choice(
                 nd->children->next->next->node->children,
                 e);
     case CLERI_GID_PARENTHESIS:
-        return ncache__statement(syntax, vcache, nd, e);
+        return ncache__statement(syntax, vcache, nd->children->next->node, e);
     }
 
     assert (0);
@@ -350,7 +359,21 @@ int ti_ncache_gen_node_data(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT ||
+            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
+    {
+        cleri_children_t * child = nd->children;
+
+        for (; child; child = child->next->next)
+        {
+            if (ncache__statement(syntax, vcache, child->node, e) ||
+                !child->next)
+                return e->nr;
+        }
+        return e->nr;
+    }
     return ncache__statement(syntax, vcache, nd, e);
 }
 

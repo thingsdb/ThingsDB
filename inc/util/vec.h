@@ -34,7 +34,7 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
 #define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)
 
 /* use vec_each in a for loop to go through all values.
- * do not change the vec while iterating over the values */
+ * do not change the vector while iterating over the values */
 #define vec_each(vec__, dt__, var__) \
     dt__ * var__, \
     ** v__ = (dt__ **) (vec__)->data, \
@@ -42,8 +42,8 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
     v__ < e__ && ((var__ = *v__) || 1); \
     v__++
 
-/* use vec_each_rev in a for loop to go through all values reverserd.
- * do not change the vec while iterating over the values */
+/* use vec_each_rev in a for loop to go through all values reversed.
+ * do not change the vector while iterating over the values */
 #define vec_each_rev(vec__, dt__, var__) \
     dt__ * var__, \
     ** e__ = (dt__ **) (vec__)->data, \

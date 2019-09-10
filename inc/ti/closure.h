@@ -44,14 +44,14 @@ int ti_closure_call(
         vec_t * args,
         ex_t * e);
 ti_raw_t * ti_closure_doc(ti_closure_t * closure);
-static inline cleri_node_t * ti_closure_scope(ti_closure_t * closure);
+static inline cleri_node_t * ti_closure_statement(ti_closure_t * closure);
 static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e);
 static inline int ti_closure_try_lock_and_use(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e);
 static inline void ti_closure_unlock(ti_closure_t * closure);
-static inline int ti_closure_do_scope(
+static inline int ti_closure_do_statement(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e);
@@ -68,9 +68,9 @@ struct ti_closure_s
     cleri_node_t * node;
 };
 
-static inline cleri_node_t * ti_closure_scope(ti_closure_t * closure)
+static inline cleri_node_t * ti_closure_statement(ti_closure_t * closure)
 {
-    /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
+    /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
     return closure->node->children->next->next->next->node;
 }
 
@@ -111,12 +111,12 @@ static inline void ti_closure_unlock(ti_closure_t * closure)
 #ifndef TI_CLOSURE_DO_SCOPE_F_
 #define TI_CLOSURE_DO_SCOPE_F_
 
-static inline int ti_closure_do_scope(
+static inline int ti_closure_do_statement(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e)
 {
-    if (ti_do_statement(query, ti_closure_scope(closure), e) == EX_RETURN)
+    if (ti_do_statement(query, ti_closure_statement(closure), e) == EX_RETURN)
         e->nr = 0;
     return e->nr;
 }

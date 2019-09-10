@@ -30,7 +30,7 @@ static cleri_node_t * closure__node_from_strn(
     assert (e->nr == 0);
     ti_ncache_t * ncache;
     cleri_parse_t * res;
-    cleri_node_t * node, * scope;
+    cleri_node_t * node, * statement;
     char * query = strndup(str, n);
     if (!query)
     {
@@ -62,7 +62,8 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node = node                             /* List of statements */
-            ->children->node                /* Sequence - scope */
+            ->children->node                /* Sequence - statement */
+            ->children->node                /* expression */
             ->children->next->node          /* Choice - immutable */
             ->children->node;               /* closure */
 
@@ -72,9 +73,9 @@ static cleri_node_t * closure__node_from_strn(
         goto fail1;
     }
 
-    /*  closure = Sequence('|', List(name, opt=True), '|', scope)  */
-    scope = node->children->next->next->next->node;
-    ti_syntax_investigate(syntax, scope);
+    /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
+    statement = node->children->next->next->next->node;
+    ti_syntax_probe(syntax, statement);
 
     ncache = ti_ncache_create(query, syntax->val_cache_n);
     if (!ncache)
@@ -84,7 +85,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node->data = ncache;
-    if (ti_ncache_gen_node_data(syntax, ncache->val_cache, scope, e))
+    if (ti_ncache_gen_node_data(syntax, ncache->val_cache, statement, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
@@ -503,7 +504,7 @@ int ti_closure_call(
         ti_incref(prop->val);
     }
 
-    (void) ti_closure_do_scope(closure, query, e);
+    (void) ti_closure_do_statement(closure, query, e);
     ti_closure_unlock_use(closure, query);
 
     return e->nr;
@@ -512,7 +513,7 @@ int ti_closure_call(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
-    cleri_node_t * node = ti_closure_scope(closure)->children->next
+    cleri_node_t * node = ti_closure_statement(closure)->children->next
             ->node;                 /* the choice */
 
     if ((

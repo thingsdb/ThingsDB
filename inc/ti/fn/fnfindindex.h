@@ -63,7 +63,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail2;
         }
 
-        if (ti_closure_do_scope(closure, query, e))
+        if (ti_closure_do_statement(closure, query, e))
             goto fail2;
 
         found = ti_val_as_bool(query->rval);

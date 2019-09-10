@@ -16,7 +16,7 @@ void ti_ncache_destroy(ti_ncache_t * ncache);
 int ti_ncache_gen_node_data(
         ti_syntax_t * syntax,
         vec_t * vcache,
-        cleri_node_t * node,
+        cleri_node_t * nd,
         ex_t * e);
 
 struct ti_ncache_s

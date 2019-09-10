@@ -641,7 +641,7 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
             ->children;
 
     /* list statements */
-    ti_syntax_investigate(&query->syntax, seqchildren->next->node);
+    ti_syntax_probe(&query->syntax, seqchildren->next->node);
 
     /*
      * Create value cache for immutable, names and things.

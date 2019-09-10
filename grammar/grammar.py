@@ -91,10 +91,12 @@ class LangDef(Grammar):
     opr5_compare = Tokens('< > == != <= >=')
     opr6_cmp_and = Token('&&')
     opr7_cmp_or = Token('||')
+    opr8_ternary = Sequence('?', THIS, ':')
 
     operations = Sequence(THIS, Choice(
         # make sure `and` and `or` is on top so we can stop
         # at the first match
+        opr8_ternary,
         opr7_cmp_or,
         opr6_cmp_and,
         opr5_compare,
@@ -149,15 +151,7 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    ternary = Sequence(
-        THIS,
-        '?',
-        THIS,
-        Optional(Sequence(':', THIS))
-    )
-
-    statement = Prio(expression, operations, ternary)
-
+    statement = Prio(expression, operations)
     statements = List(statement, delimiter=Sequence(';', comment))
 
     START = Sequence(comment, statements)

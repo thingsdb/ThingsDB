@@ -14,6 +14,13 @@
 #include <ti/closure.h>
 #include <langdef/langdef.h>
 
+
+static int ncache__statement(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e);
+
 /*
  * Assigned closures and procedures require to own a `query` string, and they
  * need to prepare all the `primitives` cached values since a query which is
@@ -46,68 +53,38 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
     free(ncache);
 }
 
-static inline int ncache__i(
+int ncache__gen_immutable(
         ti_syntax_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION ||
-            nd->cl_obj->gid == CLERI_GID_CHAIN);
+    assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
 
-    if (/* skip . and !, goto choice */
-        ti_ncache_gen_node_data(syntax, vcache, nd->children->next->node, e) ||
-        /* index */
-        (nd->children->next->next->node->children &&
-                ti_ncache_gen_node_data(
-                        syntax,
-                        vcache,
-                        nd->children->next->next->node,
-                        e)))
-        return e->nr;
-
-    /* chain */
-    return nd->children->next->next->next
-            ? ncache__i(
-                syntax,
-                vcache,
-                nd->children->next->next->next->node,
-                e)
-            : e->nr;
-}
-
-int ncache__gen_immutable(
-        ti_syntax_t * syntax,
-        vec_t * vcache,
-        cleri_node_t * node,
-        ex_t * e)
-{
-    assert (node->cl_obj->gid == CLERI_GID_IMMUTABLE);
-
-    node = node->children->node;
-    switch (node->cl_obj->gid)
+    nd = nd->children->node;
+    switch (nd->cl_obj->gid)
     {
     case CLERI_GID_T_CLOSURE:
-        assert (!node->data);
-        node->data = ti_closure_from_node(
-                node,
+        assert (!nd->data);
+        nd->data = ti_closure_from_node(
+                nd,
                 (syntax->flags & TI_SYNTAX_FLAG_THINGSDB)
                             ? TI_VFLAG_CLOSURE_BTSCOPE
                             : TI_VFLAG_CLOSURE_BCSCOPE);
-        if (ncache__i(
+        if (ncache__statement(
                     syntax,
                     vcache,
-                    node->children->next->next->next->node,
+                    nd->children->next->next->next->node,
                     e))
             return e->nr;
         break;
     case CLERI_GID_T_FLOAT:
-        assert (!node->data);
-        node->data = ti_vfloat_create(strx_to_double(node->str));
+        assert (!nd->data);
+        nd->data = ti_vfloat_create(strx_to_double(nd->str));
         break;
     case CLERI_GID_T_INT:
-        assert (!node->data);
-        node->data = ti_vint_create(strx_to_int64(node->str));
+        assert (!nd->data);
+        nd->data = ti_vint_create(strx_to_int64(nd->str));
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
@@ -115,14 +92,14 @@ int ncache__gen_immutable(
         }
         break;
     case CLERI_GID_T_REGEX:
-        assert (!node->data);
-        node->data = ti_regex_from_strn(node->str, node->len, e);
-        if (!node->data)
+        assert (!nd->data);
+        nd->data = ti_regex_from_strn(nd->str, nd->len, e);
+        if (!nd->data)
             return e->nr;
         break;
     case CLERI_GID_T_STRING:
-        assert (!node->data);
-        node->data = ti_raw_from_ti_string(node->str, node->len);
+        assert (!nd->data);
+        nd->data = ti_raw_from_ti_string(nd->str, nd->len);
         break;
 
     default:
@@ -131,24 +108,24 @@ int ncache__gen_immutable(
 
     assert (vec_space(vcache));
 
-    if (node->data)
-        VEC_push(vcache, node->data);
+    if (nd->data)
+        VEC_push(vcache, nd->data);
     else
         ex_set_mem(e);
 
     return e->nr;
 }
 
-int ncache__gen_name(vec_t * vcache, cleri_node_t * node, ex_t * e)
+int ncache__gen_name(vec_t * vcache, cleri_node_t * nd, ex_t * e)
 {
-    assert (node->cl_obj->gid == CLERI_GID_NAME ||
-            node->cl_obj->gid == CLERI_GID_VAR);
+    assert (nd->cl_obj->gid == CLERI_GID_NAME ||
+            nd->cl_obj->gid == CLERI_GID_VAR);
     assert (vec_space(vcache));
 
-    node->data = ti_names_get(node->str, node->len);
+    nd->data = ti_names_get(nd->str, nd->len);
 
-    if (node->data)
-        VEC_push(vcache, node->data);
+    if (nd->data)
+        VEC_push(vcache, nd->data);
     else
         ex_set_mem(e);
     return e->nr;
@@ -161,85 +138,122 @@ static inline int ncache__list(
         ex_t * e)
 {
     for (; child; child = child->next->next)
-        if (ncache__i(syntax, vcache, child->node, e) || !child->next)
+        if (ncache__statement(syntax, vcache, child->node, e) || !child->next)
             break;
     return e->nr;
-}
-
-static int ncache__opr(
-        ti_syntax_t * syntax,
-        vec_t * vcache,
-        cleri_node_t * node,
-        ex_t * e)
-{
-    assert(node->cl_obj->tp == CLERI_TP_PRIO);
-
-    node = node->children->node;
-
-    return node->cl_obj->gid == CLERI_GID_STATEMENT
-        ? ncache__i(syntax, vcache, node, e)
-        : (
-            ncache__opr(syntax, vcache, node->children->node, e) ||
-            ncache__opr(syntax, vcache, node->children->next->next->node, e)
-        );
 }
 
 static int ncache__index(
         ti_syntax_t * syntax,
         vec_t * vcache,
-        cleri_node_t * node,
+        cleri_node_t * nd,
         ex_t * e)
 {
-    cleri_children_t * child = node        /* sequence */
-            ->children->next->node         /* slice */
+    cleri_children_t * child = nd       /* sequence */
+            ->children->next->node      /* slice */
             ->children;
 
-    if (node->children->next->next->next &&
-        ncache__i(syntax, vcache, node                  /* sequence */
-            ->children->next->next->next->node          /* assignment */
-            ->children->next->node, e))                 /* scope */
+    if (nd->children->next->next->next &&
+        ncache__statement(
+                syntax,
+                vcache,
+                nd                                      /* sequence */
+                ->children->next->next->next->node      /* assignment */
+                ->children->next->node, e))             /* statement */
         return e->nr;
 
     for (; child; child = child->next)
         if (    child->node->cl_obj->gid == CLERI_GID_STATEMENT &&
-                ncache__i(syntax, vcache, child->node, e))
+                ncache__statement(syntax, vcache, child->node, e))
             return e->nr;
 
     return e->nr;
 }
 
-/* return 0 on success, but not not always the current e->nr */
-int ti_ncache_gen_node_data(
+static int ncache__varname_opt_fa(
         ti_syntax_t * syntax,
         vec_t * vcache,
-        cleri_node_t * node,
+        cleri_node_t * nd,
         ex_t * e)
 {
-    switch (node->cl_obj->gid)
+    if (!nd->children->next)
+        return ncache__gen_name(vcache, nd->children->node, e);
+
+    switch (nd->children->next->node->cl_obj->gid)
     {
-    case CLERI_GID_ARRAY:
+    case CLERI_GID_FUNCTION:
         return ncache__list(
                 syntax,
                 vcache,
-                node->children->next->node->children,
+                nd->children->next->node->children->next->node->children,
                 e);
-    case CLERI_GID_BLOCK:
-        return ncache__list(
+    case CLERI_GID_ASSIGN:
+        return (ncache__statement(
                 syntax,
                 vcache,
-                node->children->next->next->node->children,
+                nd->children->next->node->children->next->node,
+                e)
+        ) || ncache__gen_name(vcache, nd->children->node, e);
+    }
+
+    assert (0);
+    return -1;
+}
+
+static int ncache__chain(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+
+    if (ncache__varname_opt_fa(syntax, vcache, nd->children->next->node, e))
+        return e->nr;
+
+    /* index */
+    if (nd->children->next->next->node->children &&
+        ncache__index(syntax, vcache, nd->children->next->next->node, e))
+        return e->nr;
+
+    /* chain */
+    if (nd->children->next->next->next)
+        (void) ncache__chain(
+                syntax,
+                vcache,
+                nd->children->next->next->next->node,
                 e);
+    return e->nr;
+}
+
+static int ncache__expr_choice(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    switch (nd->cl_obj->gid)
+    {
     case CLERI_GID_CHAIN:
-        return ncache__i(syntax, vcache, node, e);
+        return ncache__chain(syntax, vcache, nd, e);
+    case CLERI_GID_THING_BY_ID:
+        nd->data = ti_vint_create(strtoll(nd->str + 1, NULL, 10));
+        if (!nd->data)
+            ex_set_mem(e);
+        return e->nr;
+    case CLERI_GID_IMMUTABLE:
+        return ncache__gen_immutable(syntax, vcache, nd, e);
+    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+        return ncache__varname_opt_fa(syntax, vcache, nd, e);
     case CLERI_GID_THING:
     {
-        cleri_children_t * child = node         /* sequence */
+        cleri_children_t * child = nd           /* sequence */
                 ->children->next->node          /* list */
                 ->children;
         for (; child; child = child->next->next)
         {
-            /* sequence(name: scope) (only investigate the scopes */
-            if (ncache__i(
+            /* sequence(name: statement) (only investigate the statements */
+            if (ncache__statement(
                     syntax,
                     vcache,
                     child->node->children->next->next->node,
@@ -251,78 +265,93 @@ int ti_ncache_gen_node_data(
         }
         return e->nr;
     }
-    case CLERI_GID_THING_BY_ID:
-        node->data = ti_vint_create(strtoll(node->str + 1, NULL, 10));
-        if (!node->data)
-            ex_set_mem(e);
-        return e->nr;
-    case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
-    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
-        if (!node->children->next)
-            return ncache__gen_name(vcache, node->children->node, e);
-
-        switch (node->children->next->node->cl_obj->gid)
-        {
-        case CLERI_GID_FUNCTION:
-            return ncache__list(
-                    syntax,
-                    vcache,
-                    node->children->next->node->children->next->node->children,
-                    e);
-        case CLERI_GID_ASSIGN:
-            return (ncache__i(
-                    syntax,
-                    vcache,
-                    node->children->next->node->children->next->node,
-                    e)
-            ) || ncache__gen_name(vcache, node->children->node, e);
-        default:
-            assert (0);
-            return -1;
-        }
-
-        break;
-    case CLERI_GID_STATEMENTS:
+    case CLERI_GID_ARRAY:
         return ncache__list(
                 syntax,
                 vcache,
-                node->children,
+                nd->children->next->node->children,
                 e);
-    case CLERI_GID_INDEX:
-        for (   cleri_children_t * child = node->children;
-                child;
-                child = child->next)
-            if (ncache__index(syntax, vcache, child->node, e))
-                return e->nr;
-        return e->nr;
-    case CLERI_GID_O_NOT:
-    case CLERI_GID_COMMENT:
-        assert (0);
-        return e->nr;
-    case CLERI_GID_IMMUTABLE:
-        return ncache__gen_immutable(syntax, vcache, node, e);
-    case CLERI_GID_OPERATIONS:
-        if (ncache__opr(syntax, vcache, node->children->next->node, e))
-            return e->nr;
-
-        if (node->children->next->next->next)     /* optional ? (sequence) */
-        {
-            cleri_children_t * child = \
-                    node->children->next->next->next->node->children->next;
-
-            if (ncache__i(syntax, vcache, child->node, e))
-                return e->nr;
-
-            if (child->next)        /* else : case */
-                (void) ncache__i(
-                        syntax,
-                        vcache,
-                        child->next->node->children->next->node,
-                        e);
-        }
-        return e->nr;
+    case CLERI_GID_BLOCK:
+        return ncache__list(
+                syntax,
+                vcache,
+                nd->children->next->next->node->children,
+                e);
+    case CLERI_GID_PARENTHESIS:
+        return ncache__statement(syntax, vcache, nd, e);
     }
 
     assert (0);
     return e->nr;
 }
+
+static inline int ncache__expression(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
+
+    if (ncache__expr_choice(syntax, vcache, nd->children->next->node, e))
+        return e->nr;
+
+    /* index */
+    if (nd->children->next->next->node->children &&
+        ncache__index(syntax, vcache, nd->children->next->next->node, e))
+        return e->nr;
+
+    /* chain */
+    if (nd->children->next->next->next)
+        (void) ncache__chain(
+                syntax,
+                vcache,
+                nd->children->next->next->next->node,
+                e);
+    return e->nr;
+}
+
+static int ncache__operations(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    uint32_t gid = nd->children->next->node->cl_obj->gid;
+    if (gid == CLERI_GID_OPR8_TERNARY &&
+        ncache__statement(
+                syntax,
+                vcache,
+                nd->children->next->node->children->next->node,
+                e))
+        return e->nr;
+
+    return (
+        ncache__statement(syntax, vcache, nd->children->node, e) ||
+        ncache__statement(syntax, vcache, nd->children->next->next->node, e)
+    );
+}
+
+static int ncache__statement(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    return (nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION
+            ? ncache__expression(syntax, vcache, nd, e)
+            : ncache__operations(syntax, vcache, nd, e);
+}
+
+int ti_ncache_gen_node_data(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    return ncache__statement(syntax, vcache, nd, e);
+}
+
+

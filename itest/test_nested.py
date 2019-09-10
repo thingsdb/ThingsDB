@@ -295,9 +295,7 @@ class TestNested(TestBase):
             .users.filter(
                 |user| !isnil(
                     user.memberships.find(
-                        |membership| (
-                            membership.workspace == .workspace
-                        )
+                        |membership| membership.workspace == .workspace
                     ).channels.indexof(.channel)
                 )
             );
@@ -307,9 +305,7 @@ class TestNested(TestBase):
             .users.filter(
                 |user| isnil(
                     user.memberships.find(
-                        |membership| (
-                            membership.workspace == .workspace
-                        )
+                        |membership| membership.workspace == .workspace
                     ).channels.indexof(
                         .channel
                     )

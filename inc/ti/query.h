@@ -14,7 +14,6 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/pkg.h>
 #include <ti/prop.h>
 #include <ti/raw.h>
-#include <ti/scope.h>
 #include <ti/user.h>
 #include <ti/syntax.h>
 #include <ti/stream.h>

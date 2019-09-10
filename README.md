@@ -10,6 +10,24 @@
 
 
 
+In de volgende build wordt de "else" case in een ternary operatie verplicht.
+Dus de *else* case wordt verplicht:
+```expr ? true-case : else-case```
+
+De oude situatie kun je in de meeste gevallen simpel omschrijven met een `&&` operatie:
+```
+2 < 1 && {
+  "if two was really less than one...";
+};
+```
+
+Let op dat de huidige versie nog `()` haakjes om het geheel nodig heeft
+
+
+
+
+
+
 - [ ] Maybe implement a `set()` for things? For the implementation we could use an imap.
       This will make lookups very fast and set operations possible.
       Methods could be:

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-09 23:58:45
+ * Created at: 2019-09-10 15:20:17
  */
 
 #include <langdef/langdef.h>
@@ -102,6 +102,13 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * opr5_compare = cleri_tokens(CLERI_GID_OPR5_COMPARE, "== != <= >= < >");
     cleri_t * opr6_cmp_and = cleri_token(CLERI_GID_OPR6_CMP_AND, "&&");
     cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR7_CMP_OR, "||");
+    cleri_t * opr8_ternary = cleri_sequence(
+        CLERI_GID_OPR8_TERNARY,
+        3,
+        cleri_token(CLERI_NONE, "?"),
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ":")
+    );
     cleri_t * operations = cleri_sequence(
         CLERI_GID_OPERATIONS,
         3,
@@ -109,7 +116,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            8,
+            9,
+            opr8_ternary,
             opr7_cmp_or,
             opr6_cmp_and,
             opr5_compare,
@@ -205,25 +213,11 @@ cleri_grammar_t * compile_langdef(void)
         index,
         cleri_optional(CLERI_NONE, chain)
     );
-    cleri_t * ternary = cleri_sequence(
-        CLERI_GID_TERNARY,
-        4,
-        CLERI_THIS,
-        cleri_token(CLERI_NONE, "?"),
-        CLERI_THIS,
-        cleri_optional(CLERI_NONE, cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, ":"),
-            CLERI_THIS
-        ))
-    );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        3,
+        2,
         expression,
-        operations,
-        ternary
+        operations
     );
     cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, cleri_sequence(
         CLERI_NONE,

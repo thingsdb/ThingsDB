@@ -382,7 +382,6 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
         return ti_do_statement(query, nd->children->next->next->node, e);
-
     case CLERI_GID_OPR7_CMP_OR:
         if (    ti_do_statement(query, nd->children->node, e) ||
                 ti_val_as_bool(query->rval))
@@ -391,10 +390,20 @@ static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
         return ti_do_statement(query, nd->children->next->next->node, e);
-    default:
-        assert (0);
-        return -1;
+    case CLERI_GID_OPR8_TERNARY:
+        if (ti_do_statement(query, nd->children->node, e))
+            return e->nr;
+
+        nd = ti_val_as_bool(query->rval)
+                ? nd->children->next->node->children->next->node
+                : nd->children->next->next->node;
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+
+        return ti_do_statement(query, nd, e);
     }
+
     assert (0);
     return e->nr;
 }
@@ -895,36 +904,6 @@ nots:
     return e->nr;
 }
 
-int do__ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (query->rval == NULL);
-
-    _Bool bool_;
-    if (ti_do_statement(query, nd->children->node, e))
-        return e->nr;
-
-    bool_ = ti_val_as_bool(query->rval);
-
-    ti_val_drop(query->rval);
-    query->rval = NULL;
-
-    if (bool_)
-    {
-        (void) ti_do_statement(query, nd->children->next->next->node, e);
-        return e->nr;
-    }
-
-    if (nd->children->next->next->next) /* else case */
-    {
-        nd = nd->children->next->next->next->node;  /* else sequence */
-        (void) ti_do_statement(query, nd->children->next->node, e);
-        return e->nr;
-    }
-
-    query->rval = (ti_val_t *) ti_nil_get();
-    return e->nr;
-}
-
 int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
@@ -938,8 +917,6 @@ int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return do__expression(query, nd, e);
     case CLERI_GID_OPERATIONS:
         return do__operations(query, nd, e);
-    case CLERI_GID_TERNARY:
-        return do__ternary(query, nd, e);
     }
 
     assert (0);

@@ -104,7 +104,7 @@ static int index__read_slice_indices(
 
     child = child->next;
 
-    if (child)  /* must be scope since no more indices are allowed */
+    if (child)  /* must be a statement since no more indices are allowed */
     {
         assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
 
@@ -174,8 +174,8 @@ done:
 static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
     cleri_node_t * slice = inode->children->next->node;
-    cleri_node_t * ass_scope = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_scope->children->node;
+    cleri_node_t * ass_statem = inode->children->next->next->next->node;
+    cleri_node_t * ass_tokens = ass_statem->children->node;
     ti_varr_t * evarr, * varr = (ti_varr_t *) query->rval;
     ti_chain_t chain;
     ssize_t c, n;
@@ -209,7 +209,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail1;
     }
 
-    if (ti_do_statement(query, ass_scope->children->next->node, e))
+    if (ti_do_statement(query, ass_statem->children->next->node, e))
         goto fail1;
 
     if (!ti_val_is_array(query->rval))
@@ -277,14 +277,14 @@ fail0:
 
 static int index__numeric(
         ti_query_t * query,
-        cleri_node_t * scope,
+        cleri_node_t * statement,
         size_t * idx,
         size_t n,
         ex_t * e)
 {
     ssize_t i;
 
-    if (ti_do_statement(query, scope, e))
+    if (ti_do_statement(query, statement, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
@@ -312,14 +312,17 @@ static int index__numeric(
     return e->nr;
 }
 
-static int index__index_raw(ti_query_t * query, cleri_node_t * scope, ex_t * e)
+static int index__index_raw(
+        ti_query_t * query,
+        cleri_node_t * statement,
+        ex_t * e)
 {
     ti_raw_t * source = (ti_raw_t *) query->rval;
     size_t idx = 0;  /* only set to prevent warning */
 
     query->rval = NULL;
 
-    if (index__numeric(query, scope, &idx, source->n, e))
+    if (index__numeric(query, statement, &idx, source->n, e))
         goto done;
 
     query->rval = (ti_val_t *) ti_raw_create(source->data + idx, 1);
@@ -331,14 +334,17 @@ done:
     return e->nr;
 }
 
-static int index__index_arr(ti_query_t * query, cleri_node_t * scope, ex_t * e)
+static int index__index_arr(
+        ti_query_t * query,
+        cleri_node_t * statement,
+        ex_t * e)
 {
     ti_varr_t * source = (ti_varr_t *) query->rval;
     size_t idx = 0;  /* only set to prevent warning */
 
     query->rval = NULL;
 
-    if (index__numeric(query, scope, &idx, source->vec->n, e))
+    if (index__numeric(query, statement, &idx, source->vec->n, e))
         goto done;
 
     query->rval = vec_get(source->vec, idx);
@@ -351,9 +357,9 @@ done:
 
 static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
-    cleri_node_t * idx_scope = inode->children->next->node->children->node;
-    cleri_node_t * ass_scope = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_scope->children->node;
+    cleri_node_t * idx_statem = inode->children->next->node->children->node;
+    cleri_node_t * ass_statem = inode->children->next->next->next->node;
+    cleri_node_t * ass_tokens = ass_statem->children->node;
     ti_varr_t * varr;
     ti_chain_t chain;
     size_t idx = 0;  /* only set to prevent warning */
@@ -366,8 +372,8 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (index__numeric(query, idx_scope, &idx, varr->vec->n, e) ||
-        ti_do_statement(query, ass_scope->children->next->node, e))
+    if (index__numeric(query, idx_statem, &idx, varr->vec->n, e) ||
+        ti_do_statement(query, ass_statem->children->next->node, e))
         goto fail1;
 
     if (ass_tokens->len == 2)
@@ -408,13 +414,13 @@ fail0:
     return e->nr;
 }
 
-static int index__get(ti_query_t * query, cleri_node_t * scope, ex_t * e)
+static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
 {
     ti_prop_t * prop;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, scope, e))
+    if (ti_do_statement(query, statement, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -444,9 +450,9 @@ fail0:
 
 static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
-    cleri_node_t * idx_scope = inode->children->next->node->children->node;
-    cleri_node_t * ass_scope = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_scope->children->node;
+    cleri_node_t * idx_statem = inode->children->next->node->children->node;
+    cleri_node_t * ass_statem = inode->children->next->next->next->node;
+    cleri_node_t * ass_tokens = ass_statem->children->node;
     ti_prop_t * prop;
     ti_thing_t * thing;
     ti_name_t * name;
@@ -470,7 +476,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_statement(query, idx_scope, e))
+    if (ti_do_statement(query, idx_statem, e))
         goto fail0;
 
     if (!ti_val_is_raw(query->rval))
@@ -485,7 +491,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, ass_scope->children->next->node, e))
+    if (ti_do_statement(query, ass_statem->children->next->node, e))
         goto fail1;
 
     if (ass_tokens->len == 2)

@@ -315,32 +315,40 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
     nd->data = NULL;  /* unknown function */
 }
 
-static _Bool syntax__swap_opr(
+static _Bool syntax__operations(
         ti_syntax_t * syntax,
         cleri_children_t * parent,
         uint32_t parent_gid)
 {
-    assert(parent->node->cl_obj->gid == CLERI_GID_OPERATIONS);
-
     uint32_t gid = parent->node->children->next->node->cl_obj->gid;
     cleri_children_t * childb = parent->node->children->next->next;
 
-    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD && gid <= CLERI_GID_OPR7_CMP_OR);
+    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+            gid <= CLERI_GID_OPR8_TERNARY);
 
     syntax__statement(syntax, parent->node->children->node);
+
+    if (gid == CLERI_GID_OPR8_TERNARY)
+        syntax__statement(
+                syntax,
+                parent->node->children->next->node->children->next->node);
 
     if (childb->node->children->node->cl_obj->gid != CLERI_GID_OPERATIONS)
     {
         syntax__statement(syntax, childb->node);
     }
-    else if (syntax__swap_opr(syntax, childb->node->children, gid))
+    else if (syntax__operations(syntax, childb->node->children, gid))
     {
+        /* Swap operations */
         cleri_children_t * syntax_childa;
         cleri_node_t * tmp = parent->node;  /* operations */
 
         parent->node = childb->node->children->node;  /* operations */
 
         gid = parent->node->children->next->node->cl_obj->gid;
+
+        assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+                gid <= CLERI_GID_OPR8_TERNARY);
 
         syntax_childa = parent->node->children->node->children;
         childb->node->children->node = syntax_childa->node;
@@ -447,8 +455,7 @@ static void syntax__name_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
     ++syntax->val_cache_n;
 }
 
-
-static void syntax__chain(ti_syntax_t * syntax, cleri_node_t * nd)
+static inline void syntax__chain(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
 
@@ -548,7 +555,7 @@ static void syntax__expr_choice(ti_syntax_t * syntax, cleri_node_t * nd)
     assert (0);
 }
 
-static void syntax__expression(ti_syntax_t * syntax, cleri_node_t * nd)
+static inline void syntax__expression(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
@@ -563,16 +570,6 @@ static void syntax__expression(ti_syntax_t * syntax, cleri_node_t * nd)
         syntax__chain(syntax, nd->children->next->next->next->node);
 }
 
-static inline void syntax__ternary(ti_syntax_t * syntax, cleri_node_t * nd)
-{
-    syntax__statement(syntax, nd->children->node);
-    syntax__statement(syntax, nd->children->next->next->node);
-    if (nd->children->next->next->next)
-        syntax__statement(
-                syntax,
-                nd->children->next->next->next->node->children->next->node);
-}
-
 static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     cleri_node_t * node;
@@ -585,10 +582,7 @@ static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd)
         syntax__expression(syntax, node);
         return;
     case CLERI_GID_OPERATIONS:
-        syntax__swap_opr(syntax, nd->children, 0);
-        return;
-    case CLERI_GID_TERNARY:
-        syntax__ternary(syntax, node);
+        syntax__operations(syntax, nd->children, 0);
         return;
     }
     assert (0);
@@ -605,19 +599,25 @@ static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd)
  * - re-arrange operations to honor compare order
  * - count primitives cache requirements
  */
-void ti_syntax_investigate(ti_syntax_t * syntax, cleri_node_t * nd)
+void ti_syntax_probe(ti_syntax_t * syntax, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT ||
+            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
 
-    cleri_children_t * child = nd->children;
-
-    for (; child; child = child->next->next)
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
     {
-        syntax__statement(syntax, child->node);   /* statement */
+        cleri_children_t * child = nd->children;
 
-        if (!child->next)
-            return;
+        for (; child; child = child->next->next)
+        {
+            syntax__statement(syntax, child->node);   /* statement */
+
+            if (!child->next)
+                return;
+        }
+        return;
     }
+    return syntax__statement(syntax, nd);
 }
 
 

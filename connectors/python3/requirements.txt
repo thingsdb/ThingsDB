@@ -1,1 +1,1 @@
-qpack
+qpack>=0.0.18

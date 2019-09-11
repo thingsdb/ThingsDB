@@ -2,6 +2,7 @@ import time
 import asyncio
 import logging
 import pprint
+import pickle
 import signal
 from thingsdb.client import Client
 from thingsdb.client.scope import Scope
@@ -165,15 +166,17 @@ async def test(client):
     await asyncio.sleep(1)
 
     try:
-        x = await client.run('new_user', 'pietje')
+        # x = await client.run('new_user', 'pietje')
         # print(x)
-        my_collection = MyCollection(client, build=True)
+        # my_collection = MyCollection(client, build=True)
         # x = await client.run('addone', 10, target='stuff')
         # print(x)
+        await client.query('.logo = blob(0);', blobs=(pickle.dumps({}), ))
 
-        while True:
-            print([label.name for label in osdata.labels])
-            await asyncio.sleep(1)
+        rest = await client.query('thing(.id())')
+
+        for k, v in rest.items():
+            print(k)
 
     finally:
         client.close()

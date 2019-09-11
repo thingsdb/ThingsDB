@@ -87,6 +87,15 @@ int ti_create(void)
         return -1;
     }
 
+    /*
+     * Patch out statement `Prio` since the current version of libcleri does
+     * not set the GID to `Prio` objects for backward compatibility reasons.
+     */
+    ti_.langdef->start->via.sequence            /* START */
+        ->olist->next->cl_obj->via.list         /* statements */
+        ->cl_obj->via.rule                      /* statement */
+        ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
+
     return 0;
 }
 

@@ -34,6 +34,10 @@ the one you are connected to.
 ### Solution
 A single protocol and include the target scope in the query. See examples.
 
+```
+@<scope>:<id/name>
+```
+
 Query ThingsDB
 ```
 @thingsdb

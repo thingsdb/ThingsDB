@@ -230,7 +230,7 @@ ti_collection_t * ti_collections_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
                 e,
                 EX_INDEX_ERROR,
                 "collection `%.*s` not found",
-                obj->len,
+                (int) obj->len,
                 (char *) obj->via.raw);
         break;
     case QP_INT64:

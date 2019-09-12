@@ -64,11 +64,21 @@ func (conn *Conn) Connect() error {
 	return nil
 }
 
-// Authenticate can be used to authenticate a connection.
-func (conn *Conn) Authenticate(username, password string) error {
+// AuthPassword can be used to authenticate a connection using a username and
+// password.
+func (conn *Conn) AuthPassword(username, password string) error {
 	_, err := conn.write(
 		ProtoReqAuth,
 		[]string{username, password},
+		10)
+	return err
+}
+
+// AuthToken can be used to authenticate a connection using a token.
+func (conn *Conn) AuthToken(token string) error {
+	_, err := conn.write(
+		ProtoReqAuth,
+		token,
 		10)
 	return err
 }

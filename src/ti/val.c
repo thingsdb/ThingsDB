@@ -491,7 +491,7 @@ ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
     (void) qp_next(unp, &qp_val);
     val = val__from_unp(&qp_val, unp, things, &e);
     if (e.nr)
-        log_error("failed to unpack value: %s (%d) ", e.nr, e.msg);
+        log_error("failed to unpack value: %s (%d) ", e.msg, e.nr);
     return val;
 }
 

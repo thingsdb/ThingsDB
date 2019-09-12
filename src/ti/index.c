@@ -457,9 +457,9 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     ti_thing_t * thing;
     ti_name_t * name;
     ti_raw_t * rname;
-    size_t max_props = query->target
-            ? query->target->quota->max_props
-            : TI_QUOTA_NOT_SET;     /* check for target since assign is
+    size_t max_props = query->collection
+            ? query->collection->quota->max_props
+            : TI_QUOTA_NOT_SET;     /* check for collection since assign is
                                        possible when chained in all scopes */
 
     if (ti_val_try_lock(query->rval, e))

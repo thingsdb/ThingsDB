@@ -22,7 +22,7 @@ static int user__pack_access(
         ti_user_t * user,
         qp_packer_t ** packer,
         vec_t * access_,
-        const unsigned char * target,
+        const unsigned char * scope,
         size_t n)
 {
     for (vec_each(access_, ti_auth_t, auth))
@@ -30,8 +30,8 @@ static int user__pack_access(
         if (auth->user == user)
         {
             if (qp_add_map(packer) ||
-                qp_add_raw_from_str(*packer, "target") ||
-                qp_add_raw(*packer, target, n) ||
+                qp_add_raw_from_str(*packer, "scope") ||
+                qp_add_raw(*packer, scope, n) ||
                 qp_add_raw_from_str(*packer, "privileges") ||
                 qp_add_raw_from_str(
                         *packer,
@@ -251,11 +251,11 @@ int ti_user_info_to_packer(ti_user_t * user, qp_packer_t ** packer)
         return -1;
 
     if (user__pack_access(
-            user, packer, ti()->access_node, (uchar *) ".node", 5))
+            user, packer, ti()->access_node, (uchar *) "@node", 5))
         return -1;
 
     if (user__pack_access(
-            user, packer, ti()->access_thingsdb, (uchar *) ".thingsdb", 9))
+            user, packer, ti()->access_thingsdb, (uchar *) "@thingsdb", 9))
         return -1;
 
 

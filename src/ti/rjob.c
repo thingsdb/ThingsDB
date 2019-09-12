@@ -165,20 +165,20 @@ static int rjob__del_user(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'target':id, 'user':name, 'mask': integer}
+ * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
 static int rjob__grant(qp_unpacker_t * unp)
 {
     assert (unp);
 
     ti_user_t * user;
-    ti_collection_t * target = NULL;
+    ti_collection_t * collection = NULL;
     uint64_t mask, user_id;
-    qp_obj_t qp_target, qp_user, qp_mask;
+    qp_obj_t qp_scope, qp_user, qp_mask;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: target */
-            !qp_is_int(qp_next(unp, &qp_target)) ||     /* value: target */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: scope */
+            !qp_is_int(qp_next(unp, &qp_scope)) ||      /* value: scope */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
             !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: user */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
@@ -188,11 +188,11 @@ static int rjob__grant(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_target.via.int64 > 1)
+    if (qp_scope.via.int64 > 1)
     {
-        uint64_t id = qp_target.via.int64;
-        target = ti_collections_get_by_id(id);
-        if (!target)
+        uint64_t id = qp_scope.via.int64;
+        collection = ti_collections_get_by_id(id);
+        if (!collection)
         {
             log_critical("job `grant`: "TI_COLLECTION_ID" not found", id);
             return -1;
@@ -210,9 +210,9 @@ static int rjob__grant(qp_unpacker_t * unp)
 
     mask = (uint64_t) qp_mask.via.int64;
 
-    if (ti_access_grant(target
-            ? &target->access
-            : qp_target.via.int64 == TI_SCOPE_NODE
+    if (ti_access_grant(collection
+            ? &collection->access
+            : qp_scope.via.int64 == TI_SCOPE_NODE
             ? &ti()->access_node
             : &ti()->access_thingsdb,
               user, mask))
@@ -674,20 +674,20 @@ static int rjob__replace_node(ti_event_t * ev, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {'target':id, 'user':name, 'mask': integer}
+ * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
 static int rjob__revoke(qp_unpacker_t * unp)
 {
     assert (unp);
 
     ti_user_t * user;
-    ti_collection_t * target = NULL;
+    ti_collection_t * collection = NULL;
     uint64_t mask, user_id;
-    qp_obj_t qp_target, qp_user, qp_mask;
+    qp_obj_t qp_scope, qp_user, qp_mask;
 
     if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: target */
-            !qp_is_int(qp_next(unp, &qp_target)) ||     /* value: target */
+            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: scope */
+            !qp_is_int(qp_next(unp, &qp_scope)) ||      /* value: scope */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
             !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: user */
             !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
@@ -697,11 +697,11 @@ static int rjob__revoke(qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_target.via.int64 > 1)
+    if (qp_scope.via.int64 > 1)
     {
-        uint64_t id = (uint64_t) qp_target.via.int64;
-        target = ti_collections_get_by_id(id);
-        if (!target)
+        uint64_t id = (uint64_t) qp_scope.via.int64;
+        collection = ti_collections_get_by_id(id);
+        if (!collection)
         {
             log_critical("job `revoke`: "TI_COLLECTION_ID" not found", id);
             return -1;
@@ -719,9 +719,9 @@ static int rjob__revoke(qp_unpacker_t * unp)
 
     mask = (uint64_t) qp_mask.via.int64;
 
-    ti_access_revoke(target
-            ? target->access
-            : qp_target.via.int64 == TI_SCOPE_NODE
+    ti_access_revoke(collection
+            ? collection->access
+            : qp_scope.via.int64 == TI_SCOPE_NODE
             ? ti()->access_node
             : ti()->access_thingsdb,
               user, mask);
@@ -805,7 +805,7 @@ static int rjob__set_quota(qp_unpacker_t * unp)
 
     if (!qp_collection.via.int64)
     {
-        log_critical("job `set_quota`: cannot set quota on root (target: 0)");
+        log_critical("job `set_quota`: cannot set quota on root (scope: 0)");
         return -1;
     }
 

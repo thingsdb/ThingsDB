@@ -341,7 +341,7 @@ fail_data:
 
 int ti_task_add_grant(
         ti_task_t * task,
-        uint64_t target_id,
+        uint64_t scope_id,
         ti_user_t * user,
         uint64_t mask)
 {
@@ -354,8 +354,8 @@ int ti_task_add_grant(
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "grant");
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int(packer, target_id);
+    (void) qp_add_raw_from_str(packer, "scope");
+    (void) qp_add_int(packer, scope_id);
     (void) qp_add_raw_from_str(packer, "user");
     (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");
@@ -721,7 +721,7 @@ fail_data:
 
 int ti_task_add_revoke(
         ti_task_t * task,
-        uint64_t target_id,
+        uint64_t scope_id,
         ti_user_t * user,
         uint64_t mask)
 {
@@ -734,8 +734,8 @@ int ti_task_add_revoke(
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "revoke");
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "target");
-    (void) qp_add_int(packer, target_id);
+    (void) qp_add_raw_from_str(packer, "scope");
+    (void) qp_add_int(packer, scope_id);
     (void) qp_add_raw_from_str(packer, "user");
     (void) qp_add_int(packer, user->id);
     (void) qp_add_raw_from_str(packer, "mask");

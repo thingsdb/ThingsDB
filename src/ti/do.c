@@ -64,11 +64,12 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->node         /* list */
             ->children;
 
-    if (query->target && sz >= query->target->quota->max_array_size)
+    if (query->collection && sz >= query->collection->quota->max_array_size)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
+                TI_SEE_DOC("#quotas"),
+                query->collection->quota->max_array_size);
         return e->nr;
     }
 
@@ -140,8 +141,8 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     ti_prop_t * prop;
-    size_t max_props = query->target
-            ? query->target->quota->max_props
+    size_t max_props = query->collection
+            ? query->collection->quota->max_props
             : TI_QUOTA_NOT_SET;     /* check for target since assign is
                                        possible when chained in all scopes */
     cleri_node_t * name_nd = nd                 /* sequence */
@@ -207,7 +208,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        assert (query->target);  /* only in a collection scope */
+        assert (query->collection);  /* only in a collection scope */
         task = ti_task_get_task(query->ev, thing, e);
         if (!task)
             goto done;
@@ -608,12 +609,15 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child;
     size_t max_props;
 
-    if (query->target)
+    if (query->collection)
     {
-        if (ti_quota_things(query->target->quota, query->target->things->n, e))
+        if (ti_quota_things(
+                query->collection->quota,
+                query->collection->things->n,
+                e))
             return e->nr;
-        max_props = query->target->quota->max_props;
-        thing = ti_thing_create(0, query->target->things);
+        max_props = query->collection->quota->max_props;
+        thing = ti_thing_create(0, query->collection->things);
     }
     else
     {
@@ -811,7 +815,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (nd->cl_obj->gid)
     {
     case CLERI_GID_CHAIN:
-        if (!query->target)
+        if (!query->collection)
         {
             ex_set(e, EX_INDEX_ERROR,
                     "the `root` of the `%s` scope is inaccessible; "
@@ -820,7 +824,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        query->rval = (ti_val_t *) query->root;
+        query->rval = (ti_val_t *) query->collection->root;
         ti_incref(query->rval);
 
         if (do__chain(query, nd, e))

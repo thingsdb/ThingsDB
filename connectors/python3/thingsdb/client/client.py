@@ -6,7 +6,7 @@ import random
 from .package import Package
 from .protocol import Protocol
 from .protocol import REQ_AUTH
-from .protocol import REQ_QUERY_COLLECTION
+from .protocol import REQ_QUERY
 from .protocol import REQ_WATCH
 from .protocol import REQ_RUN
 from .protocol import PROTOMAP
@@ -16,7 +16,6 @@ from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import ON_NODE_STATUS
 from .buildin import Buildin
-from .scope import Scope, thingsdb, scope_is_collection, scope_get_name
 from ..convert import convert
 
 
@@ -34,7 +33,7 @@ class Client(Buildin):
         self._pid = 0
         self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()  # watching these things
-        self._scope = thingsdb  # default scope
+        self._scope = '@thingsdb'  # default to thingsdb scope
         self._pool_idx = 0
         self._reconnecting = False
 
@@ -198,7 +197,7 @@ class Client(Buildin):
         if self._protocol and self._protocol.close_future:
             await self._protocol.close_future
 
-    async def authenticate(self, auth, timeout=5):
+    async def authenticate(self, *auth, timeout=5):
         self._auth = self._auth_check(auth)
         await self._authenticate(timeout)
 
@@ -212,65 +211,50 @@ class Client(Buildin):
             timeout=timeout)
         await future
 
-    def use(self, scope):
-        if isinstance(scope, (int, str)):
-            scope = Scope(scope)
-        assert isinstance(scope, Scope)
-        self._scope = scope
+    def use(self, scope: str):
+        if not scope.startswith('@'):
+            self._scope = \
+                f'@{scope}' if scope.startswith(':') else f'@:{scope}'
+        else:
+            self._scope = scope
 
     def get_scope(self):
         return self._scope
 
-    def get_scope_name(self):
-        return scope_get_name(self._scope)
+    async def query(self, query: str, blobs=None, timeout=None):
+        if not query.startswith('@'):
+            query = f'{self._scope} {query}'
 
-    def _make_scope(self, scope):
-        if isinstance(scope, Scope):
-            return scope
-        if scope is None:
-            return self._scope
-        return Scope(scope)
-
-    async def query(self, query: str, blobs=None, target=None, timeout=None):
-        scope = self._make_scope(target)
-
-        if scope_is_collection(scope):
-            data = {
-                'query': query,
-                'collection': scope._scope,
-            }
-        else:
-            data = {
-                'query': query
-            }
-
-        if blobs:
-            data['blobs'] = blobs
-
-        future = self._write_package(scope._proto, data, timeout=timeout)
+        future = self._write_package(
+            REQ_QUERY,
+            [query, *blobs],
+            timeout=timeout)
         return await future
 
-    async def run(self, procedure: str, *args, target=None, convert_args=True):
-        scope = self._make_scope(target)
+    async def run(self, procedure: str, *args, scope=None, convert_args=True):
+        if scope is None:
+            scope = self._scope
 
         arguments = (convert(arg) for arg in args) if convert_args else args
 
         future = self._write_package(
             REQ_RUN,
-            [scope._scope, procedure, *arguments],
+            [scope, procedure, *arguments],
             timeout=None)
+
         return await future
 
-    def watch(self):
-        return self._write_package(REQ_WATCH, None, timeout=None)
+    def watch(self, *ids, scope=None):
+        if scope is None:
+            scope = self._scope
 
-    def unwatch(self, ids=[], target=None, timeout=None):
-        scope = self._get_scope_instance(target)
-        data = {
-            'things': [ids] if isinstance(ids, int) else ids,
-            'collection': scope._scope
-        } if scope_is_collection(scope) else None
-        return self._write_package(REQ_UNWATCH, data, timeout=timeout)
+        return self._write_package(REQ_WATCH, [scope, *ids])
+
+    def unwatch(self, *ids: int, scope=None):
+        if scope is None:
+            scope = self._scope
+
+        return self._write_package(REQ_UNWATCH, [scope, *ids])
 
     def _on_watch_init(self, data):
         thing_dict = data['thing']

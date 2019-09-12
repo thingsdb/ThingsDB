@@ -40,11 +40,12 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     current_n = varr->vec->n;
     new_n = current_n + nargs;
 
-    if (query->target && new_n >= query->target->quota->max_array_size)
+    if (query->collection && new_n >= query->collection->quota->max_array_size)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"), query->target->quota->max_array_size);
+                TI_SEE_DOC("#quotas"),
+                query->collection->quota->max_array_size);
         goto done;
     }
 

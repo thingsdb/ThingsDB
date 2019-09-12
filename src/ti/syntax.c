@@ -144,8 +144,9 @@ static inline void syntax__set_thingsdb_event(ti_syntax_t * syntax)
 
 static inline void syntax__set_both_event(ti_syntax_t * syntax)
 {
-    syntax->flags |= ~syntax->flags & TI_SYNTAX_FLAG_NODE
-            ? TI_SYNTAX_FLAG_EVENT : 0;
+    syntax->flags |= syntax->flags & (
+                TI_SYNTAX_FLAG_THINGSDB|TI_SYNTAX_FLAG_COLLECTION
+            ) ? TI_SYNTAX_FLAG_EVENT : 0;
 }
 
 static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd);
@@ -608,12 +609,23 @@ void ti_syntax_probe(ti_syntax_t * syntax, cleri_node_t * nd)
     {
         cleri_children_t * child = nd->children;
 
-        for (; child; child = child->next->next)
+        for (; child; child = child->next)
         {
+            cleri_children_t * c;
             syntax__statement(syntax, child->node);   /* statement */
 
-            if (!child->next)
+            if (!(child = child->next))
                 return;
+
+            for (c = child->node->children; c; c = c->next)
+            {
+                if (c->node->cl_obj->gid == CLERI_GID_SCOPE)
+                {
+
+                }
+                /* TODO: maybe just drop comments? */
+            }
+
         }
         return;
     }

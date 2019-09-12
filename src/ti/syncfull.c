@@ -39,7 +39,7 @@ typedef enum
     SYNCFULL__COLLECTION_END,
 } syncfull__file_t;
 
-static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
+static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
 {
     char * path = ti()->store->store_path;
 
@@ -60,15 +60,15 @@ static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
     case SYNCFULL__ID_STAT_FILE:
         return strdup(ti()->store->id_stat_fn);
     case SYNCFULL__COLLECTION_DAT_FILE:
-        return ti_store_collection_dat_fn(path, target_id);
+        return ti_store_collection_dat_fn(path, scope_id);
     case SYNCFULL__COLLECTION_ACCESS_FILE:
-        return ti_store_collection_access_fn(path, target_id);
+        return ti_store_collection_access_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROCEDURES_FILE:
-        return ti_store_collection_procedures_fn(path, target_id);
+        return ti_store_collection_procedures_fn(path, scope_id);
     case SYNCFULL__COLLECTION_THINGS_FILE:
-        return ti_store_collection_things_fn(path, target_id);
+        return ti_store_collection_things_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROPS_FILE:
-        return ti_store_collection_props_fn(path, target_id);
+        return ti_store_collection_props_fn(path, scope_id);
     case SYNCFULL__COLLECTION_END:
         break;
     }
@@ -76,7 +76,7 @@ static char * syncfull__get_fn(uint64_t target_id, syncfull__file_t ft)
     return NULL;
 }
 
-static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
+static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
 {
     (*ft)++;
     if (*ft == SYNCFULL__COLLECTION_END)
@@ -89,9 +89,9 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
         vec_t * collection_ids = ti()->store->collection_ids;
         char * path = ti()->store->store_path;
 
-        if (*target_id)
+        if (*scope_id)
             for (vec_each(collection_ids, uint64_t, collection_id))
-                if (++i && *collection_id == *target_id)
+                if (++i && *collection_id == *scope_id)
                     break;
 
         while (1)
@@ -100,12 +100,12 @@ static _Bool syncfull__next_file(uint64_t * target_id, syncfull__file_t * ft)
             if (!collection_id)
                 return false;       /* finished, no more files to sync */
 
-            *target_id = *collection_id;
+            *scope_id = *collection_id;
 
-            if (ti_store_collection_is_stored(path, *target_id))
+            if (ti_store_collection_is_stored(path, *scope_id))
                 break;
 
-            log_error("path is missing for: "TI_COLLECTION_ID, *target_id);
+            log_error("path is missing for: "TI_COLLECTION_ID, *scope_id);
             ++i;
         }
     }
@@ -144,7 +144,7 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 }
 
 static ti_pkg_t * syncfull__pkg(
-        uint64_t target_id,
+        uint64_t scope_id,
         syncfull__file_t ft,
         off_t offset)
 {
@@ -155,11 +155,11 @@ static ti_pkg_t * syncfull__pkg(
         return NULL;
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, target_id);   /* target root */
+    (void) qp_add_int(packer, scope_id);    /* scope */
     (void) qp_add_int(packer, ft);          /* file type */
     (void) qp_add_int(packer, offset);      /* offset in file */
 
-    fn = syncfull__get_fn(target_id, ft);
+    fn = syncfull__get_fn(scope_id, ft);
     if (!fn)
         goto failed;
 
@@ -183,8 +183,8 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
     qp_unpacker_t unpacker;
     ti_pkg_t * pkg = req->pkg_res;
     ti_pkg_t * next_pkg;
-    qp_obj_t qp_target, qp_ft, qp_offset;
-    uint64_t target_id;
+    qp_obj_t qp_scope, qp_ft, qp_offset;
+    uint64_t scope_id;
     syncfull__file_t ft;
     off_t offset;
 
@@ -206,7 +206,7 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_target)) ||
+        !qp_is_int(qp_next(&unpacker, &qp_scope)) ||
         !qp_is_int(qp_next(&unpacker, &qp_ft)) ||
         !qp_is_int(qp_next(&unpacker, &qp_offset)))
     {
@@ -214,11 +214,11 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    target_id = (uint64_t) qp_target.via.int64;
+    scope_id = (uint64_t) qp_scope.via.int64;
     ft = (syncfull__file_t) qp_ft.via.int64;
     offset = (off_t) qp_offset.via.int64;
 
-    if (!offset && !syncfull__next_file(&target_id, &ft))
+    if (!offset && !syncfull__next_file(&scope_id, &ft))
     {
         next_pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCFDONE, NULL, 0);
         if (!next_pkg)
@@ -237,13 +237,13 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
         goto done;
     }
 
-    next_pkg = syncfull__pkg(target_id, ft, offset);
+    next_pkg = syncfull__pkg(scope_id, ft, offset);
     if (!next_pkg)
     {
         log_error(
                 "failed creating package "
-                "(target: %"PRIu64" file type: %d, offset: %zd)",
-                target_id, ft, offset);
+                "(scope id: %"PRIu64" file type: %d, offset: %zd)",
+                scope_id, ft, offset);
         goto failed;
     }
 
@@ -290,17 +290,17 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     int rc;
     qp_unpacker_t unpacker;
     ti_pkg_t * resp;
-    qp_obj_t qp_target, qp_ft, qp_offset, qp_raw, qp_more;
+    qp_obj_t qp_scope, qp_ft, qp_offset, qp_raw, qp_more;
     qpx_packer_t * packer;
     syncfull__file_t ft;
     off_t offset;
-    uint64_t target_id;
+    uint64_t scope_id;
     char * fn;
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_target)) ||
+        !qp_is_int(qp_next(&unpacker, &qp_scope)) ||
         !qp_is_int(qp_next(&unpacker, &qp_ft)) ||
         !qp_is_int(qp_next(&unpacker, &qp_offset)) ||
         !qp_is_raw(qp_next(&unpacker, &qp_raw)) ||
@@ -310,7 +310,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-    target_id = (uint64_t) qp_target.via.int64;
+    scope_id = (uint64_t) qp_scope.via.int64;
     ft = (syncfull__file_t) qp_ft.via.int64;
     offset = (off_t) qp_offset.via.int64;
 
@@ -318,7 +318,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     {
         int rc;
         char * path = ti()->store->store_path;
-        path = ti_store_collection_get_path(path, target_id);
+        path = ti_store_collection_get_path(path, scope_id);
         if (fx_is_dir(path))
         {
             log_debug("delete existing path: `%s`", path);
@@ -337,11 +337,11 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         free(path);
     }
 
-    fn = syncfull__get_fn(target_id, ft);
+    fn = syncfull__get_fn(scope_id, ft);
     if (!fn)
     {
         ex_set(e, EX_BAD_DATA, "invalid file type %d for "TI_COLLECTION_ID,
-                ft, target_id);
+                ft, scope_id);
         return NULL;
     }
 
@@ -358,7 +358,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     }
 
     (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, qp_target.via.int64);
+    (void) qp_add_int(packer, qp_scope.via.int64);
     (void) qp_add_int(packer, qp_ft.via.int64);
     (void) qp_add_int(packer, qp_is_true(qp_more.tp) ? offset + qp_raw.len : 0);
     (void) qp_close_array(packer);

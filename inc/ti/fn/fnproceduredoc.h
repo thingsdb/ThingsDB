@@ -5,8 +5,8 @@
 static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_procedure_t * procedure;
-    vec_t * procedures = query->target
-            ? query->target->procedures
+    vec_t * procedures = query->collection
+            ? query->collection->procedures
             : ti()->procedures;
 
     if (fn_not_thingsdb_or_collection_scope("procedure_doc", query, e))

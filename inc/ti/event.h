@@ -65,11 +65,11 @@ struct ti_event_s
     uint8_t pad0;
     uint64_t id;
     ti_event_via_t via;
-    ti_collection_t * target;   /* NULL for root or collection with reference
-                                */
-    vec_t * _tasks;             /* ti_task_t */
-    struct timespec time;       /* timing an event, used for elapsed time etc.
-                                */
+    ti_collection_t * collection;   /* collection with reference or NULL */
+    vec_t * _tasks;                 /* ti_task_t */
+    struct timespec time;           /* timing an event, used for elapsed
+                                     * time etc.
+                                     */
 };
 
 static inline void ti_event_log(

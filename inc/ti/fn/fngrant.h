@@ -8,7 +8,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
-    uint64_t mask, target_id;
+    uint64_t mask, scope_id;
     vec_t ** access_;
 
     if (fn_not_thingsdb_scope("grant", query, e))
@@ -23,11 +23,11 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    /* target */
+    /* scope */
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    access_ = ti_val_get_access(query->rval, e, &target_id);
+    access_ = ti_val_get_access(query->rval, e, &scope_id);
     if (e->nr)
         return e->nr;
 
@@ -90,7 +90,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         return e->nr;
 
-    if (ti_task_add_grant(task, target_id, user, mask))
+    if (ti_task_add_grant(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);

@@ -202,7 +202,9 @@ static void clients__query_thingsdb_or_collection(
         goto finish;
 
     /* the `unpack` call should check if a target is used or not */
-    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    access_ = query->collection
+            ? query->collection->access
+            : ti()->access_thingsdb;
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
         ti_query_parse(query, &e) ||
@@ -288,6 +290,39 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
 finish:
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_MEMORY_S);
+    }
+}
+
+static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t e = {0};
+    ti_pkg_t * resp = NULL;
+    ti_query_t * query = NULL;
+    ti_node_t * this_node = ti()->node;
+    ti_user_t * user = stream->via.user;
+
+    if (!user)
+    {
+        ex_set(&e, EX_AUTH_ERROR, "connection is not authenticated");
+        goto finish;
+    }
+
+    ti_query_run(query);
+    return;
+
+finish:
+    ti_query_destroy(query);
+
+    if (e.nr)
+    {
+        ++ti()->counters->queries_with_error;
+        resp = ti_pkg_client_err(pkg->id, &e);
+    }
+
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
@@ -414,7 +449,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
     }
 
-    access_ = wareq ? wareq->target->access : ti()->access_node;
+    access_ = wareq ? wareq->collection->access : ti()->access_node;
 
     if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
         goto finish;
@@ -473,7 +508,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
             goto finish;
     }
 
-    access_ = wareq ? wareq->target->access : ti()->access_node;
+    access_ = wareq ? wareq->collection->access : ti()->access_node;
 
     if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
         goto finish;
@@ -551,7 +586,9 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_query_run_unpack(query, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
 
-    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    access_ = query->collection
+            ? query->collection->access
+            : ti()->access_thingsdb;
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e))
         goto finish;
 

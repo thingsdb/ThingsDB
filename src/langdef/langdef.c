@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-10 15:20:17
+ * Created at: 2019-09-12 14:04:54
  */
 
 #include <langdef/langdef.h>
@@ -36,7 +36,7 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
     cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
-    cleri_t * comment = cleri_repeat(CLERI_GID_COMMENT, cleri_choice(
+    cleri_t * comments = cleri_repeat(CLERI_GID_COMMENTS, cleri_choice(
         CLERI_NONE,
         CLERI_FIRST_MATCH,
         2,
@@ -177,12 +177,12 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_BLOCK,
         4,
         cleri_token(CLERI_NONE, "{"),
-        comment,
+        comments,
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_sequence(
             CLERI_NONE,
             2,
             cleri_token(CLERI_NONE, ";"),
-            comment
+            comments
         ), 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
@@ -213,6 +213,15 @@ cleri_grammar_t * compile_langdef(void)
         index,
         cleri_optional(CLERI_NONE, chain)
     );
+    cleri_t * scope = cleri_regex(CLERI_GID_SCOPE, "^@[^\\s]+");
+    cleri_t * comments_or_scopes = cleri_repeat(CLERI_GID_COMMENTS_OR_SCOPES, cleri_choice(
+        CLERI_NONE,
+        CLERI_FIRST_MATCH,
+        3,
+        cleri_regex(CLERI_NONE, "^(?s)//.*?\\r?\\n"),
+        cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/"),
+        scope
+    ), 0, 0);
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
         2,
@@ -223,12 +232,12 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_NONE,
         2,
         cleri_token(CLERI_NONE, ";"),
-        comment
+        comments_or_scopes
     ), 0, 0, 1);
     cleri_t * START = cleri_sequence(
         CLERI_GID_START,
         2,
-        comment,
+        comments_or_scopes,
         statements
     );
     cleri_ref_set(chain, cleri_sequence(

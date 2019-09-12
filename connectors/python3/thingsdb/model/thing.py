@@ -73,17 +73,14 @@ class Thing:
             alt = clz.__dict__[REQUIRED]
             if issubclass(alt, (list, tuple)):
                 await client.query(
-                    f'#{id}.{prop} = [];',
-                    target=collection)
+                    f'{collection.scope} #{id}.{prop} = [];')
             elif issubclass(alt, Thing):
                 nid = await client.query(
-                    f'#{id}.{prop} = {{}}).id();',
-                    target=collection)
+                    f'{collection.scope} #{id}.{prop} = {{}}).id();')
                 await clz._build(nid, client, collection)
             elif issubclass(alt, set):
                 await client.query(
-                    f'#{id}.{prop} = set();',
-                    target=collection)
+                    f'{collection.scope} #{id}.{prop} = set();')
             else:
                 fun = {
                     str: 'str',
@@ -92,8 +89,7 @@ class Thing:
                     bool: 'bool'
                 }[alt]
                 await client.query(
-                    f'#{id}.{prop} = {fun}();',
-                    target=collection)
+                    f'{collection.scope} #{id}.{prop} = {fun}();')
 
     def _check(self, attr, value):
         if value is None:

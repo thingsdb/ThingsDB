@@ -68,12 +68,12 @@ static inline const char * ti_query_scope_name(ti_query_t * query);
 
 struct ti_query_s
 {
-    ti_syntax_t syntax;         /* syntax binding */
-    ti_chain_t chain;           /* ti_chain_t */
-    ti_val_t * rval;            /* return value of a statement */
-    ti_collection_t * target;   /* with reference,
-                                   NULL when target is node or thingsdb */
-    ti_thing_t * root;          /* thing0 or target->root */
+    ti_syntax_t syntax;             /* syntax binding */
+    ti_chain_t chain;               /* ti_chain_t */
+    ti_val_t * rval;                /* return value of a statement */
+    ti_collection_t * collection;   /* with reference, NULL when the scope is
+                                     * @node or @thingsdb
+                                     */
     char * querystr;            /* 0 terminated query string */
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
@@ -96,10 +96,10 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
     if (query->syntax.flags & TI_SYNTAX_FLAG_NODE)
-        return "node";
+        return "@node";
     else if (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
-        return "thingsdb";
+        return "@thingsdb";
     else
-        return "collection";
+        return "@collection";
 }
 #endif /* TI_QUERY_H_ */

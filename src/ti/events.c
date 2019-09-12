@@ -170,7 +170,7 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
 
     ev->via.query = query;
     query->ev = ti_grab(ev);
-    ev->target = ti_grab(query->target);
+    ev->collection = ti_grab(query->collection);
 
     return events__req_event_id(ev, e);
 }

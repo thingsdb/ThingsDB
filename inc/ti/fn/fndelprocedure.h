@@ -6,8 +6,8 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_procedure_t * procedure;
     ti_task_t * task;
-    vec_t * procedures = query->target
-            ? query->target->procedures
+    vec_t * procedures = query->collection
+            ? query->collection->procedures
             : ti()->procedures;
 
     if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e))
@@ -41,7 +41,10 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_procedure_destroy(procedure);
 
-    task = ti_task_get_task(query->ev, query->root, e);
+    task = ti_task_get_task(
+            query->ev,
+            query->collection ? query->collection->root : ti()->thing0,
+            e);
     if (!task)
         return e->nr;
 

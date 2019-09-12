@@ -22,6 +22,9 @@ from pyleri import (
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
 ASSIGN_TOKENS = Tokens('= += -= *= /= %= &= ^= |=')
 
+COMMENT_LINE = Regex(r'(?s)//.*?\r?\n')
+COMMENT_BLOCK = Regex(r'(?s)/\\*.*?\\*/')
+
 
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
@@ -56,10 +59,7 @@ class LangDef(Grammar):
     t_true = Keyword('true')
 
     o_not = Repeat(Token('!'))
-    comment = Repeat(Choice(
-        Regex(r'(?s)//.*?\r?\n'),  # Single line comment
-        Regex(r'(?s)/\\*.*?\\*/'),  # Block comment
-    ))
+    comments = Repeat(Choice(COMMENT_LINE, COMMENT_BLOCK))
 
     name = Regex(RE_NAME)
     var = Regex(RE_NAME)
@@ -129,8 +129,8 @@ class LangDef(Grammar):
 
     block = Sequence(
         '{',
-        comment,
-        List(THIS, delimiter=Sequence(';', comment), mi=1),
+        comments,
+        List(THIS, delimiter=Sequence(';', comments), mi=1),
         '}')
 
     parenthesis = Sequence('(', THIS, ')')
@@ -151,10 +151,14 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    statement = Prio(expression, operations)
-    statements = List(statement, delimiter=Sequence(';', comment))
+    scope = Regex(r'@[^\s]+')
 
-    START = Sequence(comment, statements)
+    comments_or_scopes = Repeat(Choice(COMMENT_LINE, COMMENT_BLOCK, scope))
+
+    statement = Prio(expression, operations)
+    statements = List(statement, delimiter=Sequence(';', comments_or_scopes))
+
+    START = Sequence(comments_or_scopes, statements)
 
     @classmethod
     def translate(cls, elem):

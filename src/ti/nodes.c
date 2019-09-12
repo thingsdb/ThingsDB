@@ -138,7 +138,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         log_error(
             "got a connection request from `%s` "
-            "with the same source and target: "TI_NODE_ID,
+            "with the same source and destination: "TI_NODE_ID,
             ti_stream_name(stream),
             from_node_id);
         goto failed;
@@ -523,7 +523,9 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, &e))
         goto finish;
 
-    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    access_ = query->collection
+            ? query->collection->access
+            : ti()->access_thingsdb;
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
         ti_query_parse(query, &e) ||
@@ -620,7 +622,9 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_query_run_unpack(query, pkg->id, qpquery.via.raw, qpquery.len, &e))
         goto finish;
 
-    access_ = query->target ? query->target->access : ti()->access_thingsdb;
+    access_ = query->collection
+            ? query->collection->access
+            : ti()->access_thingsdb;
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 

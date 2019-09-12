@@ -514,11 +514,11 @@ ti_val_t * ti_val_empty_str(void)
 
 /*
  * Returns an address to the `assess` object by a given value and set the
- * argument `target_id` to the collection ID, or TI_SCOPE_THINGSDB or
- * TI_SCOPE_NODE. If no valid target is found, `e` will be set with an
+ * argument `scope_id` to the collection ID, or TI_SCOPE_THINGSDB or
+ * TI_SCOPE_NODE. If no valid scope is found, `e` will be set with an
  * appropriate error message.
  */
-vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
+vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
 {
     ti_collection_t * collection;
     static ti_raw_t node = {
@@ -537,12 +537,12 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
         ti_raw_t * raw = (ti_raw_t *) val;
         if (ti_raw_endswith(raw, &node))
         {
-            *target_id = TI_SCOPE_NODE;
+            *scope_id = TI_SCOPE_NODE;
             return &ti()->access_node;
         }
         if (ti_raw_endswith(raw, &thingsdb))
         {
-            *target_id = TI_SCOPE_THINGSDB;
+            *scope_id = TI_SCOPE_THINGSDB;
             return &ti()->access_thingsdb;
         }
         collection = ti_collections_get_by_strn(
@@ -551,7 +551,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
 
         if (collection)
         {
-            *target_id = collection->root->id;
+            *scope_id = collection->root->id;
             return &collection->access;
         }
 
@@ -567,7 +567,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id)
         collection = ti_collections_get_by_id(id);
         if (collection)
         {
-            *target_id = collection->root->id;
+            *scope_id = collection->root->id;
             return &collection->access;
         }
         ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found", id);

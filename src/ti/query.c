@@ -49,7 +49,11 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, query->ev->id);
     /* store `no tasks` as target 0, this will save space and a lookup */
-    (void) qp_add_int(packer, tasks->n ? query->root->id : 0);
+    (void) qp_add_int(packer, tasks->n
+            ? query->collection
+                    ? query->collection->root->id
+                    : ti()->thing0
+            : 0);
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);
@@ -137,7 +141,7 @@ static void query__event_handle(ti_query_t * query)
     }
 
     /* send tasks to watchers if required */
-    if (query->target)
+    if (query->collection)
         query__task_to_watchers(query);
 
     /* store event package in archive */
@@ -224,7 +228,6 @@ static int query__node_or_thingsdb_unpack(
     size_t max_raw = 0;
 
     query->syntax.pkg_id = pkg_id;
-    query->root = ti()->thing0;
 
     qp_unpacker_init2(&unpacker, data, n, 0);
 
@@ -291,7 +294,7 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->syntax.flags = 0;
     query->syntax.deep = 1;
     query->syntax.val_cache_n = 0;
-    query->target = NULL;  /* node or thingsdb when NULL */
+    query->collection = NULL;  /* node or thingsdb when NULL */
     query->parseres = NULL;
     query->closure = NULL;
     query->stream = ti_grab(stream);
@@ -331,7 +334,7 @@ void ti_query_destroy(ti_query_t * query)
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
     ti_stream_drop(query->stream);
     ti_user_drop(query->user);
-    ti_collection_drop(query->target);
+    ti_collection_drop(query->collection);
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
     vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
@@ -400,18 +403,16 @@ int ti_query_run_unpack(
     if (qpx_obj_endswith_raw(&qp_target, &thingsdb))
     {
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-        query->root = ti()->thing0;
         procedures = ti()->procedures;
     }
     else
     {
-        query->target = ti_collections_get_by_qp_obj(&qp_target, e);
+        query->collection = ti_collections_get_by_qp_obj(&qp_target, e);
         if (e->nr)
             return e->nr;
-        ti_incref(query->target);
+        ti_incref(query->collection);
         query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
-        query->root = query->target->root;
-        procedures = query->target->procedures;
+        procedures = query->collection->procedures;
     }
 
     procedure = ti_procedures_by_strn(
@@ -441,7 +442,7 @@ int ti_query_run_unpack(
     {
         argval = ti_val_from_unp_e(
                 &unpacker,
-                query->target ? query->target->things : NULL,
+                query->collection ? query->collection->things : NULL,
                 e);
         if (!argval)
         {
@@ -550,7 +551,7 @@ int ti_query_collection_unpack(
 
         if (qp_is_raw_equal_str(&key, "collection"))
         {
-            if (query->target)
+            if (query->collection)
             {
                 ex_set(e, EX_BAD_DATA,
                         "`target` found twice in the request"QUERY_DOC_);
@@ -558,10 +559,10 @@ int ti_query_collection_unpack(
             }
 
             (void) qp_next(&unpacker, &val);
-            query->target = ti_collections_get_by_qp_obj(&val, e);
+            query->collection = ti_collections_get_by_qp_obj(&val, e);
             if (e->nr)
                 return e->nr;
-            ti_incref(query->target);
+            ti_incref(query->collection);
             continue;
         }
 
@@ -583,18 +584,16 @@ int ti_query_collection_unpack(
         return e->nr;
     }
 
-    if (!query->target)
+    if (!query->collection)
     {
         ex_set(e, EX_BAD_DATA, "missing `collection` in request"QUERY_DOC_);
         return e->nr;
     }
 
-    query->root = query->target->root;
-
-    if (max_raw >= query->target->quota->max_raw_size)
+    if (max_raw >= query->collection->quota->max_raw_size)
         ex_set(e, EX_MAX_QUOTA,
                 "maximum raw size quota of %zu bytes is reached"
-                TI_SEE_DOC("#quotas"), query->target->quota->max_raw_size);
+                TI_SEE_DOC("#quotas"), query->collection->quota->max_raw_size);
 
     return e->nr;
 }
@@ -759,7 +758,7 @@ ti_thing_t * ti_query_thing_from_id(
 {
     ti_thing_t * thing;
 
-    if (!query->target)
+    if (!query->collection)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "scope `%s` has no stored things; "
@@ -769,15 +768,15 @@ ti_thing_t * ti_query_thing_from_id(
     }
 
     thing = thing_id
-            ? ti_collection_thing_by_id(query->target, (uint64_t) thing_id)
+            ? ti_collection_thing_by_id(query->collection, (uint64_t) thing_id)
             : NULL;
 
     if (!thing)
     {
         ex_set(e, EX_INDEX_ERROR,
                 "collection `%.*s` has no `thing` with id %"PRId64,
-                (int) query->target->name->n,
-                (char *) query->target->name->data,
+                (int) query->collection->name->n,
+                (char *) query->collection->name->data,
                 thing_id);
         return NULL;
     }

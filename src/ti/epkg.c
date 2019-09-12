@@ -24,7 +24,7 @@ ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
 ti_epkg_t * ti_epkg_initial(void)
 {
     uint64_t event_id = 1;
-    uint64_t target_id = 0;
+    uint64_t scope_id = 0;
     uint64_t thing_id = 0;                      /* parent root thing */
     uint64_t user_id = ti_next_thing_id();      /* id:1 */
     uint64_t stuff_id = ti_next_thing_id();     /* id:2 !important: id > 1 */
@@ -51,7 +51,7 @@ ti_epkg_t * ti_epkg_initial(void)
 
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, event_id);
-    (void) qp_add_int(packer, target_id);
+    (void) qp_add_int(packer, scope_id);
     (void) qp_close_array(packer);
 
     (void) qp_add_map(&packer);

@@ -3,11 +3,14 @@ from thingsdb.client import Client
 
 
 async def example():
-    await client.connect('server.local', 9200)
+    await client.connect('localhost')
     await client.authenticate('admin', 'pass')
+
     res = await client.query(r'''
-        'Hello World!!'.lower();
-    ''', target='stuff')
+        @:stuff
+        .greet = 'Hello World!!';
+    ''')
+
     print(res)
 
 

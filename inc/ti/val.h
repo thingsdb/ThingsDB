@@ -125,7 +125,7 @@ int ti_val_make_float(ti_val_t ** val, double d);
 ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things);
 ti_val_t * ti_val_from_unp_e(qp_unpacker_t * unp, imap_t * things, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
-vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * target_id);
+vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
 int ti_val_convert_to_str(ti_val_t ** val);
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);

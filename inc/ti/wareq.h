@@ -21,7 +21,7 @@ int ti_wareq_run(ti_wareq_t * wareq);
 struct ti_wareq_s
 {
     ti_stream_t * stream;               /* with reference */
-    ti_collection_t * target;           /* with reference, or null for root */
+    ti_collection_t * collection;       /* with reference, or null for root */
     vec_t * thing_ids;
     uv_async_t * task;
 };

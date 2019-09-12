@@ -9,8 +9,8 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
-    vec_t ** procedures = query->target
-            ? &query->target->procedures
+    vec_t ** procedures = query->collection
+            ? &query->collection->procedures
             : &ti()->procedures;
     int nargs = langdef_nd_n_function_params(nd);
 
@@ -82,7 +82,10 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-    task = ti_task_get_task(query->ev, query->root, e);
+    task = ti_task_get_task(
+            query->ev,
+            query->collection ? query->collection->root : ti()->thing0,
+            e);
     if (!task)
         goto undo;
 

@@ -27,7 +27,7 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
 
     wareq->stream = ti_grab(stream);
     wareq->thing_ids = NULL;
-    wareq->target = NULL;
+    wareq->collection = NULL;
     wareq->task = malloc(sizeof(uv_async_t));
 
     if (!wareq->task || uv_async_init(
@@ -71,7 +71,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
     {
         if (qp_is_raw_equal_str(&key, "collection"))
         {
-            if (wareq->target)
+            if (wareq->collection)
             {
                 log_warning("double `collection` key in watch request");
                 ex_set(e, EX_BAD_DATA, ebad);
@@ -79,10 +79,10 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             }
 
             (void) qp_next(&unpacker, &val);
-            wareq->target = ti_collections_get_by_qp_obj(&val, e);
+            wareq->collection = ti_collections_get_by_qp_obj(&val, e);
             if (e->nr)
                 goto finish;
-            ti_incref(wareq->target);
+            ti_incref(wareq->collection);
             continue;
         }
 
@@ -135,7 +135,7 @@ int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
                 key.len, (const char *) key.via.raw);
     }
 
-    if (!!wareq->target ^ !!wareq->thing_ids)
+    if (!!wareq->collection ^ !!wareq->thing_ids)
     {
         log_warning("missing `things` or `collection` in watch request");
         ex_set(e, EX_BAD_DATA, ebad);
@@ -183,7 +183,7 @@ static void wareq__destroy(ti_wareq_t * wareq)
     vec_destroy(wareq->thing_ids, free);
     #endif
     ti_stream_drop(wareq->stream);
-    ti_collection_drop(wareq->target);
+    ti_collection_drop(wareq->collection);
     free(wareq->task);
     free(wareq);
 }
@@ -201,7 +201,7 @@ static void wareq__watch_cb(uv_async_t * task)
     ti_watch_t * watch;
     uint32_t n;
 
-    if (!wareq->target || !wareq->thing_ids)
+    if (!wareq->collection || !wareq->thing_ids)
     {
         ti_wareq_destroy(wareq);
         return;
@@ -209,7 +209,7 @@ static void wareq__watch_cb(uv_async_t * task)
 
     n = wareq->thing_ids->n;
 
-    uv_mutex_lock(wareq->target->lock);
+    uv_mutex_lock(wareq->collection->lock);
 
     while (n--)
     {
@@ -224,7 +224,7 @@ static void wareq__watch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->target->things, id);
+        thing = imap_get(wareq->collection->things, id);
 
         if (!thing)
             continue;
@@ -266,7 +266,7 @@ static void wareq__watch_cb(uv_async_t * task)
         }
     }
 
-    uv_mutex_unlock(wareq->target->lock);
+    uv_mutex_unlock(wareq->collection->lock);
 
     ti_wareq_destroy(wareq);
 }
@@ -280,13 +280,13 @@ static void wareq__unwatch_cb(uv_async_t * task)
     if (!n ||
         ti_stream_is_closed(wareq->stream) ||
         !wareq->stream->watching ||
-        !wareq->target)
+        !wareq->collection)
     {
         ti_wareq_destroy(wareq);
         return;
     }
 
-    uv_mutex_lock(wareq->target->lock);
+    uv_mutex_lock(wareq->collection->lock);
 
     while (n--)
     {
@@ -298,12 +298,12 @@ static void wareq__unwatch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->target->things, id);
+        thing = imap_get(wareq->collection->things, id);
         if (thing)
             (void) ti_thing_unwatch(thing, wareq->stream);
     }
 
-    uv_mutex_unlock(wareq->target->lock);
+    uv_mutex_unlock(wareq->collection->lock);
 
     ti_wareq_destroy(wareq);
 }

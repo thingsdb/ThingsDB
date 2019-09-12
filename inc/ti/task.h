@@ -41,7 +41,7 @@ int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key);
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_grant(
         ti_task_t * task,
-        uint64_t target_id,
+        uint64_t scope_id,
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_new_collection(
@@ -64,7 +64,7 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_replace_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_revoke(
         ti_task_t * task,
-        uint64_t target_id,
+        uint64_t scope_id,
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_set_password(ti_task_t * task, ti_user_t * user);

@@ -27,16 +27,11 @@ typedef enum
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
-    TI_PROTO_CLIENT_REQ_QUERY_NODE          =34,    /* {query:...}   */
-    TI_PROTO_CLIENT_REQ_QUERY_THINGSDB      =35,    /* {query:...}   */
-    TI_PROTO_CLIENT_REQ_QUERY_COLLECTION    =36,    /* { collection:..
-                                                         query:..
-                                                         blobs: []
-                                                       }
-                                                     */
-    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* {collection:.. things: []}       */
-    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* {collection:.. things: []}       */
-    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [target, procedure, arguments..] */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [query, blobs...]                */
+
+    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* [scope, thing id's....]}       */
+    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* [scope, thing id's....]}       */
+    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [scope, procedure, arguments..] */
     /*
      * 64..127 client responses
      */
@@ -77,7 +72,7 @@ typedef enum
     TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
     TI_PROTO_NODE_REQ_SYNC      =181,   /* event_id */
 
-    /* [target_id, file_id, offset, bytes, more]
+    /* [scope_id, file_id, offset, bytes, more]
      * more is a boolean which is set to true in case the file is not yet
      * complete.
      */
@@ -96,7 +91,7 @@ typedef enum
     TI_PROTO_NODE_RES_AWAY      =210,   /* empty, away id accepted */
     TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
     TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
-    TI_PROTO_NODE_RES_SYNCFPART =214,   /* [target, file, offset]
+    TI_PROTO_NODE_RES_SYNCFPART =214,   /* [scope, file, offset]
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */

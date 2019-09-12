@@ -60,10 +60,12 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing;
 
-        if (ti_quota_things(query->target->quota, query->target->things->n, e))
+        if (ti_quota_things(
+                query->collection->quota,
+                query->collection->things->n, e))
             goto fail2;
 
-        thing = ti_thing_create(0, query->target->things);
+        thing = ti_thing_create(0, query->collection->things);
         if (!thing)
             goto fail2;
 

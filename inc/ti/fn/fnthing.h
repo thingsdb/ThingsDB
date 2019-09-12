@@ -45,15 +45,15 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (query->target && ti_quota_things(
-            query->target->quota,
-            query->target->things->n,
+    if (query->collection && ti_quota_things(
+            query->collection->quota,
+            query->collection->things->n,
             e))
         return e->nr;
 
     query->rval = (ti_val_t *) ti_thing_create(
             0,
-            query->target ? query->target->things : NULL);
+            query->collection ? query->collection->things : NULL);
 
     if (!query->rval)
         ex_set_mem(e);

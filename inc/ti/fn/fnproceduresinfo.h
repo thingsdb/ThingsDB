@@ -4,8 +4,8 @@
 
 static int do__f_procedures_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    vec_t * procedures = query->target
-            ? query->target->procedures
+    vec_t * procedures = query->collection
+            ? query->collection->procedures
             : ti()->procedures;
 
     if (fn_not_thingsdb_or_collection_scope("procedures_info", query, e))

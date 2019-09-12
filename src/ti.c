@@ -88,8 +88,11 @@ int ti_create(void)
     }
 
     /*
-     * Patch out statement `Prio` since the current version of libcleri does
+     * Patch statement `Prio` since the current version of libcleri does
      * not set the GID to `Prio` objects for backward compatibility reasons.
+     *
+     * TODO: this can be removed in a future release when libcleri sets the
+     *       required GID.
      */
     ti_.langdef->start->via.sequence            /* START */
         ->olist->next->cl_obj->via.list         /* statements */
@@ -124,7 +127,7 @@ void ti_destroy(void)
     /* remove late since counters can be updated */
     ti_counters_destroy();
 
-    /* names should be removed late since they are
+    /* names must be removed late since they are
      * used by for example procedures */
     ti_names_destroy();
 

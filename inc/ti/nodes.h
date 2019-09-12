@@ -38,6 +38,7 @@ ti_node_t * ti_nodes_node_by_id(uint8_t node_id);
 ti_node_t * ti_nodes_get_away(void);
 ti_node_t * ti_nodes_get_away_or_soon(void);
 ti_node_t * ti_nodes_random_ready_node(void);
+void ti_nodes_set_not_ready_err(ex_t * e);
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_nodes_info_to_packer(qp_packer_t ** packer);
 ti_val_t * ti_nodes_info_as_qpval(void);

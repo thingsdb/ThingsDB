@@ -1409,6 +1409,42 @@ ti_node_t * ti_nodes_random_ready_node(void)
     return zn ? nodes__z[rand() % zn] : on ? nodes__o[rand() % on] : NULL;
 }
 
+void ti_nodes_set_not_ready_err(ex_t * e)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+    {
+        if (node->status == TI_NODE_STAT_SYNCHRONIZING)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                "no node found to handle the request; "
+                "please wait until "TI_NODE_ID" has finished synchronizing",
+                node->id);
+            return;
+        }
+
+        if (node->status == TI_NODE_STAT_BUILDING)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                "no node found to handle the request; "
+                "please wait until "TI_NODE_ID" has finished building ThingsDB",
+                node->id);
+            return;
+        }
+
+        if (node->status == TI_NODE_STAT_OFFLINE ||
+            node->status == TI_NODE_STAT_CONNECTING ||
+            node->status == TI_NODE_STAT_SHUTTING_DOWN)
+        {
+            ex_set(e, EX_NODE_ERROR,
+                "no node found to handle the request; "
+                "at least "TI_NODE_ID" is unreachable, is it turned off?",
+                node->id);
+            return;
+        }
+    }
+    ex_set(e, EX_NODE_ERROR, "no node found to handle the request");
+}
+
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)

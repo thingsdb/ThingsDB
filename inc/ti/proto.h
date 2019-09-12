@@ -27,7 +27,7 @@ typedef enum
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [query, blobs...]                */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, blobs...]         */
 
     TI_PROTO_CLIENT_REQ_WATCH   =48,    /* [scope, thing id's....]}       */
     TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* [scope, thing id's....]}       */
@@ -63,8 +63,8 @@ typedef enum
      */
 
     /* expects a client response which will be forwarded back to the client */
-    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, is_db, {query...}] */
-    TI_PROTO_NODE_REQ_RUN       =163,   /* [user_id, [call]] */
+    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, [original]] */
+    TI_PROTO_NODE_REQ_RUN       =163,   /* [user_id, [original]] */
 
     TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
@@ -113,10 +113,9 @@ typedef enum
     TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* empty */
     TI_PROTO_NODE_ERR_AWAY          =242,   /* empty */
 
-} ti_proto_e;
+} ti_proto_enum_t;
 
-#define TI_PROTO_NODE_REQ_QUERY_TIMEOUT 120
-#define TI_PROTO_NODE_REQ_RUN_TIMEOUT 120
+#define TI_PROTO_NODE_REQ_FWD_TIMEOUT 120
 #define TI_PROTO_NODE_REQ_CONNECT_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
@@ -129,6 +128,6 @@ typedef enum
 #define TI_PROTO_NODE_REQ_SYNCEPART_TIMEOUT 10
 #define TI_PROTO_NODE_REQ_SYNCEDONE_TIMEOUT 300
 
-const char * ti_proto_str(ti_proto_e tp);
+const char * ti_proto_str(ti_proto_enum_t tp);
 
 #endif /* TI_PROTO_H_ */

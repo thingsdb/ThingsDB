@@ -346,7 +346,7 @@ int ti_task_add_grant(
         uint64_t mask)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(50 + user->name->n, 2);
+    qp_packer_t * packer = ti_data_packer(64, 2);
 
     if (!packer)
         return -1;
@@ -382,8 +382,7 @@ int ti_task_add_new_collection(
         ti_user_t * user)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(
-            48 + collection->name->n + user->name->n, 2);
+    qp_packer_t * packer = ti_data_packer(64 + collection->name->n, 2);
 
     if (!packer)
         return -1;
@@ -726,7 +725,7 @@ int ti_task_add_revoke(
         uint64_t mask)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(50 + user->name->n, 2);
+    qp_packer_t * packer = ti_data_packer(64, 2);
 
     if (!packer)
         return -1;

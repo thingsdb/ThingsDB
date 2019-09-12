@@ -73,7 +73,8 @@ class Thing:
             alt = clz.__dict__[REQUIRED]
             if issubclass(alt, (list, tuple)):
                 await client.query(
-                    f'{collection.scope} #{id}.{prop} = [];')
+                    f'#{id}.{prop} = [];',
+                    scope=collection.scope)
             elif issubclass(alt, Thing):
                 nid = await client.query(
                     f'{collection.scope} #{id}.{prop} = {{}}).id();')

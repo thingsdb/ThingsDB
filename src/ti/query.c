@@ -48,11 +48,9 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
 
     (void) qp_add_array(&packer);
     (void) qp_add_int(packer, query->ev->id);
-    /* store `no tasks` as target 0, this will save space and a lookup */
-    (void) qp_add_int(packer, tasks->n
-            ? query->collection
-                    ? query->collection->root->id
-                    : ti()->thing0
+    /* store `no tasks` as scope 0, this will save space and a lookup */
+    (void) qp_add_int(packer, tasks->n && query->collection
+            ? query->collection->root->id
             : 0);
     (void) qp_close_array(packer);
 

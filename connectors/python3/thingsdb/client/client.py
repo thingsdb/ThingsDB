@@ -221,13 +221,13 @@ class Client(Buildin):
     def get_scope(self):
         return self._scope
 
-    async def query(self, query: str, blobs=None, timeout=None):
-        if not query.startswith('@'):
-            query = f'{self._scope} {query}'
+    async def query(self, query: str, scope=None, blobs=None, timeout=None):
+        if scope is None:
+            scope = self._scope
 
         future = self._write_package(
             REQ_QUERY,
-            [query, *blobs],
+            [scope, query, *blobs],
             timeout=timeout)
         return await future
 

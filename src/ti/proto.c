@@ -4,7 +4,7 @@
 #include <ti/proto.h>
 #include <util/logger.h>
 
-const char * ti_proto_str(ti_proto_e tp)
+const char * ti_proto_str(ti_proto_enum_t tp)
 {
     switch (tp)
     {

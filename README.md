@@ -36,31 +36,31 @@ A single protocol and include the target scope in the query. See examples.
 
 Query ThingsDB
 ```
-#thingsdb
+@thingsdb
 new_collection('my_collection');
 ```
 
 Query the current node
 ```
-#node
+@node
 node_info();
 ```
 
 Query a specific node will be possible (this is not possible with the current solution)
 ```
-#node:3
+@node:3
 node_info();
 ```
 
 Query a collection
 ```
-#collection:stuff
+@collection:stuff
 .greet = "Hello world";
 ```
 
 ..or by omitting the "collection" part as short syntax
 ```
-#:stuff
+@:stuff
 .greet = "Hello world";
 ```
 
@@ -71,11 +71,11 @@ in building collections, users or anything else.
 
 So the following will be possible:
 ```
-#thingsdb
+@thingsdb
 new_collection('my_collection');
 
 // Now we switch to the collection scope, this will set the query result to `nil`
-#:my_collection
+@:my_collection
 .greet = "Hello world";
 ```
 

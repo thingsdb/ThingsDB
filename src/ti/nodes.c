@@ -1305,7 +1305,7 @@ int ti_nodes_listen(void)
         {
             is_ipv6 = true;
         }
-        ip = cfg->bind_client_addr;
+        ip = cfg->bind_node_addr;
     }
     else if (cfg->ip_support == AF_INET)
     {
@@ -1323,7 +1323,7 @@ int ti_nodes_listen(void)
         {
             log_error(
                     "cannot create IPv6 address from `[%s]:%d`",
-                    ip, cfg->client_port);
+                    ip, cfg->node_port);
             return -1;
         }
     }
@@ -1333,7 +1333,7 @@ int ti_nodes_listen(void)
         {
             log_error(
                     "cannot create IPv4 address from `%s:%d`",
-                    ip, cfg->client_port);
+                    ip, cfg->node_port);
             return -1;
         }
     }

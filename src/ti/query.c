@@ -442,7 +442,7 @@ int ti_query_unp_run(
         if (!argval)
         {
             assert (e->nr);
-            ex_append(e, " (in argument %zu for procedure `%.*s`)",
+            ex_append(e, " (argument %zu for procedure `%.*s`)",
                 idx,
                 (int) qp_procedure.len,
                 (char *) qp_procedure.via.raw);

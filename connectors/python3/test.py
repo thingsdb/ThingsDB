@@ -5,7 +5,6 @@ import pprint
 import pickle
 import signal
 from thingsdb.client import Client
-from thingsdb.client.scope import Scope
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import IndexError
 from thingsdb.model import (
@@ -158,10 +157,10 @@ async def test(client):
     global osdata
 
     await client.connect('localhost')
-    await client.authenticate(['admin', 'pass'])
+    await client.authenticate('admin', 'pass')
     client.use('stuff')
 
-    osdata = OsData(client, build=True)
+    # osdata = OsData(client, build=True)
 
     await asyncio.sleep(1)
 
@@ -171,12 +170,12 @@ async def test(client):
         # my_collection = MyCollection(client, build=True)
         # x = await client.run('addone', 10, target='stuff')
         # print(x)
-        await client.query('.logo = blob(0);', blobs=(pickle.dumps({}), ))
+        # await client.query('.iris = iris;', iris={"name": "Iris", "age": 6, "o": True})
 
-        rest = await client.query('thing(.id())')
+        rest = await client.query('return (thing(.id()), 2);')
 
         for k, v in rest.items():
-            print(k)
+            print(k, v)
 
     finally:
         client.close()

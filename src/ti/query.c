@@ -282,10 +282,9 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         argval = ti_val_from_unp_e(unp, things, e);
         if (!argval)
         {
+            assert (e->nr);
+            ex_append(e, " (in argument `%s`)", name->str);
             ti_name_drop(name);
-            ex_set(e, EX_BAD_DATA,
-                    "value for argument `%s` is invalid",
-                    name->str);
             return e->nr;
         }
 
@@ -327,7 +326,7 @@ int ti_query_unpack(
 
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, 0);
+    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
 
     qp_next(&unpacker, NULL);  /* array */
     qp_next(&unpacker, NULL);  /* scope */
@@ -366,12 +365,12 @@ int ti_query_unp_run(
         size_t n,
         ex_t * e)
 {
+    vec_t * procedures = NULL;
+    imap_t * things = NULL;
     qp_unpacker_t unpacker;
     qp_obj_t qp_procedure;
     ti_procedure_t * procedure;
-    vec_t * procedures;
     ti_val_t * argval;
-    imap_t * things = query->collection ? query->collection->things : NULL;
     size_t idx = 0;
 
     assert (e->nr == 0);
@@ -403,12 +402,14 @@ int ti_query_unp_run(
     case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         procedures = ti()->procedures;
+        things = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
     case TI_SCOPE_COLLECTION_ID:
         if (query__set_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
+        things = query->collection->things;
         break;
     }
 
@@ -441,7 +442,7 @@ int ti_query_unp_run(
         if (!argval)
         {
             assert (e->nr);
-            ex_append(e, " (argument %zu for procedure `%.*s`)",
+            ex_append(e, " (in argument %zu for procedure `%.*s`)",
                 idx,
                 (int) qp_procedure.len,
                 (char *) qp_procedure.via.raw);
@@ -629,7 +630,7 @@ ti_thing_t * ti_query_thing_from_id(
     {
         ex_set(e, EX_INDEX_ERROR,
                 "scope `%s` has no stored things; "
-                "You might want to query a `collection` scope?",
+                "You might want to query a `@collection` scope?",
                 ti_query_scope_name(query));
         return NULL;
     }

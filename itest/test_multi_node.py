@@ -4,7 +4,6 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.client.scope import Scope
 
 
 class TestMultiNode(TestBase):
@@ -19,11 +18,11 @@ class TestMultiNode(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = Scope('stuff')
+        stuff = '@:stuff'
 
         await client.query(r'''
             .counter = 0;
-        ''', target=stuff)
+        ''', scope=stuff)
 
         await self.node1.join_until_ready(client)
         await self.node2.join_until_ready(client)
@@ -41,10 +40,10 @@ class TestMultiNode(TestBase):
         for _ in range(expected_counter):
             await client.query(r'''
                 .counter += 1;
-            ''', target=stuff)
+            ''', scope=stuff)
 
         # the client points to the same node so we expect the correct result
-        counter = await client.query(r'.counter;', target=stuff)
+        counter = await client.query(r'.counter;', scope=stuff)
         assert (counter == expected_counter)
 
         # a little sleep to make sure all nodes have time to process the events
@@ -62,7 +61,7 @@ class TestMultiNode(TestBase):
             # will loose a connection and should reconnect while no
             # queries get lost.
             for _ in range(20):
-                counter = await client.query(r'.counter;', target=stuff)
+                counter = await client.query(r'.counter;', scope=stuff)
                 assert (counter == expected_counter)
                 await asyncio.sleep(0.2)
 

@@ -11,7 +11,6 @@ from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
-from thingsdb import scope
 
 
 class TestProcedures(TestBase):
@@ -24,11 +23,11 @@ class TestProcedures(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('stuff')
+        client0.use('@:stuff')
 
         with self.assertRaisesRegex(
                 IndexError,
-                r'function `new_procedure` is undefined in the `node` scope'):
+                r'function `new_procedure` is undefined in the `@node` scope'):
             await client0.query(r'''
                 new_procedure('foo', ||nil);
             ''', scope='@node')
@@ -38,8 +37,8 @@ class TestProcedures(TestBase):
                 "Create a user with a token and basic privileges.";
                 new_user(user);
                 token = new_token(user);
-                grant('.node', user, (READ|WATCH));
-                grant('stuff', user, (MODIFY|RUN));
+                grant('@node', user, (READ|WATCH));
+                grant('@:stuff', user, (MODIFY|RUN));
                 token;
             });
         ''', scope='@thingsdb')

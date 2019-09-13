@@ -69,7 +69,7 @@ static inline int fn_not_node_scope(
     if (~query->syntax.flags & TI_SYNTAX_FLAG_NODE)
         ex_set(e, EX_INDEX_ERROR,
             "function `%s` is undefined in the `%s` scope; "
-            "You might want to query a `node` scope?"SCOPES_DOC_,
+            "You might want to query a `@node` scope?"SCOPES_DOC_,
             name,
             ti_query_scope_name(query));
     return e->nr;
@@ -86,7 +86,7 @@ static inline int fn_not_thingsdb_scope(
     if (~query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
         ex_set(e, EX_INDEX_ERROR,
             "function `%s` is undefined in the `%s` scope; "
-            "You might want to query the `thingsdb` scope?"SCOPES_DOC_,
+            "You might want to query the `@thingsdb` scope?"SCOPES_DOC_,
             name,
             ti_query_scope_name(query));
     return e->nr;
@@ -100,12 +100,12 @@ static inline int fn_not_thingsdb_or_collection_scope(
     if (fn_chained(name, query, e))
         return e->nr;
 
-    if (~query->syntax.flags & (
-            TI_SYNTAX_FLAG_THINGSDB|TI_SYNTAX_FLAG_COLLECTION))
+    if (!(query->syntax.flags &
+            (TI_SYNTAX_FLAG_THINGSDB|TI_SYNTAX_FLAG_COLLECTION)))
         ex_set(e, EX_INDEX_ERROR,
             "function `%s` is undefined in the `%s` scope; "
-            "You might want to query the `thingsdb` "
-            "or a `collection` scope?"SCOPES_DOC_,
+            "You might want to query the `@thingsdb` "
+            "or a `@collection` scope?"SCOPES_DOC_,
             name,
             ti_query_scope_name(query));
 

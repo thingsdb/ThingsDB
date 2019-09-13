@@ -11,7 +11,6 @@ from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
-from thingsdb import scope
 
 
 class TestNested(TestBase):

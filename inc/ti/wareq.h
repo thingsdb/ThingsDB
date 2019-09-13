@@ -10,10 +10,10 @@ typedef struct ti_wareq_s ti_wareq_t;
 #include <ex.h>
 #include <ti/collection.h>
 #include <ti/stream.h>
+#include <ti/scope.h>
 #include <util/vec.h>
 
 ti_wareq_t * ti_wareq_may_create(
-        ti_wareq_t * wareq,
         ti_scope_t * scope,
         ti_stream_t * stream,
         ti_pkg_t * pkg,

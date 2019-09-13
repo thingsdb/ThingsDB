@@ -26,21 +26,24 @@ static int user__pack_access(
         size_t n)
 {
     for (vec_each(access_, ti_auth_t, auth))
-    {
         if (auth->user == user)
-        {
-            if (qp_add_map(packer) ||
+            return (
+                qp_add_map(packer) ||
+
                 qp_add_raw_from_str(*packer, "scope") ||
-                qp_add_raw(*packer, scope, n) ||
+                (*scope == '@'
+                    ? qp_add_raw(*packer, scope, n)
+                    : qp_add_raw_from_fmt(
+                            *packer,
+                            "@collection:%.*s", (int) n, scope)) ||
+
                 qp_add_raw_from_str(*packer, "privileges") ||
                 qp_add_raw_from_str(
                         *packer,
                         ti_auth_mask_to_str(auth->mask)) ||
-                qp_close_map(*packer))
-                return -1;
-            break;
-        }
-    }
+
+                qp_close_map(*packer)
+            ) ? -1 : 0;
     return 0;
 }
 
@@ -236,6 +239,8 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
 
     return 0;
 }
+
+
 
 int ti_user_info_to_packer(ti_user_t * user, qp_packer_t ** packer)
 {

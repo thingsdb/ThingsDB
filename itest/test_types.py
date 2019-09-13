@@ -47,8 +47,8 @@ class TestTypes(TestBase):
             ("Hi ""Iris""" == 'Hi "Iris"' && 'Hi ''Iris''!' == "Hi 'Iris'!")
         '''))
         self.assertEqual(await client.query(r'''
-            blob(0);
-        ''', blobs=["Hi 'Iris'!!"]), "Hi 'Iris'!!")
+            blob;
+        ''', blob="Hi 'Iris'!!"), "Hi 'Iris'!!")
         self.assertTrue(await client.query(' ("Hello"[0] == "H") '))
         self.assertTrue(await client.query(' ("Hello"[0][-1] == "H") '))
         self.assertTrue(await client.query(' ("Hello"[-1] == "o") '))

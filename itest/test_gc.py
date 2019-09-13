@@ -7,7 +7,6 @@ from lib.client import get_client
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadDataError
-from thingsdb import scope
 
 
 class TestGC(TestBase):
@@ -20,19 +19,19 @@ class TestGC(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = scope.Scope('stuff')
+        stuff = '@:stuff'
 
         await client.query(r'''
             .a = {};
             .a.other = {theanswer: 42, ref: .a};
             .x = .a.other;
-        ''', target=stuff)
+        ''', scope=stuff)
 
         await client.query(r'''
             .b = {name: 'Iris'};
             .b.me = .b;
             .del('b');
-        ''', target=stuff)
+        ''', scope=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
@@ -40,7 +39,7 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         for _ in range(10):
-            await client.query(r'''.counter = 1;''', target=stuff)
+            await client.query(r'''.counter = 1;''', scope=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
@@ -48,7 +47,7 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         x, other = await client.query(
-            r'return([.x, .a.other], 2);', target=stuff)
+            r'return([.x, .a.other], 2);', scope=stuff)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 
@@ -56,7 +55,7 @@ class TestGC(TestBase):
             .n = {};
             .del('a');
             .del('x');
-        ''', target=stuff)
+        ''', scope=stuff)
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)

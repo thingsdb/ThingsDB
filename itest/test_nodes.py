@@ -4,7 +4,6 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb import scope
 from thingsdb.exceptions import NodeError
 
 
@@ -17,13 +16,17 @@ class TestNodes(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        stuff = scope.Scope('stuff')
+        stuff = '@:stuff'
 
         await self.node1.join_until_ready(client)
         await self.node2.join_until_ready(client)
 
         self.assertEqual(
             len(await client.query(r'nodes_info();', scope='@node')), 3)
+
+        for id in range(3):
+            node_info = await client.query('node_info();', scope=f'@n:{id}')
+            self.assertEqual(node_info.get('node_id'), id)
 
         with self.assertRaisesRegex(
                 NodeError,
@@ -57,15 +60,15 @@ class TestNodes(TestBase):
         nodes = await client.query(r'nodes_info();', scope='@node')
         self.assertEqual(len(nodes), 3)
 
-        await client.query('.hello = "world";', target=stuff)
+        await client.query('.hello = "world";', scope=stuff)
 
         await asyncio.sleep(50)  # 50 seconds should be enough to sync
 
         cl3 = await get_client(self.node3)  # node:2
         cl4 = await get_client(self.node4)  # node:1
 
-        self.assertEqual((await cl3.query('.hello;', target=stuff)), 'world')
-        self.assertEqual((await cl4.query('.hello;', target=stuff)), 'world')
+        self.assertEqual((await cl3.query('.hello;', scope=stuff)), 'world')
+        self.assertEqual((await cl4.query('.hello;', scope=stuff)), 'world')
 
         cl3.close()
         cl4.close()

@@ -198,6 +198,8 @@ class Client(Buildin):
             await self._protocol.close_future
 
     async def authenticate(self, *auth, timeout=5):
+        if len(auth) == 1:
+            auth = auth[0]
         self._auth = self._auth_check(auth)
         await self._authenticate(timeout)
 

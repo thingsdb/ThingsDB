@@ -12,7 +12,6 @@ from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import ThingsDBError
-from thingsdb import scope
 from thingsdb.client.protocol import EX_OVERFLOW
 from thingsdb.client.protocol import EX_ZERO_DIV
 from thingsdb.client.protocol import EX_MAX_QUOTA
@@ -60,14 +59,14 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 IndexError,
-                'function `new_node` is undefined in the `collection` scope; '
-                'You might want to query the `thingsdb` scope?'):
+                'function `new_node` is undefined in the `@collection` scope; '
+                'You might want to query the `@thingsdb` scope?'):
             await client.query('new_node();')
 
         with self.assertRaisesRegex(
                 IndexError,
-                'function `counters` is undefined in the `collection` scope; '
-                'You might want to query the `node` scope?'):
+                'function `counters` is undefined in the `@collection` scope; '
+                'You might want to query a `@node` scope?'):
             await client.query('counters();')
 
         self.assertIs(await client.query(r'''
@@ -146,15 +145,15 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'assert(false, blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'assert(false, blob);',
+                blob=pickle.dumps({}))
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'assert(false, blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'assert(false, blob);',
+                blob=pickle.dumps({}))
 
     async def test_assert_err(self, client):
         with self.assertRaisesRegex(
@@ -173,8 +172,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'assert_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'assert_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('assert_err();')
         self.assertEqual(err['error_code'], EX_ASSERT_ERROR)
@@ -201,8 +200,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'auth_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'auth_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('auth_err();')
         self.assertEqual(err['error_code'], EX_AUTH_ERROR)
@@ -229,8 +228,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'bad_data_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'bad_data_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('bad_data_err();')
         self.assertEqual(err['error_code'], EX_BAD_DATA)
@@ -241,30 +240,6 @@ class TestCollectionFunctions(TestBase):
         err = await client.query('bad_data_err("my custom error msg");')
         self.assertEqual(err['error_code'], EX_BAD_DATA)
         self.assertEqual(err['error_msg'], "my custom error msg")
-
-    async def test_blob(self, client):
-        self.assertIs(await client.query(
-            '.objects = [blob(0), blob(1)]; nil;',
-            blobs=(pickle.dumps({}), pickle.dumps([]))), None)
-
-        d, a = await client.query('.objects;')
-        self.assertTrue(isinstance(pickle.loads(d), dict))
-        self.assertTrue(isinstance(pickle.loads(a), list))
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `blob` takes 1 argument but 0 were given'):
-            await client.query('blob();')
-
-        with self.assertRaisesRegex(
-                BadDataError,
-                'function `blob` expects argument 1 to be of '
-                'type `int` but got type `nil` instead'):
-            await client.query('blob(nil);')
-
-        with self.assertRaisesRegex(
-                IndexError, 'blob index out of range'):
-            await client.query('blob(0);')
 
     async def test_bool(self, client):
         with self.assertRaisesRegex(
@@ -685,8 +660,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'forbidden_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'forbidden_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('forbidden_err();')
         self.assertEqual(err['error_code'], EX_FORBIDDEN)
@@ -844,8 +819,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'index_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'index_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('index_err();')
         self.assertEqual(err['error_code'], EX_INDEX_ERROR)
@@ -936,8 +911,8 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isascii([]);'))
         self.assertFalse(await client.query('isascii(nil);'))
         self.assertFalse(await client.query(
-                'isascii(blob(0));',
-                blobs=(pickle.dumps('binary'), )))
+                'isascii(blob);',
+                blob=pickle.dumps('binary')))
 
     async def test_isbool(self, client):
         with self.assertRaisesRegex(
@@ -1072,8 +1047,8 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('israw([]);'))
         self.assertFalse(await client.query('israw(nil);'))
         self.assertTrue(await client.query(
-                'israw(blob(0));',
-                blobs=(pickle.dumps('binary'), )))
+                'israw(blob);',
+                blob=pickle.dumps('binary')))
 
     async def test_isset(self, client):
         await client.query(r'.sa = set(); .sb = set([ {} ]);')
@@ -1101,8 +1076,8 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isstr(nil);'))
         self.assertFalse(await client.query('isstr(123);'))
         self.assertFalse(await client.query(
-                'isstr(blob(0));',
-                blobs=(pickle.dumps('binary'), )))
+                'isstr(blob);',
+                blob=pickle.dumps('binary')))
 
     async def test_isthing(self, client):
         with self.assertRaisesRegex(
@@ -1147,8 +1122,8 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isutf8(nil);'))
         self.assertFalse(await client.query('isutf8(123);'))
         self.assertFalse(await client.query(
-                'isutf8(blob(0));',
-                blobs=(pickle.dumps('binary'), )))
+                'isutf8(blob);',
+                blob=pickle.dumps('binary')))
 
     async def test_keys(self, client):
         with self.assertRaisesRegex(
@@ -1281,8 +1256,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'max_quota_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'max_quota_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('max_quota_err();')
         self.assertEqual(err['error_code'], EX_MAX_QUOTA)
@@ -1309,8 +1284,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'node_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'node_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('node_err();')
         self.assertEqual(err['error_code'], EX_NODE_ERROR)
@@ -1350,8 +1325,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'overflow_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'overflow_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('overflow_err();')
         self.assertEqual(err['error_code'], EX_OVERFLOW)
@@ -1834,8 +1809,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'syntax_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'syntax_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('syntax_err();')
         self.assertEqual(err['error_code'], EX_SYNTAX_ERROR)
@@ -2021,8 +1996,8 @@ class TestCollectionFunctions(TestBase):
                 BadDataError,
                 'error messages must have valid UTF8 encoding'):
             await client.query(
-                'zero_div_err(blob(0));',
-                blobs=(pickle.dumps({}), ))
+                'zero_div_err(blob);',
+                blob=pickle.dumps({}))
 
         err = await client.query('zero_div_err();')
         self.assertEqual(err['error_code'], EX_ZERO_DIV)

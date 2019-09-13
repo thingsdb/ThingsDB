@@ -7,7 +7,6 @@ from lib.client import get_client
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import BadDataError
-from thingsdb import scope
 
 
 class TestUserAccess(TestBase):
@@ -52,29 +51,29 @@ class TestUserAccess(TestBase):
             await testcl1.query(r'''new_collection('Collection');''')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''.map(||nil);''', target='junk')
+            await testcl1.query(r'''.map(||nil);''', scope='@:junk')
 
         await client.query(r'''
-            grant('.thingsdb', "test1", GRANT);
-            grant('junk', 'test1', READ);
+            grant('@thingsdb', "test1", GRANT);
+            grant('@collection:junk', 'test1', READ);
         ''')
 
         await testcl1.query(r'''
             new_collection('Collection');
-            grant('Collection', 'admin', GRANT);
-            grant('Collection', 'test2', READ);
+            grant('@c:Collection', 'admin', GRANT);
+            grant('@:Collection', 'test2', READ);
         ''')
-        await testcl1.query(r'''.x = 42;''', target='Collection')
-        await testcl1.query(r'''.map(||nil);''', target='junk')
-        self.assertEqual(await testcl2.query('.x', target='Collection'), 42)
+        await testcl1.query(r'''.x = 42;''', scope='@:Collection')
+        await testcl1.query(r'''.map(||nil);''', scope='@:junk')
+        self.assertEqual(await testcl2.query('.x', scope='@:Collection'), 42)
 
         with self.assertRaisesRegex(
                 BadDataError,
                 'it is not possible to revoke your own `GRANT` privileges'):
             await testcl1.query(
-                r'''revoke('Collection', 'test1', MODIFY);''')
+                r'''revoke('@:Collection', 'test1', MODIFY);''')
 
-        await client.query(r'''revoke('Collection', 'test1', MODIFY);''')
+        await client.query(r'''revoke('@:Collection', 'test1', MODIFY);''')
 
         users_access = await testcl1.query(r'''user_info('admin');''')
         self.assertEqual(users_access, {
@@ -117,7 +116,7 @@ class TestUserAccess(TestBase):
 
         # queries should no longer work
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''.map(||nil);''', target='junk')
+            await testcl1.query(r'''.map(||nil);''', scope='@:junk')
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):

@@ -13,7 +13,6 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 
 
-
 class TestThingsDBFunctions(TestBase):
 
     title = 'Test thingsdb scope functions'
@@ -38,14 +37,14 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 IndexError,
-                'function `node_info` is undefined in the `thingsdb` scope; '
-                'You might want to query the `node` scope?'):
+                'function `node_info` is undefined in the `@thingsdb` scope; '
+                'You might want to query a `@node` scope?'):
             await client.query('node_info();')
 
         with self.assertRaisesRegex(
                 IndexError,
-                'the `root` of the `thingsdb` scope is inaccessible; '
-                'You might want to query a `collection` scope?'):
+                'the `root` of the `@thingsdb` scope is inaccessible; '
+                'You might want to query a `@collection` scope?'):
             await client.query('.v = 1;')
 
     async def test_collection_info(self, client):
@@ -163,23 +162,29 @@ class TestThingsDBFunctions(TestBase):
                 'function `grant` takes 3 arguments but 0 were given'):
             await client.query('grant();')
 
-        with self.assertRaisesRegex(IndexError, 'collection `A` not found'):
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'invalid scope; '
+                r'scopes must start with a `@` but got `A` instead'):
             await client.query('grant("A", "x", FULL);')
+
+        with self.assertRaisesRegex(IndexError, 'collection `A` not found'):
+            await client.query('grant("@:A", "x", FULL);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `grant` expects argument 2 to be of type `raw` '
                 r'but got type `nil` instead'):
-            await client.query('grant("stuff", nil, FULL);')
+            await client.query('grant("@:stuff", nil, FULL);')
 
         with self.assertRaisesRegex(IndexError, 'user `X` not found'):
-            await client.query('grant("stuff", "X", FULL);')
+            await client.query('grant("@:stuff", "X", FULL);')
 
         with self.assertRaisesRegex(
                 BadDataError,
                 r'function `grant` expects argument 3 to be of type `int` '
                 r'but got type `nil` instead'):
-            await client.query('grant("stuff", "iris", nil);')
+            await client.query('grant("@:stuff", "iris", nil);')
 
         await client.query('del_user("iris");')
 

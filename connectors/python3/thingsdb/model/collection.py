@@ -23,7 +23,7 @@ class Collection(Thing):
 
     def __new__(cls, *args, **kwargs):
         # make sure Thing.__new__ will not be called
-        return Scope.__new__(cls)
+        return cls
 
     @property
     def scope(self):

@@ -86,11 +86,11 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
     return query->syntax.flags & TI_SYNTAX_FLAG_NODE
-            ? "node"
+            ? "@node"
             : query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB
-            ? "thingsdb"
+            ? "@thingsdb"
             : query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION
-            ? "collection"
-            : "unknown";
+            ? "@collection"
+            : "<unknown>";
 }
 #endif /* TI_QUERY_H_ */

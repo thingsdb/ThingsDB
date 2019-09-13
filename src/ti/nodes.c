@@ -476,8 +476,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (this_node->status != TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_AWAY_SOON)
+    if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -494,6 +493,19 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(&e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
                 other_node->id, this_node->id);
+        goto finish;
+    }
+
+    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e))
+        goto finish;
+
+    if (scope.tp != TI_SCOPE_NODE &&
+        this_node->status != TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_AWAY_SOON)
+    {
+        ex_set(&e, EX_NODE_ERROR,
+                "node `%s` is not ready to handle query requests",
+                ti()->hostname);
         goto finish;
     }
 
@@ -516,8 +528,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e) ||
-        ti_query_unpack(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
+    if (ti_query_unpack(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
         goto finish;
 
     access_ = ti_query_access(query);
@@ -579,7 +590,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         this_node->status != TI_NODE_STAT_AWAY_SOON)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle run requests",
+                "node `%s` is not ready to handle `run` requests",
                 ti()->hostname);
         goto finish;
     }
@@ -1413,7 +1424,7 @@ void ti_nodes_set_not_ready_err(ex_t * e)
         if (node->status == TI_NODE_STAT_SYNCHRONIZING)
         {
             ex_set(e, EX_NODE_ERROR,
-                "no node found to handle the request; "
+                "cannot find a node for handling this request; "
                 "please wait until "TI_NODE_ID" has finished synchronizing",
                 node->id);
             return;
@@ -1422,7 +1433,7 @@ void ti_nodes_set_not_ready_err(ex_t * e)
         if (node->status == TI_NODE_STAT_BUILDING)
         {
             ex_set(e, EX_NODE_ERROR,
-                "no node found to handle the request; "
+                "cannot find a node for handling this request; "
                 "please wait until "TI_NODE_ID" has finished building ThingsDB",
                 node->id);
             return;
@@ -1433,13 +1444,13 @@ void ti_nodes_set_not_ready_err(ex_t * e)
             node->status == TI_NODE_STAT_SHUTTING_DOWN)
         {
             ex_set(e, EX_NODE_ERROR,
-                "no node found to handle the request; "
+                "cannot find a node for handling this request; "
                 "at least "TI_NODE_ID" is unreachable, is it turned off?",
                 node->id);
             return;
         }
     }
-    ex_set(e, EX_NODE_ERROR, "no node found to handle the request");
+    ex_set(e, EX_NODE_ERROR, "cannot find a node for handling this request");
 }
 
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)

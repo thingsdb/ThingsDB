@@ -8,7 +8,11 @@
 #include <ti/collections.h>
 #include <ti/proto.h>
 #include <ti/fwd.h>
+#include <ti/auth.h>
+#include <ti/access.h>
 #include <util/qpx.h>
+
+#define WATCH_DOC_ TI_SEE_DOC("#watch")
 
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
@@ -19,7 +23,10 @@ static void wareq__unwatch_cb(uv_async_t * task);
  * Create a watch or unwatch request.
  *   Argument `task` should be either "watch" or "unwatch" (watch / unwatch)
  */
-ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
+static ti_wareq_t * wareq__create(
+        ti_stream_t * stream,
+        ti_collection_t * collection,
+        const char * task)
 {
     ti_wareq_t * wareq = malloc(sizeof(ti_wareq_t));
     if (!wareq)
@@ -27,8 +34,10 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
 
     wareq->stream = ti_grab(stream);
     wareq->thing_ids = NULL;
-    wareq->collection = NULL;
+    wareq->collection = collection;
     wareq->task = malloc(sizeof(uv_async_t));
+
+    ti_incref(collection);
 
     if (!wareq->task || uv_async_init(
             ti()->loop,
@@ -44,16 +53,64 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
     return wareq;
 }
 
+static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
+{
+    qp_unpacker_t unpacker;
+    qp_obj_t qp_id;
 
-ti_wareq_t * ti_wareq_create(
-        ti_wareq_t * wareq,
+    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+
+    qp_next(&unpacker, NULL);
+    qp_next(&unpacker, NULL);
+
+    wareq->thing_ids = vec_new(4);
+    if (!wareq->thing_ids)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    while(qp_is_int(qp_next(&unpacker, &qp_id)))
+    {
+        #if TI_USE_VOID_POINTER
+        uintptr_t id = (uintptr_t) qp_id.via.int64;
+        #else
+        uint64_t * id = malloc(sizeof(uint64_t));
+        if (!id)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        *id = (uint64_t) val.via.int64;
+        #endif
+        if (vec_push(&wareq->thing_ids, (void *) id))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+    }
+
+    if (!qp_is_close(qp_id.tp))
+        ex_set(e, EX_BAD_DATA,
+                "watch requests only except integer thing id's "WATCH_DOC_);
+
+    return e->nr;
+}
+
+/*
+ * Watch requests are only created for collection scopes so the return value
+ * may be NULL. Make sure to test `e` for errors.
+ */
+ti_wareq_t * ti_wareq_may_create(
         ti_scope_t * scope,
         ti_stream_t * stream,
         ti_pkg_t * pkg,
         const char * task,
         ex_t * e)
 {
-    ti_collection_t * collection;
+    ti_collection_t * collection = NULL;
+    ti_user_t * user = stream->via.user;
+    ti_wareq_t * wareq;
 
     switch (scope->tp)
     {
@@ -62,29 +119,59 @@ ti_wareq_t * ti_wareq_create(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
 
-        if (collection)
-            ti_incref(query->collection);
-        else
+        if (!collection)
+        {
             ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
                 (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
-        return e->nr;
+            return NULL;
+        }
+        break;
     case TI_SCOPE_COLLECTION_ID:
-        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
-        query->collection = ti_collections_get_by_id(scope->via.collection_id);
-        if (query->collection)
-            ti_incref(query->collection);
-        else
+        collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (!collection)
+        {
             ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
-        return e->nr;
+            return NULL;
+        }
+        break;
     case TI_SCOPE_NODE:
-        query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-        return e->nr;
+        if (ti_access_check_err(ti()->access_node, user, TI_AUTH_WATCH, e))
+            return NULL;
+
+        if (scope->via.node_id != ti()->node->id)
+            ex_set(e, EX_INDEX_ERROR,
+                    "watch request to a `@node` scope are only allowed to "
+                    "the node the client is connected to; change the scope "
+                    "to simply `@n` if this is what you want");
+
+        return NULL;
     case TI_SCOPE_THINGSDB:
-        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-        return e->nr;
+        ex_set(e, EX_INDEX_ERROR,
+                "watch request to the `@thingsdb` scope are not possible");
+        return NULL;
     }
+
+    assert (collection);
+
+    if (ti_access_check_err(collection->access, user, TI_AUTH_WATCH, e))
+        return NULL;
+
+    wareq = wareq__create(stream, collection, task);
+    if (!wareq)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    if (wareq__unpack(wareq, pkg, e))
+    {
+        wareq__destroy(wareq);
+        return NULL;
+    }
+
+    return wareq;
 }
 
 void ti_wareq_destroy(ti_wareq_t * wareq)
@@ -93,83 +180,6 @@ void ti_wareq_destroy(ti_wareq_t * wareq)
         return;
     assert (wareq->task);
     uv_close((uv_handle_t *) wareq->task, (uv_close_cb) wareq__destroy_cb);
-}
-
-int ti_wareq_unpack(
-        ti_wareq_t * wareq,
-        ti_scope_t * scope,
-        ti_pkg_t * pkg,
-        ex_t * e)
-{
-    qp_unpacker_t unpacker;
-    qp_obj_t key, val;
-
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
-
-    qp_next(&unpacker, NULL);
-    qp_next(&unpacker, NULL);
-
-    while(qp_is_raw(qp_next(&unpacker, &key)))
-    {
-
-
-        if (qp_is_raw_equal_str(&key, "things"))
-        {
-            ssize_t n;
-            qp_types_t tp = qp_next(&unpacker, NULL);
-
-            if (wareq->thing_ids || !qp_is_array(tp))
-            {
-                log_warning(
-                        "double `things` or not an array in watch request");
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
-
-            n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
-
-            wareq->thing_ids = vec_new(n < 0 ? 8 : n);
-            if (!wareq->thing_ids)
-            {
-                ex_set_mem(e);
-                goto finish;
-            }
-
-            while(n-- && qp_is_int(qp_next(&unpacker, &val)))
-            {
-                #if TI_USE_VOID_POINTER
-                uintptr_t id = (uintptr_t) val.via.int64;
-                #else
-                uint64_t * id = malloc(sizeof(uint64_t));
-                if (!id)
-                {
-                    ex_set_mem(e);
-                    goto finish;
-                }
-                *id = (uint64_t) val.via.int64;
-                #endif
-                if (vec_push(&wareq->thing_ids, (void *) id))
-                {
-                    ex_set_mem(e);
-                    goto finish;
-                }
-            }
-            continue;
-        }
-
-        log_debug(
-                "unexpected watch key in map: `%.*s`",
-                key.len, (const char *) key.via.raw);
-    }
-
-    if (!!wareq->collection ^ !!wareq->thing_ids)
-    {
-        log_warning("missing `things` or `collection` in watch request");
-        ex_set(e, EX_BAD_DATA, ebad);
-    }
-
-finish:
-    return e->nr;
 }
 
 int ti_wareq_init(ti_stream_t * stream)

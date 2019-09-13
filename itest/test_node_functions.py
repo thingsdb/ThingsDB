@@ -11,7 +11,6 @@ from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
-from thingsdb import scope
 
 
 class TestNodeFunctions(TestBase):
@@ -24,7 +23,7 @@ class TestNodeFunctions(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.use(scope.node)
+        client.use('@n')
 
         await self.run_tests(client)
 

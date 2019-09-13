@@ -175,60 +175,6 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
     return e->nr;
 }
 
-static void clients__query_node(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        ti_scope_t * scope)
-{
-    ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_query_t * query = NULL;
-    ti_user_t * user = stream->via.user;
-
-    assert (user);
-    assert (ti()->node->status > TI_NODE_STAT_BUILDING);
-    assert (scope->tp == TI_SCOPE_NODE);
-
-    if (ti_access_check_err(ti()->access_node, user, TI_AUTH_READ, &e))
-        goto failed;
-
-    query = ti_query_create(stream, user);
-    if (!query)
-    {
-        ex_set_mem(&e);
-        goto failed;
-    }
-
-    if (ti_query_unpack(query, scope, pkg->id, pkg->data, pkg->n, &e) ||
-        ti_query_parse(query, &e) ||
-        ti_query_investigate(query, &e))
-        goto failed;
-
-    if (ti_query_will_update(query))
-    {
-        ex_set(&e, EX_BAD_DATA,
-                "this query would trigger an `event` which is not allowed "
-                "when sending a query to a node");
-        goto failed;
-    }
-
-    ti_query_run(query);
-    return;
-
-failed:
-    ++ti()->counters->queries_with_error;
-    ti_query_destroy(query);
-
-    assert (e.nr);
-    resp = ti_pkg_client_err(pkg->id, &e);
-
-    if (!resp || ti_stream_write_pkg(stream, resp))
-    {
-        free(resp);
-        log_error(EX_MEMORY_S);
-    }
-}
-
 static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
@@ -245,15 +191,20 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (scope.tp == TI_SCOPE_NODE)
     {
         if (scope.via.node_id == this_node->id)
-        {
-            clients__query_node(stream, pkg, &scope);
-            return;
-        }
+            goto query;
 
         other_node = ti_nodes_node_by_id(scope.via.node_id);
         if (!other_node)
         {
-            ex_set(&e, EX_INDEX_ERROR, "node id %u does not exist",
+            ex_set(&e, EX_INDEX_ERROR, TI_NODE_ID" does not exist",
+                    scope.via.node_id);
+            goto finish;
+        }
+
+        if (other_node->status <= TI_NODE_STAT_BUILDING)
+        {
+            ex_set(&e, EX_INDEX_ERROR,
+                    TI_NODE_ID" is not able to handle this request",
                     scope.via.node_id);
             goto finish;
         }
@@ -288,6 +239,8 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
          */
         return;
     }
+
+query:
 
     query = ti_query_create(stream, user);
     if (!query)
@@ -344,32 +297,13 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_user_t * user = stream->via.user;
     ti_wareq_t * wareq = NULL;
     ti_pkg_t * resp = NULL;
-    vec_t * access_;
     ti_scope_t scope;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto finish;
 
-    if (scope.tp == TI_SCOPE_THINGSDB)
-    {
-        ex_set(e, EX_BAD_DATA, "watch requ")
-    }
-    if (pkg->n)
-    {
-        wareq = ti_wareq_create(stream, "watch");
-        if (!wareq)
-        {
-            ex_set_mem(&e);
-            goto finish;
-        }
-
-        if (ti_wareq_unpack(wareq, pkg, &e))
-            goto finish;
-    }
-
-    access_ = wareq ? wareq->collection->access : ti()->access_node;
-
-    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
+    wareq = ti_wareq_may_create(&scope, stream, pkg, "watch", &e);
+    if (e.nr)
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
@@ -396,28 +330,13 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_user_t * user = stream->via.user;
     ti_wareq_t * wareq = NULL;
     ti_pkg_t * resp = NULL;
-    vec_t * access_;
     ti_scope_t scope;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto finish;
 
-    if (pkg->n)
-    {
-        wareq = ti_wareq_create(stream, "unwatch");
-        if (!wareq)
-        {
-            ex_set_mem(&e);
-            goto finish;
-        }
-
-        if (ti_wareq_unpack(wareq, pkg, &e))
-            goto finish;
-    }
-
-    access_ = wareq ? wareq->collection->access : ti()->access_node;
-
-    if (ti_access_check_err(access_, user, TI_AUTH_WATCH, &e))
+    wareq = ti_wareq_may_create(&scope, stream, pkg, "unwatch", &e);
+    if (e.nr)
         goto finish;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);

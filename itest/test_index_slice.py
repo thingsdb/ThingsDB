@@ -6,7 +6,6 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb import scope
 from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import IndexError

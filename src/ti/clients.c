@@ -651,10 +651,10 @@ int ti_clients_listen(void)
     uv_tcp_init(ti()->loop, &clients->tcp);
     uv_pipe_init(ti()->loop, &clients->pipe, 0);
 
-    if (cfg->bind_node_addr != NULL)
+    if (cfg->bind_client_addr != NULL)
     {
         struct in6_addr sa6;
-        if (inet_pton(AF_INET6, cfg->bind_node_addr, &sa6))
+        if (inet_pton(AF_INET6, cfg->bind_client_addr, &sa6))
         {
             is_ipv6 = true;
         }

@@ -12,9 +12,14 @@ typedef struct ti_wareq_s ti_wareq_t;
 #include <ti/stream.h>
 #include <util/vec.h>
 
-ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task);
+ti_wareq_t * ti_wareq_may_create(
+        ti_wareq_t * wareq,
+        ti_scope_t * scope,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        const char * task,
+        ex_t * e);
 void ti_wareq_destroy(ti_wareq_t * wareq);
-int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e);
 int ti_wareq_init(ti_stream_t * stream);
 int ti_wareq_run(ti_wareq_t * wareq);
 

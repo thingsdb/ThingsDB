@@ -202,7 +202,7 @@ static int ncache__varname_opt_fa(
                 vcache,
                 nd->children->next->node->children->next->node,
                 e)
-        ) || ncache__gen_name(vcache, nd->children->node, e);
+        ) || ncache__gen_name(vcache, nd->children->node, e) ? e->nr : 0;
     }
 
     assert (0);
@@ -338,7 +338,7 @@ static int ncache__operations(
     return (
         ncache__statement(syntax, vcache, nd->children->node, e) ||
         ncache__statement(syntax, vcache, nd->children->next->next->node, e)
-    );
+    ) ? e->nr : 0;
 }
 
 static int ncache__statement(

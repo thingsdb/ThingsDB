@@ -80,16 +80,16 @@ class TestUserAccess(TestBase):
         self.assertEqual(users_access, {
             'access': [{
                 'privileges': 'FULL',
-                'target': '.node'
+                'scope': '@node'
             }, {
                 'privileges': 'FULL',
-                'target': '.thingsdb'
+                'scope': '@thingsdb'
             }, {
                 'privileges': 'FULL',
-                'target': 'junk'
+                'scope': '@collection:junk'
             }, {
                 'privileges': 'READ|MODIFY|GRANT',
-                'target': 'Collection'
+                'scope': '@collection:Collection'
             }],
             'has_password': True,
             'name': 'admin',
@@ -98,23 +98,20 @@ class TestUserAccess(TestBase):
         })
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''nodes_info();''', target=scope.node)
+            await testcl1.query(r'''nodes_info();''', scope='@node')
 
         await client.query(r'''
-            grant('.node', "test1", READ);
+            grant('@node', "test1", READ);
         ''')
 
-        await testcl1.query(r'''nodes_info();''', target=scope.node)
+        await testcl1.query(r'''nodes_info();''', scope='@node')
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await testcl1.query(r'''reset_counters();''', target=scope.node)
+            await testcl1.query(r'''reset_counters();''', scope='@node')
 
-        # scope.node should work, as long as it ends with `.node`
-        await client.query(r'''
-            grant('scope.node', "test1", MODIFY);
-        ''')
+        await client.query(r'''grant('@n', "test1", MODIFY);''')
 
-        await testcl1.query(r'''reset_counters();''', target=scope.node)
+        await testcl1.query(r'''reset_counters();''', scope='@node')
 
         await client.query(r'''del_user('test1');''')
 

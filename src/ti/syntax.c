@@ -13,7 +13,6 @@
 #include <ti/fn/fnadd.h>
 #include <ti/fn/fnarray.h>
 #include <ti/fn/fnassert.h>
-#include <ti/fn/fnblob.h>
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fncall.h>
 #include <ti/fn/fncollectioninfo.h>
@@ -165,7 +164,6 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'b':
         syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
-        syntax__nev_fn(q, nd, "blob", do__f_blob);
         syntax__nev_fn(q, nd, "bool", do__f_bool);
         break;
     case 'c':
@@ -609,23 +607,12 @@ void ti_syntax_probe(ti_syntax_t * syntax, cleri_node_t * nd)
     {
         cleri_children_t * child = nd->children;
 
-        for (; child; child = child->next)
+        for (; child; child = child->next->next)
         {
-            cleri_children_t * c;
             syntax__statement(syntax, child->node);   /* statement */
 
-            if (!(child = child->next))
+            if (!child->next)
                 return;
-
-            for (c = child->node->children; c; c = c->next)
-            {
-                if (c->node->cl_obj->gid == CLERI_GID_SCOPE)
-                {
-
-                }
-                /* TODO: maybe just drop comments? */
-            }
-
         }
         return;
     }

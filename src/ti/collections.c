@@ -213,45 +213,6 @@ ti_collection_t * ti_collections_get_by_id(const uint64_t id)
 }
 
 /*
- * Returns a weak reference collection based on a QPack object.
- * If the collection is not found, then `e` will contain the reason why.
- */
-ti_collection_t * ti_collections_get_by_qp_obj(qp_obj_t * obj, ex_t * e)
-{
-    ti_collection_t * collection = NULL;
-    switch (obj->tp)
-    {
-    case QP_RAW:
-        collection = ti_collections_get_by_strn(
-                (char *) obj->via.raw,
-                obj->len);
-        if (!collection)
-            ex_set(
-                e,
-                EX_INDEX_ERROR,
-                "collection `%.*s` not found",
-                (int) obj->len,
-                (char *) obj->via.raw);
-        break;
-    case QP_INT64:
-        {
-            uint64_t id = (uint64_t) obj->via.int64;
-            collection = ti_collections_get_by_id(id);
-            if (!collection)
-                ex_set(
-                    e,
-                    EX_INDEX_ERROR,
-                    TI_COLLECTION_ID" not found",
-                    id);
-        }
-        break;
-    default:
-        ex_set(e, EX_BAD_DATA, "expecting a `name` or `id` as collection");
-    }
-    return collection;
-}
-
-/*
  * Returns a weak reference collection based on a ti_val_t.
  * If the collection is not found, then `e` will contain the reason why.
  */

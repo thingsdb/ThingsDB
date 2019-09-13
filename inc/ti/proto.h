@@ -27,11 +27,11 @@ typedef enum
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, blobs...]         */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
 
-    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* [scope, thing id's....]}       */
-    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* [scope, thing id's....]}       */
-    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [scope, procedure, arguments..] */
+    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* [scope, thing id's....]}         */
+    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* [scope, thing id's....]}         */
+    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [scope, procedure, arguments...] */
     /*
      * 64..127 client responses
      */

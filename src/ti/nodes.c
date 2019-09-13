@@ -10,6 +10,7 @@
 #include <ti/auth.h>
 #include <ti/away.h>
 #include <ti/args.h>
+#include <ti/queryi.h>
 #include <ti/syncfull.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
@@ -464,8 +465,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, qp_query, qp_is_thingsdb;
-    ti_query_unpack_cb unpack_cb;
+    qp_obj_t qp_user_id, orig;
+    ti_scope_t scope;
 
     if (!other_node)
     {
@@ -488,8 +489,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
             !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
-            !qp_is_bool(qp_next(&unpacker, &qp_is_thingsdb)) ||
-            !qp_is_raw(qp_next(&unpacker, &qp_query)))
+            !qp_is_raw(qp_next(&unpacker, &orig)))
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -516,16 +516,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    unpack_cb = qp_is_true(qp_is_thingsdb.tp)
-            ? ti_query_thingsdb_unpack
-            : ti_query_collection_unpack;
-
-    if (unpack_cb(query, pkg->id, qp_query.via.raw, qp_query.len, &e))
+    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e) ||
+        ti_query_unpack(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
         goto finish;
 
-    access_ = query->collection
-            ? query->collection->access
-            : ti()->access_thingsdb;
+    access_ = ti_query_access(query);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
         ti_query_parse(query, &e) ||
@@ -568,7 +563,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qpuser_id, qpquery;
+    qp_obj_t qp_user_id, orig;
+    ti_scope_t scope;
 
     if (!other_node)
     {
@@ -591,8 +587,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
     if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qpuser_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &qpquery)))
+            !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
+            !qp_is_raw(qp_next(&unpacker, &orig)))
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid run request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -600,7 +596,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    user_id = (uint64_t) qpuser_id.via.int64;
+    user_id = (uint64_t) qp_user_id.via.int64;
     user = ti_users_get_by_id(user_id);
 
     if (!user)
@@ -619,12 +615,13 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_run_unpack(query, pkg->id, qpquery.via.raw, qpquery.len, &e))
+    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e) ||
+        ti_query_unp_run(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
         goto finish;
 
-    access_ = query->collection
-            ? query->collection->access
-            : ti()->access_thingsdb;
+    access_ = ti_query_access(query);
+    assert (access_);
+
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 

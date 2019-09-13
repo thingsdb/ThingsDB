@@ -44,6 +44,49 @@ ti_wareq_t * ti_wareq_create(ti_stream_t * stream, const char * task)
     return wareq;
 }
 
+
+ti_wareq_t * ti_wareq_create(
+        ti_wareq_t * wareq,
+        ti_scope_t * scope,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        const char * task,
+        ex_t * e)
+{
+    ti_collection_t * collection;
+
+    switch (scope->tp)
+    {
+    case TI_SCOPE_COLLECTION_NAME:
+        collection = ti_collections_get_by_strn(
+                scope->via.collection_name.name,
+                scope->via.collection_name.sz);
+
+        if (collection)
+            ti_incref(query->collection);
+        else
+            ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.name);
+        return e->nr;
+    case TI_SCOPE_COLLECTION_ID:
+        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+        query->collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (query->collection)
+            ti_incref(query->collection);
+        else
+            ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+                    scope->via.collection_id);
+        return e->nr;
+    case TI_SCOPE_NODE:
+        query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
+        return e->nr;
+    case TI_SCOPE_THINGSDB:
+        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        return e->nr;
+    }
+}
+
 void ti_wareq_destroy(ti_wareq_t * wareq)
 {
     if (!wareq)
@@ -52,39 +95,23 @@ void ti_wareq_destroy(ti_wareq_t * wareq)
     uv_close((uv_handle_t *) wareq->task, (uv_close_cb) wareq__destroy_cb);
 }
 
-int ti_wareq_unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
+int ti_wareq_unpack(
+        ti_wareq_t * wareq,
+        ti_scope_t * scope,
+        ti_pkg_t * pkg,
+        ex_t * e)
 {
     qp_unpacker_t unpacker;
     qp_obj_t key, val;
-    const char * ebad = "invalid watch request"TI_SEE_DOC("#watch");
 
     qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
 
-    if (!qp_is_map(qp_next(&unpacker, NULL)))
-    {
-        log_warning("watch request must be a map");
-        ex_set(e, EX_BAD_DATA, ebad);
-        goto finish;
-    }
+    qp_next(&unpacker, NULL);
+    qp_next(&unpacker, NULL);
 
     while(qp_is_raw(qp_next(&unpacker, &key)))
     {
-        if (qp_is_raw_equal_str(&key, "collection"))
-        {
-            if (wareq->collection)
-            {
-                log_warning("double `collection` key in watch request");
-                ex_set(e, EX_BAD_DATA, ebad);
-                goto finish;
-            }
 
-            (void) qp_next(&unpacker, &val);
-            wareq->collection = ti_collections_get_by_qp_obj(&val, e);
-            if (e->nr)
-                goto finish;
-            ti_incref(wareq->collection);
-            continue;
-        }
 
         if (qp_is_raw_equal_str(&key, "things"))
         {

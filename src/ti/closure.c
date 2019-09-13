@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
+#include <ti/closurei.h>
 #include <ti/do.h>
 #include <ti/names.h>
 #include <ti/ncache.h>

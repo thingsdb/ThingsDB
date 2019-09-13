@@ -33,7 +33,7 @@ class Client(Buildin):
         self._pid = 0
         self._reconnect = auto_reconnect
         self._things = weakref.WeakValueDictionary()  # watching these things
-        self._scope = '@thingsdb'  # default to thingsdb scope
+        self._scope = '@t'  # default to thingsdb scope
         self._pool_idx = 0
         self._reconnecting = False
 
@@ -188,7 +188,7 @@ class Client(Buildin):
             for collection in collections:
                 await collection.go_wqueue()
         elif self._reconnect:
-            await self.watch()
+            await self.watch(scope='@n')
 
     def get_num_things(self):
         return len(self._things)
@@ -202,7 +202,7 @@ class Client(Buildin):
         await self._authenticate(timeout)
 
         if self._reconnect:
-            await self.watch()
+            await self.watch(scope='@n')
 
     async def _authenticate(self, timeout):
         future = self._write_package(
@@ -221,14 +221,19 @@ class Client(Buildin):
     def get_scope(self):
         return self._scope
 
-    async def query(self, query: str, scope=None, blobs=None, timeout=None):
+    async def query(self, query: str, scope=None, timeout=None,
+                    convert_args=True, **kwargs):
         if scope is None:
             scope = self._scope
 
-        future = self._write_package(
-            REQ_QUERY,
-            [scope, query, *blobs],
-            timeout=timeout)
+        if kwargs:
+            if convert_args:
+                kwargs = {k: convert(v) for k, v in kwargs.items()}
+            data = [scope, query, kwargs]
+        else:
+            data = [scope, query]
+
+        future = self._write_package(REQ_QUERY, data, timeout=timeout)
         return await future
 
     async def run(self, procedure: str, *args, scope=None, convert_args=True):

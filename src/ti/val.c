@@ -513,7 +513,7 @@ ti_val_t * ti_val_empty_str(void)
 }
 
 /*
- * Returns an address to the `assess` object by a given value and set the
+ * Returns an address to the `access` object by a given value and set the
  * argument `scope_id` to the collection ID, or TI_SCOPE_THINGSDB or
  * TI_SCOPE_NODE. If no valid scope is found, `e` will be set with an
  * appropriate error message.
@@ -521,63 +521,57 @@ ti_val_t * ti_val_empty_str(void)
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
 {
     ti_collection_t * collection;
-    static ti_raw_t node = {
-        .tp = TI_VAL_RAW,
-        .n = 5,
-        .data = ".node"
-    };
-    static ti_raw_t thingsdb = {
-        .tp = TI_VAL_RAW,
-        .n = 9,
-        .data = ".thingsdb"
-    };
+    ti_raw_t * raw = (ti_raw_t *) val;
+    ti_scope_t scope;
 
-    if (ti_val_is_raw(val))
+    if (!ti_val_is_raw(val))
     {
-        ti_raw_t * raw = (ti_raw_t *) val;
-        if (ti_raw_endswith(raw, &node))
-        {
-            *scope_id = TI_SCOPE_NODE;
-            return &ti()->access_node;
-        }
-        if (ti_raw_endswith(raw, &thingsdb))
-        {
-            *scope_id = TI_SCOPE_THINGSDB;
-            return &ti()->access_thingsdb;
-        }
+        ex_set(e, EX_BAD_DATA,
+                "expecting a scope to be of type `"TI_VAL_RAW_S"` "
+                "but got type `%s` instead",
+                ti_val_str(val));
+        return NULL;
+    }
+
+    if (ti_scope_init(&scope, (const char *) raw->data, raw->n, e))
+        return NULL;
+
+    switch (scope.tp)
+    {
+    case TI_SCOPE_THINGSDB:
+        *scope_id = TI_SCOPE_THINGSDB;
+        return &ti()->access_thingsdb;
+    case TI_SCOPE_NODE:
+        *scope_id = TI_SCOPE_NODE;
+        return &ti()->access_node;
+    case TI_SCOPE_COLLECTION_NAME:
         collection = ti_collections_get_by_strn(
-                (const char *) raw->data,
-                raw->n);
-
+                scope.via.collection_name.name,
+                scope.via.collection_name.sz);
         if (collection)
         {
             *scope_id = collection->root->id;
             return &collection->access;
         }
 
-        ex_set(e, EX_INDEX_ERROR,
-                "%s `%.*s` not found",
-                (raw->n && raw->data[0] == '.') ? "scope" : "collection",
-                raw->n, (const char *) raw->data);
+        ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+                (int) scope.via.collection_name.sz,
+                scope.via.collection_name.name);
         return NULL;
-    }
-    if (ti_val_is_int(val))
-    {
-        uint64_t id = (uint64_t) ((ti_vint_t *) val)->int_;
-        collection = ti_collections_get_by_id(id);
+    case TI_SCOPE_COLLECTION_ID:
+        collection = ti_collections_get_by_id(scope.via.collection_id);
         if (collection)
         {
             *scope_id = collection->root->id;
             return &collection->access;
         }
-        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found", id);
+
+        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+                scope.via.collection_id);
         return NULL;
     }
 
-    ex_set(e, EX_BAD_DATA,
-            "expecting type `"TI_VAL_RAW_S"` "
-            "or `"TI_VAL_INT_S"` as collection, not `%s`",
-            ti_val_str(val));
+    assert (0);
     return NULL;
 }
 

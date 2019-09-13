@@ -14,6 +14,7 @@
 #include <ti/procedures.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
+#include <ti/names.h>
 #include <ti/query.h>
 #include <ti/nil.h>
 #include <ti/task.h>
@@ -150,135 +151,41 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_drop(epkg);
 }
 
-static int query_unpack_blobs(
-        ti_query_t * query,
-        qp_unpacker_t * unp,
-        size_t * max_raw,
-        ex_t * e)
+static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
 {
-    qp_obj_t val;
-    ssize_t n;
-    qp_types_t tp = qp_next(unp, NULL);
-
-    if (query->blobs)
+    switch (scope->tp)
     {
-        ex_set(e, EX_BAD_DATA,
-                "`blobs` found twice in the request"QUERY_DOC_);
+    case TI_SCOPE_COLLECTION_NAME:
+        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+        query->collection = ti_collections_get_by_strn(
+                scope->via.collection_name.name,
+                scope->via.collection_name.sz);
+
+        if (query->collection)
+            ti_incref(query->collection);
+        else
+            ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.name);
+        return e->nr;
+    case TI_SCOPE_COLLECTION_ID:
+        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+        query->collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (query->collection)
+            ti_incref(query->collection);
+        else
+            ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+                    scope->via.collection_id);
+        return e->nr;
+    case TI_SCOPE_NODE:
+        query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
+        return e->nr;
+    case TI_SCOPE_THINGSDB:
+        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         return e->nr;
     }
 
-    if (!qp_is_array(tp))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "expecting `blobs` to be an array"QUERY_DOC_);
-        return e->nr;
-    }
-
-    n = tp == QP_ARRAY_OPEN ? -1 : (ssize_t) tp - QP_ARRAY0;
-
-    query->blobs = vec_new(n < 0 ? 8 : n);
-    if (!query->blobs)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    while(n--)
-    {
-        ti_raw_t * blob;
-        tp = qp_next(unp, &val);
-
-        if (qp_is_close(tp))
-            break;
-
-        if (!qp_is_raw(tp))
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "expecting a `blobs` array to contain type `raw`"
-                    QUERY_DOC_);
-            return e->nr;
-        }
-
-        blob = ti_raw_create(val.via.raw, val.len);
-        if (!blob || vec_push(&query->blobs, blob))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-
-        if (blob->n > *max_raw)
-            *max_raw = blob->n;
-    }
-    return 0;
-}
-
-static int query__node_or_thingsdb_unpack(
-        ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e)
-{
-    assert (e->nr == 0);
-
-    qp_unpacker_t unpacker;
-    qp_obj_t key, val;
-    size_t max_raw = 0;
-
-    query->syntax.pkg_id = pkg_id;
-
-    qp_unpacker_init2(&unpacker, data, n, 0);
-
-    if (!qp_is_map(qp_next(&unpacker, NULL)))
-    {
-        ex_set(e, EX_BAD_DATA, "invalid request"QUERY_DOC_);
-        goto finish;
-    }
-
-    while(qp_is_raw(qp_next(&unpacker, &key)))
-    {
-        if (qp_is_raw_equal_str(&key, "query"))
-        {
-            if (query->querystr)
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "`query` found twice in the request"QUERY_DOC_);
-                return e->nr;
-            }
-
-            if (!qp_is_raw(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "expecting `query` to be or type `raw`"QUERY_DOC_);
-                return e->nr;
-            }
-
-            query->querystr = qpx_obj_raw_to_str(&val);
-            if (!query->querystr)
-            {
-                ex_set_mem(e);
-                goto finish;
-            }
-
-            continue;
-        }
-
-        if (qp_is_raw_equal_str(&key, "blobs"))
-        {
-            if (query_unpack_blobs(query, &unpacker, &max_raw, e))
-                return e->nr;
-            continue;
-        }
-
-        log_debug(
-                "unexpected `query` key in map: `%.*s`",
-                key.len, (const char *) key.via.raw);
-    }
-
-    if (!query->querystr)
-        ex_set(e, EX_BAD_DATA, "missing `query` in request"QUERY_DOC_);
-
-finish:
+    assert (0);
     return e->nr;
 }
 
@@ -298,7 +205,6 @@ ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
     query->stream = ti_grab(stream);
     query->user = ti_grab(user);
     query->ev = NULL;
-    query->blobs = NULL;
     query->querystr = NULL;
     query->val_cache = NULL;
     query->vars = vec_new(7);  /* with some initial size; we could find the
@@ -335,34 +241,137 @@ void ti_query_destroy(ti_query_t * query)
     ti_collection_drop(query->collection);
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
-    vec_destroy(query->blobs, (vec_destroy_cb) ti_val_drop);
 
     free(query->querystr);
     free(query);
 }
 
-int ti_query_run_unpack(
+static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
+{
+    qp_obj_t qp_key;
+    ti_name_t * name;
+    ti_prop_t * prop;
+    ti_val_t * argval;
+    imap_t * things = query->collection ? query->collection->things : NULL;
+
+    if (!qp_is_map(qp_next(unp, NULL)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting the array in a `query` request to have an "
+                "optional third value of type `map`"QUERY_DOC_);
+        return e->nr;
+    }
+
+    while (qp_is_raw(qp_next(unp, &qp_key)))
+    {
+        if (!ti_name_is_valid_strn((const char *) qp_key.via.raw, qp_key.len))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "each argument name in a `query` request "
+                    "must follow the naming rules"TI_SEE_DOC("#names"));
+            return e->nr;
+        }
+
+        name = ti_names_get((const char *) qp_key.via.raw, qp_key.len);
+        if (!name)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        argval = ti_val_from_unp_e(unp, things, e);
+        if (!argval)
+        {
+            ti_name_drop(name);
+            ex_set(e, EX_BAD_DATA,
+                    "value for argument `%s` is invalid",
+                    name->str);
+            return e->nr;
+        }
+
+        prop = ti_prop_create(name, argval);
+        if (!prop)
+        {
+            ti_name_drop(name);
+            ti_val_drop(argval);
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        if (vec_push(&query->vars, prop))
+        {
+            ti_prop_destroy(prop);
+            ex_set_mem(e);
+            return e->nr;
+        }
+    }
+
+    if (!qp_is_close(qp_key.tp))
+        ex_set(e, EX_BAD_DATA, "unexpected data in `query` request"QUERY_DOC_);
+
+    return e->nr;
+}
+
+int ti_query_unpack(
         ti_query_t * query,
+        ti_scope_t * scope,
         uint16_t pkg_id,
         const uchar * data,
         size_t n,
         ex_t * e)
 {
-    static ti_raw_t node = {
-        .tp = TI_VAL_RAW,
-        .n = 5,
-        .data = ".node"
-    };
-    static ti_raw_t thingsdb = {
-        .tp = TI_VAL_RAW,
-        .n = 9,
-        .data = ".thingsdb"
-    };
+    assert (e->nr == 0);
+
     qp_unpacker_t unpacker;
-    qp_obj_t qp_target, qp_procedure;
+    qp_obj_t qp_query;
+
+    query->syntax.pkg_id = pkg_id;
+
+    qp_unpacker_init2(&unpacker, data, n, 0);
+
+    qp_next(&unpacker, NULL);  /* array */
+    qp_next(&unpacker, NULL);  /* scope */
+
+    if (!qp_is_raw(qp_next(&unpacker, &qp_query)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting the array in a `query` request to have a "
+                "second value of type `raw`"QUERY_DOC_);
+        return e->nr;
+    }
+
+    if (query__set_scope(query, scope, e))
+        return e->nr;
+
+    query->querystr = qpx_obj_raw_to_str(&qp_query);
+    if (!query->querystr)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (qp_is_close(qp_next(&unpacker, NULL)))
+        return 0;  /* success, no extra arguments */
+
+    --unpacker.pt; /* reset to map */
+    return query__args(query, &unpacker, e);
+}
+
+
+int ti_query_unp_run(
+        ti_query_t * query,
+        ti_scope_t * scope,
+        uint16_t pkg_id,
+        const uchar * data,
+        size_t n,
+        ex_t * e)
+{
+    qp_unpacker_t unpacker;
+    qp_obj_t qp_procedure;
     ti_procedure_t * procedure;
     vec_t * procedures;
     ti_val_t * argval;
+    imap_t * things = query->collection ? query->collection->things : NULL;
     size_t idx = 0;
 
     assert (e->nr == 0);
@@ -373,44 +382,34 @@ int ti_query_run_unpack(
 
     qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "expecting a `call` request to contain an array"
-                CALL_REQUEST_DOC_);
-        return e->nr;
-    }
+    qp_next(&unpacker, NULL);  /* array */
+    qp_next(&unpacker, NULL);  /* scope */
 
-    (void) qp_next(&unpacker, &qp_target);
     if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
     {
         ex_set(e, EX_BAD_DATA,
-                "expecting the array to a call request to have a "
+                "expecting the array in a `run` request to have a "
                 "second value of type `raw`"CALL_REQUEST_DOC_);
         return e->nr;
     }
 
-    if (qpx_obj_endswith_raw(&qp_target, &node))
+    switch (scope->tp)
     {
+    case TI_SCOPE_NODE:
         ex_set(e, EX_BAD_DATA,
-                "cannot make a `call` request to the `node` scope"
+                "cannot make a `run` request to the `node` scope"
                 CALL_REQUEST_DOC_);
         return e->nr;
-    }
-
-    if (qpx_obj_endswith_raw(&qp_target, &thingsdb))
-    {
+    case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         procedures = ti()->procedures;
-    }
-    else
-    {
-        query->collection = ti_collections_get_by_qp_obj(&qp_target, e);
-        if (e->nr)
+        break;
+    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION_ID:
+        if (query__set_scope(query, scope, e))
             return e->nr;
-        ti_incref(query->collection);
-        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
         procedures = query->collection->procedures;
+        break;
     }
 
     procedure = ti_procedures_by_strn(
@@ -438,10 +437,7 @@ int ti_query_run_unpack(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        argval = ti_val_from_unp_e(
-                &unpacker,
-                query->collection ? query->collection->things : NULL,
-                e);
+        argval = ti_val_from_unp_e(&unpacker, things, e);
         if (!argval)
         {
             assert (e->nr);
@@ -467,133 +463,6 @@ int ti_query_run_unpack(
     ti_incref(query->closure);
 
     return 0;
-}
-
-int ti_query_node_unpack(
-        ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e)
-{
-    assert (e->nr == 0);
-    query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
-    return query__node_or_thingsdb_unpack(query, pkg_id, data, n, e);
-}
-
-int ti_query_thingsdb_unpack(
-        ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e)
-{
-    assert (e->nr == 0);
-    query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
-    return query__node_or_thingsdb_unpack(query, pkg_id, data, n, e);
-}
-
-int ti_query_collection_unpack(
-        ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e)
-{
-    assert (e->nr == 0);
-
-    qp_unpacker_t unpacker;
-    qp_obj_t key, val;
-    size_t max_raw = 0;
-
-    query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
-    query->syntax.pkg_id = pkg_id;
-
-    qp_unpacker_init2(&unpacker, data, n, 0);
-
-    if (!qp_is_map(qp_next(&unpacker, NULL)))
-    {
-        ex_set(e, EX_BAD_DATA, "invalid request"QUERY_DOC_);
-        return e->nr;
-    }
-
-    while(qp_is_raw(qp_next(&unpacker, &key)))
-    {
-        if (qp_is_raw_equal_str(&key, "query"))
-        {
-            if (query->querystr)
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "`query` found twice in the request"QUERY_DOC_);
-                return e->nr;
-            }
-
-            if (!qp_is_raw(qp_next(&unpacker, &val)))
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "expecting `query` to be or type `raw`"QUERY_DOC_);
-                return e->nr;
-            }
-
-            if (val.len > max_raw)
-                max_raw = val.len;
-
-            query->querystr = qpx_obj_raw_to_str(&val);
-            if (!query->querystr)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            continue;
-        }
-
-        if (qp_is_raw_equal_str(&key, "collection"))
-        {
-            if (query->collection)
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "`target` found twice in the request"QUERY_DOC_);
-                return e->nr;
-            }
-
-            (void) qp_next(&unpacker, &val);
-            query->collection = ti_collections_get_by_qp_obj(&val, e);
-            if (e->nr)
-                return e->nr;
-            ti_incref(query->collection);
-            continue;
-        }
-
-        if (qp_is_raw_equal_str(&key, "blobs"))
-        {
-            if (query_unpack_blobs(query, &unpacker, &max_raw, e))
-                return e->nr;
-            continue;
-        }
-
-        log_debug(
-                "unexpected `query-collection` key in map: `%.*s`",
-                key.len, (const char *) key.via.raw);
-    }
-
-    if (!query->querystr)
-    {
-        ex_set(e, EX_BAD_DATA, "missing `query` in request"QUERY_DOC_);
-        return e->nr;
-    }
-
-    if (!query->collection)
-    {
-        ex_set(e, EX_BAD_DATA, "missing `collection` in request"QUERY_DOC_);
-        return e->nr;
-    }
-
-    if (max_raw >= query->collection->quota->max_raw_size)
-        ex_set(e, EX_MAX_QUOTA,
-                "maximum raw size quota of %zu bytes is reached"
-                TI_SEE_DOC("#quotas"), query->collection->quota->max_raw_size);
-
-    return e->nr;
 }
 
 int ti_query_parse(ti_query_t * query, ex_t * e)

@@ -18,6 +18,7 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/syntax.h>
 #include <ti/stream.h>
 #include <ti/chain.h>
+#include <ti/scope.h>
 #include <ti/closure.h>
 #include <util/omap.h>
 
@@ -30,26 +31,16 @@ typedef int (*ti_query_unpack_cb) (
 
 ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_run_unpack(
+int ti_query_unpack(
         ti_query_t * query,
+        ti_scope_t * scope,
         uint16_t pkg_id,
         const uchar * data,
         size_t n,
         ex_t * e);
-int ti_query_node_unpack(
+int ti_query_unp_run(
         ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e);
-int ti_query_thingsdb_unpack(
-        ti_query_t * query,
-        uint16_t pkg_id,
-        const uchar * data,
-        size_t n,
-        ex_t * e);
-int ti_query_collection_unpack(
-        ti_query_t * query,
+        ti_scope_t * scope,
         uint16_t pkg_id,
         const uchar * data,
         size_t n,
@@ -80,7 +71,6 @@ struct ti_query_s
     ti_stream_t * stream;       /* with reference */
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
-    vec_t * blobs;              /* ti_raw_t */
     vec_t * vars;               /* ti_prop_t - variable */
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
@@ -95,11 +85,12 @@ static inline _Bool ti_query_will_update(ti_query_t * query)
 
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
-    if (query->syntax.flags & TI_SYNTAX_FLAG_NODE)
-        return "@node";
-    else if (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
-        return "@thingsdb";
-    else
-        return "@collection";
+    return query->syntax.flags & TI_SYNTAX_FLAG_NODE
+            ? "node"
+            : query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB
+            ? "thingsdb"
+            : query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION
+            ? "collection"
+            : "unknown";
 }
 #endif /* TI_QUERY_H_ */

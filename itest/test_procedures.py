@@ -31,7 +31,7 @@ class TestProcedures(TestBase):
                 r'function `new_procedure` is undefined in the `node` scope'):
             await client0.query(r'''
                 new_procedure('foo', ||nil);
-            ''', target=scope.node)
+            ''', scope='@node')
 
         await client0.query(r'''
             new_procedure('create_user', |user| {
@@ -42,12 +42,12 @@ class TestProcedures(TestBase):
                 grant('stuff', user, (MODIFY|RUN));
                 token;
             });
-        ''', target=scope.thingsdb)
+        ''', scope='@thingsdb')
 
         iris_token = await client0.run(
             'create_user',
             'iris',
-            target=scope.thingsdb)
+            scope='@thingsdb')
 
         await client0.query(r'''
             // First set properties which we can later verify
@@ -238,7 +238,7 @@ class TestProcedures(TestBase):
 
         # expected no garbage collection or failed events
         for client in (client0, client1, client2, client3, client4):
-            counters = await client.query('counters();', target=scope.node)
+            counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
             self.assertEqual(counters['events_failed'], 0)
 
@@ -317,7 +317,7 @@ class TestProcedures(TestBase):
                 r'procedure `create_user` already exists'):
             await client.query(
                 'new_procedure("create_user", ||nil);',
-                target=scope.thingsdb)
+                scope='@thingsdb')
 
         self.assertEqual(await client.query(r'''
             new_procedure("create_user", |user| {

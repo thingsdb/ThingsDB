@@ -50,7 +50,7 @@ enum
                                             existing things only can contain
                                             the `id`.*/
     TI_VFLAG_CLOSURE_BTSCOPE =1<<2,      /* closure bound to query string
-                                            within the ThingsDB scope;
+                                            within the thingsdb scope;
                                             when not stored, closures do not
                                             own the closure string but refer
                                             the full query string.*/

@@ -16,7 +16,6 @@ from .vars import THINGSDB_TESTDIR
 from .vars import THINGSDB_VERBOSE
 from .color import Color
 from thingsdb.exceptions import NodeError
-from thingsdb import scope
 
 
 MEM_PROC = \
@@ -90,7 +89,7 @@ class Node:
             try:
                 await client.query(f'''
                     new_node("{secret}", "127.0.0.1", {self.listen_node_port});
-                ''', target=scope.thingsdb)
+                ''', scope='@thingsdb')
             except NodeError as e:
                 attempts -= 1
                 if not attempts:
@@ -103,7 +102,7 @@ class Node:
         await self.wait_join(secret)
         node_id = await client.query(f'''
             new_node("{secret}", "127.0.0.1", {self.listen_node_port});
-        ''', target=scope.thingsdb)
+        ''', scope='@thingsdb')
         while timeout is None or timeout:
             try:
                 res = await client.nodes_info()

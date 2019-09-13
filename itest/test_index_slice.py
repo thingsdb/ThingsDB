@@ -42,7 +42,7 @@ class TestIndexSlice(TestBase):
 
         # expected no garbage collection
         for client in (client0, client1, client2):
-            counters = await client.query('counters();', target=scope.node)
+            counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
             self.assertEqual(counters['events_failed'], 0)
 

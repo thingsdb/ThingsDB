@@ -8,7 +8,6 @@
 #include <cleri/cleri.h>
 #include <ex.h>
 
-#define TI_DO_SCOPE_F_
 int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 #endif /* TI_DO_H_ */

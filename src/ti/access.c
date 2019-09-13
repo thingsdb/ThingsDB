@@ -14,27 +14,27 @@
  */
 static void access__helper_str(
         const vec_t * access,
-        char ** prefix,
+        char ** scope,
         char ** name,
         size_t * name_sz)
 {
     if (access == ti()->access_thingsdb)
     {
-        *prefix = "scope";
-        *name = ".thingsdb";
-        *name_sz = strlen(".thingsdb");
+        *scope = "@thingsdb";
+        *name = "";
+        *name_sz = 0;
         return;
     }
 
     if (access == ti()->access_node)
     {
-        *prefix = "scope";
-        *name = ".node";
-        *name_sz = strlen(".node");
+        *scope = "@node";
+        *name = "";
+        *name_sz = 0;;
         return;
     }
 
-    *prefix = "collection";
+    *scope = "@collection:";
 
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
@@ -46,8 +46,8 @@ static void access__helper_str(
         }
     }
 
-    *name = "unknown";
-    *name_sz = strlen("unknown");
+    *name = "<unknown>";
+    *name_sz = strlen("<unknown>");
 }
 
 int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
@@ -115,7 +115,7 @@ int ti_access_check_err(
 
         ex_set(e, EX_FORBIDDEN,
                 "user `%.*s` is missing the required privileges (`%s`) "
-                "on %s `%.*s`"TI_SEE_DOC("#grant"),
+                "on scope `%s%.*s`"TI_SEE_DOC("#grant"),
                 (int) user->name->n, (char *) user->name->data,
                 ti_auth_mask_to_str(mask),
                 prefix,

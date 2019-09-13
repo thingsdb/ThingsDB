@@ -15,11 +15,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
 
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
     case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
-    case TI_PROTO_CLIENT_REQ_QUERY_NODE:    return "CLIENT_REQ_QUERY_NODE";
-    case TI_PROTO_CLIENT_REQ_QUERY_THINGSDB:
-        return "CLIENT_REQ_QUERY_THINGSDB";
-    case TI_PROTO_CLIENT_REQ_QUERY_COLLECTION:
-        return "CLIENT_REQ_QUERY_COLLECTION";
+    case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
     case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
     case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";

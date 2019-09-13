@@ -44,7 +44,7 @@ class TestCollectionFunctions(TestBase):
         await self.node1.join_until_ready(client)
 
         # expected no garbage collection
-        counters = await client.query('counters();', target=scope.node)
+        counters = await client.query('counters();', scope='@node')
         self.assertEqual(counters['garbage_collected'], 0)
 
     async def test_unknown(self, client):

@@ -1,10 +1,9 @@
 import asyncio
-from ..client.scope import Scope, thingsdb, scope_get_name
 from ..client.protocol import REQ_WATCH
 from .thing import Thing
 
 
-class Collection(Scope, Thing):
+class Collection(Thing):
 
     __slots__ = (
         '_client',
@@ -14,7 +13,7 @@ class Collection(Scope, Thing):
     )
 
     def __init__(self, client, build=False, rebuild=False):
-        Scope.__init__(self, self.__class__.__name__)
+        self._scope = f'@:{self.__class__.__name__}'
         self._client = client
         self._wqueue = set()
         self._event_id = 0
@@ -25,6 +24,10 @@ class Collection(Scope, Thing):
     def __new__(cls, *args, **kwargs):
         # make sure Thing.__new__ will not be called
         return Scope.__new__(cls)
+
+    @property
+    def scope(self):
+        return self._scope
 
     async def _async_init(self, build=False, rebuild=False):
         if rebuild:

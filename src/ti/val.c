@@ -51,7 +51,9 @@ static ti_val_t * val__unp_map(
 
     if (!qp_is_raw(qp_next(unp, &qp_kind)) || !qp_kind.len)
     {
-        ex_set(e, EX_BAD_DATA, "expecting a non-empty string key");
+        ex_set(e, EX_BAD_DATA,
+                "property names must be of type `raw` "
+                "and follow the naming rules"TI_SEE_DOC("#names"));
         return NULL;
     }
 

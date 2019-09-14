@@ -127,8 +127,8 @@ ti_thing_t * ti_things_thing_from_unp(
          */
         ex_set(e, EX_INDEX_ERROR,
                 "thing "TI_THING_ID" not found; "
-                "if you want to create a new thing then remove the id and "
-                "only keep the properties",
+                "if you want to create a new thing then remove the id (`#`) "
+                "and try again",
                 thing_id);
         return NULL;
     }

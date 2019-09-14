@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from lib import run_test
 
+from test_arguments import TestArguments
 from test_collection_functions import TestCollectionFunctions
 from test_gc import TestGC
 from test_index_slice import TestIndexSlice
@@ -17,6 +18,7 @@ from test_user_access import TestUserAccess
 from test_variable import TestVariable
 
 if __name__ == '__main__':
+    run_test(TestArguments())
     run_test(TestCollectionFunctions())
     run_test(TestGC())
     run_test(TestIndexSlice())

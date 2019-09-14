@@ -576,10 +576,14 @@ void ti_query_send(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
     qpx_packer_t * packer;
+    size_t alloc_sz = 65536;
+    size_t nest_sz = query->syntax.deep + 2;
     if (e->nr)
         goto pkg_err;
 
-    packer = qpx_packer_create(65536, query->syntax.deep + 1);
+    ti_val_may_change_pack_sz(query->rval, &alloc_sz, &nest_sz);
+
+    packer = qpx_packer_create(alloc_sz, nest_sz);
     if (!packer)
         goto alloc_err;
 

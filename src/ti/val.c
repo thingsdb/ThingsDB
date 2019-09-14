@@ -1121,6 +1121,44 @@ int ti_val_to_file(ti_val_t * val, FILE * f)
     return -1;
 }
 
+void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, uint8_t * nest)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+        *sz = 16;
+        *nest = 0;
+        return;
+    case TI_VAL_QP:
+    case TI_VAL_NAME:
+    case TI_VAL_RAW:
+        *sz = ((ti_raw_t *) val)->n + 16;
+        *nest = 0;
+        return;
+    case TI_VAL_REGEX:
+        *sz = ((ti_regex_t *) val)->pattern->n + 16;
+        *nest = 1;
+        return;
+    case TI_VAL_THING:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+        *sz = 65536;
+        /* do not change the nest size */
+        return;
+    case TI_VAL_CLOSURE:
+        *sz = 4096;
+        *nest = 1;
+        return;
+    case TI_VAL_ERROR:
+        *sz = ((ti_verror_t *) val)->msg_n + 64;
+        *nest = 1;
+        return;
+    }
+}
+
 const char * ti_val_str(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)

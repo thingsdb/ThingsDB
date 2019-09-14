@@ -137,6 +137,7 @@ size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
 int ti_val_to_file(ti_val_t * val, FILE * f);
+void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest);
 const char * ti_val_str(ti_val_t * val);
 int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);

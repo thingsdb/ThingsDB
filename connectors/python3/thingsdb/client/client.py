@@ -15,6 +15,7 @@ from .protocol import ON_WATCH_INI
 from .protocol import ON_WATCH_UPD
 from .protocol import ON_WATCH_DEL
 from .protocol import ON_NODE_STATUS
+from .protocol import ON_WARN
 from .buildin import Buildin
 from ..convert import convert
 
@@ -294,8 +295,12 @@ class Client(Buildin):
         if status == 'SHUTTING_DOWN':
             asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
+    def on_warning(self, warn):
+        logging.warn(f'{warn["warn_msg"]} ({warn["warn_code"]})')
+
     def _on_package_received(self, pkg, _map={
         ON_NODE_STATUS: _on_node_status,
+        ON_WARN: on_warning,
         ON_WATCH_INI: _on_watch_init,
         ON_WATCH_UPD: _on_watch_update,
         ON_WATCH_DEL: _on_watch_delete

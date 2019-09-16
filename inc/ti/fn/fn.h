@@ -28,6 +28,7 @@
 #include <ti/verror.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/warn.h>
 #include <ti/scope.h>
 #include <tiinc.h>
 #include <util/cryptx.h>

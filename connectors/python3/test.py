@@ -172,7 +172,7 @@ async def test(client):
         # print(x)
         # await client.query('.iris = iris;', iris={"name": "Iris", "age": 6, "o": True})
 
-        rest = await client.query('return (thing(.id()), 2);')
+        rest = await client.query('.get("bla"); return (thing(.id()), 2);')
 
         for k, v in rest.items():
             print(k, v)

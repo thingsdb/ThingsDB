@@ -10,7 +10,7 @@
   - [ ] Update ternary operator
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
 - [ ] Review exceptions raised bt ThingsDB. (maybe add some additional ones?)
-- [ ] Introduce a WARNING protocol which will be send to client as fire-and-forget
+- [x] Introduce a WARNING protocol which will be send to client as fire-and-forget
       Maybe in the format `{"warn_msg": ... "warn_code": }` ?
       Somewhere it should be possible to disable warning messages. This could be
       done with a client protocol, or change the auth protocol? or maybe it should

@@ -487,15 +487,26 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
             qp_add_int(*packer, thing->id)))
         return -1;
 
+    if (thing->flags & TI_VFLAG_LOCK)
+        goto stop;  /* no nesting */
+
     --options;
+
+    thing->flags |= TI_VFLAG_LOCK;
 
     for (vec_each(thing->props, ti_prop_t, prop))
     {
         if (    qp_add_raw_from_str(*packer, prop->name->str) ||
                 ti_val_to_packer(prop->val, packer, options))
+        {
+            thing->flags &= ~TI_VFLAG_LOCK;
             return -1;
+        }
     }
 
+    thing->flags &= ~TI_VFLAG_LOCK;
+
+stop:
     return qp_close_map(*packer);
 }
 

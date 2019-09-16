@@ -21,6 +21,7 @@ typedef enum
     TI_PROTO_CLIENT_WATCH_UPD   =17,    /* {event:x. #:x, jobs:[] etc }     */
     TI_PROTO_CLIENT_WATCH_DEL   =18,    /* {#:x}                            */
     TI_PROTO_CLIENT_NODE_STATUS =19,    /* str_status                       */
+    TI_PROTO_CLIENT_WARN        =20,    /* {warn_msg:..., warn_code: x}     */
 
     /*
      * 32..63 client requests

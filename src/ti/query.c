@@ -232,8 +232,6 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
 
     vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
-    assert (!ti_chain_is_set(&query->chain));
-
     ti_val_drop((ti_val_t *) query->closure);
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
     ti_stream_drop(query->stream);
@@ -588,7 +586,14 @@ void ti_query_send(ti_query_t * query, ex_t * e)
         goto alloc_err;
 
     if (ti_val_to_packer(query->rval, &packer, query->syntax.deep))
+    {
+        /* TODO: create node config help, size in config etc.
+            ex_set(e, EX_TOO_LARGE,
+                    "result too large; "
+                    "modify your query or increase the maximum result size");
+        */
         goto alloc_err;
+    }
 
     ++ti()->counters->queries_success;
     pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);

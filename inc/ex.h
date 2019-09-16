@@ -25,7 +25,6 @@
 #define EX_WRITE_UV_X           "cannot write to socket"
 #define EX_REQUEST_CANCEL_X     "request is cancelled"
 #define EX_REQUEST_TIMEOUT_X    "request timed out"
-#define EX_TOO_LARGE_X          "result too large"
 #define EX_ASSERT_ERROR_X       "assertion statement has failed"
 #define EX_NODE_ERROR_X         "node is temporary unable to handle the request"
 #define EX_SYNTAX_ERROR_X       "syntax error in query"
@@ -59,7 +58,6 @@ typedef enum
     /* reserved internal errors -49..-1 (not catchable with try() function) */
 
     /* defined internal errors */
-    EX_RESULT_TOO_LARGE     =-6,
     EX_REQUEST_TIMEOUT      =-5,
     EX_REQUEST_CANCEL       =-4,
     EX_WRITE_UV             =-3,

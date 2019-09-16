@@ -20,8 +20,6 @@ from pyleri import (
 
 
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
-ASSIGN_TOKENS = Tokens('= += -= *= /= %= &= ^= |=')
-
 
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
@@ -40,6 +38,18 @@ class List(List_):
 class LangDef(Grammar):
     RE_KEYWORDS = re.compile(RE_NAME)
 
+    x_array = Token('[')
+    x_assign = Tokens('= += -= *= /= %= &= ^= |=')
+    x_block = Token('{')
+    x_chain = Token('.')
+    x_closure = Token('|')
+    x_function = Token('(')
+    x_index = Token('[')
+    x_not = Token('!')
+    x_parenthesis = Token('(')
+    x_ternary = Token('?')
+    x_thing = Token('{')
+
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
@@ -55,7 +65,7 @@ class LangDef(Grammar):
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
 
-    o_not = Repeat(Token('!'))
+    o_not = Repeat(x_not)
     comments = Repeat(Choice(
         Regex(r'(?s)//.*?\r?\n'),  # Single line comment
         Regex(r'(?s)/\\*.*?\\*/'),  # Block comment
@@ -66,11 +76,11 @@ class LangDef(Grammar):
 
     chain = Ref()
 
-    t_closure = Sequence('|', List(var), '|', THIS)
+    t_closure = Sequence(x_closure, List(var), '|', THIS)
 
-    thing = Sequence('{', List(Sequence(name, ':', THIS)), '}')
-    array = Sequence('[', List(THIS), ']')
-    function = Sequence('(', List(THIS), ')')
+    thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
+    array = Sequence(x_array, List(THIS), ']')
+    function = Sequence(x_function, List(THIS), ')')
 
     immutable = Choice(
         t_false,
@@ -91,7 +101,7 @@ class LangDef(Grammar):
     opr5_compare = Tokens('< > == != <= >=')
     opr6_cmp_and = Token('&&')
     opr7_cmp_or = Token('||')
-    opr8_ternary = Sequence('?', THIS, ':')
+    opr8_ternary = Sequence(x_ternary, THIS, ':')
 
     operations = Sequence(THIS, Choice(
         # make sure `and` and `or` is on top so we can stop
@@ -107,7 +117,7 @@ class LangDef(Grammar):
         opr0_mul_div_mod,
     ), THIS)
 
-    assign = Sequence(ASSIGN_TOKENS, THIS)
+    assign = Sequence(x_assign, THIS)
 
     name_opt_func_assign = Sequence(name, Optional(Choice(function, assign)))
     var_opt_func_assign = Sequence(var, Optional(Choice(function, assign)))
@@ -116,24 +126,24 @@ class LangDef(Grammar):
     slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)
 
     index = Repeat(Sequence(
-        '[', slice, ']',
-        Optional(Sequence(ASSIGN_TOKENS, THIS))
+        x_index, slice, ']',
+        Optional(Sequence(x_assign, THIS))
     ))
 
     chain = Sequence(
-        '.',
+        x_chain,
         name_opt_func_assign,
         index,
         Optional(chain),
     )
 
     block = Sequence(
-        '{',
+        x_block,
         comments,
         List(THIS, delimiter=Sequence(';', comments), mi=1),
         '}')
 
-    parenthesis = Sequence('(', THIS, ')')
+    parenthesis = Sequence(x_parenthesis, THIS, ')')
 
     expression = Sequence(
         o_not,

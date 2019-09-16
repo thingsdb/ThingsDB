@@ -2,7 +2,7 @@
 
 ## TODO / Road map
 
-- [ ] Improve syntax errors
+- [x] Improve syntax errors
 - [ ] Update documentation
   - [ ] Slices doc
   - [ ] Update parenthesis which are not required anymore

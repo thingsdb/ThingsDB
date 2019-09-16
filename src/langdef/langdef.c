@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-12 21:33:52
+ * Created at: 2019-09-16 15:52:26
  */
 
 #include <langdef/langdef.h>
@@ -19,6 +19,17 @@
 
 cleri_grammar_t * compile_langdef(void)
 {
+    cleri_t * x_array = cleri_token(CLERI_GID_X_ARRAY, "[");
+    cleri_t * x_assign = cleri_tokens(CLERI_GID_X_ASSIGN, "+= -= *= /= %= &= ^= |= =");
+    cleri_t * x_block = cleri_token(CLERI_GID_X_BLOCK, "{");
+    cleri_t * x_chain = cleri_token(CLERI_GID_X_CHAIN, ".");
+    cleri_t * x_closure = cleri_token(CLERI_GID_X_CLOSURE, "|");
+    cleri_t * x_function = cleri_token(CLERI_GID_X_FUNCTION, "(");
+    cleri_t * x_index = cleri_token(CLERI_GID_X_INDEX, "[");
+    cleri_t * x_not = cleri_token(CLERI_GID_X_NOT, "!");
+    cleri_t * x_parenthesis = cleri_token(CLERI_GID_X_PARENTHESIS, "(");
+    cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
+    cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
     cleri_t * thing_by_id = cleri_regex(CLERI_GID_THING_BY_ID, "^#[0-9]+");
@@ -35,7 +46,7 @@ cleri_grammar_t * compile_langdef(void)
         r_double_quote
     );
     cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
-    cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, cleri_token(CLERI_NONE, "!"), 0, 0);
+    cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, x_not, 0, 0);
     cleri_t * comments = cleri_repeat(CLERI_GID_COMMENTS, cleri_choice(
         CLERI_NONE,
         CLERI_FIRST_MATCH,
@@ -49,7 +60,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * t_closure = cleri_sequence(
         CLERI_GID_T_CLOSURE,
         4,
-        cleri_token(CLERI_NONE, "|"),
+        x_closure,
         cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "|"),
         CLERI_THIS
@@ -57,7 +68,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * thing = cleri_sequence(
         CLERI_GID_THING,
         3,
-        cleri_token(CLERI_NONE, "{"),
+        x_thing,
         cleri_list(CLERI_NONE, cleri_sequence(
             CLERI_NONE,
             3,
@@ -70,14 +81,14 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * array = cleri_sequence(
         CLERI_GID_ARRAY,
         3,
-        cleri_token(CLERI_NONE, "["),
+        x_array,
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "]")
     );
     cleri_t * function = cleri_sequence(
         CLERI_GID_FUNCTION,
         3,
-        cleri_token(CLERI_NONE, "("),
+        x_function,
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
@@ -105,7 +116,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * opr8_ternary = cleri_sequence(
         CLERI_GID_OPR8_TERNARY,
         3,
-        cleri_token(CLERI_NONE, "?"),
+        x_ternary,
         CLERI_THIS,
         cleri_token(CLERI_NONE, ":")
     );
@@ -132,7 +143,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * assign = cleri_sequence(
         CLERI_GID_ASSIGN,
         2,
-        cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
+        x_assign,
         CLERI_THIS
     );
     cleri_t * name_opt_func_assign = cleri_sequence(
@@ -163,20 +174,20 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * index = cleri_repeat(CLERI_GID_INDEX, cleri_sequence(
         CLERI_NONE,
         4,
-        cleri_token(CLERI_NONE, "["),
+        x_index,
         slice,
         cleri_token(CLERI_NONE, "]"),
         cleri_optional(CLERI_NONE, cleri_sequence(
             CLERI_NONE,
             2,
-            cleri_tokens(CLERI_NONE, "+= -= *= /= %= &= ^= |= ="),
+            x_assign,
             CLERI_THIS
         ))
     ), 0, 0);
     cleri_t * block = cleri_sequence(
         CLERI_GID_BLOCK,
         4,
-        cleri_token(CLERI_NONE, "{"),
+        x_block,
         comments,
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_sequence(
             CLERI_NONE,
@@ -189,7 +200,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * parenthesis = cleri_sequence(
         CLERI_GID_PARENTHESIS,
         3,
-        cleri_token(CLERI_NONE, "("),
+        x_parenthesis,
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")")
     );
@@ -234,7 +245,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
         4,
-        cleri_token(CLERI_NONE, "."),
+        x_chain,
         name_opt_func_assign,
         index,
         cleri_optional(CLERI_NONE, chain)

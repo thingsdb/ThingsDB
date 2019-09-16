@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-12 21:33:52
+ * Created at: 2019-09-16 15:52:26
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -57,6 +57,17 @@ enum cleri_grammar_ids {
     CLERI_GID_T_TRUE,
     CLERI_GID_VAR,
     CLERI_GID_VAR_OPT_FUNC_ASSIGN,
+    CLERI_GID_X_ARRAY,
+    CLERI_GID_X_ASSIGN,
+    CLERI_GID_X_BLOCK,
+    CLERI_GID_X_CHAIN,
+    CLERI_GID_X_CLOSURE,
+    CLERI_GID_X_FUNCTION,
+    CLERI_GID_X_INDEX,
+    CLERI_GID_X_NOT,
+    CLERI_GID_X_PARENTHESIS,
+    CLERI_GID_X_TERNARY,
+    CLERI_GID_X_THING,
     CLERI_END // can be used to get the enum length
 };
 

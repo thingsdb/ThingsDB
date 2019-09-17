@@ -123,10 +123,7 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
 		case ProtoResPing, ProtoResAuth:
 			result = nil
-		case ProtoErrOperation, ProtoErrNumArguments, ProtoErrType, ProtoErrValue,
-			ProtoErrOverflow, ProtoErrZeroDiv, ProtoErrMaxQuota, ProtoErrAuth,
-			ProtoErrForbidden, ProtoErrLookup, ProtoErrBadRequest, ProtoErrSyntax,
-			ProtoErrNode, ProtoErrAssertion, ProtoErrInternal:
+		case ProtoResError:
 			err = NewErrorFromByte(pkg.data)
 		default:
 			err = fmt.Errorf("unknown package type: %d", pkg.tp)

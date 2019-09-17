@@ -15,35 +15,35 @@ const (
 	 */
 
 	// OperationError - operation is not valid in the current context
-	OperationError ErrorCode = ErrorCode(ProtoErrOperation)
+	OperationError ErrorCode = ErrorCode(-63)
 	// NumArgumentsError - wrong number of arguments
-	NumArgumentsError ErrorCode = ErrorCode(ProtoErrNumArguments)
+	NumArgumentsError ErrorCode = ErrorCode(-62)
 	// TypeError - object of inappropriate type
-	TypeError ErrorCode = ErrorCode(ProtoErrType)
+	TypeError ErrorCode = ErrorCode(-61)
 	// ValueError - object has the right type but an inappropriate value
-	ValueError ErrorCode = ErrorCode(ProtoErrValue)
+	ValueError ErrorCode = ErrorCode(-60)
 	// OverflowError - interger overflow
-	OverflowError ErrorCode = ErrorCode(ProtoErrOverflow)
+	OverflowError ErrorCode = ErrorCode(-59)
 	// ZeroDivError - division or module by zero
-	ZeroDivError ErrorCode = ErrorCode(ProtoErrZeroDiv)
+	ZeroDivError ErrorCode = ErrorCode(-58)
 	// MaxQuotaError - max quota is reached
-	MaxQuotaError ErrorCode = ErrorCode(ProtoErrMaxQuota)
+	MaxQuotaError ErrorCode = ErrorCode(-57)
 	// AuthError - authentication error
-	AuthError ErrorCode = ErrorCode(ProtoErrAuth)
+	AuthError ErrorCode = ErrorCode(-56)
 	// ForbiddenError - forbidden (access denied)
-	ForbiddenError ErrorCode = ErrorCode(ProtoErrForbidden)
+	ForbiddenError ErrorCode = ErrorCode(-55)
 	// LookupError - requested resource not found
-	LookupError ErrorCode = ErrorCode(ProtoErrLookup)
+	LookupError ErrorCode = ErrorCode(-54)
 	// BadRequestError - unable to handle request due to invalid data
-	BadRequestError ErrorCode = ErrorCode(ProtoErrBadRequest)
+	BadRequestError ErrorCode = ErrorCode(-53)
 	// SyntaxError - syntax error in query
-	SyntaxError ErrorCode = ErrorCode(ProtoErrSyntax)
+	SyntaxError ErrorCode = ErrorCode(-52)
 	// NodeError - node is temporary unable to handle the request
-	NodeError ErrorCode = ErrorCode(ProtoErrNode)
+	NodeError ErrorCode = ErrorCode(-51)
 	// AssertionError - assertion statement has failed
-	AssertionError ErrorCode = ErrorCode(ProtoErrAssertion)
+	AssertionError ErrorCode = ErrorCode(-50)
 	// InternalError - internal error
-	InternalError ErrorCode = ErrorCode(ProtoErrInternal)
+	InternalError ErrorCode = ErrorCode(-1)
 )
 
 // Error can be returned by the siridb package.

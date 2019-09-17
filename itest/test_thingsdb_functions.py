@@ -64,13 +64,19 @@ class TestThingsDBFunctions(TestBase):
                 'but got type `list` instead'):
             await client.query('collection_info([]);')
 
-        with self.assertRaisesRegex(LookupError, 'collection `yes!` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `yes!` not found'):
             await client.query('collection_info("yes!");')
 
-        with self.assertRaisesRegex(LookupError, '`collection:0` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                '`collection:0` not found'):
             await client.query('collection_info(0);')
 
-        with self.assertRaisesRegex(LookupError, r'`collection:\d+` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'`collection:\d+` not found'):
             await client.query('collection_info(-1);')
 
         collection = await client.query('collection_info("stuff");')
@@ -120,10 +126,14 @@ class TestThingsDBFunctions(TestBase):
                 'but got type `float` instead'):
             await client.query('del_collection(1.0);')
 
-        with self.assertRaisesRegex(LookupError, 'collection `A` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `A` not found'):
             await client.query('del_collection("A");')
 
-        with self.assertRaisesRegex(LookupError, '`collection:1234` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                '`collection:1234` not found'):
             await client.query('del_collection(1234);')
 
         test1 = await client.query('new_collection("test1");')
@@ -210,10 +220,14 @@ class TestThingsDBFunctions(TestBase):
                 'collection name must follow the naming rules'):
             await client.query('rename_collection("stuff", "4bla");')
 
-        with self.assertRaisesRegex(LookupError, 'collection `A` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `A` not found'):
             await client.query('rename_collection("A", "B");')
 
-        with self.assertRaisesRegex(LookupError, '`collection:1234` not found'):
+        with self.assertRaisesRegex(
+                LookupError,
+                '`collection:1234` not found'):
             await client.query('rename_collection(1234, "B");')
 
         test = await client.query('new_collection("test1");')

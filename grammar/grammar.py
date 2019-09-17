@@ -21,6 +21,7 @@ from pyleri import (
 
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
 
+
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
         if most_greedy is None:

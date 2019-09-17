@@ -144,7 +144,7 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
 {
     if (n < ti_min_name || n >= ti_max_name)
     {
-        ex_set(e, EX_BAD_DATA, "username must be between %u and %u characters",
+        ex_set(e, EX_VALUE_ERROR, "username must be between %u and %u characters",
                 ti_min_name,
                 ti_max_name);
         return false;
@@ -152,14 +152,14 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
 
     if (!strx_is_graphn(name, n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "username should should only contain graphical characters");
         return false;
     }
 
     if (ti_users_get_by_namestrn(name, n))
     {
-        ex_set(e, EX_INDEX_ERROR, "user `%.*s` already exists", (int) n, name);
+        ex_set(e, EX_LOOKUP_ERROR, "user `%.*s` already exists", (int) n, name);
         return false;
     }
 
@@ -171,21 +171,21 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
     size_t n = strlen(passstr);
     if (n < ti_min_pass)
     {
-        ex_set(e, EX_BAD_DATA, "password should be at least %u characters",
+        ex_set(e, EX_VALUE_ERROR, "password should be at least %u characters",
                 ti_min_pass);
         return false;
     }
 
     if (n >= ti_max_pass)
     {
-        ex_set(e, EX_BAD_DATA, "password should be less than %u characters",
+        ex_set(e, EX_VALUE_ERROR, "password should be less than %u characters",
                 ti_max_pass);
         return false;
     }
 
     if (!strx_is_printable(passstr))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "password should only contain printable characters");
         return false;
     }

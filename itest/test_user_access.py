@@ -4,9 +4,17 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
+from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
+from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestUserAccess(TestBase):
@@ -68,7 +76,7 @@ class TestUserAccess(TestBase):
         self.assertEqual(await testcl2.query('.x', scope='@:Collection'), 42)
 
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 'it is not possible to revoke your own `GRANT` privileges'):
             await testcl1.query(
                 r'''revoke('@:Collection', 'test1', MODIFY);''')

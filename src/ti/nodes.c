@@ -514,7 +514,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!user)
     {
-        ex_set(&e, EX_INDEX_ERROR,
+        ex_set(&e, EX_LOOKUP_ERROR,
                 "cannot find "TI_USER_ID" which is used by a query from "
                 TI_NODE_ID" to "TI_NODE_ID,
                 user_id, other_node->id, this_node->id);
@@ -612,7 +612,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!user)
     {
-        ex_set(&e, EX_INDEX_ERROR,
+        ex_set(&e, EX_LOOKUP_ERROR,
                 "cannot find "TI_USER_ID" which is used by a call from "
                 TI_NODE_ID" to "TI_NODE_ID,
                 user_id, other_node->id, this_node->id);

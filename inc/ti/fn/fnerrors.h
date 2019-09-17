@@ -17,7 +17,7 @@ static int do__make_err(
 
     if (nargs > 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `%s` takes at most 1 argument but %d "
                 "were given%s", fn_name, nargs, fn_doc);
         return e->nr;
@@ -36,7 +36,7 @@ static int do__make_err(
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead%s",
             fn_name, ti_val_str(query->rval), fn_doc);
@@ -59,6 +59,62 @@ static int do__make_err(
     query->rval = (ti_val_t *) verror;
 
     return e->nr;
+}
+
+static inline int do__f_operation_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    return do__make_err(
+            query,
+            nd,
+            e,
+            EX_OPERATION_ERROR,
+            "operation_err",
+            TI_SEE_DOC("#operation_err"));
+}
+
+static inline int do__f_num_arguments_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    return do__make_err(
+            query,
+            nd,
+            e,
+            EX_NUM_ARGUMENTS,
+            "num_arguments_err",
+            TI_SEE_DOC("#num_arguments_err"));
+}
+
+static inline int do__f_type_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    return do__make_err(
+            query,
+            nd,
+            e,
+            EX_TYPE_ERROR,
+            "type_err",
+            TI_SEE_DOC("#type_err"));
+}
+
+static inline int do__f_value_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    return do__make_err(
+            query,
+            nd,
+            e,
+            EX_VALUE_ERROR,
+            "value_err",
+            TI_SEE_DOC("#value_err"));
 }
 
 static inline int do__f_overflow_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -122,15 +178,15 @@ static inline int do__f_forbidden_err(ti_query_t * query, cleri_node_t * nd, ex_
             TI_SEE_DOC("#forbidden_err"));
 }
 
-static inline int do__f_index_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_lookup_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     return do__make_err(query, nd, e,
-            EX_INDEX_ERROR,
-            "index_err",
-            TI_SEE_DOC("#index_err"));
+            EX_LOOKUP_ERROR,
+            "lookup_err",
+            TI_SEE_DOC("#lookup_err"));
 }
 
 static inline int do__f_bad_data_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)

@@ -18,7 +18,7 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs != 3)
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `quota` takes 3 arguments but %d %s given"
                 SET_QUOTA_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
@@ -41,7 +41,7 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `quota` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_QUOTA_DOC_,
             ti_val_str(query->rval));
@@ -61,7 +61,7 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval) && !ti_val_is_nil(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `quota` expects argument 3 to be of type `"TI_VAL_INT_S
             "` or "TI_VAL_NIL_S"` but got type `%s` instead"SET_QUOTA_DOC_,
             ti_val_str(query->rval));

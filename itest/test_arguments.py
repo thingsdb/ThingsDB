@@ -7,9 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestArguments(TestBase):
@@ -31,20 +36,20 @@ class TestArguments(TestBase):
 
     async def test_invalid(self, client):
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'thing `#1` not found; if you want to create a new thing '
                 r'then remove the id \(`#`\) and try again '
                 r'\(in argument `blob`\)'):
             await client.query(r'blob;', blob={'#': 1})
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'property names must be of type `raw` and follow the '
                 r'naming rules'):
             await client.query(r'blob;', blob={0: 1})
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'thing `#1` not found; if you want to create a new thing '
                 r'then remove the id \(`#`\) and try again '
                 r'\(in argument `blob`\)'):

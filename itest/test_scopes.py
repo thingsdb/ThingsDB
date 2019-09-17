@@ -7,9 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestScopes(TestBase):
@@ -30,14 +35,14 @@ class TestScopes(TestBase):
 
     async def test_scope_errors(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; scopes must not be empty'):
             await client.query(r'''
                 grant('', FULL, 'iris');
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; scopes must start with a `@` '
                 r'but got `!` instead'):
             await client.query(r'''
@@ -45,7 +50,7 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; expecting a scope name '
                 r'like `@thingsdb`, `@node:...` or `@collection:...`'):
             await client.query(r'''
@@ -53,7 +58,7 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; scopes must only contain valid ASCII '
                 r'characters'):
             await client.query(r'''
@@ -61,7 +66,7 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; a node id must be an integer value '
                 r'between 0 and 64;'):
             await client.query(r'''
@@ -69,7 +74,7 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; a node id must be an integer value '
                 r'between 0 and 64;'):
             await client.query(r'''
@@ -77,7 +82,7 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; a collection must be specified by '
                 r'either a name or id;'):
             await client.query(r'''
@@ -85,14 +90,14 @@ class TestScopes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'invalid scope; the specified collection name is invalid'):
             await client.query(r'''
                 grant('@collection:a!', FULL, 'iris');
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r"invalid scope; expecting a scope name "
                 r"like `@thingsdb`, `@node:...` or `@collection:...` "
                 r"but got `@collectionn:stuff` instead;"):

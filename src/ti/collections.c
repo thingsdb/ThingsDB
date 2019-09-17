@@ -132,7 +132,7 @@ ti_collection_t * ti_collections_create_collection(
 
     if (!ti_name_is_valid_strn(name, n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
                 TI_SEE_DOC("#names"));
         goto fail0;
@@ -140,14 +140,14 @@ ti_collection_t * ti_collections_create_collection(
 
     if (ti_collections_get_by_strn(name, n))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` already exists", (int) n, name);
         goto fail0;
     }
 
     if (root_id && ti_collections_get_by_id(root_id))
     {
-        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" already exists", root_id);
+        ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" already exists", root_id);
         goto fail0;
     }
 
@@ -229,7 +229,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
         if (!collection)
             ex_set(
                 e,
-                EX_INDEX_ERROR,
+                EX_LOOKUP_ERROR,
                 "collection `%.*s` not found",
                 ((ti_raw_t *) val)->n,
                 (char *) ((ti_raw_t *) val)->data);
@@ -241,13 +241,13 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
             if (!collection)
                 ex_set(
                     e,
-                    EX_INDEX_ERROR,
+                    EX_LOOKUP_ERROR,
                     TI_COLLECTION_ID" not found",
                     id);
         }
         break;
     default:
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting type `"TI_VAL_RAW_S"` "
                 "or `"TI_VAL_INT_S"` as collection but got type `%s` instead",
                 ti_val_str(val));

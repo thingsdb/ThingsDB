@@ -196,14 +196,14 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         other_node = ti_nodes_node_by_id(scope.via.node_id);
         if (!other_node)
         {
-            ex_set(&e, EX_INDEX_ERROR, TI_NODE_ID" does not exist",
+            ex_set(&e, EX_LOOKUP_ERROR, TI_NODE_ID" does not exist",
                     scope.via.node_id);
             goto finish;
         }
 
         if (other_node->status <= TI_NODE_STAT_BUILDING)
         {
-            ex_set(&e, EX_INDEX_ERROR,
+            ex_set(&e, EX_LOOKUP_ERROR,
                     TI_NODE_ID" is not able to handle this request",
                     scope.via.node_id);
             goto finish;

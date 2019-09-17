@@ -4,12 +4,16 @@ from .package import Package
 from ..exceptions import AssertionError
 from ..exceptions import AuthError
 from ..exceptions import BadDataError
+from ..exceptions import LookupError
 from ..exceptions import ForbiddenError
-from ..exceptions import IndexError
 from ..exceptions import InternalError
 from ..exceptions import MaxQuotaError
 from ..exceptions import MemoryError
 from ..exceptions import NodeError
+from ..exceptions import OperationError
+from ..exceptions import NumArgumentsError
+from ..exceptions import TypeError
+from ..exceptions import ValueError
 from ..exceptions import OverflowError
 from ..exceptions import RequestCancelError
 from ..exceptions import RequestTimeoutError
@@ -45,12 +49,16 @@ ON_WARN = 20
 ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL)
 
 # ThingsDB build-in errors
+EX_OPERATION_ERROR = -63
+EX_NUM_ARGUMENTS = -62
+EX_TYPE_ERROR = -61
+EX_VALUE_ERROR = -60
 EX_OVERFLOW = -59
 EX_ZERO_DIV = -58
 EX_MAX_QUOTA = -57
 EX_AUTH_ERROR = -56
 EX_FORBIDDEN = -55
-EX_INDEX_ERROR = -54
+EX_LOOKUP_ERROR = -54
 EX_BAD_DATA = -53
 EX_SYNTAX_ERROR = -52
 EX_NODE_ERROR = -51
@@ -63,14 +71,17 @@ EX_WRITE_UV = -3
 EX_MEMORY = -2
 EX_INTERNAL = -1
 
-
 ERRMAP = {
+    EX_OPERATION_ERROR: OperationError,
+    EX_NUM_ARGUMENTS: NumArgumentsError,
+    EX_TYPE_ERROR: TypeError,
+    EX_VALUE_ERROR: ValueError,
     EX_OVERFLOW: OverflowError,
     EX_ZERO_DIV: ZeroDivisionError,
     EX_MAX_QUOTA: MaxQuotaError,
     EX_AUTH_ERROR: AuthError,
     EX_FORBIDDEN: ForbiddenError,
-    EX_INDEX_ERROR: IndexError,
+    EX_LOOKUP_ERROR: LookupError,
     EX_BAD_DATA: BadDataError,
     EX_SYNTAX_ERROR: SyntaxError,
     EX_NODE_ERROR: NodeError,

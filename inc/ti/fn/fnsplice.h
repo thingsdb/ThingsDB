@@ -19,7 +19,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_list(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `splice`"SPLICE_DOC_,
                 ti_val_str(query->rval));
         goto fail0;
@@ -28,7 +28,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     n = langdef_nd_n_function_params(nd);
     if (n < 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `splice` requires at least 2 arguments "
                 "but %d %s given"SPLICE_DOC_,
                 n, n == 1 ? "was" : "were");
@@ -46,7 +46,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 1 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));
@@ -63,7 +63,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 2 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
                 ti_val_str(query->rval));

@@ -17,7 +17,7 @@
 static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
 {
     if (!ti_val_is_nil(val))
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                "slice indices must be of type `"TI_VAL_INT_S"` "
                "or `"TI_VAL_NIL_S"` but got got type `%s` instead"
                SLICES_DOC_, ti_val_str(val));
@@ -184,7 +184,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (ass_tokens->len == 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "unsupported operand type `%.*s` for slice assignments"
                 SLICES_DOC_, 2, ass_tokens->str);
         return e->nr;
@@ -202,7 +202,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (step != 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "slice assignments require a step value of 1 "
                 "but got %zd instead"SLICES_DOC_,
                 step);
@@ -214,7 +214,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (!ti_val_is_array(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "slice assignments require an `"TI_VAL_ARR_S"` type "
                 "but got type `%s` instead"SLICES_DOC_,
                 ti_val_str(query->rval));
@@ -289,7 +289,7 @@ static int index__numeric(
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting an index of type `"TI_VAL_INT_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
@@ -305,7 +305,7 @@ static int index__numeric(
         i += n;
 
     if (i < 0 || i >= (ssize_t) n)
-        ex_set(e, EX_INDEX_ERROR, "index out of range");
+        ex_set(e, EX_LOOKUP_ERROR, "index out of range");
     else
         *idx = (size_t) i;
 
@@ -425,7 +425,7 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting an index of type `"TI_VAL_RAW_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
@@ -481,7 +481,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting an index of type `"TI_VAL_RAW_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
@@ -614,17 +614,17 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 
 slice_error:
-    ex_set(e, EX_BAD_DATA, "type `%s` has no slice support",
+    ex_set(e, EX_TYPE_ERROR, "type `%s` has no slice support",
             ti_val_str(val));
     return e->nr;
 
 index_error:
-    ex_set(e, EX_BAD_DATA, "type `%s` is not indexable",
+    ex_set(e, EX_TYPE_ERROR, "type `%s` is not indexable",
             ti_val_str(val));
     return e->nr;
 
 assign_error:
-    ex_set(e, EX_BAD_DATA, "type `%s` does not support index assignments",
+    ex_set(e, EX_TYPE_ERROR, "type `%s` does not support index assignments",
         ti_val_str(val));
     return e->nr;
 }

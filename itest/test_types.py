@@ -7,9 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestTypes(TestBase):
@@ -31,7 +36,7 @@ class TestTypes(TestBase):
 
     async def test_regex(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'cannot compile regular expression \'/invalid\(regex/\', '
                 r'missing closing parenthesis'):
             await client.query(r'r = /invalid(regex/;')
@@ -132,7 +137,7 @@ class TestTypes(TestBase):
 
     async def test_closure(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'closures cannot be used recursively'):
             await client.query(r'''
                 .a = ||.map((b = .a));
@@ -140,7 +145,7 @@ class TestTypes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'stored closures with side effects must be '
                 r'wrapped using '):
             await client.query(r'''
@@ -149,7 +154,7 @@ class TestTypes(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'stored closures with side effects must be '
                 r'wrapped using '):
             await client.query(r'''

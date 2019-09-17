@@ -13,7 +13,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_thing(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `get`"GET_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
@@ -21,7 +21,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs < 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `get` requires at least 1 argument but 0 "
                 "were given"GET_DOC_);
         return e->nr;
@@ -29,7 +29,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `get` takes at most 2 arguments but %d "
                 "were given"GET_DOC_, nargs);
         return e->nr;
@@ -43,7 +43,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `get` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"GET_DOC_,
             ti_val_str(query->rval));

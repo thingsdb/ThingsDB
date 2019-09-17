@@ -77,7 +77,7 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
 {
     if (n < ti_collection_min_name || n >= ti_collection_max_name)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "collection name must be between %u and %u characters",
                 ti_collection_min_name,
                 ti_collection_max_name);
@@ -86,7 +86,7 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
 
     if (!ti_name_is_valid_strn(name, n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
                 TI_SEE_DOC("#names"));
         return false;
@@ -102,7 +102,7 @@ int ti_collection_rename(
 {
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
                 TI_SEE_DOC("#names"));
         return -1;
@@ -110,7 +110,7 @@ int ti_collection_rename(
 
     if (ti_collections_get_by_strn((const char *) rname->data, rname->n))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` already exists",
                 (int) rname->n, (const char *) rname->data);
         return -1;

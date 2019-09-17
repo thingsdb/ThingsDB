@@ -24,7 +24,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_set(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `add`"ADD_DOC_,
                 ti_val_str(query->rval));
         goto fail0;
@@ -32,7 +32,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!nargs)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `add` requires at least 1 argument but 0 "
                 "were given"ADD_DOC_);
         goto fail0;

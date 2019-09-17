@@ -125,7 +125,7 @@ ti_thing_t * ti_things_thing_from_unp(
          * If not unpacking from an event, then new things should be created
          * without an id.
          */
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "thing "TI_THING_ID" not found; "
                 "if you want to create a new thing then remove the id (`#`) "
                 "and try again",

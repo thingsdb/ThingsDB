@@ -7,10 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestNodeFunctions(TestBase):
@@ -32,7 +36,7 @@ class TestNodeFunctions(TestBase):
 
     async def test_counters(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `counters` takes 0 arguments but 1 was given'):
             await client.query('counters("Test!");')
 
@@ -68,7 +72,7 @@ class TestNodeFunctions(TestBase):
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `node_info` takes 0 arguments but 1 was given'):
             await client.query('node_info(nil);')
 
@@ -136,7 +140,7 @@ class TestNodeFunctions(TestBase):
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `nodes_info` takes 0 arguments but 1 was given'):
             await client.query('nodes_info(nil);')
 
@@ -167,7 +171,7 @@ class TestNodeFunctions(TestBase):
 
     async def test_reset_counters(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `reset_counters` takes 0 arguments but 1 was given'):
             await client.query('reset_counters(1);')
 
@@ -179,12 +183,12 @@ class TestNodeFunctions(TestBase):
 
     async def test_set_log_level(self, client):
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `set_log_level` takes 1 argument but 0 were given'):
             await client.query('set_log_level();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `set_log_level` expects argument 1 to be of '
                 r'type `int` but got type `raw` instead'):
             await client.query('set_log_level("DEBUG");')

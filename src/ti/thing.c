@@ -25,7 +25,7 @@ static inline int thing__prop_locked(
     if (    (prop->val->tp == TI_VAL_ARR || prop->val->tp == TI_VAL_SET) &&
             (prop->val->flags & TI_VFLAG_LOCK))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_OPERATION_ERROR,
             "cannot change or remove property `%s` on "TI_THING_ID
             " while the `%s` is being used",
             prop->name->str,
@@ -136,13 +136,13 @@ int ti_thing_props_from_unp(
 
         if (!qp_is_raw(qp_prop.tp))
         {
-            ex_set(e, EX_BAD_DATA, "property names must be of type string");
+            ex_set(e, EX_TYPE_ERROR, "property names must be of type string");
             return e->nr;
         }
 
         if (!ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_VALUE_ERROR,
                     "property name must follow the naming rules"
                     TI_SEE_DOC("#names"));
             return e->nr;
@@ -298,14 +298,14 @@ static inline void thing__set_not_found(
 {
     if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "thing "TI_THING_ID" has no property `%.*s`",
                 thing->id,
                 (int) rname->n, (const char *) rname->data);
     }
     else
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "property name must follow the naming rules"
                 TI_SEE_DOC("#names"));
     }

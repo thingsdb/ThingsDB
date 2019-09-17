@@ -8,16 +8,16 @@ static int do__f__isutf8(
         cleri_node_t * nd,
         ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_utf8;
     ti_raw_t * raw;
 
     if (fn_chained(fnname, query, e))
         return e->nr;
 
-    if (!langdef_nd_fun_has_one_param(nd))
+    if (nargs != 1)
     {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `%s` takes 1 argument but %d were given"
                 ISUTF8_DOC_, fnname, nargs);
         return e->nr;

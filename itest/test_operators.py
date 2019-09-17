@@ -8,7 +8,7 @@ from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 
 

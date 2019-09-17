@@ -13,7 +13,7 @@ static int do__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `isascii` takes 1 argument but %d were given"
                 ISASCII_DOC_, nargs);
         return e->nr;

@@ -164,7 +164,7 @@ static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
         if (query->collection)
             ti_incref(query->collection);
         else
-            ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
@@ -174,7 +174,7 @@ static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
         if (query->collection)
             ti_incref(query->collection);
         else
-            ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
         return e->nr;
     case TI_SCOPE_NODE:
@@ -254,7 +254,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
 
     if (!qp_is_map(qp_next(unp, NULL)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have an "
                 "optional third value of type `map`"QUERY_DOC_);
         return e->nr;
@@ -264,7 +264,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
     {
         if (!ti_name_is_valid_strn((const char *) qp_key.via.raw, qp_key.len))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_VALUE_ERROR,
                     "each argument name in a `query` request "
                     "must follow the naming rules"TI_SEE_DOC("#names"));
             return e->nr;
@@ -331,7 +331,7 @@ int ti_query_unpack(
 
     if (!qp_is_raw(qp_next(&unpacker, &qp_query)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have a "
                 "second value of type `raw`"QUERY_DOC_);
         return e->nr;
@@ -384,7 +384,7 @@ int ti_query_unp_run(
 
     if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `run` request to have a "
                 "second value of type `raw`"CALL_REQUEST_DOC_);
         return e->nr;
@@ -418,7 +418,7 @@ int ti_query_unp_run(
 
     if (!procedure)
     {
-        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` not found",
+        ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` not found",
                 (int) qp_procedure.len,
                 (char *) qp_procedure.via.raw);
         return e->nr;
@@ -451,7 +451,7 @@ int ti_query_unp_run(
 
     if (!qp_is_close(qp_next(&unpacker, NULL)))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "too much arguments for procedure `%.*s`",
             (int) qp_procedure.len,
             (char *) qp_procedure.via.raw);
@@ -645,7 +645,7 @@ ti_thing_t * ti_query_thing_from_id(
 
     if (!query->collection)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "scope `%s` has no stored things; "
                 "You might want to query a `@collection` scope?",
                 ti_query_scope_name(query));
@@ -658,7 +658,7 @@ ti_thing_t * ti_query_thing_from_id(
 
     if (!thing)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` has no `thing` with id %"PRId64,
                 (int) query->collection->name->n,
                 (char *) query->collection->name->data,

@@ -15,7 +15,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_list(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `extend`"EXTEND_DOC_,
                 ti_val_str(query->rval));
         goto fail0;
@@ -24,7 +24,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `extend` takes 1 argument but %d were given"
                 EXTEND_DOC_, nargs);
         goto fail0;
@@ -43,7 +43,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_list(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `extend` expects argument 1 to be of "
                 "type `"TI_VAL_ARR_S"` but got type `%s` instead"EXTEND_DOC_,
                 ti_val_str(query->rval));

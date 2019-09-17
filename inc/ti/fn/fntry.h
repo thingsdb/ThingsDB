@@ -14,7 +14,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs < 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `try` requires at least 1 argument but 0 "
                 "were given"TRY_DOC_);
         return e->nr;
@@ -54,7 +54,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!ti_val_is_error(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                 "function `try` expects arguments 2..X to be of "
                 "type `"TI_VAL_ERROR_S"` but got type `%s` instead"
                 TRY_DOC_,

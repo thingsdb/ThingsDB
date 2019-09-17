@@ -29,13 +29,16 @@
 #define EX_NODE_ERROR_X         "node is temporary unable to handle the request"
 #define EX_SYNTAX_ERROR_X       "syntax error in query"
 #define EX_BAD_DATA_X           "unable to handle request due to invalid data"
-#define EX_INDEX_ERROR_X        "requested resource not found"
+#define EX_LOOKUP_ERROR_X       "requested resource not found"
 #define EX_FORBIDDEN_X          "forbidden (access denied)"
 #define EX_AUTH_ERROR_X         "authentication error"
 #define EX_MAX_QUOTA_X          "max quota is reached"
 #define EX_ZERO_DIV_X           "division or module by zero"
 #define EX_OVERFLOW_X           "integer overflow"
-
+#define EX_VALUE_ERROR_X        "object has the right type but an inappropriate value"
+#define EX_TYPE_ERROR_X         "object of inappropriate type"
+#define EX_NUM_ARGUMENTS_X      "wrong number of arguments"
+#define EX_OPERATION_ERROR_X    "operation is not valid in the current context"
 
 typedef enum
 {
@@ -44,12 +47,16 @@ typedef enum
     /* reserved build-in errors -99..-EX_MAX_BUILD_IN_ERR */
 
     /* defined build-in errors */
+    EX_OPERATION_ERROR      =-63,
+    EX_NUM_ARGUMENTS        =-62,
+    EX_TYPE_ERROR           =-61,
+    EX_VALUE_ERROR          =-60,
     EX_OVERFLOW             =-59,
     EX_ZERO_DIV             =-58,
     EX_MAX_QUOTA            =-57,
     EX_AUTH_ERROR           =-56,
     EX_FORBIDDEN            =-55,
-    EX_INDEX_ERROR          =-54,
+    EX_LOOKUP_ERROR         =-54,
     EX_BAD_DATA             =-53,
     EX_SYNTAX_ERROR         =-52,
     EX_NODE_ERROR           =-51,

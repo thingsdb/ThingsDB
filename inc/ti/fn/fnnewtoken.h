@@ -27,14 +27,14 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs < 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `new_token` requires at least 1 argument "
             "but %d were given"NEW_TOKEN_DOC_, nargs);
         return e->nr;
     }
     else if (nargs > 3)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `new_token` takes at most 3 arguments but %d were given"
                 NEW_TOKEN_DOC_, nargs);
         return e->nr;
@@ -46,7 +46,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `new_token` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_TOKEN_DOC_,
             ti_val_str(query->rval));
@@ -114,7 +114,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (!ti_val_is_nil(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                 "function `new_token` expects argument 2 to be of "
                 "type `"TI_VAL_RAW_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
                 "or `"TI_VAL_NIL_S"` but got type `%s` instead"NEW_TOKEN_DOC_,
@@ -137,7 +137,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!ti_val_is_raw(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                     "function `new_token` expects argument 3 to be of "
                     "type `"TI_VAL_RAW_S"` but got type `%s` instead"
                     NEW_TOKEN_DOC_,
@@ -149,7 +149,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!strx_is_utf8n((const char *) raw->data, raw->n))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_VALUE_ERROR,
                     "function `new_token` expects a description "
                     "to have valid UTF8 encoding"NEW_TOKEN_DOC_);
             return e->nr;
@@ -185,17 +185,17 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 
 errpast:
-    ex_set(e, EX_BAD_DATA,
+    ex_set(e, EX_VALUE_ERROR,
         "cannot set an expiration time in the past"NEW_TOKEN_DOC_);
     return e->nr;
 
 errfuture:
-    ex_set(e, EX_BAD_DATA,
+    ex_set(e, EX_VALUE_ERROR,
         "expiration time is too far in the future"NEW_TOKEN_DOC_);
     return e->nr;
 
 errinvalid:
-    ex_set(e, EX_BAD_DATA,
+    ex_set(e, EX_VALUE_ERROR,
         "invalid date/time string as expiration time"NEW_TOKEN_DOC_);
     return e->nr;
 }

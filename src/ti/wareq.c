@@ -121,7 +121,7 @@ ti_wareq_t * ti_wareq_may_create(
 
         if (!collection)
         {
-            ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
             return NULL;
@@ -131,7 +131,7 @@ ti_wareq_t * ti_wareq_may_create(
         collection = ti_collections_get_by_id(scope->via.collection_id);
         if (!collection)
         {
-            ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
             return NULL;
         }
@@ -141,14 +141,14 @@ ti_wareq_t * ti_wareq_may_create(
             return NULL;
 
         if (scope->via.node_id != ti()->node->id)
-            ex_set(e, EX_INDEX_ERROR,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "watch request to a `@node` scope are only allowed to "
                     "the node the client is connected to; change the scope "
                     "to simply `@n` if this is what you want");
 
         return NULL;
     case TI_SCOPE_THINGSDB:
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "watch request to the `@thingsdb` scope are not possible");
         return NULL;
     }

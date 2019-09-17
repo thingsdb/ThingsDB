@@ -24,7 +24,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs < 3)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `replace_node` requires at least 3 arguments "
             "but %d %s given"REPLACE_NODE_DOC_,
             nargs, nargs == 1 ? "was" : "were");
@@ -32,7 +32,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (nargs > 4)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `replace_node` takes at most 4 arguments "
             "but %d were given"REPLACE_NODE_DOC_,
             nargs);
@@ -46,7 +46,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 1 to be of "
             "type `"TI_VAL_INT_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
             ti_val_str(query->rval));
@@ -58,7 +58,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!node)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "node id `%u` out of range, see `nodes()` for valid node id's",
                 node_id);
         return e->nr;
@@ -82,7 +82,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
             ti_val_str(query->rval));
@@ -92,7 +92,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rsecret = (ti_raw_t *) query->rval;
     if (!rsecret->n || !strx_is_graphn((char *) rsecret->data, rsecret->n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
             "a `secret` is required "
             "and should only contain graphical characters"REPLACE_NODE_DOC_);
         return e->nr;
@@ -114,7 +114,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 3 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
             ti_val_str(query->rval));
@@ -124,7 +124,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raddr = (ti_raw_t *) query->rval;
     if (raddr->n >= INET6_ADDRSTRLEN)
     {
-        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%.*s`",
+        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%.*s`",
                 (int) raddr->n,
                 (char *) raddr->data);
         goto fail0;
@@ -150,7 +150,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!ti_val_is_int(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                 "function `replace_node` expects argument 4 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"
                 REPLACE_NODE_DOC_, ti_val_str(query->rval));
@@ -160,7 +160,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         iport = ((ti_vint_t *) query->rval)->int_;
         if (iport < 1<<0 || iport >= 1<<16)
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_VALUE_ERROR,
                 "`port` should be an integer value between 1 and 65535, "
                 "got %"PRId64,
                 iport);
@@ -196,7 +196,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", addrstr);
+        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%s`", addrstr);
         goto fail1;
     }
 

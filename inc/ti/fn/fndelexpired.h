@@ -19,7 +19,7 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!langdef_nd_fun_has_zero_params(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `del_expired` takes 0 arguments but %d %s given"
                 DEL_EXPIRED_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;

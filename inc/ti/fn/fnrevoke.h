@@ -17,7 +17,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     n = langdef_nd_n_function_params(nd);
     if (n != 3)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `revoke` takes 3 arguments but %d %s given"
                 REVOKE_DOC_,
             n, n == 1 ? "was" : "were");
@@ -46,7 +46,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `revoke` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"REVOKE_DOC_,
             ti_val_str(query->rval));
@@ -66,7 +66,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `revoke` expects argument 3 to be of "
             "type `"TI_VAL_INT_S"` but got type `%s`"REVOKE_DOC_,
             ti_val_str(query->rval));
@@ -83,7 +83,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (query->user == user && (mask & TI_AUTH_GRANT))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_OPERATION_ERROR,
                 "it is not possible to revoke your own `GRANT` privileges"
                 REVOKE_DOC_);
         return e->nr;

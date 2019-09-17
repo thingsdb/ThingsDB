@@ -66,7 +66,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_thing(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `set`"SET_PROPERTY_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
@@ -74,7 +74,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs != 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `set` takes 2 arguments but %d %s given"
                 SET_PROPERTY_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
@@ -99,7 +99,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `set` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_PROPERTY_DOC_,
             ti_val_str(query->rval));

@@ -37,13 +37,13 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!fname->data)
     {
         if (query->rval)
-            ex_set(e, EX_INDEX_ERROR,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "type `%s` has no function `%.*s`",
                     ti_val_str(query->rval),
                     fname->len,
                     fname->str);
         else
-            ex_set(e, EX_INDEX_ERROR,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "function `%.*s` is undefined",
                     fname->len,
                     fname->str);
@@ -126,7 +126,7 @@ static inline ti_prop_t * do__get_prop(
                 : NULL);
 
     if (!prop)
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "thing "TI_THING_ID" has no property `%.*s`",
                 thing->id, (int) nd->len, nd->str);
 
@@ -153,7 +153,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_thing(query->rval))
     {
-        ex_set(e, EX_BAD_DATA, "cannot assign properties to `%s` type",
+        ex_set(e, EX_TYPE_ERROR, "cannot assign properties to `%s` type",
                 ti_val_str(query->rval));
         return e->nr;
     }
@@ -296,7 +296,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             if (!ti_val_is_thing(query->rval))
             {
-                ex_set(e, EX_BAD_DATA, "type `%s` has no properties",
+                ex_set(e, EX_TYPE_ERROR, "type `%s` has no properties",
                         ti_val_str(query->rval));
                 return e->nr;
             }
@@ -584,7 +584,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (i < 0)
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "variable `%.*s` is undefined",
                 (int) nd->len, nd->str);
     }
@@ -694,7 +694,7 @@ static inline ti_prop_t * do__get_var(
                 : NULL);
 
     if (!prop)
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "variable `%.*s` is undefined",
                 (int) nd->len, nd->str);
 
@@ -817,7 +817,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_CHAIN:
         if (!query->collection)
         {
-            ex_set(e, EX_INDEX_ERROR,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "the `root` of the `%s` scope is inaccessible; "
                     "You might want to query a `@collection` scope?",
                     ti_query_scope_name(query));

@@ -11,7 +11,7 @@ static int do__f_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `array` takes at most 1 argument but %d "
                 "were given"ARRAY_DOC_, nargs);
         return e->nr;

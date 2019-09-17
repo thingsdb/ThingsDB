@@ -9,7 +9,7 @@
 #define VERROR__MAX_MSG_SZ 56
 #define VERROR__CACHE_SZ ((-EX_MIN_ERR) + 1)
 
-static char verror__type_buf[10];  /* err(-000)  */
+static char verror__type_buf[14];  /* err(-000)  */
 
 typedef struct verror__s
 {
@@ -86,12 +86,12 @@ static const verror__t verror__bad_data_err = {
         .msg_n=strlen(EX_BAD_DATA_X),
         .msg=EX_BAD_DATA_X
 };
-static const verror__t verror__index_err = {
+static const verror__t verror__lookup_err = {
         .ref=1,
         .tp=TI_VAL_ERROR,
-        .code=EX_INDEX_ERROR,
-        .msg_n=strlen(EX_INDEX_ERROR_X),
-        .msg=EX_INDEX_ERROR_X
+        .code=EX_LOOKUP_ERROR,
+        .msg_n=strlen(EX_LOOKUP_ERROR_X),
+        .msg=EX_LOOKUP_ERROR_X
 };
 static const verror__t verror__forbidden_err = {
         .ref=1,
@@ -128,6 +128,34 @@ static const verror__t verror__overflow = {
         .msg_n=strlen(EX_OVERFLOW_X),
         .msg=EX_OVERFLOW_X
 };
+static const verror__t verror__value_err = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_VALUE_ERROR,
+        .msg_n=strlen(EX_VALUE_ERROR_X),
+        .msg=EX_VALUE_ERROR_X
+};
+static const verror__t verror__type_err = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_TYPE_ERROR,
+        .msg_n=strlen(EX_TYPE_ERROR_X),
+        .msg=EX_TYPE_ERROR_X
+};
+static const verror__t verror__num_arguments_err = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_NUM_ARGUMENTS,
+        .msg_n=strlen(EX_NUM_ARGUMENTS_X),
+        .msg=EX_NUM_ARGUMENTS_X
+};
+static const verror__t verror__operation_err = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_OPERATION_ERROR,
+        .msg_n=strlen(EX_OPERATION_ERROR_X),
+        .msg=EX_OPERATION_ERROR_X
+};
 
 void ti_verror_init(void)
 {
@@ -141,12 +169,16 @@ void ti_verror_init(void)
     verror__cache[-EX_NODE_ERROR]       = verror__node_err;
     verror__cache[-EX_SYNTAX_ERROR]     = verror__syntax_err;
     verror__cache[-EX_BAD_DATA]         = verror__bad_data_err;
-    verror__cache[-EX_INDEX_ERROR]      = verror__index_err;
+    verror__cache[-EX_LOOKUP_ERROR]     = verror__lookup_err;
     verror__cache[-EX_FORBIDDEN]        = verror__forbidden_err;
     verror__cache[-EX_AUTH_ERROR]       = verror__auth_err;
     verror__cache[-EX_MAX_QUOTA]        = verror__max_quota_err;
     verror__cache[-EX_ZERO_DIV]         = verror__zero_div_err;
     verror__cache[-EX_OVERFLOW]         = verror__overflow;
+    verror__cache[-EX_VALUE_ERROR]      = verror__value_err;
+    verror__cache[-EX_TYPE_ERROR]       = verror__type_err;
+    verror__cache[-EX_NUM_ARGUMENTS]    = verror__num_arguments_err;
+    verror__cache[-EX_OPERATION_ERROR]  = verror__operation_err;
 
 
     for (int i = 0; i < VERROR__CACHE_SZ; ++i)
@@ -201,11 +233,11 @@ int ti_verror_check_msg(const char * msg, size_t n, ex_t * e)
 {
     assert (e->nr == 0);
     if (n > EX_MAX_SZ)
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "error messages should not exceed %d characters, "
                 "got %zu characters", EX_MAX_SZ, n);
     else if (!strx_is_utf8n(msg, n))
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "error messages must have valid UTF8 encoding");
     return e->nr;
 }
@@ -219,7 +251,7 @@ const char * ti_verror_type_str(ti_verror_t * verror)
     case EX_MAX_QUOTA: return "max_quota_err()";
     case EX_AUTH_ERROR: return "auth_err()";
     case EX_FORBIDDEN: return "forbidden_err()";
-    case EX_INDEX_ERROR: return "index_err()";
+    case EX_LOOKUP_ERROR: return "index_err()";
     case EX_BAD_DATA: return "bad_data_err()";
     case EX_SYNTAX_ERROR: return "syntax_err()";
     case EX_NODE_ERROR: return "node_err()";

@@ -13,7 +13,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `user_info` takes at most 1 argument but %d were given"
                 USER_INFO_DOC_, nargs);
         return e->nr;
@@ -40,7 +40,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!ti_val_is_raw(query->rval))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                 "function `user_info` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
                 USER_INFO_DOC_,

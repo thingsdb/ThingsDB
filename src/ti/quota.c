@@ -36,7 +36,7 @@ ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
 
     if (!tp)
     {
-        ex_set(e, EX_INDEX_ERROR, "`quota_type` should be either "
+        ex_set(e, EX_LOOKUP_ERROR, "`quota_type` should be either "
             "`things`, `properties`, `array_size` or `raw_size`, "
             "got `%.*s`",
             (int) n, str);

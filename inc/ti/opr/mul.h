@@ -121,7 +121,7 @@ type_int:
     return e->nr;
 
 type_err:
-    ex_set(e, EX_BAD_DATA, "`*` not supported between `%s` and `%s`",
+    ex_set(e, EX_TYPE_ERROR, "`*` not supported between `%s` and `%s`",
         ti_val_str(a), ti_val_str(*b));
     return e->nr;
 

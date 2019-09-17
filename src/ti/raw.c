@@ -292,11 +292,11 @@ _Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b)
 int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
 {
     if (ti_name_is_valid_strn((const char *) raw->data, raw->n))
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "%s `%.*s` not found",
                 s, (int) raw->n, (const char *) raw->data);
     else
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "%s name must follow the naming rules"
                 TI_SEE_DOC("#names"),
                 s);

@@ -19,7 +19,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs != 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `new_procedure` takes 2 arguments but %d %s given"
                 NEW_PROCEDURE_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
@@ -30,7 +30,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `new_procedure` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"
             NEW_PROCEDURE_DOC_,
@@ -43,7 +43,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_VALUE_ERROR,
                 "procedure name must follow the naming rules"
                 TI_SEE_DOC("#names"));
         goto fail0;
@@ -54,7 +54,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_closure(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `new_procedure` expects argument 2 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
                 NEW_PROCEDURE_DOC_,
@@ -78,7 +78,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto alloc_error;
     if (rc > 0)
     {
-        ex_set(e, EX_INDEX_ERROR, "procedure `%.*s` already exists",
+        ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` already exists",
                 (int) procedure->name->n, (char *) procedure->name->data);
         goto fail2;
     }

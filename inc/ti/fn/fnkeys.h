@@ -4,6 +4,7 @@
 
 static int do__f_keys(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
     ti_varr_t * varr;
 
@@ -12,16 +13,15 @@ static int do__f_keys(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_thing(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `keys`"KEYS_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_zero_params(nd))
+    if (nargs != 0)
     {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `keys` takes 0 arguments but %d %s given"KEYS_DOC_,
                 nargs, nargs == 1 ? "was" : "were");
         return e->nr;

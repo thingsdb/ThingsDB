@@ -14,7 +14,7 @@ static int do__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!langdef_nd_fun_has_zero_params(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `pop_node` takes 0 arguments but %d %s given"
                 POP_NODE_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;

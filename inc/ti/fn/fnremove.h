@@ -15,7 +15,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs < 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` requires at least 1 argument but 0 "
                 "were given"REMOVE_LIST_DOC_);
         goto fail0;
@@ -23,7 +23,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` takes at most 2 arguments but %d "
                 "were given"REMOVE_LIST_DOC_, nargs);
         goto fail0;
@@ -40,7 +40,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_closure(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `remove` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
                 REMOVE_LIST_DOC_, ti_val_str(query->rval));
@@ -137,7 +137,7 @@ static int do__f_remove_set_from_closure(
 
     if (nargs > 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` takes at most 1 argument when using a `"
                 TI_VAL_CLOSURE_S"` but %d were given"REMOVE_SET_DOC_,
                 nargs);
@@ -191,7 +191,7 @@ static void do__f_remove_set(
 
     if (nargs < 1)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` requires at least 1 argument but 0 "
                 "were given"REMOVE_SET_DOC_);
         goto fail0;
@@ -239,7 +239,7 @@ static void do__f_remove_set(
         {
             if (!ti_val_is_thing(query->rval))
             {
-                ex_set(e, EX_BAD_DATA,
+                ex_set(e, EX_TYPE_ERROR,
                         narg == 1
                         ?
                         "function `remove` expects argument %d to be "
@@ -323,7 +323,7 @@ static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `remove`"
                 REMOVE_LIST_DOC_ REMOVE_SET_DOC_,
                 ti_val_str(query->rval));

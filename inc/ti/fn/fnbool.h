@@ -18,7 +18,7 @@ static int do__f_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = (ti_val_t *) ti_vbool_get(false);
             return e->nr;
         }
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `bool` takes at most 1 argument but %d were given"
                 BOOL_DOC_, nargs);
         return e->nr;

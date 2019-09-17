@@ -74,7 +74,7 @@ static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e)
 {
     if (closure->flags & TI_VFLAG_LOCK)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_OPERATION_ERROR,
                 "closures cannot be used recursively"TI_SEE_DOC("#closure"));
         return -1;
     }
@@ -89,7 +89,7 @@ static inline int ti_closure_try_lock_and_use(
 {
     if (closure->flags & TI_VFLAG_LOCK)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_OPERATION_ERROR,
                 "closures cannot be used recursively"TI_SEE_DOC("#closure"));
         return -1;
     }

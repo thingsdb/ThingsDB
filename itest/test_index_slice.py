@@ -7,8 +7,9 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 
 
@@ -55,12 +56,12 @@ class TestIndexSlice(TestBase):
         await client0.query(f'.list = [{tu}];')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'type `raw` does not support index assignments'):
             await client0.query('.raw[0] = "z";')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'type `tuple` does not support index assignments'):
             await client0.query('.list[0][0] = "z";')
 
@@ -74,12 +75,12 @@ class TestIndexSlice(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'thing `#\d+` has no property `x`'):
             await client0.query('.ti["x"];')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'expecting an index of type `raw` '
                 r'but got type `int` instead'):
             await client0.query(f'.ti[4];')
@@ -126,17 +127,17 @@ class TestIndexSlice(TestBase):
             self.assertEqual(await client0.query(f'.raw[{i}]'), s[i])
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'index out of range'):
             await client0.query(f'.raw[{n}];')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'index out of range'):
             await client0.query(f'.raw[{-(n+1)}];')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'expecting an index of type `int` '
                 r'but got type `nil` instead'):
             await client0.query(f'.raw[nil];')
@@ -173,17 +174,17 @@ class TestIndexSlice(TestBase):
             self.assertEqual(await client0.query(f'.list[{i}]'), li[i])
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'index out of range'):
             await client0.query(f'.list[{n}];')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'index out of range'):
             await client0.query(f'.list[{-(n+1)}];')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'expecting an index of type `int` '
                 r'but got type `nil` instead'):
             await client0.query(f'.list[nil];')
@@ -240,19 +241,19 @@ class TestIndexSlice(TestBase):
         await client0.query(f'.list = {li};')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'slice assignments require a step '
                 r'value of 1 but got -1 instead'):
             await client0.query(f'.list[::-1] = [];')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'slice assignments require an `array` type '
                 r'but got type `int` instead'):
             await client0.query(f'.list[] = 42;')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'unsupported operand type `\*\=` for slice assignments'):
             await client0.query(f'.list[] *= [];')
 

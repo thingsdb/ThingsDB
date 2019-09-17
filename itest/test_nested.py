@@ -7,10 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestNested(TestBase):
@@ -167,7 +171,7 @@ class TestNested(TestBase):
 
     async def test_list_lock_assign(self, client0, client1, client2):
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
@@ -180,7 +184,7 @@ class TestNested(TestBase):
 
     async def test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
@@ -223,7 +227,7 @@ class TestNested(TestBase):
 
     async def test_complex_assign_list(self, client0, client1, client2):
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
@@ -234,7 +238,7 @@ class TestNested(TestBase):
                 });
             ''')
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
                 r'the `list` is being used'):
             await client0.query(r'''
@@ -248,7 +252,7 @@ class TestNested(TestBase):
 
     async def test_complex_assign_set(self, client0, client1, client2):
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
                 r'the `set` is being used'):
             await client0.query(r'''
@@ -259,7 +263,7 @@ class TestNested(TestBase):
                 });
             ''')
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
                 r'the `set` is being used'):
             await client0.query(r'''

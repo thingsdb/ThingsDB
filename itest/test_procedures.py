@@ -7,10 +7,14 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
 
 
 class TestProcedures(TestBase):
@@ -26,7 +30,7 @@ class TestProcedures(TestBase):
         client0.use('@:stuff')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'function `new_procedure` is undefined in the `@node` scope'):
             await client0.query(r'''
                 new_procedure('foo', ||nil);
@@ -103,22 +107,22 @@ class TestProcedures(TestBase):
         )
 
         with self.assertRaisesRegex(
-                BadDataError,
+                ValueError,
                 r'property name must follow the naming rules'
                 r'; see.*'
                 r'\(argument 0 for procedure `upd_list`\)'):
             await client0.run('upd_list', {"0InvalidKey": 4})
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'thing `#42` not found; if you want to create a new thing '
                 r'then remove the id \(`#`\) and try again '
                 r'\(argument 0 for procedure `upd_list`\)'):
             await client0.run('upd_list', {"#": 42})
 
         with self.assertRaisesRegex(
-                BadDataError,
-                r'sets can one contain things '
+                TypeError,
+                r'sets can only contain things '
                 r'\(argument 0 for procedure `upd_list`\)'):
             await client0.run('upd_list', {"$": [1, 2, 3]})
 
@@ -143,19 +147,19 @@ class TestProcedures(TestBase):
 
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
-                    BadDataError,
+                    OperationError,
                     r'stored closures with side effects must be wrapped '
                     r'using `wse\(...\)`'):
                 await client.run('missing_wse', 1)
 
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
-                    IndexError,
+                    NumArgumentsError,
                     r'missing value \(argument 0 for procedure `upd_list`\)'):
                 await client.run('upd_list')
 
             with self.assertRaisesRegex(
-                    IndexError,
+                    NumArgumentsError,
                     r'too much arguments for procedure `upd_list`'):
                 await client.run('upd_list', 1, 2)
 
@@ -250,29 +254,29 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `nil` has no function `del_procedure`'):
             await client.query('nil.del_procedure();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `del_procedure` takes 1 argument '
                 'but 0 were given'):
             await client.query('del_procedure();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `del_procedure` expects argument 1 to be of '
                 r'type `raw` but got type `nil` instead'):
             await client.query('del_procedure(nil);')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'procedure `xxx` not found'):
             await client.query('del_procedure("xxx");')
 
         with self.assertRaisesRegex(
-                BaseException,
+                ValueError,
                 r'procedure name must follow the naming rules'):
             await client.query('del_procedure("");')
 
@@ -284,24 +288,24 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `nil` has no function `new_procedure`'):
             await client.query('nil.new_procedure();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `new_procedure` takes 2 arguments '
                 'but 1 was given'):
             await client.query('new_procedure("create_user");')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `new_procedure` expects argument 1 to be of '
                 r'type `raw` but got type `nil` instead'):
             await client.query('new_procedure(nil, ||nil);')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `new_procedure` expects argument 2 to be '
                 r'a `closure` but got type `nil` instead'):
             await client.query('new_procedure("create_user", nil);')
@@ -312,7 +316,7 @@ class TestProcedures(TestBase):
             await client.query('new_procedure("", ||nil);')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'procedure `create_user` already exists'):
             await client.query(
                 'new_procedure("create_user", ||nil);',
@@ -347,23 +351,23 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `nil` has no function `procedure_doc`'):
             await client.query('nil.procedure_doc();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `procedure_doc` takes 1 argument but 0 were given'):
             await client.query('procedure_doc();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `procedure_doc` expects argument 1 to be of '
                 r'type `raw` but got type `float` instead'):
             await client.query('procedure_doc(3.14);')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'procedure `xxx` not found'):
             await client.query('procedure_doc("xxx");')
 
@@ -394,23 +398,23 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `nil` has no function `procedure_info`'):
             await client.query('nil.procedure_info();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `procedure_info` takes 1 argument but 0 were given'):
             await client.query('procedure_info();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `procedure_info` expects argument 1 to be of '
                 r'type `raw` but got type `float` instead'):
             await client.query('procedure_info(3.14);')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'procedure `xxx` not found'):
             await client.query('procedure_info("xxx");')
 
@@ -448,12 +452,12 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `nil` has no function `procedures_info`'):
             await client.query('nil.procedures_info();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `procedures_info` takes 0 arguments '
                 'but 1 was given'):
             await client.query('procedures_info("set_a");')
@@ -475,24 +479,24 @@ class TestProcedures(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 'type `closure` has no function `run`'):
             await client.query('(||nil).run();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'function `run` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('run();')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                TypeError,
                 r'function `run` expects argument 1 to be of type `raw` '
                 r'but got type `nil` instead'):
             await client.query('run(nil);')
 
         with self.assertRaisesRegex(
-                IndexError,
+                LookupError,
                 r'procedure `xxx` not found'):
             await client.query('run("xxx");')
 
@@ -502,7 +506,7 @@ class TestProcedures(TestBase):
             await client.query('run("");')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                OperationError,
                 r'stored closures with side effects must be wrapped '
                 r'using `wse\(...\)`'):
             await client.query(r'''
@@ -510,7 +514,7 @@ class TestProcedures(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
+                NumArgumentsError,
                 'this closure takes 1 argument but 0 were given'):
             await client.query(r'''
                 run('test');

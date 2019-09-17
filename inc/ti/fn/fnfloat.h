@@ -16,7 +16,7 @@ static int do__f_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = (ti_val_t *) ti_vfloat_create(0.0);
             return e->nr;
         }
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `float` takes at most 1 argument but %d were given"
                 FLOAT_DOC_, nargs);
         return e->nr;

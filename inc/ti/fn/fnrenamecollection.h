@@ -13,7 +13,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
 
     if (nargs != 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `rename_collection` takes 2 arguments "
             "but %d %s given"RENAME_COLLECTION_DOC_,
             nargs, nargs == 1 ? "was" : "were");
@@ -36,7 +36,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `rename_collection` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"
             RENAME_COLLECTION_DOC_, ti_val_str(query->rval));

@@ -16,7 +16,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs != 2)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `set_password` takes 2 arguments but %d %s given"
             SET_PASSWORD_DOC_, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
@@ -27,7 +27,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_PASSWORD_DOC_,
             ti_val_str(query->rval));
@@ -59,7 +59,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (!ti_val_is_nil(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` or `"TI_VAL_NIL_S"` but got "
             "type `%s` instead"SET_PASSWORD_DOC_,

@@ -16,7 +16,7 @@ static int do__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = ti_val_empty_str();
             return e->nr;
         }
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `str` takes at most 1 argument but %d were given"
                 STR_DOC_, nargs);
         return e->nr;

@@ -258,7 +258,7 @@ int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
     }
     else
     {
-        ex_set(e, EX_BAD_DATA, "invalid IPv4/6 address: `%s`", node->addr);
+        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%s`", node->addr);
         goto failed;
     }
 

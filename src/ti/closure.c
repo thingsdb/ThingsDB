@@ -70,7 +70,7 @@ static cleri_node_t * closure__node_from_strn(
 
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
-        ex_set(e, EX_INDEX_ERROR, "node is not a closure");
+        ex_set(e, EX_LOOKUP_ERROR, "node is not a closure");
         goto fail1;
     }
 
@@ -464,7 +464,7 @@ int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
             )) == TI_VFLAG_CLOSURE_WSE) &&
             (~query->syntax.flags & TI_SYNTAX_FLAG_WSE))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_OPERATION_ERROR,
                 "stored closures with side effects must be "
                 "wrapped using `wse(...)`"TI_SEE_DOC("#wse"));
         return -1;
@@ -485,7 +485,7 @@ int ti_closure_call(
 
     if (args->n != closure->vars->n)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "this closure takes %d %s but %d %s given",
                 closure->vars->n,
                 closure->vars->n == 1 ? "argument" : "arguments",

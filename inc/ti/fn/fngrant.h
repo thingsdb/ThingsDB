@@ -17,7 +17,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     nargs = langdef_nd_n_function_params(nd);
     if (nargs != 3)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
             "function `grant` takes 3 arguments but %d %s given"GRANT_DOC_,
             nargs, nargs == 1 ? "was" : "were");
         return e->nr;
@@ -45,7 +45,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_raw(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `grant` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"GRANT_DOC_,
             ti_val_str(query->rval));
@@ -65,7 +65,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_int(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `grant` expects argument 3 to be of "
             "type `"TI_VAL_INT_S"` but got type `%s` instead"GRANT_DOC_,
             ti_val_str(query->rval));

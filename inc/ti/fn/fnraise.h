@@ -16,7 +16,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
             goto done;
         }
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `raise` takes at most 1 argument but %d were given"
                 RAISE_DOC_, nargs);
         return e->nr;
@@ -27,7 +27,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_error(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
             "function `raise` expects argument 1 to be of "
             "type `"TI_VAL_ERROR_S"` but got type `%s` instead"RAISE_DOC_,
             ti_val_str(query->rval));

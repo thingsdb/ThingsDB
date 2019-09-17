@@ -16,7 +16,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             !ti_val_is_set(query->rval) &&
             !ti_val_is_thing(query->rval))
     {
-        ex_set(e, EX_INDEX_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `filter`"FILTER_DOC_,
                 ti_val_str(query->rval));
         return e->nr;
@@ -25,7 +25,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!langdef_nd_fun_has_one_param(nd))
     {
         int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_NUM_ARGUMENTS,
                 "function `filter` takes 1 argument but %d were given"
                 FILTER_DOC_, nargs);
         return e->nr;
@@ -40,7 +40,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_val_is_closure(query->rval))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "function `filter` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FILTER_DOC_,
                 ti_val_str(query->rval));

@@ -45,12 +45,16 @@ const char * ex_str(ex_enum errnr)
 {
     switch (errnr)
     {
+    case EX_OPERATION_ERROR:    return EX_OPERATION_ERROR_X;
+    case EX_NUM_ARGUMENTS:      return EX_NUM_ARGUMENTS_X;
+    case EX_TYPE_ERROR:         return EX_TYPE_ERROR_X;
+    case EX_VALUE_ERROR:        return EX_VALUE_ERROR_X;
     case EX_OVERFLOW:           return EX_OVERFLOW_X;
     case EX_ZERO_DIV:           return EX_ZERO_DIV_X;
     case EX_MAX_QUOTA:          return EX_MAX_QUOTA_X;
     case EX_AUTH_ERROR:         return EX_AUTH_ERROR_X;
     case EX_FORBIDDEN:          return EX_FORBIDDEN_X;
-    case EX_INDEX_ERROR:        return EX_INDEX_ERROR_X;
+    case EX_LOOKUP_ERROR:       return EX_LOOKUP_ERROR_X;
     case EX_BAD_DATA:           return EX_BAD_DATA_X;
     case EX_SYNTAX_ERROR:       return EX_SYNTAX_ERROR_X;
     case EX_NODE_ERROR:         return EX_NODE_ERROR_X;

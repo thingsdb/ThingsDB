@@ -56,7 +56,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
 
     if (!regex->code)
     {
-        ex_set(e, EX_BAD_DATA, "cannot compile regular expression '%.*s', ",
+        ex_set(e, EX_VALUE_ERROR, "cannot compile regular expression '%.*s', ",
                 (int) regex->pattern->n,
                 (char *) regex->pattern->data);
 

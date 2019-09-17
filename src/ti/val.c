@@ -51,7 +51,7 @@ static ti_val_t * val__unp_map(
 
     if (!qp_is_raw(qp_next(unp, &qp_kind)) || !qp_kind.len)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "property names must be of type `raw` "
                 "and follow the naming rules"TI_SEE_DOC("#names"));
         return NULL;
@@ -68,7 +68,7 @@ static ti_val_t * val__unp_map(
         }
         if (!qp_is_int(qp_next(unp, &qp_tmp)))
         {
-            ex_set(e, EX_BAD_DATA,
+            ex_set(e, EX_TYPE_ERROR,
                     "expecting an integer value as thing id");
             return NULL;
         }
@@ -142,7 +142,7 @@ static ti_val_t * val__unp_map(
             if (!qp_is_map(tsz))
             {
                 ti_vset_destroy(vset);
-                ex_set(e, EX_BAD_DATA, "sets can one contain things");
+                ex_set(e, EX_TYPE_ERROR, "sets can only contain things");
                 return NULL;
             }
 
@@ -260,7 +260,8 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     }
     case TI_VAL_SET:
-        ex_set(e, EX_BAD_DATA, "cannot add a `set` to an array");
+        /* TODO: is this correct or should the set convert to tuple? */
+        ex_set(e, EX_TYPE_ERROR, "cannot add a `set` to an array");
         return e->nr;
     }
 
@@ -367,7 +368,7 @@ static ti_val_t * val__from_unp(
     case QP_MAP_OPEN:
         return val__unp_map(unp, things, -1, e);
     case QP_END:
-        ex_set(e, EX_INDEX_ERROR, "missing value");
+        ex_set(e, EX_NUM_ARGUMENTS, "missing value");
         return NULL;
     case QP_ERR:
         ex_set(e, EX_BAD_DATA, "unexpected error while unpacking value");
@@ -528,7 +529,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
 
     if (!ti_val_is_raw(val))
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(e, EX_TYPE_ERROR,
                 "expecting a scope to be of type `"TI_VAL_RAW_S"` "
                 "but got type `%s` instead",
                 ti_val_str(val));
@@ -556,7 +557,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
             return &collection->access;
         }
 
-        ex_set(e, EX_INDEX_ERROR, "collection `%.*s` not found",
+        ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 (int) scope.via.collection_name.sz,
                 scope.via.collection_name.name);
         return NULL;
@@ -568,7 +569,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
             return &collection->access;
         }
 
-        ex_set(e, EX_INDEX_ERROR, TI_COLLECTION_ID" not found",
+        ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                 scope.via.collection_id);
         return NULL;
     }
@@ -667,7 +668,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_INT_S"`",
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_INT_S"`",
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
@@ -738,7 +739,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
@@ -810,7 +811,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_THING:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_ARR_S"`",
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_ARR_S"`",
                 ti_val_str(*val));
         break;
     case TI_VAL_ARR:
@@ -837,7 +838,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-        ex_set(e, EX_BAD_DATA, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
         break;
     case TI_VAL_THING:

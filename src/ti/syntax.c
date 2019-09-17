@@ -203,7 +203,6 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'i':
         syntax__nev_fn(q, nd, "id", do__f_id);
-        syntax__nev_fn(q, nd, "index_err", do__f_index_err);
         syntax__nev_fn(q, nd, "indexof", do__f_indexof);
         syntax__nev_fn(q, nd, "int", do__f_int);
         syntax__nev_fn(q, nd, "isarray", do__f_isarray);
@@ -231,6 +230,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
     case 'l':
         syntax__nev_fn(q, nd, "len", do__f_len);
         syntax__nev_fn(q, nd, "lower", do__f_lower);
+        syntax__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
         break;
     case 'm':
         syntax__nev_fn(q, nd, "map", do__f_map);
@@ -240,6 +240,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
         syntax__nev_fn(q, nd, "node_err", do__f_node_err);
         syntax__nev_fn(q, nd, "now", do__f_now);
+        syntax__nev_fn(q, nd, "num_arguments_err", do__f_num_arguments_err);
         syntax__tev_fn(q, nd, "new_collection", do__f_new_collection);
         syntax__tev_fn(q, nd, "new_node", do__f_new_node);
         syntax__tev_fn(q, nd, "new_token", do__f_new_token);
@@ -249,6 +250,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'o':
         syntax__nev_fn(q, nd, "overflow_err", do__f_overflow_err);
+        syntax__nev_fn(q, nd, "operation_err", do__f_operation_err);
         break;
     case 'p':
         syntax__cev_fn(q, nd, "pop", do__f_pop);
@@ -291,6 +293,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "test", do__f_test);
         syntax__nev_fn(q, nd, "try", do__f_try);
         syntax__nev_fn(q, nd, "type", do__f_type);
+        syntax__nev_fn(q, nd, "type_err", do__f_type_err);
         break;
     case 'u':
         syntax__nev_fn(q, nd, "upper", do__f_upper);
@@ -299,6 +302,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'v':
         syntax__nev_fn(q, nd, "values", do__f_values);
+        syntax__nev_fn(q, nd, "value_err", do__f_value_err);
         break;
     case 'w':
         syntax__bev_fn(q, nd, "wse", do__f_wse);

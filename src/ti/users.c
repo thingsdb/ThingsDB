@@ -89,7 +89,7 @@ ti_user_t * ti_users_load_user(
 
     if (ti_users_get_by_id(user_id))
     {
-        ex_set(e, EX_INDEX_ERROR, "`user:%"PRIu64"` already exists", user_id);
+        ex_set(e, EX_LOOKUP_ERROR, "`user:%"PRIu64"` already exists", user_id);
         goto done;
     }
 

@@ -89,15 +89,19 @@ func (conn *Conn) IsConnected() bool {
 }
 
 // Query sends a query and returns the result.
-func (conn *Conn) Query(r Req) (interface{}, error) {
-	return conn.write(r.GetProtocol(), r.AsMap(), r.GetTimeout())
-}
+func (conn *Conn) Query(scope string, query string, arguments map[string]interface{}, timeout uint16) (interface{}, error) {
+	n := 3
+	if arguments == nil {
+		n = 2
+	}
+	data := make([]interface{}, n)
+	data[0] = scope
+	data[1] = query
+	if arguments != nil {
+		data[2] = arguments
+	}
 
-// QueryTo sends a query and returns the result.
-func (conn *Conn) QueryTo(to *interface{}, r Req) error {
-	res, err := conn.write(r.GetProtocol(), r.AsMap(), r.GetTimeout())
-
-	return err
+	return conn.write(ProtoReqQuery, data, timeout)
 }
 
 // Close will close an open connection.
@@ -119,8 +123,9 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
 		case ProtoResPing, ProtoResAuth:
 			result = nil
-		case ProtoErrOverflow, ProtoErrZeroDiv, ProtoErrMaxQuota, ProtoErrAuth,
-			ProtoErrForbidden, ProtoErrIndex, ProtoErrBadRequest, ProtoErrSyntax,
+		case ProtoErrOperation, ProtoErrNumArguments, ProtoErrType, ProtoErrValue,
+			ProtoErrOverflow, ProtoErrZeroDiv, ProtoErrMaxQuota, ProtoErrAuth,
+			ProtoErrForbidden, ProtoErrLookup, ProtoErrBadRequest, ProtoErrSyntax,
 			ProtoErrNode, ProtoErrAssertion, ProtoErrInternal:
 			err = NewErrorFromByte(pkg.data)
 		default:

@@ -1,7 +1,7 @@
 package client
 
 // Proto is used as protocol type used by ThingsDB.
-type Proto uint8
+type Proto int8
 
 const (
 	/*
@@ -12,12 +12,8 @@ const (
 	ProtoReqPing Proto = 32
 	// ProtoReqAuth requires `[username, password]`
 	ProtoReqAuth Proto = 33
-	// ProtoReqQueryNode requires `{query: ...}`
-	ProtoReqQueryNode Proto = 34
-	// ProtoReqQueryThingsDB requires `{query: ...}`
-	ProtoReqQueryThingsDB Proto = 35
-	// ProtoReqQueryCollection requires `{collection: ..., query: ...}`
-	ProtoReqQueryCollection Proto = 36
+	// ProtoReqQuery requires `[scope, query [, arguments]]`
+	ProtoReqQuery Proto = 34
 
 	/*
 	 * Responses
@@ -34,26 +30,43 @@ const (
 	 * Errors `{error_msg: ..., error_code: ...}`
 	 */
 
-	// ProtoErrOverflow -integer overflow
-	ProtoErrOverflow Proto = 96
+	// ProtoErrOperation - operation is not valid in the current context
+	ProtoErrOperation Proto = -63
+	// ProtoErrNumArguments - wrong number of arguments
+	ProtoErrNumArguments Proto = -62
+	// ProtoErrType - object of inappropriate type
+	ProtoErrType Proto = -61
+	// ProtoErrValue - object has the right type but an inappropriate value
+	ProtoErrValue Proto = -60
+	// ProtoErrOverflow - integer overflow
+	ProtoErrOverflow Proto = -59
 	// ProtoErrZeroDiv - division or module by zero
-	ProtoErrZeroDiv Proto = 97
+	ProtoErrZeroDiv Proto = -58
 	// ProtoErrMaxQuota - max quota is reached
-	ProtoErrMaxQuota Proto = 98
+	ProtoErrMaxQuota Proto = -57
 	// ProtoErrAuth - authentication error
-	ProtoErrAuth Proto = 99
+	ProtoErrAuth Proto = -56
 	// ProtoErrForbidden - forbidden (access denied)
-	ProtoErrForbidden Proto = 100
-	// ProtoErrIndex - requested resource not found
-	ProtoErrIndex Proto = 101
+	ProtoErrForbidden Proto = -55
+	// ProtoErrLookup - requested resource not found
+	ProtoErrLookup Proto = -54
 	// ProtoErrBadRequest - unable to handle request due to invalid data
-	ProtoErrBadRequest Proto = 102
+	ProtoErrBadRequest Proto = -53
 	// ProtoErrSyntax - syntax error in query
-	ProtoErrSyntax Proto = 103
+	ProtoErrSyntax Proto = -52
 	// ProtoErrNode - node is temporary unable to handle the request
-	ProtoErrNode Proto = 104
+	ProtoErrNode Proto = -51
 	// ProtoErrAssertion - assertion statement has failed
-	ProtoErrAssertion Proto = 105
+	ProtoErrAssertion Proto = -50
+
+	// ProtoErrRequestTimeout - request timed out
+	ProtoErrRequestTimeout Proto = -5
+	// ProtoErrRequestCancel - request is cancelled
+	ProtoErrRequestCancel Proto = -4
+	// ProtoErrWriteUV - cannot write to socket
+	ProtoErrWriteUV Proto = -3
+	// ProtoErrMemory - memory allocation error
+	ProtoErrMemory Proto = -2
 	// ProtoErrInternal - internal error
-	ProtoErrInternal Proto = 127
+	ProtoErrInternal Proto = -1
 )

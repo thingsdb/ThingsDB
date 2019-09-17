@@ -14,6 +14,14 @@ const (
 	 * and are in the range from 96-127.
 	 */
 
+	// OperationError - operation is not valid in the current context
+	OperationError ErrorCode = ErrorCode(ProtoErrOperation)
+	// NumArgumentsError - wrong number of arguments
+	NumArgumentsError ErrorCode = ErrorCode(ProtoErrNumArguments)
+	// TypeError - object of inappropriate type
+	TypeError ErrorCode = ErrorCode(ProtoErrType)
+	// ValueError - object has the right type but an inappropriate value
+	ValueError ErrorCode = ErrorCode(ProtoErrValue)
 	// OverflowError - interger overflow
 	OverflowError ErrorCode = ErrorCode(ProtoErrOverflow)
 	// ZeroDivError - division or module by zero
@@ -24,8 +32,8 @@ const (
 	AuthError ErrorCode = ErrorCode(ProtoErrAuth)
 	// ForbiddenError - forbidden (access denied)
 	ForbiddenError ErrorCode = ErrorCode(ProtoErrForbidden)
-	// IndexError - requested resource not found
-	IndexError ErrorCode = ErrorCode(ProtoErrIndex)
+	// LookupError - requested resource not found
+	LookupError ErrorCode = ErrorCode(ProtoErrLookup)
 	// BadRequestError - unable to handle request due to invalid data
 	BadRequestError ErrorCode = ErrorCode(ProtoErrBadRequest)
 	// SyntaxError - syntax error in query

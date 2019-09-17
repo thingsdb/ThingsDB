@@ -6,23 +6,6 @@ import (
 	"../client"
 )
 
-type TIface interface {
-}
-
-type TModel struct {
-}
-
-type Label struct {
-	name        string
-	description string
-}
-
-type OsData struct {
-	labels []Label
-}
-
-// var oversight Collection
-
 func example(conn *client.Conn, ok chan bool) {
 	var res interface{}
 	var err error
@@ -37,24 +20,13 @@ func example(conn *client.Conn, ok chan bool) {
 
 	defer conn.Close()
 
-	if err := conn.Authenticate("admin", "pass"); err != nil {
+	if err := conn.AuthPassword("admin", "pass"); err != nil {
 		println(err.Error())
 		ok <- false
 		return
 	}
 
-	reqThingsDB := client.NewReqThingsDB("users();")
-
-	if res, err = conn.Query(reqThingsDB); err != nil {
-		println(err.Error())
-		ok <- false
-		return
-	}
-
-	fmt.Printf("%v\n", res)
-
-	reqCollection := client.NewReqCollection("map(|k|k);", "stuff", 1)
-	if res, err = conn.Query(reqCollection); err != nil {
+	if res, err = conn.Query("@thingsdb", "users_info();", nil, 120); err != nil {
 		println(err.Error())
 		ok <- false
 		return

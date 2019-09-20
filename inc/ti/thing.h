@@ -4,6 +4,8 @@
 #ifndef TI_THING_H_
 #define TI_THING_H_
 
+#define TI_OBJECT_CLASS UINT16_MAX
+
 typedef struct ti_thing_s  ti_thing_t;
 
 #include <qpack.h>
@@ -13,11 +15,12 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/raw.h>
 #include <ti/prop.h>
 #include <ti/watch.h>
+#include <ti/collection.h>
 #include <ti/stream.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
-ti_thing_t * ti_thing_create(uint64_t id, imap_t * things);
+ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
@@ -44,7 +47,7 @@ ti_prop_t * ti_thing_prop_set_e(
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e);
-_Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name);
+_Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 ti_prop_t * ti_thing_weak_get(ti_thing_t * thing, ti_raw_t * rname);
 ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
@@ -55,36 +58,26 @@ ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
-static inline _Bool ti_thing_has_watchers(ti_thing_t * thing);
-static inline int ti_thing_id_to_packer(
-        ti_thing_t * thing,
-        qp_packer_t ** packer);
-static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f);
-static inline int ti_thing_to_map(ti_thing_t * thing);
-static inline _Bool ti_thing_is_new(ti_thing_t * thing);
-static inline void ti_thing_mark_new(ti_thing_t * thing);
-static inline void ti_thing_unmark_new(ti_thing_t * thing);
-static inline uint64_t ti_thing_key(ti_thing_t * thing);
-static inline ti_val_t * ti_thing_val_weak_get(
-        ti_thing_t * thing,
-        ti_name_t * name);
-static inline ti_prop_t * ti_thing_prop_weak_get(
-        ti_thing_t * thing,
-        ti_name_t * name);
+
 
 struct ti_thing_s
 {
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t _pad16;
+    uint16_t class;         /* UINT16_MAX */
 
     uint64_t id;
-    imap_t * things;        /* thing is added to this map */
-    vec_t * props;          /* vec contains ti_prop_t */
-    vec_t * watchers;       /* vec contains ti_watch_t,
-                               NULL if no watchers,  */
+    ti_collection_t * collection;   /* thing is added to this map */
+    vec_t * items;                  /* vec contains ti_prop_t */
+    vec_t * watchers;               /* vec contains ti_watch_t,
+                                       NULL if no watchers,  */
 };
+
+static inline _Bool ti_thing_is_object(ti_thing_t * thing)
+{
+    return thing->class == TI_OBJECT_CLASS;
+}
 
 static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
 {
@@ -114,7 +107,7 @@ static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f)
 /* returns IMAP_ERR_EXIST if the thing is already in the map */
 static inline int ti_thing_to_map(ti_thing_t * thing)
 {
-    return imap_add(thing->things, thing->id, thing);
+    return imap_add(thing->collection->things, thing->id, thing);
 }
 
 static inline _Bool ti_thing_is_new(ti_thing_t * thing)
@@ -134,21 +127,23 @@ static inline uint64_t ti_thing_key(ti_thing_t * thing)
     return (uintptr_t) thing;
 }
 
-static inline ti_val_t * ti_thing_val_weak_get(
+static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    for (vec_each(thing->props, ti_prop_t, prop))
+    assert (ti_thing_is_object(thing));
+    for (vec_each(thing->items, ti_prop_t, prop))
         if (prop->name == name)
             return prop->val;
     return NULL;
 }
 
-static inline ti_prop_t * ti_thing_prop_weak_get(
+static inline ti_prop_t * ti_thing_o_prop_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    for (vec_each(thing->props, ti_prop_t, prop))
+    assert (ti_thing_is_object(thing));
+    for (vec_each(thing->items, ti_prop_t, prop))
         if (prop->name == name)
             return prop;
     return NULL;

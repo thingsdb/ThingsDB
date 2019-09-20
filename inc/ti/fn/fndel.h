@@ -11,7 +11,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("del", query, e))
         return e->nr;
 
-    if (!ti_val_is_thing(query->rval))
+    if (!ti_val_is_object(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `del`"DEL_DOC_,

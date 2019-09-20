@@ -305,7 +305,7 @@ int ti_store_restore(void)
                         &collection->access,
                         store_collection->access_fn) ||
                 ti_store_things_restore(
-                        collection->things,
+                        collection,
                         store_collection->things_fn) ||
                 ti_store_collection_restore(
                         collection,

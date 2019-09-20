@@ -17,6 +17,7 @@
 #include <ti/verror.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/thingi.h>
 #include <util/logger.h>
 #include <util/strx.h>
 #include <math.h>
@@ -38,14 +39,14 @@ static char val__buf[VAL__BUF_SZ];
 
 static ti_val_t * val__unp_map(
         qp_unpacker_t * unp,
-        imap_t * things,
+        ti_collection_t * collection,
         ssize_t sz,
         ex_t * e)
 {
     qp_obj_t qp_kind, qp_tmp;
     const unsigned char * restore_point;
     if (!sz)
-        return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz, e);
+        return (ti_val_t *) ti_thing_new_from_unp(unp, collection, sz, e);
 
     restore_point = unp->pt;
 
@@ -60,7 +61,7 @@ static ti_val_t * val__unp_map(
     switch ((ti_val_kind) *qp_kind.via.raw)
     {
     case TI_KIND_C_THING:
-        if (!things)
+        if (!collection)
         {
             ex_set(e, EX_BAD_DATA,
                     "cannot unpack a `thing` without a collection");
@@ -73,7 +74,7 @@ static ti_val_t * val__unp_map(
             return NULL;
         }
         return (ti_val_t *) ti_things_thing_from_unp(
-                things,
+                collection,
                 (uint64_t) qp_tmp.via.int64,
                 unp,
                 sz,
@@ -83,7 +84,9 @@ static ti_val_t * val__unp_map(
         ti_syntax_t syntax;
         ti_syntax_init(
                 &syntax,
-                things ? TI_SYNTAX_FLAG_COLLECTION : TI_SYNTAX_FLAG_THINGSDB);
+                collection
+                    ? TI_SYNTAX_FLAG_COLLECTION
+                    : TI_SYNTAX_FLAG_THINGSDB);
 
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
         {
@@ -147,7 +150,7 @@ static ti_val_t * val__unp_map(
             }
 
             tsz = tsz == QP_MAP_OPEN ? -1 : tsz - QP_MAP0;
-            vthing = val__unp_map(unp, things, tsz, e);
+            vthing = val__unp_map(unp, collection, tsz, e);
 
             if (!vthing || (ti_vset_add_val(vset, vthing, e) < 0))
             {
@@ -223,7 +226,7 @@ static ti_val_t * val__unp_map(
 
     /* restore the unpack pointer to the first property */
     unp->pt = restore_point;
-    return (ti_val_t *) ti_thing_new_from_unp(unp, things, sz, e);
+    return (ti_val_t *) ti_thing_new_from_unp(unp, collection, sz, e);
 }
 
 /*
@@ -260,8 +263,11 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     }
     case TI_VAL_SET:
-        /* TODO: is this correct or should the set convert to tuple? */
-        ex_set(e, EX_TYPE_ERROR, "cannot add a `set` to an array");
+        /* This should never happen since a `set` could never be part of the
+         * array in the first place.
+         */
+        ex_set(e, EX_TYPE_ERROR,
+                "unexpected `set` which cannot be added to the array");
         return e->nr;
     }
 
@@ -273,7 +279,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 static ti_val_t * val__from_unp(
         qp_obj_t * qp_val,
         qp_unpacker_t * unp,
-        imap_t * things,
+        ti_collection_t * collection,
         ex_t * e)
 {
     switch((qp_types_t) qp_val->tp)
@@ -319,7 +325,7 @@ static ti_val_t * val__from_unp(
         while (sz--)
         {
             (void) qp_next(unp, &qp_v);
-            v = val__from_unp(&qp_v, unp, things, e);
+            v = val__from_unp(&qp_v, unp, collection, e);
             if (!v || val__push(varr, v, e))
             {
                 ti_val_drop(v);
@@ -335,7 +341,7 @@ static ti_val_t * val__from_unp(
     case QP_MAP3:
     case QP_MAP4:
     case QP_MAP5:
-        return val__unp_map(unp, things, (ssize_t) qp_val->tp - QP_MAP0, e);
+        return val__unp_map(unp, collection, (ssize_t) qp_val->tp-QP_MAP0, e);
     case QP_TRUE:
         return (ti_val_t *) ti_vbool_get(true);
     case QP_FALSE:
@@ -355,7 +361,7 @@ static ti_val_t * val__from_unp(
 
         while (!qp_is_close(qp_next(unp, &qp_v)))
         {
-            v = val__from_unp(&qp_v, unp, things, e);
+            v = val__from_unp(&qp_v, unp, collection, e);
             if (!v || val__push(varr, v, e))
             {
                 ti_val_drop(v);
@@ -366,7 +372,7 @@ static ti_val_t * val__from_unp(
         return (ti_val_t *) varr;
     }
     case QP_MAP_OPEN:
-        return val__unp_map(unp, things, -1, e);
+        return val__unp_map(unp, collection, -1, e);
     case QP_END:
         ex_set(e, EX_NUM_ARGUMENTS, "missing value");
         return NULL;
@@ -485,14 +491,14 @@ int ti_val_make_float(ti_val_t ** val, double d)
 /*
  * Return NULL when failed. Otherwise a new value with a reference.
  */
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
+ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_collection_t * collection)
 {
     ex_t e = {0};
     qp_obj_t qp_val;
     ti_val_t * val;
 
     (void) qp_next(unp, &qp_val);
-    val = val__from_unp(&qp_val, unp, things, &e);
+    val = val__from_unp(&qp_val, unp, collection, &e);
     if (e.nr)
         log_error("failed to unpack value: %s (%d) ", e.msg, e.nr);
     return val;
@@ -501,11 +507,14 @@ ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, imap_t * things)
 /*
  * Return NULL when failed and `e` is set to an appropriate error message
  */
-ti_val_t * ti_val_from_unp_e(qp_unpacker_t * unp, imap_t * things, ex_t * e)
+ti_val_t * ti_val_from_unp_e(
+        qp_unpacker_t * unp,
+        ti_collection_t * collection,
+        ex_t * e)
 {
     qp_obj_t qp_val;
     (void) qp_next(unp, &qp_val);
-    return val__from_unp(&qp_val, unp, things, e);
+    return val__from_unp(&qp_val, unp, collection, e);
 }
 
 
@@ -909,7 +918,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_SET:
         return !!((ti_vset_t *) val)->imap->n;
     case TI_VAL_THING:
-        return !!((ti_thing_t *) val)->props->n;
+        return !!((ti_thing_t *) val)->items->n;
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         return true;
@@ -945,7 +954,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_REGEX:
         break;
     case TI_VAL_THING:
-        return ((ti_thing_t *) val)->props->n;
+        return ((ti_thing_t *) val)->items->n;
     case TI_VAL_ARR:
         return ((ti_varr_t *) val)->vec->n;
     case TI_VAL_SET:
@@ -1164,15 +1173,17 @@ const char * ti_val_str(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_NIL:                return TI_VAL_NIL_S;
-    case TI_VAL_INT:                return TI_VAL_INT_S;
-    case TI_VAL_FLOAT:              return TI_VAL_FLOAT_S;
-    case TI_VAL_BOOL:               return TI_VAL_BOOL_S;
-    case TI_VAL_QP:                 return TI_VAL_INFO_S;
+    case TI_VAL_NIL:            return TI_VAL_NIL_S;
+    case TI_VAL_INT:            return TI_VAL_INT_S;
+    case TI_VAL_FLOAT:          return TI_VAL_FLOAT_S;
+    case TI_VAL_BOOL:           return TI_VAL_BOOL_S;
+    case TI_VAL_QP:             return TI_VAL_INFO_S;
     case TI_VAL_NAME:
-    case TI_VAL_RAW:                return TI_VAL_RAW_S;
-    case TI_VAL_REGEX:              return TI_VAL_REGEX_S;
-    case TI_VAL_THING:              return TI_VAL_THING_S;
+    case TI_VAL_RAW:            return TI_VAL_RAW_S;
+    case TI_VAL_REGEX:          return TI_VAL_REGEX_S;
+    case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val)
+                                    ? TI_VAL_THING_S
+                                    : ti_thing_type_str((ti_thing_t *) val);
     case TI_VAL_ARR:                return ti_varr_is_list((ti_varr_t *) val)
                                         ? TI_VAL_ARR_LIST_S
                                         : TI_VAL_ARR_TUPLE_S;

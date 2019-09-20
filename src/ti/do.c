@@ -819,7 +819,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_LOOKUP_ERROR,
                     "the `root` of the `%s` scope is inaccessible; "
-                    "You might want to query a `@collection` scope?",
+                    "you might want to query a `@collection` scope?",
                     ti_query_scope_name(query));
             return e->nr;
         }

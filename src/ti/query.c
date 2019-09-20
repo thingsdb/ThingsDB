@@ -647,7 +647,7 @@ ti_thing_t * ti_query_thing_from_id(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "scope `%s` has no stored things; "
-                "You might want to query a `@collection` scope?",
+                "you might want to query a `@collection` scope?",
                 ti_query_scope_name(query));
         return NULL;
     }

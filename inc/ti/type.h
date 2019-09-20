@@ -1,64 +1,34 @@
+/*
+ * ti/type.h
+ */
+#ifndef TI_TYPE_H_
+#define TI_TYPE_H_
+
 typedef struct ti_type_s ti_type_t;
-typedef struct ti_field_s ti_field_t;
-typedef struct ti_object_s ti_object_t;
+
+#include <ti/types.h>
+
+ti_type_t * ti_type_create(
+        ti_types_t * types,
+        uint16_t id,
+        const char * name,
+        size_t n);
+void ti_type_destroy(ti_type_t * type);
 
 
-struct ti_object_s
+struct ti_type_s
 {
     uint32_t ref;
-    uint8_t tp;             /* thing or instance */
-    uint8_t flags;
-    uint16_t _pad16;
-
-    uint64_t id;
-    imap_t * objects;       /* instance is added to this map */
-    vec_t * items;          /* ti_prop_t for things, ti_val_t for instances */
-    vec_t * watchers;       /* vec contains ti_watch_t,
-                               NULL if no watchers,  */
-};
-
-struct ti_instance_s
-{
-    uint32_t ref;
-    uint8_t tp;             /* instance */
-    uint8_t flags;
     uint16_t class;         /* type id */
-
-    uint64_t id;
-    imap_t * objects;       /* instance is added to this map */
-    vec_t * values;         /* vec contains ti_val_t */
-    vec_t * watchers;       /* vec contains ti_watch_t,
-                               NULL if no watchers,  */
-};
-
-struct ti_wrap_s
-{
-    uint32_t ref;
-    uint8_t tp;             /* CAST */
-    uint8_t flags;
-    uint16_t kind;          /* to kind id */
-
-    ti_object_t * object;
-};
-
-struct ti_field_s
-{
-    ti_name_t * name;
-    uint16_t sid;
-    char * spec;
-};
-
-struct ti_kind_s
-{
-    uint16_t kind;          /* kind id */
-    vec_t * requires;       /* ti_struct_t */
+    char * name;            /* name (null terminated) */
+    uint32_t name_n;
+    vec_t * dependencies;   /* ti_type_t with reference */
     vec_t * fields;         /* ti_field_t */
 };
 
-struct ti_kind_s
-{
-    imap_t * kinds;
-};
+#endif  /* TI_TYPE_H_ */
+
+
 
 /*
 

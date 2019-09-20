@@ -12,13 +12,14 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_QP,      /* QPack data */
-    TI_VAL_NAME,    /* RAW, stored in name cache */
+    TI_VAL_QP,          /* QPack data */
+    TI_VAL_NAME,        /* RAW, stored in name cache */
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,
-    TI_VAL_ARR,     /* array, list or tuple */
-    TI_VAL_SET,     /* set of things */
+    TI_VAL_CAST,
+    TI_VAL_ARR,         /* array, list or tuple */
+    TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
 } ti_val_enum;
@@ -86,26 +87,29 @@ enum
 typedef enum
 {
     /*
-     * Reserved:
+     * Reserved (may be implemented in the future):
      *   + positive big type
      *   - negative big type
      *   @ date type
      */
     TI_KIND_C_THING     ='#',
+    TI_KIND_C_INSTANCE  ='.',
     TI_KIND_C_CLOSURE   ='>',
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_INFO      ='?',
-    TI_KIND_C_WRAP      ='&',
+    TI_KIND_C_CAST      ='&',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
+#define TI_KIND_S_INSTANCE  "."
 #define TI_KIND_S_CLOSURE   ">"
 #define TI_KIND_S_REGEX     "*"
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_INFO      "?"
+#define TI_KIND_S_CAST      "&"
 
 typedef struct ti_val_s ti_val_t;
 

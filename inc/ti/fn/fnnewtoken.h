@@ -25,20 +25,8 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `new_token` requires at least 1 argument "
-            "but %d were given"NEW_TOKEN_DOC_, nargs);
+    if (fn_nargs_max("new_token", NEW_TOKEN_DOC_, 1, 3, nargs, e))
         return e->nr;
-    }
-    else if (nargs > 3)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `new_token` takes at most 3 arguments but %d were given"
-                NEW_TOKEN_DOC_, nargs);
-        return e->nr;
-    }
 
     child = nd->children;
     if (ti_do_statement(query, child->node, e))

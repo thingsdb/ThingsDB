@@ -168,6 +168,7 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 {
     assert (thing);
     assert (unp);
+    assert (ti_thing_is_object(thing));
 
     qp_obj_t qp_prop;
     ti_name_t * name;
@@ -183,7 +184,7 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
     /* the job is already validated so getting the name will most likely
      * succeed */
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !ti_thing_del(thing, name))
+    if (!name || !ti_thing_o_del(thing, name))
     {
         if (ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
         {
@@ -406,61 +407,6 @@ static int job__remove(
     return 0;
 }
 
-
-/*
- * Returns 0 on success
- * - for example: {'from': 'to'}
- */
-static int job__rename(ti_thing_t * thing, qp_unpacker_t * unp)
-{
-    assert (thing);
-    assert (unp);
-
-    qp_obj_t qp_from, qp_to;
-    ti_name_t * from_name, * to_name;
-
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_from)) ||
-        !qp_is_raw(qp_next(unp, &qp_to)))
-    {
-        log_critical(
-                "job `rename` property on "TI_THING_ID": "
-                "missing map or names",
-                thing->id);
-        return -1;
-    }
-
-    from_name = ti_names_weak_get((const char *) qp_from.via.raw, qp_from.len);
-    if (!from_name)
-    {
-        log_critical(
-                "job `rename` property on "TI_THING_ID": "
-                "missing property: `%.*s`",
-                thing->id,
-                (int) qp_from.len, (char *) qp_from.via.raw);
-        return -1;
-    }
-
-    to_name = ti_names_get((const char *) qp_to.via.raw, qp_to.len);
-    if (!to_name)
-    {
-        log_critical(EX_MEMORY_S);
-        return -1;
-    }
-
-    if (!ti_thing_rename(thing, from_name, to_name))
-    {
-        log_critical(
-                "job `rename` property on "TI_THING_ID": "
-                "missing property: `%s`",
-                thing->id,
-                from_name->str);
-        return -1;
-    }
-
-    return 0;
-}
-
 /*
  * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
@@ -618,11 +564,9 @@ int ti_job_run(
     case 'n':
         return job__new_procedure(collection, unp);
     case 'r':
-        return *(raw+2) == 'm'
-                ? job__remove(collection, thing, unp)
-                : job__rename(thing, unp);
+        return job__remove(collection, thing, unp);
     case 's':
-        return *(raw+1) == 'e'
+        return qp_job_name.len == 3
                 ? job__set(collection, thing, unp)
                 : job__splice(collection, thing, unp);
     }

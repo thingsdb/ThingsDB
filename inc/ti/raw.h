@@ -8,9 +8,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ti/name.h>
+#include <tiinc.h>
 
 typedef struct ti_raw_s ti_raw_t;
-typedef unsigned char uchar;
 
 ti_raw_t * ti_raw_create(const unsigned char * raw, size_t n);
 ti_raw_t * ti_raw_from_packer(qp_packer_t * packer);

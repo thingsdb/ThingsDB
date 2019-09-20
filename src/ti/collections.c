@@ -165,7 +165,7 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    collection->root = ti_things_create_thing(collection->things, root_id);
+    collection->root = ti_things_create_thing(collection, root_id);
 
     if (!collection->root || ti_access_grant(
             &collection->access,

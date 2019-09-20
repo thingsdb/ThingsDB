@@ -71,7 +71,7 @@ static void thing__watch_del(ti_thing_t * thing)
     ti_rpkg_drop(rpkg);
 }
 
-ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
+ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection)
 {
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
@@ -80,13 +80,14 @@ ti_thing_t * ti_thing_create(uint64_t id, imap_t * things)
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
     thing->flags = TI_VFLAG_THING_SWEEP;
+    thing->class = TI_OBJECT_CLASS;
 
     thing->id = id;
-    thing->things = things;
-    thing->props = vec_new(0);
+    thing->collection = collection;
+    thing->items = vec_new(0);
     thing->watchers = NULL;
 
-    if (!thing->props)
+    if (!thing->items)
     {
         ti_thing_destroy(thing);
         return NULL;
@@ -101,27 +102,39 @@ void ti_thing_destroy(ti_thing_t * thing)
     {
         if (ti_events_cache_dropped_thing(thing))
             return;
-        (void) imap_pop(thing->things, thing->id);
+        (void) imap_pop(thing->collection->things, thing->id);
     }
 
     if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);
 
-    vec_destroy(thing->props, (vec_destroy_cb) ti_prop_destroy);
+    if (ti_thing_is_object(thing))
+    {
+        vec_destroy(thing->items, (vec_destroy_cb) ti_prop_destroy);
+    }
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
 
 void ti_thing_clear(ti_thing_t * thing)
 {
-    ti_prop_t * prop;
-    while ((prop = vec_pop(thing->props)))
-        ti_prop_destroy(prop);
+    if (ti_thing_is_object(thing))
+    {
+        ti_prop_t * prop;
+        while ((prop = vec_pop(thing->items)))
+            ti_prop_destroy(prop);
+    }
+    else
+    {
+        ti_type_t * type = ti_thing_type((thing);
+        assert (type);
+
+    }
 }
 
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        imap_t * things,
+        ti_collection_t * collection,
         qp_unpacker_t * unp,
         ssize_t sz,
         ex_t * e)
@@ -149,7 +162,7 @@ int ti_thing_props_from_unp(
         }
 
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
-        val = ti_val_from_unp_e(unp, things, e);
+        val = ti_val_from_unp_e(unp, collection, e);
 
         if (!val || !name || !ti_thing_prop_set(thing, name, val))
         {
@@ -165,7 +178,7 @@ int ti_thing_props_from_unp(
 
 ti_thing_t * ti_thing_new_from_unp(
         qp_unpacker_t * unp,
-        imap_t * things,        /* may be NULL */
+        ti_collection_t * collection,        /* may be NULL */
         ssize_t sz,             /* size, or -1 when MAP_OPEN */
         ex_t * e)
 {
@@ -179,14 +192,14 @@ ti_thing_t * ti_thing_new_from_unp(
         return NULL;
     }
 
-    thing = ti_thing_create(0, things);
+    thing = ti_thing_create(0, collection);
     if (!thing)
     {
         ex_set_mem(e);
         return NULL;
     }
 
-    if (ti_thing_props_from_unp(thing, things, unp, sz, e))
+    if (ti_thing_props_from_unp(thing, collection, unp, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;  /* error is set */
@@ -276,14 +289,16 @@ ti_prop_t * ti_thing_prop_set_e(
 }
 
 /* Returns true if the property is removed, false if not found */
-_Bool ti_thing_del(ti_thing_t * thing, ti_name_t * name)
+_Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
 {
+    assert (ti_thing_is_object(thing));
+
     uint32_t i = 0;
-    for (vec_each(thing->props, ti_prop_t, prop), ++i)
+    for (vec_each(thing->items, ti_prop_t, prop), ++i)
     {
         if (prop->name == name)
         {
-            ti_prop_destroy(vec_swap_remove(thing->props, i));
+            ti_prop_destroy(vec_swap_remove(thing->items, i));
             return true;
         }
     }
@@ -361,27 +376,6 @@ ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     return NULL;
 }
 
-/*
- * Returns true if `from` is found and replaced by to, false if not found.
- * If found, then the `from` reference which was used by the thing will be
- * decremented, the reference count of `to` will never change so when using
- * this function you should act on the return value.
- */
-_Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to)
-{
-    uint32_t i = 0;
-    for (vec_each(thing->props, ti_prop_t, prop), ++i)
-    {
-        if (prop->name == from)
-        {
-            ti_name_drop(prop->name);
-            prop->name = to;
-            return true;
-        }
-    }
-    return false;
-}
-
 int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
@@ -396,10 +390,18 @@ int ti_thing_gen_id(ti_thing_t * thing)
      * Recursion is required since nested things did not generate a task
      * as long as their parent was not attached to the collection.
      */
-    for (vec_each(thing->props, ti_prop_t, prop))
-        if (ti_val_gen_ids(prop->val))
-            return -1;
-
+    if (ti_thing_is_object(thing))
+    {
+        for (vec_each(thing->items, ti_prop_t, prop))
+            if (ti_val_gen_ids(prop->val))
+                return -1;
+    }
+    else
+    {
+        for (vec_each(thing->items, ti_val_t, val))
+            if (ti_val_gen_ids(val))
+                return -1;
+    }
     return 0;
 }
 
@@ -475,16 +477,26 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
     return false;
 }
 
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
+static inline ti_thing_to_packer(
+        ti_thing_t * thing,
+        qp_packer_t ** pckr,
+        int options)
+{
+    return options > 0 || ti_thing_is_object(thing)
+            ? ti_thing_o_to_packer(thing, pckr, options)
+            : ti_thing_t_to_packer(thing, pckr, options);
+}
+
+int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
 {
     assert (options);  /* should be either positive or negative, not 0 */
 
-    if (qp_add_map(packer))
+    if (qp_add_map(pckr))
         return -1;
 
     if (thing->id && (
-            qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_add_int(*packer, thing->id)))
+            qp_add_raw(*pckr, (const uchar *) TI_KIND_S_THING, 1) ||
+            qp_add_int(*pckr, thing->id)))
         return -1;
 
     if (thing->flags & TI_VFLAG_LOCK)
@@ -494,20 +506,66 @@ int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options)
 
     thing->flags |= TI_VFLAG_LOCK;
 
-    for (vec_each(thing->props, ti_prop_t, prop))
+    if (ti_thing_is_object(thing))
     {
-        if (    qp_add_raw_from_str(*packer, prop->name->str) ||
-                ti_val_to_packer(prop->val, packer, options))
+        for (vec_each(thing->items, ti_prop_t, prop))
         {
-            thing->flags &= ~TI_VFLAG_LOCK;
-            return -1;
+            if (    qp_add_raw(
+                        *pckr,
+                        (const uchar *) prop->name->str,
+                        prop->name->n) ||
+                    ti_val_to_packer(prop->val, pckr, options))
+            {
+                thing->flags &= ~TI_VFLAG_LOCK;
+                return -1;
+            }
+        }
+    }
+    else
+    {
+        ti_type_t * type = ti_thing_type(thing);
+
+        for (size_t i = 0, m = type->fields->n; i < m; ++i)
+        {
+            ti_name_t * name = ((ti_field_t *) type->fields->data[i])->name;
+            ti_val_t * val = thing->items->data[i];
+
+            if (    qp_add_raw(*pckr,(const uchar *) name->str, name->n) ||
+                    ti_val_to_packer(val, pckr, options))
+            {
+                thing->flags &= ~TI_VFLAG_LOCK;
+                return -1;
+            }
         }
     }
 
     thing->flags &= ~TI_VFLAG_LOCK;
 
 stop:
-    return qp_close_map(*packer);
+    return qp_close_map(*pckr);
+}
+
+int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
+{
+    assert (options < 0);  /* should only be called when options < 0 */
+    assert (!ti_thing_is_object(thing));
+    assert (thing->id);   /* no need to check, options < 0 must have id */
+
+    if (qp_add_map(pckr))
+        return -1;
+
+    if (thing->id && (
+            qp_add_raw(*pckr, (const uchar *) TI_KIND_S_INSTANCE, 1) ||
+            qp_add_array(pckr) ||
+            qp_add_int(*pckr, thing->id) ||
+            qp_add_int(*pckr, thing->class)))
+        return -1;
+
+    for (vec_each(thing->items, ti_val_t, val))
+        if (ti_val_to_packer(val, pckr, options))
+            return -1;
+
+    return qp_close_array(*pckr) || qp_close_map(*pckr);
 }
 
 _Bool ti__thing_has_watchers_(ti_thing_t * thing)

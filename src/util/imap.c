@@ -32,6 +32,7 @@ static void imap__symmetric_difference_ref(
         imap_node_t * dest,
         imap_node_t * node,
         imap_destroy_cb decref_cb);
+static uint64_t imap__unused_id(imap_node_t * node, uint64_t max);
 
 /*
  * Returns a new imap or NULL in case of an allocation error.
@@ -352,6 +353,43 @@ vec_t * imap_vec_pop(imap_t * imap)
     vec_t * vec = imap_vec(imap);
     imap->vec = NULL;
     return vec;
+}
+
+
+
+uint64_t imap_unused_id(imap_t * imap, uint64_t max)
+{
+    imap_node_t * nd;
+    size_t i, n, m, r;
+
+    if (!imap->n)
+        return 0;
+
+    for (i = 0; i < IMAP_NODE_SZ; ++i)
+    {
+        nd = imap->nodes + i;
+        if (!nd->data)
+            return i > max ? max : i;
+    }
+
+    n = 2 * IMAP_NODE_SZ;
+    n = n < max ? n : max;
+    m = max / IMAP_NODE_SZ;
+
+    for (i = IMAP_NODE_SZ; i < n; ++i)
+    {
+        if (!nd->nodes)
+            return i;
+
+        if (m && (r = imap__unused_id(nd->nodes, m)) < m)
+        {
+            r *= IMAP_NODE_SZ;
+            r += IMAP_NODE_SZ;
+            return r;
+        }
+    }
+
+    return max;
 }
 
 /*
@@ -1049,4 +1087,36 @@ static void imap__symmetric_difference_ref(
     }
 
     free(node->nodes);
+}
+
+static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
+{
+    imap_node_t * nd;
+    size_t i, n, m, r;
+
+    for (i = 0; i < IMAP_NODE_SZ; ++i)
+    {
+        nd = node->nodes + i;
+        if (!nd->data)
+            return i > max ? max : i;
+
+    }
+
+    n = 2 * IMAP_NODE_SZ;
+    n = n < max ? n : max;
+    m = max / IMAP_NODE_SZ;
+
+    for (i = IMAP_NODE_SZ; i < n; ++i)
+    {
+        if (!nd->nodes)
+            return i;
+
+        if (m && (r = imap__unused_id(nd->nodes, m)) < m)
+        {
+            r *= IMAP_NODE_SZ;
+            r += IMAP_NODE_SZ;
+            return r;
+        }
+    }
+    return max;
 }

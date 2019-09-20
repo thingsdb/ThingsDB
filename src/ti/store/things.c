@@ -79,22 +79,49 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
     for (vec_each(things_vec, ti_thing_t, thing))
     {
         found = 0;
-        for (vec_each(thing->props, ti_prop_t, prop))
+        if (ti_thing_is_object(thing))
         {
-            if (!found && (
-                    qp_fadd_int(f, thing->id) ||
-                    qp_fadd_type(f, QP_MAP_OPEN)
-            ))
-                goto stop;
-
-            found = 1;
-            p = (intptr_t) prop->name;
-
-            if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
+            for (vec_each(thing->items, ti_prop_t, prop))
             {
-                assert (0);
-                goto stop;
+                if (!found && (
+                        qp_fadd_int(f, thing->id) ||
+                        qp_fadd_type(f, QP_MAP_OPEN)
+                ))
+                    goto stop;
+
+                found = 1;
+                p = (intptr_t) prop->name;
+
+                if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
+                {
+                    assert (0);
+                    goto stop;
+                }
             }
+        }
+        else
+        {
+            if (qp_fadd_int(f, thing->id) ||
+                qp_fadd_type(f, QP_ARRAY_OPEN),
+                qp_fadd_int(f, thing->class))
+                goto stop;
+
+
+            for (vec_each(thing->items, ti_val_t, val))
+            {
+                ))
+                    goto stop;
+
+                found = 1;
+                ;
+
+                if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
+                {
+                    assert (0);
+                    goto stop;
+                }
+            }
+
         }
 
         if (found && qp_fadd_type(f, QP_MAP_CLOSE))
@@ -121,7 +148,7 @@ stop:
     return rc;
 }
 
-int ti_store_things_restore(imap_t * things, const char * fn)
+int ti_store_things_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = 0;
     ssize_t sz;
@@ -136,7 +163,7 @@ int ti_store_things_restore(imap_t * things, const char * fn)
     {
         uint64_t id;
         memcpy(&id, pt, sizeof(uint64_t));
-        if (!ti_things_create_thing(things, id))
+        if (!ti_things_create_thing(collection, id))
             goto failed;
     }
 
@@ -152,7 +179,7 @@ done:
 
 
 int ti_store_things_restore_data(
-        imap_t * things,
+        ti_collection_t * collection,
         imap_t * names,
         const char * fn)
 {
@@ -199,7 +226,7 @@ int ti_store_things_restore_data(
     while (qp_is_int(qp_next(&unp, &qp_thing_id)))
     {
         uint64_t thing_id = (uint64_t) qp_thing_id.via.int64;
-        thing = imap_get(things, thing_id);
+        thing = imap_get(collection->things, thing_id);
         if (!thing)
         {
             log_critical("cannot find thing with id: %"PRIu64, thing_id);
@@ -220,7 +247,7 @@ int ti_store_things_restore_data(
                 goto fail2;
             }
 
-            val = ti_val_from_unp(&unp, things);
+            val = ti_val_from_unp(&unp, collection);
             if (!val)
             {
                 log_critical("cannot read value for `%s`", name->str);

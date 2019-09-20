@@ -42,13 +42,13 @@ class TestThingsDBFunctions(TestBase):
         with self.assertRaisesRegex(
                 LookupError,
                 'function `node_info` is undefined in the `@thingsdb` scope; '
-                'You might want to query a `@node` scope?'):
+                'you might want to query a `@node` scope?'):
             await client.query('node_info();')
 
         with self.assertRaisesRegex(
                 LookupError,
                 'the `root` of the `@thingsdb` scope is inaccessible; '
-                'You might want to query a `@collection` scope?'):
+                'you might want to query a `@collection` scope?'):
             await client.query('.v = 1;')
 
     async def test_collection_info(self, client):

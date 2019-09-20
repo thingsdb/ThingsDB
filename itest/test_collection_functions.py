@@ -68,13 +68,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 LookupError,
                 'function `new_node` is undefined in the `@collection` scope; '
-                'You might want to query the `@thingsdb` scope?'):
+                'you might want to query the `@thingsdb` scope?'):
             await client.query('new_node();')
 
         with self.assertRaisesRegex(
                 LookupError,
                 'function `counters` is undefined in the `@collection` scope; '
-                'You might want to query a `@node` scope?'):
+                'you might want to query a `@node` scope?'):
             await client.query('counters();')
 
         self.assertIs(await client.query(r'''

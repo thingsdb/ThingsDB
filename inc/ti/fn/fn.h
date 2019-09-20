@@ -10,6 +10,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/vali.h>
 #include <ti/closure.h>
 #include <ti/closurei.h>
 #include <ti/collections.h>
@@ -30,6 +31,8 @@
 #include <ti/vset.h>
 #include <ti/warn.h>
 #include <ti/scope.h>
+#include <ti/field.h>
+#include <ti/thingi.h>
 #include <tiinc.h>
 #include <util/cryptx.h>
 #include <util/strx.h>

@@ -78,8 +78,6 @@ static void things__gc_val(ti_val_t * val)
     }
 }
 
-
-
 ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id)
 {
     assert (id);

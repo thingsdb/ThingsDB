@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ti/collection.h>
+#include <ti/collectioni.h>
 #include <ti/collections.h>
 #include <ti/auth.h>
 #include <ti/proto.h>

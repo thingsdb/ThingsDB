@@ -50,7 +50,7 @@ stop:
 int ti_store_procedures_restore(
         vec_t ** procedures,
         const char * fn,
-        imap_t * things)  /* things may be NULL */
+        ti_collection_t * collection)  /* collection may be NULL */
 {
     int rc = -1;
     int pagesize = getpagesize();
@@ -95,7 +95,7 @@ int ti_store_procedures_restore(
     while (qp_is_raw(qp_next(&unp, &qp_name)))
     {
         rname = ti_raw_create(qp_name.via.raw, qp_name.len);
-        closure = (ti_closure_t *) ti_val_from_unp(&unp, things);
+        closure = (ti_closure_t *) ti_val_from_unp(&unp, collection);
         procedure = NULL;
 
         if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||

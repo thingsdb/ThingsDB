@@ -317,7 +317,7 @@ int ti_store_restore(void)
                 ti_store_procedures_restore(
                         &collection->procedures,
                         store_collection->procedures_fn,
-                        collection->things)
+                        collection)
 
         );
 

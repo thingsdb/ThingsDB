@@ -34,7 +34,11 @@ int ti_closure_lock_and_use(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e);
-int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e);
+int ti_closure_vars_nameval(
+        ti_closure_t * closure,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e);
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i);
 void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query);
 int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e);
@@ -44,13 +48,6 @@ int ti_closure_call(
         vec_t * args,
         ex_t * e);
 ti_raw_t * ti_closure_doc(ti_closure_t * closure);
-static inline cleri_node_t * ti_closure_statement(ti_closure_t * closure);
-static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e);
-static inline int ti_closure_try_lock_and_use(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        ex_t * e);
-static inline void ti_closure_unlock(ti_closure_t * closure);
 
 struct ti_closure_s
 {
@@ -63,6 +60,14 @@ struct ti_closure_s
     vec_t * vars;               /* ti_prop_t - arguments */
     cleri_node_t * node;
 };
+
+static inline int ti_closure_vars_prop(
+        ti_closure_t * closure,
+        ti_prop_t * prop,
+        ex_t * e)
+{
+    return ti_closure_vars_nameval(closure, prop->name, prop->val, e);
+}
 
 static inline cleri_node_t * ti_closure_statement(ti_closure_t * closure)
 {

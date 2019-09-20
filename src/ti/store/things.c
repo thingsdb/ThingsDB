@@ -60,7 +60,6 @@ stop:
 int ti_store_things_store_data(imap_t * things, const char * fn)
 {
     intptr_t p;
-    _Bool found;
     int rc = -1;
     FILE * f = fopen(fn, "w");
     if (!f)
@@ -78,54 +77,39 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        found = 0;
         if (ti_thing_is_object(thing))
         {
+            if (!thing->items->n)
+                continue;
+
+            if (qp_fadd_int(f, thing->id) || qp_fadd_type(f, QP_MAP_OPEN))
+                goto stop;
+
             for (vec_each(thing->items, ti_prop_t, prop))
             {
-                if (!found && (
-                        qp_fadd_int(f, thing->id) ||
-                        qp_fadd_type(f, QP_MAP_OPEN)
-                ))
-                    goto stop;
-
-                found = 1;
                 p = (intptr_t) prop->name;
-
                 if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
-                {
-                    assert (0);
                     goto stop;
-                }
             }
+
+            if (qp_fadd_type(f, QP_MAP_CLOSE))
+                goto stop;
         }
         else
         {
             if (qp_fadd_int(f, thing->id) ||
-                qp_fadd_type(f, QP_ARRAY_OPEN),
+                qp_fadd_type(f, QP_ARRAY_OPEN) ||
                 qp_fadd_int(f, thing->class))
                 goto stop;
 
-
             for (vec_each(thing->items, ti_val_t, val))
-            {
-                ))
+                if (ti_val_to_file(val, f))
                     goto stop;
 
-                found = 1;
-                ;
 
-                if (qp_fadd_int(f, p) || ti_val_to_file(prop->val, f))
-                {
-                    assert (0);
-                    goto stop;
-                }
-            }
-
+            if (qp_fadd_type(f, QP_ARRAY_CLOSE))
+                goto stop;
         }
-
-        if (found && qp_fadd_type(f, QP_MAP_CLOSE))
-            goto stop;
     }
 
     if (qp_fadd_type(f, QP_MAP_CLOSE))

@@ -15,6 +15,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ex.h>
 #include <ti/quota.h>
 #include <ti/types.h>
+#include <ti/val.h>
 
 ti_collection_t * ti_collection_create(
         guid_t * guid,

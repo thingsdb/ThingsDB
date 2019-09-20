@@ -58,7 +58,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case TI_VAL_THING:
     {
-        ti_thing_t * thing;
+        ti_thing_t * thing, * t = (ti_thing_t *) iterval;
 
         if (ti_quota_things(
                 query->collection->quota,
@@ -71,25 +71,54 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         retval = (ti_val_t *) thing;
 
-        for (vec_each(((ti_thing_t *) iterval)->props, ti_prop_t, p))
+        if (ti_thing_is_object(t))
         {
-            if (ti_closure_vars_prop(closure, p, e))
-                goto fail2;
-
-            if (ti_closure_do_statement(closure, query, e))
-                goto fail2;
-
-            if (ti_val_as_bool(query->rval))
+            for (vec_each(t->items, ti_prop_t, p))
             {
-                if (    ti_val_make_assignable(&p->val, e) ||
-                        !ti_thing_prop_add(thing, p->name, p->val))
+                if (ti_closure_vars_prop(closure, p, e))
                     goto fail2;
-                ti_incref(p->name);
-                ti_incref(p->val);
+
+                if (ti_closure_do_statement(closure, query, e))
+                    goto fail2;
+
+                if (ti_val_as_bool(query->rval))
+                {
+                    if (    ti_val_make_assignable(&p->val, e) ||
+                            !ti_thing_prop_add(thing, p->name, p->val))
+                        goto fail2;
+                    ti_incref(p->name);
+                    ti_incref(p->val);
+                }
+
+                ti_val_drop(query->rval);
+                query->rval = NULL;
+            }
+        }
+        else
+        {
+            ti_name_t * name;
+            ti_val_t * val;
+            for (thing_each(t, name, val))
+            {
+                if (ti_closure_vars_nameval(closure, name, val, e))
+                    goto fail2;
+
+                if (ti_closure_do_statement(closure, query, e))
+                    goto fail2;
+
+                if (ti_val_as_bool(query->rval))
+                {
+                    if (    ti_val_make_assignable(&val, e) ||
+                            !ti_thing_prop_add(thing, name, val))
+                        goto fail2;
+                    ti_incref(name);
+                    ti_incref(val);
+                }
+
+                ti_val_drop(query->rval);
+                query->rval = NULL;
             }
 
-            ti_val_drop(query->rval);
-            query->rval = NULL;
         }
         break;
     }

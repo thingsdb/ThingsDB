@@ -7,9 +7,10 @@
 #include <qpack.h>
 #include <stdint.h>
 #include <ti/thing.h>
+#include <ti/collection.h>
 #include <util/imap.h>
 
-ti_thing_t * ti_things_create_thing(imap_t * things, uint64_t id);
+ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id);
 ti_thing_t * ti_things_thing_from_unp(
         imap_t * things,
         uint64_t thing_id,

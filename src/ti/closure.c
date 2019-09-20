@@ -364,22 +364,26 @@ int ti_closure_lock_and_use(
     return 0;
 }
 
-int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
+int ti_closure_vars_nameval(
+        ti_closure_t * closure,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e)
 {
     size_t n = 0;
-    for (vec_each(closure->vars, ti_prop_t, p), ++n)
+    for (vec_each(closure->vars, ti_prop_t, prop), ++n)
     {
         switch (n)
         {
         case 0:
-            ti_val_drop(p->val);
-            p->val = (ti_val_t *) prop->name;
-            ti_incref(p->val);
+            ti_val_drop(prop->val);
+            prop->val = (ti_val_t *) name;
+            ti_incref(prop->val);
             break;
         case 1:
-            ti_val_drop(p->val);
-            p->val = prop->val;
-            ti_incref(p->val);
+            ti_val_drop(prop->val);
+            prop->val = val;
+            ti_incref(prop->val);
             /*
              * Re-assign variable since we require a copy of lists and sets.
              * It is not possible to work with pointers unless we consider
@@ -389,7 +393,7 @@ int ti_closure_vars_prop(ti_closure_t * closure, ti_prop_t * prop, ex_t * e)
              *
              * TODO: consider the above behavior
              */
-            if (ti_val_make_assignable(&p->val, e))
+            if (ti_val_make_assignable(&prop->val, e))
                 return e->nr;
             break;
         default:

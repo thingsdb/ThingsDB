@@ -15,7 +15,7 @@ int ti_store_things_restore_skeleton(
         imap_t * names,
         const char * fn);
 int ti_store_things_restore_data(
-        imap_t * things,
+        ti_collection_t * collection,
         imap_t * names,
         const char * fn);
 

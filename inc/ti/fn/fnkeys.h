@@ -28,19 +28,30 @@ static int do__f_keys(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     thing = (ti_thing_t *) query->rval;
-    varr = ti_varr_create(thing->props->n);
+    varr = ti_varr_create(thing->items->n);
     if (!varr)
     {
         ex_set_mem(e);
         return e->nr;
     }
 
-    for (vec_each(thing->props, ti_prop_t, prop))
+    if (ti_thing_is_object(thing))
     {
-        VEC_push(varr->vec, prop->name);
-        ti_incref(prop->name);
+        for (vec_each(thing->items, ti_prop_t, prop))
+        {
+            VEC_push(varr->vec, prop->name);
+            ti_incref(prop->name);
+        }
     }
-
+    else
+    {
+        ti_type_t * type = ti_thing_type(thing);
+        for (vec_each(type->fields, ti_field_t, field))
+        {
+            VEC_push(varr->vec, field->name);
+            ti_incref(field->name);
+        }
+    }
     query->rval = (ti_val_t *) varr;
     ti_val_drop((ti_val_t *) thing);
 

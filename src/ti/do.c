@@ -120,9 +120,9 @@ static inline ti_prop_t * do__get_prop(
         ex_t * e)
 {
     ti_prop_t * prop = nd->data
-            ? ti_thing_prop_weak_get(thing, nd->data)
+            ? ti_thing_o_prop_weak_get(thing, nd->data)
             : (do__cache_name(query, nd)
-                ? ti_thing_prop_weak_get(thing, nd->data)
+                ? ti_thing_o_prop_weak_get(thing, nd->data)
                 : NULL);
 
     if (!prop)
@@ -180,7 +180,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_name_t * name;
 
-        if (thing->props->n == max_props)
+        if (thing->items->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
                 "maximum properties quota of %zu has been reached"
@@ -617,7 +617,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 e))
             return e->nr;
         max_props = query->collection->quota->max_props;
-        thing = ti_thing_create(0, query->collection->things);
+        thing = ti_thing_create(0, query->collection);
     }
     else
     {
@@ -638,7 +638,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         cleri_node_t * scope;
         ti_name_t * name;
 
-        if (thing->props->n == max_props)
+        if (thing->items->n == max_props)
         {
             ex_set(e, EX_MAX_QUOTA,
                     "maximum properties quota of %zu has been reached"

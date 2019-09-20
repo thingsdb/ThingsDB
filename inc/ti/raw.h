@@ -7,8 +7,8 @@
 #include <qpack.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <ti/name.h>
 #include <tiinc.h>
+#include <ex.h>
 
 typedef struct ti_raw_s ti_raw_t;
 

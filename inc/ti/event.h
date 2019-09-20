@@ -37,6 +37,7 @@ typedef union ti_event_u ti_event_via_t;
 #include <ti/raw.h>
 #include <ti/stream.h>
 #include <util/omap.h>
+#include <util/logger.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
 ti_event_t * ti_event_initial(void);

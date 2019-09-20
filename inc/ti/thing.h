@@ -8,6 +8,7 @@
 
 typedef struct ti_thing_s  ti_thing_t;
 
+#include <assert.h>
 #include <qpack.h>
 #include <stdint.h>
 #include <ti/name.h>
@@ -149,5 +150,11 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     return NULL;
 }
 
+#define thing_each(t__, name__, val__)                          \
+    void ** v__ = t__->items->data,                             \
+    ** e__ = v__ + t__->items->n,                               \
+    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    v__ < e__ && (((name__ = *n__) && (val__ = *v__)) || 1);     \
+    ++v__, ++n__
 
 #endif /* TI_THING_H_ */

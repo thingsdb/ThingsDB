@@ -1,8 +1,8 @@
 /*
- * ti/collection.h
+ * ti/collectioni.h
  */
-#ifndef TI_COLLECTION_H_
-#define TI_COLLECTION_H_
+#ifndef TI_COLLECTIONI_H_
+#define TI_COLLECTIONI_H_
 
 #include <qpack.h>
 #include <ti/collection.h>
@@ -32,4 +32,4 @@ static inline int ti_collection_to_packer(
     );
 }
 
-#endif  /* TI_COLLECTION_H_ */
+#endif  /* TI_COLLECTIONI_H_ */

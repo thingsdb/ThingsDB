@@ -5,11 +5,12 @@
 #define TI_STORE_PROCEDURES_H_
 
 #include <util/vec.h>
+#include <ti/collection.h>
 
 int ti_store_procedures_store(const vec_t * procedures, const char * fn);
 int ti_store_procedures_restore(
         vec_t ** procedures,
         const char * fn,
-        imap_t * things);
+        ti_collection_t * collection);
 
 #endif /* TI_STORE_PROCEDURES_H_ */

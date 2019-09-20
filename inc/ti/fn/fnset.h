@@ -86,7 +86,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (thing->props->n == max_props)
+    if (thing->items->n == max_props)
     {
         ex_set(e, EX_MAX_QUOTA,
             "maximum properties quota of %zu has been reached"

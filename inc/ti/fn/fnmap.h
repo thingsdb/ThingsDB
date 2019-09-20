@@ -64,20 +64,45 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (iterval->tp)
     {
     case TI_VAL_THING:
-        for (vec_each(((ti_thing_t *) iterval)->props, ti_prop_t, p))
+    {
+        ti_thing_t * thing = (ti_thing_t *) iterval;
+
+        if (ti_thing_is_object(thing))
         {
-            if (ti_closure_vars_prop(closure, p, e))
-                goto fail2;
+            for (vec_each(thing->items, ti_prop_t, p))
+            {
+                if (ti_closure_vars_prop(closure, p, e))
+                    goto fail2;
 
-            if (ti_closure_do_statement(closure, query, e))
-                goto fail2;
+                if (ti_closure_do_statement(closure, query, e))
+                    goto fail2;
 
-            if (ti_varr_append(retvarr, (void **) &query->rval, e))
-                goto fail2;
+                if (ti_varr_append(retvarr, (void **) &query->rval, e))
+                    goto fail2;
 
-            query->rval = NULL;
+                query->rval = NULL;
+            }
+        }
+        else
+        {
+            ti_name_t * name;
+            ti_val_t * val;
+            for (thing_each(thing, name, val))
+            {
+                if (ti_closure_vars_nameval(closure, name, val, e))
+                    goto fail2;
+
+                if (ti_closure_do_statement(closure, query, e))
+                    goto fail2;
+
+                if (ti_varr_append(retvarr, (void **) &query->rval, e))
+                    goto fail2;
+
+                query->rval = NULL;
+            }
         }
         break;
+    }
     case TI_VAL_ARR:
     {
         int64_t idx = 0;

@@ -468,7 +468,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (thing->props->n == max_props)
+    if (thing->items->n == max_props)
     {
         ex_set(e, EX_MAX_QUOTA,
             "maximum properties quota of %zu has been reached"

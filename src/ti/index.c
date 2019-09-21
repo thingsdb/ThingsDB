@@ -432,7 +432,7 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
         goto fail0;
     }
 
-    prop = ti_thing_weak_get_e(thing, (ti_raw_t *) query->rval, e);
+    prop = ti_thing_o_weak_get_e(thing, (ti_raw_t *) query->rval, e);
     if (!prop)
         goto fail0;
 
@@ -496,7 +496,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (ass_tokens->len == 2)
     {
-        prop = ti_thing_weak_get_e(thing, rname, e);
+        prop = ti_thing_o_weak_get_e(thing, rname, e);
         if (!prop || ti_opr_a_to_b(prop->val, ass_tokens, &query->rval, e))
             goto fail1;
 
@@ -515,7 +515,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
             goto fail1;
         }
 
-        prop = ti_thing_prop_set_e(thing, name, query->rval, e);
+        prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
         if (!prop)
         {
             assert (e->nr);

@@ -48,7 +48,7 @@ static int job__add(
     n = qp_n.via.int64;
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
+    if (!name || !(vset = (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
@@ -70,7 +70,7 @@ static int job__add(
 
     while(n--)
     {
-        t = (ti_thing_t *) ti_val_from_unp(unp, collection->things);
+        t = (ti_thing_t *) ti_val_from_unp(unp, collection);
 
         if (!t || !ti_val_is_thing((ti_val_t *) t) || ti_vset_add(vset, t))
         {
@@ -130,7 +130,7 @@ static int job__set(
         return -1;
     }
 
-    val = ti_val_from_unp(unp, collection->things);
+    val = ti_val_from_unp(unp, collection);
     if (!val)
     {
         log_critical(
@@ -141,7 +141,7 @@ static int job__set(
         goto fail;
     }
 
-    if (!ti_thing_prop_set(thing, name, val))
+    if (!ti_thing_o_prop_set(thing, name, val))
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
@@ -278,7 +278,7 @@ static int job__new_procedure(
     }
 
     rname = ti_raw_create(qp_name.via.raw, qp_name.len);
-    closure = (ti_closure_t *) ti_val_from_unp(unp, collection->things);
+    closure = (ti_closure_t *) ti_val_from_unp(unp, collection);
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
@@ -344,7 +344,7 @@ static int job__remove(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
+    if (!name || !(vset = (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
@@ -442,7 +442,7 @@ static int job__splice(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(varr = (ti_varr_t *) ti_thing_val_weak_get(thing, name)))
+    if (!name || !(varr = (ti_varr_t *) ti_thing_o_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
@@ -503,7 +503,7 @@ static int job__splice(
 
     while(n--)
     {
-        ti_val_t * val = ti_val_from_unp(unp, collection->things);
+        ti_val_t * val = ti_val_from_unp(unp, collection);
 
         if (!val)  /* both <0 and >0 are not correct since we should have n values */
         {

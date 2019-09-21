@@ -250,7 +250,6 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
     ti_name_t * name;
     ti_prop_t * prop;
     ti_val_t * argval;
-    imap_t * things = query->collection ? query->collection->things : NULL;
 
     if (!qp_is_map(qp_next(unp, NULL)))
     {
@@ -277,7 +276,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
             return e->nr;
         }
 
-        argval = ti_val_from_unp_e(unp, things, e);
+        argval = ti_val_from_unp_e(unp, query->collection, e);
         if (!argval)
         {
             assert (e->nr);
@@ -364,7 +363,7 @@ int ti_query_unp_run(
         ex_t * e)
 {
     vec_t * procedures = NULL;
-    imap_t * things = NULL;
+    ti_collection_t * collection = NULL;
     qp_unpacker_t unpacker;
     qp_obj_t qp_procedure;
     ti_procedure_t * procedure;
@@ -400,14 +399,14 @@ int ti_query_unp_run(
     case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         procedures = ti()->procedures;
-        things = NULL;
+        collection = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
     case TI_SCOPE_COLLECTION_ID:
         if (query__set_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
-        things = query->collection->things;
+        collection = query->collection;
         break;
     }
 
@@ -436,7 +435,7 @@ int ti_query_unp_run(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        argval = ti_val_from_unp_e(&unpacker, things, e);
+        argval = ti_val_from_unp_e(&unpacker, collection, e);
         if (!argval)
         {
             assert (e->nr);

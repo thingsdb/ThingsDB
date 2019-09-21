@@ -79,6 +79,20 @@ static ti_val_t * val__unp_map(
                 unp,
                 sz,
                 e);
+    case TI_KIND_C_INSTANCE:
+        if (!collection)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot unpack a `thing` without a collection");
+            return NULL;
+        }
+        assert (0);
+        /* TODO: handle instance */
+        return NULL;
+    case TI_KIND_C_CAST:
+        assert (0);
+        /* TODO: handle cast */
+        return NULL;
     case TI_KIND_C_CLOSURE:
     {
         ti_syntax_t syntax;

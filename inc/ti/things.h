@@ -12,7 +12,7 @@
 
 ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id);
 ti_thing_t * ti_things_thing_from_unp(
-        imap_t * things,
+        ti_collection_t * collection,
         uint64_t thing_id,
         qp_unpacker_t * unp,
         ssize_t sz,

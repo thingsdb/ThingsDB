@@ -7,6 +7,7 @@
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/thing.h>
+#include <ti/thingi.h>
 #include <ti/val.h>
 #include <ti/names.h>
 #include <util/qpx.h>
@@ -126,9 +127,13 @@ void ti_thing_clear(ti_thing_t * thing)
     }
     else
     {
-        ti_type_t * type = ti_thing_type((thing);
-        assert (type);
+        ti_val_t * val;
+        while ((val = vec_pop(thing->items)))
+            ti_val_drop(val);
 
+        /* convert to a simple object since the thing is not class
+         * compliant anymore */
+        thing->class = TI_OBJECT_CLASS;
     }
 }
 
@@ -164,7 +169,7 @@ int ti_thing_props_from_unp(
         name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
         val = ti_val_from_unp_e(unp, collection, e);
 
-        if (!val || !name || !ti_thing_prop_set(thing, name, val))
+        if (!val || !name || !ti_thing_o_prop_set(thing, name, val))
         {
             if (!e->nr)
                 ex_set_mem(e);
@@ -212,12 +217,16 @@ ti_thing_t * ti_thing_new_from_unp(
  * Does not increment the `name` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
-ti_prop_t * ti_thing_prop_add(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+ti_prop_t * ti_thing_o_prop_add(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val)
 {
-    assert (ti_thing_prop_weak_get(thing, name) == NULL);
+    assert (ti_thing_is_object(thing));
+    assert (ti_thing_o_prop_weak_get(thing, name) == NULL);
 
     ti_prop_t * prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->props, prop))
+    if (!prop || vec_push(&thing->items, prop))
     {
         free(prop);
         return NULL;
@@ -229,11 +238,15 @@ ti_prop_t * ti_thing_prop_add(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
 /*
  * Does not increment the `name` and `val` reference counters.
  */
-ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+ti_prop_t * ti_thing_o_prop_set(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val)
 {
+    assert (ti_thing_is_object(thing));
     ti_prop_t * prop;
 
-    for (vec_each(thing->props, ti_prop_t, p))
+    for (vec_each(thing->items, ti_prop_t, p))
     {
         if (p->name == name)
         {
@@ -245,7 +258,7 @@ ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
     }
 
     prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->props, prop))
+    if (!prop || vec_push(&thing->items, prop))
     {
         free(prop);
         return NULL;
@@ -257,7 +270,7 @@ ti_prop_t * ti_thing_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * v
 /*
  * Does not increment the `name` and `val` reference counters.
  */
-ti_prop_t * ti_thing_prop_set_e(
+ti_prop_t * ti_thing_o_prop_set_e(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val,
@@ -265,7 +278,7 @@ ti_prop_t * ti_thing_prop_set_e(
 {
     ti_prop_t * prop;
 
-    for (vec_each(thing->props, ti_prop_t, p))
+    for (vec_each(thing->items, ti_prop_t, p))
     {
         if (p->name == name)
         {
@@ -279,7 +292,7 @@ ti_prop_t * ti_thing_prop_set_e(
     }
 
     prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->props, prop))
+    if (!prop || vec_push(&thing->items, prop))
     {
         free(prop);
         return NULL;
@@ -327,21 +340,23 @@ static inline void thing__set_not_found(
 }
 
 /* Returns 0 if the property is removed, -1 in case of an error */
-int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
+    assert (ti_thing_is_object(thing));
+
     uint32_t i = 0;
     ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
 
     if (name)
     {
-        for (vec_each(thing->props, ti_prop_t, prop), ++i)
+        for (vec_each(thing->items, ti_prop_t, prop), ++i)
         {
             if (prop->name == name)
             {
                 if (thing__prop_locked(thing, prop, e))
                     return e->nr;
 
-                ti_prop_destroy(vec_swap_remove(thing->props, i));
+                ti_prop_destroy(vec_swap_remove(thing->items, i));
                 return 0;
             }
         }
@@ -351,28 +366,30 @@ int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     return e->nr;
 }
 
-ti_prop_t * ti_thing_weak_get(ti_thing_t * thing, ti_raw_t * rname)
+ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r)
 {
-    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+    assert (ti_thing_is_object(thing));
+    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
 
     if (name)
-        for (vec_each(thing->props, ti_prop_t, prop))
+        for (vec_each(thing->items, ti_prop_t, prop))
             if (prop->name == name)
                 return prop;
 
     return NULL;
 }
 
-ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e)
 {
-    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+    assert (ti_thing_is_object(thing));
+    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
 
     if (name)
-        for (vec_each(thing->props, ti_prop_t, prop))
+        for (vec_each(thing->items, ti_prop_t, prop))
             if (prop->name == name)
                 return prop;
 
-    thing__set_not_found(thing, name, rname, e);
+    thing__set_not_found(thing, name, r, e);
     return NULL;
 }
 
@@ -477,15 +494,6 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
     return false;
 }
 
-static inline ti_thing_to_packer(
-        ti_thing_t * thing,
-        qp_packer_t ** pckr,
-        int options)
-{
-    return options > 0 || ti_thing_is_object(thing)
-            ? ti_thing_o_to_packer(thing, pckr, options)
-            : ti_thing_t_to_packer(thing, pckr, options);
-}
 
 int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
 {
@@ -523,13 +531,10 @@ int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
     }
     else
     {
-        ti_type_t * type = ti_thing_type(thing);
-
-        for (size_t i = 0, m = type->fields->n; i < m; ++i)
+        ti_name_t * name;
+        ti_val_t * val;
+        for (thing_each(thing, name, val))
         {
-            ti_name_t * name = ((ti_field_t *) type->fields->data[i])->name;
-            ti_val_t * val = thing->items->data[i];
-
             if (    qp_add_raw(*pckr,(const uchar *) name->str, name->n) ||
                     ti_val_to_packer(val, pckr, options))
             {

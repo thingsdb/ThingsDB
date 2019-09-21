@@ -39,7 +39,7 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ex_t * e)
     uint16_t id = imap_unused_id(types->imap, UINT16_MAX);
     if (id == UINT16_MAX)
     {
-        e_set(e, EX_MAX_QUOTA, "reached the maximum number of types");
+        ex_set(e, EX_MAX_QUOTA, "reached the maximum number of types");
     }
     return id;
 }

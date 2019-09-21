@@ -26,38 +26,39 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        imap_t * things,
+        ti_collection_t * collection,
         qp_unpacker_t * unp,
         ssize_t sz,
         ex_t * e);
 ti_thing_t * ti_thing_new_from_unp(
         qp_unpacker_t * unp,
-        imap_t * things,
+        ti_collection_t * collection,
         ssize_t sz,
         ex_t * e);
-ti_prop_t * ti_thing_prop_add(
+ti_prop_t * ti_thing_o_prop_add(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
-ti_prop_t * ti_thing_prop_set(
+ti_prop_t * ti_thing_o_prop_set(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
-ti_prop_t * ti_thing_prop_set_e(
+ti_prop_t * ti_thing_o_prop_set_e(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
-int ti_thing_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
-ti_prop_t * ti_thing_weak_get(ti_thing_t * thing, ti_raw_t * rname);
-ti_prop_t * ti_thing_weak_get_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r);
+ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_to_packer(ti_thing_t * thing, qp_packer_t ** packer, int options);
+int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 
 
@@ -78,6 +79,16 @@ struct ti_thing_s
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {
     return thing->class == TI_OBJECT_CLASS;
+}
+
+static inline int ti_thing_to_packer(
+        ti_thing_t * thing,
+        qp_packer_t ** pckr,
+        int options)
+{
+    return options > 0 || ti_thing_is_object(thing)
+            ? ti_thing_o_to_packer(thing, pckr, options)
+            : ti_thing_t_to_packer(thing, pckr, options);
 }
 
 static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)

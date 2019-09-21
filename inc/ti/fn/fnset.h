@@ -122,7 +122,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    prop = ti_thing_prop_set_e(thing, name, query->rval, e);
+    prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
     if (!prop)
     {
         assert (e->nr);

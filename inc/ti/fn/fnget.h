@@ -50,7 +50,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    prop = ti_thing_weak_get(thing, (ti_raw_t *) query->rval);
+    prop = ti_thing_o_weak_get(thing, (ti_raw_t *) query->rval);
     ti_val_drop(query->rval);
 
     if (!prop)

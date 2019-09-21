@@ -57,7 +57,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto unlock;
     }
 
-    if (ti_thing_del_e(thing, (ti_raw_t *) query->rval, e))
+    if (ti_thing_o_del_e(thing, (ti_raw_t *) query->rval, e))
         goto unlock;
 
     if (thing->id)

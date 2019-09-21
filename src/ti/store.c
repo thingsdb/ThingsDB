@@ -311,7 +311,7 @@ int ti_store_restore(void)
                         collection,
                         store_collection->collection_fn) ||
                 ti_store_things_restore_data(
-                        collection->things,
+                        collection,
                         namesmap,
                         store_collection->props_fn) ||
                 ti_store_procedures_restore(

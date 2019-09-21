@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ti/raw.h>
+#include <ti/name.h>
 #include <ti/val.h>
 #include <util/logger.h>
 

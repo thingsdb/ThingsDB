@@ -195,7 +195,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        prop = ti_thing_prop_set_e(thing, name, query->rval, e);
+        prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
         if (!prop)
         {
             assert (e->nr);
@@ -660,7 +660,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!name)
             goto alloc_err;
 
-        if (!ti_thing_prop_set(thing, name, query->rval))
+        if (!ti_thing_o_prop_set(thing, name, query->rval))
         {
             ti_name_drop(name);
             goto alloc_err;

@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <ti/type.h>
 
@@ -16,14 +17,14 @@ ti_type_t * ti_type_create(
     if (!type)
         return NULL;
 
-    type->ref =
+    type->ref = 0;
     type->name = strndup(name, n);
     type->name_n = n;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
 
     imap_add(types->imap, id, type);  /* must be 0 */
-    smap_add(types->smap, name);
+    smap_add(types->smap, name, type);
 
     return type;
 }

@@ -57,7 +57,7 @@ static void things__gc_val(ti_val_t * val)
         ti_thing_t * thing = (ti_thing_t *) val;
         if (thing->flags & TI_VFLAG_THING_SWEEP)
             things__gc_mark_thing(thing);
-        continue;
+        return;
     }
 
     case TI_VAL_ARR:
@@ -65,15 +65,14 @@ static void things__gc_val(ti_val_t * val)
         ti_varr_t * varr = (ti_varr_t *) val;
         if (ti_varr_may_have_things(varr))
             things__gc_mark_varr(varr);
-        continue;
+        return;
     }
 
     case TI_VAL_SET:
     {
         ti_vset_t * vset = (ti_vset_t *) val;
         (void) imap_walk(vset->imap, (imap_cb) things__set_cb, NULL);
-        continue;
-
+        return;
     }
     }
 }

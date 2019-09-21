@@ -79,7 +79,7 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
-            name && ti_thing_prop_weak_get(thing, name));
+            name && ti_thing_o_prop_weak_get(thing, name));
 
 fail1:
     ti_val_drop((ti_val_t *) thing);

@@ -39,6 +39,11 @@
     __FILE__, __LINE__, __func__, strsignal(signum__)); \
     raise(signum__);} while(0)
 
+#define ti_panic(str__) do {\
+    log_critical("panic at: %s:%d,%s (%s)", \
+    __FILE__, __LINE__, __func__, str__); \
+    abort();} while(0)
+
 int ti_create(void);
 void ti_destroy(void);
 int ti_init_logger(void);

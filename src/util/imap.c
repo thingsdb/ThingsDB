@@ -355,8 +355,14 @@ vec_t * imap_vec_pop(imap_t * imap)
     return vec;
 }
 
-
-
+/*
+ * Returns a free id below the given `max` value. If no free id is found, then
+ * the returned value will be equal to `max`. (This does not mean that `max`
+ * is free to use)
+ *
+ * Note: the return value is not necessary the lowest free id, for example, 64
+ * might be returned as a free id while 33 is also a free id.
+ */
 uint64_t imap_unused_id(imap_t * imap, uint64_t max)
 {
     imap_node_t * nd;

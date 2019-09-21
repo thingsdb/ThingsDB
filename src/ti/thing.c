@@ -494,8 +494,25 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
     return false;
 }
 
+void ti_thing_t_to_object(ti_thing_t * thing)
+{
+    assert (!ti_thing_is_object(thing));
+    ti_name_t * name;
+    ti_val_t * val;
+    ti_prop_t * prop;
+    for (thing_each(thing, name, val))
+    {
+        prop = ti_prop_create(name, val);
+        if (!prop)
+            ti_panic("cannot recover from a state between object and instance");
 
-int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
+        ti_incref(name);
+        *v__ = &prop;
+    }
+    thing->class = TI_OBJECT_CLASS;
+}
+
+int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
 {
     assert (options);  /* should be either positive or negative, not 0 */
 

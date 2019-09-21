@@ -13,13 +13,12 @@
 
 static void signals__handler(uv_signal_t * sig, int signum);
 
-#define signals__nsigs 6
+#define signals__nsigs 5
 static const int signals__signms[signals__nsigs] = {
         SIGHUP,
         SIGINT,
         SIGTERM,
         SIGSEGV,
-        SIGABRT,
         SIGPIPE
 };
 

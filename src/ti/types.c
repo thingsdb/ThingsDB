@@ -34,8 +34,33 @@ void ti_types_destroy(ti_types_t * types)
     free(types);
 }
 
+int ti_types_add(ti_types_t * types, ti_type_t * type)
+{
+    if (imap_add(types->imap, type->class, type))
+        return -1;
+
+    if (smap_add(types->smap, type->name, type))
+    {
+        (void) imap_pop(types->imap, type->class);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Call ti_collection_del_type(..) so existing things using this type will
+ * be converted to objects.
+ */
+void ti_types_del(ti_types_t * types, ti_type_t * type)
+{
+    assert (!type->refcount);
+    (void) imap_pop(types->imap, type->class);
+    (void) smap_pop(types->smap, type->name);
+}
+
 uint16_t ti_types_get_new_id(ti_types_t * types, ex_t * e)
 {
+    /* UINT16_MAX is reserved as TI_OBJECT_CLASS */
     uint16_t id = imap_unused_id(types->imap, UINT16_MAX);
     if (id == UINT16_MAX)
     {

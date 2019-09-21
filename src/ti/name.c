@@ -32,7 +32,7 @@ void ti_name_destroy(ti_name_t * name)
 
 _Bool ti_name_is_valid_strn(const char * str, size_t n)
 {
-    if (!n || (!isalpha(str[0]) && str[0] != '_'))
+    if (!n || (!isalpha(*str) && *str != '_'))
         return false;
 
     while(--n)

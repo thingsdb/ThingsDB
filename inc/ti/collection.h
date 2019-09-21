@@ -14,6 +14,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <util/guid.h>
 #include <ex.h>
 #include <ti/quota.h>
+#include <ti/type.h>
 #include <ti/types.h>
 #include <ti/val.h>
 
@@ -32,6 +33,7 @@ void ti_collection_set_quota(
         ti_collection_t * collection,
         ti_quota_enum_t quota_tp,
         size_t quota);
+int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type);
 
 struct ti_collection_s
 {

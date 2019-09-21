@@ -48,6 +48,7 @@ ti_prop_t * ti_thing_o_prop_set_e(
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e);
+void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r);
@@ -57,7 +58,7 @@ _Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_o_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 
@@ -87,7 +88,7 @@ static inline int ti_thing_to_packer(
         int options)
 {
     return options > 0 || ti_thing_is_object(thing)
-            ? ti_thing_o_to_packer(thing, pckr, options)
+            ? ti_thing__to_packer(thing, pckr, options)
             : ti_thing_t_to_packer(thing, pckr, options);
 }
 

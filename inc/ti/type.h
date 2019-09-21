@@ -6,19 +6,15 @@
 
 typedef struct ti_type_s ti_type_t;
 
-#include <ti/types.h>
-
-ti_type_t * ti_type_create(
-        ti_types_t * types,
-        uint16_t id,
-        const char * name,
-        size_t n);
+ti_type_t * ti_type_create(uint16_t class, const char * name, size_t n);
 void ti_type_destroy(ti_type_t * type);
+_Bool ti_type_is_valid_strn(const char * str, size_t n)
+ti_type_t * ti_type_from_thing(ti_thing_t * thing);
 
 
 struct ti_type_s
 {
-    uint32_t ref;
+    uint32_t refcount;      /* use counter by other type */
     uint16_t class;         /* type id */
     char * name;            /* name (null terminated) */
     uint32_t name_n;

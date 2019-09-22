@@ -61,14 +61,22 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    type = ti_type_create(
-            query->collection->types,
-            type_id,
-            (const char *) rname->data,
-            rname->n);
+    type = ti_type_create(type_id, (const char *) rname->data, rname->n);
 
     if (!type)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+
+
+
+    if (ti_types_add(query->collection->types, type))
+    {
         ex_set_internal(e);
+        goto fail0;
+    }
 
 fail0:
     ti_val_drop((ti_val_t *) rname);

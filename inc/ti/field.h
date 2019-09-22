@@ -8,6 +8,7 @@ typedef struct ti_field_s ti_field_t;
 
 #include <ti/name.h>
 #include <ti/val.h>
+#include <ti/thing.h>
 #include <inttypes.h>
 #include <ex.h>
 
@@ -16,6 +17,7 @@ typedef enum
     TI_FIELD_FLAG_NULLABLE       =1<<0,
     TI_FIELD_FLAG_UTF8           =1<<1,     /* raw type must be valid utf8 */
     TI_FIELD_FLAG_ANY            =1<<2,
+    TI_FIELD_FLAG_NUMBER         =1<<3,
 } ti_field_flag_enum_t;
 
 ti_field_t * ti_create_field(ti_name_t * name, ti_raw_t * spec, ex_t * e);
@@ -27,6 +29,8 @@ struct ti_field_s
     ti_name_t * name;
     ti_raw_t * spec;
     ti_val_t * vdefault;
+    uint16_t class;
+    ti_val_enum tp;
     ti_field_flag_enum_t flags;
 };
 

@@ -71,26 +71,64 @@ int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e)
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:
-        if (~field->flags & TI_FIELD_FLAG_NULLABLE)
-
+        if (field->flags & TI_FIELD_FLAG_NULLABLE)
+            return 0;
+        goto type_error;
     case TI_VAL_INT:
+        if (field->tp == TI_VAL_INT || (field->flags & TI_FIELD_FLAG_NUMBER))
+            return 0;
+        goto type_error;
     case TI_VAL_FLOAT:
+        if (field->tp == TI_VAL_FLOAT || (field->flags & TI_FIELD_FLAG_NUMBER))
+            return 0;
+        goto type_error;
     case TI_VAL_BOOL:
+        if (field->tp == TI_VAL_BOOL)
+            return 0;
+        goto type_error;
     case TI_VAL_QP:
+        goto type_error;
     case TI_VAL_NAME:
+        if (field->tp == TI_VAL_RAW)
+            return 0;
+        goto type_error;
     case TI_VAL_RAW:
+        if (field->tp != TI_VAL_RAW)
+            goto type_error;
+        if ((field->flags & TI_FIELD_FLAG_UTF8) &&
+            !strx_is_utf8n(
+                    (const char *) ((ti_raw_t *) val)->data,
+                    ((ti_raw_t *) val)->n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "property `%s` only accepts valid UTF8 data",
+                    field->name->str);
+            return e->nr;
+        }
+        return 0;
     case TI_VAL_REGEX:
+        goto type_error;
     case TI_VAL_THING:
+        if (field->tp != TI_VAL_THING || (
+                field->class != ((ti_thing_t *) val)->class &&
+                field->class != TI_OBJECT_CLASS))
+            goto type_error;
+        return 0;
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+        goto type_error;
 
     }
+    return 0;
 
 type_error:
     ex_set(e, EX_TYPE_ERROR,
-            "type `%s` is invalid for property `%s` with definition `%s`",
+            "type `%s` is invalid for property `%s` with definition `%.*s`",
+            ti_val_str(val),
             field->name->str,
-            ti_val)
+            (int) field->spec->n,
+            (const char *) field->spec->data);
+    return e->nr;
 }

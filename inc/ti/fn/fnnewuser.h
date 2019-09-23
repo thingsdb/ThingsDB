@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define NEW_USER_DOC_ TI_SEE_DOC("#new_user")
-
 static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_user_t * nuser;
@@ -16,7 +14,7 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int nargs = langdef_nd_n_function_params(nd);
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `new_user` takes 1 argument but %d were given"
-                NEW_USER_DOC_, nargs);
+                DOC_NEW_USER, nargs);
         return e->nr;
     }
 
@@ -27,7 +25,7 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `new_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_USER_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_NEW_USER,
             ti_val_str(query->rval));
         return e->nr;
     }

@@ -12,7 +12,12 @@ typedef struct ti_field_s ti_field_t;
 #include <inttypes.h>
 #include <ex.h>
 
-ti_field_t * ti_create_field(ti_name_t * name, ti_raw_t * definition, ex_t * e);
+int ti_field_create(
+        ti_name_t * name,
+        ti_raw_t * spec_raw,
+        ti_type_t * type,
+        ti_types_t * types,
+        ex_t * e);
 void ti_field_destroy(ti_field_t * field);
 int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e);
 
@@ -20,9 +25,9 @@ struct ti_field_s
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
-    ti_val_t * vdefault;    /* just increment the references */
+//    ti_val_t * vdefault;    /*
     uint16_t spec;
-    uint16_t nested_spec;   /* when array or set we have a nested specification */
+    uint16_t nested_spec;       /* array/set have a nested specification */
 };
 
 

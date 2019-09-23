@@ -60,9 +60,9 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
 
 uint16_t ti_types_get_new_id(ti_types_t * types, ex_t * e)
 {
-    /* UINT16_MAX is reserved as TI_OBJECT_CLASS */
-    uint16_t id = imap_unused_id(types->imap, UINT16_MAX);
-    if (id == UINT16_MAX)
+    /* TI_SPEC_NILLABLE (bit 15) and TI_SPEC_ANY (bit 14) are used*/
+    uint16_t id = imap_unused_id(types->imap, TI_SPEC_ANY);
+    if (id == TI_SPEC_ANY)
     {
         ex_set(e, EX_MAX_QUOTA, "reached the maximum number of types");
     }

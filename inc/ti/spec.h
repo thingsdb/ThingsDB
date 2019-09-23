@@ -15,7 +15,7 @@
 typedef enum
 {
     TI_SPEC_ANY=0x4000,
-    TI_SPEC_OBJECT,                 /* this and below is valid for a set */
+    TI_SPEC_OBJECT,                 /* this and lower is valid for a set */
     TI_SPEC_RAW,
     TI_SPEC_UTF8,
     TI_SPEC_INT,
@@ -37,6 +37,6 @@ typedef enum
 
 ti_spec_ret_enum_t ti__spec_check(uint16_t spec, ti_val_t * val);
 
-const char * ti__spec_type_str(uint16_t spec);
+const char * ti__spec_approx_type_str(uint16_t spec);
 
 #endif  /* TI_SPEC_H_ */

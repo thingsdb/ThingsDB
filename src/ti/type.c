@@ -4,9 +4,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <doc.h>
 #include <stdbool.h>
 #include <ti/type.h>
 #include <ti/prop.h>
+#include <ti/thingi.h>
 #include <ti/field.h>
 
 ti_type_t * ti_type_create(uint16_t type_id, const char * name, size_t n)
@@ -60,18 +62,43 @@ _Bool ti_type_is_valid_strn(const char * str, size_t n)
     return true;
 }
 
+static inline int type__field(
+        ti_type_t * type,
+        ti_types_t * types,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_raw(val))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting a type definition to be type `"TI_VAL_RAW_S"` "
+                "but got type `%s` instead"DOC_SPEC,
+                ti_val_str(val));
+        return e->nr;
+    }
+    return ti_field_create(name, (ti_raw_t *) val, type, types, e);
+}
+
 
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
+    ti_types_t * types = thing->collection->types;
     for (vec_each(thing->items, ti_prop_t, prop))
-    {
-        ti_field_t * field = ti_field_create(prop->name,)
-    }
+        if (type__field(type, types, prop->name, prop->val, e))
+            return e->nr;
+    return 0;
 }
 
 static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
-
+    ti_types_t * types = thing->collection->types;
+    ti_name_t * name;
+    ti_val_t * val;
+    for (thing_each(thing, name, val))
+        if (type__field(type, types, name, val, e))
+            return e->nr;
+    return 0;
 }
 
 int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)

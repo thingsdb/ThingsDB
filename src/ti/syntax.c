@@ -63,6 +63,7 @@
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
 #include <ti/fn/fnnewtoken.h>
+#include <ti/fn/fnnewtype.h>
 #include <ti/fn/fnnewuser.h>
 #include <ti/fn/fnnodeinfo.h>
 #include <ti/fn/fnnodesinfo.h>
@@ -238,6 +239,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'n':
         syntax__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
+        syntax__cev_fn(q, nd, "new_type", do__f_new_type);
         syntax__nev_fn(q, nd, "node_err", do__f_node_err);
         syntax__nev_fn(q, nd, "now", do__f_now);
         syntax__nev_fn(q, nd, "num_arguments_err", do__f_num_arguments_err);

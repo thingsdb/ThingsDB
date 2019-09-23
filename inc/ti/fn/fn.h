@@ -2,6 +2,7 @@
 #define TI_FN_FN_H_
 
 #include <assert.h>
+#include <doc.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
 #include <math.h>
@@ -27,6 +28,7 @@
 #include <ti/vbool.h>
 #include <ti/vfloat.h>
 #include <ti/verror.h>
+#include <ti/typesi.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
 #include <ti/warn.h>

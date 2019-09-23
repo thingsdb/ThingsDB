@@ -10,10 +10,10 @@ typedef struct ti_type_s ti_type_t;
 #include <ti/thing.h>
 #include <util/vec.h>
 
-ti_type_t * ti_type_create(uint16_t class, const char * name, size_t n);
+ti_type_t * ti_type_create(uint16_t type_id, const char * name, size_t n);
 void ti_type_destroy(ti_type_t * type);
 _Bool ti_type_is_valid_strn(const char * str, size_t n);
-ti_type_t * ti_type_from_thing(ti_thing_t * thing);
+int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);
 
 
 struct ti_type_s

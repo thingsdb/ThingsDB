@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define RENAME_COLLECTION_DOC_ TI_SEE_DOC("#rename_collection")
-
 static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int nargs = langdef_nd_n_function_params(nd);
@@ -15,7 +13,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     {
         ex_set(e, EX_NUM_ARGUMENTS,
             "function `rename_collection` takes 2 arguments "
-            "but %d %s given"RENAME_COLLECTION_DOC_,
+            "but %d %s given"DOC_RENAME_COLLECTION,
             nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
@@ -39,7 +37,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         ex_set(e, EX_TYPE_ERROR,
             "function `rename_collection` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-            RENAME_COLLECTION_DOC_, ti_val_str(query->rval));
+            DOC_RENAME_COLLECTION, ti_val_str(query->rval));
         return e->nr;
     }
 

@@ -99,7 +99,7 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
         {
             if (qp_fadd_int(f, thing->id) ||
                 qp_fadd_type(f, QP_ARRAY_OPEN) ||
-                qp_fadd_int(f, thing->class))
+                qp_fadd_int(f, thing->type_id))
                 goto stop;
 
             for (vec_each(thing->items, ti_val_t, val))

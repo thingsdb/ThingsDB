@@ -8,6 +8,7 @@
 #include <ti/val.h>
 #include <ti/vset.h>
 #include <ti/opr.h>
+#include <ti/speci.h>
 #include <ti/closure.h>
 #include <util/logger.h>
 
@@ -31,6 +32,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
     tuple->flags = TI_VFLAG_ARR_TUPLE | ((*varr)->flags & TI_VFLAG_ARR_MHT);
+    tuple->spec = (*varr)->spec;
     tuple->vec = vec_dup((*varr)->vec);
 
     if (!tuple->vec)
@@ -57,6 +59,7 @@ ti_varr_t * ti_varr_create(size_t sz)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
+    varr->spec = TI_SPEC_ANY;
 
     varr->vec = vec_new(sz);
     if (!varr->vec)
@@ -77,6 +80,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
+    varr->spec = TI_SPEC_ANY;
 
     varr->vec = vec;
     return varr;
@@ -97,6 +101,7 @@ ti_varr_t * ti_varr_from_slice(
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
+    varr->spec = source->spec;
 
     n = n / step + !!(n % step);
     sz = (uint32_t) (n < 0 ? 0 : n);
@@ -129,6 +134,25 @@ void ti_varr_destroy(ti_varr_t * varr)
 int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
+
+    switch (ti_spec_check(to->spec, (ti_val_t *) *v))
+    {
+    case TI_SPEC_RET_SUCCESS:
+        break;
+    case TI_SPEC_RET_TYPE_ERROR:
+        ex_set(e, EX_TYPE_ERROR,
+                "type `%s` is not allowed in restricted array",
+                ti_val_str((ti_val_t *) *v));
+        return e->nr;
+    case TI_SPEC_RET_UTF8_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to UTF8 string values");
+        return e->nr;
+    case TI_SPEC_RET_UINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to positive integer values");
+        return e->nr;
+    }
 
     switch (((ti_val_t *) *v)->tp)
     {
@@ -212,6 +236,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
     list->ref = 1;
     list->tp = TI_VAL_ARR;
     list->flags = (*varr)->flags & TI_VFLAG_ARR_MHT;
+    list->spec = (*varr)->spec;
     list->vec = vec_dup((*varr)->vec);
 
     if (!list->vec)

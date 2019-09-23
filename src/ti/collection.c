@@ -165,16 +165,18 @@ void ti_collection_set_quota(
 int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type)
 {
     assert (!type->refcount);
-    uint16_t class = type->class;
+
+    uint16_t type_id = type->type_id;
     vec_t * things_vec = imap_vec(collection->things);
     if (!things_vec)
         return -1;
 
     for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->class == class)
+        if (thing->type_id == type_id)
             ti_thing_t_to_object(thing);
 
     ti_types_del(collection->types, type);
-
     ti_type_destroy(type);
+
+    return 0;
 }

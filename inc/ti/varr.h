@@ -34,7 +34,7 @@ struct ti_varr_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t _pad1;
+    uint16_t spec;
     vec_t * vec;
 };
 

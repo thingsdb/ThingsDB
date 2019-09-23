@@ -36,12 +36,12 @@ void ti_types_destroy(ti_types_t * types)
 
 int ti_types_add(ti_types_t * types, ti_type_t * type)
 {
-    if (imap_add(types->imap, type->class, type))
+    if (imap_add(types->imap, type->type_id, type))
         return -1;
 
     if (smap_add(types->smap, type->name, type))
     {
-        (void) imap_pop(types->imap, type->class);
+        (void) imap_pop(types->imap, type->type_id);
         return -1;
     }
 
@@ -54,7 +54,7 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
 void ti_types_del(ti_types_t * types, ti_type_t * type)
 {
     assert (!type->refcount);
-    (void) imap_pop(types->imap, type->class);
+    (void) imap_pop(types->imap, type->type_id);
     (void) smap_pop(types->smap, type->name);
 }
 

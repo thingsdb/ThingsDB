@@ -153,6 +153,7 @@ static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
 static inline _Bool ti_val_is_closure(ti_val_t * val);
 static inline _Bool ti_val_is_error(ti_val_t * val);
+static inline _Bool ti_val_is_number(ti_val_t * val);
 static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
@@ -199,6 +200,11 @@ static inline _Bool ti_val_is_closure(ti_val_t * val)
 static inline _Bool ti_val_is_error(ti_val_t * val)
 {
     return val->tp == TI_VAL_ERROR;
+}
+
+static inline _Bool ti_val_is_number(ti_val_t * val)
+{
+    return val->tp == TI_VAL_FLOAT || val->tp == TI_VAL_INT;
 }
 
 static inline _Bool ti_val_is_float(ti_val_t * val)

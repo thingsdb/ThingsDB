@@ -81,7 +81,7 @@ ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection)
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
     thing->flags = TI_VFLAG_THING_SWEEP;
-    thing->class = TI_OBJECT_CLASS;
+    thing->type_id = TI_SPEC_OBJECT;
 
     thing->id = id;
     thing->collection = collection;
@@ -133,7 +133,7 @@ void ti_thing_clear(ti_thing_t * thing)
 
         /* convert to a simple object since the thing is not class
          * compliant anymore */
-        thing->class = TI_OBJECT_CLASS;
+        thing->type_id = TI_SPEC_OBJECT;
     }
 }
 
@@ -509,7 +509,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         ti_incref(name);
         *v__ = &prop;
     }
-    thing->class = TI_OBJECT_CLASS;
+    thing->type_id = TI_SPEC_OBJECT;
 }
 
 int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
@@ -580,7 +580,7 @@ int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options)
             qp_add_raw(*pckr, (const uchar *) TI_KIND_S_INSTANCE, 1) ||
             qp_add_array(pckr) ||
             qp_add_int(*pckr, thing->id) ||
-            qp_add_int(*pckr, thing->class)))
+            qp_add_int(*pckr, thing->type_id)))
         return -1;
 
     for (vec_each(thing->items, ti_val_t, val))

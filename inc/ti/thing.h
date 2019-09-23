@@ -4,8 +4,6 @@
 #ifndef TI_THING_H_
 #define TI_THING_H_
 
-#define TI_OBJECT_CLASS UINT16_MAX
-
 typedef struct ti_thing_s  ti_thing_t;
 
 #include <assert.h>
@@ -18,6 +16,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/watch.h>
 #include <ti/collection.h>
 #include <ti/stream.h>
+#include <ti/spec.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
@@ -62,16 +61,18 @@ int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 
-
 struct ti_thing_s
 {
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t class;         /* UINT16_MAX */
+    uint16_t type_id;
 
     uint64_t id;
-    ti_collection_t * collection;   /* thing is added to this map */
+    ti_collection_t * collection;   /* thing belongs to this collection;
+                                     * only `null` when in thingsdb or node
+                                     * scope, but never in a collection scope
+                                     */
     vec_t * items;                  /* vec contains ti_prop_t */
     vec_t * watchers;               /* vec contains ti_watch_t,
                                        NULL if no watchers,  */
@@ -79,7 +80,7 @@ struct ti_thing_s
 
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {
-    return thing->class == TI_OBJECT_CLASS;
+    return thing->type_id == TI_SPEC_OBJECT;
 }
 
 static inline int ti_thing_to_packer(
@@ -115,12 +116,6 @@ static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f)
             qp_fadd_raw(f, (const uchar *) TI_KIND_S_THING, 1) ||
             qp_fadd_int(f, thing->id)
     );
-}
-
-/* returns IMAP_ERR_EXIST if the thing is already in the map */
-static inline int ti_thing_to_map(ti_thing_t * thing)
-{
-    return imap_add(thing->collection->things, thing->id, thing);
 }
 
 static inline _Bool ti_thing_is_new(ti_thing_t * thing)

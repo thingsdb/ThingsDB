@@ -17,6 +17,7 @@ ti_vset_t * ti_vset_create(void)
     vset->ref = 1;
     vset->tp = TI_VAL_SET;
     vset->flags = 0;
+    vset->spec = TI_SPEC_ANY;
 
     vset->imap = imap_create();
     if (!vset->imap)
@@ -87,6 +88,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     list->ref = 1;
     list->tp = TI_VAL_ARR;
     list->flags = vec->n ? TI_VFLAG_ARR_MHT : 0;
+    list->spec = (*vsetaddr)->spec;
     list->vec = vec;
 
     for (vec_each(list->vec, ti_val_t, val))

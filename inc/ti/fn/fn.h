@@ -98,6 +98,8 @@ static inline int fn_not_thingsdb_scope(
     return e->nr;
 }
 
+/* TODO: use argument functions instead of file definitions */
+
 static inline int fn_nargs(
         const char * name,
         const char * doc,

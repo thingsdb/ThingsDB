@@ -4,6 +4,8 @@
 #ifndef DOC_H_
 #define DOC_H_
 
+/* TODO: use doc instead of file definitions */
+
 #include <tiinc.h>
 
 #define DOC_DOCS(__hash) TI_URL"/ThingsDocs/"__hash

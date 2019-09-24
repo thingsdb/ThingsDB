@@ -65,13 +65,14 @@ void imap_destroy(imap_t * imap, imap_destroy_cb cb)
 
         if (!cb)
         {
-            for (; nd < end; ++nd)
+            do
                 if (nd->nodes)
                     imap__node_destroy(nd);
+            while (++nd < end);
         }
         else
         {
-            for (; nd < end; ++nd)
+            do
             {
                 if (nd->data)
                     (*cb)(nd->data);
@@ -79,6 +80,7 @@ void imap_destroy(imap_t * imap, imap_destroy_cb cb)
                 if (nd->nodes)
                     imap__node_destroy_cb(nd, cb);
             }
+            while (++nd < end);
         }
     }
 
@@ -168,7 +170,7 @@ int imap_add(imap_t * imap, uint64_t id, void * data)
 void * imap_get(imap_t * imap, uint64_t id)
 {
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
-    while (1)
+    do
     {
         id /= IMAP_NODE_SZ;
 
@@ -179,6 +181,7 @@ void * imap_get(imap_t * imap, uint64_t id)
 
         nd = nd->nodes + (--id % IMAP_NODE_SZ);
     }
+    while (1);
 }
 
 /*
@@ -228,7 +231,7 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
     {
         imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
 
-        for (; nd < end; ++nd)
+        do
         {
             if (nd->data)
             {
@@ -244,6 +247,7 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
                     return rc;
             }
         }
+        while (++nd < end);
     }
 
     return rc;
@@ -261,7 +265,7 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg)
     {
         imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
 
-        for (; nd < end; ++nd)
+        do
         {
             if (nd->data && !(*n -= (*cb)(nd->data, arg)))
                 return;
@@ -269,6 +273,7 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg)
             if (nd->nodes)
                 imap__walkn(nd, cb, arg, n);
         }
+        while (++nd < end);
     }
 }
 
@@ -310,7 +315,7 @@ vec_t * imap_vec(imap_t * imap)
         {
             imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
 
-            for (; nd < end; ++nd)
+            do
             {
                 if (nd->data)
                     VEC_push(imap->vec, nd->data);
@@ -318,6 +323,7 @@ vec_t * imap_vec(imap_t * imap)
                 if (nd->nodes)
                     imap__vec(nd, imap->vec);
             }
+            while (++nd < end);
         }
     }
     return imap->vec;
@@ -359,12 +365,12 @@ uint64_t imap_unused_id(imap_t * imap, uint64_t max)
         if (!nd->data)
             return i > max ? max : i;
 
-    n = 2 * IMAP_NODE_SZ;
+    n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;
     m = max / IMAP_NODE_SZ;
     nd = imap->nodes;
 
-    for (i = IMAP_NODE_SZ; i < n && m; ++i, ++nd)
+    for (i = IMAP_NODE_SZ; i < n; ++i, ++nd)
     {
         if (!nd->nodes)
             return i;
@@ -657,9 +663,10 @@ static void imap__node_destroy(imap_node_t * node)
 {
     imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
 
-    for (; nd < end; ++nd)
+    do
         if (nd->nodes)
             imap__node_destroy(nd);
+    while (++nd < end);
 
     free(node->nodes);
 }
@@ -668,7 +675,7 @@ static void imap__node_destroy_cb(imap_node_t * node, imap_destroy_cb cb)
 {
     imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
 
-    for (; nd < end; ++nd)
+    do
     {
         if (nd->data)
             (*cb)(nd->data);
@@ -676,6 +683,8 @@ static void imap__node_destroy_cb(imap_node_t * node, imap_destroy_cb cb)
         if (nd->nodes)
             imap__node_destroy_cb(nd, cb);
     }
+    while (++nd < end);
+
     free(node->nodes);
 }
 
@@ -781,7 +790,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
     int rc;
     imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
 
-    for (; nd < end; ++nd)
+    do
     {
         if (nd->data && (rc = (*cb)(nd->data, arg)))
             return rc;
@@ -789,6 +798,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
         if (nd->nodes && (rc = imap__walk(nd, cb, arg)))
             return rc;
     }
+    while (++nd < end);
 
     return 0;
 }
@@ -827,7 +837,7 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
 {
     imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
 
-    for (; nd < end; ++nd)
+    do
     {
         if (nd->data)
             VEC_push(vec, nd->data);
@@ -835,6 +845,7 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
         if (nd->nodes)
             imap__vec(nd, vec);
     }
+    while (++nd < end);
 }
 
 static void imap__union_ref(imap_node_t * dest, imap_node_t * node)
@@ -1057,12 +1068,12 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
         if (!nd->data)
             return i > max ? max : i;
 
-    n = 2 * IMAP_NODE_SZ;
+    n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;
     m = max / IMAP_NODE_SZ - 1;
     nd = node->nodes;
 
-    for (i = IMAP_NODE_SZ; i < n && m; ++i, ++nd)
+    for (i = IMAP_NODE_SZ; i < n; ++i, ++nd)
     {
         if (!nd->nodes)
             return i;

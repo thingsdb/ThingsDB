@@ -9,6 +9,7 @@
 #include <ti/ncache.h>
 #include <ti/proto.h>
 #include <ti/raw.h>
+#include <ti/field.h>
 #include <ti/data.h>
 #include <util/qpx.h>
 #include <util/cryptx.h>
@@ -180,6 +181,49 @@ fail_data:
 
 fail_packer:
     qp_packer_destroy(packer);
+    return -1;
+}
+
+int ti_task_add_define(ti_task_t * task, ti_type_t * type)
+{
+    ti_data_t * data;
+    size_t alloc_sz = ti_type_approx_pack_sz(type);
+    qp_packer_t * packer = ti_data_packer(alloc_sz, 3);
+
+    if (!packer)
+        return -1;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "define");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "type_id");
+    (void) qp_add_int(packer, type->type_id);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw(packer, (const uchar *) type->name, type->name_n);
+    (void) qp_add_raw_from_str(packer, "fields");
+    (void) qp_add_map(&packer);
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        (void) qp_add_raw(
+                packer,
+                (const uchar *) field->name->str,
+                field->name->n);
+        (void) qp_add_raw(packer, field->spec_raw->data, field->spec_raw->n);
+    }
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    data = ti_data_from_packer(packer);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
     return -1;
 }
 

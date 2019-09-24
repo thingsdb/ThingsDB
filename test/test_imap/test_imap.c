@@ -10,6 +10,7 @@ int main()
     test_start("imap");
 
     imap_t * imap = imap_create();
+    uint64_t id = 0;
 
     _assert (imap);
 
@@ -18,10 +19,22 @@ int main()
     {
         for (size_t i = 1; i <= num_entries ; ++i)
         {
-            size_t id = (j*100) + i + (i*j);
-            _assert (imap_add(imap, id, (void *) (uintptr_t) id) == IMAP_SUCCESS);
+            id = (j*100) + i + (i*j);
+            _assert (imap_add(
+                imap, id,
+                (void *) (uintptr_t)
+                &id) == IMAP_SUCCESS);
         }
     }
+
+    _assert (imap->n == num_batches * num_entries);
+
+    while ((id = imap_unused_id(imap, 0x1000)) != 0x1000)
+    {
+        _assert (imap_add(imap, id, (void *) (uintptr_t) &id) == IMAP_SUCCESS);
+    }
+
+    _assert (imap->n == 0x1000);
 
     imap_destroy(imap, NULL);
 

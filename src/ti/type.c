@@ -50,6 +50,16 @@ void ti_type_destroy(ti_type_t * type)
     free(type);
 }
 
+size_t ti_type_approx_pack_sz(ti_type_t * type)
+{
+    size_t n = type->name_n + 32;  /* 'name', 'type_id', 'fields', type_id */
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        n += field->name->n + field->spec_raw->n + 10;
+    }
+    return n;
+}
+
 _Bool ti_type_is_valid_strn(const char * str, size_t n)
 {
     if (!n || (!isupper(*str)))
@@ -109,4 +119,13 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     return ti_thing_is_object(thing)
             ? type__init_thing_o(type, thing, e)
             : type__init_thing_t(type, thing, e);
+}
+
+int ti_type_init_from_unp(
+        ti_type_t * type,
+        ti_types_t * types,
+        qp_unpacker_t * unp,
+        ex_t * e)
+{
+
 }

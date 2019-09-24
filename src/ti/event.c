@@ -159,6 +159,9 @@ int ti_event_run(ti_event_t * ev)
 
         if (ev->collection)
         {
+            /* TODO: here we have to update watchers;
+             * TODO: add testing for watch
+             * */
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
                 if (ti_job_run(ev->collection, thing, &unpacker))
                 {

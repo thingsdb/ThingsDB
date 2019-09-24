@@ -6,6 +6,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rname;
     ti_type_t * type;
     ti_thing_t * thing;
+    ti_task_t * task;
     uint16_t type_id;
 
     if (fn_not_collection_scope("new_type", query, e) ||
@@ -81,6 +82,15 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_internal(e);
         goto fail2;
     }
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        goto fail2;
+
+    if (ti_task_add_define(task, type))
+        goto fail2;
+
+    query->rval = (ti_val_t *) ti_nil_get();
 
     goto done;
 

@@ -14,8 +14,8 @@
 static struct timeval start;
 static struct timeval end;
 
-static int status = TEST_OK;
-static int count = 0;
+static int status__ = TEST_OK;
+static int count__ = 0;
 
 const char * padding =
         ".............................."
@@ -23,7 +23,7 @@ const char * padding =
 
 static void test_start(char * test_name)
 {
-    count = 0;
+    count__ = 0;
     int padlen = 60 - strlen(test_name);
     printf("Testing %s%*.*s", test_name, padlen, padlen, padding);
     gettimeofday(&start, 0);
@@ -36,12 +36,12 @@ static int test_end(void)
             (end.tv_usec - start.tv_usec) / 1000.0f;
 
     printf("%s (%.3f ms)\n",
-            (status == TEST_OK) ? TEST_MSG_OK : TEST_MSG_FAILED,
+            (status__ == TEST_OK) ? TEST_MSG_OK : TEST_MSG_FAILED,
                     t);
 
-    return status;
+    return status__;
 }
 
-#define _assert(e) (void)((e)?count++:(status = TEST_FAILED) && printf("\n\x1B[33mAssertion failed (%s:%d):\x1B[0m %s\n\n", __FILE__, __LINE__, #e))
+#define _assert(e) (void)((e)?count__++:(status__ = TEST_FAILED) && printf("\n\x1B[33mAssertion failed (%s:%d):\x1B[0m %s\n\n", __FILE__, __LINE__, #e))
 
 #endif  /* THINGSDB_TEST_H_ */

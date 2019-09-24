@@ -162,6 +162,72 @@ fail:
 
 /*
  * Returns 0 on success
+ * - for example: {'type_id':.., 'name':.. 'fields': {name: spec_raw,...}}
+ */
+static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
+{
+    ti_type_t * type;
+    ti_raw_t * field_name;
+    uint16_t type_id;
+    qp_obj_t qp_type_id, qp_name, qp_field, qp_spec;
+    int mapsz;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type_id`    */
+        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
+        !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `fields`     */
+        !qp_is_map(mapsz = qp_next(unp, NULL)))
+    {
+        log_critical(
+            "job `define` for collection `"TI_COLLECTION_ID"` is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
+
+    if (qp_type_id.via.int64 < 0 || qp_type_id.via.int64 >= TI_SPEC_ANY)
+    {
+        log_critical(
+            "job `define` for collection `"TI_COLLECTION_ID"` is invalid; "
+            "incorrect type id %"PRId64,
+            collection->root->id, qp_type_id.via.int64);
+        return -1;
+    }
+
+    type_id = (uint16_t) qp_type_id.via.int64;
+
+    type = ti_type_create(type_id, (const char *) qp_name.via.raw, qp_name.len);
+    if (!type)
+    {
+        log_critical(EX_MEMORY_S);
+        return -1;
+    }
+
+
+    while (mapsz-- && !qp_is_close(qp_next(unp, &qp_field)))
+    {
+        if (!qp_is_raw(qp_next(unp, &qp_spec)))
+        {
+            log_critical(
+                "job `define` for collection `"TI_COLLECTION_ID"` is invalid; "
+                "expecting each field definition to be a `raw` value",
+                collection->root->id);
+            goto failed;
+        }
+
+
+    }
+
+failed:
+    ti_type_destroy(type);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
  * - for example: 'prop'
  */
 static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
@@ -560,6 +626,8 @@ int ti_job_run(
     case 'd':
         return qp_job_name.len == 3
                 ? job__del(thing, unp)
+                : qp_job_name.len == 6
+                ? job__define(collection, unp)
                 : job__del_procedure(collection, unp);
     case 'n':
         return job__new_procedure(collection, unp);

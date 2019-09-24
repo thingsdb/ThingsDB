@@ -163,7 +163,14 @@ skip_nesting:
     {
         ti_type_t * dep = smap_getn(types->smap, str, n);
         if (!dep)
-            goto invalid;
+        {
+            if (field__spec_is_ascii(str, n, e))
+                ex_set(e, EX_TYPE_ERROR,
+                        "invalid type declaration; "
+                        "unknown type `%.*s` in declaration"DOC_SPEC,
+                        (int) n, str);
+            return e->nr;
+        }
 
         *spec |= dep->type_id;
 

@@ -17,10 +17,15 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/collection.h>
 #include <ti/stream.h>
 #include <ti/spec.h>
+#include <ti/type.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
-ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection);
+ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection);
+ti_thing_t * ti_thing_t_create(
+        uint64_t id,
+        ti_type_t * type,
+        ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
@@ -50,10 +55,10 @@ ti_prop_t * ti_thing_o_prop_set_e(
 void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r);
 ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
-_Bool ti_thing_rename(ti_thing_t * thing, ti_name_t * from, ti_name_t * to);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);

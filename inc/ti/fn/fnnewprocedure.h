@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define NEW_PROCEDURE_DOC_ TI_SEE_DOC("#new_procedure")
-
 static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int rc;
@@ -21,7 +19,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `new_procedure` takes 2 arguments but %d %s given"
-                NEW_PROCEDURE_DOC_, nargs, nargs == 1 ? "was" : "were");
+                DOC_NEW_PROCEDURE, nargs, nargs == 1 ? "was" : "were");
         return e->nr;
     }
 
@@ -33,7 +31,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
             "function `new_procedure` expects argument 1 to be of "
             "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-            NEW_PROCEDURE_DOC_,
+            DOC_NEW_PROCEDURE,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -44,8 +42,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
     {
         ex_set(e, EX_VALUE_ERROR,
-                "procedure name must follow the naming rules"
-                TI_SEE_DOC("#names"));
+                "procedure name must follow the naming rules"DOC_NAMES);
         goto fail0;
     }
 
@@ -57,7 +54,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `new_procedure` expects argument 2 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                NEW_PROCEDURE_DOC_,
+                DOC_NEW_PROCEDURE,
                 ti_val_str(query->rval));
         goto fail0;
     }

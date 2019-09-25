@@ -195,6 +195,8 @@ fail2:
     }
 
 fail1:
+    ti_epkg_drop(epkg);  /* epkg = NULL when success, clean when failed */
+
     if (rc)
     {
         (void) unlink(archfile->fn);

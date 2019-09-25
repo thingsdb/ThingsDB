@@ -18,6 +18,7 @@ int ti_collections_create(void);
 void ti_collections_destroy(void);
 void ti_collections_clear(void);
 int ti_collections_gc(void);
+void ti_collections_cleanup(void);
 _Bool ti_collections_del_collection(const uint64_t collection_id);
 int ti_collections_add_for_collect(imap_t * things);
 int ti_collections_gc_collect_dropped(void);

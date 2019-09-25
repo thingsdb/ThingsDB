@@ -68,3 +68,41 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ex_t * e)
     }
     return id;
 }
+
+static int types__approx_sz(ti_type_t * type, size_t * approx_sz)
+{
+    *approx_sz += ti_type_approx_pack_sz(type) - 27;
+    return 0;
+}
+
+static int types__pack_sz(ti_type_t * type, qp_packer_t ** packer)
+{
+    return (
+         qp_add_raw(*packer, (const uchar *) type->name, type->name_n) ||
+         ti_type_fields_to_packer(type, packer)
+     );
+}
+
+ti_val_t * ti_types_info_as_qpval(ti_types_t * types)
+{
+    ti_raw_t * rtypes = NULL;
+    size_t approx_sz = 0;
+    qp_packer_t * packer;
+
+    (void) imap_walk(types->imap, (imap_cb) types__approx_sz, &approx_sz);
+
+    packer = qp_packer_create2(approx_sz, 2);
+    if (!packer)
+        return NULL;
+
+    if (qp_add_map(&packer) ||
+        imap_walk(types->imap, (imap_cb) types__pack_sz, &packer) ||
+        qp_close_map(packer))
+        goto fail;
+
+    rtypes = ti_raw_from_packer(packer);
+
+fail:
+    qp_packer_destroy(packer);
+    return (ti_val_t *) rtypes;
+}

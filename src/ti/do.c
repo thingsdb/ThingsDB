@@ -617,14 +617,13 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 e))
             return e->nr;
         max_props = query->collection->quota->max_props;
-        thing = ti_thing_create(0, query->collection);
     }
     else
     {
         max_props = TI_QUOTA_NOT_SET;
-        thing = ti_thing_create(0, NULL);
     }
 
+    thing = ti_thing_o_create(0, query->collection);
     if (!thing)
         goto alloc_err;
 

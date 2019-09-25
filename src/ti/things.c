@@ -81,7 +81,7 @@ static void things__gc_val(ti_val_t * val)
 ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id)
 {
     assert (id);
-    ti_thing_t * thing = ti_thing_create(id, collection);
+    ti_thing_t * thing = ti_thing_o_create(id, collection);
     if (!thing || ti_thing_to_map(thing))
     {
         ti_val_drop((ti_val_t *) thing);

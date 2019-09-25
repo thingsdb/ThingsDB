@@ -1,23 +1,14 @@
 #include <ti/fn/fn.h>
 
-#define USER_INFO_DOC_ TI_SEE_DOC("#user_info")
-
 static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * user;
     ti_raw_t * uname;
-    int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_not_thingsdb_scope("user_info", query, e))
+    if (fn_not_thingsdb_scope("user_info", query, e) ||
+        fn_nargs_max("user_info", DOC_USER_INFO, 0, 1, nargs, e))
         return e->nr;
-
-    if (nargs > 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `user_info` takes at most 1 argument but %d were given"
-                USER_INFO_DOC_, nargs);
-        return e->nr;
-    }
 
     if (!nargs)
     {
@@ -43,7 +34,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_TYPE_ERROR,
                 "function `user_info` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                USER_INFO_DOC_,
+                DOC_USER_INFO,
                 ti_val_str(query->rval));
             return e->nr;
         }

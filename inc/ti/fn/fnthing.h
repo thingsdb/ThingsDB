@@ -51,7 +51,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             e))
         return e->nr;
 
-    query->rval = (ti_val_t *) ti_thing_create(0, query->collection);
+    query->rval = (ti_val_t *) ti_thing_o_create(0, query->collection);
 
     if (!query->rval)
         ex_set_mem(e);

@@ -111,6 +111,9 @@ static void away__work(uv_work_t * UNUSED(work))
     /* write global status to disk */
     (void) ti_nodes_write_global_status();
 
+    /* remove optional things->imap-vec caches */
+    ti_collections_cleanup();
+
     uv_mutex_unlock(ti()->events->lock);
 }
 

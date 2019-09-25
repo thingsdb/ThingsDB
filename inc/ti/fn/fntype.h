@@ -1,22 +1,13 @@
 #include <ti/fn/fn.h>
 
-#define TYPE_DOC_ TI_SEE_DOC("#type")
-
 static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     const char * type_str;
 
-    if (fn_chained("type", query, e))
+    if (fn_chained("type", query, e) ||
+        fn_nargs("type", DOC_TYPE, 1, nargs, e))
         return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `type` takes 1 argument but %d were given"
-                TYPE_DOC_, nargs);
-        return e->nr;
-    }
 
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;

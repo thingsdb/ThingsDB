@@ -162,18 +162,20 @@ void ti_collection_set_quota(
     }
 }
 
+static int collection__conv(ti_thing_t * thing, uint16_t * type_id)
+{
+    if (thing->type_id == *type_id)
+        ti_thing_t_to_object(thing);
+    return 0;
+}
+
 int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type)
 {
     assert (!type->refcount);
 
     uint16_t type_id = type->type_id;
-    vec_t * things_vec = imap_vec(collection->things);
-    if (!things_vec)
-        return -1;
 
-    for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->type_id == type_id)
-            ti_thing_t_to_object(thing);
+    (void) imap_walk(collection->things, (imap_cb) collection__conv, &type_id);
 
     ti_types_del(collection->types, type);
     ti_type_destroy(type);

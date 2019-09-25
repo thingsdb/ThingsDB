@@ -4,11 +4,12 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <ctype.h>
-#include <stdlib.h>
+#include <doc.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
-#include <ti/raw.h>
 #include <ti/name.h>
+#include <ti/raw.h>
 #include <ti/val.h>
 #include <util/logger.h>
 
@@ -298,8 +299,7 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
                 s, (int) raw->n, (const char *) raw->data);
     else
         ex_set(e, EX_VALUE_ERROR,
-                "%s name must follow the naming rules"
-                TI_SEE_DOC("#names"),
+                "%s name must follow the naming rules"DOC_NAMES,
                 s);
     return e->nr;
 }

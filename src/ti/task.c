@@ -201,16 +201,7 @@ int ti_task_add_define(ti_task_t * task, ti_type_t * type)
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, (const uchar *) type->name, type->name_n);
     (void) qp_add_raw_from_str(packer, "fields");
-    (void) qp_add_map(&packer);
-    for (vec_each(type->fields, ti_field_t, field))
-    {
-        (void) qp_add_raw(
-                packer,
-                (const uchar *) field->name->str,
-                field->name->n);
-        (void) qp_add_raw(packer, field->spec_raw->data, field->spec_raw->n);
-    }
-    (void) qp_close_map(packer);
+    (void) ti_type_fields_to_packer(type, &packer);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 

@@ -96,6 +96,8 @@
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
+#include <ti/fn/fntypeinfo.h>
+#include <ti/fn/fntypesinfo.h>
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
@@ -296,6 +298,8 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "try", do__f_try);
         syntax__nev_fn(q, nd, "type", do__f_type);
         syntax__nev_fn(q, nd, "type_err", do__f_type_err);
+        syntax__nev_fn(q, nd, "type_info", do__f_type_info);
+        syntax__nev_fn(q, nd, "types_info", do__f_types_info);
         break;
     case 'u':
         syntax__nev_fn(q, nd, "upper", do__f_upper);

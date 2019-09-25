@@ -10,6 +10,7 @@
 #include <ti/procedures.h>
 #include <ti/syntax.h>
 #include <ti/val.h>
+#include <ti/typesi.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
 
@@ -163,30 +164,29 @@ fail:
 /*
  * Returns 0 on success
  * - for example: {'type_id':.., 'name':.. 'fields': {name: spec_raw,...}}
+ *
+ * Note: decided to `panic` in case of failures since it might mess up
+ *       the database in case of failure.
  */
 static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
 {
+    ex_t e = {0};
     ti_type_t * type;
-    ti_raw_t * field_name;
     uint16_t type_id;
-    qp_obj_t qp_type_id, qp_name, qp_field, qp_spec;
-    int mapsz;
+    qp_obj_t qp_type_id, qp_name;
 
     if (!qp_is_map(qp_next(unp, NULL)) ||
         !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type_id`    */
         !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
         !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
         !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `fields`     */
-        !qp_is_map(mapsz = qp_next(unp, NULL)))
+        !qp_is_raw(qp_next(unp, NULL)))             /* key `fields`     */
     {
         log_critical(
-            "job `define` for collection `"TI_COLLECTION_ID"` is invalid",
+            "job `define` for collection `"TI_COLLECTION_ID"` is invalid; ",
             collection->root->id);
         return -1;
     }
-
-    mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
 
     if (qp_type_id.via.int64 < 0 || qp_type_id.via.int64 >= TI_SPEC_ANY)
     {
@@ -199,29 +199,38 @@ static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
 
     type_id = (uint16_t) qp_type_id.via.int64;
 
-    type = ti_type_create(type_id, (const char *) qp_name.via.raw, qp_name.len);
+    type = ti_types_by_id(collection->types, type_id);
     if (!type)
     {
-        log_critical(EX_MEMORY_S);
-        return -1;
-    }
+        type = ti_type_create(
+                type_id,
+                (const char *) qp_name.via.raw,
+                qp_name.len);
 
-
-    while (mapsz-- && !qp_is_close(qp_next(unp, &qp_field)))
-    {
-        if (!qp_is_raw(qp_next(unp, &qp_spec)))
+        if (!type || ti_types_add(collection->types, type))
         {
-            log_critical(
-                "job `define` for collection `"TI_COLLECTION_ID"` is invalid; "
-                "expecting each field definition to be a `raw` value",
-                collection->root->id);
-            goto failed;
+            ti_panic("memory allocation error");
+            goto fail0;
         }
-
-
     }
 
-failed:
+    if (ti_type_init_from_unp(type, collection->types, unp, &e))
+    {
+        log_critical(
+            "job `define` for collection `"TI_COLLECTION_ID"` has failed; %s",
+            collection->root->id, e.msg);
+        goto fail1;
+    }
+
+    return 0;
+
+fail1:
+    log_critical(
+            "remove type `%s` because a `define` job has failed",
+            type->name);
+    (void) ti_collection_del_type(collection, type);
+
+fail0:
     ti_type_destroy(type);
     return -1;
 }

@@ -106,7 +106,7 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
 
     if (!id)
     {
-        ret = (nd->data) ? nd->data : data;
+        ret = nd->data ? nd->data : data;
         nd->data = data;
     }
     else
@@ -195,7 +195,7 @@ void * imap_pop(imap_t * imap, uint64_t id)
 
     if (id)
     {
-        data = (nd->nodes) ? imap__pop(nd, id - 1) : NULL;
+        data = nd->nodes ? imap__pop(nd, id - 1) : NULL;
     }
     else if ((data = nd->data))
     {
@@ -233,19 +233,11 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
 
         do
         {
-            if (nd->data)
-            {
-                rc = (*cb)(nd->data, arg);
-                if (rc)
-                    return rc;
-            }
+            if (nd->data && (rc = (*cb)(nd->data, arg)))
+                return rc;
 
-            if (nd->nodes)
-            {
-                rc = imap__walk(nd, cb, arg);
-                if (rc)
-                    return rc;
-            }
+            if (nd->nodes && (rc = imap__walk(nd, cb, arg)))
+                return rc;
         }
         while (++nd < end);
     }
@@ -343,6 +335,15 @@ vec_t * imap_vec_pop(imap_t * imap)
     vec_t * vec = imap_vec(imap);
     imap->vec = NULL;
     return vec;
+}
+
+/*
+ * Cleanup `imap` on things
+ */
+void imap_vec_clear(imap_t * imap)
+{
+    free(imap->vec);
+    imap->vec = NULL;
 }
 
 /*
@@ -703,7 +704,7 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 
     if (!id)
     {
-        ret = (nd->data) ? nd->data : data;
+        ret = nd->data ? nd->data : data;
         nd->data = data;
     }
     else
@@ -774,7 +775,7 @@ static void * imap__pop(imap_node_t * node, uint64_t id)
         return data;
     }
 
-    data = (nd->nodes) ? imap__pop(nd, id - 1) : NULL;
+    data = nd->nodes ? imap__pop(nd, id - 1) : NULL;
 
     if (data && !--node->sz)
     {
@@ -1066,7 +1067,7 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 
     for (i = 0; i < IMAP_NODE_SZ; ++i, ++nd)
         if (!nd->data)
-            return i > max ? max : i;
+            return i;  /* we don't care if larger than max */
 
     n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;

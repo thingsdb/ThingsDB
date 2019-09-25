@@ -15,4 +15,9 @@ static inline ti_type_t * ti_types_by_raw(ti_types_t * types, ti_raw_t * raw)
     return smap_getn(types->smap, (const char *) raw->data, raw->n);
 }
 
+static inline ti_type_t * ti_types_by_id(ti_types_t * types, uint16_t type_id)
+{
+    return imap_get(types->imap, type_id);
+}
+
 #endif /* TI_TYPESI_H_ */

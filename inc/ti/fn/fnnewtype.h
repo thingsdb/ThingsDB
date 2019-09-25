@@ -32,7 +32,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `new_type` expects argument 1 to be a valid type name"
-            TI_SEE_DOC("#types"));
+            DOC_TYPES);
         goto fail0;
     }
 
@@ -95,6 +95,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 fail2:
+    assert (e->nr);
     ti_type_destroy(type);
 done:
 fail1:

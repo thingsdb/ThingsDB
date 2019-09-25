@@ -72,7 +72,7 @@ static void thing__watch_del(ti_thing_t * thing)
     ti_rpkg_drop(rpkg);
 }
 
-ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection)
+ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection)
 {
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
@@ -86,6 +86,33 @@ ti_thing_t * ti_thing_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items = vec_new(0);
+    thing->watchers = NULL;
+
+    if (!thing->items)
+    {
+        ti_thing_destroy(thing);
+        return NULL;
+    }
+    return thing;
+}
+
+ti_thing_t * ti_thing_t_create(
+        uint64_t id,
+        ti_type_t * type,
+        ti_collection_t * collection)
+{
+    ti_thing_t * thing = malloc(sizeof(ti_thing_t));
+    if (!thing)
+        return NULL;
+
+    thing->ref = 1;
+    thing->tp = TI_VAL_THING;
+    thing->flags = TI_VFLAG_THING_SWEEP;
+    thing->type_id = type->type_id;
+
+    thing->id = id;
+    thing->collection = collection;
+    thing->items = vec_new(type->fields->n);
     thing->watchers = NULL;
 
     if (!thing->items)
@@ -197,7 +224,7 @@ ti_thing_t * ti_thing_new_from_unp(
         return NULL;
     }
 
-    thing = ti_thing_create(0, collection);
+    thing = ti_thing_o_create(0, collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -364,6 +391,14 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 
     thing__set_not_found(thing, name, rname, e);
     return e->nr;
+}
+
+ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
+{
+    for (vec_each(thing->items, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop->val;
+    return NULL;
 }
 
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r)

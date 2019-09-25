@@ -14,14 +14,20 @@
 #include <util/strx.h>
 
 
-static _Bool field__spec_is_ascii(const char * str, size_t n, ex_t * e)
+static _Bool field__spec_is_ascii(
+        ti_field_t * field,
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e)
 {
     if (!strx_is_asciin(str, n))
     {
         ex_set(e, EX_VALUE_ERROR,
-                "invalid type declaration; "
+                "invalid declaration for `%s` on type `%s`; "
                 "type declarations must only contain valid ASCII characters"
-                DOC_SPEC);
+                DOC_SPEC,
+                field->name->str, type->name);
         return false;
     }
     return true;
@@ -48,8 +54,9 @@ static int field__init(
     if (!n)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "invalid type declaration; "
-                "type declarations must not be empty"DOC_SPEC);
+                "invalid declaration for `%s` on type `%s`; "
+                "type declarations must not be empty"DOC_SPEC,
+                field->name->str, type->name);
         return e->nr;
     }
 
@@ -98,18 +105,18 @@ skip_nesting:
     if (*str == '[')
     {
         ex_set(e, EX_VALUE_ERROR,
-            "invalid type declaration; "
+            "invalid declaration for `%s` on type `%s`; "
             "unexpected `[`; nested array declarations are not allowed"
-            DOC_SPEC);
+            DOC_SPEC, field->name->str, type->name);
         return e->nr;
     }
 
     if (*str == '{')
     {
         ex_set(e, EX_VALUE_ERROR,
-            "invalid type declaration; "
+            "invalid declaration for `%s` on type `%s`; "
             "unexpected `{`; nested set declarations are not allowed"
-            DOC_SPEC);
+            DOC_SPEC, field->name->str, type->name);
         return e->nr;
     }
 
@@ -151,10 +158,11 @@ skip_nesting:
         if (&field->spec == spec && (~field->spec & TI_SPEC_MASK_NILLABLE))
         {
             ex_set(e, EX_VALUE_ERROR,
-                "invalid type declaration; "
+                "invalid declaration for `%s` on type `%s`; "
                 "missing `?` after declaration `%.*s`; "
                 "self references must be nillable"
                 DOC_SPEC,
+                field->name->str, type->name,
                 (int) n, str);
             return e->nr;
         }
@@ -164,10 +172,11 @@ skip_nesting:
         ti_type_t * dep = smap_getn(types->smap, str, n);
         if (!dep)
         {
-            if (field__spec_is_ascii(str, n, e))
+            if (field__spec_is_ascii(field, type, str, n, e))
                 ex_set(e, EX_TYPE_ERROR,
-                        "invalid type declaration; "
+                        "invalid declaration for `%s` on type `%s`; "
                         "unknown type `%.*s` in declaration"DOC_SPEC,
+                        field->name->str, type->name,
                         (int) n, str);
             return e->nr;
         }
@@ -187,9 +196,10 @@ skip_nesting:
         (field->nested_spec & TI_SPEC_MASK_NILLABLE) > TI_SPEC_OBJECT)
     {
         ex_set(e, EX_VALUE_ERROR,
-            "invalid type declaration; "
+            "invalid declaration for `%s` on type `%s`; "
             "type `"TI_VAL_SET_S"` cannot contain type `%s`"
             DOC_SPEC,
+            field->name->str, type->name,
             ti__spec_approx_type_str(field->nested_spec));
         return e->nr;
     }
@@ -198,15 +208,17 @@ skip_nesting:
 
 invalid:
     if (field__spec_is_ascii(
+            field, type,
             (const char *) field->spec_raw->data,
             field->spec_raw->n,
             e))
         return e->nr;
 
     ex_set(e, EX_VALUE_ERROR,
-        "invalid type declaration; "
+        "invalid declaration for `%s` on type `%s`; "
         "expecting a valid type declaration but got `%.*s` instead"
         DOC_SPEC,
+        field->name->str, type->name,
         (int) field->spec_raw->n,
         (const char *) field->spec_raw->data);
 
@@ -240,7 +252,7 @@ int ti_field_create(
         return e->nr;
     }
 
-    if (vec_push(&type->fields, type))
+    if (vec_push(&type->fields, field))
     {
         ex_set_mem(e);
         ti_field_destroy(field);
@@ -341,6 +353,14 @@ static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
  */
 int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e)
 {
+    if (!val)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "property `%s` is missing",
+                field->name->str);
+        return e->nr;
+    }
+
     switch (ti_spec_check(field->spec, val))
     {
     case TI_SPEC_RET_SUCCESS:

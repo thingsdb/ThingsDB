@@ -61,7 +61,7 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
             : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
-ti_spec_rspec_enum ti_spec_check_spec(uint16_t to, uint16_t from)
+ti_spec_rspec_enum ti_spec_check_map(uint16_t to, uint16_t from)
 {
     /* anything fits in `any` */
     if ((to & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)

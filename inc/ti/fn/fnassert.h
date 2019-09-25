@@ -1,34 +1,16 @@
 #include <ti/fn/fn.h>
 
-#define ASSERT_DOC_ TI_SEE_DOC("#assert")
-
 static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * msg;
     cleri_node_t * assert_node;
 
-    if (fn_chained("assert", query, e))
+    if (fn_chained("assert", query, e) ||
+        fn_nargs_max("assert", DOC_ASSERT, 1, 2, nargs, e))
         return e->nr;
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `assert` requires at least 1 argument but 0 "
-                "were given"ASSERT_DOC_);
-        return e->nr;
-    }
-
-    /* now we know for sure it has at least the first node */
     assert_node = nd->children->node;
-
-    if (nargs > 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `assert` takes at most 2 arguments but %d "
-                "were given"ASSERT_DOC_, nargs);
-        return e->nr;
-    }
 
     if (ti_do_statement(query, assert_node, e) || ti_val_as_bool(query->rval))
         return e->nr;
@@ -51,7 +33,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `assert` expects argument 2 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"ASSERT_DOC_,
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_ASSERT,
                 ti_val_str(query->rval));
         return e->nr;
     }

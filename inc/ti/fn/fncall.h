@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define CALL_DOC_ TI_SEE_DOC("#call")
-
 static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -15,7 +13,7 @@ static int do__f_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `call`"CALL_DOC_,
+                "type `%s` has no function `call`"DOC_CALL,
                 ti_val_str(query->rval));
         return e->nr;
     }

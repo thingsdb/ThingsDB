@@ -4,6 +4,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_type_t * type;
+    ti_val_t * val;
     ti_thing_t * new_thing, * from_thing;
 
     if (fn_not_collection_scope("new", query, e) ||
@@ -49,8 +50,8 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         for (vec_each(type->fields, ti_field_t, field))
         {
-            ti_val_t * val = ti_thing_o_weak_val_by_name(from_thing, field->name);
-            if (ti_field_check(field, val, e))
+            val = ti_thing_o_weak_val_by_name(from_thing, field->name);
+            if (ti_field_check_val(field, val, e))
                 goto failed;
 
             ti_incref(val);
@@ -59,7 +60,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        vec_t * cast;
+        vec_t * cast = ti_cast_
         for (vec_each(cast, uintptr_t, idx))
         {
             VEC_push(new_thing->items, vec_get(from_thing->items, *idx));

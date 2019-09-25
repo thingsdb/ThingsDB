@@ -391,7 +391,7 @@ int ti_field_check_val(ti_field_t * field, ti_val_t * val, ex_t * e)
     return e->nr;
 }
 
-int ti_spec_check_spec(uint16_t to, uint16_t from)
+int ti_spec_check_map(uint16_t to, uint16_t from)
 {
     if ((to & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
         return 0;

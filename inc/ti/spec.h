@@ -46,7 +46,7 @@ typedef enum
 
 
 ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val);
-ti_spec_rspec_enum ti_spec_check_spec(uint16_t to, uint16_t from);
+ti_spec_rspec_enum ti_spec_check_map(uint16_t to, uint16_t from);
 
 const char * ti__spec_approx_type_str(uint16_t spec);
 

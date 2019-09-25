@@ -11,6 +11,13 @@
 #define DOC_DOCS(__hash) TI_URL"/ThingsDocs/"__hash
 #define DOC_SEE(__hash) "; see "DOC_DOCS(__hash)
 
+#define DOC_ADD                     DOC_SEE("#add")
+#define DOC_ARRAY                   DOC_SEE("#array")
+#define DOC_ASSERT                  DOC_SEE("#assert")
+#define DOC_BOOL                    DOC_SEE("#bool")
+#define DOC_CALL                    DOC_SEE("#call")
+#define DOC_COLLECTION_INFO         DOC_SEE("#collection_info")
+#define DOC_COLLECTIONS_INFO        DOC_SEE("#collections_info")
 #define DOC_DEFINE                  DOC_SEE("#define")
 #define DOC_INT                     DOC_SEE("#int")
 #define DOC_NAMES                   DOC_SEE("#names")

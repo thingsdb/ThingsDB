@@ -26,7 +26,7 @@ int ti_type_init_from_unp(
         ex_t * e);
 int ti_type_fields_to_packer(ti_type_t * type, qp_packer_t ** packer);
 ti_val_t * ti_type_info_as_qpval(ti_type_t * type);
-vec_t * ti_type_cast(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
+vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
 
 struct ti_type_s
 {
@@ -36,7 +36,7 @@ struct ti_type_s
     uint32_t name_n;
     vec_t * dependencies;   /* ti_type_t with reference */
     vec_t * fields;         /* ti_field_t */
-    imap_t * casts;         /* from_type_id / vec_t * with indexes */
+    imap_t * type_map;      /* from_type_id / vec_t * with indexes */
 };
 
 #endif  /* TI_TYPE_H_ */

@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define ADD_DOC_ TI_SEE_DOC("#add")
-
 static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -25,7 +23,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_set(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `add`"ADD_DOC_,
+                "type `%s` has no function `add`"DOC_ADD,
                 ti_val_str(query->rval));
         goto fail0;
     }
@@ -34,7 +32,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `add` requires at least 1 argument but 0 "
-                "were given"ADD_DOC_);
+                "were given"DOC_ADD);
         goto fail0;
     }
 

@@ -242,12 +242,12 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
 vec_t * ti_type_cast(ti_type_t * to_type, ti_type_t * from_type, ex_t * e)
 {
     ti_field_t * from_field;
-    vec_t * cast = imap_get(to_type->casts, from_type->type_id);
-    if (cast)
-        return cast;
+    vec_t * type_map = imap_get(to_type->type_map, from_type->type_id);
+    if (type_map)
+        return type_map;
 
-    cast = vec_new(to_type->fields->n);
-    if (!cast)
+    type_map = vec_new(to_type->fields->n);
+    if (!type_map)
         goto failed;
 
     for (vec_each(to_type->fields, ti_field_t, to_field))
@@ -264,14 +264,15 @@ vec_t * ti_type_cast(ti_type_t * to_type, ti_type_t * from_type, ex_t * e)
                     from_type->name);
             goto failed;
         }
+
     }
 
-    if (imap_add(to_type->casts, from_type->type_id, cast) == 0)
-        return cast;
+    if (imap_add(to_type->type_map, from_type->type_id, type_map) == 0)
+        return type_map;
 
 failed:
     if (!e->nr)
         ex_set_mem(e);
-    free(cast);
+    free(type_map);
     return NULL;
 }

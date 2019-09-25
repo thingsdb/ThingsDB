@@ -1,20 +1,12 @@
 #include <ti/fn/fn.h>
 
-#define COLLECTIONS_INFO_DOC_ TI_SEE_DOC("#collections_info")
-
 static int do__f_collections_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (fn_not_thingsdb_scope("collections_info", query, e))
-        return e->nr;
+    const int nargs = langdef_nd_n_function_params(nd);
 
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `collections_info` takes 0 arguments but %d %s given"
-                COLLECTIONS_INFO_DOC_, nargs, nargs == 1 ? "was" : "were");
+    if (fn_not_thingsdb_scope("collections_info", query, e) ||
+        fn_nargs("collections_info", DOC_COLLECTIONS_INFO, 0, nargs, e))
         return e->nr;
-    }
 
     query->rval = ti_collections_as_qpval();
     if (!query->rval)

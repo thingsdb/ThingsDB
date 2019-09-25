@@ -14,7 +14,7 @@
 /*
  * Returns 0 if the given value is valid for this field
  */
-ti_spec_ret_enum_t ti__spec_check(uint16_t spec, ti_val_t * val)
+ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
 {
     assert (~spec & TI_SPEC_NILLABLE);
 
@@ -24,31 +24,31 @@ ti_spec_ret_enum_t ti__spec_check(uint16_t spec, ti_val_t * val)
         assert (0);
         return 0;
     case TI_SPEC_OBJECT:
-        return ti_val_is_thing(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_thing(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_RAW:
-        return ti_val_is_raw(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_raw(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_UTF8:
         return !ti_val_is_raw(val)
-            ? TI_SPEC_RET_TYPE_ERROR
+            ? TI_SPEC_RVAL_TYPE_ERROR
             : strx_is_utf8n(
                 (const char *) ((ti_raw_t *) val)->data,
-                ((ti_raw_t *) val)->n) ? 0 : TI_SPEC_RET_UTF8_ERROR;
+                ((ti_raw_t *) val)->n) ? 0 : TI_SPEC_RVAL_UTF8_ERROR;
     case TI_SPEC_INT:
-        return ti_val_is_int(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_int(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_UINT:
         return !ti_val_is_int(val)
-            ? TI_SPEC_RET_TYPE_ERROR
-            : ((ti_vint_t *) val)->int_ < 0 ? TI_SPEC_RET_UINT_ERROR : 0;
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : ((ti_vint_t *) val)->int_ < 0 ? TI_SPEC_RVAL_UINT_ERROR : 0;
     case TI_SPEC_FLOAT:
-        return ti_val_is_float(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_float(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_NUMBER:
-        return ti_val_is_number(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_number(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_BOOL:
-        return ti_val_is_bool(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_bool(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_ARR:
-        return ti_val_is_array(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_array(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_SET:
-        return ti_val_is_set(val) ? 0 : TI_SPEC_RET_TYPE_ERROR;
+        return ti_val_is_set(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     }
 
     assert (spec < TI_SPEC_ANY);
@@ -58,7 +58,67 @@ ti_spec_ret_enum_t ti__spec_check(uint16_t spec, ti_val_t * val)
      */
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec
             ? 0
-            : TI_SPEC_RET_TYPE_ERROR;
+            : TI_SPEC_RVAL_TYPE_ERROR;
+}
+
+ti_spec_rspec_enum ti_spec_check_spec(uint16_t to, uint16_t from)
+{
+    /* anything fits in `any` */
+    if ((to & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+        return 0;
+
+    /* if `to` does not accept `nil`, and from does, this is an error */
+    if ((~to & TI_SPEC_NILLABLE) && (from & TI_SPEC_NILLABLE))
+        return TI_SPEC_RSPEC_NILLABLE_ERROR;
+
+    to &= TI_SPEC_MASK_NILLABLE;
+    from &= TI_SPEC_MASK_NILLABLE;
+
+    switch ((ti_spec_enum_t) to)
+    {
+    case TI_SPEC_ANY:
+        assert (0);
+        return 0;
+    case TI_SPEC_OBJECT:
+        return from == TI_SPEC_OBJECT || from < TI_SPEC_ANY
+                ? 0
+                : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_RAW:
+        return from == TI_SPEC_RAW || from == TI_SPEC_UTF8
+                ? 0
+                : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_UTF8:
+        return from == TI_SPEC_UTF8
+                ? 0
+                : from == TI_SPEC_RAW
+                ? TI_SPEC_RSPEC_UTF8_ERROR
+                : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_INT:
+        return from == TI_SPEC_INT || from == TI_SPEC_UINT
+                ? 0
+                : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_UINT:
+        return from == TI_SPEC_UINT
+                ? 0
+                : from == TI_SPEC_INT
+                ? TI_SPEC_RSPEC_UINT_ERROR
+                : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_FLOAT:
+        return from == TI_SPEC_FLOAT ? 0 : TI_SPEC_RSPEC_TYPE_ERROR;
+    case TI_SPEC_NUMBER:
+        return (
+            from == TI_SPEC_INT ||
+            from == TI_SPEC_UINT ||
+            from == TI_SPEC_FLOAT)
+                ? 0
+                : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_BOOL:
+    case TI_SPEC_ARR:
+    case TI_SPEC_SET:
+        break;
+    }
+
+    return from == to ? 0 : TI_SPEC_RSPEC_TYPE_ERROR;
 }
 
 const char * ti__spec_approx_type_str(uint16_t spec)

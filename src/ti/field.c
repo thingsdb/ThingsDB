@@ -321,11 +321,11 @@ static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
 
     for (vec_each(varr->vec, ti_val_t, val))
     {
-        switch (ti_spec_check(varr->spec, val))
+        switch (ti_spec_check_val(varr->spec, val))
         {
-        case TI_SPEC_RET_SUCCESS:
+        case TI_SPEC_RVAL_SUCCESS:
             continue;
-        case TI_SPEC_RET_TYPE_ERROR:
+        case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
                 "property `%s` requires an array with items that match "
                 "definition `%.*s`",
@@ -333,12 +333,12 @@ static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data);
             return e->nr;
-        case TI_SPEC_RET_UTF8_ERROR:
+        case TI_SPEC_RVAL_UTF8_ERROR:
             ex_set(e, EX_VALUE_ERROR,
                 "property `%s` requires an array with UTF8 string values",
                 field->name->str);
             return e->nr;
-        case TI_SPEC_RET_UINT_ERROR:
+        case TI_SPEC_RVAL_UINT_ERROR:
             ex_set(e, EX_VALUE_ERROR,
                 "property `%s` requires an array with positive integer values",
                 field->name->str);
@@ -351,7 +351,7 @@ static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
 /*
  * Returns 0 if the given value is valid for this field
  */
-int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e)
+int ti_field_check_val(ti_field_t * field, ti_val_t * val, ex_t * e)
 {
     if (!val)
     {
@@ -361,15 +361,15 @@ int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e)
         return e->nr;
     }
 
-    switch (ti_spec_check(field->spec, val))
+    switch (ti_spec_check_val(field->spec, val))
     {
-    case TI_SPEC_RET_SUCCESS:
+    case TI_SPEC_RVAL_SUCCESS:
         return ti_val_is_array(val)
                 ? field__varr_check(field, ((ti_varr_t *) val), e)
                 : ti_val_is_set(val)
                 ? field__vset_check(field, ((ti_vset_t *) val), e)
                 : 0;
-    case TI_SPEC_RET_TYPE_ERROR:
+    case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "type `%s` is invalid for property `%s` with definition `%.*s`",
                 ti_val_str(val),
@@ -377,16 +377,34 @@ int ti_field_check(ti_field_t * field, ti_val_t * val, ex_t * e)
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data);
         break;
-    case TI_SPEC_RET_UTF8_ERROR:
+    case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "property `%s` only accepts valid UTF8 data",
                 field->name->str);
         break;
-    case TI_SPEC_RET_UINT_ERROR:
+    case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "property `%s` only accepts positive integer values",
                 field->name->str);
         break;
     }
     return e->nr;
+}
+
+int ti_spec_check_spec(uint16_t to, uint16_t from)
+{
+    if ((to & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+        return 0;
+    if ((~to & TI_SPEC_NILLABLE) && (from & TI_SPEC_NILLABLE))
+    {
+        return
+    }
+}
+
+int ti_field_check_field(ti_field_t * to, ti_field_t * from, ex_t * e)
+{
+    assert (to->name == from->name);
+    if (to->spec == TI_SPEC_ANY)
+        return 0;
+    if (from->spec & TI_SPEC_NILLABLE)
 }

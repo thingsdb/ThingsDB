@@ -230,3 +230,48 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
     qp_packer_destroy(packer);
     return (ti_val_t * ) rtype;
 }
+
+/*
+ * Returns a vector with a size equal to `to_type->fields` and each item in
+ * the vector contains an index in the `from_type->field` where to find a
+ * corresponding value;
+ *
+ * If, and only if the return value is NULL, then `e` is set to an error
+ * message;
+ */
+vec_t * ti_type_cast(ti_type_t * to_type, ti_type_t * from_type, ex_t * e)
+{
+    ti_field_t * from_field;
+    vec_t * cast = imap_get(to_type->casts, from_type->type_id);
+    if (cast)
+        return cast;
+
+    cast = vec_new(to_type->fields->n);
+    if (!cast)
+        goto failed;
+
+    for (vec_each(to_type->fields, ti_field_t, to_field))
+    {
+        from_field = type__field_by_name(from_type, to_field->name);
+        if (!from_field)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "invalid cast from `%s` to `%s`;"
+                    "missing property `%s` in type `%s`",
+                    from_type->name,
+                    to_type->name,
+                    to_field->name->str,
+                    from_type->name);
+            goto failed;
+        }
+    }
+
+    if (imap_add(to_type->casts, from_type->type_id, cast) == 0)
+        return cast;
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+    free(cast);
+    return NULL;
+}

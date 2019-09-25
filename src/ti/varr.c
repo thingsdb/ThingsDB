@@ -135,20 +135,20 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
 
-    switch (ti_spec_check(to->spec, (ti_val_t *) *v))
+    switch (ti_spec_check_val(to->spec, (ti_val_t *) *v))
     {
-    case TI_SPEC_RET_SUCCESS:
+    case TI_SPEC_RVAL_SUCCESS:
         break;
-    case TI_SPEC_RET_TYPE_ERROR:
+    case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "type `%s` is not allowed in restricted array",
                 ti_val_str((ti_val_t *) *v));
         return e->nr;
-    case TI_SPEC_RET_UTF8_ERROR:
+    case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "array is restricted to UTF8 string values");
         return e->nr;
-    case TI_SPEC_RET_UINT_ERROR:
+    case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "array is restricted to positive integer values");
         return e->nr;

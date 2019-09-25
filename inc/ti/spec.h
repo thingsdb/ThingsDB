@@ -29,13 +29,24 @@ typedef enum
 
 typedef enum
 {
-    TI_SPEC_RET_SUCCESS,
-    TI_SPEC_RET_TYPE_ERROR,
-    TI_SPEC_RET_UTF8_ERROR,
-    TI_SPEC_RET_UINT_ERROR,
-} ti_spec_ret_enum_t;
+    TI_SPEC_RVAL_SUCCESS,
+    TI_SPEC_RVAL_TYPE_ERROR,
+    TI_SPEC_RVAL_UTF8_ERROR,
+    TI_SPEC_RVAL_UINT_ERROR,
+} ti_spec_rval_enum;
 
-ti_spec_ret_enum_t ti__spec_check(uint16_t spec, ti_val_t * val);
+typedef enum
+{
+    TI_SPEC_RSPEC_SUCCESS,
+    TI_SPEC_RSPEC_TYPE_ERROR,
+    TI_SPEC_RSPEC_UTF8_ERROR,
+    TI_SPEC_RSPEC_UINT_ERROR,
+    TI_SPEC_RSPEC_NILLABLE_ERROR,
+} ti_spec_rspec_enum;
+
+
+ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val);
+ti_spec_rspec_enum ti_spec_check_spec(uint16_t to, uint16_t from);
 
 const char * ti__spec_approx_type_str(uint16_t spec);
 

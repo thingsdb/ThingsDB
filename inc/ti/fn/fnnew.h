@@ -11,7 +11,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_do_statement(query, nd->children->node, e))
-            return e->nr;
+        return e->nr;
 
     if (!ti_val_is_raw(query->rval))
     {
@@ -59,7 +59,11 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-
+        vec_t * cast;
+        for (vec_each(cast, uintptr_t, idx))
+        {
+            VEC_push(new_thing->items, vec_get(from_thing->items, *idx));
+        }
     }
 
     ti_val_drop((ti_raw_t *) query->rval);

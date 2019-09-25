@@ -1,10 +1,10 @@
 /*
- * ti/field.h
+ * ti/cast.h
  */
-#ifndef TI_FIELD_H_
-#define TI_FIELD_H_
+#ifndef TI_CAST_H_
+#define TI_CAST_H_
 
-typedef struct ti_field_s ti_field_t;
+typedef struct ti_cast_s ti_cast_t;
 
 #include <ti/name.h>
 #include <ti/raw.h>
@@ -20,16 +20,14 @@ int ti_field_create(
         ex_t * e);
 void ti_field_destroy(ti_field_t * field);
 int ti_field_check_val(ti_field_t * field, ti_val_t * val, ex_t * e);
-int ti_field_check_field(ti_field_t * to, ti_field_t * from, ex_t * e);
 
-struct ti_field_s
+struct ti_cast_s
 {
-    ti_name_t * name;
-    ti_raw_t * spec_raw;
-    uint16_t spec;
-    uint16_t nested_spec;       /* array/set have a nested specification */
+    vec_t * p;
+    ti_field_t * field;
+    size_t * idx;
 };
 
 
 
-#endif  /* TI_FIELD_H_ */
+#endif  /* TI_CAST_H_ */

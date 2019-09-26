@@ -4,21 +4,22 @@ from .package import Package
 from ..exceptions import AssertionError
 from ..exceptions import AuthError
 from ..exceptions import BadDataError
-from ..exceptions import LookupError
 from ..exceptions import ForbiddenError
 from ..exceptions import InternalError
+from ..exceptions import LookupError
 from ..exceptions import MaxQuotaError
 from ..exceptions import MemoryError
 from ..exceptions import NodeError
-from ..exceptions import OperationError
 from ..exceptions import NumArgumentsError
-from ..exceptions import TypeError
-from ..exceptions import ValueError
+from ..exceptions import OperationError
 from ..exceptions import OverflowError
 from ..exceptions import RequestCancelError
 from ..exceptions import RequestTimeoutError
+from ..exceptions import ResultTooLargeError
 from ..exceptions import SyntaxError
 from ..exceptions import ThingsDBError
+from ..exceptions import TypeError
+from ..exceptions import ValueError
 from ..exceptions import WriteUVError
 from ..exceptions import ZeroDivisionError
 
@@ -65,6 +66,7 @@ EX_NODE_ERROR = -51
 EX_ASSERT_ERROR = -50
 
 # ThingsDB internal errors
+EX_TOO_LARGE_X = -6
 EX_REQUEST_TIMEOUT = -5
 EX_REQUEST_CANCEL = -4
 EX_WRITE_UV = -3
@@ -86,6 +88,7 @@ ERRMAP = {
     EX_SYNTAX_ERROR: SyntaxError,
     EX_NODE_ERROR: NodeError,
     EX_ASSERT_ERROR: AssertionError,
+    EX_TOO_LARGE_X: ResultTooLargeError,
     EX_REQUEST_TIMEOUT: RequestTimeoutError,
     EX_REQUEST_CANCEL: RequestCancelError,
     EX_WRITE_UV: WriteUVError,

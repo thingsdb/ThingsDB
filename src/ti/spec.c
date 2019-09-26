@@ -61,66 +61,6 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
             : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
-ti_spec_rspec_enum ti_spec_check_map(uint16_t to, uint16_t from)
-{
-    /* anything fits in `any` */
-    if ((to & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
-        return 0;
-
-    /* if `to` does not accept `nil`, and from does, this is an error */
-    if ((~to & TI_SPEC_NILLABLE) && (from & TI_SPEC_NILLABLE))
-        return TI_SPEC_RSPEC_NILLABLE_ERROR;
-
-    to &= TI_SPEC_MASK_NILLABLE;
-    from &= TI_SPEC_MASK_NILLABLE;
-
-    switch ((ti_spec_enum_t) to)
-    {
-    case TI_SPEC_ANY:
-        assert (0);
-        return 0;
-    case TI_SPEC_OBJECT:
-        return from == TI_SPEC_OBJECT || from < TI_SPEC_ANY
-                ? 0
-                : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_RAW:
-        return from == TI_SPEC_RAW || from == TI_SPEC_UTF8
-                ? 0
-                : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_UTF8:
-        return from == TI_SPEC_UTF8
-                ? 0
-                : from == TI_SPEC_RAW
-                ? TI_SPEC_RSPEC_UTF8_ERROR
-                : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_INT:
-        return from == TI_SPEC_INT || from == TI_SPEC_UINT
-                ? 0
-                : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_UINT:
-        return from == TI_SPEC_UINT
-                ? 0
-                : from == TI_SPEC_INT
-                ? TI_SPEC_RSPEC_UINT_ERROR
-                : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_FLOAT:
-        return from == TI_SPEC_FLOAT ? 0 : TI_SPEC_RSPEC_TYPE_ERROR;
-    case TI_SPEC_NUMBER:
-        return (
-            from == TI_SPEC_INT ||
-            from == TI_SPEC_UINT ||
-            from == TI_SPEC_FLOAT)
-                ? 0
-                : TI_SPEC_RVAL_TYPE_ERROR;
-    case TI_SPEC_BOOL:
-    case TI_SPEC_ARR:
-    case TI_SPEC_SET:
-        break;
-    }
-
-    return from == to ? 0 : TI_SPEC_RSPEC_TYPE_ERROR;
-}
-
 const char * ti__spec_approx_type_str(uint16_t spec)
 {
     spec &= TI_SPEC_MASK_NILLABLE;

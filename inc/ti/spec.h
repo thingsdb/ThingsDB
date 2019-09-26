@@ -14,17 +14,17 @@
  */
 typedef enum
 {
-    TI_SPEC_ANY=0x4000,
-    TI_SPEC_OBJECT,                 /* this and lower is valid for a set */
-    TI_SPEC_RAW,
-    TI_SPEC_UTF8,
-    TI_SPEC_INT,
-    TI_SPEC_UINT,
-    TI_SPEC_FLOAT,
-    TI_SPEC_NUMBER,
-    TI_SPEC_BOOL,
-    TI_SPEC_ARR,
-    TI_SPEC_SET,
+    TI_SPEC_ANY=0x4000,     /* `any`    never together with nillable        */
+    TI_SPEC_OBJECT,         /* `thing`  this and lower is valid for a set   */
+    TI_SPEC_RAW,            /* `raw`                */
+    TI_SPEC_UTF8,           /* `utf8` or `str`      */
+    TI_SPEC_INT,            /* `int`                */
+    TI_SPEC_UINT,           /* `uint`               */
+    TI_SPEC_FLOAT,          /* `float`              */
+    TI_SPEC_NUMBER,         /* `number`             */
+    TI_SPEC_BOOL,           /* `bool`               */
+    TI_SPEC_ARR,            /* `[..]`               */
+    TI_SPEC_SET,            /* `{..}`               */
 } ti_spec_enum_t;
 
 typedef enum
@@ -35,18 +35,7 @@ typedef enum
     TI_SPEC_RVAL_UINT_ERROR,
 } ti_spec_rval_enum;
 
-typedef enum
-{
-    TI_SPEC_RSPEC_SUCCESS,
-    TI_SPEC_RSPEC_TYPE_ERROR,
-    TI_SPEC_RSPEC_UTF8_ERROR,
-    TI_SPEC_RSPEC_UINT_ERROR,
-    TI_SPEC_RSPEC_NILLABLE_ERROR,
-} ti_spec_rspec_enum;
-
-
 ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val);
-ti_spec_rspec_enum ti_spec_check_map(uint16_t to, uint16_t from);
 
 const char * ti__spec_approx_type_str(uint16_t spec);
 

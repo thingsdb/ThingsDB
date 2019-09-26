@@ -59,6 +59,7 @@
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
+#include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewcollection.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
@@ -240,6 +241,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "max_quota_err", do__f_max_quota_err);
         break;
     case 'n':
+        syntax__nev_fn(q, nd, "new", do__f_new);  /* most frequent used */
         syntax__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
         syntax__cev_fn(q, nd, "new_type", do__f_new_type);
         syntax__nev_fn(q, nd, "node_err", do__f_node_err);

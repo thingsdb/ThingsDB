@@ -103,26 +103,26 @@ _Bool ti_collections_del_collection(const uint64_t collection_id)
     return true;
 }
 
-int ti_collections_add_for_collect(imap_t * things)
+int ti_collections_add_for_collect(ti_collection_t * collection)
 {
-    return vec_push(&collections->dropped, things);
+    return vec_push(&collections->dropped, collection);
 }
 
 int ti_collections_gc_collect_dropped(void)
 {
     int rc = 0;
-    imap_t * things;
-    while ((things = vec_pop(collections->dropped)))
+    ti_collection_t * collection;
+    while ((collection = vec_pop(collections->dropped)))
     {
-        if (ti_things_gc(things, NULL))
+        if (ti_things_gc(collection->things, NULL))
         {
             rc = -1;
             log_critical(EX_MEMORY_S);
             continue;
         }
 
-        assert (!things->n);
-        imap_destroy(things, NULL);
+        assert (!collection->things->n);
+        ti_collection_destroy(collection);
     }
     return rc;
 }

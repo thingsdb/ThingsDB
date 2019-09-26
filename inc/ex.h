@@ -18,13 +18,19 @@
 #define EX_MIN_ERR -127
 #define EX_MAX_BUILD_IN_ERR -50
 
+/* success */
 #define EX_RETURN_X             "success return"
 #define EX_SUCCESS_X            "success"
+
+/* internal, non catchable */
 #define EX_INTERNAL_X           "internal error"
 #define EX_MEMORY_X             "memory allocation error"
 #define EX_WRITE_UV_X           "cannot write to socket"
 #define EX_REQUEST_CANCEL_X     "request is cancelled"
 #define EX_REQUEST_TIMEOUT_X    "request timed out"
+#define EX_RESULT_TOO_LARGE_X   "result too large"
+
+/* build-in */
 #define EX_ASSERT_ERROR_X       "assertion statement has failed"
 #define EX_NODE_ERROR_X         "node is temporary unable to handle the request"
 #define EX_SYNTAX_ERROR_X       "syntax error in query"
@@ -46,7 +52,7 @@ typedef enum
 
     /* reserved build-in errors -99..-EX_MAX_BUILD_IN_ERR */
 
-    /* defined build-in errors */
+    /* build-in errors */
     EX_OPERATION_ERROR      =-63,
     EX_NUM_ARGUMENTS        =-62,
     EX_TYPE_ERROR           =-61,
@@ -64,14 +70,15 @@ typedef enum
 
     /* reserved internal errors -49..-1 (not catchable with try() function) */
 
-    /* defined internal errors */
+    /* internal errors */
+    EX_RESULT_TOO_LARGE     =-6,
     EX_REQUEST_TIMEOUT      =-5,
     EX_REQUEST_CANCEL       =-4,
     EX_WRITE_UV             =-3,
     EX_MEMORY               =-2,
     EX_INTERNAL             =-1,
 
-    /* not an error */
+    /* success */
     EX_SUCCESS              =0,
     EX_RETURN               =1,     /* internal, set by the return function */
 

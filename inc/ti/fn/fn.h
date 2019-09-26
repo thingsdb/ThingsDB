@@ -2,6 +2,7 @@
 #define TI_FN_FN_H_
 
 #include <assert.h>
+#include <ctype.h>
 #include <doc.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>

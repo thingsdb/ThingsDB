@@ -16,7 +16,7 @@ static inline int ti_thing_to_map(ti_thing_t * thing)
 static inline ti_type_t * ti_thing_type(ti_thing_t * thing)
 {
     ti_type_t * type = imap_get(thing->collection->types->imap, thing->type_id);
-    assert (type);
+    assert (type);  /* type are guaranteed to exist */
     return type;
 }
 

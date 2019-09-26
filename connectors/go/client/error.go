@@ -42,6 +42,17 @@ const (
 	NodeError ErrorCode = ErrorCode(-51)
 	// AssertionError - assertion statement has failed
 	AssertionError ErrorCode = ErrorCode(-50)
+
+	// ResultTooLargeError - result too large
+	ResultTooLargeError = ErrorCode(-6)
+	// RequestTimeoutError - request timed out
+	RequestTimeoutError = ErrorCode(-5)
+	// RequestCancelError - request is cancelled
+	RequestCancelError = ErrorCode(-4)
+	// WriteUVError - cannot write to socket
+	WriteUVError ErrorCode = ErrorCode(-3)
+	// MemoryError - memory allocation error
+	MemoryError ErrorCode = ErrorCode(-2)
 	// InternalError - internal error
 	InternalError ErrorCode = ErrorCode(-1)
 )

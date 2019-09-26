@@ -37,7 +37,7 @@ ti_collection_t * ti_collection_create(
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
     collection->quota = ti_quota_create();
-    collection->types = ti_types_create();
+    collection->types = ti_types_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
@@ -53,27 +53,37 @@ ti_collection_t * ti_collection_create(
     return collection;
 }
 
-void ti_collection_drop(ti_collection_t * collection)
+void ti_collection_destroy(ti_collection_t * collection)
 {
-    if (!collection || --collection->ref)
+    if (!collection)
         return;
 
+    imap_destroy(collection->things, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
-
-    ti_val_drop((ti_val_t *) collection->root);
-
-    if (!collection->things->n)
-        imap_destroy(collection->things, NULL);
-    else if (ti_collections_add_for_collect(collection->things))
-        log_critical(EX_MEMORY_S);
-
     ti_quota_destroy(collection->quota);
     ti_types_destroy(collection->types);
     uv_mutex_destroy(collection->lock);
     free(collection->lock);
     free(collection);
+}
+
+void ti_collection_drop(ti_collection_t * collection)
+{
+    if (!collection || --collection->ref)
+        return;
+
+    ti_val_drop((ti_val_t *) collection->root);
+
+    if (!collection->things->n)
+    {
+        ti_collection_destroy(collection);
+        return;
+    }
+
+    if (ti_collections_add_for_collect(collection))
+        log_critical(EX_MEMORY_S);
 }
 
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
@@ -169,7 +179,7 @@ static int collection__conv(ti_thing_t * thing, uint16_t * type_id)
     return 0;
 }
 
-int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type)
+int ti_collection_destroy_type(ti_collection_t * collection, ti_type_t * type)
 {
     assert (!type->refcount);
 
@@ -177,8 +187,7 @@ int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type)
 
     (void) imap_walk(collection->things, (imap_cb) collection__conv, &type_id);
 
-    ti_types_del(collection->types, type);
-    ti_type_destroy(type);
+    ti_type_drop(type);
 
     return 0;
 }

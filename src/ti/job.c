@@ -203,36 +203,30 @@ static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
     if (!type)
     {
         type = ti_type_create(
+                collection->types,
                 type_id,
                 (const char *) qp_name.via.raw,
                 qp_name.len);
 
-        if (!type || ti_types_add(collection->types, type))
+        if (!type)
         {
-            ti_panic("memory allocation error");
-            goto fail0;
+            ti_type_drop(type);
+            log_critical("memory allocation error");
+            return -1;
         }
     }
 
-    if (ti_type_init_from_unp(type, collection->types, unp, &e))
+    if (ti_type_init_from_unp(type, unp, &e))
     {
         log_critical(
-            "job `define` for collection `"TI_COLLECTION_ID"` has failed; %s",
-            collection->root->id, e.msg);
-        goto fail1;
+            "job `define` for collection `"TI_COLLECTION_ID"` has failed; %s; "
+            "remove type `%s`...",
+            collection->root->id, e.msg, type->name);
+        (void) ti_collection_destroy_type(collection, type);
+        return -1;
     }
 
     return 0;
-
-fail1:
-    log_critical(
-            "remove type `%s` because a `define` job has failed",
-            type->name);
-    (void) ti_collection_del_type(collection, type);
-
-fail0:
-    ti_type_destroy(type);
-    return -1;
 }
 
 /*

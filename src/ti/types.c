@@ -7,7 +7,7 @@
 #include <ti/types.h>
 
 
-ti_types_t * ti_types_create(void)
+ti_types_t * ti_types_create(ti_collection_t * collection)
 {
     ti_types_t * types = malloc(sizeof(ti_types_t));
     if (!types)
@@ -15,6 +15,7 @@ ti_types_t * ti_types_create(void)
 
     types->imap = imap_create();
     types->smap = smap_create();
+    types->collection = collection;
 
     if (!types->imap || !types->smap)
     {
@@ -29,6 +30,7 @@ void ti_types_destroy(ti_types_t * types)
 {
     if (!types)
         return;
+
     smap_destroy(types->smap, NULL);
     imap_destroy(types->imap, (imap_destroy_cb) ti_type_destroy);
     free(types);
@@ -48,8 +50,9 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
     return 0;
 }
 
-/* Call ti_collection_del_type(..) so existing things using this type will
- * be converted to objects.
+/*
+ * Do not use this function directly; Call ti_collection_destroy_type(..) so
+ * existing things using this type will be converted to objects.
  */
 void ti_types_del(ti_types_t * types, ti_type_t * type)
 {

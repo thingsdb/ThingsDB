@@ -30,9 +30,15 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_type_is_valid_strn((const char *) rname->data, rname->n))
     {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_type` expects argument 1 to be a valid type name"
-            DOC_TYPES);
+        if (rname->n && !isupper((int) *rname->data))
+            ex_set(e, EX_VALUE_ERROR,
+                "function `new_type` expects "
+                "argument 1 to be a valid type name; "
+                "type names must start with an upper-case character"DOC_TYPES);
+        else
+            ex_set(e, EX_VALUE_ERROR,
+                "function `new_type` expects "
+                "argument 1 to be a valid type name"DOC_TYPES);
         goto fail0;
     }
 
@@ -66,7 +72,11 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    type = ti_type_create(type_id, (const char *) rname->data, rname->n);
+    type = ti_type_create(
+            query->collection->types,
+            type_id,
+            (const char *) rname->data,
+            rname->n);
 
     if (!type)
     {
@@ -76,12 +86,6 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;
-
-    if (ti_types_add(query->collection->types, type))
-    {
-        ex_set_internal(e);
-        goto fail2;
-    }
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
@@ -96,7 +100,8 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 fail2:
     assert (e->nr);
-    ti_type_destroy(type);
+    ti_type_drop(type);
+
 done:
 fail1:
     ti_val_drop((ti_val_t *) thing);

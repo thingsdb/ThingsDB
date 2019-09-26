@@ -22,6 +22,7 @@ ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
         size_t n);
+void ti_collection_destroy(ti_collection_t * collection);
 void ti_collection_drop(ti_collection_t * collection);
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
 int ti_collection_rename(
@@ -33,7 +34,7 @@ void ti_collection_set_quota(
         ti_collection_t * collection,
         ti_quota_enum_t quota_tp,
         size_t quota);
-int ti_collection_del_type(ti_collection_t * collection, ti_type_t * type);
+int ti_collection_destroy_type(ti_collection_t * collection, ti_type_t * type);
 
 struct ti_collection_s
 {

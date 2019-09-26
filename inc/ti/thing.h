@@ -18,6 +18,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/stream.h>
 #include <ti/spec.h>
 #include <ti/type.h>
+#include <ti/field.h>
 #include <util/vec.h>
 #include <util/imap.h>
 
@@ -166,7 +167,10 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     void ** v__ = t__->items->data,                             \
     ** e__ = v__ + t__->items->n,                               \
     ** n__ = ti_thing_type(t__)->fields->data;                  \
-    v__ < e__ && (((name__ = *n__) && (val__ = *v__)) || 1);     \
+    v__ < e__ && ((                                             \
+        (name__ = ((ti_field_t *) *n__)->name) &&               \
+        (val__ = *v__)                                          \
+    ) || 1);                                                    \
     ++v__, ++n__
 
 #endif /* TI_THING_H_ */

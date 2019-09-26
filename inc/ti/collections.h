@@ -20,7 +20,7 @@ void ti_collections_clear(void);
 int ti_collections_gc(void);
 void ti_collections_cleanup(void);
 _Bool ti_collections_del_collection(const uint64_t collection_id);
-int ti_collections_add_for_collect(imap_t * things);
+int ti_collections_add_for_collect(ti_collection_t * collection);
 int ti_collections_gc_collect_dropped(void);
 ti_collection_t * ti_collections_create_collection(
         uint64_t root_id,   /* when 0, a new thing id will be generated */

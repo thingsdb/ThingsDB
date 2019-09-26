@@ -12,7 +12,11 @@
 #include <ti/thingi.h>
 #include <ti/field.h>
 
-ti_type_t * ti_type_create(uint16_t type_id, const char * name, size_t n)
+ti_type_t * ti_type_create(
+        ti_types_t * types,
+        uint16_t type_id,
+        const char * name,
+        size_t n)
 {
     ti_type_t * type = malloc(sizeof(ti_type_t));
     if (!type)
@@ -24,8 +28,11 @@ ti_type_t * ti_type_create(uint16_t type_id, const char * name, size_t n)
     type->name_n = n;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
+    type->types = types;
+    type->t_mappings = imap_create();
 
-    if (!type->name || !type->dependencies || !type->fields)
+    if (!type->name || !type->dependencies || !type->fields ||
+        !type->t_mappings || ti_types_add(types, type))
     {
         ti_type_destroy(type);
         return NULL;
@@ -34,9 +41,28 @@ ti_type_t * ti_type_create(uint16_t type_id, const char * name, size_t n)
     return type;
 }
 
-static void type__decref(ti_type_t * type)
+static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
-    --type->refcount;
+    (void) imap_pop(t_haystack->t_mappings, t_needle->type_id);
+    return 0;
+}
+
+void ti_type_map_cleanup(ti_type_t * type)
+{
+    (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
+}
+
+void ti_type_drop(ti_type_t * type)
+{
+    if (!type)
+        return;
+
+    for (vec_each(type->dependencies, ti_type_t, dep))
+        --dep->refcount;
+
+    ti_type_map_cleanup(type);
+    ti_types_del(type->types, type);
+    ti_type_destroy(type);
 }
 
 void ti_type_destroy(ti_type_t * type)
@@ -44,9 +70,9 @@ void ti_type_destroy(ti_type_t * type)
     if (!type)
         return;
 
-    vec_destroy(type->dependencies, (vec_destroy_cb) type__decref);
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
-
+    imap_destroy(type->t_mappings, free);
+    free(type->dependencies);
     free(type->name);
     free(type);
 }
@@ -63,7 +89,7 @@ size_t ti_type_approx_pack_sz(ti_type_t * type)
 
 _Bool ti_type_is_valid_strn(const char * str, size_t n)
 {
-    if (!n || (!isupper(*str)))
+    if (!n || n > TI_TYPE_NAME_MAX || (!isupper(*str)))
         return false;
 
     while(--n)
@@ -75,7 +101,6 @@ _Bool ti_type_is_valid_strn(const char * str, size_t n)
 
 static inline int type__field(
         ti_type_t * type,
-        ti_types_t * types,
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e)
@@ -88,26 +113,24 @@ static inline int type__field(
                 ti_val_str(val));
         return e->nr;
     }
-    return ti_field_create(name, (ti_raw_t *) val, type, types, e);
+    return ti_field_create(name, (ti_raw_t *) val, type, e);
 }
 
 
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
-    ti_types_t * types = thing->collection->types;
     for (vec_each(thing->items, ti_prop_t, prop))
-        if (type__field(type, types, prop->name, prop->val, e))
+        if (type__field(type, prop->name, prop->val, e))
             return e->nr;
     return 0;
 }
 
 static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
-    ti_types_t * types = thing->collection->types;
     ti_name_t * name;
     ti_val_t * val;
     for (thing_each(thing, name, val))
-        if (type__field(type, types, name, val, e))
+        if (type__field(type, name, val, e))
             return e->nr;
     return 0;
 }
@@ -122,11 +145,7 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
             : type__init_thing_t(type, thing, e);
 }
 
-int ti_type_init_from_unp(
-        ti_type_t * type,
-        ti_types_t * types,
-        qp_unpacker_t * unp,
-        ex_t * e)
+int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
@@ -144,8 +163,19 @@ int ti_type_init_from_unp(
         return e->nr;
     }
 
-    while (mapsz-- && qp_is_raw(qp_next(unp, &qp_field)))
+    mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
+
+    while (mapsz--)
     {
+        if (qp_is_close(qp_next(unp, &qp_field)))
+            break;
+
+        if (!qp_is_raw(qp_field.tp))
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`;"
+                    "expecting each field name to be a `raw` value",
+                    type->name);
+
         field_name = (const char *) qp_field.via.raw;
         field_n = qp_field.len;
 
@@ -171,18 +201,12 @@ int ti_type_init_from_unp(
         spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
 
         if (!name || !spec_raw ||
-            ti_field_create(name, spec_raw, type, types, e))
+            ti_field_create(name, spec_raw, type, e))
             goto failed;
 
         ti_decref(name);
         ti_decref(spec_raw);
     }
-
-    if (!qp_is_raw(qp_field.tp) && !qp_is_close(qp_field.tp))
-        ex_set(e, EX_BAD_DATA,
-                "failed unpacking fields for type `%s`;"
-                "expecting each field name to be a `raw` value",
-                type->name);
 
     return e->nr;
 
@@ -231,6 +255,18 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
     return (ti_val_t * ) rtype;
 }
 
+static ti_field_t * type__field_by_name(
+        ti_type_t * to_type,
+        ti_name_t * name,
+        uintptr_t * idx)
+{
+    *idx = 0;
+    for (vec_each(to_type->fields, ti_field_t, field), ++(*idx))
+        if (field->name == name)
+            return field;
+    return NULL;
+}
+
 /*
  * Returns a vector with a size equal to `to_type->fields` and each item in
  * the vector contains an index in the `from_type->field` where to find a
@@ -239,40 +275,45 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
  * If, and only if the return value is NULL, then `e` is set to an error
  * message;
  */
-vec_t * ti_type_cast(ti_type_t * to_type, ti_type_t * from_type, ex_t * e)
+vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 {
-    ti_field_t * from_field;
-    vec_t * type_map = imap_get(to_type->type_map, from_type->type_id);
-    if (type_map)
-        return type_map;
+    uintptr_t idx;
+    ti_field_t * f_field;
+    vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
+    if (t_map)
+        return t_map;
 
-    type_map = vec_new(to_type->fields->n);
-    if (!type_map)
+    t_map = vec_new(t_type->fields->n);
+    if (!t_map)
         goto failed;
 
-    for (vec_each(to_type->fields, ti_field_t, to_field))
+    for (vec_each(t_type->fields, ti_field_t, t_field))
     {
-        from_field = type__field_by_name(from_type, to_field->name);
-        if (!from_field)
+        f_field = type__field_by_name(f_type, t_field->name, &idx);
+        if (!f_field)
         {
             ex_set(e, EX_LOOKUP_ERROR,
-                    "invalid cast from `%s` to `%s`;"
+                    "invalid cast from `%s` to `%s`; "
                     "missing property `%s` in type `%s`",
-                    from_type->name,
-                    to_type->name,
-                    to_field->name->str,
-                    from_type->name);
+                    f_type->name,
+                    t_type->name,
+                    t_field->name->str,
+                    f_type->name);
             goto failed;
         }
 
+        if (ti_field_check_field(t_field, f_field, e))
+            goto failed;
+
+        VEC_push(t_map, (void *) idx);
     }
 
-    if (imap_add(to_type->type_map, from_type->type_id, type_map) == 0)
-        return type_map;
+    if (imap_add(t_type->t_mappings, f_type->type_id, t_map) == 0)
+        return t_map;
 
 failed:
     if (!e->nr)
         ex_set_mem(e);
-    free(type_map);
+    free(t_map);
     return NULL;
 }

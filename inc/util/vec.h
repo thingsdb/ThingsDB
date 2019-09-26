@@ -33,6 +33,13 @@ static inline void vec_sort(vec_t * vec, vec_cmp_cb compare);
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)
 
+/* use vec_each in a for loop to go through all values by it's address */
+#define vec_each_addr(vec__, dt__, var__) \
+    dt__ ** var__ = (dt__ **) (vec__)->data, \
+         ** end__ = var__ + (vec__)->n; \
+    var__ < end__; \
+    var__++
+
 /* use vec_each in a for loop to go through all values.
  * do not change the vector while iterating over the values */
 #define vec_each(vec__, dt__, var__) \

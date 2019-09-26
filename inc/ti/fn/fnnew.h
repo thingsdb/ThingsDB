@@ -27,7 +27,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!type)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
-    ti_val_drop((ti_raw_t *) query->rval);
+    ti_val_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e))
@@ -45,13 +45,21 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     from_thing = (ti_thing_t *) query->rval;
 
     new_thing = ti_thing_t_create(0, type, query->collection);
+    if (!new_thing)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
 
     if (ti_thing_is_object(from_thing))
     {
+
         for (vec_each(type->fields, ti_field_t, field))
         {
             val = ti_thing_o_weak_val_by_name(from_thing, field->name);
-            if (ti_field_check_val(field, val, e))
+
+            if (ti_field_check_val(field, val, e) ||
+                ti_val_make_assignable(&val, e))
                 goto failed;
 
             ti_incref(val);
@@ -60,20 +68,28 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        vec_t * cast = ti_cast_
-        for (vec_each(cast, uintptr_t, idx))
+        vec_t * t_map = ti_type_map(type, ti_thing_type(from_thing), e);
+        if (!t_map)
+            goto failed;
+
+        for (vec_each(t_map, void, idx))
         {
-            VEC_push(new_thing->items, vec_get(from_thing->items, *idx));
+            val = vec_get(from_thing->items, (uintptr_t) idx);
+            if (ti_val_make_assignable(&val, e))
+                goto failed;
+
+            ti_incref(val);
+            VEC_push(new_thing->items, val);
         }
     }
 
-    ti_val_drop((ti_raw_t *) query->rval);
-    query->rval = (ti_val_t *) thing;
+    ti_val_drop(query->rval);  /* from_thing */
+    query->rval = (ti_val_t *) new_thing;
 
     return e->nr;
 
 failed:
     assert (e->nr);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_drop((ti_val_t *) new_thing);
     return e->nr;
 }

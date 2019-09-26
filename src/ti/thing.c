@@ -136,10 +136,12 @@ void ti_thing_destroy(ti_thing_t * thing)
     if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);
 
-    if (ti_thing_is_object(thing))
-    {
-        vec_destroy(thing->items, (vec_destroy_cb) ti_prop_destroy);
-    }
+    vec_destroy(
+            thing->items,
+            ti_thing_is_object(thing)
+                    ? (vec_destroy_cb) ti_prop_destroy
+                    : (vec_destroy_cb) ti_val_drop);
+
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
@@ -158,7 +160,7 @@ void ti_thing_clear(ti_thing_t * thing)
         while ((val = vec_pop(thing->items)))
             ti_val_drop(val);
 
-        /* convert to a simple object since the thing is not class
+        /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
     }
@@ -472,12 +474,12 @@ ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
         VEC_push(thing->watchers, watch);
         goto finish;
     }
-    for (vec_each(thing->watchers, ti_watch_t, watch))
+    for (vec_each_addr(thing->watchers, ti_watch_t, watch))
     {
-        if (watch->stream == stream)
-            return watch;
-        if (!watch->stream)
-            empty_watch = v__;
+        if ((*watch)->stream == stream)
+            return *watch;
+        if (!(*watch)->stream)
+            empty_watch = watch;
     }
 
     if (empty_watch)

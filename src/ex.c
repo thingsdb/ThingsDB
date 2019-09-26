@@ -45,6 +45,7 @@ const char * ex_str(ex_enum errnr)
 {
     switch (errnr)
     {
+    /* build-in */
     case EX_OPERATION_ERROR:    return EX_OPERATION_ERROR_X;
     case EX_NUM_ARGUMENTS:      return EX_NUM_ARGUMENTS_X;
     case EX_TYPE_ERROR:         return EX_TYPE_ERROR_X;
@@ -59,11 +60,16 @@ const char * ex_str(ex_enum errnr)
     case EX_SYNTAX_ERROR:       return EX_SYNTAX_ERROR_X;
     case EX_NODE_ERROR:         return EX_NODE_ERROR_X;
     case EX_ASSERT_ERROR:       return EX_ASSERT_ERROR_X;
+
+    /* internal, non catchable */
+    case EX_RESULT_TOO_LARGE:   return EX_RESULT_TOO_LARGE_X;
     case EX_REQUEST_TIMEOUT:    return EX_REQUEST_TIMEOUT_X;
     case EX_REQUEST_CANCEL:     return EX_REQUEST_CANCEL_X;
     case EX_WRITE_UV:           return EX_WRITE_UV_X;
     case EX_MEMORY:             return EX_MEMORY_X;
     case EX_INTERNAL:           return EX_INTERNAL_X;
+
+    /* success */
     case EX_SUCCESS:            return EX_SUCCESS_X;
     case EX_RETURN:             return EX_RETURN_X;
     }

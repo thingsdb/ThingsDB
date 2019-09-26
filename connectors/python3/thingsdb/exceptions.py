@@ -71,6 +71,10 @@ class AssertionError(ThingsDBError, _AssertionError):
     pass
 
 
+class ResultTooLargeError(ThingsDBError):
+    pass
+
+
 class RequestTimeoutError(ThingsDBError):
     pass
 

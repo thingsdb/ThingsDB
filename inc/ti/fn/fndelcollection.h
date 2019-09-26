@@ -1,26 +1,16 @@
 #include <ti/fn/fn.h>
 
-#define DEL_COLLECTION_DOC_ TI_SEE_DOC("#del_collection")
 
 static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     uint64_t collection_id;
     ti_collection_t * collection;
     ti_task_t * task;
 
-    if (fn_not_thingsdb_scope("del_collection", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `del_collection` takes 1 argument but %d were given"
-                DEL_COLLECTION_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("del_collection", query, e) ||
+        fn_nargs("del_collection", DOC_DEL_COLLECTION, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);

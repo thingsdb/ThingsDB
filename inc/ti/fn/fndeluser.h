@@ -1,33 +1,22 @@
 #include <ti/fn/fn.h>
 
-#define DEL_USER_DOC_ TI_SEE_DOC("#del_user")
-
 static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
 
-    if (fn_not_thingsdb_scope("del_user", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `del_user` takes 1 argument but %d were given"
-                DEL_USER_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("del_user", query, e) ||
+        fn_nargs("del_user", DOC_DEL_USER, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `del_user` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DEL_USER_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_DEL_USER,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -41,7 +30,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_OPERATION_ERROR,
                 "it is not possible to delete your own user account"
-                DEL_USER_DOC_);
+                DOC_DEL_USER);
         return e->nr;
     }
 

@@ -53,7 +53,10 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(from_thing))
     {
-
+        /*
+         * TODO: we might need to check for matching types, like we do in type
+         * map below...
+         */
         for (vec_each(type->fields, ti_field_t, field))
         {
             val = ti_thing_o_weak_val_by_name(from_thing, field->name);

@@ -1,29 +1,17 @@
 #include <ti/fn/fn.h>
 
-#define DEL_EXPIRED_DOC_ TI_SEE_DOC("#del_expired")
-
 static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     uint64_t after_ts;
     ti_task_t * task;
 
-    if (fn_not_thingsdb_scope("del_expired", query, e))
-        return e->nr;
-
-    /* check for privileges */
-    if (ti_access_check_err(
+    if (fn_not_thingsdb_scope("del_expired", query, e) ||
+        ti_access_check_err(
             ti()->access_thingsdb,
-            query->user, TI_AUTH_GRANT, e))
+            query->user, TI_AUTH_GRANT, e) ||
+        fn_nargs("del_expired", DOC_DEL_EXPIRED, 0, nargs, e))
         return e->nr;
-
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `del_expired` takes 0 arguments but %d %s given"
-                DEL_EXPIRED_DOC_, nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
 
     after_ts = util_now_tsec();
 

@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define DEFINE_DOC_ TI_SEE_DOC("#define")
-
 static int do__f_define(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -9,7 +7,7 @@ static int do__f_define(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
 
     if (fn_not_collection_scope("define", query, e) ||
-        fn_nargs("define", DEFINE_DOC_, 2, nargs, e))
+        fn_nargs("define", DOC_DEFINE, 2, nargs, e))
         return e->nr;
 
     if (ti_do_statement(query, nd->children->node, e))
@@ -19,7 +17,7 @@ static int do__f_define(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `define` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DEFINE_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_DEFINE,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -44,7 +42,7 @@ static int do__f_define(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `define` expects argument 1 to be of "
-            "type `"TI_VAL_THING_S"` but got type `%s` instead"DEFINE_DOC_,
+            "type `"TI_VAL_THING_S"` but got type `%s` instead"DOC_DEFINE,
             ti_val_str(query->rval));
         goto fail0;
     }

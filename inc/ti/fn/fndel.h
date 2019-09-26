@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define DEL_DOC_ TI_SEE_DOC("#del")
-
 static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     cleri_node_t * name_nd;
     ti_task_t * task;
     ti_thing_t * thing;
@@ -14,19 +13,13 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `del`"DEL_DOC_,
+                "type `%s` has no function `del`"DOC_DEL,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `del` takes 1 argument but %d were given"DEL_DOC_,
-                nargs);
+    if (fn_nargs("del", DOC_DEL, 1, nargs, e))
         return e->nr;
-    }
 
     /*
      * This is a check for `iteration`.
@@ -52,7 +45,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"DEL_DOC_,
+                "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_DEL,
                 ti_val_str(query->rval));
         goto unlock;
     }

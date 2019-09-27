@@ -431,27 +431,6 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
     return false;
 }
 
-static inline void thing__set_not_found(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_raw_t * rname,
-        ex_t * e)
-{
-    if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
-                thing->id,
-                (int) rname->n, (const char *) rname->data);
-    }
-    else
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "property name must follow the naming rules"
-                TI_SEE_DOC("#names"));
-    }
-}
-
 /* Returns 0 if the property is removed, -1 in case of an error */
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
@@ -475,7 +454,7 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         }
     }
 
-    thing__set_not_found(thing, name, rname, e);
+    ti_thing_set_not_found(thing, name, rname, e);
     return e->nr;
 }
 
@@ -527,12 +506,25 @@ static _Bool thing_t__get_by_name(
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
-    if (!name)
-        return false;
-
-    return ti_thing_is_object(thing)
+    return name && ti_thing_is_object(thing)
             ? thing_o__get_by_name(wprop, thing, name)
             : thing_t__get_by_name(wprop, thing, name);
+}
+
+_Bool ti_thing_get_by_raw_e(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_raw_t * r,
+        ex_t * e)
+{
+    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
+    if (name && ti_thing_is_object(thing)
+            ? thing_o__get_by_name(wprop, thing, name)
+            : thing_t__get_by_name(wprop, thing, name))
+        return true;
+
+    ti_thing_set_not_found(thing, name, r, e);
+    return false;
 }
 
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r)
@@ -558,7 +550,7 @@ ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e)
             if (prop->name == name)
                 return prop;
 
-    thing__set_not_found(thing, name, r, e);
+    ti_thing_set_not_found(thing, name, r, e);
     return NULL;
 }
 

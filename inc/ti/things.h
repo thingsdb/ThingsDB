@@ -10,8 +10,14 @@
 #include <ti/collection.h>
 #include <util/imap.h>
 
-ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id);
-ti_thing_t * ti_things_thing_from_unp(
+ti_thing_t * ti_things_create_thing_o(
+        uint64_t id,
+        ti_collection_t * collection);
+ti_thing_t * ti_things_create_thing_t(
+        uint64_t id,
+        ti_type_t * type,
+        ti_collection_t * collection);
+ti_thing_t * ti_things_thing_o_from_unp(
         ti_collection_t * collection,
         uint64_t thing_id,
         qp_unpacker_t * unp,

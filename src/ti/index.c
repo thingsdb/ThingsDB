@@ -1,15 +1,16 @@
 /*
  * ti/index.c
  */
-#include <ti/index.h>
 #include <ti/do.h>
-#include <ti/vint.h>
-#include <ti/task.h>
-#include <ti/nil.h>
-#include <ti/prop.h>
+#include <ti/index.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/nil.h>
 #include <ti/opr/oprinc.h>
+#include <ti/prop.h>
+#include <ti/task.h>
+#include <ti/thingi.h>
+#include <ti/vint.h>
 #include <langdef/langdef.h>
 
 #define SLICES_DOC_ TI_SEE_DOC("#slices")
@@ -448,33 +449,81 @@ fail0:
     return e->nr;
 }
 
+static inline int index__o_upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        ti_raw_t * rname,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    return (
+            ti_thing_get_by_raw_e(wprop, thing, rname, e) ||
+            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e)
+    ) ? e->nr : 0;
+}
+
+static inline int index__t_upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        ti_raw_t * rname,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    ti_field_t * field;
+    ti_type_t * type = ti_thing_type(thing);
+    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+
+    if (name && (field = ti_field_by_name(type, name)))
+    {
+        wprop->name = field->name;
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+
+        return (
+            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
+            ti_field_make_assignable(field, &query->rval, e)
+        ) ? e->nr : 0;
+    }
+
+    ti_thing_set_not_found(thing, name, rname, e);
+    return e->nr;
+}
+
+static inline int index__upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        ti_raw_t * rname,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    if (ti_thing_is_object(thing)
+            ? index__o_upd_prop(wprop, query, thing, rname, tokens_nd, e)
+            : index__t_upd_prop(wprop, query, thing, rname, tokens_nd, e))
+        return e->nr;
+
+    ti_val_drop(*wprop->val);
+    *wprop->val = query->rval;
+    ti_incref(query->rval);
+
+    return 0;
+}
+
 static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
     cleri_node_t * idx_statem = inode->children->next->node->children->node;
     cleri_node_t * ass_statem = inode->children->next->next->next->node;
     cleri_node_t * ass_tokens = ass_statem->children->node;
-    ti_prop_t * prop;
+    ti_wprop_t wprop;
     ti_thing_t * thing;
-    ti_name_t * name;
     ti_raw_t * rname;
-    size_t max_props = query->collection
-            ? query->collection->quota->max_props
-            : TI_QUOTA_NOT_SET;     /* check for collection since assign is
-                                       possible when chained in all scopes */
 
     if (ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
-
-    if (thing->items->n == max_props)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-            "maximum properties quota of %zu has been reached"
-            TI_SEE_DOC("#quotas"), max_props);
-        goto fail0;
-    }
 
     if (ti_do_statement(query, idx_statem, e))
         goto fail0;
@@ -494,37 +543,16 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (ti_do_statement(query, ass_statem->children->next->node, e))
         goto fail1;
 
-    if (ass_tokens->len == 2)
-    {
-        prop = ti_thing_o_weak_get_e(thing, rname, e);
-        if (!prop || ti_opr_a_to_b(prop->val, ass_tokens, &query->rval, e))
-            goto fail1;
-
-        ti_val_drop(prop->val);
-        prop->val = query->rval;
-    }
-    else
-    {
-        if (ti_val_make_assignable(&query->rval, e))
-            goto fail1;
-
-        name = ti_names_get((const char *) rname->data, rname->n);
-        if (!name)
-        {
-            ex_set_mem(e);
-            goto fail1;
-        }
-
-        prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
-        if (!prop)
-        {
-            assert (e->nr);
-            ti_name_drop(name);
-            goto fail1;
-        }
-    }
-
-    ti_incref(prop->val);
+    if (ass_tokens->len == 2
+            ? index__upd_prop(&wprop, query, thing, rname, ass_tokens, e)
+            : ti_thing_set_val_from_strn(
+                    &wprop,
+                    thing,
+                    (const char *) rname->data,
+                    rname->n,
+                    &query->rval,
+                    e))
+        goto fail1;
 
     if (thing->id)
     {
@@ -532,12 +560,12 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         if (!task)
             goto fail1;
 
-        if (ti_task_add_set(task, prop->name, prop->val))
+        if (ti_task_add_set(task, wprop.name, *wprop.val))
         {
             ex_set_mem(e);
             goto fail1;
         }
-        ti_chain_set(&query->chain, thing, prop->name);
+        ti_chain_set(&query->chain, thing, wprop.name);
     }
 
 fail1:

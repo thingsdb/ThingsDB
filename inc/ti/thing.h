@@ -59,6 +59,11 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * raw);
+_Bool ti_thing_get_by_raw_e(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_raw_t * r,
+        ex_t * e);
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r);
 ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e);
 _Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);

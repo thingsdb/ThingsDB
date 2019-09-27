@@ -58,18 +58,27 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             val = ti_thing_o_weak_val_by_name(from_thing, field->name);
             if (!val)
             {
-                ex_set(e, EX_LOOKUP_ERROR,
-                        "cannot create type `%s`; "
-                        "property `%s` is missing",
-                        type->name,
-                        field->name->str);
-                goto failed;
+                if (field->spec & TI_SPEC_NILLABLE)
+                {
+                    val = (ti_val_t *) ti_nil_get();
+                }
+                else
+                {
+                    ex_set(e, EX_LOOKUP_ERROR,
+                            "cannot create type `%s`; "
+                            "property `%s` is missing",
+                            type->name,
+                            field->name->str);
+                    goto failed;
+                }
             }
+            else
+            {
+                if (ti_field_make_assignable(field, &val, e))
+                    goto failed;
 
-            if (ti_field_make_assignable(field, &val, e))
-                goto failed;
-
-            ti_incref(val);
+                ti_incref(val);
+            }
             VEC_push(new_thing->items, val);
         }
     }

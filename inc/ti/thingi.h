@@ -38,4 +38,31 @@ static inline int ti_thing_set_val_from_strn(
             : ti_thing_t_set_val_from_strn(wprop, thing, str, n, val, e);
 }
 
+static inline void ti_thing_set_not_found(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_raw_t * rname,
+        ex_t * e)
+{
+    if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    {
+        if (ti_thing_is_object(thing))
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "thing "TI_THING_ID" has no property `%.*s`",
+                    thing->id,
+                    (int) rname->n, (const char *) rname->data);
+        else
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "type `%s` has no property `%.*s`",
+                    ti_thing_type(thing)->name,
+                    (int) rname->n, (const char *) rname->data);
+    }
+    else
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "property name must follow the naming rules"
+                TI_SEE_DOC("#names"));
+    }
+}
+
 #endif  /* TI_THINGI_H_ */

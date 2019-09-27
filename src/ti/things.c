@@ -79,7 +79,9 @@ static void things__gc_val(ti_val_t * val)
     }
 }
 
-ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id)
+ti_thing_t * ti_things_create_thing_o(
+        uint64_t id,
+        ti_collection_t * collection)
 {
     assert (id);
     ti_thing_t * thing = ti_thing_o_create(id, collection);
@@ -91,8 +93,23 @@ ti_thing_t * ti_things_create_thing(ti_collection_t * collection, uint64_t id)
     return thing;
 }
 
+ti_thing_t * ti_things_create_thing_t(
+        uint64_t id,
+        ti_type_t * type,
+        ti_collection_t * collection)
+{
+    assert (id);
+    ti_thing_t * thing = ti_thing_t_create(id, type, collection);
+    if (!thing || ti_thing_to_map(thing))
+    {
+        ti_val_drop((ti_val_t *) thing);
+        return NULL;
+    }
+    return thing;
+}
+
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_from_unp(
+ti_thing_t * ti_things_thing_o_from_unp(
         ti_collection_t * collection,
         uint64_t thing_id,
         qp_unpacker_t * unp,
@@ -130,7 +147,130 @@ ti_thing_t * ti_things_thing_from_unp(
         return NULL;
     }
 
-    thing = ti_things_create_thing(collection, thing_id);
+    thing = ti_things_create_thing_o(thing_id, collection);
+    if (!thing)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    if (thing_id >= ti()->node->next_thing_id)
+        ti()->node->next_thing_id = thing_id + 1;
+
+    --sz;  /* decrease one to unpack the remaining properties */
+    if (ti_thing_props_from_unp(thing, collection, unp, sz, e))
+    {
+        ti_val_drop((ti_val_t *) thing);
+        return NULL;
+    }
+    return thing;
+}
+
+/* Returns a thing with a new reference or NULL in case of an error */
+ti_thing_t * ti_things_thing_t_from_unp(
+        ti_collection_t * collection,
+        qp_unpacker_t * unp,
+        ssize_t sz,
+        ex_t * e)
+{
+    ti_thing_t * thing;
+    ti_type_t * type;
+    uint64_t thing_id;
+    uint16_t type_id;
+    qp_obj_t qp_thing_id, qp_type_id;
+    ssize_t arrsz = qp_next(unp, NULL);
+
+    if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    {
+        ex_set(e, EX_BAD_DATA, "cannot unpack a type from a client request");
+        return NULL;
+    }
+
+    if (!qp_is_array(arrsz) ||
+        !qp_is_int(qp_next(unp, &qp_thing_id)) ||
+        !qp_is_int(qp_next(unp, &qp_type_id)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid type data; "
+                "expecting an array with at least to integer values");
+        return NULL;
+    }
+
+    arrsz = arrsz == QP_ARRAY_OPEN ? -1 : arrsz - QP_ARRAY2;
+
+    if (qp_type_id.via.int64 < 0 || qp_type_id.via.int64 >= TI_SPEC_ANY)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid type data; incorrect type id %"PRId64,
+                qp_type_id.via.int64);
+        return NULL;
+    }
+
+    type_id = (uint16_t) qp_type_id.via.int64;
+    thing_id = (uint64_t) qp_thing_id.via.int64;
+
+    type = ti_types_by_id(collection->types, type_id);
+
+    if (!type)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "invalid type data; type id %u not found", type_id);
+        return NULL;
+    }
+
+    thing = ti_things_create_thing_t(thing_id, type, collection);
+    if (!thing)
+    {
+        if (ti_collection_thing_by_id(collection, thing_id))
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "invalid type data; thing "TI_THING_ID" already exists"
+                    thing_id);
+            return NULL;
+        }
+        return NULL;
+    }
+
+    for ()
+
+    while (arrsz--)
+    {
+        tsz = qp_next(unp, &qp_tmp);
+
+        if (qp_is_close(tsz))
+            break;
+
+    thing = imap_get(collection->things, thing_id);
+    if (thing)
+    {
+        if (sz != 1)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot directly assign properties to "TI_THING_ID" "
+                    "by adding properties to the data; "
+                    "change the thing to {\""TI_KIND_S_THING"\": %"PRIu64"}",
+                    thing_id, thing_id);
+            return NULL;
+        }
+        ti_incref(thing);
+        return thing;
+    }
+
+    if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    {
+        /*
+         * If not unpacking from an event, then new things should be created
+         * without an id.
+         */
+        ex_set(e, EX_LOOKUP_ERROR,
+                "thing "TI_THING_ID" not found; "
+                "if you want to create a new thing then remove the id (`#`) "
+                "and try again",
+                thing_id);
+        return NULL;
+    }
+
+    thing = ti_things_create_thing_o(thing_id, collection);
     if (!thing)
     {
         ex_set_mem(e);

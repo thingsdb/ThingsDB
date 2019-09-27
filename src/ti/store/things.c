@@ -147,7 +147,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     {
         uint64_t id;
         memcpy(&id, pt, sizeof(uint64_t));
-        if (!ti_things_create_thing(collection, id))
+        if (!ti_things_create_thing_o(id, collection))
             goto failed;
     }
 

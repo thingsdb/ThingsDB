@@ -73,7 +73,7 @@ static ti_val_t * val__unp_map(
                     "expecting an integer value as thing id");
             return NULL;
         }
-        return (ti_val_t *) ti_things_thing_from_unp(
+        return (ti_val_t *) ti_things_thing_o_from_unp(
                 collection,
                 (uint64_t) qp_tmp.via.int64,
                 unp,

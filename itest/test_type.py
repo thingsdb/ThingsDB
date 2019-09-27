@@ -21,7 +21,7 @@ class TestTypes(TestBase):
 
     title = 'Test thingsdb types'
 
-    @default_test_setup(num_nodes=1, seed=1)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -38,7 +38,8 @@ class TestTypes(TestBase):
         await client.query(r'''
             new_type('User', {
                 name: 'str',
-                age: 'uint'
+                age: 'uint',
+                likes: '[]?',
             });
             new_type('People', {
                 users: '[User]'
@@ -46,9 +47,12 @@ class TestTypes(TestBase):
         ''')
 
         await client.query(r'''
-            new('People', {users: [new('User', {name: 'Iris', age: 6})]});
+            .iris = new('User', {
+                name: 'Iris',
+                age: 6
+            });
+            .people = new('People', {users: [.iris]});
         ''')
-
 
 
 if __name__ == '__main__':

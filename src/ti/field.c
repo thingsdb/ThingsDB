@@ -12,6 +12,7 @@
 #include <ti/typesi.h>
 #include <ti/spec.h>
 #include <ti/speci.h>
+#include <ti/names.h>
 #include <util/strx.h>
 
 
@@ -304,7 +305,7 @@ static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
         if (thing->type_id != (*vset)->spec)
         {
             ex_set(e, EX_TYPE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` has definition `%.*s` but got a set with "
                 "type `%s` instead",
                 field->type->name,
@@ -337,7 +338,7 @@ static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
             continue;
         case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` requires an array with items that match "
                 "definition `%.*s`",
                 field->type->name,
@@ -347,14 +348,14 @@ static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
             return e->nr;
         case TI_SPEC_RVAL_UTF8_ERROR:
             ex_set(e, EX_VALUE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` requires an array with UTF8 string values",
                 field->type->name,
                 field->name->str);
             return e->nr;
         case TI_SPEC_RVAL_UINT_ERROR:
             ex_set(e, EX_VALUE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` requires an array with positive integer values",
                 field->type->name,
                 field->name->str);
@@ -383,7 +384,7 @@ int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
                 : ti_val_make_assignable(val, e);
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "type `%s` is invalid for property `%s` with definition `%.*s`",
                 field->type->name,
                 ti_val_str(*val),
@@ -393,14 +394,14 @@ int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
         break;
     case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` only accepts valid UTF8 data",
                 field->type->name,
                 field->name->str);
         break;
     case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
-                "cannot create type `%s`; "
+                "mismatch in type `%s`; "
                 "property `%s` only accepts positive integer values",
                 field->type->name,
                 field->name->str);
@@ -546,19 +547,33 @@ int ti_field_check_field(ti_field_t * t_field, ti_field_t * f_field, ex_t * e)
             : field__check_spec(t_field, f_field, t_spec, f_spec, e);
 }
 
-ti_field_t * ti_field_by_raw_e(ti_type_t * type, ti_raw_t * raw, ex_t * e)
+ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
 {
-    ti_name_t * name = ti_names_weak_get((const char *) raw->data, raw->n);
+    for (vec_each(type->fields, ti_field_t, field))
+        if (field->name == name)
+            return field;
+    return NULL;
+}
+
+ti_field_t * ti_field_by_strn_e(
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name = ti_names_weak_get(str, n);
     if (name)
         for (vec_each(type->fields, ti_field_t, field))
             if (field->name == name)
                 return field;
 
-    if (!ti_raw_check_valid_name(raw, "property", e))
+    if (ti_name_is_valid_strn(str, n))
         ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no property `%.*s",
                 type->name,
-                (int) raw->n,
-                (const char *) raw->data);
+                (int) n, str);
+    else
+        ex_set(e, EX_VALUE_ERROR,
+                "property name must follow the naming rules"DOC_NAMES);
 
     return NULL;
 }

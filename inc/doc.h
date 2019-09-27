@@ -43,6 +43,8 @@
 #define DOC_FORBIDDEN_ERR           DOC_SEE("#forbidden_err")
 #define DOC_GET                     DOC_SEE("#get")
 #define DOC_GRANT                   DOC_SEE("#grant")
+#define DOC_HAS_SET                 DOC_SEE("#has-set")
+#define DOC_HAS_THING               DOC_SEE("#has-thing")
 #define DOC_INT                     DOC_SEE("#int")
 #define DOC_LOOKUP_ERR              DOC_SEE("#lookup_err")
 #define DOC_MAX_QUOTA_ERR           DOC_SEE("#max_quota_err")

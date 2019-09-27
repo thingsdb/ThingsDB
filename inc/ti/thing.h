@@ -68,6 +68,20 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
+int ti_thing_o_set_val_from_strn(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e);
+int ti_thing_t_set_val_from_strn(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e);
 
 struct ti_thing_s
 {
@@ -169,10 +183,19 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     void ** v__ = t__->items->data,                             \
     ** e__ = v__ + t__->items->n,                               \
     ** n__ = ti_thing_type(t__)->fields->data;                  \
-    v__ < e__ && ((                                             \
-        (name__ = ((ti_field_t *) *n__)->name) &&               \
-        (val__ = *v__)                                          \
-    ) || 1);                                                    \
+    v__ < e__ &&                                                \
+    (name__ = ((ti_field_t *) *n__)->name) &&                   \
+    (val__ = *v__);                                             \
     ++v__, ++n__
+
+#define thing_each_addr(t__, name__, val__)                     \
+    void ** v__ = t__->items->data,                             \
+    ** e__ = v__ + t__->items->n,                               \
+    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    v__ < e__ &&                                                \
+    (name__ = ((ti_field_t *) *n__)->name) &&                   \
+    (val__ = (ti_val_t **) v__);                                \
+    ++v__, ++n__
+
 
 #endif /* TI_THING_H_ */

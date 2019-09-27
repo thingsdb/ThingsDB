@@ -1,12 +1,14 @@
 /*
  * ti/do.c
  */
+#include <doc.h>
 #include <ti/auth.h>
 #include <ti/do.h>
 #include <ti/regex.h>
 #include <ti/vint.h>
 #include <ti/task.h>
 #include <ti/names.h>
+#include <ti/thingi.h>
 #include <ti/nil.h>
 #include <ti/index.h>
 #include <ti/opr/oprinc.h>
@@ -68,7 +70,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"),
+                DOC_QUOTAS,
                 query->collection->quota->max_array_size);
         return e->nr;
     }
@@ -113,7 +115,8 @@ static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
     return name;
 }
 
-static inline ti_prop_t * do__get_prop(
+static inline int do__o_get_wprop(
+        ti_wprop_t * wprop,
         ti_query_t * query,
         ti_thing_t * thing,
         cleri_node_t * nd,
@@ -125,12 +128,122 @@ static inline ti_prop_t * do__get_prop(
                 ? ti_thing_o_prop_weak_get(thing, nd->data)
                 : NULL);
 
-    if (!prop)
-        ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
-                thing->id, (int) nd->len, nd->str);
+    if (prop)
+    {
+        wprop->name = prop->name;
+        wprop->val = &prop->val;
+        return 0;
+    }
 
-    return prop;
+    wprop->name = NULL;
+    wprop->val = NULL;
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "thing "TI_THING_ID" has no property `%.*s`",
+            thing->id, (int) nd->len, nd->str);
+    return e->nr;
+}
+
+static inline int do__t_get_wprop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_field_t * field;
+    ti_type_t * type = ti_thing_type(thing);
+    ti_name_t * name = nd->data ? nd->data : do__cache_name(query, nd);
+
+    if (name && (field = ti_field_by_name(type, name)))
+    {
+        wprop->name = field->name;
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+        return 0;
+    }
+
+    wprop->name = NULL;
+    wprop->val = NULL;
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no property `%.*s`",
+            type->name, (int) nd->len, nd->str);
+    return e->nr;
+}
+
+static inline int do__get_wprop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    return ti_thing_is_object(thing)
+            ? do__o_get_wprop(wprop, query, thing, nd, e)
+            : do__t_get_wprop(wprop, query, thing, nd, e);
+}
+
+static inline int do__o_upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * name_nd,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    return (
+        do__o_get_wprop(wprop, query, thing, name_nd, e) ||
+        ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e)
+    ) ? e->nr : 0;
+}
+
+static inline int do__t_upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * name_nd,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    ti_field_t * field;
+    ti_type_t * type = ti_thing_type(thing);
+    ti_name_t * name = name_nd->data ? name_nd->data : do__cache_name(query, name_nd);
+
+    if (name && (field = ti_field_by_name(type, name)))
+    {
+        wprop->name = field->name;
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+
+        return (
+            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
+            ti_field_make_assignable(field, &query->rval, e)
+        ) ? e->nr : 0;
+    }
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no property `%.*s`",
+            type->name, (int) name_nd->len, name_nd->str);
+    return e->nr;
+}
+
+static inline int do__upd_prop(
+        ti_wprop_t * wprop,
+        ti_query_t * query,
+        ti_thing_t * thing,
+        cleri_node_t * name_nd,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    if (ti_thing_is_object(thing)
+            ? do__o_upd_prop(wprop, query, thing, name_nd, tokens_nd, e)
+            : do__t_upd_prop(wprop, query, thing, name_nd, tokens_nd, e))
+        return e->nr;
+
+    ti_val_drop(*wprop->val);
+    *wprop->val = query->rval;
+    ti_incref(query->rval);
+
+    return 0;
 }
 
 static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -140,11 +253,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_thing_t * thing;
     ti_task_t * task;
-    ti_prop_t * prop;
-    size_t max_props = query->collection
-            ? query->collection->quota->max_props
-            : TI_QUOTA_NOT_SET;     /* check for target since assign is
-                                       possible when chained in all scopes */
+    ti_wprop_t wprop;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
     cleri_children_t * assign_seq = nd                  /* sequence */
@@ -167,44 +276,16 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, assign_seq->next->node, e))
         goto done;
 
-    if (tokens_nd->len == 2)
-    {
-        prop = do__get_prop(query, thing, name_nd, e);
-        if (!prop || ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
-            goto done;
-
-        ti_val_drop(prop->val);
-        prop->val = query->rval;
-    }
-    else
-    {
-        ti_name_t * name;
-
-        if (thing->items->n == max_props)
-        {
-            ex_set(e, EX_MAX_QUOTA,
-                "maximum properties quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"), max_props);
-            goto done;
-        }
-
-        if (ti_val_make_assignable(&query->rval, e))
-            goto done;
-
-        name = ti_names_get(name_nd->str, name_nd->len);
-        if (!name)
-            goto alloc_err;
-
-        prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
-        if (!prop)
-        {
-            assert (e->nr);
-            ti_name_drop(name);
-            goto done;
-        }
-    }
-
-    ti_incref(prop->val);
+    if (tokens_nd->len == 2
+            ? do__upd_prop(&wprop, query, thing, name_nd, tokens_nd, e)
+            : ti_thing_set_val_from_strn(
+                    &wprop,
+                    thing,
+                    name_nd->str,
+                    name_nd->len,
+                    &query->rval,
+                    e))
+        goto done;
 
     if (thing->id)
     {
@@ -213,7 +294,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto done;
 
-        if (ti_task_add_set(task, prop->name, prop->val))
+        if (ti_task_add_set(task, wprop.name, *wprop.val))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }
@@ -291,7 +372,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
         if (!node->children->next)
         {
-            ti_prop_t * prop;
+            ti_wprop_t wprop;
             ti_thing_t * thing;
 
             if (!ti_val_is_thing(query->rval))
@@ -303,14 +384,13 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             thing = (ti_thing_t *) query->rval;
 
-            prop = do__get_prop(query, thing, node->children->node, e);
-            if (!prop)
+            if (do__get_wprop(&wprop, query, thing, node->children->node, e))
                 return e->nr;
 
             if (thing->id && (index_node->children || child))
-                ti_chain_set(&query->chain, thing, prop->name);
+                ti_chain_set(&query->chain, thing, wprop.name);
 
-            query->rval = prop->val;
+            query->rval = *wprop.val;
             ti_incref(query->rval);
             ti_val_drop((ti_val_t *) thing);
             break;
@@ -641,7 +721,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_MAX_QUOTA,
                     "maximum properties quota of %zu has been reached"
-                    TI_SEE_DOC("#quotas"), max_props);
+                    DOC_QUOTAS, max_props);
             goto err;
         }
 

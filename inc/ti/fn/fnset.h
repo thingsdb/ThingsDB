@@ -52,14 +52,9 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_prop_t * prop;
+    ti_wprop_t wprop;
     ti_thing_t * thing;
-    ti_name_t * name;
     ti_raw_t * rname;
-    size_t max_props = query->collection
-            ? query->collection->quota->max_props
-            : TI_QUOTA_NOT_SET;     /* check for scope since assign is
-                                       possible when chained in all scopes */
 
     if (!ti_val_is_thing(query->rval))
     {
@@ -75,14 +70,6 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
-
-    if (thing->items->n == max_props)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-            "maximum properties quota of %zu has been reached"
-            TI_SEE_DOC("#quotas"), max_props);
-        goto fail0;
-    }
 
     if (ti_do_statement(query, nd->children->node, e))
         goto fail0;
@@ -102,26 +89,13 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next->node, e))
         goto fail1;
 
-
-    if (ti_val_make_assignable(&query->rval, e))
+    if (ti_thing_set_val_from_strn(
+            &wprop,
+            thing,
+            (const char *) rname->data,
+            rname->n,
+            &query->rval, e))
         goto fail1;
-
-    name = ti_names_get((const char *) rname->data, rname->n);
-    if (!name)
-    {
-        ex_set_mem(e);
-        goto fail1;
-    }
-
-    prop = ti_thing_o_prop_set_e(thing, name, query->rval, e);
-    if (!prop)
-    {
-        assert (e->nr);
-        ti_name_drop(name);
-        goto fail1;
-    }
-
-    ti_incref(prop->val);
 
     if (thing->id)
     {
@@ -129,12 +103,12 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto fail1;
 
-        if (ti_task_add_set(task, prop->name, prop->val))
+        if (ti_task_add_set(task, wprop.name, *wprop.val))
         {
             ex_set_mem(e);
             goto fail1;
         }
-        ti_chain_set(&query->chain, thing, prop->name);
+        ti_chain_set(&query->chain, thing, wprop.name);
     }
 
 fail1:

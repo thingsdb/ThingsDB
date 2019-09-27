@@ -56,7 +56,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
         ti_chain_set(&query->chain, thing, wprop.name);
 
-    query->rval = wprop.val;
+    query->rval = *wprop.val;
     ti_incref(query->rval);
 
 done:

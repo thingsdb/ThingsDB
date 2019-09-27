@@ -20,7 +20,12 @@ int ti_field_create(
 void ti_field_destroy(ti_field_t * field);
 int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e);
 int ti_field_check_field(ti_field_t * to, ti_field_t * from, ex_t * e);
-ti_field_t * ti_field_by_raw_e(ti_type_t * type, ti_raw_t * raw, ex_t * e);
+ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name);
+ti_field_t * ti_field_by_strn_e(
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e);
 
 struct ti_field_s
 {

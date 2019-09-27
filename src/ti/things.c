@@ -14,7 +14,8 @@
 #include <ti/watch.h>
 #include <util/logger.h>
 
-static inline void things__gc_mark_thing(ti_thing_t * thing);
+static void things__gc_mark_thing(ti_thing_t * thing);
+
 
 static void things__gc_mark_varr(ti_varr_t * varr)
 {
@@ -194,7 +195,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     return 0;
 }
 
-static inline void things__gc_mark_thing(ti_thing_t * thing)
+static void things__gc_mark_thing(ti_thing_t * thing)
 {
     thing->flags &= ~TI_VFLAG_THING_SWEEP;
 
@@ -205,3 +206,4 @@ static inline void things__gc_mark_thing(ti_thing_t * thing)
         for (vec_each(thing->items, ti_val_t, val))
             things__gc_val(val);
 }
+

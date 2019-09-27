@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <doc.h>
 #include <ti.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -301,14 +302,25 @@ ti_prop_t * ti_thing_o_prop_set(
  * Return 0 if successful; This function makes a given `value` assignable so
  * it should not be used within a job.
  */
-int ti_thing_o_set_val_from_raw(
+int ti_thing_o_set_val_from_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
-        ti_raw_t * raw,
+        const char * str,
+        size_t n,
         ti_val_t ** val,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_get((const char *) raw->data, raw->n);
+    ti_name_t * name;
+    if (thing->collection &&
+        thing->items->n == thing->collection->quota->max_props)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+            "maximum properties quota of %zu has been reached"DOC_QUOTAS,
+            thing->collection->quota->max_props);
+        return e->nr;
+    }
+
+    name = ti_names_get(str, n);
     if (!name)
     {
         ex_set_mem(e);
@@ -327,9 +339,9 @@ int ti_thing_o_set_val_from_raw(
 
     ti_incref(*val);
     wprop->name = name;
-    wprop->val = *val;
+    wprop->val = val;
 
-    return e->nr;
+    return 0;
 }
 
 /*
@@ -338,32 +350,38 @@ int ti_thing_o_set_val_from_raw(
  *
  * If successful, the reference counter of `val` will be increased
  */
-int ti_thing_t_set_val_from_raw(
+int ti_thing_t_set_val_from_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
-        ti_raw_t * raw,
+        const char * str,
+        size_t n,
         ti_val_t ** val,
         ex_t * e)
 {
+    ti_val_t ** vaddr;
     ti_type_t * type = ti_thing_type(thing);
-    ti_field_t * field = ti_field_by_raw_e(type, raw, e);
+    ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
     if (!field || ti_field_make_assignable(field, val, e))
         return e->nr;
 
-    ti_val_t ** vaddr = vec_get_addr(thing->items, field->idx);
+    vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+    if (thing__val_locked(thing, field->name, *vaddr, e))
+        return e->nr;
+
     ti_val_drop(*vaddr);
     *vaddr = *val;
 
     ti_incref(*val);
-    wprop->name = prop->name;
-    wprop->val = prop->val;
+    wprop->name = field->name;
+    wprop->val = val;
 
+    return 0;
 }
 
 /*
  * Does not increment the `name` and `val` reference counters.
  *
- * TODO: probably we better change this to
+ * TODO: probably we better change this so it will return int
  */
 ti_prop_t * ti_thing_o_prop_set_e(
         ti_thing_t * thing,
@@ -480,7 +498,7 @@ static _Bool thing_o__get_by_name(
         if (prop->name == name)
         {
             wprop->name = name;
-            wprop->val = prop->val;
+            wprop->val = &prop->val;
             return true;
         }
     }
@@ -493,8 +511,8 @@ static _Bool thing_t__get_by_name(
         ti_name_t * name)
 {
     ti_name_t * n;
-    ti_val_t * v;
-    for (thing_each(thing, n, v))
+    ti_val_t ** v;
+    for (thing_each_addr(thing, n, v))
     {
         if (n == name)
         {

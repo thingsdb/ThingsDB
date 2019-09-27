@@ -25,4 +25,17 @@ static inline const char * ti_thing_type_str(ti_thing_t * thing)
     return ti_thing_type(thing)->name;
 }
 
+static inline int ti_thing_set_val_from_strn(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_set_val_from_strn(wprop, thing, str, n, val, e)
+            : ti_thing_t_set_val_from_strn(wprop, thing, str, n, val, e);
+}
+
 #endif  /* TI_THINGI_H_ */

@@ -1,22 +1,14 @@
 #include <ti/fn/fn.h>
 
-#define HAS_SET_DOC_ TI_SEE_DOC("#has-set")
-#define HAS_THING_DOC_ TI_SEE_DOC("#has-thing")
 
 static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     _Bool has;
     ti_vset_t * vset;
 
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `has` takes 1 argument but %d were given"
-                HAS_SET_DOC_,
-                nargs);
+    if (fn_nargs("has", DOC_HAS_SET, 1, nargs, e))
         return e->nr;
-    }
 
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
@@ -29,7 +21,7 @@ static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `has` expects argument 1 to be of "
                 "type `"TI_VAL_THING_S"` but got type `%s` instead"
-                HAS_SET_DOC_,
+                DOC_HAS_SET,
                 ti_val_str(query->rval));
         goto fail1;
     }
@@ -45,18 +37,13 @@ fail1:
 
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * rname;
     ti_name_t * name;
     ti_thing_t * thing;
 
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `has` takes 1 argument but %d were given"
-                HAS_THING_DOC_, nargs);
+    if (fn_nargs("has", DOC_HAS_THING, 1, nargs, e))
         return e->nr;
-    }
 
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
@@ -69,7 +56,7 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `has` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                HAS_THING_DOC_,
+                DOC_HAS_THING,
                 ti_val_str(query->rval));
         goto fail1;
     }
@@ -98,7 +85,7 @@ static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return do__f_has_set(query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
-            "type `%s` has no function `has`"HAS_SET_DOC_ HAS_THING_DOC_,
+            "type `%s` has no function `has`"DOC_HAS_SET DOC_HAS_THING,
             ti_val_str(query->rval));
     return e->nr;
 }

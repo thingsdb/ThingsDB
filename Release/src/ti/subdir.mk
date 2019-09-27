@@ -24,6 +24,7 @@ C_SRCS += \
 ../src/ti/epkg.c \
 ../src/ti/event.c \
 ../src/ti/events.c \
+../src/ti/field.c \
 ../src/ti/fwd.c \
 ../src/ti/index.c \
 ../src/ti/job.c \
@@ -51,6 +52,7 @@ C_SRCS += \
 ../src/ti/rpkg.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
+../src/ti/spec.c \
 ../src/ti/store.c \
 ../src/ti/stream.c \
 ../src/ti/sync.c \
@@ -64,6 +66,8 @@ C_SRCS += \
 ../src/ti/thing.c \
 ../src/ti/things.c \
 ../src/ti/token.c \
+../src/ti/type.c \
+../src/ti/types.c \
 ../src/ti/user.c \
 ../src/ti/users.c \
 ../src/ti/val.c \
@@ -101,6 +105,7 @@ OBJS += \
 ./src/ti/epkg.o \
 ./src/ti/event.o \
 ./src/ti/events.o \
+./src/ti/field.o \
 ./src/ti/fwd.o \
 ./src/ti/index.o \
 ./src/ti/job.o \
@@ -128,6 +133,7 @@ OBJS += \
 ./src/ti/rpkg.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
+./src/ti/spec.o \
 ./src/ti/store.o \
 ./src/ti/stream.o \
 ./src/ti/sync.o \
@@ -141,6 +147,8 @@ OBJS += \
 ./src/ti/thing.o \
 ./src/ti/things.o \
 ./src/ti/token.o \
+./src/ti/type.o \
+./src/ti/types.o \
 ./src/ti/user.o \
 ./src/ti/users.o \
 ./src/ti/val.o \
@@ -178,6 +186,7 @@ C_DEPS += \
 ./src/ti/epkg.d \
 ./src/ti/event.d \
 ./src/ti/events.d \
+./src/ti/field.d \
 ./src/ti/fwd.d \
 ./src/ti/index.d \
 ./src/ti/job.d \
@@ -205,6 +214,7 @@ C_DEPS += \
 ./src/ti/rpkg.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \
+./src/ti/spec.d \
 ./src/ti/store.d \
 ./src/ti/stream.d \
 ./src/ti/sync.d \
@@ -218,6 +228,8 @@ C_DEPS += \
 ./src/ti/thing.d \
 ./src/ti/things.d \
 ./src/ti/token.d \
+./src/ti/type.d \
+./src/ti/types.d \
 ./src/ti/user.d \
 ./src/ti/users.d \
 ./src/ti/val.d \

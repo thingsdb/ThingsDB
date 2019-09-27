@@ -255,14 +255,6 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
     return (ti_val_t * ) rtype;
 }
 
-static ti_field_t * type__field_by_name(ti_type_t * type, ti_name_t * name)
-{
-    for (vec_each(type->fields, ti_field_t, field))
-        if (field->name == name)
-            return field;
-    return NULL;
-}
-
 /*
  * Returns a vector with a size equal to `to_type->fields` and each item in
  * the vector contains an index in the `from_type->field` where to find a
@@ -284,7 +276,7 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 
     for (vec_each(t_type->fields, ti_field_t, t_field))
     {
-        f_field = type__field_by_name(f_type, t_field->name);
+        f_field = ti_field_by_name(f_type, t_field->name);
         if (!f_field)
         {
             ex_set(e, EX_LOOKUP_ERROR,

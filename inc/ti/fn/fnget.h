@@ -1,12 +1,11 @@
 #include <ti/fn/fn.h>
 
-#define GET_DOC_ TI_SEE_DOC("#get")
-
 static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
-    ti_prop_t * prop;
+    ti_wprop_t wprop;
+    _Bool found;
 
     if (fn_not_chained("get", query, e))
         return e->nr;
@@ -14,26 +13,13 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `get`"GET_DOC_,
+                "type `%s` has no function `get`"DOC_GET,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `get` requires at least 1 argument but 0 "
-                "were given"GET_DOC_);
+    if (fn_nargs_max("get", DOC_GET, 1, 2, nargs, e))
         return e->nr;
-    }
-
-    if (nargs > 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `get` takes at most 2 arguments but %d "
-                "were given"GET_DOC_, nargs);
-        return e->nr;
-    }
 
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
@@ -45,15 +31,16 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `get` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"GET_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_GET,
             ti_val_str(query->rval));
         goto done;
     }
 
-    prop = ti_thing_o_weak_get(thing, (ti_raw_t *) query->rval);
+    found = ti_thing_get_by_raw(&wprop, thing, (ti_raw_t *) query->rval);
+
     ti_val_drop(query->rval);
 
-    if (!prop)
+    if (!found)
     {
         if (nargs == 2)
         {
@@ -67,9 +54,9 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     if (thing->id)
-        ti_chain_set(&query->chain, thing, prop->name);
+        ti_chain_set(&query->chain, thing, wprop.name);
 
-    query->rval = prop->val;
+    query->rval = wprop.val;
     ti_incref(query->rval);
 
 done:

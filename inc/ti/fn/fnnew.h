@@ -4,7 +4,6 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_type_t * type;
-    ti_val_t * val;
     ti_thing_t * new_thing, * from_thing;
 
     if (fn_not_collection_scope("new", query, e) ||
@@ -53,16 +52,21 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(from_thing))
     {
-        /*
-         * TODO: we might need to check for matching types, like we do in type
-         * map below...
-         */
+        ti_val_t * val;
         for (vec_each(type->fields, ti_field_t, field))
         {
             val = ti_thing_o_weak_val_by_name(from_thing, field->name);
+            if (!val)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "cannot create type `%s`; "
+                        "property `%s` is missing",
+                        type->name,
+                        field->name->str);
+                goto failed;
+            }
 
-            if (ti_field_check_val(field, val, e) ||
-                ti_val_make_assignable(&val, e))
+            if (ti_field_make_assignable(field, &val, e))
                 goto failed;
 
             ti_incref(val);
@@ -71,13 +75,18 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        vec_t * t_map = ti_type_map(type, ti_thing_type(from_thing), e);
-        if (!t_map)
-            goto failed;
-
-        for (vec_each(t_map, void, idx))
+        ti_type_t * f_type = ti_thing_type(from_thing);
+        if (f_type != type)
         {
-            val = vec_get(from_thing->items, (uintptr_t) idx);
+            ex_set(e, EX_TYPE_ERROR,
+                    "cannot create type `%s` from type `%s`"DOC_NEW_TYPE,
+                    type->name,
+                    f_type->name);
+            goto failed;
+        }
+
+        for (vec_each(from_thing->items, ti_val_t, val))
+        {
             if (ti_val_make_assignable(&val, e))
                 goto failed;
 
@@ -85,6 +94,26 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             VEC_push(new_thing->items, val);
         }
     }
+
+
+
+        /* TODO: actually, we need to be exact here, but use the map code
+         * below for casting
+         */
+//        vec_t * t_map = ti_type_map(type, ti_thing_type(from_thing), e);
+//        if (!t_map)
+//            goto failed;
+//
+//        for (vec_each(t_map, t_fi, idx))
+//        {
+//            val = vec_get(from_thing->items, (uintptr_t) idx);
+//            if (ti_val_make_assignable(&val, e))
+//                goto failed;
+//
+//            ti_incref(val);
+//            VEC_push(new_thing->items, val);
+//        }
+
 
     ti_val_drop(query->rval);  /* from_thing */
     query->rval = (ti_val_t *) new_thing;

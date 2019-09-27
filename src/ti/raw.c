@@ -291,16 +291,21 @@ _Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b)
     return !!memmem(a->data, a->n, b->data, b->n);
 }
 
-int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
+int ti_raw_check_valid_name(ti_raw_t * raw, const char * s, ex_t * e)
 {
-    if (ti_name_is_valid_strn((const char *) raw->data, raw->n))
-        ex_set(e, EX_LOOKUP_ERROR,
-                "%s `%.*s` not found",
-                s, (int) raw->n, (const char *) raw->data);
-    else
+    if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
         ex_set(e, EX_VALUE_ERROR,
                 "%s name must follow the naming rules"DOC_NAMES,
                 s);
+    return e->nr;
+}
+
+int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
+{
+    if (!ti_raw_check_valid_name(raw, s, e))
+        ex_set(e, EX_LOOKUP_ERROR,
+                "%s `%.*s` not found",
+                s, (int) raw->n, (const char *) raw->data);
     return e->nr;
 }
 

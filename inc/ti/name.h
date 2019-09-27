@@ -9,6 +9,7 @@ typedef struct ti_name_s ti_name_t;
 #include <stdint.h>
 #include <stdlib.h>
 #include <ti/val.h>
+#include <ex.h>
 
 ti_name_t * ti_name_create(const char * str, size_t n);
 void ti_name_destroy(ti_name_t * name);

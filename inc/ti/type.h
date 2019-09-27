@@ -47,7 +47,7 @@ struct ti_type_s
                                this vector but a self dependency is not
                                included */
     vec_t * fields;         /* ti_field_t */
-    imap_t * t_mappings;    /* from_type_id / vec_t * with indexes */
+    imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
 };
 
 #endif  /* TI_TYPE_H_ */

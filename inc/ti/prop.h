@@ -1,5 +1,5 @@
 /*
- * prop.h
+ * ti/prop.h
  */
 #ifndef TI_PROP_H_
 #define TI_PROP_H_

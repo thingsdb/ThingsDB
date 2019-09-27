@@ -255,13 +255,9 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
     return (ti_val_t * ) rtype;
 }
 
-static ti_field_t * type__field_by_name(
-        ti_type_t * to_type,
-        ti_name_t * name,
-        uintptr_t * idx)
+static ti_field_t * type__field_by_name(ti_type_t * type, ti_name_t * name)
 {
-    *idx = 0;
-    for (vec_each(to_type->fields, ti_field_t, field), ++(*idx))
+    for (vec_each(type->fields, ti_field_t, field))
         if (field->name == name)
             return field;
     return NULL;
@@ -277,7 +273,6 @@ static ti_field_t * type__field_by_name(
  */
 vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 {
-    uintptr_t idx;
     ti_field_t * f_field;
     vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
     if (t_map)
@@ -289,7 +284,7 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 
     for (vec_each(t_type->fields, ti_field_t, t_field))
     {
-        f_field = type__field_by_name(f_type, t_field->name, &idx);
+        f_field = type__field_by_name(f_type, t_field->name);
         if (!f_field)
         {
             ex_set(e, EX_LOOKUP_ERROR,
@@ -305,7 +300,7 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
         if (ti_field_check_field(t_field, f_field, e))
             goto failed;
 
-        VEC_push(t_map, (void *) idx);
+        VEC_push(t_map, t_field);
     }
 
     if (imap_add(t_type->t_mappings, f_type->type_id, t_map) == 0)

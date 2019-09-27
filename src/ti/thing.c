@@ -13,9 +13,10 @@
 #include <util/qpx.h>
 #include <util/logger.h>
 
-static inline int thing__prop_locked(
+static inline int thing__val_locked(
         ti_thing_t * thing,
-        ti_prop_t * prop,
+        ti_name_t * name,
+        ti_val_t * val,
         ex_t * e)
 {
     /*
@@ -23,15 +24,15 @@ static inline int thing__prop_locked(
      * by reference (like things). An array is always type `list` since it
      * is a value attached to a `prop` type.
      */
-    if (    (prop->val->tp == TI_VAL_ARR || prop->val->tp == TI_VAL_SET) &&
-            (prop->val->flags & TI_VFLAG_LOCK))
+    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
+            (val->flags & TI_VFLAG_LOCK))
     {
         ex_set(e, EX_OPERATION_ERROR,
             "cannot change or remove property `%s` on "TI_THING_ID
             " while the `%s` is being used",
-            prop->name->str,
+            name->str,
             thing->id,
-            ti_val_str(prop->val));
+            ti_val_str(val));
         return -1;
     }
     return 0;
@@ -297,7 +298,72 @@ ti_prop_t * ti_thing_o_prop_set(
 }
 
 /*
+ * Return 0 if successful; This function makes a given `value` assignable so
+ * it should not be used within a job.
+ */
+int ti_thing_o_set_val_from_raw(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_raw_t * raw,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    ti_name_t * name = ti_names_get((const char *) raw->data, raw->n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_val_make_assignable(val, e))
+        return e->nr;
+
+    if (!ti_thing_o_prop_set_e(thing, name, *val, e))
+    {
+        assert (e->nr);
+        ti_name_drop(name);
+        return e->nr;
+    }
+
+    ti_incref(*val);
+    wprop->name = name;
+    wprop->val = *val;
+
+    return e->nr;
+}
+
+/*
+ * Return 0 if successful; This function makes a given `value` assignable so
+ * it should not be used within a job.
+ *
+ * If successful, the reference counter of `val` will be increased
+ */
+int ti_thing_t_set_val_from_raw(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_raw_t * raw,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    ti_type_t * type = ti_thing_type(thing);
+    ti_field_t * field = ti_field_by_raw_e(type, raw, e);
+    if (!field || ti_field_make_assignable(field, val, e))
+        return e->nr;
+
+    ti_val_t ** vaddr = vec_get_addr(thing->items, field->idx);
+    ti_val_drop(*vaddr);
+    *vaddr = *val;
+
+    ti_incref(*val);
+    wprop->name = prop->name;
+    wprop->val = prop->val;
+
+}
+
+/*
  * Does not increment the `name` and `val` reference counters.
+ *
+ * TODO: probably we better change this to
  */
 ti_prop_t * ti_thing_o_prop_set_e(
         ti_thing_t * thing,
@@ -311,7 +377,7 @@ ti_prop_t * ti_thing_o_prop_set_e(
     {
         if (p->name == name)
         {
-            if (thing__prop_locked(thing, p, e))
+            if (thing__val_locked(thing, p->name, p->val, e))
                 return NULL;
             ti_decref(name);
             ti_val_drop(p->val);
@@ -382,7 +448,7 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         {
             if (prop->name == name)
             {
-                if (thing__prop_locked(thing, prop, e))
+                if (thing__val_locked(thing, prop->name, prop->val, e))
                     return e->nr;
 
                 ti_prop_destroy(vec_swap_remove(thing->items, i));
@@ -401,6 +467,54 @@ ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
         if (prop->name == name)
             return prop->val;
     return NULL;
+}
+
+
+static _Bool thing_o__get_by_name(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    for (vec_each(thing->items, ti_prop_t, prop))
+    {
+        if (prop->name == name)
+        {
+            wprop->name = name;
+            wprop->val = prop->val;
+            return true;
+        }
+    }
+    return false;
+}
+
+static _Bool thing_t__get_by_name(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    ti_name_t * n;
+    ti_val_t * v;
+    for (thing_each(thing, n, v))
+    {
+        if (n == name)
+        {
+            wprop->name = name;
+            wprop->val = v;
+            return true;
+        }
+    }
+    return false;
+}
+
+_Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
+{
+    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
+    if (!name)
+        return false;
+
+    return ti_thing_is_object(thing)
+            ? thing_o__get_by_name(wprop, thing, name)
+            : thing_t__get_by_name(wprop, thing, name);
 }
 
 ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r)

@@ -1,46 +1,27 @@
 #include <ti/fn/fn.h>
 
-#define REVOKE_DOC_ TI_SEE_DOC("#revoke")
-
 static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int n;
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * user;
     ti_raw_t * uname;
     ti_task_t * task;
     uint64_t mask, scope_id;
     vec_t ** access_;
 
-    if (fn_not_thingsdb_scope("replace_node", query, e))
-        return e->nr;
-
-    n = langdef_nd_n_function_params(nd);
-    if (n != 3)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `revoke` takes 3 arguments but %d %s given"
-                REVOKE_DOC_,
-            n, n == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    /* scope */
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("revoke", query, e) ||
+        fn_nargs("revoke", DOC_REVOKE, 3, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
-    if (e->nr)
+    if (e->nr || ti_access_check_err(*access_, query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    /* check for privileges */
-    if (ti_access_check_err(
-            *access_,
-            query->user, TI_AUTH_GRANT, e))
-        return e->nr;
-
-    /* user */
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    /* read user */
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
@@ -48,7 +29,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `revoke` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"REVOKE_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_REVOKE,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -58,9 +39,10 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!user)
         return ti_raw_err_not_found(uname, "user", e);
 
-    /* mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    /* read mask */
     if (ti_do_statement(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
@@ -68,7 +50,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `revoke` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s`"REVOKE_DOC_,
+            "type `"TI_VAL_INT_S"` but got type `%s`"DOC_REVOKE,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -85,7 +67,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_OPERATION_ERROR,
                 "it is not possible to revoke your own `GRANT` privileges"
-                REVOKE_DOC_);
+                DOC_REVOKE);
         return e->nr;
     }
 

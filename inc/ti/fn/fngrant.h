@@ -1,45 +1,27 @@
 #include <ti/fn/fn.h>
 
-#define GRANT_DOC_ TI_SEE_DOC("#grant")
-
 static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nargs;
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
     uint64_t mask, scope_id;
     vec_t ** access_;
 
-    if (fn_not_thingsdb_scope("grant", query, e))
-        return e->nr;
-
-    nargs = langdef_nd_n_function_params(nd);
-    if (nargs != 3)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `grant` takes 3 arguments but %d %s given"GRANT_DOC_,
-            nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    /* scope */
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("grant", query, e) ||
+        fn_nargs("grant", DOC_GRANT, 3, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
-    if (e->nr)
+    if (e->nr || ti_access_check_err(*access_, query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    /* check for privileges */
-    if (ti_access_check_err(
-            *access_,
-            query->user, TI_AUTH_GRANT, e))
-        return e->nr;
-
-    /* user */
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    /* read user */
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
@@ -47,7 +29,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `grant` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"GRANT_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_GRANT,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -57,9 +39,10 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!user)
         return ti_raw_err_not_found(ruser, "user", e);
 
-    /* mask */
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    /* read mask */
     if (ti_do_statement(query, nd->children->next->next->next->next->node, e))
         return e->nr;
 
@@ -67,7 +50,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `grant` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead"GRANT_DOC_,
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_GRANT,
             ti_val_str(query->rval));
         return e->nr;
     }

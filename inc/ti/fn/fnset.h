@@ -1,11 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define SET_NEW_TYPE_DOC_ TI_SEE_DOC("#set-new-type")
-#define SET_PROPERTY_DOC_ TI_SEE_DOC("#set-property")
-
 static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = langdef_nd_n_function_params(nd);
 
     if (nargs == 1 && nd->children->next == NULL)
     {
@@ -54,6 +51,7 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_prop_t * prop;
     ti_thing_t * thing;
     ti_name_t * name;
@@ -62,25 +60,17 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? query->collection->quota->max_props
             : TI_QUOTA_NOT_SET;     /* check for scope since assign is
                                        possible when chained in all scopes */
-    int nargs = langdef_nd_n_function_params(nd);
 
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `set`"SET_PROPERTY_DOC_,
+                "type `%s` has no function `set`"DOC_SET_PROPERTY,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (nargs != 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `set` takes 2 arguments but %d %s given"
-                SET_PROPERTY_DOC_, nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs("set", DOC_SET_PROPERTY, 2, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;
@@ -101,7 +91,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `set` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_PROPERTY_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_SET_PROPERTY,
             ti_val_str(query->rval));
         goto fail0;
     }
@@ -111,6 +101,7 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, nd->children->next->next->node, e))
         goto fail1;
+
 
     if (ti_val_make_assignable(&query->rval, e))
         goto fail1;

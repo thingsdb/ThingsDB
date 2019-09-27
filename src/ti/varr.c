@@ -223,7 +223,6 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     if (list->ref == 1)
     {
-        LOGC("MOVE");
         /* This can never happen to a tuple since a tuple is always nested
          * and therefore always has more than one reference */
         assert (~list->flags & TI_VFLAG_ARR_TUPLE);

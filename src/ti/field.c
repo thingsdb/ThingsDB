@@ -249,6 +249,7 @@ int ti_field_create(
     field->type = type;
     field->name = name;
     field->spec_raw = spec_raw;
+    field->idx = type->fields->n;
 
     ti_incref(name);
     ti_incref(spec_raw);
@@ -281,18 +282,16 @@ void ti_field_destroy(ti_field_t * field)
     free(field);
 }
 
-static int field__vset_check(ti_field_t * field, ti_vset_t * vset, ex_t * e)
+static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
 {
     vec_t * vec;
 
     if (field->nested_spec == TI_SPEC_ANY ||
-        field->nested_spec == vset->spec)
-        return 0;
-
-    if (vset->imap->n == 0)
+        field->nested_spec == (*vset)->spec ||
+        (*vset)->imap->n == 0)
         goto done;
 
-    vec = imap_vec(vset->imap);
+    vec = imap_vec((*vset)->imap);
     if (!vec)
     {
         ex_set_mem(e);
@@ -302,11 +301,13 @@ static int field__vset_check(ti_field_t * field, ti_vset_t * vset, ex_t * e)
     for (vec_each(vec, ti_thing_t, thing))
     {
         /* sets cannot hold type `nil` so we can ignore the nillable flag */
-        if (thing->type_id != vset->spec)
+        if (thing->type_id != (*vset)->spec)
         {
             ex_set(e, EX_TYPE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` has definition `%.*s` but got a set with "
                 "type `%s` instead",
+                field->type->name,
                 field->name->str,
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data,
@@ -316,18 +317,19 @@ static int field__vset_check(ti_field_t * field, ti_vset_t * vset, ex_t * e)
     }
 
 done:
-    vset->spec = field->nested_spec;
-    return 0;
+    if (ti_val_make_assignable((ti_val_t **) vset, e) == 0)
+        (*vset)->spec = field->nested_spec;
+    return e->nr;
 }
 
-static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
+static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
-        varr->vec->n == 0 ||
-        varr->spec == field->nested_spec)
-        return 0;
+        (*varr)->vec->n == 0 ||
+        (*varr)->spec == field->nested_spec)
+        goto done;
 
-    for (vec_each(varr->vec, ti_val_t, val))
+    for (vec_each((*varr)->vec, ti_val_t, val))
     {
         switch (ti_spec_check_val(field->nested_spec, val))
         {
@@ -335,64 +337,72 @@ static int field__varr_check(ti_field_t * field, ti_varr_t * varr, ex_t * e)
             continue;
         case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` requires an array with items that match "
                 "definition `%.*s`",
+                field->type->name,
                 field->name->str,
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data);
             return e->nr;
         case TI_SPEC_RVAL_UTF8_ERROR:
             ex_set(e, EX_VALUE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` requires an array with UTF8 string values",
+                field->type->name,
                 field->name->str);
             return e->nr;
         case TI_SPEC_RVAL_UINT_ERROR:
             ex_set(e, EX_VALUE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` requires an array with positive integer values",
+                field->type->name,
                 field->name->str);
             return e->nr;
         }
     }
-    return 0;
+
+done:
+    if (ti_val_make_assignable((ti_val_t **) varr, e) == 0)
+        (*varr)->spec = field->nested_spec;
+    return e->nr;
 }
 
 /*
  * Returns 0 if the given value is valid for this field
  */
-int ti_field_check_val(ti_field_t * field, ti_val_t * val, ex_t * e)
+int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
 {
-    if (!val)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "property `%s` is missing",
-                field->name->str);
-        return e->nr;
-    }
-
-    switch (ti_spec_check_val(field->spec, val))
+    switch (ti_spec_check_val(field->spec, *val))
     {
     case TI_SPEC_RVAL_SUCCESS:
-        return ti_val_is_array(val)
-                ? field__varr_check(field, ((ti_varr_t *) val), e)
-                : ti_val_is_set(val)
-                ? field__vset_check(field, ((ti_vset_t *) val), e)
-                : 0;
+        return ti_val_is_array(*val)
+                ? field__varr_assign(field, (ti_varr_t **) val, e)
+                : ti_val_is_set(*val)
+                ? field__vset_assign(field, (ti_vset_t **) val, e)
+                : ti_val_make_assignable(val, e);
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
+                "cannot create type `%s`; "
                 "type `%s` is invalid for property `%s` with definition `%.*s`",
-                ti_val_str(val),
+                field->type->name,
+                ti_val_str(*val),
                 field->name->str,
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data);
         break;
     case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` only accepts valid UTF8 data",
+                field->type->name,
                 field->name->str);
         break;
     case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
+                "cannot create type `%s`; "
                 "property `%s` only accepts positive integer values",
+                field->type->name,
                 field->name->str);
         break;
     }
@@ -534,4 +544,21 @@ int ti_field_check_field(ti_field_t * t_field, ti_field_t * f_field, ex_t * e)
             ? 0
             : field__check_nested(t_field, f_field, e)
             : field__check_spec(t_field, f_field, t_spec, f_spec, e);
+}
+
+ti_field_t * ti_field_by_raw_e(ti_type_t * type, ti_raw_t * raw, ex_t * e)
+{
+    ti_name_t * name = ti_names_weak_get((const char *) raw->data, raw->n);
+    if (name)
+        for (vec_each(type->fields, ti_field_t, field))
+            if (field->name == name)
+                return field;
+
+    if (!ti_raw_check_valid_name(raw, "property", e))
+        ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no property `%.*s",
+                type->name,
+                (int) raw->n,
+                (const char *) raw->data);
+
+    return NULL;
 }

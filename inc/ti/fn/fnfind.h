@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define FIND_DOC_ TI_SEE_DOC("#find")
-
 static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -17,26 +15,13 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             !ti_val_is_set(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `find`"FIND_DOC_,
+                "type `%s` has no function `find`"DOC_FIND,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `find` requires at least 1 argument but 0 "
-                "were given"FIND_DOC_);
+    if (fn_nargs_max("find", DOC_FIND, 1, 2, nargs, e))
         return e->nr;
-    }
-
-    if (nargs > 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `find` takes at most 2 arguments but %d "
-                "were given"FIND_DOC_, nargs);
-        return e->nr;
-    }
 
     lock_was_set = ti_val_ensure_lock(query->rval);
     iterval = query->rval;
@@ -49,7 +34,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `find` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"FIND_DOC_,
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"DOC_FIND,
                 ti_val_str(query->rval));
         goto fail0;
     }

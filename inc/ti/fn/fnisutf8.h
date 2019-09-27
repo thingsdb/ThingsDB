@@ -11,7 +11,7 @@ static int do__f__isutf8(
     ti_raw_t * raw;
 
     if (fn_chained(fnname, query, e) ||
-        fn_nargs(fnname, DOC_ISTUPLE, 1, nargs, e) ||
+        fn_nargs(fnname, DOC_ISUTF8, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

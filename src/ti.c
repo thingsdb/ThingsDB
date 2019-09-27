@@ -339,8 +339,6 @@ int ti_run(void)
 {
     int rc, attempts;
 
-
-
     if (uv_loop_init(&loop_))
         return -1;
 

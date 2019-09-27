@@ -510,9 +510,9 @@ static _Bool thing_t__get_by_name(
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
-    return name && ti_thing_is_object(thing)
+    return name && (ti_thing_is_object(thing)
             ? thing_o__get_by_name(wprop, thing, name)
-            : thing_t__get_by_name(wprop, thing, name);
+            : thing_t__get_by_name(wprop, thing, name));
 }
 
 _Bool ti_thing_get_by_raw_e(
@@ -522,9 +522,9 @@ _Bool ti_thing_get_by_raw_e(
         ex_t * e)
 {
     ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
-    if (name && ti_thing_is_object(thing)
+    if (name && (ti_thing_is_object(thing)
             ? thing_o__get_by_name(wprop, thing, name)
-            : thing_t__get_by_name(wprop, thing, name))
+            : thing_t__get_by_name(wprop, thing, name)))
         return true;
 
     ti_thing_set_not_found(thing, name, r, e);

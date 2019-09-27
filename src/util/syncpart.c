@@ -81,6 +81,7 @@ fail0:
     return -1;
 }
 
+/* TODO: check if mutex lock is still required */
 int syncpart_write(
         const char * fn,
         const unsigned char * data,

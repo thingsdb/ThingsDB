@@ -88,8 +88,6 @@ void imap_destroy(imap_t * imap, imap_destroy_cb cb)
     free(imap);
 }
 
-
-
 /*
  * Add data by id to the map. Data is not allowed to be NULL.
  *

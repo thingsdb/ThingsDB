@@ -62,6 +62,7 @@
 #define DOC_ISSET                   DOC_SEE("#isset")
 #define DOC_ISTHING                 DOC_SEE("#isthing")
 #define DOC_ISTUPLE                 DOC_SEE("#istuple")
+#define DOC_ISUTF8                  DOC_SEE("#isutf8")
 #define DOC_LOOKUP_ERR              DOC_SEE("#lookup_err")
 #define DOC_MAX_QUOTA_ERR           DOC_SEE("#max_quota_err")
 #define DOC_NAMES                   DOC_SEE("#names")

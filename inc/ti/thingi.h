@@ -65,4 +65,28 @@ static inline void ti_thing_set_not_found(
     }
 }
 
+static inline ti_val_t * ti_thing_o_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    assert (ti_thing_is_object(thing));
+    for (vec_each(thing->items, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop->val;
+    return NULL;
+}
+
+static inline ti_val_t * ti_thing_t_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    assert (!ti_thing_is_object(thing));
+    ti_name_t * n;
+    ti_val_t * v;
+    for (thing_each(thing, n, v))
+        if (n == name)
+            return v;
+    return NULL;
+}
+
 #endif  /* TI_THINGI_H_ */

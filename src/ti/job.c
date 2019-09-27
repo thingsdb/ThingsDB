@@ -9,6 +9,7 @@
 #include <ti/procedure.h>
 #include <ti/procedures.h>
 #include <ti/syntax.h>
+#include <ti/thingi.h>
 #include <ti/val.h>
 #include <ti/typesi.h>
 #include <ti/varr.h>
@@ -49,7 +50,9 @@ static int job__add(
     n = qp_n.via.int64;
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)))
+    if (!name || !(vset = ti_thing_is_object(thing)
+            ? (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)
+            : (ti_vset_t *) ti_thing_t_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
@@ -142,15 +145,22 @@ static int job__set(
         goto fail;
     }
 
-    if (!ti_thing_o_prop_set(thing, name, val))
+    if (ti_thing_is_object(thing))
     {
-        log_critical(
-                "job `set` to "TI_THING_ID": "
-                "error setting property: `%s` (type: `%s`)",
-                thing->id,
-                name->str,
-                ti_val_str(val));
-        goto fail;
+        if (!ti_thing_o_prop_set(thing, name, val))
+        {
+            log_critical(
+                    "job `set` to "TI_THING_ID": "
+                    "error setting property: `%s` (type: `%s`)",
+                    thing->id,
+                    name->str,
+                    ti_val_str(val));
+            goto fail;
+        }
+    }
+    else
+    {
+        ti_thing_t_prop_set(thing, name, val);
     }
 
     return 0;
@@ -335,7 +345,6 @@ static int job__new_procedure(
     ti_closure_t * closure;
     ti_raw_t * rname;
 
-
     if (!qp_is_map(qp_next(unp, NULL)) ||
         !qp_is_raw(qp_next(unp, &qp_name)))
     {
@@ -353,7 +362,6 @@ static int job__new_procedure(
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
         !(procedure = ti_procedure_create(rname, closure)))
         goto failed;
-
 
     rc = ti_procedures_add(&collection->procedures, procedure);
     if (rc == 0)
@@ -413,7 +421,9 @@ static int job__remove(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)))
+    if (!name || !(vset = ti_thing_is_object(thing)
+            ? (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)
+            : (ti_vset_t *) ti_thing_t_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
@@ -469,7 +479,6 @@ static int job__remove(
                     thing_id);
             continue;
         }
-
         ti_val_drop((ti_val_t *) t);
     }
 
@@ -511,7 +520,9 @@ static int job__splice(
     }
 
     name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
-    if (!name || !(varr = (ti_varr_t *) ti_thing_o_val_weak_get(thing, name)))
+    if (!name || !(varr = ti_thing_is_object(thing)
+            ? (ti_varr_t *) ti_thing_o_val_weak_get(thing, name)
+            : (ti_varr_t *) ti_thing_t_val_weak_get(thing, name)))
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "

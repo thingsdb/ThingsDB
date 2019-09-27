@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define INDEXOF_DOC_ TI_SEE_DOC("#indexof")
-
 static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_varr_t * varr;
 
@@ -13,19 +12,13 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `indexof`"INDEXOF_DOC_,
+                "type `%s` has no function `indexof`"DOC_INDEXOF,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `indexof` takes 1 argument but %d were given"
-                INDEXOF_DOC_, nargs);
+    if (fn_nargs("indexof", DOC_INDEXOF, 1, nargs, e))
         return e->nr;
-    }
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;

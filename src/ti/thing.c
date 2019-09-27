@@ -299,6 +299,19 @@ ti_prop_t * ti_thing_o_prop_set(
 }
 
 /*
+ * Does not increment the `name` and `val` reference counters.
+ */
+void ti_thing_t_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+{
+    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
+            thing->items,
+            ti_field_by_name(ti_thing_type(thing), name)->idx);
+
+    ti_val_drop(*vaddr);
+    *vaddr = val;
+}
+
+/*
  * Return 0 if successful; This function makes a given `value` assignable so
  * it should not be used within a job.
  */
@@ -457,15 +470,6 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     ti_thing_set_not_found(thing, name, rname, e);
     return e->nr;
 }
-
-ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
-{
-    for (vec_each(thing->items, ti_prop_t, prop))
-        if (prop->name == name)
-            return prop->val;
-    return NULL;
-}
-
 
 static _Bool thing_o__get_by_name(
         ti_wprop_t * wprop,

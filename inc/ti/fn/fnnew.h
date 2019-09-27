@@ -7,7 +7,11 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * new_thing, * from_thing;
 
     if (fn_not_collection_scope("new", query, e) ||
-        fn_nargs("new", DOC_NEW, 2, nargs, e))
+        fn_nargs("new", DOC_NEW, 2, nargs, e) ||
+        ti_quota_things(
+                query->collection->quota,
+                query->collection->things->n,
+                e))
         return e->nr;
 
     if (ti_do_statement(query, nd->children->node, e))
@@ -55,7 +59,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_t * val;
         for (vec_each(type->fields, ti_field_t, field))
         {
-            val = ti_thing_o_weak_val_by_name(from_thing, field->name);
+            val = ti_thing_o_val_weak_get(from_thing, field->name);
             if (!val)
             {
                 if (field->spec & TI_SPEC_NILLABLE)

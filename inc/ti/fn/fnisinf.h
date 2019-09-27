@@ -1,24 +1,13 @@
 #include <ti/fn/fn.h>
 
-#define ISINF_DOC_ TI_SEE_DOC("#isinf")
-
 static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_inf;
 
-    if (fn_chained("isinf", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `isinf` takes 1 argument but %d were given"
-                ISINF_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_chained("isinf", query, e) ||
+        fn_nargs("isinf", DOC_ISINF, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     switch (query->rval->tp)
@@ -33,7 +22,7 @@ static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     default:
         ex_set(e, EX_TYPE_ERROR,
                 "function `isinf` expects argument 1 to be of "
-                "type `"TI_VAL_FLOAT_S"` but got type `%s` instead"ISINF_DOC_,
+                "type `"TI_VAL_FLOAT_S"` but got type `%s` instead"DOC_ISINF,
                 ti_val_str(query->rval));
         return e->nr;
     }

@@ -39,7 +39,7 @@ class TestTypes(TestBase):
             new_type('User', {
                 name: 'str',
                 age: 'uint',
-                likes: '[]?',
+                likes: '[User]?',
             });
             new_type('People', {
                 users: '[User]'

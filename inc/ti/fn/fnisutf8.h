@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define ISUTF8_DOC_ TI_SEE_DOC("#isutf8")
-
 static int do__f__isutf8(
         const char * fnname,
         ti_query_t * query,
@@ -12,18 +10,9 @@ static int do__f__isutf8(
     _Bool is_utf8;
     ti_raw_t * raw;
 
-    if (fn_chained(fnname, query, e))
-        return e->nr;
-
-    if (nargs != 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `%s` takes 1 argument but %d were given"
-                ISUTF8_DOC_, fnname, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_chained(fnname, query, e) ||
+        fn_nargs(fnname, DOC_ISTUPLE, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;

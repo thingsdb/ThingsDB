@@ -23,6 +23,10 @@ ti_thing_t * ti_things_thing_o_from_unp(
         qp_unpacker_t * unp,
         ssize_t sz,
         ex_t * e);
+ti_thing_t * ti_things_thing_t_from_unp(
+        ti_collection_t * collection,
+        qp_unpacker_t * unp,
+        ex_t * e);
 int ti_things_gc(imap_t * things, ti_thing_t * root);
 
 

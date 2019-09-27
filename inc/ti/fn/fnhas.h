@@ -1,6 +1,5 @@
 #include <ti/fn/fn.h>
 
-
 static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -66,7 +65,9 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
-            name && ti_thing_o_prop_weak_get(thing, name));
+            name && ti_thing_is_object(thing)
+            ? ti_thing_o_val_weak_get(thing, name)
+            : ti_thing_t_val_weak_get(thing, name));
 
 fail1:
     ti_val_drop((ti_val_t *) thing);

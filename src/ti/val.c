@@ -86,9 +86,7 @@ static ti_val_t * val__unp_map(
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
-        assert (0);
-        /* TODO: handle instance */
-        return NULL;
+        return (ti_val_t *) ti_things_thing_t_from_unp(collection, unp, e);
     case TI_KIND_C_CAST:
         assert (0);
         /* TODO: handle cast */

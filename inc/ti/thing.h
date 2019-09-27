@@ -49,6 +49,7 @@ ti_prop_t * ti_thing_o_prop_set(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
+void ti_thing_t_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
 ti_prop_t * ti_thing_o_prop_set_e(
         ti_thing_t * thing,
         ti_name_t * name,
@@ -57,7 +58,6 @@ ti_prop_t * ti_thing_o_prop_set_e(
 void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
-ti_val_t * ti_thing_o_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * raw);
 _Bool ti_thing_get_by_raw_e(
         ti_wprop_t * wprop,
@@ -104,6 +104,7 @@ struct ti_thing_s
     vec_t * watchers;               /* vec contains ti_watch_t,
                                        NULL if no watchers,  */
 };
+
 
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {
@@ -162,17 +163,6 @@ static inline uint64_t ti_thing_key(ti_thing_t * thing)
     return (uintptr_t) thing;
 }
 
-static inline ti_val_t * ti_thing_o_val_weak_get(
-        ti_thing_t * thing,
-        ti_name_t * name)
-{
-    assert (ti_thing_is_object(thing));
-    for (vec_each(thing->items, ti_prop_t, prop))
-        if (prop->name == name)
-            return prop->val;
-    return NULL;
-}
-
 static inline ti_prop_t * ti_thing_o_prop_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
@@ -201,6 +191,5 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = (ti_val_t **) v__);                                \
     ++v__, ++n__
-
 
 #endif /* TI_THING_H_ */

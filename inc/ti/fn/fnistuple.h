@@ -1,24 +1,13 @@
 #include <ti/fn/fn.h>
 
-#define ISTUPLE_DOC_ TI_SEE_DOC("#istuple")
-
 static int do__f_istuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_tuple;
 
-    if (fn_chained("istuple", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `istuple` takes 1 argument but %d were given"
-                ISTUPLE_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_chained("istuple", query, e) ||
+        fn_nargs("istuple", DOC_ISTUPLE, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     is_tuple = ti_val_is_tuple(query->rval);

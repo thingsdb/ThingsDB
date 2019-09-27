@@ -1,21 +1,12 @@
 #include <ti/fn/fn.h>
 
-#define THING_DOC_ TI_SEE_DOC("#thing")
-
 static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_chained("thing", query, e))
+    if (fn_chained("thing", query, e) ||
+        fn_nargs_max("thing", DOC_THING, 0, 1, nargs, e))
         return e->nr;
-
-    if (nargs > 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `thing` takes at most 1 argument but %d were given"
-                THING_DOC_, nargs);
-        return e->nr;
-    }
 
     if (nargs == 1)
     {

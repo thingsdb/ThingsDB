@@ -115,6 +115,7 @@
 #define DOC_SYNTAX_ERR              DOC_SEE("#syntax_err")
 #define DOC_TEST                    DOC_SEE("#test")
 #define DOC_THING                   DOC_SEE("#thing")
+#define DOC_TRY                     DOC_SEE("#try")
 #define DOC_TYPE                    DOC_SEE("#type")
 #define DOC_TYPE_ERR                DOC_SEE("#type_err")
 #define DOC_TYPE_INFO               DOC_SEE("#type_info")
@@ -125,6 +126,7 @@
 #define DOC_USERS_INFO              DOC_SEE("#users_info")
 #define DOC_VALUE_ERR               DOC_SEE("#value_err")
 #define DOC_VALUES                  DOC_SEE("#values")
+#define DOC_WSE                     DOC_SEE("#wse")
 #define DOC_ZERO_DIV_ERR            DOC_SEE("#zero_div_err")
 
 #endif  /* TI_DOC_H_ */

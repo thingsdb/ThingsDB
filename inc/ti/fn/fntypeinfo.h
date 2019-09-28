@@ -6,10 +6,8 @@ static int do__f_type_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
 
     if (fn_not_collection_scope("type_info", query, e) ||
-        fn_nargs("type_info", DOC_TYPE_INFO, 1, nargs, e))
-        return e->nr;
-
-    if (ti_do_statement(query, nd->children->node, e))
+        fn_nargs("type_info", DOC_TYPE_INFO, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

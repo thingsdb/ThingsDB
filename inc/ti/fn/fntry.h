@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define TRY_DOC_ TI_SEE_DOC("#try")
-
 static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
@@ -9,16 +7,9 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ex_enum errnr;
     ti_verror_t * verror;
 
-    if (fn_chained("try", query, e))
+    if (fn_chained("try", query, e) ||
+        fn_nargs_min("try", DOC_TRY, 1, nargs, e))
         return e->nr;
-
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `try` requires at least 1 argument but 0 "
-                "were given"TRY_DOC_);
-        return e->nr;
-    }
 
     errnr = ti_do_statement(query, child->node, e);
 
@@ -56,8 +47,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `try` expects arguments 2..X to be of "
-                "type `"TI_VAL_ERROR_S"` but got type `%s` instead"
-                TRY_DOC_,
+                "type `"TI_VAL_ERROR_S"` but got type `%s` instead"DOC_TRY,
                 ti_val_str(query->rval));
             goto failed;
         }

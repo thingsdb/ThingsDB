@@ -217,7 +217,7 @@ invalid:
     ex_set(e, EX_AUTH_ERROR, "invalid token");
     return NULL;
 expired:
-    ex_set(e, EX_AUTH_ERROR, "token is expired"TI_SEE_DOC("#del_expired"));
+    ex_set(e, EX_AUTH_ERROR, "token is expired"DOC_DEL_EXPIRED);
     return NULL;
 }
 

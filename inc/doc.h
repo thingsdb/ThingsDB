@@ -4,8 +4,6 @@
 #ifndef DOC_H_
 #define DOC_H_
 
-/* TODO: use doc instead of file definitions */
-
 /* TODO: create doc exist tests */
 
 #include <tiinc.h>
@@ -89,8 +87,10 @@
 #define DOC_POP_NODE                DOC_SEE("#pop_node")
 #define DOC_PROCEDURE_DOC           DOC_SEE("#procedure_doc")
 #define DOC_PROCEDURE_INFO          DOC_SEE("#procedure_info")
+#define DOC_PROCEDURES_API          DOC_SEE("#procedures-api")
 #define DOC_PROCEDURES_INFO         DOC_SEE("#procedures_info")
 #define DOC_PUSH                    DOC_SEE("#push")
+#define DOC_QUERY                   DOC_SEE("#query")
 #define DOC_QUOTAS                  DOC_SEE("#quotas")
 #define DOC_RAISE                   DOC_SEE("#raise")
 #define DOC_REFS                    DOC_SEE("#refs")
@@ -110,6 +110,7 @@
 #define DOC_SET_PROPERTY            DOC_SEE("#set-property")
 #define DOC_SET_QUOTA               DOC_SEE("#set_quota")
 #define DOC_SHUTDOWN                DOC_SEE("#shutdown")
+#define DOC_SLICES                  DOC_SEE("#slices")
 #define DOC_SPEC                    DOC_SEE("#type-declaration")
 #define DOC_SPLICE                  DOC_SEE("#splice")
 #define DOC_STARTSWITH              DOC_SEE("#startswith")
@@ -128,6 +129,7 @@
 #define DOC_USERS_INFO              DOC_SEE("#users_info")
 #define DOC_VALUE_ERR               DOC_SEE("#value_err")
 #define DOC_VALUES                  DOC_SEE("#values")
+#define DOC_WATCH                   DOC_SEE("#watch")
 #define DOC_WSE                     DOC_SEE("#wse")
 #define DOC_ZERO_DIV_ERR            DOC_SEE("#zero_div_err")
 

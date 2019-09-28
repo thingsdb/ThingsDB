@@ -13,15 +13,13 @@
 #include <ti/vint.h>
 #include <langdef/langdef.h>
 
-#define SLICES_DOC_ TI_SEE_DOC("#slices")
-
 static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
 {
     if (!ti_val_is_nil(val))
         ex_set(e, EX_TYPE_ERROR,
                "slice indices must be of type `"TI_VAL_INT_S"` "
                "or `"TI_VAL_NIL_S"` but got got type `%s` instead"
-               SLICES_DOC_, ti_val_str(val));
+               DOC_SLICES, ti_val_str(val));
     return e->nr;
 }
 
@@ -187,7 +185,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "unsupported operand type `%.*s` for slice assignments"
-                SLICES_DOC_, 2, ass_tokens->str);
+                DOC_SLICES, 2, ass_tokens->str);
         return e->nr;
     }
 
@@ -205,7 +203,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "slice assignments require a step value of 1 "
-                "but got %zd instead"SLICES_DOC_,
+                "but got %zd instead"DOC_SLICES,
                 step);
         goto fail1;
     }
@@ -217,7 +215,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "slice assignments require an `"TI_VAL_ARR_S"` type "
-                "but got type `%s` instead"SLICES_DOC_,
+                "but got type `%s` instead"DOC_SLICES,
                 ti_val_str(query->rval));
         goto fail1;
     }

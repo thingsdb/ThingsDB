@@ -141,7 +141,7 @@ ti_collection_t * ti_collections_create_collection(
     {
         ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
-                TI_SEE_DOC("#names"));
+                DOC_NAMES);
         goto fail0;
     }
 

@@ -470,7 +470,7 @@ int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
     {
         ex_set(e, EX_OPERATION_ERROR,
                 "stored closures with side effects must be "
-                "wrapped using `wse(...)`"TI_SEE_DOC("#wse"));
+                "wrapped using `wse(...)`"DOC_WSE);
         return -1;
     }
     return 0;

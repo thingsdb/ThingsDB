@@ -101,7 +101,7 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
-                TI_SEE_DOC("#names"));
+                DOC_NAMES);
         return false;
     }
 
@@ -117,7 +117,7 @@ int ti_collection_rename(
     {
         ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
-                TI_SEE_DOC("#names"));
+                DOC_NAMES);
         return -1;
     }
 

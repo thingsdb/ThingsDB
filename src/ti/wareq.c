@@ -12,8 +12,6 @@
 #include <ti/access.h>
 #include <util/qpx.h>
 
-#define WATCH_DOC_ TI_SEE_DOC("#watch")
-
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__watch_cb(uv_async_t * task);
@@ -92,7 +90,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
     if (!qp_is_close(qp_id.tp))
         ex_set(e, EX_BAD_DATA,
-                "watch requests only except integer thing id's "WATCH_DOC_);
+                "watch requests only except integer thing id's "DOC_WATCH);
 
     return e->nr;
 }

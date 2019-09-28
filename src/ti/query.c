@@ -22,9 +22,6 @@
 #include <util/qpx.h>
 #include <util/strx.h>
 
-#define QUERY_DOC_ TI_SEE_DOC("#query")
-#define CALL_REQUEST_DOC_ TI_SEE_DOC("#procedures-api")
-
 /*
  *  tasks are ordered for low to high thing ids
  *   { [0, 0]: {0: [ {'job':...} ] } }
@@ -255,7 +252,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have an "
-                "optional third value of type `map`"QUERY_DOC_);
+                "optional third value of type `map`"DOC_QUERY);
         return e->nr;
     }
 
@@ -265,7 +262,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "each argument name in a `query` request "
-                    "must follow the naming rules"TI_SEE_DOC("#names"));
+                    "must follow the naming rules"DOC_NAMES);
             return e->nr;
         }
 
@@ -303,7 +300,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
     }
 
     if (!qp_is_close(qp_key.tp))
-        ex_set(e, EX_BAD_DATA, "unexpected data in `query` request"QUERY_DOC_);
+        ex_set(e, EX_BAD_DATA, "unexpected data in `query` request"DOC_QUERY);
 
     return e->nr;
 }
@@ -332,7 +329,7 @@ int ti_query_unpack(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have a "
-                "second value of type `raw`"QUERY_DOC_);
+                "second value of type `raw`"DOC_QUERY);
         return e->nr;
     }
 
@@ -385,7 +382,7 @@ int ti_query_unp_run(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `run` request to have a "
-                "second value of type `raw`"CALL_REQUEST_DOC_);
+                "second value of type `raw`"DOC_PROCEDURES_API);
         return e->nr;
     }
 
@@ -394,7 +391,7 @@ int ti_query_unp_run(
     case TI_SCOPE_NODE:
         ex_set(e, EX_BAD_DATA,
                 "cannot make a `run` request to the `node` scope"
-                CALL_REQUEST_DOC_);
+                DOC_PROCEDURES_API);
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;

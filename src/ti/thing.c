@@ -193,7 +193,7 @@ int ti_thing_props_from_unp(
         {
             ex_set(e, EX_VALUE_ERROR,
                     "property name must follow the naming rules"
-                    TI_SEE_DOC("#names"));
+                    DOC_NAMES);
             return e->nr;
         }
 

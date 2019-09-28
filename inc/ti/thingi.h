@@ -60,8 +60,7 @@ static inline void ti_thing_set_not_found(
     else
     {
         ex_set(e, EX_VALUE_ERROR,
-                "property name must follow the naming rules"
-                TI_SEE_DOC("#names"));
+                "property name must follow the naming rules"DOC_NAMES);
     }
 }
 

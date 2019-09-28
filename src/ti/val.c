@@ -54,7 +54,7 @@ static ti_val_t * val__unp_map(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "property names must be of type `raw` "
-                "and follow the naming rules"TI_SEE_DOC("#names"));
+                "and follow the naming rules"DOC_NAMES);
         return NULL;
     }
 

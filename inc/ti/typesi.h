@@ -10,6 +10,11 @@
 #include <ti/raw.h>
 
 
+static inline ti_type_t * ti_types_by_strn(ti_types_t * types, const char * str, size_t n)
+{
+    return smap_getn(types->smap, str, n);
+}
+
 static inline ti_type_t * ti_types_by_raw(ti_types_t * types, ti_raw_t * raw)
 {
     return smap_getn(types->smap, (const char *) raw->data, raw->n);

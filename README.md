@@ -16,12 +16,12 @@
       done with a client protocol, or change the auth protocol? or maybe it should
       be disabled explicitly for a query. This last option is maybe not so bad
       because it will prevent missing warnings.
+- [x] Some sort of `Type` support for strict types?
+  - [ ] Create a `cast` type for exporting less data
+
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?
-- [ ] Some sort of `Class` / `Type` support for strict types?
-  - [ ] A `type` variable can help to build this
-
 
 
 

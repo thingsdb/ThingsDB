@@ -6,7 +6,7 @@ static int do__f_nodes_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_node_scope("nodes_info", query, e) ||
         fn_nargs("nodes_info", DOC_NODES_INFO, 0, nargs, e))
-            return e->nr;
+        return e->nr;
 
     query->rval = ti_nodes_info_as_qpval();
     if (!query->rval)

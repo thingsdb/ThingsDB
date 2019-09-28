@@ -192,15 +192,6 @@ fail0:
     return NULL;
 }
 
-
-ti_collection_t * ti_collections_get_by_raw(const ti_raw_t * raw)
-{
-    for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_raw_eq(collection->name, raw))
-            return collection;
-    return NULL;
-}
-
 /* returns a weak reference */
 ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n)
 {
@@ -262,7 +253,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     return collection;
 }
 
-int ti_collections_to_packer(qp_packer_t ** packer)
+static int collections__to_packer(qp_packer_t ** packer)
 {
     if (qp_add_array(packer))
         return -1;
@@ -281,7 +272,7 @@ ti_val_t * ti_collections_as_qpval(void)
     if (!packer)
         return NULL;
 
-    raw = ti_collections_to_packer(&packer)
+    raw = collections__to_packer(&packer)
             ? NULL
             : ti_raw_from_packer(packer);
 

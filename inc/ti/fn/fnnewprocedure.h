@@ -2,6 +2,7 @@
 
 static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     int rc;
     ti_raw_t * raw;
     ti_task_t * task;
@@ -10,20 +11,10 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vec_t ** procedures = query->collection
             ? &query->collection->procedures
             : &ti()->procedures;
-    int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e))
-        return e->nr;
-
-    if (nargs != 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `new_procedure` takes 2 arguments but %d %s given"
-                DOC_NEW_PROCEDURE, nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e) ||
+        fn_nargs("new_procedure", DOC_NEW_PROCEDURE, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define VALUES_DOC_ TI_SEE_DOC("#values")
-
 static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
     ti_varr_t * varr;
 
@@ -13,19 +12,13 @@ static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `values`"VALUES_DOC_,
+                "type `%s` has no function `values`"DOC_VALUES,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `values` takes 0 arguments but %d %s given"VALUES_DOC_,
-            nargs, nargs == 1 ? "was" : "were");
+    if (fn_nargs("values", DOC_VALUES, 0, nargs, e))
         return e->nr;
-    }
 
     thing = (ti_thing_t *) query->rval;
     varr = ti_varr_create(thing->items->n);

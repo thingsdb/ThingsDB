@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define UPPER_DOC_ TI_SEE_DOC("#upper")
-
 static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * raw;
 
     if (fn_not_chained("upper", query, e))
@@ -17,14 +16,8 @@ static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `upper` takes 0 arguments but %d %s given"UPPER_DOC_,
-                nargs, nargs == 1 ? "was" : "were");
+    if (fn_nargs("upper", DOC_UPPER, 0, nargs, e))
         return e->nr;
-    }
 
     raw = (ti_raw_t *) query->rval;
     query->rval = (ti_val_t *) ti_raw_upper(raw);

@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define SPLICE_DOC_ TI_SEE_DOC("#splice")
-
 static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int32_t n, x, l;
@@ -20,22 +18,14 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `splice`"SPLICE_DOC_,
+                "type `%s` has no function `splice`"DOC_SPLICE,
                 ti_val_str(query->rval));
         goto fail0;
     }
 
     n = langdef_nd_n_function_params(nd);
-    if (n < 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `splice` requires at least 2 arguments "
-                "but %d %s given"SPLICE_DOC_,
-                n, n == 1 ? "was" : "were");
-        goto fail0;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs_min("splice", DOC_SPLICE, 2, n, e) ||
+        ti_val_try_lock(query->rval, e))
         goto fail0;
 
     varr = (ti_varr_t *) query->rval;
@@ -48,7 +38,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_SPLICE,
                 ti_val_str(query->rval));
         goto fail1;
     }
@@ -65,7 +55,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"SPLICE_DOC_,
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_SPLICE,
                 ti_val_str(query->rval));
         goto fail1;
     }

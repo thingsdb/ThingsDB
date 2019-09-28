@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define STARTSWITH_DOC_ TI_SEE_DOC("#startswith")
-
 static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * raw;
     _Bool startswith;
 
@@ -13,19 +12,13 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `startswith`"STARTSWITH_DOC_,
+                "type `%s` has no function `startswith`"DOC_STARTSWITH,
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `startswith` takes 1 argument but %d were given"
-                STARTSWITH_DOC_, nargs);
+    if (fn_nargs("startswith", DOC_STARTSWITH, 1, nargs, e))
         return e->nr;
-    }
 
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
@@ -38,7 +31,7 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `startswith` expects argument 1 to be of "
                 "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                STARTSWITH_DOC_, ti_val_str(query->rval));
+                DOC_STARTSWITH, ti_val_str(query->rval));
         goto failed;
     }
 

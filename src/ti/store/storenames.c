@@ -4,7 +4,7 @@
 #include <qpack.h>
 #include <ti.h>
 #include <ti/names.h>
-#include <ti/store/names.h>
+#include <ti/store/storenames.h>
 #include <util/fx.h>
 #include <util/logger.h>
 #include <util/smap.h>

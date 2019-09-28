@@ -220,7 +220,7 @@ failed:
     return e->nr;
 }
 
-/* adds a key/value pair, which is supposed to be added to a `map`. */
+/* adds a map with key/value pairs */
 int ti_type_fields_to_packer(ti_type_t * type, qp_packer_t ** packer)
 {
     if (qp_add_map(packer))

@@ -9,14 +9,23 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <ti.h>
+#include <ti/typesi.h>
+#include <ti/thingi.h>
 #include <ti/prop.h>
-#include <ti/store/things.h>
+#include <ti/store/storethings.h>
 #include <ti/things.h>
 #include <unistd.h>
 #include <util/fx.h>
 
+typedef struct
+{
+    uint64_t thing_id;
+    uint16_t type_id;
+} store__things_t;
+
 int ti_store_things_store(imap_t * things, const char * fn)
 {
+
     vec_t * things_vec;
     int rc = -1;
     FILE * f = fopen(fn, "w");
@@ -35,7 +44,9 @@ int ti_store_things_store(imap_t * things, const char * fn)
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
-        if (fwrite(&thing->id, sizeof(uint64_t), 1, f) != 1)
+
+        if (fwrite(&thing->id, sizeof(uint64_t), 1, f) != 1 ||
+            fwrite(&thing->type_id, sizeof(uint16_t), 1, f) != 1)
         {
             log_error("error writing to file `%s`", fn);
             goto stop;
@@ -98,8 +109,7 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
         else
         {
             if (qp_fadd_int(f, thing->id) ||
-                qp_fadd_type(f, QP_ARRAY_OPEN) ||
-                qp_fadd_int(f, thing->type_id))
+                qp_fadd_type(f, QP_ARRAY_OPEN))
                 goto stop;
 
             for (vec_each(thing->items, ti_val_t, val))
@@ -134,21 +144,39 @@ stop:
 
 int ti_store_things_restore(ti_collection_t * collection, const char * fn)
 {
+    store__things_t store;
+    ti_type_t * type;
     int rc = 0;
     ssize_t sz;
+    uchar * pt;
+    uchar * end;
     uchar * data = fx_read(fn, &sz);
     if (!data)
         goto failed;
 
-    uchar * pt = data;
-    uchar * end = data + sz - sizeof(uint64_t);
+    pt = data;
+    end = data + sz - sizeof(uint64_t);
 
-    for (;pt <= end; pt += sizeof(uint64_t))
+    for (;pt <= end; pt += sizeof(store__things_t))
     {
-        uint64_t id;
-        memcpy(&id, pt, sizeof(uint64_t));
-        if (!ti_things_create_thing_o(id, collection))
-            goto failed;
+        memcpy(&store, pt, sizeof(store__things_t));
+
+        if (store.type_id == TI_SPEC_OBJECT)
+        {
+            if (!ti_things_create_thing_o(store.thing_id, collection))
+                goto failed;
+        }
+        else
+        {
+            type = ti_types_by_id(collection->types, store.type_id);
+            if (!type)
+            {
+                log_critical("cannot find type with id %u", store.type_id);
+                goto failed;
+            }
+            if (!ti_things_create_thing_t(store.thing_id, type, collection))
+                goto failed;
+        }
     }
 
     goto done;
@@ -160,7 +188,6 @@ done:
     free(data);
     return rc;
 }
-
 
 int ti_store_things_restore_data(
         ti_collection_t * collection,
@@ -217,31 +244,59 @@ int ti_store_things_restore_data(
             goto fail2;
         }
 
-        if (!qp_is_map(qp_next(&unp, NULL)))
-            goto fail2;
-
-        while (qp_is_int(qp_next(&unp, &qp_name_id)))
+        if (ti_thing_is_object(thing))
         {
-            uint64_t name_id = (uint64_t) qp_name_id.via.int64;
-
-            name = imap_get(names, name_id);
-            if (!name)
-            {
-                log_critical("cannot find name with id: %"PRIu64, name_id);
+            if (!qp_is_map(qp_next(&unp, NULL)))
                 goto fail2;
+
+            while (qp_is_int(qp_next(&unp, &qp_name_id)))
+            {
+                uint64_t name_id = (uint64_t) qp_name_id.via.int64;
+
+                name = imap_get(names, name_id);
+                if (!name)
+                {
+                    log_critical("cannot find name with id: %"PRIu64, name_id);
+                    goto fail2;
+                }
+
+                val = ti_val_from_unp(&unp, collection);
+                if (!val)
+                {
+                    log_critical("cannot read value for `%s`", name->str);
+                    goto fail2;
+                }
+
+                if (!ti_thing_o_prop_add(thing, name, val))
+                    goto fail2;
+
+                ti_incref(name);
+            }
+        }
+        else
+        {
+            ti_type_t * type = ti_thing_type(thing);
+            qp_types_t arrsz;
+
+            if (!qp_is_array(((arrsz = qp_next(&unp, NULL)))))
+                goto fail2;
+
+            assert (thing->items->sz == type->fields->n);
+
+            for (uint32_t i = 0, n = type->fields->n; i < n; ++i)
+            {
+                val = ti_val_from_unp(&unp, collection);
+                if (!val)
+                {
+                    log_critical("cannot read value for type `%s`", type->name);
+                    goto fail2;
+                }
+
+                VEC_push(thing->items, val);
             }
 
-            val = ti_val_from_unp(&unp, collection);
-            if (!val)
-            {
-                log_critical("cannot read value for `%s`", name->str);
+            if (arrsz == QP_ARRAY_OPEN && !qp_is_close( qp_next(&unp, NULL)))
                 goto fail2;
-            }
-
-            if (!ti_thing_o_prop_add(thing, name, val))
-                goto fail2;
-
-            ti_incref(name);
         }
     }
     rc = 0;

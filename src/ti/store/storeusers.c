@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti/store/storeusers.h>
 #include <ti.h>
-#include <ti/store/users.h>
 #include <ti/users.h>
 #include <util/fx.h>
 #include <util/logger.h>

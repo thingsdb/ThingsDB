@@ -4,11 +4,11 @@
 #include <util/qpx.h>
 #include <ti/collection.h>
 #include <ti.h>
-#include <ti/store/collections.h>
 #include <util/fx.h>
 #include <util/vec.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti/store/storecollections.h>
 
 
 int ti_store_collections_store(const char * fn)

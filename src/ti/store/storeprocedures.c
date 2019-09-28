@@ -12,7 +12,7 @@
 #include <ti.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
-#include <ti/store/procedures.h>
+#include <ti/store/storeprocedures.h>
 #include <unistd.h>
 #include <util/fx.h>
 #include <util/qpx.h>

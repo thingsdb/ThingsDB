@@ -5,14 +5,15 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/store.h>
-#include <ti/store/access.h>
-#include <ti/store/collection.h>
-#include <ti/store/collections.h>
-#include <ti/store/procedures.h>
-#include <ti/store/names.h>
-#include <ti/store/status.h>
-#include <ti/store/things.h>
-#include <ti/store/users.h>
+#include <ti/store/storeaccess.h>
+#include <ti/store/storecollection.h>
+#include <ti/store/storecollections.h>
+#include <ti/store/storenames.h>
+#include <ti/store/storeprocedures.h>
+#include <ti/store/storestatus.h>
+#include <ti/store/storethings.h>
+#include <ti/store/storetypes.h>
+#include <ti/store/storeusers.h>
 #include <ti/things.h>
 #include <util/fx.h>
 #include <util/imap.h>
@@ -51,6 +52,7 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->id_stat_fn + store->fn_offset, path, n);
     memcpy(store->names_fn + store->fn_offset, path, n);
     memcpy(store->procedures_fn + store->fn_offset, path, n);
+    memcpy(store->users_fn + store->fn_offset, path, n);
     memcpy(store->users_fn + store->fn_offset, path, n);
 }
 
@@ -204,6 +206,9 @@ int ti_store_store(void)
         else
         {
             rc = (
+                ti_store_types_store(
+                        collection->types,
+                        store_collection->types_fn) ||
                 ti_store_access_store(
                         collection->access,
                         store_collection->access_fn) ||
@@ -301,6 +306,10 @@ int ti_store_restore(void)
                 store->store_path,
                 &collection->guid);
         rc = (  -(!store_collection) ||
+                ti_store_types_restore(
+                        collection->types,
+                        namesmap,
+                        store_collection->types_fn) ||
                 ti_store_access_restore(
                         &collection->access,
                         store_collection->access_fn) ||

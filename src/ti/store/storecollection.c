@@ -3,15 +3,16 @@
  */
 #include <assert.h>
 #include <ti.h>
-#include <ti/store/collection.h>
 #include <util/fx.h>
 #include <stdlib.h>
+#include <ti/store/storecollection.h>
 
 static const char * collection___access_fn     = "access.qp";
-static const char * collection___procedures_fn = "procedures.qp";
 static const char * collection___dat_fn        = "collection.dat";
+static const char * collection___procedures_fn = "procedures.qp";
 static const char * collection___props_fn      = "props.qp";
 static const char * collection___things_fn     = "things.dat";
+static const char * collection___types_fn      = "types.qp";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
@@ -32,16 +33,18 @@ ti_store_collection_t * ti_store_collection_create(
         goto fail0;
 
     store_collection->access_fn = fx_path_join(cpath, collection___access_fn);
-    store_collection->procedures_fn = fx_path_join(cpath, collection___procedures_fn);
-    store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
     store_collection->collection_fn = fx_path_join(cpath, collection___dat_fn);
+    store_collection->procedures_fn = fx_path_join(cpath, collection___procedures_fn);
     store_collection->props_fn = fx_path_join(cpath, collection___props_fn);
+    store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
+    store_collection->types_fn = fx_path_join(cpath, collection___types_fn);
 
     if (    !store_collection->access_fn ||
-            !store_collection->procedures_fn ||
-            !store_collection->things_fn ||
             !store_collection->collection_fn ||
-            !store_collection->props_fn)
+            !store_collection->procedures_fn ||
+            !store_collection->props_fn ||
+            !store_collection->things_fn ||
+            !store_collection->types_fn)
         goto fail1;
 
     return store_collection;
@@ -58,11 +61,12 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     if (!store_collection)
         return;
     free(store_collection->access_fn);
-    free(store_collection->procedures_fn);
-    free(store_collection->things_fn);
     free(store_collection->collection_fn);
-    free(store_collection->props_fn);
     free(store_collection->collection_path);
+    free(store_collection->procedures_fn);
+    free(store_collection->props_fn);
+    free(store_collection->things_fn);
+    free(store_collection->types_fn);
     free(store_collection);
 }
 
@@ -200,6 +204,18 @@ char * ti_store_collection_things_fn(
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___things_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_types_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___types_fn);
     free(cpath);
     return fn;
 }

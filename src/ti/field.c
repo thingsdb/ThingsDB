@@ -234,6 +234,10 @@ invalid:
     return e->nr;
 }
 
+/*
+ * If successful, the reference counter for `name` and `spec_raw` will
+ * increase.
+ */
 int ti_field_create(
         ti_name_t * name,
         ti_raw_t * spec_raw,

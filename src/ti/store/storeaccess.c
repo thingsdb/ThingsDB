@@ -6,7 +6,7 @@
 #include <ti/access.h>
 #include <ti/users.h>
 #include <ti/auth.h>
-#include <ti/store/access.h>
+#include <ti/store/storeaccess.h>
 #include <util/qpx.h>
 #include <util/fx.h>
 

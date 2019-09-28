@@ -41,7 +41,7 @@ ti_thing_t * ti_thing_new_from_unp(
         ti_collection_t * collection,
         ssize_t sz,
         ex_t * e);
-ti_prop_t * ti_thing_o_prop_add(
+ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
@@ -50,11 +50,6 @@ ti_prop_t * ti_thing_o_prop_set(
         ti_name_t * name,
         ti_val_t * val);
 void ti_thing_t_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val);
-ti_prop_t * ti_thing_o_prop_set_e(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e);
 void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
@@ -64,9 +59,6 @@ _Bool ti_thing_get_by_raw_e(
         ti_thing_t * thing,
         ti_raw_t * r,
         ex_t * e);
-ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r);
-ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e);
-_Bool ti_thing_unset(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);

@@ -267,6 +267,42 @@ ti_prop_t * ti_thing_o_prop_add(
 }
 
 /*
+ * It takes a reference on `name` and `val` when successful
+ */
+static int thing_o__prop_set_e(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_prop_t * prop;
+
+    for (vec_each(thing->items, ti_prop_t, p))
+    {
+        if (p->name == name)
+        {
+            if (thing__val_locked(thing, p->name, p->val, e))
+                return e->nr;
+
+            ti_decref(name);
+            ti_val_drop(p->val);
+            p->val = val;
+
+            return e->nr;
+        }
+    }
+
+    prop = ti_prop_create(name, val);
+    if (!prop || vec_push(&thing->items, prop))
+    {
+        free(prop);
+        ex_set_mem(e);
+    }
+
+    return e->nr;
+}
+
+/*
  * Does not increment the `name` and `val` reference counters.
  */
 ti_prop_t * ti_thing_o_prop_set(
@@ -324,6 +360,7 @@ int ti_thing_o_set_val_from_strn(
         ex_t * e)
 {
     ti_name_t * name;
+
     if (thing->collection &&
         thing->items->n == thing->collection->quota->max_props)
     {
@@ -343,7 +380,7 @@ int ti_thing_o_set_val_from_strn(
     if (ti_val_make_assignable(val, e))
         return e->nr;
 
-    if (!ti_thing_o_prop_set_e(thing, name, *val, e))
+    if (thing_o__prop_set_e(thing, name, *val, e))
     {
         assert (e->nr);
         ti_name_drop(name);
@@ -351,6 +388,7 @@ int ti_thing_o_set_val_from_strn(
     }
 
     ti_incref(*val);
+
     wprop->name = name;
     wprop->val = val;
 
@@ -385,46 +423,11 @@ int ti_thing_t_set_val_from_strn(
     *vaddr = *val;
 
     ti_incref(*val);
+
     wprop->name = field->name;
     wprop->val = val;
 
     return 0;
-}
-
-/*
- * Does not increment the `name` and `val` reference counters.
- *
- * TODO: probably we better change this so it will return int
- */
-ti_prop_t * ti_thing_o_prop_set_e(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
-{
-    ti_prop_t * prop;
-
-    for (vec_each(thing->items, ti_prop_t, p))
-    {
-        if (p->name == name)
-        {
-            if (thing__val_locked(thing, p->name, p->val, e))
-                return NULL;
-            ti_decref(name);
-            ti_val_drop(p->val);
-            p->val = val;
-            return p;
-        }
-    }
-
-    prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->items, prop))
-    {
-        free(prop);
-        return NULL;
-    }
-
-    return prop;
 }
 
 /* Returns true if the property is removed, false if not found */
@@ -529,33 +532,6 @@ _Bool ti_thing_get_by_raw_e(
 
     ti_thing_set_not_found(thing, name, r, e);
     return false;
-}
-
-ti_prop_t * ti_thing_o_weak_get(ti_thing_t * thing, ti_raw_t * r)
-{
-    assert (ti_thing_is_object(thing));
-    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
-
-    if (name)
-        for (vec_each(thing->items, ti_prop_t, prop))
-            if (prop->name == name)
-                return prop;
-
-    return NULL;
-}
-
-ti_prop_t * ti_thing_o_weak_get_e(ti_thing_t * thing, ti_raw_t * r, ex_t * e)
-{
-    assert (ti_thing_is_object(thing));
-    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
-
-    if (name)
-        for (vec_each(thing->items, ti_prop_t, prop))
-            if (prop->name == name)
-                return prop;
-
-    ti_thing_set_not_found(thing, name, r, e);
-    return NULL;
 }
 
 int ti_thing_gen_id(ti_thing_t * thing)

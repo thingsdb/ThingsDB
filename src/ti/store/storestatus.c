@@ -1,10 +1,10 @@
 /*
  * ti/store/status.c
  */
+#include <ti/store/storestatus.h>
 #include <ti.h>
 #include <util/qpx.h>
 #include <util/fx.h>
-#include <ti/store/status.h>
 
 int ti_store_status_store(const char * fn)
 {

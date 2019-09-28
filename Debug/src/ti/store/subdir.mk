@@ -4,34 +4,37 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/ti/store/access.c \
-../src/ti/store/collection.c \
-../src/ti/store/collections.c \
-../src/ti/store/names.c \
-../src/ti/store/procedures.c \
-../src/ti/store/status.c \
-../src/ti/store/things.c \
-../src/ti/store/users.c 
+../src/ti/store/storeaccess.c \
+../src/ti/store/storecollection.c \
+../src/ti/store/storecollections.c \
+../src/ti/store/storenames.c \
+../src/ti/store/storeprocedures.c \
+../src/ti/store/storestatus.c \
+../src/ti/store/storethings.c \
+../src/ti/store/storetypes.c \
+../src/ti/store/storeusers.c 
 
 OBJS += \
-./src/ti/store/access.o \
-./src/ti/store/collection.o \
-./src/ti/store/collections.o \
-./src/ti/store/names.o \
-./src/ti/store/procedures.o \
-./src/ti/store/status.o \
-./src/ti/store/things.o \
-./src/ti/store/users.o 
+./src/ti/store/storeaccess.o \
+./src/ti/store/storecollection.o \
+./src/ti/store/storecollections.o \
+./src/ti/store/storenames.o \
+./src/ti/store/storeprocedures.o \
+./src/ti/store/storestatus.o \
+./src/ti/store/storethings.o \
+./src/ti/store/storetypes.o \
+./src/ti/store/storeusers.o 
 
 C_DEPS += \
-./src/ti/store/access.d \
-./src/ti/store/collection.d \
-./src/ti/store/collections.d \
-./src/ti/store/names.d \
-./src/ti/store/procedures.d \
-./src/ti/store/status.d \
-./src/ti/store/things.d \
-./src/ti/store/users.d 
+./src/ti/store/storeaccess.d \
+./src/ti/store/storecollection.d \
+./src/ti/store/storecollections.d \
+./src/ti/store/storenames.d \
+./src/ti/store/storeprocedures.d \
+./src/ti/store/storestatus.d \
+./src/ti/store/storethings.d \
+./src/ti/store/storetypes.d \
+./src/ti/store/storeusers.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

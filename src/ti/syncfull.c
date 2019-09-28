@@ -10,8 +10,8 @@
 #include <ti/collection.h>
 #include <ti/proto.h>
 #include <ti/req.h>
+#include <ti/store/storecollection.h>
 #include <ti/store.h>
-#include <ti/store/collection.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
@@ -31,6 +31,7 @@ typedef enum
     SYNCFULL__ID_STAT_FILE,
     /* collection files */
     SYNCFULL__COLLECTION_DAT_FILE,
+    SYNCFULL__COLLECTION_TYPES_FILE,
     SYNCFULL__COLLECTION_ACCESS_FILE,
     SYNCFULL__COLLECTION_PROCEDURES_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
@@ -61,6 +62,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return strdup(ti()->store->id_stat_fn);
     case SYNCFULL__COLLECTION_DAT_FILE:
         return ti_store_collection_dat_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_TYPES_FILE:
+        return ti_store_collection_types_fn(path, scope_id);
     case SYNCFULL__COLLECTION_ACCESS_FILE:
         return ti_store_collection_access_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROCEDURES_FILE:

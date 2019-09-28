@@ -417,7 +417,7 @@ fail0:
 
 static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
 {
-    ti_prop_t * prop;
+    ti_wprop_t wprop;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
@@ -433,15 +433,14 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
         goto fail0;
     }
 
-    prop = ti_thing_o_weak_get_e(thing, (ti_raw_t *) query->rval, e);
-    if (!prop)
+    if (ti_thing_get_by_raw_e(&wprop, thing, (ti_raw_t *) query->rval, e))
         goto fail0;
 
     if (thing->id)
-        ti_chain_set(&query->chain, thing, prop->name);
+        ti_chain_set(&query->chain, thing, wprop.name);
 
     ti_val_drop(query->rval);
-    query->rval = prop->val;
+    query->rval = *wprop.val;
     ti_incref(query->rval);
 
 fail0:

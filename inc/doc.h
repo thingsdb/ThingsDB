@@ -113,6 +113,7 @@
 #define DOC_STARTSWITH              DOC_SEE("#startswith")
 #define DOC_STR                     DOC_SEE("#str")
 #define DOC_SYNTAX_ERR              DOC_SEE("#syntax_err")
+#define DOC_TEST                    DOC_SEE("#test")
 #define DOC_THING                   DOC_SEE("#thing")
 #define DOC_TYPE                    DOC_SEE("#type")
 #define DOC_TYPE_ERR                DOC_SEE("#type_err")

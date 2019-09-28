@@ -1,35 +1,23 @@
 #include <ti/fn/fn.h>
 
-#define SET_PASSWORD_DOC_ TI_SEE_DOC("#set_password")
-
 static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nargs;
+    const int nargs = langdef_nd_n_function_params(nd);
     char * passstr = NULL;
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
-    nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_not_thingsdb_scope("set_password", query, e))
-        return e->nr;
-
-    if (nargs != 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `set_password` takes 2 arguments but %d %s given"
-            SET_PASSWORD_DOC_, nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("set_password", query, e) ||
+        fn_nargs("set_password", DOC_SET_PASSWORD, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"SET_PASSWORD_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_SET_PASSWORD,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -62,7 +50,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 2 to be of "
             "type `"TI_VAL_RAW_S"` or `"TI_VAL_NIL_S"` but got "
-            "type `%s` instead"SET_PASSWORD_DOC_,
+            "type `%s` instead"DOC_SET_PASSWORD,
             ti_val_str(query->rval));
         goto done;
     }

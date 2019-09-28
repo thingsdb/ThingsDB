@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define RETURN_DOC_ TI_SEE_DOC("#return")
-
 /* maximum value we allow for the `deep` argument */
 #define RETURN_MAX_DEEP_HINT 0x7f
 
@@ -9,18 +7,9 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_chained("return", query, e))
+    if (fn_chained("return", query, e) ||
+        fn_nargs_max("return", DOC_RETURN, 2, nargs, e))
         return e->nr;
-
-    if (nargs > 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `return` takes at most 2 arguments but %d were given"
-                RETURN_DOC_, nargs);
-        return e->nr;
-    }
-
-    assert (query->rval == NULL);
 
     if (nargs == 0)
     {
@@ -40,7 +29,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `return` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"RETURN_DOC_,
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_RETURN,
                 ti_val_str(query->rval));
             return e->nr;
         }

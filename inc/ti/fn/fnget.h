@@ -18,7 +18,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs_max("get", DOC_GET, 1, 2, nargs, e))
+    if (fn_nargs_range("get", DOC_GET, 1, 2, nargs, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

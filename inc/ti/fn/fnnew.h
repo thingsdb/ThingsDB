@@ -5,7 +5,6 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     ti_type_t * type;
 
-
     if (fn_not_collection_scope("new", query, e) ||
         ti_quota_things(
                 query->collection->quota,

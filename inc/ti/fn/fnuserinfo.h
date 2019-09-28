@@ -7,7 +7,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * uname;
 
     if (fn_not_thingsdb_scope("user_info", query, e) ||
-        fn_nargs_max("user_info", DOC_USER_INFO, 0, 1, nargs, e))
+        fn_nargs_max("user_info", DOC_USER_INFO, 1, nargs, e))
         return e->nr;
 
     if (!nargs)

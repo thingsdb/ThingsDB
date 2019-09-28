@@ -20,7 +20,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs_max("find", DOC_FIND, 1, 2, nargs, e))
+    if (fn_nargs_range("find", DOC_FIND, 1, 2, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);

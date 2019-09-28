@@ -1,8 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define REMOVE_LIST_DOC_ TI_SEE_DOC("#remove-list")
-#define REMOVE_SET_DOC_ TI_SEE_DOC("#remove-set")
-
 static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -13,23 +10,8 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_chain_move(&chain, &query->chain);
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `remove` requires at least 1 argument but 0 "
-                "were given"REMOVE_LIST_DOC_);
-        goto fail0;
-    }
-
-    if (nargs > 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `remove` takes at most 2 arguments but %d "
-                "were given"REMOVE_LIST_DOC_, nargs);
-        goto fail0;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs_range("remove", DOC_REMOVE_LIST, 1, 2, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         goto fail0;
 
     varr = (ti_varr_t *) query->rval;
@@ -43,7 +25,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `remove` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                REMOVE_LIST_DOC_, ti_val_str(query->rval));
+                DOC_REMOVE_LIST, ti_val_str(query->rval));
         goto fail1;
     }
 
@@ -135,11 +117,12 @@ static int do__f_remove_set_from_closure(
         goto fail1;
     }
 
+    /* do not use the usual arguments check since we want a special message */
     if (nargs > 1)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` takes at most 1 argument when using a `"
-                TI_VAL_CLOSURE_S"` but %d were given"REMOVE_SET_DOC_,
+                TI_VAL_CLOSURE_S"` but %d were given"DOC_REMOVE_SET,
                 nargs);
         goto fail1;
     }
@@ -189,15 +172,8 @@ static void do__f_remove_set(
 
     ti_chain_move(&chain, &query->chain);
 
-    if (nargs < 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `remove` requires at least 1 argument but 0 "
-                "were given"REMOVE_SET_DOC_);
-        goto fail0;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs_min("remove", DOC_REMOVE_SET, 1, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         goto fail0;
 
     vset = (ti_vset_t *) query->rval;
@@ -244,11 +220,11 @@ static void do__f_remove_set(
                         ?
                         "function `remove` expects argument %d to be "
                         "a `"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
-                        "but got type `%s` instead"REMOVE_SET_DOC_
+                        "but got type `%s` instead"DOC_REMOVE_SET
                         :
                         "function `remove` expects argument %d to be "
                         "of type `"TI_VAL_THING_S"` "
-                        "but got type `%s` instead"REMOVE_SET_DOC_,
+                        "but got type `%s` instead"DOC_REMOVE_SET,
                         narg, ti_val_str(query->rval));
 
                 goto fail2;
@@ -325,7 +301,7 @@ static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `remove`"
-                REMOVE_LIST_DOC_ REMOVE_SET_DOC_,
+                DOC_REMOVE_LIST DOC_REMOVE_SET,
                 ti_val_str(query->rval));
     }
 

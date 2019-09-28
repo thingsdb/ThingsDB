@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-#define PUSH_DOC_ TI_SEE_DOC("#push")
-
 static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -18,20 +16,13 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `push`"PUSH_DOC_,
+                "type `%s` has no function `push`"DOC_PUSH,
                 ti_val_str(query->rval));
         goto fail0;
     }
 
-    if (!nargs)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `push` requires at least 1 argument but 0 "
-                "were given"PUSH_DOC_);
-        goto fail0;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs_min("push", DOC_PUSH, 1, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         goto fail0;
 
     varr = (ti_varr_t *) query->rval;

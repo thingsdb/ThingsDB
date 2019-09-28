@@ -6,7 +6,7 @@ static int do__f_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool tobool;
 
     if (fn_chained("bool", query, e) ||
-        fn_nargs_max("bool", DOC_BOOL, 0, 1, nargs, e))
+        fn_nargs_max("bool", DOC_BOOL, 1, nargs, e))
         return e->nr;
 
     if (nargs == 0)

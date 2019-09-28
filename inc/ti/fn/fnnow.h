@@ -1,20 +1,12 @@
 #include <ti/fn/fn.h>
 
-#define NOW_DOC_ TI_SEE_DOC("#now")
-
 static int do__f_now(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (fn_chained("now", query, e))
-        return e->nr;
+    const int nargs = langdef_nd_n_function_params(nd);
 
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `now` takes 0 arguments but %d %s given"NOW_DOC_,
-                nargs, nargs == 1 ? "was" : "were");
+    if (fn_chained("now", query, e) ||
+        fn_nargs("now", DOC_NOW, 0, nargs, e))
         return e->nr;
-    }
 
     query->rval = (ti_val_t *) ti_vfloat_create(util_now());
     if (!query->rval)

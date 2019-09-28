@@ -1,24 +1,13 @@
 #include <ti/fn/fn.h>
 
-#define REFS_DOC_ TI_SEE_DOC("#refs")
-
 static int do__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     uint32_t ref;
 
-    if (fn_chained("refs", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `refs` takes 1 argument but %d were given"
-                REFS_DOC_, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_chained("refs", query, e) ||
+        fn_nargs("refs", DOC_REFS, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     ref = query->rval->ref;

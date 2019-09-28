@@ -1,9 +1,8 @@
 #include <ti/fn/fn.h>
 
-#define REPLACE_NODE_DOC_ TI_SEE_DOC("#replace_node")
-
 static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
     char * secret;
@@ -16,42 +15,24 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     struct in6_addr sa6;
     struct sockaddr_storage addr;
     char * addrstr;
-    int port, nargs = langdef_nd_n_function_params(nd);
+    int port;
     uint8_t node_id;
 
-    if (fn_not_thingsdb_scope("replace_node", query, e))
-        return e->nr;
-
-    if (nargs < 3)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `replace_node` requires at least 3 arguments "
-            "but %d %s given"REPLACE_NODE_DOC_,
-            nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-    else if (nargs > 4)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `replace_node` takes at most 4 arguments "
-            "but %d were given"REPLACE_NODE_DOC_,
-            nargs);
-        return e->nr;
-    }
-
-    child = nd->children;
-
-    if (ti_do_statement(query, child->node, e))
+    if (fn_not_thingsdb_scope("replace_node", query, e) ||
+        fn_nargs_range("replace_node", DOC_REPLACE_NODE, 3, 4, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
+            "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_REPLACE_NODE,
             ti_val_str(query->rval));
         return e->nr;
     }
+
+    child = nd->children;
 
     node_id = (uint8_t) ((ti_vint_t *) query->rval)->int_;
     node = ti_nodes_node_by_id(node_id);
@@ -68,7 +49,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NODE_ERROR,
             TI_NODE_ID" is still active, shutdown the node and start "
-            "the new node with `--secret ...`"REPLACE_NODE_DOC_,
+            "the new node with `--secret ...`"DOC_REPLACE_NODE,
             node->id);
         return e->nr;
     }
@@ -84,7 +65,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_REPLACE_NODE,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -94,7 +75,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
             "a `secret` is required "
-            "and should only contain graphical characters"REPLACE_NODE_DOC_);
+            "and should only contain graphical characters"DOC_REPLACE_NODE);
         return e->nr;
     }
 
@@ -116,7 +97,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `replace_node` expects argument 3 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"REPLACE_NODE_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_REPLACE_NODE,
             ti_val_str(query->rval));
         goto fail0;
     }
@@ -153,7 +134,7 @@ static int do__f_replace_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_TYPE_ERROR,
                 "function `replace_node` expects argument 4 to be of "
                 "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                REPLACE_NODE_DOC_, ti_val_str(query->rval));
+                DOC_REPLACE_NODE, ti_val_str(query->rval));
             goto fail1;
         }
 

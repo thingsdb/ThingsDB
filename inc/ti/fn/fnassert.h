@@ -7,7 +7,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * assert_node;
 
     if (fn_chained("assert", query, e) ||
-        fn_nargs_max("assert", DOC_ASSERT, 1, 2, nargs, e))
+        fn_nargs_range("assert", DOC_ASSERT, 1, 2, nargs, e))
         return e->nr;
 
     assert_node = nd->children->node;

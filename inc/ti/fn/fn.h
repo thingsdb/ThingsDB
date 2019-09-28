@@ -119,8 +119,21 @@ static inline int fn_nargs(
 static inline int fn_nargs_max(
         const char * name,
         const char * doc,
-        const int mi,
         const int ma,
+        const int nargs,
+        ex_t * e)
+{
+    if (nargs > ma)
+        ex_set(e, EX_NUM_ARGUMENTS,
+            "function `%s` takes at most %d argument%s but %d %s given%s",
+            name, ma, ma==1 ? "" : "s", nargs, nargs==1 ? "was" : "were", doc);
+    return e->nr;
+}
+
+static inline int fn_nargs_min(
+        const char * name,
+        const char * doc,
+        const int mi,
         const int nargs,
         ex_t * e)
 {
@@ -128,11 +141,21 @@ static inline int fn_nargs_max(
         ex_set(e, EX_NUM_ARGUMENTS,
             "function `%s` requires at least %d argument%s but %d %s given%s",
             name, mi, mi==1 ? "" : "s", nargs, nargs==1 ? "was" : "were", doc);
-    else if (nargs > ma)
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `%s` takes at most %d argument%s but %d %s given%s",
-            name, ma, ma==1 ? "" : "s", nargs, nargs==1 ? "was" : "were", doc);
     return e->nr;
+}
+
+static inline int fn_nargs_range(
+        const char * name,
+        const char * doc,
+        const int mi,
+        const int ma,
+        const int nargs,
+        ex_t * e)
+{
+    return (
+            fn_nargs_min(name, doc, mi, nargs, e) ||
+            fn_nargs_max(name, doc, ma, nargs, e)
+    ) ? e->nr : 0;
 }
 
 static inline int fn_not_collection_scope(

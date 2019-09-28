@@ -5,7 +5,7 @@ static int do__f_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_chained("array", query, e) ||
-        fn_nargs_max("array", DOC_ARRAY, 0, 1, nargs, e))
+        fn_nargs_max("array", DOC_ARRAY, 1, nargs, e))
         return e->nr;
 
     if (nargs == 1)

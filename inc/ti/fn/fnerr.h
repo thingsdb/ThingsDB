@@ -9,7 +9,7 @@ static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int8_t code;
 
     if (fn_chained("err", query, e) ||
-        fn_nargs_max("err", DOC_ERR, 0, 2, nargs, e))
+        fn_nargs_max("err", DOC_ERR, 2, nargs, e))
         return e->nr;
 
     if (nargs == 0)

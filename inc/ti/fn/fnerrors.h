@@ -13,7 +13,7 @@ static int do__make_err(
     ti_verror_t * verror;
 
     if (fn_chained(fn_name, query, e) ||
-        fn_nargs_max(fn_name, fn_doc, 0, 1, nargs, e))
+        fn_nargs_max(fn_name, fn_doc, 1, nargs, e))
         return e->nr;
 
     if (nargs == 0)

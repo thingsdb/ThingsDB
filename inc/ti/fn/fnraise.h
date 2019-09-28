@@ -1,25 +1,18 @@
 #include <ti/fn/fn.h>
 
-#define RAISE_DOC_ TI_SEE_DOC("#raise")
-
 static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (fn_chained("raise", query, e))
+    const int nargs = langdef_nd_n_function_params(nd);
+
+    if (fn_chained("raise", query, e) ||
+        fn_nargs_max("raise", DOC_RAISE, 1, nargs, e))
         return e->nr;
 
-    if (!langdef_nd_fun_has_one_param(nd))
+    if (nargs == 0)
     {
-        int nargs = langdef_nd_n_function_params(nd);
-        if (nargs == 0)
-        {
-            assert (query->rval == NULL);
-            query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
-            goto done;
-        }
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `raise` takes at most 1 argument but %d were given"
-                RAISE_DOC_, nargs);
-        return e->nr;
+        assert (query->rval == NULL);
+        query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
+        goto done;
     }
 
     if (ti_do_statement(query, nd->children->node, e))
@@ -29,7 +22,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `raise` expects argument 1 to be of "
-            "type `"TI_VAL_ERROR_S"` but got type `%s` instead"RAISE_DOC_,
+            "type `"TI_VAL_ERROR_S"` but got type `%s` instead"DOC_RAISE,
             ti_val_str(query->rval));
         return e->nr;
     }

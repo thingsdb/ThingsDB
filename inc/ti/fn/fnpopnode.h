@@ -1,24 +1,15 @@
 #include <ti/fn/fn.h>
 
-#define POP_NODE_DOC_ TI_SEE_DOC("#pop_node")
-
 static int do__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_node_t * node;
     uint8_t node_id;
     ti_task_t * task;
 
-    if (fn_not_thingsdb_scope("pop_node", query, e))
+    if (fn_not_thingsdb_scope("pop_node", query, e) ||
+        fn_nargs("pop_node", DOC_POP_NODE, 0, nargs, e))
         return e->nr;
-
-    if (!langdef_nd_fun_has_zero_params(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `pop_node` takes 0 arguments but %d %s given"
-                POP_NODE_DOC_, nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
 
     node = vec_last(ti()->nodes->vec);
     assert (node);
@@ -27,7 +18,7 @@ static int do__f_pop_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NODE_ERROR,
                 TI_NODE_ID" is still active, shutdown the node before removal"
-                POP_NODE_DOC_, node->id);
+                DOC_POP_NODE, node->id);
         return e->nr;
     }
 

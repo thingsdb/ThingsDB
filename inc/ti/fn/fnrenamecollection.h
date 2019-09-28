@@ -2,23 +2,13 @@
 
 static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_task_t * task;
     ti_collection_t * collection;
 
-    if (fn_not_thingsdb_scope("rename_collection", query, e))
-        return e->nr;
-
-    if (nargs != 2)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `rename_collection` takes 2 arguments "
-            "but %d %s given"DOC_RENAME_COLLECTION,
-            nargs, nargs == 1 ? "was" : "were");
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("rename_collection", query, e) ||
+        fn_nargs("rename_collection", DOC_RENAME_COLLECTION, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);

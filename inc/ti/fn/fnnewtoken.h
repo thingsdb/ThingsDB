@@ -19,7 +19,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_access_check_err(
             ti()->access_thingsdb,
             query->user, TI_AUTH_GRANT, e) ||
-        fn_nargs_max("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e))
+        fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e))
         return e->nr;
 
     child = nd->children;

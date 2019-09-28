@@ -5,7 +5,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_chained("thing", query, e) ||
-        fn_nargs_max("thing", DOC_THING, 0, 1, nargs, e))
+        fn_nargs_max("thing", DOC_THING, 1, nargs, e))
         return e->nr;
 
     if (nargs == 1)

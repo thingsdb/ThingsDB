@@ -18,7 +18,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int port;
 
     if (fn_not_thingsdb_scope("new_node", query, e) ||
-        fn_nargs_max("new_node", DOC_NEW_NODE, 2, 3, nargs, e))
+        fn_nargs_range("new_node", DOC_NEW_NODE, 2, 3, nargs, e))
         return e->nr;
 
     child = nd->children;

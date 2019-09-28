@@ -11,6 +11,7 @@ typedef struct ti_closure_s ti_closure_t;
 #include <cleri/cleri.h>
 #include <qpack.h>
 #include <ti.h>
+#include <doc.h>
 #include <tiinc.h>
 #include <ti/val.h>
 #include <ex.h>
@@ -80,7 +81,7 @@ static inline int ti_closure_try_lock(ti_closure_t * closure, ex_t * e)
     if (closure->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_OPERATION_ERROR,
-                "closures cannot be used recursively"TI_SEE_DOC("#closure"));
+                "closures cannot be used recursively"DOC_CLOSURE);
         return -1;
     }
     return (closure->flags |= TI_VFLAG_LOCK) & 0;
@@ -95,7 +96,7 @@ static inline int ti_closure_try_lock_and_use(
     if (closure->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_OPERATION_ERROR,
-                "closures cannot be used recursively"TI_SEE_DOC("#closure"));
+                "closures cannot be used recursively"DOC_CLOSURE);
         return -1;
     }
     return ti_closure_lock_and_use(closure, query, e);

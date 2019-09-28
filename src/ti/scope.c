@@ -5,6 +5,8 @@
 #include <qpack.h>
 #include <tiinc.h>
 #include <ctype.h>
+#include <doc.h>
+#include <ti/scope.h>
 #include <util/strx.h>
 #include <assert.h>
 #include <ti/name.h>
@@ -20,7 +22,7 @@ static _Bool scope__is_ascii(const char * str, size_t n, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "invalid scope; "
-                "scopes must only contain valid ASCII characters"SCOPES_DOC_);
+                "scopes must only contain valid ASCII characters"DOC_SCOPES);
         return false;
     }
     return true;
@@ -64,7 +66,7 @@ static int scope__collection(
             ex_set(e, EX_VALUE_ERROR,
                 "invalid scope; "
                 "a collection must be specified by either a name or id"
-                SCOPES_DOC_);
+                DOC_SCOPES);
             return e->nr;
         }
 
@@ -79,7 +81,7 @@ static int scope__collection(
         ex_set(e, EX_VALUE_ERROR,
             "invalid scope; "
             "the specified collection name is invalid"
-            SCOPES_DOC_);
+            DOC_SCOPES);
         return e->nr;
     }
 
@@ -130,7 +132,7 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
             ex_set(e, EX_VALUE_ERROR,
                     "invalid scope; "
                     "a node id must be an integer value between 0 and 64"
-                    SCOPES_DOC_);
+                    DOC_SCOPES);
             return e->nr;
         }
 
@@ -155,7 +157,7 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
             ex_set(e, EX_VALUE_ERROR,
                     "invalid scope; "
                     "the collection scope requires to specify a collection"
-                    SCOPES_DOC_);
+                    DOC_SCOPES);
             return e->nr;
         }
         return scope__collection(scope, str + i, n - i, e);
@@ -175,7 +177,7 @@ invalid_scope:
     {
         ex_set(e, EX_VALUE_ERROR,
                 "invalid scope; "
-                "scopes must not be empty"SCOPES_DOC_);
+                "scopes must not be empty"DOC_SCOPES);
         return e->nr;
     }
 
@@ -187,7 +189,7 @@ invalid_scope:
 
         ex_set(e, EX_VALUE_ERROR,
             "invalid scope; "
-            "scopes must start with a `@` but got `%.*s` instead"SCOPES_DOC_,
+            "scopes must start with a `@` but got `%.*s` instead"DOC_SCOPES,
             (int) n, str);
 
         return e->nr;
@@ -198,7 +200,7 @@ invalid_scope:
         ex_set(e, EX_VALUE_ERROR,
             "invalid scope; "
             "expecting a scope name like "
-            "`@thingsdb`, `@node:...` or `@collection:...`"SCOPES_DOC_);
+            "`@thingsdb`, `@node:...` or `@collection:...`"DOC_SCOPES);
 
         return e->nr;
     }
@@ -207,7 +209,7 @@ invalid_scope:
         "invalid scope; "
         "expecting a scope name like "
         "`@thingsdb`, `@node:...` or `@collection:...` "
-        "but got `%.*s` instead"SCOPES_DOC_,
+        "but got `%.*s` instead"DOC_SCOPES,
         (int) n, str);
 
     return e->nr;

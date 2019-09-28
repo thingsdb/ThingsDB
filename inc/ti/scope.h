@@ -10,8 +10,6 @@
 #include <ti/pkg.h>
 #include <ex.h>
 
-#define SCOPES_DOC_ TI_SEE_DOC("#scopes")
-
 typedef struct ti_scope_s ti_scope_t;
 typedef struct ti_scope_name_s ti_scope_name_t;
 

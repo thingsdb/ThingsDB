@@ -5,6 +5,7 @@
 #define TI_QUOTA_H_
 
 #include <ex.h>
+#include <doc.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <tiinc.h>
@@ -48,7 +49,7 @@ inline static _Bool ti_quota_things(ti_quota_t * quota, size_t n, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum things quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"), quota->max_things);
+                DOC_QUOTAS, quota->max_things);
         return true;
     }
     return false;

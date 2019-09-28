@@ -78,7 +78,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
-                TI_SEE_DOC("#quotas"),
+                DOC_QUOTAS,
                 query->collection->quota->max_array_size);
         goto fail1;
     }

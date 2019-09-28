@@ -29,7 +29,7 @@ static int do__f_define(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `define` expects argument 1 to be a valid type name"
-            TI_SEE_DOC("#types"));
+            DOC_TYPES);
         goto fail0;
     }
 

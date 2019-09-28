@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 #include <util/iso8601.h>
 
-#define NEW_TOKEN_DOC_ TI_SEE_DOC("#new_token")
 #define MAX_USER_TOKENS 128U
 
 static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
@@ -14,18 +14,12 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_token_t * token;
     size_t description_sz = 0;
     char * description = NULL;
-    int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_not_thingsdb_scope("new_token", query, e))
-        return e->nr;
-
-    /* check for privileges */
-    if (ti_access_check_err(
+    if (fn_not_thingsdb_scope("new_token", query, e) ||
+        ti_access_check_err(
             ti()->access_thingsdb,
-            query->user, TI_AUTH_GRANT, e))
-        return e->nr;
-
-    if (fn_nargs_max("new_token", NEW_TOKEN_DOC_, 1, 3, nargs, e))
+            query->user, TI_AUTH_GRANT, e) ||
+        fn_nargs_max("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e))
         return e->nr;
 
     child = nd->children;
@@ -36,7 +30,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `new_token` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"NEW_TOKEN_DOC_,
+            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_NEW_TOKEN,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -49,7 +43,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (user->tokens->n > MAX_USER_TOKENS)
     {
         ex_set(e, EX_MAX_QUOTA,
-            "user `%.*s` has reached the maximum of %u tokens"NEW_TOKEN_DOC_,
+            "user `%.*s` has reached the maximum of %u tokens"DOC_NEW_TOKEN,
             (int) uname->n, (char *) uname->data,
             MAX_USER_TOKENS);
         return e->nr;
@@ -105,7 +99,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_TYPE_ERROR,
                 "function `new_token` expects argument 2 to be of "
                 "type `"TI_VAL_RAW_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
-                "or `"TI_VAL_NIL_S"` but got type `%s` instead"NEW_TOKEN_DOC_,
+                "or `"TI_VAL_NIL_S"` but got type `%s` instead"DOC_NEW_TOKEN,
                 ti_val_str(query->rval));
             return e->nr;
         }
@@ -128,7 +122,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_TYPE_ERROR,
                     "function `new_token` expects argument 3 to be of "
                     "type `"TI_VAL_RAW_S"` but got type `%s` instead"
-                    NEW_TOKEN_DOC_,
+                    DOC_NEW_TOKEN,
                     ti_val_str(query->rval));
             return e->nr;
         }
@@ -139,7 +133,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "function `new_token` expects a description "
-                    "to have valid UTF8 encoding"NEW_TOKEN_DOC_);
+                    "to have valid UTF8 encoding"DOC_NEW_TOKEN);
             return e->nr;
         }
 
@@ -174,16 +168,16 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 errpast:
     ex_set(e, EX_VALUE_ERROR,
-        "cannot set an expiration time in the past"NEW_TOKEN_DOC_);
+        "cannot set an expiration time in the past"DOC_NEW_TOKEN);
     return e->nr;
 
 errfuture:
     ex_set(e, EX_VALUE_ERROR,
-        "expiration time is too far in the future"NEW_TOKEN_DOC_);
+        "expiration time is too far in the future"DOC_NEW_TOKEN);
     return e->nr;
 
 errinvalid:
     ex_set(e, EX_VALUE_ERROR,
-        "invalid date/time string as expiration time"NEW_TOKEN_DOC_);
+        "invalid date/time string as expiration time"DOC_NEW_TOKEN);
     return e->nr;
 }

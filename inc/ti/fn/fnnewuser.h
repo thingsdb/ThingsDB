@@ -2,23 +2,14 @@
 
 static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * nuser;
     ti_raw_t * rname;
     ti_task_t * task;
 
-    if (fn_not_thingsdb_scope("new_user", query, e))
-        return e->nr;
-
-    if (!langdef_nd_fun_has_one_param(nd))
-    {
-        int nargs = langdef_nd_n_function_params(nd);
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `new_user` takes 1 argument but %d were given"
-                DOC_NEW_USER, nargs);
-        return e->nr;
-    }
-
-    if (ti_do_statement(query, nd->children->node, e))
+    if (fn_not_thingsdb_scope("new_user", query, e) ||
+        fn_nargs("new_user", DOC_NEW_USER, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

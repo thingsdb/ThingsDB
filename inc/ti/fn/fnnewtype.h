@@ -10,10 +10,8 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint16_t type_id;
 
     if (fn_not_collection_scope("new_type", query, e) ||
-        fn_nargs("new_type", DOC_NEW_TYPE, 2, nargs, e))
-        return e->nr;
-
-    if (ti_do_statement(query, nd->children->node, e))
+        fn_nargs("new_type", DOC_NEW_TYPE, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_raw(query->rval))

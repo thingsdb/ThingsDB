@@ -17,11 +17,6 @@
 #include <unistd.h>
 #include <util/fx.h>
 
-typedef struct
-{
-    uint64_t thing_id;
-    uint16_t type_id;
-} store__things_t;
 
 int ti_store_things_store(imap_t * things, const char * fn)
 {
@@ -144,7 +139,8 @@ stop:
 
 int ti_store_things_restore(ti_collection_t * collection, const char * fn)
 {
-    store__things_t store;
+    uint16_t type_id;
+    uint64_t thing_id;
     ti_type_t * type;
     int rc = 0;
     ssize_t sz;
@@ -155,26 +151,28 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         goto failed;
 
     pt = data;
-    end = data + sz - sizeof(uint64_t);
-
-    for (;pt <= end; pt += sizeof(store__things_t))
+    end = data + sz - (sizeof(uint64_t) + sizeof(uint16_t));
+    while (pt <= end)
     {
-        memcpy(&store, pt, sizeof(store__things_t));
+        memcpy(&thing_id, pt, sizeof(uint64_t));
+        pt +=  sizeof(uint64_t);
+        memcpy(&type_id, pt, sizeof(uint16_t));
+        pt +=  sizeof(uint16_t);
 
-        if (store.type_id == TI_SPEC_OBJECT)
+        if (type_id == TI_SPEC_OBJECT)
         {
-            if (!ti_things_create_thing_o(store.thing_id, collection))
+            if (!ti_things_create_thing_o(thing_id, collection))
                 goto failed;
         }
         else
         {
-            type = ti_types_by_id(collection->types, store.type_id);
+            type = ti_types_by_id(collection->types, type_id);
             if (!type)
             {
-                log_critical("cannot find type with id %u", store.type_id);
+                log_critical("cannot find type with id %u", type_id);
                 goto failed;
             }
-            if (!ti_things_create_thing_t(store.thing_id, type, collection))
+            if (!ti_things_create_thing_t(thing_id, type, collection))
                 goto failed;
         }
     }

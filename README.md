@@ -2,8 +2,12 @@
 
 ## TODO / Road map
 
+- [ ] Update tests
+    - [ ] Watch
+    - [ ] Type
 - [x] Improve syntax errors
 - [ ] Update documentation
+  - [ ] Type doc
   - [ ] Slices doc
   - [ ] Update parenthesis which are not required anymore
   - [ ] Add procedure docs
@@ -17,7 +21,7 @@
       be disabled explicitly for a query. This last option is maybe not so bad
       because it will prevent missing warnings.
 - [x] Some sort of `Type` support for strict types?
-  - [ ] Create a `cast` type for exporting less data
+  - [ ] Create a `wrap` type for exporting less data
 
 
 ## Plans and Ideas for the Future

@@ -6,6 +6,9 @@
 
 void ti_chain_set(ti_chain_t * chain, ti_thing_t * thing, ti_name_t * name)
 {
+    ti_incref(thing);
+    ti_incref(name);
+
     if (chain->thing)
     {
         ti_val_drop((ti_val_t *) chain->thing);
@@ -14,9 +17,6 @@ void ti_chain_set(ti_chain_t * chain, ti_thing_t * thing, ti_name_t * name)
 
     chain->thing = thing;
     chain->name = name;
-
-    ti_incref(thing);
-    ti_incref(name);
 }
 
 void ti_chain_move(ti_chain_t * target, ti_chain_t * source)

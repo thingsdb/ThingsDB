@@ -40,6 +40,7 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);
 int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts);
 int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name);
 int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key);
+int ti_task_add_del_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_grant(
         ti_task_t * task,

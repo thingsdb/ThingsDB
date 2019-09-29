@@ -51,7 +51,7 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
 }
 
 /*
- * Do not use this function directly; Call ti_collection_destroy_type(..) so
+ * Do not use this function directly; Call ti_type_del(..) so
  * existing things using this type will be converted to objects.
  */
 void ti_types_del(ti_types_t * types, ti_type_t * type)

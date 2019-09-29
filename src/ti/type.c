@@ -65,6 +65,26 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
+static int type__conv(ti_thing_t * thing, uint16_t * type_id)
+{
+    if (thing->type_id == *type_id)
+        ti_thing_t_to_object(thing);
+    return 0;
+}
+
+void ti_type_del(ti_type_t * type)
+{
+    assert (!type->refcount);
+
+    ti_collection_t * collection = type->types->collection;
+    uint16_t type_id = type->type_id;
+
+    (void) imap_walk(collection->things, (imap_cb) type__conv, &type_id);
+
+    ti_type_drop(type);
+}
+
+
 void ti_type_destroy(ti_type_t * type)
 {
     if (!type)

@@ -172,22 +172,3 @@ void ti_collection_set_quota(
     }
 }
 
-static int collection__conv(ti_thing_t * thing, uint16_t * type_id)
-{
-    if (thing->type_id == *type_id)
-        ti_thing_t_to_object(thing);
-    return 0;
-}
-
-int ti_collection_destroy_type(ti_collection_t * collection, ti_type_t * type)
-{
-    assert (!type->refcount);
-
-    uint16_t type_id = type->type_id;
-
-    (void) imap_walk(collection->things, (imap_cb) collection__conv, &type_id);
-
-    ti_type_drop(type);
-
-    return 0;
-}

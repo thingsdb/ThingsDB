@@ -19,15 +19,12 @@
  * Returns 0 on success
  * - for example: {'prop': [new_count, values...]}
  */
-static int job__add(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
+    ti_collection_t * collection = thing->collection;
     ssize_t n;
     ti_vset_t * vset;
     ti_name_t * name;
@@ -95,15 +92,12 @@ static int job__add(
  * Returns 0 on success
  * - for example: {'prop':value}
  */
-static int job__set(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__set(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
+    ti_collection_t * collection = thing->collection;
     ti_val_t * val;
     ti_name_t * name;
     qp_obj_t qp_prop;
@@ -178,9 +172,10 @@ fail:
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
-static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
+static int job__define(ti_thing_t * thing, qp_unpacker_t * unp)
 {
     ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     uint16_t type_id;
     qp_obj_t qp_type_id, qp_name;
@@ -232,7 +227,7 @@ static int job__define(ti_collection_t * collection, qp_unpacker_t * unp)
             "job `define` for collection `"TI_COLLECTION_ID"` has failed; %s; "
             "remove type `%s`...",
             collection->root->id, e.msg, type->name);
-        (void) ti_collection_destroy_type(collection, type);
+        (void) ti_type_del(type);
         return -1;
     }
 
@@ -291,14 +286,12 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int job__del_procedure(
-        ti_collection_t * collection,
-        qp_unpacker_t * unp)
+static int job__del_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (unp);
 
     qp_obj_t qp_name;
+    ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
 
     if (!qp_is_raw(qp_next(unp, &qp_name)))
@@ -332,15 +325,13 @@ static int job__del_procedure(
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int job__new_procedure(
-        ti_collection_t * collection,
-        qp_unpacker_t * unp)
+static int job__new_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (unp);
 
     int rc;
     qp_obj_t qp_name;
+    ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
@@ -388,20 +379,64 @@ failed:
     return -1;
 }
 
+
+/*
+ * Returns 0 on success
+ * - for example: type_id
+ */
+static int job__del_type(ti_thing_t * thing, qp_unpacker_t * unp)
+{
+    ti_collection_t * collection = thing->collection;
+    qp_obj_t qp_type_id;
+    uint16_t type_id;
+    ti_type_t * type;
+
+    if (!qp_is_int(qp_next(unp, &qp_type_id)))
+    {
+        log_critical(
+                "job `del_type` from collection "TI_COLLECTION_ID": "
+                "expecting an integer type id",
+                collection->root->id);
+        return -1;
+    }
+
+    type_id = (uint16_t) qp_type_id.via.int64;
+
+    type = ti_types_by_id(collection->types, type_id);
+    if (!type)
+    {
+        log_critical(
+                "job `del_type` from collection "TI_COLLECTION_ID": "
+                "type with id %u not found",
+                collection->root->id, type_id);
+        return -1;
+    }
+
+    if (type->refcount)
+    {
+        log_critical(
+                "job `del_type` from collection "TI_COLLECTION_ID": "
+                "type with id %u still has %u references",
+                collection->root->id, type_id, type->refcount);
+        return -1;
+    }
+
+    ti_type_del(type);
+    return 0;
+}
+
+
 /*
  * Returns 0 on success
  * - for example: {'prop': [del_count, thing_ids...]}
  */
-static int job__remove(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
     ssize_t n;
+    ti_collection_t * collection = thing->collection;
     ti_vset_t * vset;
     ti_name_t * name;
     qp_obj_t qp_prop, qp_i;
@@ -489,12 +524,8 @@ static int job__remove(
  * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
-static int job__splice(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
 {
-    assert (collection);
     assert (thing);
     assert (unp);
 
@@ -502,6 +533,7 @@ static int job__splice(
     ssize_t n, i, c, cur_n, new_n;
     ti_varr_t * varr;
     ti_name_t * name;
+    ti_collection_t * collection = thing->collection;
     qp_types_t tp;
     qp_obj_t qp_prop, qp_i, qp_c, qp_n;
 
@@ -616,11 +648,10 @@ static int job__splice(
 /*
  * Unpacker should be at point 'job': ...
  */
-int ti_job_run(
-        ti_collection_t * collection,
-        ti_thing_t * thing,
-        qp_unpacker_t * unp)
+int ti_job_run(ti_thing_t * thing, qp_unpacker_t * unp)
 {
+    assert (thing->collection);
+
     qp_obj_t qp_job_name;
     const uchar * raw;
     if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 3)
@@ -636,21 +667,23 @@ int ti_job_run(
     switch (*raw)
     {
     case 'a':
-        return job__add(collection, thing, unp);
+        return job__add(thing, unp);
     case 'd':
-        return qp_job_name.len == 3
-                ? job__del(thing, unp)
-                : qp_job_name.len == 6
-                ? job__define(collection, unp)
-                : job__del_procedure(collection, unp);
+        switch (qp_job_name.len)
+        {
+        case 3: return job__del(thing, unp);
+        case 6: return job__define(thing, unp);
+        case 8: return job__del_type(thing, unp);
+        }
+        return job__del_procedure(thing, unp);
     case 'n':
-        return job__new_procedure(collection, unp);
+        return job__new_procedure(thing, unp);
     case 'r':
-        return job__remove(collection, thing, unp);
+        return job__remove(thing, unp);
     case 's':
         return qp_job_name.len == 3
-                ? job__set(collection, thing, unp)
-                : job__splice(collection, thing, unp);
+                ? job__set(thing, unp)
+                : job__splice(thing, unp);
     }
 
     log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);

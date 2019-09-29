@@ -348,6 +348,32 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
+{
+    ti_data_t * data;
+    qp_packer_t * packer = ti_data_packer(24, 1);
+
+    if (!packer)
+        return -1;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "del_type");
+    (void) qp_add_int(packer, type->type_id);
+    (void) qp_close_map(packer);
+
+    data = ti_data_from_packer(packer);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
 {
     ti_data_t * data;

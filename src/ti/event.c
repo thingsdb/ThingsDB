@@ -163,7 +163,7 @@ int ti_event_run(ti_event_t * ev)
              * TODO: add testing for watch
              * */
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
-                if (ti_job_run(ev->collection, thing, &unpacker))
+                if (ti_job_run(thing, &unpacker))
                 {
                     log_critical(
                             "job for thing "TI_THING_ID" in "

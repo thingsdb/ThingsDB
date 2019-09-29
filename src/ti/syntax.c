@@ -25,6 +25,7 @@
 #include <ti/fn/fndelexpired.h>
 #include <ti/fn/fndelprocedure.h>
 #include <ti/fn/fndeltoken.h>
+#include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnerr.h>
@@ -179,11 +180,12 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'd':
         syntax__cev_fn(q, nd, "del", do__f_del);  /* most frequent used */
-        syntax__bev_fn(q, nd, "del_procedure", do__f_del_procedure);
         syntax__nev_fn(q, nd, "deep", do__f_deep);
-        syntax__tev_fn(q, nd, "del_collection", do__f_del_collection);
         syntax__tev_fn(q, nd, "del_expired", do__f_del_expired);
         syntax__tev_fn(q, nd, "del_token", do__f_del_token);
+        syntax__bev_fn(q, nd, "del_procedure", do__f_del_procedure);
+        syntax__cev_fn(q, nd, "del_type", do__f_del_type);
+        syntax__tev_fn(q, nd, "del_collection", do__f_del_collection);
         syntax__tev_fn(q, nd, "del_user", do__f_del_user);
         break;
     case 'e':

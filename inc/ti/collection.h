@@ -34,7 +34,6 @@ void ti_collection_set_quota(
         ti_collection_t * collection,
         ti_quota_enum_t quota_tp,
         size_t quota);
-int ti_collection_destroy_type(ti_collection_t * collection, ti_type_t * type);
 
 struct ti_collection_s
 {

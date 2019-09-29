@@ -31,6 +31,7 @@
 #define DOC_DEL_EXPIRED             DOC_SEE("#del_expired")
 #define DOC_DEL_PROCEDURE           DOC_SEE("#del_procedure")
 #define DOC_DEL_TOKEN               DOC_SEE("#del_token")
+#define DOC_DEL_TYPE                DOC_SEE("#del_type")
 #define DOC_DEL_USER                DOC_SEE("#del_user")
 #define DOC_ENDSWITH                DOC_SEE("#endswith")
 #define DOC_ERR                     DOC_SEE("#err")

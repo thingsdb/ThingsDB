@@ -30,7 +30,8 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "type `%s` is used by at least one other type; "
                 "use `types_info(..)` to find all dependencies and "
                 "remove them by using `define(..)` or delete the dependencies "
-                "as well"DOC_DEL_TYPE DOC_DEFINE DOC_TYPES_INFO);
+                "as well"DOC_DEL_TYPE DOC_DEFINE DOC_TYPES_INFO,
+                type->name);
         return e->nr;
     }
 

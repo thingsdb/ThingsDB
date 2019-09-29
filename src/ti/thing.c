@@ -638,16 +638,16 @@ void ti_thing_t_to_object(ti_thing_t * thing)
 {
     assert (!ti_thing_is_object(thing));
     ti_name_t * name;
-    ti_val_t * val;
+    ti_val_t ** val;
     ti_prop_t * prop;
-    for (thing_each(thing, name, val))
+    for (thing_each_addr(thing, name, val))
     {
-        prop = ti_prop_create(name, val);
+        prop = ti_prop_create(name, *val);
         if (!prop)
             ti_panic("cannot recover from a state between object and instance");
 
         ti_incref(name);
-        *v__ = &prop;
+        *val = (ti_val_t *) prop;
     }
     thing->type_id = TI_SPEC_OBJECT;
 }

@@ -121,6 +121,7 @@ int ti_node_connect(ti_node_t * node)
 
     log_debug("connecting to "TI_NODE_ID, node->id);
 
+    int rc;
     ti_stream_t * stream;
     uv_connect_t * req;
 
@@ -147,12 +148,15 @@ int ti_node_connect(ti_node_t * node)
     req->data = ti_grab(node);
     node->status = TI_NODE_STAT_CONNECTING;
 
-    if (uv_tcp_connect(
+    rc = uv_tcp_connect(
             req,
             (uv_tcp_t *) node->stream->uvstream,
             (const struct sockaddr*) node->sockaddr_,
-            node__on_connect))
+            node__on_connect);
+
+    if (rc)
     {
+        log_error("uv_tcp_connect has failed (%s)", uv_strerror(rc));
         node->status = TI_NODE_STAT_OFFLINE;
         goto fail1;
     }
@@ -161,6 +165,8 @@ int ti_node_connect(ti_node_t * node)
 
 fail1:
     ti_node_drop(node);  /* break down req->data */
+    free(req);
+
 fail0:
     ti_stream_close(stream);
     return -1;

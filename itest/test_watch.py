@@ -95,7 +95,7 @@ class Thing:
                 jobfun(self, job)
 
     def on_delete(self):
-        self._evhandler._things.pop(self.id)
+        self._evhandler._things.pop(self._id)
 
     _UPDMAP = {
         'set': _job_set,

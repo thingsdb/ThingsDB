@@ -71,17 +71,9 @@ static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_name_check("set", DOC_SET_PROPERTY, 1, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_raw(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `set` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_SET_PROPERTY,
-            ti_val_str(query->rval));
-        goto fail0;
-    }
 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;

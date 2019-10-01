@@ -453,7 +453,7 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     assert (ti_thing_is_object(thing));
 
     uint32_t i = 0;
-    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+    ti_name_t * name = ti_names_weak_from_raw(rname);
 
     if (name)
     {
@@ -512,7 +512,7 @@ static _Bool thing_t__get_by_name(
 
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
 {
-    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
+    ti_name_t * name = ti_names_weak_from_raw(r);
     return name && (ti_thing_is_object(thing)
             ? thing_o__get_by_name(wprop, thing, name)
             : thing_t__get_by_name(wprop, thing, name));
@@ -524,7 +524,7 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_weak_get((const char *) r->data, r->n);
+    ti_name_t * name = ti_names_weak_from_raw(r);
     if (!name || (ti_thing_is_object(thing)
             ? !thing_o__get_by_name(wprop, thing, name)
             : !thing_t__get_by_name(wprop, thing, name)))

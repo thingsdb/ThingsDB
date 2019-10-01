@@ -114,7 +114,7 @@ const char * ti_node_status_str(ti_node_status_t status)
     return "UNKNOWN";
 }
 
-int ti_node_connect(ti_node_t * node)
+int ti_node_connect(ti_node_t * node, ex_t * e)
 {
     assert (!node->stream);
     assert (node->status == TI_NODE_STAT_OFFLINE);
@@ -125,25 +125,24 @@ int ti_node_connect(ti_node_t * node)
     ti_stream_t * stream;
     uv_connect_t * req;
 
-    if (!node->sockaddr_)
-    {
-        ex_t e = {0};
-        if (ti_node_update_sockaddr(node, &e))
-        {
-            log_error(e.msg);
-            return -1;
-        }
-    }
+    if (!node->sockaddr_ && ti_node_update_sockaddr(node, e))
+        return e->nr;
 
     stream = ti_stream_create(TI_STREAM_TCP_OUT_NODE, ti_nodes_pkg_cb);
     if (!stream)
+    {
+        ex_set_internal(e);
         goto fail0;
+    }
 
     ti_stream_set_node(stream, node);
 
     req = malloc(sizeof(uv_connect_t));
     if (!req)
+    {
+        ex_set_mem(e);
         goto fail0;
+    }
 
     req->data = ti_grab(node);
     node->status = TI_NODE_STAT_CONNECTING;
@@ -156,7 +155,9 @@ int ti_node_connect(ti_node_t * node)
 
     if (rc)
     {
-        log_error("uv_tcp_connect has failed (%s)", uv_strerror(rc));
+        ex_set(e, EX_INTERNAL,
+                "TCP connect to "TI_NODE_ID" has failed (%s)",
+                node->id, uv_strerror(rc));
         node->status = TI_NODE_STAT_OFFLINE;
         goto fail1;
     }
@@ -164,12 +165,12 @@ int ti_node_connect(ti_node_t * node)
     return 0;
 
 fail1:
-    ti_node_drop(node);  /* break down req->data */
+    ti_node_drop(node);
     free(req);
 
 fail0:
     ti_stream_close(stream);
-    return -1;
+    return e->nr;
 }
 
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
@@ -244,8 +245,8 @@ int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
                 (struct sockaddr_in *) tmp_sockaddr))
         {
             ex_set(e, EX_INTERNAL,
-                    "cannot create IPv4 address from `%s:%d`",
-                    node->addr, node->port);
+                    "cannot create IPv4 address from `%s:%d` for "TI_NODE_ID,
+                    node->addr, node->port, node->id);
             goto failed;
         }
     }
@@ -257,14 +258,16 @@ int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
                 (struct sockaddr_in6 *) tmp_sockaddr))
         {
             ex_set(e, EX_INTERNAL,
-                    "cannot create IPv6 address from `[%s]:%d`",
-                    node->addr, node->port);
+                    "cannot create IPv6 address from `[%s]:%d` for "TI_NODE_ID,
+                    node->addr, node->port, node->id);
             goto failed;
         }
     }
     else
     {
-        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%s`", node->addr);
+        ex_set(e, EX_VALUE_ERROR,
+                "invalid IPv4/6 address for "TI_NODE_ID
+                ": `%s`", node->id, node->addr);
         goto failed;
     }
 

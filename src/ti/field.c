@@ -275,6 +275,14 @@ int ti_field_create(
     return e->nr;
 }
 
+void ti_field_del(ti_field_t * field)
+{
+    if (!field)
+        return;
+
+    (void) vec_swap_remove(field->type->fields, field->idx);
+    ti_field_destroy(field);
+}
 
 void ti_field_destroy(ti_field_t * field)
 {

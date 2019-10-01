@@ -71,6 +71,7 @@ typedef struct ti_node_s ti_node_t;
 #include <ti/rpkg.h>
 #include <util/imap.h>
 #include <util/cryptx.h>
+#include <ex.h>
 
 struct ti_node_s
 {
@@ -87,8 +88,11 @@ struct ti_node_s
     ti_stream_t * stream;           /* borrowed reference */
     uint16_t port;
     /*
-     * Optionally, we could add `client_port` just for informational
-     * uint16_t client_port;
+     * TODO: add warning flags, like:
+     *      - low on memory
+     *      - low on disk space
+     *      - unreachable (set from another node)
+     *    uint16_t wflags;
      */
     struct sockaddr_storage * sockaddr_;
     char addr[INET6_ADDRSTRLEN];    /* null terminated (last known) address */
@@ -108,7 +112,7 @@ int ti_node_upd_addr_from_stream(
         uint16_t port);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
-int ti_node_connect(ti_node_t * node);
+int ti_node_connect(ti_node_t * node, ex_t * e);
 int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
 int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);

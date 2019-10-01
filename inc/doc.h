@@ -123,7 +123,7 @@
 #define DOC_TYPE                    DOC_SEE("#type")
 #define DOC_TYPE_ERR                DOC_SEE("#type_err")
 #define DOC_TYPE_INFO               DOC_SEE("#type_info")
-#define DOC_TYPE_MK                 DOC_SEE("#type_mk")
+#define DOC_TYPE_MOD                DOC_SEE("#type_mod")
 #define DOC_TYPES                   DOC_SEE("#types")
 #define DOC_TYPES_INFO              DOC_SEE("#types_info")
 #define DOC_UPPER                   DOC_SEE("#upper")

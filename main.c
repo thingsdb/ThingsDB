@@ -124,7 +124,8 @@ int main(int argc, char * argv[])
             if (!ti_ask_continue())
                 goto stop;
 
-            if (fx_rmdir(ti()->store->store_path))
+            if (fx_is_dir(ti()->store->store_path) &&
+                fx_rmdir(ti()->store->store_path))
             {
                 log_error("error: directory `%s` cannot be removed\n",
                         ti()->store->store_path);

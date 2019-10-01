@@ -39,15 +39,10 @@ void ti_names_inject_common(void)
 /*
  * returns a name with a new reference or NULL in case of an error
  */
-ti_name_t * ti_names_get(const char * str, size_t n)
+ti_name_t * ti_names_new(const char * str, size_t n)
 {
-    ti_name_t * name = smap_getn(names, str, n);
-    if (name)
-        return ti_grab(name);
-
-    int rc;
-    name = ti_name_create(str, n);
-    if (!name || (rc = smap_add(names, name->str, name)))
+    ti_name_t * name = ti_name_create(str, n);
+    if (!name || smap_add(names, name->str, name))
     {
         free(name);
         return NULL;

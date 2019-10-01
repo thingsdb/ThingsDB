@@ -37,7 +37,6 @@ fail1:
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_raw_t * rname;
     ti_name_t * name;
     ti_thing_t * thing;
 
@@ -60,8 +59,7 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    rname = (ti_raw_t *) query->rval;
-    name = ti_names_weak_get((const char *) rname->data, rname->n);
+    name = ti_names_weak_from_raw((ti_raw_t *) query->rval);
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(

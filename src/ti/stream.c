@@ -54,17 +54,11 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     case TI_STREAM_TCP_IN_NODE:
     case TI_STREAM_TCP_IN_CLIENT:
         if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
-        {
-            log_error("uv_tcp_init has failed");
             goto failed;
-        }
         break;
     case TI_STREAM_PIPE_IN_CLIENT:
         if (uv_pipe_init(ti()->loop, (uv_pipe_t *) stream->uvstream, 0))
-        {
-            log_error("uv_pipe_init has failed");
             goto failed;
-        }
         break;
     }
 

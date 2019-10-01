@@ -470,7 +470,7 @@ static inline int index__t_upd_prop(
 {
     ti_field_t * field;
     ti_type_t * type = ti_thing_type(thing);
-    ti_name_t * name = ti_names_weak_get((const char *) rname->data, rname->n);
+    ti_name_t * name = ti_names_weak_from_raw(rname);
 
     if (name && (field = ti_field_by_name(type, name)))
     {

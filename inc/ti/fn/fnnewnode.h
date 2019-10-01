@@ -145,6 +145,9 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    if (ti_nodes_check_add(e))
+        goto fail1;
+
     cryptx_gen_salt(salt);
     cryptx(secret, salt, encrypted);
 

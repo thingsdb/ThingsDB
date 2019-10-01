@@ -1220,6 +1220,21 @@ _Bool ti_nodes_require_sync(void)
     return false;
 }
 
+/* Returns 0 if a new node can be added depending if the last added node
+ * can at least be reached. If this is `not` the case, then you might end up
+ * with a status that a quorum can never be reached.
+ */
+int ti_nodes_check_add(ex_t * e)
+{
+    ti_node_t * node = vec_last(nodes->vec);
+    if (node->status <= TI_NODE_STAT_CONNECTING)
+        ex_set(e, EX_OPERATION_ERROR,
+            "wait for a connection to "TI_NODE_ID" before adding a new node; "
+            "current status: `%s`",
+            node->id, ti_node_status_str(node->status));
+    return e->nr;
+}
+
 uint64_t ti_nodes_cevid(void)
 {
     uint64_t m = ti()->node->cevid;

@@ -47,8 +47,6 @@ ON_WATCH_DEL = 18
 ON_NODE_STATUS = 19
 ON_WARN = 20
 
-ON_WATCH = (ON_WATCH_INI, ON_WATCH_UPD, ON_WATCH_DEL)
-
 # ThingsDB build-in errors
 EX_OPERATION_ERROR = -63
 EX_NUM_ARGUMENTS = -62
@@ -140,7 +138,20 @@ class Protocol(asyncio.Protocol):
         self.transport = None
         self._on_lost(self, exc)
 
-    def data_received(self, data):
+    def data_received(self, data, _events=(
+        ON_NODE_STATUS,
+        ON_WARN,
+        ON_WATCH_INI,
+        ON_WATCH_UPD,
+        ON_WATCH_DEL,
+    ), _responses=(
+        RES_PING,
+        RES_AUTH,
+        RES_QUERY,
+        RES_WATCH,
+        RES_UNWATCH,
+        RES_ERROR
+    )):
         '''
         override asyncio.Protocol
         '''
@@ -156,14 +167,25 @@ class Protocol(asyncio.Protocol):
             try:
                 self.package.extract_data_from(self._buffered_data)
             except KeyError as e:
-                logging.error('Unsupported package received: {}'.format(e))
+                logging.error(f'Unsupported package received: {e}')
             except Exception as e:
                 logging.exception(e)
                 # empty the byte-array to recover from this error
                 self._buffered_data.clear()
             else:
-                self.on_package_received(self.package)
+                tp = self.package.tp
+                if tp in _events:
+                    self.on_event_received(self.package)
+                elif tp in _responses:
+                    self.on_response_received(self.package)
+                else:
+                    logging.error(f'Unsupported package type received: {tp}')
+
             self.package = None
+
+    @staticmethod
+    def on_event_received(pkg):
+        raise NotImplementedError
 
     @staticmethod
     def on_package_received(pkg):

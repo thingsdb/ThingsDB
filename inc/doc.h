@@ -8,7 +8,7 @@
 
 #include <tiinc.h>
 
-#define DOC_DOCS(__hash) TI_URL"/ThingsDocs/"__hash
+#define DOC_DOCS(__hash) "https://thingsdb.github.io/ThingsDocs/"__hash
 #define DOC_SEE(__hash) "; see "DOC_DOCS(__hash)
 
 #define DOC_ADD                     DOC_SEE("#add")

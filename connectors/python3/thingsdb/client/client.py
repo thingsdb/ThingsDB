@@ -18,6 +18,32 @@ from .protocol import ON_NODE_STATUS
 from .protocol import ON_WARN
 from .buildin import Buildin
 from ..convert import convert
+from .events import Events
+
+
+class _ReconnectEv(Events):
+
+    async def on_reconnect(self):
+        if self.client._reconnect:
+            await self.client.watch(scope='@n')
+
+    def on_node_status(self, status):
+        if status == 'SHUTTING_DOWN':
+            asyncio.ensure_future(
+                self.client.reconnect(),
+                loop=self.client._loop)
+
+    def on_warning(self, warn):
+        logging.warn(f'{warn["warn_msg"]} ({warn["warn_code"]})')
+
+    def on_watch_init(self, data):
+        pass
+
+    def on_watch_update(self, data):
+        pass
+
+    def on_watch_delete(self, data):
+        pass
 
 
 class Client(Buildin):
@@ -33,10 +59,15 @@ class Client(Buildin):
         self._requests = {}
         self._pid = 0
         self._reconnect = auto_reconnect
-        self._things = weakref.WeakValueDictionary()  # watching these things
         self._scope = '@t'  # default to thingsdb scope
         self._pool_idx = 0
         self._reconnecting = False
+        self._event_handlers = []
+        if auto_reconnect:
+            self.add_event_handler(_ReconnectEv(self))
+
+    def add_event_handler(self, event_handler):
+        self._event_handlers.append(event_handler)
 
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop
@@ -103,7 +134,8 @@ class Client(Buildin):
             _, self._protocol = await asyncio.wait_for(
                 conn,
                 timeout=timeout)
-            self._protocol.on_package_received = self._on_package_received
+            self._protocol.on_event_received = self._on_event_received
+            self._protocol.on_response_received = self._on_response_received
         finally:
             self._pool_idx += 1
             self._pool_idx %= len(self._pool)
@@ -179,17 +211,8 @@ class Client(Buildin):
 
         await self._authenticate(timeout=5)
 
-        # re-watch all watching things
-        collections = set()
-        for t in self._things.values():
-            t._to_wqueue()
-            collections.add(t._collection)
-
-        if collections:
-            for collection in collections:
-                await collection.go_wqueue()
-        elif self._reconnect:
-            await self.watch(scope='@n')
+        for event_handler in self._event_handlers:
+            await event_handler.on_reconnect()
 
     def get_num_things(self):
         return len(self._things)
@@ -264,52 +287,11 @@ class Client(Buildin):
 
         return self._write_package(REQ_UNWATCH, [scope, *ids])
 
-    def _on_watch_init(self, data):
-        thing_dict = data['thing']
-        thing = self._things.get(thing_dict.pop('#'))
-        if thing is None:
-            return
-        asyncio.ensure_future(
-            thing.on_init(data['event'], thing_dict),
-            loop=self._loop
-        )
+    def _on_event_received(self, pkg):
+        for event_handler in self._event_handlers:
+            event_handler._evmap.get(pkg.tp)(pkg.data)
 
-    def _on_watch_update(self, data):
-        thing = self._things.get(data.pop('#'))
-        if thing is None:
-            return
-
-        asyncio.ensure_future(
-            thing.on_update(data['event'], data.pop('jobs')),
-            loop=self._loop
-        )
-
-    def _on_watch_delete(self, data):
-        thing = self._things.get(data.pop('#'))
-        if thing is None:
-            return
-
-        asyncio.ensure_future(thing.on_delete(), loop=self._loop)
-
-    def _on_node_status(self, status):
-        if status == 'SHUTTING_DOWN':
-            asyncio.ensure_future(self.reconnect(), loop=self._loop)
-
-    def on_warning(self, warn):
-        logging.warn(f'{warn["warn_msg"]} ({warn["warn_code"]})')
-
-    def _on_package_received(self, pkg, _map={
-        ON_NODE_STATUS: _on_node_status,
-        ON_WARN: on_warning,
-        ON_WATCH_INI: _on_watch_init,
-        ON_WATCH_UPD: _on_watch_update,
-        ON_WATCH_DEL: _on_watch_delete
-    }):
-        on_watch = _map.get(pkg.tp)
-        if on_watch:
-            on_watch(self, pkg.data)
-            return
-
+    def _on_response_received(self, pkg):
         try:
             future, task = self._requests.pop(pkg.pid)
         except KeyError:

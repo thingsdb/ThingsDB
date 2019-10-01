@@ -100,6 +100,7 @@ int ti_event_run(ti_event_t * ev)
     qp_unpacker_t unpacker;
     qp_obj_t qp_scope, thing_or_map;
     uint64_t scope_id;
+    const unsigned char * jobs;
 
     qp_unpacker_init(&unpacker, pkg->data, pkg->n);
 
@@ -159,10 +160,11 @@ int ti_event_run(ti_event_t * ev)
 
         if (ev->collection)
         {
-            /* TODO: here we have to update watchers;
-             * TODO: add testing for watch
-             * */
+            /* keep the current position so we can update watchers */
+            jobs = unpacker.pt;
+
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
+            {
                 if (ti_job_run(thing, &unpacker))
                 {
                     log_critical(
@@ -173,6 +175,32 @@ int ti_event_run(ti_event_t * ev)
                             (const char *) ev->collection->name->data);
                     goto failed;
                 }
+            }
+
+            if (ti_thing_has_watchers(thing))
+            {
+                size_t n = unpacker.pt - jobs;
+                ti_rpkg_t * rpkg;
+                ti_pkg_t * pkg = ti_watch_pkg(thing->id, ev->id, jobs, n);
+
+                if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
+                {
+                    log_critical(EX_MEMORY_S);
+                    free(pkg);
+                }
+                else
+                {
+                    for (vec_each(thing->watchers, ti_watch_t, watch))
+                    {
+                        if (ti_stream_is_closed(watch->stream))
+                            continue;
+
+                        if (ti_stream_write_rpkg(watch->stream, rpkg))
+                            log_error(EX_INTERNAL_S);
+                    }
+                    ti_rpkg_drop(rpkg);
+                }
+            }
         }
         else
         {

@@ -16,6 +16,8 @@ from test_thingsdb_functions import TestThingsDBFunctions
 from test_types import TestTypes
 from test_user_access import TestUserAccess
 from test_variable import TestVariable
+from test_watch import TestWatch
+
 
 if __name__ == '__main__':
     run_test(TestArguments())
@@ -33,3 +35,4 @@ if __name__ == '__main__':
     run_test(TestTypes())
     run_test(TestUserAccess())
     run_test(TestVariable())
+    run_test(TestWatch())

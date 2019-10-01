@@ -96,16 +96,10 @@ static void query__task_to_watchers(ti_query_t * query)
         {
             ti_rpkg_t * rpkg;
             ti_pkg_t * pkg = ti_task_pkg_watch(task);
-            if (!pkg)
+            if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
             {
                 log_critical(EX_MEMORY_S);
-                break;
-            }
-
-            rpkg = ti_rpkg_create(pkg);
-            if (!rpkg)
-            {
-                log_critical(EX_MEMORY_S);
+                free(pkg);
                 break;
             }
 
@@ -115,9 +109,8 @@ static void query__task_to_watchers(ti_query_t * query)
                     continue;
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))
-                    log_critical(EX_INTERNAL_S);
+                    log_error(EX_INTERNAL_S);
             }
-
             ti_rpkg_drop(rpkg);
         }
     }

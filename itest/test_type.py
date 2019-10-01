@@ -17,9 +17,9 @@ from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
-class TestTypes(TestBase):
+class TestType(TestBase):
 
-    title = 'Test thingsdb types'
+    title = 'Test type'
 
     @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
     async def run(self):
@@ -56,4 +56,4 @@ class TestTypes(TestBase):
 
 
 if __name__ == '__main__':
-    run_test(TestTypes())
+    run_test(TestType())

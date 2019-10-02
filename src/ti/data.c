@@ -54,7 +54,6 @@ fail_packer:
 
 ti_data_t * ti_data_for_del_job(const char * name, size_t n)
 {
-    ti_data_t * data;
     qp_packer_t * packer = ti_data_packer(20 + n, 1);
 
     if (!packer)

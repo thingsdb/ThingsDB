@@ -636,6 +636,76 @@ fail_packer:
     return -1;
 }
 
+int ti_task_add_mod_type_del(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_name_t * name)
+{
+    ti_data_t * data;
+    qp_packer_t * packer = ti_data_packer(48 + name->n, 2);
+
+    if (!packer)
+        return -1;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "mod_type_del");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "type_id");
+    (void) qp_add_int(packer, type->type_id);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw_from_str(packer, name->str);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    data = ti_data_from_packer(packer);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
+{
+    ti_data_t * data;
+    qp_packer_t * packer = ti_data_packer(
+            60 + field->name->n + field->spec_raw->n,
+            2);
+
+    if (!packer)
+        return -1;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "mod_type_mod");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "type_id");
+    (void) qp_add_int(packer, field->type->type_id);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw_from_str(packer, field->name->str);
+    (void) qp_add_raw_from_str(packer, "spec");
+    (void) qp_add_raw(packer, field->spec_raw->data, field->spec_raw->n);
+    (void) qp_close_map(packer);
+    (void) qp_close_map(packer);
+
+    data = ti_data_from_packer(packer);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+}
+
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id)
 {
     ti_data_t * data;

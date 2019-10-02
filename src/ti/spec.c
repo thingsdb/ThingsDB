@@ -81,3 +81,50 @@ const char * ti__spec_approx_type_str(uint16_t spec)
 
     return "thing";
 }
+
+ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)
+{
+    if (nspec == TI_SPEC_ANY)
+        return TI_SPEC_MOD_SUCCESS;
+
+    if ((ospec & TI_SPEC_NILLABLE) && (~nspec & TI_SPEC_NILLABLE))
+        return TI_SPEC_MOD_NILLABLE_ERR;
+
+    ospec &= TI_SPEC_MASK_NILLABLE;
+    nspec &= TI_SPEC_MASK_NILLABLE;
+
+    switch ((ti_spec_enum_t) nspec)
+    {
+    case TI_SPEC_ANY:
+        return TI_SPEC_MOD_SUCCESS;
+    case TI_SPEC_OBJECT:
+        return ospec < TI_SPEC_ANY || ospec == TI_SPEC_OBJECT
+                ? TI_SPEC_MOD_SUCCESS
+                : TI_SPEC_MOD_ERR;
+    case TI_SPEC_RAW:
+        return ospec == TI_SPEC_RAW || ospec == TI_SPEC_UTF8
+                ? TI_SPEC_MOD_SUCCESS
+                : TI_SPEC_MOD_ERR;
+    case TI_SPEC_UTF8:
+    case TI_SPEC_UINT:
+    case TI_SPEC_FLOAT:
+    case TI_SPEC_BOOL:
+        return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+    case TI_SPEC_INT:
+        return ospec == TI_SPEC_INT || ospec == TI_SPEC_UINT
+                ? TI_SPEC_MOD_SUCCESS
+                : TI_SPEC_MOD_ERR;
+    case TI_SPEC_NUMBER:
+        return (
+            ospec == TI_SPEC_NUMBER ||
+            ospec == TI_SPEC_FLOAT ||
+            ospec == TI_SPEC_INT ||
+            ospec == TI_SPEC_UINT
+        ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+    case TI_SPEC_ARR:
+    case TI_SPEC_SET:
+        return ospec == nspec ? TI_SPEC_MOD_NESTED : TI_SPEC_MOD_ERR;
+    }
+
+    return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+}

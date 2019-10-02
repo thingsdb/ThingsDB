@@ -15,7 +15,7 @@ static void type__add(
     ti_field_t * field = ti_field_by_name(type, name);
     const int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_nargs_range(fnname, DOC_TYPE_MOD, 4, 5, nargs, e))
+    if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
 
     if (field)
@@ -29,9 +29,9 @@ static void type__add(
     child = nd->children->next->next->next->next->next->next;
     task = ti_task_get_task(query->ev, query->collection->root, e);
 
-    if (ti_do_statement(query, child->node, e) ||
-        fn_arg_raw(fnname, DOC_TYPE_MOD, 4, query->rval, e) ||
-        !task)
+    if (!task ||
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_raw(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
         return;
 
     n = ti_collection_ntype(query->collection, type);
@@ -43,10 +43,10 @@ static void type__add(
         if (nargs != 5)
         {
             ex_set(e, EX_OPERATION_ERROR,
-                    "function `%s` requires an initial value when "
-                    "adding a property to a type with one or more instances; "
-                    "%zu instance%s of type `%s` found"DOC_TYPE_MOD,
-                    fnname, n, n == 1 ? "" : "s", type->name);
+                "function `%s` requires an initial value when "
+                "adding a property to a type with one or more instances; "
+                "%zu active instance%s of type `%s` found"DOC_MOD_TYPE_ADD,
+                fnname, n, n == 1 ? "" : "s", type->name);
             goto fail0;
         }
 
@@ -124,8 +124,9 @@ static void type__del(
     static const char * fnname = "mod_type` with task `del";
     const int nargs = langdef_nd_n_function_params(nd);
     ti_field_t * field = ti_field_by_name(type, name);
+    ti_task_t * task;
 
-    if (fn_nargs(fnname, DOC_TYPE_MOD, 3, nargs, e))
+    if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
         return;
 
     if (!field)
@@ -136,8 +137,70 @@ static void type__del(
         return;
     }
 
-    ti_field_del(field,)
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        return;
 
+    if (ti_field_del(field, query->ev->id))
+    {
+        ex_set_mem(e);
+        return;
+    }
+
+    if (ti_task_add_mod_type_del(task, type, name))
+        ex_set_mem(e);
+    else
+        query->rval = (ti_val_t *) ti_nil_get();
+}
+
+static void type__mod(
+        ti_query_t * query,
+        ti_type_t * type,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `mod";
+    const int nargs = langdef_nd_n_function_params(nd);
+    ti_field_t * field = ti_field_by_name(type, name);
+    ti_task_t * task;
+    size_t n;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_MOD, 4, nargs, e))
+        return;
+
+    if (!field)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no property `%.*s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (ti_do_statement(
+            query,
+            nd->children->next->next->next->next->next->next->node,
+            e) ||
+        fn_arg_raw(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
+        return;
+
+    n = ti_collection_ntype(query->collection, type);
+
+    if (ti_field_mod(field, (ti_raw_t *) query->rval, n, e))
+        return;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        return;
+
+    if (ti_task_add_mod_type_mod(task, field))
+    {
+        ex_set_mem(e);
+        return;
+    }
+
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) ti_nil_get();
 }
 
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -150,9 +213,9 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
-        fn_nargs_min("mod_type", DOC_TYPE_MOD, 3, nargs, e) ||
+        fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_raw("mod_type", DOC_TYPE_MOD, 1, query->rval, e))
+        fn_arg_raw("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
         return e->nr;
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
@@ -164,7 +227,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     child = nd->children->next->next;
 
     if (ti_do_statement(query, child->node, e) ||
-        fn_arg_name_check("mod_type", DOC_TYPE_MOD, 2, query->rval, e))
+        fn_arg_name_check("mod_type", DOC_MOD_TYPE, 2, query->rval, e))
         return e->nr;
 
     rmod = (ti_raw_t *) query->rval;
@@ -172,7 +235,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     child = child->next->next;
 
     if (ti_do_statement(query, child->node, e) ||
-        fn_arg_name_check("mod_type", DOC_TYPE_MOD, 3, query->rval, e))
+        fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail0;
 
     name = ti_names_from_raw((ti_raw_t *) query->rval);
@@ -193,19 +256,19 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_raw_eq_strn(rmod, "del", 3))
     {
-        type__add(query, type, name, nd, e);
+        type__del(query, type, name, nd, e);
         goto done;
     }
 
     if (ti_raw_eq_strn(rmod, "mod", 3))
     {
-        type__add(query, type, name, nd, e);
+        type__mod(query, type, name, nd, e);
         goto done;
     }
 
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del` or `mod` but got `%.*s` instead"DOC_TYPE_MOD,
+            "`add`, `del` or `mod` but got `%.*s` instead"DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 
 done:

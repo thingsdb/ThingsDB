@@ -17,7 +17,8 @@ ti_field_t * ti_field_create(
         ti_raw_t * spec_raw,
         ti_type_t * type,
         ex_t * e);
-void ti_field_del(ti_field_t * field, uint64_t ev_id);
+int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e);
+int ti_field_del(ti_field_t * field, uint64_t ev_id);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
 int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e);

@@ -237,7 +237,6 @@ static int job__new_type(ti_thing_t * thing, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: 'prop'
  */
 static int job__mod_type_add(
         ti_thing_t * thing,
@@ -311,8 +310,6 @@ static int job__mod_type_add(
         goto done;
     }
 
-    spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
-
     field = ti_field_create(name, spec_raw, type, &e);
     if (!field)
     {
@@ -332,6 +329,154 @@ done:
     ti_val_drop(val);
     ti_val_drop((ti_val_t *) spec_raw);
     ti_name_drop(name);
+    return rc;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int job__mod_type_del(
+        ti_thing_t * thing,
+        qp_unpacker_t * unp,
+        uint64_t ev_id)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    ti_name_t * name;
+    ti_field_t * field;
+    uint16_t type_id;
+    qp_obj_t qp_type_id, qp_name;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type-id`    */
+        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
+        !qp_is_raw(qp_next(unp, &qp_name)))         /* value `name`     */
+    {
+        log_critical(
+                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    type_id = (uint16_t) qp_type_id.via.int64;
+
+    type = ti_types_by_id(collection->types, type_id);
+    if (!type)
+    {
+        log_critical(
+                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %u not found",
+                collection->root->id, type_id);
+        return -1;
+    }
+
+    name = ti_names_weak_get((const char *) qp_name.via.raw, qp_name.len);
+    if (!name)
+    {
+        log_critical(
+                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %u; name is missing",
+                collection->root->id, type_id);
+        return -1;
+    }
+
+    field = ti_field_by_name(type, name);
+    if (!field)
+    {
+        log_critical(
+                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no property `%s`",
+                collection->root->id, type->name, name->str);
+        return -1;
+    }
+
+    if (ti_field_del(field, ev_id))
+    {
+        log_critical(EX_MEMORY_S);
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
+{
+    int rc = -1;
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    ti_name_t * name;
+    ti_field_t * field;
+    uint16_t type_id;
+    ti_raw_t * spec_raw;
+    qp_obj_t qp_type_id, qp_name, qp_spec;
+
+    if (!qp_is_map(qp_next(unp, NULL)) ||
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type-id`    */
+        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
+        !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
+        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
+        !qp_is_raw(qp_next(unp, &qp_spec)))         /* value `name`     */
+    {
+        log_critical(
+                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return rc;
+    }
+
+    type_id = (uint16_t) qp_type_id.via.int64;
+
+    type = ti_types_by_id(collection->types, type_id);
+    if (!type)
+    {
+        log_critical(
+                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %u not found",
+                collection->root->id, type_id);
+        return rc;
+    }
+
+    name = ti_names_weak_get((const char *) qp_name.via.raw, qp_name.len);
+    if (!name)
+    {
+        log_critical(
+                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %u; name is missing",
+                collection->root->id, type_id);
+        return rc;
+    }
+
+    field = ti_field_by_name(type, name);
+    if (!field)
+    {
+        log_critical(
+                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no property `%s`",
+                collection->root->id, type->name, name->str);
+        return rc;
+    }
+
+    spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
+    if (!spec_raw)
+    {
+        log_critical(EX_MEMORY_S);
+        return rc;
+    }
+
+    if (ti_field_mod(field, spec_raw, 0, &e))
+    {
+        log_critical(e.msg);
+        goto done;
+    }
+
+    rc = 0;
+done:
+    ti_val_drop((ti_val_t *) spec_raw);
     return rc;
 }
 
@@ -784,6 +929,8 @@ int ti_job_run(ti_thing_t * thing, qp_unpacker_t * unp, uint64_t ev_id)
         if (qp_job_name.len == 12) switch (raw[9])
         {
         case 'a': return job__mod_type_add(thing, unp, ev_id);
+        case 'd': return job__mod_type_del(thing, unp, ev_id);
+        case 'm': return job__mod_type_mod(thing, unp);
         }
         break;
     case 'r':

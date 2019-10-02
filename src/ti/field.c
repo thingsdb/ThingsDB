@@ -278,6 +278,72 @@ ti_field_t * ti_field_create(
     return field;
 }
 
+int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
+{
+    ti_raw_t * prev_spec_raw = field->spec_raw;
+    uint16_t prev_spec = field->spec;
+    uint16_t prev_nested_spec = field->nested_spec;
+
+    field->spec_raw = spec_raw;
+    if (field__init(field, e))
+        goto undo;
+
+    if (!n || field->spec == TI_SPEC_ANY)
+        goto success;
+
+    switch (ti__spec_check_mod(prev_spec, field->spec))
+    {
+    case TI_SPEC_MOD_SUCCESS:           goto success;
+    case TI_SPEC_MOD_ERR:               goto incompatible;
+    case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
+    case TI_SPEC_MOD_NESTED:
+        switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
+        {
+        case TI_SPEC_MOD_SUCCESS:       goto success;
+        case TI_SPEC_MOD_ERR:           goto incompatible;
+        case TI_SPEC_MOD_NILLABLE_ERR:  goto nillable;
+        case TI_SPEC_MOD_NESTED:        goto incompatible;
+        }
+    }
+
+    assert (0);
+
+nillable:
+    ex_set(e, EX_OPERATION_ERROR,
+        "cannot apply type declaration `%.*s` to `%s` on type `%s`; "
+        "type `%s` has %zu active instance%s and the old declaration "
+        "was nillable while the new declaration is not"DOC_MOD_TYPE_MOD,
+        (int) spec_raw->n, (const char *) spec_raw->data,
+        field->name->str,
+        field->type->name,
+        field->type->name,
+        n, n == 1 ? "" : "s");
+    goto undo;
+
+incompatible:
+    ex_set(e, EX_OPERATION_ERROR,
+        "cannot apply type declaration `%.*s` to `%s` on type `%s`; "
+        "type `%s` has %zu active instance%s and the old declaration `%.*s` "
+        "is not compatible with the new declaration"DOC_MOD_TYPE_MOD,
+        (int) spec_raw->n, (const char *) spec_raw->data,
+        field->name->str,
+        field->type->name,
+        field->type->name,
+        n, n == 1 ? "" : "s",
+        (int) prev_spec_raw->n, (const char *) prev_spec_raw->data);
+
+undo:
+    field->spec_raw = prev_spec_raw;
+    field->spec = prev_spec;
+    field->nested_spec = prev_nested_spec;
+    return e->nr;
+
+success:
+    ti_incref(spec_raw);
+    ti_val_drop((ti_val_t *) prev_spec_raw);
+    return 0;
+}
+
 typedef struct
 {
     ti_data_t * data;
@@ -325,13 +391,13 @@ static int field__del(ti_thing_t * thing, field__del_t * deljob)
         }
     }
 
-    (void) vec_swap_remove(thing->items, deljob->idx);
+    ti_val_drop(vec_swap_remove(thing->items, deljob->idx));
 
+    return 0;
 }
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
-    assert (field == vec_last(field->type->fields));
     int rc;
     field__del_t deljob = {
             .data = ti_data_for_del_job(field->name->str, field->name->n),
@@ -358,7 +424,6 @@ void ti_field_remove(ti_field_t * field)
 {
     if (!field)
         return;
-
     (void) vec_swap_remove(field->type->fields, field->idx);
     ti_field_destroy(field);
 }

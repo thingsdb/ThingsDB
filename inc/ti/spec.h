@@ -35,8 +35,18 @@ typedef enum
     TI_SPEC_RVAL_UINT_ERROR,
 } ti_spec_rval_enum;
 
-ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val);
+typedef enum
+{
+    TI_SPEC_MOD_SUCCESS,
+    TI_SPEC_MOD_ERR,
+    TI_SPEC_MOD_NILLABLE_ERR,
+    TI_SPEC_MOD_NESTED,
+} ti_spec_mod_enum;
 
+
+ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val);
 const char * ti__spec_approx_type_str(uint16_t spec);
+ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec);
+
 
 #endif  /* TI_SPEC_H_ */

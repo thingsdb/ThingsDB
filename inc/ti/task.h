@@ -23,6 +23,7 @@ typedef struct ti_task_s ti_task_t;
 #include <ti/pkg.h>
 #include <ti/collection.h>
 #include <ti/user.h>
+#include <ti/field.h>
 #include <ti/token.h>
 #include <ti/quota.h>
 #include <ti/procedure.h>
@@ -62,6 +63,13 @@ int ti_task_add_mod_type_add(
         ti_task_t * task,
         ti_type_t * type,
         ti_val_t * val);
+int ti_task_add_mod_type_del(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_name_t * name);
+int ti_task_add_mod_type_mod(
+        ti_task_t * task,
+        ti_field_t * field);
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(

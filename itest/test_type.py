@@ -21,7 +21,7 @@ class TestType(TestBase):
 
     title = 'Test type'
 
-    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -94,6 +94,8 @@ class TestType(TestBase):
                 name: 'Anne',
                 age: 5
             }));
+            mod_type('User', 'del', 'age');
+            mod_type('User', 'mod', 'name', 'str?');
         ''')
 
 

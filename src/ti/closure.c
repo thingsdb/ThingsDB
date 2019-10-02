@@ -9,6 +9,7 @@
 #include <ti/names.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
+#include <ti/vali.h>
 #include <ti/regex.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>

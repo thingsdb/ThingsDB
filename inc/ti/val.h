@@ -84,6 +84,9 @@ enum
     TI_VAL_UNP_FROM_CLIENT   =1<<3,      /* used as qpack unpacker flag */
 };
 
+/* negative value is used for packing tasks */
+#define TI_VAL_PACK_TASK -1
+
 typedef enum
 {
     /*
@@ -147,7 +150,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest);
 const char * ti_val_str(ti_val_t * val);
-int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
+//int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);
@@ -317,6 +320,5 @@ static inline void ti_val_unlock(ti_val_t * val, int lock_was_set)
     if (lock_was_set)
         val->flags &= ~TI_VFLAG_LOCK;
 }
-
 
 #endif /* TI_VAL_H_ */

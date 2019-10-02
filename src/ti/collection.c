@@ -186,9 +186,10 @@ static inline int collection__count(ti_thing_t * t, collection__count_t * c)
 
 size_t ti_collection_ntype(ti_collection_t * collection, ti_type_t * type)
 {
-    collection__count_t c;
-    c.n = 0;
-    c.type_id = type->type_id;
+    collection__count_t c = {
+            .n = 0,
+            .type_id = type->type_id
+    };
     imap_walk(collection->things, (imap_cb) collection__count, &c);
     return c.n;
 }

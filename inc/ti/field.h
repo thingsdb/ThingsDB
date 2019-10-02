@@ -12,11 +12,13 @@ typedef struct ti_field_s ti_field_t;
 #include <inttypes.h>
 #include <ex.h>
 
-int ti_field_create(
+ti_field_t * ti_field_create(
         ti_name_t * name,
         ti_raw_t * spec_raw,
         ti_type_t * type,
         ex_t * e);
+void ti_field_del(ti_field_t * field, uint64_t ev_id);
+void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
 int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e);
 int ti_field_check_field(ti_field_t * to, ti_field_t * from, ex_t * e);
@@ -26,6 +28,7 @@ ti_field_t * ti_field_by_strn_e(
         const char * str,
         size_t n,
         ex_t * e);
+int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
 
 struct ti_field_s
 {

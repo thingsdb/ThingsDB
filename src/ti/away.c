@@ -99,6 +99,9 @@ static void away__work(uv_work_t * UNUSED(work))
 
     away->status = AWAY__STATUS_WORKING;
 
+    if ((ti()->flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
+        ti()->flags &= ~TI_FLAG_NODES_CHANGED;
+
     /* garbage collect */
     (void) ti_collections_gc();
 

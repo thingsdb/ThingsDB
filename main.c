@@ -139,10 +139,8 @@ int main(int argc, char * argv[])
                 goto stop;
         }
 
-        printf(
-            "Waiting for an invite from a node to join ThingsDB...\n"
-            "(if you want to create a new ThingsDB instead, press CTRL+C and "
-            "use the --init argument)\n");
+
+        ti_print_connect_info();
 
         goto run;
     }

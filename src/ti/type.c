@@ -133,7 +133,8 @@ static inline int type__field(
                 ti_val_str(val));
         return e->nr;
     }
-    return ti_field_create(name, (ti_raw_t *) val, type, e);
+    (void) ti_field_create(name, (ti_raw_t *) val, type, e);
+    return e->nr;
 }
 
 
@@ -221,7 +222,7 @@ int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
         spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
 
         if (!name || !spec_raw ||
-            ti_field_create(name, spec_raw, type, e))
+            !ti_field_create(name, spec_raw, type, e))
             goto failed;
 
         ti_decref(name);

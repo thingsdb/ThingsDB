@@ -77,6 +77,7 @@ enum
     TI_FLAG_STOP            =1<<1,
     TI_FLAG_INDEXING        =1<<2,
     TI_FLAG_LOCKED          =1<<3,
+    TI_FLAG_NODES_CHANGED   =1<<4,
 };
 
 typedef enum

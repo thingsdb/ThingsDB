@@ -1208,34 +1208,4 @@ const char * ti_val_str(ti_val_t * val)
 }
 
 /* checks for CLOSURE, ARR, SET */
-int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
-{
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_QP:
-    case TI_VAL_NAME:
-    case TI_VAL_RAW:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-        break;
-    case TI_VAL_ARR:
-        if (ti_varr_to_list((ti_varr_t **) val))
-            ex_set_mem(e);
-        break;
-    case TI_VAL_SET:
-        if (ti_vset_assign((ti_vset_t **) val))
-            ex_set_mem(e);
-        break;
-    case TI_VAL_CLOSURE:
-        if (ti_closure_unbound((ti_closure_t * ) *val, e))
-            return e->nr;
-        break;
-    case TI_VAL_ERROR:
-        break;
-    }
-    return e->nr;
-}
+

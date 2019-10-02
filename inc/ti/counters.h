@@ -29,6 +29,9 @@ struct ti_counters_s
                                        the master node but the query has
                                        returned with an error
                                     */
+    uint16_t watcher_failed;        /* failed to update a watcher with an
+                                       event
+                                    */
     uint64_t events_with_gap;       /* events which are committed but at least
                                        one event id was skipped
                                     */

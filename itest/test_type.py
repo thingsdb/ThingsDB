@@ -21,7 +21,7 @@ class TestType(TestBase):
 
     title = 'Test type'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -44,14 +44,56 @@ class TestType(TestBase):
             new_type('People', {
                 users: '[User]'
             });
+            new_type('UserName', {
+                name: 'str',
+            });
         ''')
 
         await client.query(r'''
             .iris = new('User', {
                 name: 'Iris',
-                age: 6
+                age: 6,
             });
-            .people = new('People', {users: [.iris]});
+            .cato = User({
+                name: 'Cato',
+                age: 5,
+            });
+            .people = new('People', {users: [.iris, .cato]});
+        ''')
+
+    async def test_mod_type_add(self, client):
+        await client.query(r'''
+            new_type('User', {
+                name: 'str',
+                age: 'uint',
+                likes: '[User]?',
+            });
+            new_type('People', {
+                users: '[User]'
+            });
+            new_type('UserName', {
+                name: 'str',
+                u: 'UserName?',
+            });
+        ''')
+
+        await client.query(r'''
+            .iris = new('User', {
+                name: 'Iris',
+                age: 6,
+            });
+            .cato = User({
+                name: 'Cato',
+                age: 5,
+            });
+            .people = new('People', {users: [.iris, .cato]});
+        ''')
+
+        await client.query(r'''
+            mod_type('User', 'add', 'friend', 'User?', User({
+                name: 'Anne',
+                age: 5
+            }));
         ''')
 
 

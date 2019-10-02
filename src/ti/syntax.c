@@ -60,6 +60,7 @@
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
+#include <ti/fn/fnmodtype.h>
 #include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewcollection.h>
 #include <ti/fn/fnnewnode.h>
@@ -239,7 +240,8 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
         break;
     case 'm':
-        syntax__nev_fn(q, nd, "map", do__f_map);
+        syntax__nev_fn(q, nd, "map", do__f_map);  /* most frequent used */
+        syntax__cev_fn(q, nd, "mod_type", do__f_mod_type);
         syntax__nev_fn(q, nd, "max_quota_err", do__f_max_quota_err);
         break;
     case 'n':

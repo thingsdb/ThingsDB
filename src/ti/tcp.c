@@ -84,3 +84,30 @@ failed:
     return NULL;
 }
 
+int ti_tcp_addr(char * addr, uv_tcp_t * client)
+{
+    struct sockaddr_storage name;
+    int len = sizeof(name);     /* len is used both for input and output */
+
+    if (uv_tcp_getpeername(client, (struct sockaddr *) &name, &len))
+        return -1;
+
+    switch (name.ss_family)
+    {
+    case AF_INET:
+        uv_inet_ntop(
+                AF_INET,
+                &((struct sockaddr_in *) &name)->sin_addr,
+                addr,
+                INET_ADDRSTRLEN);
+        return 0;
+    case AF_INET6:
+        uv_inet_ntop(
+                AF_INET6,
+                &((struct sockaddr_in6 *) &name)->sin6_addr,
+                addr,
+                INET6_ADDRSTRLEN);
+        return 0;
+    }
+    return -1;
+}

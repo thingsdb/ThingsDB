@@ -208,7 +208,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 goto fail2;
 
 
-            if (ti_field_create(name, spec, type, &e))
+            if (!ti_field_create(name, spec, type, &e))
             {
                 log_critical(e.msg);
                 goto fail2;

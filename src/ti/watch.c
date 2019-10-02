@@ -28,16 +28,18 @@ void ti_watch_drop(ti_watch_t * watch)
         free(watch);
 }
 
-ti_pkg_t * ti_watch_pkg(
+ti_rpkg_t * ti_watch_rpkg(
         uint64_t thing_id,
         uint64_t event_id,
         const unsigned char * jobs,
         size_t n)
 {
+    ti_rpkg_t * rpkg;
     ti_pkg_t * pkg;
     qp_packer_t * packer = qpx_packer_create(n + 36, 2);
     if (!packer)
         return NULL;
+
     (void) qp_add_map(&packer);
     (void) qp_add_raw(packer, (const uchar *) TI_KIND_S_THING, 1);
     (void) qp_add_int(packer, thing_id);
@@ -54,5 +56,12 @@ ti_pkg_t * ti_watch_pkg(
     qpx_log("generated task for subscribers:",
             pkg->data, pkg->n, LOGGER_DEBUG);
 
-    return pkg;
+    rpkg = ti_rpkg_create(pkg);
+    if (!rpkg)
+    {
+        free(pkg);
+        return NULL;
+    }
+
+    return rpkg;
 }

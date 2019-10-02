@@ -10,6 +10,7 @@
 #include <ti/collection.h>
 #include <ti/job.h>
 #include <ti/rjob.h>
+#include <ti/watch.h>
 #include <ti/event.h>
 #include <ti/collections.h>
 #include <ti/node.h>
@@ -165,7 +166,7 @@ int ti_event_run(ti_event_t * ev)
 
             while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
             {
-                if (ti_job_run(thing, &unpacker))
+                if (ti_job_run(thing, &unpacker, ev->id))
                 {
                     log_critical(
                             "job for thing "TI_THING_ID" in "
@@ -180,15 +181,9 @@ int ti_event_run(ti_event_t * ev)
             if (ti_thing_has_watchers(thing))
             {
                 size_t n = unpacker.pt - jobs;
-                ti_rpkg_t * rpkg;
-                ti_pkg_t * pkg = ti_watch_pkg(thing->id, ev->id, jobs, n);
+                ti_rpkg_t * rpkg = ti_watch_rpkg(thing->id, ev->id, jobs, n);
 
-                if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
-                {
-                    log_critical(EX_MEMORY_S);
-                    free(pkg);
-                }
-                else
+                if (rpkg)
                 {
                     for (vec_each(thing->watchers, ti_watch_t, watch))
                     {
@@ -196,9 +191,17 @@ int ti_event_run(ti_event_t * ev)
                             continue;
 
                         if (ti_stream_write_rpkg(watch->stream, rpkg))
+                        {
+                            ++ti()->counters->watcher_failed;
                             log_error(EX_INTERNAL_S);
+                        }
                     }
                     ti_rpkg_drop(rpkg);
+                }
+                else
+                {
+                    ++ti()->counters->watcher_failed;
+                    log_critical(EX_MEMORY_S);
                 }
             }
         }

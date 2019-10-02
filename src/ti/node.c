@@ -182,6 +182,7 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
         qp_add_int(*packer, node->sevid) ||
         qp_add_int(*packer, node->status) ||
         qp_add_int(*packer, node->zone) ||
+        qp_add_int(*packer, node->port) ||
         qp_add_int(*packer, TI_VERSION_SYNTAX) ||
         qp_close_array(*packer)
     );
@@ -189,8 +190,10 @@ int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
 
 int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
 {
-    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone, qpsyntax;
+    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone,
+             qpport, qpsyntax;
     uint8_t syntax_ver;
+    uint16_t node_port;
 
     if (    !qp_is_array(qp_next(unp, NULL)) ||
             !qp_is_int(qp_next(unp, &qpnext_thing_id)) ||
@@ -198,6 +201,7 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
             !qp_is_int(qp_next(unp, &qpsevid)) ||
             !qp_is_int(qp_next(unp, &qpstatus)) ||
             !qp_is_int(qp_next(unp, &qpzone)) ||
+            !qp_is_int(qp_next(unp, &qpport)) ||
             !qp_is_int(qp_next(unp, &qpsyntax)))
         return -1;
 
@@ -207,6 +211,7 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
     node->status = (uint8_t) qpstatus.via.int64;
     node->zone = (uint8_t) qpzone.via.int64;
     syntax_ver = (uint8_t) qpsyntax.via.int64;
+    node_port = (uint16_t) qpport.via.int64;
 
     if (syntax_ver != node->syntax_ver)
     {
@@ -217,6 +222,12 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
                     ti_node_name(node), node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
         node->syntax_ver = (uint8_t) qpsyntax.via.int64;
+    }
+
+    if (node_port != node->port)
+    {
+        node->port = node_port;
+        ti()->flags |= TI_FLAG_NODES_CHANGED;
     }
 
     return 0;
@@ -283,6 +294,20 @@ failed:
     return e->nr;
 }
 
+static void node__upd_address(ti_node_t * node)
+{
+    char addr[INET6_ADDRSTRLEN];
+
+    if (ti_tcp_addr(addr, (uv_tcp_t *) node->stream->uvstream))
+        return;
+
+    if (strcmp(addr, node->addr))
+    {
+        (void) strcpy(node->addr, addr);
+        ti()->flags |= TI_FLAG_NODES_CHANGED;
+    }
+}
+
 static void node__on_connect(uv_connect_t * req, int status)
 {
     int rc;
@@ -313,6 +338,8 @@ static void node__on_connect(uv_connect_t * req, int status)
             node->id,
             ti_node_name(node));
 
+    node__upd_address(node);
+
     rc = uv_read_start(req->handle, ti_stream_alloc_buf, ti_stream_on_data);
     if (rc)
     {
@@ -332,7 +359,6 @@ static void node__on_connect(uv_connect_t * req, int status)
     (void) qp_add_int(packer, node->id);
     (void) qp_add_raw(packer, (const uchar *) node->secret, CRYPTX_SZ);
     (void) qp_add_int(packer, ti_node->id);
-    (void) qp_add_int(packer, ti_node->port);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
     (void) ti_node_info_to_packer(ti_node, &packer);

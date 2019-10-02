@@ -7,6 +7,7 @@
 #include <ti.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/vali.h>
 #include <ti/thing.h>
 #include <ti/thingi.h>
 #include <ti/val.h>

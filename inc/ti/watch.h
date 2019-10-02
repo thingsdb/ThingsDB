@@ -9,7 +9,7 @@
 
 typedef struct ti_watch_s ti_watch_t;
 
-#include <ti/pkg.h>
+#include <ti/rpkg.h>
 #include <ex.h>
 #include <ti/user.h>
 #include <ti/stream.h>
@@ -17,7 +17,7 @@ typedef struct ti_watch_s ti_watch_t;
 
 ti_watch_t * ti_watch_create(ti_stream_t * stream);
 void ti_watch_drop(ti_watch_t * watch);
-ti_pkg_t * ti_watch_pkg(
+ti_rpkg_t * ti_watch_rpkg(
         uint64_t thing_id,
         uint64_t event_id,
         const unsigned char * jobs,

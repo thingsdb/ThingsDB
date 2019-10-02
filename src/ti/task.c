@@ -14,9 +14,6 @@
 #include <util/qpx.h>
 #include <util/cryptx.h>
 
-/* negative value is used for packing tasks */
-const int pack_task = -1;
-
 static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
 {
     task->approx_sz += data->n;
@@ -120,7 +117,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
 
     for (vec_each(added, ti_thing_t, thing))
         if ((!thing->id && ti_thing_gen_id(thing)) ||
-            ti_val_to_packer((ti_val_t *) thing, &packer, pack_task))
+            ti_val_to_packer((ti_val_t *) thing, &packer, TI_VAL_PACK_TASK))
             goto fail_packer;
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
@@ -146,45 +143,25 @@ fail_packer:
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(512, 8);
-
-    if (!packer)
-        return -1;
 
     if (ti_val_gen_ids(val))
-        goto fail_packer;
+        return -1;
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "set");
-    (void) qp_add_map(&packer);
-
-    if (qp_add_raw(packer, (const uchar *) name->str, name->n))
-        goto fail_packer;
-
-    if (ti_val_to_packer(val, &packer, pack_task))
-        goto fail_packer;
-
-    if (qp_close_map(packer) || qp_close_map(packer))
-        goto fail_packer;
-
-    data = ti_data_from_packer(packer);
+    data = ti_data_for_set_job(name, val, TI_VAL_PACK_TASK);
+    if (!data)
+        return -1;
 
     if (vec_push(&task->jobs, data))
-        goto fail_data;
+    {
+        free(data);
+        return -1;
+    }
 
     task__upd_approx_sz(task, data);
     return 0;
-
-fail_data:
-    free(data);
-    return -1;
-
-fail_packer:
-    qp_packer_destroy(packer);
-    return -1;
 }
 
-int ti_task_add_define(ti_task_t * task, ti_type_t * type)
+int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 {
     ti_data_t * data;
     size_t alloc_sz = ti_type_approx_pack_sz(type);
@@ -194,7 +171,7 @@ int ti_task_add_define(ti_task_t * task, ti_type_t * type)
         return -1;
 
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "define");
+    (void) qp_add_raw_from_str(packer, "new_type");
     (void) qp_add_map(&packer);
     (void) qp_add_raw_from_str(packer, "type_id");
     (void) qp_add_int(packer, type->type_id);
@@ -221,17 +198,9 @@ fail_data:
 int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(20 + rname->n, 1);
-
-    if (!packer)
+    data = ti_data_for_del_job((const char *) rname->data, rname->n);
+    if (!data)
         return -1;
-
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "del");
-    (void) qp_add_raw(packer, rname->data, rname->n);
-    (void) qp_close_map(packer);
-
-    data = ti_data_from_packer(packer);
 
     if (vec_push(&task->jobs, data))
         goto fail_data;
@@ -615,6 +584,58 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_mod_type_add(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_val_t * val)
+{
+    ti_data_t * data;
+    ti_field_t * field = vec_last(type->fields);
+    qp_packer_t * packer = ti_data_packer(
+            60 +
+            field->name->n +
+            field->spec_raw->n +
+            (val ? 512 : 0), val ? 8 : 2);
+
+    if (!packer)
+        return -1;
+
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "mod_type_add");
+    (void) qp_add_map(&packer);
+    (void) qp_add_raw_from_str(packer, "type_id");
+    (void) qp_add_int(packer, type->type_id);
+    (void) qp_add_raw_from_str(packer, "name");
+    (void) qp_add_raw_from_str(packer, field->name->str);
+    (void) qp_add_raw_from_str(packer, "spec");
+    (void) qp_add_raw(packer, field->spec_raw->data, field->spec_raw->n);
+    if (val)
+    {
+        (void) qp_add_raw_from_str(packer, "init");
+        if (ti_val_to_packer(val, &packer, TI_VAL_PACK_TASK))
+            goto fail_packer;
+    }
+
+    if (qp_close_map(packer) || qp_close_map(packer))
+        goto fail_packer;
+
+    data = ti_data_from_packer(packer);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_packer:
+    qp_packer_destroy(packer);
+    return -1;
+}
+
 int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id)
 {
     ti_data_t * data;
@@ -922,7 +943,10 @@ int ti_task_add_splice(
             goto fail_packer;
 
         for (c = i + n; i < c; ++i)
-            if (ti_val_to_packer(vec_get(varr->vec, i), &packer, pack_task))
+            if (ti_val_to_packer(
+                    vec_get(varr->vec, i),
+                    &packer,
+                    TI_VAL_PACK_TASK))
                 goto fail_packer;
     }
 

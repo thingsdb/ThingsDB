@@ -61,6 +61,7 @@ int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
 _Bool ti_ask_continue(void);
+void ti_print_connect_info(void);
 ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
                                         */

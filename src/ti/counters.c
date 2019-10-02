@@ -30,6 +30,7 @@ void ti_counters_reset(void)
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &counters->reset_time);
     counters->queries_success = 0;
     counters->queries_with_error = 0;
+    counters->watcher_failed = 0;
     counters->events_with_gap = 0;
     counters->events_skipped = 0;
     counters->events_failed = 0;
@@ -69,6 +70,8 @@ int ti_counters_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, counters->queries_success) ||
         qp_add_raw_from_str(*packer, "queries_with_error") ||
         qp_add_int(*packer, counters->queries_with_error) ||
+        qp_add_raw_from_str(*packer, "watcher_failed") ||
+        qp_add_int(*packer, counters->watcher_failed) ||
         qp_add_raw_from_str(*packer, "events_with_gap") ||
         qp_add_int(*packer, counters->events_with_gap) ||
         qp_add_raw_from_str(*packer, "events_skipped") ||
@@ -105,6 +108,8 @@ ti_val_t * ti_counters_as_qpval(void)
     raw = ti_counters_to_packer(&packer)
             ? NULL
             : ti_raw_from_packer(packer);
+
+    LOGC("size: %u", raw->n);
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;

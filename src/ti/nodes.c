@@ -79,7 +79,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         qp_this_node_id,
         qp_secret,
         qp_from_node_id,
-        qp_from_node_port,
         qp_version,
         qp_min_ver,
         qp_next_thing_id,
@@ -87,6 +86,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         qp_sevid,
         qp_status,
         qp_zone,
+        qp_port,
         qp_syntax_ver;
 
     uint8_t
@@ -110,7 +110,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             qp_secret.len != CRYPTX_SZ ||
             qp_secret.via.raw[qp_secret.len-1] != '\0' ||
             !qp_is_int(qp_next(&unpacker, &qp_from_node_id)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_from_node_port)) ||
             !qp_is_raw(qp_next(&unpacker, &qp_version)) ||
             !qp_is_raw(qp_next(&unpacker, &qp_min_ver)) ||
 
@@ -120,6 +119,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             !qp_is_int(qp_next(&unpacker, &qp_sevid)) ||
             !qp_is_int(qp_next(&unpacker, &qp_status)) ||
             !qp_is_int(qp_next(&unpacker, &qp_zone)) ||
+            !qp_is_int(qp_next(&unpacker, &qp_port)) ||
             !qp_is_int(qp_next(&unpacker, &qp_syntax_ver)))
     {
         log_error(
@@ -130,7 +130,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     this_node_id = (uint8_t) qp_this_node_id.via.int64;
     from_node_id = (uint8_t) qp_from_node_id.via.int64;
-    from_node_port = (uint16_t) qp_from_node_port.via.int64;
+    from_node_port = (uint16_t) qp_port.via.int64;
     from_node_status = (uint8_t) qp_status.via.int64;
     from_node_zone = (uint8_t) qp_zone.via.int64;
     from_node_syntax_ver = (uint8_t) qp_syntax_ver.via.int64;
@@ -236,6 +236,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         (void) qp_add_int(packer, 0);                       /* sevid */
         (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);   /* status */
         (void) qp_add_int(packer, ti()->cfg->zone);         /* zone */
+        (void) qp_add_int(packer, ti()->cfg->node_port);    /* port */
         (void) qp_add_int(packer, TI_VERSION_SYNTAX);       /* syntax version*/
         (void) qp_close_array(packer);
 

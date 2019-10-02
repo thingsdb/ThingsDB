@@ -89,8 +89,11 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail2;
 
-    if (ti_task_add_define(task, type))
+    if (ti_task_add_new_type(task, type))
+    {
+        ex_set_mem(e);
         goto fail2;
+    }
 
     query->rval = (ti_val_t *) ti_nil_get();
 

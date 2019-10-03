@@ -9,9 +9,9 @@
 #include <ti/opr/oprinc.h>
 #include <ti/prop.h>
 #include <ti/task.h>
-#include <ti/thingi.h>
 #include <ti/vint.h>
 #include <langdef/langdef.h>
+#include <ti/thing.inline.h>
 
 static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
 {
@@ -621,6 +621,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 : index__get(query, slice->children->node, e);
 
         break;
+    case TI_VAL_WRAP:
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:

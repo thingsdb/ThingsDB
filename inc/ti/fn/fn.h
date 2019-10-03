@@ -13,7 +13,7 @@
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/closure.h>
-#include <ti/closurei.h>
+#include <ti/closure.inline.h>
 #include <ti/collections.h>
 #include <ti/do.h>
 #include <ti/field.h>
@@ -26,10 +26,10 @@
 #include <ti/scope.h>
 #include <ti/syntax.h>
 #include <ti/task.h>
-#include <ti/thingi.h>
-#include <ti/typesi.h>
+#include <ti/thing.inline.h>
+#include <ti/types.inline.h>
 #include <ti/users.h>
-#include <ti/vali.h>
+#include <ti/val.inline.h>
 #include <ti/vbool.h>
 #include <ti/verror.h>
 #include <ti/vfloat.h>
@@ -234,9 +234,12 @@ static int fn_new_type(
         ex_t * e)
 {
     ti_thing_t * new_thing, * from_thing;
+    int lock_was_set = ti_type_ensure_lock(type);
 
     if (ti_do_statement(query, nd, e))
         return e->nr;
+
+    ti_type_unlock(type, lock_was_set);
 
     if (!ti_val_is_thing(query->rval))
     {

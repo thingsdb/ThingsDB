@@ -9,9 +9,9 @@
 #include <ti/procedure.h>
 #include <ti/procedures.h>
 #include <ti/syntax.h>
-#include <ti/thingi.h>
+#include <ti/thing.inline.h>
+#include <ti/types.inline.h>
 #include <ti/val.h>
-#include <ti/typesi.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
 

@@ -9,13 +9,13 @@
 #include <ti/vint.h>
 #include <ti/task.h>
 #include <ti/names.h>
-#include <ti/thingi.h>
 #include <ti/nil.h>
 #include <ti/index.h>
 #include <ti/opr/oprinc.h>
 #include <cleri/cleri.h>
 #include <langdef/nd.h>
 #include <langdef/langdef.h>
+#include <ti/thing.inline.h>
 #include <util/strx.h>
 
 

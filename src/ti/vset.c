@@ -2,10 +2,11 @@
  * ti/vset.c
  */
 #include <assert.h>
-#include <tiinc.h>
 #include <stdlib.h>
-#include <ti/vset.h>
+#include <ti/thing.inline.h>
 #include <ti/val.h>
+#include <ti/vset.h>
+#include <tiinc.h>
 #include <util/logger.h>
 
 ti_vset_t * ti_vset_create(void)
@@ -45,32 +46,11 @@ int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** packer, int options)
         qp_add_raw(*packer, (const uchar * ) TI_KIND_S_SET, 1) ||
         qp_add_array(packer))
         return -1;
+
     for (vec_each(vec, ti_thing_t, t))
-    {
-        if (options < 0)
-        {
-            if (ti_thing_is_new(t))
-            {
-                ti_thing_unmark_new(t);
-                if (ti_thing_to_packer(t, packer, options))
-                    return -1;
-                continue;
-            }
-            if (ti_thing_id_to_packer(t, packer))
-                return -1;
-            continue;
-        }
-
-        if (options > 0)
-        {
-            if (ti_thing_to_packer(t, packer, options))
-                return -1;
-            continue;
-        }
-
-        if (ti_thing_id_to_packer(t, packer))
+        if (ti_thing_to_packer(t, packer, options))
             return -1;
-    }
+
     return qp_close_array(*packer) || qp_close_map(*packer);
 }
 

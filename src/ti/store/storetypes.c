@@ -13,7 +13,7 @@
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
 #include <ti/type.h>
-#include <ti/typesi.h>
+#include <ti/types.inline.h>
 #include <ti/field.h>
 #include <unistd.h>
 #include <util/fx.h>

@@ -1,8 +1,8 @@
 /*
- * ti/thingi.h
+ * ti/thing.inline.h
  */
-#ifndef TI_THINGI_H_
-#define TI_THINGI_H_
+#ifndef TI_THING_INLINE_H_
+#define TI_THING_INLINE_H_
 
 #include <ti/type.h>
 #include <ti/thing.h>
@@ -88,4 +88,24 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
-#endif  /* TI_THINGI_H_ */
+static inline int ti_thing_to_packer(
+        ti_thing_t * thing,
+        qp_packer_t ** pckr,
+        int options)
+{
+    if (options < 0)
+    {
+        if (ti_thing_is_new(thing))
+        {
+            ti_thing_unmark_new(thing);
+            return ti_thing_is_object(thing)
+                    ? ti_thing__to_packer(thing, pckr, options)
+                    : ti_thing_t_to_packer(thing, pckr, options);
+        }
+    }
+    return options > 0
+            ? ti_thing__to_packer(thing, pckr, options)
+            : ti_thing_id_to_packer(thing, pckr);
+}
+
+#endif  /* TI_THING_INLINE_H_ */

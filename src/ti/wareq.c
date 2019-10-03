@@ -1,15 +1,16 @@
 /*
  * ti/wareq.c
  */
-#include <ti/wareq.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/collections.h>
-#include <ti/proto.h>
-#include <ti/fwd.h>
-#include <ti/auth.h>
 #include <ti/access.h>
+#include <ti/auth.h>
+#include <ti/collections.h>
+#include <ti/fwd.h>
+#include <ti/proto.h>
+#include <ti/thing.inline.h>
+#include <ti/wareq.h>
 #include <util/qpx.h>
 
 static void wareq__destroy(ti_wareq_t * wareq);

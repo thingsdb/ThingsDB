@@ -1,8 +1,8 @@
 /*
- * ti/typesi.h
+ * ti/types.inline.h
  */
-#ifndef TI_TYPESI_H_
-#define TI_TYPESI_H_
+#ifndef TI_TYPES_INLINE_H_
+#define TI_TYPES_INLINE_H_
 
 #include <util/smap.h>
 #include <ti/type.h>
@@ -25,4 +25,4 @@ static inline ti_type_t * ti_types_by_id(ti_types_t * types, uint16_t type_id)
     return imap_get(types->imap, type_id);
 }
 
-#endif /* TI_TYPESI_H_ */
+#endif /* TI_TYPES_INLINE_H_ */

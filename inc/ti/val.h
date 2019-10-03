@@ -17,7 +17,7 @@ typedef enum
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,
-//    TI_VAL_CAST,
+    TI_VAL_WRAP,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
@@ -97,12 +97,12 @@ typedef enum
      */
     TI_KIND_C_THING     ='#',
     TI_KIND_C_INSTANCE  ='.',
-    TI_KIND_C_CAST      ='&',
     TI_KIND_C_CLOSURE   ='>',
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_INFO      ='?',
+    TI_KIND_C_WRAP      ='&',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
@@ -112,7 +112,7 @@ typedef enum
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_INFO      "?"
-#define TI_KIND_S_CAST      "&"
+#define TI_KIND_S_WRAP      "&"
 
 typedef struct ti_val_s ti_val_t;
 
@@ -150,7 +150,6 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
 int ti_val_to_file(ti_val_t * val, FILE * f);
 void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest);
 const char * ti_val_str(ti_val_t * val);
-//int ti_val_make_assignable(ti_val_t ** val, ex_t * e);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
 static inline _Bool ti_val_is_bool(ti_val_t * val);

@@ -1,6 +1,9 @@
+
 /*
  * ti/type.c
  */
+#define _GNU_SOURCE
+#include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -9,8 +12,16 @@
 #include <ti/type.h>
 #include <ti/names.h>
 #include <ti/prop.h>
-#include <ti/thingi.h>
+#include <ti/thing.inline.h>
 #include <ti/field.h>
+
+static char * type__wrap_name(const char * name, size_t n)
+{
+    char * wname;
+    return asprintf(&wname, "<%.*s>", (int) n, name) < 0
+            ? NULL
+            : wname;
+}
 
 ti_type_t * ti_type_create(
         ti_types_t * types,
@@ -24,14 +35,16 @@ ti_type_t * ti_type_create(
 
     type->refcount = 0;
     type->type_id = type_id;
+    type->flags = 0;
     type->name = strndup(name, n);
+    type->wname = type__wrap_name(name, n);
     type->name_n = n;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
     type->types = types;
     type->t_mappings = imap_create();
 
-    if (!type->name || !type->dependencies || !type->fields ||
+    if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->t_mappings || ti_types_add(types, type))
     {
         ti_type_destroy(type);
@@ -43,13 +56,14 @@ ti_type_t * ti_type_create(
 
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
-    (void) imap_pop(t_haystack->t_mappings, t_needle->type_id);
+    free(imap_pop(t_haystack->t_mappings, t_needle->type_id));
     return 0;
 }
 
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
+    imap_clear(type->t_mappings, (imap_destroy_cb) free);
 }
 
 void ti_type_drop(ti_type_t * type)
@@ -84,7 +98,6 @@ void ti_type_del(ti_type_t * type)
     ti_type_drop(type);
 }
 
-
 void ti_type_destroy(ti_type_t * type)
 {
     if (!type)
@@ -94,6 +107,7 @@ void ti_type_destroy(ti_type_t * type)
     imap_destroy(type->t_mappings, free);
     free(type->dependencies);
     free(type->name);
+    free(type->wname);
     free(type);
 }
 
@@ -277,23 +291,17 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
 }
 
 /*
- * Returns a vector with a size equal to `to_type->fields` and each item in
- * the vector contains an index in the `from_type->field` where to find a
- * corresponding value;
- *
- * If, and only if the return value is NULL, then `e` is set to an error
- * message;
+ * Returns 0 when all properties of a given `to` type are compatible with a
+ * given `from` type. If one of the properties in `to` is not found or
+ * incompatible with type`from`, then an error value is returned and  `e`
+ * will contain the reason.
  */
-vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
+int ti_type_check(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 {
     ti_field_t * f_field;
     vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
     if (t_map)
-        return t_map;
-
-    t_map = vec_new(t_type->fields->n);
-    if (!t_map)
-        goto failed;
+        return 0;  /* a full cast exists so we do not have to check */
 
     for (vec_each(t_type->fields, ti_field_t, t_field))
     {
@@ -307,21 +315,41 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
                     t_type->name,
                     t_field->name->str,
                     f_type->name);
-            goto failed;
+            break;
         }
 
         if (ti_field_check_field(t_field, f_field, e))
-            goto failed;
-
-        VEC_push(t_map, t_field);
+            break;
     }
+    return e->nr;
+}
 
-    if (imap_add(t_type->t_mappings, f_type->type_id, t_map) == 0)
+/*
+ * Returns a vector with all the properties of a given `to` type when are
+ * found and compatible with a `to` type.
+ * The return value might be NULL when a memory allocation has occurred.
+ */
+vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
+{
+    ti_field_t * f_field;
+    vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
+    if (t_map)
         return t_map;
 
-failed:
-    if (!e->nr)
-        ex_set_mem(e);
-    free(t_map);
-    return NULL;
+    t_map = vec_new(t_type->fields->n);
+    if (!t_map)
+        return NULL;
+
+    for (vec_each(t_type->fields, ti_field_t, t_field))
+    {
+        f_field = ti_field_by_name(f_type, t_field->name);
+        if (!f_field)
+            continue;
+
+        if (ti_field_maps_to_field(t_field, f_field))
+            VEC_push(t_map, f_field);
+    }
+
+    (void) imap_add(t_type->t_mappings, f_type->type_id, t_map);
+    return t_map;
 }

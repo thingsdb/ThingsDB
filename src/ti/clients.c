@@ -16,7 +16,7 @@
 #include <ti/access.h>
 #include <ti/req.h>
 #include <ti/fwd.h>
-#include <ti/queryi.h>
+#include <ti/query.inline.h>
 #include <ti/scope.h>
 #include <ti/write.h>
 #include <util/qpx.h>

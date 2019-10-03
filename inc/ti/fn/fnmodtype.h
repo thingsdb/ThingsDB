@@ -87,6 +87,23 @@ static void type__add(
     if (n)
     {
         assert (query->rval);
+
+        for (vec_each(query->vars, ti_thing_t, thing))
+        {
+            if (thing->tp == TI_VAL_THING &&
+                thing->id == 0 &&
+                thing->type_id == type->type_id)
+            {
+                if (ti_val_make_assignable(&query->rval, e))
+                    goto fail1;
+
+                if (vec_push(&thing->items, query->rval))
+                    goto fail1;
+
+                ti_incref(query->rval);
+            }
+        }
+
         /*
          * This function will generate all the initial values on existing
          * instances; it must run after task generation so the task contains
@@ -98,10 +115,6 @@ static void type__add(
             goto fail1;
         }
     }
-
-    ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_nil_get();
-
     return;  /* success */
 
 fail1:
@@ -141,6 +154,14 @@ static void type__del(
     if (!task)
         return;
 
+    for (vec_each(query->vars, ti_thing_t, thing))
+    {
+        if (thing->tp == TI_VAL_THING &&
+            thing->id == 0 &&
+            thing->type_id == type->type_id)
+            ti_val_drop(vec_swap_remove(thing->items, field->idx));
+    }
+
     if (ti_field_del(field, query->ev->id))
     {
         ex_set_mem(e);
@@ -149,8 +170,6 @@ static void type__del(
 
     if (ti_task_add_mod_type_del(task, type, name))
         ex_set_mem(e);
-    else
-        query->rval = (ti_val_t *) ti_nil_get();
 }
 
 static void type__mod(
@@ -198,9 +217,6 @@ static void type__mod(
         ex_set_mem(e);
         return;
     }
-
-    ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_nil_get();
 }
 
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -272,6 +288,13 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             (int) rmod->n, (const char *) rmod->data);
 
 done:
+    if (e->nr == 0)
+    {
+        ti_type_map_cleanup(type);
+
+        ti_val_drop(query->rval);
+        query->rval = (ti_val_t *) ti_nil_get();
+    }
     ti_name_drop(name);
 
 fail0:

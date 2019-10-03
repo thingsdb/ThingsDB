@@ -1,8 +1,8 @@
 /*
- * ti/vali.h
+ * ti/val.inline.h
  */
-#ifndef TI_VALI_H_
-#define TI_VALI_H_
+#ifndef TI_VAL_INLINE_H_
+#define TI_VAL_INLINE_H_
 
 #include <ti/thing.h>
 #include <ti/val.h>
@@ -15,6 +15,11 @@
 static inline _Bool ti_val_is_object(ti_val_t * val)
 {
     return val->tp == TI_VAL_THING && ti_thing_is_object((ti_thing_t *) val);
+}
+
+static inline _Bool ti_val_is_instance(ti_val_t * val)
+{
+    return val->tp == TI_VAL_THING && ti_thing_is_instance((ti_thing_t *) val);
 }
 
 /*
@@ -39,6 +44,7 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
+    case TI_VAL_WRAP:
     case TI_VAL_ERROR:
         return 0;
     case TI_VAL_ARR:
@@ -57,4 +63,4 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
 }
 
 
-#endif  /* TI_VALI_H_ */
+#endif  /* TI_VAL_INLINE_H_ */

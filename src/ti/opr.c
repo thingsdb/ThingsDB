@@ -119,6 +119,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -142,6 +143,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -165,6 +167,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -188,6 +191,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -209,6 +213,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_REGEX:
             return ti_regex_eq((ti_regex_t *) a, (ti_regex_t *) b);
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -217,6 +222,8 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         }
         break;
     case TI_VAL_THING:
+        return a == b;
+    case TI_VAL_WRAP:
         return a == b;
     case TI_VAL_ARR:
         switch ((ti_val_enum) b->tp)
@@ -230,6 +237,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
             return false;
         case TI_VAL_ARR:
             return ti_varr_eq((ti_varr_t *) a, (ti_varr_t *) b);
@@ -251,6 +259,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
             return false;
         case TI_VAL_SET:
@@ -274,6 +283,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:

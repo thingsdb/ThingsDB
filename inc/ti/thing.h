@@ -103,14 +103,9 @@ static inline _Bool ti_thing_is_object(ti_thing_t * thing)
     return thing->type_id == TI_SPEC_OBJECT;
 }
 
-static inline int ti_thing_to_packer(
-        ti_thing_t * thing,
-        qp_packer_t ** pckr,
-        int options)
+static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
 {
-    return options > 0 || ti_thing_is_object(thing)
-            ? ti_thing__to_packer(thing, pckr, options)
-            : ti_thing_t_to_packer(thing, pckr, options);
+    return thing->type_id != TI_SPEC_OBJECT;
 }
 
 static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)

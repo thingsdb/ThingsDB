@@ -9,8 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <ti.h>
-#include <ti/typesi.h>
-#include <ti/thingi.h>
+#include <ti/types.inline.h>
+#include <ti/thing.inline.h>
 #include <ti/prop.h>
 #include <ti/store/storethings.h>
 #include <ti/things.h>

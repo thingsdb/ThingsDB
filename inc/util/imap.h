@@ -27,6 +27,7 @@ typedef void (*imap_update_cb)(
 
 imap_t * imap_create(void);
 void imap_destroy(imap_t * imap, imap_destroy_cb cb);
+void imap_clear(imap_t * imap, imap_destroy_cb cb);
 void * imap_set(imap_t * imap, uint64_t id, void * data);
 int imap_add(imap_t * imap, uint64_t id, void * data);
 void * imap_get(imap_t * imap, uint64_t id);

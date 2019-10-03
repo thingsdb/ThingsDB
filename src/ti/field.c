@@ -8,12 +8,12 @@
 #include <ti/vint.h>
 #include <ti/data.h>
 #include <ti/vset.h>
-#include <ti/thingi.h>
+#include <ti/thing.inline.h>
 #include <ti/varr.h>
-#include <ti/typesi.h>
+#include <ti/types.inline.h>
 #include <ti/spec.h>
 #include <ti/speci.h>
-#include <ti/vali.h>
+#include <ti/val.inline.h>
 #include <ti/names.h>
 #include <util/strx.h>
 
@@ -646,9 +646,10 @@ static int field__check_spec(
         assert (f_spec < TI_SPEC_ANY);
 
         ti_type_t * t_type = ti_types_by_id(t_field->type->types, t_spec);
-        ti_type_t * f_type = ti_types_by_id(f_field->type->types, t_spec);
+        ti_type_t * f_type = ti_types_by_id(f_field->type->types, f_spec);
 
-        (void) ti_type_map(t_type, f_type, e);
+        /* TODO: how to prevent recursion here? */
+        (void) ti_type_check(t_type, f_type, e);
         return e->nr;
     }
     return field__cast_err(t_field, f_field, e);
@@ -678,6 +679,63 @@ static int field__check_nested(
     return field__check_spec(t_field, f_field, t_spec, f_spec, e);
 }
 
+static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
+{
+    switch ((ti_spec_enum_t) t_spec)
+    {
+    case TI_SPEC_ANY:
+        return 0;       /* already checked */
+    case TI_SPEC_OBJECT:
+        return f_spec < TI_SPEC_ANY;
+    case TI_SPEC_RAW:
+        return f_spec == TI_SPEC_UTF8;
+    case TI_SPEC_INT:
+        return f_spec == TI_SPEC_UINT;
+    case TI_SPEC_NUMBER:
+        return (f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_FLOAT);
+    case TI_SPEC_UTF8:
+    case TI_SPEC_UINT:
+    case TI_SPEC_FLOAT:
+    case TI_SPEC_BOOL:
+    case TI_SPEC_ARR:
+    case TI_SPEC_SET:
+        return false;
+    }
+
+    if (f_spec < TI_SPEC_ANY)
+    {
+        /* we are left with two type */
+        assert (t_spec != f_spec);
+        assert (t_spec < TI_SPEC_ANY);
+        assert (f_spec < TI_SPEC_ANY);
+        return true;
+    }
+    return false;
+}
+
+static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
+{
+    uint16_t t_spec, f_spec;
+
+    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) ==
+            (f_field->spec & TI_SPEC_MASK_NILLABLE));
+    assert (t_field->nested_spec != TI_SPEC_ANY);
+
+    if (    (~t_field->nested_spec & TI_SPEC_NILLABLE) &&
+            (f_field->nested_spec & TI_SPEC_NILLABLE))
+        return false;
+
+    t_spec = t_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+    f_spec = f_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec == f_spec)
+        return true;
+
+    return field__maps_to_spec(t_spec, f_spec);
+}
+
 int ti_field_check_field(ti_field_t * t_field, ti_field_t * f_field, ex_t * e)
 {
     uint16_t t_spec, f_spec;
@@ -703,6 +761,33 @@ int ti_field_check_field(ti_field_t * t_field, ti_field_t * f_field, ex_t * e)
             : field__check_nested(t_field, f_field, e)
             : field__check_spec(t_field, f_field, t_spec, f_spec, e);
 }
+
+_Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
+{
+    uint16_t t_spec, f_spec;
+    assert (t_field->name == f_field->name);
+
+    /* return 0 when `to` accepts `any` (which is never set with nillable) */
+    if (t_field->spec == TI_SPEC_ANY)
+        return true;
+
+    /* if `to` does not accept `nil`, and from does, this is an error */
+    if (    (~t_field->spec & TI_SPEC_NILLABLE) &&
+            (f_field->spec & TI_SPEC_NILLABLE))
+        return false;
+
+    t_spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
+    f_spec = f_field->spec & TI_SPEC_MASK_NILLABLE;
+
+    /* return 0 when both specifications are equal, and nested accepts
+     * anything which is default for all other than `arr` and `set` */
+    return t_spec == f_spec
+            ? t_field->nested_spec == TI_SPEC_ANY
+            ? 0
+            : field__maps_to_nested(t_field, f_field)
+            : field__maps_to_spec(t_spec, f_spec);
+}
+
 
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
 {
@@ -791,7 +876,6 @@ static int field__add(ti_thing_t * thing, field__add_t * addjob)
 
     return 0;
 }
-
 
 /*
  * Use only when adding a new field, to update the existing things and

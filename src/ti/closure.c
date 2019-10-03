@@ -4,12 +4,12 @@
 #include <assert.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
-#include <ti/closurei.h>
+#include <ti/closure.inline.h>
 #include <ti/do.h>
 #include <ti/names.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
-#include <ti/vali.h>
+#include <ti/val.inline.h>
 #include <ti/regex.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>

@@ -29,21 +29,29 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_OPERATION_ERROR,
                 "type `%s` is used by at least one other type; "
                 "use `types_info(..)` to find all dependencies and "
-                "remove them by using `define(..)` or delete the dependencies "
-                "as well"DOC_DEL_TYPE DOC_DEFINE DOC_TYPES_INFO,
+                "remove them by using `mod_type(..)` or delete the dependency "
+                "types as well"DOC_DEL_TYPE DOC_MOD_TYPE DOC_TYPES_INFO,
                 type->name);
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
-    if (!task)
+    if (ti_type_try_lock(type, e))
         return e->nr;
 
-    if (ti_task_add_del_type(task, type))
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task || ti_task_add_del_type(task, type))
+    {
         ex_set_mem(e);  /* task cleanup is not required */
-    else
-        /* this will remove the `type` so it cannot be used after here */
-        ti_type_del(type);
+        ti_type_unlock(type, true /* lock is set for sure */);
+        return e->nr;
+    }
+
+    for (vec_each(query->vars, ti_thing_t, thing))
+        if (thing->tp == TI_VAL_THING && thing->type_id == type->type_id)
+            ti_thing_t_to_object(thing);
+
+    /* this will remove the `type` so it cannot be used after here */
+    ti_type_del(type);
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

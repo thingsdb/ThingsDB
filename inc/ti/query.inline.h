@@ -1,8 +1,8 @@
 /*
- * ti/queryi.h
+ * ti/query.inline.h
  */
-#ifndef TI_QUERYI_H_
-#define TI_QUERYI_H_
+#ifndef TI_QUERY_INLINE_H_
+#define TI_QUERY_INLINE_H_
 
 #include <util/vec.h>
 #include <ti.h>
@@ -20,4 +20,4 @@ static inline vec_t * ti_query_access(ti_query_t * query)
             : NULL;
 }
 
-#endif  /* TI_QUERYI_H_ */
+#endif  /* TI_QUERY_INLINE_H_ */

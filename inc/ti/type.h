@@ -4,9 +4,14 @@
 #ifndef TI_TYPE_H_
 #define TI_TYPE_H_
 
-#define TI_TYPE_NAME_MAX 1024
+#define TI_TYPE_NAME_MAX 255
 
 typedef struct ti_type_s ti_type_t;
+
+enum
+{
+    TI_TYPE_FLAG_LOCK       =1<<0,
+};
 
 #include <inttypes.h>
 #include <ti/thing.h>
@@ -30,7 +35,8 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);
 int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e);
 int ti_type_fields_to_packer(ti_type_t * type, qp_packer_t ** packer);
 ti_val_t * ti_type_info_as_qpval(ti_type_t * type);
-vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
+int ti_type_check(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
+vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 
 struct ti_type_s
 {
@@ -38,10 +44,12 @@ struct ti_type_s
                                by other types; the type may only be removed
                                when this counter is equal to zero otherwise
                                other types will break; self references are not
-                               included in this couter */
+                               included in this counter */
     uint16_t type_id;       /* type id */
-    uint16_t name_n;        /* name length (restricted to TI_TYPE_NAME_MAX) */
+    uint8_t flags;          /* type flags */
+    uint8_t name_n;         /* name length (restricted to TI_TYPE_NAME_MAX) */
     char * name;            /* name (null terminated) */
+    char * wname;           /* wrapped name (null terminated) */
     ti_types_t * types;
     vec_t * dependencies;   /* ti_type_t; contains type where this type is
                                depended on. type may be more than one inside
@@ -50,6 +58,32 @@ struct ti_type_s
     vec_t * fields;         /* ti_field_t */
     imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
 };
+
+static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
+{
+    if (type->flags & TI_TYPE_FLAG_LOCK)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+            "cannot change type `%s` while the type is being used",
+            type->name);
+        return -1;
+    }
+    return (type->flags |= TI_TYPE_FLAG_LOCK) & 0;
+}
+
+static inline int ti_type_ensure_lock(ti_type_t * type)
+{
+    return (type->flags & TI_TYPE_FLAG_LOCK)
+            ? 0
+            : !!(type->flags |= TI_TYPE_FLAG_LOCK);
+}
+
+static inline void ti_type_unlock(ti_type_t * type, int lock_was_set)
+{
+    if (lock_was_set)
+        type->flags &= ~TI_TYPE_FLAG_LOCK;
+}
+
 
 #endif  /* TI_TYPE_H_ */
 

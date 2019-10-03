@@ -2,18 +2,18 @@
  * thing.c
  */
 #include <assert.h>
-#include <stdlib.h>
 #include <doc.h>
+#include <stdlib.h>
 #include <ti.h>
+#include <ti/names.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
-#include <ti/vali.h>
 #include <ti/thing.h>
-#include <ti/thingi.h>
+#include <ti/thing.inline.h>
 #include <ti/val.h>
-#include <ti/names.h>
-#include <util/qpx.h>
+#include <ti/val.inline.h>
 #include <util/logger.h>
+#include <util/qpx.h>
 
 static inline int thing__val_locked(
         ti_thing_t * thing,

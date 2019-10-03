@@ -1,23 +1,23 @@
 /*
  * nodes.c
  */
-#include <stdbool.h>
 #include <assert.h>
-#include <ti/nodes.h>
-#include <ti/proto.h>
-#include <ti/version.h>
+#include <stdbool.h>
+#include <ti.h>
 #include <ti/access.h>
+#include <ti/args.h>
 #include <ti/auth.h>
 #include <ti/away.h>
-#include <ti/args.h>
-#include <ti/queryi.h>
-#include <ti/syncfull.h>
+#include <ti/nodes.h>
+#include <ti/proto.h>
+#include <ti/query.inline.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
-#include <ti.h>
+#include <ti/syncfull.h>
+#include <ti/version.h>
 #include <util/cryptx.h>
-#include <util/qpx.h>
 #include <util/fx.h>
+#include <util/qpx.h>
 
 #define NODES__UV_BACKLOG 64
 

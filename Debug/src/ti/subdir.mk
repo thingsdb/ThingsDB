@@ -82,6 +82,7 @@ C_SRCS += \
 ../src/ti/warn.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
+../src/ti/wrap.c \
 ../src/ti/write.c 
 
 OBJS += \
@@ -163,6 +164,7 @@ OBJS += \
 ./src/ti/warn.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
+./src/ti/wrap.o \
 ./src/ti/write.o 
 
 C_DEPS += \
@@ -244,6 +246,7 @@ C_DEPS += \
 ./src/ti/warn.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \
+./src/ti/wrap.d \
 ./src/ti/write.d 
 
 

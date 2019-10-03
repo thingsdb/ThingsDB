@@ -25,7 +25,6 @@
 #define DOC_CONTAINS                DOC_SEE("#contains")
 #define DOC_COUNTERS                DOC_SEE("#counters")
 #define DOC_DEEP                    DOC_SEE("#deep")
-#define DOC_DEFINE                  DOC_SEE("#define")
 #define DOC_DEL                     DOC_SEE("#del")
 #define DOC_DEL_COLLECTION          DOC_SEE("#del_collection")
 #define DOC_DEL_EXPIRED             DOC_SEE("#del_expired")
@@ -134,6 +133,7 @@
 #define DOC_VALUE_ERR               DOC_SEE("#value_err")
 #define DOC_VALUES                  DOC_SEE("#values")
 #define DOC_WATCH                   DOC_SEE("#watch")
+#define DOC_WRAP                    DOC_SEE("#wrap")
 #define DOC_WSE                     DOC_SEE("#wse")
 #define DOC_ZERO_DIV_ERR            DOC_SEE("#zero_div_err")
 

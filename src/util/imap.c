@@ -89,6 +89,41 @@ void imap_destroy(imap_t * imap, imap_destroy_cb cb)
 }
 
 /*
+ * Destroy imap with optional call-back function.
+ */
+void imap_clear(imap_t * imap, imap_destroy_cb cb)
+{
+    assert (imap);
+    if (imap->n)
+    {
+        imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
+
+        do
+        {
+            if (nd->data)
+            {
+                if (cb)
+                    (*cb)(nd->data);
+                nd->data = NULL;
+            }
+
+            if (nd->nodes)
+            {
+                imap__node_destroy_cb(nd, cb);
+                nd->nodes = NULL;
+            }
+        }
+        while (++nd < end);
+
+        imap->n = 0;
+    }
+
+    free(imap->vec);
+    imap->vec = NULL;
+}
+
+
+/*
  * Add data by id to the map. Data is not allowed to be NULL.
  *
  * Returns the data in case a new id is added to the map. Existing data will be

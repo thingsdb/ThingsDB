@@ -33,6 +33,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -59,6 +60,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -85,6 +87,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
+        case TI_VAL_WRAP:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_CLOSURE:
@@ -97,6 +100,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_RAW:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
+    case TI_VAL_WRAP:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:

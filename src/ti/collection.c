@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ti/collection.h>
-#include <ti/collectioni.h>
+#include <ti/collection.inline.h>
 #include <ti/things.h>
 #include <ti/name.h>
 #include <ti/auth.h>

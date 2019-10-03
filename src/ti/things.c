@@ -6,13 +6,13 @@
 #include <ti.h>
 #include <ti/names.h>
 #include <ti/prop.h>
+#include <ti/thing.inline.h>
 #include <ti/things.h>
-#include <ti/thingi.h>
+#include <ti/types.inline.h>
 #include <ti/val.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
 #include <ti/watch.h>
-#include <ti/typesi.h>
 #include <util/logger.h>
 
 static void things__gc_mark_thing(ti_thing_t * thing);

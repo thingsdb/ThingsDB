@@ -1,6 +1,9 @@
 /*
- * ti/closurei.h
+ * ti/closure.inline.h
  */
+#ifndef TI_CLOSURE_INLINE_H_
+#define TI_CLOSURE_INLINE_H_
+
 #include <ti/closure.h>
 #include <ti/query.h>
 #include <ti/do.h>
@@ -15,3 +18,5 @@ static inline int ti_closure_do_statement(
         e->nr = 0;
     return e->nr;
 }
+
+#endif  /* TI_CLOSURE_INLINE_H_ */

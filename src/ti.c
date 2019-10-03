@@ -191,6 +191,7 @@ int ti_build(void)
     cryptx("ThingsDB", salt, encrypted);
 
     ti_.node = ti_nodes_new_node(
+            0,
             ti()->cfg->zone,
             ti_.cfg->node_port,
             "0.0.0.0",
@@ -229,7 +230,7 @@ failed:
     (void) mkdir(ti_.cfg->storage_path, 0700);
     ti_node_drop(ti_.node);
     ti_.node = NULL;
-    (void) vec_pop(ti_.nodes->vec);
+    (void) imap_pop(ti_.nodes->imap, 0);
 
 done:
     ti_event_drop(ev);
@@ -256,7 +257,7 @@ int ti_rebuild(void)
     return ti_archive_rmdir();
 }
 
-int ti_write_node_id(uint8_t * node_id)
+int ti_write_node_id(uint32_t * node_id)
 {
     assert (ti_.node_fn);
 
@@ -275,7 +276,7 @@ finish:
     return rc;
 }
 
-int ti_read_node_id(uint8_t * node_id)
+int ti_read_node_id(uint32_t * node_id)
 {
     assert (ti_.node_fn);
 
@@ -288,7 +289,7 @@ int ti_read_node_id(uint8_t * node_id)
     rc = -(fscanf(f, TI_NODE_ID, &unode_id) != 1);
     rc = -(fclose(f) || rc);
 
-    *node_id = (uint8_t) unode_id;
+    *node_id = (uint32_t) unode_id;
 
 finish:
     if (rc)
@@ -375,7 +376,7 @@ int ti_run(void)
         if (ti_connect_start())
             goto failed;
 
-        if (ti()->nodes->vec->n == 1)
+        if (ti()->nodes->imap->n == 1)
         {
             ti_.node->status = TI_NODE_STAT_READY;
         }
@@ -458,7 +459,7 @@ void ti_stop(void)
 int ti_save(void)
 {
     int rc = -1;
-    qp_packer_t * packer = qp_packer_create2(32 + ti_.nodes->vec->n * 224, 3);
+    qp_packer_t * packer = qp_packer_create2(TI_SAVE_PACK);
     if (!packer)
         return -1;
 
@@ -784,19 +785,20 @@ ti_val_t * ti_node_as_qpval(void)
 
 static int ti__unpack(qp_res_t * res)
 {
-    uint8_t node_id;
-    qp_res_t * schema, * event_id, * qpnodes;
+    uint32_t node_id;
+    qp_res_t * schema, * event_id, * next_node_id, * qpnodes;
 
     if (    res->tp != QP_RES_MAP ||
             !(schema = qpx_map_get(res->via.map, "schema")) ||
             !(event_id = qpx_map_get(res->via.map, "event_id")) ||
+            !(next_node_id = qpx_map_get(res->via.map, "next_node_id")) ||
             !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
             schema->tp != QP_RES_INT64 ||
             schema->via.int64 != TI_FN_SCHEMA ||
             event_id->tp != QP_RES_INT64 ||
+            next_node_id->tp != QP_RES_INT64 ||
             qpnodes->tp != QP_RES_ARRAY)
         goto failed;
-
 
     if (ti_read_node_id(&node_id))
         goto failed;
@@ -804,9 +806,7 @@ static int ti__unpack(qp_res_t * res)
     if (ti_nodes_from_qpres(qpnodes))
         goto failed;
 
-    if (node_id >= ti_.nodes->vec->n)
-        goto failed;
-
+    ti_.nodes->next_id = (uint64_t) next_node_id->via.int64;
     ti_.last_event_id = (uint64_t) event_id->via.int64;
     ti_.node = ti_nodes_node_by_id(node_id);
     if (!ti_.node)

@@ -386,7 +386,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 {
     assert (queue_space(events->queue) > 0);
 
-    vec_t * vec_nodes = ti()->nodes->vec;
+    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
     ti_quorum_t * quorum;
     qpx_packer_t * packer;
     ti_pkg_t * pkg, * dup;
@@ -416,7 +416,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
     /* we have space so this function always succeeds */
     (void) events__push(ev);
 
-    for (vec_each(vec_nodes, ti_node_t, node))
+    for (vec_each(nodes_vec, ti_node_t, node))
     {
         if (node == ti()->node)
             continue;

@@ -109,8 +109,6 @@ ti_val_t * ti_counters_as_qpval(void)
             ? NULL
             : ti_raw_from_packer(packer);
 
-    LOGC("size: %u", raw->n);
-
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;
 }

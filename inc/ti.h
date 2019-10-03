@@ -50,8 +50,8 @@ int ti_init_logger(void);
 int ti_init(void);
 int ti_build(void);
 int ti_rebuild(void);
-int ti_write_node_id(uint8_t * node_id);
-int ti_read_node_id(uint8_t * node_id);
+int ti_write_node_id(uint32_t * node_id);
+int ti_read_node_id(uint32_t * node_id);
 int ti_read(void);
 int ti_unpack(uchar * data, size_t n);
 int ti_run(void);
@@ -144,6 +144,8 @@ static inline int ti_to_packer(qp_packer_t ** packer)
         qp_add_int(*packer, TI_FN_SCHEMA) ||
         qp_add_raw_from_str(*packer, "event_id") ||
         qp_add_int(*packer, ti_.last_event_id) ||
+        qp_add_raw_from_str(*packer, "next_node_id") ||
+        qp_add_int(*packer, ti_.nodes->next_id) ||
         qp_add_raw_from_str(*packer, "nodes") ||
         ti_nodes_to_packer(packer) ||
         qp_close_map(*packer)

@@ -706,16 +706,16 @@ fail_data:
 
 }
 
-int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id)
+int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
 {
     ti_data_t * data;
-    qp_packer_t * packer = ti_data_packer(24, 1);
+    qp_packer_t * packer = ti_data_packer(30, 1);
 
     if (!packer)
         return -1;
 
     (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "pop_node");
+    (void) qp_add_raw_from_str(packer, "del_node");
     (void) qp_add_int(packer, node_id);
     (void) qp_close_map(packer);
 

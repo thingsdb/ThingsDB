@@ -70,7 +70,7 @@ int ti_task_add_mod_type_del(
 int ti_task_add_mod_type_mod(
         ti_task_t * task,
         ti_field_t * field);
-int ti_task_add_pop_node(ti_task_t * task, uint8_t node_id);
+int ti_task_add_del_node(ti_task_t * task, uint32_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,

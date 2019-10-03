@@ -36,13 +36,6 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
     ti_away_trigger();
 }
 
-static inline uint64_t away__calc_sleep(void)
-{
-    return 2500 + ((away->expected_node_id < ti()->node->id
-            ? away->expected_node_id + ti()->nodes->vec->n
-            : away->expected_node_id) - ti()->node->id) * 11000;
-}
-
 static _Bool away__required(void)
 {
     return ti()->archive->queue->n || ti_nodes_require_sync();
@@ -80,18 +73,36 @@ static void away__destroy(uv_handle_t * handle)
     away = ti()->away = NULL;
 }
 
-static void away__change_expected_id(uint8_t node_id)
+static void away__update_expexted_id(uint32_t node_id)
 {
-    uint64_t new_timer;
+    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    ti_node_t * this_node = ti()->node;
+    size_t idx = 0, my_idx = 0, node_idx = 0, n = ti()->nodes->imap->n;
+
+    for (vec_each(nodes_vec, ti_node_t, node), ++idx)
+    {
+        if (node->id == node_id)
+            node_idx = (idx+1)%n;
+        if (node == this_node)
+            my_idx = idx;
+    }
+
+    if (my_idx < node_idx)
+        my_idx += n;
 
     /* update expected node id */
-    away->expected_node_id = (node_id + 1) % ti()->nodes->vec->n;
+    away->expected_node_id = node_id;
+    away->sleep = 2500 + ((my_idx - node_idx) * 11000);
 
-    /* calculate new timer */
-    new_timer = away__calc_sleep();
-
-    uv_timer_set_repeat(away->repeat, new_timer);
+    uv_timer_set_repeat(away->repeat, 2500 + ((my_idx - node_idx) * 11000));
 }
+
+static void away__reschedule_by_id(uint32_t node_id)
+{
+    away__update_expexted_id(node_id);
+    uv_timer_set_repeat(away->repeat, away->sleep);
+}
+
 
 static void away__work(uv_work_t * UNUSED(work))
 {
@@ -289,7 +300,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail0;;
     }
 
-    away__change_expected_id(ti()->node->id);
+    away__reschedule_by_id(ti()->node->id);
 
     if (uv_timer_init(ti()->loop, away->waiter))
         goto fail1;
@@ -316,7 +327,7 @@ fail0:
 
 static void away__req_away_id(void)
 {
-    vec_t * vec_nodes = ti()->nodes->vec;
+    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
     ti_quorum_t * quorum = NULL;
     ti_pkg_t * pkg, * dup;
 
@@ -328,7 +339,7 @@ static void away__req_away_id(void)
     if (!pkg)
         goto failed;
 
-    for (vec_each(vec_nodes, ti_node_t, node))
+    for (vec_each(nodes_vec, ti_node_t, node))
     {
         if (node == ti()->node)
             continue;
@@ -375,7 +386,8 @@ int ti_away_create(void)
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
     away->accept_counter = 0;
-    away->expected_node_id = 0;  /* always start with node 0 */
+    away->expected_node_id = 0;
+    away->sleep = 0;
 
     if (!away->work || !away->repeat || !away->waiter || !away->syncers)
     {
@@ -390,14 +402,18 @@ int ti_away_create(void)
 int ti_away_start(void)
 {
     assert (away->status == AWAY__STATUS_INIT);
+    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+
+    away__update_expexted_id(((ti_node_t *) vec_first(nodes_vec))->id);
 
     if (uv_timer_init(ti()->loop, away->repeat))
         goto fail0;
 
-    if (uv_timer_start(away->repeat,
+    if (uv_timer_start(
+            away->repeat,
             away__repeat_cb,
-            away__calc_sleep(),
-            away__calc_sleep()))
+            away->sleep,
+            away->sleep))
         goto fail1;
 
     away->status = AWAY__STATUS_IDLE;
@@ -413,7 +429,7 @@ void ti_away_trigger(void)
 {
     static const char * away__skip_msg = "not going in away mode (%s)";
 
-    if (ti()->nodes->vec->n == 1)
+    if (ti()->nodes->imap->n == 1)
     {
         log_debug(away__skip_msg, "running as single node");
         return;
@@ -479,7 +495,7 @@ void ti_away_stop(void)
     }
 }
 
-_Bool ti_away_accept(uint8_t node_id)
+_Bool ti_away_accept(uint32_t node_id)
 {
     switch ((enum away__status) away->status)
     {
@@ -508,7 +524,7 @@ _Bool ti_away_accept(uint8_t node_id)
     }
 
     away->accept_counter = AWAY__ACCEPT_COUNTER;
-    away__change_expected_id(node_id);
+    away__reschedule_by_id(node_id);
     return true;
 }
 

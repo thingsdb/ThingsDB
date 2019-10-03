@@ -23,6 +23,7 @@
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelexpired.h>
+#include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeltype.h>
@@ -72,7 +73,6 @@
 #include <ti/fn/fnnodesinfo.h>
 #include <ti/fn/fnnow.h>
 #include <ti/fn/fnpop.h>
-#include <ti/fn/fnpopnode.h>
 #include <ti/fn/fnproceduredoc.h>
 #include <ti/fn/fnprocedureinfo.h>
 #include <ti/fn/fnproceduresinfo.h>
@@ -82,7 +82,6 @@
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameuser.h>
-#include <ti/fn/fnreplacenode.h>
 #include <ti/fn/fnresetcounters.h>
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnrevoke.h>
@@ -188,6 +187,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__cev_fn(q, nd, "del_type", do__f_del_type);
         syntax__tev_fn(q, nd, "del_collection", do__f_del_collection);
         syntax__tev_fn(q, nd, "del_user", do__f_del_user);
+        syntax__tev_fn(q, nd, "del_node", do__f_del_node);
         break;
     case 'e':
         syntax__cev_fn(q, nd, "extend", do__f_extend);
@@ -268,7 +268,6 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "procedure_doc", do__f_procedure_doc);
         syntax__nev_fn(q, nd, "procedure_info", do__f_procedure_info);
         syntax__nev_fn(q, nd, "procedures_info", do__f_procedures_info);
-        syntax__tev_fn(q, nd, "pop_node", do__f_pop_node);
         break;
     case 'q':
         break;
@@ -280,7 +279,6 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "run", do__f_run);
         syntax__tev_fn(q, nd, "rename_collection", do__f_rename_collection);
         syntax__tev_fn(q, nd, "rename_user", do__f_rename_user);
-        syntax__tev_fn(q, nd, "replace_node", do__f_replace_node);
         syntax__tev_fn(q, nd, "revoke", do__f_revoke);
         syntax__zev_fn(q, nd, "reset_counters", do__f_reset_counters);
         break;

@@ -9,7 +9,7 @@ from thingsdb.exceptions import NodeError
 
 class TestNodes(TestBase):
 
-    title = 'Test add, pop and replace nodes'
+    title = 'Test add and delete nodes'
 
     @default_test_setup(num_nodes=5, seed=2)
     async def run(self):
@@ -30,12 +30,12 @@ class TestNodes(TestBase):
 
         with self.assertRaisesRegex(
                 NodeError,
-                r'`node:2` is still active, '
+                r'`node:2` is still active; '
                 r'shutdown the node before removal'):
-            await client.query(r'pop_node();')
+            await client.query(r'del_node(2);')
 
         await self.node2.shutdown()
-        await client.query(r'pop_node();')
+        await client.query(r'del_node(2);')
 
         self.assertEqual(
             len(await client.query(r'nodes_info();', scope='@node')), 2)
@@ -47,15 +47,10 @@ class TestNodes(TestBase):
 
         await self.node4.wait_join(secret='letsgo')
 
-        with self.assertRaisesRegex(
-                NodeError,
-                r'`node:1` is still active, '
-                r'shutdown the node and start '
-                r'the new node with `--secret ...`'):
-            await client.query('replace_node(1, "letsgo", "127.0.0.1", 9224);')
-
         await self.node1.shutdown()
-        await client.query('replace_node(1, "letsgo", "127.0.0.1", 9224);')
+        await client.query('del_node(1);')
+
+        await client.query('new_node("letsgo", "127.0.0.1", 9224);')
 
         nodes = await client.query(r'nodes_info();', scope='@node')
         self.assertEqual(len(nodes), 3)

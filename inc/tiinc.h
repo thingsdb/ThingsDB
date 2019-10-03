@@ -17,10 +17,11 @@
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
-#define TI_NODE_ID "`node:%u`"
+#define TI_NODE_ID "`node:%"PRIu32"`"
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_SYNTAX "syntax v%u"
+#define TI_SAVE_PACK 60 + ti_.nodes->imap->n * 140, 3
 
 /* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0

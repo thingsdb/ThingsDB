@@ -28,14 +28,16 @@ _Bool ti_nodes_require_sync(void);
 int ti_nodes_check_add(ex_t * e);
 uint64_t ti_nodes_cevid(void);
 uint64_t ti_nodes_sevid(void);
+uint32_t ti_nodes_next_id(void);
 void ti_nodes_update_syntax_ver(uint8_t syntax_ver);
 ti_node_t * ti_nodes_new_node(
+        uint32_t id,
         uint8_t zone,
         uint16_t port,
         const char * addr,
         const char * secret);
-void ti_nodes_pop_node(void);
-ti_node_t * ti_nodes_node_by_id(uint8_t node_id);
+void ti_nodes_del_node(uint32_t node_id);
+ti_node_t * ti_nodes_node_by_id(uint32_t node_id);
 ti_node_t * ti_nodes_get_away(void);
 ti_node_t * ti_nodes_get_away_or_soon(void);
 ti_node_t * ti_nodes_random_ready_node(void);
@@ -47,7 +49,7 @@ int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e);
 
 struct ti_nodes_s
 {
-    vec_t * vec;
+    imap_t * imap;          /* store the nodes with vector available */
     uv_tcp_t tcp;
     uint64_t cevid;         /* last committed event id by ALL nodes,
                                ti_archive_t saves this value to disk at
@@ -58,6 +60,7 @@ struct ti_nodes_s
                                cleanup and is therefore responsible to set
                                the initial value at startup */
     uint8_t syntax_ver;     /* lowest syntax version by ALL nodes */
+    uint32_t next_id;       /* next node id */
     char * status_fn;       /* this file contains the last known committed
                                and stored event id's by ALL nodes, and the
                                lowest known syntax version */

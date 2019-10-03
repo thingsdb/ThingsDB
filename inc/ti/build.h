@@ -18,8 +18,8 @@ typedef struct ti_build_s ti_build_t;
 int ti_build_create(void);
 void ti_build_destroy(void);
 int ti_build_setup(
-        uint8_t this_node_id,
-        uint8_t from_node_id,
+        uint32_t this_node_id,
+        uint32_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_zone,
         uint8_t from_node_syntax_ver,
@@ -28,9 +28,9 @@ int ti_build_setup(
 
 struct ti_build_s
 {
+    uint32_t this_node_id;
+    uint32_t from_node_id;
     uint8_t status;
-    uint8_t this_node_id;
-    uint8_t from_node_id;
     uint8_t from_node_status;
     uint8_t from_node_zone;
     uint8_t from_node_syntax_ver;

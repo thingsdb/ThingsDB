@@ -39,8 +39,8 @@ void ti_build_destroy(void)
 }
 
 int ti_build_setup(
-        uint8_t this_node_id,
-        uint8_t from_node_id,
+        uint32_t this_node_id,
+        uint32_t from_node_id,
         uint8_t from_node_status,
         uint8_t from_node_zone,
         uint8_t from_node_syntax_ver,
@@ -89,6 +89,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
 {
     ti_pkg_t * pkg = req->pkg_res;
     ti_node_t * ti_node;
+    vec_t * nodes_vec;
 
     if (status)
         goto failed;
@@ -102,7 +103,8 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_unpack(pkg->data, pkg->n))
         goto failed;
 
-    for(vec_each(ti()->nodes->vec, ti_node_t, node))
+    nodes_vec = imap_vec(ti()->nodes->imap);
+    for(vec_each(nodes_vec, ti_node_t, node))
     {
         if (node->id == build->from_node_id)
         {

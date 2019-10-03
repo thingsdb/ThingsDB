@@ -25,7 +25,7 @@ static void node__clear_sockaddr(ti_node_t * node);
  * is generated for each node.
  */
 ti_node_t * ti_node_create(
-        uint8_t id,
+        uint32_t id,
         uint8_t zone,
         uint16_t port,
         const char * addr,

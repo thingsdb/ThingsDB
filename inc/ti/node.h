@@ -76,17 +76,23 @@ typedef struct ti_node_s ti_node_t;
 struct ti_node_s
 {
     uint32_t ref;
-    uint8_t id;
+    uint32_t id;
+
+    uint16_t port;
+    uint16_t pad0_;
     uint8_t status;
     uint8_t zone;                   /* zone info */
     uint8_t syntax_ver;             /* syntax version */
+    uint8_t pad1_;
+
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */
+
     uint64_t cevid;                 /* last committed event id */
     uint64_t sevid;                 /* last stored event id on disk */
     uint64_t next_thing_id;
     ti_stream_t * stream;           /* borrowed reference */
-    uint16_t port;
+
     /*
      * TODO: add warning flags, like:
      *      - low on memory
@@ -100,7 +106,7 @@ struct ti_node_s
 };
 
 ti_node_t * ti_node_create(
-        uint8_t id,
+        uint32_t id,
         uint8_t zone,
         uint16_t port,
         const char * addr,

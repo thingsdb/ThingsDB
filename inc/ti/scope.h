@@ -40,7 +40,7 @@ struct ti_scope_name_s
 
 typedef union
 {
-    uint8_t node_id;
+    uint32_t node_id;
     ti_scope_name_t collection_name;
     uint64_t collection_id;
 } ti_scope_via_t;

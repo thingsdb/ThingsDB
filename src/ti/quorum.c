@@ -10,10 +10,10 @@
 
 ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
 {
-    assert (ti()->nodes->vec->n);
+    assert (ti()->nodes->imap->n);
 
     ti_quorum_t * quorum;
-    uint8_t nnodes = ti()->nodes->vec->n;
+    uint8_t nnodes = ti()->nodes->imap->n;
     uint8_t sz = nnodes - 1;
 
     quorum = malloc(sizeof(ti_quorum_t));

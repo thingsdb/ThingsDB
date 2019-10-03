@@ -155,7 +155,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail1;
 
-    node = ti_nodes_new_node(0, port, addrstr, encrypted);
+    node = ti_nodes_new_node(ti_nodes_next_id(), 0, port, addrstr, encrypted);
     if (!node)
     {
         ex_set_mem(e);

@@ -9,7 +9,10 @@
 
 static inline const char * ti_wrap_str(ti_wrap_t * wrap)
 {
-    return ti_thing_type(wrap->thing)->wname;
+    ti_type_t * type = imap_get(
+            wrap->thing->collection->types->imap,
+            wrap->type_id);
+    return type ? type->wname : "<thing>";
 }
 
 static inline int ti_wrap_to_file(ti_wrap_t * wrap, FILE * f)
@@ -25,7 +28,7 @@ static inline int ti_wrap_to_file(ti_wrap_t * wrap, FILE * f)
     );
 }
 
-static inline ti_wrap_optional_type(ti_wrap_t * wrap)
+static inline ti_wrap_maybe_type(ti_wrap_t * wrap)
 {
     ti_type_t * type = imap_get(
             wrap->thing->collection->types->imap,

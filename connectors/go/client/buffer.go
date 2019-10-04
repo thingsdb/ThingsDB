@@ -11,6 +11,7 @@ type buffer struct {
 	pkg   *pkg
 	conn  net.Conn
 	pkgCh chan *pkg
+	evCh  chan *pkg
 	errCh chan error
 }
 
@@ -22,6 +23,7 @@ func newBuffer() *buffer {
 		pkg:   nil,
 		conn:  nil,
 		pkgCh: make(chan *pkg),
+		evCh:  make(chan *pkg),
 		errCh: make(chan error, 1),
 	}
 }
@@ -58,8 +60,11 @@ func (buf buffer) read() {
 			}
 
 			buf.pkg.setData(&buf.data, total)
-
-			buf.pkgCh <- buf.pkg
+			if buf.pkg.tp >= 16 && buf.pkg.tp <= 31 {
+				buf.evCh <- buf.pkg
+			} else {
+				buf.pkgCh <- buf.pkg
+			}
 
 			buf.data = buf.data[total:]
 			buf.len -= total

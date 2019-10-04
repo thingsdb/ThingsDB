@@ -15,9 +15,11 @@ ti_types_t * ti_types_create(ti_collection_t * collection)
 
     types->imap = imap_create();
     types->smap = smap_create();
+    types->removed = smap_create();
     types->collection = collection;
+    types->next_id = 0;
 
-    if (!types->imap || !types->smap)
+    if (!types->imap || !types->smap || !types->removed)
     {
         ti_types_destroy(types);
         return NULL;
@@ -32,6 +34,7 @@ void ti_types_destroy(ti_types_t * types)
         return;
 
     smap_destroy(types->smap, NULL);
+    smap_destroy(types->removed, NULL);
     imap_destroy(types->imap, (imap_destroy_cb) ti_type_destroy);
     free(types);
 }
@@ -46,6 +49,9 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
         (void) imap_pop(types->imap, type->type_id);
         return -1;
     }
+
+    if (type->type_id >= types->next_id)
+        types->next_id = type->type_id + 1;
 
     return 0;
 }

@@ -30,7 +30,7 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
 
 int ti_wrap_to_packer(ti_wrap_t * wrap, qp_packer_t ** pckr, int options)
 {
-    ti_type_t * type = ti_wrap_type(wrap);
+    ti_type_t * type = ti_wrap_maybe_type(wrap);
 
     return 0;
 }

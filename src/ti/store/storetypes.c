@@ -38,7 +38,7 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
         goto stop;
     }
 
-    if (qp_fadd_type(f, QP_MAP_OPEN))
+    if (qp_fadd_type(f, QP_ARRAY_OPEN))
         goto stop;
 
     for (vec_each(vtypes, ti_type_t, type))
@@ -62,7 +62,7 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
             goto stop;
     }
 
-    if (qp_fadd_type(f, QP_MAP_CLOSE))
+    if (qp_fadd_type(f, QP_ARRAY_CLOSE))
         goto stop;
 
     rc = 0;
@@ -160,7 +160,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     qp_unpacker_init(&unp, data, size);
 
-    if (!qp_is_map(qp_next(&unp, NULL)))
+    if (!qp_is_array(qp_next(&unp, NULL)))
         goto fail2;
 
     isarr = qp_next(&unp, NULL);

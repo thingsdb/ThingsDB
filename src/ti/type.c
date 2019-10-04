@@ -68,11 +68,17 @@ void ti_type_map_cleanup(ti_type_t * type)
 
 void ti_type_drop(ti_type_t * type)
 {
+    uintptr_t type_id;
+
     if (!type)
         return;
 
+    type_id = (uintptr_t) type->type_id;
+
     for (vec_each(type->dependencies, ti_type_t, dep))
         --dep->refcount;
+
+    (void) smap_add(type->types->removed, type->name, (void *) type_id);
 
     ti_type_map_cleanup(type);
     ti_types_del(type->types, type);

@@ -339,7 +339,8 @@ static int smap__items(
     memcpy(buf + n, node->key, node->n);
     n += node->n;
 
-    if (node->data && (rc = (*cb)(buf, n, node->data, arg))) return rc;
+    if (node->data && (rc = (*cb)(buf, n, node->data, arg)))
+        return rc;
 
     if (node->nodes)
     {

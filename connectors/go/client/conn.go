@@ -18,6 +18,7 @@ type Conn struct {
 	buf     *buffer
 	respMap map[uint16]chan *pkg
 	OnClose func()
+	eventCh chan *Event
 	LogCh   chan string
 	mux     sync.Mutex
 }
@@ -187,6 +188,11 @@ func (conn *Conn) write(tp Proto, data interface{}, timeout uint16) (interface{}
 func (conn *Conn) listen() {
 	for {
 		select {
+		case pkg := <-conn.buf.evCh:
+			ev, err := newEvent(pkg)
+			if err == nil {
+				conn.eventCh <- ev
+			}
 		case pkg := <-conn.buf.pkgCh:
 			conn.mux.Lock()
 			if respCh, ok := conn.respMap[pkg.pid]; ok {

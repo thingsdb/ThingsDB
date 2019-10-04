@@ -4,17 +4,17 @@
 #include <assert.h>
 #include <doc.h>
 #include <stdlib.h>
-#include <ti/field.h>
-#include <ti/vint.h>
 #include <ti/data.h>
-#include <ti/vset.h>
-#include <ti/thing.inline.h>
-#include <ti/varr.h>
-#include <ti/types.inline.h>
-#include <ti/spec.h>
-#include <ti/speci.h>
-#include <ti/val.inline.h>
+#include <ti/field.h>
 #include <ti/names.h>
+#include <ti/spec.h>
+#include <ti/spec.inline.h>
+#include <ti/thing.inline.h>
+#include <ti/types.inline.h>
+#include <ti/val.inline.h>
+#include <ti/varr.h>
+#include <ti/vint.h>
+#include <ti/vset.h>
 #include <util/strx.h>
 
 static _Bool field__spec_is_ascii(
@@ -526,6 +526,20 @@ done:
     return e->nr;
 }
 
+static _Bool field__maps_to_varr(ti_field_t * field, ti_varr_t * varr)
+{
+    if (field->nested_spec == TI_SPEC_ANY ||
+        varr->vec->n == 0 ||
+        varr->spec == field->nested_spec)
+        return true;
+
+    for (vec_each(varr->vec, ti_val_t, val))
+        if (!ti_spec_maps_to_val(field->nested_spec, val))
+            return false;
+
+    return true;
+}
+
 /*
  * Returns 0 if the given value is valid for this field
  */
@@ -565,6 +579,15 @@ int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
         break;
     }
     return e->nr;
+}
+
+_Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
+{
+    return ti_spec_maps_to_val(field->spec, val)
+            ? ti_val_is_array(val)
+            ? field__maps_to_varr(field, (ti_varr_t *) val)
+            : true
+            : false;
 }
 
 static inline int field__cast_err(
@@ -779,11 +802,11 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     t_spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
     f_spec = f_field->spec & TI_SPEC_MASK_NILLABLE;
 
-    /* return 0 when both specifications are equal, and nested accepts
+    /* return `true` when both specifications are equal, and nested accepts
      * anything which is default for all other than `arr` and `set` */
     return t_spec == f_spec
             ? t_field->nested_spec == TI_SPEC_ANY
-            ? 0
+            ? true
             : field__maps_to_nested(t_field, f_field)
             : field__maps_to_spec(t_spec, f_spec);
 }

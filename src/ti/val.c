@@ -91,12 +91,12 @@ static ti_val_t * val__unp_map(
         return (ti_val_t *) ti_things_thing_t_from_unp(collection, unp, e);
     case TI_KIND_C_CLOSURE:
     {
-        ti_syntax_t syntax;
-        ti_syntax_init(
-                &syntax,
-                collection
+        ti_syntax_t syntax = {
+                .val_cache_n = 0,
+                .flags = collection
                     ? TI_SYNTAX_FLAG_COLLECTION
-                    : TI_SYNTAX_FLAG_THINGSDB);
+                    : TI_SYNTAX_FLAG_THINGSDB,
+        };
 
         if (sz != 1 || !qp_is_raw(qp_next(unp, &qp_tmp)))
         {
@@ -233,9 +233,45 @@ static ti_val_t * val__unp_map(
         return qpinfo;
     }
     case TI_KIND_C_WRAP:
-        assert (0);
-        /* TODO: handle cast */
-        return NULL;
+    {
+        qp_obj_t qp_type_id;
+        ti_val_t * vthing;
+        ti_wrap_t * wrap;
+        uint16_t type_id;
+
+        if (    sz != 1 ||
+                !qp_is_array(qp_next(unp, NULL)) ||     /* definition */
+                !qp_is_int(qp_next(unp, &qp_type_id)) ||
+                !qp_is_map((sz = qp_next(unp, &qp_tmp))))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "wrap type must be written according the "
+                "following syntax: {\""TI_KIND_S_WRAP"\": [type_id, {...}]");
+            return NULL;
+        }
+
+        sz = sz == QP_MAP_OPEN ? -1 : sz - QP_MAP0;
+
+        vthing = val__unp_map(unp, collection, sz, e);
+        if (!vthing)
+            return NULL;
+
+        if (!ti_val_is_thing(vthing))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "wrap type is expecting a wrapped `"TI_VAL_THING_S"` but "
+                "got type `%s` instead",
+                ti_val_str(vthing));
+            ti_val_drop(vthing);
+            return NULL;
+        }
+
+        type_id = (uint16_t) qp_type_id.via.int64;
+        wrap = ti_wrap_create((ti_thing_t *) vthing, type_id);
+        if (!wrap)
+            ex_set_mem(e);
+        return (ti_val_t *) wrap;
+    }
     }
 
     /* restore the unpack pointer to the first property */
@@ -1107,6 +1143,7 @@ int ti_val_to_packer(ti_val_t * val, qp_packer_t ** pckr, int options)
             }
             else if(ti_thing_id_to_packer(wrap->thing, pckr))
                 return -1;
+
             return qp_close_array(*pckr) || qp_close_map(*pckr);
         }
         return options > 0

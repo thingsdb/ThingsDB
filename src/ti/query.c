@@ -60,13 +60,12 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
         (void) qp_add_int(packer, task->thing->id);
         (void) qp_add_array(&packer);
         for (vec_each(task->jobs, ti_data_t, data))
-        {
             (void) qp_add_qp(packer, data->data, data->n);
-        }
         (void) qp_close_array(packer);
     }
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
+
 
     assert(packer->nest_sz == 3);
 

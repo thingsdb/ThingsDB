@@ -29,6 +29,7 @@ ti_type_t * ti_type_create(
 void ti_type_drop(ti_type_t * type);
 void ti_type_del(ti_type_t * type);
 void ti_type_destroy(ti_type_t * type);
+void ti_type_map_cleanup(ti_type_t * type);
 size_t ti_type_approx_pack_sz(ti_type_t * type);
 _Bool ti_type_is_valid_strn(const char * str, size_t n);
 int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);

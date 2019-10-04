@@ -14,6 +14,7 @@
 #include <ti/prop.h>
 #include <ti/thing.inline.h>
 #include <ti/field.h>
+#include <ti/mapping.h>
 
 static char * type__wrap_name(const char * name, size_t n)
 {
@@ -56,14 +57,19 @@ ti_type_t * ti_type_create(
 
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
-    free(imap_pop(t_haystack->t_mappings, t_needle->type_id));
+    vec_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id), free);
     return 0;
+}
+
+static void type__map_free(void * vec)
+{
+    vec_destroy(vec, free);
 }
 
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
-    imap_clear(type->t_mappings, (imap_destroy_cb) free);
+    imap_clear(type->t_mappings, type__map_free);
 }
 
 void ti_type_drop(ti_type_t * type)
@@ -74,6 +80,7 @@ void ti_type_drop(ti_type_t * type)
         return;
 
     type_id = (uintptr_t) type->type_id;
+    type_id |= TI_TYPES_RM_FLAG;    /* prevents storing type_id 0 */
 
     for (vec_each(type->dependencies, ti_type_t, dep))
         --dep->refcount;
@@ -110,7 +117,7 @@ void ti_type_destroy(ti_type_t * type)
         return;
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
-    imap_destroy(type->t_mappings, free);
+    imap_destroy(type->t_mappings, type__map_free);
     free(type->dependencies);
     free(type->name);
     free(type->wname);
@@ -338,12 +345,13 @@ int ti_type_check(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
 vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 {
     ti_field_t * f_field;
-    vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
-    if (t_map)
-        return t_map;
+    ti_mapping_t * mapping;
+    vec_t * mappings = imap_get(t_type->t_mappings, f_type->type_id);
+    if (mappings)
+        return mappings;
 
-    t_map = vec_new(t_type->fields->n);
-    if (!t_map)
+    mappings = vec_new(t_type->fields->n);
+    if (!mappings)
         return NULL;
 
     for (vec_each(t_type->fields, ti_field_t, t_field))
@@ -353,9 +361,17 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
             continue;
 
         if (ti_field_maps_to_field(t_field, f_field))
-            VEC_push(t_map, f_field);
+        {
+            mapping = ti_mapping_new(t_field, f_field);
+            if (!mapping)
+            {
+                vec_destroy(mappings, free);
+                return NULL;
+            }
+            VEC_push(mappings, mapping);
+        }
     }
 
-    (void) imap_add(t_type->t_mappings, f_type->type_id, t_map);
-    return t_map;
+    (void) imap_add(t_type->t_mappings, f_type->type_id, mappings);
+    return mappings;
 }

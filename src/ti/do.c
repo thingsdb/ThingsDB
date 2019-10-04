@@ -61,7 +61,7 @@ static int do__type(
         return e->nr;
     }
 
-    return fn_new_type(query, args->children->node, type, e);
+    return fn_new_instance(query, args->children->node, type, e);
 }
 
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)

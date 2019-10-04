@@ -96,7 +96,6 @@ static int job__set(ti_thing_t * thing, qp_unpacker_t * unp)
 {
     assert (thing);
     assert (unp);
-
     ti_collection_t * collection = thing->collection;
     ti_val_t * val;
     ti_name_t * name;

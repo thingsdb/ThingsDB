@@ -198,6 +198,8 @@ stop:
     }
 
     ti_destroy();
+
+    log_info("bye");
     logger_destroy();
 
     return rc;

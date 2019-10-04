@@ -61,6 +61,52 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
             : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
+_Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
+{
+    assert (~spec & TI_SPEC_NILLABLE);
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        assert (0);
+        return true;
+    case TI_SPEC_OBJECT:
+        return ti_val_is_thing(val);
+    case TI_SPEC_RAW:
+        return ti_val_is_raw(val);
+    case TI_SPEC_UTF8:
+        return !ti_val_is_raw(val)
+            ? false
+            : strx_is_utf8n(
+                (const char *) ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n);
+    case TI_SPEC_INT:
+        return ti_val_is_int(val);;
+    case TI_SPEC_UINT:
+        return !ti_val_is_int(val)
+            ? false
+            : ((ti_vint_t *) val)->int_ >= 0;
+    case TI_SPEC_FLOAT:
+        return ti_val_is_float(val);
+    case TI_SPEC_NUMBER:
+        return ti_val_is_number(val);
+    case TI_SPEC_BOOL:
+        return ti_val_is_bool(val);
+    case TI_SPEC_ARR:
+        /* we can map a set to an array */
+        return ti_val_is_array(val) || ti_val_is_set(val);
+    case TI_SPEC_SET:
+        return ti_val_is_set(val);
+    }
+
+    assert (spec < TI_SPEC_ANY);
+    /*
+     * Just compare the specification with the type since the nillable mask is
+     * removed the specification
+     */
+    return ti_val_is_thing(val);
+}
+
 const char * ti__spec_approx_type_str(uint16_t spec)
 {
     spec &= TI_SPEC_MASK_NILLABLE;
@@ -78,7 +124,6 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_ARR:           return TI_VAL_ARR_S;
     case TI_SPEC_SET:           return TI_VAL_SET_S;
     }
-
     return "thing";
 }
 

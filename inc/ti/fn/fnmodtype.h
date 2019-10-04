@@ -191,7 +191,7 @@ static void type__mod(
     if (!field)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no property `%.*s`",
+                "type `%s` has no property `%s`",
                 type->name, name->str);
         return;
     }
@@ -238,13 +238,16 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!type)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
+    if (ti_type_try_lock(type, e))
+        return e->nr;
+
     ti_val_drop(query->rval);
     query->rval = NULL;
     child = nd->children->next->next;
 
     if (ti_do_statement(query, child->node, e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 2, query->rval, e))
-        return e->nr;
+        goto fail0;
 
     rmod = (ti_raw_t *) query->rval;
     query->rval = NULL;
@@ -252,13 +255,13 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, child->node, e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
-        goto fail0;
+        goto fail1;
 
     name = ti_names_from_raw((ti_raw_t *) query->rval);
     if (!name)
     {
         ex_set_mem(e);
-        goto fail0;
+        goto fail1;
     }
 
     ti_val_drop(query->rval);
@@ -297,7 +300,9 @@ done:
     }
     ti_name_drop(name);
 
-fail0:
+fail1:
     ti_val_drop((ti_val_t *) rmod);
+fail0:
+    ti_type_unlock(type, true /* lock is set for sure */);
     return e->nr;
 }

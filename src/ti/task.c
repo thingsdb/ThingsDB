@@ -101,7 +101,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
     assert (added->n);
     assert (name);
     ti_data_t * data;
-    qp_packer_t * packer = qp_packer_create2(1024, 8);
+    qp_packer_t * packer = ti_data_packer(1024, 8);
 
     if (!packer)
         return -1;

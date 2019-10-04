@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti/type.h>
 #include <ti/types.h>
+#include <ti/types.inline.h>
 
 
 ti_types_t * ti_types_create(ti_collection_t * collection)
@@ -67,15 +68,34 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
     (void) smap_pop(types->smap, type->name);
 }
 
-uint16_t ti_types_get_new_id(ti_types_t * types, ex_t * e)
+uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 {
-    /* TI_SPEC_NILLABLE (bit 15) and TI_SPEC_ANY (bit 14) are used*/
-    uint16_t id = imap_unused_id(types->imap, TI_SPEC_ANY);
-    if (id == TI_SPEC_ANY)
+    uintptr_t utype;
+    void * ptype;
+    char name[TI_TYPE_NAME_MAX+1];
+
+    assert (rname->n <= TI_TYPE_NAME_MAX);
+
+    memcpy(name, rname->data, rname->n);
+    name[rname->n] = '\0';
+
+    ptype = smap_pop(types->removed, name);
+    if (!ptype)
     {
-        ex_set(e, EX_MAX_QUOTA, "reached the maximum number of types");
+        if (types->next_id == TI_SPEC_ANY)
+        {
+            ex_set(e, EX_MAX_QUOTA, "reached the maximum number of types");
+        }
+        return types->next_id;
     }
-    return id;
+
+    utype = (uintptr_t) ptype;
+    utype &= TI_TYPES_RM_MASK;
+
+    assert (utype < types->next_id);
+    assert (ti_types_by_id(types, utype) == NULL);
+
+    return (uint16_t) utype;
 }
 
 static int types__approx_sz(ti_type_t * type, size_t * approx_sz)

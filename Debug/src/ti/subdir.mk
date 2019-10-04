@@ -28,6 +28,7 @@ C_SRCS += \
 ../src/ti/fwd.c \
 ../src/ti/index.c \
 ../src/ti/job.c \
+../src/ti/mapping.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/ncache.c \
@@ -110,6 +111,7 @@ OBJS += \
 ./src/ti/fwd.o \
 ./src/ti/index.o \
 ./src/ti/job.o \
+./src/ti/mapping.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/ncache.o \
@@ -192,6 +194,7 @@ C_DEPS += \
 ./src/ti/fwd.d \
 ./src/ti/index.d \
 ./src/ti/job.d \
+./src/ti/mapping.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/ncache.d \

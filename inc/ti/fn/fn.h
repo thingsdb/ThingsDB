@@ -37,6 +37,7 @@
 #include <ti/vset.h>
 #include <ti/warn.h>
 #include <ti/wprop.h>
+#include <ti/wrap.h>
 #include <tiinc.h>
 #include <util/cryptx.h>
 #include <util/strx.h>
@@ -227,7 +228,7 @@ static inline int fn_not_thingsdb_or_collection_scope(
     return e->nr;
 }
 
-static int fn_new_type(
+static int fn_new_instance(
         ti_query_t * query,
         cleri_node_t * nd,
         ti_type_t * type,
@@ -236,10 +237,12 @@ static int fn_new_type(
     ti_thing_t * new_thing, * from_thing;
     int lock_was_set = ti_type_ensure_lock(type);
 
-    if (ti_do_statement(query, nd, e))
-        return e->nr;
-
+    (void) ti_do_statement(query, nd, e);
+    /* make sure we unlock */
     ti_type_unlock(type, lock_was_set);
+
+    if (e->nr)
+        return e->nr;
 
     if (!ti_val_is_thing(query->rval))
     {

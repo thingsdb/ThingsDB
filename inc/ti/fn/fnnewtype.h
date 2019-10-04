@@ -44,14 +44,14 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
             "type `%.*s` already exists; "
-            "use `define(...)` if you want to change the type definition"
-            DOC_DEFINE,
+            "use `mod_type(..)` if you want to change the type definition"
+            DOC_MOD_TYPE,
             (int) rname->n,
             (const char *) rname->data);
         goto fail0;
     }
 
-    type_id = ti_types_get_new_id(query->collection->types, e);
+    type_id = ti_types_get_new_id(query->collection->types, rname, e);
     if (e->nr)
         goto fail0;
 

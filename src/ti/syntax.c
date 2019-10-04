@@ -98,12 +98,15 @@
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
+#include <ti/fn/fntypecount.h>
 #include <ti/fn/fntypeinfo.h>
 #include <ti/fn/fntypesinfo.h>
+#include <ti/fn/fnunwrap.h>
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
 #include <ti/fn/fnvalues.h>
+#include <ti/fn/fnwrap.h>
 #include <ti/fn/fnwse.h>
 
 
@@ -301,11 +304,13 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "test", do__f_test);
         syntax__nev_fn(q, nd, "try", do__f_try);
         syntax__nev_fn(q, nd, "type", do__f_type);
+        syntax__nev_fn(q, nd, "type_count", do__f_type_count);
         syntax__nev_fn(q, nd, "type_err", do__f_type_err);
         syntax__nev_fn(q, nd, "type_info", do__f_type_info);
         syntax__nev_fn(q, nd, "types_info", do__f_types_info);
         break;
     case 'u':
+        syntax__nev_fn(q, nd, "unwrap", do__f_unwrap);  /* most frequent used */
         syntax__nev_fn(q, nd, "upper", do__f_upper);
         syntax__zev_fn(q, nd, "user_info", do__f_user_info);
         syntax__zev_fn(q, nd, "users_info", do__f_users_info);
@@ -316,6 +321,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         break;
     case 'w':
         syntax__bev_fn(q, nd, "wse", do__f_wse);
+        syntax__nev_fn(q, nd, "wrap", do__f_wrap);
         break;
     case 'x':
     case 'y':
@@ -631,15 +637,4 @@ void ti_syntax_probe(ti_syntax_t * syntax, cleri_node_t * nd)
         return;
     }
     return syntax__statement(syntax, nd);
-}
-
-
-void ti_syntax_init(ti_syntax_t * syntax, uint8_t flags)
-{
-    syntax->val_cache_n = 0;
-    syntax->flags = flags;
-    /*
-     * Properties `deep` and `pkg_id` are only used by `ti_query_t` and
-     * are not initialized here.
-     */
 }

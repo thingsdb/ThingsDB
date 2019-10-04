@@ -7,14 +7,6 @@
 #include <ti/wrap.h>
 #include <ti/thing.inline.h>
 
-static inline const char * ti_wrap_str(ti_wrap_t * wrap)
-{
-    ti_type_t * type = imap_get(
-            wrap->thing->collection->types->imap,
-            wrap->type_id);
-    return type ? type->wname : "<thing>";
-}
-
 static inline int ti_wrap_to_file(ti_wrap_t * wrap, FILE * f)
 {
     return (
@@ -28,12 +20,27 @@ static inline int ti_wrap_to_file(ti_wrap_t * wrap, FILE * f)
     );
 }
 
-static inline ti_wrap_maybe_type(ti_wrap_t * wrap)
+static inline ti_type_t * ti_wrap_maybe_type(ti_wrap_t * wrap)
 {
     ti_type_t * type = imap_get(
             wrap->thing->collection->types->imap,
             wrap->type_id);
     return type;
+}
+
+static inline const char * ti_wrap_str(ti_wrap_t * wrap)
+{
+    ti_type_t * type = ti_wrap_maybe_type(wrap);
+    return type ? type->wname : "<thing>";
+}
+
+static inline int ti_wrap_to_packer(
+        ti_wrap_t * wrap,
+        qp_packer_t ** pckr,
+        int options)
+{
+    assert (options > 0);
+    return ti__wrap_field_thing(wrap->type_id, wrap->thing, pckr, options);
 }
 
 #endif  /* TI_WRAP_INLINE_H_ */

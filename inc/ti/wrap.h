@@ -8,10 +8,13 @@ typedef struct ti_wrap_s  ti_wrap_t;
 
 #include <ti/thing.h>
 
-
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id);
 void ti_wrap_destroy(ti_wrap_t * wrap);
-int ti_wrap_to_packer(ti_wrap_t * wrap, qp_packer_t ** pckr, int options);
+int ti__wrap_field_thing(
+        uint16_t spec,
+        ti_thing_t * thing,
+        qp_packer_t ** pckr,
+        int options);
 
 struct ti_wrap_s
 {
@@ -21,5 +24,7 @@ struct ti_wrap_s
     uint16_t type_id;
     ti_thing_t * thing;     /* with reference */
 };
+
+
 
 #endif  /* TI_WRAP_H_ */

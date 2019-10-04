@@ -248,7 +248,6 @@ void ti_closure_destroy(ti_closure_t * closure)
 int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
 {
     cleri_node_t * node;
-    ti_syntax_t syntax;
 
     if (closure__is_unbound(closure))
         return 0;
@@ -256,9 +255,12 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (ti_closure_try_lock(closure, e))
         return e->nr;
 
-    ti_syntax_init(&syntax, closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
-            ? TI_SYNTAX_FLAG_THINGSDB
-            : TI_SYNTAX_FLAG_COLLECTION);
+    ti_syntax_t syntax = {
+            .val_cache_n = 0,
+            .flags = closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
+                ? TI_SYNTAX_FLAG_THINGSDB
+                : TI_SYNTAX_FLAG_COLLECTION,
+    };
 
     node = closure__node_from_strn(
             &syntax,

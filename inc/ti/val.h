@@ -164,6 +164,7 @@ static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_set(ti_val_t * val);
 static inline _Bool ti_val_is_thing(ti_val_t * val);
+static inline _Bool ti_val_is_wrap(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
@@ -242,6 +243,11 @@ static inline _Bool ti_val_is_set(ti_val_t * val)
 static inline _Bool ti_val_is_thing(ti_val_t * val)
 {
     return val->tp == TI_VAL_THING;
+}
+
+static inline _Bool ti_val_is_wrap(ti_val_t * val)
+{
+    return val->tp == TI_VAL_WRAP;
 }
 
 static inline _Bool ti_val_is_array(ti_val_t * val)

@@ -135,8 +135,8 @@ int ti_event_run(ti_event_t * ev)
     qp_next(&unpacker, &thing_or_map);
 
     ti_events_keep_dropped();
-
-    while (qp_is_int(thing_or_map.tp) && qp_is_array(qp_next(&unpacker, NULL)))
+    ssize_t TEST;
+    while (qp_is_int(thing_or_map.tp) && qp_is_array((TEST = qp_next(&unpacker, NULL))))
     {
         ti_thing_t * thing;
         uint64_t thing_id = (uint64_t) thing_or_map.via.int64;
@@ -163,8 +163,9 @@ int ti_event_run(ti_event_t * ev)
         {
             /* keep the current position so we can update watchers */
             jobs = unpacker.pt;
+            qp_next(&unpacker, &thing_or_map);
 
-            while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
+            while (qp_is_map(thing_or_map.tp))
             {
                 if (ti_job_run(thing, &unpacker, ev->id))
                 {
@@ -176,6 +177,9 @@ int ti_event_run(ti_event_t * ev)
                             (const char *) ev->collection->name->data);
                     goto failed;
                 }
+
+                if (qp_is_close(qp_next(&unpacker, &thing_or_map)))
+                    qp_next(&unpacker, &thing_or_map);
             }
 
             if (ti_thing_has_watchers(thing))
@@ -207,7 +211,10 @@ int ti_event_run(ti_event_t * ev)
         }
         else
         {
-            while (qp_is_map(qp_next(&unpacker, &thing_or_map)))
+            qp_next(&unpacker, &thing_or_map);
+
+            while (qp_is_map(thing_or_map.tp))
+            {
                 if (ti_rjob_run(ev, &unpacker))
                 {
                     log_critical(
@@ -215,6 +222,10 @@ int ti_event_run(ti_event_t * ev)
                             ev->id);
                     goto failed;
                 }
+
+                if (qp_is_close(qp_next(&unpacker, &thing_or_map)))
+                    qp_next(&unpacker, &thing_or_map);
+            }
         }
 
         if (qp_is_close(thing_or_map.tp))

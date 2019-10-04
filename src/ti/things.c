@@ -13,6 +13,7 @@
 #include <ti/varr.h>
 #include <ti/vset.h>
 #include <ti/watch.h>
+#include <ti/wrap.h>
 #include <util/logger.h>
 
 static void things__gc_mark_thing(ti_thing_t * thing);
@@ -31,7 +32,13 @@ static void things__gc_mark_varr(ti_varr_t * varr)
                 things__gc_mark_thing(thing);
             continue;
         }
-
+        case TI_VAL_WRAP:
+        {
+            ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
+                things__gc_mark_thing(thing);
+            return;
+        }
         case TI_VAL_ARR:
         {
             ti_varr_t * varr = (ti_varr_t *) val;
@@ -39,7 +46,6 @@ static void things__gc_mark_varr(ti_varr_t * varr)
                 things__gc_mark_varr(varr);
             continue;
         }
-
         }
     }
 }
@@ -62,7 +68,13 @@ static void things__gc_val(ti_val_t * val)
             things__gc_mark_thing(thing);
         return;
     }
-
+    case TI_VAL_WRAP:
+    {
+        ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
+            things__gc_mark_thing(thing);
+        return;
+    }
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
@@ -70,7 +82,6 @@ static void things__gc_val(ti_val_t * val)
             things__gc_mark_varr(varr);
         return;
     }
-
     case TI_VAL_SET:
     {
         ti_vset_t * vset = (ti_vset_t *) val;

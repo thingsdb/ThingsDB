@@ -32,5 +32,5 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    return fn_new_type(query, nd->children->next->next->node, type, e);
+    return fn_new_instance(query, nd->children->next->next->node, type, e);
 }

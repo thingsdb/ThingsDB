@@ -18,23 +18,25 @@ from test_types import TestTypes
 from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_watch import TestWatch
+from test_wrap import TestWrap
 
 
 if __name__ == '__main__':
-    run_test(TestArguments())
-    run_test(TestCollectionFunctions())
-    run_test(TestGC())
-    run_test(TestIndexSlice())
-    run_test(TestMultiNode())
-    run_test(TestNested())
-    run_test(TestNodeFunctions())
-    run_test(TestNodes())
-    run_test(TestOperators())
-    run_test(TestProcedures())
-    run_test(TestScopes())
-    run_test(TestThingsDBFunctions())
-    run_test(TestType())
-    run_test(TestTypes())
-    run_test(TestUserAccess())
-    run_test(TestVariable())
-    run_test(TestWatch())
+    # run_test(TestArguments())
+    # run_test(TestCollectionFunctions())
+    # run_test(TestGC())
+    # run_test(TestIndexSlice())
+    # run_test(TestMultiNode())
+    # run_test(TestNested())
+    # run_test(TestNodeFunctions())
+    # run_test(TestNodes())
+    # run_test(TestOperators())
+    # run_test(TestProcedures())
+    # run_test(TestScopes())
+    # run_test(TestThingsDBFunctions())
+    # run_test(TestType())
+    # run_test(TestTypes())
+    # run_test(TestUserAccess())
+    # run_test(TestVariable())
+    # run_test(TestWatch())
+    run_test(TestWraw())

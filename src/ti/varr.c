@@ -2,14 +2,14 @@
  * ti/varr.c
  */
 #include <assert.h>
-#include <tiinc.h>
 #include <stdlib.h>
-#include <ti/varr.h>
-#include <ti/val.h>
-#include <ti/vset.h>
-#include <ti/opr.h>
-#include <ti/speci.h>
 #include <ti/closure.h>
+#include <ti/opr.h>
+#include <ti/spec.inline.h>
+#include <ti/val.h>
+#include <ti/varr.h>
+#include <ti/vset.h>
+#include <tiinc.h>
 #include <util/logger.h>
 
 static int varr__to_tuple(ti_varr_t ** varr)

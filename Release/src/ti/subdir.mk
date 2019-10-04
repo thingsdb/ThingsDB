@@ -28,6 +28,7 @@ C_SRCS += \
 ../src/ti/fwd.c \
 ../src/ti/index.c \
 ../src/ti/job.c \
+../src/ti/mapping.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/ncache.c \
@@ -82,6 +83,7 @@ C_SRCS += \
 ../src/ti/warn.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
+../src/ti/wrap.c \
 ../src/ti/write.c 
 
 OBJS += \
@@ -109,6 +111,7 @@ OBJS += \
 ./src/ti/fwd.o \
 ./src/ti/index.o \
 ./src/ti/job.o \
+./src/ti/mapping.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/ncache.o \
@@ -163,6 +166,7 @@ OBJS += \
 ./src/ti/warn.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
+./src/ti/wrap.o \
 ./src/ti/write.o 
 
 C_DEPS += \
@@ -190,6 +194,7 @@ C_DEPS += \
 ./src/ti/fwd.d \
 ./src/ti/index.d \
 ./src/ti/job.d \
+./src/ti/mapping.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/ncache.d \
@@ -244,6 +249,7 @@ C_DEPS += \
 ./src/ti/warn.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \
+./src/ti/wrap.d \
 ./src/ti/write.d 
 
 
@@ -251,7 +257,7 @@ C_DEPS += \
 src/ti/%.o: ../src/ti/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -msse4.2 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -msse4.2 -finline-limit=1000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

@@ -18,6 +18,11 @@
 #include <unistd.h>
 #include <util/fx.h>
 
+static int rmtype_cb(const uchar * name, size_t n, void * data, FILE * f)
+{
+    uintptr_t type_id = (uintptr_t) data;
+    return qp_fadd_raw(f, name, n) || qp_fadd_int(f, (intptr_t) type_id);
+}
 
 int ti_store_types_store(ti_types_t * types, const char * fn)
 {
@@ -25,6 +30,8 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
     int rc = -1;
     vec_t * vtypes;
     FILE * f = fopen(fn, "w");
+    char namebuf[TI_TYPE_NAME_MAX];
+
     if (!f)
     {
         log_error("cannot open file `%s` (%s)", fn, strerror(errno));
@@ -38,7 +45,10 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
         goto stop;
     }
 
-    if (qp_fadd_type(f, QP_ARRAY_OPEN))
+    if (qp_fadd_type(f, QP_ARRAY_OPEN) ||
+        qp_fadd_type(f, QP_MAP_OPEN) ||
+        smap_items(types->removed, namebuf, (smap_item_cb) rmtype_cb, f) ||
+        qp_fadd_type(f, QP_MAP_CLOSE))
         goto stop;
 
     for (vec_each(vtypes, ti_type_t, type))
@@ -85,6 +95,7 @@ stop:
 
 int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 {
+    char namebuf[TI_TYPE_NAME_MAX+1];
     int rc = -1;
     int pagesize = getpagesize();
     ex_t e = {0};
@@ -94,6 +105,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     struct stat st;
     ssize_t size;
     uint16_t type_id;
+    uintptr_t utype_id;
     uchar * data;
     ssize_t mapsz;
     qp_unpacker_t unp;
@@ -125,10 +137,31 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     qp_unpacker_init(&unp, data, size);
 
-    if (!qp_is_map(qp_next(&unp, NULL)))
+    if (!qp_is_array(qp_next(&unp, NULL)) ||
+        !qp_is_map(qp_next(&unp, NULL)))
         goto fail2;
 
-    isarr = qp_next(&unp, NULL);
+
+    isarr = qp_next(&unp, &qp_type_name);
+
+    while (qp_is_raw(isarr))
+    {
+        if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
+            qp_type_name.len > TI_TYPE_NAME_MAX)
+            goto fail2;
+
+        type_id = (uint16_t) qp_type_id.via.int64;
+        utype_id = (uintptr_t) type_id;
+
+        memcpy(namebuf, qp_type_name.via.raw, qp_type_name.len);
+        namebuf[qp_type_name.len] = '\0';
+
+        (void) smap_add(types->removed, namebuf, (void *) utype_id);
+
+        isarr = qp_next(&unp, &qp_type_name);
+        if (qp_is_close(isarr))
+            isarr = qp_next(&unp, NULL);
+    }
 
     while (qp_is_array(isarr))
     {

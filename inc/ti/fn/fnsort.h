@@ -94,7 +94,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * only reference it is just the old one */
     if (nargs == 0)
     {
-        vec_sort_r(varr->vec, (vec_sort_r_cb) ti_opr_cmp, e);
+        vec_sort_r(varr->vec, (vec_sort_r_cb) ti_opr_compare, e);
         if (e->nr)
             goto fail0;
         goto done;

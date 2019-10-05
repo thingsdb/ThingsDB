@@ -296,11 +296,12 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     return false;
 }
 
-int ti_opr_cmp(ti_val_t * a, ti_val_t * b, ex_t * e)
+/*
+ * Return `< 0` when `a < b`, `> 0` when `a > b` and 0 when equal.
+ * If two types cannot be compared, `e` will be set.
+ */
+int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-    if (e->nr)
-        return 0;
-
     switch ((ti_val_enum) a->tp)
     {
     case TI_VAL_NIL:
@@ -421,7 +422,9 @@ int ti_opr_cmp(ti_val_t * a, ti_val_t * b, ex_t * e)
         break;
     }
 
-    ex_set(e, EX_TYPE_ERROR, "`<` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(b));
+    if (!e->nr)
+        ex_set(e, EX_TYPE_ERROR, "`<` not supported between `%s` and `%s`",
+            ti_val_str(a), ti_val_str(b));
+
     return 0;
 }

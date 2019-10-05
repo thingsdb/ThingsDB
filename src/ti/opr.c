@@ -17,6 +17,7 @@
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
 
+#include <ti/wrap.h>
 #include <ti/regex.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
@@ -224,7 +225,28 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     case TI_VAL_THING:
         return a == b;
     case TI_VAL_WRAP:
-        return a == b;
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_QP:
+        case TI_VAL_NAME:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+            return false;
+        case TI_VAL_WRAP:
+            return  ((ti_wrap_t *) a)->type_id == ((ti_wrap_t *) b)->type_id &&
+                    ((ti_wrap_t *) a)->thing == ((ti_wrap_t *) b)->thing;
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+            return false;
+        }
+        break;
     case TI_VAL_ARR:
         switch ((ti_val_enum) b->tp)
         {

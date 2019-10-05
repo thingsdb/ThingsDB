@@ -1686,6 +1686,41 @@ class TestCollectionFunctions(TestBase):
             await client.query(r'set({});'),
             {'$': [{}]})
 
+    async def test_sort(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `sort`'):
+            await client.query('nil.sort();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `sort` takes at most 1 argument but 2 were given'):
+            await client.query('[2, 0, 1, 3].sort(|a, b|1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `sort` expects argument 1 to be a `closure` '
+                'but got type `nil` instead'):
+            await client.query('[2, 0, 1, 3].sort(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `sort` requires a closure '
+                'which accepts 2 arguments'):
+            await client.query('[2, 0, 1, 3].sort(||1);')
+
+        self.assertEqual(await client.query(r'''
+            [2, 0, 1, 3].sort();
+        '''), [0, 1, 2, 3])
+
+        self.assertEqual(await client.query(r'''
+            ["iris", "anne", "cato"].sort();
+        '''), ["anne", "cato", "iris"])
+
+        self.assertEqual(await client.query(r'''
+            [42, 2013, 6].sort(|a, b| a > b ? -1 : a < b ? 1 : 0);
+        '''), [2013, 42, 6])
+
     async def test_splice(self, client):
         await client.query('.li = [];')
         self.assertEqual(await client.query('.li.splice(0, 0, "a")'), [])

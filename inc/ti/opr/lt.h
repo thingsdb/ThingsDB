@@ -117,27 +117,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
-        goto type_err;
     case TI_VAL_SET:
-        switch ((ti_val_enum) (*b)->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_QP:
-        case TI_VAL_NAME:
-        case TI_VAL_RAW:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            goto type_err;
-        }
-        break;
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         goto type_err;

@@ -160,4 +160,17 @@ int vec_shrink(vec_t ** vaddr)
     return 0;
 }
 
+static void * vec__sort_arg;
+static vec_sort_r_cb vec__sort_cb;
+static inline int vec__compare_cb(const void ** a, const void ** b)
+{
+    return vec__sort_cb(*a, *b, vec__sort_arg);
+}
 
+/* careful: this function is NOT thread safe */
+void vec_sort_r(vec_t * vec, vec_sort_r_cb compare, void * arg)
+{
+    vec__sort_arg = arg;
+    vec__sort_cb = compare;
+    vec_sort(vec, vec__compare_cb);
+}

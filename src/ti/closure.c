@@ -379,14 +379,14 @@ int ti_closure_vars_nameval(
         switch (n)
         {
         case 0:
+            ti_incref(name);
             ti_val_drop(prop->val);
             prop->val = (ti_val_t *) name;
-            ti_incref(prop->val);
             break;
         case 1:
+            ti_incref(val);
             ti_val_drop(prop->val);
             prop->val = val;
-            ti_incref(prop->val);
             /*
              * Re-assign variable since we require a copy of lists and sets.
              * It is not possible to work with pointers unless we consider
@@ -414,9 +414,9 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
        switch (n)
        {
        case 0:
+           ti_incref(v);
            ti_val_drop(p->val);
            p->val = v;
-           ti_incref(p->val);
            break;
        case 1:
            ti_val_drop(p->val);

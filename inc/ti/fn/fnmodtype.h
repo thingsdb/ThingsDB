@@ -74,7 +74,10 @@ static void type__add(
 
         /* here we create the ID's for optional new things */
         if (ti_val_gen_ids(query->rval))
+        {
+            ex_set_mem(e);
             goto fail1;
+        }
     }
 
     /* query->rval might be null; when there are no instances */
@@ -88,6 +91,9 @@ static void type__add(
     {
         assert (query->rval);
 
+        /* check for variable to update, val_cache is not required since only
+         * things with an id are store in cache
+         */
         for (vec_each(query->vars, ti_thing_t, thing))
         {
             if (thing->tp == TI_VAL_THING &&
@@ -98,7 +104,10 @@ static void type__add(
                     goto fail1;
 
                 if (vec_push(&thing->items, query->rval))
+                {
+                    ex_set_mem(e);
                     goto fail1;
+                }
 
                 ti_incref(query->rval);
             }
@@ -154,6 +163,9 @@ static void type__del(
     if (!task)
         return;
 
+    /* check for variable to update, val_cache is not required since only
+     * things with an id are store in cache
+     */
     for (vec_each(query->vars, ti_thing_t, thing))
     {
         if (thing->tp == TI_VAL_THING &&

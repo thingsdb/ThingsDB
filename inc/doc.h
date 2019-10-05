@@ -114,6 +114,7 @@
 #define DOC_SET_QUOTA               DOC_SEE("#set_quota")
 #define DOC_SHUTDOWN                DOC_SEE("#shutdown")
 #define DOC_SLICES                  DOC_SEE("#slices")
+#define DOC_SORT                    DOC_SEE("#sort")
 #define DOC_SPEC                    DOC_SEE("#type-declaration")
 #define DOC_SPLICE                  DOC_SEE("#splice")
 #define DOC_STARTSWITH              DOC_SEE("#startswith")

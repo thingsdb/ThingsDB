@@ -295,3 +295,133 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     }
     return false;
 }
+
+int ti_opr_cmp(ti_val_t * a, ti_val_t * b, ex_t * e)
+{
+    if (e->nr)
+        return 0;
+
+    switch ((ti_val_enum) a->tp)
+    {
+    case TI_VAL_NIL:
+        break;
+    case TI_VAL_INT:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+            break;
+        case TI_VAL_INT:
+            return  (OPR__INT(a) > OPR__INT(b)) -
+                    (OPR__INT(a) < OPR__INT(b));
+        case TI_VAL_FLOAT:
+            return  (OPR__INT(a) > OPR__FLOAT(b)) -
+                    (OPR__INT(a) < OPR__FLOAT(b));
+        case TI_VAL_BOOL:
+            return  (OPR__INT(a) > OPR__BOOL(b)) -
+                    (OPR__INT(a) < OPR__BOOL(b));
+            break;
+        case TI_VAL_QP:
+        case TI_VAL_NAME:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+            break;
+        }
+        break;
+    case TI_VAL_FLOAT:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+            break;
+        case TI_VAL_INT:
+            return  (OPR__FLOAT(a) > OPR__INT(b)) -
+                    (OPR__FLOAT(a) < OPR__INT(b));
+        case TI_VAL_FLOAT:
+            return  (OPR__FLOAT(a) > OPR__FLOAT(b)) -
+                    (OPR__FLOAT(a) < OPR__FLOAT(b));
+        case TI_VAL_BOOL:
+            return  (OPR__FLOAT(a) > OPR__BOOL(b)) -
+                    (OPR__FLOAT(a) < OPR__BOOL(b));
+        case TI_VAL_QP:
+        case TI_VAL_NAME:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+            break;
+        }
+        break;
+    case TI_VAL_BOOL:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+            break;
+        case TI_VAL_INT:
+            return  (OPR__BOOL(a) > OPR__INT(b)) -
+                    (OPR__BOOL(a) < OPR__INT(b));
+        case TI_VAL_FLOAT:
+            return  (OPR__BOOL(a) > OPR__FLOAT(b)) -
+                    (OPR__BOOL(a) < OPR__FLOAT(b));
+        case TI_VAL_BOOL:
+            return  (OPR__BOOL(a) > OPR__BOOL(b)) -
+                    (OPR__BOOL(a) < OPR__BOOL(b));
+        case TI_VAL_QP:
+        case TI_VAL_NAME:
+        case TI_VAL_RAW:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+            break;
+        }
+        break;
+    case TI_VAL_QP:
+    case TI_VAL_NAME:
+    case TI_VAL_RAW:
+        switch ((ti_val_enum) b->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+            break;
+        case TI_VAL_QP:
+        case TI_VAL_NAME:
+        case TI_VAL_RAW:
+            return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+            break;
+        }
+        break;
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+        break;
+    }
+
+    ex_set(e, EX_TYPE_ERROR, "`<` not supported between `%s` and `%s`",
+        ti_val_str(a), ti_val_str(b));
+    return 0;
+}

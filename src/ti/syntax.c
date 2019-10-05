@@ -91,6 +91,7 @@
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsetquota.h>
 #include <ti/fn/fnshutdown.h>
+#include <ti/fn/fnsort.h>
 #include <ti/fn/fnsplice.h>
 #include <ti/fn/fnstartswith.h>
 #include <ti/fn/fnstr.h>
@@ -293,6 +294,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
             syntax__nev_fn(q, nd, "set", do__f_set);
         syntax__nev_fn(q, nd, "startswith", do__f_startswith);
         syntax__nev_fn(q, nd, "str", do__f_str);
+        syntax__nev_fn(q, nd, "sort", do__f_sort);
         syntax__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
         syntax__tev_fn(q, nd, "set_password", do__f_set_password);
         syntax__tev_fn(q, nd, "set_quota", do__f_set_quota);

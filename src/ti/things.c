@@ -188,6 +188,7 @@ ti_thing_t * ti_things_thing_t_from_unp(
     ti_type_t * type;
     uint64_t thing_id;
     uint16_t type_id;
+    qp_types_t arrsz;
     qp_obj_t qp_thing_id, qp_type_id;
 
     if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
@@ -196,7 +197,7 @@ ti_thing_t * ti_things_thing_t_from_unp(
         return NULL;
     }
 
-    if (!qp_is_array(qp_next(unp, NULL)) ||
+    if (!qp_is_array((arrsz = qp_next(unp, NULL))) ||
         !qp_is_int(qp_next(unp, &qp_thing_id)) ||
         !qp_is_int(qp_next(unp, &qp_type_id)))
     {
@@ -253,6 +254,14 @@ ti_thing_t * ti_things_thing_t_from_unp(
         }
 
         VEC_push(thing->items, val);
+    }
+
+    if (arrsz == QP_ARRAY_OPEN && !qp_is_close(qp_next(unp, NULL)))
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid type data; "
+                "array with properties is not properly closed");
+        return NULL;
     }
 
     return thing;

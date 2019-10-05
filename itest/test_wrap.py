@@ -21,7 +21,7 @@ class TestWrap(TestBase):
 
     title = 'Test wrap'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()

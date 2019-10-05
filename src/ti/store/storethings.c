@@ -230,7 +230,10 @@ int ti_store_things_restore_data(
     qp_unpacker_init(&unp, data, size);
 
     if (!qp_is_map(qp_next(&unp, NULL)))
+    {
+        log_critical("expecting a map");
         goto fail2;
+    }
 
     while (qp_is_int(qp_next(&unp, &qp_thing_id)))
     {
@@ -245,7 +248,10 @@ int ti_store_things_restore_data(
         if (ti_thing_is_object(thing))
         {
             if (!qp_is_map(qp_next(&unp, NULL)))
+            {
+                log_critical("expecting a map");
                 goto fail2;
+            }
 
             while (qp_is_int(qp_next(&unp, &qp_name_id)))
             {
@@ -266,7 +272,10 @@ int ti_store_things_restore_data(
                 }
 
                 if (!ti_thing_o_prop_add(thing, name, val))
+                {
+                    log_critical("failed to add property");
                     goto fail2;
+                }
 
                 ti_incref(name);
             }
@@ -277,7 +286,10 @@ int ti_store_things_restore_data(
             qp_types_t arrsz;
 
             if (!qp_is_array(((arrsz = qp_next(&unp, NULL)))))
+            {
+                log_critical("expecting an array");
                 goto fail2;
+            }
 
             assert (thing->items->sz == type->fields->n);
 
@@ -294,7 +306,10 @@ int ti_store_things_restore_data(
             }
 
             if (arrsz == QP_ARRAY_OPEN && !qp_is_close( qp_next(&unp, NULL)))
+            {
+                log_critical("expecting an array or close");
                 goto fail2;
+            }
         }
     }
     rc = 0;

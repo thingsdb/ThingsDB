@@ -95,6 +95,7 @@ stop:
 
 int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 {
+    const uchar * keep;
     char namebuf[TI_TYPE_NAME_MAX+1];
     int rc = -1;
     int pagesize = getpagesize();
@@ -109,7 +110,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     uchar * data;
     ssize_t mapsz;
     qp_unpacker_t unp;
-    qp_types_t isarr;
+    qp_types_t tp;
     int fd = open(fn, O_RDONLY);
     if (fd < 0)
     {
@@ -142,9 +143,9 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         goto fail2;
 
 
-    isarr = qp_next(&unp, &qp_type_name);
+    tp = qp_next(&unp, &qp_type_name);
 
-    while (qp_is_raw(isarr))
+    while (qp_is_raw(tp))
     {
         if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
             qp_type_name.len > TI_TYPE_NAME_MAX)
@@ -153,24 +154,33 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         type_id = (uint16_t) qp_type_id.via.int64;
         utype_id = (uintptr_t) type_id;
 
+        /*
+         * Update next_id if required; remove the RM_FLAG to compare the real
+         * type id.
+         */
+        type_id &= TI_TYPES_RM_MASK;
+        if (type_id >= types->next_id)
+            types->next_id = type_id + 1;
+
         memcpy(namebuf, qp_type_name.via.raw, qp_type_name.len);
         namebuf[qp_type_name.len] = '\0';
 
         (void) smap_add(types->removed, namebuf, (void *) utype_id);
 
-        isarr = qp_next(&unp, &qp_type_name);
-        if (qp_is_close(isarr))
-            isarr = qp_next(&unp, NULL);
+        tp = qp_next(&unp, &qp_type_name);
     }
 
-    while (qp_is_array(isarr))
+    if (qp_is_close(tp))
+        tp = qp_next(&unp, NULL);
+
+    keep = unp.pt - 1;  /* keep the start point at the begin of types */
+
+    while (qp_is_array(tp))
     {
         if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
             !qp_is_raw(qp_next(&unp, &qp_type_name)))
             goto fail2;
-
         qp_skip(&unp); /* skip the map */
-
 
         type_id = (uint16_t) qp_type_id.via.int64;
 
@@ -186,24 +196,23 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             goto fail2;
         }
 
-        isarr = qp_next(&unp, NULL);
-        if (qp_is_close(isarr))
-            isarr = qp_next(&unp, NULL);
+        tp = qp_next(&unp, NULL);
+        if (qp_is_close(tp))
+            tp = qp_next(&unp, NULL);
     }
 
-    qp_unpacker_init(&unp, data, size);
+    unp.pt = keep;
 
-    if (!qp_is_array(qp_next(&unp, NULL)))
-        goto fail2;
+    tp = qp_next(&unp, NULL);
 
-    isarr = qp_next(&unp, NULL);
-
-    while (qp_is_array(isarr))
+    while (qp_is_array(tp))
     {
         if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
             !qp_is_raw(qp_next(&unp, NULL)))
+        {
+            log_critical("expecting an `int` and `raw` value in data");
             goto fail2;
-
+        }
         type_id = (uint16_t) qp_type_id.via.int64;
         type = ti_types_by_id(types, type_id);
 
@@ -212,7 +221,10 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         mapsz = qp_next(&unp, NULL);
 
         if (!qp_is_map(mapsz))
+        {
+            log_critical("expecting a map");
             goto fail2;
+        }
 
         mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
 
@@ -225,7 +237,10 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             if (!qp_is_int(qp_field_name_id.tp) ||
                 !qp_is_raw(qp_next(&unp, &qp_field_spec)))
+            {
+                log_critical("expecting an `int` and `raw` value in data");
                 goto fail2;
+            }
 
             name_id = (uint64_t) qp_field_name_id.via.int64;
 
@@ -250,9 +265,9 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             ti_decref(spec);
         }
 
-        isarr = qp_next(&unp, NULL);
-        if (qp_is_close(isarr))
-            isarr = qp_next(&unp, NULL);
+        tp = qp_next(&unp, NULL);
+        if (qp_is_close(tp))
+            tp = qp_next(&unp, NULL);
     }
 
     rc = 0;

@@ -69,16 +69,16 @@ extern logger_t Logger;
         uv_mutex_unlock(&Logger.lock);              \
     } while(0)
 
-#define log_critical(fmt, ...)                      \
-    do if (Logger.level <= LOGGER_CRITICAL) {       \
-        uv_mutex_lock(&Logger.lock);                \
-        log__critical(fmt, ##__VA_ARGS__);          \
-        uv_mutex_unlock(&Logger.lock);              \
+#define log_critical(fmt, ...)                                  \
+    do if (Logger.level <= LOGGER_CRITICAL) {                   \
+        uv_mutex_lock(&Logger.lock);                            \
+        fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__);  \
+        log__critical(fmt, ##__VA_ARGS__);                      \
+        uv_mutex_unlock(&Logger.lock);                          \
     } while(0)
 
 #define LOGC(fmt, ...)                                          \
     do {                                                        \
-        fprintf(Logger.ostream, "%s:%d ", __FILE__, __LINE__);  \
         log_critical(fmt, ##__VA_ARGS__);                       \
     } while(0)
 

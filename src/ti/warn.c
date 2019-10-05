@@ -12,7 +12,19 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
     int rc;
     va_list args;
     ti_pkg_t * pkg;
-    qpx_packer_t * xpkg = qpx_packer_create(1024, 1);
+    qpx_packer_t * xpkg;
+
+    if (!ti_stream_is_client(stream))
+    {
+        /* just log the warning if the steam is not a client */
+        va_list args;
+        va_start(args, fmt);
+        log_warning(fmt, args);
+        va_end(args);
+        return 0;
+    }
+
+    xpkg = qpx_packer_create(1024, 1);
     if (!xpkg)
         return -1;
 

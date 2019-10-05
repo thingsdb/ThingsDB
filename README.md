@@ -3,30 +3,19 @@
 ## TODO / Road map
 
 - [ ] Update tests
-    - [ ] Watch
-    - [ ] Type
-- [x] Improve syntax errors
+    - [ ] More subscribe tests
+    - [ ] More Type tests
+    - [ ] More Wrap tests
+    - [ ] Complete ThingsDB functions test
 - [ ] Update documentation
-  - [ ] Type doc
-  - [ ] Slices doc
-  - [ ] Update parenthesis which are not required anymore
-  - [ ] Add procedure docs
-  - [ ] Update ternary operator
+- [ ] Documentation testing
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
-- [x] Review exceptions raised bt ThingsDB. (maybe add some additional ones?)
-- [x] Introduce a WARNING protocol which will be send to client as fire-and-forget
-      Maybe in the format `{"warn_msg": ... "warn_code": }` ?
-      Somewhere it should be possible to disable warning messages. This could be
-      done with a client protocol, or change the auth protocol? or maybe it should
-      be disabled explicitly for a query. This last option is maybe not so bad
-      because it will prevent missing warnings.
-- [x] Some sort of `Type` support for strict types?
-  - [ ] Create a `wrap` type for exporting less data
-
+- [ ] Fix warning protocol for when a warning is send from another node
+      (when in away mode, the warning must be send via the client node)
+        [ ] Maybe add a warn function ?
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?
-
 
 
 ## Get status

@@ -45,6 +45,7 @@ void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg);
 static inline _Bool ti_stream_is_closed(ti_stream_t * stream);
+static inline _Bool ti_stream_is_client(ti_stream_t * stream);
 
 union ti_stream_u
 {
@@ -81,6 +82,13 @@ struct ti_stream_req_s
 static inline _Bool ti_stream_is_closed(ti_stream_t * stream)
 {
     return !stream || (stream->flags & TI_STREAM_FLAG_CLOSED);
+}
+
+static inline _Bool ti_stream_is_client(ti_stream_t * stream)
+{
+    return stream && (
+            stream->tp == TI_STREAM_TCP_IN_CLIENT ||
+            stream->tp == TI_STREAM_PIPE_IN_CLIENT);
 }
 
 #endif /* TI_STREAM_H_ */

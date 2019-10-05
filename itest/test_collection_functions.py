@@ -1704,6 +1704,17 @@ class TestCollectionFunctions(TestBase):
             await client.query('[2, 0, 1, 3].sort(nil);')
 
         with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `raw` and `int`'):
+            await client.query('["a", 1].sort();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting a return value of type `int` but '
+                'got type `bool` instead'):
+            await client.query('["a", "b"].sort(|a, b| true);')
+
+        with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `sort` requires a closure '
                 'which accepts 2 arguments'):

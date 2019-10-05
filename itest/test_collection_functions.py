@@ -1698,6 +1698,11 @@ class TestCollectionFunctions(TestBase):
             await client.query('[2, 0, 1, 3].sort(|a, b|1, nil);')
 
         with self.assertRaisesRegex(
+                OperationError,
+                'function `sort` cannot be used recursively'):
+            await client.query('[2, 0, 1, 3].sort(|a, b| [].sort());')
+
+        with self.assertRaisesRegex(
                 TypeError,
                 'function `sort` expects argument 1 to be a `closure` '
                 'but got type `nil` instead'):

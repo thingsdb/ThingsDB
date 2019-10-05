@@ -10,9 +10,6 @@ typedef struct
 
 int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 {
-    assert (cc->closure->vars->n == 2);
-    assert (cc->query->rval == NULL);
-
     int64_t i;
     ti_prop_t * pa, *pb;
 
@@ -72,6 +69,14 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_nargs_max("sort", DOC_SORT, 1, nargs, e))
         return e->nr;
+
+    if (vec_is_sorting())
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "function `sort` cannot be used recursively"DOC_SORT,
+                ti_val_str(query->rval));
+        return e->nr;
+    }
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;

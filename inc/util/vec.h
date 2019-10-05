@@ -33,6 +33,7 @@ int vec_resize(vec_t ** vaddr, uint32_t sz);
 int vec_shrink(vec_t ** vaddr);
 static inline void vec_sort(vec_t * vec, vec_sort_cb compare);
 void vec_sort_r(vec_t * vec, vec_sort_r_cb compare, void * arg);
+_Bool vec_is_sorting(void);
 
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)

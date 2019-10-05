@@ -173,4 +173,10 @@ void vec_sort_r(vec_t * vec, vec_sort_r_cb compare, void * arg)
     vec__sort_arg = arg;
     vec__sort_cb = compare;
     vec_sort(vec, vec__compare_cb);
+    vec__sort_cb = NULL;
+}
+
+_Bool vec_is_sorting(void)
+{
+    return !!vec__sort_cb;
 }

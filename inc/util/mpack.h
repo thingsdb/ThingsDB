@@ -112,6 +112,14 @@ do { \
     up__->pt += 8; \
 } while(0)
 
+#define mp_read_obj_data(o__, up__) \
+do { \
+    o__->via.str.data = up__->pt; \
+    up__->pt += o__->via.str.n; \
+    if (up__->pt <= up__->end) \
+        return MP_ERR; \
+} while(0)
+
 static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
 {
     if (up->pt >= up->end)
@@ -133,10 +141,9 @@ static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
         o->via.sz = 0xf & token;
         return (o->tp = MP_ARR);
     case 0xa0 ... 0xbf:     /* fixed str */
-        o->via.str.data = up->pt;
         o->via.str.n = 0x1f & token;
-        up->pt += o->via.str.n;
-        return (o->tp = up->pt <= up->end ? MP_STR : MP_ERR);
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_STR);
     case 0xc0:              /* nil */
         return (o->tp = MP_NIL);
     case 0xc1:              /* never used */
@@ -164,7 +171,6 @@ static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
     }
     case 0xcd:              /* uint 16 */
     {
-        LOGC("u16");
         uint16_t u16;
         mp_read_u16(&u16, up);
         o->via.u64 = u16;
@@ -172,7 +178,6 @@ static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
     }
     case 0xce:              /* uint 32 */
     {
-        LOGC("u32");
         uint32_t u32;
         mp_read_u32(&u32, up);
         o->via.u64 = u32;
@@ -180,7 +185,6 @@ static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
     }
     case 0xcf:              /* uint 64 */
     {
-        LOGC("u64");
         uint64_t u64;
         mp_read_u64(&u64, up);
         o->via.u64 = u64;
@@ -197,14 +201,28 @@ static mp_enum_t mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xd8:              /* fixext 16 */
     case 0xd9:              /* str 8 */
     {
-        LOGC("u8str");
         uint8_t u8;
-        memcpy(&u8, up->pt, sizeof(uint8_t));
-        o->via.u64 = u8;
-        return (o->tp = MP_U64);
+        mp_read_u8(&u8, up);
+        o->via.str.n = u8;
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_STR);
     }
     case 0xda:              /* str 16 */
+    {
+        uint16_t u16;
+        mp_read_u16(&u16, up);
+        o->via.str.n = u16;
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_STR);
+    }
     case 0xdb:              /* str 32 */
+    {
+        uint32_t u32;
+        mp_read_u32(&u32, up);
+        o->via.str.n = u32;
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_STR);
+    }
     case 0xdc:              /* array 16 */
     case 0xdd:              /* array 32 */
     case 0xde:              /* map 16 */

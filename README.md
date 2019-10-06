@@ -10,9 +10,20 @@
 - [ ] Update documentation
 - [ ] Documentation testing
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
-- [ ] Fix warning protocol for when a warning is send from another node
-      (when in away mode, the warning must be send via the client node)
-        [ ] Maybe add a warn function ?
+- [ ] Accept environment variable and make config file optional
+    - When both a config file and environment variable, the latter should win
+- [ ] Syntax Highlighting
+    - [ ] Pygments (Python)
+    - [ ] Chroma  (Go, first make Pygments, it should be easy to convert to Chroma)
+    - [ ] Monoca editor
+    - [ ] VSCode (related to Monaco editor)
+    - [ ] Ace editor
+- [ ] Consider switching to MessagePack, since Qpack does not really add something
+      and MessagePack does not require to add the serialization protocol for
+      each new language. I seriously do not like the unpacker written for C, but
+      it is not that hard to write this part for ThingsDB usage.
+
+
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?

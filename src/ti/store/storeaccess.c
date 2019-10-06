@@ -9,102 +9,93 @@
 #include <ti/store/storeaccess.h>
 #include <util/qpx.h>
 #include <util/fx.h>
+#include <util/mpack.h>
 
 
 int ti_store_access_store(const vec_t * access, const char * fn)
 {
-    int rc = -1;
-    qp_packer_t * packer = qp_packer_create(1024);
-    if (!packer)
+    msgpack_packer pk;
+    FILE * f = fopen(fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    if (qp_add_map(&packer))
-        goto stop;
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (qp_add_raw_from_str(packer, "access") ||
-        qp_add_array(&packer))
-        goto stop;
+    if (
+        msgpack_pack_map(&pk, 2) ||
+        mp_pack_str(&pk, "access") ||
+        msgpack_pack_array(&pk, access->n)
+    ) goto fail;
 
     for (vec_each(access, ti_auth_t, auth))
     {
-        if (qp_add_array(&packer) ||
-            qp_add_int(packer, auth->user->id) ||
-            qp_add_int(packer, auth->mask) ||
-            qp_close_array(packer)) goto stop;
+        if (
+            msgpack_pack_array(&pk, 2) ||
+            msgpack_pack_uint64(&pk, auth->user->id) ||
+            msgpack_pack_uint16(&pk, auth->mask)
+        ) goto fail;
     }
 
-    if (qp_close_array(packer) || qp_close_map(packer))
-        goto stop;
-
-    rc = fx_write(fn, packer->buffer, packer->len);
-
-stop:
-    if (rc)
-        log_error("failed to write file: `%s`", fn);
-    else
-        log_debug("stored access to file: `%s`", fn);
-
-    qp_packer_destroy(packer);
-
-    return rc;
+    log_debug("stored access to file: `%s`", fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", fn);
+done:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+    return 0;
 }
 
 int ti_store_access_restore(vec_t ** access, const char * fn)
 {
-    int rcode, rc = -1;
+    int rc = -1;
+    size_t i, m;
     ssize_t n;
+    mp_obj_t obj, mp_user_id, mp_mask;
+    mp_unp_t up;
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
 
-    qp_unpacker_t unpacker;
-    qpx_unpacker_init(&unpacker, data, (size_t) n);
+    mp_unp_init(&up, data, (size_t) n);
 
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
-    free(data);
+    if (
+        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_STR ||
+        mp_next(&up, &obj) != MP_ARR
+    ) goto fail;
 
-    if (rcode)
-    {
-        log_critical(qp_strerror(rcode));
-        return -1;
-    }
-
-    qp_res_t * qaccess;
-
-    if (res->tp != QP_RES_MAP ||
-        !(qaccess = qpx_map_get(res->via.map, "access")) ||
-        qaccess->tp != QP_RES_ARRAY)
-        goto stop;
-
-    for (uint32_t i = 0; i < qaccess->via.array->n; i++)
+    for (i = 0, m = obj.via.sz; i < m; ++i)
     {
         ti_user_t * user;
-        qp_res_t * qauth = qaccess->via.array->values + i;
-        qp_res_t * user_id, * mask;
-        if (qauth->tp != QP_RES_ARRAY ||
-            qauth->via.array->n != 2 ||
-            !(user_id = qauth->via.array->values) ||
-            !(mask = qauth->via.array->values + 1) ||
-            user_id->tp != QP_RES_INT64 ||
-            mask->tp != QP_RES_INT64)
-            goto stop;
+        if (
+            mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(&up, &mp_user_id) != MP_U64 ||
+            mp_next(&up, &mp_mask) != MP_U64
+        ) goto fail;
 
-        user = ti_users_get_by_id((uint64_t) user_id->via.int64);
+        user = ti_users_get_by_id(mp_user_id.via.u64);
         if (!user)
         {
-            log_critical("missing user id: %"PRId64, user_id->via.int64);
-            goto stop;
+            log_critical("missing user id: %"PRIu64, mp_user_id.via.u64);
+            goto fail;
         }
 
-        if (ti_access_grant(access, user, (uint64_t) mask->via.int64))
-            goto stop;
+        if (ti_access_grant(access, user, mp_mask.via.u64))
+            goto fail;
     }
 
     rc = 0;
-
-stop:
+fail:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
-    qp_res_destroy(res);
+
+    free(data);
     return rc;
 }

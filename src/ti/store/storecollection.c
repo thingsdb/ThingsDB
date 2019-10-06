@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <ti/store/storecollection.h>
 
-static const char * collection___access_fn     = "access.qp";
+static const char * collection___access_fn     = "access.mp";
 static const char * collection___dat_fn        = "collection.dat";
 static const char * collection___procedures_fn = "procedures.qp";
 static const char * collection___props_fn      = "props.qp";

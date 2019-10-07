@@ -466,7 +466,7 @@ int ti_save(void)
     if (ti_.node->cevid > ti_.last_event_id)
         ti_.last_event_id = ti_.node->cevid;
 
-    if (ti_to_packer(&packer))
+    if (ti_to_pk(&packer))
         goto stop;
 
     rc = fx_write(ti_.fn, packer->buffer, packer->len);
@@ -606,7 +606,7 @@ ti_rpkg_t * ti_node_status_rpkg(void)
     if (!packer)
         return NULL;
 
-    (void) ti_node_info_to_packer(ti_node, &packer);
+    (void) ti_node_info_to_pk(ti_node, &packer);
 
     assert_log(packer->len < qpsize, "node status size too small");
 
@@ -692,7 +692,7 @@ fail:
     ti_rpkg_drop(node_rpkg);
 }
 
-int ti_node_to_packer(qp_packer_t ** packer)
+int ti_node_to_pk(qp_packer_t ** packer)
 {
     struct timespec timing;
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
@@ -773,9 +773,9 @@ ti_val_t * ti_node_as_qpval(void)
     if (!packer)
         return NULL;
 
-    raw = ti_node_to_packer(&packer)
+    raw = ti_node_to_pk(&packer)
             ? NULL
-            : ti_raw_from_packer(packer);
+            : ti_mp_from_packer(packer);
 
     assert_log(raw->n < qpsize, "node info size too small");
 

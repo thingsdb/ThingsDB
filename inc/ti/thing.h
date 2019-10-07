@@ -32,15 +32,10 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        ti_collection_t * collection,
-        qp_unpacker_t * unp,
-        ssize_t sz,
+        ti_val_unp_t * vup,
+        size_t sz,
         ex_t * e);
-ti_thing_t * ti_thing_new_from_unp(
-        qp_unpacker_t * unp,
-        ti_collection_t * collection,
-        ssize_t sz,
-        ex_t * e);
+ti_thing_t * ti_thing_new_from_unp(ti_val_unp_t * vup, size_t sz, ex_t * e);
 ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
@@ -62,8 +57,8 @@ int ti_thing_get_by_raw_e(
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
-int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing__to_pk(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing_t_to_pk(ti_thing_t * thing, qp_packer_t ** pckr, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 int ti_thing_o_set_val_from_strn(
         ti_wprop_t * wprop,
@@ -113,7 +108,7 @@ static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
     return thing->watchers && ti__thing_has_watchers_(thing);
 }
 
-static inline int ti_thing_id_to_packer(
+static inline int ti_thing_id_to_pk(
         ti_thing_t * thing,
         qp_packer_t ** packer)
 {

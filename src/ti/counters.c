@@ -62,7 +62,7 @@ void ti_counters_upd_commit_event(struct timespec * start)
     counters->total_event_duration += duration;
 }
 
-int ti_counters_to_packer(qp_packer_t ** packer)
+int ti_counters_to_pk(qp_packer_t ** packer)
 {
     return -(
         qp_add_map(packer) ||
@@ -105,9 +105,9 @@ ti_val_t * ti_counters_as_qpval(void)
     if (!packer)
         return NULL;
 
-    raw = ti_counters_to_packer(&packer)
+    raw = ti_counters_to_pk(&packer)
             ? NULL
-            : ti_raw_from_packer(packer);
+            : ti_mp_from_packer(packer);
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;

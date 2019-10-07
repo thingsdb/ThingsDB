@@ -38,7 +38,7 @@ void ti_vset_destroy(ti_vset_t * vset)
     free(vset);
 }
 
-int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** pckr, int options)
+int ti_vset_to_pk(ti_vset_t * vset, qp_packer_t ** pckr, int options)
 {
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
@@ -48,7 +48,7 @@ int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** pckr, int options)
         return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
-        if (ti_thing_to_packer(thing, pckr, options))
+        if (ti_thing_to_pk(thing, pckr, options))
             return -1;
 
     return qp_close_array(*pckr) || qp_close_map(*pckr);

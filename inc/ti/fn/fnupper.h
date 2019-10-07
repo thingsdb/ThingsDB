@@ -8,7 +8,7 @@ static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("upper", query, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `upper`",
@@ -20,7 +20,7 @@ static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
-    query->rval = (ti_val_t *) ti_raw_upper(raw);
+    query->rval = (ti_val_t *) ti_str_upper(raw);
     if (!query->rval)
         ex_set_mem(e);
 

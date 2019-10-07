@@ -6,17 +6,18 @@
 
 #include <ti/wrap.h>
 #include <ti/thing.inline.h>
+#include <util/mpack.h>
 
-static inline int ti_wrap_to_file(ti_wrap_t * wrap, FILE * f)
+static inline int ti_wrap_to_pk(ti_wrap_t * wrap, msgpack_packer * pk)
 {
     return (
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar *) TI_KIND_S_WRAP, 1) ||
-            qp_fadd_type(f, QP_ARRAY2) ||
-            qp_fadd_int(f, wrap->type_id) ||
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_fadd_int(f, wrap->thing->id)
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_WRAP, 1) ||
+            msgpack_pack_array(pk, 2) ||
+            msgpack_pack_uint16(pk, wrap->type_id) ||
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(pk, wrap->thing->id)
     );
 }
 
@@ -34,7 +35,7 @@ static inline const char * ti_wrap_str(ti_wrap_t * wrap)
     return type ? type->wname : "<thing>";
 }
 
-static inline int ti_wrap_to_packer(
+static inline int ti_wrap_to_pk(
         ti_wrap_t * wrap,
         qp_packer_t ** pckr,
         int options)

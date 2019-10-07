@@ -28,7 +28,7 @@ ti_closure_t * ti_closure_from_strn(
         size_t n, ex_t * e);
 void ti_closure_destroy(ti_closure_t * closure);
 int ti_closure_unbound(ti_closure_t * closure, ex_t * e);
-int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer);
+int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer);
 int ti_closure_to_file(ti_closure_t * closure, FILE * f);
 uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n);
 int ti_closure_lock_and_use(

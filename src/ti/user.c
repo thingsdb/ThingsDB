@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/auth.h>
+#include <ti/raw.inline.h>
 #include <ti/user.h>
 #include <util/cryptx.h>
 #include <util/strx.h>
@@ -100,7 +101,7 @@ ti_user_t * ti_user_create(
 
     user->id = id;
     user->ref = 1;
-    user->name = ti_raw_create((uchar *) name, name_n);
+    user->name = ti_str_create(name, name_n);
     user->encpass = encrpass ? strdup(encrpass) : NULL;
     user->tokens = vec_new(0);
 
@@ -242,7 +243,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
 
 
 
-int ti_user_info_to_packer(ti_user_t * user, qp_packer_t ** packer)
+int ti_user_info_to_pk(ti_user_t * user, qp_packer_t ** packer)
 {
     if (qp_add_map(packer) ||
         qp_add_raw_from_str(*packer, "user_id") ||
@@ -291,10 +292,10 @@ ti_val_t * ti_user_info_as_qpval(ti_user_t * user)
     if (!packer)
         return NULL;
 
-    if (ti_user_info_to_packer(user, &packer))
+    if (ti_user_info_to_pk(user, &packer))
         goto fail;
 
-    ruser = ti_raw_from_packer(packer);
+    ruser = ti_mp_from_packer(packer);
 
 fail:
     qp_packer_destroy(packer);

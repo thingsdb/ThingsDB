@@ -31,7 +31,8 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto type_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -58,7 +59,8 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto type_float;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -87,7 +89,8 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto type_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -99,18 +102,21 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         }
         break;
     case TI_VAL_MP:
+        goto type_err;
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
         switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_NIL:
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-            goto type_err;
         case TI_VAL_MP:
+            goto type_err;
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
             raw = ti_raw_cat((ti_raw_t *) a, (ti_raw_t *) *b);
             goto type_raw;
         case TI_VAL_REGEX:

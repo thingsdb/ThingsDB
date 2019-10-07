@@ -585,7 +585,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     if (!packer)
         goto alloc_err;
 
-    if (ti_val_to_packer(query->rval, &packer, query->syntax.deep))
+    if (ti_val_to_pk(query->rval, &packer, query->syntax.deep))
     {
         /* TODO: create node config help, size in config etc.
             ex_set(e, EX_TOO_LARGE,

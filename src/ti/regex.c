@@ -2,10 +2,11 @@
  * ti/regex.c
  */
 #include <assert.h>
-#include <util/logger.h>
+#include <stdlib.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/val.h>
-#include <stdlib.h>
+#include <util/logger.h>
 
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
@@ -25,7 +26,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     regex->ref = 1;
     regex->tp = TI_VAL_REGEX;
 
-    regex->pattern = ti_raw_create((uchar *) str, n);
+    regex->pattern = ti_str_create(str, n);
     if (!regex->pattern)
     {
         ex_set_mem(e);

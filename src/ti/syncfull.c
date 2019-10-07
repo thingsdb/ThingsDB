@@ -166,7 +166,7 @@ static ti_pkg_t * syncfull__pkg(
     if (!fn)
         goto failed;
 
-    more = syncpart_to_packer(packer, fn, offset);
+    more = syncpart_to_pk(packer, fn, offset);
     free(fn);
     if (more < 0)
         goto failed;

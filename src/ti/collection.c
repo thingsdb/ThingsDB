@@ -2,16 +2,17 @@
  * ti/collection.c
  */
 #include <assert.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
-#include <ti/things.h>
 #include <ti/name.h>
-#include <ti/auth.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/raw.inline.h>
 #include <ti/thing.h>
+#include <ti/things.h>
 #include <ti/procedure.h>
 #include <ti.h>
 #include <util/strx.h>
@@ -32,7 +33,7 @@ ti_collection_t * ti_collection_create(
 
     collection->ref = 1;
     collection->root = NULL;
-    collection->name = ti_raw_create((uchar *) name, n);
+    collection->name = ti_str_create(name, n);
     collection->things = imap_create();
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
@@ -142,9 +143,9 @@ ti_val_t * ti_collection_as_qpval(ti_collection_t * collection)
     if (!packer)
         return NULL;
 
-    raw = ti_collection_to_packer(collection, &packer)
+    raw = ti_collection_to_pk(collection, &packer)
             ? NULL
-            : ti_raw_from_packer(packer);
+            : ti_mp_from_packer(packer);
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;

@@ -36,7 +36,8 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -78,7 +79,8 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -114,7 +116,8 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -127,7 +130,8 @@ static int opr__idiv(ti_val_t * a, ti_val_t ** b, ex_t * e)
         break;
     case TI_VAL_MP:
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_WRAP:

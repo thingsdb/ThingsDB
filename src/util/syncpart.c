@@ -12,7 +12,7 @@
  * Returns 0 if the file is complete, 1 if more data is available and -1 on
  * error.
  */
-int syncpart_to_packer(
+int syncpart_to_pk(
         qp_packer_t * packer,
         const char * fn,
         off_t offset)

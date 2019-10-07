@@ -39,7 +39,7 @@ ti_data_t * ti_data_for_set_job(ti_name_t * name, ti_val_t * val, int options)
     if (qp_add_raw(packer, (const uchar *) name->str, name->n))
         goto fail_packer;
 
-    if (ti_val_to_packer(val, &packer, options))
+    if (ti_val_to_pk(val, &packer, options))
         goto fail_packer;
 
     if (qp_close_map(packer) || qp_close_map(packer))

@@ -45,6 +45,7 @@
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
+#include <ti/fn/fnisbytes.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
 #include <ti/fn/fnisinf.h>
@@ -54,6 +55,7 @@
 #include <ti/fn/fnisnil.h>
 #include <ti/fn/fnisraw.h>
 #include <ti/fn/fnisset.h>
+#include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisutf8.h>
@@ -219,6 +221,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "isarray", do__f_isarray);
         syntax__nev_fn(q, nd, "isascii", do__f_isascii);
         syntax__nev_fn(q, nd, "isbool", do__f_isbool);
+        syntax__nev_fn(q, nd, "isbytes", do__f_isbytes);
         syntax__nev_fn(q, nd, "iserr", do__f_iserr);
         syntax__nev_fn(q, nd, "isfloat", do__f_isfloat);
         syntax__nev_fn(q, nd, "isinf", do__f_isinf);

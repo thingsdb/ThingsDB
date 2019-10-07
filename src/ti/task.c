@@ -117,7 +117,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
 
     for (vec_each(added, ti_thing_t, thing))
         if ((!thing->id && ti_thing_gen_id(thing)) ||
-            ti_val_to_packer((ti_val_t *) thing, &packer, TI_VAL_PACK_TASK))
+            ti_val_to_pk((ti_val_t *) thing, &packer, TI_VAL_PACK_TASK))
             goto fail_packer;
 
     if (qp_close_array(packer) || qp_close_map(packer) || qp_close_map(packer))
@@ -178,7 +178,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     (void) qp_add_raw_from_str(packer, "name");
     (void) qp_add_raw(packer, (const uchar *) type->name, type->name_n);
     (void) qp_add_raw_from_str(packer, "fields");
-    (void) ti_type_fields_to_packer(type, &packer);
+    (void) ti_type_fields_to_pk(type, &packer);
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
 
@@ -491,7 +491,7 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     (void) qp_add_raw_from_str(packer, "new_procedure");
     (void) qp_add_map(&packer);
     (void) qp_add_raw(packer, procedure->name->data, procedure->name->n);
-    if (ti_closure_to_packer(procedure->closure, &packer))
+    if (ti_closure_to_pk(procedure->closure, &packer))
         goto fail_packer;
     (void) qp_close_map(packer);
     (void) qp_close_map(packer);
@@ -612,7 +612,7 @@ int ti_task_add_mod_type_add(
     if (val)
     {
         (void) qp_add_raw_from_str(packer, "init");
-        if (ti_val_to_packer(val, &packer, TI_VAL_PACK_TASK))
+        if (ti_val_to_pk(val, &packer, TI_VAL_PACK_TASK))
             goto fail_packer;
     }
 
@@ -1013,7 +1013,7 @@ int ti_task_add_splice(
             goto fail_packer;
 
         for (c = i + n; i < c; ++i)
-            if (ti_val_to_packer(
+            if (ti_val_to_pk(
                     vec_get(varr->vec, i),
                     &packer,
                     TI_VAL_PACK_TASK))

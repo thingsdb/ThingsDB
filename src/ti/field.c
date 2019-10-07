@@ -137,7 +137,7 @@ skip_nesting:
     }
     else if (field__cmp(str, n, "str") || field__cmp(str, n, "utf8"))
     {
-        *spec |= TI_SPEC_UTF8;
+        *spec |= TI_SPEC_STR;
     }
     else if (field__cmp(str, n, TI_VAL_INT_S))
     {
@@ -639,7 +639,7 @@ static int field__check_spec(
                 ? 0
                 : field__cast_err(t_field, f_field, e);
     case TI_SPEC_RAW:
-        return f_spec == TI_SPEC_UTF8
+        return f_spec == TI_SPEC_STR
                 ? 0
                 : field__cast_err(t_field, f_field, e);
     case TI_SPEC_INT:
@@ -652,7 +652,7 @@ static int field__check_spec(
                 f_spec == TI_SPEC_FLOAT)
                 ? 0
                 : field__cast_err(t_field, f_field, e);
-    case TI_SPEC_UTF8:
+    case TI_SPEC_STR:
     case TI_SPEC_UINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
@@ -711,14 +711,14 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     case TI_SPEC_OBJECT:
         return f_spec < TI_SPEC_ANY;
     case TI_SPEC_RAW:
-        return f_spec == TI_SPEC_UTF8;
+        return f_spec == TI_SPEC_STR;
     case TI_SPEC_INT:
         return f_spec == TI_SPEC_UINT;
     case TI_SPEC_NUMBER:
         return (f_spec == TI_SPEC_INT ||
                 f_spec == TI_SPEC_UINT ||
                 f_spec == TI_SPEC_FLOAT);
-    case TI_SPEC_UTF8:
+    case TI_SPEC_STR:
     case TI_SPEC_UINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:

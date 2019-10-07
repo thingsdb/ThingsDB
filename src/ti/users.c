@@ -249,13 +249,13 @@ ti_val_t * ti_users_info_as_qpval(void)
     (void) qp_add_array(&packer);
 
     for (vec_each(users->vec, ti_user_t, user))
-        if (ti_user_info_to_packer(user, &packer))
+        if (ti_user_info_to_pk(user, &packer))
             goto fail;
 
     if (qp_close_array(packer))
         goto fail;
 
-    rusers = ti_raw_from_packer(packer);
+    rusers = ti_mp_from_packer(packer);
 
 fail:
     qp_packer_destroy(packer);

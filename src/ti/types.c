@@ -108,7 +108,7 @@ static int types__pack_sz(ti_type_t * type, qp_packer_t ** packer)
 {
     return (
          qp_add_raw(*packer, (const uchar *) type->name, type->name_n) ||
-         ti_type_fields_to_packer(type, packer)
+         ti_type_fields_to_pk(type, packer)
      );
 }
 
@@ -129,7 +129,7 @@ ti_val_t * ti_types_info_as_qpval(ti_types_t * types)
         qp_close_map(packer))
         goto fail;
 
-    rtypes = ti_raw_from_packer(packer);
+    rtypes = ti_mp_from_packer(packer);
 
 fail:
     qp_packer_destroy(packer);

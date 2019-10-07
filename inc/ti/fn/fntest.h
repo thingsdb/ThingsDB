@@ -9,7 +9,7 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("test", query, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `test`"DOC_TEST,

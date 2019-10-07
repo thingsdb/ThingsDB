@@ -99,7 +99,7 @@ int ncache__gen_immutable(
         break;
     case CLERI_GID_T_STRING:
         assert (!nd->data);
-        nd->data = ti_raw_from_ti_string(nd->str, nd->len);
+        nd->data = ti_str_from_ti_string(nd->str, nd->len);
         break;
 
     default:

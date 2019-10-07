@@ -281,7 +281,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
+int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer)
 {
     uchar * buf;
     size_t n = 0;
@@ -555,7 +555,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     {
         /* return comment as doc */
         node = node->children->next->node->children->node;
-        doc = ti_raw_from_strn(node->str, node->len);
+        doc = ti_str_from_strn(node->str, node->len);
         goto done;
     }
 

@@ -11,6 +11,7 @@
 #include <ti.h>
 #include <ti/field.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
 #include <ti/type.h>
@@ -211,7 +212,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             if (!name)
                 goto fail2;
 
-            spec = ti_raw_create(mp_spec.via.bin.data, mp_spec.via.str.n);
+            spec = ti_str_create(mp_spec.via.bin.data, mp_spec.via.str.n);
             if (!spec)
                 goto fail2;
 

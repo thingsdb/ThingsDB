@@ -13,11 +13,11 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_SET_PASSWORD,
+            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_SET_PASSWORD,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -33,7 +33,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next->node, e))
         goto done;
 
-    if (ti_val_is_raw(query->rval))
+    if (ti_val_is_str(query->rval))
     {
         passstr = ti_raw_to_str((ti_raw_t *) query->rval);
         if (!passstr)
@@ -49,7 +49,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `set_password` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` or `"TI_VAL_NIL_S"` but got "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"` but got "
             "type `%s` instead"DOC_SET_PASSWORD,
             ti_val_str(query->rval));
         goto done;

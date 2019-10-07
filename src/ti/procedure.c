@@ -2,17 +2,18 @@
  * ti/procedure.c
  */
 #include <assert.h>
+#include <ctype.h>
 #include <langdef/langdef.h>
-#include <ti/procedure.h>
+#include <stdlib.h>
+#include <ti/do.h>
 #include <ti/name.h>
 #include <ti/names.h>
-#include <ti/do.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
+#include <ti/procedure.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <tiinc.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <util/logger.h>
 
 #define PROCEDURE__DEEP_UNSET 255
@@ -63,7 +64,7 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
         uchar * def;
         size_t n = 0;
         def = ti_closure_uchar(procedure->closure, &n);
-        if (!def || !(procedure->def = ti_raw_create(def, n)))
+        if (!def || !(procedure->def = ti_str_create(def, n)))
             procedure->def = (ti_raw_t *) ti_val_empty_str();
         free(def);
     }
@@ -71,7 +72,7 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
 }
 
 
-int ti_procedure_info_to_packer(
+int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,
         qp_packer_t ** packer)
 {
@@ -105,10 +106,10 @@ ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure)
     if (!packer)
         return NULL;
 
-    if (ti_procedure_info_to_packer(procedure, &packer))
+    if (ti_procedure_info_to_pk(procedure, &packer))
         goto fail;
 
-    rprocedure = ti_raw_from_packer(packer);
+    rprocedure = ti_mp_from_packer(packer);
 
 fail:
     qp_packer_destroy(packer);

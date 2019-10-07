@@ -12,6 +12,7 @@
 #include <ti.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
+#include <ti/raw.inline.h>
 #include <ti/store/storeprocedures.h>
 #include <unistd.h>
 #include <util/fx.h>
@@ -29,7 +30,7 @@ int ti_store_procedures_store(const vec_t * procedures, const char * fn)
 
     for (vec_each(procedures, ti_procedure_t, procedure))
         if (qp_add_raw(packer, procedure->name->data, procedure->name->n) ||
-            ti_closure_to_packer(procedure->closure, &packer))
+            ti_closure_to_pk(procedure->closure, &packer))
             goto stop;
 
     if (qp_close_map(packer))
@@ -94,7 +95,7 @@ int ti_store_procedures_restore(
 
     while (qp_is_raw(qp_next(&unp, &qp_name)))
     {
-        rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+        rname = ti_str_create(qp_name.via.raw, qp_name.len);
         closure = (ti_closure_t *) ti_val_from_unp(&unp, collection);
         procedure = NULL;
 

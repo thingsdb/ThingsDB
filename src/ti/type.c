@@ -3,18 +3,19 @@
  * ti/type.c
  */
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <assert.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <doc.h>
 #include <stdbool.h>
-#include <ti/type.h>
-#include <ti/names.h>
-#include <ti/prop.h>
-#include <ti/thing.inline.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <ti/field.h>
 #include <ti/mapping.h>
+#include <ti/names.h>
+#include <ti/prop.h>
+#include <ti/raw.inline.h>
+#include <ti/thing.inline.h>
+#include <ti/type.h>
 
 static char * type__wrap_name(const char * name, size_t n)
 {
@@ -152,10 +153,10 @@ static inline int type__field(
         ti_val_t * val,
         ex_t * e)
 {
-    if (!ti_val_is_raw(val))
+    if (!ti_val_is_str(val))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "expecting a type definition to be type `"TI_VAL_RAW_S"` "
+                "expecting a type definition to be type `"TI_VAL_STR_S"` "
                 "but got type `%s` instead"DOC_SPEC,
                 ti_val_str(val));
         return e->nr;
@@ -246,7 +247,7 @@ int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
         }
 
         name = ti_names_get(field_name, field_n);
-        spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
+        spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
 
         if (!name || !spec_raw ||
             !ti_field_create(name, spec_raw, type, e))
@@ -269,7 +270,7 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_type_fields_to_packer(ti_type_t * type, qp_packer_t ** packer)
+int ti_type_fields_to_pk(ti_type_t * type, qp_packer_t ** packer)
 {
     if (qp_add_map(packer))
         return -1;
@@ -295,9 +296,9 @@ ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
     if (!packer)
         return NULL;
 
-    (void) ti_type_fields_to_packer(type, &packer);
+    (void) ti_type_fields_to_pk(type, &packer);
 
-    rtype = ti_raw_from_packer(packer);
+    rtype = ti_mp_from_packer(packer);
 
     qp_packer_destroy(packer);
     return (ti_val_t * ) rtype;

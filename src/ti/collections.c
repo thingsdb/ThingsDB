@@ -220,7 +220,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     switch (val->tp)
     {
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
         collection = ti_collections_get_by_strn(
                 (const char *) ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
@@ -246,20 +246,20 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
         break;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "expecting type `"TI_VAL_RAW_S"` "
+                "expecting type `"TI_VAL_STR_S"` "
                 "or `"TI_VAL_INT_S"` as collection but got type `%s` instead",
                 ti_val_str(val));
     }
     return collection;
 }
 
-static int collections__to_packer(qp_packer_t ** packer)
+static int collections__to_pk(qp_packer_t ** packer)
 {
     if (qp_add_array(packer))
         return -1;
 
     for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_collection_to_packer(collection, packer))
+        if (ti_collection_to_pk(collection, packer))
             return -1;
 
     return qp_close_array(*packer);
@@ -272,9 +272,9 @@ ti_val_t * ti_collections_as_qpval(void)
     if (!packer)
         return NULL;
 
-    raw = collections__to_packer(&packer)
+    raw = collections__to_pk(&packer)
             ? NULL
-            : ti_raw_from_packer(packer);
+            : ti_mp_from_packer(packer);
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;

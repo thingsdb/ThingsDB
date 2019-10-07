@@ -655,7 +655,7 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_STRING:
         if (!node->data)
         {
-            node->data = ti_raw_from_ti_string(node->str, node->len);
+            node->data = ti_str_from_ti_string(node->str, node->len);
             if (!node->data)
             {
                 ex_set_mem(e);

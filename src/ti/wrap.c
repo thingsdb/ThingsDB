@@ -96,13 +96,15 @@ static int wrap__field_val(
                 ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+        /* TODO: correct */
         return qp_add_raw(
                 *pckr,
                 ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
     case TI_VAL_REGEX:
-        return ti_regex_to_packer((ti_regex_t *) val, pckr);
+        return ti_regex_to_pk((ti_regex_t *) val, pckr);
     case TI_VAL_THING:
         return ti__wrap_field_thing(
                 *spec,
@@ -137,9 +139,9 @@ static int wrap__field_val(
                 (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_VAL_SET,
                 options);
     case TI_VAL_CLOSURE:
-        return ti_closure_to_packer((ti_closure_t *) val, pckr);
+        return ti_closure_to_pk((ti_closure_t *) val, pckr);
     case TI_VAL_ERROR:
-        return ti_verror_to_packer((ti_verror_t *) val, pckr);
+        return ti_verror_to_pk((ti_verror_t *) val, pckr);
     }
 
     assert(0);
@@ -147,7 +149,7 @@ static int wrap__field_val(
 }
 
 /*
- * Do not use directly, use ti_wrap_to_packer() instead
+ * Do not use directly, use ti_wrap_to_pk() instead
  */
 int ti__wrap_field_thing(
         uint16_t spec,
@@ -164,7 +166,7 @@ int ti__wrap_field_thing(
     if (    spec == TI_SPEC_ANY ||
             spec == TI_SPEC_OBJECT ||
             !(t_type = ti_types_by_id(thing->collection->types, spec)))
-        return ti_thing_to_packer(thing, pckr, options);
+        return ti_thing_to_pk(thing, pckr, options);
 
     if (qp_add_map(pckr))
         return -1;

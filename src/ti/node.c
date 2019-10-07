@@ -173,7 +173,7 @@ fail0:
     return e->nr;
 }
 
-int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
+int ti_node_info_to_pk(ti_node_t * node, qp_packer_t ** packer)
 {
     return (
         qp_add_array(packer) ||
@@ -361,7 +361,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     (void) qp_add_int(packer, ti_node->id);
     (void) qp_add_raw_from_str(packer, TI_VERSION);
     (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
-    (void) ti_node_info_to_packer(ti_node, &packer);
+    (void) ti_node_info_to_pk(ti_node, &packer);
     (void) qp_close_array(packer);
 
     pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_CONNECT);

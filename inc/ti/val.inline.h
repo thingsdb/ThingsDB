@@ -4,13 +4,14 @@
 #ifndef TI_VAL_INLINE_H_
 #define TI_VAL_INLINE_H_
 
+#include <ex.h>
+#include <ti/closure.h>
+#include <ti/collection.h>
+#include <ti/name.h>
 #include <ti/thing.h>
 #include <ti/val.h>
-#include <ti/name.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
-#include <ti/closure.h>
-#include <ex.h>
 
 static inline _Bool ti_val_is_object(ti_val_t * val)
 {
@@ -41,7 +42,8 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_BOOL:
     case TI_VAL_MP:
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
@@ -61,6 +63,5 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     assert(0);
     return -1;
 }
-
 
 #endif  /* TI_VAL_INLINE_H_ */

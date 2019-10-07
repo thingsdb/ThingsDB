@@ -28,7 +28,7 @@ ti_procedure_t * ti_procedure_from_strn(
         size_t n,
         ti_syntax_t * syntax,
         ex_t * e);
-int ti_procedure_info_to_packer(
+int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,
         qp_packer_t ** packer);
 ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure);

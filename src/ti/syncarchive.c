@@ -151,7 +151,7 @@ static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
     (void) qp_add_int(packer, archfile->last);
     (void) qp_add_int(packer, offset);              /* offset in file */
 
-    more = syncpart_to_packer(packer, archfile->fn, offset);
+    more = syncpart_to_pk(packer, archfile->fn, offset);
     if (more < 0)
         goto failed;
 

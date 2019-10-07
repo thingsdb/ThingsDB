@@ -8,6 +8,7 @@
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
+#include <ti/raw.inline.h>
 #include <ti/syntax.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
@@ -302,7 +303,7 @@ static int job__mod_type_add(
     }
 
     name = ti_names_get((const char *) qp_name.via.raw, qp_name.len);
-    spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
+    spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
     if (!name || !spec_raw)
     {
         log_critical(EX_MEMORY_S);
@@ -460,7 +461,7 @@ static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
         return rc;
     }
 
-    spec_raw = ti_raw_create(qp_spec.via.raw, qp_spec.len);
+    spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
     if (!spec_raw)
     {
         log_critical(EX_MEMORY_S);
@@ -591,7 +592,7 @@ static int job__new_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(qp_name.via.raw, qp_name.len);
     closure = (ti_closure_t *) ti_val_from_unp(unp, collection);
     procedure = NULL;
 

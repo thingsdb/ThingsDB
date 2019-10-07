@@ -9,7 +9,7 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("startswith", query, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `startswith`"DOC_STARTSWITH,
@@ -26,11 +26,11 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         goto failed;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `startswith` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+                "type `"TI_VAL_STR_S"` but got type `%s` instead"
                 DOC_STARTSWITH, ti_val_str(query->rval));
         goto failed;
     }

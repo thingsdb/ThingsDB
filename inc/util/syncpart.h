@@ -11,7 +11,7 @@
 #define SYNCPART_SIZE 131072UL
 #endif
 
-int syncpart_to_packer(
+int syncpart_to_pk(
         qp_packer_t * packer,
         const char * fn,
         off_t offset);

@@ -122,14 +122,13 @@ ti_thing_t * ti_things_create_thing_t(
 
 /* Returns a thing with a new reference or NULL in case of an error */
 ti_thing_t * ti_things_thing_o_from_unp(
-        ti_collection_t * collection,
+        ti_val_unp_t * vup,
         uint64_t thing_id,
-        qp_unpacker_t * unp,
-        ssize_t sz,
+        size_t sz,
         ex_t * e)
 {
     ti_thing_t * thing;
-    thing = imap_get(collection->things, thing_id);
+    thing = imap_get(vup->collection->things, thing_id);
     if (thing)
     {
         if (sz != 1)
@@ -145,7 +144,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
         return thing;
     }
 
-    if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    if (vup->isclient)
     {
         /*
          * If not unpacking from an event, then new things should be created
@@ -159,7 +158,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
         return NULL;
     }
 
-    thing = ti_things_create_thing_o(thing_id, collection);
+    thing = ti_things_create_thing_o(thing_id, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -170,7 +169,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
         ti()->node->next_thing_id = thing_id + 1;
 
     --sz;  /* decrease one to unpack the remaining properties */
-    if (ti_thing_props_from_unp(thing, collection, unp, sz, e))
+    if (ti_thing_props_from_unp(thing, vup, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;
@@ -179,27 +178,21 @@ ti_thing_t * ti_things_thing_o_from_unp(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_t_from_unp(
-        ti_collection_t * collection,
-        qp_unpacker_t * unp,
-        ex_t * e)
+ti_thing_t * ti_things_thing_t_from_unp(ti_val_unp_t * vup, ex_t * e)
 {
     ti_thing_t * thing;
     ti_type_t * type;
-    uint64_t thing_id;
-    uint16_t type_id;
-    qp_types_t arrsz;
-    qp_obj_t qp_thing_id, qp_type_id;
+    mp_obj_t obj, mp_thing_id, mp_type_id;
 
-    if (unp->flags & TI_VAL_UNP_FROM_CLIENT)
+    if (vup->isclient)
     {
         ex_set(e, EX_BAD_DATA, "cannot unpack a type from a client request");
         return NULL;
     }
 
-    if (!qp_is_array((arrsz = qp_next(unp, NULL))) ||
-        !qp_is_int(qp_next(unp, &qp_thing_id)) ||
-        !qp_is_int(qp_next(unp, &qp_type_id)))
+    if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz < 2 ||
+        mp_next(vup->up, &mp_thing_id) != MP_U64 ||
+        mp_next(vup->up, &mp_type_id) != MP_U64)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "
@@ -207,45 +200,46 @@ ti_thing_t * ti_things_thing_t_from_unp(
         return NULL;
     }
 
-    if (qp_type_id.via.int64 < 0 || qp_type_id.via.int64 >= TI_SPEC_ANY)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "invalid type data; incorrect type id %"PRId64,
-                qp_type_id.via.int64);
-        return NULL;
-    }
-
-    type_id = (uint16_t) qp_type_id.via.int64;
-    thing_id = (uint64_t) qp_thing_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
-
+    type = ti_types_by_id(vup->collection->types, mp_type_id.via.u64);
     if (!type)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "invalid type data; type id %u not found", type_id);
+                "invalid type data; type id %"PRIu64" not found",
+                mp_type_id.via.u64);
         return NULL;
     }
 
-    thing = ti_things_create_thing_t(thing_id, type, collection);
+    if (!obj.via.sz - 2 != type->fields->n)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid type data; "
+                "expecting %"PRIu32" values for type `%s` but got only %u",
+                type->fields->n, type->name, obj.via.sz - 2);
+        return NULL;
+    }
+
+    thing = ti_things_create_thing_t(
+            mp_thing_id.via.u64,
+            type,
+            vup->collection);
     if (!thing)
     {
-        if (ti_collection_thing_by_id(collection, thing_id))
+        if (ti_collection_thing_by_id(vup->collection, mp_thing_id.via.u64))
             ex_set(e, EX_LOOKUP_ERROR,
                     "error while loading type `%s`; "
                     "thing "TI_THING_ID" already exists",
-                    type->name, thing_id);
+                    type->name, mp_thing_id.via.u64);
         else
             ex_set_mem(e);
         return NULL;
     }
 
-    if (thing_id >= ti()->node->next_thing_id)
-        ti()->node->next_thing_id = thing_id + 1;
+    if (mp_thing_id.via.u64 >= ti()->node->next_thing_id)
+        ti()->node->next_thing_id = mp_thing_id.via.u64 + 1;
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = ti_val_from_unp_e(unp, collection, e);
+        ti_val_t * val = ti_val_from_unp_e(vup, e);
         if (!val)
         {
             ex_append(e, "; error while loading type `%s`", type->name);
@@ -254,14 +248,6 @@ ti_thing_t * ti_things_thing_t_from_unp(
         }
 
         VEC_push(thing->items, val);
-    }
-
-    if (arrsz == QP_ARRAY_OPEN && !qp_is_close(qp_next(unp, NULL)))
-    {
-        ex_set(e, EX_BAD_DATA,
-                "invalid type data; "
-                "array with properties is not properly closed");
-        return NULL;
     }
 
     return thing;

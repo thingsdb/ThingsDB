@@ -68,13 +68,13 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
-int ti_node_to_packer(qp_packer_t ** packer);
+int ti_node_to_pk(qp_packer_t ** packer);
 ti_val_t * ti_node_as_qpval(void);
 static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline const char * ti_name(void);
-static inline int ti_to_packer(qp_packer_t ** packer);
+static inline int ti_to_pk(qp_packer_t ** packer);
 
 struct ti_s
 {
@@ -136,7 +136,7 @@ static inline const char * ti_name(void)
     return ti_.hostname;
 }
 
-static inline int ti_to_packer(qp_packer_t ** packer)
+static inline int ti_to_pk(qp_packer_t ** packer)
 {
     return -(
         qp_add_map(packer) ||
@@ -147,7 +147,7 @@ static inline int ti_to_packer(qp_packer_t ** packer)
         qp_add_raw_from_str(*packer, "next_node_id") ||
         qp_add_int(*packer, ti_.nodes->next_id) ||
         qp_add_raw_from_str(*packer, "nodes") ||
-        ti_nodes_to_packer(packer) ||
+        ti_nodes_to_pk(packer) ||
         qp_close_map(*packer)
     );
 }

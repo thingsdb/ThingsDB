@@ -6,6 +6,7 @@
 #include <ti/access.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
+#include <ti/raw.inline.h>
 #include <ti/rjob.h>
 #include <ti/syntax.h>
 #include <ti/users.h>
@@ -358,7 +359,7 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
     }
 
 
-    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(qp_name.via.raw, qp_name.len);
     closure = (ti_closure_t *) ti_val_from_unp(unp, NULL);
     procedure = NULL;
 
@@ -546,7 +547,7 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
         return -1;
     }
 
-    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
         ex_set_mem(&e);
@@ -592,7 +593,7 @@ static int rjob__rename_user(qp_unpacker_t * unp)
         return -1;
     }
 
-    rname = ti_raw_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(qp_name.via.raw, qp_name.len);
     if (!rname)
     {
         ex_set_mem(&e);

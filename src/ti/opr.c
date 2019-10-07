@@ -115,7 +115,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return OPR__INT(a) == OPR__FLOAT(b);
         case TI_VAL_BOOL:
             return OPR__INT(a) == OPR__BOOL(b);
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -139,7 +139,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return OPR__FLOAT(a) == OPR__FLOAT(b);
         case TI_VAL_BOOL:
             return OPR__FLOAT(a) == OPR__BOOL(b);
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -163,7 +163,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return OPR__BOOL(a) == OPR__FLOAT(b);
         case TI_VAL_BOOL:
             return OPR__BOOL(a) == OPR__BOOL(b);
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -176,7 +176,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             return false;
         }
         break;
-    case TI_VAL_QP:
+    case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
@@ -186,7 +186,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
             return false;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
             return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
@@ -207,7 +207,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
             return false;
@@ -231,7 +231,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -254,7 +254,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -276,7 +276,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -300,7 +300,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -343,7 +343,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
             return  (OPR__INT(a) > OPR__BOOL(b)) -
                     (OPR__INT(a) < OPR__BOOL(b));
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -370,7 +370,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_BOOL:
             return  (OPR__FLOAT(a) > OPR__BOOL(b)) -
                     (OPR__FLOAT(a) < OPR__BOOL(b));
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -397,7 +397,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_BOOL:
             return  (OPR__BOOL(a) > OPR__BOOL(b)) -
                     (OPR__BOOL(a) < OPR__BOOL(b));
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -410,7 +410,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
             break;
         }
         break;
-    case TI_VAL_QP:
+    case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_RAW:
         switch ((ti_val_enum) b->tp)
@@ -420,7 +420,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
             return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);

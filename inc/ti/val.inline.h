@@ -39,7 +39,7 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
-    case TI_VAL_QP:
+    case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:

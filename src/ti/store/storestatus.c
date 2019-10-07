@@ -1,76 +1,73 @@
 /*
  * ti/store/status.c
  */
-#include <ti/store/storestatus.h>
 #include <ti.h>
-#include <util/qpx.h>
+#include <ti/store/storestatus.h>
 #include <util/fx.h>
+#include <util/mpack.h>
 
 int ti_store_status_store(const char * fn)
 {
-    int rc = -1;
-    qp_packer_t * packer = qp_packer_create(64);
-    if (!packer)
+    msgpack_packer pk;
+    FILE * f = fopen(fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    if (qp_add_map(&packer) ||
-        qp_add_raw_from_str(packer, "cevid") ||
-        qp_add_int(packer, ti()->node->cevid) ||
-        qp_add_raw_from_str(packer, "next_thing_id") ||
-        qp_add_int(packer, ti()->node->next_thing_id) ||
-        qp_close_map(packer)
-    )
-        goto stop;
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    rc = fx_write(fn, packer->buffer, packer->len);
+    if (
+        msgpack_pack_map(&pk, 2) ||
+        mp_pack_str(&pk, "cevid") ||
+        msgpack_pack_uint64(&pk, ti()->node->cevid) ||
+        mp_pack_str(&pk, "next_thing_id") ||
+        msgpack_pack_uint64(&pk, ti()->node->next_thing_id)
+    ) goto fail;
 
-stop:
-    if (rc)
-        log_error("failed to write file: `%s`", fn);
-
-    qp_packer_destroy(packer);
-    return rc;
+    log_debug("stored status to file: `%s`", fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", fn);
+done:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+    return 0;
 }
 
 int ti_store_status_restore(const char * fn)
 {
-    int rcode, rc = -1;
+    int rc = -1;
     ssize_t n;
+    mp_obj_t obj, mp_cevid, mp_next_thing_id;
+    mp_unp_t up;
     uchar * data = fx_read(fn, &n);
     if (!data)
-    {
-        log_critical("failed to restore status from file: `%s`", fn);
         return -1;
-    }
 
-    qp_unpacker_t unpacker;
-    qpx_unpacker_init(&unpacker, data, (size_t) n);
-    qp_res_t * res = qp_unpacker_res(&unpacker, &rcode);
-    free(data);
+    mp_unp_init(&up, data, (size_t) n);
 
-    if (rcode)
-    {
-        log_critical(qp_strerror(rcode));
-        return -1;
-    }
+    if (
+        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_STR ||
+        mp_next(&up, &mp_cevid) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||
+        mp_next(&up, &mp_next_thing_id) != MP_U64
+    ) goto fail;
 
-    qp_res_t * qpcevid, * qpnext_thing_id;
+    ti()->node->sevid = ti()->node->cevid = mp_cevid.via.u64;
+    ti()->events->next_event_id = mp_cevid.via.u64 + 1;
+    ti()->node->next_thing_id = mp_next_thing_id.via.u64;
 
-    if (res->tp != QP_RES_MAP ||
-        !(qpcevid = qpx_map_get(res->via.map, "cevid")) ||
-        !(qpnext_thing_id = qpx_map_get(res->via.map, "next_thing_id")) ||
-        qpcevid->tp != QP_RES_INT64 ||
-        qpnext_thing_id->tp != QP_RES_INT64)
-        goto stop;
-
-    ti()->node->sevid = ti()->node->cevid = (uint64_t) qpcevid->via.int64;
-    ti()->events->next_event_id = (ti()->node->cevid) + 1;
-    ti()->node->next_thing_id = (uint64_t) qpnext_thing_id->via.int64;
     rc = 0;
-
-stop:
+fail:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
-    qp_res_destroy(res);
+
+    free(data);
     return rc;
 }

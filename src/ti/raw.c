@@ -32,7 +32,7 @@ ti_raw_t * ti_raw_from_packer(qp_packer_t * packer)
     if (!r)
         return NULL;
     r->ref = 1;
-    r->tp = TI_VAL_QP;
+    r->tp = TI_VAL_MP;
     r->n = packer->len;
     memcpy(r->data, packer->buffer, packer->len);
     return r;

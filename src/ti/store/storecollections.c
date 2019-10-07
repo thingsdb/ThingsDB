@@ -1,15 +1,14 @@
 /*
  * ti/store/collections.c
  */
-#include <util/qpx.h>
-#include <ti/collection.h>
-#include <ti.h>
-#include <util/fx.h>
-#include <util/vec.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti.h>
+#include <ti/collection.h>
 #include <ti/store/storecollections.h>
+#include <util/fx.h>
 #include <util/mpack.h>
+#include <util/vec.h>
 
 int ti_store_collections_store(const char * fn)
 {
@@ -25,7 +24,7 @@ int ti_store_collections_store(const char * fn)
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_map(&pk, 2) ||
+        msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "collections") ||
         msgpack_pack_array(&pk, vec->n)
     ) goto fail;
@@ -77,35 +76,24 @@ int ti_store_collections_restore(const char * fn)
     mp_unp_init(&up, data, (size_t) n);
 
     if (
-        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(&up) != MP_STR ||
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
-    LOGC("here");
-
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
-        LOGC("read collection");
         if (
             mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
-            mp_next(&up, &mp_guid) != MP_STR
-        ) goto fail;
-        LOGC("1");
-        if (
+            mp_next(&up, &mp_guid) != MP_STR ||
             mp_guid.via.str.n != sizeof(guid_t) ||
-            mp_next(&up, &mp_name) != MP_STR
-        ) goto fail;
-        LOGC("2");
-        if (
+            mp_next(&up, &mp_name) != MP_STR ||
             mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
             mp_next(&up, &mp_qthings) != MP_U64 ||
             mp_next(&up, &mp_qprops) != MP_U64 ||
             mp_next(&up, &mp_qarr) != MP_U64 ||
             mp_next(&up, &mp_qraw) != MP_U64
         ) goto fail;
-
-        LOGC("data ok");
 
         /* copy and check guid, must be null terminated */
         memcpy(guid.guid, mp_guid.via.str.data, sizeof(guid_t));

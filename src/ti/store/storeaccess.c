@@ -2,15 +2,12 @@
  * ti/store/access.c
  */
 #include <ti.h>
-#include <qpack.h>
 #include <ti/access.h>
-#include <ti/users.h>
 #include <ti/auth.h>
 #include <ti/store/storeaccess.h>
-#include <util/qpx.h>
+#include <ti/users.h>
 #include <util/fx.h>
 #include <util/mpack.h>
-
 
 int ti_store_access_store(const vec_t * access, const char * fn)
 {
@@ -24,16 +21,14 @@ int ti_store_access_store(const vec_t * access, const char * fn)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (
-        msgpack_pack_map(&pk, 2) ||
+    if (msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "access") ||
         msgpack_pack_array(&pk, access->n)
     ) goto fail;
 
     for (vec_each(access, ti_auth_t, auth))
     {
-        if (
-            msgpack_pack_array(&pk, 2) ||
+        if (msgpack_pack_array(&pk, 2) ||
             msgpack_pack_uint64(&pk, auth->user->id) ||
             msgpack_pack_uint16(&pk, auth->mask)
         ) goto fail;
@@ -59,23 +54,21 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
     ssize_t n;
     mp_obj_t obj, mp_user_id, mp_mask;
     mp_unp_t up;
+    ti_user_t * user;
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
 
     mp_unp_init(&up, data, (size_t) n);
 
-    if (
-        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(&up) != MP_STR ||
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
-        ti_user_t * user;
-        if (
-            mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(&up, &mp_user_id) != MP_U64 ||
             mp_next(&up, &mp_mask) != MP_U64
         ) goto fail;

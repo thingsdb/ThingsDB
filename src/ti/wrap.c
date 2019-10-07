@@ -90,7 +90,7 @@ static int wrap__field_val(
         return qp_add_double(*pckr, ((ti_vfloat_t *) val)->float_);
     case TI_VAL_BOOL:
         return qp_add_bool(*pckr, ((ti_vbool_t *) val)->bool_);
-    case TI_VAL_QP:
+    case TI_VAL_MP:
         return qp_add_qp(
                 *pckr,
                 ((ti_raw_t *) val)->data,

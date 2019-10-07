@@ -28,7 +28,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
                 goto zerodiv;
             float_ = (double) OPR__INT(a) / (double) OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -61,7 +61,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
                 goto zerodiv;
             float_ = OPR__FLOAT(a) / (double) OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -94,7 +94,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
                 goto zerodiv;
             float_ = (double) OPR__BOOL(a) / (double) OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_RAW:
         case TI_VAL_REGEX:
@@ -107,7 +107,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto type_err;
         }
         break;
-    case TI_VAL_QP:
+    case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_RAW:
     case TI_VAL_REGEX:

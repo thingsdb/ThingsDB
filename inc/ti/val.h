@@ -12,8 +12,10 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_QP,          /* QPack data */
-    TI_VAL_NAME,        /* RAW, stored in name cache */
+    TI_VAL_MP,          /* MPack data */
+    TI_VAL_NAME,
+//    TI_VAL_STR,
+//    TI_VAL_BIN,         /* both  */
     TI_VAL_RAW,
     TI_VAL_REGEX,
     TI_VAL_THING,

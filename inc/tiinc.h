@@ -61,6 +61,8 @@ typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
 #define ti_decref(x) (--(x)->ref)  /* use only when x->ref > 1 */
+#define ti_max(x__, y__) ((x__) >= (y__) ? (x__) : (y__));
+#define ti_min(x__, y__) ((x__) <= (y__) ? (x__) : (y__));
 
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */

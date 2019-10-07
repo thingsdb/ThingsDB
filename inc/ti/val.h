@@ -84,6 +84,7 @@ enum
 
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
+#define TI_VAL_PACK_FILE -2
 
 typedef enum
 {
@@ -115,7 +116,6 @@ typedef enum
 typedef struct ti_val_s ti_val_t;
 typedef struct ti_val_unp_s ti_val_unp_t;
 
-#include <qpack.h>
 #include <stdint.h>
 #include <tiinc.h>
 #include <ex.h>
@@ -129,11 +129,8 @@ void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_collection_t * collection);
-ti_val_t * ti_val_from_unp_e(
-        qp_unpacker_t * unp,
-        ti_collection_t * collection,
-        ex_t * e);
+ti_val_t * ti_val_from_unp(ti_val_unp_t * vup);
+ti_val_t * ti_val_from_unp_e(ti_val_unp_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
 int ti_val_convert_to_str(ti_val_t ** val);
@@ -145,9 +142,8 @@ _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_pk(ti_val_t * val, qp_packer_t ** packer, int options);
-int ti_val_to_file(ti_val_t * val, FILE * f);
-void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest);
+int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options);
+void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz);
 const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);

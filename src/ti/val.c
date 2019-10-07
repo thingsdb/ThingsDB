@@ -2,26 +2,27 @@
  * ti/val.c
  */
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ti/wrap.inline.h>
 #include <ti/closure.h>
-#include <tiinc.h>
+#include <ti/nil.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/regex.h>
-#include <ti/nil.h>
+#include <ti/thing.inline.h>
 #include <ti/things.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <ti/vbool.h>
-#include <ti/vfloat.h>
 #include <ti/verror.h>
+#include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/wrap.inline.h>
+#include <tiinc.h>
 #include <util/logger.h>
 #include <util/strx.h>
-#include <math.h>
-#include <ti/thing.inline.h>
 
 #define VAL__CMP(__s) ti_raw_eq_strn((*(ti_raw_t **) val), __s, strlen(__s))
 
@@ -1045,137 +1046,30 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_NIL:
-        return msgpack_pack_nil(pk);
-    case TI_VAL_INT:
-        return msgpack_pack_int64(pk, ((ti_vint_t *) val)->int_);
-    case TI_VAL_FLOAT:
-        return msgpack_pack_double(pk, ((ti_vfloat_t *) val)->float_);
-    case TI_VAL_BOOL:
-        return ((ti_vbool_t *) val)->bool_
-                ? msgpack_pack_true(pk)
-                : msgpack_pack_false(pk);
-    case TI_VAL_MP:
-    {
-        ti_raw_t * r = (ti_raw_t *) val;
-        if (options < 0 && (
-                msgpack_pack_map(pk, 1) ||
-                mp_pack_strn(pk, TI_KIND_S_INFO, 1)
-        )) return -1;
-
-        return mp_pack_append(pk, r->data, r->n);
-    }
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    {
-        ti_raw_t * r = (ti_raw_t *) val;
-        return mp_pack_strn(pk, r->data, r->n);
-    }
-    case TI_VAL_BYTES:
-    {
-        ti_raw_t * r = (ti_raw_t *) val;
-        return mp_pack_bin(pk, r->data, r->n);
-    }
-    case TI_VAL_REGEX:
-        return ti_regex_to_pk((ti_regex_t *) val, pk);
+    TI_VAL_PACK_CASE_IMMUTABLE(val, pk, options)
     case TI_VAL_THING:
-        return ti_thing_to_pk((ti_thing_t *) val, pckr, options);
+        return ti_thing_to_pk((ti_thing_t *) val, pk, options);
     case TI_VAL_WRAP:
-    {
-        ti_wrap_t * wrap = (ti_wrap_t *) val;
-        if (options < 0)
-        {
-            if (qp_add_map(pckr) ||
-                qp_add_raw(*pckr, (const uchar *) TI_KIND_S_WRAP, 1) ||
-                qp_add_array(pckr) ||
-                qp_add_int(*pckr, wrap->type_id))
-                return -1;
-
-            if (ti_thing_is_new(wrap->thing))
-            {
-                ti_thing_unmark_new(wrap->thing);
-                if (ti_thing_to_pk(wrap->thing, pckr, options))
-                    return -1;
-            }
-            else if(ti_thing_id_to_pk(wrap->thing, pckr))
-                return -1;
-
-            return qp_close_array(*pckr) || qp_close_map(*pckr);
-        }
-        return options > 0
-            ? ti_wrap_to_pk(wrap, pckr, options)
-            : ti_thing_id_to_pk(wrap->thing, pckr);
-    }
+        return ti_wrap_to_pk((ti_wrap_t *) val, pk, options);
     case TI_VAL_ARR:
-        if (qp_add_array(pckr))
+    {
+        ti_varr_t * varr = (ti_varr_t *) val;
+        if (msgpack_pack_array(pk, varr->vec->n))
             return -1;
-        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
-            if (ti_val_to_pk(v, pckr, options))
+        for (vec_each(varr->vec, ti_val_t, v))
+            if (ti_val_to_pk(v, pk, options))
                 return -1;
-        return qp_close_array(*pckr);
+        return 0;
+    }
     case TI_VAL_SET:
-        return ti_vset_to_pk((ti_vset_t *) val, pckr, options);
-    case TI_VAL_CLOSURE:
-        return ti_closure_to_pk((ti_closure_t *) val, pckr);
-    case TI_VAL_ERROR:
-        return ti_verror_to_pk((ti_verror_t *) val, pckr);
+        return ti_vset_to_pk((ti_vset_t *) val, pk, options);
     }
 
     assert(0);
     return -1;
 }
 
-int ti_val_to_file(ti_val_t * val, FILE * f)
-{
-    assert (val && f);
-
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NIL:
-        return qp_fadd_type(f, QP_NULL);
-    case TI_VAL_INT:
-        return qp_fadd_int(f, ((ti_vint_t *) val)->int_);
-    case TI_VAL_FLOAT:
-        return qp_fadd_double(f, ((ti_vfloat_t *) val)->float_);
-    case TI_VAL_BOOL:
-        return qp_fadd_bool(f, ((ti_vbool_t *) val)->bool_);
-    case TI_VAL_MP:
-        return qp_fadd_qp(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-        /* TODO : correct mskpack type */
-        return qp_fadd_raw(f, ((ti_raw_t *) val)->data, ((ti_raw_t *) val)->n);
-    case TI_VAL_REGEX:
-//        return ti_regex_to_file((ti_regex_t *) val, f);
-    case TI_VAL_THING:
-        return ti_thing_id_to_file((ti_thing_t *) val, f);
-    case TI_VAL_WRAP:
-        return ti_wrap_to_pk((ti_wrap_t *) val, f);
-    case TI_VAL_ARR:
-    {
-        vec_t * vec = ((ti_varr_t *) val)->vec;
-        if (qp_fadd_type(f, vec->n > 5 ? QP_ARRAY_OPEN: QP_ARRAY0 + vec->n))
-            return -1;
-
-        for (vec_each(vec, ti_val_t, v))
-            if (ti_val_to_file(v, f))
-                return -1;
-
-        return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
-    }
-    case TI_VAL_SET:
-        return ti_vset_to_file((ti_vset_t *) val, f);
-    case TI_VAL_CLOSURE:
-        return ti_closure_to_file((ti_closure_t *) val, f);
-    case TI_VAL_ERROR:
-        return ti_verror_to_file((ti_verror_t *) val, f);
-    }
-    assert (0);
-    return -1;
-}
-
-void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest)
+void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1183,35 +1077,28 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
-        *sz = 16;
-        *nest = 0;
+        *sz = 32;
         return;
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
-        *sz = ((ti_raw_t *) val)->n + 16;
-        *nest = 0;
+        *sz = ((ti_raw_t *) val)->n + 32;
         return;
     case TI_VAL_REGEX:
-        *sz = ((ti_regex_t *) val)->pattern->n + 16;
-        *nest = 1;
+        *sz = ((ti_regex_t *) val)->pattern->n + 32;
         return;
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
     case TI_VAL_SET:
         *sz = 65536;
-        /* do not change the nest size */
         return;
     case TI_VAL_CLOSURE:
-        *sz = 4096;
-        *nest = 1;
+        *sz = 8192;
         return;
     case TI_VAL_ERROR:
-        *sz = ((ti_verror_t *) val)->msg_n + 64;
-        *nest = 1;
-        return;
+        *sz = ((ti_verror_t *) val)->msg_n + 96;
     }
 }
 

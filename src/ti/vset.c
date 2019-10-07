@@ -38,20 +38,20 @@ void ti_vset_destroy(ti_vset_t * vset)
     free(vset);
 }
 
-int ti_vset_to_pk(ti_vset_t * vset, qp_packer_t ** pckr, int options)
+int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
 {
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
-        qp_add_map(pckr) ||
-        qp_add_raw(*pckr, (const uchar * ) TI_KIND_S_SET, 1) ||
-        qp_add_array(pckr))
-        return -1;
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
+        msgpack_pack_map(pk, vec->n)
+    ) return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
-        if (ti_thing_to_pk(thing, pckr, options))
+        if (ti_thing_to_pk(thing, pk, options))
             return -1;
 
-    return qp_close_array(*pckr) || qp_close_map(*pckr);
+    return 0;
 }
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)

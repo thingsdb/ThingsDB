@@ -237,14 +237,15 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
+static int query__args(ti_query_t * query, ti_val_unp_t * vup, ex_t * e)
 {
-    qp_obj_t qp_key;
+    size_t i, n;
+    mp_obj_t obj, mp_key;
     ti_name_t * name;
     ti_prop_t * prop;
     ti_val_t * argval;
 
-    if (!qp_is_map(qp_next(unp, NULL)))
+    if (mp_next(vup->up, &obj) != MP_MAP)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have an "
@@ -252,9 +253,10 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         return e->nr;
     }
 
-    while (qp_is_raw(qp_next(unp, &qp_key)))
+    for (i = 0, n = obj.via.sz; i < n; ++i)
     {
-        if (!ti_name_is_valid_strn((const char *) qp_key.via.raw, qp_key.len))
+        if (mp_next(vup->up, &mp_key) != MP_STR ||
+            !ti_name_is_valid_strn(mp_key.via.str.data, mp_key.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
                     "each argument name in a `query` request "
@@ -262,14 +264,14 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
             return e->nr;
         }
 
-        name = ti_names_get((const char *) qp_key.via.raw, qp_key.len);
+        name = ti_names_get(mp_key.via.str.data, mp_key.via.str.n);
         if (!name)
         {
             ex_set_mem(e);
             return e->nr;
         }
 
-        argval = ti_val_from_unp_e(unp, query->collection, e);
+        argval = ti_val_from_unp_e(vup, e);
         if (!argval)
         {
             assert (e->nr);
@@ -295,10 +297,7 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         }
     }
 
-    if (!qp_is_close(qp_key.tp))
-        ex_set(e, EX_BAD_DATA, "unexpected data in `query` request"DOC_QUERY);
-
-    return e->nr;
+    return 0;
 }
 
 int ti_query_unpack(
@@ -310,42 +309,41 @@ int ti_query_unpack(
         ex_t * e)
 {
     assert (e->nr == 0);
+    mp_obj_t obj, mp_query;
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
 
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_query;
+    ti_val_unp_t vup = {
+            .isclient = true,
+            .collection = query->collection,
+            .up = &up,
+    };
 
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
+    mp_next(&up, &obj);     /* array, TODO: make sure size 2 or 3 is checked */
+    mp_skip(&up);           /* scope */
 
-    qp_next(&unpacker, NULL);  /* array */
-    qp_next(&unpacker, NULL);  /* scope */
-
-    if (!qp_is_raw(qp_next(&unpacker, &qp_query)))
+    if (mp_next(&up, &mp_query) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have a "
-                "second value of type `raw`"DOC_QUERY);
+                "second value of type `"TI_VAL_STR_S"`"DOC_QUERY);
         return e->nr;
     }
 
     if (query__set_scope(query, scope, e))
         return e->nr;
 
-    query->querystr = qpx_obj_raw_to_str(&qp_query);
+    query->querystr = mp_strdup(&mp_query);
     if (!query->querystr)
     {
         ex_set_mem(e);
         return e->nr;
     }
 
-    if (qp_is_close(qp_next(&unpacker, NULL)))
-        return 0;  /* success, no extra arguments */
-
-    --unpacker.pt; /* reset to map */
-    return query__args(query, &unpacker, e);
+    return obj.via.sz == 2 ? 0 : query__args(query, &vup, e);
 }
-
 
 int ti_query_unp_run(
         ti_query_t * query,
@@ -356,12 +354,19 @@ int ti_query_unp_run(
         ex_t * e)
 {
     vec_t * procedures = NULL;
-    ti_collection_t * collection = NULL;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_procedure;
+    mp_obj_t obj, mp_procedure;
     ti_procedure_t * procedure;
     ti_val_t * argval;
-    size_t idx = 0;
+    size_t nargs, idx = 0;
+
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
+
+    ti_val_unp_t vup = {
+            .isclient = true,
+            .collection = NULL,
+            .up = &up,
+    };
 
     assert (e->nr == 0);
     assert (query->val_cache == NULL);
@@ -369,16 +374,16 @@ int ti_query_unp_run(
     query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
+    mp_next(&up, &obj);     /* array, TODO: make sure size is at least 2 */
+    mp_skip(&up);           /* scope */
 
-    qp_next(&unpacker, NULL);  /* array */
-    qp_next(&unpacker, NULL);  /* scope */
+    nargs = obj.via.sz - 2;
 
-    if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
+    if (mp_next(&up, &mp_procedure) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `run` request to have a "
-                "second value of type `raw`"DOC_PROCEDURES_API);
+                "second value of type `"TI_VAL_STR_S"`"DOC_PROCEDURES_API);
         return e->nr;
     }
 
@@ -392,27 +397,40 @@ int ti_query_unp_run(
     case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         procedures = ti()->procedures;
-        collection = NULL;
+        vup.collection = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
     case TI_SCOPE_COLLECTION_ID:
         if (query__set_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
-        collection = query->collection;
+        vup.collection = query->collection;
         break;
     }
 
     procedure = ti_procedures_by_strn(
             procedures,
-            (const char *) qp_procedure.via.raw,
-            qp_procedure.len);
+            mp_procedure.via.str.data,
+            mp_procedure.via.str.n);
 
     if (!procedure)
     {
         ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` not found",
-                (int) qp_procedure.len,
-                (char *) qp_procedure.via.raw);
+                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.data);
+        return e->nr;
+    }
+
+    if (nargs != procedure->closure->vars->n)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+            "procedure `%.*s` takes %zu argument%s but %d %s given%s",
+            (int) mp_procedure.via.str.n,
+            mp_procedure.via.str.data,
+            procedure->closure->vars->n,
+            procedure->closure->vars->n == 1 ? "" : "s",
+            nargs,
+            nargs==1 ? "was" : "were");
         return e->nr;
     }
 
@@ -428,26 +446,17 @@ int ti_query_unp_run(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        argval = ti_val_from_unp_e(&unpacker, collection, e);
+        argval = ti_val_from_unp_e(&vup, e);
         if (!argval)
         {
             assert (e->nr);
             ex_append(e, " (argument %zu for procedure `%.*s`)",
                 idx,
-                (int) qp_procedure.len,
-                (char *) qp_procedure.via.raw);
+                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.data);
             return e->nr;
         }
         VEC_push(query->val_cache, argval);
-    }
-
-    if (!qp_is_close(qp_next(&unpacker, NULL)))
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "too much arguments for procedure `%.*s`",
-            (int) qp_procedure.len,
-            (char *) qp_procedure.via.raw);
-        return e->nr;
     }
 
     query->closure = procedure->closure;
@@ -573,19 +582,24 @@ stop:
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
-    qpx_packer_t * packer;
-    size_t alloc_sz = 65536;
-    size_t nest_sz = query->syntax.deep + 2;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    msgpack_sbuffer_init(&buffer);
+
+    ti_val_may_change_pack_sz(query->rval, &buffer.alloc);
+    buffer.size = 8;
+
     if (e->nr)
         goto pkg_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc_sz, &nest_sz);
+    msgpack_packer_init(&pk, f, msgpack_sbuffer_write);
 
     packer = qpx_packer_create(alloc_sz, nest_sz);
     if (!packer)
         goto alloc_err;
 
-    if (ti_val_to_pk(query->rval, &packer, query->syntax.deep))
+    if (ti_val_to_pk(query->rval, &pk, (int) query->syntax.deep))
     {
         /* TODO: create node config help, size in config etc.
             ex_set(e, EX_TOO_LARGE,

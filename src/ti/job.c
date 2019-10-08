@@ -862,9 +862,10 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
  */
 int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
 {
+    assert (thing);
     assert (thing->collection);
-    mp_obj_t mp_job_name;
-    if (mp_next(up, *mp_job_name) != MP_STR || mp_job_name.via.sz < 3)
+    mp_obj_t mp_job;
+    if (mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
     {
         log_critical(
                 "job `type` for thing "TI_THING_ID" is missing",
@@ -872,37 +873,38 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         return -1;
     }
 
-    switch (*raw)
+    switch (*mp_job.via.str.data)
     {
     case 'a':
-        return job__add(thing, unp);
+        return job__add(thing, up);
     case 'd':
-        switch (qp_job_name.len)
+        switch (mp_job.via.str.n)
         {
-        case 3: return job__del(thing, unp);
-        case 8: return job__del_type(thing, unp);
+        case 3: return job__del(thing, up);
+        case 8: return job__del_type(thing, up);
         }
-        return job__del_procedure(thing, unp);
+        return job__del_procedure(thing, up);
     case 'n':
-        return qp_job_name.len == 8
-                ? job__new_type(thing, unp)
-                : job__new_procedure(thing, unp);
+        return mp_job.via.str.n == 8
+                ? job__new_type(thing, up)
+                : job__new_procedure(thing, up);
     case 'm':
-        if (qp_job_name.len == 12) switch (raw[9])
+        if (mp_job.via.str.n == 12) switch (mp_job.via.str.data[9])
         {
-        case 'a': return job__mod_type_add(thing, unp, ev_id);
-        case 'd': return job__mod_type_del(thing, unp, ev_id);
-        case 'm': return job__mod_type_mod(thing, unp);
+        case 'a': return job__mod_type_add(thing, up, ev_id);
+        case 'd': return job__mod_type_del(thing, up, ev_id);
+        case 'm': return job__mod_type_mod(thing, up);
         }
         break;
     case 'r':
-        return job__remove(thing, unp);
+        return job__remove(thing, up);
     case 's':
-        return qp_job_name.len == 3
-                ? job__set(thing, unp)
-                : job__splice(thing, unp);
+        return mp_job.via.str.n == 3
+                ? job__set(thing, up)
+                : job__splice(thing, up);
     }
 
-    log_critical("unknown job: `%.*s`", (int) qp_job_name.len, (char *) raw);
+    log_critical("unknown job: `%.*s`",
+            (int) mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

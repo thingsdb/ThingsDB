@@ -18,26 +18,21 @@
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_collection(qp_unpacker_t * unp)
+static int rjob__del_collection(mp_unp_t * up)
 {
-    assert (unp);
+    mp_obj_t mp_id;
 
-    uint64_t collection_id;
-    qp_obj_t qp_collection;
-
-    if (!qp_is_int(qp_next(unp, &qp_collection)))
+    if (mp_next(up, &mp_id) != MP_U64)
     {
         log_critical("job `del_collection`: invalid format");
         return -1;
     }
 
-    collection_id = (uint64_t) qp_collection.via.int64;
-
-    if (!ti_collections_del_collection(collection_id))
+    if (!ti_collections_del_collection(mp_id.via.u64))
     {
         log_critical(
                 "job `del_collection`: "TI_COLLECTION_ID" not found",
-                collection_id);
+                mp_id.via.u64);
         return -1;
     }
 
@@ -48,22 +43,17 @@ static int rjob__del_collection(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: after_is
  */
-static int rjob__del_expired(qp_unpacker_t * unp)
+static int rjob__del_expired(mp_unp_t * up)
 {
-    assert (unp);
+    mp_obj_t mp_after_ts;
 
-    uint64_t after_ts;
-    qp_obj_t qp_after_ts;
-
-    if (!qp_is_int(qp_next(unp, &qp_after_ts)))
+    if (mp_next(up, &mp_after_ts) != MP_U64)
     {
         log_critical("job `del_expired`: invalid format");
         return -1;
     }
 
-    after_ts = (uint64_t) qp_after_ts.via.int64;
-
-    ti_users_del_expired(after_ts);
+    ti_users_del_expired(mp_after_ts.via.u64);
     return 0;
 }
 
@@ -71,14 +61,12 @@ static int rjob__del_expired(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int rjob__del_procedure(qp_unpacker_t * unp)
+static int rjob__del_procedure(mp_unp_t * up)
 {
-    assert (unp);
-
-    qp_obj_t qp_name;
+    mp_obj_t mp_name;
     ti_procedure_t * procedure;
 
-    if (!qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &mp_name) != MP_STR)
     {
         log_critical("job `del_procedure`: missing procedure name");
         return -1;
@@ -86,14 +74,14 @@ static int rjob__del_procedure(qp_unpacker_t * unp)
 
     procedure = ti_procedures_pop_strn(
             ti()->procedures,
-            (const char *) qp_name.via.raw,
-            qp_name.len);
+            mp_name.via.str.data,
+            mp_name.via.str.n);
 
     if (!procedure)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s`",
-                (int) qp_name.len, (const char *) qp_name.via.raw);
+                (int) mp_name.via.str.n, mp_name.via.str.data);
         return -1;
     }
 
@@ -105,14 +93,13 @@ static int rjob__del_procedure(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: 'key'
  */
-static int rjob__del_token(qp_unpacker_t * unp)
+static int rjob__del_token(mp_unp_t * up)
 {
-    assert (unp);
-    qp_obj_t qp_key;
+    mp_obj_t mp_key;
     ti_token_t * token;
 
-    if (    !qp_is_raw(qp_next(unp, &qp_key)) ||
-            qp_key.len != sizeof(ti_token_key_t))
+    if (mp_next(up, &mp_key) != MP_STR ||
+        mp_key.via.str.n != sizeof(ti_token_key_t))
     {
         log_critical(
                 "job `del_token` for `.thingsdb`: "
@@ -120,13 +107,13 @@ static int rjob__del_token(qp_unpacker_t * unp)
         return -1;
     }
 
-    token = ti_users_pop_token_by_key((ti_token_key_t *) qp_key.via.raw);
+    token = ti_users_pop_token_by_key((ti_token_key_t *) mp_key.via.str.data);
 
     if (!token)
     {
         log_critical("job `del_token` for `.thingsdb`: "
                 "token key `%.*s` not found",
-                (int) qp_key.len, (char *) qp_key.via.raw);
+                (int) mp_key.via.str.n, mp_key.via.str.data);
         return -1;
     }
 
@@ -138,25 +125,21 @@ static int rjob__del_token(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_user(qp_unpacker_t * unp)
+static int rjob__del_user(mp_unp_t * up)
 {
-    assert (unp);
-
     ti_user_t * user;
-    uint64_t user_id;
-    qp_obj_t qp_user;
+    mp_obj_t mp_id;
 
-    if (!qp_is_int(qp_next(unp, &qp_user)))
+    if (mp_next(up, &mp_id) != MP_U64)
     {
         log_critical("job `del_user`: invalid format");
         return -1;
     }
 
-    user_id = (uint64_t) qp_user.via.int64;
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_id.via.u64);
     if (!user)
     {
-        log_critical("job `del_user`: "TI_USER_ID" not found", user_id);
+        log_critical("job `del_user`: "TI_USER_ID" not found", mp_id.via.u64);
         return -1;
     }
 
@@ -168,55 +151,49 @@ static int rjob__del_user(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int rjob__grant(qp_unpacker_t * unp)
+static int rjob__grant(mp_unp_t * up)
 {
-    assert (unp);
-
     ti_user_t * user;
     ti_collection_t * collection = NULL;
-    uint64_t mask, user_id;
-    qp_obj_t qp_scope, qp_user, qp_mask;
+    mp_obj_t obj, mp_scope, mp_user, mp_mask;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: scope */
-            !qp_is_int(qp_next(unp, &qp_scope)) ||      /* value: scope */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
-            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: user */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
-            !qp_is_int(qp_next(unp, &qp_mask)))         /* value: mask */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_scope) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_mask) != MP_U64)
     {
         log_critical("job `grant`: invalid format");
         return -1;
     }
 
-    if (qp_scope.via.int64 > 1)
+    if (mp_scope.via.u64 > 1)
     {
-        uint64_t id = qp_scope.via.int64;
-        collection = ti_collections_get_by_id(id);
+        collection = ti_collections_get_by_id(mp_scope.via.u64);
         if (!collection)
         {
-            log_critical("job `grant`: "TI_COLLECTION_ID" not found", id);
+            log_critical(
+                    "job `grant`: "TI_COLLECTION_ID" not found",
+                    mp_scope.via.u64);
             return -1;
         }
     }
 
-    user_id = (uint64_t) qp_user.via.int64;
-
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `grant`: "TI_USER_ID" not found", user_id);
+        log_critical("job `grant`: "TI_USER_ID" not found", mp_user.via.u64);
         return -1;
     }
 
-    mask = (uint64_t) qp_mask.via.int64;
-
     if (ti_access_grant(collection
             ? &collection->access
-            : qp_scope.via.int64 == TI_SCOPE_NODE
+            : mp_scope.via.u64 == TI_SCOPE_NODE
             ? &ti()->access_node
             : &ti()->access_thingsdb,
-              user, mask))
+              user, mp_mask.via.u64))
     {
         log_critical(EX_MEMORY_S);
         return -1;
@@ -229,40 +206,38 @@ static int rjob__grant(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'name': collection_name, 'user': id, 'root': id}
  */
-static int rjob__new_collection(qp_unpacker_t * unp)
+static int rjob__new_collection(mp_unp_t * up)
 {
     ex_t e = {0};
-    qp_obj_t qp_name, qp_user, qp_root;
-    uint64_t user_id, root_id;
+    mp_obj_t obj, mp_name, mp_user, mp_root;
     ti_user_t * user;
     ti_collection_t * collection;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: name */
-            !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value: name */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
-            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: user */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: root */
-            !qp_is_int(qp_next(unp, &qp_root)))         /* value: root */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_root) != MP_U64)
     {
         log_critical("job `new_collection`: invalid format");
         return -1;
     }
 
-    user_id = (uint64_t) qp_user.via.int64;
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `new_collection`: "TI_USER_ID" not found", user_id);
+        log_critical(
+                "job `new_collection`: "TI_USER_ID" not found",
+                mp_user.via.u64);
         return -1;
     }
 
-    root_id = (uint64_t) qp_root.via.int64;
-
     collection = ti_collections_create_collection(
-            root_id,
-            (const char *) qp_name.via.raw,
-            qp_name.len,
+            mp_root.via.u64,
+            mp_name.via.str.data,
+            mp_name.via.str.n,
             user,
             &e);
     if (!collection)
@@ -283,48 +258,40 @@ static int rjob__new_collection(qp_unpacker_t * unp)
  *      'secret': encrypted
  *   }
  */
-static int rjob__new_node(ti_event_t * ev, qp_unpacker_t * unp)
+static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
 {
-    assert (unp);
-    qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
-    uint32_t node_id;
-    uint16_t port;
+    mp_obj_t obj, mp_id, mp_port, mp_addr, mp_secret;
     char addr[INET6_ADDRSTRLEN];
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_id)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_port)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_addr)) ||
-            qp_addr.len >= INET6_ADDRSTRLEN ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_secret)) ||
-            qp_secret.len != CRYPTX_SZ ||
-            qp_secret.via.raw[qp_secret.len-1] != '\0')
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_port) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_addr) != MP_STR ||
+        mp_addr.via.str.n >= INET6_ADDRSTRLEN ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_secret) != MP_STR ||
+        mp_secret.via.str.n != CRYPTX_SZ ||
+        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
     {
         log_critical("job `new_node`: invalid format");
         return -1;
     }
 
-    qp_unpacker_print(unp);
-
     if (ev->id <= ti_.last_event_id)
         return 0;  /* this job is already applied */
 
-    node_id = (uint32_t) qp_id.via.int64;
-    port = (uint16_t) qp_port.via.int64;
-
-    memcpy(addr, qp_addr.via.raw, qp_addr.len);
-    addr[qp_addr.len] = '\0';
+    memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
+    addr[mp_addr.via.str.n] = '\0';
 
     if (!ti_nodes_new_node(
-            node_id,
+            mp_id.via.u64,
             0,
-            port,
+            mp_port.via.u64,
             addr,
-            (const char *) qp_secret.via.raw))
+            mp_secret.via.str.data))
     {
         log_critical(EX_MEMORY_S);
         return -1;
@@ -337,20 +304,23 @@ static int rjob__new_node(ti_event_t * ev, qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: 'def'
+ * - for example: {'name': 'def'}
  */
-static int rjob__new_procedure(qp_unpacker_t * unp)
+static int rjob__new_procedure(mp_unp_t * up)
 {
-    assert (unp);
-
     int rc;
-    qp_obj_t qp_name;
+    mp_obj_t obj, mp_name;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = &up,
+    };
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
                 "job `new_procedure` for `.thingsdb`: "
@@ -358,9 +328,8 @@ static int rjob__new_procedure(qp_unpacker_t * unp)
         return -1;
     }
 
-
-    rname = ti_str_create(qp_name.via.raw, qp_name.len);
-    closure = (ti_closure_t *) ti_val_from_unp(unp, NULL);
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    closure = (ti_closure_t *) ti_val_from_unp(&vup);
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
@@ -396,42 +365,41 @@ failed:
  * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
  */
-static int rjob__new_token(qp_unpacker_t * unp)
+static int rjob__new_token(mp_unp_t * up)
 {
-    qp_obj_t qp_user, qp_key, qp_expire, qp_desc;
-    uint64_t user_id;
+    mp_obj_t obj, mp_user, mp_key, mp_expire, mp_desc;
     ti_user_t * user;
     ti_token_t * token;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
-            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: id */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: key */
-            !qp_is_raw(qp_next(unp, &qp_key)) ||        /* value: key */
-            qp_key.len != sizeof(ti_token_key_t) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: expire_ts */
-            !qp_is_int(qp_next(unp, &qp_expire)) ||     /* value: expire_ts */
-            qp_expire.via.int64 < 0 ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: description */
-            !qp_is_raw(qp_next(unp, &qp_desc)))         /* value: description */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_key) != MP_STR ||
+        mp_key.via.u64 != sizeof(ti_token_key_t) ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_expire) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_desc) != MP_STR)
     {
         log_critical("job `new_token`: invalid format");
         return -1;
     }
 
-    user_id = (uint64_t) qp_user.via.int64;
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `new_token`: "TI_USER_ID" not found", user_id);
+        log_critical(
+                "job `new_token`: "TI_USER_ID" not found",
+                mp_user.via.u64);
         return -1;
     }
 
     token = ti_token_create(
-            (ti_token_key_t *) qp_key.via.raw,
-            qp_expire.via.int64,
-            (const char *) qp_desc.via.raw,
-            qp_desc.len);
+            (ti_token_key_t *) mp_key.via.str->data,
+            mp_expire.via.u64,
+            mp_desc.via.str.data,
+            mp_desc.via.str.n);
     if (!token || ti_user_add_token(user, token))
     {
         ti_token_destroy(token);
@@ -446,28 +414,25 @@ static int rjob__new_token(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'id': id, 'username':value}
  */
-static int rjob__new_user(qp_unpacker_t * unp)
+static int rjob__new_user(mp_unp_t * up)
 {
     ex_t e = {0};
-    qp_obj_t qp_id, qp_name;
-    uint64_t user_id;
+    mp_obj_t obj, mp_id, mp_name;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
-            !qp_is_int(qp_next(unp, &qp_id)) ||         /* value: id */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: username */
-            !qp_is_raw(qp_next(unp, &qp_name)))         /* value: username */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical("job `new_user`: invalid format");
         return -1;
     }
 
-    user_id = (uint64_t) qp_id.via.int64;
-
     if (!ti_users_load_user(
-            user_id,
-            (const char *) qp_name.via.raw,
-            qp_name.len,
+            mp_id.via.u64,
+            mp_name.via.str.data,
+            mp_name.via.str.n,
             NULL,
             &e))
     {
@@ -482,34 +447,28 @@ static int rjob__new_user(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_node(ti_event_t * ev, qp_unpacker_t * unp)
+static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
 {
-    assert (unp);
-
     ti_node_t * this_node = ti()->node;
-    uint32_t node_id;
-    qp_obj_t qp_node;
+    mp_obj_t mp_node;
 
-    if (!qp_is_int(qp_next(unp, &qp_node)))
+    if (mp_next(up, &mp_node) != MP_U64)
     {
         log_critical("job `del_node`: invalid format");
         return -1;
     }
 
-    qp_unpacker_print(unp);
-
     if (ev->id <= ti_.last_event_id)
         return 0;   /* this job is already applied */
 
-    node_id = (uint32_t) qp_node.via.int64;
 
-    if (node_id == this_node->id)
+    if (mp_node.via.u64 == this_node->id)
     {
-        log_critical("cannot delete node: "TI_NODE_ID, node_id);
+        log_critical("cannot delete node with id %"PRIu64, mp_node.via.u64);
         return -1;
     }
 
-    ti_nodes_del_node(node_id);
+    ti_nodes_del_node(mp_node.via.u64);
 
     ev->flags |= TI_EVENT_FLAG_SAVE;
 
@@ -520,34 +479,33 @@ static int rjob__del_node(ti_event_t * ev, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int rjob__rename_collection(qp_unpacker_t * unp)
+static int rjob__rename_collection(mp_unp_t * up)
 {
     ex_t e = {0};
     ti_collection_t * collection;
-    uint64_t id;
-    qp_obj_t qp_id, qp_name;
+    mp_obj_t obj, mp_id, mp_name;
     ti_raw_t * rname;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_id)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical("job `rename_collection`: invalid format");
         return -1;
     }
 
-    id = qp_id.via.int64;
-    collection = ti_collections_get_by_id(id);
+    collection = ti_collections_get_by_id(mp_id.via.u64);
     if (!collection)
     {
         log_critical(
-                "job `rename_collection`: "TI_COLLECTION_ID" not found", id);
+                "job `rename_collection`: "TI_COLLECTION_ID" not found",
+                mp_id.via.u64);
         return -1;
     }
 
-    rname = ti_str_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     if (!rname)
     {
         ex_set_mem(&e);
@@ -566,34 +524,32 @@ static int rjob__rename_collection(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int rjob__rename_user(qp_unpacker_t * unp)
+static int rjob__rename_user(mp_unp_t * up)
 {
     ex_t e = {0};
     ti_user_t * user;
-    uint64_t id;
-    qp_obj_t qp_id, qp_name;
+    mp_obj_t obj, mp_id, mp_name;
     ti_raw_t * rname;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_id)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical("job `rename_user`: invalid format");
         return -1;
     }
 
-    id = qp_id.via.int64;
-    user = ti_users_get_by_id(id);
+    user = ti_users_get_by_id(mp_id.via.u64);
     if (!user)
     {
         log_critical(
-                "job `rename_user`: "TI_USER_ID" not found", id);
+                "job `rename_user`: "TI_USER_ID" not found", mp_id.via.u64);
         return -1;
     }
 
-    rname = ti_str_create(qp_name.via.raw, qp_name.len);
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     if (!rname)
     {
         ex_set_mem(&e);
@@ -610,117 +566,39 @@ static int rjob__rename_user(qp_unpacker_t * unp)
 
 /*
  * Returns 0 on success
- * - for example: {
- *      'id': id,
- *      'port': port,
- *      'addr':ip_addr,
- *      'secret': encrypted
- *   }
- */
-static int rjob__replace_node(ti_event_t * ev, qp_unpacker_t * unp)
-{
-    ex_t e = {0};
-    qp_obj_t qp_id, qp_port, qp_addr, qp_secret;
-    uint8_t node_id;
-    ti_node_t * node;
-
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_id)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_port)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_addr)) ||
-            qp_addr.len >= INET6_ADDRSTRLEN ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, &qp_secret)) ||
-            qp_secret.len != CRYPTX_SZ ||
-            qp_secret.via.raw[qp_secret.len-1] != '\0')
-    {
-        log_critical("job `replace_node`: invalid format");
-        return -1;
-    }
-
-    qp_unpacker_print(unp);
-
-    if (ev->id <= ti_.last_event_id)
-        return 0;  /* this job is already applied */
-
-    node_id = (uint8_t) qp_id.via.int64;
-    node = ti_nodes_node_by_id(node_id);
-
-    if (!node)
-    {
-        log_critical(
-                "job `replace_node`: "TI_NODE_ID" out of range",
-                node_id);
-        return -1;
-    }
-
-    memcpy(node->addr, qp_addr.via.raw, qp_addr.len);
-    node->addr[qp_addr.len] = '\0';
-    node->port = (uint16_t) qp_port.via.int64;
-    memcpy(node->secret, qp_secret.via.raw, qp_secret.len);
-
-    if (ti_node_update_sockaddr(node, &e) == 0)
-        ev->flags |= TI_EVENT_FLAG_SAVE;
-
-    return e.nr;
-}
-
-/*
- * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int rjob__revoke(qp_unpacker_t * unp)
+static int rjob__revoke(mp_unp_t * up)
 {
-    assert (unp);
-
     ti_user_t * user;
     ti_collection_t * collection = NULL;
-    uint64_t mask, user_id;
-    qp_obj_t qp_scope, qp_user, qp_mask;
+    mp_obj_t obj, mp_scope, mp_user, mp_mask;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: scope */
-            !qp_is_int(qp_next(unp, &qp_scope)) ||      /* value: scope */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: user */
-            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: user */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: mask */
-            !qp_is_int(qp_next(unp, &qp_mask)))         /* value: mask */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_scope) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_mask) != MP_U64)
     {
         log_critical("job `revoke`: invalid format");
         return -1;
     }
 
-    if (qp_scope.via.int64 > 1)
-    {
-        uint64_t id = (uint64_t) qp_scope.via.int64;
-        collection = ti_collections_get_by_id(id);
-        if (!collection)
-        {
-            log_critical("job `revoke`: "TI_COLLECTION_ID" not found", id);
-            return -1;
-        }
-    }
-
-    user_id = (uint64_t) qp_user.via.int64;
-
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `revoke`: "TI_USER_ID" not found", user_id);
+        log_critical("job `revoke`: "TI_USER_ID" not found", mp_user.via.u64);
         return -1;
     }
 
-    mask = (uint64_t) qp_mask.via.int64;
-
     ti_access_revoke(collection
             ? collection->access
-            : qp_scope.via.int64 == TI_SCOPE_NODE
+            : mp_scope.via.u64 == TI_SCOPE_NODE
             ? ti()->access_node
             : ti()->access_thingsdb,
-              user, mask);
+              user, mp_mask.via.u64);
 
     return 0;
 }
@@ -729,37 +607,36 @@ static int rjob__revoke(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'id':user_id, 'password': encpass/null}
  */
-static int rjob__set_password(qp_unpacker_t * unp)
+static int rjob__set_password(mp_unp_t * up)
 {
-    assert (unp);
-    qp_obj_t qp_user, qp_pass;
-    uint64_t user_id;
     ti_user_t * user;
+    mp_obj_t obj, mp_user, mp_pass;
+    ti_raw_t * rname;
     char * encrypted = NULL;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: id */
-            !qp_is_int(qp_next(unp, &qp_user)) ||       /* value: id */
-            !qp_is_raw(qp_next(unp, NULL)) ||           /* key: password */
-            (   !qp_is_raw(qp_next(unp, &qp_pass)) &&   /* value: password */
-                !qp_is_null(qp_pass.tp)                 /*        or null */
-            ))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_pass) <= 0 ||
+        mp_pass.tp == MP_STR || mp_pass.tp == MP_NIL)
     {
         log_critical("job `set_password`: invalid format");
         return -1;
     }
 
-    user_id = (uint64_t) qp_user.via.int64;
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `set_password`: "TI_USER_ID" not found", user_id);
+        log_critical(
+                "job `set_password`: "TI_USER_ID" not found",
+                mp_user.via.u64);
         return -1;
     }
 
-    if (qp_is_raw(qp_pass.tp))
+    if (mp_pass.tp == MP_STR)
     {
-        encrypted = qpx_obj_raw_to_str(&qp_pass);
+        encrypted = mp_strdup(&mp_pass);
         if (!encrypted)
         {
             log_critical(EX_MEMORY_S);
@@ -777,110 +654,103 @@ static int rjob__set_password(qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'collection':id, 'quota_tp': quota_enum_t, 'quota': size_t}
  */
-static int rjob__set_quota(qp_unpacker_t * unp)
+static int rjob__set_quota(mp_unp_t * up)
 {
-    assert (unp);
-
-    uint64_t id;
-    size_t quota;
     ti_collection_t * collection;
     ti_quota_enum_t quota_tp;
-    qp_obj_t qp_collection, qp_quota_tp, qp_quota;
+    mp_obj_t obj, mp_id, mp_tp, mp_quota;
 
-    if (    !qp_is_map(qp_next(unp, NULL)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_collection)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_quota_tp)) ||
-            !qp_is_raw(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qp_quota)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_tp) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_quota) != MP_U64)
     {
         log_critical("job `set_quota`: invalid format");
         return -1;
     }
 
-    if (!qp_collection.via.int64)
+    if (!mp_id.via.u64)
     {
         log_critical("job `set_quota`: cannot set quota on root (scope: 0)");
         return -1;
     }
 
-    id = qp_collection.via.int64;
-    collection = ti_collections_get_by_id(id);
+    collection = ti_collections_get_by_id(mp_id.via.u64);
     if (!collection)
     {
-        log_critical("job `set_quota`: "TI_COLLECTION_ID" not found", id);
+        log_critical(
+                "job `set_quota`: "TI_COLLECTION_ID" not found",
+                mp_id.via.u64);
         return -1;
     }
 
-    quota_tp = (ti_quota_enum_t) qp_quota_tp.via.int64;
-    quota = (size_t) qp_quota.via.int64;
-    ti_collection_set_quota(collection, quota_tp, quota);
+    quota_tp = (ti_quota_enum_t) mp_tp.via.u64;
+    ti_collection_set_quota(collection, quota_tp, mp_quota.via.u64);
 
     return 0;
 }
 
-int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp)
+int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 {
-    qp_obj_t qp_job_name;
-    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 2)
+    mp_obj_t mp_job;
+    if (mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 2)
     {
         log_critical("job `type` for thing "TI_THING_ID" is missing", 0);
         return -1;
     }
 
-    switch (*qp_job_name.via.raw)
+    switch (*mp_job.via.str.data)
     {
     case 'd':
-        if (qpx_obj_eq_str(&qp_job_name, "del_collection"))
-            return rjob__del_collection(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "del_expired"))
-            return rjob__del_expired(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "del_node"))
-            return rjob__del_node(ev, unp);
-        if (qpx_obj_eq_str(&qp_job_name, "del_procedure"))
-            return rjob__del_procedure(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "del_token"))
-            return rjob__del_token(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "del_user"))
-            return rjob__del_user(unp);
+        if (mp_str_eq(&mp_job, "del_collection"))
+            return rjob__del_collection(up);
+        if (mp_str_eq(&mp_job, "del_expired"))
+            return rjob__del_expired(up);
+        if (mp_str_eq(&mp_job, "del_node"))
+            return rjob__del_node(ev, up);
+        if (mp_str_eq(&mp_job, "del_procedure"))
+            return rjob__del_procedure(up);
+        if (mp_str_eq(&mp_job, "del_token"))
+            return rjob__del_token(up);
+        if (mp_str_eq(&mp_job, "del_user"))
+            return rjob__del_user(up);
         break;
     case 'g':
-        if (qpx_obj_eq_str(&qp_job_name, "grant"))
-            return rjob__grant(unp);
+        if (mp_str_eq(&mp_job, "grant"))
+            return rjob__grant(up);
         break;
     case 'n':
-        if (qpx_obj_eq_str(&qp_job_name, "new_collection"))
-            return rjob__new_collection(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "new_node"))
-            return rjob__new_node(ev, unp);
-        if (qpx_obj_eq_str(&qp_job_name, "new_procedure"))
-            return rjob__new_procedure(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "new_token"))
-            return rjob__new_token(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "new_user"))
-            return rjob__new_user(unp);
+        if (mp_str_eq(&mp_job, "new_collection"))
+            return rjob__new_collection(up);
+        if (mp_str_eq(&mp_job, "new_node"))
+            return rjob__new_node(ev, up);
+        if (mp_str_eq(&mp_job, "new_procedure"))
+            return rjob__new_procedure(up);
+        if (mp_str_eq(&mp_job, "new_token"))
+            return rjob__new_token(up);
+        if (mp_str_eq(&mp_job, "new_user"))
+            return rjob__new_user(up);
         break;
     case 'r':
-        if (qpx_obj_eq_str(&qp_job_name, "rename_collection"))
-            return rjob__rename_collection(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "rename_user"))
-            return rjob__rename_user(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "replace_node"))
-            return rjob__replace_node(ev, unp);
-        if (qpx_obj_eq_str(&qp_job_name, "revoke"))
-            return rjob__revoke(unp);
+        if (mp_str_eq(&mp_job, "rename_collection"))
+            return rjob__rename_collection(up);
+        if (mp_str_eq(&mp_job, "rename_user"))
+            return rjob__rename_user(up);
+        if (mp_str_eq(&mp_job, "revoke"))
+            return rjob__revoke(up);
         break;
     case 's':
-        if (qpx_obj_eq_str(&qp_job_name, "set_password"))
-            return rjob__set_password(unp);
-        if (qpx_obj_eq_str(&qp_job_name, "set_quota"))
-            return rjob__set_quota(unp);
+        if (mp_str_eq(&mp_job, "set_password"))
+            return rjob__set_password(up);
+        if (mp_str_eq(&mp_job, "set_quota"))
+            return rjob__set_quota(up);
         break;
     }
 
     log_critical("unknown job: `%.*s`",
-            (int) qp_job_name.len,
-            (char *) qp_job_name.via.raw);
+            (int) mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

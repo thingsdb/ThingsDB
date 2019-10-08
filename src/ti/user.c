@@ -1,7 +1,6 @@
 /*
  * user.c
  */
-#include <qpack.h>
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/auth.h>
@@ -10,6 +9,7 @@
 #include <util/cryptx.h>
 #include <util/strx.h>
 #include <util/util.h>
+#include <util/mpack.h>
 #include <util/iso8601.h>
 
 const char * ti_user_def_name = "admin";
@@ -21,7 +21,7 @@ const unsigned int ti_max_pass = 128;  /* max pass = 127 + \0 */
 
 static int user__pack_access(
         ti_user_t * user,
-        qp_packer_t ** packer,
+        msgpack_packer * pk,
         vec_t * access_,
         const unsigned char * scope,
         size_t n)
@@ -29,33 +29,27 @@ static int user__pack_access(
     for (vec_each(access_, ti_auth_t, auth))
         if (auth->user == user)
             return (
-                qp_add_map(packer) ||
+                msgpack_pack_map(pk, 2) ||
 
-                qp_add_raw_from_str(*packer, "scope") ||
+                mp_pack_str(pk, "scope") ||
                 (*scope == '@'
-                    ? qp_add_raw(*packer, scope, n)
-                    : qp_add_raw_from_fmt(
-                            *packer,
-                            "@collection:%.*s", (int) n, scope)) ||
+                    ? mp_pack_strn(pk, scope, n)
+                    : mp_pack_fmt(pk, "@collection:%.*s", (int) n, scope)) ||
 
-                qp_add_raw_from_str(*packer, "privileges") ||
-                qp_add_raw_from_str(
-                        *packer,
-                        ti_auth_mask_to_str(auth->mask)) ||
-
-                qp_close_map(*packer)
+                mp_pack_str(pk, "privileges") ||
+                mp_pack_str(pk, ti_auth_mask_to_str(auth->mask))
             ) ? -1 : 0;
     return 0;
 }
 
-static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
+static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
 {
     uint64_t now = util_now_tsec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
-    if (qp_add_raw_from_str(*packer, "tokens") ||
-        qp_add_array(packer))
-        return -1;
+    if (mp_pack_str(pk, "tokens") ||
+        msgpack_pack_array(pk, user->tokens->n)
+    ) return -1;
 
     for (vec_each(user->tokens, ti_token_t, token))
     {
@@ -71,22 +65,25 @@ static int user__pack_tokens(ti_user_t * user, qp_packer_t ** packer)
             expires_at = "never";
         }
 
-        if (qp_add_map(packer) ||
-            qp_add_raw_from_str(*packer, "key") ||
-            qp_add_raw(*packer, (const uchar *) token->key, key_sz) ||
-            qp_add_raw_from_str(*packer, "status") ||
-            qp_add_raw_from_str(*packer, status) ||
-            qp_add_raw_from_str(*packer, "expiration_time") ||
-            qp_add_raw_from_str(*packer, expires_at) ||
+        if (msgpack_pack_map(pk, *token->description ? 4 : 3) ||
+
+            mp_pack_str(pk, "key") ||
+            mp_pack_strn(pk, token->key, key_sz) ||
+
+            mp_pack_str(pk, "status") ||
+            mp_pack_str(pk, status) ||
+
+            mp_pack_str(pk, "expiration_time") ||
+            mp_pack_str(pk, expires_at) ||
+
             (*token->description && (
-                qp_add_raw_from_str(*packer, "description") ||
-                qp_add_raw_from_str(*packer, token->description)
-            )) ||
-            qp_close_map(*packer))
-            return -1;
+                mp_pack_str(pk, "description") ||
+                mp_pack_str(pk, token->description)
+            ))
+        ) return -1;
     }
 
-    return qp_close_array(*packer);
+    return 0;
 }
 
 ti_user_t * ti_user_create(
@@ -241,65 +238,102 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     return 0;
 }
 
-
-
-int ti_user_info_to_pk(ti_user_t * user, qp_packer_t ** packer)
+size_t user__count_access(ti_user_t * user)
 {
-    if (qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, "user_id") ||
-        qp_add_int(*packer, user->id) ||
-        qp_add_raw_from_str(*packer, "name") ||
-        qp_add_raw(*packer, user->name->data, user->name->n) ||
-        qp_add_raw_from_str(*packer, "has_password") ||
-        qp_add_bool(*packer, !!user->encpass) ||
-        qp_add_raw_from_str(*packer, "access") ||
-        qp_add_array(packer))
+    size_t n = 0;
+    for (vec_each(ti()->access_node, ti_auth_t, auth))
+    {
+        if (auth->user == user)
+        {
+            ++n;
+            break;
+        }
+    }
+
+    for (vec_each(ti()->access_thingsdb, ti_auth_t, auth))
+    {
+        if (auth->user == user)
+        {
+            ++n;
+            break;
+        }
+    }
+
+    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    {
+        for (vec_each(collection->access, ti_auth_t, auth))
+        {
+            if (auth->user == user)
+            {
+                ++n;
+                break;
+            }
+        }
+    }
+    return n;
+}
+
+int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
+{
+    if (msgpack_pack_map(pk, 5) ||  /* four below + tokens */
+
+        mp_pack_str(pk, "user_id") ||
+        msgpack_pack_int(pk, user->id) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, user->name->data, user->name->n) ||
+
+        mp_pack_str(pk, "has_password") ||
+        mp_pack_bool(pk, !!user->encpass) ||
+
+        mp_pack_str(pk, "access") ||
+        msgpack_pack_array(pk, user__count_access(user))
+    ) return -1;
+
+    if (user__pack_access(
+            user, pk, ti()->access_node, (uchar *) "@node", 5))
         return -1;
 
     if (user__pack_access(
-            user, packer, ti()->access_node, (uchar *) "@node", 5))
+            user, pk, ti()->access_thingsdb, (uchar *) "@thingsdb", 9))
         return -1;
-
-    if (user__pack_access(
-            user, packer, ti()->access_thingsdb, (uchar *) "@thingsdb", 9))
-        return -1;
-
 
     for (vec_each(ti()->collections->vec, ti_collection_t, collection))
     {
         if (user__pack_access(
                 user,
-                packer,
+                pk,
                 collection->access,
                 collection->name->data,
                 collection->name->n))
             return -1;
     }
 
-    if (qp_close_array(*packer))
+    if (user__pack_tokens(user, pk))
         return -1;
 
-    if (user__pack_tokens(user, packer))
-        return -1;
-
-    return qp_close_map(*packer);
+    return 0;
 }
 
 ti_val_t * ti_user_info_as_mpval(ti_user_t * user)
 {
-    ti_raw_t * ruser = NULL;
-    qp_packer_t * packer = qp_packer_create2(256, 3);
-    if (!packer)
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_user_info_to_pk(user, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    if (ti_user_info_to_pk(user, &packer))
-        goto fail;
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    ruser = ti_mp_from_packer(packer);
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t * ) ruser;
+    return (ti_val_t *) raw;
 }
 
 ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key)
@@ -310,4 +344,3 @@ ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key)
             return vec_swap_remove(user->tokens, idx);
     return NULL;
 }
-

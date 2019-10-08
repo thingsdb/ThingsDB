@@ -104,6 +104,37 @@ static inline int mp_sbuffer_alloc_init(
     return alloc != size && buffer->data == NULL;
 }
 
+static int mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
+{
+    int rc, n;
+    va_list args1, args2;
+    char * body;
+
+    va_start(args1, fmt);
+    va_copy(args2, args1);
+    n = vsnprintf(NULL, 0, fmt, args1);
+    va_end(args1);
+
+    if (n < 0 || msgpack_pack_str(x, n))
+        return -1;
+
+    body = malloc(n);
+    if (!body)
+        return -1;
+
+    vsprintf(body, fmt, args2);
+    va_end(args2);
+
+    rc = msgpack_pack_str_body(x, body, n);
+    free(body);
+    return rc;
+}
+
+static inline int mp_pack_bool(msgpack_packer * x, _Bool b)
+{
+    return b ? msgpack_pack_true(x) : msgpack_pack_false(x);
+}
+
 static inline int mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
 {
     return msgpack_pack_bin(x, n) || msgpack_pack_bin_body(x, b, n);
@@ -113,6 +144,10 @@ static inline int mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
 {
     return msgpack_pack_str(x, n) || msgpack_pack_str_body(x, s, n);
 }
+
+#define mp_str_eq(o__, s__) \
+    o__->via.str.n == strlen(s__) && \
+    memcmp(s__, o__->via.str.data, o__->via.str->n) == 0
 
 static inline int mp_pack_str(msgpack_packer * x, const void * s)
 {

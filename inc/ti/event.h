@@ -26,7 +26,6 @@ typedef enum
 typedef struct ti_event_s ti_event_t;
 typedef union ti_event_u ti_event_via_t;
 
-#include <qpack.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <ti/collection.h>

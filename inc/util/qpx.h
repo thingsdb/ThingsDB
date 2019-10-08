@@ -13,7 +13,6 @@
 typedef qp_packer_t qpx_packer_t;
 
 qp_res_t * qpx_map_get(const qp_map_t * map, const char * key);
-static inline _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * s);
 char * qpx_obj_raw_to_str(const qp_obj_t * obj);
 static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw);
 qpx_packer_t * qpx_packer_create(size_t alloc_size, size_t init_nest_size);
@@ -45,17 +44,6 @@ static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
             !memcmp(obj->via.raw, raw->data, raw->n);
 }
 
-/*
- * Compare a raw object to a null terminated string.
- */
-static inline _Bool qpx_obj_eq_str(const qp_obj_t * obj, const char * str)
-{
-    assert (obj->tp == QP_RAW);
-    return (
-        strncmp(str, (const char *) obj->via.raw, obj->len) == 0 &&
-        str[obj->len] == '\0'
-    );
-}
 
 static inline void qpx_log(
         const char * prelog,

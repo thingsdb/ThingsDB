@@ -32,19 +32,6 @@ void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
     raw->n = total_n - sizeof(ti_raw_t);
 }
 
-ti_raw_t * ti_mp_from_packer(qp_packer_t * packer)
-{
-    size_t sz = sizeof(ti_raw_t) + packer->len;
-    ti_raw_t * r = malloc(sz);
-    if (!r)
-        return NULL;
-    r->ref = 1;
-    r->tp = TI_VAL_MP;
-    r->n = packer->len;
-    memcpy(r->data, packer->buffer, packer->len);
-    return r;
-}
-
 ti_raw_t * ti_str_from_ti_string(const char * src, size_t n)
 {
     assert (n >= 2);  /* at least "" or '' */

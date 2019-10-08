@@ -57,8 +57,8 @@ int ti_thing_get_by_raw_e(
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing__to_pk(ti_thing_t * thing, qp_packer_t ** pckr, int options);
-int ti_thing_t_to_pk(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 int ti_thing_o_set_val_from_strn(
         ti_wprop_t * wprop,
@@ -108,23 +108,13 @@ static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
     return thing->watchers && ti__thing_has_watchers_(thing);
 }
 
-static inline int ti_thing_id_to_pk(
-        ti_thing_t * thing,
-        qp_packer_t ** packer)
+static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
-    return (qp_add_map(packer) ||
-            (thing->id && (
-                    qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
-                    qp_add_int(*packer, thing->id))) ||
-            qp_close_map(*packer));
-}
-
-static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f)
-{
-    return (
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_fadd_int(f, thing->id)
+    return -(msgpack_pack_map(pk, !!thing->id) ||
+        (thing->id && (
+            msp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(pk, thing->id)
+        ))
     );
 }
 

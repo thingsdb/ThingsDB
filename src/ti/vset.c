@@ -92,22 +92,6 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
     return 0;
 }
 
-int ti_vset_to_file(ti_vset_t * vset, FILE * f)
-{
-    vec_t * vec = imap_vec(vset->imap);
-    if (    !vec ||
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_SET, 1) ||
-            qp_fadd_type(f, vec->n > 5 ? QP_ARRAY_OPEN: QP_ARRAY0 + vec->n))
-        return -1;
-
-    for (vec_each(vec, ti_thing_t, t))
-        if (ti_thing_id_to_file(t, f))
-            return -1;
-
-    return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
-}
-
 int ti_vset_assign(ti_vset_t ** vsetaddr)
 {
     vec_t * vec;

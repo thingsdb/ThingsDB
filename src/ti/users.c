@@ -239,27 +239,37 @@ ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
     return NULL;
 }
 
+static int users__to_pk(msgpack_packer * pk)
+{
+    if (msgpack_pack_array(&pk, ti()->users->vec->n))
+        return -1;
+
+    for (vec_each(ti()->users->vec, ti_collection_t, collection))
+        if (ti_user_info_to_pk(collection, pk))
+            return -1;
+
+    return 0;
+}
+
 ti_val_t * ti_users_info_as_mpval(void)
 {
-    ti_raw_t * rusers = NULL;
-    qp_packer_t * packer = qp_packer_create2(4 + (192 * users->vec->n), 4);
-    if (!packer)
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (users__to_pk(&pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    (void) qp_add_array(&packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    for (vec_each(users->vec, ti_user_t, user))
-        if (ti_user_info_to_pk(user, &packer))
-            goto fail;
-
-    if (qp_close_array(packer))
-        goto fail;
-
-    rusers = ti_mp_from_packer(packer);
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t *) rusers;
+    return (ti_val_t *) raw;
 }
 
 void ti_users_del_expired(uint64_t after_ts)

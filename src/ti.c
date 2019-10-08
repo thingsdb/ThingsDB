@@ -28,7 +28,7 @@
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/lock.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <ifaddrs.h>
@@ -36,7 +36,7 @@
 ti_t ti_;
 
 /* settings, nodes etc. */
-const char * ti__fn = "ti.qp";
+const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 3;
 static uv_timer_t * shutdown_timer = NULL;
@@ -745,8 +745,8 @@ int ti_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "syntax_version") ||
         mp_pack_str(pk, TI_VERSION_SYNTAX_STR) ||
         /* 4 */
-        mp_pack_str(pk, "libqpack_version") ||
-        mp_pack_str(pk, qp_version()) ||
+        mp_pack_str(pk, "msgpack_version") ||
+        mp_pack_str(pk, msgpack_version()) ||
         /* 5 */
         mp_pack_str(pk, "libcleri_version") ||
         mp_pack_str(pk, cleri_version()) ||
@@ -828,19 +828,22 @@ int ti_node_to_pk(msgpack_packer * pk)
 
 ti_val_t * ti_node_as_mpval(void)
 {
-    const size_t qpsize = 1024;
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(qpsize, 1);
-    if (!packer)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_node_to_pk(&pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    raw = ti_node_to_pk(&packer)
-            ? NULL
-            : ti_mp_from_packer(packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    assert_log(raw->n < qpsize, "node info size too small");
-
-    qp_packer_destroy(packer);
     return (ti_val_t *) raw;
 }
 

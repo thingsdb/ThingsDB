@@ -259,9 +259,9 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
                 task,
                 chain.name,
                 varr,
-                start,
-                c,
-                n))
+                (uint32_t) start,
+                (uint32_t) c,
+                (uint32_t) n))
             ex_set_mem(e);
     }
 
@@ -399,7 +399,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
                 task,
                 chain.name,
                 varr,
-                idx,
+                (uint32_t) idx,
                 1,
                 1))
             ex_set_mem(e);

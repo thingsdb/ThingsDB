@@ -67,7 +67,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 varr,
                 current_n,
                 0,
-                nargs))
+                (uint32_t) nargs))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }

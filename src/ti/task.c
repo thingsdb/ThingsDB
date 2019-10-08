@@ -1068,9 +1068,9 @@ int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
         ti_varr_t * varr,
-        int64_t i,  /* start index */
-        int64_t c,  /* number of items to remove */
-        int32_t n)  /* number of items to add */
+        uint32_t i,  /* start index */
+        uint32_t c,  /* number of items to remove */
+        uint32_t n)  /* number of items to add */
 {
     assert (!varr || varr->tp == TI_VAL_ARR);
     assert ((n && varr) || !n);
@@ -1092,8 +1092,8 @@ int ti_task_add_splice(
     msgpack_pack_map(&pk, 1);
     mp_pack_strn(&pk, name->str, name->n);
     msgpack_pack_array(&pk, 2 + n);
-    msgpack_pack_int(&pk, i);
-    msgpack_pack_int(&pk, c);
+    msgpack_pack_uint32(&pk, i);
+    msgpack_pack_uint32(&pk, c);
 
     for (c = i + n; i < c; ++i)
     {

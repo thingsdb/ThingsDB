@@ -278,7 +278,7 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
     if (msgpack_pack_map(pk, 5) ||  /* four below + tokens */
 
         mp_pack_str(pk, "user_id") ||
-        msgpack_pack_int(pk, user->id) ||
+        msgpack_pack_uint64(pk, user->id) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, user->name->data, user->name->n) ||

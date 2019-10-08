@@ -91,9 +91,9 @@ int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
         ti_varr_t * varr,       /* array or array-of-things */
-        int64_t i,              /* start at index */
-        int64_t c,              /* number of items to remove */
-        int32_t n);             /* number of items to add */
+        uint32_t i,              /* start at index */
+        uint32_t c,              /* number of items to remove */
+        uint32_t n);             /* number of items to add */
 
 
 struct ti_task_s

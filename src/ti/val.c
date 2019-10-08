@@ -503,12 +503,12 @@ int ti_val_make_float(ti_val_t ** val, double d)
 /*
  * Return NULL when failed. Otherwise a new value with a reference.
  */
-ti_val_t * ti_val_from_unp(ti_val_unp_t * vunp)
+ti_val_t * ti_val_from_unp(ti_val_unp_t * vup)
 {
     ex_t e = {0};
     ti_val_t * val;
 
-    val = ti_val_from_unp_e(vunp, &e);
+    val = ti_val_from_unp_e(vup, &e);
     if (e.nr)
         log_error("failed to unpack value: %s (%d) ", e.msg, e.nr);
     return val;

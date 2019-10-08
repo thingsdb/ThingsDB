@@ -3,7 +3,6 @@
  */
 #include <assert.h>
 #include <fcntl.h>
-#include <qpack.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -16,36 +15,39 @@
 #include <ti/store/storeprocedures.h>
 #include <unistd.h>
 #include <util/fx.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 int ti_store_procedures_store(const vec_t * procedures, const char * fn)
 {
-    int rc = -1;
-    qp_packer_t * packer = qp_packer_create2(1024, 2);
-    if (!packer)
+    msgpack_packer pk;
+    FILE * f = fopen(fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
+    }
 
-    if (qp_add_map(&packer))
-        goto stop;
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+
+    if (msgpack_pack_map(&pk, procedures->n))
+        goto fail;
 
     for (vec_each(procedures, ti_procedure_t, procedure))
-        if (qp_add_raw(packer, procedure->name->data, procedure->name->n) ||
-            ti_closure_to_pk(procedure->closure, &packer))
-            goto stop;
+        if (mp_pack_strn(&pk, procedure->name->data, procedure->name->n) ||
+            ti_closure_to_pk(procedure->closure, &pk)
+        ) goto fail;
 
-    if (qp_close_map(packer))
-        goto stop;
-
-    rc = fx_write(fn, packer->buffer, packer->len);
-
-stop:
-    if (rc)
-        log_error("failed to write file: `%s`", fn);
-    else
-        log_debug("stored procedures to file: `%s`", fn);
-
-    qp_packer_destroy(packer);
-    return rc;
+    log_debug("stored procedures to file: `%s`", fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", fn);
+done:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        return -1;
+    }
+    return 0;
 }
 
 int ti_store_procedures_restore(
@@ -55,14 +57,21 @@ int ti_store_procedures_restore(
 {
     int rc = -1;
     int pagesize = getpagesize();
-    qp_obj_t qp_name;
+    size_t i, m;
+    mp_obj_t obj, mp_name;
+    mp_unp_t up;
     struct stat st;
     ssize_t size;
     uchar * data;
     ti_raw_t * rname;
     ti_closure_t * closure;
-    qp_unpacker_t unp;
     ti_procedure_t * procedure;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = collection,
+            .up = &up,
+    };
+
     int fd = open(fn, O_RDONLY);
     if (fd < 0)
     {
@@ -88,24 +97,30 @@ int ti_store_procedures_restore(
         goto fail1;
     }
 
-    qp_unpacker_init(&unp, data, size);
+    mp_unp_init(&up, data, size);
 
-    if (!qp_is_map(qp_next(&unp, NULL)))
+    if (mp_next(&up, &obj) != MP_MAP)
         goto fail2;
 
-    while (qp_is_raw(qp_next(&unp, &qp_name)))
+    for (i = 0, m = obj.via.sz; i< m; ++i)
     {
-        rname = ti_str_create(qp_name.via.raw, qp_name.len);
-        closure = (ti_closure_t *) ti_val_from_unp(&unp, collection);
+        if (mp_next(&up, &mp_name) != MP_STR)
+            goto fail2;
+
+        rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+        closure = (ti_closure_t *) ti_val_from_unp(&vup);
         procedure = NULL;
 
-        if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        if (!rname ||
+            !closure ||
+            !ti_val_is_closure((ti_val_t *) closure) ||
             !(procedure = ti_procedure_create(rname, closure)) ||
             ti_procedures_add(procedures, procedure))
             goto fail3;
 
         ti_decref(rname);
         ti_decref(closure);
+
     }
 
     rc = 0;

@@ -20,23 +20,22 @@
  * Returns 0 on success
  * - for example: {'prop': [new_count, values...]}
  */
-static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__add(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (thing);
-    assert (unp);
-
-    ti_collection_t * collection = thing->collection;
-    ssize_t n;
     ti_vset_t * vset;
     ti_name_t * name;
     ti_thing_t * t;
+    size_t i, m;
+    mp_obj_t obj, mp_prop;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
 
-    qp_obj_t qp_prop, qp_n;
-
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_prop)) ||
-        !qp_is_array(qp_next(unp, NULL)) ||
-        !qp_is_int(qp_next(unp, &qp_n)) || qp_n.via.int64 <= 0)
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR ||
+        mp_next(up, &obj) != MP_ARR)
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
@@ -45,9 +44,7 @@ static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    n = qp_n.via.int64;
-
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(vset = ti_thing_is_object(thing)
             ? (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)
             : (ti_vset_t *) ti_thing_t_val_weak_get(thing, name)))
@@ -56,7 +53,7 @@ static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
                 "job `add` to set on "TI_THING_ID": "
                 "missing property: `%.*s`",
                 thing->id,
-                (int) qp_prop.len, (char *) qp_prop.via.raw);
+                (int) mp_prop.via.str.n, mp_prop.via.str.data);
         return -1;
     }
 
@@ -70,9 +67,9 @@ static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    while(n--)
+    for(i = 0, m = obj.via.sz; i < m; ++i)
     {
-        t = (ti_thing_t *) ti_val_from_unp(unp, collection);
+        t = (ti_thing_t *) ti_val_from_unp(&vup);
 
         if (!t || !ti_val_is_thing((ti_val_t *) t) || ti_vset_add(vset, t))
         {
@@ -93,15 +90,18 @@ static int job__add(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'prop':value}
  */
-static int job__set(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__set(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (thing);
-    assert (unp);
-    ti_collection_t * collection = thing->collection;
     ti_val_t * val;
     ti_name_t * name;
-    qp_obj_t qp_prop;
-    if (!qp_is_map(qp_next(unp, NULL)) || !qp_is_raw(qp_next(unp, &qp_prop)))
+    mp_obj_t obj, mp_prop;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR)
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
@@ -110,25 +110,23 @@ static int job__set(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    if (!ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
+    if (!ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
                 "invalid property: `%.*s`",
-                thing->id,
-                (int) qp_prop.len,
-                (const char *) qp_prop.via.raw);
+                thing->id, (int) mp_prop.via.str.n, mp_prop.via.str.data);
         return -1;
     }
 
-    name = ti_names_get((const char *) qp_prop.via.raw, qp_prop.len);
+    name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name)
     {
         log_critical(EX_MEMORY_S);
         return -1;
     }
 
-    val = ti_val_from_unp(unp, collection);
+    val = ti_val_from_unp(&vup);
     if (!val)
     {
         log_critical(
@@ -172,20 +170,19 @@ fail:
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
-static int job__new_type(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
-    uint16_t type_id;
-    qp_obj_t qp_type_id, qp_name;
+    mp_obj_t obj, mp_id, mp_name;
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type_id`    */
-        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
-        !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
-        !qp_is_raw(qp_next(unp, NULL)))             /* key `fields`     */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR)
     {
         log_critical(
             "job `new_type` for "TI_COLLECTION_ID" is invalid",
@@ -193,25 +190,23 @@ static int job__new_type(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    if (qp_type_id.via.int64 < 0 || qp_type_id.via.int64 >= TI_SPEC_ANY)
+    if (mp_id.via.u64 >= TI_SPEC_ANY)
     {
         log_critical(
             "job `new_type` for "TI_COLLECTION_ID" is invalid; "
-            "incorrect type id %"PRId64,
-            collection->root->id, qp_type_id.via.int64);
+            "incorrect type id %"PRIu64,
+            collection->root->id, mp_id.via.u64);
         return -1;
     }
 
-    type_id = (uint16_t) qp_type_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
     if (!type)
     {
         type = ti_type_create(
                 collection->types,
-                type_id,
-                (const char *) qp_name.via.raw,
-                qp_name.len);
+                mp_id.via.u64,
+                mp_name.via.str.data,
+                mp_name.via.str.n);
 
         if (!type)
         {
@@ -221,7 +216,7 @@ static int job__new_type(ti_thing_t * thing, qp_unpacker_t * unp)
         }
     }
 
-    if (ti_type_init_from_unp(type, unp, &e))
+    if (ti_type_init_from_unp(type, up, &e))
     {
         log_critical(
             "job `new_type` for "TI_COLLECTION_ID" has failed; "
@@ -240,70 +235,70 @@ static int job__new_type(ti_thing_t * thing, qp_unpacker_t * unp)
  */
 static int job__mod_type_add(
         ti_thing_t * thing,
-        qp_unpacker_t * unp,
+        mp_unp_t * up,
         uint64_t ev_id)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     ti_name_t * name;
-    qp_types_t mapsz;
     ti_raw_t * spec_raw;
     ti_field_t * field;
     ti_val_t * val = NULL;
-    uint16_t type_id;
-    qp_obj_t qp_type_id, qp_name, qp_spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec;
     int rc = -1;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
 
-    if (!qp_is_map((mapsz = qp_next(unp, NULL))) ||
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type-id`    */
-        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
-        !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `spec`       */
-        !qp_is_raw(qp_next(unp, &qp_spec)))
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 3 && obj.via.sz != 4) ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_spec) != MP_STR)
     {
         log_critical(
                 "job `mode_type_add` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                vup.collection->root->id);
         return rc;
     }
 
-    if (mapsz == QP_MAP4)
+    if (obj.via.sz == 4)
     {
-        if (!qp_is_raw(qp_next(unp, NULL)))
+        if (mp_skip(up) != MP_STR )
         {
             log_critical(
                     "job `mode_type_add` for "TI_COLLECTION_ID" is invalid",
-                    collection->root->id);
+                    vup.collection->root->id);
             return rc;
         }
 
-        val = ti_val_from_unp(unp, collection);
+        val = ti_val_from_unp(&vup);
         if (!val)
         {
             log_critical(
                     "job `mode_type_add` for "TI_COLLECTION_ID" has failed; "
                     "error reading initial value",
-                    collection->root->id);
+                    vup.collection->root->id);
             return rc;
         }
     }
 
-    type_id = (uint16_t) qp_type_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
+    type = ti_types_by_id(vup.collection->types, mp_id.via.u64);
     if (!type)
     {
         log_critical(
                 "job `mode_type_add` for "TI_COLLECTION_ID" is invalid; "
-                "type with id %u not found",
-                collection->root->id, type_id);
+                "type with id %"PRIu64" not found",
+                vup.collection->root->id, mp_id.via.u64);
         return rc;
     }
 
-    name = ti_names_get((const char *) qp_name.via.raw, qp_name.len);
-    spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
+    name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
     if (!name || !spec_raw)
     {
         log_critical(EX_MEMORY_S);
@@ -337,7 +332,7 @@ done:
  */
 static int job__mod_type_del(
         ti_thing_t * thing,
-        qp_unpacker_t * unp,
+        mp_unp_t * up,
         uint64_t ev_id)
 {
     ti_collection_t * collection = thing->collection;
@@ -345,13 +340,15 @@ static int job__mod_type_del(
     ti_name_t * name;
     ti_field_t * field;
     uint16_t type_id;
-    qp_obj_t qp_type_id, qp_name;
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type-id`    */
-        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
-        !qp_is_raw(qp_next(unp, &qp_name)))         /* value `name`     */
+    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    int rc = -1;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
                 "job `mode_type_del` for "TI_COLLECTION_ID" is invalid",
@@ -359,9 +356,7 @@ static int job__mod_type_del(
         return -1;
     }
 
-    type_id = (uint16_t) qp_type_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
     if (!type)
     {
         log_critical(
@@ -371,7 +366,7 @@ static int job__mod_type_del(
         return -1;
     }
 
-    name = ti_names_weak_get((const char *) qp_name.via.raw, qp_name.len);
+    name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
     if (!name)
     {
         log_critical(
@@ -403,7 +398,7 @@ static int job__mod_type_del(
 /*
  * Returns 0 on success
  */
-static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 {
     int rc = -1;
     ex_t e = {0};
@@ -411,17 +406,22 @@ static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
     ti_type_t * type;
     ti_name_t * name;
     ti_field_t * field;
-    uint16_t type_id;
     ti_raw_t * spec_raw;
-    qp_obj_t qp_type_id, qp_name, qp_spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    int rc = -1;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `type-id`    */
-        !qp_is_int(qp_next(unp, &qp_type_id)) ||    /* value `type-id`  */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
-        !qp_is_raw(qp_next(unp, &qp_name)) ||       /* value `name`     */
-        !qp_is_raw(qp_next(unp, NULL)) ||           /* key `name`       */
-        !qp_is_raw(qp_next(unp, &qp_spec)))         /* value `name`     */
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_spec) != MP_STR)
     {
         log_critical(
                 "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid",
@@ -429,25 +429,23 @@ static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
         return rc;
     }
 
-    type_id = (uint16_t) qp_type_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
     if (!type)
     {
         log_critical(
                 "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
-                "type with id %u not found",
-                collection->root->id, type_id);
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
         return rc;
     }
 
-    name = ti_names_weak_get((const char *) qp_name.via.raw, qp_name.len);
+    name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
     if (!name)
     {
         log_critical(
                 "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
-                "type with id %u; name is missing",
-                collection->root->id, type_id);
+                "type with id %"PRIu64"; name is missing",
+                collection->root->id, mp_id.via.u64);
         return rc;
     }
 
@@ -461,7 +459,7 @@ static int job__mod_type_mod(ti_thing_t * thing, qp_unpacker_t * unp)
         return rc;
     }
 
-    spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
+    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
     if (!spec_raw)
     {
         log_critical(EX_MEMORY_S);
@@ -484,15 +482,13 @@ done:
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__del(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (thing);
-    assert (unp);
     assert (ti_thing_is_object(thing));
-
-    qp_obj_t qp_prop;
     ti_name_t * name;
-    if (!qp_is_raw(qp_next(unp, &qp_prop)))
+    mp_obj_t mp_prop;
+
+    if (mp_next(up, &mp_prop) != MP_STR)
     {
         log_critical(
                 "job `del` property from "TI_THING_ID": "
@@ -503,16 +499,16 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 
     /* the job is already validated so getting the name will most likely
      * succeed */
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !ti_thing_o_del(thing, name))
     {
-        if (ti_name_is_valid_strn((const char *) qp_prop.via.raw, qp_prop.len))
+        if (ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
         {
             log_critical(
                     "job `del` property from "TI_THING_ID": "
                     "thing has no property `%.*s`",
                     thing->id,
-                    (int) qp_prop.len, (const char *) qp_prop.via.raw);
+                    (int) mp_prop.via.str.n, mp_prop.via.str.data);
         }
         else
         {
@@ -524,7 +520,6 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
 
         return -1;
     }
-
     return 0;
 }
 
@@ -532,15 +527,13 @@ static int job__del(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int job__del_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (unp);
-
-    qp_obj_t qp_name;
     ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
+    mp_obj_t mp_name;
 
-    if (!qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
                 "job `del_procedure` in "TI_COLLECTION_ID": "
@@ -551,14 +544,14 @@ static int job__del_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
 
     procedure = ti_procedures_pop_strn(
             collection->procedures,
-            (const char *) qp_name.via.raw,
-            qp_name.len);
+            mp_name.via.str.data,
+            mp_name.via.str.n);
 
     if (!procedure)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
-                (int) qp_name.len, (const char *) qp_name.via.raw,
+                (int) mp_name.via.str.n, mp_name.via.str.data,
                 collection->root->id);
         return -1;
     }
@@ -571,19 +564,22 @@ static int job__del_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int job__new_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (unp);
-
     int rc;
-    qp_obj_t qp_name;
+    mp_obj_t obj, mp_name;
     ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_name)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
                 "job `new_procedure` for "TI_COLLECTION_ID": "
@@ -592,8 +588,8 @@ static int job__new_procedure(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    rname = ti_str_create(qp_name.via.raw, qp_name.len);
-    closure = (ti_closure_t *) ti_val_from_unp(unp, collection);
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    closure = (ti_closure_t *) ti_val_from_unp(&vup);
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
@@ -630,14 +626,13 @@ failed:
  * Returns 0 on success
  * - for example: type_id
  */
-static int job__del_type(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__del_type(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
-    qp_obj_t qp_type_id;
-    uint16_t type_id;
+    mp_obj_t mp_id;
     ti_type_t * type;
 
-    if (!qp_is_int(qp_next(unp, &qp_type_id)))
+    if (mp_next(up, &mp_id) != MP_U64)
     {
         log_critical(
                 "job `del_type` from collection "TI_COLLECTION_ID": "
@@ -646,15 +641,13 @@ static int job__del_type(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    type_id = (uint16_t) qp_type_id.via.int64;
-
-    type = ti_types_by_id(collection->types, type_id);
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
     if (!type)
     {
         log_critical(
                 "job `del_type` from collection "TI_COLLECTION_ID": "
-                "type with id %u not found",
-                collection->root->id, type_id);
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
         return -1;
     }
 
@@ -662,8 +655,8 @@ static int job__del_type(ti_thing_t * thing, qp_unpacker_t * unp)
     {
         log_critical(
                 "job `del_type` from collection "TI_COLLECTION_ID": "
-                "type with id %u still has %u references",
-                collection->root->id, type_id, type->refcount);
+                "type with id %u still has %"PRIu64" references",
+                collection->root->id, mp_id.via.u64, type->refcount);
         return -1;
     }
 
@@ -676,23 +669,18 @@ static int job__del_type(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'prop': [del_count, thing_ids...]}
  */
-static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__remove(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (thing);
-    assert (unp);
-
-    ssize_t n;
     ti_collection_t * collection = thing->collection;
     ti_vset_t * vset;
     ti_name_t * name;
-    qp_obj_t qp_prop, qp_i;
+    mp_obj_t obj, mp_prop, mp_id;
     ti_thing_t * t;
-    uint64_t thing_id;
+    size_t i, m;
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_prop)) ||
-        !qp_is_array(qp_next(unp, NULL)) ||
-        !qp_is_int(qp_next(unp, &qp_i)))
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR ||
+        mp_next(up, &obj) != MP_ARR)
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
@@ -701,7 +689,7 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(vset = ti_thing_is_object(thing)
             ? (ti_vset_t *) ti_thing_o_val_weak_get(thing, name)
             : (ti_vset_t *) ti_thing_t_val_weak_get(thing, name)))
@@ -710,7 +698,7 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
                 "job `remove` from set on "TI_THING_ID": "
                 "missing property: `%.*s`",
                 thing->id,
-                (int) qp_prop.len, (char *) qp_prop.via.raw);
+                (int) mp_prop.via.str.n, (char *) mp_prop.via.str.data);
         return -1;
     }
 
@@ -724,21 +712,9 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    n = qp_i.via.int64;
-
-    if (n < 0)
+    for (i = 0, m = obj.via.sz; i < m; ++i)
     {
-        log_critical(
-                "job `remove` from set on "TI_THING_ID": "
-                "incorrect values "
-                "(delete_count: %zd)",
-                thing->id, n);
-        return -1;
-    }
-
-    while(n--)
-    {
-        if (!qp_is_int(qp_next(unp, &qp_i)))
+        if (mp_next(up, &mp_id) != MP_U64)
         {
             log_critical(
                     "job `remove` from set on "TI_THING_ID": "
@@ -748,8 +724,7 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
             return -1;
         }
 
-        thing_id = (uint64_t) qp_i.via.int64;
-        t = imap_get(collection->things, thing_id);
+        t = imap_get(collection->things, mp_id.via.u64);
 
         if (!t || !ti_vset_pop(vset, t))
         {
@@ -757,7 +732,7 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
                     "job `remove` from set on "TI_THING_ID": "
                     "missing thing: "TI_THING_ID,
                     thing->id,
-                    thing_id);
+                    mp_id.via.u64);
             continue;
         }
         ti_val_drop((ti_val_t *) t);
@@ -770,25 +745,26 @@ static int job__remove(ti_thing_t * thing, qp_unpacker_t * unp)
  * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
-static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
+static int job__splice(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (thing);
-    assert (unp);
-
     ex_t e = {0};
-    ssize_t n, i, c, cur_n, new_n;
+    size_t n, i, c, cur_n, new_n;
     ti_varr_t * varr;
     ti_name_t * name;
     ti_collection_t * collection = thing->collection;
-    qp_types_t tp;
-    qp_obj_t qp_prop, qp_i, qp_c, qp_n;
+    ti_val_unp_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = &up,
+    };
 
-    if (!qp_is_map(qp_next(unp, NULL)) ||
-        !qp_is_raw(qp_next(unp, &qp_prop)) ||
-        !qp_is_array((tp = qp_next(unp, NULL))) ||
-        !qp_is_int(qp_next(unp, &qp_i)) ||
-        !qp_is_int(qp_next(unp, &qp_c)) ||
-        !qp_is_int(qp_next(unp, &qp_n)))
+    mp_obj_t obj, mp_prop, mp_i, mp_c;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR ||
+        mp_next(up, &obj) != MP_ARR ||  obj.via.sz < 2 ||
+        mp_next(up, &mp_i) != MP_U64 ||
+        mp_next(up, &mp_c) != MP_U64)
     {
         log_critical(
                 "job `splice` on "TI_THING_ID": "
@@ -797,7 +773,7 @@ static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
         return -1;
     }
 
-    name = ti_names_weak_get((const char *) qp_prop.via.raw, qp_prop.len);
+    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(varr = ti_thing_is_object(thing)
             ? (ti_varr_t *) ti_thing_o_val_weak_get(thing, name)
             : (ti_varr_t *) ti_thing_t_val_weak_get(thing, name)))
@@ -806,7 +782,7 @@ static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
                 "job `splice` array on "TI_THING_ID": "
                 "missing property: `%.*s`",
                 thing->id,
-                (int) qp_prop.len, (char *) qp_prop.via.raw);
+                (int) mp_prop.via.str.n, mp_prop.via.str.data);
         return -1;
     }
 
@@ -821,23 +797,13 @@ static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
     }
 
     cur_n = varr->vec->n;
-    i = qp_i.via.int64;
-    c = qp_c.via.int64;
-    n = qp_n.via.int64;
+    i = mp_i.via.u64;
+    c = mp_c.via.u64;
+    n = obj.via.sz - 1;
 
-    if (i < 0 ||
-        i > cur_n ||
-        c < 0 ||
-        i + c > cur_n ||
-        n < 0 ||
-        (tp != QP_ARRAY_OPEN && n > tp - QP_ARRAY0 - 2))
+    if (c > cur_n)
     {
-        log_critical(
-                "job `splice` on "TI_THING_ID": "
-                "incorrect values "
-                "(index: %zd, delete: %zd, new: %zd, current_size: %zd)",
-                thing->id,
-                i, c, n, cur_n);
+        log_critical("splice: delete count `c` > current `n`");
         return -1;
     }
 
@@ -861,7 +827,7 @@ static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
 
     while(n--)
     {
-        ti_val_t * val = ti_val_from_unp(unp, collection);
+        ti_val_t * val = ti_val_from_unp(&vup);
 
         if (!val)  /* both <0 and >0 are not correct since we should have n values */
         {
@@ -894,21 +860,17 @@ static int job__splice(ti_thing_t * thing, qp_unpacker_t * unp)
 /*
  * Unpacker should be at point 'job': ...
  */
-int ti_job_run(ti_thing_t * thing, qp_unpacker_t * unp, uint64_t ev_id)
+int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
 {
     assert (thing->collection);
-
-    qp_obj_t qp_job_name;
-    const uchar * raw;
-    if (!qp_is_raw(qp_next(unp, &qp_job_name)) || qp_job_name.len < 3)
+    mp_obj_t mp_job_name;
+    if (mp_next(up, *mp_job_name) != MP_STR || mp_job_name.via.sz < 3)
     {
         log_critical(
                 "job `type` for thing "TI_THING_ID" is missing",
                 thing->id);
         return -1;
     }
-
-    raw = qp_job_name.via.raw;
 
     switch (*raw)
     {

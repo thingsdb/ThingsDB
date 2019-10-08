@@ -9,7 +9,6 @@ typedef struct ti_closure_s ti_closure_t;
 
 #include <stdint.h>
 #include <cleri/cleri.h>
-#include <qpack.h>
 #include <ti.h>
 #include <doc.h>
 #include <tiinc.h>
@@ -19,8 +18,6 @@ typedef struct ti_closure_s ti_closure_t;
 #include <ti/query.h>
 #include <ti/do.h>
 
-//int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-
 ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags);
 ti_closure_t * ti_closure_from_strn(
         ti_syntax_t * syntax,
@@ -28,8 +25,7 @@ ti_closure_t * ti_closure_from_strn(
         size_t n, ex_t * e);
 void ti_closure_destroy(ti_closure_t * closure);
 int ti_closure_unbound(ti_closure_t * closure, ex_t * e);
-int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer);
-int ti_closure_to_file(ti_closure_t * closure, FILE * f);
+int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk);
 uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n);
 int ti_closure_lock_and_use(
         ti_closure_t * closure,

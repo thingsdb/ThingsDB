@@ -50,7 +50,7 @@ static void things__gc_mark_varr(ti_varr_t * varr)
     }
 }
 
-inline static int things__set_cb(ti_thing_t * thing, void * UNUSED(arg))
+static inline int things__set_cb(ti_thing_t * thing, void * UNUSED(arg))
 {
     if (thing->flags & TI_VFLAG_THING_SWEEP)
         things__gc_mark_thing(thing);

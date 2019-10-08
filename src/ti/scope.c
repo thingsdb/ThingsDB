@@ -1,16 +1,16 @@
 /*
  * ti/scope.c
  */
-#include <ti/scope.h>
-#include <qpack.h>
-#include <tiinc.h>
+#include <assert.h>
 #include <ctype.h>
 #include <doc.h>
-#include <ti/scope.h>
-#include <util/strx.h>
-#include <assert.h>
-#include <ti/name.h>
 #include <ti.h>
+#include <ti/name.h>
+#include <ti/scope.h>
+#include <ti/scope.h>
+#include <tiinc.h>
+#include <util/mpack.h>
+#include <util/strx.h>
 
 #define SCOPE__THINGSDB "@thingsdb"
 #define SCOPE__NODE "@node"
@@ -224,26 +224,21 @@ int ti_scope_init_packed(
         size_t n,
         ex_t * e)
 {
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_s;
+    mp_unp_t up;
+    mp_obj_t obj, mp_scope;
 
-    qp_unpacker_init(&unpacker, data, n);
+    mp_unp_init(&up, data, n);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)))
+    if (mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
+        mp_next(&up, &mp_scope) != MP_STR)
     {
-        ex_set(e, EX_BAD_DATA, "expecting the request to contain an array");
+        ex_set(e, EX_BAD_DATA,
+                "expecting the request to contain an array "
+                "with as scope as first item");
         return e->nr;
     }
 
-    if (!qp_is_raw(qp_next(&unpacker, &qp_s)))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "expecting the first item in the array request to be of of "
-                "type string");
-        return e->nr;
-    }
-
-    return ti_scope_init(scope, (const char *) qp_s.via.raw, qp_s.len, e);
+    return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
 }
 
 

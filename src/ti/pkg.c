@@ -22,13 +22,25 @@ ti_pkg_t * ti_pkg_new(
         return NULL;
 
     pkg->tp = tp;
-    pkg->ntp = tp ^ 0xff;
+    pkg->ntp = tp^0xff;
     pkg->n = n;
     pkg->id = id;
 
     memcpy(pkg->data, data, n);
 
     return pkg;
+}
+
+/*
+ * `total_n` is the total pkg size including the header, not `pkg->n` which is
+ *  only the data size
+ */
+void pkg_init(ti_pkg_t * pkg, uint16_t id, uint8_t tp, size_t total_n)
+{
+    pkg->id = id;
+    pkg->n = total_n-sizeof(ti_pkg_t);
+    pkg->tp = tp;
+    pkg->ntp = tp^0xff;
 }
 
 ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg)

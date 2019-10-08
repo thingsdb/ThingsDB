@@ -253,29 +253,35 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     return collection;
 }
 
-static int collections__to_pk(qp_packer_t ** packer)
+static int collections__to_pk(msgpack_packer * pk)
 {
-    if (qp_add_array(packer))
+    if (msgpack_pack_array(&pk, collections->vec->n))
         return -1;
 
     for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_collection_to_pk(collection, packer))
+        if (ti_collection_to_pk(collection, pk))
             return -1;
 
-    return qp_close_array(*packer);
+    return 0;
 }
 
-ti_val_t * ti_collections_as_qpval(void)
+ti_val_t * ti_collections_as_mpval(void)
 {
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(2 + collections->vec->n * 128, 2);
-    if (!packer)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (collections__to_pk(&pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    raw = collections__to_pk(&packer)
-            ? NULL
-            : ti_mp_from_packer(packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    qp_packer_destroy(packer);
     return (ti_val_t *) raw;
 }

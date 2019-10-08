@@ -99,7 +99,7 @@ int ti_procedure_info_to_pk(
     return qp_close_array(*packer) || qp_close_map(*packer) ? -1 : 0;
 }
 
-ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure)
+ti_val_t * ti_procedure_info_as_mpval(ti_procedure_t * procedure)
 {
     ti_raw_t * rprocedure = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);

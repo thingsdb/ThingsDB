@@ -47,7 +47,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
     }
 
-    query->rval = ti_user_info_as_qpval(user);
+    query->rval = ti_user_info_as_mpval(user);
     if (!query->rval)
         ex_set_mem(e);
 

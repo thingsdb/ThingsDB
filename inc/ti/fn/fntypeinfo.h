@@ -25,7 +25,7 @@ static int do__f_type_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
     ti_val_drop(query->rval);
-    query->rval = ti_type_info_as_qpval(type);
+    query->rval = ti_type_info_as_mpval(type);
     if (!query->rval)
         ex_set_mem(e);
 

@@ -29,7 +29,7 @@ int ti_collection_rename(
         ti_collection_t * collection,
         ti_raw_t * rname,
         ex_t * e);
-ti_val_t * ti_collection_as_qpval(ti_collection_t * collection);
+ti_val_t * ti_collection_as_mpval(ti_collection_t * collection);
 void ti_collection_set_quota(
         ti_collection_t * collection,
         ti_quota_enum_t quota_tp,

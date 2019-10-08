@@ -4,65 +4,58 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/data.h>
+#include <util/mpack.h>
 
-qp_packer_t * ti_data_packer(size_t alloc_size, size_t init_nest_size)
+void ti_data_init(ti_data_t * data, size_t total_n)
 {
-    qp_packer_t * packer = qp_packer_create2(
-            sizeof(ti_data_t) + alloc_size,
-            init_nest_size);
-    if (!packer)
-        return NULL;
-    packer->len = sizeof(ti_data_t);
-    return packer;
-}
-
-ti_data_t * ti_data_from_packer(qp_packer_t * packer)
-{
-    ti_data_t * data = (ti_data_t *) packer->buffer;
-    data->n = packer->len - sizeof(ti_data_t);
-    packer->buffer = NULL;
-    qp_packer_destroy(packer);
-    return data;
+    data->n = total_n - sizeof(ti_data_t);
 }
 
 ti_data_t * ti_data_for_set_job(ti_name_t * name, ti_val_t * val, int options)
 {
-    qp_packer_t * packer = ti_data_packer(512, 8);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
-    if (!packer)
-        return NULL;
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "set");
-    (void) qp_add_map(&packer);
+    if (msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "set") ||
+        msgpack_pack_map(&pk, 1)
+    ) goto fail_pack;
 
-    if (qp_add_raw(packer, (const uchar *) name->str, name->n))
-        goto fail_packer;
+    if (mp_pack_strn(&pk, name->str, name->n) ||
+        ti_val_to_pk(val, &pk, options)
+    ) goto fail_pack;
 
-    if (ti_val_to_pk(val, &packer, options))
-        goto fail_packer;
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
 
-    if (qp_close_map(packer) || qp_close_map(packer))
-        goto fail_packer;
+    return data;
 
-    return ti_data_from_packer(packer);
-
-fail_packer:
-    qp_packer_destroy(packer);
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
     return NULL;
 }
 
 ti_data_t * ti_data_for_del_job(const char * name, size_t n)
 {
-    qp_packer_t * packer = ti_data_packer(20 + n, 1);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 64 + n, sizeof(ti_data_t)))
         return NULL;
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "del");
-    (void) qp_add_raw(packer, (const uchar *) name, n);
-    (void) qp_close_map(packer);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    return ti_data_from_packer(packer);
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "del");
+    mp_pack_strn(&pk, name, n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    return data;
 }

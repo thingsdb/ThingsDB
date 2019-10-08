@@ -29,7 +29,7 @@ static const char * store__access_thingsdb_fn   = "access_thingsdb.mp";
 static const char * store__collections_fn       = "collections.mp";
 static const char * store__id_stat_fn           = "idstat.mp";
 static const char * store__names_fn             = "names.mp";
-static const char * store__procedures_fn        = "procedures.qp";
+static const char * store__procedures_fn        = "procedures.mp";
 static const char * store__users_fn             = "users.mp";
 
 static ti_store_t * store;

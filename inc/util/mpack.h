@@ -84,6 +84,26 @@ typedef struct
     mp_via_t via;
 } mp_obj_t;
 
+/* return 0 if successful
+ *
+ * reserve space at the start of `sbuffer` so we can later use the buffer
+ * to make another type, for example add a header.
+ *
+ * nothing will be allocated if alloc and size are equal and in this case
+ * the return value is always 0
+ */
+static inline int mp_sbuffer_alloc_init(
+        msgpack_sbuffer * buffer,
+        size_t alloc,
+        size_t size)
+{
+    assert (alloc >= size);
+    buffer->alloc = alloc;
+    buffer->data = alloc == size ? NULL : malloc(alloc);
+    buffer->size = size;
+    return alloc != size && buffer->data == NULL;
+}
+
 static inline int mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
 {
     return msgpack_pack_bin(x, n) || msgpack_pack_bin_body(x, b, n);
@@ -98,6 +118,11 @@ static inline int mp_pack_str(msgpack_packer * x, const void * s)
 {
     size_t n = strlen(s);
     return mp_pack_strn(x, s, n);
+}
+
+static inline int mp_pack_append(msgpack_packer * pk, const void * s, size_t n)
+{
+    return msgpack_pack_append_buffer(pk, s, n);
 }
 
 static inline void mp_unp_init(mp_unp_t * up, void * data, size_t n)
@@ -507,11 +532,6 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     }
 
     return MP_ERR;
-}
-
-static inline int mp_pack_append(msgpack_packer * pk, const void * s, size_t n)
-{
-    msgpack_pack_append_buffer(pk, s, n);
 }
 
 static inline void * mp_may_cast_u64(mp_enum_t * tp)

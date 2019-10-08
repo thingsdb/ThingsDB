@@ -42,7 +42,6 @@ static int shutdown_counter = 3;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_loop_t loop_;
 
-static int ti__unpack(qp_res_t * res);
 static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
 static void ti__shutdown_stop(void);
 static void ti__shutdown_cb(uv_timer_t * shutdown);
@@ -308,33 +307,52 @@ int ti_read(void)
     if (!data)
         return -1;
 
-    rc = ti_unpack(data, n);
-
+    rc = ti_unpack(data, (size_t) n);
     free(data);
     return rc;
 }
 
 int ti_unpack(uchar * data, size_t n)
 {
-    int rc;
-    qp_res_t * res;
-    qp_unpacker_t unpacker;
-    qpx_unpacker_init(&unpacker, data, (size_t) n);
+    mp_unp_t up;
+    mp_obj_t obj, mp_schema, mp_event_id, mp_next_node_id;
+    uint32_t node_id;
 
-    res = qp_unpacker_res(&unpacker, &rc);
-    if (rc)
+    mp_unp_init(&up, data, (size_t) n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
+        mp_skip(&up) != MP_STR ||  /* schema */
+        mp_next(&up, &mp_schema) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||  /* event_id */
+        mp_next(&up, &mp_event_id) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||  /* next_node_id */
+        mp_next(&up, &obj) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||  /* nodes */
+        ti_nodes_from_up(&up)
+    ) goto fail;
+
+    if (ti_read_node_id(&node_id))
+        goto fail;
+
+    ti_.nodes->next_id = mp_next_node_id.via.u64;
+    ti_.last_event_id = mp_event_id.via.u64;
+    ti_.node = ti_nodes_node_by_id(node_id);
+    if (!ti_.node)
+        goto fail;
+
+    ti_.node->zone = ti()->cfg->zone;
+
+    if (ti_.node->port != ti()->cfg->node_port)
     {
-        log_critical(qp_strerror(rc));
-        return -1;
+        ti_.node->port = ti()->cfg->node_port;
+        ti_.flags |= TI_FLAG_NODES_CHANGED;
     }
 
-    rc = ti__unpack(res);
-
-    qp_res_destroy(res);
-    if (rc)
-        log_critical("unpacking has failed (%s)", ti_.fn);
-
-    return rc;
+    return 0;
+fail:
+    ti_.node = NULL;
+    log_critical("failed to restore from file: `%s`", ti_.fn);
+    return -1;
 }
 
 int ti_run(void)
@@ -458,24 +476,31 @@ void ti_stop(void)
 
 int ti_save(void)
 {
-    int rc = -1;
-    qp_packer_t * packer = qp_packer_create2(TI_SAVE_PACK);
-    if (!packer)
+    msgpack_packer pk;
+    FILE * f = fopen(ti_.fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", ti_.fn, strerror(errno));
         return -1;
+    }
 
     if (ti_.node->cevid > ti_.last_event_id)
         ti_.last_event_id = ti_.node->cevid;
 
-    if (ti_to_pk(&packer))
-        goto stop;
+    if (ti_to_pk(&pk))
+        goto fail;
 
-    rc = fx_write(ti_.fn, packer->buffer, packer->len);
-    if (rc)
-        log_error("failed to write file: `%s`", ti_.fn);
-
-stop:
-    qp_packer_destroy(packer);
-    return rc;
+    log_debug("stored thingsdb state to file: `%s`", ti_.fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", ti_.fn);
+done:
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", ti_.fn, strerror(errno));
+        return -1;
+    }
+    return 0;
 }
 
 int ti_lock(void)
@@ -597,41 +622,50 @@ done:
 
 ti_rpkg_t * ti_node_status_rpkg(void)
 {
-    const size_t qpsize = 128;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(qpsize, 1);
     ti_node_t * ti_node = ti()->node;
 
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, TI_NODE_INFO_PK_SZ, sizeof(ti_pkg_t)))
         return NULL;
 
-    (void) ti_node_info_to_pk(ti_node, &packer);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    assert_log(packer->len < qpsize, "node status size too small");
+    (void) ti_node_info_to_pk(ti_node, &pk);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_INFO);
+    assert_log(buffer->size < TI_NODE_INFO_PK_SZ, "node info size too small");
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_INFO, buffer.size);
+
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
         free(pkg);
+
     return rpkg;
 }
 
 ti_rpkg_t * ti_client_status_rpkg(void)
 {
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(20, 1);
 
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
         return NULL;
 
-    (void) qp_add_raw_from_str(packer, ti_node_status_str(ti_.node->status));
+    mp_pack_str(&pk, ti_node_status_str(ti_.node->status));
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_NODE_STATUS);
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
+
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
         free(pkg);
+
     return rpkg;
 }
 
@@ -692,7 +726,7 @@ fail:
     ti_rpkg_drop(node_rpkg);
 }
 
-int ti_node_to_pk(qp_packer_t ** packer)
+int ti_node_to_pk(msgpack_packer * pk)
 {
     struct timespec timing;
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
@@ -700,72 +734,99 @@ int ti_node_to_pk(qp_packer_t ** packer)
     double uptime = util_time_diff(&ti_.boottime, &timing);
 
     return (
-        qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, "node_id") ||
-        qp_add_int(*packer, ti_.node->id) ||
-        qp_add_raw_from_str(*packer, "version") ||
-        qp_add_raw_from_str(*packer, TI_VERSION) ||
-        qp_add_raw_from_str(*packer, "syntax_version") ||
-        qp_add_raw_from_str(*packer, TI_VERSION_SYNTAX_STR) ||
-        qp_add_raw_from_str(*packer, "libqpack_version") ||
-        qp_add_raw_from_str(*packer, qp_version()) ||
-        qp_add_raw_from_str(*packer, "libcleri_version") ||
-        qp_add_raw_from_str(*packer, cleri_version()) ||
-        qp_add_raw_from_str(*packer, "libuv_version") ||
-        qp_add_raw_from_str(*packer, uv_version_string()) ||
-        qp_add_raw_from_str(*packer, "libpcre2_version") ||
-        qp_add_raw_from_str(*packer, TI_PCRE2_VERSION) ||
-        qp_add_raw_from_str(*packer, "status") ||
-        qp_add_raw_from_str(*packer, ti_node_status_str(ti_.node->status)) ||
-        qp_add_raw_from_str(*packer, "zone") ||
-        qp_add_int(*packer, ti_.node->zone) ||
-        qp_add_raw_from_str(*packer, "log_level") ||
-        qp_add_raw_from_str(*packer, Logger.level_name) ||
-        qp_add_raw_from_str(*packer, "hostname") ||
-        qp_add_raw_from_str(*packer, ti_.hostname) ||
-        qp_add_raw_from_str(*packer, "client_port") ||
-        qp_add_int(*packer, ti_.cfg->client_port) ||
-        qp_add_raw_from_str(*packer, "node_port") ||
-        qp_add_int(*packer, ti_.cfg->node_port) ||
-        qp_add_raw_from_str(*packer, "ip_support") ||
-        qp_add_raw_from_str(
-            *packer,
+        msgpack_pack_map(pk, 28) ||
+        /* 1 */
+        mp_pack_str(pk, "node_id") ||
+        msgpack_pack_uint32(pk, ti_.node->id) ||
+        /* 2 */
+        mp_pack_str(pk, "version") ||
+        mp_pack_str(pk, TI_VERSION) ||
+        /* 3 */
+        mp_pack_str(pk, "syntax_version") ||
+        mp_pack_str(pk, TI_VERSION_SYNTAX_STR) ||
+        /* 4 */
+        mp_pack_str(pk, "libqpack_version") ||
+        mp_pack_str(pk, qp_version()) ||
+        /* 5 */
+        mp_pack_str(pk, "libcleri_version") ||
+        mp_pack_str(pk, cleri_version()) ||
+        /* 6 */
+        mp_pack_str(pk, "libuv_version") ||
+        mp_pack_str(pk, uv_version_string()) ||
+        /* 7 */
+        mp_pack_str(pk, "libpcre2_version") ||
+        mp_pack_str(pk, TI_PCRE2_VERSION) ||
+        /* 8 */
+        mp_pack_str(pk, "status") ||
+        mp_pack_str(pk, ti_node_status_str(ti_.node->status)) ||
+        /* 9 */
+        mp_pack_str(pk, "zone") ||
+        msgpack_pack_uint8(pk, ti_.node->zone) ||
+        /* 10 */
+        mp_pack_str(pk, "log_level") ||
+        mp_pack_str(pk, Logger.level_name) ||
+        /* 11 */
+        mp_pack_str(pk, "hostname") ||
+        mp_pack_str(pk, ti_.hostname) ||
+        /* 12 */
+        mp_pack_str(pk, "client_port") ||
+        msgpack_pack_uint16(pk, ti_.cfg->client_port) ||
+        /* 13 */
+        mp_pack_str(pk, "node_port") ||
+        msgpack_pack_uint16(pk, ti_.cfg->node_port) ||
+        /* 14 */
+        mp_pack_str(pk, "ip_support") ||
+        mp_pack_str(
+            pk,
             ti_tcp_ip_support_str(ti_.cfg->ip_support)) ||
-        qp_add_raw_from_str(*packer, "storage_path") ||
-        qp_add_raw_from_str(*packer, ti_.cfg->storage_path) ||
-        qp_add_raw_from_str(*packer, "uptime") ||
-        qp_add_double(*packer, uptime) ||
-        qp_add_raw_from_str(*packer, "events_in_queue") ||
-        qp_add_int(*packer, ti_.events->queue->n) ||
-        qp_add_raw_from_str(*packer, "archived_in_memory") ||
-        qp_add_int(*packer, ti_.archive->queue->n) ||
-        qp_add_raw_from_str(*packer, "archive_files") ||
-        qp_add_int(*packer, ti_.archive->archfiles->n) ||
-        qp_add_raw_from_str(*packer, "local_stored_event_id") ||
-        qp_add_int(*packer, ti_.node->sevid) ||
-        qp_add_raw_from_str(*packer, "local_committed_event_id") ||
-        qp_add_int(*packer, ti_.node->cevid) ||
-        qp_add_raw_from_str(*packer, "global_stored_event_id") ||
-        qp_add_int(*packer, ti_nodes_sevid()) ||
-        qp_add_raw_from_str(*packer, "global_committed_event_id") ||
-        qp_add_int(*packer, ti_nodes_cevid()) ||
-        qp_add_raw_from_str(*packer, "db_stored_event_id") ||
-        qp_add_int(*packer, ti_.store->last_stored_event_id) ||
-        qp_add_raw_from_str(*packer, "next_event_id") ||
-        qp_add_int(*packer, ti_.events->next_event_id) ||
-        qp_add_raw_from_str(*packer, "next_thing_id") ||
-        qp_add_int(*packer, ti_.node->next_thing_id) ||
-        qp_add_raw_from_str(*packer, "cached_names") ||
-        qp_add_int(*packer, ti_.names->n) ||
-        qp_add_raw_from_str(*packer, "http_status_port") ||
+        /* 15 */
+        mp_pack_str(pk, "storage_path") ||
+        mp_pack_str(pk, ti_.cfg->storage_path) ||
+        /* 16 */
+        mp_pack_str(pk, "uptime") ||
+        msgpack_pack_double(pk, uptime) ||
+        /* 17 */
+        mp_pack_str(pk, "events_in_queue") ||
+        msgpack_pack_uint64(pk, ti_.events->queue->n) ||
+        /* 18 */
+        mp_pack_str(pk, "archived_in_memory") ||
+        msgpack_pack_uint64(pk, ti_.archive->queue->n) ||
+        /* 19 */
+        mp_pack_str(pk, "archive_files") ||
+        msgpack_pack_uint32(pk, ti_.archive->archfiles->n) ||
+        /* 20 */
+        mp_pack_str(pk, "local_stored_event_id") ||
+        msgpack_pack_uint64(pk, ti_.node->sevid) ||
+        /* 21 */
+        mp_pack_str(pk, "local_committed_event_id") ||
+        msgpack_pack_uint64(pk, ti_.node->cevid) ||
+        /* 22 */
+        mp_pack_str(pk, "global_stored_event_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_sevid()) ||
+        /* 23 */
+        mp_pack_str(pk, "global_committed_event_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_cevid()) ||
+        /* 24 */
+        mp_pack_str(pk, "db_stored_event_id") ||
+        msgpack_pack_uint64(pk, ti_.store->last_stored_event_id) ||
+        /* 25 */
+        mp_pack_str(pk, "next_event_id") ||
+        msgpack_pack_uint64(pk, ti_.events->next_event_id) ||
+        /* 26 */
+        mp_pack_str(pk, "next_thing_id") ||
+        msgpack_pack_uint64(pk, ti_.node->next_thing_id) ||
+        /* 27 */
+        mp_pack_str(pk, "cached_names") ||
+        msgpack_pack_uint32(pk, ti_.names->n) ||
+        /* 28 */
+        mp_pack_str(pk, "http_status_port") ||
         (ti_.cfg->http_status_port
-                ? qp_add_int(*packer, ti_.cfg->http_status_port)
-                : qp_add_raw_from_str(*packer, "disabled")) ||
-        qp_close_map(*packer)
+                ? msgpack_pack_uint16(pk, ti_.cfg->http_status_port)
+                : mp_pack_str(pk, "disabled"))
     );
 }
 
-ti_val_t * ti_node_as_qpval(void)
+ti_val_t * ti_node_as_mpval(void)
 {
     const size_t qpsize = 1024;
     ti_raw_t * raw;
@@ -781,50 +842,6 @@ ti_val_t * ti_node_as_qpval(void)
 
     qp_packer_destroy(packer);
     return (ti_val_t *) raw;
-}
-
-static int ti__unpack(qp_res_t * res)
-{
-    uint32_t node_id;
-    qp_res_t * schema, * event_id, * next_node_id, * qpnodes;
-
-    if (    res->tp != QP_RES_MAP ||
-            !(schema = qpx_map_get(res->via.map, "schema")) ||
-            !(event_id = qpx_map_get(res->via.map, "event_id")) ||
-            !(next_node_id = qpx_map_get(res->via.map, "next_node_id")) ||
-            !(qpnodes = qpx_map_get(res->via.map, "nodes")) ||
-            schema->tp != QP_RES_INT64 ||
-            schema->via.int64 != TI_FN_SCHEMA ||
-            event_id->tp != QP_RES_INT64 ||
-            next_node_id->tp != QP_RES_INT64 ||
-            qpnodes->tp != QP_RES_ARRAY)
-        goto failed;
-
-    if (ti_read_node_id(&node_id))
-        goto failed;
-
-    if (ti_nodes_from_qpres(qpnodes))
-        goto failed;
-
-    ti_.nodes->next_id = (uint64_t) next_node_id->via.int64;
-    ti_.last_event_id = (uint64_t) event_id->via.int64;
-    ti_.node = ti_nodes_node_by_id(node_id);
-    if (!ti_.node)
-        goto failed;
-
-    ti_.node->zone = ti()->cfg->zone;
-
-    if (ti_.node->port != ti()->cfg->node_port)
-    {
-        ti_.node->port = ti()->cfg->node_port;
-        ti_.flags |= TI_FLAG_NODES_CHANGED;
-    }
-
-    return 0;
-
-failed:
-    ti_.node = NULL;
-    return -1;
 }
 
 static void ti__shutdown_free(uv_handle_t * UNUSED(timer))

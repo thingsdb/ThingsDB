@@ -285,7 +285,7 @@ int ti_user_info_to_pk(ti_user_t * user, qp_packer_t ** packer)
     return qp_close_map(*packer);
 }
 
-ti_val_t * ti_user_info_as_qpval(ti_user_t * user)
+ti_val_t * ti_user_info_as_mpval(ti_user_t * user)
 {
     ti_raw_t * ruser = NULL;
     qp_packer_t * packer = qp_packer_create2(256, 3);

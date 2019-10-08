@@ -194,16 +194,14 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
             : type__init_thing_t(type, thing, e);
 }
 
-int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
+int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
-    qp_obj_t qp_field, qp_spec;
-    int mapsz;
-    const char * field_name;
-    size_t field_n;
+    mp_obj_t obj, mp_field, mp_spec;
+    size_t i, m;
 
-    if (!qp_is_map(mapsz = qp_next(unp, NULL)))
+    if (mp_next(up, &obj) != MP_MAP)
     {
         ex_set(e, EX_BAD_DATA,
                 "failed unpacking fields for type `%s`;"
@@ -212,23 +210,20 @@ int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
         return e->nr;
     }
 
-    mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
 
-    while (mapsz--)
+    for (i = 0, m = obj.via.sz; i < m; ++i)
     {
-        if (qp_is_close(qp_next(unp, &qp_field)))
-            break;
 
-        if (!qp_is_raw(qp_field.tp))
+        if (mp_next(up, &mp_field) != MP_STR)
+        {
             ex_set(e, EX_BAD_DATA,
                     "failed unpacking fields for type `%s`;"
-                    "expecting each field name to be a `raw` value",
+                    "expecting each field name to be a `str` value",
                     type->name);
+            return e->nr;
+        }
 
-        field_name = (const char *) qp_field.via.raw;
-        field_n = qp_field.len;
-
-        if (!ti_name_is_valid_strn(field_name, field_n))
+        if (!ti_name_is_valid_strn(mp_field.via.str.data, mp_field.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
                     "failed unpacking fields for type `%s`;"
@@ -237,17 +232,17 @@ int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e)
             return e->nr;
         }
 
-        if (!qp_is_raw(qp_next(unp, &qp_spec)))
+        if (mp_next(up, &mp_spec) != MP_STR)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "failed unpacking fields for type `%s`;"
-                    "expecting each field definitions to be a `raw` value",
+                    "expecting each field definitions to be a `str` value",
                     type->name);
             return e->nr;
         }
 
-        name = ti_names_get(field_name, field_n);
-        spec_raw = ti_str_create(qp_spec.via.raw, qp_spec.len);
+        name = ti_names_get(mp_field.via.str.data, mp_field.via.str.n);
+        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
 
         if (!name || !spec_raw ||
             !ti_field_create(name, spec_raw, type, e))
@@ -270,38 +265,40 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_type_fields_to_pk(ti_type_t * type, qp_packer_t ** packer)
+int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 {
-    if (qp_add_map(packer))
+    if (msgpack_pack_map(pk, type->fields->n))
         return -1;
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if (qp_add_raw(
-                *packer,
-                (const uchar *) field->name->str,
-                field->name->n) ||
-            qp_add_raw(*packer, field->spec_raw->data, field->spec_raw->n))
+        if (mp_pack_append(pk, field->name->str, field->name->n) ||
+            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n))
             return -1;
     }
 
-    return qp_close_map(*packer);
+    return 0;
 }
 
-ti_val_t * ti_type_info_as_qpval(ti_type_t * type)
+ti_val_t * ti_type_info_as_mpval(ti_type_t * type)
 {
-    ti_raw_t * rtype = NULL;
-    size_t alloc_sz = ti_type_approx_pack_sz(type) - type->name_n - 25;
-    qp_packer_t * packer = qp_packer_create2(alloc_sz, 2);
-    if (!packer)
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_type_fields_to_pk(type, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    (void) ti_type_fields_to_pk(type, &packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    rtype = ti_mp_from_packer(packer);
-
-    qp_packer_destroy(packer);
-    return (ti_val_t * ) rtype;
+    return (ti_val_t *) raw;
 }
 
 /*

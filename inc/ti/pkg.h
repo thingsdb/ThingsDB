@@ -17,6 +17,7 @@ ti_pkg_t * ti_pkg_new(
         uint8_t tp,
         const unsigned char * data,
         uint32_t n);
+void pkg_init(ti_pkg_t * pkg, uint16_t id, uint8_t tp, size_t total_n);
 ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg);
 ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e);
 ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e);

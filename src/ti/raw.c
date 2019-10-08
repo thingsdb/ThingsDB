@@ -25,6 +25,13 @@ ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
     return r;
 }
 
+void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
+{
+    raw->ref = 1;
+    raw->tp = tp;
+    raw->n = total_n - sizeof(ti_raw_t);
+}
+
 ti_raw_t * ti_mp_from_packer(qp_packer_t * packer)
 {
     size_t sz = sizeof(ti_raw_t) + packer->len;

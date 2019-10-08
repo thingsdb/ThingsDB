@@ -281,7 +281,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer)
+int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
 {
     uchar * buf;
     size_t n = 0;
@@ -289,13 +289,9 @@ int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer)
     if (!closure__is_unbound(closure))
     {
         return -(
-            qp_add_map(packer) ||
-            qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-            qp_add_raw(
-                    *packer,
-                    (const uchar * ) closure->node->str,
-                    closure->node->len) ||
-            qp_close_map(*packer)
+            msgpack_pack_map(&pk, 1) ||
+            mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1) ||
+            mp_pack_strn(&pk, closure->node->str, closure->node->len)
         );
     }
 
@@ -304,37 +300,11 @@ int ti_closure_to_pk(ti_closure_t * closure, qp_packer_t ** packer)
         return -1;
 
     rc = -(
-        qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-        qp_add_raw(*packer, buf, n) ||
-        qp_close_map(*packer)
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1) ||
+        mp_pack_strn(&pk, buf, n)
     );
 
-    free(buf);
-    return rc;
-}
-
-int ti_closure_to_file(ti_closure_t * closure, FILE * f)
-{
-    uchar * buf;
-    size_t n = 0;
-    int rc;
-    if (!closure__is_unbound(closure))
-    {
-        return -(
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-            qp_fadd_raw(f, (const uchar * ) closure->node->str, closure->node->len)
-        );
-    }
-    buf = ti_closure_uchar(closure, &n);
-    if (!buf)
-        return -1;
-    rc = -(
-        qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-        qp_fadd_raw(f, buf, n)
-    );
     free(buf);
     return rc;
 }

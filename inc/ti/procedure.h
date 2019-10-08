@@ -31,7 +31,7 @@ ti_procedure_t * ti_procedure_from_strn(
 int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,
         qp_packer_t ** packer);
-ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure);
+ti_val_t * ti_procedure_info_as_mpval(ti_procedure_t * procedure);
 
 struct ti_procedure_s
 {

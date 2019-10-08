@@ -9,7 +9,6 @@
 
 typedef struct ti_regex_s ti_regex_t;
 
-#include <qpack.h>
 #include <pcre2.h>
 #include <stddef.h>
 #include <ti/raw.h>

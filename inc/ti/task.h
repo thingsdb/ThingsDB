@@ -16,17 +16,17 @@ typedef enum
 typedef struct ti_task_s ti_task_t;
 
 #include <inttypes.h>
-#include <ti/thing.h>
-#include <ti/name.h>
-#include <ti/val.h>
-#include <ti/type.h>
-#include <ti/pkg.h>
 #include <ti/collection.h>
-#include <ti/user.h>
 #include <ti/field.h>
-#include <ti/token.h>
-#include <ti/quota.h>
+#include <ti/name.h>
+#include <ti/pkg.h>
 #include <ti/procedure.h>
+#include <ti/quota.h>
+#include <ti/thing.h>
+#include <ti/token.h>
+#include <ti/type.h>
+#include <ti/user.h>
+#include <ti/val.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
@@ -76,7 +76,6 @@ int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
 int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);
-int ti_task_add_replace_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_revoke(
         ti_task_t * task,
         uint64_t scope_id,

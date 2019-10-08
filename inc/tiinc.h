@@ -21,7 +21,7 @@
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_SYNTAX "syntax v%u"
-#define TI_SAVE_PACK 60 + ti_.nodes->imap->n * 140, 3
+#define TI_SAVE_PK_SZ (60 + ti_.nodes->imap->n * 140)
 
 /* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0

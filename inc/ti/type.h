@@ -13,13 +13,13 @@ enum
     TI_TYPE_FLAG_LOCK       =1<<0,
 };
 
+#include <ex.h>
 #include <inttypes.h>
 #include <ti/thing.h>
-#include <ti/val.h>
 #include <ti/types.h>
+#include <ti/val.h>
 #include <util/vec.h>
-#include <qpack.h>
-#include <ex.h>
+#include <util/mpack.h>
 
 ti_type_t * ti_type_create(
         ti_types_t * types,
@@ -33,9 +33,9 @@ void ti_type_map_cleanup(ti_type_t * type);
 size_t ti_type_approx_pack_sz(ti_type_t * type);
 _Bool ti_type_is_valid_strn(const char * str, size_t n);
 int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);
-int ti_type_init_from_unp(ti_type_t * type, qp_unpacker_t * unp, ex_t * e);
-int ti_type_fields_to_pk(ti_type_t * type, qp_packer_t ** packer);
-ti_val_t * ti_type_info_as_qpval(ti_type_t * type);
+int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e);
+int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
+ti_val_t * ti_type_info_as_mpval(ti_type_t * type);
 int ti_type_check(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 

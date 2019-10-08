@@ -8,7 +8,7 @@ static int do__f_collections_info(ti_query_t * query, cleri_node_t * nd, ex_t * 
         fn_nargs("collections_info", DOC_COLLECTIONS_INFO, 0, nargs, e))
         return e->nr;
 
-    query->rval = ti_collections_as_qpval();
+    query->rval = ti_collections_as_mpval();
     if (!query->rval)
         ex_set_mem(e);
 

@@ -8,7 +8,7 @@ static int do__f_nodes_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("nodes_info", DOC_NODES_INFO, 0, nargs, e))
         return e->nr;
 
-    query->rval = ti_nodes_info_as_qpval();
+    query->rval = ti_nodes_info_as_mpval();
     if (!query->rval)
         ex_set_mem(e);
 

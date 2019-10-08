@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <langdef/nd.h>
 #include <langdef/translate.h>
-#include <qpack.h>
 #include <stdlib.h>
 #include <ti/closure.h>
 #include <ti.h>
@@ -19,7 +18,6 @@
 #include <ti/nil.h>
 #include <ti/task.h>
 #include <ti/data.h>
-#include <util/qpx.h>
 #include <util/strx.h>
 
 /*
@@ -28,50 +26,44 @@
  */
 static ti_epkg_t * query__epkg_event(ti_query_t * query)
 {
+    size_t init_buffer_sz = 40;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
-    qpx_packer_t * packer;
-    size_t sz = 24;
     vec_t * tasks = query->ev->_tasks;
 
     for (vec_each(tasks, ti_task_t, task))
-        sz += task->approx_sz;
+        init_buffer_sz += task->approx_sz;
 
-    /* nest size 3 is sufficient since jobs are already raw */
-    packer = qpx_packer_create(sz, 3);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, init_buffer_sz, sizeof(ti_pkg_t)))
         return NULL;
 
-    (void) qp_add_map(&packer);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, query->ev->id);
-    /* store `no tasks` as scope 0, this will save space and a lookup */
-    (void) qp_add_int(packer, tasks->n && query->collection
+    msgpack_pack_map(&pk, 1);
+
+    /* key */
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, query->ev->id);
+    msgpack_pack_uint64(&pk, tasks->n && query->collection
             ? query->collection->root->id
             : 0);
-    (void) qp_close_array(packer);
 
-    (void) qp_add_map(&packer);
-
-    /* reset iterator */
+    /* value */
+    msgpack_pack_map(&pk, tasks->n);
     for (vec_each(tasks, ti_task_t, task))
     {
-        (void) qp_add_int(packer, task->thing->id);
-        (void) qp_add_array(&packer);
+        msgpack_pack_uint64(&pk, task->thing->id);
+        msgpack_pack_array(&pk, task->jobs->n);
         for (vec_each(task->jobs, ti_data_t, data))
-            (void) qp_add_qp(packer, data->data, data->n);
-        (void) qp_close_array(packer);
+            mp_pack_append(&pk, data->data, data->n);
     }
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
 
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
 
-    assert(packer->nest_sz == 3);
-
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT);
-
-    assert(pkg->n <= sz);
+    assert(pkg->n <= init_buffer_sz);
 
     epkg = ti_epkg_create(pkg, query->ev->id);
     if (!epkg)
@@ -321,10 +313,10 @@ int ti_query_unpack(
 
     query->syntax.pkg_id = pkg_id;
 
-    mp_next(&up, &obj);     /* array, TODO: make sure size 2 or 3 is checked */
+    mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
 
-    if (mp_next(&up, &mp_query) != MP_STR)
+    if (obj.via.sz < 2 || mp_next(&up, &mp_query) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have a "
@@ -374,18 +366,18 @@ int ti_query_unp_run(
     query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 
-    mp_next(&up, &obj);     /* array, TODO: make sure size is at least 2 */
+    mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
 
-    nargs = obj.via.sz - 2;
-
-    if (mp_next(&up, &mp_procedure) != MP_STR)
+    if (obj.via.sz < 2 || mp_next(&up, &mp_procedure) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `run` request to have a "
                 "second value of type `"TI_VAL_STR_S"`"DOC_PROCEDURES_API);
         return e->nr;
     }
+
+    nargs = obj.via.sz - 2;
 
     switch (scope->tp)
     {
@@ -584,41 +576,36 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     ti_pkg_t * pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-
-    msgpack_sbuffer_init(&buffer);
-
-    ti_val_may_change_pack_sz(query->rval, &buffer.alloc);
-    buffer.size = 8;
+    size_t alloc = 24;
 
     if (e->nr)
         goto pkg_err;
 
-    msgpack_packer_init(&pk, f, msgpack_sbuffer_write);
+    ti_val_may_change_pack_sz(query->rval, &alloc);
 
-    packer = qpx_packer_create(alloc_sz, nest_sz);
-    if (!packer)
-        goto alloc_err;
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
+    {
+        ex_set_mem(e);
+        goto pkg_err;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_to_pk(query->rval, &pk, (int) query->syntax.deep))
     {
-        /* TODO: create node config help, size in config etc.
-            ex_set(e, EX_TOO_LARGE,
-                    "result too large; "
-                    "modify your query or increase the maximum result size");
-        */
-        goto alloc_err;
+        msgpack_sbuffer_destroy(&buffer);
+        ex_set_mem(e);
+        goto pkg_err;
     }
 
     ++ti()->counters->queries_success;
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);
-    pkg->id = query->syntax.pkg_id;
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg,
+            query->syntax.pkg_id,
+            TI_PROTO_CLIENT_RES_QUERY,
+            buffer.size);
 
     goto finish;
-
-alloc_err:
-    if (packer)
-        qp_packer_destroy(packer);
-    ex_set_mem(e);
 
 pkg_err:
     ++ti()->counters->queries_with_error;

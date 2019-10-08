@@ -112,7 +112,7 @@ static int types__pack_sz(ti_type_t * type, qp_packer_t ** packer)
      );
 }
 
-ti_val_t * ti_types_info_as_qpval(ti_types_t * types)
+ti_val_t * ti_types_info_as_mpval(ti_types_t * types)
 {
     ti_raw_t * rtypes = NULL;
     size_t approx_sz = 0;

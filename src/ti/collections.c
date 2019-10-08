@@ -255,7 +255,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
 
 static int collections__to_pk(msgpack_packer * pk)
 {
-    if (msgpack_pack_array(&pk, collections->vec->n))
+    if (msgpack_pack_array(&pk, ti()->collections->vec->n))
         return -1;
 
     for (vec_each(collections->vec, ti_collection_t, collection))

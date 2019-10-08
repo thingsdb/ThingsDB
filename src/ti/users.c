@@ -12,7 +12,6 @@
 #include <ti/token.h>
 #include <util/cryptx.h>
 #include <util/logger.h>
-#include <util/qpx.h>
 #include <util/util.h>
 #include <util/vec.h>
 
@@ -153,29 +152,32 @@ void ti_users_del_user(ti_user_t * user)
  * Both `name` and `pass` must have been checked to be of `raw` type.
  * Returns a `borrowed` user or NULL if not found and `e` is set.
  */
-ti_user_t * ti_users_auth(qp_obj_t * name, qp_obj_t * pass, ex_t * e)
+ti_user_t * ti_users_auth(mp_obj_t * mp_name, mp_obj_t * mp_pass, ex_t * e)
 {
-    assert (qp_is_raw(name->tp));
-    assert (qp_is_raw(pass->tp));
+    assert (mp_name->tp == MP_STR);
+    assert (mp_pass->tp == MP_STR);
 
     char passbuf[ti_max_pass];
     char pw[CRYPTX_SZ];
 
-    if (name->len < ti_min_name || name->len >= ti_max_name)
+    if (mp_name->via.str.n < ti_min_name || mp_name->via.str.n >= ti_max_name)
         goto failed;
 
-    if (pass->len < ti_min_pass || pass->len >= ti_max_pass)
+    if (mp_pass->via.str.n < ti_min_pass || mp_pass->via.str.n >= ti_max_pass)
         goto failed;
 
     for (vec_each(users->vec, ti_user_t, user))
     {
-        if (qpx_obj_eq_raw(name, user->name))
+        if (ti_raw_eq_strn(
+                user->name,
+                mp_name->via.str.data,
+                mp_name->via.str.n))
         {
             if (!user->encpass)
                 goto failed;
 
-            memcpy(passbuf, pass->via.raw, pass->len);
-            passbuf[pass->len] = '\0';
+            memcpy(passbuf, mp_pass->via.str.data, mp_pass->via.str.n);
+            passbuf[mp_pass->via.str.n] = '\0';
 
             cryptx(passbuf, user->encpass, pw);
             if (strcmp(pw, user->encpass))
@@ -192,19 +194,19 @@ failed:
 /*
  * Returns a `borrowed` user or NULL if not found and `e` is set.
  */
-ti_user_t * ti_users_auth_by_token(qp_obj_t * qp_token, ex_t * e)
+ti_user_t * ti_users_auth_by_token(mp_obj_t * mp_token, ex_t * e)
 {
     uint64_t now_ts = util_now_tsec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
-    if (!qp_is_raw(qp_token->tp) || qp_token->len != key_sz)
+    if (mp_token->tp != MP_STR || mp_token->via.str.n != key_sz)
         goto invalid;
 
     for (vec_each(users->vec, ti_user_t, user))
     {
         for (vec_each(user->tokens, ti_token_t, token))
         {
-            if (memcmp(token->key, qp_token->via.raw, key_sz) == 0)
+            if (memcmp(token->key, mp_token->via.str.data, key_sz) == 0)
             {
                 if (token->expire_ts && token->expire_ts < now_ts)
                     goto expired;

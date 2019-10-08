@@ -4,7 +4,6 @@
 #ifndef TI_THINGS_H_
 #define TI_THINGS_H_
 
-#include <qpack.h>
 #include <stdint.h>
 #include <ti/thing.h>
 #include <ti/collection.h>

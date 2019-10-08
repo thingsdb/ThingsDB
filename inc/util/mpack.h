@@ -130,6 +130,39 @@ static int mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
     return rc;
 }
 
+static void mp_print(FILE * out, const char * data, size_t n)
+{
+    msgpack_unpacked msg;
+    msgpack_unpacked_init(&msg);
+    switch (msgpack_unpack_next(&msg, data, n, NULL))
+    {
+    case MSGPACK_UNPACK_SUCCESS:
+    {
+        msgpack_object obj = msg.data;
+        msgpack_object_print(out, obj);
+        fprintf(out, "\n (MSGPACK_UNPACK_SUCCESS)\n");
+        return ;
+    }
+    case MSGPACK_UNPACK_EXTRA_BYTES:
+    {
+        msgpack_object obj = msg.data;
+        msgpack_object_print(out, obj);
+        fprintf(out, "\n (MSGPACK_UNPACK_EXTRA_BYTES)\n");
+        return ;
+    }
+    case MSGPACK_UNPACK_CONTINUE:
+        fprintf(out, "\n (MSGPACK_UNPACK_CONTINUE)\n");
+        return ;
+    case MSGPACK_UNPACK_PARSE_ERROR:
+        fprintf(out, "\n (MSGPACK_UNPACK_PARSE_ERROR)\n");
+        return ;
+    case MSGPACK_UNPACK_NOMEM_ERROR:
+        fprintf(out, "\n (MSGPACK_UNPACK_NOMEM_ERROR)\n");
+        return ;
+    }
+    fprintf(out, "\n (MSGPACK_UNKOWN_ERROR)\n");
+}
+
 static inline int mp_pack_bool(msgpack_packer * x, _Bool b)
 {
     return b ? msgpack_pack_true(x) : msgpack_pack_false(x);

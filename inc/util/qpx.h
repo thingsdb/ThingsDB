@@ -14,7 +14,6 @@ typedef qp_packer_t qpx_packer_t;
 
 qp_res_t * qpx_map_get(const qp_map_t * map, const char * key);
 char * qpx_obj_raw_to_str(const qp_obj_t * obj);
-static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw);
 qpx_packer_t * qpx_packer_create(size_t alloc_size, size_t init_nest_size);
 void qpx_packer_destroy(qpx_packer_t * xpkg);
 ti_pkg_t * qpx_packer_pkg(qpx_packer_t * packer, uint8_t tp);
@@ -36,13 +35,6 @@ static inline void qpx_log(
 static inline _Bool qpx_obj_endswith_raw(
         const qp_obj_t * obj,
         const ti_raw_t * raw);
-
-static inline _Bool qpx_obj_eq_raw(const qp_obj_t * obj, const ti_raw_t * raw)
-{
-    return  obj->tp == QP_RAW &&
-            obj->len == raw->n &&
-            !memcmp(obj->via.raw, raw->data, raw->n);
-}
 
 
 static inline void qpx_log(

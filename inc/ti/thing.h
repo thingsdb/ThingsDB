@@ -7,21 +7,21 @@
 typedef struct ti_thing_s  ti_thing_t;
 
 #include <assert.h>
-#include <qpack.h>
 #include <stdint.h>
-#include <ti/name.h>
-#include <ti/val.h>
-#include <ti/raw.h>
-#include <ti/prop.h>
-#include <ti/wprop.h>
-#include <ti/watch.h>
 #include <ti/collection.h>
-#include <ti/stream.h>
-#include <ti/spec.h>
-#include <ti/type.h>
 #include <ti/field.h>
-#include <util/vec.h>
+#include <ti/name.h>
+#include <ti/prop.h>
+#include <ti/raw.h>
+#include <ti/spec.h>
+#include <ti/stream.h>
+#include <ti/type.h>
+#include <ti/val.h>
+#include <ti/watch.h>
+#include <ti/wprop.h>
 #include <util/imap.h>
+#include <util/mpack.h>
+#include <util/vec.h>
 
 ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection);
 ti_thing_t * ti_thing_t_create(

@@ -19,7 +19,7 @@
 #include <ti/query.inline.h>
 #include <ti/scope.h>
 #include <ti/write.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 
 #define CLIENTS__UV_BACKLOG 64
@@ -64,7 +64,9 @@ static int clients__fwd(
         ti_pkg_t * orig_pkg,
         ti_proto_enum_t proto)
 {
-    qpx_packer_t * packer;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
     ti_fwd_t * fwd;
     ti_pkg_t * pkg_req = NULL;
 
@@ -72,18 +74,18 @@ static int clients__fwd(
     if (!fwd)
         goto fail0;
 
-    /* some extra size for setting the raw size + user_id */
-    packer = qpx_packer_create(orig_pkg->n + 24, 1);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, orig_pkg->n + 48, sizeof(ti_pkg_t)))
         goto fail1;
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, src_stream->via.user->id);
-    (void) qp_add_raw(packer, orig_pkg->data, orig_pkg->n);
-    (void) qp_close_array(packer);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    /* this cannot fail */
-    pkg_req = qpx_packer_pkg(packer, proto);
+    /* some extra size for setting the raw size + user_id */
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, src_stream->via.user->id);
+    mp_pack_append(&pk, orig_pkg->data, orig_pkg->n);
+
+    pkg_req = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg_req, 0, proto, buffer.size);
 
     if (ti_req_create(
             to_node->stream,
@@ -116,16 +118,16 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp;
-    qp_unpacker_t unpacker;
-    qp_obj_t name, pass, token;
+    mp_unp_t up;
+    mp_obj_t mp_name, mp_pass, mp_token;
     ti_user_t * user;
 
-    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (    !qp_is_raw(qp_next(&unpacker, &token)) && (
-                !qp_is_array(token.tp) ||
-                !qp_is_raw(qp_next(&unpacker, &name)) ||
-                !qp_is_raw(qp_next(&unpacker, &pass))))
+    if (mp_next(&up, &mp_token) <= 0 || (mp_token.tp == MP_STR && (
+        mp_token->tp != MP_ARR || mp_token.via.sz != 2 ||
+        mp_next(&up, &mp_name) != MP_STR ||
+        mp_next(&up, &mp_pass) != MP_STR)))
     {
         ex_set(&e, EX_BAD_DATA, "invalid authentication request");
         log_error("%s from `%s`", e.msg, ti_stream_name(stream));
@@ -133,9 +135,9 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    user = qp_is_raw(token.tp)
-            ? ti_users_auth_by_token(&token, &e)
-            : ti_users_auth(&name, &pass, &e);
+    user = mp_token.tp == MP_STR
+            ? ti_users_auth_by_token(&mp_token, &e)
+            : ti_users_auth(&mp_name, &mp_pass, &e);
     if (e.nr)
     {
         assert (user == NULL);

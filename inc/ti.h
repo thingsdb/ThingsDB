@@ -25,14 +25,14 @@
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/tcp.h>
-#include <ti/val.h>
 #include <ti/users.h>
+#include <ti/val.h>
 #include <unistd.h>
 #include <util/logger.h>
+#include <util/mpack.h>
 #include <util/smap.h>
 #include <util/vec.h>
 #include <uv.h>
-#include <qpack.h>
 
 #define ti_term(signum__) do {\
     if (signum__ != SIGINT) log_critical("raise at: %s:%d,%s (%s)", \
@@ -68,7 +68,7 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
-int ti_node_to_pk(qp_packer_t ** packer);
+int ti_node_to_pk(msgpack_packer * pk);
 ti_val_t * ti_node_as_mpval(void);
 static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);

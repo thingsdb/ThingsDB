@@ -114,11 +114,11 @@ typedef enum
 #define TI_KIND_S_WRAP      "&"
 
 typedef struct ti_val_s ti_val_t;
-typedef struct ti_val_unp_s ti_val_unp_t;
 
 #include <stdint.h>
 #include <tiinc.h>
 #include <ex.h>
+#include <ti/vup.h>
 #include <util/imap.h>
 #include <util/vec.h>
 #include <ti/varr.h>
@@ -129,11 +129,13 @@ void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
-ti_val_t * ti_val_from_unp(ti_val_unp_t * vup);
-ti_val_t * ti_val_from_unp_e(ti_val_unp_t * vup, ex_t * e);
+ti_val_t * ti_val_from_unp(ti_vup_t * vup);
+ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
+ti_val_t * ti_val_empty_bin(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
-int ti_val_convert_to_str(ti_val_t ** val);
+int ti_val_convert_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_array(ti_val_t ** val, ex_t * e);
@@ -175,13 +177,6 @@ struct ti_val_s
     uint8_t tp;
     uint8_t flags;
     uint16_t _pad16;
-};
-
-struct ti_val_unp_s
-{
-    ti_collection_t * collection;
-    mp_unp_t * up;
-    _Bool isclient;
 };
 
 static inline void ti_val_drop(ti_val_t * val)

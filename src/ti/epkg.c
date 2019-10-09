@@ -52,77 +52,77 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_map(&pk, 1);
 
     msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(pk, event_id);
-    msgpack_pack_uint64(pk, scope_id);
+    msgpack_pack_uint64(&pk, event_id);
+    msgpack_pack_uint64(&pk, scope_id);
 
     msgpack_pack_map(&pk, 1);
 
-    msgpack_pack_uint64(pk, thing_id);
-    msgpack_pack_array(&pk);
+    msgpack_pack_uint64(&pk, thing_id);
+    msgpack_pack_array(&pk, 5);
 
     msgpack_pack_map(&pk, 1);           /* job 1 */
 
-    mp_pack_str(pk, "new_user");
+    mp_pack_str(&pk, "new_user");
     msgpack_pack_map(&pk, 2);
 
-    mp_pack_str(pk, "id");
-    msgpack_pack_uint64(pk, user_id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(pk, "username");
-    mp_pack_str(pk, ti_user_def_name);
+    mp_pack_str(&pk, "username");
+    mp_pack_str(&pk, ti_user_def_name);
 
     msgpack_pack_map(&pk, 1);           /* job 2 */
 
-    mp_pack_str(pk, "set_password");
+    mp_pack_str(&pk, "set_password");
     msgpack_pack_map(&pk, 2);
 
-    mp_pack_str(pk, "id");
-    msgpack_pack_uint64(pk, user_id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(pk, "password");
-    mp_pack_str(pk, encrypted);
+    mp_pack_str(&pk, "password");
+    mp_pack_str(&pk, encrypted);
 
-    msgpack_pack_map(&pk);              /* job 3 */
+    msgpack_pack_map(&pk, 1);           /* job 3 */
 
-    mp_pack_str(pk, "grant");
+    mp_pack_str(&pk, "grant");
     msgpack_pack_map(&pk, 3);
 
-    mp_pack_str(pk, "scope");
-    msgpack_pack_uint64(pk, TI_SCOPE_NODE);
+    mp_pack_str(&pk, "scope");
+    msgpack_pack_uint64(&pk, TI_SCOPE_NODE);
 
-    mp_pack_str(pk, "user");
-    msgpack_pack_uint64(pk, user_id);
+    mp_pack_str(&pk, "user");
+    msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(pk, "mask");
-    msgpack_pack_uint64(pk, TI_AUTH_MASK_FULL);
+    mp_pack_str(&pk, "mask");
+    msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
 
-    msgpack_pack_map(&pk);              /* job 4 */
+    msgpack_pack_map(&pk, 1);           /* job 4 */
 
-    mp_pack_str(pk, "grant");
+    mp_pack_str(&pk, "grant");
     msgpack_pack_map(&pk, 3);
 
-    mp_pack_str(pk, "scope");
-    msgpack_pack_uint64(pk, TI_SCOPE_THINGSDB);
+    mp_pack_str(&pk, "scope");
+    msgpack_pack_uint64(&pk, TI_SCOPE_THINGSDB);
 
-    mp_pack_str(pk, "user");
-    msgpack_pack_uint64(pk, user_id);
+    mp_pack_str(&pk, "user");
+    msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(pk, "mask");
-    msgpack_pack_uint64(pk, TI_AUTH_MASK_FULL);
+    mp_pack_str(&pk, "mask");
+    msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
 
-    msgpack_pack_map(&pk);              /* job 5 */
+    msgpack_pack_map(&pk, 1);           /* job 5 */
 
-    mp_pack_str(pk, "new_collection");
+    mp_pack_str(&pk, "new_collection");
     msgpack_pack_map(&pk, 2);
 
-    mp_pack_str(pk, "name");
-    mp_pack_str(pk, "stuff");
+    mp_pack_str(&pk, "name");
+    mp_pack_str(&pk, "stuff");
 
-    mp_pack_str(pk, "user");
-    msgpack_pack_uint64(pk, user_id);
+    mp_pack_str(&pk, "user");
+    msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(pk, "root");
-    msgpack_pack_uint64(pk, stuff_id);
+    mp_pack_str(&pk, "root");
+    msgpack_pack_uint64(&pk, stuff_id);
 
 
     pkg = (ti_pkg_t *) buffer.data;

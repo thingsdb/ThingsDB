@@ -32,7 +32,7 @@ struct fx_mmap_s
 {
     void * data;
     size_t n;
-    char * fn;
+    const char * fn;
     int _fd;
 };
 

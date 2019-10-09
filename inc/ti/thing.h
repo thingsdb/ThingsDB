@@ -17,6 +17,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/stream.h>
 #include <ti/type.h>
 #include <ti/val.h>
+#include <ti/vup.h>
 #include <ti/watch.h>
 #include <ti/wprop.h>
 #include <util/imap.h>
@@ -32,10 +33,10 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        ti_val_unp_t * vup,
+        ti_vup_t * vup,
         size_t sz,
         ex_t * e);
-ti_thing_t * ti_thing_new_from_unp(ti_val_unp_t * vup, size_t sz, ex_t * e);
+ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e);
 ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
@@ -112,7 +113,7 @@ static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
     return -(msgpack_pack_map(pk, !!thing->id) ||
         (thing->id && (
-            msp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
             msgpack_pack_uint64(pk, thing->id)
         ))
     );

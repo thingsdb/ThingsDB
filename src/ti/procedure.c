@@ -61,9 +61,9 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
 {
     if (!procedure->def)
     {
-        uchar * def;
+        char * def;
         size_t n = 0;
-        def = ti_closure_uchar(procedure->closure, &n);
+        def = ti_closure_char(procedure->closure, &n);
         if (!def || !(procedure->def = ti_str_create(def, n)))
             procedure->def = (ti_raw_t *) ti_val_empty_str();
         free(def);
@@ -91,7 +91,7 @@ int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk)
         mp_pack_bool(pk, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
 
         mp_pack_str(pk, "arguments") ||
-        msgpack_pack_array(pk, procedure->closure->vars))
+        msgpack_pack_array(pk, procedure->closure->vars->n))
         return -1;
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop))

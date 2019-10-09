@@ -22,6 +22,7 @@
 #include <ti/verror.h>
 #include <ti/procedure.h>
 #include <ti/version.h>
+#include <ifaddrs.h>
 #include <ti/web.h>
 #include <tiinc.h>
 #include <unistd.h>
@@ -31,7 +32,6 @@
 #include <util/mpack.h>
 #include <util/strx.h>
 #include <util/util.h>
-#include <ifaddrs.h>
 
 ti_t ti_;
 
@@ -326,7 +326,7 @@ int ti_unpack(uchar * data, size_t n)
         mp_skip(&up) != MP_STR ||  /* event_id */
         mp_next(&up, &mp_event_id) != MP_U64 ||
         mp_skip(&up) != MP_STR ||  /* next_node_id */
-        mp_next(&up, &obj) != MP_U64 ||
+        mp_next(&up, &mp_next_node_id) != MP_U64 ||
         mp_skip(&up) != MP_STR ||  /* nodes */
         ti_nodes_from_up(&up)
     ) goto fail;
@@ -635,7 +635,7 @@ ti_rpkg_t * ti_node_status_rpkg(void)
 
     (void) ti_node_status_to_pk(ti_node, &pk);
 
-    assert_log(buffer->size < TI_NODE_INFO_PK_SZ, "node info size too small");
+    assert_log(buffer.size < TI_NODE_INFO_PK_SZ, "node info size too small");
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_INFO, buffer.size);
@@ -726,7 +726,7 @@ fail:
     ti_rpkg_drop(node_rpkg);
 }
 
-int ti_node_to_pk(msgpack_packer * pk)
+int ti_this_node_to_pk(msgpack_packer * pk)
 {
     struct timespec timing;
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
@@ -746,7 +746,7 @@ int ti_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, TI_VERSION_SYNTAX_STR) ||
         /* 4 */
         mp_pack_str(pk, "msgpack_version") ||
-        mp_pack_str(pk, msgpack_version()) ||
+        mp_pack_str(pk, MSGPACK_VERSION) ||
         /* 5 */
         mp_pack_str(pk, "libcleri_version") ||
         mp_pack_str(pk, cleri_version()) ||
@@ -826,7 +826,7 @@ int ti_node_to_pk(msgpack_packer * pk)
     );
 }
 
-ti_val_t * ti_node_as_mpval(void)
+ti_val_t * ti_this_node_as_mpval(void)
 {
     ti_raw_t * raw;
     msgpack_packer pk;
@@ -835,7 +835,7 @@ ti_val_t * ti_node_as_mpval(void)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_node_to_pk(&pk))
+    if (ti_this_node_to_pk(&pk))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

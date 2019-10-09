@@ -125,7 +125,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     mp_unp_init(&up, pkg->data, pkg->n);
 
     if (mp_next(&up, &mp_token) <= 0 || (mp_token.tp == MP_STR && (
-        mp_token->tp != MP_ARR || mp_token.via.sz != 2 ||
+        mp_token.tp != MP_ARR || mp_token.via.sz != 2 ||
         mp_next(&up, &mp_name) != MP_STR ||
         mp_next(&up, &mp_pass) != MP_STR)))
     {
@@ -251,7 +251,8 @@ query:
         goto finish;
     }
 
-    if (ti_query_unpack(query, &scope, pkg->id, pkg->data, pkg->n, &e))
+    if (ti_query_unpack(
+            query, &scope, pkg->id, (const char *) pkg->data, pkg->n, &e))
         goto finish;
 
     access_ = ti_query_access(query);
@@ -401,7 +402,8 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_unp_run(query, &scope, pkg->id, pkg->data, pkg->n, &e))
+    if (ti_query_unp_run(
+            query, &scope, pkg->id, (const char *) pkg->data, pkg->n, &e))
         goto finish;
 
     access_ = ti_query_access(query);

@@ -9,6 +9,8 @@
 #include <ti/nil.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/raw.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/thing.inline.h>
 #include <ti/things.h>
@@ -26,24 +28,20 @@
 
 #define VAL__CMP(__s) ti_raw_eq_strn((*(ti_raw_t **) val), __s, strlen(__s))
 
-static ti_val_t * val__sempty;
+static ti_val_t * val__empty_bin;
+static ti_val_t * val__empty_str;
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
-static ti_val_t * val__sbinary;
-static ti_val_t * val__sarray;
-static ti_val_t * val__sset;
-static ti_val_t * val__sthing;
-static ti_val_t * val__sclosure;
-static ti_val_t * val__swrap;
+
 
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
 
-static ti_val_t * val__unp_map(ti_val_unp_t * vup, size_t sz, ex_t * e)
+static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     mp_obj_t mp_key, mp_val;
-    char * restore_point;
+    const char * restore_point;
     if (!sz)
         return (ti_val_t *) ti_thing_new_from_unp(vup, sz, e);
 
@@ -94,7 +92,7 @@ static ti_val_t * val__unp_map(ti_val_unp_t * vup, size_t sz, ex_t * e)
                     : TI_SYNTAX_FLAG_THINGSDB,
         };
 
-        if (sz != 1 || mp_next(vup->up, &mp_val != MP_STR))
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
                     "closures must be written according the following syntax: "
@@ -109,7 +107,7 @@ static ti_val_t * val__unp_map(ti_val_unp_t * vup, size_t sz, ex_t * e)
     }
     case TI_KIND_C_REGEX:
     {
-        if (sz != 1 || mp_next(vup->up, &mp_val != MP_STR))        {
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
             ex_set(e, EX_BAD_DATA,
                     "regular expressions must be written according the "
                     "following syntax: {\""TI_KIND_S_REGEX"\": \"...\"");
@@ -305,7 +303,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 /*
  * Return NULL when failed and `e` is set to an appropriate error message
  */
-ti_val_t * ti_val_from_unp_e(ti_val_unp_t * vup, ex_t * e)
+ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
 {
     mp_obj_t obj;
     mp_enum_t tp = mp_next(vup->up, &obj);
@@ -347,20 +345,14 @@ ti_val_t * ti_val_from_unp_e(ti_val_unp_t * vup, ex_t * e)
     }
     case MP_BIN:
     {
-        ti_raw_t * raw = ti_bin_create(
-                TI_VAL_BYTES,
-                obj.via.bin.data,
-                obj.via.bin.n);
+        ti_raw_t * raw = ti_bin_create(obj.via.bin.data, obj.via.bin.n);
         if (!raw)
             ex_set_mem(e);
         return (ti_val_t *) raw;
     }
     case MP_STR:
     {
-        ti_raw_t * raw = ti_bin_create(
-                TI_VAL_STR,
-                obj.via.str.data,
-                obj.via.str.n);
+        ti_raw_t * raw = ti_str_create(obj.via.str.data, obj.via.str.n);
         if (!raw)
             ex_set_mem(e);
         return (ti_val_t *) raw;
@@ -401,20 +393,14 @@ ti_val_t * ti_val_from_unp_e(ti_val_unp_t * vup, ex_t * e)
 
 int ti_val_init_common(void)
 {
-    val__sempty = (ti_val_t *) ti_str_from_fmt("");
+    val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
+    val__empty_str = (ti_val_t *) ti_str_from_fmt("");
     val__snil = (ti_val_t *) ti_str_from_fmt("nil");
     val__strue = (ti_val_t *) ti_str_from_fmt("true");
     val__sfalse = (ti_val_t *) ti_str_from_fmt("false");
-    val__sbinary = (ti_val_t *) ti_str_from_fmt("<binary>");
-    val__sarray = (ti_val_t *) ti_str_from_fmt("<array>");
-    val__sset = (ti_val_t *) ti_str_from_fmt("<set>");
-    val__sthing = (ti_val_t *) ti_str_from_fmt("<thing>");
-    val__sclosure = (ti_val_t *) ti_str_from_fmt("<closure>");
-    val__swrap = (ti_val_t *) ti_str_from_fmt("<wrap>");
 
-    if (!val__sempty || !val__snil || !val__strue || !val__sfalse ||
-        !val__sbinary || !val__sarray || !val__sset || !val__sthing ||
-        !val__sclosure || !val__swrap)
+    if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
+        !val__sfalse)
     {
         ti_val_drop_common();
         return -1;
@@ -424,16 +410,11 @@ int ti_val_init_common(void)
 
 void ti_val_drop_common(void)
 {
-    ti_val_drop(val__sempty);
+    ti_val_drop(val__empty_bin);
+    ti_val_drop(val__empty_str);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
-    ti_val_drop(val__sbinary);
-    ti_val_drop(val__sarray);
-    ti_val_drop(val__sset);
-    ti_val_drop(val__sthing);
-    ti_val_drop(val__sclosure);
-    ti_val_drop(val__swrap);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -503,7 +484,7 @@ int ti_val_make_float(ti_val_t ** val, double d)
 /*
  * Return NULL when failed. Otherwise a new value with a reference.
  */
-ti_val_t * ti_val_from_unp(ti_val_unp_t * vup)
+ti_val_t * ti_val_from_unp(ti_vup_t * vup)
 {
     ex_t e = {0};
     ti_val_t * val;
@@ -516,8 +497,14 @@ ti_val_t * ti_val_from_unp(ti_val_unp_t * vup)
 
 ti_val_t * ti_val_empty_str(void)
 {
-    ti_incref(val__sempty);
-    return val__sempty;
+    ti_incref(val__empty_str);
+    return val__empty_str;
+}
+
+ti_val_t * ti_val_empty_bin(void)
+{
+    ti_incref(val__empty_bin);
+    return val__empty_bin;
 }
 
 /*
@@ -583,7 +570,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     return NULL;
 }
 
-int ti_val_convert_to_str(ti_val_t ** val)
+int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = NULL;
 
@@ -593,62 +580,76 @@ int ti_val_convert_to_str(ti_val_t ** val)
         v = val__snil;
         ti_incref(v);
         break;
+
     case TI_VAL_INT:
     {
         size_t n;
         const char * s = strx_from_int64((*(ti_vint_t **) val)->int_, &n);
-        v = (ti_val_t *) ti_str_from_strn(s, n);
+        v = (ti_val_t *) ti_str_create(s, n);
         if (!v)
-            return -1;
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
         break;
     }
     case TI_VAL_FLOAT:
     {
         size_t n;
         const char * s = strx_from_double((*(ti_vfloat_t **) val)->float_, &n);
-        v = (ti_val_t *) ti_str_from_strn(s, n);
+        v = (ti_val_t *) ti_str_create(s, n);
         if (!v)
-            return -1;
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
         break;
     }
     case TI_VAL_BOOL:
         v = (*(ti_vbool_t **) val)->bool_ ? val__strue : val__sfalse;
         ti_incref(v);
         break;
-    case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
-        return 0;  /* do nothing, just return the string */
+        return e->nr;  /* do nothing, just return the string */
     case TI_VAL_BYTES:
-        v = val__sbinary;
-        ti_incref(v);
+    {
+        ti_raw_t * r = (ti_raw_t *) (*val);
+        if (!strx_is_utf8n((const char *) r->data, r->n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "binary data has no valid UTF8 encoding");
+            return e->nr;
+        }
+        if (r->ref == 1)
+        {
+            /* only one reference left we can just change the type */
+            r->tp = TI_VAL_STR;
+            return e->nr;
+        }
+        v = (ti_val_t *) ti_str_create((const char *) r->data, r->n);
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
         break;
+    }
     case TI_VAL_REGEX:
         v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
         ti_incref(v);
         break;
+    case TI_VAL_MP:
     case TI_VAL_THING:
-        v = val__sthing;
-        ti_incref(v);
-        break;
     case TI_VAL_WRAP:
-        v = val__swrap;
-        ti_incref(v);
-        break;
     case TI_VAL_ARR:
-        v = val__sarray;
-        ti_incref(v);
-        break;
     case TI_VAL_SET:
-        v = val__sset;
-        ti_incref(v);
-        break;
     case TI_VAL_CLOSURE:
-        v = val__sclosure;
-        ti_incref(v);
-        break;
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_STR_S"`",
+                ti_val_str(*val));
+        return e->nr;
     case TI_VAL_ERROR:
-        v = (ti_val_t *) ti_str_from_strn(
+        v = (ti_val_t *) ti_str_create(
                 (*(ti_verror_t **) val)->msg,
                 (*(ti_verror_t **) val)->msg_n);
         if (!v)
@@ -662,6 +663,55 @@ int ti_val_convert_to_str(ti_val_t ** val)
     *val = v;
     return 0;
 }
+
+int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
+{
+    ti_val_t * v = NULL;
+
+    switch((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    {
+        ti_raw_t * r = (ti_raw_t *) (*val);
+        if (r->ref == 1 && r->tp == TI_VAL_STR)
+        {
+            /* only one reference left we can just change the type */
+            r->tp = TI_VAL_BYTES;
+            return e->nr;
+        }
+        v = (ti_val_t *) ti_bin_create(r->data, r->n);
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        break;
+    }
+    case TI_VAL_BYTES:
+        return e->nr;  /* do nothing, just return the string */
+    case TI_VAL_REGEX:
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_MP:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
+                ti_val_str(*val));
+        return e->nr;
+    }
+
+    ti_val_drop(*val);
+    *val = v;
+    return 0;
+}
+
 
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 {

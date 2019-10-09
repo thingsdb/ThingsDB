@@ -12,7 +12,7 @@ static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
-    is_utf8 = ti_val_is_raw(query->rval) &&
+    is_utf8 = ti_val_is_str(query->rval) &&
             strx_is_utf8n((const char *) raw->data, raw->n);
 
     ti_val_drop(query->rval);

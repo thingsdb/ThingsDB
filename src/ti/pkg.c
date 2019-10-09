@@ -66,7 +66,7 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "error_code");
-    msgpack_pack_int(&pk, e->nr);
+    msgpack_pack_int8(&pk, e->nr);
 
     mp_pack_str(&pk, "error_msg");
     mp_pack_strn(&pk, e->msg, e->n);
@@ -79,7 +79,11 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
 ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e)
 {
-    return ti_pkg_new(id, TI_PROTO_NODE_ERR_RES, (const uchar *) e->msg, e->n);
+    return ti_pkg_new(
+            id,
+            TI_PROTO_NODE_ERR_RES,
+            (const unsigned char *) e->msg,
+            e->n);
 }
 
 void ti_pkg_log(ti_pkg_t * pkg)

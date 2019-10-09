@@ -131,7 +131,6 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     ssize_t n;
     mp_obj_t obj, mp_thing_id, mp_type_id;
     mp_unp_t up;
-    ti_user_t * user;
     ti_type_t * type;
     uchar * data = fx_read(fn, &n);
     if (!data)
@@ -192,7 +191,7 @@ int ti_store_things_restore_data(
     size_t i, m, ii, mm;
     ssize_t size;
     uchar * data;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
             .up = &up,

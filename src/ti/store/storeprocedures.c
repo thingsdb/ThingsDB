@@ -66,7 +66,7 @@ int ti_store_procedures_restore(
     ti_raw_t * rname;
     ti_closure_t * closure;
     ti_procedure_t * procedure;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
             .up = &up,

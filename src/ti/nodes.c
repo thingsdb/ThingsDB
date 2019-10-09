@@ -17,6 +17,7 @@
 #include <ti/version.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
+#include <util/mpack.h>
 
 #define NODES__UV_BACKLOG 64
 
@@ -112,7 +113,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         mp_next(&up, &mp_this_node_id) != MP_U64 ||
         mp_next(&up, &mp_secret) != MP_STR ||
         mp_secret.via.str.n != CRYPTX_SZ ||
-        mp_secret.via.str[mp_secret.via.str.n-1] != '\0' ||
+        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0' ||
         mp_next(&up, &mp_from_node_id) != MP_U64 ||
         mp_next(&up, &mp_version) != MP_STR ||
         mp_next(&up, &mp_min_ver) != MP_STR ||
@@ -150,8 +151,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         goto failed;
     }
 
-    version = mp_strndup(mp_version);
-    min_ver = mp_strndup(mp_min_ver);
+    version = mp_strdup(&mp_version);
+    min_ver = mp_strdup(&mp_min_ver);
 
     if (!version || !min_ver)
     {
@@ -395,7 +396,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!mp_next(&up, &mp_event_id) == MP_U64)
+    if (mp_next(&up, &mp_event_id) != MP_U64)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -703,7 +704,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    mp_sbuffer_init(&buffer, sizeof(ti_pkg_t), sizeof(ti_pkg_t));
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_pkg_t), sizeof(ti_pkg_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_to_pk(&pk))

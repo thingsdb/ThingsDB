@@ -8,18 +8,19 @@
 
 #include <msgpack.h>
 #include <msgpack/fbuffer.h>
+#include <stdarg.h>
 #include <util/logger.h>
 
 typedef struct
 {
-    unsigned char * data;
+    const unsigned char * data;
     size_t n;
 } mp_bin_t;
 
 /* use only when UTF8 is guaranteed */
 typedef struct
 {
-    char * data;
+    const char * data;
     size_t n;
 } mp_str_t;
 
@@ -51,6 +52,18 @@ typedef enum
     MP_MAP,
 } mp_enum_t;
 
+typedef struct
+{
+    const char * pt;
+    const char * end;
+} mp_unp_t;
+
+typedef struct
+{
+    mp_enum_t tp;
+    mp_via_t via;
+} mp_obj_t;
+
 static inline const char * __attribute__((unused))mp_type_str(mp_enum_t tp)
 {
     switch (tp)
@@ -72,18 +85,6 @@ static inline const char * __attribute__((unused))mp_type_str(mp_enum_t tp)
     return "msgpack type unknown";
 }
 
-typedef struct
-{
-    char * pt;
-    char * end;
-} mp_unp_t;
-
-typedef struct
-{
-    mp_enum_t tp;
-    mp_via_t via;
-} mp_obj_t;
-
 /* return 0 if successful
  *
  * reserve space at the start of `sbuffer` so we can later use the buffer
@@ -104,7 +105,7 @@ static inline int mp_sbuffer_alloc_init(
     return alloc != size && buffer->data == NULL;
 }
 
-static int mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
+static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
 {
     int rc, n;
     va_list args1, args2;
@@ -130,37 +131,13 @@ static int mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
     return rc;
 }
 
-static void mp_print(FILE * out, const char * data, size_t n)
+static void __attribute__((unused))mp_print(FILE * out, const void * data, size_t n)
 {
-    msgpack_unpacked msg;
-    msgpack_unpacked_init(&msg);
-    switch (msgpack_unpack_next(&msg, data, n, NULL))
+    /* TODO : print msgpack data */
+    if (data && n)  /* just some stupid test to use the variable */
     {
-    case MSGPACK_UNPACK_SUCCESS:
-    {
-        msgpack_object obj = msg.data;
-        msgpack_object_print(out, obj);
-        fprintf(out, "\n (MSGPACK_UNPACK_SUCCESS)\n");
-        return ;
+        fprintf(out, "\n");
     }
-    case MSGPACK_UNPACK_EXTRA_BYTES:
-    {
-        msgpack_object obj = msg.data;
-        msgpack_object_print(out, obj);
-        fprintf(out, "\n (MSGPACK_UNPACK_EXTRA_BYTES)\n");
-        return ;
-    }
-    case MSGPACK_UNPACK_CONTINUE:
-        fprintf(out, "\n (MSGPACK_UNPACK_CONTINUE)\n");
-        return ;
-    case MSGPACK_UNPACK_PARSE_ERROR:
-        fprintf(out, "\n (MSGPACK_UNPACK_PARSE_ERROR)\n");
-        return ;
-    case MSGPACK_UNPACK_NOMEM_ERROR:
-        fprintf(out, "\n (MSGPACK_UNPACK_NOMEM_ERROR)\n");
-        return ;
-    }
-    fprintf(out, "\n (MSGPACK_UNKOWN_ERROR)\n");
 }
 
 static inline int mp_pack_bool(msgpack_packer * x, _Bool b)
@@ -183,12 +160,12 @@ static inline int mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
 
 #define mp_str_eq(o__, s__) \
     (o__)->via.str.n == strlen(s__) && \
-    memcmp(s__, (o__)->via.str.data, (o__)->via.str->n) == 0
+    memcmp(s__, (o__)->via.str.data, (o__)->via.str.n) == 0
 
 #define mp_pack_append(pk__, s__, n__) \
-    return (*(pk__)->callback)((pk)->data, (const char*)s__, n__);
+    (*(pk__)->callback)((pk__)->data, (const char*)s__, n__)
 
-static inline void mp_unp_init(mp_unp_t * up, void * data, size_t n)
+static inline void mp_unp_init(mp_unp_t * up, const void * data, size_t n)
 {
     up->pt = data;
     up->end = up->pt + n;
@@ -597,7 +574,7 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     return MP_ERR;
 }
 
-static inline void * mp_may_cast_u64(mp_enum_t * tp)
+static inline _Bool mp_may_cast_u64(mp_enum_t tp)
 {
     return tp == MP_I64 || tp == MP_U64;
 }

@@ -122,7 +122,7 @@ ti_thing_t * ti_things_create_thing_t(
 
 /* Returns a thing with a new reference or NULL in case of an error */
 ti_thing_t * ti_things_thing_o_from_unp(
-        ti_val_unp_t * vup,
+        ti_vup_t * vup,
         uint64_t thing_id,
         size_t sz,
         ex_t * e)
@@ -178,7 +178,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_t_from_unp(ti_val_unp_t * vup, ex_t * e)
+ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
 {
     ti_thing_t * thing;
     ti_type_t * type;
@@ -209,7 +209,7 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_val_unp_t * vup, ex_t * e)
         return NULL;
     }
 
-    if (!obj.via.sz - 2 != type->fields->n)
+    if (obj.via.sz - 2 != type->fields->n)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "

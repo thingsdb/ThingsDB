@@ -29,15 +29,15 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(pk, 2);
+    msgpack_pack_map(&pk, 2);
 
-    msgpack_pack_raw(pk, (const unsigned char *) "warn_code", 9);
-    msgpack_pack_int(pk, tp);
+    mp_pack_str(&pk, "warn_code");
+    msgpack_pack_int8(&pk, tp);
 
-    msgpack_pack_raw(pk, (const unsigned char *) "warn_msg", 8);
+    mp_pack_str(&pk, "warn_msg");
 
     va_start(args, fmt);
-    rc = mp_pack_fmt(pk, fmt, args);
+    rc = mp_pack_fmt(&pk, fmt, args);
     va_end(args);
 
     if (rc)

@@ -157,7 +157,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_str_from_strn(
+    query->rval = (ti_val_t *) ti_str_create(
             token->key,
             sizeof(ti_token_key_t));
 

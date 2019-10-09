@@ -24,7 +24,7 @@ typedef enum
 int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e);
 int ti_scope_init_packed(
         ti_scope_t * scope,
-        const unsigned char * data,
+        const char * data,
         size_t n,
         ex_t * e);
 static inline int ti_scope_init_pkg(
@@ -56,7 +56,7 @@ static inline int ti_scope_init_pkg(
         ti_pkg_t * pkg,
         ex_t * e)
 {
-    return ti_scope_init_packed(scope, pkg->data, pkg->n, e);
+    return ti_scope_init_packed(scope, (const char *) pkg->data, pkg->n, e);
 }
 
 

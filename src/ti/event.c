@@ -154,14 +154,14 @@ int ti_event_run(ti_event_t * ev)
             goto fail;
         }
 
+        /* keep the current position so we can update watchers */
+        jobs_position = up.pt;
+
+        if (mp_next(&up, &obj) != MP_ARR)
+            goto fail_mp_data;
+
         if (ev->collection)
         {
-            /* keep the current position so we can update watchers */
-            jobs_position = up.pt;
-
-            if (mp_next(&up, &obj) != MP_MAP)
-                goto fail_mp_data;
-
             for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
             {
                 if (ti_job_run(thing, &up, ev->id))
@@ -182,7 +182,7 @@ int ti_event_run(ti_event_t * ev)
                 ti_rpkg_t * rpkg = ti_watch_rpkg(
                         thing->id,
                         ev->id,
-                        jobs_position, n);
+                        (const unsigned char *) jobs_position, n);
 
                 if (rpkg)
                 {
@@ -208,16 +208,12 @@ int ti_event_run(ti_event_t * ev)
         }
         else
         {
-            if (mp_next(&up, &obj) != MP_MAP)
-                goto fail_mp_data;
-
             for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
             {
                 if (ti_rjob_run(ev, &up))
                 {
                     log_critical(
-                            "job for `root` in "TI_EVENT_ID" failed",
-                            ev->id);
+                            "job for `root` in "TI_EVENT_ID" failed", ev->id);
                     goto fail;
                 }
             }

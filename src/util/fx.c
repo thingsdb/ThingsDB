@@ -194,24 +194,24 @@ failed:
     return NULL;
 }
 
-int fx_mmap_open(fx_mmap_t * x, const char * fn)
+int fx_mmap_open(fx_mmap_t * x)
 {
     int pagesize = getpagesize();
     struct stat st;
     ssize_t size;
 
-    int fd = open(fn, O_RDONLY);
+    int fd = open(x->fn, O_RDONLY);
     if (fd < 0)
     {
         log_error("cannot open file descriptor `%s` (%s)",
-                fn, strerror(errno));
+                x->fn, strerror(errno));
         goto fail;
     }
 
     if (fstat(fd, &st) < 0)
     {
         log_error("unable to get file statistics: `%s` (%s)",
-                fn, strerror(errno));
+                x->fn, strerror(errno));
         goto fail;
     }
 
@@ -222,7 +222,7 @@ int fx_mmap_open(fx_mmap_t * x, const char * fn)
     if (x->data == MAP_FAILED)
     {
         log_error("unable to memory map file `%s` (%s)",
-                fn, strerror(errno));
+                x->fn, strerror(errno));
 
         goto fail;
     }

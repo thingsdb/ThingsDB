@@ -40,6 +40,57 @@ static inline _Bool field__cmp(const char * a, size_t na, const char * str)
     return strlen(str) == na && memcmp(a, str, na) == 0;
 }
 
+static ti_data_t * field___set_job(ti_name_t * name, ti_val_t * val)
+{
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (msgpack_pack_array(&pk, 1) ||
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "set") ||
+        msgpack_pack_map(&pk, 1)
+    ) goto fail_pack;
+
+    if (mp_pack_strn(&pk, name->str, name->n) ||
+        ti_val_to_pk(val, &pk, 0)
+    ) goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    return data;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return NULL;
+}
+
+static ti_data_t * field__del_job(const char * name, size_t n)
+{
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, 64 + n, sizeof(ti_data_t)))
+        return NULL;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 1);
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "del");
+    mp_pack_strn(&pk, name, n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    return data;
+}
+
 static int field__init(ti_field_t * field, ex_t * e)
 {
     const char * str = (const char *) field->spec_raw->data;
@@ -400,7 +451,7 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
     int rc;
     field__del_t deljob = {
-            .data = ti_data_for_del_job(field->name->str, field->name->n),
+            .data = field__del_job(field->name->str, field->name->n),
             .event_id = ev_id,
             .idx = field->idx,
             .type_id = field->type->type_id,
@@ -639,7 +690,9 @@ static int field__check_spec(
                 ? 0
                 : field__cast_err(t_field, f_field, e);
     case TI_SPEC_RAW:
-        return f_spec == TI_SPEC_STR
+        return (f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_BYTES)
                 ? 0
                 : field__cast_err(t_field, f_field, e);
     case TI_SPEC_INT:
@@ -653,6 +706,11 @@ static int field__check_spec(
                 ? 0
                 : field__cast_err(t_field, f_field, e);
     case TI_SPEC_STR:
+        return f_spec == TI_SPEC_UTF8
+                ? 0
+                : field__cast_err(t_field, f_field, e);
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
     case TI_SPEC_UINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
@@ -711,7 +769,9 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     case TI_SPEC_OBJECT:
         return f_spec < TI_SPEC_ANY;
     case TI_SPEC_RAW:
-        return f_spec == TI_SPEC_STR;
+        return (f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_BYTES);
     case TI_SPEC_INT:
         return f_spec == TI_SPEC_UINT;
     case TI_SPEC_NUMBER:
@@ -719,6 +779,9 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
                 f_spec == TI_SPEC_UINT ||
                 f_spec == TI_SPEC_FLOAT);
     case TI_SPEC_STR:
+        return f_spec == TI_SPEC_UTF8;
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
     case TI_SPEC_UINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
@@ -913,7 +976,7 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     assert (field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
-            .data = ti_data_for_set_job(field->name, *vaddr, 0),
+            .data = field___set_job(field->name, *vaddr),
             .vaddr = vaddr,
             .event_id = ev_id,
             .type_id = field->type->type_id,

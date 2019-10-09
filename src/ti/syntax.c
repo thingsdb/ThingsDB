@@ -14,6 +14,7 @@
 #include <ti/fn/fnarray.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnbool.h>
+#include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
@@ -174,8 +175,9 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "auth_err", do__f_auth_err);
         break;
     case 'b':
-        syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
         syntax__nev_fn(q, nd, "bool", do__f_bool);
+        syntax__nev_fn(q, nd, "bytes", do__f_bytes);
+        syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
         break;
     case 'c':
         syntax__nev_fn(q, nd, "call", do__f_call);

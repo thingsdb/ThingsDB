@@ -229,7 +229,7 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-static int query__args(ti_query_t * query, ti_val_unp_t * vup, ex_t * e)
+static int query__args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
 {
     size_t i, n;
     mp_obj_t obj, mp_key;
@@ -296,7 +296,7 @@ int ti_query_unpack(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const char * data,
         size_t n,
         ex_t * e)
 {
@@ -305,7 +305,7 @@ int ti_query_unpack(
     mp_unp_t up;
     mp_unp_init(&up, data, n);
 
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = true,
             .collection = query->collection,
             .up = &up,
@@ -341,7 +341,7 @@ int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const char * data,
         size_t n,
         ex_t * e)
 {
@@ -354,7 +354,7 @@ int ti_query_unp_run(
     mp_unp_t up;
     mp_unp_init(&up, data, n);
 
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = true,
             .collection = NULL,
             .up = &up,

@@ -22,6 +22,7 @@
 #include <ti/opr.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/scope.h>
 #include <ti/syntax.h>

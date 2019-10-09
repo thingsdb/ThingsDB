@@ -9,8 +9,9 @@
 #include <ti/names.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
-#include <ti/val.inline.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/logger.h>
@@ -105,7 +106,7 @@ fail0:
     return NULL;
 }
 
-static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
+static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -283,35 +284,35 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
 
 int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
 {
-    uchar * buf;
+    char * buf;
     size_t n = 0;
     int rc;
     if (!closure__is_unbound(closure))
     {
         return -(
-            msgpack_pack_map(&pk, 1) ||
-            mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1) ||
-            mp_pack_strn(&pk, closure->node->str, closure->node->len)
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
+            mp_pack_strn(pk, closure->node->str, closure->node->len)
         );
     }
 
-    buf = ti_closure_uchar(closure, &n);
+    buf = ti_closure_char(closure, &n);
     if (!buf)
         return -1;
 
     rc = -(
-        msgpack_pack_map(&pk, 1) ||
-        mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1) ||
-        mp_pack_strn(&pk, buf, n)
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
+        mp_pack_strn(pk, buf, n)
     );
 
     free(buf);
     return rc;
 }
 
-uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n)
+char * ti_closure_char(ti_closure_t * closure, size_t * n)
 {
-    uchar * buf;
+    char * buf;
     buf = malloc(closure->node->len);
     if (!buf)
         return NULL;
@@ -525,7 +526,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     {
         /* return comment as doc */
         node = node->children->next->node->children->node;
-        doc = ti_str_from_strn(node->str, node->len);
+        doc = ti_str_create(node->str, node->len);
         goto done;
     }
 

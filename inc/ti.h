@@ -68,8 +68,8 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
-int ti_node_to_pk(msgpack_packer * pk);
-ti_val_t * ti_node_as_mpval(void);
+int ti_this_node_to_pk(msgpack_packer * pk);
+ti_val_t * ti_this_node_as_mpval(void);
 static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);

@@ -251,13 +251,13 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     uint16_t node_port;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 7 ||
-        mp_next(&up, &mp_next_thing_id) != MP_U64 ||
-        mp_next(&up, &mp_cevid) != MP_U64 ||
-        mp_next(&up, &mp_sevid) != MP_U64 ||
-        mp_next(&up, &mp_status) != MP_U64 ||
-        mp_next(&up, &mp_zone) != MP_U64 ||
-        mp_next(&up, &mp_port) != MP_U64 ||
-        mp_next(&up, &mp_syntax_ver) != MP_U64
+        mp_next(up, &mp_next_thing_id) != MP_U64 ||
+        mp_next(up, &mp_cevid) != MP_U64 ||
+        mp_next(up, &mp_sevid) != MP_U64 ||
+        mp_next(up, &mp_status) != MP_U64 ||
+        mp_next(up, &mp_zone) != MP_U64 ||
+        mp_next(up, &mp_port) != MP_U64 ||
+        mp_next(up, &mp_syntax_ver) != MP_U64
     ) return -1;
 
     node->next_thing_id = mp_next_thing_id.via.u64;

@@ -12,6 +12,7 @@
 #include <ti/users.h>
 #include <ti/val.h>
 #include <util/cryptx.h>
+#include <util/mpack.h>
 
 /*
  * Returns 0 on success
@@ -312,10 +313,10 @@ static int rjob__new_procedure(mp_unp_t * up)
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
-            .up = &up,
+            .up = up,
     };
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
@@ -395,7 +396,7 @@ static int rjob__new_token(mp_unp_t * up)
     }
 
     token = ti_token_create(
-            (ti_token_key_t *) mp_key.via.str->data,
+            (ti_token_key_t *) mp_key.via.str.data,
             mp_expire.via.u64,
             mp_desc.via.str.data,
             mp_desc.via.str.n);
@@ -610,7 +611,6 @@ static int rjob__set_password(mp_unp_t * up)
 {
     ti_user_t * user;
     mp_obj_t obj, mp_user, mp_pass;
-    ti_raw_t * rname;
     char * encrypted = NULL;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -694,10 +694,13 @@ static int rjob__set_quota(mp_unp_t * up)
 
 int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 {
-    mp_obj_t mp_job;
-    if (mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 2)
+    mp_obj_t obj, mp_job;
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 2)
     {
-        log_critical("job `type` for thing "TI_THING_ID" is missing", 0);
+        log_critical(
+                "job is not a `map` or `type` "
+                "for thing "TI_THING_ID" is missing", 0);
         return -1;
     }
 

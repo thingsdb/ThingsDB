@@ -58,7 +58,7 @@ static inline int ti_verror_to_pk(ti_verror_t * verror, msgpack_packer * pk)
         mp_pack_strn(pk, verror->msg, verror->msg_n) ||
 
         mp_pack_str(pk, "error_code") ||
-        msgpack_pack_int(pk, verror->code)
+        msgpack_pack_int8(pk, verror->code)
     );
 }
 

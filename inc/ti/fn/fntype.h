@@ -19,7 +19,7 @@ static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     type_str = ti_val_str(query->rval);
     ti_val_drop(query->rval);
 
-    query->rval = (ti_val_t *) ti_str_from_strn(type_str, strlen(type_str));
+    query->rval = (ti_val_t *) ti_str_create(type_str, strlen(type_str));
     if (!query->rval)
         ex_set_mem(e);
 

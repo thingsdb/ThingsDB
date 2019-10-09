@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <tiinc.h>
 
 typedef struct ti_raw_s ti_raw_t;
@@ -15,7 +16,6 @@ ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n);
 void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n);
 ti_raw_t * ti_str_from_ti_string(const char * src, size_t n);
 ti_raw_t * ti_str_from_fmt(const char * fmt, ...);
-ti_raw_t * ti_str_from_strn(const char * str, size_t n);
 ti_raw_t * ti_raw_from_slice(
         ti_raw_t * source,
         ssize_t start,

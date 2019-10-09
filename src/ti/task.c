@@ -145,22 +145,40 @@ fail_pack:
 int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
 {
     ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_gen_ids(val))
         return -1;
 
-    data = ti_data_for_set_job(name, val, TI_VAL_PACK_TASK);
-    if (!data)
-        return -1;
+    if (msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "set") ||
+        msgpack_pack_map(&pk, 1)
+    ) goto fail_pack;
+
+    if (mp_pack_strn(&pk, name->str, name->n) ||
+        ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK)
+    ) goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
 
     if (vec_push(&task->jobs, data))
-    {
-        free(data);
-        return -1;
-    }
+        goto fail_data;
 
     task__upd_approx_sz(task, data);
     return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
 }
 
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
@@ -205,10 +223,22 @@ fail_data:
 
 int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 {
+    size_t alloc = 64 + rname->n;
     ti_data_t * data;
-    data = ti_data_for_del_job((const char *) rname->data, rname->n);
-    if (!data)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "del");
+    mp_pack_strn(&pk, rname->data, rname->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
 
     if (vec_push(&task->jobs, data))
         goto fail_data;
@@ -233,7 +263,8 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk);
+    msgpack_pack_map(&pk, 1);
+
     mp_pack_str(&pk, "del_collection");
     msgpack_pack_uint64(&pk, collection_id);
 
@@ -383,7 +414,8 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk);
+    msgpack_pack_map(&pk, 1);
+
     mp_pack_str(&pk, "del_user");
     msgpack_pack_uint64(&pk, user->id);
 
@@ -1039,7 +1071,7 @@ int ti_task_add_set_quota(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "set_quota");
-    msgpack_pack_map(&pk);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "collection");
     msgpack_pack_uint64(&pk, collection_id);

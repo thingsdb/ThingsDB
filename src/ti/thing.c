@@ -13,7 +13,7 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <util/logger.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 static inline int thing__val_locked(
         ti_thing_t * thing,
@@ -44,21 +44,28 @@ static void thing__watch_del(ti_thing_t * thing)
 {
     assert (thing->watchers);
 
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    qpx_packer_t * packer = qpx_packer_create(12, 1);
-    if (!packer)
+
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         return;
     }
-    (void) ti_thing_id_to_pk(thing, &packer);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_DEL);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    (void) ti_thing_id_to_pk(thing, &pk);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_DEL, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
     {
+        free(pkg);
         log_critical(EX_MEMORY_S);
         return;
     }
@@ -171,7 +178,7 @@ void ti_thing_clear(ti_thing_t * thing)
 
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        ti_val_unp_t * vup,
+        ti_vup_t * vup,
         size_t sz,
         ex_t * e)
 {
@@ -209,7 +216,7 @@ int ti_thing_props_from_unp(
     return e->nr;
 }
 
-ti_thing_t * ti_thing_new_from_unp(ti_val_unp_t * vup, size_t sz, ex_t * e)
+ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     ti_thing_t * thing;
 
@@ -698,7 +705,7 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 
     if (msgpack_pack_map(pk, 1) ||
         mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
-        msgpack_pack_array(pk, 2 + thing->items) ||
+        msgpack_pack_array(pk, 2 + thing->items->n) ||
         msgpack_pack_uint64(pk, thing->id) ||
         msgpack_pack_uint16(pk, thing->type_id))
         return -1;

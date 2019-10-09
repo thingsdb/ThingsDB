@@ -220,7 +220,7 @@ invalid_scope:
  */
 int ti_scope_init_packed(
         ti_scope_t * scope,
-        const unsigned char * data,
+        const char * data,
         size_t n,
         ex_t * e)
 {

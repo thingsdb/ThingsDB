@@ -11,7 +11,7 @@
 #include <ti/proto.h>
 #include <ti/thing.inline.h>
 #include <ti/wareq.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 static void wareq__destroy(ti_wareq_t * wareq);
 static void wareq__destroy_cb(uv_async_t * task);
@@ -54,13 +54,15 @@ static ti_wareq_t * wareq__create(
 
 static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 {
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_id;
+    mp_unp_t up;
+    mp_obj_t obj, mp_id;
+    size_t nargs;
+    size_t i;
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    qp_next(&unpacker, NULL);
-    qp_next(&unpacker, NULL);
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
 
     wareq->thing_ids = vec_new(4);
     if (!wareq->thing_ids)
@@ -69,10 +71,19 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         return e->nr;
     }
 
-    while(qp_is_int(qp_next(&unpacker, &qp_id)))
+    nargs = obj.via.sz - 1;
+
+    for (i = 0; i < nargs; ++i)
     {
+        if (!mp_may_cast_u64(mp_next(&up, &mp_id)))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "watch requests only excepts integer thing id's "DOC_WATCH);
+            return e->nr;
+        }
+
         #if TI_USE_VOID_POINTER
-        uintptr_t id = (uintptr_t) qp_id.via.int64;
+        uintptr_t id = (uintptr_t) mp_id.via.u64;
         #else
         uint64_t * id = malloc(sizeof(uint64_t));
         if (!id)
@@ -88,10 +99,6 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             return e->nr;
         }
     }
-
-    if (!qp_is_close(qp_id.tp))
-        ex_set(e, EX_BAD_DATA,
-                "watch requests only except integer thing id's "DOC_WATCH);
 
     return e->nr;
 }
@@ -250,7 +257,8 @@ static void wareq__watch_cb(uv_async_t * task)
     while (n--)
     {
         ti_pkg_t * pkg;
-        qpx_packer_t * packer;
+        msgpack_packer pk;
+        msgpack_sbuffer buffer;
 
         #if TI_USE_VOID_POINTER
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
@@ -272,28 +280,30 @@ static void wareq__watch_cb(uv_async_t * task)
             break;
         }
 
-        packer = qpx_packer_create(512, 4);
-        if (!packer)
+        if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
         {
             log_critical(EX_MEMORY_S);
             break;
         }
 
-        (void) qp_add_map(&packer);
-        (void) qp_add_raw_from_str(packer, "event");
-        (void) qp_add_int(packer, ti()->node->cevid);
-        (void) qp_add_raw_from_str(packer, "thing");
+        msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
+        msgpack_pack_map(&pk, 2);
+
+        mp_pack_str(&pk, "event");
+        msgpack_pack_uint64(&pk, ti()->node->cevid);
+
+        mp_pack_str(&pk, "thing");
         /* fetch exactly one level, options = 1 */
-        if (    ti_thing_to_pk(thing, &packer, 1 /* options */) ||
-                qp_close_map(packer))
+        if (ti_thing_to_pk(thing, &pk, 1 /* options */))
         {
             log_critical(EX_MEMORY_S);
-            qp_packer_destroy(packer);
+            msgpack_sbuffer_destroy(&buffer);
             break;
         }
 
-        pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_INI);
+        pkg = (ti_pkg_t *) buffer.data;
+        pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
 
         if (    ti_stream_is_closed(wareq->stream) ||
                 ti_stream_write_pkg(wareq->stream, pkg))

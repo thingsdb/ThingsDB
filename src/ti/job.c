@@ -15,6 +15,8 @@
 #include <ti/val.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
+#include <ti/vup.h>
+#include <util/mpack.h>
 
 /*
  * Returns 0 on success
@@ -27,10 +29,10 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
     ti_thing_t * t;
     size_t i, m;
     mp_obj_t obj, mp_prop;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
-            .up = &up,
+            .up = up,
     };
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
@@ -95,10 +97,10 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     ti_val_t * val;
     ti_name_t * name;
     mp_obj_t obj, mp_prop;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
-            .up = &up,
+            .up = up,
     };
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_next(up, &mp_prop) != MP_STR)
@@ -246,10 +248,10 @@ static int job__mod_type_add(
     ti_val_t * val = NULL;
     mp_obj_t obj, mp_id, mp_name, mp_spec;
     int rc = -1;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
-            .up = &up,
+            .up = up,
     };
 
     if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 3 && obj.via.sz != 4) ||
@@ -339,10 +341,7 @@ static int job__mod_type_del(
     ti_type_t * type;
     ti_name_t * name;
     ti_field_t * field;
-    uint16_t type_id;
-
-    mp_obj_t obj, mp_id, mp_name, mp_spec;
-    int rc = -1;
+    mp_obj_t obj, mp_id, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -361,8 +360,8 @@ static int job__mod_type_del(
     {
         log_critical(
                 "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
-                "type with id %u not found",
-                collection->root->id, type_id);
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
         return -1;
     }
 
@@ -372,7 +371,7 @@ static int job__mod_type_del(
         log_critical(
                 "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %u; name is missing",
-                collection->root->id, type_id);
+                collection->root->id, type->type_id);
         return -1;
     }
 
@@ -408,12 +407,6 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     ti_field_t * field;
     ti_raw_t * spec_raw;
     mp_obj_t obj, mp_id, mp_name, mp_spec;
-    int rc = -1;
-    ti_val_unp_t vup = {
-            .isclient = false,
-            .collection = thing->collection,
-            .up = &up,
-    };
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
@@ -572,10 +565,10 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
-            .up = &up,
+            .up = up,
     };
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
@@ -751,11 +744,10 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     size_t n, i, c, cur_n, new_n;
     ti_varr_t * varr;
     ti_name_t * name;
-    ti_collection_t * collection = thing->collection;
-    ti_val_unp_t vup = {
+    ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
-            .up = &up,
+            .up = up,
     };
 
     mp_obj_t obj, mp_prop, mp_i, mp_c;
@@ -864,44 +856,54 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
 {
     assert (thing);
     assert (thing->collection);
-    mp_obj_t mp_job;
-    if (mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
+    mp_obj_t obj, mp_job;
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
     {
         log_critical(
-                "job `type` for thing "TI_THING_ID" is missing",
-                thing->id);
+                "job is not a `map` or `type` "
+                "for thing "TI_THING_ID" is missing", 0);
         return -1;
     }
 
     switch (*mp_job.via.str.data)
     {
     case 'a':
-        return job__add(thing, up);
+        if (mp_str_eq(&mp_job, "add"))
+            return job__add(thing, up);
+        break;
     case 'd':
-        switch (mp_job.via.str.n)
-        {
-        case 3: return job__del(thing, up);
-        case 8: return job__del_type(thing, up);
-        }
-        return job__del_procedure(thing, up);
+        if (mp_str_eq(&mp_job, "del"))
+            return job__del(thing, up);
+        if (mp_str_eq(&mp_job, "del_type"))
+            return job__del_type(thing, up);
+        if (mp_str_eq(&mp_job, "del_procedure"))
+            return job__del_procedure(thing, up);
+        break;
     case 'n':
-        return mp_job.via.str.n == 8
-                ? job__new_type(thing, up)
-                : job__new_procedure(thing, up);
+        if (mp_str_eq(&mp_job, "new_type"))
+            return job__new_type(thing, up);
+        if (mp_str_eq(&mp_job, "new_procedure"))
+            return job__new_procedure(thing, up);
+        break;
     case 'm':
-        if (mp_job.via.str.n == 12) switch (mp_job.via.str.data[9])
-        {
-        case 'a': return job__mod_type_add(thing, up, ev_id);
-        case 'd': return job__mod_type_del(thing, up, ev_id);
-        case 'm': return job__mod_type_mod(thing, up);
-        }
+        if (mp_str_eq(&mp_job, "mod_type_add"))
+            return job__mod_type_add(thing, up, ev_id);
+        if (mp_str_eq(&mp_job, "mod_type_del"))
+            return job__mod_type_del(thing, up, ev_id);
+        if (mp_str_eq(&mp_job, "mod_type_mod"))
+            return job__mod_type_mod(thing, up);
         break;
     case 'r':
-        return job__remove(thing, up);
+        if (mp_str_eq(&mp_job, "remove"))
+            return job__remove(thing, up);
+        break;
     case 's':
-        return mp_job.via.str.n == 3
-                ? job__set(thing, up)
-                : job__splice(thing, up);
+        if (mp_str_eq(&mp_job, "set"))
+            return job__set(thing, up);
+        if (mp_str_eq(&mp_job, "splice"))
+            return job__splice(thing, up);
+        break;
     }
 
     log_critical("unknown job: `%.*s`",

@@ -101,19 +101,6 @@ done:
     return r;
 }
 
-ti_raw_t * ti_str_from_strn(const char * str, size_t n)
-{
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
-    if (!r)
-        return NULL;
-
-    r->ref = 1;
-    r->tp = TI_VAL_STR;
-    r->n = n;
-    memcpy(r->data, str, n);
-    return r;
-}
-
 ti_raw_t * ti_raw_from_slice(
         ti_raw_t * source,
         ssize_t start,

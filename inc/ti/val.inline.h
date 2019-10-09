@@ -102,7 +102,6 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR: \
         return ti_verror_to_pk((ti_verror_t *) val__, pk__);
 
-
 #endif  /* TI_VAL_INLINE_H_ */
 
 

@@ -89,7 +89,7 @@ done:
 
 int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 {
-    char * types_start;
+    const char * types_position;
     char namebuf[TI_TYPE_NAME_MAX+1];
     int rc = -1;
     int pagesize = getpagesize();
@@ -165,7 +165,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         mp_next(&up, &obj) != MP_ARR
     ) goto fail2;
 
-    types_start = up.pt;
+    types_position = up.pt;
 
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
@@ -189,7 +189,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     }
 
     /* restore unpacker to types start */
-    up.pt = types_start;
+    up.pt = types_position;
 
     for (i = 0, m = types->imap->n; i < m; ++i)
     {
@@ -212,7 +212,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             if (!name)
                 goto fail2;
 
-            spec = ti_str_create(mp_spec.via.bin.data, mp_spec.via.str.n);
+            spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
             if (!spec)
                 goto fail2;
 

@@ -32,7 +32,7 @@ ti_user_t * ti_users_auth(mp_obj_t * mp_name, mp_obj_t * mp_pass, ex_t * e);
 ti_user_t * ti_users_auth_by_token(mp_obj_t * mp_token, ex_t * e);
 ti_user_t * ti_users_get_by_id(uint64_t id);
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n);
-ti_val_t * ti_users_info_as_mpval(void);
+ti_varr_t * ti_users_info(void);
 void ti_users_del_expired(uint64_t after_ts);
 ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key);
 

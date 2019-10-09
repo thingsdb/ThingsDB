@@ -345,7 +345,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) ti_node_info_to_pk(this_node, &pk);
+    (void) ti_node_status_to_pk(this_node, &pk);
 
 send:
     resp = (ti_pkg_t *) buffer.data;
@@ -984,7 +984,7 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (ti_node_info_from_unp(other_node, &up))
+    if (ti_node_status_from_unp(other_node, &up))
     {
         log_error("invalid `%s` from `%s`",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
@@ -1590,79 +1590,24 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-int ti_nodes_info_to_pk(msgpack_packer * pk)
+ti_varr_t * ti_nodes_info(void)
 {
-    static char syntax_buf[5]; /* vXXX_ */
-    ti_node_t * this_node = ti()->node;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-
-    if (msgpack_pack_array(pk, nodes_vec->n))
-        return -1;
-
-    for (vec_each(nodes_vec, ti_node_t, node))
-    {
-        (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
-
-        if (msgpack_pack_map(pk, 10) ||
-
-            mp_pack_str(pk, "node_id") ||
-            msgpack_pack_uint32(pk, node->id) ||
-
-            mp_pack_str(pk, "syntax_version") ||
-            mp_pack_str(pk, syntax_buf) ||
-
-            mp_pack_str(pk, "status") ||
-            mp_pack_str(pk, ti_node_status_str(node->status)) ||
-
-            mp_pack_str(pk, "zone") ||
-            msgpack_pack_uint8(pk, node->zone) ||
-
-            mp_pack_str(pk, "committed_event_id") ||
-            msgpack_pack_uint64(pk, node->cevid) ||
-
-            mp_pack_str(pk, "stored_event_id") ||
-            msgpack_pack_uint64(pk, node->sevid) ||
-
-            mp_pack_str(pk, "next_thing_id") ||
-            msgpack_pack_uint64(pk, node->next_thing_id) ||
-
-            mp_pack_str(pk, "address") ||
-            mp_pack_str(
-                    pk,
-                    node == this_node ? ti_name() : node->addr) ||
-
-            mp_pack_str(pk, "port") ||
-            msgpack_pack_uint16(pk, node->port) ||
-
-            mp_pack_str(pk, "stream") ||
-            (ti_stream_is_closed(node->stream)
-                ? msgpack_pack_nil(pk)
-                : mp_pack_str(pk, ti_stream_name(node->stream)))
-        ) return -1;
-    }
-
-    return 0;
-}
-
-ti_val_t * ti_nodes_info_as_mpval(void)
-{
-    ti_raw_t * raw;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    if (ti_nodes_info_to_pk(&pk))
-    {
-        msgpack_sbuffer_destroy(&buffer);
+    vec_t * vec = imap_vec(nodes->imap);
+    ti_varr_t * varr = ti_varr_create(vec->n);
+    if (!varr)
         return NULL;
+
+    for (vec_each(vec, ti_node_t, node))
+    {
+        ti_val_t * mpinfo = ti_node_as_mpval(node);
+        if (!mpinfo)
+        {
+            ti_val_drop((ti_val_t *) varr);
+            return NULL;
+        }
+        VEC_push(varr->vec, mpinfo);
     }
-
-    raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
-
-    return (ti_val_t *) raw;
+    return varr;
 }
 
 int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e)

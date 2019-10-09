@@ -12,7 +12,6 @@
 #include <ti/users.h>
 #include <ti/val.h>
 #include <util/cryptx.h>
-#include <util/qpx.h>
 
 /*
  * Returns 0 on success

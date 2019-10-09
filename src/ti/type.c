@@ -280,7 +280,7 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_type_info_as_mpval(ti_type_t * type)
+ti_val_t * ti_type_as_mpval(ti_type_t * type)
 {
     ti_raw_t * raw;
     msgpack_packer pk;

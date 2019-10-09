@@ -106,7 +106,7 @@ static int types__pack_sz(ti_type_t * type, msgpack_packer * pk)
      );
 }
 
-ti_val_t * ti_types_info_as_mpval(ti_types_t * types)
+ti_val_t * ti_types_as_mpval(ti_types_t * types)
 {
     ti_raw_t * raw;
     msgpack_packer pk;

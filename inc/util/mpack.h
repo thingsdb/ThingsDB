@@ -178,20 +178,15 @@ static inline int mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
     return msgpack_pack_str(x, n) || msgpack_pack_str_body(x, s, n);
 }
 
+#define mp_pack_str(x__, s__) \
+    mp_pack_strn(x__, s__, strlen(s__))
+
 #define mp_str_eq(o__, s__) \
-    o__->via.str.n == strlen(s__) && \
-    memcmp(s__, o__->via.str.data, o__->via.str->n) == 0
+    (o__)->via.str.n == strlen(s__) && \
+    memcmp(s__, (o__)->via.str.data, (o__)->via.str->n) == 0
 
-static inline int mp_pack_str(msgpack_packer * x, const void * s)
-{
-    size_t n = strlen(s);
-    return mp_pack_strn(x, s, n);
-}
-
-static inline int mp_pack_append(msgpack_packer * pk, const void * s, size_t n)
-{
-    return msgpack_pack_append_buffer(pk, s, n);
-}
+#define mp_pack_append(pk__, s__, n__) \
+    return (*(pk__)->callback)((pk)->data, (const char*)s__, n__);
 
 static inline void mp_unp_init(mp_unp_t * up, void * data, size_t n)
 {

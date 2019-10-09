@@ -30,7 +30,7 @@ ti_collection_t * ti_collections_create_collection(
 ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n);
 ti_collection_t * ti_collections_get_by_id(const uint64_t id);
 ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e);
-ti_val_t * ti_collections_as_mpval(void);
+ti_varr_t * ti_collections_info(void);
 
 struct ti_collections_s
 {

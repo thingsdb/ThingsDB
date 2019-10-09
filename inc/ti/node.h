@@ -122,10 +122,12 @@ int ti_node_upd_addr_from_stream(
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 int ti_node_connect(ti_node_t * node, ex_t * e);
-int ti_node_info_from_unp(ti_node_t * node, mp_unp_t * up);
+int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk);
+ti_val_t * ti_node_as_mpval(ti_node_t * node);
+int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up);
 int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);
 
-static inline int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
+static inline int ti_node_status_to_pk(ti_node_t * node, msgpack_packer * pk)
 {
     return -(
         msgpack_pack_array(pk, 7) ||

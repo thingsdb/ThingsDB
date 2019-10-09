@@ -253,35 +253,22 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     return collection;
 }
 
-static int collections__to_pk(msgpack_packer * pk)
+ti_varr_t * ti_collections_info(void)
 {
-    if (msgpack_pack_array(&pk, ti()->collections->vec->n))
-        return -1;
-
-    for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_collection_to_pk(collection, pk))
-            return -1;
-
-    return 0;
-}
-
-ti_val_t * ti_collections_as_mpval(void)
-{
-    ti_raw_t * raw;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    if (collections__to_pk(&pk))
-    {
-        msgpack_sbuffer_destroy(&buffer);
+    vec_t * vec = collections->vec;
+    ti_varr_t * varr = ti_varr_create(vec->n);
+    if (!varr)
         return NULL;
+
+    for (vec_each(vec, ti_collection_t, collection))
+    {
+        ti_val_t * mpinfo = ti_collection_as_mpval(collection);
+        if (!mpinfo)
+        {
+            ti_val_drop((ti_val_t *) varr);
+            return NULL;
+        }
+        VEC_push(varr->vec, mpinfo);
     }
-
-    raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
-
-    return (ti_val_t *) raw;
+    return varr;
 }

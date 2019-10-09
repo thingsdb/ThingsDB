@@ -13,7 +13,7 @@ static int do__f_users_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("users_info", DOC_USERS_INFO, 0, nargs, e))
         return e->nr;
 
-    query->rval = ti_users_info_as_mpval();
+    query->rval = (ti_val_t *) ti_users_info();
     if (!query->rval)
         ex_set_mem(e);
 

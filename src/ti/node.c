@@ -171,7 +171,73 @@ fail0:
     return e->nr;
 }
 
-int ti_node_info_from_unp(ti_node_t * node, mp_unp_t * up)
+int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
+{
+    static char syntax_buf[5]; /* vXXX_ */
+    ti_node_t * this_node = ti()->node;
+    (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
+
+    return -(
+        msgpack_pack_map(pk, 10) ||
+
+        mp_pack_str(pk, "node_id") ||
+        msgpack_pack_uint32(pk, node->id) ||
+
+        mp_pack_str(pk, "syntax_version") ||
+        mp_pack_str(pk, syntax_buf) ||
+
+        mp_pack_str(pk, "status") ||
+        mp_pack_str(pk, ti_node_status_str(node->status)) ||
+
+        mp_pack_str(pk, "zone") ||
+        msgpack_pack_uint8(pk, node->zone) ||
+
+        mp_pack_str(pk, "committed_event_id") ||
+        msgpack_pack_uint64(pk, node->cevid) ||
+
+        mp_pack_str(pk, "stored_event_id") ||
+        msgpack_pack_uint64(pk, node->sevid) ||
+
+        mp_pack_str(pk, "next_thing_id") ||
+        msgpack_pack_uint64(pk, node->next_thing_id) ||
+
+        mp_pack_str(pk, "address") ||
+        mp_pack_str(
+                pk,
+                node == this_node ? ti_name() : node->addr) ||
+
+        mp_pack_str(pk, "port") ||
+        msgpack_pack_uint16(pk, node->port) ||
+
+        mp_pack_str(pk, "stream") ||
+        (ti_stream_is_closed(node->stream)
+            ? msgpack_pack_nil(pk)
+            : mp_pack_str(pk, ti_stream_name(node->stream)))
+    );
+}
+
+ti_val_t * ti_node_as_mpval(ti_node_t * node)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_node_info_to_pk(node, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+
+    return (ti_val_t *) raw;
+}
+
+int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
 {
     mp_obj_t obj,
              mp_next_thing_id,
@@ -352,7 +418,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     msgpack_pack_uint32(&pk, ti_node->id);
     mp_pack_str(&pk, TI_VERSION);
     mp_pack_str(&pk, TI_MINIMAL_VERSION);
-    ti_node_info_to_pk(ti_node, &pk);
+    ti_node_status_to_pk(ti_node, &pk);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_REQ_CONNECT, buffer.size);
@@ -406,7 +472,7 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (ti_node_info_from_unp(node, &up))
+    if (ti_node_status_from_unp(node, &up))
     {
         log_error("invalid connect response from "TI_NODE_ID, node->id);
         goto failed;

@@ -29,7 +29,7 @@ ti_procedure_t * ti_procedure_from_strn(
         ti_syntax_t * syntax,
         ex_t * e);
 int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk);
-ti_val_t * ti_procedure_info_as_mpval(ti_procedure_t * procedure);
+ti_val_t * ti_procedure_as_mpval(ti_procedure_t * procedure);
 
 struct ti_procedure_s
 {

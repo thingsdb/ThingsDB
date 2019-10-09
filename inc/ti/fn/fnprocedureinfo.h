@@ -28,7 +28,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
     ti_val_drop(query->rval);
-    query->rval = ti_procedure_info_as_mpval(procedure);
+    query->rval = ti_procedure_as_mpval(procedure);
     if (!query->rval)
         ex_set_mem(e);
 

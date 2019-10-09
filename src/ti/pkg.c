@@ -3,11 +3,10 @@
  */
 #include <assert.h>
 #include <string.h>
-#include <qpack.h>
 #include <stdlib.h>
 #include <ti/pkg.h>
 #include <ti/proto.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 #include <util/logger.h>
 
 ti_pkg_t * ti_pkg_new(
@@ -56,19 +55,24 @@ ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg)
 ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 {
     ti_pkg_t * pkg;
-    qpx_packer_t * xpkg = qpx_packer_create(30 + e->n, 1);
-    if (!xpkg)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, 40 + e->n, sizeof(ti_pkg_t)))
         return NULL;
 
-    (void) qp_add_map(&xpkg);
-    (void) qp_add_raw(xpkg, (const unsigned char *) "error_code", 10);
-    (void) qp_add_int(xpkg, e->nr);
-    (void) qp_add_raw(xpkg, (const unsigned char *) "error_msg", 9);
-    (void) qp_add_raw(xpkg, (const unsigned char *) e->msg, e->n);
-    (void) qp_close_map(xpkg);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    pkg = qpx_packer_pkg(xpkg, TI_PROTO_CLIENT_RES_ERROR);
-    pkg->id = id;
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "error_code");
+    msgpack_pack_int(&pk, e->nr);
+
+    mp_pack_str(&pk, "error_msg");
+    mp_pack_strn(&pk, e->msg, e->n);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, id, TI_PROTO_CLIENT_RES_ERROR, buffer.size);
 
     return pkg;
 }

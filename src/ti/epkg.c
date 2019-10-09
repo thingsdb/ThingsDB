@@ -7,7 +7,7 @@
 #include <ti/proto.h>
 #include <ti.h>
 #include <stdlib.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 #include <util/cryptx.h>
 
 ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
@@ -23,6 +23,9 @@ ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
 
 ti_epkg_t * ti_epkg_initial(void)
 {
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
     uint64_t event_id = 1;
     uint64_t scope_id = 0;                      /* TI_SCOPE_THINGSDB */
     uint64_t thing_id = 0;                      /* parent root thing */
@@ -30,7 +33,6 @@ ti_epkg_t * ti_epkg_initial(void)
     uint64_t stuff_id = ti_next_thing_id();     /* id:2 !important: id > 1 */
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
-    qpx_packer_t * packer;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
@@ -43,85 +45,89 @@ ti_epkg_t * ti_epkg_initial(void)
     /* encrypt the users password */
     cryptx(ti_user_def_pass, salt, encrypted);
 
-    packer = qpx_packer_create(1024, 5);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 1024, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_map(&packer);
+    msgpack_pack_map(&pk, 1);
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, event_id);
-    (void) qp_add_int(packer, scope_id);
-    (void) qp_close_array(packer);
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(pk, event_id);
+    msgpack_pack_uint64(pk, scope_id);
 
-    (void) qp_add_map(&packer);
+    msgpack_pack_map(&pk, 1);
 
-    (void) qp_add_int(packer, thing_id);
-    (void) qp_add_array(&packer);
+    msgpack_pack_uint64(pk, thing_id);
+    msgpack_pack_array(&pk);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "new_user");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int(packer, user_id);
-    (void) qp_add_raw_from_str(packer, "username");
-    (void) qp_add_raw_from_str(packer, ti_user_def_name);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    msgpack_pack_map(&pk, 1);           /* job 1 */
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "set_password");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "id");
-    (void) qp_add_int(packer, user_id);
-    (void) qp_add_raw_from_str(packer, "password");
-    (void) qp_add_raw_from_str(packer, encrypted);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    mp_pack_str(pk, "new_user");
+    msgpack_pack_map(&pk, 2);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "grant");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "scope");
-    (void) qp_add_int(packer, TI_SCOPE_NODE);
-    (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int(packer, user_id);
-    (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int(packer, TI_AUTH_MASK_FULL);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    mp_pack_str(pk, "id");
+    msgpack_pack_uint64(pk, user_id);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "grant");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "scope");
-    (void) qp_add_int(packer, TI_SCOPE_THINGSDB);
-    (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int(packer, user_id);
-    (void) qp_add_raw_from_str(packer, "mask");
-    (void) qp_add_int(packer, TI_AUTH_MASK_FULL);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    mp_pack_str(pk, "username");
+    mp_pack_str(pk, ti_user_def_name);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "new_collection");
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw_from_str(packer, "name");
-    (void) qp_add_raw_from_str(packer, "stuff");
-    (void) qp_add_raw_from_str(packer, "user");
-    (void) qp_add_int(packer, user_id);
-    (void) qp_add_raw_from_str(packer, "root");
-    (void) qp_add_int(packer, stuff_id);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    msgpack_pack_map(&pk, 1);           /* job 2 */
 
-    (void) qp_close_array(packer);
+    mp_pack_str(pk, "set_password");
+    msgpack_pack_map(&pk, 2);
 
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
+    mp_pack_str(pk, "id");
+    msgpack_pack_uint64(pk, user_id);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT);
+    mp_pack_str(pk, "password");
+    mp_pack_str(pk, encrypted);
+
+    msgpack_pack_map(&pk);              /* job 3 */
+
+    mp_pack_str(pk, "grant");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(pk, "scope");
+    msgpack_pack_uint64(pk, TI_SCOPE_NODE);
+
+    mp_pack_str(pk, "user");
+    msgpack_pack_uint64(pk, user_id);
+
+    mp_pack_str(pk, "mask");
+    msgpack_pack_uint64(pk, TI_AUTH_MASK_FULL);
+
+    msgpack_pack_map(&pk);              /* job 4 */
+
+    mp_pack_str(pk, "grant");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(pk, "scope");
+    msgpack_pack_uint64(pk, TI_SCOPE_THINGSDB);
+
+    mp_pack_str(pk, "user");
+    msgpack_pack_uint64(pk, user_id);
+
+    mp_pack_str(pk, "mask");
+    msgpack_pack_uint64(pk, TI_AUTH_MASK_FULL);
+
+    msgpack_pack_map(&pk);              /* job 5 */
+
+    mp_pack_str(pk, "new_collection");
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(pk, "name");
+    mp_pack_str(pk, "stuff");
+
+    mp_pack_str(pk, "user");
+    msgpack_pack_uint64(pk, user_id);
+
+    mp_pack_str(pk, "root");
+    msgpack_pack_uint64(pk, stuff_id);
+
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
+
     epkg = ti_epkg_create(pkg, event_id);
     if (!epkg)
     {
@@ -134,9 +140,8 @@ ti_epkg_t * ti_epkg_initial(void)
 ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
 {
     ti_epkg_t * epkg;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_event_id;
-    uint64_t event_id;
+    mp_unp_t up;
+    mp_obj_t obj, mp_event_id;
 
     pkg = ti_pkg_dup(pkg);
     if (!pkg)
@@ -145,19 +150,17 @@ ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
         return NULL;
     }
 
-    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_map(qp_next(&unpacker, NULL)) ||
-        !qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_event_id)))
+    if (mp_next(&up, &obj) != MP_MAP || !obj.via.sz ||
+        mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
+        mp_next(&up, &mp_event_id) != MP_U64)
     {
         log_error("invalid package");
         return NULL;
     }
 
-    event_id = (uint64_t) qp_event_id.via.int64;
-
-    epkg = ti_epkg_create(pkg, event_id);
+    epkg = ti_epkg_create(pkg, mp_event_id.via.u64);
     if (!epkg)
     {
         free(pkg);

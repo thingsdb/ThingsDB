@@ -315,7 +315,7 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_user_info_as_mpval(ti_user_t * user)
+ti_val_t * ti_user_as_mpval(ti_user_t * user)
 {
     ti_raw_t * raw;
     msgpack_packer pk;

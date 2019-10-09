@@ -43,7 +43,7 @@ struct ti_pkg_s
 /* return total package size, header + data size */
 static inline size_t ti_pkg_sz(ti_pkg_t * pkg)
 {
-    return pkg->n + 8;
+    return pkg->n + sizeof(ti_pkg_t);
 }
 
 #endif /* TI_PKG_H_ */

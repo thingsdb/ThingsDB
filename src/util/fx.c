@@ -1,16 +1,20 @@
 /*
  * fx.c
  */
+#include <assert.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <dirent.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
-#include <stdbool.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <util/fx.h>
 #include <util/logger.h>
-#include <errno.h>
 
 int fx_write(const char * fn, unsigned char * data, size_t n)
 {
@@ -188,4 +192,63 @@ char * fx_get_exec_path(void)
 failed:
     free(buffer);
     return NULL;
+}
+
+int fx_mmap_open(fx_mmap_t * x, const char * fn)
+{
+    int pagesize = getpagesize();
+    struct stat st;
+    ssize_t size;
+
+    int fd = open(fn, O_RDONLY);
+    if (fd < 0)
+    {
+        log_error("cannot open file descriptor `%s` (%s)",
+                fn, strerror(errno));
+        goto fail;
+    }
+
+    if (fstat(fd, &st) < 0)
+    {
+        log_error("unable to get file statistics: `%s` (%s)",
+                fn, strerror(errno));
+        goto fail;
+    }
+
+    size = st.st_size;
+    size += pagesize - size % pagesize;
+
+    x->data = mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (x->data == MAP_FAILED)
+    {
+        log_error("unable to memory map file `%s` (%s)",
+                fn, strerror(errno));
+
+        goto fail;
+    }
+
+    x->n = (size_t) size;
+    return 0;
+
+fail:
+    x->data = NULL;
+    (void) fx_mmap_close(x);
+    return -1;
+}
+
+int fx_mmap_close(fx_mmap_t * x)
+{
+    if (x->data && munmap(x->data, x->n))
+    {
+        log_error("memory unmap failed: `%s` (%s)", x->fn, strerror(errno));
+        return -1;
+    }
+    if (close(x->_fd))
+    {
+        log_error(
+                "cannot close file descriptor `%s` (%s)",
+                x->fn, strerror(errno));
+        return -1;
+    }
+    return 0;
 }

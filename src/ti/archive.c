@@ -22,61 +22,58 @@ static ti_archive_t archive_;
 
 static int archive__load_file(ti_archfile_t * archfile)
 {
-    int rc = -1;
-    FILE * f;
-    qp_res_t pkg_qp;
-    qp_types_t qp_tp;
+    size_t i, m;
+    mp_unp_t up;
+    mp_obj_t obj, mp_pkg;
+    fx_mmap_t fmap;
     ti_event_t * event = queue_first(ti()->events->queue);
+    ti_epkg_t * epkg;
 
     log_debug("loading archive file `%s`", archfile->fn);
 
-    f = fopen(archfile->fn, "r");
-    if (!f)
+    fx_mmap_init(&fmap, archfile->fn);
+
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
+        return -1;
+
+    mp_unp_init(&up, fmap.data, fmap.n);
+
+    if (mp_next(&up, &obj) != MP_ARR)
+        goto close;
+
+    for (i = 0, m = obj.via.sz; i< m; ++i)
     {
-        log_error("cannot open file `%s` (%s)", archfile->fn, strerror(errno));
-        return rc;
-    }
+        if (mp_next(&up, &mp_pkg) != MP_BIN ||
+            mp_pkg.via.bin.n < sizeof(ti_pkg_t))
+        {
+            log_error(
+                    "failed to read archive file `%s`; ",
+                    "expecting a binary `package`");
+            goto close;
+        }
 
-    if (!qp_is_array(qp_fnext(f, NULL)))
-        goto failed;
-
-    while (qp_is_raw((qp_tp = qp_fnext(f, &pkg_qp))))
-    {
-        ti_epkg_t * epkg = ti_epkg_from_pkg((ti_pkg_t *) pkg_qp.via.raw->data);
-
-        qp_res_clear(&pkg_qp);
-
-        if (!epkg)
-            goto failed;
+        epkg = ti_epkg_from_pkg((ti_pkg_t *) mp_pkg.via.bin.data);
+        if (!epkg)  /* ti_epkg_from_pkg() is a log function */
+            goto close;
 
         if (epkg->event_id <= ti()->node->sevid ||
-                (event && epkg->event_id >= event->id))
+            (event && epkg->event_id >= event->id))
         {
             ti_epkg_drop(epkg);
         }
         else
         {
             if (queue_push(&archive->queue, epkg))
-                goto failed;
-
+            {
+                log_critical(EX_MEMORY_S);
+                goto close;
+            }
             ti()->node->sevid = epkg->event_id;
         }
     }
 
-    if (qp_tp == QP_ERR)
-        goto failed;
-
-    rc = 0;
-
-failed:
-    if (fclose(f))
-    {
-        log_error("cannot close file `%s` (%s)",
-                archfile->fn, strerror(errno));
-        rc = -1;
-    }
-
-    return rc;
+close:
+    return fx_mmap_close(&fmap);
 }
 
 static int archive__init_queue(void)
@@ -117,6 +114,7 @@ static int archive__to_disk(void)
     assert (archive->queue->n);
     int rc = -1;
     FILE * f;
+    msgpack_packer pk;
     ti_epkg_t * epkg;
     ti_epkg_t * last_epkg = queue_last(archive->queue);
     ti_archfile_t * archfile;
@@ -162,14 +160,16 @@ static int archive__to_disk(void)
         goto fail1;
     }
 
-    if (qp_fadd_type(f, QP_ARRAY_OPEN))
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+
+    if (msgpack_pack_array(&pk, archive->queue->n + 1))
         goto fail2;
 
     do
     {
         assert (epkg->event_id > sevid);  /* other are removed from queue */
 
-        if (qp_fadd_raw(f, (const uchar *) epkg->pkg, ti_pkg_sz(epkg->pkg)))
+        if (mp_pack_bin(&pk, epkg->pkg, ti_pkg_sz(epkg->pkg)))
             goto fail2;
 
         ti_epkg_drop(epkg);

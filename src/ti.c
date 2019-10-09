@@ -633,7 +633,7 @@ ti_rpkg_t * ti_node_status_rpkg(void)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) ti_node_info_to_pk(ti_node, &pk);
+    (void) ti_node_status_to_pk(ti_node, &pk);
 
     assert_log(buffer->size < TI_NODE_INFO_PK_SZ, "node info size too small");
 

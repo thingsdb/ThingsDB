@@ -22,7 +22,7 @@ void ti_types_destroy(ti_types_t * types);
 int ti_types_add(ti_types_t * types, ti_type_t * type);
 void ti_types_del(ti_types_t * types, ti_type_t * type);
 uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e);
-ti_val_t * ti_types_info_as_mpval(ti_types_t * types);
+ti_val_t * ti_types_as_mpval(ti_types_t * types);
 
 struct ti_types_s
 {

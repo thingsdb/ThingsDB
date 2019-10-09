@@ -2,12 +2,6 @@
  * ti/store/types.h
  */
 #include <assert.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <ti.h>
 #include <ti/field.h>
 #include <ti/prop.h>
@@ -16,7 +10,6 @@
 #include <ti/things.h>
 #include <ti/type.h>
 #include <ti/types.inline.h>
-#include <unistd.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
@@ -92,57 +85,33 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     const char * types_position;
     char namebuf[TI_TYPE_NAME_MAX+1];
     int rc = -1;
-    int pagesize = getpagesize();
+    fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name;
     ti_type_t * type;
-    struct stat st;
-    ssize_t size;
     size_t i, m, ii, mm;
     uint16_t type_id;
     uintptr_t utype_id;
-    uchar * data;
     ti_raw_t * spec;
     mp_obj_t obj, mp_id, mp_name, mp_spec;
     mp_unp_t up;
 
-    int fd = open(fn, O_RDONLY);
-    if (fd < 0)
-    {
-        log_critical("cannot open file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    fx_mmap_init(&fmap, fn);
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
         goto fail0;
-    }
 
-    if (fstat(fd, &st) < 0)
-    {
-        log_critical("unable to get file statistics: `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
-
-    size = st.st_size;
-    size += pagesize - size % pagesize;
-    data = (uchar *) mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED)
-    {
-        log_critical("unable to memory map file `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
-
-    mp_unp_init(&up, data, (size_t) size);
+    mp_unp_init(&up, fmap.data, fmap.n);
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(&up) != MP_STR ||
         mp_next(&up, &obj) != MP_MAP
-    ) goto fail2;
+    ) goto fail1;
 
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
         if (mp_next(&up, &mp_name) != MP_STR ||
             mp_next(&up, &mp_id) != MP_U64
-        ) goto fail2;
+        ) goto fail1;
 
         type_id = (uint16_t) mp_id.via.u64;
         utype_id = (uintptr_t) type_id;
@@ -163,7 +132,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     if (mp_skip(&up) != MP_STR ||     /* types key */
         mp_next(&up, &obj) != MP_ARR
-    ) goto fail2;
+    ) goto fail1;
 
     types_position = up.pt;
 
@@ -173,7 +142,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_name) != MP_STR ||
             mp_skip(&up) != MP_MAP
-        ) goto fail2;
+        ) goto fail1;
 
         if (!ti_type_create(
                 types,
@@ -184,7 +153,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             log_critical("cannot create type `%.*s`",
                     (int) mp_name.via.str.n,
                     mp_name.via.str.data);
-            goto fail2;
+            goto fail1;
         }
     }
 
@@ -197,7 +166,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_skip(&up) != MP_STR ||
             mp_next(&up, &obj) != MP_MAP
-        ) goto fail2;
+        ) goto fail1;
 
         type = ti_types_by_id(types, mp_id.via.u64);
         assert (type);
@@ -206,20 +175,20 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         {
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_spec) != MP_STR
-            ) goto fail2;
+            ) goto fail1;
 
             name = imap_get(names, mp_id.via.u64);
             if (!name)
-                goto fail2;
+                goto fail1;
 
             spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
             if (!spec)
-                goto fail2;
+                goto fail1;
 
             if (!ti_field_create(name, spec, type, &e))
             {
                 log_critical(e.msg);
-                goto fail2;
+                goto fail1;
             }
 
             ti_decref(spec);
@@ -228,17 +197,12 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     rc = 0;
 
-fail2:
-    if (munmap(data, size))
-        log_error("memory unmap failed: `%s` (%s)", fn, strerror(errno));
 fail1:
-    if (close(fd))
-        log_error("cannot close file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    if (fx_mmap_close(&fmap))
+        rc = -1;
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
 
     return rc;
-
 }

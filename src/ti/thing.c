@@ -54,7 +54,6 @@ static void thing__watch_del(ti_thing_t * thing)
         log_critical(EX_MEMORY_S);
         return;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     (void) ti_thing_id_to_pk(thing, &pk);

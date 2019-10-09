@@ -158,7 +158,6 @@ static ti_pkg_t * syncfull__pkg(
 
     if (mp_sbuffer_alloc_init(&buffer, 64 + SYNCPART_SIZE, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_array(&pk, 5);
@@ -366,7 +365,6 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         ex_set_mem(e);
         return NULL;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_array(&pk, 3);

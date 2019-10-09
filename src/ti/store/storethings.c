@@ -2,19 +2,12 @@
  * ti/store/things.c
  */
 #include <assert.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <ti.h>
 #include <ti/types.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/prop.h>
 #include <ti/store/storethings.h>
 #include <ti/things.h>
-#include <unistd.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
@@ -39,6 +32,7 @@ int ti_store_things_store(imap_t * things, const char * fn)
     }
 
     if (msgpack_pack_map(&pk, things_vec->n))
+        goto fail;
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
@@ -137,7 +131,6 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         return -1;
 
     mp_unp_init(&up, data, (size_t) n);
-
     if (mp_next(&up, &obj) != MP_MAP)
         goto fail;
 
@@ -180,57 +173,33 @@ int ti_store_things_restore_data(
         const char * fn)
 {
     int rc = -1;
-    int pagesize = getpagesize();
+    fx_mmap_t fmap;
     ti_thing_t * thing;
     ti_name_t * name;
     ti_type_t * type;
     ti_val_t * val;
     mp_obj_t obj, mp_thing_id, mp_name_id;
     mp_unp_t up;
-    struct stat st;
     size_t i, m, ii, mm;
-    ssize_t size;
-    uchar * data;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
             .up = &up,
     };
 
-    int fd = open(fn, O_RDONLY);
-    if (fd < 0)
-    {
-        log_critical("cannot open file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    fx_mmap_init(&fmap, fn);
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
         goto fail0;
-    }
 
-    if (fstat(fd, &st) < 0)
-    {
-        log_critical("unable to get file statistics: `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
-
-    size = st.st_size;
-    size += pagesize - size % pagesize;
-    data = (uchar *) mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED)
-    {
-        log_critical("unable to memory map file `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
-
-    mp_unp_init(&up, data, size);
+    mp_unp_init(&up, fmap.data, fmap.n);
 
     if (mp_next(&up, &obj) != MP_MAP)
-        goto fail2;
+        goto fail1;
 
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
         if (mp_next(&up, &mp_thing_id) != MP_U64)
-            goto fail2;
+            goto fail1;
 
         thing = imap_get(collection->things, mp_thing_id.via.u64);
         if (!thing)
@@ -238,20 +207,20 @@ int ti_store_things_restore_data(
             log_critical(
                     "cannot find thing with id: %"PRIu64,
                     mp_thing_id.via.u64);
-            goto fail2;
+            goto fail1;
         }
         if (ti_thing_is_object(thing))
         {
             if (mp_next(&up, &obj) != MP_MAP)
             {
                 log_critical("expecting a `thing-object` to have a map");
-                goto fail2;
+                goto fail1;
             }
 
             for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
             {
                 if (mp_next(&up, &mp_name_id) != MP_U64)
-                    goto fail2;
+                    goto fail1;
 
                 name = imap_get(names, mp_name_id.via.u64);
                 if (!name)
@@ -259,13 +228,13 @@ int ti_store_things_restore_data(
                     log_critical(
                             "cannot find name with id: %"PRIu64,
                             mp_name_id.via.u64);
-                    goto fail2;
+                    goto fail1;
                 }
 
                 val = ti_val_from_unp(&vup);
 
                 if (!val || !ti_thing_o_prop_add(thing, name, val))
-                    goto fail2;
+                    goto fail1;
 
                 ti_incref(name);
             }
@@ -279,14 +248,14 @@ int ti_store_things_restore_data(
                 log_critical(
                         "expecting a `thing-type` to have an array "
                         "with %"PRIu32" items", type->fields->n);
-                goto fail2;
+                goto fail1;
             }
 
             for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
             {
                 val = ti_val_from_unp(&vup);
                 if (!val)
-                    goto fail2;
+                    goto fail1;
                 VEC_push(thing->items, val);
             }
         }
@@ -294,13 +263,9 @@ int ti_store_things_restore_data(
 
     rc = 0;
 
-fail2:
-    if (munmap(data, size))
-        log_error("memory unmap failed: `%s` (%s)", fn, strerror(errno));
 fail1:
-    if (close(fd))
-        log_error("cannot close file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    if (fx_mmap_close(&fmap))
+        rc = -1;
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);

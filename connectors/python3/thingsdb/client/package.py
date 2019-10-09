@@ -1,5 +1,5 @@
 import struct
-import qpack
+import msgpack
 
 
 class Package(object):
@@ -16,10 +16,9 @@ class Package(object):
 
     def extract_data_from(self, barray):
         try:
-            self.data = qpack.unpackb(
+            self.data = msgpack.unpackb(
                 barray[self.__class__.st_package.size:self.total],
-                decode='utf8',
-                ignore_decode_errors=True) \
+                raw=False) \
                 if self.length else None
         finally:
             del barray[:self.total]

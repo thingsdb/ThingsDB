@@ -72,7 +72,6 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
         ex_set_mem(e);  /* can leak a few bytes */
         return NULL;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     next_event_id = epkg->event_id;

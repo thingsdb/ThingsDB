@@ -285,7 +285,6 @@ static void wareq__watch_cb(uv_async_t * task)
             log_critical(EX_MEMORY_S);
             break;
         }
-
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
         msgpack_pack_map(&pk, 2);

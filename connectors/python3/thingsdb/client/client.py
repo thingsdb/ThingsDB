@@ -1,6 +1,6 @@
 import asyncio
 import logging
-import qpack
+import msgpack
 import weakref
 import random
 from .package import Package
@@ -326,7 +326,8 @@ class Client(Buildin):
         self._pid += 1
         self._pid %= 0x10000  # pid is handled as uint16_t
 
-        data = data if is_bin else b'' if data is None else qpack.packb(data)
+        data = data if is_bin else b'' if data is None else \
+            msgpack.packb(data, use_bin_type=True)
 
         header = Package.st_package.pack(
             len(data),

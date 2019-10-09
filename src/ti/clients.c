@@ -76,7 +76,6 @@ static int clients__fwd(
 
     if (mp_sbuffer_alloc_init(&buffer, orig_pkg->n + 48, sizeof(ti_pkg_t)))
         goto fail1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     /* some extra size for setting the raw size + user_id */
@@ -124,7 +123,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &mp_token) <= 0 || (mp_token.tp == MP_STR && (
+    if (mp_next(&up, &mp_token) <= 0 || (mp_token.tp != MP_STR && (
         mp_token.tp != MP_ARR || mp_token.via.sz != 2 ||
         mp_next(&up, &mp_name) != MP_STR ||
         mp_next(&up, &mp_pass) != MP_STR)))

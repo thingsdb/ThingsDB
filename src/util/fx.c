@@ -200,15 +200,15 @@ int fx_mmap_open(fx_mmap_t * x)
     struct stat st;
     ssize_t size;
 
-    int fd = open(x->fn, O_RDONLY);
-    if (fd < 0)
+    x->_fd = open(x->fn, O_RDONLY);
+    if (x->_fd < 0)
     {
         log_error("cannot open file descriptor `%s` (%s)",
                 x->fn, strerror(errno));
         goto fail;
     }
 
-    if (fstat(fd, &st) < 0)
+    if (fstat(x->_fd, &st) < 0)
     {
         log_error("unable to get file statistics: `%s` (%s)",
                 x->fn, strerror(errno));
@@ -218,7 +218,7 @@ int fx_mmap_open(fx_mmap_t * x)
     size = st.st_size;
     size += pagesize - size % pagesize;
 
-    x->data = mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    x->data = mmap(0, size, PROT_READ, MAP_PRIVATE, x->_fd, 0);
     if (x->data == MAP_FAILED)
     {
         log_error("unable to memory map file `%s` (%s)",

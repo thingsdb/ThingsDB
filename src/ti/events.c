@@ -404,7 +404,6 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         ex_set_mem(e);
         return e->nr;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     ti_incref(ev);

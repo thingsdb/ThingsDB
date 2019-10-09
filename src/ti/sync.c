@@ -128,7 +128,6 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         log_critical(EX_MEMORY_S);
         return;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_uint64(&pk, ti()->node->cevid + 1);

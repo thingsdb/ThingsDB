@@ -60,7 +60,6 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
     if (mp_sbuffer_alloc_init(&buffer, 40 + e->n, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 2);

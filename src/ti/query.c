@@ -38,7 +38,6 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
 
     if (mp_sbuffer_alloc_init(&buffer, init_buffer_sz, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -588,7 +587,6 @@ void ti_query_send(ti_query_t * query, ex_t * e)
         ex_set_mem(e);
         goto pkg_err;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_to_pk(query->rval, &pk, (int) query->syntax.deep))

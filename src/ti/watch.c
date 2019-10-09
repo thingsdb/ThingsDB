@@ -41,7 +41,6 @@ ti_rpkg_t * ti_watch_rpkg(
 
     if (mp_sbuffer_alloc_init(&buffer, size + 64, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 3);

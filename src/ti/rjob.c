@@ -618,7 +618,7 @@ static int rjob__set_password(mp_unp_t * up)
         mp_next(up, &mp_user) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_pass) <= 0 ||
-        mp_pass.tp == MP_STR || mp_pass.tp == MP_NIL)
+        (mp_pass.tp != MP_STR && mp_pass.tp != MP_NIL))
     {
         log_critical("job `set_password`: invalid format");
         return -1;

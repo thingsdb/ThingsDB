@@ -26,7 +26,6 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
 
     if (mp_sbuffer_alloc_init(&buffer, 1024, sizeof(ti_pkg_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 2);

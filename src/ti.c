@@ -320,7 +320,7 @@ int ti_unpack(uchar * data, size_t n)
 
     mp_unp_init(&up, data, (size_t) n);
 
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 4 ||
         mp_skip(&up) != MP_STR ||  /* schema */
         mp_next(&up, &mp_schema) != MP_U64 ||
         mp_skip(&up) != MP_STR ||  /* event_id */
@@ -484,6 +484,8 @@ int ti_save(void)
         return -1;
     }
 
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+
     if (ti_.node->cevid > ti_.last_event_id)
         ti_.last_event_id = ti_.node->cevid;
 
@@ -630,7 +632,6 @@ ti_rpkg_t * ti_node_status_rpkg(void)
 
     if (mp_sbuffer_alloc_init(&buffer, TI_NODE_INFO_PK_SZ, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     (void) ti_node_status_to_pk(ti_node, &pk);
@@ -653,11 +654,13 @@ ti_rpkg_t * ti_client_status_rpkg(void)
     msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
+    const char * status = ti_node_status_str(ti_.node->status);
 
     if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    mp_pack_str(&pk, ti_node_status_str(ti_.node->status));
+    mp_pack_str(&pk, status);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);

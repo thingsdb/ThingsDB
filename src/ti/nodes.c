@@ -237,7 +237,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             log_critical(EX_MEMORY_S);
             goto failed;
         }
-
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
         msgpack_pack_array(&pk, 7);
@@ -343,7 +342,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         log_critical(EX_MEMORY_S);
         goto failed;
     }
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     (void) ti_node_status_to_pk(this_node, &pk);

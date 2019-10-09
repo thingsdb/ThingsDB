@@ -75,7 +75,6 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
 
     if (mp_sbuffer_alloc_init(&buffer, task->approx_sz, sizeof(ti_pkg_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 3);
@@ -190,7 +189,6 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -230,7 +228,6 @@ int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -260,7 +257,6 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -291,7 +287,6 @@ int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -321,7 +316,6 @@ int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -351,7 +345,6 @@ int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -381,7 +374,6 @@ int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -411,7 +403,6 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -446,7 +437,6 @@ int ti_task_add_grant(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -489,7 +479,6 @@ int ti_task_add_new_collection(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -529,7 +518,6 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -573,7 +561,6 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -615,7 +602,6 @@ int ti_task_add_new_token(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -658,7 +644,6 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -699,7 +684,6 @@ int ti_task_add_mod_type_add(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -753,7 +737,6 @@ int ti_task_add_mod_type_del(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -790,7 +773,6 @@ int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -831,7 +813,6 @@ int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -864,7 +845,6 @@ int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -903,7 +883,6 @@ int ti_task_add_rename_collection(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -940,7 +919,6 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -981,7 +959,6 @@ int ti_task_add_revoke(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -1021,7 +998,6 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -1065,7 +1041,6 @@ int ti_task_add_set_quota(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
@@ -1115,7 +1090,6 @@ int ti_task_add_splice(
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);

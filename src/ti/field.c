@@ -77,7 +77,6 @@ static ti_data_t * field__del_job(const char * name, size_t n)
 
     if (mp_sbuffer_alloc_init(&buffer, 64 + n, sizeof(ti_data_t)))
         return NULL;
-
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_array(&pk, 1);

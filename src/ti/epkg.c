@@ -113,7 +113,7 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_map(&pk, 1);           /* job 5 */
 
     mp_pack_str(&pk, "new_collection");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "name");
     mp_pack_str(&pk, "stuff");

@@ -7,7 +7,7 @@
 #include <ti/nodes.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 #include <util/syncpart.h>
 
 static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
@@ -54,30 +54,29 @@ int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
 ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
 {
     int rc;
-    qp_unpacker_t unpacker;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    mp_unp_t up;
     ti_pkg_t * resp;
-    qp_obj_t qp_first, qp_last, qp_offset, qp_raw, qp_more;
-    qpx_packer_t * packer;
+    mp_obj_t obj, mp_first, mp_last, mp_offset, mp_bin, mp_more;
     off_t offset;
     uint64_t first, last;
     ti_archfile_t * archfile;
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
-
-    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_first)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_last)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_offset)) ||
-        !qp_is_raw(qp_next(&unpacker, &qp_raw)) ||
-        !qp_is_bool(qp_next(&unpacker, &qp_more)))
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
+        mp_next(&up, &mp_first) != MP_U64 ||
+        mp_next(&up, &mp_last) != MP_U64 ||
+        mp_next(&up, &mp_offset) != MP_I64 ||
+        mp_next(&up, &mp_bin) != MP_BIN ||
+        mp_next(&up, &mp_more) != MP_BOOL)
     {
         ex_set(e, EX_BAD_DATA, "invalid multipart request");
         return NULL;
     }
 
-    first = (uint64_t) qp_first.via.int64;
-    last = (uint64_t) qp_last.via.int64;
-    offset = (off_t) qp_offset.via.int64;
+    first = mp_first.via.u64;
+    last = mp_last.via.u64;
+    offset = (off_t) mp_offset.via.i64;
 
     archfile = ti_archfile_get(first, last);
 
@@ -103,21 +102,19 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         (void) vec_push(&archive->archfiles, archfile);
     }
 
-    rc = syncpart_write(archfile->fn, qp_raw.via.raw, qp_raw.len, offset, e);
+    rc = syncpart_write(
+            archfile->fn,
+            mp_bin.via.bin.data,
+            mp_bin.via.bin.n,
+            offset,
+            e);
 
     if (rc)
         return NULL;
 
-    packer = qpx_packer_create(48, 1);
-    if (!packer)
+    if (mp_more.via.bool_)
     {
-        ex_set_mem(e);
-        return NULL;
-    }
-
-    if (qp_is_true(qp_more.tp))
-    {
-        offset += qp_raw.len;
+        offset += mp_bin.via.bin.n;
     }
     else
     {
@@ -126,14 +123,20 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         offset = 0;
     }
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, first);
-    (void) qp_add_int(packer, last);
-    (void) qp_add_int(packer, offset);
-    (void) qp_close_array(packer);
+    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCAPART);
-    resp->id = pkg->id;
+    msgpack_pack_array(&pk, 3);
+    msgpack_pack_uint64(&pk, first);
+    msgpack_pack_uint64(&pk, last);
+    msgpack_pack_int64(&pk, offset);
+
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SYNCAPART, buffer.size);
 
     return resp;
 }
@@ -142,35 +145,41 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
 static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
 {
     int more;
-    qpx_packer_t * packer = qpx_packer_create(48 + SYNCPART_SIZE, 1);
-    if (!packer)
+    ti_pkg_t * pkg;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, 64 + SYNCPART_SIZE, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, archfile->first);
-    (void) qp_add_int(packer, archfile->last);
-    (void) qp_add_int(packer, offset);              /* offset in file */
+    msgpack_pack_array(&pk, 5);
+    msgpack_pack_uint64(&pk, archfile->first);
+    msgpack_pack_uint64(&pk, archfile->last);
+    msgpack_pack_int64(&pk, offset);
 
-    more = syncpart_to_pk(packer, archfile->fn, offset);
+    more = syncpart_to_pk(&pk, archfile->fn, offset);
     if (more < 0)
         goto failed;
 
-    (void) qp_add_bool(packer, (_Bool) more);
-    (void) qp_close_array(packer);
+    mp_pack_bool(&pk, (_Bool) more);
 
-    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNCAPART);
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_REQ_SYNCAPART, buffer.size);
+
+    return pkg;
 
 failed:
-    qp_packer_destroy(packer);
+    msgpack_sbuffer_destroy(&buffer);
     return NULL;
 }
 
 static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
 {
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * pkg = req->pkg_res;
     ti_pkg_t * next_pkg;
-    qp_obj_t qp_first, qp_last, qp_offset;
+    mp_obj_t obj, mp_first, mp_last, mp_offset;
     off_t offset;
     uint64_t first, last;
     int rc;
@@ -190,20 +199,20 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_first)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_last)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_offset)))
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(&up, &mp_first) != MP_U64 ||
+        mp_next(&up, &mp_last) != MP_U64 ||
+        mp_next(&up, &mp_offset) != MP_I64)
     {
         log_error("invalid `%s`", ti_proto_str(pkg->tp));
         goto failed;
     }
 
-    first = (uint64_t) qp_first.via.int64;
-    last = (uint64_t) qp_last.via.int64;
-    offset = (off_t) qp_offset.via.int64;
+    first = mp_first.via.u64;
+    last = mp_last.via.u64;
+    offset = (off_t) mp_offset.via.i64;
 
     if (offset)
     {

@@ -295,7 +295,7 @@ int ti_query_unpack(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const char * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e)
 {
@@ -303,12 +303,6 @@ int ti_query_unpack(
     mp_obj_t obj, mp_query;
     mp_unp_t up;
     mp_unp_init(&up, data, n);
-
-    ti_vup_t vup = {
-            .isclient = true,
-            .collection = query->collection,
-            .up = &up,
-    };
 
     query->syntax.pkg_id = pkg_id;
 
@@ -333,6 +327,11 @@ int ti_query_unpack(
         return e->nr;
     }
 
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = query->collection,
+            .up = &up,
+    };
     return obj.via.sz == 2 ? 0 : query__args(query, &vup, e);
 }
 
@@ -340,7 +339,7 @@ int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const char * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e)
 {
@@ -415,7 +414,7 @@ int ti_query_unp_run(
     if (nargs != procedure->closure->vars->n)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
-            "procedure `%.*s` takes %zu argument%s but %d %s given%s",
+            "procedure `%.*s` takes %"PRIu32" argument%s but %d %s given",
             (int) mp_procedure.via.str.n,
             mp_procedure.via.str.data,
             procedure->closure->vars->n,

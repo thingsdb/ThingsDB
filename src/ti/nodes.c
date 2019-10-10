@@ -112,8 +112,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
         mp_next(&up, &mp_this_node_id) != MP_U64 ||
         mp_next(&up, &mp_secret) != MP_STR ||
-        mp_secret.via.str.n != CRYPTX_SZ ||
-        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0' ||
         mp_next(&up, &mp_from_node_id) != MP_U64 ||
         mp_next(&up, &mp_version) != MP_STR ||
         mp_next(&up, &mp_min_ver) != MP_STR ||
@@ -125,13 +123,21 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         mp_next(&up, &mp_status) != MP_U64 ||
         mp_next(&up, &mp_zone) != MP_U64 ||
         mp_next(&up, &mp_port) != MP_U64 ||
-        mp_next(&up, &mp_syntax_ver) != MP_U64
-    )
+        mp_next(&up, &mp_syntax_ver) != MP_U64)
     {
         log_error(
                 "invalid connection request from `%s`",
                 ti_stream_name(stream));
-        goto failed;
+        return;
+    }
+
+    if (mp_secret.via.str.n != CRYPTX_SZ ||
+        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
+    {
+        log_error(
+                "invalid secret in request from `%s`",
+                ti_stream_name(stream));
+        return;
     }
 
     this_node_id = (uint32_t) mp_this_node_id.via.u64;
@@ -148,7 +154,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "with the same source and destination: "TI_NODE_ID,
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        return;
     }
 
     version = mp_strdup(&mp_version);
@@ -157,7 +163,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!version || !min_ver)
     {
         log_critical(EX_MEMORY_S);
-        goto failed;
+        goto fail;
     }
 
     if (ti_version_cmp(version, TI_MINIMAL_VERSION) < 0)
@@ -168,7 +174,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_stream_name(stream),
             version,
             TI_MINIMAL_VERSION);
-        goto failed;
+        goto fail;
     }
 
     if (ti_version_cmp(TI_VERSION, min_ver) < 0)
@@ -179,7 +185,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_stream_name(stream),
             min_ver,
             TI_VERSION);
-        goto failed;
+        goto fail;
     }
 
     if (!ti()->node)
@@ -197,7 +203,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_stream_name(stream),
                 version,
                 TI_VERSION);
-            goto failed;
+            goto fail;
         }
 
         if (ti()->build->status == TI_BUILD_REQ_SETUP)
@@ -206,7 +212,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     "ignore connection request from `%s` since this node is ",
                     "busy building ThingsDB",
                     ti_stream_name(stream));
-            goto failed;
+            goto fail;
         }
 
         char validate[CRYPTX_SZ];
@@ -217,7 +223,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             log_error(
                 "connection request received from `%s` with an invalid secret",
                 ti_stream_name(stream));
-            goto failed;
+            goto fail;
         }
 
         (void) ti_build_setup(
@@ -235,7 +241,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 sizeof(ti_pkg_t)))
         {
             log_critical(EX_MEMORY_S);
-            goto failed;
+            goto fail;
         }
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
@@ -259,7 +265,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             this_node->id,
             ti_stream_name(stream),
             this_node_id);
-        goto failed;
+        goto fail;
     }
 
     if (memcmp(mp_secret.via.str.data, this_node->secret, CRYPTX_SZ))
@@ -267,7 +273,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         log_error(
             "connection request received from `%s` with an invalid secret",
             ti_stream_name(stream));
-        goto failed;
+        goto fail;
     }
 
     node = ti_nodes_node_by_id(from_node_id);
@@ -278,7 +284,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "because "TI_NODE_ID" is not found",
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        goto fail;
     }
 
     if (node->status > TI_NODE_STAT_CONNECTING)
@@ -288,7 +294,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "because "TI_NODE_ID" is already connected",
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        goto fail;
     }
 
     node->status = from_node_status;
@@ -311,7 +317,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     "with "TI_NODE_ID" is already established",
                     ti_stream_name(stream),
                     node->id);
-            goto failed;
+            goto fail;
         }
 
         assert (node->id > this_node->id);
@@ -340,7 +346,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
-        goto failed;
+        goto fail;
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
@@ -356,12 +362,7 @@ send:
         log_error(EX_INTERNAL_S);
     }
 
-    goto done;
-
-failed:
-    msgpack_sbuffer_destroy(&buffer);
-
-done:
+fail:
     free(version);
     free(min_ver);
 }
@@ -498,7 +499,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
         mp_next(&up, &mp_user_id) != MP_U64 ||
-        mp_next(&up, &mp_orig) != MP_STR)
+        mp_next(&up, &mp_orig) != MP_BIN)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -508,8 +509,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_scope_init_packed(
             &scope,
-            mp_orig.via.str.data,
-            mp_orig.via.str.n,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
             &e))
         goto finish;
 
@@ -545,8 +546,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
             query,
             &scope,
             pkg->id,
-            mp_orig.via.str.data,
-            mp_orig.via.str.n,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
             &e))
         goto finish;
 
@@ -618,7 +619,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
         mp_next(&up, &mp_user_id) != MP_U64 ||
-        mp_next(&up, &mp_orig) != MP_STR)
+        mp_next(&up, &mp_orig) != MP_BIN)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid run request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -645,15 +646,15 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_scope_init_packed(
             &scope,
-            mp_orig.via.str.data,
-            mp_orig.via.str.n,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
             &e) ||
         ti_query_unp_run(
                 query,
                 &scope,
                 pkg->id,
-                mp_orig.via.str.data,
-                mp_orig.via.str.n,
+                mp_orig.via.bin.data,
+                mp_orig.via.bin.n,
                 &e))
         goto finish;
 
@@ -1181,24 +1182,29 @@ int ti_nodes_to_pk(msgpack_packer * pk)
 
 int ti_nodes_from_up(mp_unp_t * up)
 {
-    size_t i, m;
+    size_t i;
     mp_obj_t obj, mp_id, mp_zone, mp_port, mp_addr, mp_secret;
     if (mp_next(up, &obj) != MP_ARR)
         return -1;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         char addr[INET6_ADDRSTRLEN];
 
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 5 ||
+
             mp_next(up, &mp_id) != MP_U64 ||
             mp_next(up, &mp_zone) != MP_U64 ||
             mp_next(up, &mp_port) != MP_U64 ||
             mp_next(up, &mp_addr) != MP_STR ||
-            mp_addr.via.str.n >= INET6_ADDRSTRLEN ||
-            mp_next(up, &mp_secret) != MP_STR ||
-            mp_secret.via.str.n != CRYPTX_SZ
+            mp_next(up, &mp_secret) != MP_STR
         ) return -1;
+
+        if (mp_addr.via.str.n >= INET6_ADDRSTRLEN)
+            return -1;
+
+        if (mp_secret.via.str.n != CRYPTX_SZ)
+            return -1;
 
         memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
         addr[mp_addr.via.str.n] = '\0';

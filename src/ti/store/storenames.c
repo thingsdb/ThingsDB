@@ -43,7 +43,7 @@ done:
 
 imap_t * ti_store_names_restore(const char * fn)
 {
-    size_t i, m;
+    size_t i;
     ssize_t n;
     mp_obj_t obj, mp_uintptr, mp_name;
     mp_unp_t up;
@@ -58,7 +58,7 @@ imap_t * ti_store_names_restore(const char * fn)
     if (mp_next(&up, &obj) != MP_ARR)
         goto fail;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(&up, &mp_uintptr) != MP_U64 ||

@@ -321,12 +321,16 @@ int ti_unpack(uchar * data, size_t n)
     mp_unp_init(&up, data, (size_t) n);
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 4 ||
+
         mp_skip(&up) != MP_STR ||  /* schema */
         mp_next(&up, &mp_schema) != MP_U64 ||
+
         mp_skip(&up) != MP_STR ||  /* event_id */
         mp_next(&up, &mp_event_id) != MP_U64 ||
+
         mp_skip(&up) != MP_STR ||  /* next_node_id */
         mp_next(&up, &mp_next_node_id) != MP_U64 ||
+
         mp_skip(&up) != MP_STR ||  /* nodes */
         ti_nodes_from_up(&up)
     ) goto fail;

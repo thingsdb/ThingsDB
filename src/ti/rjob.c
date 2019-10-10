@@ -270,13 +270,23 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
         mp_next(up, &mp_port) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_addr) != MP_STR ||
-        mp_addr.via.str.n >= INET6_ADDRSTRLEN ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_secret) != MP_STR ||
-        mp_secret.via.str.n != CRYPTX_SZ ||
-        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
+        mp_next(up, &mp_secret) != MP_STR)
     {
         log_critical("job `new_node`: invalid format");
+        return -1;
+    }
+
+    if (mp_addr.via.str.n >= INET6_ADDRSTRLEN)
+    {
+        log_critical("job `new_node`: invalid address size");
+        return -1;
+    }
+
+    if (mp_secret.via.str.n != CRYPTX_SZ ||
+        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
+    {
+        log_critical("job `new_node`: invalid secret");
         return -1;
     }
 
@@ -376,13 +386,18 @@ static int rjob__new_token(mp_unp_t * up)
         mp_next(up, &mp_user) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_key) != MP_STR ||
-        mp_key.via.u64 != sizeof(ti_token_key_t) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_expire) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_desc) != MP_STR)
     {
         log_critical("job `new_token`: invalid format");
+        return -1;
+    }
+
+    if (mp_key.via.str.n != sizeof(ti_token_key_t))
+    {
+        log_critical("job `new_token`: invalid key size");
         return -1;
     }
 

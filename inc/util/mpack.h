@@ -1,5 +1,7 @@
 /*
  * util/mpack.h
+ *
+ * TESTED with msgpack version: 3.2.0
  */
 #define _GNU_SOURCE
 
@@ -14,15 +16,25 @@
 typedef struct
 {
     const unsigned char * data;
-    size_t n;
+    uint32_t n;
 } mp_bin_t;
 
 /* use only when UTF8 is guaranteed */
 typedef struct
 {
     const char * data;
-    size_t n;
+    uint32_t n;
 } mp_str_t;
+
+typedef struct
+{
+    const unsigned char * data;
+    uint32_t n;
+    int8_t tp;  /* must be last for alignment of the above */
+
+    uint8_t  pad0_;
+    uint16_t pad1_;
+} mp_ext_t;
 
 typedef union
 {
@@ -32,12 +44,13 @@ typedef union
     mp_bin_t bin;
     mp_str_t str;
     _Bool bool_;
-    size_t sz;
+    size_t sz; /* used for both array and map */
+    mp_ext_t ext;
 } mp_via_t;
 
 typedef enum
 {
-    MP_UNSUPPORTED=-3,
+    MP_NEVER_USED=-3,
     MP_INCOMPLETE=-2,
     MP_ERR=-1,
     MP_END,     /* end of data reached */
@@ -50,6 +63,7 @@ typedef enum
     MP_NIL,
     MP_ARR,
     MP_MAP,
+    MP_EXT
 } mp_enum_t;
 
 typedef struct
@@ -68,7 +82,7 @@ static inline const char * __attribute__((unused))mp_type_str(mp_enum_t tp)
 {
     switch (tp)
     {
-    case MP_UNSUPPORTED:        return "unsupported msgpack type";
+    case MP_NEVER_USED:         return "marked as never used";
     case MP_INCOMPLETE:         return "msgpack data is incomplete";
     case MP_ERR:                return "unexpected msgpack error";
     case MP_END:                return "end of msgpack data";
@@ -81,6 +95,7 @@ static inline const char * __attribute__((unused))mp_type_str(mp_enum_t tp)
     case MP_NIL:                return "nil";
     case MP_ARR:                return "array";
     case MP_MAP:                return "map";
+    case MP_EXT:                return "extension";
     }
     return "msgpack type unknown";
 }
@@ -119,7 +134,7 @@ static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * f
     if (n < 0 || msgpack_pack_str(x, n))
         return -1;
 
-    body = malloc(n);
+    body = malloc(n+1);
     if (!body)
         return -1;
 
@@ -227,6 +242,14 @@ do { \
         return (o->tp = MP_INCOMPLETE); \
 } while(0)
 
+#define mp_read_ext_type(o__, up__) \
+do { \
+    if (up__->pt >= up__->end) \
+        return (o->tp = MP_INCOMPLETE); \
+    o__->via.ext.tp = *up__->pt; \
+    ++up__->pt; \
+} while(0)
+
 static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
 {
     unsigned char token;
@@ -255,7 +278,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xc0:              /* nil */
         return (o->tp = MP_NIL);
     case 0xc1:              /* never used */
-        return (o->tp = MP_UNSUPPORTED);
+        return (o->tp = MP_NEVER_USED);
     case 0xc2:              /* false */
         o->via.bool_ = false;
         return (o->tp = MP_BOOL);
@@ -287,9 +310,32 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
         return (o->tp = MP_BIN);
     }
     case 0xc7:              /* ext 8 */
+    {
+        uint8_t u8;
+        mp_read_8(uint8_t, &u8, up, &o->tp);
+        o->via.ext.n = u8;
+        mp_read_ext_type(o, up);
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_EXT);
+    }
     case 0xc8:              /* ext 16 */
+    {
+        uint16_t u16;
+        mp_read_16(uint16_t, &u16, up, &o->tp);
+        o->via.ext.n = u16;
+        mp_read_ext_type(o, up);
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_EXT);
+    }
     case 0xc9:              /* ext 32 */
-        return (o->tp = MP_UNSUPPORTED);
+    {
+        uint32_t u32;
+        mp_read_32(uint32_t, &u32, up, &o->tp);
+        o->via.ext.n = u32;
+        mp_read_ext_type(o, up);
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_EXT);
+    }
     case 0xca:              /* float 32 */
     {
         union { float f; uint32_t u; } mem;
@@ -365,7 +411,12 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xd6:              /* fixext 4 */
     case 0xd7:              /* fixext 8 */
     case 0xd8:              /* fixext 16 */
-        return (o->tp = MP_UNSUPPORTED);
+    {
+        o->via.ext.n = 1 << (token - 0xd4);
+        mp_read_ext_type(o, up);
+        mp_read_obj_data(o, up);
+        return (o->tp = MP_EXT);
+    }
     case 0xd9:              /* str 8 */
     {
         uint8_t u8;
@@ -454,7 +505,7 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     case 0xc0:              /* nil */
         return MP_NIL;
     case 0xc1:              /* never used */
-        return MP_UNSUPPORTED;
+        return MP_NEVER_USED;
     case 0xc2:              /* false */
     case 0xc3:              /* true */
         return MP_BOOL;
@@ -480,9 +531,26 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
         return MP_BIN;
     }
     case 0xc7:              /* ext 8 */
+    {
+        uint8_t u8;
+        mp_read_skip_8(uint8_t, &u8, up);
+        mp_skip_chars(u8+1, up);
+        return MP_EXT;
+    }
     case 0xc8:              /* ext 16 */
+    {
+        uint16_t u16;
+        mp_read_skip_16(uint16_t, &u16, up);
+        mp_skip_chars(u16+1, up);
+        return MP_EXT;
+    }
     case 0xc9:              /* ext 32 */
-        return MP_UNSUPPORTED;
+    {
+        uint32_t u32;
+        mp_read_skip_32(uint32_t, &u32, up);
+        mp_skip_chars(u32+1, up);
+        return MP_EXT;
+    }
     case 0xca:              /* float 32 */
         mp_skip_chars(4, up);
         return MP_F64;
@@ -518,7 +586,11 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     case 0xd6:              /* fixext 4 */
     case 0xd7:              /* fixext 8 */
     case 0xd8:              /* fixext 16 */
-        return MP_UNSUPPORTED;
+    {
+        uint8_t n = 1 << (token - 0xd4);
+        mp_skip_chars(n+1, up);
+        return MP_EXT;
+    }
     case 0xd9:              /* str 8 */
     {
         uint8_t u8;
@@ -580,8 +652,8 @@ static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
     mp_obj_t obj;
     switch (mp_next(up, &obj))
     {
-    case MP_UNSUPPORTED:
-        fputs("MP_UNSUPPORTED", out);
+    case MP_NEVER_USED:
+        fputs("MP_NEVER_USED", out);
         return;
     case MP_INCOMPLETE:
         fputs("MP_INCOMPLETE", out);
@@ -645,7 +717,11 @@ static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
             putc(',', out);
         }
         putc('}', out);
+        return;
     }
+    case MP_EXT:
+        fprintf(out, "<EXT TYPE:%d>", obj.via.ext.tp);
+        return;
     }
 }
 

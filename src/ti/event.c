@@ -98,7 +98,7 @@ int ti_event_run(ti_event_t * ev)
     ti_thing_t * thing;
     ti_pkg_t * pkg = ev->via.epkg->pkg;
     mp_unp_t up;
-    size_t i, m, ii, mm;
+    size_t i, ii;
     mp_obj_t obj, mp_scope, mp_id;
     const char * jobs_position;
 
@@ -131,7 +131,9 @@ int ti_event_run(ti_event_t * ev)
         ti_incref(ev->collection);
     }
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    ti_events_keep_dropped();
+
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_id) != MP_U64)
             goto fail_mp_data;
@@ -162,7 +164,7 @@ int ti_event_run(ti_event_t * ev)
 
         if (ev->collection)
         {
-            for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+            for (ii = obj.via.sz; ii--;)
             {
                 if (ti_job_run(thing, &up, ev->id))
                 {
@@ -208,7 +210,7 @@ int ti_event_run(ti_event_t * ev)
         }
         else
         {
-            for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+            for (ii = obj.via.sz; ii--;)
             {
                 if (ti_rjob_run(ev, &up))
                 {

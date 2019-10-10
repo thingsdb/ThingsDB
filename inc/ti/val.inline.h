@@ -78,11 +78,11 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_MP: \
     { \
         ti_raw_t * r__ = (ti_raw_t *) val__; \
-        if (options__ < 0 && ( \
-                msgpack_pack_map(pk__, 1) || \
-                mp_pack_strn(pk__, TI_KIND_S_INFO, 1) \
-        )) return -1; \
-        return mp_pack_append(pk__, r__->data, r__->n); \
+        return options__ >= 0 \
+            ? mp_pack_append(pk__, r__->data, r__->n) \
+            : -(msgpack_pack_ext(pk__, r__->n, TI_STR_INFO) || \
+                msgpack_pack_ext_body(pk__, r__->data, r__->n) \
+            ); \
     } \
     case TI_VAL_NAME: \
     case TI_VAL_STR: \

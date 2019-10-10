@@ -669,7 +669,7 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
     ti_name_t * name;
     mp_obj_t obj, mp_prop, mp_id;
     ti_thing_t * t;
-    size_t i, m;
+    size_t i;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_next(up, &mp_prop) != MP_STR ||
@@ -705,7 +705,7 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(up, &mp_id) != MP_U64)
         {
@@ -753,8 +753,10 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     mp_obj_t obj, mp_prop, mp_i, mp_c;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+
         mp_next(up, &mp_prop) != MP_STR ||
         mp_next(up, &obj) != MP_ARR ||  obj.via.sz < 2 ||
+
         mp_next(up, &mp_i) != MP_U64 ||
         mp_next(up, &mp_c) != MP_U64)
     {
@@ -791,7 +793,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     cur_n = varr->vec->n;
     i = mp_i.via.u64;
     c = mp_c.via.u64;
-    n = obj.via.sz - 1;
+    n = obj.via.sz - 2;
 
     if (c > cur_n)
     {

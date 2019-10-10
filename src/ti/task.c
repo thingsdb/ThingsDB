@@ -1097,7 +1097,9 @@ int ti_task_add_splice(
 
     msgpack_pack_map(&pk, 1);
     mp_pack_strn(&pk, name->str, name->n);
+
     msgpack_pack_array(&pk, 2 + n);
+
     msgpack_pack_uint32(&pk, i);
     msgpack_pack_uint32(&pk, c);
 

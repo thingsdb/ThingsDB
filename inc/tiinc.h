@@ -113,4 +113,9 @@ typedef enum
     TI_z,
 } ti_alpha_lower_t;
 
+typedef enum
+{
+    TI_STR_INFO
+} ti_ext_tp;
+
 #endif  /* TIINC_H_ */

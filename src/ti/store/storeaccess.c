@@ -50,7 +50,7 @@ done:
 int ti_store_access_restore(vec_t ** access, const char * fn)
 {
     int rc = -1;
-    size_t i, m;
+    size_t i;
     ssize_t n;
     mp_obj_t obj, mp_user_id, mp_mask;
     mp_unp_t up;
@@ -66,7 +66,7 @@ int ti_store_access_restore(vec_t ** access, const char * fn)
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(&up, &mp_user_id) != MP_U64 ||

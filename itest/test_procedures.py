@@ -155,12 +155,12 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     NumArgumentsError,
-                    r'missing value \(argument 0 for procedure `upd_list`\)'):
+                    r'procedure `upd_list` takes 1 argument but 0 were given'):
                 await client.run('upd_list')
 
             with self.assertRaisesRegex(
                     NumArgumentsError,
-                    r'too much arguments for procedure `upd_list`'):
+                    r'procedure `upd_list` takes 1 argument but 2 were given'):
                 await client.run('upd_list', 1, 2)
 
         first = 1
@@ -267,7 +267,7 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `del_procedure` expects argument 1 to be of '
-                r'type `raw` but got type `nil` instead'):
+                r'type `str` but got type `nil` instead'):
             await client.query('del_procedure(nil);')
 
         with self.assertRaisesRegex(
@@ -301,7 +301,7 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `new_procedure` expects argument 1 to be of '
-                r'type `raw` but got type `nil` instead'):
+                r'type `str` but got type `nil` instead'):
             await client.query('new_procedure(nil, ||nil);')
 
         with self.assertRaisesRegex(
@@ -363,7 +363,7 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `procedure_doc` expects argument 1 to be of '
-                r'type `raw` but got type `float` instead'):
+                r'type `str` but got type `float` instead'):
             await client.query('procedure_doc(3.14);')
 
         with self.assertRaisesRegex(
@@ -410,7 +410,7 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `procedure_info` expects argument 1 to be of '
-                r'type `raw` but got type `float` instead'):
+                r'type `str` but got type `float` instead'):
             await client.query('procedure_info(3.14);')
 
         with self.assertRaisesRegex(
@@ -428,7 +428,7 @@ class TestProcedures(TestBase):
         self.assertEqual(procedure_info['with_side_effects'], False)
         self.assertEqual(procedure_info['arguments'], ['x'])
         self.assertEqual(procedure_info['name'], 'square')
-        self.assertEqual(procedure_info['?'], 'No side effects.')
+        self.assertEqual(procedure_info['doc'], 'No side effects.')
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
         procedure_info = await client.query('procedure_info("set_a");')
@@ -436,7 +436,7 @@ class TestProcedures(TestBase):
         self.assertEqual(procedure_info['with_side_effects'], True)
         self.assertEqual(procedure_info['arguments'], ['a'])
         self.assertEqual(procedure_info['name'], 'set_a')
-        self.assertEqual(procedure_info['?'], 'With side effects.')
+        self.assertEqual(procedure_info['doc'], 'With side effects.')
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
     async def test_procedures_info(self, client):
@@ -469,7 +469,7 @@ class TestProcedures(TestBase):
             self.assertEqual(len(info['arguments']), 1)
             self.assertTrue(isinstance(info['with_side_effects'], bool))
             self.assertTrue(isinstance(info['name'], str))
-            self.assertTrue(isinstance(info['?'], str))
+            self.assertTrue(isinstance(info['doc'], str))
             self.assertTrue(isinstance(info['definition'], str))
 
     async def test_run(self, client):
@@ -491,7 +491,7 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `run` expects argument 1 to be of type `raw` '
+                r'function `run` expects argument 1 to be of type `str` '
                 r'but got type `nil` instead'):
             await client.query('run(nil);')
 

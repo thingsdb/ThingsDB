@@ -70,7 +70,7 @@ int ti_store_users_restore(const char * fn)
 {
     ex_t e = {0};
     int rc = -1;
-    size_t i, ii, m, mm;
+    size_t i, ii;
     ssize_t n;
     mp_obj_t obj, mp_id, mp_name, mp_pass, mp_key, mp_expire, mp_desc;
     mp_unp_t up;
@@ -88,7 +88,7 @@ int ti_store_users_restore(const char * fn)
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -113,14 +113,16 @@ int ti_store_users_restore(const char * fn)
             goto fail;
         }
 
-        for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+        for (ii = obj.via.sz; ii--;)
         {
             if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
                 mp_next(&up, &mp_key) != MP_STR ||
-                mp_key.via.sz != sizeof(ti_token_key_t) ||
                 mp_next(&up, &mp_expire) != MP_U64 ||
                 mp_next(&up, &mp_desc) != MP_STR
             ) goto fail;
+
+            if (mp_key.via.str.n != sizeof(ti_token_key_t))
+                goto fail;
 
             token = ti_token_create(
                     (ti_token_key_t *) mp_key.via.str.data,
@@ -130,6 +132,7 @@ int ti_store_users_restore(const char * fn)
 
             if (!token || ti_user_add_token(user, token))
             {
+                log_critical("failed to load token");
                 ti_token_destroy(token);
                 goto fail;
             }

@@ -665,7 +665,9 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
             msgpack_pack_uint64(pk, thing->id)
     )) return -1;
 
-    --options;
+    if (options > 0)
+        --options;
+
     thing->flags |= TI_VFLAG_LOCK;
 
     if (ti_thing_is_object(thing))

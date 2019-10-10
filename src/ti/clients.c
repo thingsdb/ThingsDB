@@ -81,7 +81,7 @@ static int clients__fwd(
     /* some extra size for setting the raw size + user_id */
     msgpack_pack_array(&pk, 2);
     msgpack_pack_uint64(&pk, src_stream->via.user->id);
-    mp_pack_append(&pk, orig_pkg->data, orig_pkg->n);
+    mp_pack_bin(&pk, orig_pkg->data, orig_pkg->n);
 
     pkg_req = (ti_pkg_t *) buffer.data;
     pkg_init(pkg_req, 0, proto, buffer.size);
@@ -250,8 +250,7 @@ query:
         goto finish;
     }
 
-    if (ti_query_unpack(
-            query, &scope, pkg->id, (const char *) pkg->data, pkg->n, &e))
+    if (ti_query_unpack(query, &scope, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
 
     access_ = ti_query_access(query);
@@ -401,8 +400,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_unp_run(
-            query, &scope, pkg->id, (const char *) pkg->data, pkg->n, &e))
+    if (ti_query_unp_run(query, &scope, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
 
     access_ = ti_query_access(query);

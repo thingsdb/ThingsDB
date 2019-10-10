@@ -89,7 +89,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     ex_t e = {0};
     ti_name_t * name;
     ti_type_t * type;
-    size_t i, m, ii, mm;
+    size_t i, ii;
     uint16_t type_id;
     uintptr_t utype_id;
     ti_raw_t * spec;
@@ -107,7 +107,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         mp_next(&up, &obj) != MP_MAP
     ) goto fail1;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_name) != MP_STR ||
             mp_next(&up, &mp_id) != MP_U64
@@ -136,7 +136,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     types_position = up.pt;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -160,7 +160,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     /* restore unpacker to types start */
     up.pt = types_position;
 
-    for (i = 0, m = types->imap->n; i < m; ++i)
+    for (i = types->imap->n; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -171,7 +171,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         type = ti_types_by_id(types, mp_id.via.u64);
         assert (type);
 
-        for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+        for (ii = obj.via.sz; ii--;)
         {
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_spec) != MP_STR

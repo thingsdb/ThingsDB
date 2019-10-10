@@ -50,7 +50,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     if (mp_next(vup->up, &mp_key) != MP_STR || mp_key.via.str.n == 0)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "property names must be of type `raw` "
+                "property names must be of type `"TI_VAL_STR_S"` "
                 "and follow the naming rules"DOC_NAMES);
         return NULL;
     }
@@ -91,7 +91,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     ? TI_SYNTAX_FLAG_COLLECTION
                     : TI_SYNTAX_FLAG_THINGSDB,
         };
-
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
@@ -187,26 +186,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             ex_set_mem(e);
 
         return (ti_val_t *) verror;
-    }
-    case TI_KIND_C_INFO:
-    {
-        if (vup->isclient)
-        {
-            ex_set(e, EX_BAD_DATA, "type `info` is not allowed as user input");
-            return NULL;
-        }
-
-        if (mp_key.via.str.n != 1)
-        {
-            ex_set(e, EX_BAD_DATA, "invalid info key");
-            return NULL;
-        }
-
-        /* TODO: improve info type, see procedures and types */
-        /* maybe just write the string, by far the easiest, and make
-         * difference when writing to a client or not */
-        assert (0);
-        return NULL;
     }
     case TI_KIND_C_WRAP:
     {
@@ -309,7 +288,7 @@ ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
     mp_enum_t tp = mp_next(vup->up, &obj);
     switch(tp)
     {
-    case MP_UNSUPPORTED:
+    case MP_NEVER_USED:
     case MP_INCOMPLETE:
     case MP_ERR:
         ex_set(e, EX_BAD_DATA, mp_type_str(tp));
@@ -385,6 +364,20 @@ ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
     }
     case MP_MAP:
         return val__unp_map(vup, obj.via.sz, e);
+    case MP_EXT:
+    {
+        ti_raw_t * raw;
+        if (obj.via.ext.tp != TI_STR_INFO)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "msgpack extension type %d is not supported by ThingsDB",
+                    obj.via.ext.tp);
+        }
+        raw = ti_mp_create(obj.via.ext.data, obj.via.ext.n);
+        if (!raw)
+            ex_set_mem(e);
+        return (ti_val_t *) raw;
+    }
     }
 
     ex_set(e, EX_BAD_DATA, "unexpected code reached while unpacking value");

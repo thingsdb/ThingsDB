@@ -199,7 +199,7 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
     ti_name_t * name;
     ti_raw_t * spec_raw;
     mp_obj_t obj, mp_field, mp_spec;
-    size_t i, m;
+    size_t i;
 
     if (mp_next(up, &obj) != MP_MAP)
     {
@@ -210,7 +210,7 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
         return e->nr;
     }
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(up, &mp_field) != MP_STR)
         {

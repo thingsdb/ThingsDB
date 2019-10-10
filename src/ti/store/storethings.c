@@ -120,7 +120,7 @@ done:
 int ti_store_things_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = -1;
-    size_t i, m;
+    size_t i;
     uint16_t type_id;
     ssize_t n;
     mp_obj_t obj, mp_thing_id, mp_type_id;
@@ -134,7 +134,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     if (mp_next(&up, &obj) != MP_MAP)
         goto fail;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_thing_id) != MP_U64 ||
             mp_next(&up, &mp_type_id) != MP_U64
@@ -180,7 +180,7 @@ int ti_store_things_restore_data(
     ti_val_t * val;
     mp_obj_t obj, mp_thing_id, mp_name_id;
     mp_unp_t up;
-    size_t i, m, ii, mm;
+    size_t i, ii;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -196,7 +196,7 @@ int ti_store_things_restore_data(
     if (mp_next(&up, &obj) != MP_MAP)
         goto fail1;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_thing_id) != MP_U64)
             goto fail1;
@@ -217,7 +217,7 @@ int ti_store_things_restore_data(
                 goto fail1;
             }
 
-            for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+            for (ii = obj.via.sz; ii--;)
             {
                 if (mp_next(&up, &mp_name_id) != MP_U64)
                     goto fail1;
@@ -251,7 +251,7 @@ int ti_store_things_restore_data(
                 goto fail1;
             }
 
-            for (ii = 0, mm = obj.via.sz; ii < mm; ++ii)
+            for (ii = obj.via.sz; ii--;)
             {
                 val = ti_val_from_unp(&vup);
                 if (!val)

@@ -100,7 +100,6 @@ typedef enum
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
-    TI_KIND_C_INFO      ='?',
     TI_KIND_C_WRAP      ='&',
 } ti_val_kind;
 

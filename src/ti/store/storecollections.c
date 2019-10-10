@@ -60,7 +60,7 @@ done:
 int ti_store_collections_restore(const char * fn)
 {
     int rc = -1;
-    size_t i, m;
+    size_t i;
     ssize_t n;
     mp_obj_t obj, mp_guid, mp_name, mp_qthings, mp_qprops, mp_qarr, mp_qraw;
     mp_unp_t up;
@@ -81,7 +81,7 @@ int ti_store_collections_restore(const char * fn)
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
-    for (i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (
             mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||

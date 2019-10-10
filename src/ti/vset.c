@@ -44,7 +44,7 @@ int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
     if (!vec ||
         msgpack_pack_map(pk, 1) ||
         mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
-        msgpack_pack_map(pk, vec->n)
+        msgpack_pack_array(pk, vec->n)
     ) return -1;
 
     for (vec_each(vec, ti_thing_t, thing))

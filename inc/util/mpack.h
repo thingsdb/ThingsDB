@@ -131,26 +131,17 @@ static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * f
     return rc;
 }
 
-static void __attribute__((unused))mp_print(FILE * out, const void * data, size_t n)
-{
-    /* TODO : print msgpack data */
-    if (data && n)  /* just some stupid test to use the variable */
-    {
-        fprintf(out, "\n");
-    }
-}
-
-static inline int mp_pack_bool(msgpack_packer * x, _Bool b)
+static int __attribute__((unused))mp_pack_bool(msgpack_packer * x, _Bool b)
 {
     return b ? msgpack_pack_true(x) : msgpack_pack_false(x);
 }
 
-static inline int mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
+static int __attribute__((unused))mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
 {
     return msgpack_pack_bin(x, n) || msgpack_pack_bin_body(x, b, n);
 }
 
-static inline int mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
+static int __attribute__((unused))mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
 {
     return msgpack_pack_str(x, n) || msgpack_pack_str_body(x, s, n);
 }
@@ -171,34 +162,43 @@ static inline void mp_unp_init(mp_unp_t * up, const void * data, size_t n)
     up->end = up->pt + n;
 }
 
-#define mp_read_8(tp__, addr__, up__) \
+#define mp_read_8(tp__, addr__, up__, ret__) \
 do { \
     if (up__->pt >= up__->end) \
-        return MP_INCOMPLETE; \
+        return (*(ret__) = MP_INCOMPLETE); \
     memcpy(addr__, up__->pt, sizeof(tp__)); \
     ++up__->pt; \
 } while(0)
 
-#define mp_read_16(tp__, addr__, up__) \
+#define mp_read_skip_8(tp__, addr__, up__) \
+do { mp_enum_t ret; mp_read_8(tp__, addr__, up__, &ret); } while(0)
+
+#define mp_read_16(tp__, addr__, up__, ret__) \
 do { \
     if (up__->pt + 1 >= up__->end) \
-        return MP_INCOMPLETE; \
+        return (*(ret__) = MP_INCOMPLETE); \
     _msgpack_load16(tp__, up__->pt, addr__); \
     up__->pt += 2; \
 } while(0)
 
-#define mp_read_32(tp__, addr__, up__) \
+#define mp_read_skip_16(tp__, addr__, up__) \
+do { mp_enum_t ret; mp_read_16(tp__, addr__, up__, &ret); } while(0)
+
+#define mp_read_32(tp__, addr__, up__, ret__) \
 do { \
     if (up__->pt + 3 >= up__->end) \
-        return MP_INCOMPLETE; \
+        return (*(ret__) = MP_INCOMPLETE); \
     _msgpack_load32(tp__, up__->pt, addr__); \
     up__->pt += 4; \
 } while(0)
 
-#define mp_read_64(tp__, addr__, up__) \
+#define mp_read_skip_32(tp__, addr__, up__) \
+do { mp_enum_t ret; mp_read_32(tp__, addr__, up__, &ret); } while(0)
+
+#define mp_read_64(tp__, addr__, up__, ret__) \
 do { \
     if (up__->pt + 7 >= up__->end) \
-        return MP_INCOMPLETE; \
+        return (*(ret__) = MP_INCOMPLETE); \
     _msgpack_load64(tp__, up__->pt, addr__); \
     up__->pt += 8; \
 } while(0)
@@ -224,16 +224,17 @@ do { \
     o__->via.str.data = up__->pt; \
     up__->pt += o__->via.str.n; \
     if (up__->pt > up__->end) \
-        return MP_INCOMPLETE; \
+        return (o->tp = MP_INCOMPLETE); \
 } while(0)
 
 static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
 {
+    unsigned char token;
+
     if (up->pt >= up->end)
-        return MP_END;
+        return (o->tp = MP_END);
 
-    unsigned char token = (unsigned char) *up->pt;
-
+    token = (unsigned char) *up->pt;
     ++up->pt;
 
     switch (token)
@@ -264,7 +265,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xc4:              /* bin 8 */
     {
         uint8_t u8;
-        mp_read_8(uint8_t, &u8, up);
+        mp_read_8(uint8_t, &u8, up, &o->tp);
         o->via.str.n = u8;
         mp_read_obj_data(o, up);
         return (o->tp = MP_BIN);
@@ -272,7 +273,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xc5:              /* bin 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_16(uint16_t, &u16, up, &o->tp);
         o->via.str.n = u16;
         mp_read_obj_data(o, up);
         return (o->tp = MP_BIN);
@@ -280,7 +281,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xc6:              /* bin 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_32(uint32_t, &u32, up, &o->tp);
         o->via.str.n = u32;
         mp_read_obj_data(o, up);
         return (o->tp = MP_BIN);
@@ -288,74 +289,74 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xc7:              /* ext 8 */
     case 0xc8:              /* ext 16 */
     case 0xc9:              /* ext 32 */
-        return MP_UNSUPPORTED;
+        return (o->tp = MP_UNSUPPORTED);
     case 0xca:              /* float 32 */
     {
         union { float f; uint32_t u; } mem;
-        mp_read_32(uint32_t, &mem.u, up);
+        mp_read_32(uint32_t, &mem.u, up, &o->tp);
         o->via.f64 = (double) mem.f;
         return (o->tp = MP_F64);
     }
     case 0xcb:              /* float 64 */
     {
         union { double d; uint64_t u; } mem;
-        mp_read_64(uint64_t, &mem.u, up);
+        mp_read_64(uint64_t, &mem.u, up, &o->tp);
         o->via.f64 = mem.d;
         return (o->tp = MP_F64);
     }
     case 0xcc:              /* uint 8 */
     {
         uint8_t u8;
-        mp_read_8(uint8_t, &u8, up);
+        mp_read_8(uint8_t, &u8, up, &o->tp);
         o->via.u64 = u8;
         return (o->tp = MP_U64);
     }
     case 0xcd:              /* uint 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_16(uint16_t, &u16, up, &o->tp);
         o->via.u64 = u16;
         return (o->tp = MP_U64);
     }
     case 0xce:              /* uint 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_32(uint32_t, &u32, up, &o->tp);
         o->via.u64 = u32;
         return (o->tp = MP_U64);
     }
     case 0xcf:              /* uint 64 */
     {
         uint64_t u64;
-        mp_read_64(uint64_t, &u64, up);
+        mp_read_64(uint64_t, &u64, up, &o->tp);
         o->via.u64 = u64;
         return (o->tp = MP_U64);
     }
     case 0xd0:              /* int 8 */
     {
         int8_t i8;
-        mp_read_8(int8_t, &i8, up);
+        mp_read_8(int8_t, &i8, up, &o->tp);
         o->via.i64 = i8;
         return (o->tp = MP_I64);
     }
     case 0xd1:              /* int 16 */
     {
         int16_t i16;
-        mp_read_16(int16_t, &i16, up);
+        mp_read_16(int16_t, &i16, up, &o->tp);
         o->via.i64 = i16;
         return (o->tp = MP_I64);
     }
     case 0xd2:              /* int 32 */
     {
         int32_t i32;
-        mp_read_32(int32_t, &i32, up);
+        mp_read_32(int32_t, &i32, up, &o->tp);
         o->via.i64 = i32;
         return (o->tp = MP_I64);
     }
     case 0xd3:              /* int 64 */
     {
         int64_t i64;
-        mp_read_64(int64_t, &i64, up);
+        mp_read_64(int64_t, &i64, up, &o->tp);
         o->via.i64 = i64;
         return (o->tp = MP_I64);
     }
@@ -364,11 +365,11 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xd6:              /* fixext 4 */
     case 0xd7:              /* fixext 8 */
     case 0xd8:              /* fixext 16 */
-        return MP_UNSUPPORTED;
+        return (o->tp = MP_UNSUPPORTED);
     case 0xd9:              /* str 8 */
     {
         uint8_t u8;
-        mp_read_8(uint8_t, &u8, up);
+        mp_read_8(uint8_t, &u8, up, &o->tp);
         o->via.str.n = u8;
         mp_read_obj_data(o, up);
         return (o->tp = MP_STR);
@@ -376,7 +377,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xda:              /* str 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_16(uint16_t, &u16, up, &o->tp);
         o->via.str.n = u16;
         mp_read_obj_data(o, up);
         return (o->tp = MP_STR);
@@ -384,7 +385,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xdb:              /* str 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_32(uint32_t, &u32, up, &o->tp);
         o->via.str.n = u32;
         mp_read_obj_data(o, up);
         return (o->tp = MP_STR);
@@ -392,28 +393,28 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     case 0xdc:              /* array 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_16(uint16_t, &u16, up, &o->tp);
         o->via.sz = u16;
         return (o->tp = MP_ARR);
     }
     case 0xdd:              /* array 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_32(uint32_t, &u32, up, &o->tp);
         o->via.sz = u32;
         return (o->tp = MP_ARR);
     }
     case 0xde:              /* map 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_16(uint16_t, &u16, up, &o->tp);
         o->via.sz = u16;
         return (o->tp = MP_MAP);
     }
     case 0xdf:              /* map 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_32(uint32_t, &u32, up, &o->tp);
         o->via.sz = u32;
         return (o->tp = MP_MAP);
     }
@@ -422,7 +423,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
         return (o->tp = MP_I64);
     }
 
-    return MP_ERR;
+    return (o->tp = MP_ERR);
 }
 
 static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
@@ -460,21 +461,21 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     case 0xc4:              /* bin 8 */
     {
         uint8_t u8;
-        mp_read_8(uint8_t, &u8, up);
+        mp_read_skip_8(uint8_t, &u8, up);
         mp_skip_chars(u8, up);
         return MP_BIN;
     }
     case 0xc5:              /* bin 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_skip_16(uint16_t, &u16, up);
         mp_skip_chars(u16, up);
         return MP_BIN;
     }
     case 0xc6:              /* bin 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_skip_32(uint32_t, &u32, up);
         mp_skip_chars(u32, up);
         return MP_BIN;
     }
@@ -521,49 +522,49 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     case 0xd9:              /* str 8 */
     {
         uint8_t u8;
-        mp_read_8(uint8_t, &u8, up);
+        mp_read_skip_8(uint8_t, &u8, up);
         mp_skip_chars(u8, up);
         return MP_STR;
     }
     case 0xda:              /* str 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_skip_16(uint16_t, &u16, up);
         mp_skip_chars(u16, up);
         return MP_STR;
     }
     case 0xdb:              /* str 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_skip_32(uint32_t, &u32, up);
         mp_skip_chars(u32, up);
         return MP_STR;
     }
     case 0xdc:              /* array 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_skip_16(uint16_t, &u16, up);
         mp_skip_n(u16, up);
         return MP_ARR;
     }
     case 0xdd:              /* array 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_skip_32(uint32_t, &u32, up);
         mp_skip_n(u32, up);
         return MP_ARR;
     }
     case 0xde:              /* map 16 */
     {
         uint16_t u16;
-        mp_read_16(uint16_t, &u16, up);
+        mp_read_skip_16(uint16_t, &u16, up);
         mp_skip_n(u16*2, up);
         return MP_MAP;
     }
     case 0xdf:              /* map 32 */
     {
         uint32_t u32;
-        mp_read_32(uint32_t, &u32, up);
+        mp_read_skip_32(uint32_t, &u32, up);
         mp_skip_n(u32*2, up);
         return MP_MAP;
     }
@@ -572,6 +573,87 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     }
 
     return MP_ERR;
+}
+
+static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
+{
+    mp_obj_t obj;
+    switch (mp_next(up, &obj))
+    {
+    case MP_UNSUPPORTED:
+        fputs("MP_UNSUPPORTED", out);
+        return;
+    case MP_INCOMPLETE:
+        fputs("MP_INCOMPLETE", out);
+        return;
+    case MP_ERR:
+        fputs("MP_ERR", out);
+        return;
+    case MP_END:
+        return;
+    case MP_I64:
+        fprintf(out, "%"PRIi64, obj.via.i64);
+        return;
+    case MP_U64:
+        fprintf(out, "%"PRIu64, obj.via.u64);
+        return;
+    case MP_F64:
+        fprintf(out, "%f", obj.via.f64);
+        return;
+    case MP_BIN:
+        fputs("<BINARY>", out);
+        return;
+    case MP_STR:
+        fprintf(out, "\"%.*s\"", (int) obj.via.str.n, obj.via.str.data);
+        return;
+    case MP_BOOL:
+        if (obj.via.bool_)
+            fputs("true", out);
+        else
+            fputs("false", out);
+        return;
+    case MP_NIL:
+        fputs("nil", out);
+        return;
+    case MP_ARR:
+    {
+        size_t i = 0, m = obj.via.sz;
+        putc('[', out);
+        while (i < m)
+        {
+            i++;
+            mp_print_up(out, up);
+            if (i == m)
+                break;
+            putc(',', out);
+        }
+        putc(']', out);
+        return;
+    }
+    case MP_MAP:
+    {
+        size_t i = 0, m = obj.via.sz;
+        putc('{', out);
+        while (i < m)
+        {
+            i++;
+            mp_print_up(out, up);
+            putc(':', out);
+            mp_print_up(out, up);
+            if (i == m)
+                break;
+            putc(',', out);
+        }
+        putc('}', out);
+    }
+    }
+}
+
+static void __attribute__((unused))mp_print(FILE * out, const void * data, size_t n)
+{
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
+    mp_print_up(out, &up);
 }
 
 static inline _Bool mp_may_cast_u64(mp_enum_t tp)

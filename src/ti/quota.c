@@ -43,3 +43,11 @@ ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
     return (ti_quota_enum_t) tp;
 }
 
+/* inlining this function would cause the code size to grow,
+ * even with max 1000 */
+int ti_quota_val_to_pk(msgpack_packer * pk, size_t quota)
+{
+    return quota == TI_QUOTA_NOT_SET
+                    ? msgpack_pack_nil(pk)
+                    : msgpack_pack_uint64(pk, quota);
+}

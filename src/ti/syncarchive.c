@@ -63,6 +63,8 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
     uint64_t first, last;
     ti_archfile_t * archfile;
 
+    mp_unp_init(&up, pkg->data, pkg->n);
+
     if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
         mp_next(&up, &mp_first) != MP_U64 ||
         mp_next(&up, &mp_last) != MP_U64 ||
@@ -70,7 +72,7 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
         mp_next(&up, &mp_bin) != MP_BIN ||
         mp_next(&up, &mp_more) != MP_BOOL)
     {
-        ex_set(e, EX_BAD_DATA, "invalid multipart request");
+        ex_set(e, EX_BAD_DATA, "invalid multipart request (archive sync)");
         return NULL;
     }
 
@@ -133,7 +135,7 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
     msgpack_pack_array(&pk, 3);
     msgpack_pack_uint64(&pk, first);
     msgpack_pack_uint64(&pk, last);
-    msgpack_pack_int64(&pk, offset);
+    msgpack_pack_fix_int64(&pk, offset);
 
     resp = (ti_pkg_t *) buffer.data;
     pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SYNCAPART, buffer.size);
@@ -156,7 +158,7 @@ static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
     msgpack_pack_array(&pk, 5);
     msgpack_pack_uint64(&pk, archfile->first);
     msgpack_pack_uint64(&pk, archfile->last);
-    msgpack_pack_int64(&pk, offset);
+    msgpack_pack_fix_int64(&pk, offset);
 
     more = syncpart_to_pk(&pk, archfile->fn, offset);
     if (more < 0)

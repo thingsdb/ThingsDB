@@ -33,6 +33,7 @@ struct ti_quota_s
 
 ti_quota_t * ti_quota_create(void);
 ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e);
+int ti_quota_val_to_pk(msgpack_packer * pk, size_t quota);
 
 static inline void ti_quota_destroy(ti_quota_t * quota)
 {
@@ -60,13 +61,5 @@ static inline _Bool ti_quota_isset(ti_quota_t * quota)
             quota->max_raw_size != TI_QUOTA_NOT_SET
     );
 }
-
-static inline int ti_quota_val_to_pk(msgpack_packer * pk, size_t quota)
-{
-    return quota == TI_QUOTA_NOT_SET
-                    ? msgpack_pack_nil(pk)
-                    : msgpack_pack_uint64(pk, quota);
-}
-
 
 #endif  /* TI_QUOTA_H_ */

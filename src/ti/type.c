@@ -210,10 +210,8 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
         return e->nr;
     }
 
-
     for (i = 0, m = obj.via.sz; i < m; ++i)
     {
-
         if (mp_next(up, &mp_field) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
@@ -272,7 +270,7 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if (mp_pack_append(pk, field->name->str, field->name->n) ||
+        if (mp_pack_strn(pk, field->name->str, field->name->n) ||
             mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n))
             return -1;
     }

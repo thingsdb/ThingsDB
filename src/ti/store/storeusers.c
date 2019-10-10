@@ -119,7 +119,7 @@ int ti_store_users_restore(const char * fn)
                 mp_next(&up, &mp_key) != MP_STR ||
                 mp_key.via.sz != sizeof(ti_token_key_t) ||
                 mp_next(&up, &mp_expire) != MP_U64 ||
-                mp_next(&up, &mp_desc) <= MP_STR
+                mp_next(&up, &mp_desc) != MP_STR
             ) goto fail;
 
             token = ti_token_create(

@@ -163,8 +163,8 @@ static ti_pkg_t * syncfull__pkg(
     msgpack_pack_array(&pk, 5);
 
     msgpack_pack_uint64(&pk, scope_id);    /* scope */
-    msgpack_pack_uint8(&pk, ft);          /* file type */
-    msgpack_pack_int64(&pk, offset);      /* offset in file */
+    msgpack_pack_uint8(&pk, ft);           /* file type */
+    msgpack_pack_fix_int64(&pk, offset);   /* offset in file */
 
     fn = syncfull__get_fn(scope_id, ft);
     if (!fn)
@@ -316,7 +316,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         mp_next(&up, &mp_bin) != MP_BIN ||
         mp_next(&up, &mp_more) != MP_BOOL)
     {
-        ex_set(e, EX_BAD_DATA, "invalid multipart request");
+        ex_set(e, EX_BAD_DATA, "invalid multipart request (full sync)");
         return NULL;
     }
 
@@ -370,7 +370,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     msgpack_pack_array(&pk, 3);
     msgpack_pack_uint64(&pk, mp_scope.via.u64);
     msgpack_pack_uint64(&pk, mp_ft.via.u64);
-    msgpack_pack_int64(&pk, mp_more.via.bool_ ? offset + mp_bin.via.bin.n : 0);
+    msgpack_pack_fix_int64(&pk, mp_more.via.bool_?offset+mp_bin.via.bin.n:0);
 
     resp = (ti_pkg_t *) buffer.data;
     pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SYNCFPART, buffer.size);

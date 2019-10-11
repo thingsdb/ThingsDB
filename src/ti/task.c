@@ -93,7 +93,7 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
     }
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
 
     return pkg;
 }

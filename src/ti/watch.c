@@ -55,7 +55,7 @@ ti_rpkg_t * ti_watch_rpkg(
     mp_pack_append(&pk, mpjobs, size);
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)

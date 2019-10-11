@@ -43,7 +43,7 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
         return -1;
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_CLIENT_WARN, buffer.size);
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WARN, buffer.size);
 
     return ti_stream_write_pkg(stream, pkg);
 }

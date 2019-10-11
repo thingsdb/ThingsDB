@@ -4,6 +4,8 @@
 #ifndef TI_PROTO_H_
 #define TI_PROTO_H_
 
+#define TI_PROTO_EV_ID 0xffff
+
 typedef enum
 {
     /*
@@ -11,43 +13,34 @@ typedef enum
      */
 
     /*
-     * 0..15 fire and forgets from client to node
+     * 0x0000xxxx  0..15 fire and forgets from node to client
      */
+    TI_PROTO_CLIENT_NODE_STATUS =0,     /* str_status                       */
+    TI_PROTO_CLIENT_WATCH_INI   =1,     /* {event:x, thing: {#:x, ...}      */
+    TI_PROTO_CLIENT_WATCH_UPD   =2,     /* {event:x. #:x, jobs:[] etc }     */
+    TI_PROTO_CLIENT_WATCH_DEL   =3,     /* {#:x}                            */
+    TI_PROTO_CLIENT_WARN        =4,     /* {warn_msg:..., warn_code: x}     */
 
     /*
-     * 16..32 fire and forgets from node to client
+     * 0x0001xxxx  16..31 client responses
      */
-    TI_PROTO_CLIENT_WATCH_INI   =16,    /* {event:x, thing: {#:x, ...}      */
-    TI_PROTO_CLIENT_WATCH_UPD   =17,    /* {event:x. #:x, jobs:[] etc }     */
-    TI_PROTO_CLIENT_WATCH_DEL   =18,    /* {#:x}                            */
-    TI_PROTO_CLIENT_NODE_STATUS =19,    /* str_status                       */
-    TI_PROTO_CLIENT_WARN        =20,    /* {warn_msg:..., warn_code: x}     */
+    TI_PROTO_CLIENT_RES_PING    =16,    /* empty */
+    TI_PROTO_CLIENT_RES_AUTH    =17,    /* empty */
+    TI_PROTO_CLIENT_RES_QUERY   =18,    /* [{}, {}, ...] */
+    TI_PROTO_CLIENT_RES_WATCH   =19,    /* empty */
+    TI_PROTO_CLIENT_RES_UNWATCH =20,    /* empty */
+    TI_PROTO_CLIENT_RES_ERROR   =21,    /* {error_msg:..., error_code: x} */
 
     /*
-     * 32..63 client requests
+     * 0x0010xxxx  32..63 client requests
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
     TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
+    TI_PROTO_CLIENT_REQ_WATCH   =35,    /* [scope, thing id's....]}         */
+    TI_PROTO_CLIENT_REQ_UNWATCH =36,    /* [scope, thing id's....]}         */
+    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
 
-    TI_PROTO_CLIENT_REQ_WATCH   =48,    /* [scope, thing id's....]}         */
-    TI_PROTO_CLIENT_REQ_UNWATCH =49,    /* [scope, thing id's....]}         */
-    TI_PROTO_CLIENT_REQ_RUN     =50,    /* [scope, procedure, arguments...] */
-    /*
-     * 64..127 client responses
-     */
-    TI_PROTO_CLIENT_RES_PING    =64,    /* empty */
-    TI_PROTO_CLIENT_RES_AUTH    =65,    /* empty */
-    TI_PROTO_CLIENT_RES_QUERY   =66,    /* [{}, {}, ...] */
-    TI_PROTO_CLIENT_RES_WATCH   =80,    /* empty */
-    TI_PROTO_CLIENT_RES_UNWATCH =81,    /* empty */
-    TI_PROTO_CLIENT_RES_ERROR   =96,    /* {error_msg:..., error_code: x} */
-
-    /*
-     * 96..127 client errors
-     */
-
-    /* integer overflow error */
 
     /*
      * protocol definition for node connections

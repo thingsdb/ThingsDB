@@ -8,18 +8,11 @@ const char * ti_proto_str(ti_proto_enum_t tp)
 {
     switch (tp)
     {
+    case TI_PROTO_CLIENT_NODE_STATUS:       return "CLIENT_NODE_STATUS";
     case TI_PROTO_CLIENT_WATCH_INI:         return "CLIENT_WATCH_INI";
     case TI_PROTO_CLIENT_WATCH_UPD:         return "CLIENT_WATCH_UPD";
     case TI_PROTO_CLIENT_WATCH_DEL:         return "CLIENT_WATCH_DEL";
-    case TI_PROTO_CLIENT_NODE_STATUS:       return "CLIENT_NODE_STATUS";
     case TI_PROTO_CLIENT_WARN:              return "CLIENT_WARN";
-
-    case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
-    case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
-    case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
-    case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
-    case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
-    case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
 
     case TI_PROTO_CLIENT_RES_PING:          return "CLIENT_RES_PING";
     case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";
@@ -27,6 +20,13 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_RES_WATCH:         return "CLIENT_RES_WATCH";
     case TI_PROTO_CLIENT_RES_UNWATCH:       return "CLIENT_RES_UNWATCH";
     case TI_PROTO_CLIENT_RES_ERROR:         return "CLIENT_RES_ERROR";
+
+    case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
+    case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
+    case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
+    case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
+    case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
+    case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
 
     case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";

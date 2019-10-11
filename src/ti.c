@@ -667,7 +667,7 @@ ti_rpkg_t * ti_client_status_rpkg(void)
     mp_pack_str(&pk, status);
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)

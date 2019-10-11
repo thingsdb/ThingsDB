@@ -302,7 +302,7 @@ static void wareq__watch_cb(uv_async_t * task)
         }
 
         pkg = (ti_pkg_t *) buffer.data;
-        pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
+        pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
 
         if (    ti_stream_is_closed(wareq->stream) ||
                 ti_stream_write_pkg(wareq->stream, pkg))

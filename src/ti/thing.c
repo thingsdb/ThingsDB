@@ -59,7 +59,7 @@ static void thing__watch_del(ti_thing_t * thing)
     (void) ti_thing_id_to_pk(thing, &pk);
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_CLIENT_WATCH_DEL, buffer.size);
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_DEL, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)

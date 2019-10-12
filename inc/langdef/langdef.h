@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-16 15:52:26
+ * Created at: 2019-10-12 16:58:48
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -25,8 +25,9 @@ enum cleri_grammar_ids {
     CLERI_GID_FUNCTION,
     CLERI_GID_IMMUTABLE,
     CLERI_GID_INDEX,
+    CLERI_GID_INSTANCE,
     CLERI_GID_NAME,
-    CLERI_GID_NAME_OPT_FUNC_ASSIGN,
+    CLERI_GID_NAME_OPT_MORE,
     CLERI_GID_OPERATIONS,
     CLERI_GID_OPR0_MUL_DIV_MOD,
     CLERI_GID_OPR1_ADD_SUB,
@@ -56,7 +57,7 @@ enum cleri_grammar_ids {
     CLERI_GID_T_STRING,
     CLERI_GID_T_TRUE,
     CLERI_GID_VAR,
-    CLERI_GID_VAR_OPT_FUNC_ASSIGN,
+    CLERI_GID_VAR_OPT_MORE,
     CLERI_GID_X_ARRAY,
     CLERI_GID_X_ASSIGN,
     CLERI_GID_X_BLOCK,

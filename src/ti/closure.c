@@ -497,8 +497,8 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->children->next->node;         /* the choice */
 
     if ((
-            node->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN ||
-            node->cl_obj->gid == CLERI_GID_NAME_OPT_FUNC_ASSIGN
+            node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
+            node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
         ) &&
             node->children->next &&
             node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION)

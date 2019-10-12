@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-09-16 15:52:26
+ * Created at: 2019-10-12 16:58:48
  */
 
 #include <langdef/langdef.h>
@@ -92,6 +92,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, ")")
     );
+    cleri_t * instance = cleri_dup(CLERI_GID_INSTANCE, thing);
     cleri_t * immutable = cleri_choice(
         CLERI_GID_IMMUTABLE,
         CLERI_FIRST_MATCH,
@@ -146,8 +147,8 @@ cleri_grammar_t * compile_langdef(void)
         x_assign,
         CLERI_THIS
     );
-    cleri_t * name_opt_func_assign = cleri_sequence(
-        CLERI_GID_NAME_OPT_FUNC_ASSIGN,
+    cleri_t * name_opt_more = cleri_sequence(
+        CLERI_GID_NAME_OPT_MORE,
         2,
         name,
         cleri_optional(CLERI_NONE, cleri_choice(
@@ -158,16 +159,17 @@ cleri_grammar_t * compile_langdef(void)
             assign
         ))
     );
-    cleri_t * var_opt_func_assign = cleri_sequence(
-        CLERI_GID_VAR_OPT_FUNC_ASSIGN,
+    cleri_t * var_opt_more = cleri_sequence(
+        CLERI_GID_VAR_OPT_MORE,
         2,
         var,
         cleri_optional(CLERI_NONE, cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            2,
+            3,
             function,
-            assign
+            assign,
+            instance
         ))
     );
     cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, CLERI_THIS), cleri_token(CLERI_NONE, ":"), 0, 3, 0);
@@ -215,7 +217,7 @@ cleri_grammar_t * compile_langdef(void)
             chain,
             thing_by_id,
             immutable,
-            var_opt_func_assign,
+            var_opt_more,
             thing,
             array,
             block,
@@ -246,7 +248,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_CHAIN,
         4,
         x_chain,
-        name_opt_func_assign,
+        name_opt_more,
         index,
         cleri_optional(CLERI_NONE, chain)
     ));

@@ -61,7 +61,7 @@ int ti_create(void)
     ti_.access_thingsdb = vec_new(0);
     ti_.procedures = vec_new(0);
     ti_.langdef = compile_langdef();
-    ti_.thing0 = ti_thing_o_create(0, NULL);
+    ti_.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
             gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
             ti_counters_create() ||

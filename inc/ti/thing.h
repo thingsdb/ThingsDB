@@ -24,7 +24,10 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <util/mpack.h>
 #include <util/vec.h>
 
-ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection);
+ti_thing_t * ti_thing_o_create(
+        uint64_t id,
+        size_t init_sz,
+        ti_collection_t * collection);
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,

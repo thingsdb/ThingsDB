@@ -143,7 +143,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         type_id = mp_type_id.via.u64;
         if (type_id == TI_SPEC_OBJECT)
         {
-            if (!ti_things_create_thing_o(mp_thing_id.via.u64, collection))
+            if (!ti_things_create_thing_o(mp_thing_id.via.u64, 0, collection))
                 goto fail;
             continue;
         }

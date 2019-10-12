@@ -81,7 +81,10 @@ static void thing__watch_del(ti_thing_t * thing)
     ti_rpkg_drop(rpkg);
 }
 
-ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection)
+ti_thing_t * ti_thing_o_create(
+        uint64_t id,
+        size_t init_sz,
+        ti_collection_t * collection)
 {
     ti_thing_t * thing = malloc(sizeof(ti_thing_t));
     if (!thing)
@@ -94,7 +97,7 @@ ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection)
 
     thing->id = id;
     thing->collection = collection;
-    thing->items = vec_new(0);
+    thing->items = vec_new(init_sz);
     thing->watchers = NULL;
 
     if (!thing->items)
@@ -227,7 +230,7 @@ ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
         return NULL;
     }
 
-    thing = ti_thing_o_create(0, vup->collection);
+    thing = ti_thing_o_create(0, sz, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);

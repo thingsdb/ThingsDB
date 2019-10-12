@@ -64,14 +64,14 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
 
-    wareq->thing_ids = vec_new(4);
+    nargs = obj.via.sz - 1;
+
+    wareq->thing_ids = vec_new(nargs);
     if (!wareq->thing_ids)
     {
         ex_set_mem(e);
         return e->nr;
     }
-
-    nargs = obj.via.sz - 1;
 
     for (i = 0; i < nargs; ++i)
     {
@@ -93,11 +93,8 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
         }
         *id = (uint64_t) val.via.int64;
         #endif
-        if (vec_push(&wareq->thing_ids, (void *) id))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
+
+        VEC_push(wareq->thing_ids, (void *) id);
     }
 
     return e->nr;

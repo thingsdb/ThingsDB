@@ -82,6 +82,7 @@ class LangDef(Grammar):
     thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
+    instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
 
     immutable = Choice(
         t_false,
@@ -120,8 +121,8 @@ class LangDef(Grammar):
 
     assign = Sequence(x_assign, THIS)
 
-    name_opt_func_assign = Sequence(name, Optional(Choice(function, assign)))
-    var_opt_func_assign = Sequence(var, Optional(Choice(function, assign)))
+    name_opt_more = Sequence(name, Optional(Choice(function, assign)))
+    var_opt_more = Sequence(var, Optional(Choice(function, assign, instance)))
 
     # note: slice is also used for a simple index
     slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)
@@ -133,7 +134,7 @@ class LangDef(Grammar):
 
     chain = Sequence(
         x_chain,
-        name_opt_func_assign,
+        name_opt_more,
         index,
         Optional(chain),
     )
@@ -152,7 +153,7 @@ class LangDef(Grammar):
             chain,
             thing_by_id,
             immutable,
-            var_opt_func_assign,
+            var_opt_more,
             thing,
             array,
             block,

@@ -179,6 +179,31 @@ static int ncache__index(
     return e->nr;
 }
 
+static inline int ncache__thing(
+        ti_syntax_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    cleri_children_t * child = nd           /* sequence */
+            ->children->next->node          /* list */
+            ->children;
+    for (; child; child = child->next->next)
+    {
+        /* sequence(name: statement) (only investigate the statements */
+        if (ncache__statement(
+                syntax,
+                vcache,
+                child->node->children->next->next->node,
+                e))
+            return e->nr;
+
+        if (!child->next)
+            break;
+    }
+    return e->nr;
+}
+
 static int ncache__varname_opt_fa(
         ti_syntax_t * syntax,
         vec_t * vcache,
@@ -203,6 +228,12 @@ static int ncache__varname_opt_fa(
                 nd->children->next->node->children->next->node,
                 e)
         ) || ncache__gen_name(vcache, nd->children->node, e) ? e->nr : 0;
+    case CLERI_GID_INSTANCE:
+        return ncache__thing(
+                syntax,
+                vcache,
+                nd->children->next->node,
+                e);
     }
 
     assert (0);
@@ -252,7 +283,7 @@ static int ncache__expr_choice(
         return e->nr;
     case CLERI_GID_IMMUTABLE:
         return ncache__gen_immutable(syntax, vcache, nd, e);
-    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+    case CLERI_GID_VAR_OPT_MORE:
         return ncache__varname_opt_fa(syntax, vcache, nd, e);
     case CLERI_GID_THING:
     {

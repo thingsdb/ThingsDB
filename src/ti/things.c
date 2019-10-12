@@ -93,10 +93,11 @@ static void things__gc_val(ti_val_t * val)
 
 ti_thing_t * ti_things_create_thing_o(
         uint64_t id,
+        size_t init_sz,
         ti_collection_t * collection)
 {
     assert (id);
-    ti_thing_t * thing = ti_thing_o_create(id, collection);
+    ti_thing_t * thing = ti_thing_o_create(id, init_sz, collection);
     if (!thing || ti_thing_to_map(thing))
     {
         ti_val_drop((ti_val_t *) thing);
@@ -158,7 +159,9 @@ ti_thing_t * ti_things_thing_o_from_unp(
         return NULL;
     }
 
-    thing = ti_things_create_thing_o(thing_id, vup->collection);
+    --sz;  /* decrease one to unpack the remaining properties */
+
+    thing = ti_things_create_thing_o(thing_id, sz, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -168,7 +171,6 @@ ti_thing_t * ti_things_thing_o_from_unp(
     if (thing_id >= ti()->node->next_thing_id)
         ti()->node->next_thing_id = thing_id + 1;
 
-    --sz;  /* decrease one to unpack the remaining properties */
     if (ti_thing_props_from_unp(thing, vup, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);

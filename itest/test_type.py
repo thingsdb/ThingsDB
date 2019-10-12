@@ -86,7 +86,11 @@ class TestType(TestBase):
                 name: 'Cato',
                 age: 5,
             });
-            .people = new('People', {users: [.iris, .cato]});
+            .lena = User{
+                name: 'Lena',
+                age: 6,
+            };
+            .people = new('People', {users: [.iris, .cato, .lena]});
         ''')
 
         await client.query(r'''

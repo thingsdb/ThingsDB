@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/transceptor-technology/go-qpack"
+	"gopkg.in/vmihailenco/msgpack.v4"
 )
 
 // Conn is a ThingsDB connection to a single node.
@@ -121,7 +121,7 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 	case pkg := <-respCh:
 		switch Proto(pkg.tp) {
 		case ProtoResQuery:
-			result, err = qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
+			err = msgpack.Unmarshal(pkg.data, &result)
 		case ProtoResPing, ProtoResAuth:
 			result = nil
 		case ProtoResError:

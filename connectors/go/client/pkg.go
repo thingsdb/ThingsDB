@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/transceptor-technology/go-qpack"
+	"gopkg.in/vmihailenco/msgpack.v4"
 )
 
 // pkgHeaderSize is the size of a package header.
@@ -43,28 +43,36 @@ func (p *pkg) setData(b *[]byte, size uint32) {
 	p.data = (*b)[pkgHeaderSize:size]
 }
 
-// pack returns a byte array containing a header with serialized data.
-func pkgPack(pid uint16, tp Proto, v interface{}) ([]byte, error) {
-	var err error
+// pkgPackBin returns a byte array containing a header with serialized data.
+func pkgPackBin(pid uint16, tp Proto, data []byte) []byte {
 
-	data := make([]byte, pkgHeaderSize, pkgInitCapacity)
+	datasz := len(data)
 
-	if v != nil {
-		err = qpack.PackTo(&data, v)
-		if err != nil {
-			return nil, err
-		}
-	}
+	pkgdata := make([]byte, pkgHeaderSize, pkgHeaderSize+datasz)
+	pkgdata = append(pkgdata, data...)
 
 	// set package length.
-	binary.LittleEndian.PutUint32(data[0:], uint32(len(data)-pkgHeaderSize))
+	binary.LittleEndian.PutUint32(pkgdata[0:], uint32(datasz))
 
 	// set package pid.
-	binary.LittleEndian.PutUint16(data[4:], pid)
+	binary.LittleEndian.PutUint16(pkgdata[4:], pid)
 
 	// set package type and check bit.
-	data[6] = uint8(tp)
-	data[7] = '\xff' ^ uint8(tp)
+	pkgdata[6] = uint8(tp)
+	pkgdata[7] = '\xff' ^ uint8(tp)
+
+	return pkgdata
+}
+
+// pkgPack returns a byte array containing a header with serialized data.
+func pkgPack(pid uint16, tp Proto, v interface{}) ([]byte, error) {
+
+	data, err := msgpack.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	data = pkgPackBin(pid, tp, data)
 
 	return data, nil
 }

@@ -227,7 +227,7 @@ ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
         return NULL;
 
     r->ref = 1;
-    r->tp = a->tp;  /* TODO: check */
+    r->tp = a->tp;
     r->n = nn;
     memcpy(r->data, a->data, a->n);
     memcpy(r->data + a->n, s, n);
@@ -242,7 +242,7 @@ ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
         return NULL;
 
     r->ref = 1;
-    r->tp = b->tp;   /* TODO: check */
+    r->tp = b->tp;
     r->n = nn;
     memcpy(r->data, s, n);
     memcpy(r->data + n, b->data, b->n);
@@ -261,7 +261,7 @@ ti_raw_t * ti_raw_cat_strn_strn(
         return NULL;
 
     r->ref = 1;
-    r->tp = TI_VAL_STR;   /* TODO: check */
+    r->tp = TI_VAL_STR;
     r->n = nn;
     memcpy(r->data, as, an);
     memcpy(r->data + an, bs, bn);

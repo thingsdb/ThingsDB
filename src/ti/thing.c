@@ -624,14 +624,16 @@ failed:
 
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
 {
+    size_t idx = 0;
     if (!thing->watchers)
         return false;
 
-    for (vec_each(thing->watchers, ti_watch_t, watch))
+    for (vec_each(thing->watchers, ti_watch_t, watch), ++idx)
     {
         if (watch->stream == stream)
         {
             watch->stream = NULL;
+            vec_swap_remove(thing->watchers, idx);
             return true;
         }
     }

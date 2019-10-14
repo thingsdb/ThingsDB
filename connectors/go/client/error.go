@@ -1,6 +1,8 @@
 package client
 
-import qpack "github.com/transceptor-technology/go-qpack"
+import (
+	"gopkg.in/vmihailenco/msgpack.v4"
+)
 
 // ErrorCode known by ThingsDB
 type ErrorCode int
@@ -74,9 +76,10 @@ func NewError(msg string, code ErrorCode) Err {
 	}
 }
 
-// NewErrorFromByte returns a pointer to a new Error from qpack byte data.
+// NewErrorFromByte returns a pointer to a new Error from msgpack byte data.
 func NewErrorFromByte(b []byte) *Error {
-	result, err := qpack.Unpack(b, qpack.QpFlagStringKeysOnly)
+	var result interface{}
+	err := msgpack.Unmarshal(b, &result)
 	if err != nil {
 		return &Error{
 			msg:  err.Error(),
@@ -100,10 +103,10 @@ func NewErrorFromByte(b []byte) *Error {
 		}
 	}
 
-	errCode, ok := errMap["error_code"].(int)
+	errCode, ok := errMap["error_code"].(int8)
 	if !ok {
 		return &Error{
-			msg:  "expected `error_code` of type `int`",
+			msg:  "expected `error_code` of type `int8`",
 			code: UnpackError,
 		}
 	}

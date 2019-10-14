@@ -35,7 +35,7 @@ class TestSimple(TestBase):
         await client.wait_closed()
 
     async def test_hello_world(self, client):
-        await client.query('Hello world!')
+        await client.query('"Hello world!"')
 
 
 if __name__ == '__main__':

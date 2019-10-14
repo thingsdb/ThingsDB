@@ -82,6 +82,16 @@ static int archive__init_queue(void)
     int rc = -1;
     ti_epkg_t * epkg;
     const uint64_t cevid = ti()->node->cevid;
+
+    if (ti()->args->forget_nodes && (epkg = queue_last(archive->queue)))
+    {
+        /* if we want to forget all nodes info, we should also forget events
+         * in the queue which might depend on the current nodes.
+         */
+        ti()->last_event_id = epkg->event_id;
+        (void) ti_save();
+    }
+
     /*
      * The cleanest way is to take all events through the whole loop so error
      * checking is done properly, we take a lock to prevent events being

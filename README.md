@@ -18,14 +18,8 @@
     - [ ] Monoca editor
     - [ ] VSCode (related to Monaco editor)
     - [ ] Ace editor
-- [ ] Consider switching to MessagePack, since Qpack does not really add something
-      and MessagePack does not require to add the serialization protocol for
-      each new language. I seriously do not like the unpacker written for C, but
-      it is not that hard to write this part for ThingsDB usage.
-
-- [ ] isutf8  -> strong check on `raw`
-- [ ] isstr -> just a weak check type check
-
+- [ ] set_type, for configuring an empty type without instances
+- [ ] thing.watch()/thing.unwatch() function calls.
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?

@@ -28,6 +28,7 @@ int ti_args_create(void)
     args->init = 0;
     args->log_colorized = 0;
     args->rebuild = 0;
+    args->forget_nodes = 0;
     args->version = 0;
 
     /* string */
@@ -112,6 +113,18 @@ int ti_args_parse(int argc, char *argv[])
         .choices = NULL,
     };
 
+    argparse_argument_t forget_nodes_ = {
+        .name = "forget-nodes",
+        .shortcut = 0,
+        .help = "forget all nodes info and load ThingsDB with a single node",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->forget_nodes,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
+    };
+
     argparse_argument_t version_ = {
         .name = "version",
         .shortcut = 'v',
@@ -153,6 +166,7 @@ int ti_args_parse(int argc, char *argv[])
             argparse_add_argument(parser, &force_) ||
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &rebuild_) ||
+            argparse_add_argument(parser, &forget_nodes_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
             argparse_add_argument(parser, &log_colorized_))
@@ -184,11 +198,39 @@ int ti_args_parse(int argc, char *argv[])
             rc = -1;
         }
 
-        if (args->rebuild && (args->init || *args->secret))
+        if (args->rebuild)
         {
-            printf("--rebuild cannot be used together with --init or --secret\n");
-            rc = -1;
+            if (args->init)
+            {
+                printf("--rebuild cannot be used together with --init\n");
+                rc = -1;
+            }
+            else if (*args->secret)
+            {
+                printf("--rebuild cannot be used together with --secret\n");
+                rc = -1;
+            }
         }
+
+        if (args->forget_nodes)
+        {
+            if (args->init)
+            {
+                printf("--forget-nodes cannot be used together with --init\n");
+                rc = -1;
+            }
+            else if (*args->secret)
+            {
+                printf("--forget-nodes cannot be used together with --secret\n");
+                rc = -1;
+            }
+            else if (args->rebuild)
+            {
+                printf("--forget-nodes cannot be used together with --rebuild\n");
+                rc = -1;
+            }
+        }
+
     }
 
     argparse_destroy(parser);

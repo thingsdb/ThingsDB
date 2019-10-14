@@ -29,7 +29,7 @@ struct ti_cfg_s
     char * bind_client_addr;
     char * bind_node_addr;
     char * pipe_client_name;
-    char * storage_path;
+    char * storage_path;                /* with trailing `/` */
 };
 
 #endif /* TI_CFG_H_ */

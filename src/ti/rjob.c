@@ -476,7 +476,6 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
     if (ev->id <= ti_.last_event_id)
         return 0;   /* this job is already applied */
 
-
     if (mp_node.via.u64 == this_node->id)
     {
         log_critical("cannot delete node with id %"PRIu64, mp_node.via.u64);

@@ -5,7 +5,6 @@
 #define TI_H_
 
 #include <assert.h>
-#include <tiinc.h>
 #include <cleri/cleri.h>
 #include <signal.h>
 #include <stdint.h>
@@ -13,8 +12,8 @@
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/away.h>
+#include <ti/backups.h>
 #include <ti/build.h>
-#include <ti/sync.h>
 #include <ti/cfg.h>
 #include <ti/clients.h>
 #include <ti/collections.h>
@@ -24,9 +23,11 @@
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
+#include <ti/sync.h>
 #include <ti/tcp.h>
 #include <ti/users.h>
 #include <ti/val.h>
+#include <tiinc.h>
 #include <unistd.h>
 #include <util/logger.h>
 #include <util/mpack.h>
@@ -48,6 +49,7 @@ int ti_create(void);
 void ti_destroy(void);
 int ti_init_logger(void);
 int ti_init(void);
+int ti_build_node(void);
 int ti_build(void);
 int ti_rebuild(void);
 int ti_write_node_id(uint32_t * node_id);
@@ -60,7 +62,7 @@ void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
-_Bool ti_ask_continue(void);
+_Bool ti_ask_continue(const char * warn);
 void ti_print_connect_info(void);
 ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            cevid, ti_node->status
@@ -98,6 +100,7 @@ struct ti_s
     ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_users_t * users;
+    ti_backups_t * backups;
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
     vec_t * procedures;         /* ti_procedure_t */

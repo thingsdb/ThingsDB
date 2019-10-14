@@ -105,6 +105,7 @@ static void away__reschedule_by_id(uint32_t node_id)
 
 static void away__work(uv_work_t * UNUSED(work))
 {
+    char buff[1024];
     uv_mutex_lock(ti()->events->lock);
 
     away->status = AWAY__STATUS_WORKING;
@@ -126,6 +127,9 @@ static void away__work(uv_work_t * UNUSED(work))
 
     /* remove optional things->imap-vec caches */
     ti_collections_cleanup();
+
+    sprintf(buff,"tar -czf /tmp/backup.tar.gz -C %s", ti()->cfg->storage_path);
+    system(buff);
 
     uv_mutex_unlock(ti()->events->lock);
 }

@@ -179,10 +179,8 @@ int ti_init(void)
     return (ti_.fn && ti_.node_fn) ? ti_store_create() : -1;
 }
 
-int ti_build(void)
+int ti_build_node(void)
 {
-    int rc = -1;
-    ti_event_t * ev = NULL;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
@@ -195,11 +193,23 @@ int ti_build(void)
             ti_.cfg->node_port,
             "0.0.0.0",
             encrypted);
-    if (!ti_.node)
-        goto failed;
 
-   if (ti_write_node_id(&ti_.node->id) || ti_save())
-       goto failed;
+    if (!ti_.node)
+        return -1;
+
+   if (ti_write_node_id(&ti_.node->id) ||
+       ti_save() ||
+       ti_nodes_write_global_status())
+       return -1;
+   return 0;
+}
+
+int ti_build(void)
+{
+    int rc = -1;
+    ti_event_t * ev = NULL;
+    if (ti_build_node())
+        goto failed;
 
     ti_.node->cevid = 0;
     ti_.node->next_thing_id = 1;
@@ -549,10 +559,10 @@ int ti_unlock(void)
     return 0;
 }
 
-_Bool ti_ask_continue(void)
+_Bool ti_ask_continue(const char * warn)
 {
-    printf("\nWarning: all data on this node will be removed!!\n\n"
-            "Type `yes` + ENTER if you really want to continue: ");
+    printf("\nWarning: %s!!\n\n"
+            "Type `yes` + ENTER if you really want to continue: ", warn);
 
     if (getchar() != 'y')
         return false;

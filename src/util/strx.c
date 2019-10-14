@@ -36,8 +36,8 @@ void strx_replace_char(char * str, char find, char replace)
 }
 
 /*
- * Replace all occurrences of 'o' with 'r' in 'str'. We restrict the new size
- * to 'n'.
+ * Replace all occurrences of 'o' with 'r' in 'str'. The new new size
+ * is restricted to 'n'.
  *
  * Returns 0 if successful or -1 if the replaced string does not fit. In this
  * case the original string is untouched. The new string is terminated.

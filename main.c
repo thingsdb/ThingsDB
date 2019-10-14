@@ -87,7 +87,7 @@ int main(int argc, char * argv[])
                 goto load;
             }
 
-            if (!ti_ask_continue())
+            if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
         }
 
@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
                 goto load;
             }
 
-            if (!ti_ask_continue())
+            if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
 
             if (fx_is_dir(ti()->store->store_path) &&
@@ -139,9 +139,23 @@ int main(int argc, char * argv[])
                 goto stop;
         }
 
-
         ti_print_connect_info();
+        goto run;
+    }
 
+    if (ti()->args->forget_nodes)
+    {
+        if (!ti_ask_continue("all nodes information will be lost"))
+            goto stop;
+
+        if ((rc = ti_build_node()))
+            goto stop;
+
+        if ((rc = ti_store_restore()))
+        {
+            printf("error loading ThingsDB\n");
+            goto stop;
+        }
         goto run;
     }
 
@@ -156,7 +170,7 @@ load:
 
         if (ti()->args->rebuild)
         {
-            if (!ti_ask_continue())
+            if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
 
             if (ti()->nodes->imap->n < 2)
@@ -175,7 +189,7 @@ load:
         }
         else if ((rc = ti_store_restore()))
         {
-            printf("error loading ThingsDB cluster\n");
+            printf("error loading ThingsDB\n");
             goto stop;
         }
     }

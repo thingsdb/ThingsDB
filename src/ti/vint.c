@@ -9,10 +9,6 @@
 #define VX(x) \
     {.ref = 1, .tp = TI_VAL_INT, .int_ = x }
 
-#define VINT_MASK 0xffffffffffffff00LL
-
-/* TODO: -128..127 range */
-
 /* PRE-allocated integer values */
 static ti_vint_t vint__cache[256] = {
 

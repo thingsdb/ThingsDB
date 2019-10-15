@@ -103,7 +103,7 @@ done:
 void backups__run(uint64_t backup_id, const char * job)
 {
     char buffer[512];
-    int rc;
+    int rc = -1;
     FILE * fp;
     buf_t buf;
     buf_init(&buf);
@@ -191,7 +191,7 @@ done:
 
 int ti_backups_restore(void)
 {
-    int rc = 0;  /* explicit return 0 since this is not critical at all */
+    int rc = -1;
     fx_mmap_t fmap;
     size_t i;
     mp_obj_t obj, mp_id, mp_ts, mp_repeat, mp_fn, mp_msg, mp_plan, mp_code;
@@ -255,7 +255,10 @@ fail0:
     if (rc)
         log_error("failed to restore from file: `%s`", backups->fn);
 
-    return rc;
+    /*
+     * do not return `rc`, but 0 since nothing except the file name is critical
+     */
+    return 0;
 }
 
 int ti_backups_backup(void)

@@ -8,20 +8,28 @@
 #include <ti.h>
 #include <util/util.h>
 #include <util/buf.h>
+#include <util/fx.h>
+
+static const char * backups__fn             = "node_backups.mp";
+
 
 static ti_backups_t * backups;
 static ti_backups_t backups_;
-
 
 int ti_backups_create(void)
 {
     backups = &backups_;
 
     backups->lock =  malloc(sizeof(uv_mutex_t));
+    backups->fn = NULL;
+    backups->next_id = 0;
+
     backups->omap = omap_create();
     backups->changed = false;
 
-    if (!backups->omap || !backups->lock || uv_mutex_init(backups->lock))
+    if (!backups->omap ||
+        !backups->lock ||
+        uv_mutex_init(backups->lock))
     {
         ti_backups_destroy();
         return -1;
@@ -38,9 +46,13 @@ void ti_backups_destroy(void)
     omap_destroy(backups->omap, (omap_destroy_cb) ti_backup_destroy);
     uv_mutex_destroy(backups->lock);
     free(backups->lock);
+    free(backups->fn);
     ti()->backups = NULL;
 }
 
+/* this function requires a lock since it returns a `backup` which requires
+ * a lock by itself;
+ */
 static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
 {
     omap_iter_t iter = omap_iter(backups->omap);
@@ -129,6 +141,123 @@ void backups__run(uint64_t backup_id, const char * job)
     free(buf.data);
 }
 
+static int backups__store(void)
+{
+    omap_iter_t iter;
+    msgpack_packer pk;
+    FILE * f = fopen(backups->fn, "w");
+    if (!f)
+    {
+        log_error("cannot open file `%s` (%s)", backups->fn, strerror(errno));
+        return -1;
+    }
+
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+
+    uv_mutex_lock(backups->lock);
+
+    iter = omap_iter(backups->omap);
+
+    if (msgpack_pack_array(&pk, backups->omap->n))
+        goto fail;
+
+    for (omap_each(iter, ti_backup_t, backup))
+    {
+        if (msgpack_pack_array(&pk, 7) ||
+            msgpack_pack_uint64(&pk, backup->id) ||
+            msgpack_pack_uint64(&pk, backup->timestamp) ||
+            msgpack_pack_uint64(&pk, backup->repeat) ||
+            mp_pack_str(&pk, backup->fn_template) ||
+            mp_pack_str(&pk, backup->result_msg) ||
+            mp_pack_bool(&pk, backup->scheduled) ||
+            msgpack_pack_fix_int32(&pk, backup->result_code)
+        ) goto fail;
+    }
+
+
+    log_debug("stored access to file: `%s`", backups->fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", backups->fn);
+done:
+    uv_mutex_unlock(backups->lock);
+    if (fclose(f))
+    {
+        log_error("cannot close file `%s` (%s)", backups->fn, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+int ti_backups_restore(void)
+{
+    int rc = 0;  /* explicit return 0 since this is not critical at all */
+    fx_mmap_t fmap;
+    size_t i;
+    mp_obj_t obj, mp_id, mp_ts, mp_repeat, mp_fn, mp_msg, mp_plan, mp_code;
+    mp_unp_t up;
+    ti_backup_t * backup;
+    uint64_t now = util_now_tsec();
+
+    backups->fn = fx_path_join(ti()->cfg->storage_path, backups__fn);
+
+    if (!backups->fn)
+        return -1;
+
+    if (!fx_file_exist(backups->fn))
+        return 0;
+
+    fx_mmap_init(&fmap, backups->fn);
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
+        goto fail0;
+
+    mp_unp_init(&up, fmap.data, fmap.n);
+
+    if (mp_next(&up, &obj) != MP_ARR)
+        goto fail1;
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 7 ||
+            mp_next(&up, &mp_id) != MP_U64 ||
+            mp_next(&up, &mp_ts) != MP_U64 ||
+            mp_next(&up, &mp_repeat) != MP_U64 ||
+            mp_next(&up, &mp_fn) != MP_STR ||
+            mp_next(&up, &mp_msg) != MP_STR ||
+            mp_next(&up, &mp_plan) != MP_BOOL ||
+            mp_next(&up, &mp_code) != MP_I64
+        ) goto fail1;
+
+        backup = ti_backups_new_backup(
+                mp_id.via.u64,
+                mp_fn.via.str.data,
+                mp_fn.via.str.n,
+                mp_ts.via.u64,
+                mp_repeat.via.u64);
+
+        if (backup)
+        {
+            backup->result_msg = strndup(mp_msg.via.str.data, mp_msg.via.str.n);
+            backup->result_code = (int) mp_code.via.i64;
+            backup->scheduled = mp_plan.via.bool_;
+            if (backup->repeat)
+                while (backup->timestamp < now)
+                    backup->timestamp += backup->repeat;
+        }
+    }
+
+    rc = 0;
+
+fail1:
+    if (fx_mmap_close(&fmap))
+        rc = -1;
+fail0:
+    if (rc)
+        log_error("failed to restore from file: `%s`", backups->fn);
+
+    return rc;
+}
+
 int ti_backups_backup(void)
 {
     uint64_t backup_id = 0;
@@ -139,12 +268,14 @@ int ti_backups_backup(void)
     do
     {
         uv_mutex_lock(backups->lock);
+
         backup = backups__get_pending(now, backup_id);
         if (backup)
         {
             backup_id = backup->id;
             job = ti_backup_job(backup);
         }
+
         uv_mutex_unlock(backups->lock);
 
         if (!job)
@@ -159,7 +290,7 @@ int ti_backups_backup(void)
 
     if (backups->changed)
     {
-        /* TODO: save */
+        (void) backups__store();
     }
 
     return 0;
@@ -168,10 +299,11 @@ int ti_backups_backup(void)
 size_t ti_backups_scheduled(void)
 {
     size_t n = 0;
-    omap_iter_t iter = omap_iter(backups->omap);
+    omap_iter_t iter;
 
     uv_mutex_lock(backups->lock);
 
+    iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
         if (backup->scheduled)
             ++n;
@@ -181,15 +313,35 @@ size_t ti_backups_scheduled(void)
     return n;
 }
 
+size_t ti_backups_pending(void)
+{
+    uint64_t now = util_now_tsec();
+    size_t n = 0;
+    omap_iter_t iter;
+
+
+    uv_mutex_lock(backups->lock);
+
+    iter = omap_iter(backups->omap);
+    for (omap_each(iter, ti_backup_t, backup))
+        if (backup->scheduled && backup->timestamp < now)
+            ++n;
+
+    uv_mutex_unlock(backups->lock);
+
+    return n;
+}
+
 ti_varr_t * ti_backups_info(void)
 {
+    omap_iter_t iter;
     ti_varr_t * varr = ti_varr_create(backups->omap->n);
     if (!varr)
         return NULL;
 
     uv_mutex_lock(backups->lock);
 
-    omap_iter_t iter = omap_iter(backups->omap);
+    iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
     {
         ti_val_t * mpinfo = ti_backup_as_mpval(backup);
@@ -207,13 +359,41 @@ stop:
     return varr;
 }
 
-uint64_t ti_backups_next_id(void)
+void ti_backups_del_backup(uint64_t backup_id, ex_t * e)
 {
-    uint64_t id = 0;
-    omap_iter_t iter = omap_iter(backups->omap);
-    for (omap_each(iter, ti_backup_t, backup))
-        id = omap_iter_id(iter) + 1;
-    return id;
+    ti_backup_t * backup;
+    uv_mutex_lock(backups->lock);
+
+    backup = omap_rm(backups->omap, backup_id);
+    if (backup)
+        ti_backup_destroy(backup);
+    else
+        ex_set(e, EX_LOOKUP_ERROR,
+                "backup with id %"PRIu64" not found", backup_id);
+
+    uv_mutex_unlock(backups->lock);
+}
+
+ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e)
+{
+    ti_val_t * mpinfo = NULL;
+    ti_backup_t * backup;
+
+    uv_mutex_lock(backups->lock);
+
+    backup = omap_get(backups->omap, backup_id);
+    if (backup)
+    {
+        mpinfo = ti_backup_as_mpval(backup);
+        if (!mpinfo)
+            ex_set_mem(e);
+    }
+    else
+        ex_set(e, EX_LOOKUP_ERROR,
+                "backup with id %"PRIu64" not found", backup_id);
+
+    uv_mutex_unlock(backups->lock);
+    return mpinfo;
 }
 
 ti_backup_t * ti_backups_new_backup(
@@ -236,8 +416,11 @@ ti_backup_t * ti_backups_new_backup(
         backup = NULL;
     }
     else
+    {
+        if (id >= backups->next_id)
+            backups->next_id = id + 1;
         backups->changed = true;
-
+    }
     uv_mutex_unlock(backups->lock);
     return backup;
 }

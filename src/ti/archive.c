@@ -22,7 +22,7 @@ static ti_archive_t archive_;
 
 static int archive__load_file(ti_archfile_t * archfile)
 {
-    size_t i, m;
+    size_t i;
     mp_unp_t up;
     mp_obj_t obj, mp_pkg;
     fx_mmap_t fmap;
@@ -41,7 +41,7 @@ static int archive__load_file(ti_archfile_t * archfile)
     if (mp_next(&up, &obj) != MP_ARR)
         goto close;
 
-    for (i = 0, m = obj.via.sz; i< m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_pkg) != MP_BIN ||
             mp_pkg.via.bin.n < sizeof(ti_pkg_t))

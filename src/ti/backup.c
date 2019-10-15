@@ -59,7 +59,7 @@ char * backup__next_run(ti_backup_t * backup)
     if (backup->timestamp < now)
         return "pending";
 
-    tm_info = gmtime((const time_t *) &now);
+    tm_info = gmtime((const time_t *) &backup->timestamp);
 
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%SZ", tm_info);
     return buf;
@@ -159,7 +159,7 @@ char * ti_backup_job(ti_backup_t * backup)
         if (TEMPLACE_CMP(pt, end, "{DATE}", date_sz))
         {
             buf_append(&buf, pv, pt - pv);
-            strftime(buffer, sizeof(buffer), "%Y_%m_%d", tm_info);
+            strftime(buffer, sizeof(buffer), "%Y%m%d", tm_info);
             buf_append_str(&buf, buffer);
             pt += date_sz;
             pv = pt;
@@ -168,7 +168,7 @@ char * ti_backup_job(ti_backup_t * backup)
         if (TEMPLACE_CMP(pt, end, "{TIME}", time_sz))
         {
             buf_append(&buf, pv, pt - pv);
-            strftime(buffer, sizeof(buffer), "%H_%M_%S", tm_info);
+            strftime(buffer, sizeof(buffer), "%H%M%S", tm_info);
             buf_append_str(&buf, buffer);
             pt += time_sz;
             pv = pt;

@@ -101,7 +101,8 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    backup_id = ti_backups_next_id();
+    backup_id = ti()->backups->next_id;
+
     backup = ti_backups_new_backup(
             backup_id,
             (const char *) rname->data,

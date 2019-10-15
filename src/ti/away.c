@@ -37,7 +37,11 @@ static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
 
 static _Bool away__required(void)
 {
-    return ti()->archive->queue->n || ti_nodes_require_sync();
+    return (
+        ti()->archive->queue->n ||
+        ti_nodes_require_sync() ||
+        ti_backups_pending()
+    );
 }
 
 static const char * away__status_str(void)

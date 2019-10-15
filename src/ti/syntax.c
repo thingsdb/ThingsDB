@@ -13,6 +13,8 @@
 #include <ti/fn/fnadd.h>
 #include <ti/fn/fnarray.h>
 #include <ti/fn/fnassert.h>
+#include <ti/fn/fnbackupinfo.h>
+#include <ti/fn/fnbackupsinfo.h>
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
@@ -22,6 +24,7 @@
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndeep.h>
 #include <ti/fn/fndel.h>
+#include <ti/fn/fndelbackup.h>
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelexpired.h>
 #include <ti/fn/fndelnode.h>
@@ -179,6 +182,8 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "bool", do__f_bool);
         syntax__nev_fn(q, nd, "bytes", do__f_bytes);
         syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
+        syntax__zev_fn(q, nd, "backup_info", do__f_backup_info);
+        syntax__zev_fn(q, nd, "backups_info", do__f_backups_info);
         break;
     case 'c':
         syntax__nev_fn(q, nd, "call", do__f_call);
@@ -197,6 +202,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__tev_fn(q, nd, "del_collection", do__f_del_collection);
         syntax__tev_fn(q, nd, "del_user", do__f_del_user);
         syntax__tev_fn(q, nd, "del_node", do__f_del_node);
+        syntax__zev_fn(q, nd, "del_backup", do__f_del_backup);
         break;
     case 'e':
         syntax__cev_fn(q, nd, "extend", do__f_extend);

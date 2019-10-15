@@ -173,11 +173,12 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
 
-    if (ti_val_init_common())
+    if (ti_val_init_common() || ti_backups_restore())
         return -1;
 
     ti_.fn = strx_cat(ti_.cfg->storage_path, ti__fn);
     ti_.node_fn = strx_cat(ti_.cfg->storage_path, ti__node_fn);
+
     return (ti_.fn && ti_.node_fn) ? ti_store_create() : -1;
 }
 

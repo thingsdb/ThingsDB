@@ -51,7 +51,7 @@ int ti_store_procedures_restore(
 {
     int rc = -1;
     fx_mmap_t fmap;
-    size_t i, m;
+    size_t i;
     mp_obj_t obj, mp_name;
     mp_unp_t up;
     ti_raw_t * rname;
@@ -72,7 +72,7 @@ int ti_store_procedures_restore(
     if (mp_next(&up, &obj) != MP_MAP)
         goto fail1;
 
-    for (i = 0, m = obj.via.sz; i< m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_name) != MP_STR)
             goto fail1;

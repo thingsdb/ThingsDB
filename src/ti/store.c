@@ -23,6 +23,7 @@
 static const char * store__path          = "store/";
 static const char * store__prev_path     = "_prev/";
 static const char * store__tmp_path      = "__tmp/";
+
 /* file names */
 static const char * store__access_node_fn       = "access_node.mp";
 static const char * store__access_thingsdb_fn   = "access_thingsdb.mp";
@@ -350,6 +351,7 @@ int ti_store_restore(void)
 stop:
     if (namesmap)
         imap_destroy(namesmap, (imap_destroy_cb) ti_name_drop);
+
     return rc;
 }
 

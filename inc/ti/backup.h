@@ -28,10 +28,10 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup);
 struct ti_backup_s
 {
     uint64_t id;
-    char * fn_template;   /* {EVENT} {DATE} {TIME} */
-    char * result_msg;    /* last status message */
     uint64_t timestamp;
     uint64_t repeat;
+    char * fn_template;   /* {EVENT} {DATE} {TIME} */
+    char * result_msg;    /* last status message */
     _Bool scheduled;
     int result_code;            /* last status code (0 = OK) */
 };

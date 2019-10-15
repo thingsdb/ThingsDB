@@ -27,7 +27,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
     ti_vset_t * vset;
     ti_name_t * name;
     ti_thing_t * t;
-    size_t i, m;
+    size_t i;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
             .isclient = false,
@@ -69,7 +69,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    for(i = 0, m = obj.via.sz; i < m; ++i)
+    for (i = obj.via.sz; i--;)
     {
         t = (ti_thing_t *) ti_val_from_unp(&vup);
 

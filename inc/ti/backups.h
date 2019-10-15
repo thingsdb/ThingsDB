@@ -7,16 +7,22 @@
 
 #include <uv.h>
 #include <ti/varr.h>
+#include <ti/val.h>
 #include <ti/backup.h>
 #include <util/omap.h>
+#include <ex.h>
 
 typedef struct ti_backups_s ti_backups_t;
 
 int ti_backups_create(void);
 void ti_backups_destroy(void);
 int ti_backups_backup(void);
+int ti_backups_restore(void);
 size_t ti_backups_scheduled(void);
+size_t ti_backups_pending(void);
 ti_varr_t * ti_backups_info(void);
+void ti_backups_del_backup(uint64_t backup_id, ex_t * e);
+ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e);
 uint64_t ti_backups_next_id(void);
 ti_backup_t * ti_backups_new_backup(
         uint64_t id,
@@ -26,10 +32,13 @@ ti_backup_t * ti_backups_new_backup(
         uint64_t repeat);
 
 
+
 struct ti_backups_s
 {
     omap_t * omap;
     uv_mutex_t * lock;
+    char * fn;
+    uint64_t next_id;
     _Bool changed;
 };
 

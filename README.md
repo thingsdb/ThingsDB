@@ -31,6 +31,17 @@
 - [ ] Big number support?
 
 
+## Instqallation msgpack
+
+```
+git clone https://github.com/msgpack/msgpack-c.git
+cd msgpack-c
+cmake .
+make
+make test
+sudo make install
+```
+
 ## Get status
 
 ```

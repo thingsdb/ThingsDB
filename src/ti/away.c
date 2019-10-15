@@ -128,8 +128,6 @@ static void away__work(uv_work_t * UNUSED(work))
     /* remove optional things->imap-vec caches */
     ti_collections_cleanup();
 
-    sprintf(buff,"tar -czf /tmp/backup.tar.gz -C %s", ti()->cfg->storage_path);
-    system(buff);
 
     uv_mutex_unlock(ti()->events->lock);
 }

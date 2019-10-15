@@ -259,9 +259,9 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
                 task,
                 chain.name,
                 varr,
-                start,
-                c,
-                n))
+                (uint32_t) start,
+                (uint32_t) c,
+                (uint32_t) n))
             ex_set_mem(e);
     }
 
@@ -324,7 +324,7 @@ static int index__index_raw(
     if (index__numeric(query, statement, &idx, source->n, e))
         goto done;
 
-    query->rval = (ti_val_t *) ti_raw_create(source->data + idx, 1);
+    query->rval = (ti_val_t *) ti_raw_create(source->tp, source->data+idx, 1);
     if (!query->rval)
         ex_set_mem(e);
 
@@ -399,7 +399,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
                 task,
                 chain.name,
                 varr,
-                idx,
+                (uint32_t) idx,
                 1,
                 1))
             ex_set_mem(e);
@@ -422,10 +422,10 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
     if (ti_do_statement(query, statement, e))
         goto fail0;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "expecting an index of type `"TI_VAL_RAW_S"` "
+                "expecting an index of type `"TI_VAL_STR_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
         goto fail0;
@@ -525,10 +525,10 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (ti_do_statement(query, idx_statem, e))
         goto fail0;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "expecting an index of type `"TI_VAL_RAW_S"` "
+                "expecting an index of type `"TI_VAL_STR_S"` "
                 "but got type `%s` instead",
                 ti_val_str(query->rval));
         goto fail0;
@@ -592,7 +592,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
         if (do_assign)
             goto assign_error;
 
@@ -621,16 +621,17 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 : index__get(query, slice->children->node, e);
 
         break;
-    case TI_VAL_WRAP:
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
+    case TI_VAL_BYTES:
     case TI_VAL_BOOL:
-    case TI_VAL_QP:
-    case TI_VAL_REGEX:
-    case TI_VAL_SET:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+    case TI_VAL_FLOAT:
+    case TI_VAL_INT:
+    case TI_VAL_MP:
+    case TI_VAL_NIL:
+    case TI_VAL_REGEX:
+    case TI_VAL_SET:
+    case TI_VAL_WRAP:
         if (do_slice)
             goto slice_error;
         goto index_error;

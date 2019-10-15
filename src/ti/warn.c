@@ -3,8 +3,7 @@
  */
 #include <ti/warn.h>
 #include <ti/proto.h>
-#include <util/qpx.h>
-#include <qpack.h>
+#include <util/mpack.h>
 #include <stdarg.h>
 
 int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
@@ -12,7 +11,8 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
     int rc;
     va_list args;
     ti_pkg_t * pkg;
-    qpx_packer_t * xpkg;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
     if (!ti_stream_is_client(stream))
     {
@@ -24,23 +24,26 @@ int ti_warn(ti_stream_t * stream, ti_warn_enum_t tp, const char * fmt, ...)
         return 0;
     }
 
-    xpkg = qpx_packer_create(1024, 1);
-    if (!xpkg)
+    if (mp_sbuffer_alloc_init(&buffer, 1024, sizeof(ti_pkg_t)))
         return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_map(&xpkg);
-    (void) qp_add_raw(xpkg, (const unsigned char *) "warn_code", 9);
-    (void) qp_add_int(xpkg, tp);
-    (void) qp_add_raw(xpkg, (const unsigned char *) "warn_msg", 8);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "warn_code");
+    msgpack_pack_int8(&pk, tp);
+
+    mp_pack_str(&pk, "warn_msg");
 
     va_start(args, fmt);
-    rc = (qp_add_raw_from_fmt(xpkg, fmt, args) || qp_close_map(xpkg));
+    rc = mp_pack_fmt(&pk, fmt, args);
     va_end(args);
 
     if (rc)
         return -1;
 
-    pkg = qpx_packer_pkg(xpkg, TI_PROTO_CLIENT_WARN);
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WARN, buffer.size);
 
     return ti_stream_write_pkg(stream, pkg);
 }

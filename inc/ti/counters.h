@@ -8,15 +8,15 @@ typedef struct ti_counters_s ti_counters_t;
 
 #include <inttypes.h>
 #include <sys/time.h>
-#include <qpack.h>
 #include <ti/val.h>
+#include <util/mpack.h>
 
 int ti_counters_create(void);
 void ti_counters_destroy(void);
 void ti_counters_reset(void);
 void ti_counters_upd_commit_event(struct timespec * start);
-int ti_counters_to_packer(qp_packer_t ** packer);
-ti_val_t * ti_counters_as_qpval(void);
+int ti_counters_to_pk(msgpack_packer * pk);
+ti_val_t * ti_counters_as_mpval(void);
 
 struct ti_counters_s
 {

@@ -61,17 +61,20 @@ typedef enum
     TI_NODE_STAT_READY
 } ti_node_status_t;
 
+#define TI_NODE_INFO_PK_SZ 128
 
 typedef struct ti_node_s ti_node_t;
 
-#include <uv.h>
+#include <ex.h>
 #include <stdint.h>
-#include <ti/stream.h>
 #include <ti/pkg.h>
 #include <ti/rpkg.h>
-#include <util/imap.h>
+#include <ti/stream.h>
+#include <ti/version.h>
 #include <util/cryptx.h>
-#include <ex.h>
+#include <util/imap.h>
+#include <util/mpack.h>
+#include <uv.h>
 
 struct ti_node_s
 {
@@ -119,8 +122,23 @@ int ti_node_upd_addr_from_stream(
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 int ti_node_connect(ti_node_t * node, ex_t * e);
-int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer);
-int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp);
+int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk);
+ti_val_t * ti_node_as_mpval(ti_node_t * node);
+int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up);
 int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);
+
+static inline int ti_node_status_to_pk(ti_node_t * node, msgpack_packer * pk)
+{
+    return -(
+        msgpack_pack_array(pk, 7) ||
+        msgpack_pack_uint64(pk, node->next_thing_id) ||
+        msgpack_pack_uint64(pk, node->cevid) ||
+        msgpack_pack_uint64(pk, node->sevid) ||
+        msgpack_pack_uint8(pk, node->status) ||
+        msgpack_pack_uint8(pk, node->zone) ||
+        msgpack_pack_uint16(pk, node->port) ||
+        msgpack_pack_uint8(pk, TI_VERSION_SYNTAX)
+    );
+}
 
 #endif /* TI_NODE_H_ */

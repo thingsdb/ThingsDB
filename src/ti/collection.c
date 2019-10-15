@@ -2,16 +2,17 @@
  * ti/collection.c
  */
 #include <assert.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
-#include <ti/things.h>
 #include <ti/name.h>
-#include <ti/auth.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/raw.inline.h>
 #include <ti/thing.h>
+#include <ti/things.h>
 #include <ti/procedure.h>
 #include <ti.h>
 #include <util/strx.h>
@@ -32,7 +33,7 @@ ti_collection_t * ti_collection_create(
 
     collection->ref = 1;
     collection->root = NULL;
-    collection->name = ti_raw_create((uchar *) name, n);
+    collection->name = ti_str_create(name, n);
     collection->things = imap_create();
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
@@ -135,18 +136,24 @@ int ti_collection_rename(
     return 0;
 }
 
-ti_val_t * ti_collection_as_qpval(ti_collection_t * collection)
+ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
 {
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(128, 1);
-    if (!packer)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_collection_to_pk(collection, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    raw = ti_collection_to_packer(collection, &packer)
-            ? NULL
-            : ti_raw_from_packer(packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    qp_packer_destroy(packer);
     return (ti_val_t *) raw;
 }
 

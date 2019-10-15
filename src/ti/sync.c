@@ -6,7 +6,7 @@
 #include <ti/proto.h>
 #include <ti.h>
 #include <ti/nodes.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 enum
 {
@@ -96,8 +96,9 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
 
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
 {
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_node_t * node;
-    qp_packer_t * packer;
     ti_pkg_t * pkg;
 
     node = ti_nodes_get_away_or_soon();
@@ -122,16 +123,18 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
-    packer = qpx_packer_create(9, 0);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         return;
     }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_int(packer, ti()->node->cevid + 1);
+    msgpack_pack_uint64(&pk, ti()->node->cevid + 1);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNC);
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_REQ_SYNC, buffer.size);
+
     if (ti_req_create(
             node->stream,
             pkg,

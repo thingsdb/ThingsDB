@@ -1,22 +1,23 @@
 import asyncio
 import logging
-import qpack
+import msgpack
 import weakref
 import random
 from .package import Package
+from .buildin import Buildin
+from .protocol import ON_NODE_STATUS
+from .protocol import ON_WARN
+from .protocol import ON_WATCH_DEL
+from .protocol import ON_WATCH_INI
+from .protocol import ON_WATCH_UPD
+from .protocol import PROTOMAP
 from .protocol import Protocol
 from .protocol import REQ_AUTH
 from .protocol import REQ_QUERY
-from .protocol import REQ_WATCH
 from .protocol import REQ_RUN
-from .protocol import PROTOMAP
+from .protocol import REQ_UNWATCH
+from .protocol import REQ_WATCH
 from .protocol import proto_unkown
-from .protocol import ON_WATCH_INI
-from .protocol import ON_WATCH_UPD
-from .protocol import ON_WATCH_DEL
-from .protocol import ON_NODE_STATUS
-from .protocol import ON_WARN
-from .buildin import Buildin
 from ..convert import convert
 from .events import Events
 
@@ -326,7 +327,8 @@ class Client(Buildin):
         self._pid += 1
         self._pid %= 0x10000  # pid is handled as uint16_t
 
-        data = data if is_bin else b'' if data is None else qpack.packb(data)
+        data = data if is_bin else b'' if data is None else \
+            msgpack.packb(data, use_bin_type=True)
 
         header = Package.st_package.pack(
             len(data),

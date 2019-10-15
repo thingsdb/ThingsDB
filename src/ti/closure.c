@@ -9,8 +9,9 @@
 #include <ti/names.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
-#include <ti/val.inline.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/logger.h>
@@ -105,7 +106,7 @@ fail0:
     return NULL;
 }
 
-static void closure__node_to_buf(cleri_node_t * nd, uchar * buf, size_t * n)
+static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -281,67 +282,37 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_packer(ti_closure_t * closure, qp_packer_t ** packer)
+int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
 {
-    uchar * buf;
+    char * buf;
     size_t n = 0;
     int rc;
     if (!closure__is_unbound(closure))
     {
         return -(
-            qp_add_map(packer) ||
-            qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-            qp_add_raw(
-                    *packer,
-                    (const uchar * ) closure->node->str,
-                    closure->node->len) ||
-            qp_close_map(*packer)
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
+            mp_pack_strn(pk, closure->node->str, closure->node->len)
         );
     }
 
-    buf = ti_closure_uchar(closure, &n);
+    buf = ti_closure_char(closure, &n);
     if (!buf)
         return -1;
 
     rc = -(
-        qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-        qp_add_raw(*packer, buf, n) ||
-        qp_close_map(*packer)
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
+        mp_pack_strn(pk, buf, n)
     );
 
     free(buf);
     return rc;
 }
 
-int ti_closure_to_file(ti_closure_t * closure, FILE * f)
+char * ti_closure_char(ti_closure_t * closure, size_t * n)
 {
-    uchar * buf;
-    size_t n = 0;
-    int rc;
-    if (!closure__is_unbound(closure))
-    {
-        return -(
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-            qp_fadd_raw(f, (const uchar * ) closure->node->str, closure->node->len)
-        );
-    }
-    buf = ti_closure_uchar(closure, &n);
-    if (!buf)
-        return -1;
-    rc = -(
-        qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) TI_KIND_S_CLOSURE, 1) ||
-        qp_fadd_raw(f, buf, n)
-    );
-    free(buf);
-    return rc;
-}
-
-uchar * ti_closure_uchar(ti_closure_t * closure, size_t * n)
-{
-    uchar * buf;
+    char * buf;
     buf = malloc(closure->node->len);
     if (!buf)
         return NULL;
@@ -526,8 +497,8 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->children->next->node;         /* the choice */
 
     if ((
-            node->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN ||
-            node->cl_obj->gid == CLERI_GID_NAME_OPT_FUNC_ASSIGN
+            node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
+            node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
         ) &&
             node->children->next &&
             node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION)
@@ -555,7 +526,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     {
         /* return comment as doc */
         node = node->children->next->node->children->node;
-        doc = ti_raw_from_strn(node->str, node->len);
+        doc = ti_str_create(node->str, node->len);
         goto done;
     }
 

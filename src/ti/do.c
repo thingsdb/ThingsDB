@@ -292,7 +292,7 @@ static inline int do__upd_prop(
 
 static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_NAME_OPT_FUNC_ASSIGN);
+    assert (nd->cl_obj->gid == CLERI_GID_NAME_OPT_MORE);
     assert (query->rval);
 
     ti_thing_t * thing;
@@ -413,7 +413,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     switch (node->cl_obj->gid)
     {
-    case CLERI_GID_NAME_OPT_FUNC_ASSIGN:
+    case CLERI_GID_NAME_OPT_MORE:
         if (!node->children->next)
         {
             ti_wprop_t wprop;
@@ -655,7 +655,7 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_STRING:
         if (!node->data)
         {
-            node->data = ti_raw_from_ti_string(node->str, node->len);
+            node->data = ti_str_from_ti_string(node->str, node->len);
             if (!node->data)
             {
                 ex_set_mem(e);
@@ -732,6 +732,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     cleri_children_t * child;
     size_t max_props;
+    uintptr_t sz = (uintptr_t) nd->data;
 
     if (query->collection)
     {
@@ -747,7 +748,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         max_props = TI_QUOTA_NOT_SET;
     }
 
-    thing = ti_thing_o_create(0, query->collection);
+    thing = ti_thing_o_create(0, sz, query->collection);
     if (!thing)
         goto alloc_err;
 
@@ -805,6 +806,140 @@ err:
     return e->nr;
 }
 
+static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    /*
+     * Sequence(Name, Sequence('{', List(Sequence(name, ':', scope)), '}')
+     */
+    assert (e->nr == 0);
+
+    cleri_node_t * name_nd = nd                 /* sequence */
+            ->children->node;                   /* name */
+    ti_thing_t * thing;
+    cleri_children_t * child;
+    size_t n;
+    ti_type_t * type;
+    int lock_was_set;
+
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "no types exists in the `%s` scope; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return e->nr;
+    }
+
+    type = ti_types_by_strn(
+            query->collection->types,
+            name_nd->str,
+            name_nd->len);
+    if (!type)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%.*s` is undefined",
+                name_nd->len,
+                name_nd->str);
+        return e->nr;
+    }
+
+    if (ti_quota_things(
+            query->collection->quota,
+            query->collection->things->n,
+            e))
+        return e->nr;
+
+    thing = ti_thing_t_create(0, type, query->collection);
+    if (!thing)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    for (n = type->fields->n; n--;)
+        VEC_push(thing->items, NULL);
+
+    lock_was_set = ti_type_ensure_lock(type);
+
+    child = nd                                  /* sequence (var_opt_more) */
+            ->children->next->node              /* sequence (instance) */
+            ->children->next->node              /* list */
+            ->children;                         /* list items */
+
+    for (n = 0; child; child = child->next->next)
+    {
+        cleri_node_t * name_nd;
+        cleri_node_t * scope;
+        ti_name_t * name;
+        ti_field_t * field;
+        ti_val_t * val;
+
+        name_nd = child->node                       /* sequence */
+                ->children->node;                   /* name */
+
+        scope = child->node                         /* sequence */
+                ->children->next->next->node;       /* scope */
+
+        name = ti_names_weak_get(name_nd->str, name_nd->len);
+        if (!name)
+            continue;
+
+        field = ti_field_by_name(type, name);
+        if (!field)
+            continue;
+
+        if (    ti_do_statement(query, scope, e) ||
+                ti_field_make_assignable(field, &query->rval, e))
+            goto fail;
+
+        val = vec_get(thing->items, field->idx);
+        if (val)
+            ti_val_drop(val);
+        else
+            ++n;
+        vec_set(thing->items, query->rval, field->idx);
+
+        query->rval = NULL;
+
+        if (!child->next)
+            break;
+    }
+
+    if (n < type->fields->n)
+    {
+        /* fill optional fields or error if required fields are missing */
+        for (vec_each(type->fields, ti_field_t, field))
+        {
+            if (!vec_get(thing->items, field->idx))
+            {
+                if (field->spec & TI_SPEC_NILLABLE)
+                {
+                    vec_set(thing->items, ti_nil_get(), field->idx);
+                }
+                else
+                {
+                    ex_set(e, EX_LOOKUP_ERROR,
+                            "cannot create type `%s`; "
+                            "property `%s` is missing",
+                            type->name,
+                            field->name->str);
+                    goto fail;
+                }
+            }
+        }
+    }
+
+    query->rval = (ti_val_t *) thing;
+    goto done;
+
+fail:
+    ti_val_drop((ti_val_t *) thing);
+
+done:
+    ti_type_unlock(type, lock_was_set);
+    return e->nr;
+}
+
 static inline ti_prop_t * do__get_var(
         ti_query_t * query,
         cleri_node_t * nd,
@@ -852,7 +987,7 @@ static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_FUNC_ASSIGN);
+    assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_MORE);
     assert (query->rval == NULL);
     assert (!ti_chain_is_set(&query->chain));
 
@@ -963,7 +1098,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__immutable(query, nd, e))
             return e->nr;
         break;
-    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+    case CLERI_GID_VAR_OPT_MORE:
         if (!nd->children->next)
         {
             if (do__var(query, nd->children->node, e))
@@ -983,6 +1118,10 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             /* nothing is possible after assign since it ends with a scope */
             goto nots;
+        case CLERI_GID_INSTANCE:
+            if (do__instance(query, nd, e))
+                return e->nr;
+            break;
         default:
             assert (0);
             return -1;

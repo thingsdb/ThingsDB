@@ -6,14 +6,16 @@
 
 typedef struct ti_wrap_s  ti_wrap_t;
 
+#include <inttypes.h>
 #include <ti/thing.h>
+#include <util/mpack.h>
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id);
 void ti_wrap_destroy(ti_wrap_t * wrap);
 int ti__wrap_field_thing(
         uint16_t spec,
         ti_thing_t * thing,
-        qp_packer_t ** pckr,
+        msgpack_packer * pk,
         int options);
 
 struct ti_wrap_s

@@ -1,21 +1,18 @@
 /*
  * syncpart.c
  */
-#include <util/syncpart.h>
-#include <util/logger.h>
 #include <errno.h>
 #include <ex.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <util/logger.h>
+#include <util/syncpart.h>
 
 /*
  * Returns 0 if the file is complete, 1 if more data is available and -1 on
  * error.
  */
-int syncpart_to_packer(
-        qp_packer_t * packer,
-        const char * fn,
-        off_t offset)
+int syncpart_to_pk(msgpack_packer * pk, const char * fn, off_t offset)
 {
     int more;
     size_t sz;
@@ -69,7 +66,7 @@ int syncpart_to_packer(
         goto fail2;
     }
 
-    more = qp_add_raw(packer, buff, sz) ? -1 : (size_t) restsz != sz;
+    more = mp_pack_bin(pk, buff, sz) ? -1 : (size_t) restsz != sz;
     free(buff);
     return more;
 

@@ -12,10 +12,14 @@ static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
+    /* TODO: this could be improved by returning pre-cached type names for
+     *       at least all common types; and optionally add pre-cache to
+     *       a type too.
+     */
     type_str = ti_val_str(query->rval);
     ti_val_drop(query->rval);
 
-    query->rval = (ti_val_t *) ti_raw_from_strn(type_str, strlen(type_str));
+    query->rval = (ti_val_t *) ti_str_create(type_str, strlen(type_str));
     if (!query->rval)
         ex_set_mem(e);
 

@@ -27,12 +27,16 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_thing(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_RAW:
         return ti_val_is_raw(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_STR:
+        return ti_val_is_str(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_UTF8:
-        return !ti_val_is_raw(val)
+        return !ti_val_is_str(val)
             ? TI_SPEC_RVAL_TYPE_ERROR
             : strx_is_utf8n(
                 (const char *) ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n) ? 0 : TI_SPEC_RVAL_UTF8_ERROR;
+    case TI_SPEC_BYTES:
+        return ti_val_is_bytes(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_INT:
         return ti_val_is_int(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_UINT:
@@ -74,14 +78,18 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_thing(val);
     case TI_SPEC_RAW:
         return ti_val_is_raw(val);
+    case TI_SPEC_STR:
+        return ti_val_is_str(val);
     case TI_SPEC_UTF8:
-        return !ti_val_is_raw(val)
+        return !ti_val_is_str(val)
             ? false
             : strx_is_utf8n(
                 (const char *) ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
+    case TI_SPEC_BYTES:
+        return ti_val_is_bytes(val);
     case TI_SPEC_INT:
-        return ti_val_is_int(val);;
+        return ti_val_is_int(val);
     case TI_SPEC_UINT:
         return !ti_val_is_int(val)
             ? false
@@ -114,8 +122,10 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     {
     case TI_SPEC_ANY:           return "any";
     case TI_SPEC_OBJECT:        return TI_VAL_THING_S;
-    case TI_SPEC_RAW:
-    case TI_SPEC_UTF8:          return TI_VAL_RAW_S;
+    case TI_SPEC_RAW:           return TI_VAL_RAW_S;
+    case TI_SPEC_STR:
+    case TI_SPEC_UTF8:          return TI_VAL_STR_S;
+    case TI_SPEC_BYTES:         return TI_VAL_BYTES_S;
     case TI_SPEC_INT:
     case TI_SPEC_UINT:          return TI_VAL_INT_S;
     case TI_SPEC_FLOAT:         return TI_VAL_FLOAT_S;
@@ -147,18 +157,28 @@ ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)
                 ? TI_SPEC_MOD_SUCCESS
                 : TI_SPEC_MOD_ERR;
     case TI_SPEC_RAW:
-        return ospec == TI_SPEC_RAW || ospec == TI_SPEC_UTF8
-                ? TI_SPEC_MOD_SUCCESS
-                : TI_SPEC_MOD_ERR;
+        return (
+            ospec == TI_SPEC_RAW ||
+            ospec == TI_SPEC_STR ||
+            ospec == TI_SPEC_UTF8 ||
+            ospec == TI_SPEC_BYTES
+        ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+    case TI_SPEC_STR:
+        return (
+            ospec == TI_SPEC_STR ||
+            ospec == TI_SPEC_UTF8
+        )? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
     case TI_SPEC_UINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_INT:
-        return ospec == TI_SPEC_INT || ospec == TI_SPEC_UINT
-                ? TI_SPEC_MOD_SUCCESS
-                : TI_SPEC_MOD_ERR;
+        return (
+            ospec == TI_SPEC_INT ||
+            ospec == TI_SPEC_UINT
+        ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_NUMBER:
         return (
             ospec == TI_SPEC_NUMBER ||

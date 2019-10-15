@@ -9,7 +9,7 @@
 #include <ti/node.h>
 #include <ti/rpkg.h>
 #include <util/vec.h>
-#include <qpack.h>
+#include <util/mpack.h>
 
 typedef struct ti_nodes_s ti_nodes_t;
 
@@ -21,8 +21,8 @@ int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg);
-int ti_nodes_to_packer(qp_packer_t ** packer);
-int ti_nodes_from_qpres(qp_res_t * qpnodes);
+int ti_nodes_to_pk(msgpack_packer * pk);
+int ti_nodes_from_up(mp_unp_t * up);
 _Bool ti_nodes_ignore_sync(void);
 _Bool ti_nodes_require_sync(void);
 int ti_nodes_check_add(ex_t * e);
@@ -43,8 +43,7 @@ ti_node_t * ti_nodes_get_away_or_soon(void);
 ti_node_t * ti_nodes_random_ready_node(void);
 void ti_nodes_set_not_ready_err(ex_t * e);
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
-int ti_nodes_info_to_packer(qp_packer_t ** packer);
-ti_val_t * ti_nodes_info_as_qpval(void);
+ti_varr_t * ti_nodes_info(void);
 int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e);
 
 struct ti_nodes_s

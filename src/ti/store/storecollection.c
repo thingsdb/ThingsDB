@@ -7,12 +7,12 @@
 #include <stdlib.h>
 #include <ti/store/storecollection.h>
 
-static const char * collection___access_fn     = "access.qp";
+static const char * collection___access_fn     = "access.mp";
 static const char * collection___dat_fn        = "collection.dat";
-static const char * collection___procedures_fn = "procedures.qp";
-static const char * collection___props_fn      = "props.qp";
-static const char * collection___things_fn     = "things.dat";
-static const char * collection___types_fn      = "types.qp";
+static const char * collection___procedures_fn = "procedures.mp";
+static const char * collection___props_fn      = "props.mp";
+static const char * collection___things_fn     = "things.mp";
+static const char * collection___types_fn      = "types.mp";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,

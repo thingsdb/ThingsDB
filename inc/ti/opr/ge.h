@@ -21,9 +21,10 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_BOOL:
             bool_ = OPR__INT(a) >= OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -48,9 +49,10 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_BOOL:
             bool_ = OPR__FLOAT(a) >= OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -75,9 +77,10 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_BOOL:
             bool_ = OPR__BOOL(a) >= OPR__BOOL(*b);
             break;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -88,9 +91,10 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto type_err;
         }
         break;
-    case TI_VAL_QP:
+    case TI_VAL_MP:
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
         switch ((ti_val_enum) (*b)->tp)
         {
         case TI_VAL_NIL:
@@ -98,9 +102,10 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
             goto type_err;
-        case TI_VAL_QP:
+        case TI_VAL_MP:
         case TI_VAL_NAME:
-        case TI_VAL_RAW:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
             bool_ = ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) *b) >= 0;
             break;
         case TI_VAL_REGEX:

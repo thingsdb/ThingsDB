@@ -18,8 +18,5 @@ static int do__f_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    if (ti_val_convert_to_str(&query->rval))
-        ex_set_mem(e);
-
-    return e->nr;
+    return ti_val_convert_to_str(&query->rval, e);
 }

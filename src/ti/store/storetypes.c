@@ -2,156 +2,118 @@
  * ti/store/types.h
  */
 #include <assert.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <ti.h>
+#include <ti/field.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
 #include <ti/type.h>
 #include <ti/types.inline.h>
-#include <ti/field.h>
-#include <unistd.h>
 #include <util/fx.h>
+#include <util/mpack.h>
 
-static int rmtype_cb(const uchar * name, size_t n, void * data, FILE * f)
+static int rmtype_cb(
+        const uchar * name,
+        size_t n,
+        void * data,
+        msgpack_packer * pk)
 {
     uintptr_t type_id = (uintptr_t) data;
-    return qp_fadd_raw(f, name, n) || qp_fadd_int(f, (intptr_t) type_id);
+    return mp_pack_strn(pk, name, n) || msgpack_pack_uint64(pk, type_id);
+}
+
+static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
+{
+    uintptr_t p;
+    if (msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, type->type_id) ||
+        mp_pack_strn(pk, type->name, type->name_n) ||
+        msgpack_pack_map(pk, type->fields->n)
+    ) return -1;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        p = (uintptr_t) field->name;
+        if (msgpack_pack_uint64(pk, p) ||
+            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+        ) return -1;
+    }
+
+    return 0;
 }
 
 int ti_store_types_store(ti_types_t * types, const char * fn)
 {
-    intptr_t p;
-    int rc = -1;
-    vec_t * vtypes;
-    FILE * f = fopen(fn, "w");
+    msgpack_packer pk;
     char namebuf[TI_TYPE_NAME_MAX];
-
+    FILE * f = fopen(fn, "w");
     if (!f)
     {
         log_error("cannot open file `%s` (%s)", fn, strerror(errno));
         return -1;
     }
 
-    vtypes = imap_vec(types->imap);
-    if (!vtypes)
-    {
-        log_critical(EX_MEMORY_S);
-        goto stop;
-    }
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (qp_fadd_type(f, QP_ARRAY_OPEN) ||
-        qp_fadd_type(f, QP_MAP_OPEN) ||
-        smap_items(types->removed, namebuf, (smap_item_cb) rmtype_cb, f) ||
-        qp_fadd_type(f, QP_MAP_CLOSE))
-        goto stop;
+    if (msgpack_pack_map(&pk, 2) ||
+        /* removed types */
+        mp_pack_str(&pk, "removed") ||
+        msgpack_pack_map(&pk, types->removed->n) ||
+        smap_items(types->removed, namebuf, (smap_item_cb) rmtype_cb, &pk) ||
+        /* active types */
+        mp_pack_str(&pk, "types") ||
+        msgpack_pack_array(&pk, types->imap->n) ||
+        imap_walk(types->imap, (imap_cb) mktype_cb, &pk)
+    ) goto fail;
 
-    for (vec_each(vtypes, ti_type_t, type))
-    {
-        if (qp_fadd_type(f, QP_ARRAY_OPEN) ||
-            qp_fadd_int(f, type->type_id) ||
-            qp_fadd_raw(f, (const uchar *) type->name, type->name_n) ||
-            qp_fadd_type(f, QP_MAP_OPEN))
-            goto stop;
-
-        for (vec_each(type->fields, ti_field_t, field))
-        {
-            p = (intptr_t) field->name;
-            if (qp_fadd_int(f, p) ||
-                qp_fadd_raw(f, field->spec_raw->data, field->spec_raw->n))
-            goto stop;
-        }
-
-        if (qp_fadd_type(f, QP_MAP_CLOSE) ||
-            qp_fadd_type(f, QP_ARRAY_CLOSE))
-            goto stop;
-    }
-
-    if (qp_fadd_type(f, QP_ARRAY_CLOSE))
-        goto stop;
-
-    rc = 0;
-stop:
-    if (rc)
-        log_error("save failed: %s", fn);
-
+    log_debug("stored types to file: `%s`", fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", fn);
+done:
     if (fclose(f))
     {
         log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
+        return -1;
     }
-
-    if (!rc)
-        log_debug("stored properties data to file: `%s`", fn);
-
-    return rc;
+    return 0;
 }
-
 
 int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 {
-    const uchar * keep;
+    const char * types_position;
     char namebuf[TI_TYPE_NAME_MAX+1];
     int rc = -1;
-    int pagesize = getpagesize();
+    fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name;
     ti_type_t * type;
-    qp_obj_t qp_type_id, qp_type_name, qp_field_name_id, qp_field_spec;
-    struct stat st;
-    ssize_t size;
+    size_t i, ii;
     uint16_t type_id;
     uintptr_t utype_id;
-    uchar * data;
-    ssize_t mapsz;
-    qp_unpacker_t unp;
-    qp_types_t tp;
-    int fd = open(fn, O_RDONLY);
-    if (fd < 0)
-    {
-        log_critical("cannot open file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    ti_raw_t * spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    mp_unp_t up;
+
+    fx_mmap_init(&fmap, fn);
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
         goto fail0;
-    }
 
-    if (fstat(fd, &st) < 0)
+    mp_unp_init(&up, fmap.data, fmap.n);
+
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_STR ||
+        mp_next(&up, &obj) != MP_MAP
+    ) goto fail1;
+
+    for (i = obj.via.sz; i--;)
     {
-        log_critical("unable to get file statistics: `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
+        if (mp_next(&up, &mp_name) != MP_STR ||
+            mp_next(&up, &mp_id) != MP_U64
+        ) goto fail1;
 
-    size = st.st_size;
-    size += pagesize - size % pagesize;
-    data = (uchar *) mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED)
-    {
-        log_critical("unable to memory map file `%s` (%s)",
-                fn, strerror(errno));
-        goto fail1;
-    }
-
-    qp_unpacker_init(&unp, data, size);
-
-    if (!qp_is_array(qp_next(&unp, NULL)) ||
-        !qp_is_map(qp_next(&unp, NULL)))
-        goto fail2;
-
-
-    tp = qp_next(&unp, &qp_type_name);
-
-    while (qp_is_raw(tp))
-    {
-        if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
-            qp_type_name.len > TI_TYPE_NAME_MAX)
-            goto fail2;
-
-        type_id = (uint16_t) qp_type_id.via.int64;
+        type_id = (uint16_t) mp_id.via.u64;
         utype_id = (uintptr_t) type_id;
 
         /*
@@ -162,127 +124,85 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         if (type_id >= types->next_id)
             types->next_id = type_id + 1;
 
-        memcpy(namebuf, qp_type_name.via.raw, qp_type_name.len);
-        namebuf[qp_type_name.len] = '\0';
+        memcpy(namebuf, mp_name.via.str.data, mp_name.via.str.n);
+        namebuf[mp_name.via.str.n] = '\0';
 
         (void) smap_add(types->removed, namebuf, (void *) utype_id);
-
-        tp = qp_next(&unp, &qp_type_name);
     }
 
-    if (qp_is_close(tp))
-        tp = qp_next(&unp, NULL);
+    if (mp_skip(&up) != MP_STR ||     /* types key */
+        mp_next(&up, &obj) != MP_ARR
+    ) goto fail1;
 
-    keep = unp.pt - 1;  /* keep the start point at the begin of types */
+    types_position = up.pt;
 
-    while (qp_is_array(tp))
+    for (i = obj.via.sz; i--;)
     {
-        if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
-            !qp_is_raw(qp_next(&unp, &qp_type_name)))
-            goto fail2;
-        qp_skip(&unp); /* skip the map */
-
-        type_id = (uint16_t) qp_type_id.via.int64;
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+            mp_next(&up, &mp_id) != MP_U64 ||
+            mp_next(&up, &mp_name) != MP_STR ||
+            mp_skip(&up) != MP_MAP
+        ) goto fail1;
 
         if (!ti_type_create(
                 types,
-                type_id,
-                (const char *) qp_type_name.via.raw,
-                qp_type_name.len))
+                mp_id.via.u64,
+                mp_name.via.str.data,
+                mp_name.via.str.n))
         {
             log_critical("cannot create type `%.*s`",
-                    (int) qp_type_name.len,
-                    (const char *) qp_type_name.via.raw);
-            goto fail2;
+                    (int) mp_name.via.str.n,
+                    mp_name.via.str.data);
+            goto fail1;
         }
-
-        tp = qp_next(&unp, NULL);
-        if (qp_is_close(tp))
-            tp = qp_next(&unp, NULL);
     }
 
-    unp.pt = keep;
+    /* restore unpacker to types start */
+    up.pt = types_position;
 
-    tp = qp_next(&unp, NULL);
-
-    while (qp_is_array(tp))
+    for (i = types->imap->n; i--;)
     {
-        if (!qp_is_int(qp_next(&unp, &qp_type_id)) ||
-            !qp_is_raw(qp_next(&unp, NULL)))
-        {
-            log_critical("expecting an `int` and `raw` value in data");
-            goto fail2;
-        }
-        type_id = (uint16_t) qp_type_id.via.int64;
-        type = ti_types_by_id(types, type_id);
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+            mp_next(&up, &mp_id) != MP_U64 ||
+            mp_skip(&up) != MP_STR ||
+            mp_next(&up, &obj) != MP_MAP
+        ) goto fail1;
 
+        type = ti_types_by_id(types, mp_id.via.u64);
         assert (type);
 
-        mapsz = qp_next(&unp, NULL);
-
-        if (!qp_is_map(mapsz))
+        for (ii = obj.via.sz; ii--;)
         {
-            log_critical("expecting a map");
-            goto fail2;
-        }
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_spec) != MP_STR
+            ) goto fail1;
 
-        mapsz = mapsz == QP_MAP_OPEN ? -1 : mapsz - QP_MAP0;
-
-        while (mapsz--)
-        {
-            uint64_t name_id;
-            ti_raw_t * spec;
-            if (qp_is_close(qp_next(&unp, &qp_field_name_id)))
-                break;
-
-            if (!qp_is_int(qp_field_name_id.tp) ||
-                !qp_is_raw(qp_next(&unp, &qp_field_spec)))
-            {
-                log_critical("expecting an `int` and `raw` value in data");
-                goto fail2;
-            }
-
-            name_id = (uint64_t) qp_field_name_id.via.int64;
-
-            name = imap_get(names, name_id);
+            name = imap_get(names, mp_id.via.u64);
             if (!name)
-            {
-                log_critical("cannot find name with id: %"PRIu64, name_id);
-                goto fail2;
-            }
+                goto fail1;
 
-            spec = ti_raw_create(qp_field_spec.via.raw, qp_field_spec.len);
+            spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
             if (!spec)
-                goto fail2;
-
+                goto fail1;
 
             if (!ti_field_create(name, spec, type, &e))
             {
                 log_critical(e.msg);
-                goto fail2;
+                goto fail1;
             }
 
             ti_decref(spec);
         }
-
-        tp = qp_next(&unp, NULL);
-        if (qp_is_close(tp))
-            tp = qp_next(&unp, NULL);
     }
 
     rc = 0;
 
-fail2:
-    if (munmap(data, size))
-        log_error("memory unmap failed: `%s` (%s)", fn, strerror(errno));
 fail1:
-    if (close(fd))
-        log_error("cannot close file descriptor `%s` (%s)",
-                fn, strerror(errno));
+    if (fx_mmap_close(&fmap))
+        rc = -1;
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
 
     return rc;
-
 }

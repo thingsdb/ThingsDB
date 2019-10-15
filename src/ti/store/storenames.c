@@ -1,20 +1,19 @@
 /*
  * ti/store/names.c
  */
-#include <qpack.h>
 #include <ti.h>
 #include <ti/names.h>
 #include <ti/store/storenames.h>
 #include <util/fx.h>
 #include <util/logger.h>
 #include <util/smap.h>
+#include <util/mpack.h>
 
-static int names__write_cb(ti_name_t * name, FILE * f);
-
+static inline int names__write_cb(ti_name_t * name, msgpack_packer * pk);
 
 int ti_store_names_store(const char * fn)
 {
-    int rc;
+    msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -22,56 +21,59 @@ int ti_store_names_store(const char * fn)
         return -1;
     }
 
-    rc = (
-        qp_fadd_type(f, QP_ARRAY_OPEN) ||
-        smap_values(ti()->names, (smap_val_cb) names__write_cb, f)
-    );
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (rc)
-        log_error("error writing to file `%s`", fn);
+    if (
+        msgpack_pack_array(&pk, ti()->names->n) ||
+        smap_values(ti()->names, (smap_val_cb) names__write_cb, &pk)
+    ) goto fail;
 
+    log_debug("stored names to file: `%s`", fn);
+    goto done;
+fail:
+    log_error("failed to write file: `%s`", fn);
+done:
     if (fclose(f))
     {
         log_error("cannot close file `%s` (%s)", fn, strerror(errno));
-        rc = -1;
+        return -1;
     }
-
-    if (rc == 0)
-        log_debug("stored names to file: `%s`", fn);
-
-    return rc;
+    return 0;
 }
 
 imap_t * ti_store_names_restore(const char * fn)
 {
-    ssize_t sz;
-    qp_unpacker_t unpacker;
-    qp_obj_t qpiptr, qpname;
-    uchar * data = fx_read(fn, &sz);
+    size_t i;
+    ssize_t n;
+    mp_obj_t obj, mp_uintptr, mp_name;
+    mp_unp_t up;
+    ti_name_t * name;
     imap_t * namesmap = imap_create();
+    uchar * data = fx_read(fn, &n);
     if (!data || !namesmap)
-        goto failed;
+        goto fail;
 
-    qp_unpacker_init2(&unpacker, data, (size_t) sz, 0);
-    if (!qp_is_array(qp_next(&unpacker, NULL)))
-        goto failed;
+    mp_unp_init(&up, data, (size_t) n);
 
-    while (qp_is_array(qp_next(&unpacker, NULL)))
+    if (mp_next(&up, &obj) != MP_ARR)
+        goto fail;
+
+    for (i = obj.via.sz; i--;)
     {
-        ti_name_t * name;
-        if (    !qp_is_int(qp_next(&unpacker, &qpiptr)) ||
-                !qp_is_raw(qp_next(&unpacker, &qpname)))
-            goto failed;
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(&up, &mp_uintptr) != MP_U64 ||
+            mp_next(&up, &mp_name) != MP_STR
+        ) goto fail;
 
-        name = ti_names_get((char *) qpname.via.raw, qpname.len);
-        if (!name || imap_add(namesmap, (uint64_t) qpiptr.via.int64, name))
-            goto failed;
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name || imap_add(namesmap, mp_uintptr.via.u64, name))
+            goto fail;
     }
 
     goto done;
 
-failed:
-    log_critical("failed to restore from file: `%s`", fn);
+fail:
+    log_critical("failed to restore names from file: `%s`", fn);
     imap_destroy(namesmap, NULL);
     namesmap = NULL;
 done:
@@ -79,12 +81,12 @@ done:
     return namesmap;
 }
 
-static int names__write_cb(ti_name_t * name, FILE * f)
+static inline int names__write_cb(ti_name_t * name, msgpack_packer * pk)
 {
-    intptr_t p = (intptr_t) name;
+    uintptr_t p = (uintptr_t) name;
     return name->str[0] == '$' ? 0 : (
-        qp_fadd_type(f, QP_ARRAY2) ||
-        qp_fadd_int(f, p) ||
-        qp_fadd_raw(f, (const uchar *) name->str, name->n)
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_uint64(pk, p) ||
+        mp_pack_strn(pk, name->str, name->n)
     );
 }

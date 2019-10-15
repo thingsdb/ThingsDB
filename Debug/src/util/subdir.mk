@@ -16,7 +16,6 @@ C_SRCS += \
 ../src/util/lock.c \
 ../src/util/logger.c \
 ../src/util/omap.c \
-../src/util/qpx.c \
 ../src/util/queue.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
@@ -37,7 +36,6 @@ OBJS += \
 ./src/util/lock.o \
 ./src/util/logger.o \
 ./src/util/omap.o \
-./src/util/qpx.o \
 ./src/util/queue.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
@@ -58,7 +56,6 @@ C_DEPS += \
 ./src/util/lock.d \
 ./src/util/logger.d \
 ./src/util/omap.d \
-./src/util/qpx.d \
 ./src/util/queue.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
@@ -71,7 +68,7 @@ C_DEPS += \
 src/util/%.o: ../src/util/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=gnu11 -I../inc -O0 -g3 -Wall -Wextra -Winline -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -I../inc -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

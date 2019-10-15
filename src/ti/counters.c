@@ -62,53 +62,71 @@ void ti_counters_upd_commit_event(struct timespec * start)
     counters->total_event_duration += duration;
 }
 
-int ti_counters_to_packer(qp_packer_t ** packer)
+int ti_counters_to_pk(msgpack_packer * pk)
 {
     return -(
-        qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, "queries_success") ||
-        qp_add_int(*packer, counters->queries_success) ||
-        qp_add_raw_from_str(*packer, "queries_with_error") ||
-        qp_add_int(*packer, counters->queries_with_error) ||
-        qp_add_raw_from_str(*packer, "watcher_failed") ||
-        qp_add_int(*packer, counters->watcher_failed) ||
-        qp_add_raw_from_str(*packer, "events_with_gap") ||
-        qp_add_int(*packer, counters->events_with_gap) ||
-        qp_add_raw_from_str(*packer, "events_skipped") ||
-        qp_add_int(*packer, counters->events_skipped) ||
-        qp_add_raw_from_str(*packer, "events_failed") ||
-        qp_add_int(*packer, counters->events_failed) ||
-        qp_add_raw_from_str(*packer, "events_killed") ||
-        qp_add_int(*packer, counters->events_killed) ||
-        qp_add_raw_from_str(*packer, "events_committed") ||
-        qp_add_int(*packer, counters->events_committed) ||
-        qp_add_raw_from_str(*packer, "events_quorum_lost") ||
-        qp_add_int(*packer, counters->events_quorum_lost) ||
-        qp_add_raw_from_str(*packer, "events_unaligned") ||
-        qp_add_int(*packer, counters->events_unaligned) ||
-        qp_add_raw_from_str(*packer, "garbage_collected") ||
-        qp_add_int(*packer, counters->garbage_collected) ||
-        qp_add_raw_from_str(*packer, "longest_event_duration") ||
-        qp_add_double(*packer, counters->longest_event_duration) ||
-        qp_add_raw_from_str(*packer, "average_event_duration") ||
-        qp_add_double(*packer, counters->events_committed
+        msgpack_pack_map(pk, 13) ||
+
+        mp_pack_str(pk, "queries_success") ||
+        msgpack_pack_uint64(pk, counters->queries_success) ||
+
+        mp_pack_str(pk, "queries_with_error") ||
+        msgpack_pack_uint64(pk, counters->queries_with_error) ||
+
+        mp_pack_str(pk, "watcher_failed") ||
+        msgpack_pack_uint16(pk, counters->watcher_failed) ||
+
+        mp_pack_str(pk, "events_with_gap") ||
+        msgpack_pack_uint64(pk, counters->events_with_gap) ||
+
+        mp_pack_str(pk, "events_skipped") ||
+        msgpack_pack_uint64(pk, counters->events_skipped) ||
+
+        mp_pack_str(pk, "events_failed") ||
+        msgpack_pack_uint64(pk, counters->events_failed) ||
+
+        mp_pack_str(pk, "events_killed") ||
+        msgpack_pack_uint64(pk, counters->events_killed) ||
+
+        mp_pack_str(pk, "events_committed") ||
+        msgpack_pack_uint64(pk, counters->events_committed) ||
+
+        mp_pack_str(pk, "events_quorum_lost") ||
+        msgpack_pack_uint64(pk, counters->events_quorum_lost) ||
+
+        mp_pack_str(pk, "events_unaligned") ||
+        msgpack_pack_uint64(pk, counters->events_unaligned) ||
+
+        mp_pack_str(pk, "garbage_collected") ||
+        msgpack_pack_uint64(pk, counters->garbage_collected) ||
+
+        mp_pack_str(pk, "longest_event_duration") ||
+        msgpack_pack_double(pk, counters->longest_event_duration) ||
+
+        mp_pack_str(pk, "average_event_duration") ||
+        msgpack_pack_double(pk, counters->events_committed
             ? counters->total_event_duration / counters->events_committed
-            : 0.0f) ||
-        qp_close_map(*packer)
+            : 0.0f)
     );
 }
 
-ti_val_t * ti_counters_as_qpval(void)
+ti_val_t * ti_counters_as_mpval(void)
 {
     ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(512, 1);
-    if (!packer)
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_counters_to_pk(&pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    raw = ti_counters_to_packer(&packer)
-            ? NULL
-            : ti_raw_from_packer(packer);
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    qp_packer_destroy(packer);
     return (ti_val_t *) raw;
 }

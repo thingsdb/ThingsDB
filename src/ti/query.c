@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <langdef/nd.h>
 #include <langdef/translate.h>
-#include <qpack.h>
 #include <stdlib.h>
 #include <ti/closure.h>
 #include <ti.h>
@@ -19,7 +18,6 @@
 #include <ti/nil.h>
 #include <ti/task.h>
 #include <ti/data.h>
-#include <util/qpx.h>
 #include <util/strx.h>
 
 /*
@@ -28,50 +26,43 @@
  */
 static ti_epkg_t * query__epkg_event(ti_query_t * query)
 {
+    size_t init_buffer_sz = 40;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
-    qpx_packer_t * packer;
-    size_t sz = 24;
     vec_t * tasks = query->ev->_tasks;
 
     for (vec_each(tasks, ti_task_t, task))
-        sz += task->approx_sz;
+        init_buffer_sz += task->approx_sz;
 
-    /* nest size 3 is sufficient since jobs are already raw */
-    packer = qpx_packer_create(sz, 3);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, init_buffer_sz, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_map(&packer);
+    msgpack_pack_map(&pk, 1);
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, query->ev->id);
-    /* store `no tasks` as scope 0, this will save space and a lookup */
-    (void) qp_add_int(packer, tasks->n && query->collection
+    /* key */
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, query->ev->id);
+    msgpack_pack_uint64(&pk, tasks->n && query->collection
             ? query->collection->root->id
             : 0);
-    (void) qp_close_array(packer);
 
-    (void) qp_add_map(&packer);
-
-    /* reset iterator */
+    /* value */
+    msgpack_pack_map(&pk, tasks->n);
     for (vec_each(tasks, ti_task_t, task))
     {
-        (void) qp_add_int(packer, task->thing->id);
-        (void) qp_add_array(&packer);
+        msgpack_pack_uint64(&pk, task->thing->id);
+        msgpack_pack_array(&pk, task->jobs->n);
         for (vec_each(task->jobs, ti_data_t, data))
-            (void) qp_add_qp(packer, data->data, data->n);
-        (void) qp_close_array(packer);
+            mp_pack_append(&pk, data->data, data->n);
     }
-    (void) qp_close_map(packer);
-    (void) qp_close_map(packer);
 
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
 
-    assert(packer->nest_sz == 3);
-
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_EVENT);
-
-    assert(pkg->n <= sz);
+    assert(pkg->n <= init_buffer_sz);
 
     epkg = ti_epkg_create(pkg, query->ev->id);
     if (!epkg)
@@ -237,14 +228,15 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
+static int query__args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
 {
-    qp_obj_t qp_key;
+    size_t i, n;
+    mp_obj_t obj, mp_key;
     ti_name_t * name;
     ti_prop_t * prop;
     ti_val_t * argval;
 
-    if (!qp_is_map(qp_next(unp, NULL)))
+    if (mp_next(vup->up, &obj) != MP_MAP)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have an "
@@ -252,9 +244,10 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         return e->nr;
     }
 
-    while (qp_is_raw(qp_next(unp, &qp_key)))
+    for (i = 0, n = obj.via.sz; i < n; ++i)
     {
-        if (!ti_name_is_valid_strn((const char *) qp_key.via.raw, qp_key.len))
+        if (mp_next(vup->up, &mp_key) != MP_STR ||
+            !ti_name_is_valid_strn(mp_key.via.str.data, mp_key.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
                     "each argument name in a `query` request "
@@ -262,14 +255,14 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
             return e->nr;
         }
 
-        name = ti_names_get((const char *) qp_key.via.raw, qp_key.len);
+        name = ti_names_get(mp_key.via.str.data, mp_key.via.str.n);
         if (!name)
         {
             ex_set_mem(e);
             return e->nr;
         }
 
-        argval = ti_val_from_unp_e(unp, query->collection, e);
+        argval = ti_val_from_unp_e(vup, e);
         if (!argval)
         {
             assert (e->nr);
@@ -295,73 +288,75 @@ static int query__args(ti_query_t * query, qp_unpacker_t * unp, ex_t * e)
         }
     }
 
-    if (!qp_is_close(qp_key.tp))
-        ex_set(e, EX_BAD_DATA, "unexpected data in `query` request"DOC_QUERY);
-
-    return e->nr;
+    return 0;
 }
 
 int ti_query_unpack(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e)
 {
     assert (e->nr == 0);
-
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_query;
+    mp_obj_t obj, mp_query;
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
 
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
 
-    qp_next(&unpacker, NULL);  /* array */
-    qp_next(&unpacker, NULL);  /* scope */
-
-    if (!qp_is_raw(qp_next(&unpacker, &qp_query)))
+    if (obj.via.sz < 2 || mp_next(&up, &mp_query) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `query` request to have a "
-                "second value of type `raw`"DOC_QUERY);
+                "second value of type `"TI_VAL_STR_S"`"DOC_QUERY);
         return e->nr;
     }
 
     if (query__set_scope(query, scope, e))
         return e->nr;
 
-    query->querystr = qpx_obj_raw_to_str(&qp_query);
+    query->querystr = mp_strdup(&mp_query);
     if (!query->querystr)
     {
         ex_set_mem(e);
         return e->nr;
     }
 
-    if (qp_is_close(qp_next(&unpacker, NULL)))
-        return 0;  /* success, no extra arguments */
-
-    --unpacker.pt; /* reset to map */
-    return query__args(query, &unpacker, e);
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = query->collection,
+            .up = &up,
+    };
+    return obj.via.sz == 2 ? 0 : query__args(query, &vup, e);
 }
-
 
 int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e)
 {
     vec_t * procedures = NULL;
-    ti_collection_t * collection = NULL;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_procedure;
+    mp_obj_t obj, mp_procedure;
     ti_procedure_t * procedure;
     ti_val_t * argval;
-    size_t idx = 0;
+    size_t nargs, idx = 0;
+
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
+
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = NULL,
+            .up = &up,
+    };
 
     assert (e->nr == 0);
     assert (query->val_cache == NULL);
@@ -369,18 +364,18 @@ int ti_query_unp_run(
     query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
     query->syntax.pkg_id = pkg_id;
 
-    qp_unpacker_init2(&unpacker, data, n, TI_VAL_UNP_FROM_CLIENT);
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
 
-    qp_next(&unpacker, NULL);  /* array */
-    qp_next(&unpacker, NULL);  /* scope */
-
-    if (!qp_is_raw(qp_next(&unpacker, &qp_procedure)))
+    if (obj.via.sz < 2 || mp_next(&up, &mp_procedure) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the array in a `run` request to have a "
-                "second value of type `raw`"DOC_PROCEDURES_API);
+                "second value of type `"TI_VAL_STR_S"`"DOC_PROCEDURES_API);
         return e->nr;
     }
+
+    nargs = obj.via.sz - 2;
 
     switch (scope->tp)
     {
@@ -392,27 +387,40 @@ int ti_query_unp_run(
     case TI_SCOPE_THINGSDB:
         query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
         procedures = ti()->procedures;
-        collection = NULL;
+        vup.collection = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
     case TI_SCOPE_COLLECTION_ID:
         if (query__set_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
-        collection = query->collection;
+        vup.collection = query->collection;
         break;
     }
 
     procedure = ti_procedures_by_strn(
             procedures,
-            (const char *) qp_procedure.via.raw,
-            qp_procedure.len);
+            mp_procedure.via.str.data,
+            mp_procedure.via.str.n);
 
     if (!procedure)
     {
         ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` not found",
-                (int) qp_procedure.len,
-                (char *) qp_procedure.via.raw);
+                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.data);
+        return e->nr;
+    }
+
+    if (nargs != procedure->closure->vars->n)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+            "procedure `%.*s` takes %"PRIu32" argument%s but %d %s given",
+            (int) mp_procedure.via.str.n,
+            mp_procedure.via.str.data,
+            procedure->closure->vars->n,
+            procedure->closure->vars->n == 1 ? "" : "s",
+            nargs,
+            nargs==1 ? "was" : "were");
         return e->nr;
     }
 
@@ -428,26 +436,17 @@ int ti_query_unp_run(
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
     {
-        argval = ti_val_from_unp_e(&unpacker, collection, e);
+        argval = ti_val_from_unp_e(&vup, e);
         if (!argval)
         {
             assert (e->nr);
             ex_append(e, " (argument %zu for procedure `%.*s`)",
                 idx,
-                (int) qp_procedure.len,
-                (char *) qp_procedure.via.raw);
+                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.data);
             return e->nr;
         }
         VEC_push(query->val_cache, argval);
-    }
-
-    if (!qp_is_close(qp_next(&unpacker, NULL)))
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "too much arguments for procedure `%.*s`",
-            (int) qp_procedure.len,
-            (char *) qp_procedure.via.raw);
-        return e->nr;
     }
 
     query->closure = procedure->closure;
@@ -573,38 +572,37 @@ stop:
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
-    qpx_packer_t * packer;
-    size_t alloc_sz = 65536;
-    size_t nest_sz = query->syntax.deep + 2;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t alloc = 24;
+
     if (e->nr)
         goto pkg_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc_sz, &nest_sz);
+    ti_val_may_change_pack_sz(query->rval, &alloc);
 
-    packer = qpx_packer_create(alloc_sz, nest_sz);
-    if (!packer)
-        goto alloc_err;
-
-    if (ti_val_to_packer(query->rval, &packer, query->syntax.deep))
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
     {
-        /* TODO: create node config help, size in config etc.
-            ex_set(e, EX_TOO_LARGE,
-                    "result too large; "
-                    "modify your query or increase the maximum result size");
-        */
-        goto alloc_err;
+        ex_set_mem(e);
+        goto pkg_err;
+    }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_pk(query->rval, &pk, (int) query->syntax.deep))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        ex_set_mem(e);
+        goto pkg_err;
     }
 
     ++ti()->counters->queries_success;
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_RES_QUERY);
-    pkg->id = query->syntax.pkg_id;
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg,
+            query->syntax.pkg_id,
+            TI_PROTO_CLIENT_RES_QUERY,
+            buffer.size);
 
     goto finish;
-
-alloc_err:
-    if (packer)
-        qp_packer_destroy(packer);
-    ex_set_mem(e);
 
 pkg_err:
     ++ti()->counters->queries_with_error;

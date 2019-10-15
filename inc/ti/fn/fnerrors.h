@@ -27,11 +27,11 @@ static int do__make_err(
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead%s",
+            "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
             fn_name, ti_val_str(query->rval), fn_doc);
         return e->nr;
     }

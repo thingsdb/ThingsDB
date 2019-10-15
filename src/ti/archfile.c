@@ -12,10 +12,10 @@
 #include <util/util.h>
 
 /*
- * Archive file format: < hex_first_event >_< hex_last_event >.qp
+ * Archive file format: < hex_first_event >_< hex_last_event >.mp
  * Both the first and last event are inclusive inside the file.
  */
-#define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".qp"
+#define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".mp"
 /*
  * Archive file length (exclusive a terminator character).
  */
@@ -112,6 +112,6 @@ _Bool ti_archfile_is_valid_fn(const char * fn)
         if (!isxdigit(*fn))
             return false;
 
-    /* should end with `qp` extension */
-    return strcmp(fn, ".qp") == 0;
+    /* should end with `mp` extension */
+    return strcmp(fn, ".mp") == 0;
 }

@@ -21,7 +21,7 @@ ti_rpkg_t * ti_watch_rpkg(
         uint64_t thing_id,
         uint64_t event_id,
         const unsigned char * jobs,
-        size_t n);
+        size_t size);
 
 struct ti_watch_s
 {

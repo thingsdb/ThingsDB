@@ -146,19 +146,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `assert` expects argument 2 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('assert(false, nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
-            await client.query(
-                'assert(false, blob);',
-                blob=pickle.dumps({}))
-
-        with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `assert` expects argument 2 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'assert(false, blob);',
                 blob=pickle.dumps({}))
@@ -173,12 +167,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `assert_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('assert_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `assert_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'assert_err(blob);',
                 blob=pickle.dumps({}))
@@ -201,12 +196,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `auth_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('auth_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `auth_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'auth_err(blob);',
                 blob=pickle.dumps({}))
@@ -229,12 +225,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `bad_data_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('bad_data_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `bad_data_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'bad_data_err(blob);',
                 blob=pickle.dumps({}))
@@ -330,7 +327,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `contains` expects argument 1 to be of '
-                r'type `raw` but got type `int` instead'):
+                r'type `str` but got type `int` instead'):
             await client.query('"Hi World!".contains(1);')
 
         self.assertTrue(await client.query(r'''
@@ -377,7 +374,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `raw` has no function `del`'):
+                'type `str` has no function `del`'):
             await client.query('.greet.del("x");')
 
         with self.assertRaisesRegex(
@@ -393,7 +390,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `del` expects argument 1 to be of type `raw` '
+                r'function `del` expects argument 1 to be of type `str` '
                 r'but got type `nil` instead'):
             await client.query('.del(nil);')
 
@@ -424,7 +421,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `endswith` expects argument 1 to be of '
-                r'type `raw` but got type `int` instead'):
+                r'type `str` but got type `int` instead'):
             await client.query('"Hi World!".endswith(1);')
 
         self.assertTrue(await client.query('"Hi World!".endswith("")'))
@@ -661,12 +658,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `forbidden_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('forbidden_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `forbidden_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'forbidden_err(blob);',
                 blob=pickle.dumps({}))
@@ -755,7 +753,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `has` expects argument 1 to be of '
-                r'type `raw` but got type `int` instead'):
+                r'type `str` but got type `int` instead'):
             await client.query('.has(.id());')
 
         self.assertTrue(await client.query('.has("x");'))
@@ -820,12 +818,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `lookup_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('lookup_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `lookup_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'lookup_err(blob);',
                 blob=pickle.dumps({}))
@@ -1257,12 +1256,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `max_quota_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('max_quota_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `max_quota_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'max_quota_err(blob);',
                 blob=pickle.dumps({}))
@@ -1285,12 +1285,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `node_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('node_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `node_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'node_err(blob);',
                 blob=pickle.dumps({}))
@@ -1326,12 +1327,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `overflow_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('overflow_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `overflow_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'overflow_err(blob);',
                 blob=pickle.dumps({}))
@@ -1433,7 +1435,7 @@ class TestCollectionFunctions(TestBase):
     async def test_refs(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `raw` has no function `refs`'):
+                'type `str` has no function `refs`'):
             await client.query('"".refs();')
 
         with self.assertRaisesRegex(
@@ -1632,7 +1634,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `set` expects argument 1 to be of '
-                r'type `raw` but got type `nil` instead'):
+                r'type `str` but got type `nil` instead'):
             await client.query('.set(nil, nil);')
 
         with self.assertRaisesRegex(
@@ -1710,7 +1712,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                '`<` not supported between `raw` and `int`'):
+                '`<` not supported between `str` and `int`'):
             await client.query('["a", 1].sort();')
 
         with self.assertRaisesRegex(
@@ -1816,7 +1818,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `startswith` expects argument 1 to be of '
-                r'type `raw` but got type `list` instead'):
+                r'type `str` but got type `list` instead'):
             await client.query('"Hi World!".startswith([]);')
 
         self.assertTrue(await client.query('"Hi World!".startswith("")'))
@@ -1847,9 +1849,21 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('str("abc");'), "abc")
         self.assertEqual(await client.query('str("");'), "")
         self.assertEqual(await client.query('str(/.*/i);'), "/.*/i")
-        self.assertEqual(await client.query('str([]);'), "<array>")
-        self.assertEqual(await client.query(r'str({});'), "<thing>")
-        self.assertEqual(await client.query('str(||nil);'), "<closure>")
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `list` to `str`'):
+            await client.query('str([]);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `thing` to `str`'):
+            await client.query('str({});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `closure` to `str`'):
+            await client.query('str(||nil);')
 
     async def test_syntax_err(self, client):
         with self.assertRaisesRegex(
@@ -1861,12 +1875,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `syntax_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('syntax_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `syntax_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'syntax_err(blob);',
                 blob=pickle.dumps({}))
@@ -1893,7 +1908,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `test` expects argument 1 to be of '
-                r'type `regex` but got type `raw` instead'):
+                r'type `regex` but got type `str` instead'):
             await client.query('"".test("abc");')
 
         self.assertTrue(await client.query(r'"".test(//);'))
@@ -1962,7 +1977,7 @@ class TestCollectionFunctions(TestBase):
     async def test_type(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `raw` has no function `type`'):
+                'type `str` has no function `type`'):
             await client.query('"".type();')
 
         with self.assertRaisesRegex(
@@ -1974,7 +1989,8 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('type(true);'), "bool")
         self.assertEqual(await client.query('type(1);'), "int")
         self.assertEqual(await client.query('type(0.0);'), "float")
-        self.assertEqual(await client.query('type("Hi");'), "raw")
+        self.assertEqual(await client.query('type("Hi");'), "str")
+        self.assertEqual(await client.query('type(bytes("Hi"));'), "bytes")
         self.assertEqual(await client.query('type([]);'), "list")
         self.assertEqual(await client.query('type([[]][0]);'), "tuple")
         self.assertEqual(await client.query(r'type({});'), "thing")
@@ -2048,12 +2064,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `zero_div_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('zero_div_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `zero_div_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'zero_div_err(blob);',
                 blob=pickle.dumps({}))
@@ -2076,12 +2093,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `value_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('value_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `value_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'value_err(blob);',
                 blob=pickle.dumps({}))
@@ -2106,12 +2124,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `type_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('type_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `type_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'type_err(blob);',
                 blob=pickle.dumps({}))
@@ -2134,12 +2153,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `num_arguments_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('num_arguments_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `num_arguments_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'num_arguments_err(blob);',
                 blob=pickle.dumps({}))
@@ -2162,12 +2182,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `operation_err` expects argument 1 to be of '
-                'type `raw` but got type `nil` instead'):
+                'type `str` but got type `nil` instead'):
             await client.query('operation_err(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                'error messages must have valid UTF8 encoding'):
+                TypeError,
+                'function `operation_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
             await client.query(
                 'operation_err(blob);',
                 blob=pickle.dumps({}))

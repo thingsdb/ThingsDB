@@ -4,9 +4,9 @@
 #ifndef TI_RJOB_H_
 #define TI_RJOB_H_
 
-#include <qpack.h>
+#include <util/mpack.h>
 #include <ti/event.h>
 
-int ti_rjob_run(ti_event_t * ev, qp_unpacker_t * unp);
+int ti_rjob_run(ti_event_t * ev,  mp_unp_t * up);
 
 #endif  /* TI_RJOB_H_ */

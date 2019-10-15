@@ -25,14 +25,14 @@
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/tcp.h>
-#include <ti/val.h>
 #include <ti/users.h>
+#include <ti/val.h>
 #include <unistd.h>
 #include <util/logger.h>
+#include <util/mpack.h>
 #include <util/smap.h>
 #include <util/vec.h>
 #include <uv.h>
-#include <qpack.h>
 
 #define ti_term(signum__) do {\
     if (signum__ != SIGINT) log_critical("raise at: %s:%d,%s (%s)", \
@@ -68,13 +68,13 @@ ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
-int ti_node_to_packer(qp_packer_t ** packer);
-ti_val_t * ti_node_as_qpval(void);
+int ti_this_node_to_pk(msgpack_packer * pk);
+ti_val_t * ti_this_node_as_mpval(void);
 static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline const char * ti_name(void);
-static inline int ti_to_packer(qp_packer_t ** packer);
+static inline int ti_to_pk(msgpack_packer * pk);
 
 struct ti_s
 {
@@ -136,19 +136,22 @@ static inline const char * ti_name(void)
     return ti_.hostname;
 }
 
-static inline int ti_to_packer(qp_packer_t ** packer)
+static inline int ti_to_pk(msgpack_packer * pk)
 {
     return -(
-        qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, "schema") ||
-        qp_add_int(*packer, TI_FN_SCHEMA) ||
-        qp_add_raw_from_str(*packer, "event_id") ||
-        qp_add_int(*packer, ti_.last_event_id) ||
-        qp_add_raw_from_str(*packer, "next_node_id") ||
-        qp_add_int(*packer, ti_.nodes->next_id) ||
-        qp_add_raw_from_str(*packer, "nodes") ||
-        ti_nodes_to_packer(packer) ||
-        qp_close_map(*packer)
+        msgpack_pack_map(pk, 4) ||
+
+        mp_pack_str(pk, "schema") ||
+        msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||
+
+        mp_pack_str(pk, "event_id") ||
+        msgpack_pack_uint64(pk, ti_.last_event_id) ||
+
+        mp_pack_str(pk, "next_node_id") ||
+        msgpack_pack_uint64(pk, ti_.nodes->next_id) ||
+
+        mp_pack_str(pk, "nodes") ||
+        ti_nodes_to_pk(pk)
     );
 }
 

@@ -7,23 +7,27 @@
 typedef struct ti_thing_s  ti_thing_t;
 
 #include <assert.h>
-#include <qpack.h>
 #include <stdint.h>
-#include <ti/name.h>
-#include <ti/val.h>
-#include <ti/raw.h>
-#include <ti/prop.h>
-#include <ti/wprop.h>
-#include <ti/watch.h>
 #include <ti/collection.h>
-#include <ti/stream.h>
-#include <ti/spec.h>
-#include <ti/type.h>
 #include <ti/field.h>
-#include <util/vec.h>
+#include <ti/name.h>
+#include <ti/prop.h>
+#include <ti/raw.h>
+#include <ti/spec.h>
+#include <ti/stream.h>
+#include <ti/type.h>
+#include <ti/val.h>
+#include <ti/vup.h>
+#include <ti/watch.h>
+#include <ti/wprop.h>
 #include <util/imap.h>
+#include <util/mpack.h>
+#include <util/vec.h>
 
-ti_thing_t * ti_thing_o_create(uint64_t id, ti_collection_t * collection);
+ti_thing_t * ti_thing_o_create(
+        uint64_t id,
+        size_t init_sz,
+        ti_collection_t * collection);
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,
@@ -32,15 +36,10 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 int ti_thing_props_from_unp(
         ti_thing_t * thing,
-        ti_collection_t * collection,
-        qp_unpacker_t * unp,
-        ssize_t sz,
+        ti_vup_t * vup,
+        size_t sz,
         ex_t * e);
-ti_thing_t * ti_thing_new_from_unp(
-        qp_unpacker_t * unp,
-        ti_collection_t * collection,
-        ssize_t sz,
-        ex_t * e);
+ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e);
 ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
@@ -62,8 +61,8 @@ int ti_thing_get_by_raw_e(
 int ti_thing_gen_id(ti_thing_t * thing);
 ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing__to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
-int ti_thing_t_to_packer(ti_thing_t * thing, qp_packer_t ** pckr, int options);
+int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 int ti_thing_o_set_val_from_strn(
         ti_wprop_t * wprop,
@@ -113,23 +112,13 @@ static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
     return thing->watchers && ti__thing_has_watchers_(thing);
 }
 
-static inline int ti_thing_id_to_packer(
-        ti_thing_t * thing,
-        qp_packer_t ** packer)
+static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
-    return (qp_add_map(packer) ||
-            (thing->id && (
-                    qp_add_raw(*packer, (const uchar *) TI_KIND_S_THING, 1) ||
-                    qp_add_int(*packer, thing->id))) ||
-            qp_close_map(*packer));
-}
-
-static inline int ti_thing_id_to_file(ti_thing_t * thing, FILE * f)
-{
-    return (
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_fadd_int(f, thing->id)
+    return -(msgpack_pack_map(pk, !!thing->id) ||
+        (thing->id && (
+            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(pk, thing->id)
+        ))
     );
 }
 

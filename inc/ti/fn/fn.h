@@ -22,6 +22,7 @@
 #include <ti/opr.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/scope.h>
 #include <ti/syntax.h>
@@ -157,17 +158,17 @@ static inline int fn_nargs_range(
     ) ? e->nr : 0;
 }
 
-static inline int fn_arg_raw(
+static inline int fn_arg_str(
         const char * name,
         const char * doc,
         int argn,
         ti_val_t * val,
         ex_t * e)
 {
-    if (!ti_val_is_raw(val))
+    if (!ti_val_is_str(val))
 
         ex_set(e, EX_TYPE_ERROR,
-            "function `%s` expects argument %d to be of type `"TI_VAL_RAW_S"` "
+            "function `%s` expects argument %d to be of type `"TI_VAL_STR_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;
@@ -180,7 +181,7 @@ static inline int fn_arg_name_check(
         ti_val_t * val,
         ex_t * e)
 {
-    if (fn_arg_raw(name, doc, argn, val, e))
+    if (fn_arg_str(name, doc, argn, val, e))
         return e->nr;
     if (!ti_name_is_valid_strn(
             (const char *) ((ti_raw_t *) val)->data,

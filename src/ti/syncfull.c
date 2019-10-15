@@ -3,20 +3,19 @@
  */
 #include <assert.h>
 #include <errno.h>
-#include <qpack.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/collection.h>
 #include <ti/proto.h>
 #include <ti/req.h>
-#include <ti/store/storecollection.h>
 #include <ti/store.h>
+#include <ti/store/storecollection.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
-#include <util/qpx.h>
 #include <util/fx.h>
+#include <util/mpack.h>
 #include <util/syncpart.h>
 
 typedef enum
@@ -151,42 +150,49 @@ static ti_pkg_t * syncfull__pkg(
         syncfull__file_t ft,
         off_t offset)
 {
+    ti_pkg_t * pkg;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     int more;
     char * fn;
-    qpx_packer_t * packer = qpx_packer_create(48 + SYNCPART_SIZE, 1);
-    if (!packer)
-        return NULL;
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, scope_id);    /* scope */
-    (void) qp_add_int(packer, ft);          /* file type */
-    (void) qp_add_int(packer, offset);      /* offset in file */
+    if (mp_sbuffer_alloc_init(&buffer, 64 + SYNCPART_SIZE, sizeof(ti_pkg_t)))
+        return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 5);
+
+    msgpack_pack_uint64(&pk, scope_id);    /* scope */
+    msgpack_pack_uint8(&pk, ft);           /* file type */
+    msgpack_pack_fix_int64(&pk, offset);   /* offset in file */
 
     fn = syncfull__get_fn(scope_id, ft);
     if (!fn)
         goto failed;
 
-    more = syncpart_to_packer(packer, fn, offset);
+    more = syncpart_to_pk(&pk, fn, offset);
     free(fn);
     if (more < 0)
         goto failed;
 
-    (void) qp_add_bool(packer, (_Bool) more);
-    (void) qp_close_array(packer);
+    mp_pack_bool(&pk, (_Bool) more);
 
-    return qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_SYNCFPART);
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_REQ_SYNCFPART, buffer.size);
+
+    return pkg;
 
 failed:
-    qp_packer_destroy(packer);
+    msgpack_sbuffer_destroy(&buffer);
     return NULL;
 }
 
 static void syncfull__push_cb(ti_req_t * req, ex_enum status)
 {
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * pkg = req->pkg_res;
     ti_pkg_t * next_pkg;
-    qp_obj_t qp_scope, qp_ft, qp_offset;
+    mp_obj_t obj, mp_scope, mp_ft, mp_offset;
     uint64_t scope_id;
     syncfull__file_t ft;
     off_t offset;
@@ -206,20 +212,20 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_scope)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_ft)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_offset)))
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(&up, &mp_scope) != MP_U64 ||
+        mp_next(&up, &mp_ft) != MP_U64 ||
+        mp_next(&up, &mp_offset) != MP_I64)
     {
         log_error("invalid `%s`", ti_proto_str(pkg->tp));
         goto failed;
     }
 
-    scope_id = (uint64_t) qp_scope.via.int64;
-    ft = (syncfull__file_t) qp_ft.via.int64;
-    offset = (off_t) qp_offset.via.int64;
+    scope_id = mp_scope.via.u64;
+    ft = (syncfull__file_t) mp_ft.via.u64;
+    offset = (off_t) mp_offset.via.i64;
 
     if (!offset && !syncfull__next_file(&scope_id, &ft))
     {
@@ -291,31 +297,32 @@ int ti_syncfull_start(ti_stream_t * stream)
 ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
 {
     int rc;
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * resp;
-    qp_obj_t qp_scope, qp_ft, qp_offset, qp_raw, qp_more;
-    qpx_packer_t * packer;
+    mp_obj_t obj, mp_scope, mp_ft, mp_offset, mp_bin, mp_more;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     syncfull__file_t ft;
     off_t offset;
     uint64_t scope_id;
     char * fn;
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_array(qp_next(&unpacker, NULL)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_scope)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_ft)) ||
-        !qp_is_int(qp_next(&unpacker, &qp_offset)) ||
-        !qp_is_raw(qp_next(&unpacker, &qp_raw)) ||
-        !qp_is_bool(qp_next(&unpacker, &qp_more)))
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
+        mp_next(&up, &mp_scope) != MP_U64 ||
+        mp_next(&up, &mp_ft) != MP_U64 ||
+        mp_next(&up, &mp_offset) != MP_I64 ||
+        mp_next(&up, &mp_bin) != MP_BIN ||
+        mp_next(&up, &mp_more) != MP_BOOL)
     {
-        ex_set(e, EX_BAD_DATA, "invalid multipart request");
+        ex_set(e, EX_BAD_DATA, "invalid multipart request (full sync)");
         return NULL;
     }
 
-    scope_id = (uint64_t) qp_scope.via.int64;
-    ft = (syncfull__file_t) qp_ft.via.int64;
-    offset = (off_t) qp_offset.via.int64;
+    scope_id = mp_scope.via.u64;
+    ft = (syncfull__file_t) mp_ft.via.u64;
+    offset = (off_t) mp_offset.via.i64;
 
     if (ft == SYNCFULL__COLLECTION_DAT_FILE)
     {
@@ -348,26 +355,25 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-    rc = syncpart_write(fn, qp_raw.via.raw, qp_raw.len, offset, e);
+    rc = syncpart_write(fn, mp_bin.via.bin.data, mp_bin.via.bin.n, offset, e);
     free(fn);
     if (rc)
         return NULL;
 
-    packer = qpx_packer_create(48 , 1);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
     {
         ex_set_mem(e);
         return NULL;
     }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, qp_scope.via.int64);
-    (void) qp_add_int(packer, qp_ft.via.int64);
-    (void) qp_add_int(packer, qp_is_true(qp_more.tp) ? offset + qp_raw.len : 0);
-    (void) qp_close_array(packer);
+    msgpack_pack_array(&pk, 3);
+    msgpack_pack_uint64(&pk, mp_scope.via.u64);
+    msgpack_pack_uint64(&pk, mp_ft.via.u64);
+    msgpack_pack_fix_int64(&pk, mp_more.via.bool_?offset+mp_bin.via.bin.n:0);
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCFPART);
-    resp->id = pkg->id;
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SYNCFPART, buffer.size);
 
     return resp;
 }

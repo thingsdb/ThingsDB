@@ -27,11 +27,11 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `quota` expects argument 2 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_SET_QUOTA,
+            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_SET_QUOTA,
             ti_val_str(query->rval));
         return e->nr;
     }

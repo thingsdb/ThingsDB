@@ -85,7 +85,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("node_id", node)
         self.assertIn("version", node)
         self.assertIn("syntax_version", node)
-        self.assertIn("libqpack_version", node)
+        self.assertIn("msgpack_version", node)
         self.assertIn("libcleri_version", node)
         self.assertIn("libuv_version", node)
         self.assertIn("libpcre2_version", node)
@@ -114,7 +114,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
         self.assertTrue(isinstance(node["syntax_version"], str))
-        self.assertTrue(isinstance(node["libqpack_version"], str))
+        self.assertTrue(isinstance(node["msgpack_version"], str))
         self.assertTrue(isinstance(node["libcleri_version"], str))
         self.assertTrue(isinstance(node["libuv_version"], str))
         self.assertTrue(isinstance(node["libpcre2_version"], str))
@@ -149,7 +149,7 @@ class TestNodeFunctions(TestBase):
         nodes = await client.query('nodes_info();')
         node = nodes.pop()
 
-        self.assertEqual(len(node), 9)
+        self.assertEqual(len(node), 10)
 
         self.assertIn("address", node)
         self.assertIn("committed_event_id", node)
@@ -160,6 +160,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('stored_event_id', node)
         self.assertIn('syntax_version', node)
         self.assertIn('zone', node)
+        self.assertIn('stream', node)
 
         self.assertTrue(isinstance(node["address"], str))
         self.assertTrue(isinstance(node["committed_event_id"], int))
@@ -170,6 +171,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["stored_event_id"], int))
         self.assertTrue(isinstance(node["syntax_version"], str))
         self.assertTrue(isinstance(node["zone"], int))
+        self.assertIs(node["stream"], None)
 
     async def test_reset_counters(self, client):
         with self.assertRaisesRegex(
@@ -192,7 +194,7 @@ class TestNodeFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `set_log_level` expects argument 1 to be of '
-                r'type `int` but got type `raw` instead'):
+                r'type `int` but got type `str` instead'):
             await client.query('set_log_level("DEBUG");')
 
         prev = (await client.node_info())['log_level']

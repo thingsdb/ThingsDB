@@ -8,6 +8,7 @@
 #include <ti/mapping.h>
 #include <ti/regex.h>
 #include <ti/types.inline.h>
+#include <ti/val.inline.h>
 #include <ti/vbool.h>
 #include <ti/verror.h>
 #include <ti/vfloat.h>
@@ -45,7 +46,7 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
 static int wrap__set(
         ti_vset_t * vset,
         uint16_t * spec,
-        qp_packer_t ** pckr,
+        msgpack_packer * pk,
         _Bool as_set,
         int options)
 {
@@ -54,157 +55,171 @@ static int wrap__set(
         return -1;
 
     if (as_set && (
-            qp_add_map(pckr) ||
-            qp_add_raw(*pckr, (const uchar * ) TI_KIND_S_SET, 1)
-        ))
-        return -1;
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_SET, 1)
+    )) return -1;
 
-    if (qp_add_array(pckr))
+    if (msgpack_pack_array(pk, vec->n))
         return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
         if (ti__wrap_field_thing(
                 *spec,
                 thing,
-                pckr,
-                options))
-            return -1;
-
-    return qp_close_array(*pckr) || (as_set && qp_close_map(*pckr));
+                pk,
+                options)
+        ) return -1;
+    return 0;
 }
 
 static int wrap__field_val(
         ti_field_t * t_field,
         uint16_t * spec,    /* points to t_field->spec or t_field->nested */
         ti_val_t * val,
-        qp_packer_t ** pckr,
+        msgpack_packer * pk,
         int options)
 {
     switch ((ti_val_enum) val->tp)
     {
-    case TI_VAL_NIL:
-        return qp_add_null(*pckr);
-    case TI_VAL_INT:
-        return qp_add_int(*pckr, ((ti_vint_t *) val)->int_);
-    case TI_VAL_FLOAT:
-        return qp_add_double(*pckr, ((ti_vfloat_t *) val)->float_);
-    case TI_VAL_BOOL:
-        return qp_add_bool(*pckr, ((ti_vbool_t *) val)->bool_);
-    case TI_VAL_QP:
-        return qp_add_qp(
-                *pckr,
-                ((ti_raw_t *) val)->data,
-                ((ti_raw_t *) val)->n);
-    case TI_VAL_NAME:
-    case TI_VAL_RAW:
-        return qp_add_raw(
-                *pckr,
-                ((ti_raw_t *) val)->data,
-                ((ti_raw_t *) val)->n);
-    case TI_VAL_REGEX:
-        return ti_regex_to_packer((ti_regex_t *) val, pckr);
+    TI_VAL_PACK_CASE_IMMUTABLE(val, pk, options)
     case TI_VAL_THING:
         return ti__wrap_field_thing(
                 *spec,
                 (ti_thing_t *) val,
-                pckr,
+                pk,
                 options);
     case TI_VAL_WRAP:
         return ti__wrap_field_thing(
                 *spec,
                 ((ti_wrap_t *) val)->thing,
-                pckr,
+                pk,
                 options);
     case TI_VAL_ARR:
-        if (qp_add_array(pckr))
+    {
+        ti_varr_t * varr = (ti_varr_t *) val;
+        if (msgpack_pack_array(pk, varr->vec->n))
             return -1;
-        for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+        for (vec_each(varr->vec, ti_val_t, v))
         {
             if (wrap__field_val(
                     t_field,
                     &t_field->nested_spec,
                     v,
-                    pckr,
+                    pk,
                     options))
                 return -1;
         }
-        return qp_close_array(*pckr);
+        return 0;
+    }
     case TI_VAL_SET:
         return wrap__set(
                 (ti_vset_t *) val,
                 &t_field->nested_spec,
-                pckr,
+                pk,
                 (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_VAL_SET,
                 options);
-    case TI_VAL_CLOSURE:
-        return ti_closure_to_packer((ti_closure_t *) val, pckr);
-    case TI_VAL_ERROR:
-        return ti_verror_to_packer((ti_verror_t *) val, pckr);
     }
 
     assert(0);
     return -1;
 }
 
+static inline int wrap__thing_id_to_pk(
+        ti_thing_t * thing,
+        msgpack_packer * pk,
+        size_t n)
+{
+    if (msgpack_pack_map(pk, (!!thing->id) + n))
+        return -1;
+
+    if (thing->id && (
+            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(pk, thing->id)
+    )) return -1;
+
+    return 0;
+}
+
 /*
- * Do not use directly, use ti_wrap_to_packer() instead
+ * Do not use directly, use ti_wrap_to_pk() instead
  */
 int ti__wrap_field_thing(
         uint16_t spec,
         ti_thing_t * thing,
-        qp_packer_t ** pckr,
+        msgpack_packer * pk,
         int options)
 {
+    assert (options >= 0);
+
     ti_type_t * t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
     assert (thing->tp == TI_VAL_THING);
     assert (spec <= TI_SPEC_OBJECT);
 
-    if (    spec == TI_SPEC_ANY ||
-            spec == TI_SPEC_OBJECT ||
-            !(t_type = ti_types_by_id(thing->collection->types, spec)))
-        return ti_thing_to_packer(thing, pckr, options);
-
-    if (qp_add_map(pckr))
-        return -1;
-
-    if (thing->id && (
-            qp_add_raw(*pckr, (const uchar *) TI_KIND_S_THING, 1) ||
-            qp_add_int(*pckr, thing->id)))
-        return -1;
-
-    if ((thing->flags & TI_VFLAG_LOCK) || !options)
-        goto stop;  /* no nesting */
+    if (spec == TI_SPEC_ANY ||
+        spec == TI_SPEC_OBJECT ||
+        (thing->flags & TI_VFLAG_LOCK) ||
+        !options ||
+        !(t_type = ti_types_by_id(thing->collection->types, spec))
+    ) return ti_thing_to_pk(thing, pk, options);
 
     --options;
-
     thing->flags |= TI_VFLAG_LOCK;
 
     if (ti_thing_is_object(thing))
     {
-        ti_prop_t * prop;
+        typedef struct
+        {
+            ti_field_t * field;
+            ti_prop_t * prop;
+        } map_prop_t;
+        size_t n = ti_min(t_type->fields->n, thing->items->n);
+        map_prop_t * map_props = malloc(sizeof(map_prop_t) * n);
+        map_prop_t * map_set = map_props;
+        map_prop_t * map_get = map_props;
+        if (!map_props)
+            goto fail;
 
+        n = 0;
         for (vec_each(t_type->fields, ti_field_t, t_field))
         {
+            ti_prop_t * prop;
             prop = ti_thing_o_prop_weak_get(thing, t_field->name);
             if (!prop || !ti_field_maps_to_val(t_field, prop->val))
                 continue;
-            if (qp_add_raw(
-                        *pckr,
-                        (const uchar *) prop->name->str,
-                        prop->name->n) ||
+
+            map_set->field = t_field;
+            map_set->prop = prop;
+            ++map_set;
+            ++n;
+        };
+
+        if (wrap__thing_id_to_pk(thing, pk, n))
+        {
+            free(map_props);
+            goto fail;
+        }
+
+        for (;map_get < map_set; ++map_get)
+        {
+            if (mp_pack_strn(
+                    pk,
+                    map_get->prop->name->str,
+                    map_get->prop->name->n) ||
                 wrap__field_val(
-                        t_field,
-                        &t_field->spec,
-                        prop->val,
-                        pckr,
-                        options))
-            {
-                thing->flags &= ~TI_VFLAG_LOCK;
-                return -1;
+                        map_get->field,
+                        &map_get->field->spec,
+                        map_get->prop->val,
+                        pk,
+                        options)
+            ) {
+                free(map_props);
+                goto fail;
             }
         }
+
+        free(map_props);
     }
     else
     {
@@ -212,32 +227,30 @@ int ti__wrap_field_thing(
         ti_type_t * f_type = ti_thing_type(thing);
 
         mappings = ti_type_map(t_type, f_type);
-        if (!mappings)
-            return -1;
+        if (!mappings || wrap__thing_id_to_pk(thing, pk, mappings->n))
+            goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))
         {
-            if (qp_add_raw(
-                        *pckr,
-                        (const uchar *) mapping->f_field->name->str,
+            if (mp_pack_strn(
+                        pk,
+                        mapping->f_field->name->str,
                         mapping->f_field->name->n) ||
                 wrap__field_val(
                         mapping->t_field,
                         &mapping->t_field->spec,
                         vec_get(thing->items, mapping->f_field->idx),
-                        pckr,
-                        options))
-            {
-                thing->flags &= ~TI_VFLAG_LOCK;
-                return -1;
-            }
+                        pk,
+                        options)
+            ) goto fail;
         }
     }
 
     thing->flags &= ~TI_VFLAG_LOCK;
-
-stop:
-    return qp_close_map(*pckr);
+    return 0;
+fail:
+    thing->flags &= ~TI_VFLAG_LOCK;
+    return -1;
 }
 
 

@@ -45,13 +45,13 @@ ti_varr_t * ti_procedures_info(vec_t * procedures)
 
     for (vec_each(procedures, ti_procedure_t, procedure))
     {
-        ti_val_t * qpinfo = ti_procedure_info_as_qpval(procedure);
-        if (!qpinfo)
+        ti_val_t * mpinfo = ti_procedure_as_mpval(procedure);
+        if (!mpinfo)
         {
             ti_val_drop((ti_val_t *) varr);
             return NULL;
         }
-        VEC_push(varr->vec, qpinfo);
+        VEC_push(varr->vec, mpinfo);
     }
     return varr;
 }

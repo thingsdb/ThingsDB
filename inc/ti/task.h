@@ -16,17 +16,17 @@ typedef enum
 typedef struct ti_task_s ti_task_t;
 
 #include <inttypes.h>
-#include <ti/thing.h>
-#include <ti/name.h>
-#include <ti/val.h>
-#include <ti/type.h>
-#include <ti/pkg.h>
 #include <ti/collection.h>
-#include <ti/user.h>
 #include <ti/field.h>
-#include <ti/token.h>
-#include <ti/quota.h>
+#include <ti/name.h>
+#include <ti/pkg.h>
 #include <ti/procedure.h>
+#include <ti/quota.h>
+#include <ti/thing.h>
+#include <ti/token.h>
+#include <ti/type.h>
+#include <ti/user.h>
+#include <ti/val.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
@@ -76,7 +76,6 @@ int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
 int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);
-int ti_task_add_replace_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_revoke(
         ti_task_t * task,
         uint64_t scope_id,
@@ -92,9 +91,9 @@ int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,
         ti_varr_t * varr,       /* array or array-of-things */
-        int64_t i,              /* start at index */
-        int64_t c,              /* number of items to remove */
-        int32_t n);             /* number of items to add */
+        uint32_t i,              /* start at index */
+        uint32_t c,              /* number of items to remove */
+        uint32_t n);             /* number of items to add */
 
 
 struct ti_task_s

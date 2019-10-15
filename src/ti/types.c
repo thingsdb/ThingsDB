@@ -98,40 +98,32 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
     return (uint16_t) utype;
 }
 
-static int types__approx_sz(ti_type_t * type, size_t * approx_sz)
-{
-    *approx_sz += ti_type_approx_pack_sz(type) - 27;
-    return 0;
-}
-
-static int types__pack_sz(ti_type_t * type, qp_packer_t ** packer)
+static int types__pack_sz(ti_type_t * type, msgpack_packer * pk)
 {
     return (
-         qp_add_raw(*packer, (const uchar *) type->name, type->name_n) ||
-         ti_type_fields_to_packer(type, packer)
+         mp_pack_strn(pk, type->name, type->name_n) ||
+         ti_type_fields_to_pk(type, pk)
      );
 }
 
-ti_val_t * ti_types_info_as_qpval(ti_types_t * types)
+ti_val_t * ti_types_as_mpval(ti_types_t * types)
 {
-    ti_raw_t * rtypes = NULL;
-    size_t approx_sz = 0;
-    qp_packer_t * packer;
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
-    (void) imap_walk(types->imap, (imap_cb) types__approx_sz, &approx_sz);
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    packer = qp_packer_create2(approx_sz, 2);
-    if (!packer)
+    if (msgpack_pack_map(&pk, types->imap->n) ||
+        imap_walk(types->imap, (imap_cb) types__pack_sz, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    if (qp_add_map(&packer) ||
-        imap_walk(types->imap, (imap_cb) types__pack_sz, &packer) ||
-        qp_close_map(packer))
-        goto fail;
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    rtypes = ti_raw_from_packer(packer);
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t *) rtypes;
+    return (ti_val_t *) raw;
 }

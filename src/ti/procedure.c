@@ -2,17 +2,18 @@
  * ti/procedure.c
  */
 #include <assert.h>
+#include <ctype.h>
 #include <langdef/langdef.h>
-#include <ti/procedure.h>
+#include <stdlib.h>
+#include <ti/do.h>
 #include <ti/name.h>
 #include <ti/names.h>
-#include <ti/do.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
+#include <ti/procedure.h>
 #include <ti/prop.h>
+#include <ti/raw.inline.h>
 #include <tiinc.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <util/logger.h>
 
 #define PROCEDURE__DEEP_UNSET 255
@@ -60,57 +61,62 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
 {
     if (!procedure->def)
     {
-        uchar * def;
+        char * def;
         size_t n = 0;
-        def = ti_closure_uchar(procedure->closure, &n);
-        if (!def || !(procedure->def = ti_raw_create(def, n)))
+        def = ti_closure_char(procedure->closure, &n);
+        if (!def || !(procedure->def = ti_str_create(def, n)))
             procedure->def = (ti_raw_t *) ti_val_empty_str();
         free(def);
     }
     return procedure->def;
 }
 
-
-int ti_procedure_info_to_packer(
-        ti_procedure_t * procedure,
-        qp_packer_t ** packer)
+int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk)
 {
     ti_raw_t * doc = ti_procedure_doc(procedure);
     ti_raw_t * def = ti_procedure_def(procedure);
 
-    if (qp_add_map(packer) ||
-        qp_add_raw_from_str(*packer, TI_KIND_S_INFO) ||
-        qp_add_raw(*packer, doc->data, doc->n) ||
-        qp_add_raw_from_str(*packer, "name") ||
-        qp_add_raw(*packer, procedure->name->data, procedure->name->n) ||
-        qp_add_raw_from_str(*packer, "definition") ||
-        qp_add_raw(*packer, def->data, def->n) ||
-        qp_add_raw_from_str(*packer, "with_side_effects") ||
-        qp_add_bool(*packer, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
-        qp_add_raw_from_str(*packer, "arguments") ||
-        qp_add_array(packer))
+    if (msgpack_pack_map(pk,  5) ||
+
+        mp_pack_str(pk, "doc") ||
+        mp_pack_strn(pk, doc->data, doc->n) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, procedure->name->data, procedure->name->n) ||
+
+        mp_pack_str(pk, "definition") ||
+        mp_pack_strn(pk, def->data, def->n) ||
+
+        mp_pack_str(pk, "with_side_effects") ||
+        mp_pack_bool(pk, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
+
+        mp_pack_str(pk, "arguments") ||
+        msgpack_pack_array(pk, procedure->closure->vars->n))
         return -1;
 
     for (vec_each(procedure->closure->vars, ti_prop_t, prop))
-        if (qp_add_raw_from_str(*packer, prop->name->str))
+        if (mp_pack_str(pk, prop->name->str))
             return -1;
-
-    return qp_close_array(*packer) || qp_close_map(*packer) ? -1 : 0;
+    return 0;
 }
 
-ti_val_t * ti_procedure_info_as_qpval(ti_procedure_t * procedure)
+ti_val_t * ti_procedure_as_mpval(ti_procedure_t * procedure)
 {
-    ti_raw_t * rprocedure = NULL;
-    qp_packer_t * packer = qp_packer_create2(256, 3);
-    if (!packer)
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_procedure_info_to_pk(procedure, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
+    }
 
-    if (ti_procedure_info_to_packer(procedure, &packer))
-        goto fail;
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
-    rprocedure = ti_raw_from_packer(packer);
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t * ) rprocedure;
+    return (ti_val_t *) raw;
 }

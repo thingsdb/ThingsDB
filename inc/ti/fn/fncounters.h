@@ -7,7 +7,7 @@ static int do__f_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("counters", DOC_COUNTERS, 0, nargs, e))
         return e->nr;
 
-    query->rval = ti_counters_as_qpval();
+    query->rval = ti_counters_as_mpval();
     if (!query->rval)
         ex_set_mem(e);
 

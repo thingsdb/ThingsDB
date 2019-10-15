@@ -6,7 +6,6 @@
 #include <ti/quota.h>
 
 
-
 ti_quota_t * ti_quota_create(void)
 {
     ti_quota_t * quota = malloc(sizeof(ti_quota_t));
@@ -44,9 +43,11 @@ ti_quota_enum_t ti_qouta_tp_from_strn(const char * str, size_t n, ex_t * e)
     return (ti_quota_enum_t) tp;
 }
 
-int ti_quota_val_to_packer(qp_packer_t * packer, size_t quota)
+/* inlining this function would cause the code size to grow,
+ * even with max 1000 */
+int ti_quota_val_to_pk(msgpack_packer * pk, size_t quota)
 {
     return quota == TI_QUOTA_NOT_SET
-                    ? qp_add_null(packer)
-                    : qp_add_int(packer, quota);
+                    ? msgpack_pack_nil(pk)
+                    : msgpack_pack_uint64(pk, quota);
 }

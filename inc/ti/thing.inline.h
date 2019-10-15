@@ -88,24 +88,24 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
-static inline int ti_thing_to_packer(
+static inline int ti_thing_to_pk(
         ti_thing_t * thing,
-        qp_packer_t ** pckr,
+        msgpack_packer * pk,
         int options)
 {
-    if (options < 0)
+    if (options == TI_VAL_PACK_TASK)
     {
         if (ti_thing_is_new(thing))
         {
             ti_thing_unmark_new(thing);
             return ti_thing_is_object(thing)
-                    ? ti_thing__to_packer(thing, pckr, options)
-                    : ti_thing_t_to_packer(thing, pckr, options);
+                    ? ti_thing__to_pk(thing, pk, options)
+                    : ti_thing_t_to_pk(thing, pk, options);
         }
     }
-    return options > 0
-            ? ti_thing__to_packer(thing, pckr, options)
-            : ti_thing_id_to_packer(thing, pckr);
+    return options <= 0 || (thing->flags & TI_VFLAG_LOCK)
+            ? ti_thing_id_to_pk(thing, pk)
+            : ti_thing__to_pk(thing, pk, options);
 }
 
 #endif  /* TI_THING_INLINE_H_ */

@@ -198,8 +198,10 @@ stop:
     }
 
     ti_destroy();
-
-    log_info("bye");
+    if (rc)
+        log_error("exit with error code %d", rc);
+    else
+        log_info("bye");
     logger_destroy();
 
     return rc;

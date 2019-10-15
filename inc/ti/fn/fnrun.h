@@ -15,11 +15,11 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_do_statement(query, child->node, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `run` expects argument 1 to be of "
-                "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_RUN,
+                "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_RUN,
                 ti_val_str(query->rval));
         return e->nr;
     }

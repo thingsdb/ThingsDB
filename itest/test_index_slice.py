@@ -57,7 +57,7 @@ class TestIndexSlice(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'type `raw` does not support index assignments'):
+                r'type `str` does not support index assignments'):
             await client0.query('.raw[0] = "z";')
 
         with self.assertRaisesRegex(
@@ -81,7 +81,7 @@ class TestIndexSlice(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'expecting an index of type `raw` '
+                r'expecting an index of type `str` '
                 r'but got type `int` instead'):
             await client0.query(f'.ti[4];')
 

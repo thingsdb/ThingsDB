@@ -17,7 +17,7 @@
 #include <ti/version.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 #define NODES__UV_BACKLOG 64
 
@@ -74,20 +74,21 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     assert (stream->via.node == NULL);
 
     ti_pkg_t * resp = NULL;
-    qp_unpacker_t unpacker;
-    qp_obj_t
-        qp_this_node_id,
-        qp_secret,
-        qp_from_node_id,
-        qp_version,
-        qp_min_ver,
-        qp_next_thing_id,
-        qp_cevid,
-        qp_sevid,
-        qp_status,
-        qp_zone,
-        qp_port,
-        qp_syntax_ver;
+    mp_unp_t up;
+    mp_obj_t
+        obj,
+        mp_this_node_id,
+        mp_secret,
+        mp_from_node_id,
+        mp_version,
+        mp_min_ver,
+        mp_next_thing_id,
+        mp_cevid,
+        mp_sevid,
+        mp_status,
+        mp_zone,
+        mp_port,
+        mp_syntax_ver;
 
     uint32_t
         this_node_id,
@@ -102,40 +103,49 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * node, * this_node = ti()->node;
     char * min_ver = NULL;
     char * version = NULL;
-    qpx_packer_t * packer = NULL;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_this_node_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &qp_secret)) ||
-            qp_secret.len != CRYPTX_SZ ||
-            qp_secret.via.raw[qp_secret.len-1] != '\0' ||
-            !qp_is_int(qp_next(&unpacker, &qp_from_node_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &qp_version)) ||
-            !qp_is_raw(qp_next(&unpacker, &qp_min_ver)) ||
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
 
-            !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_next_thing_id)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_cevid)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_sevid)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_status)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_zone)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_port)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_syntax_ver)))
+        mp_next(&up, &mp_this_node_id) != MP_U64 ||
+        mp_next(&up, &mp_secret) != MP_STR ||
+        mp_next(&up, &mp_from_node_id) != MP_U64 ||
+        mp_next(&up, &mp_version) != MP_STR ||
+        mp_next(&up, &mp_min_ver) != MP_STR ||
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 7 ||
+
+        mp_next(&up, &mp_next_thing_id) != MP_U64 ||
+        mp_next(&up, &mp_cevid) != MP_U64 ||
+        mp_next(&up, &mp_sevid) != MP_U64 ||
+        mp_next(&up, &mp_status) != MP_U64 ||
+        mp_next(&up, &mp_zone) != MP_U64 ||
+        mp_next(&up, &mp_port) != MP_U64 ||
+        mp_next(&up, &mp_syntax_ver) != MP_U64)
     {
         log_error(
                 "invalid connection request from `%s`",
                 ti_stream_name(stream));
-        goto failed;
+        return;
     }
 
-    this_node_id = (uint32_t) qp_this_node_id.via.int64;
-    from_node_id = (uint32_t) qp_from_node_id.via.int64;
-    from_node_port = (uint16_t) qp_port.via.int64;
-    from_node_status = (uint8_t) qp_status.via.int64;
-    from_node_zone = (uint8_t) qp_zone.via.int64;
-    from_node_syntax_ver = (uint8_t) qp_syntax_ver.via.int64;
+    if (mp_secret.via.str.n != CRYPTX_SZ ||
+        mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
+    {
+        log_error(
+                "invalid secret in request from `%s`",
+                ti_stream_name(stream));
+        return;
+    }
+
+    this_node_id = (uint32_t) mp_this_node_id.via.u64;
+    from_node_id = (uint32_t) mp_from_node_id.via.u64;
+    from_node_port = (uint16_t) mp_port.via.u64;
+    from_node_status = (uint8_t) mp_status.via.u64;
+    from_node_zone = (uint8_t) mp_zone.via.u64;
+    from_node_syntax_ver = (uint8_t) mp_syntax_ver.via.u64;
 
     if (from_node_id == this_node_id)
     {
@@ -144,16 +154,16 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "with the same source and destination: "TI_NODE_ID,
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        return;
     }
 
-    version = strndup((const char *) qp_version.via.raw, qp_version.len);
-    min_ver = strndup((const char *) qp_min_ver.via.raw, qp_min_ver.len);
+    version = mp_strdup(&mp_version);
+    min_ver = mp_strdup(&mp_min_ver);
 
     if (!version || !min_ver)
     {
         log_critical(EX_MEMORY_S);
-        goto failed;
+        goto fail;
     }
 
     if (ti_version_cmp(version, TI_MINIMAL_VERSION) < 0)
@@ -164,7 +174,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_stream_name(stream),
             version,
             TI_MINIMAL_VERSION);
-        goto failed;
+        goto fail;
     }
 
     if (ti_version_cmp(TI_VERSION, min_ver) < 0)
@@ -175,7 +185,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             ti_stream_name(stream),
             min_ver,
             TI_VERSION);
-        goto failed;
+        goto fail;
     }
 
     if (!ti()->node)
@@ -193,7 +203,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_stream_name(stream),
                 version,
                 TI_VERSION);
-            goto failed;
+            goto fail;
         }
 
         if (ti()->build->status == TI_BUILD_REQ_SETUP)
@@ -202,18 +212,18 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     "ignore connection request from `%s` since this node is ",
                     "busy building ThingsDB",
                     ti_stream_name(stream));
-            goto failed;
+            goto fail;
         }
 
         char validate[CRYPTX_SZ];
 
-        cryptx(ti()->args->secret, (const char *) qp_secret.via.raw, validate);
-        if (memcmp(qp_secret.via.raw, validate, CRYPTX_SZ))
+        cryptx(ti()->args->secret, mp_secret.via.str.data, validate);
+        if (memcmp(mp_secret.via.str.data, validate, CRYPTX_SZ))
         {
             log_error(
                 "connection request received from `%s` with an invalid secret",
                 ti_stream_name(stream));
-            goto failed;
+            goto fail;
         }
 
         (void) ti_build_setup(
@@ -225,22 +235,24 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                 from_node_port,
                 stream);
 
-        packer = qpx_packer_create(128, 1);
-        if (!packer)
+        if (mp_sbuffer_alloc_init(
+                &buffer,
+                TI_NODE_INFO_PK_SZ,
+                sizeof(ti_pkg_t)))
         {
             log_critical(EX_MEMORY_S);
-            goto failed;
+            goto fail;
         }
+        msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-        (void) qp_add_array(&packer);
-        (void) qp_add_int(packer, 0);                       /* next_thing_id */
-        (void) qp_add_int(packer, 0);                       /* cevid */
-        (void) qp_add_int(packer, 0);                       /* sevid */
-        (void) qp_add_int(packer, TI_NODE_STAT_BUILDING);   /* status */
-        (void) qp_add_int(packer, ti()->cfg->zone);         /* zone */
-        (void) qp_add_int(packer, ti()->cfg->node_port);    /* port */
-        (void) qp_add_int(packer, TI_VERSION_SYNTAX);       /* syntax version*/
-        (void) qp_close_array(packer);
+        msgpack_pack_array(&pk, 7);
+        msgpack_pack_uint8(&pk, 0);                       /* next_thing_id */
+        msgpack_pack_uint8(&pk, 0);                       /* cevid */
+        msgpack_pack_uint8(&pk, 0);                       /* sevid */
+        msgpack_pack_uint8(&pk, TI_NODE_STAT_BUILDING);   /* status */
+        msgpack_pack_uint8(&pk, ti()->cfg->zone);         /* zone */
+        msgpack_pack_uint16(&pk, ti()->cfg->node_port);   /* port */
+        msgpack_pack_uint8(&pk, TI_VERSION_SYNTAX);       /* syntax version*/
 
         goto send;
     }
@@ -253,15 +265,15 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             this_node->id,
             ti_stream_name(stream),
             this_node_id);
-        goto failed;
+        goto fail;
     }
 
-    if (memcmp(qp_secret.via.raw, this_node->secret, CRYPTX_SZ))
+    if (memcmp(mp_secret.via.str.data, this_node->secret, CRYPTX_SZ))
     {
         log_error(
             "connection request received from `%s` with an invalid secret",
             ti_stream_name(stream));
-        goto failed;
+        goto fail;
     }
 
     node = ti_nodes_node_by_id(from_node_id);
@@ -272,7 +284,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "because "TI_NODE_ID" is not found",
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        goto fail;
     }
 
     if (node->status > TI_NODE_STAT_CONNECTING)
@@ -282,15 +294,15 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             "because "TI_NODE_ID" is already connected",
             ti_stream_name(stream),
             from_node_id);
-        goto failed;
+        goto fail;
     }
 
     node->status = from_node_status;
     node->zone = from_node_zone;
     node->syntax_ver = from_node_syntax_ver;
-    node->cevid = (uint64_t) qp_cevid.via.int64;
-    node->sevid = (uint64_t) qp_sevid.via.int64;
-    node->next_thing_id = (uint64_t) qp_next_thing_id.via.int64;
+    node->cevid = mp_cevid.via.u64;
+    node->sevid = mp_sevid.via.u64;
+    node->next_thing_id = mp_next_thing_id.via.u64;
 
     ti_nodes_update_syntax_ver(from_node_zone);
 
@@ -305,7 +317,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
                     "with "TI_NODE_ID" is already established",
                     ti_stream_name(stream),
                     node->id);
-            goto failed;
+            goto fail;
         }
 
         assert (node->id > this_node->id);
@@ -328,18 +340,21 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     /* try to update the address and port information if required */
     (void) ti_node_upd_addr_from_stream(node, stream, from_node_port);
 
-    packer = qpx_packer_create(128, 1);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(
+            &buffer,
+            TI_NODE_INFO_PK_SZ,
+            sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
-        goto failed;
+        goto fail;
     }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) ti_node_info_to_packer(this_node, &packer);
+    (void) ti_node_status_to_pk(this_node, &pk);
 
 send:
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_CONNECT);
-    resp->id = pkg->id;
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_CONNECT, buffer.size);
 
     if (ti_stream_write_pkg(stream, resp))
     {
@@ -347,12 +362,7 @@ send:
         log_error(EX_INTERNAL_S);
     }
 
-    goto done;
-
-failed:
-    qpx_packer_destroy(packer);
-
-done:
+fail:
     free(version);
     free(min_ver);
 }
@@ -360,11 +370,11 @@ done:
 static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_event_id;
+    mp_obj_t mp_event_id;
     _Bool accepted;
 
     if (!this_node)
@@ -383,8 +393,9 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
-    if (!qp_is_int(qp_next(&unpacker, &qp_event_id)))
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &mp_event_id) != MP_U64)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -392,9 +403,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_events_slave_req(
-            other_node,
-            (uint64_t) qp_event_id.via.int64);
+    accepted = ti_events_slave_req(other_node, mp_event_id.via.u64);
 
     assert (e.nr == 0);
     resp = ti_pkg_new(
@@ -460,15 +469,14 @@ finish:
 static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
-    uint64_t user_id;
     vec_t * access_;
     ti_user_t * user;
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, orig;
+    mp_obj_t obj, mp_user_id, mp_orig;
     ti_scope_t scope;
 
     if (!other_node)
@@ -487,11 +495,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &orig)))
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(&up, &mp_user_id) != MP_U64 ||
+        mp_next(&up, &mp_orig) != MP_BIN)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid query request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -499,7 +507,11 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e))
+    if (ti_scope_init_packed(
+            &scope,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
+            &e))
         goto finish;
 
     if (scope.tp != TI_SCOPE_NODE &&
@@ -512,15 +524,14 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    user_id = (uint64_t) qp_user_id.via.int64;
-    user = ti_users_get_by_id(user_id);
+    user = ti_users_get_by_id(mp_user_id.via.u64);
 
     if (!user)
     {
         ex_set(&e, EX_LOOKUP_ERROR,
                 "cannot find "TI_USER_ID" which is used by a query from "
                 TI_NODE_ID" to "TI_NODE_ID,
-                user_id, other_node->id, this_node->id);
+                mp_user_id.via.u64, other_node->id, this_node->id);
         goto finish;
     }
 
@@ -531,7 +542,13 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_query_unpack(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
+    if (ti_query_unpack(
+            query,
+            &scope,
+            pkg->id,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
+            &e))
         goto finish;
 
     access_ = ti_query_access(query);
@@ -569,15 +586,14 @@ finish:
 static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
-    uint64_t user_id;
     vec_t * access_;
     ti_user_t * user;
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
-    qp_obj_t qp_user_id, orig;
+    mp_obj_t obj, mp_user_id, mp_orig;
     ti_scope_t scope;
 
     if (!other_node)
@@ -598,11 +614,12 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (    !qp_is_array(qp_next(&unpacker, NULL)) ||
-            !qp_is_int(qp_next(&unpacker, &qp_user_id)) ||
-            !qp_is_raw(qp_next(&unpacker, &orig)))
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(&up, &mp_user_id) != MP_U64 ||
+        mp_next(&up, &mp_orig) != MP_BIN)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid run request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -610,15 +627,13 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    user_id = (uint64_t) qp_user_id.via.int64;
-    user = ti_users_get_by_id(user_id);
-
+    user = ti_users_get_by_id(mp_user_id.via.u64);
     if (!user)
     {
         ex_set(&e, EX_LOOKUP_ERROR,
                 "cannot find "TI_USER_ID" which is used by a call from "
                 TI_NODE_ID" to "TI_NODE_ID,
-                user_id, other_node->id, this_node->id);
+                mp_user_id.via.u64, other_node->id, this_node->id);
         goto finish;
     }
 
@@ -629,8 +644,18 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_scope_init_packed(&scope, orig.via.raw, orig.len, &e) ||
-        ti_query_unp_run(query, &scope, pkg->id, orig.via.raw, orig.len, &e))
+    if (ti_scope_init_packed(
+            &scope,
+            mp_orig.via.bin.data,
+            mp_orig.via.bin.n,
+            &e) ||
+        ti_query_unp_run(
+                query,
+                &scope,
+                pkg->id,
+                mp_orig.via.bin.data,
+                mp_orig.via.bin.n,
+                &e))
         goto finish;
 
     access_ = ti_query_access(query);
@@ -666,7 +691,8 @@ finish:
 static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp;
-    qpx_packer_t * packer;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_node_t * node = stream->via.node;
 
     if (!node)
@@ -677,16 +703,18 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    packer = qpx_packer_create(TI_SAVE_PACK);
-    if (!packer || ti_to_packer(&packer))
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_pkg_t), sizeof(ti_pkg_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_to_pk(&pk))
     {
-        qpx_packer_destroy(packer);
+        msgpack_sbuffer_destroy(&buffer);
         log_critical(EX_MEMORY_S);
         return;
     }
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SETUP);
-    resp->id = pkg->id;
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SETUP, buffer.size);
 
     if (ti_stream_write_pkg(stream, resp))
     {
@@ -700,9 +728,8 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_node_t * node = stream->via.node;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_start;
-    uint64_t start;
+    mp_unp_t up;
+    mp_obj_t mp_start;
 
     if (!node)
     {
@@ -726,9 +753,9 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_int(qp_next(&unpacker, &qp_start)) || qp_start.via.int64 < 0)
+    if (mp_next(&up, &mp_start) != MP_U64)
     {
         log_error(
                 "got an invalid sync request from `%s`",
@@ -737,9 +764,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    start = (uint64_t) qp_start.via.int64;
-
-    if (ti_away_syncer(stream, start))
+    if (ti_away_syncer(stream, mp_start.via.u64))
     {
         ex_set_mem(&e);
         goto finish;
@@ -946,7 +971,7 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
 
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
 
     if (!other_node)
@@ -957,9 +982,9 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (ti_node_info_from_unp(other_node, &unpacker))
+    if (ti_node_status_from_unp(other_node, &up))
     {
         log_error("invalid `%s` from `%s`",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
@@ -1135,71 +1160,62 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
     }
 }
 
-int ti_nodes_to_packer(qp_packer_t ** packer)
+int ti_nodes_to_pk(msgpack_packer * pk)
 {
     vec_t * nodes_vec = imap_vec(nodes->imap);
-    if (qp_add_array(packer))
+    if (msgpack_pack_array(pk, nodes_vec->n))
         return -1;
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
-        if (qp_add_array(packer) ||
-            qp_add_int(*packer, node->id) ||
-            qp_add_int(*packer, node->zone) ||
-            qp_add_int(*packer, node->port) ||
-            qp_add_raw_from_str(*packer, node->addr) ||
-            qp_add_raw(*packer, (const uchar *) node->secret, CRYPTX_SZ) ||
-            qp_close_array(*packer))
-            return -1;
+        if (msgpack_pack_array(pk, 5) ||
+            msgpack_pack_uint32(pk, node->id) ||
+            msgpack_pack_uint8(pk, node->zone) ||
+            msgpack_pack_uint16(pk, node->port) ||
+            mp_pack_str(pk, node->addr) ||
+            mp_pack_strn(pk, node->secret, CRYPTX_SZ)
+        ) return -1;
     }
 
-    return qp_close_array(*packer);
+    return 0;
 }
 
-int ti_nodes_from_qpres(qp_res_t * qpnodes)
+int ti_nodes_from_up(mp_unp_t * up)
 {
-    for (uint32_t i = 0, j = qpnodes->via.array->n; i < j; i++)
+    size_t i;
+    mp_obj_t obj, mp_id, mp_zone, mp_port, mp_addr, mp_secret;
+    if (mp_next(up, &obj) != MP_ARR)
+        return -1;
+
+    for (i = obj.via.sz; i--;)
     {
         char addr[INET6_ADDRSTRLEN];
-        uint32_t id;
-        uint16_t port;
-        uint8_t zone;
-        ti_node_t * node;
-        const char * secret;
-        qp_res_t * qpid, * qpzone, * qpport, * qpaddr, * qpsecret;
-        qp_res_t * qparray = qpnodes->via.array->values + i;
 
-        if (qparray->tp != QP_RES_ARRAY || qparray->via.array->n != 5)
+        if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 5 ||
+
+            mp_next(up, &mp_id) != MP_U64 ||
+            mp_next(up, &mp_zone) != MP_U64 ||
+            mp_next(up, &mp_port) != MP_U64 ||
+            mp_next(up, &mp_addr) != MP_STR ||
+            mp_next(up, &mp_secret) != MP_STR
+        ) return -1;
+
+        if (mp_addr.via.str.n >= INET6_ADDRSTRLEN)
             return -1;
 
-        qpid = qparray->via.array->values + 0;
-        qpzone = qparray->via.array->values + 1;
-        qpport = qparray->via.array->values + 2;
-        qpaddr = qparray->via.array->values + 3;
-        qpsecret = qparray->via.array->values + 4;
-
-        if (    qpid->tp != QP_RES_INT64 ||
-                qpzone->tp != QP_RES_INT64 ||
-                qpport->tp != QP_RES_INT64 ||
-                qpaddr->tp != QP_RES_RAW ||
-                qpaddr->via.raw->n >= INET6_ADDRSTRLEN ||
-                qpsecret->tp != QP_RES_RAW ||
-                qpsecret->via.raw->n != CRYPTX_SZ)
+        if (mp_secret.via.str.n != CRYPTX_SZ)
             return -1;
 
-        id = (uint32_t) qpid->via.int64;
-        zone = (uint8_t) qpzone->via.int64;
-        port = (uint16_t) qpport->via.int64;
+        memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
+        addr[mp_addr.via.str.n] = '\0';
 
-        memcpy(addr, qpaddr->via.raw->data, qpaddr->via.raw->n);
-        addr[qpaddr->via.raw->n] = '\0';
-
-        secret = (const char *) qpsecret->via.raw->data;
-
-        node = ti_nodes_new_node(id, zone, port, addr, secret);
-        if (!node)
-            return -1;
-
+        if (!ti_nodes_new_node(
+                mp_id.via.u64,
+                mp_zone.via.u64,
+                mp_port.via.u64,
+                addr,
+                mp_secret.via.str.data)
+        ) return -1;
     }
     return 0;
 }
@@ -1579,71 +1595,24 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-int ti_nodes_info_to_packer(qp_packer_t ** packer)
+ti_varr_t * ti_nodes_info(void)
 {
-    static char syntax_buf[5]; /* vXXX_ */
-    ti_node_t * this_node = ti()->node;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-
-    if (qp_add_array(packer))
-        return -1;
-
-    for (vec_each(nodes_vec, ti_node_t, node))
-    {
-        (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
-
-        if (qp_add_map(packer) ||
-            qp_add_raw_from_str(*packer, "node_id") ||
-            qp_add_int(*packer, node->id) ||
-            qp_add_raw_from_str(*packer, "syntax_version") ||
-            qp_add_raw_from_str(*packer, syntax_buf) ||
-            qp_add_raw_from_str(*packer, "status") ||
-            qp_add_raw_from_str(*packer, ti_node_status_str(node->status)) ||
-            qp_add_raw_from_str(*packer, "zone") ||
-            qp_add_int(*packer, node->zone) ||
-            qp_add_raw_from_str(*packer, "committed_event_id") ||
-            qp_add_int(*packer, node->cevid) ||
-            qp_add_raw_from_str(*packer, "stored_event_id") ||
-            qp_add_int(*packer, node->sevid) ||
-            qp_add_raw_from_str(*packer, "next_thing_id") ||
-            qp_add_int(*packer, node->next_thing_id) ||
-            qp_add_raw_from_str(*packer, "address") ||
-            qp_add_raw_from_str(
-                    *packer,
-                    node == this_node ? ti_name() : node->addr) ||
-            qp_add_raw_from_str(*packer, "port") ||
-            qp_add_int(*packer, node->port))
-            return -1;
-
-        if (!ti_stream_is_closed(node->stream) && (
-                qp_add_raw_from_str(*packer, "stream") ||
-                qp_add_raw_from_str(*packer, ti_stream_name(node->stream))))
-            return -1;
-
-        if (qp_close_map(*packer))
-            return -1;
-    }
-
-    return qp_close_array(*packer);
-}
-
-ti_val_t * ti_nodes_info_as_qpval(void)
-{
-    ti_raw_t * raw = NULL;
-    qp_packer_t * packer = qp_packer_create2(nodes->imap->n * 144, 2);
-    if (!packer)
+    vec_t * vec = imap_vec(nodes->imap);
+    ti_varr_t * varr = ti_varr_create(vec->n);
+    if (!varr)
         return NULL;
 
-    if (ti_nodes_info_to_packer(&packer))
-        goto fail;
-
-    raw = ti_raw_from_packer(packer);
-    if (!raw)
-        goto fail;
-
-fail:
-    qp_packer_destroy(packer);
-    return (ti_val_t *) raw;
+    for (vec_each(vec, ti_node_t, node))
+    {
+        ti_val_t * mpinfo = ti_node_as_mpval(node);
+        if (!mpinfo)
+        {
+            ti_val_drop((ti_val_t *) varr);
+            return NULL;
+        }
+        VEC_push(varr->vec, mpinfo);
+    }
+    return varr;
 }
 
 int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e)

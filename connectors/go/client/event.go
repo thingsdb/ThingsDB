@@ -1,6 +1,8 @@
 package client
 
-import "github.com/transceptor-technology/go-qpack"
+import (
+	"gopkg.in/vmihailenco/msgpack.v4"
+)
 
 // Event is writting to the client event channel in case of an event
 type Event struct {
@@ -10,7 +12,8 @@ type Event struct {
 
 // newEvent creates a new event
 func newEvent(pkg *pkg) (*Event, error) {
-	result, err := qpack.Unpack(pkg.data, qpack.QpFlagStringKeysOnly)
+	var result interface{}
+	err := msgpack.Unmarshal(pkg.data, &result)
 	if err != nil {
 		return nil, err
 	}

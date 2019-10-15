@@ -12,7 +12,6 @@
 #include <ti/syncevents.h>
 #include <ti.h>
 #include <util/logger.h>
-#include <util/qpx.h>
 #include <util/util.h>
 #include <uv.h>
 

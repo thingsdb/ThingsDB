@@ -12,9 +12,10 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_QP,          /* QPack data */
-    TI_VAL_NAME,        /* RAW, stored in name cache */
-    TI_VAL_RAW,
+    TI_VAL_MP,          /* msgpack data */
+    TI_VAL_NAME,
+    TI_VAL_STR,
+    TI_VAL_BYTES,       /* MP,STR and BIN all use RAW as underlying type */
     TI_VAL_REGEX,
     TI_VAL_THING,
     TI_VAL_WRAP,
@@ -28,8 +29,10 @@ typedef enum
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
 #define TI_VAL_BOOL_S       "bool"
-#define TI_VAL_INFO_S       "info"
 #define TI_VAL_RAW_S        "raw"
+#define TI_VAL_INFO_S       "info"
+#define TI_VAL_STR_S        "str"
+#define TI_VAL_BYTES_S      "bytes"
 #define TI_VAL_REGEX_S      "regex"
 #define TI_VAL_THING_S      "thing"
 #define TI_VAL_ARR_S        "array"
@@ -79,13 +82,9 @@ enum
                                             while searching for things; */
 };
 
-enum
-{
-    TI_VAL_UNP_FROM_CLIENT   =1<<3,      /* used as qpack unpacker flag */
-};
-
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
+#define TI_VAL_PACK_FILE -2
 
 typedef enum
 {
@@ -101,7 +100,6 @@ typedef enum
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
-    TI_KIND_C_INFO      ='?',
     TI_KIND_C_WRAP      ='&',
 } ti_val_kind;
 
@@ -116,10 +114,10 @@ typedef enum
 
 typedef struct ti_val_s ti_val_t;
 
-#include <qpack.h>
 #include <stdint.h>
 #include <tiinc.h>
 #include <ex.h>
+#include <ti/vup.h>
 #include <util/imap.h>
 #include <util/vec.h>
 #include <ti/varr.h>
@@ -130,14 +128,13 @@ void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
-ti_val_t * ti_val_from_unp(qp_unpacker_t * unp, ti_collection_t * collection);
-ti_val_t * ti_val_from_unp_e(
-        qp_unpacker_t * unp,
-        ti_collection_t * collection,
-        ex_t * e);
+ti_val_t * ti_val_from_unp(ti_vup_t * vup);
+ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
+ti_val_t * ti_val_empty_bin(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
-int ti_val_convert_to_str(ti_val_t ** val);
+int ti_val_convert_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_array(ti_val_t ** val, ex_t * e);
@@ -146,9 +143,8 @@ _Bool ti_val_as_bool(ti_val_t * val);
 _Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_packer(ti_val_t * val, qp_packer_t ** packer, int options);
-int ti_val_to_file(ti_val_t * val, FILE * f);
-void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz, size_t * nest);
+int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options);
+void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz);
 const char * ti_val_str(ti_val_t * val);
 static inline _Bool ti_val_is_arr(ti_val_t * val);
 static inline _Bool ti_val_is_array(ti_val_t * val);
@@ -160,6 +156,8 @@ static inline _Bool ti_val_is_float(ti_val_t * val);
 static inline _Bool ti_val_is_int(ti_val_t * val);
 static inline _Bool ti_val_is_list(ti_val_t * val);
 static inline _Bool ti_val_is_nil(ti_val_t * val);
+static inline _Bool ti_val_is_str(ti_val_t * val);
+static inline _Bool ti_val_is_bytes(ti_val_t * val);
 static inline _Bool ti_val_is_raw(ti_val_t * val);
 static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_set(ti_val_t * val);
@@ -171,6 +169,7 @@ static inline void ti_val_drop(ti_val_t * val);
 static inline int ti_val_try_lock(ti_val_t * val, ex_t * e);
 static inline int ti_val_ensure_lock(ti_val_t * val);
 static inline void ti_val_unlock(ti_val_t * val, int lock_was_set);
+
 struct ti_val_s
 {
     uint32_t ref;
@@ -225,9 +224,22 @@ static inline _Bool ti_val_is_nil(ti_val_t * val)
     return val->tp == TI_VAL_NIL;
 }
 
+static inline _Bool ti_val_is_str(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
+}
+
+static inline _Bool ti_val_is_bytes(ti_val_t * val)
+{
+    return val->tp == TI_VAL_BYTES;
+}
+
 static inline _Bool ti_val_is_raw(ti_val_t * val)
 {
-    return val->tp == TI_VAL_RAW || val->tp == TI_VAL_NAME;
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_BYTES ||
+           val->tp == TI_VAL_MP;
 }
 
 static inline _Bool ti_val_is_regex(ti_val_t * val)
@@ -268,11 +280,12 @@ static inline _Bool ti_val_is_tuple(ti_val_t * val)
 static inline _Bool ti_val_has_len(ti_val_t * val)
 {
     return (
-        val->tp == TI_VAL_RAW ||
+        val->tp == TI_VAL_STR ||
         val->tp == TI_VAL_NAME ||
         val->tp == TI_VAL_THING ||
         val->tp == TI_VAL_ARR ||
         val->tp == TI_VAL_SET ||
+        val->tp == TI_VAL_BYTES ||
         val->tp == TI_VAL_ERROR
     );
 }

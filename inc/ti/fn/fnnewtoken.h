@@ -26,11 +26,11 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, child->node, e))
         return e->nr;
 
-    if (!ti_val_is_raw(query->rval))
+    if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `new_token` expects argument 1 to be of "
-            "type `"TI_VAL_RAW_S"` but got type `%s` instead"DOC_NEW_TOKEN,
+            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_TOKEN,
             ti_val_str(query->rval));
         return e->nr;
     }
@@ -80,7 +80,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             exp_time = (uint64_t) ts;
         }
-        else if (ti_val_is_raw(query->rval))
+        else if (ti_val_is_str(query->rval))
         {
             int64_t now = (int64_t) util_now_tsec();
             ti_raw_t * rt = (ti_raw_t *) query->rval;
@@ -98,7 +98,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `new_token` expects argument 2 to be of "
-                "type `"TI_VAL_RAW_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
+                "type `"TI_VAL_STR_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
                 "or `"TI_VAL_NIL_S"` but got type `%s` instead"DOC_NEW_TOKEN,
                 ti_val_str(query->rval));
             return e->nr;
@@ -117,11 +117,11 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_do_statement(query, child->node, e))
             return e->nr;
 
-        if (!ti_val_is_raw(query->rval))
+        if (!ti_val_is_str(query->rval))
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `new_token` expects argument 3 to be of "
-                    "type `"TI_VAL_RAW_S"` but got type `%s` instead"
+                    "type `"TI_VAL_STR_S"` but got type `%s` instead"
                     DOC_NEW_TOKEN,
                     ti_val_str(query->rval));
             return e->nr;
@@ -157,7 +157,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_raw_from_strn(
+    query->rval = (ti_val_t *) ti_str_create(
             token->key,
             sizeof(ti_token_key_t));
 

@@ -179,7 +179,7 @@ class Thing:
 
     def _job_splice(self, splice_job):
         for prop, value in splice_job.items():
-            index, count, new, *items = value
+            index, count, *items = value
             try:
                 arr = getattr(self, prop)
             except AttributeError:

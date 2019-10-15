@@ -21,7 +21,7 @@
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_SYNTAX "syntax v%u"
-#define TI_SAVE_PACK 60 + ti_.nodes->imap->n * 140, 3
+#define TI_SAVE_PK_SZ (60 + ti_.nodes->imap->n * 140)
 
 /* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
@@ -61,6 +61,8 @@ typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
 #define ti_grab(x) ((x) && ++(x)->ref ? (x) : NULL)
 #define ti_incref(x) (++(x)->ref)
 #define ti_decref(x) (--(x)->ref)  /* use only when x->ref > 1 */
+#define ti_max(x__, y__) ((x__) >= (y__) ? (x__) : (y__));
+#define ti_min(x__, y__) ((x__) <= (y__) ? (x__) : (y__));
 
 /* SUSv2 guarantees that "Host names are limited to 255 bytes,
  * excluding terminating null byte" */
@@ -110,5 +112,10 @@ typedef enum
     TI_y,
     TI_z,
 } ti_alpha_lower_t;
+
+typedef enum
+{
+    TI_STR_INFO
+} ti_ext_tp;
 
 #endif  /* TIINC_H_ */

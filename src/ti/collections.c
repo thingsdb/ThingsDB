@@ -172,7 +172,7 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    collection->root = ti_things_create_thing_o(root_id, collection);
+    collection->root = ti_things_create_thing_o(root_id, 8, collection);
 
     if (!collection->root || ti_access_grant(
             &collection->access,
@@ -220,7 +220,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
     switch (val->tp)
     {
     case TI_VAL_NAME:
-    case TI_VAL_RAW:
+    case TI_VAL_STR:
         collection = ti_collections_get_by_strn(
                 (const char *) ((ti_raw_t *) val)->data,
                 ((ti_raw_t *) val)->n);
@@ -246,36 +246,29 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
         break;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "expecting type `"TI_VAL_RAW_S"` "
+                "expecting type `"TI_VAL_STR_S"` "
                 "or `"TI_VAL_INT_S"` as collection but got type `%s` instead",
                 ti_val_str(val));
     }
     return collection;
 }
 
-static int collections__to_packer(qp_packer_t ** packer)
+ti_varr_t * ti_collections_info(void)
 {
-    if (qp_add_array(packer))
-        return -1;
-
-    for (vec_each(collections->vec, ti_collection_t, collection))
-        if (ti_collection_to_packer(collection, packer))
-            return -1;
-
-    return qp_close_array(*packer);
-}
-
-ti_val_t * ti_collections_as_qpval(void)
-{
-    ti_raw_t * raw;
-    qp_packer_t * packer = qp_packer_create2(2 + collections->vec->n * 128, 2);
-    if (!packer)
+    vec_t * vec = collections->vec;
+    ti_varr_t * varr = ti_varr_create(vec->n);
+    if (!varr)
         return NULL;
 
-    raw = collections__to_packer(&packer)
-            ? NULL
-            : ti_raw_from_packer(packer);
-
-    qp_packer_destroy(packer);
-    return (ti_val_t *) raw;
+    for (vec_each(vec, ti_collection_t, collection))
+    {
+        ti_val_t * mpinfo = ti_collection_as_mpval(collection);
+        if (!mpinfo)
+        {
+            ti_val_drop((ti_val_t *) varr);
+            return NULL;
+        }
+        VEC_push(varr->vec, mpinfo);
+    }
+    return varr;
 }

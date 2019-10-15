@@ -38,20 +38,20 @@ void ti_vset_destroy(ti_vset_t * vset)
     free(vset);
 }
 
-int ti_vset_to_packer(ti_vset_t * vset, qp_packer_t ** pckr, int options)
+int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
 {
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
-        qp_add_map(pckr) ||
-        qp_add_raw(*pckr, (const uchar * ) TI_KIND_S_SET, 1) ||
-        qp_add_array(pckr))
-        return -1;
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
+        msgpack_pack_array(pk, vec->n)
+    ) return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
-        if (ti_thing_to_packer(thing, pckr, options))
+        if (ti_thing_to_pk(thing, pk, options))
             return -1;
 
-    return qp_close_array(*pckr) || qp_close_map(*pckr);
+    return 0;
 }
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)
@@ -90,22 +90,6 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
         return -1;
     (*vsetaddr)->flags |= TI_VFLAG_ARR_TUPLE;
     return 0;
-}
-
-int ti_vset_to_file(ti_vset_t * vset, FILE * f)
-{
-    vec_t * vec = imap_vec(vset->imap);
-    if (    !vec ||
-            qp_fadd_type(f, QP_MAP1) ||
-            qp_fadd_raw(f, (const uchar * ) TI_KIND_S_SET, 1) ||
-            qp_fadd_type(f, vec->n > 5 ? QP_ARRAY_OPEN: QP_ARRAY0 + vec->n))
-        return -1;
-
-    for (vec_each(vec, ti_thing_t, t))
-        if (ti_thing_id_to_file(t, f))
-            return -1;
-
-    return vec->n > 5 ? qp_fadd_type(f, QP_ARRAY_CLOSE) : 0;
 }
 
 int ti_vset_assign(ti_vset_t ** vsetaddr)

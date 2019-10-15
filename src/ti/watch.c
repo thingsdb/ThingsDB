@@ -6,7 +6,7 @@
 #include <ti/proto.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 
 
 ti_watch_t * ti_watch_create(ti_stream_t * stream)
@@ -31,30 +31,31 @@ void ti_watch_drop(ti_watch_t * watch)
 ti_rpkg_t * ti_watch_rpkg(
         uint64_t thing_id,
         uint64_t event_id,
-        const unsigned char * jobs,
-        size_t n)
+        const unsigned char * mpjobs,
+        size_t size)
 {
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_rpkg_t * rpkg;
     ti_pkg_t * pkg;
-    qp_packer_t * packer = qpx_packer_create(n + 36, 2);
-    if (!packer)
+
+    if (mp_sbuffer_alloc_init(&buffer, size + 64, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    (void) qp_add_map(&packer);
-    (void) qp_add_raw(packer, (const uchar *) TI_KIND_S_THING, 1);
-    (void) qp_add_int(packer, thing_id);
-    (void) qp_add_raw_from_str(packer, "event");
-    (void) qp_add_int(packer, event_id);
-    (void) qp_add_raw_from_str(packer, "jobs");
-    (void) qp_add_array(&packer);
-    (void) qp_add_qp(packer, jobs, n);
-    (void) qp_close_array(packer);
-    (void) qp_close_map(packer);
+    msgpack_pack_map(&pk, 3);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_CLIENT_WATCH_UPD);
+    mp_pack_strn(&pk, TI_KIND_S_THING, 1);
+    msgpack_pack_uint64(&pk, thing_id);
 
-    qpx_log("generated task for subscribers:",
-            pkg->data, pkg->n, LOGGER_DEBUG);
+    mp_pack_str(&pk, "event");
+    msgpack_pack_uint64(&pk, event_id);
+
+    mp_pack_str(&pk, "jobs");
+    mp_pack_append(&pk, mpjobs, size);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)

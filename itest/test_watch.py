@@ -65,6 +65,9 @@ class Thing:
     async def watch(self):
         await self._evhandler.client.watch(self._id)
 
+    async def unwatch(self):
+        await self._evhandler.client.unwatch(self._id)
+
     def on_init(self, event, data):
         for k, v in data.items():
             setattr(self, k, v)
@@ -164,6 +167,10 @@ class TestWatch(TestBase):
         self.assertEqual(iris0.name, 'Iris')
         self.assertEqual(iris1.name, 'Iris')
         self.assertEqual(iris2.name, 'Iris')
+
+        await iris0.unwatch()
+        await iris1.unwatch()
+        await iris2.unwatch()
 
 
 if __name__ == '__main__':

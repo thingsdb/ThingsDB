@@ -9,11 +9,11 @@
 
 typedef struct ti_regex_s ti_regex_t;
 
-#include <qpack.h>
 #include <pcre2.h>
 #include <stddef.h>
 #include <ti/raw.h>
 #include <ti/val.h>
+#include <util/mpack.h>
 #include <ex.h>
 
 
@@ -29,8 +29,7 @@ typedef struct ti_regex_s ti_regex_t;
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
 void ti_regex_destroy(ti_regex_t * regex);
-static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer);
-static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f);
+static inline int ti_regex_to_pk(ti_regex_t * regex, msgpack_packer * pk);
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw);
 static inline _Bool ti_regex_eq(ti_regex_t * ra, ti_regex_t * rb);
 
@@ -46,22 +45,12 @@ struct ti_regex_s
     ti_raw_t * pattern;
 };
 
-static inline int ti_regex_to_packer(ti_regex_t * regex, qp_packer_t ** packer)
+static inline int ti_regex_to_pk(ti_regex_t * regex, msgpack_packer * pk)
 {
     return -(
-        qp_add_map(packer) ||
-        qp_add_raw(*packer, (const uchar * ) TI_KIND_S_REGEX, 1) ||
-        qp_add_raw(*packer, regex->pattern->data, regex->pattern->n) ||
-        qp_close_map(*packer)
-    );
-}
-
-static inline int ti_regex_to_file(ti_regex_t * regex, FILE * f)
-{
-    return -(
-        qp_fadd_type(f, QP_MAP1) ||
-        qp_fadd_raw(f, (const uchar * ) TI_KIND_S_REGEX, 1) ||
-        qp_fadd_raw(f, regex->pattern->data, regex->pattern->n)
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_REGEX, 1) ||
+        mp_pack_strn(pk, regex->pattern->data, regex->pattern->n)
     );
 }
 

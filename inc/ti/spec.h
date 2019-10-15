@@ -17,7 +17,9 @@ typedef enum
     TI_SPEC_ANY=0x4000,     /* `any`    never together with nillable        */
     TI_SPEC_OBJECT,         /* `thing`  this and lower is valid for a set   */
     TI_SPEC_RAW,            /* `raw`                */
-    TI_SPEC_UTF8,           /* `utf8` or `str`      */
+    TI_SPEC_STR,            /* `str`                */
+    TI_SPEC_UTF8,           /* `utf8`               */
+    TI_SPEC_BYTES,          /* `bytes`              */
     TI_SPEC_INT,            /* `int`                */
     TI_SPEC_UINT,           /* `uint`               */
     TI_SPEC_FLOAT,          /* `float`              */

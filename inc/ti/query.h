@@ -35,14 +35,14 @@ int ti_query_unpack(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e);
 int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,
         uint16_t pkg_id,
-        const uchar * data,
+        const unsigned char * data,
         size_t n,
         ex_t * e);
 int ti_query_parse(ti_query_t * query, ex_t * e);

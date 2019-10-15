@@ -2,18 +2,17 @@
  * ti/events.c
  */
 #include <assert.h>
-#include <qpack.h>
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/event.h>
 #include <ti/events.h>
-#include <ti/quorum.h>
 #include <ti/proto.h>
+#include <ti/quorum.h>
 #include <util/fx.h>
 #include <util/logger.h>
-#include <util/qpx.h>
-#include <util/vec.h>
+#include <util/mpack.h>
 #include <util/util.h>
+#include <util/vec.h>
 
 /*
  * If an event is in the queue for this time, continue regardless of the event
@@ -386,9 +385,10 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 {
     assert (queue_space(events->queue) > 0);
 
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
     ti_quorum_t * quorum;
-    qpx_packer_t * packer;
     ti_pkg_t * pkg, * dup;
 
     quorum = ti_quorum_new((ti_quorum_cb) events__on_req_event_id, ev);
@@ -398,20 +398,22 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         return e->nr;
     }
 
-    packer = qpx_packer_create(9, 0);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
     {
         ti_quorum_destroy(quorum);
         ex_set_mem(e);
         return e->nr;
     }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     ti_incref(ev);
     ev->id = events->next_event_id;
     ++events->next_event_id;
 
-    (void) qp_add_int(packer, ev->id);
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_EVENT_ID);
+    msgpack_pack_uint64(&pk, ev->id);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_REQ_EVENT_ID, buffer.size);
 
     /* we have space so this function always succeeds */
     (void) events__push(ev);

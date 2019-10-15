@@ -14,6 +14,7 @@
 #include <ti/fn/fnarray.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnbool.h>
+#include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
@@ -45,6 +46,7 @@
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
+#include <ti/fn/fnisbytes.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
 #include <ti/fn/fnisinf.h>
@@ -54,6 +56,7 @@
 #include <ti/fn/fnisnil.h>
 #include <ti/fn/fnisraw.h>
 #include <ti/fn/fnisset.h>
+#include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisutf8.h>
@@ -172,8 +175,9 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "auth_err", do__f_auth_err);
         break;
     case 'b':
-        syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
         syntax__nev_fn(q, nd, "bool", do__f_bool);
+        syntax__nev_fn(q, nd, "bytes", do__f_bytes);
+        syntax__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
         break;
     case 'c':
         syntax__nev_fn(q, nd, "call", do__f_call);
@@ -219,6 +223,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "isarray", do__f_isarray);
         syntax__nev_fn(q, nd, "isascii", do__f_isascii);
         syntax__nev_fn(q, nd, "isbool", do__f_isbool);
+        syntax__nev_fn(q, nd, "isbytes", do__f_isbytes);
         syntax__nev_fn(q, nd, "iserr", do__f_iserr);
         syntax__nev_fn(q, nd, "isfloat", do__f_isfloat);
         syntax__nev_fn(q, nd, "isinf", do__f_isinf);
@@ -429,6 +434,26 @@ static void syntax__index(ti_syntax_t * syntax, cleri_node_t * nd)
     while ((child = child->next));
 }
 
+static inline void syntax__thing(ti_syntax_t * syntax, cleri_node_t * nd)
+{
+    uintptr_t sz = 0;
+    cleri_children_t * child = nd           /* sequence */
+            ->children->next->node          /* list */
+            ->children;
+    for (; child; child = child->next->next)
+    {
+        /* sequence(name: statement) (only investigate the statements */
+        syntax__statement(
+                syntax,
+                child->node->children->next->next->node);  /* statement */
+        ++sz;
+        if (!child->next)
+            break;
+    }
+    nd->data = (void *) sz;
+}
+
+
 static void syntax__var_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -443,6 +468,9 @@ static void syntax__var_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
                     syntax,
                     nd->children->next->node->children->next->node);
             break;
+        case CLERI_GID_INSTANCE:
+            syntax__thing(syntax, nd->children->next->node);
+            return;
         default:
             assert (0);
             return;
@@ -520,26 +548,12 @@ static void syntax__expr_choice(ti_syntax_t * syntax, cleri_node_t * nd)
             nd->data = NULL;        /* initialize data to null */
         }
         return;
-    case CLERI_GID_VAR_OPT_FUNC_ASSIGN:
+    case CLERI_GID_VAR_OPT_MORE:
         syntax__var_opt_fa(syntax, nd);
         return;
     case CLERI_GID_THING:
-    {
-        cleri_children_t * child = nd           /* sequence */
-                ->children->next->node          /* list */
-                ->children;
-        for (; child; child = child->next->next)
-        {
-            /* sequence(name: statement) (only investigate the statements */
-            syntax__statement(
-                    syntax,
-                    child->node->children->next->next->node);  /* statement */
-
-            if (!child->next)
-                break;
-        }
+        syntax__thing(syntax,nd);
         return;
-    }
     case CLERI_GID_ARRAY:
     {
         uintptr_t sz = 0;

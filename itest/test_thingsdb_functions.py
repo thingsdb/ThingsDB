@@ -60,7 +60,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'expecting type `raw` or `int` as collection '
+                'expecting type `str` or `int` as collection '
                 'but got type `list` instead'):
             await client.query('collection_info([]);')
 
@@ -122,7 +122,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'expecting type `raw` or `int` as collection '
+                'expecting type `str` or `int` as collection '
                 'but got type `float` instead'):
             await client.query('del_collection(1.0);')
 
@@ -150,7 +150,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `del_user` expects argument 1 to be of type `raw` '
+                r'function `del_user` expects argument 1 to be of type `str` '
                 r'but got type `int` instead'):
             await client.query('del_user(42);')
 
@@ -187,7 +187,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `grant` expects argument 2 to be of type `raw` '
+                r'function `grant` expects argument 2 to be of type `str` '
                 r'but got type `nil` instead'):
             await client.query('grant("@:stuff", nil, FULL);')
 
@@ -211,7 +211,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'expecting type `raw` or `int` as collection '
+                'expecting type `str` or `int` as collection '
                 'but got type `float` instead'):
             await client.query('rename_collection(1.0, "bla");')
 

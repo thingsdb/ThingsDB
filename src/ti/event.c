@@ -3,22 +3,21 @@
  */
 #include <assert.h>
 #include <ex.h>
-#include <qpack.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/collection.h>
-#include <ti/job.h>
-#include <ti/rjob.h>
-#include <ti/watch.h>
-#include <ti/event.h>
 #include <ti/collections.h>
+#include <ti/event.h>
+#include <ti/job.h>
 #include <ti/node.h>
 #include <ti/proto.h>
+#include <ti/rjob.h>
 #include <ti/task.h>
-#include <util/omap.h>
+#include <ti/watch.h>
 #include <util/logger.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
+#include <util/omap.h>
 
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp)
@@ -96,54 +95,52 @@ int ti_event_run(ti_event_t * ev)
     assert (ev->via.epkg->pkg->tp == TI_PROTO_NODE_EVENT ||
             ev->via.epkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
 
-    int rc = -1;
+    ti_thing_t * thing;
     ti_pkg_t * pkg = ev->via.epkg->pkg;
-    qp_unpacker_t unpacker;
-    qp_obj_t qp_scope, thing_or_map;
-    uint64_t scope_id;
-    const unsigned char * jobs;
+    mp_unp_t up;
+    size_t i, ii;
+    mp_obj_t obj, mp_scope, mp_id;
+    const char * jobs_position;
 
-    qp_unpacker_init(&unpacker, pkg->data, pkg->n);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (    !qp_is_map(qp_next(&unpacker, NULL)) ||
-            !qp_is_array(qp_next(&unpacker, NULL)) ||       /* fixed size 2 */
-            !qp_is_int(qp_next(&unpacker, NULL)) ||         /* event_id     */
-            !qp_is_int(qp_next(&unpacker, &qp_scope)) ||    /* scope        */
-            !qp_is_map(qp_next(&unpacker, NULL)))           /* map with
-                                                               thing_id:task */
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        /* key */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_U64 ||                       /* event id */
+        mp_next(&up, &mp_scope) != MP_U64 ||            /* scope id */
+        /* value */
+        mp_next(&up, &obj) != MP_MAP)           /* map with thing_id:task */
     {
         log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
-        return rc;
+        return -1;
     }
 
-    scope_id = (uint64_t) qp_scope.via.int64;
-    if (!scope_id)
+    if (!mp_scope.via.u64)
         ev->collection = NULL;      /* scope 0 (TI_SCOPE_THINGSDB) is root */
     else
     {
-        ev->collection = ti_collections_get_by_id(scope_id);
+        ev->collection = ti_collections_get_by_id(mp_scope.via.u64);
         if (!ev->collection)
         {
             log_critical(
                     "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
-                    scope_id, ev->id);
-            return rc;
+                    mp_scope.via.u64, ev->id);
+            return -1;
         }
         ti_incref(ev->collection);
     }
 
-    qp_next(&unpacker, &thing_or_map);
-
     ti_events_keep_dropped();
-    ssize_t TEST;
-    while (qp_is_int(thing_or_map.tp) && qp_is_array((TEST = qp_next(&unpacker, NULL))))
+
+    for (i = obj.via.sz; i--;)
     {
-        ti_thing_t * thing;
-        uint64_t thing_id = (uint64_t) thing_or_map.via.int64;
+        if (mp_next(&up, &mp_id) != MP_U64)
+            goto fail_mp_data;
 
         thing = ev->collection == NULL
                 ? ti()->thing0
-                : ti_collection_thing_by_id(ev->collection, thing_id);
+                : ti_collection_thing_by_id(ev->collection, mp_id.via.u64);
 
         if (!thing)
         {
@@ -152,40 +149,42 @@ int ti_event_run(ti_event_t * ev)
             log_critical(
                     "thing "TI_THING_ID" not found in collection `%.*s`, "
                     "skip "TI_EVENT_ID,
-                    thing_id,
+                    mp_id.via.u64,
                     (int) ev->collection->name->n,
                     (const char *) ev->collection->name->data,
                     ev->id);
-            goto failed;
+            goto fail;
         }
+
+        /* keep the current position so we can update watchers */
+        jobs_position = up.pt;
+
+        if (mp_next(&up, &obj) != MP_ARR)
+            goto fail_mp_data;
 
         if (ev->collection)
         {
-            /* keep the current position so we can update watchers */
-            jobs = unpacker.pt;
-            qp_next(&unpacker, &thing_or_map);
-
-            while (qp_is_map(thing_or_map.tp))
+            for (ii = obj.via.sz; ii--;)
             {
-                if (ti_job_run(thing, &unpacker, ev->id))
+                if (ti_job_run(thing, &up, ev->id))
                 {
                     log_critical(
                             "job for thing "TI_THING_ID" in "
                             TI_EVENT_ID" for collection `%.*s` failed",
-                            thing_id, ev->id,
+                            thing->id, ev->id,
                             (int) ev->collection->name->n,
                             (const char *) ev->collection->name->data);
-                    goto failed;
+                    goto fail;
                 }
-
-                if (qp_is_close(qp_next(&unpacker, &thing_or_map)))
-                    qp_next(&unpacker, &thing_or_map);
             }
 
             if (ti_thing_has_watchers(thing))
             {
-                size_t n = unpacker.pt - jobs;
-                ti_rpkg_t * rpkg = ti_watch_rpkg(thing->id, ev->id, jobs, n);
+                size_t n = up.pt - jobs_position;
+                ti_rpkg_t * rpkg = ti_watch_rpkg(
+                        thing->id,
+                        ev->id,
+                        (const unsigned char *) jobs_position, n);
 
                 if (rpkg)
                 {
@@ -211,33 +210,26 @@ int ti_event_run(ti_event_t * ev)
         }
         else
         {
-            qp_next(&unpacker, &thing_or_map);
-
-            while (qp_is_map(thing_or_map.tp))
+            for (ii = obj.via.sz; ii--;)
             {
-                if (ti_rjob_run(ev, &unpacker))
+                if (ti_rjob_run(ev, &up))
                 {
                     log_critical(
-                            "job for `root` in "TI_EVENT_ID" failed",
-                            ev->id);
-                    goto failed;
+                            "job for `root` in "TI_EVENT_ID" failed", ev->id);
+                    goto fail;
                 }
-
-                if (qp_is_close(qp_next(&unpacker, &thing_or_map)))
-                    qp_next(&unpacker, &thing_or_map);
             }
         }
-
-        if (qp_is_close(thing_or_map.tp))
-            qp_next(&unpacker, &thing_or_map);
     }
 
-    rc = 0;
-
-failed:
     ti_events_free_dropped();
+    return 0;
 
-    return rc;
+fail_mp_data:
+    log_critical("msgpack event data incorrect for "TI_EVENT_ID, ev->id);
+fail:
+    ti_events_free_dropped();
+    return -1;
 }
 
 void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
@@ -256,7 +248,7 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
         (void) fprintf(Logger.ostream, "status: %s", ti_event_status_str(ev));
         break;
     case TI_EVENT_TP_EPKG:
-        qp_fprint(
+        mp_print(
                 Logger.ostream,
                 ev->via.epkg->pkg->data,
                 ev->via.epkg->pkg->n);

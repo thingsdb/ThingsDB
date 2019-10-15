@@ -7,6 +7,7 @@
 typedef struct ti_nil_s ti_nil_t;
 
 #include <inttypes.h>
+#include <tiinc.h>
 
 struct ti_nil_s
 {
@@ -17,6 +18,12 @@ struct ti_nil_s
     void * nil;
 };
 
-ti_nil_t * ti_nil_get(void);
+ti_nil_t nil__val;
+
+static inline ti_nil_t * ti_nil_get(void)
+{
+    ti_incref(&nil__val);
+    return &nil__val;
+}
 
 #endif  /* TI_NIL_H_ */

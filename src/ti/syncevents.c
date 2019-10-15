@@ -5,7 +5,7 @@
 #include <ti.h>
 #include <ti/nodes.h>
 #include <ti/syncevents.h>
-#include <util/qpx.h>
+#include <util/mpack.h>
 #include <util/syncpart.h>
 
 static void syncevents__push_cb(ti_req_t * req, ex_enum status);
@@ -61,16 +61,18 @@ int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
 ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
 {
     int rc;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_pkg_t * resp;
-    qpx_packer_t * packer = qpx_packer_create(9, 1);
     ti_epkg_t * epkg = ti_epkg_from_pkg(pkg);
     uint64_t next_event_id;
 
-    if (!packer || !epkg)
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)) || !epkg)
     {
         ex_set_mem(e);  /* can leak a few bytes */
         return NULL;
     }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     next_event_id = epkg->event_id;
     ti_events_set_next_missing_id(&next_event_id);
@@ -85,10 +87,10 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
         return NULL;
     }
 
-    qp_add_int(packer, next_event_id);
+    msgpack_pack_uint64(&pk, next_event_id);
 
-    resp = qpx_packer_pkg(packer, TI_PROTO_NODE_RES_SYNCEPART);
-    resp->id = pkg->id;
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_NODE_RES_SYNCEPART, buffer.size);
 
     return resp;
 }
@@ -118,9 +120,9 @@ int ti_syncevents_done(ti_stream_t * stream)
 
 static void syncevents__push_cb(ti_req_t * req, ex_enum status)
 {
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * pkg = req->pkg_res;
-    qp_obj_t qp_event_id;
+    mp_obj_t mp_event_id;
     uint64_t next_event_id;
     int rc;
 
@@ -139,15 +141,15 @@ static void syncevents__push_cb(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (!qp_is_int(qp_next(&unpacker, &qp_event_id)))
+    if (mp_next(&up, &mp_event_id) != MP_U64)
     {
         log_error("invalid `%s`", ti_proto_str(pkg->tp));
         goto failed;
     }
 
-    next_event_id = (uint64_t) qp_event_id.via.int64;
+    next_event_id = mp_event_id.via.u64;
 
     rc = next_event_id ? ti_syncevents_init(req->stream, next_event_id) : 1;
     if (rc < 0)

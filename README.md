@@ -23,6 +23,8 @@
       each new language. I seriously do not like the unpacker written for C, but
       it is not that hard to write this part for ThingsDB usage.
 
+- [ ] isutf8  -> strong check on `raw`
+- [ ] isstr -> just a weak check type check
 
 
 ## Plans and Ideas for the Future

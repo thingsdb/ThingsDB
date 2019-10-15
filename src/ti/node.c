@@ -10,10 +10,8 @@
 #include <ti/proto.h>
 #include <ti/req.h>
 #include <ti/tcp.h>
-#include <ti/version.h>
 #include <ti/write.h>
 #include <util/logger.h>
-#include <util/qpx.h>
 #include <util/cryptx.h>
 
 static void node__on_connect(uv_connect_t * req, int status);
@@ -173,45 +171,102 @@ fail0:
     return e->nr;
 }
 
-int ti_node_info_to_packer(ti_node_t * node, qp_packer_t ** packer)
+int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
 {
-    return (
-        qp_add_array(packer) ||
-        qp_add_int(*packer, node->next_thing_id) ||
-        qp_add_int(*packer, node->cevid) ||
-        qp_add_int(*packer, node->sevid) ||
-        qp_add_int(*packer, node->status) ||
-        qp_add_int(*packer, node->zone) ||
-        qp_add_int(*packer, node->port) ||
-        qp_add_int(*packer, TI_VERSION_SYNTAX) ||
-        qp_close_array(*packer)
+    static char syntax_buf[5]; /* vXXX_ */
+    ti_node_t * this_node = ti()->node;
+    (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
+
+    return -(
+        msgpack_pack_map(pk, 10) ||
+
+        mp_pack_str(pk, "node_id") ||
+        msgpack_pack_uint32(pk, node->id) ||
+
+        mp_pack_str(pk, "syntax_version") ||
+        mp_pack_str(pk, syntax_buf) ||
+
+        mp_pack_str(pk, "status") ||
+        mp_pack_str(pk, ti_node_status_str(node->status)) ||
+
+        mp_pack_str(pk, "zone") ||
+        msgpack_pack_uint8(pk, node->zone) ||
+
+        mp_pack_str(pk, "committed_event_id") ||
+        msgpack_pack_uint64(pk, node->cevid) ||
+
+        mp_pack_str(pk, "stored_event_id") ||
+        msgpack_pack_uint64(pk, node->sevid) ||
+
+        mp_pack_str(pk, "next_thing_id") ||
+        msgpack_pack_uint64(pk, node->next_thing_id) ||
+
+        mp_pack_str(pk, "address") ||
+        mp_pack_str(
+                pk,
+                node == this_node ? ti_name() : node->addr) ||
+
+        mp_pack_str(pk, "port") ||
+        msgpack_pack_uint16(pk, node->port) ||
+
+        mp_pack_str(pk, "stream") ||
+        (ti_stream_is_closed(node->stream)
+            ? msgpack_pack_nil(pk)
+            : mp_pack_str(pk, ti_stream_name(node->stream)))
     );
 }
 
-int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
+ti_val_t * ti_node_as_mpval(ti_node_t * node)
 {
-    qp_obj_t qpnext_thing_id, qpcevid, qpsevid, qpstatus, qpzone,
-             qpport, qpsyntax;
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_node_info_to_pk(node, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+
+    return (ti_val_t *) raw;
+}
+
+int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
+{
+    mp_obj_t obj,
+             mp_next_thing_id,
+             mp_cevid,
+             mp_sevid,
+             mp_status,
+             mp_zone,
+             mp_port,
+             mp_syntax_ver;
     uint8_t syntax_ver;
     uint16_t node_port;
 
-    if (    !qp_is_array(qp_next(unp, NULL)) ||
-            !qp_is_int(qp_next(unp, &qpnext_thing_id)) ||
-            !qp_is_int(qp_next(unp, &qpcevid)) ||
-            !qp_is_int(qp_next(unp, &qpsevid)) ||
-            !qp_is_int(qp_next(unp, &qpstatus)) ||
-            !qp_is_int(qp_next(unp, &qpzone)) ||
-            !qp_is_int(qp_next(unp, &qpport)) ||
-            !qp_is_int(qp_next(unp, &qpsyntax)))
-        return -1;
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 7 ||
+        mp_next(up, &mp_next_thing_id) != MP_U64 ||
+        mp_next(up, &mp_cevid) != MP_U64 ||
+        mp_next(up, &mp_sevid) != MP_U64 ||
+        mp_next(up, &mp_status) != MP_U64 ||
+        mp_next(up, &mp_zone) != MP_U64 ||
+        mp_next(up, &mp_port) != MP_U64 ||
+        mp_next(up, &mp_syntax_ver) != MP_U64
+    ) return -1;
 
-    node->next_thing_id = (uint64_t) qpnext_thing_id.via.int64;
-    node->cevid = (uint64_t) qpcevid.via.int64;
-    node->sevid = (uint64_t) qpsevid.via.int64;
-    node->status = (uint8_t) qpstatus.via.int64;
-    node->zone = (uint8_t) qpzone.via.int64;
-    syntax_ver = (uint8_t) qpsyntax.via.int64;
-    node_port = (uint16_t) qpport.via.int64;
+    node->next_thing_id = mp_next_thing_id.via.u64;
+    node->cevid = mp_cevid.via.u64;
+    node->sevid = mp_sevid.via.u64;
+    node->status = mp_status.via.u64;
+    node->zone = mp_zone.via.u64;
+    syntax_ver = mp_syntax_ver.via.u64;
+    node_port = mp_port.via.u64;
 
     if (syntax_ver != node->syntax_ver)
     {
@@ -221,7 +276,7 @@ int ti_node_info_from_unp(ti_node_t * node, qp_unpacker_t * unp)
                     "(current "TI_SYNTAX", received "TI_SYNTAX")",
                     ti_node_name(node), node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
-        node->syntax_ver = (uint8_t) qpsyntax.via.int64;
+        node->syntax_ver = mp_syntax_ver.via.u64;
     }
 
     if (node_port != node->port)
@@ -311,7 +366,8 @@ static void node__upd_address(ti_node_t * node)
 static void node__on_connect(uv_connect_t * req, int status)
 {
     int rc;
-    qpx_packer_t * packer;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_node_t * node = req->data;
     ti_node_t * ti_node = ti()->node;
@@ -348,23 +404,24 @@ static void node__on_connect(uv_connect_t * req, int status)
         goto failed;
     }
 
-    packer = qpx_packer_create(256, 2);
-    if (!packer)
+    if (mp_sbuffer_alloc_init(&buffer, 512, sizeof(ti_pkg_t)))
     {
-        log_error(EX_MEMORY_S);
+        log_critical(EX_MEMORY_S);
         goto failed;
     }
 
-    (void) qp_add_array(&packer);
-    (void) qp_add_int(packer, node->id);
-    (void) qp_add_raw(packer, (const uchar *) node->secret, CRYPTX_SZ);
-    (void) qp_add_int(packer, ti_node->id);
-    (void) qp_add_raw_from_str(packer, TI_VERSION);
-    (void) qp_add_raw_from_str(packer, TI_MINIMAL_VERSION);
-    (void) ti_node_info_to_packer(ti_node, &packer);
-    (void) qp_close_array(packer);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    pkg = qpx_packer_pkg(packer, TI_PROTO_NODE_REQ_CONNECT);
+    msgpack_pack_array(&pk, 6);
+    msgpack_pack_uint32(&pk, node->id);
+    mp_pack_strn(&pk, node->secret, CRYPTX_SZ);
+    msgpack_pack_uint32(&pk, ti_node->id);
+    mp_pack_str(&pk, TI_VERSION);
+    mp_pack_str(&pk, TI_MINIMAL_VERSION);
+    ti_node_status_to_pk(ti_node, &pk);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_REQ_CONNECT, buffer.size);
 
     if (ti_req_create(
             node->stream,
@@ -389,10 +446,9 @@ done:
     free(req);
 }
 
-
 static void node__on_connect_req(ti_req_t * req, ex_enum status)
 {
-    qp_unpacker_t unpacker;
+    mp_unp_t up;
     ti_pkg_t * pkg = req->pkg_res;
     ti_node_t * node = req->data;
 
@@ -414,9 +470,9 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
         goto failed;
     }
 
-    qp_unpacker_init2(&unpacker, pkg->data, pkg->n, 0);
+    mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (ti_node_info_from_unp(node, &unpacker))
+    if (ti_node_status_from_unp(node, &up))
     {
         log_error("invalid connect response from "TI_NODE_ID, node->id);
         goto failed;

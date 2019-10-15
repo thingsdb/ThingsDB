@@ -127,9 +127,9 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 task,
                 chain.name,
                 varr,
-                i,
-                c,
-                n))
+                (uint32_t) i,
+                (uint32_t) c,
+                (uint32_t) n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */
     }

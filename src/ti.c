@@ -71,6 +71,7 @@ int ti_create(void)
             ti_archive_create() ||
             ti_clients_create() ||
             ti_nodes_create() ||
+            ti_backups_create() ||
             ti_names_create() ||
             ti_users_create() ||
             ti_collections_create() ||
@@ -115,6 +116,7 @@ void ti_destroy(void)
     ti_cfg_destroy();
     ti_clients_destroy();
     ti_nodes_destroy();
+    ti_backups_destroy();
     ti_collections_destroy();
     ti_users_destroy();
     ti_store_destroy();
@@ -751,7 +753,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti_.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 28) ||
+        msgpack_pack_map(pk, 29) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti_.node->id) ||
@@ -839,7 +841,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "http_status_port") ||
         (ti_.cfg->http_status_port
                 ? msgpack_pack_uint16(pk, ti_.cfg->http_status_port)
-                : mp_pack_str(pk, "disabled"))
+                : mp_pack_str(pk, "disabled")) ||
+        /* 29 */
+        mp_pack_str(pk, "scheduled_backups") ||
+        msgpack_pack_uint64(pk, ti_backups_scheduled())
     );
 }
 

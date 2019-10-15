@@ -66,6 +66,7 @@
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodtype.h>
 #include <ti/fn/fnnew.h>
+#include <ti/fn/fnnewbackup.h>
 #include <ti/fn/fnnewcollection.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
@@ -264,6 +265,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__tev_fn(q, nd, "new_node", do__f_new_node);
         syntax__tev_fn(q, nd, "new_token", do__f_new_token);
         syntax__tev_fn(q, nd, "new_user", do__f_new_user);
+        syntax__zev_fn(q, nd, "new_backup", do__f_new_backup);
         syntax__zev_fn(q, nd, "node_info", do__f_node_info);
         syntax__zev_fn(q, nd, "nodes_info", do__f_nodes_info);
         break;

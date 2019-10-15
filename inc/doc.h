@@ -77,6 +77,7 @@
 #define DOC_MOD_TYPE_MOD            DOC_SEE("#type_mod_mod")
 #define DOC_NAMES                   DOC_SEE("#names")
 #define DOC_NEW                     DOC_SEE("#new")
+#define DOC_NEW_BACKUP              DOC_SEE("#new_backup")
 #define DOC_NEW_COLLECTION          DOC_SEE("#new_collection")
 #define DOC_NEW_NODE                DOC_SEE("#new_node")
 #define DOC_NEW_PROCEDURE           DOC_SEE("#new_procedure")

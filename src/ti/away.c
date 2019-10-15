@@ -105,7 +105,6 @@ static void away__reschedule_by_id(uint32_t node_id)
 
 static void away__work(uv_work_t * UNUSED(work))
 {
-    char buff[1024];
     uv_mutex_lock(ti()->events->lock);
 
     away->status = AWAY__STATUS_WORKING;
@@ -125,9 +124,11 @@ static void away__work(uv_work_t * UNUSED(work))
     /* write global status to disk */
     (void) ti_nodes_write_global_status();
 
-    /* remove optional things->imap-vec caches */
+    /* remove optional things vector caches */
     ti_collections_cleanup();
 
+    /* backup ThingsDB if backups are pending */
+    (void) ti_backups_backup();
 
     uv_mutex_unlock(ti()->events->lock);
 }

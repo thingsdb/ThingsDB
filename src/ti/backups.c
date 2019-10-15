@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include <ti/backups.h>
+#include <util/util.h>
 
 static ti_backups_t * backups;
 static ti_backups_t backups_;
@@ -36,8 +37,31 @@ void ti_backups_destroy(void)
     ti()->backups = NULL;
 }
 
+static ti_backup_t * backups__get_pending(uint64_t ts)
+{
+    omap_iter_t iter = omap_iter(backups->omap);
+    for (omap_each(iter, ti_backup_t, backup))
+        if (backup->timestamp < ts)
+            return backup;
+    return NULL;
+}
+
+static int backup__backup(const char * fn)
+{
+
+    sprintf(buff,"tar -czf %s -C %s", fn, ti()->cfg->storage_path);
+    system(buff);
+
+}
+
 
 int ti_backups_backup(void)
 {
-    omap_iter_t iter =
+    ti_backup_t * backup;
+    uint64_t now = util_now_tsec();
+    uv_mutex_lock(backups->lock);
+
+
+
+    uv_mutex_unlock(backups->lock);
 }

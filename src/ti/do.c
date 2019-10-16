@@ -1056,15 +1056,12 @@ failed:
 
 static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nots = 0;
-    cleri_children_t * nchild, * child = nd         /* sequence */
-            ->children;                             /* first child, not */
+    int nots = (int) ((intptr_t) nd->children->node->data);
+    cleri_children_t * child = nd               /* sequence */
+            ->children                          /* first child, not */
+            ->next;
 
-    for (nchild = child->node->children; nchild; nchild = nchild->next)
-        ++nots;
-
-    child = child->next;
-    nd = child->node;                 /* immutable, function,
+    nd = child->node;                   /* immutable, function,
                                            assignment, name, thing,
                                            array, compare, closure */
 

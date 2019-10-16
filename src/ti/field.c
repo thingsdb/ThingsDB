@@ -471,9 +471,15 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
 /* remove field from type and destroy; no update of things; */
 void ti_field_remove(ti_field_t * field)
 {
+    ti_field_t * swap;
     if (!field)
         return;
     (void) vec_swap_remove(field->type->fields, field->idx);
+
+    swap = vec_get_or_null(field->type->fields, field->idx);
+    if (swap)
+        swap->idx = field->idx;
+
     ti_field_destroy(field);
 }
 

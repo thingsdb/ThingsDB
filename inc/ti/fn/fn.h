@@ -248,8 +248,8 @@ static int fn_new_instance(
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-            "function `new_type` expects argument 1 to be of "
-            "type `"TI_VAL_THING_S"` but got type `%s` instead"DOC_NEW,
+            "new instances can be created from type `"TI_VAL_THING_S"` but "
+            "got type `%s` instead"DOC_NEW,
             ti_val_str(query->rval));
         return e->nr;
     }

@@ -23,7 +23,6 @@ size_t ti_backups_pending(void);
 ti_varr_t * ti_backups_info(void);
 void ti_backups_del_backup(uint64_t backup_id, ex_t * e);
 ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e);
-uint64_t ti_backups_next_id(void);
 ti_backup_t * ti_backups_new_backup(
         uint64_t id,
         const char * fn_template,

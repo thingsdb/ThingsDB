@@ -31,7 +31,6 @@ ti_backup_t * ti_backups_new_backup(
         uint64_t repeat);
 
 
-
 struct ti_backups_s
 {
     omap_t * omap;

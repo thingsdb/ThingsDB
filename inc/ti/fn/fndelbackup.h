@@ -7,6 +7,8 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_node_scope("del_backup", query, e) ||
         fn_nargs("del_backup", DOC_DEL_BACKUP, 1, nargs, e) ||
+        ti_access_check_err(ti()->access_node,
+            query->user, TI_AUTH_MODIFY, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
@@ -20,9 +22,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-
     backup_id = ((ti_vint_t *) query->rval)->int_;
-
     if (backup_id < 0)
     {
         ex_set(e, EX_VALUE_ERROR,

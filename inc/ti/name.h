@@ -6,6 +6,8 @@
 
 typedef struct ti_name_s ti_name_t;
 
+#define TI_NAME_MAX 255
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <ti/val.h>

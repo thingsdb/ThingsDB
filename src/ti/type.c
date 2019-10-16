@@ -137,7 +137,7 @@ size_t ti_type_approx_pack_sz(ti_type_t * type)
 
 _Bool ti_type_is_valid_strn(const char * str, size_t n)
 {
-    if (!n || n > TI_TYPE_NAME_MAX || (!isupper(*str)))
+    if (!n || n > TI_TYPE_NAME_MAX || (!isalpha(*str) && *str != '_'))
         return false;
 
     while(--n)

@@ -28,15 +28,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_type_is_valid_strn((const char *) rname->data, rname->n))
     {
-        if (rname->n && !isupper((int) *rname->data))
-            ex_set(e, EX_VALUE_ERROR,
-                "function `new_type` expects "
-                "argument 1 to be a valid type name; "
-                "type names must start with an upper-case character"DOC_TYPES);
-        else
-            ex_set(e, EX_VALUE_ERROR,
-                "function `new_type` expects "
-                "argument 1 to be a valid type name"DOC_TYPES);
+        ex_set(e, EX_VALUE_ERROR,
+            "function `new_type` expects "
+            "argument 1 to be a valid type name"DOC_TYPES);
         goto fail0;
     }
 

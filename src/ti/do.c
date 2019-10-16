@@ -26,44 +26,6 @@ static inline int do__no_collection_scope(ti_query_t * query)
 
 typedef int (*do__fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 
-static int do__type(
-        ti_query_t * query,
-        cleri_node_t * fname,
-        cleri_node_t * args,
-        ex_t * e)
-{
-    const int nargs = langdef_nd_n_function_params(args);
-    ti_type_t * type = ti_types_by_strn(
-            query->collection->types,
-            fname->str,
-            fname->len);
-
-    if (!type)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%.*s` is undefined",
-                fname->len,
-                fname->str);
-        return e->nr;
-    }
-
-    if (ti_quota_things(
-                query->collection->quota,
-                query->collection->things->n,
-                e))
-        return e->nr;
-
-    if (nargs != 1)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "type `%s` takes 1 argument but %d were given"DOC_TYPES,
-            type->name, nargs);
-        return e->nr;
-    }
-
-    return fn_new_instance(query, args->children->node, type, e);
-}
-
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -84,15 +46,10 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     fname->len,
                     fname->str);
         else
-        {
-            if (query->collection && fname->len && isupper(*fname->str))
-                return do__type(query, fname, args, e);
-
             ex_set(e, EX_LOOKUP_ERROR,
                     "function `%.*s` is undefined",
                     fname->len,
                     fname->str);
-        }
         return e->nr;
     }
 

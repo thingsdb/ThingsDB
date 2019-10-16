@@ -106,7 +106,7 @@ class LangDef(Grammar):
     opr8_ternary = Sequence(x_ternary, THIS, ':')
 
     operations = Sequence(THIS, Choice(
-        # make sure `and` and `or` is on top so we can stop
+        # make sure `ternary`, `and` and `or` is on top so we can stop
         # at the first match
         opr8_ternary,
         opr7_cmp_or,
@@ -167,15 +167,6 @@ class LangDef(Grammar):
     statements = List(statement, delimiter=Sequence(';', comments))
 
     START = Sequence(comments, statements)
-
-    @classmethod
-    def translate(cls, elem):
-        if elem == cls.name:
-            return 'name'
-
-    def test(self, str):
-        print('{} : {}'.format(
-            str.strip(), self.parse(str).as_str(self.translate)))
 
 
 if __name__ == '__main__':

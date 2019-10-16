@@ -6,6 +6,7 @@ typedef struct
     ti_query_t * query;
     ti_closure_t * closure;
     ex_t * e;
+    vec_sort_r_cb cb;
 } closure_cmp_t;
 
 int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
@@ -48,11 +49,53 @@ int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     return i < INT_MIN ? INT_MIN : i > INT_MAX ? INT_MAX : i;
 }
 
+int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
+{
+    int i;
+    ti_prop_t * p;
+
+    if (cc->e->nr)
+        return 0;
+
+    ti_incref(va);
+    p = vec_get(cc->closure->vars, 0);
+    ti_val_drop(p->val);
+    p->val = va;
+
+    if (ti_closure_do_statement(cc->closure, cc->query, cc->e))
+        return 0;
+
+    va = cc->query->rval;
+    cc->query->rval = NULL;
+
+    ti_incref(vb);
+    p = vec_get(cc->closure->vars, 0);
+    ti_val_drop(p->val);
+    p->val = vb;
+
+    if (ti_closure_do_statement(cc->closure, cc->query, cc->e))
+    {
+        ti_val_drop(va);
+        return 0;
+    }
+
+    vb = cc->query->rval;
+    cc->query->rval = NULL;
+
+    i = cc->cb(va, vb, cc->e);
+
+    ti_val_drop(va);
+    ti_val_drop(vb);
+
+    return i;
+}
+
 static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_varr_t * varr;
     ti_closure_t * closure;
+    _Bool reverse = false;
 
     if (fn_not_chained("sort", query, e))
         return e->nr;
@@ -67,7 +110,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs_max("sort", DOC_SORT, 1, nargs, e))
+    if (fn_nargs_max("sort", DOC_SORT, 2, nargs, e))
         return e->nr;
 
     if (vec_is_sorting())
@@ -103,6 +146,27 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         goto fail0;
 
+    if (nargs == 1 && ti_val_is_bool(query->rval))
+    {
+        reverse = ((ti_vbool_t *) query->rval)->bool_;
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+
+        vec_sort_r(
+                varr->vec,
+                (vec_sort_r_cb) (
+                        reverse
+                        ? ti_opr_compare_desc
+                        : ti_opr_compare
+                ), e);
+
+        if (e->nr)
+            goto fail0;
+
+        goto done;
+    }
+
     if (!ti_val_is_closure(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -115,12 +179,41 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
-    if (closure->vars->n != 2)
+    if (closure->vars->n != 1 && closure->vars->n != 2)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
-            "function `sort` requires a closure which accepts 2 arguments"
+            "function `sort` requires a closure which accepts 1 or 2 arguments"
             DOC_SORT);
         goto fail1;
+    }
+
+    if (nargs == 2)
+    {
+        if (ti_do_statement(query, nd->children->next->next->node, e))
+            goto fail1;
+
+        if (!ti_val_is_bool(query->rval))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "function `sort` expects argument 2 to be "
+                    "a `"TI_VAL_BOOL_S"` but got type `%s` instead"DOC_SORT,
+                    ti_val_str(query->rval));
+            goto fail1;
+        }
+
+        reverse = ((ti_vbool_t *) query->rval)->bool_;
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+
+        if (closure->vars->n == 2)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                "cannot specify an order with a closure which takes two "
+                "arguments; in this case the order should be specified within "
+                "the closure"DOC_SORT);
+            goto fail1;
+        }
     }
 
     if (    ti_closure_try_wse(closure, query, e) ||
@@ -131,8 +224,20 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             .query = query,
             .closure = closure,
             .e = e,
+            .cb = (vec_sort_r_cb) (
+                    reverse
+                    ? ti_opr_compare_desc
+                    : ti_opr_compare
+            ),
     };
-    vec_sort_r(varr->vec, (vec_sort_r_cb) ti_closure_cmp, &cc);
+    vec_sort_r(
+            varr->vec,
+            (vec_sort_r_cb) (
+                    closure->vars->n == 1
+                    ? ti_closure_pick
+                    : ti_closure_cmp
+            ),
+            &cc);
 
     ti_closure_unlock_use(closure, query);
 

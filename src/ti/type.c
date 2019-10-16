@@ -300,40 +300,6 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type)
 }
 
 /*
- * Returns 0 when all properties of a given `to` type are compatible with a
- * given `from` type. If one of the properties in `to` is not found or
- * incompatible with type`from`, then an error value is returned and  `e`
- * will contain the reason.
- */
-int ti_type_check(ti_type_t * t_type, ti_type_t * f_type, ex_t * e)
-{
-    ti_field_t * f_field;
-    vec_t * t_map = imap_get(t_type->t_mappings, f_type->type_id);
-    if (t_map)
-        return 0;  /* a full cast exists so we do not have to check */
-
-    for (vec_each(t_type->fields, ti_field_t, t_field))
-    {
-        f_field = ti_field_by_name(f_type, t_field->name);
-        if (!f_field)
-        {
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "invalid cast from `%s` to `%s`; "
-                    "missing property `%s` in type `%s`",
-                    f_type->name,
-                    t_type->name,
-                    t_field->name->str,
-                    f_type->name);
-            break;
-        }
-
-        if (ti_field_check_field(t_field, f_field, e))
-            break;
-    }
-    return e->nr;
-}
-
-/*
  * Returns a vector with all the properties of a given `to` type when are
  * found and compatible with a `to` type.
  * The return value might be NULL when a memory allocation has occurred.

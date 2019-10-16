@@ -36,7 +36,6 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);
 int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e);
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type);
-int ti_type_check(ti_type_t * to_type, ti_type_t * from_type, ex_t * e);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 
 struct ti_type_s

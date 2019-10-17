@@ -139,7 +139,7 @@ const char * ti__spec_approx_type_str(uint16_t spec)
 
 ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)
 {
-    if (nspec == TI_SPEC_ANY)
+    if ((nspec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
         return TI_SPEC_MOD_SUCCESS;
 
     if ((ospec & TI_SPEC_NILLABLE) && (~nspec & TI_SPEC_NILLABLE))

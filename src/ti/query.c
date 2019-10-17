@@ -659,3 +659,19 @@ ti_thing_t * ti_query_thing_from_id(
     ti_incref(thing);
     return thing;
 }
+
+size_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
+{
+    size_t n = 0;
+    for (vec_each(query->vars, ti_prop_t, prop))
+    {
+        ti_thing_t * thing = (ti_thing_t *) prop->val;
+        if (thing->tp == TI_VAL_THING &&
+            thing->id == 0 &&
+            thing->type_id == type->type_id)
+            ++n;
+    }
+    n += ti_collection_ntype(query->collection, type);
+    return n;
+}
+

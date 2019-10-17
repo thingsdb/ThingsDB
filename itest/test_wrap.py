@@ -36,58 +36,58 @@ class TestWrap(TestBase):
 
     async def test_wrap(self, client):
         await client.query(r'''
-            new_type('User', {
+            set_type(new_type('User'), {
                 name: 'str',
                 email: 'str',
                 age: 'uint',
                 address: 'str?',
                 friends: '{User}',
             });
-            new_type('Note', {
+            set_type(new_type('Note'), {
                 title: 'str',
                 subject: 'str',
                 author: 'User',
                 body: 'str',
             });
-            new_type('W_UserName', {
+            set_type(new_type('_UserName'), {
                 name: 'str'
             });
-            new_type('W_NoteSummary', {
+            set_type(new_type('_NoteSummary'), {
                 title: 'str',
-                author: 'W_UserName'
+                author: '_UserName'
             });
-            new_type('W_NotesSummary', {
-                notes: '[W_NoteSummary]',
+            set_type(new_type('_NotesSummary'), {
+                notes: '[_NoteSummary]',
             });
         ''')
 
         res = await client.query(r'''
-            .iris = User({
+            .iris = User{
                 name: 'Iris',
                 email: 'iris@notreal.nl',
                 age: 6,
                 friends: set(),
-            });
-            .cato = User({
+            };
+            .cato = User{
                 name: 'Cato',
                 email: 'cato@notreal.nl',
                 age: 5,
                 friends: set(),
-            });
+            };
 
             .iris.friends.add(.cato);
             .cato.friends.add(.iris);
 
-            .note =  Note({
+            .note =  Note{
                 title: 'looking for the answer',
                 subject: 'life the universe and everything',
                 author: .iris,
                 body: '42.'
-            });
+            };
 
             .notes = set(.note);
 
-            return(.notesSummary = .wrap('W_NotesSummary'), 3);
+            return(.notesSummary = .wrap('_NotesSummary'), 3);
         ''')
 
         ids = await client.query('[.id(), .note.id(), .iris.id()];')

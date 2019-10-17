@@ -1696,8 +1696,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `sort` takes at most 1 argument but 2 were given'):
-            await client.query('[2, 0, 1, 3].sort(|a, b|1, nil);')
+                'function `sort` takes at most 2 arguments but 3 were given'):
+            await client.query('[2, 0, 1, 3].sort(|a, b|1, nil, nil);')
 
         with self.assertRaisesRegex(
                 OperationError,
@@ -1723,8 +1723,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `sort` requires a closure '
-                'which accepts 2 arguments'):
+                'function `sort` requires a closure which accepts '
+                '1 or 2 arguments'):
             await client.query('[2, 0, 1, 3].sort(||1);')
 
         self.assertEqual(await client.query(r'''
@@ -1732,8 +1732,16 @@ class TestCollectionFunctions(TestBase):
         '''), [0, 1, 2, 3])
 
         self.assertEqual(await client.query(r'''
+            [2, 0, 1, 3].sort(true);
+        '''), [3, 2, 1, 0])
+
+        self.assertEqual(await client.query(r'''
             ["iris", "anne", "cato"].sort();
         '''), ["anne", "cato", "iris"])
+
+        self.assertEqual(await client.query(r'''
+            ["Iris", "Anne", "cato"].sort(|n| n.lower());
+        '''), ["Anne", "cato", "Iris"])
 
         self.assertEqual(await client.query(r'''
             [42, 2013, 6].sort(|a, b| a > b ? -1 : a < b ? 1 : 0);

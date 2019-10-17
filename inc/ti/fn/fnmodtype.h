@@ -34,7 +34,7 @@ static void type__add(
         fn_arg_str(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
         return;
 
-    n = ti_collection_ntype(query->collection, type);
+    n = ti_query_count_type(query, type);
     spec_raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
@@ -45,8 +45,9 @@ static void type__add(
             ex_set(e, EX_OPERATION_ERROR,
                 "function `%s` requires an initial value when "
                 "adding a property to a type with one or more instances; "
-                "%zu active instance%s of type `%s` found"DOC_MOD_TYPE_ADD,
-                fnname, n, n == 1 ? "" : "s", type->name);
+                "%zu active instance%s of type `%s` %s been found"DOC_MOD_TYPE_ADD,
+                fnname, n, n == 1 ? "" : "s", type->name,
+                n == 1 ? "has" : "have");
             goto fail0;
         }
 
@@ -94,8 +95,9 @@ static void type__add(
         /* check for variable to update, val_cache is not required since only
          * things with an id are store in cache
          */
-        for (vec_each(query->vars, ti_thing_t, thing))
+        for (vec_each(query->vars, ti_prop_t, prop))
         {
+            ti_thing_t * thing = (ti_thing_t *) prop->val;
             if (thing->tp == TI_VAL_THING &&
                 thing->id == 0 &&
                 thing->type_id == type->type_id)
@@ -166,8 +168,9 @@ static void type__del(
     /* check for variable to update, val_cache is not required since only
      * things with an id are store in cache
      */
-    for (vec_each(query->vars, ti_thing_t, thing))
+    for (vec_each(query->vars, ti_prop_t, prop))
     {
+        ti_thing_t * thing = (ti_thing_t *) prop->val;
         if (thing->tp == TI_VAL_THING &&
             thing->id == 0 &&
             thing->type_id == type->type_id)
@@ -215,7 +218,7 @@ static void type__mod(
         fn_arg_str(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
         return;
 
-    n = ti_collection_ntype(query->collection, type);
+    n = ti_query_count_type(query, type);
 
     if (ti_field_mod(field, (ti_raw_t *) query->rval, n, e))
         return;

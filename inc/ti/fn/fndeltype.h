@@ -46,9 +46,13 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    for (vec_each(query->vars, ti_thing_t, thing))
-        if (thing->tp == TI_VAL_THING && thing->type_id == type->type_id)
+    for (vec_each(query->vars, ti_prop_t, prop))
+    {
+        ti_thing_t * thing = (ti_thing_t *) prop->val;
+        if (thing->tp == TI_VAL_THING &&
+            thing->type_id == type->type_id)
             ti_thing_t_to_object(thing);
+    }
 
     /* this will remove the `type` so it cannot be used after here */
     ti_type_del(type);

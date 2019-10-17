@@ -36,15 +36,15 @@ class TestType(TestBase):
 
     async def test_new_type(self, client):
         await client.query(r'''
-            new_type('User', {
+            set_type(new_type('User'), {
                 name: 'str',
                 age: 'uint',
                 likes: '[User]?',
             });
-            new_type('People', {
+            set_type(new_type('People'), {
                 users: '[User]'
             });
-            new_type('UserName', {
+            set_type(new_type('UserName'), {
                 name: 'str',
             });
         ''')
@@ -54,24 +54,24 @@ class TestType(TestBase):
                 name: 'Iris',
                 age: 6,
             });
-            .cato = User({
+            .cato = User{
                 name: 'Cato',
                 age: 5,
-            });
+            };
             .people = new('People', {users: [.iris, .cato]});
         ''')
 
     async def test_mod_type_add(self, client):
         await client.query(r'''
-            new_type('User', {
+            set_type(new_type('User'), {
                 name: 'str',
                 age: 'uint',
                 likes: '[User]?',
             });
-            new_type('People', {
+            set_type(new_type('People'), {
                 users: '[User]'
             });
-            new_type('UserName', {
+            set_type(new_type('UserName'), {
                 name: 'str',
                 u: 'UserName?',
             });
@@ -82,10 +82,10 @@ class TestType(TestBase):
                 name: 'Iris',
                 age: 6,
             });
-            .cato = User({
+            .cato = User{
                 name: 'Cato',
                 age: 5,
-            });
+            };
             .lena = User{
                 name: 'Lena',
                 age: 6,
@@ -94,10 +94,10 @@ class TestType(TestBase):
         ''')
 
         await client.query(r'''
-            mod_type('User', 'add', 'friend', 'User?', User({
+            mod_type('User', 'add', 'friend', 'User?', User{
                 name: 'Anne',
                 age: 5
-            }));
+            });
             mod_type('User', 'del', 'age');
             mod_type('User', 'mod', 'name', 'str?');
         ''')

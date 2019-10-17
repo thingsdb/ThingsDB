@@ -167,24 +167,22 @@ fail:
 
 /*
  * Returns 0 on success
- * - for example: {'type_id':.., 'name':.. 'fields': {name: spec_raw,...}}
+ * - for example: {'type_id':.., 'name':.. }
  *
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
 static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
 {
-    ex_t e = {0};
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     mp_obj_t obj, mp_id, mp_name;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) != MP_STR ||
-        mp_skip(up) != MP_STR)
+        mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
             "job `new_type` for "TI_COLLECTION_ID" is invalid",
@@ -201,36 +199,80 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    type = ti_type_create(
+            collection->types,
+            mp_id.via.u64,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
+
     if (!type)
     {
-        type = ti_type_create(
-                collection->types,
-                mp_id.via.u64,
-                mp_name.via.str.data,
-                mp_name.via.str.n);
-
-        if (!type)
-        {
-            ti_type_drop(type);
-            log_critical("memory allocation error");
-            return -1;
-        }
-    }
-
-    if (ti_type_init_from_unp(type, up, &e))
-    {
+        ti_type_drop(type);
         log_critical(
-            "job `new_type` for "TI_COLLECTION_ID" has failed; "
-            "%s; remove type `%s`...",
-            collection->root->id, e.msg, type->name);
-        (void) ti_type_del(type);
+            "job `new_type` for "TI_COLLECTION_ID" is invalid; "
+            "cannot create type id %"PRIu64,
+            collection->root->id, mp_id.via.u64);
         return -1;
     }
 
     return 0;
 }
 
+/*
+ * Returns 0 on success
+ * - for example: {'type_id':.., 'fields':.. }
+ *
+ * Note: decided to `panic` in case of failures since it might mess up
+ *       the database in case of failure.
+ */
+static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    mp_obj_t obj, mp_id;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+            "job `sew_type` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `set_type` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    if (type->fields->n)
+    {
+        log_critical(
+                "job `set_type` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" is already initialized with fields",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    if (ti_type_init_from_unp(type, up, &e))
+    {
+        log_critical(
+            "job `sew_type` for "TI_COLLECTION_ID" has failed; "
+            "%s; remove type `%s`...",
+            collection->root->id, e.msg, type->name);
+        (void) ti_type_del(type);
+        return -1;
+    }
+    return 0;
+}
 
 /*
  * Returns 0 on success
@@ -263,7 +305,7 @@ static int job__mod_type_add(
         mp_next(up, &mp_spec) != MP_STR)
     {
         log_critical(
-                "job `mode_type_add` for "TI_COLLECTION_ID" is invalid",
+                "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
                 vup.collection->root->id);
         return rc;
     }
@@ -273,7 +315,7 @@ static int job__mod_type_add(
         if (mp_skip(up) != MP_STR )
         {
             log_critical(
-                    "job `mode_type_add` for "TI_COLLECTION_ID" is invalid",
+                    "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
                     vup.collection->root->id);
             return rc;
         }
@@ -282,7 +324,7 @@ static int job__mod_type_add(
         if (!val)
         {
             log_critical(
-                    "job `mode_type_add` for "TI_COLLECTION_ID" has failed; "
+                    "job `mod_type_add` for "TI_COLLECTION_ID" has failed; "
                     "error reading initial value",
                     vup.collection->root->id);
             return rc;
@@ -293,7 +335,7 @@ static int job__mod_type_add(
     if (!type)
     {
         log_critical(
-                "job `mode_type_add` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 vup.collection->root->id, mp_id.via.u64);
         return rc;
@@ -350,7 +392,7 @@ static int job__mod_type_del(
         mp_next(up, &mp_name) != MP_STR)
     {
         log_critical(
-                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid",
+                "job `mod_type_del` for "TI_COLLECTION_ID" is invalid",
                 collection->root->id);
         return -1;
     }
@@ -359,7 +401,7 @@ static int job__mod_type_del(
     if (!type)
     {
         log_critical(
-                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 collection->root->id, mp_id.via.u64);
         return -1;
@@ -369,7 +411,7 @@ static int job__mod_type_del(
     if (!name)
     {
         log_critical(
-                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %u; name is missing",
                 collection->root->id, type->type_id);
         return -1;
@@ -379,7 +421,7 @@ static int job__mod_type_del(
     if (!field)
     {
         log_critical(
-                "job `mode_type_del` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
                 collection->root->id, type->name, name->str);
         return -1;
@@ -417,7 +459,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_spec) != MP_STR)
     {
         log_critical(
-                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid",
+                "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
                 collection->root->id);
         return rc;
     }
@@ -426,7 +468,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     if (!type)
     {
         log_critical(
-                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 collection->root->id, mp_id.via.u64);
         return rc;
@@ -436,7 +478,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     if (!name)
     {
         log_critical(
-                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
                 collection->root->id, mp_id.via.u64);
         return rc;
@@ -446,7 +488,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     if (!field)
     {
         log_critical(
-                "job `mode_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
                 collection->root->id, type->name, name->str);
         return rc;
@@ -905,6 +947,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__set(thing, up);
         if (mp_str_eq(&mp_job, "splice"))
             return job__splice(thing, up);
+        if (mp_str_eq(&mp_job, "set_type"))
+            return job__set_type(thing, up);
         break;
     }
 

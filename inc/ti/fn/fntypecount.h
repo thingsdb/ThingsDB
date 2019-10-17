@@ -25,7 +25,7 @@ static int do__f_type_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!type)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
-    n = ti_collection_ntype(query->collection, type);
+    n = ti_query_count_type(query, type);
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) n);

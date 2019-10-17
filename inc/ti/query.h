@@ -54,6 +54,7 @@ ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
         int64_t thing_id,
         ex_t * e);
+size_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
 

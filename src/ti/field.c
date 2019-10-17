@@ -250,19 +250,23 @@ skip_nesting:
     }
 
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET &&
-        (field->nested_spec & TI_SPEC_MASK_NILLABLE) > TI_SPEC_OBJECT)
+        field->nested_spec > TI_SPEC_OBJECT)
     {
-        ex_set(e, EX_VALUE_ERROR,
-            "invalid declaration for `%s` on type `%s`; "
-            "type `"TI_VAL_SET_S"` cannot contain type `%s`"
-            DOC_SPEC,
-            field->name->str, field->type->name,
-            ti__spec_approx_type_str(field->nested_spec));
+        if (field->nested_spec & TI_SPEC_NILLABLE)
+            ex_set(e, EX_VALUE_ERROR,
+                "invalid declaration for `%s` on type `%s`; "
+                "type `"TI_VAL_SET_S"` cannot contain type `"TI_VAL_NIL_S"`",
+                DOC_SPEC,
+                field->name->str, field->type->name);
+        else
+            ex_set(e, EX_VALUE_ERROR,
+                "invalid declaration for `%s` on type `%s`; "
+                "type `"TI_VAL_SET_S"` cannot contain type `%s`"
+                DOC_SPEC,
+                field->name->str, field->type->name,
+                ti__spec_approx_type_str(field->nested_spec));
         return e->nr;
     }
-
-    if (((*spec) & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
-        *spec &= TI_SPEC_MASK_NILLABLE;
 
     return 0;
 
@@ -338,7 +342,7 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
     if (field__init(field, e))
         goto undo;
 
-    if (!n || field->spec == TI_SPEC_ANY)
+    if (!n)
         goto success;
 
     switch (ti__spec_check_mod(prev_spec, field->spec))
@@ -537,7 +541,7 @@ done:
 
 static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
 {
-    if (field->nested_spec == TI_SPEC_ANY ||
+    if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
         (*varr)->vec->n == 0 ||
         (*varr)->spec == field->nested_spec)
         goto done;
@@ -583,7 +587,7 @@ done:
 
 static _Bool field__maps_to_varr(ti_field_t * field, ti_varr_t * varr)
 {
-    if (field->nested_spec == TI_SPEC_ANY ||
+    if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
         varr->vec->n == 0 ||
         varr->spec == field->nested_spec)
         return true;
@@ -712,8 +716,8 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     uint16_t t_spec, f_spec;
     assert (t_field->name == f_field->name);
 
-    /* return 0 when `to` accepts `any` (which is never set with nillable) */
-    if (t_field->spec == TI_SPEC_ANY)
+    /* return 0 when `to` accepts `any` */
+    if ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
         return true;
 
     /* if `to` does not accept `nil`, and from does, this is an error */
@@ -727,7 +731,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     /* return `true` when both specifications are equal, and nested accepts
      * anything which is default for all other than `arr` and `set` */
     return t_spec == f_spec
-            ? t_field->nested_spec == TI_SPEC_ANY
+            ? (t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY
             ? true
             : field__maps_to_nested(t_field, f_field)
             : field__maps_to_spec(t_spec, f_spec);

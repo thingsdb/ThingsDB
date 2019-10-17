@@ -125,13 +125,11 @@ void ti_type_destroy(ti_type_t * type)
     free(type);
 }
 
-size_t ti_type_approx_pack_sz(ti_type_t * type)
+size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
 {
-    size_t n = type->name_n + 32;  /* 'name', 'type_id', 'fields', type_id */
+    size_t n = 0;
     for (vec_each(type->fields, ti_field_t, field))
-    {
         n += field->name->n + field->spec_raw->n + 10;
-    }
     return n;
 }
 

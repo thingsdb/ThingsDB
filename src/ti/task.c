@@ -182,7 +182,7 @@ fail_pack:
 
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 {
-    size_t alloc = ti_type_approx_pack_sz(type);
+    size_t alloc = 64 + type->name_n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -194,13 +194,46 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_type");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, type->name, type->name_n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
+{
+    size_t alloc = 64 + ti_type_fields_approx_pack_sz(type);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "set_type");
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
 
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);
@@ -218,6 +251,7 @@ fail_data:
     free(data);
     return -1;
 }
+
 
 int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 {

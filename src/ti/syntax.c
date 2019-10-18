@@ -602,12 +602,11 @@ static void syntax__expr_choice(ti_syntax_t * syntax, cleri_node_t * nd)
 
 static inline void syntax__expression(ti_syntax_t * syntax, cleri_node_t * nd)
 {
+    cleri_children_t * child;
     intptr_t nots = 0;
     assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
-    for (cleri_children_t * nchild = nd->children->node->children;
-         nchild;
-         nchild = nchild->next)
+    for (child = nd->children->node->children; child; child = child->next)
         ++nots;
 
     nd->children->node->data = (void *) nots;

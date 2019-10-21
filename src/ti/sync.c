@@ -46,7 +46,8 @@ int ti_sync_start(void)
 {
     assert (sync_->status == SYNC__STAT_INIT);
 
-    sync_->min_try_count = ti()->nodes->imap->n == 1 ? 1 : 3;
+    /* set a minimum try-to-sync so nodes have time to connect */
+    sync_->min_try_count = ti()->nodes->imap->n == 1 ? 1 : 5;
 
     if (uv_timer_init(ti()->loop, sync_->repeat))
         goto fail0;

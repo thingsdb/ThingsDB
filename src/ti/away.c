@@ -280,6 +280,9 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     (void) uv_timer_stop(waiter);
     uv_close((uv_handle_t *) waiter, NULL);
 
+    if (ti()->flags & TI_FLAG_SIGNAL)
+        return;
+
     if (uv_queue_work(
             ti()->loop,
             away->work,

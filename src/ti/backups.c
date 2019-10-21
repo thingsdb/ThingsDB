@@ -168,7 +168,7 @@ static int backups__store(void)
             msgpack_pack_uint64(&pk, backup->timestamp) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             mp_pack_str(&pk, backup->fn_template) ||
-            mp_pack_str(&pk, backup->result_msg) ||
+            mp_pack_str(&pk, backup->result_msg ? backup->result_msg : "") ||
             mp_pack_bool(&pk, backup->scheduled) ||
             msgpack_pack_fix_int32(&pk, backup->result_code)
         ) goto fail;

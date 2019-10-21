@@ -18,13 +18,20 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_do_statement(query, child->node, e))
         return e->nr;
 
-
     if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `new_backup` expects argument 1 to be of "
             "type `"TI_VAL_STR_S"` but got type `%s` instead"
             DOC_NEW_BACKUP, ti_val_str(query->rval));
+        return e->nr;
+    }
+
+    if (ti()->nodes->imap->n == 1)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+            "at least 2 nodes are required to make a backup"
+            DOC_NEW_BACKUP);
         return e->nr;
     }
 

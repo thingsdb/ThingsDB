@@ -46,6 +46,8 @@ int ti_sync_start(void)
 {
     assert (sync_->status == SYNC__STAT_INIT);
 
+    sync_->min_try_count = ti()->nodes->imap->n == 1 ? 1 : 3;
+
     if (uv_timer_init(ti()->loop, sync_->repeat))
         goto fail0;
 
@@ -107,7 +109,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
 
     if (node == NULL)
     {
-        if (ti_nodes_ignore_sync())
+        if (--sync_->min_try_count == 0 && ti_nodes_ignore_sync())
         {
             log_warning(
                     "ignore the synchronize step because no node is available "

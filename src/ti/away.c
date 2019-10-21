@@ -111,12 +111,8 @@ static void away__work(uv_work_t * UNUSED(work))
 {
     uv_mutex_lock(ti()->events->lock);
 
-    sleep(4);
-
     if ((ti()->flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
         ti()->flags &= ~TI_FLAG_NODES_CHANGED;
-
-    sleep(4);
 
     /* garbage collect */
     (void) ti_collections_gc();

@@ -111,10 +111,12 @@ static void away__work(uv_work_t * UNUSED(work))
 {
     uv_mutex_lock(ti()->events->lock);
 
-    away->status = AWAY__STATUS_WORKING;
+    sleep(4);
 
     if ((ti()->flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
         ti()->flags &= ~TI_FLAG_NODES_CHANGED;
+
+    sleep(4);
 
     /* garbage collect */
     (void) ti_collections_gc();
@@ -283,6 +285,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     if (ti()->flags & TI_FLAG_SIGNAL)
         return;
 
+    away->status = AWAY__STATUS_WORKING;
     if (uv_queue_work(
             ti()->loop,
             away->work,
@@ -490,7 +493,7 @@ void ti_away_stop(void)
     else
     {
         if (    away->status == AWAY__STATUS_WAITING ||
-                away->status ==AWAY__STATUS_SYNCING)
+                away->status == AWAY__STATUS_SYNCING)
         {
             uv_timer_stop(away->waiter);
             uv_close((uv_handle_t *) away->waiter, (uv_close_cb) free);

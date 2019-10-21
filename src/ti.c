@@ -38,7 +38,7 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
-static int shutdown_counter = 3;
+static int shutdown_counter = 2;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_loop_t loop_;
 
@@ -884,10 +884,17 @@ static void ti__shutdown_stop(void)
 
 static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
 {
-    if (--shutdown_counter)
+    if (shutdown_counter)
     {
         log_info("going offline in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
+        --shutdown_counter;
+        return;
+    }
+
+    if (ti_away_is_working())
+    {
+        log_info("wait for `away` mode to finish before shutting down");
         return;
     }
 

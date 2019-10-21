@@ -175,7 +175,7 @@ static int backups__store(void)
     }
 
 
-    log_debug("stored access to file: `%s`", backups->fn);
+    log_debug("stored backup schedules to file: `%s`", backups->fn);
     goto done;
 fail:
     log_error("failed to write file: `%s`", backups->fn);

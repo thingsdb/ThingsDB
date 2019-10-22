@@ -4,14 +4,10 @@
 #ifndef DOC_H_
 #define DOC_H_
 
-/* TODO: create doc exist tests */
+#define DOC_DOCS(__uri) "https://thingsdb.github.io/ThingsDocs/"__uri
+#define DOC_SEE(__uri) "; see "DOC_DOCS(__uri)
 
-#include <tiinc.h>
-
-#define DOC_DOCS(__hash) "https://thingsdb.github.io/ThingsDocs/"__hash
-#define DOC_SEE(__hash) "; see "DOC_DOCS(__hash)
-
-#define DOC_ADD                     DOC_SEE("#add")
+#define DOC_ADD                     DOC_SEE("collections-api/add/")
 #define DOC_ARRAY                   DOC_SEE("#array")
 #define DOC_ASSERT                  DOC_SEE("#assert")
 #define DOC_ASSERT_ERR              DOC_SEE("#assert_err")
@@ -115,7 +111,7 @@
 #define DOC_SCOPES                  DOC_SEE("#scopes")
 #define DOC_SET_LOG_LEVEL           DOC_SEE("#set_log_level")
 #define DOC_SET_NEW_TYPE            DOC_SEE("#set-new-type")
-#define DOC_SET_PASSWORD            DOC_SEE("#set_password")
+#define DOC_SET_PASSWORD            DOC_SEE("thingsdb-api/set_password/")
 #define DOC_SET_PROPERTY            DOC_SEE("#set-property")
 #define DOC_SET_QUOTA               DOC_SEE("#set_quota")
 #define DOC_SET_TYPE                DOC_SEE("#set_type")

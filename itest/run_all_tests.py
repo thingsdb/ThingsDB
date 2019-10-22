@@ -3,6 +3,7 @@ from lib import run_test
 
 from test_arguments import TestArguments
 from test_collection_functions import TestCollectionFunctions
+from test_doc_url import TestDocUrl
 from test_gc import TestGC
 from test_index_slice import TestIndexSlice
 from test_multi_node import TestMultiNode
@@ -24,6 +25,7 @@ from test_wrap import TestWrap
 if __name__ == '__main__':
     run_test(TestArguments())
     run_test(TestCollectionFunctions())
+    run_test(TestDocUrl())
     run_test(TestGC())
     run_test(TestIndexSlice())
     run_test(TestMultiNode())

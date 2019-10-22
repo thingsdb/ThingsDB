@@ -146,6 +146,8 @@ static int backups__store(void)
     omap_iter_t iter;
     msgpack_packer pk;
     FILE * f = fopen(backups->fn, "w");
+    static char empty[1] = "";
+    char * result_msg;
     if (!f)
     {
         log_error("cannot open file `%s` (%s)", backups->fn, strerror(errno));
@@ -163,17 +165,17 @@ static int backups__store(void)
 
     for (omap_each(iter, ti_backup_t, backup))
     {
+        result_msg = backup->result_msg ? backup->result_msg : empty;
         if (msgpack_pack_array(&pk, 7) ||
             msgpack_pack_uint64(&pk, backup->id) ||
             msgpack_pack_uint64(&pk, backup->timestamp) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             mp_pack_str(&pk, backup->fn_template) ||
-            mp_pack_str(&pk, backup->result_msg ? backup->result_msg : "") ||
+            mp_pack_str(&pk, result_msg) ||
             mp_pack_bool(&pk, backup->scheduled) ||
             msgpack_pack_fix_int32(&pk, backup->result_code)
         ) goto fail;
     }
-
 
     log_debug("stored backup schedules to file: `%s`", backups->fn);
     goto done;

@@ -141,7 +141,7 @@ static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * f
     vsprintf(body, fmt, args2);
     va_end(args2);
 
-    rc = msgpack_pack_str_body(x, body, n);
+    rc = n ? msgpack_pack_str_body(x, body, n) : 0;
     free(body);
     return rc;
 }
@@ -153,12 +153,12 @@ static int __attribute__((unused))mp_pack_bool(msgpack_packer * x, _Bool b)
 
 static int __attribute__((unused))mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
 {
-    return msgpack_pack_bin(x, n) || msgpack_pack_bin_body(x, b, n);
+    return msgpack_pack_bin(x, n) || (n && msgpack_pack_bin_body(x, b, n));
 }
 
 static int __attribute__((unused))mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
 {
-    return msgpack_pack_str(x, n) || msgpack_pack_str_body(x, s, n);
+    return msgpack_pack_str(x, n) || (n && msgpack_pack_str_body(x, s, n));
 }
 
 #define mp_pack_str(x__, s__) \

@@ -6,7 +6,6 @@ import platform
 import configparser
 import psutil
 import logging
-import pexpect
 import io
 import threading
 from .vars import THINGSDB_BIN

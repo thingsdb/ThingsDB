@@ -53,6 +53,8 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         log_warning(
             "signal (%s) received but a shutdown is already initiated",
             strsignal(signum));
+        if (signum == SIGSEGV)
+            abort();
         return;
     }
 

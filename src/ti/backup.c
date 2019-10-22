@@ -96,7 +96,7 @@ int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
 
     if (backup->result_msg && (
         mp_pack_str(pk, "result_message") ||
-        mp_pack_str(pk, backup->result_msg ? backup->result_msg : "") ||
+        mp_pack_str(pk, backup->result_msg) ||
 
         mp_pack_str(pk, "result_code") ||
         msgpack_pack_int(pk, backup->result_code)

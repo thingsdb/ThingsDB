@@ -7,7 +7,7 @@
 #define DOC_DOCS(__uri) "https://thingsdb.github.io/ThingsDocs/"__uri
 #define DOC_SEE(__uri) "; see "DOC_DOCS(__uri)
 
-#define DOC_ADD                     DOC_SEE("collections-api/add/")
+#define DOC_ADD                     DOC_SEE("collection-api/add/")
 #define DOC_ARRAY                   DOC_SEE("#array")
 #define DOC_ASSERT                  DOC_SEE("#assert")
 #define DOC_ASSERT_ERR              DOC_SEE("#assert_err")

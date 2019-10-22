@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import pickle
+import logging
 import time
 import sys
 import os
@@ -15,7 +16,7 @@ THINGSDB_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INC_PATH = os.path.join(THINGSDB_PATH, 'inc')
 DOC_FN = os.path.join(INC_PATH, 'doc.h')
 RE_DOC_DOCS = re.compile(r'#define DOC_DOCS.*"(http[a-zA-Z0-9\:\.\/\-_]*)"')
-RE_DOC = re.compile(r'#define DOC_.*\("([a-zA-Z0-9\.\/\-_]+)"\)')
+RE_DOC = re.compile(r'#define DOC_.*DOC_SEE\("([a-zA-Z0-9\.\/\-_]+)"\)')
 
 
 class TestDocUrl(TestBase):
@@ -44,6 +45,7 @@ class TestDocUrl(TestBase):
             m = RE_DOC.match(line)
             if m:
                 testurl = f'{url}{m.group(1)}'
+                logging.info(f'testing `{testurl}`...')
                 try:
                     with urllib.request.urlopen(testurl) as response:
                         html = response.read()

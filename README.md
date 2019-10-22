@@ -8,24 +8,24 @@
     - [ ] More Wrap tests
     - [ ] Complete ThingsDB functions test
 - [ ] Update documentation
-- [ ] Documentation testing
+- [x] Documentation testing
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
 - [ ] Accept environment variable and make config file optional
     - When both a config file and environment variable, the latter should win
 - [ ] Syntax Highlighting
-    - [ ] Pygments (Python)
-    - [ ] Chroma  (Go, first make Pygments, it should be easy to convert to Chroma)
+    - [x] Pygments (Python)
+    - [x] Chroma  (Go, first make Pygments, it should be easy to convert to Chroma)
     - [ ] Monoca editor
     - [ ] VSCode (related to Monaco editor)
     - [ ] Ace editor
-- [ ] set_type, for configuring an empty type without instances
+- [x] set_type, for configuring an empty type without instances
 - [ ] thing.watch()/thing.unwatch() function calls.
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?
 
 
-## Instqallation msgpack
+## Installation msgpack
 
 ```
 git clone https://github.com/msgpack/msgpack-c.git

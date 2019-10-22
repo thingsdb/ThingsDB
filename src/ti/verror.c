@@ -246,12 +246,16 @@ const char * ti_verror_type_str(ti_verror_t * verror)
 {
     switch (verror->code)
     {
+    case EX_OPERATION_ERROR: return "operation_err()";
+    case EX_NUM_ARGUMENTS: return "num_arguments_err()";
+    case EX_TYPE_ERROR: return "type_err()";
+    case EX_VALUE_ERROR: return "value_err()";
     case EX_OVERFLOW: return "overflow_err()";
     case EX_ZERO_DIV: return "zero_div_err()";
     case EX_MAX_QUOTA: return "max_quota_err()";
     case EX_AUTH_ERROR: return "auth_err()";
     case EX_FORBIDDEN: return "forbidden_err()";
-    case EX_LOOKUP_ERROR: return "index_err()";
+    case EX_LOOKUP_ERROR: return "lookup_err()";
     case EX_BAD_DATA: return "bad_data_err()";
     case EX_SYNTAX_ERROR: return "syntax_err()";
     case EX_NODE_ERROR: return "node_err()";

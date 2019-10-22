@@ -10,7 +10,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_chain_move(&chain, &query->chain);
 
-    if (fn_nargs_range("remove", DOC_REMOVE_LIST, 1, 2, nargs, e) ||
+    if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
         ti_val_try_lock(query->rval, e))
         goto fail0;
 
@@ -25,7 +25,7 @@ static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `remove` expects argument 1 to be "
                 "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                DOC_REMOVE_LIST, ti_val_str(query->rval));
+                DOC_LIST_REMOVE, ti_val_str(query->rval));
         goto fail1;
     }
 
@@ -122,7 +122,7 @@ static int do__f_remove_set_from_closure(
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `remove` takes at most 1 argument when using a `"
-                TI_VAL_CLOSURE_S"` but %d were given"DOC_REMOVE_SET,
+                TI_VAL_CLOSURE_S"` but %d were given"DOC_SET_REMOVE,
                 nargs);
         goto fail1;
     }
@@ -172,7 +172,7 @@ static void do__f_remove_set(
 
     ti_chain_move(&chain, &query->chain);
 
-    if (fn_nargs_min("remove", DOC_REMOVE_SET, 1, nargs, e) ||
+    if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))
         goto fail0;
 
@@ -220,11 +220,11 @@ static void do__f_remove_set(
                         ?
                         "function `remove` expects argument %d to be "
                         "a `"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
-                        "but got type `%s` instead"DOC_REMOVE_SET
+                        "but got type `%s` instead"DOC_SET_REMOVE
                         :
                         "function `remove` expects argument %d to be "
                         "of type `"TI_VAL_THING_S"` "
-                        "but got type `%s` instead"DOC_REMOVE_SET,
+                        "but got type `%s` instead"DOC_SET_REMOVE,
                         narg, ti_val_str(query->rval));
 
                 goto fail2;
@@ -299,9 +299,7 @@ static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `remove`"
-                DOC_REMOVE_LIST DOC_REMOVE_SET,
+        ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no function `remove`",
                 ti_val_str(query->rval));
     }
 

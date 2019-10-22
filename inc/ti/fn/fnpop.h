@@ -14,12 +14,12 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `pop`"DOC_POP,
+                "type `%s` has no function `pop`",
                 ti_val_str(query->rval));
         goto fail0;
     }
 
-    if (fn_nargs("pop", DOC_POP, 0, nargs, e) ||
+    if (fn_nargs("pop", DOC_LIST_POP, 0, nargs, e) ||
         ti_val_try_lock(query->rval, e))
         goto fail0;
 
@@ -28,7 +28,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!query->rval)
     {
-        ex_set(e, EX_LOOKUP_ERROR, "pop from empty array"DOC_POP);
+        ex_set(e, EX_LOOKUP_ERROR, "pop from empty array"DOC_LIST_POP);
         goto done;
     }
 

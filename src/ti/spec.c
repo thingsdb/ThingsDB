@@ -131,7 +131,7 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_FLOAT:         return TI_VAL_FLOAT_S;
     case TI_SPEC_NUMBER:        return "number";
     case TI_SPEC_BOOL:          return TI_VAL_BOOL_S;
-    case TI_SPEC_ARR:           return TI_VAL_ARR_S;
+    case TI_SPEC_ARR:           return TI_VAL_LIST_S;
     case TI_SPEC_SET:           return TI_VAL_SET_S;
     }
     return "thing";

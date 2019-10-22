@@ -13,18 +13,18 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("splice", query, e))
         return e->nr;
 
-    ti_chain_move(&chain, &query->chain);
-
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `splice`"DOC_SPLICE,
+                "type `%s` has no function `splice`",
                 ti_val_str(query->rval));
-        goto fail0;
+        return e->nr;
     }
 
+    ti_chain_move(&chain, &query->chain);
+
     n = langdef_nd_n_function_params(nd);
-    if (fn_nargs_min("splice", DOC_SPLICE, 2, n, e) ||
+    if (fn_nargs_min("splice", DOC_LIST_SPLICE, 2, n, e) ||
         ti_val_try_lock(query->rval, e))
         goto fail0;
 
@@ -38,7 +38,8 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_SPLICE,
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"
+                DOC_LIST_SPLICE,
                 ti_val_str(query->rval));
         goto fail1;
     }
@@ -55,7 +56,8 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_SPLICE,
+                "type `"TI_VAL_INT_S"` but got type `%s` instead"
+                DOC_LIST_SPLICE,
                 ti_val_str(query->rval));
         goto fail1;
     }

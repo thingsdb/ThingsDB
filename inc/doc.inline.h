@@ -73,6 +73,16 @@ static inline const char * doc_indexof(ti_val_t * val)
             : NULL;
 }
 
+static inline const char * doc_sort(ti_val_t * val)
+{
+    return val->tp == TI_VAL_ARR
+            ? ti_varr_is_list((ti_varr_t *) val)
+            ? DOC_LIST_SORT
+            : DOC_TUPLE_SORT
+            : NULL;
+}
+
+
 static inline const char * doc_get(ti_val_t * val)
 {
     return val->tp == TI_VAL_THING
@@ -97,6 +107,24 @@ static inline const char * doc_keys(ti_val_t * val)
             ? ti_thing_is_object((ti_thing_t *) val)
             ? DOC_THING_KEYS
             : DOC_TYPE_KEYS
+            : NULL;
+}
+
+static inline const char * doc_values(ti_val_t * val)
+{
+    return val->tp == TI_VAL_THING
+            ? ti_thing_is_object((ti_thing_t *) val)
+            ? DOC_THING_VALUES
+            : DOC_TYPE_VALUES
+            : NULL;
+}
+
+static inline const char * doc_wrap(ti_val_t * val)
+{
+    return val->tp == TI_VAL_THING
+            ? ti_thing_is_object((ti_thing_t *) val)
+            ? DOC_THING_WRAP
+            : DOC_TYPE_WRAP
             : NULL;
 }
 

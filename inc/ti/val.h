@@ -35,7 +35,6 @@ typedef enum
 #define TI_VAL_BYTES_S      "bytes"
 #define TI_VAL_REGEX_S      "regex"
 #define TI_VAL_THING_S      "thing"
-#define TI_VAL_ARR_S        "array"
 #define TI_VAL_LIST_S       "list"
 #define TI_VAL_TUPLE_S      "tuple"
 #define TI_VAL_SET_S        "set"

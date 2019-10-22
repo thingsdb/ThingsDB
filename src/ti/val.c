@@ -866,7 +866,8 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_WRAP:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_ARR_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_LIST_S"`",
                 ti_val_str(*val));
         break;
     case TI_VAL_ARR:
@@ -895,7 +896,8 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_WRAP:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_SET_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
         break;
     case TI_VAL_THING:

@@ -826,7 +826,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `splice` on "TI_THING_ID": "
-                "expecting a `"TI_VAL_ARR_LIST_S"`, got `%s`",
+                "expecting a `"TI_VAL_LIST_S"`, got `%s`",
                 thing->id,
                 ti_val_str((ti_val_t *) varr));
         return -1;

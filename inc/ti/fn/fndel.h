@@ -13,12 +13,12 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `del`"DOC_DEL,
+                "type `%s` has no function `del`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs("del", DOC_DEL, 1, nargs, e))
+    if (fn_nargs("del", DOC_THING_DEL, 1, nargs, e))
         return e->nr;
 
     /*
@@ -45,7 +45,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_DEL,
+                "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_THING_DEL,
                 ti_val_str(query->rval));
         goto unlock;
     }

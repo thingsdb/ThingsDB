@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <doc.h>
+#include <doc.inline.h>
 #include <langdef/langdef.h>
 #include <langdef/nd.h>
 #include <math.h>

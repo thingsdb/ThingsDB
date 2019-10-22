@@ -16,7 +16,7 @@ static int do__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("lower", DOC_LOWER, 0, nargs, e))
+    if (fn_nargs("lower", DOC_STR_LOWER, 0, nargs, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;

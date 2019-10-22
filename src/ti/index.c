@@ -214,8 +214,8 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "slice assignments require an `"TI_VAL_ARR_S"` type "
-                "but got type `%s` instead"DOC_SLICES,
+                "slice assignments require a `"TI_VAL_LIST_S"` or "
+                "`"TI_VAL_TUPLE_S"` type but got type `%s` instead"DOC_SLICES,
                 ti_val_str(query->rval));
         goto fail1;
     }

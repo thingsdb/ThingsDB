@@ -13,12 +13,12 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `extend`"DOC_EXTEND,
+                "type `%s` has no function `extend`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs("extend", DOC_EXTEND, 1, nargs, e))
+    if (fn_nargs("extend", DOC_LIST_EXTEND, 1, nargs, e))
         return e->nr;
 
     ti_chain_move(&chain, &query->chain);
@@ -38,7 +38,8 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `extend` expects argument 1 to be of "
-                "type `"TI_VAL_ARR_S"` but got type `%s` instead"DOC_EXTEND,
+                "type `"TI_VAL_LIST_S"` but got type `%s` instead"
+                DOC_LIST_EXTEND,
                 ti_val_str(query->rval));
         goto fail1;
     }

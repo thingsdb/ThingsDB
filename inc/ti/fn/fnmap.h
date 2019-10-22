@@ -2,6 +2,7 @@
 
 static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t n;
     ti_varr_t * retvarr;
@@ -12,17 +13,16 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("map", query, e))
         return e->nr;
 
-    if (    !ti_val_is_arr(query->rval) &&
-            !ti_val_is_set(query->rval) &&
-            !ti_val_is_thing(query->rval))
+    doc = doc_map(query->rval);
+    if (!doc)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `map`"DOC_MAP,
+                "type `%s` has no function `map`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs("map", DOC_MAP, 1, nargs, e))
+    if (fn_nargs("map", doc, 1, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);
@@ -36,8 +36,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `map` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"DOC_MAP,
-                ti_val_str(query->rval));
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
+                ti_val_str(query->rval), doc);
         goto fail0;
     }
 

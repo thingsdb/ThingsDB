@@ -11,6 +11,14 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("add", query, e))
         return e->nr;
 
+    if (!ti_val_is_set(query->rval))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no function `add`",
+                ti_val_str(query->rval));
+        return e->nr;
+    }
+
     ti_chain_move(&chain, &query->chain);
 
     added = vec_new(nargs);  /* weak references to things */
@@ -20,23 +28,8 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (!ti_val_is_set(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `add`"DOC_ADD,
-                ti_val_str(query->rval));
-        goto fail0;
-    }
-
-    if (!nargs)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "function `add` requires at least 1 argument but 0 "
-                "were given"DOC_ADD);
-        goto fail0;
-    }
-
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs_min("add", DOC_SET_ADD, 1, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         goto fail0;
 
     vset = (ti_vset_t *) query->rval;

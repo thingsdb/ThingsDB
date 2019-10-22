@@ -2,6 +2,7 @@
 
 static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_val_t * retval = NULL;
     ti_closure_t * closure;
@@ -11,17 +12,16 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("filter", query, e))
         return e->nr;
 
-    if (    !ti_val_is_arr(query->rval) &&
-            !ti_val_is_set(query->rval) &&
-            !ti_val_is_thing(query->rval))
+    doc = doc_filter(query->rval);
+    if (!doc)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `filter`"DOC_FILTER,
+                "type `%s` has no function `filter`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs("filter", DOC_FILTER, 1, nargs, e))
+    if (fn_nargs("filter", doc, 1, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);
@@ -35,8 +35,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `filter` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"DOC_FILTER,
-                ti_val_str(query->rval));
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
+                ti_val_str(query->rval), doc);
         goto fail0;
     }
 

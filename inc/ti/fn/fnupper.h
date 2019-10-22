@@ -16,7 +16,7 @@ static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("upper", DOC_UPPER, 0, nargs, e))
+    if (fn_nargs("upper", DOC_STR_UPPER, 0, nargs, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;

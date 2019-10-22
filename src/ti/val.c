@@ -1156,15 +1156,15 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_MP:             return TI_VAL_INFO_S;
     case TI_VAL_NAME:
     case TI_VAL_STR:            return TI_VAL_STR_S;
-    case TI_VAL_BYTES:            return TI_VAL_BYTES_S;
+    case TI_VAL_BYTES:          return TI_VAL_BYTES_S;
     case TI_VAL_REGEX:          return TI_VAL_REGEX_S;
     case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val)
                                     ? TI_VAL_THING_S
                                     : ti_thing_type_str((ti_thing_t *) val);
     case TI_VAL_WRAP:           return ti_wrap_str((ti_wrap_t *) val);
     case TI_VAL_ARR:            return ti_varr_is_list((ti_varr_t *) val)
-                                    ? TI_VAL_ARR_LIST_S
-                                    : TI_VAL_ARR_TUPLE_S;
+                                    ? TI_VAL_LIST_S
+                                    : TI_VAL_TUPLE_S;
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;

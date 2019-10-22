@@ -2,6 +2,7 @@
 
 static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
     ti_wprop_t wprop;
@@ -10,15 +11,16 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("get", query, e))
         return e->nr;
 
-    if (!ti_val_is_thing(query->rval))
+    doc = doc_get(query->rval);
+    if (!doc)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `get`"DOC_GET,
+                "type `%s` has no function `get`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs_range("get", DOC_GET, 1, 2, nargs, e))
+    if (fn_nargs_range("get", doc, 1, 2, nargs, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;
@@ -31,8 +33,8 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `get` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_GET,
-            ti_val_str(query->rval));
+            "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
+            ti_val_str(query->rval), doc);
         goto done;
     }
 

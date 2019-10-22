@@ -6,7 +6,7 @@ static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool has;
     ti_vset_t * vset;
 
-    if (fn_nargs("has", DOC_HAS_SET, 1, nargs, e))
+    if (fn_nargs("has", DOC_SET_HAS, 1, nargs, e))
         return e->nr;
 
     vset = (ti_vset_t *) query->rval;
@@ -20,7 +20,7 @@ static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `has` expects argument 1 to be of "
                 "type `"TI_VAL_THING_S"` but got type `%s` instead"
-                DOC_HAS_SET,
+                DOC_SET_HAS,
                 ti_val_str(query->rval));
         goto fail1;
     }
@@ -36,11 +36,13 @@ fail1:
 
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const char * doc = doc_has(query->rval);
     const int nargs = langdef_nd_n_function_params(nd);
     ti_name_t * name;
     ti_thing_t * thing;
 
-    if (fn_nargs("has", DOC_HAS_THING, 1, nargs, e))
+    assert(doc);
+    if (fn_nargs("has", doc, 1, nargs, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;
@@ -53,9 +55,8 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `has` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_HAS_THING,
-                ti_val_str(query->rval));
+                "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
+                ti_val_str(query->rval), doc);
         goto fail1;
     }
 
@@ -83,8 +84,7 @@ static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_val_is_set(query->rval))
         return do__f_has_set(query, nd, e);
 
-    ex_set(e, EX_LOOKUP_ERROR,
-            "type `%s` has no function `has`"DOC_HAS_SET DOC_HAS_THING,
+    ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no function `has`",
             ti_val_str(query->rval));
     return e->nr;
 }

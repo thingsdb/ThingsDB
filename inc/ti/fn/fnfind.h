@@ -2,6 +2,7 @@
 
 static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     int64_t idx = 0;
     ti_closure_t * closure;
@@ -11,16 +12,16 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("find", query, e))
         return e->nr;
 
-    if (    !ti_val_is_array(query->rval) &&
-            !ti_val_is_set(query->rval))
+    doc = doc_find(query->rval);
+    if (!doc)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `find`"DOC_FIND,
+                "type `%s` has no function `find`",
                 ti_val_str(query->rval));
         return e->nr;
     }
 
-    if (fn_nargs_range("find", DOC_FIND, 1, 2, nargs, e))
+    if (fn_nargs_range("find", doc, 1, 2, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);
@@ -34,8 +35,8 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `find` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"DOC_FIND,
-                ti_val_str(query->rval));
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
+                ti_val_str(query->rval), doc);
         goto fail0;
     }
 

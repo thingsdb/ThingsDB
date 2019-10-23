@@ -271,11 +271,11 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
     }
 
-    (void) uv_timer_stop(waiter);
-    uv_close((uv_handle_t *) waiter, NULL);
-
     if (ti()->flags & TI_FLAG_SIGNAL)
         return;
+
+    (void) uv_timer_stop(waiter);
+    uv_close((uv_handle_t *) waiter, NULL);
 
     away->status = AWAY__STATUS_WORKING;
     if (uv_queue_work(
@@ -476,16 +476,19 @@ void ti_away_stop(void)
     if (!away)
         return;
 
+    if (away->status == AWAY__STATUS_WAITING ||
+        away->status == AWAY__STATUS_SYNCING)
+    {
+        uv_timer_stop(&away__uv_waiter);
+        uv_close((uv_handle_t *) &away__uv_waiter, NULL);
+    }
+
     if (away->status != AWAY__STATUS_INIT)
     {
-        if (!uv_is_closing((uv_handle_t *) &away__uv_waiter))
-        {
-            uv_timer_stop(&away__uv_waiter);
-            uv_close((uv_handle_t *) &away__uv_waiter, NULL);
-        }
         uv_timer_stop(&away__uv_repeat);
         uv_close((uv_handle_t *) &away__uv_repeat, NULL);
     }
+
     away__destroy();
 }
 

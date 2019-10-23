@@ -7,7 +7,6 @@ typedef struct
     ti_closure_t * closure;
     ex_t * e;
     vec_sort_r_cb cb;
-    const char * doc;
 } closure_cmp_t;
 
 int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
@@ -37,8 +36,8 @@ int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     {
         ex_set(cc->e, EX_TYPE_ERROR,
                 "expecting a return value of type `"TI_VAL_INT_S"` "
-                "but got type `%s` instead%s",
-                ti_val_str(cc->query->rval), cc->doc);
+                "but got type `%s` instead"DOC_LIST_SORT,
+                ti_val_str(cc->query->rval));
         return 0;
     }
 
@@ -93,7 +92,6 @@ int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
 static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_varr_t * varr;
     ti_closure_t * closure;
@@ -102,8 +100,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("sort", query, e))
         return e->nr;
 
-    doc = doc_sort(query->rval);
-    if (!doc)
+    if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `sort`",
@@ -111,14 +108,14 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs_max("sort", doc, 2, nargs, e))
+    if (fn_nargs_max("sort", DOC_LIST_SORT, 2, nargs, e))
         return e->nr;
 
     if (vec_is_sorting())
     {
         ex_set(e, EX_OPERATION_ERROR,
-                "function `sort` cannot be used recursively%s",
-                ti_val_str(query->rval), doc);
+                "function `sort` cannot be used recursively"DOC_LIST_SORT,
+                ti_val_str(query->rval));
         return e->nr;
     }
 
@@ -172,8 +169,9 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `sort` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
-                ti_val_str(query->rval), doc);
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
+                DOC_LIST_SORT,
+                ti_val_str(query->rval));
         goto fail0;
     }
 
@@ -184,8 +182,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "function `sort` requires a closure which "
-                "accepts 1 or 2 arguments%s",
-                doc);
+                "accepts 1 or 2 arguments"DOC_LIST_SORT);
         goto fail1;
     }
 
@@ -198,8 +195,9 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `sort` expects argument 2 to be "
-                    "a `"TI_VAL_BOOL_S"` but got type `%s` instead%s",
-                    ti_val_str(query->rval), doc);
+                    "a `"TI_VAL_BOOL_S"` but got type `%s` instead"
+                    DOC_LIST_SORT,
+                    ti_val_str(query->rval));
             goto fail1;
         }
 
@@ -213,7 +211,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_NUM_ARGUMENTS,
                 "cannot specify an order with a closure which takes two "
                 "arguments; in this case the order should be specified within "
-                "the closure%s", doc);
+                "the closure"DOC_LIST_SORT);
             goto fail1;
         }
     }
@@ -231,7 +229,6 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ? ti_opr_compare_desc
                     : ti_opr_compare
             ),
-            .doc = doc,
     };
     vec_sort_r(
             varr->vec,

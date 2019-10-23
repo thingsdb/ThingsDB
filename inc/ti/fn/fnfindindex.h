@@ -2,7 +2,6 @@
 
 static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_varr_t * varr;
@@ -12,8 +11,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("findindex", query, e))
         return e->nr;
 
-    doc = doc_findindex(query->rval);
-    if (!doc)
+    if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `findindex`",
@@ -21,7 +19,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("findindex", doc, 1, nargs, e))
+    if (fn_nargs("findindex", DOC_LIST_FINDINDEX, 1, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);
@@ -35,8 +33,9 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `findindex` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
-                ti_val_str(query->rval), doc);
+                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
+                DOC_LIST_FINDINDEX,
+                ti_val_str(query->rval));
         goto fail0;
     }
 

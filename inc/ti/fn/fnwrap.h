@@ -2,7 +2,6 @@
 
 static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_type_t * type;
     ti_thing_t * thing;
@@ -10,8 +9,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("wrap", query, e))
         return e->nr;
 
-    doc = doc_wrap(query->rval);
-    if (!doc)
+    if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `wrap`",
@@ -19,7 +17,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("wrap", doc, 1, nargs, e))
+    if (fn_nargs("wrap", DOC_THING_WRAP, 1, nargs, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

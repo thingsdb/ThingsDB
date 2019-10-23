@@ -7,6 +7,7 @@ import signal
 from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import NodeError
 from thingsdb.model import (
     Thing, Collection, array_of, set_of, required, optional
 )
@@ -157,14 +158,14 @@ async def test(client):
     global osdata
 
     await client.connect('localhost')
-    await client.authenticate('Z+I88lB/fF2ouz4INlVd6h')
+    await client.authenticate('admin', 'pass')
     client.use('stuff')
 
     # osdata = OsData(client, build=True)
 
     await asyncio.sleep(1)
 
-    await client.watch(4)
+    await client.query('.x = 0')
 
     try:
         # x = await client.run('new_user', 'pietje')
@@ -173,11 +174,17 @@ async def test(client):
         # x = await client.run('addone', 10, target='stuff')
         # print(x)
         # await client.query('.iris = iris;', iris={"name": "Iris", "age": 6, "o": True})
+        while True:
+            try:
+                stop = await client.query('.has("stop") && .stop')
+                if stop:
+                    break
 
-        rest = await client.query('.get("bla"); return (thing(.id()), 2);')
+                await client.query('.x += 1')
+                await asyncio.sleep(0.1)
 
-        for k, v in rest.items():
-            print(k, v)
+            except NodeError:
+                pass
 
     finally:
         client.close()

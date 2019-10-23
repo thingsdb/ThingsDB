@@ -2,15 +2,13 @@
 
 static int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
 
     if (fn_not_chained("id", query, e))
         return e->nr;
 
-    doc = doc_id(query->rval);
-    if (!doc)
+    if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `id`",
@@ -18,7 +16,7 @@ static int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("id", doc, 0, nargs, e))
+    if (fn_nargs("id", DOC_THING_ID, 0, nargs, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

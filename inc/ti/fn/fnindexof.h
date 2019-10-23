@@ -2,7 +2,6 @@
 
 static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
     ti_varr_t * varr;
@@ -10,8 +9,7 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_chained("indexof", query, e))
         return e->nr;
 
-    doc = doc_indexof(query->rval);
-    if (!doc)
+    if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `indexof`",
@@ -19,7 +17,7 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (fn_nargs("indexof", doc, 1, nargs, e))
+    if (fn_nargs("indexof", DOC_LIST_INDEXOF, 1, nargs, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;

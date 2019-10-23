@@ -170,7 +170,7 @@ ti_wareq_t * ti_wareq_may_create(
 
     if (wareq__unpack(wareq, pkg, e))
     {
-        wareq__destroy(wareq);
+        ti_wareq_destroy(wareq);
         return NULL;
     }
 

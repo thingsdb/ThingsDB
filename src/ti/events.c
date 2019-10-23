@@ -502,7 +502,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
     uint64_t * cevid_p = &ti()->node->cevid;
 
     if (uv_mutex_trylock(events->lock))
-        return;
+        return;  /* TODO: handle watchers? */
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;

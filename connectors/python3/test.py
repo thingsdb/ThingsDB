@@ -6,7 +6,7 @@ import pickle
 import signal
 from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
-from thingsdb.exceptions import IndexError
+from thingsdb.exceptions import LookupError
 from thingsdb.model import (
     Thing, Collection, array_of, set_of, required, optional
 )
@@ -163,6 +163,8 @@ async def test(client):
     # osdata = OsData(client, build=True)
 
     await asyncio.sleep(1)
+
+    await client.watch(4.0)
 
     try:
         # x = await client.run('new_user', 'pietje')

@@ -104,10 +104,8 @@ void * queue_rmval(queue_t * queue, void * data)
 {
     size_t i = 0;
     for (queue_each(queue, void, d), i++)
-    {
         if (d == data)
             return queue_remove(queue, i);
-    }
     return NULL;
 }
 
@@ -198,7 +196,7 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
         queue_t * q = queue__grow(queue);
         if (!q)
             return -1;
-        *qaddr = queue = q;
+        queue = *qaddr = q;
     }
 
     size_t i = queue__i(queue, idx);
@@ -216,6 +214,7 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
     else
     {
         /* walk forward */
+        --i;
         for (x = queue->s_;; x++)
         {
             queue->data_[x - 1] = queue->data_[x];

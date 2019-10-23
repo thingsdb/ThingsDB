@@ -394,11 +394,6 @@ int ti_archive_push(ti_epkg_t * epkg)
      */
     int rc = 0;
 
-    if (queue_last(archive->queue) && epkg->event_id <= ((ti_epkg_t *) queue_last(archive->queue))->event_id)
-    {
-        LOGC("Event ID: %u", epkg->event_id);
-        LOGC("Last Event ID: %u", ((ti_epkg_t *) queue_last(archive->queue))->event_id);
-    }
     assert (
         !queue_last(archive->queue) ||
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id

@@ -134,6 +134,7 @@ int ti_events_on_event(ti_node_t * from_node, ti_pkg_t * pkg)
         return -1;
 
     rc = ti_events_add_event(from_node, epkg);
+
     ti_epkg_drop(epkg);
 
     return rc;
@@ -205,58 +206,63 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         if (event->id == epkg->event_id)
             ev = event;
 
-    if (!ev)
+    if (ev)
     {
-        if (queue_reserve(&events->queue, 1))
-            return -1;
-
-        ev = ti_event_create(TI_EVENT_TP_EPKG);
-        if (!ev)
-            return -1;
-
-        ev->via.epkg = ti_grab(epkg);
-        ev->id = epkg->event_id;
-
-        /* we have space so this function always succeeds */
-        (void) events__push(ev);
-
-        goto done;
-    }
-
-    if (ev->status == TI_EVENT_STAT_READY)
-    {
-        assert (ev->tp != TI_EVENT_TP_SLAVE);
-
-        log_warning(
-            TI_EVENT_ID" is being processed and "
-            "can not be reused for node `%s`",
-            ev->id,
-            ti_node_name(node)
-        );
-
-        return 1;
-    }
-
-    assert (ev->tp != TI_EVENT_TP_EPKG);
-
-    if (ev->tp == TI_EVENT_TP_SLAVE)
-    {
-        if (ev->via.node != node)
+        if (ev->status == TI_EVENT_STAT_READY)
         {
-            log_info(
-                TI_EVENT_ID" was create for node `%s` but is now "
-                "reused by an event from node `%s`",
+            assert (ev->tp != TI_EVENT_TP_SLAVE);
+
+            log_warning(
+                TI_EVENT_ID" is being processed and "
+                "can not be reused for node `%s`",
                 ev->id,
-                ti_node_name(ev->via.node),
                 ti_node_name(node)
             );
-        }
-    }
-    ti_node_drop(ev->via.node);
 
-    ev->tp = TI_EVENT_TP_EPKG;
-    ev->status = TI_EVENT_STAT_READY;
+            return 1;
+        }
+
+        assert (ev->tp != TI_EVENT_TP_EPKG);
+
+        /* TODO: check if CANCEL event from node is really checking the node */
+        if (ev->tp == TI_EVENT_TP_SLAVE)
+        {
+            if (ev->via.node != node)
+            {
+                log_info(
+                    TI_EVENT_ID" was create for node `%s` but is now "
+                    "reused by an event from node `%s`",
+                    ev->id,
+                    ti_node_name(ev->via.node),
+                    ti_node_name(node)
+                );
+            }
+
+            ti_node_drop(ev->via.node);
+            ev->tp = TI_EVENT_TP_EPKG;
+            ev->via.epkg = ti_grab(epkg);
+
+            goto done;
+        }
+
+        /* event is owned by MASTER and needs to stay with MASTER */
+        (void) queue_rmval(events->queue, ev);
+
+        /* bubble down and create a new event */
+    }
+
+    if (queue_reserve(&events->queue, 1))
+        return -1;
+
+    ev = ti_event_create(TI_EVENT_TP_EPKG);
+    if (!ev)
+        return -1;
+
     ev->via.epkg = ti_grab(epkg);
+    ev->id = epkg->event_id;
+
+    /* we have space so this function always succeeds */
+    (void) events__push(ev);
 
 done:
     ev->status = TI_EVENT_STAT_READY;
@@ -371,7 +377,7 @@ static void events__new_id(ti_event_t * ev)
 {
     ex_t e = {0};
 
-    /* remove the event from the queue */
+    /* remove the event from the queue (if still there) */
     (void) queue_rmval(events->queue, ev);
 
     if (events__req_event_id(ev, &e))
@@ -501,19 +507,14 @@ static void events__loop(uv_async_t * UNUSED(handle))
     util_time_t timing;
     uint64_t * cevid_p = &ti()->node->cevid;
 
-    LOGC("START LOOP");
-
     if (uv_mutex_trylock(events->lock))
         return;  /* TODO: handle watchers? */
-
-    LOGC("NO LOCK");
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
 
     while ((ev = queue_first(events->queue)))
     {
-        LOGC("event id: %u cevid: %u", ev->id, *cevid_p);
         if (ev->id <= *cevid_p)
         {
             /* cancelled events which are `skipped` can be removed */
@@ -530,7 +531,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
             goto shift_drop_loop;
         }
-        else if (ev->id > (ti()->node->cevid) + 1)
+        else if (ev->id > (*cevid_p) + 1)
         {
             /* We expect at least one event before this one */
             if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
@@ -554,8 +555,8 @@ static void events__loop(uv_async_t * UNUSED(handle))
             if (ev->status == TI_EVENT_STAT_NEW)
             {
                 log_error(
-                        "kill "TI_EVENT_ID" on node `%s` "
-                        "in approximately %f seconds",
+                        "killed "TI_EVENT_ID" on node `%s` "
+                        "after approximately %f seconds",
                         ev->id,
                         ti_name(),
                         util_time_diff(&ev->time, &timing));

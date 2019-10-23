@@ -37,6 +37,46 @@ int main()
         _assert (sizeof(*q) == sizeof(queue_t));
     }
 
+    /* test insert */
+    {
+        size_t i = 0;
+        _assert (queue_push(&q, entries[0]) == 0);
+        _assert (queue_push(&q, entries[2]) == 0);
+        _assert (queue_insert(&q, 1, entries[1]) == 0);
+
+        for (queue_each(q, char, s), i++)
+        {
+            _assert (s == entries[i]);
+        }
+
+        for (i = 0; i < 3; i++)
+        {
+            _assert (queue_get(q, i) == entries[i]);
+        }
+
+        _assert (queue_shift(q) == entries[0]);
+        _assert (queue_shift(q) == entries[1]);
+        _assert (queue_push(&q, entries[4]) == 0);
+        _assert (queue_insert(&q, 1, entries[3]) == 0);
+
+        for (i = 0; i < 3; i++)
+        {
+            _assert (queue_get(q, i) == entries[i+2]);
+        }
+
+        _assert (queue_shift(q) == entries[2]);
+        _assert (queue_shift(q) == entries[3]);
+        _assert (queue_push(&q, entries[6]) == 0);
+        _assert (queue_insert(&q, 1, entries[5]) == 0);
+
+        for (i = 0; i < 3; i++)
+        {
+            _assert (queue_get(q, i) == entries[i+4]);
+        }
+
+        queue_clear(q);
+    }
+
     /* test push */
     {
         for (size_t i = 0; i < num_entries; i++)

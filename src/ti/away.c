@@ -28,6 +28,7 @@ enum away__status
     AWAY__STATUS_WAITING,
     AWAY__STATUS_WORKING,
     AWAY__STATUS_SYNCING,
+    AWAY__STATUS_STOP,
 };
 
 static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
@@ -54,6 +55,7 @@ static const char * away__status_str(void)
     case AWAY__STATUS_WAITING:  return "WAITING";
     case AWAY__STATUS_WORKING:  return "WORKING";
     case AWAY__STATUS_SYNCING:  return "SYNCING";
+    case AWAY__STATUS_STOP:     return "STOP";
     }
     return "UNKNOWN";
 }
@@ -479,7 +481,7 @@ void ti_away_trigger(void)
 
 void ti_away_stop(void)
 {
-    if (!away)
+    if (!away || away->status == AWAY__STATUS_STOP)
         return;
 
     if (away->status == AWAY__STATUS_INIT)
@@ -498,6 +500,8 @@ void ti_away_stop(void)
         {
             free(away->waiter);
         }
+        away->status = AWAY__STATUS_STOP;
+
         uv_timer_stop(away->repeat);
         uv_close((uv_handle_t *) away->repeat, away__destroy);
     }
@@ -514,6 +518,7 @@ _Bool ti_away_accept(uint32_t node_id)
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
+    case AWAY__STATUS_STOP:
         log_debug(
                 "reject away request for "TI_NODE_ID
                 " due to away status: `%s`",

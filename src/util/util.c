@@ -7,10 +7,10 @@
 #include <util/logger.h>
 
 static struct timespec util__now;
-static const char util__charset[63] = \
+static const char util__charset[65] = \
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
         "abcdefghijklmnopqrstuvwxyz" \
-        "0123456789";
+        "0123456789+/";
 static const int uril__charset_sz = (sizeof(util__charset) - 1);
 
 double util_now(void)

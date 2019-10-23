@@ -108,7 +108,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'cannot convert type `nil` to `array`'):
+                'cannot convert type `nil` to `list`'):
             await client.query('array(nil);')
 
         self.assertEqual(await client.query('array();'), [])
@@ -459,7 +459,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `extend` expects argument 1 to be of '
-                'type `array` but got type `nil` instead'):
+                'type `list` but got type `nil` instead'):
             await client.query('.list.extend(nil);')
 
         with self.assertRaisesRegex(
@@ -1375,7 +1375,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'pop from empty array'):
+                'pop from empty list'):
             await client.query('[].pop();')
 
     async def test_push(self, client):

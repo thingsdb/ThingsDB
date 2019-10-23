@@ -130,7 +130,7 @@ class TestTypes(TestBase):
             [t.l[0].id(), t.l[0].a.id()];
         '''), [None, None])
 
-    async def test_array(self, client):
+    async def test_list(self, client):
         self.assertEqual(await client.query(r'''
             ({}.t = [1, 2, 3]).push(4);
         '''), 4)

@@ -248,7 +248,7 @@ class TestIndexSlice(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'slice assignments require an `array` type '
+                r'slice assignments require a `list` or `tuple` type '
                 r'but got type `int` instead'):
             await client0.query(f'.list[] = 42;')
 

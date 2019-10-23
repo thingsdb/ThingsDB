@@ -28,7 +28,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!query->rval)
     {
-        ex_set(e, EX_LOOKUP_ERROR, "pop from empty array"DOC_LIST_POP);
+        ex_set(e, EX_LOOKUP_ERROR, "pop from empty list"DOC_LIST_POP);
         goto done;
     }
 

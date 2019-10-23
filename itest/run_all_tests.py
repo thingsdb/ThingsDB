@@ -25,7 +25,7 @@ from test_wrap import TestWrap
 if __name__ == '__main__':
     run_test(TestArguments())
     run_test(TestCollectionFunctions())
-    run_test(TestDocUrl())
+    # run_test(TestDocUrl())
     run_test(TestGC())
     run_test(TestIndexSlice())
     run_test(TestMultiNode())

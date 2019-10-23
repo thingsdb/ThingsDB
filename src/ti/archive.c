@@ -81,7 +81,7 @@ static int archive__init_queue(void)
     assert (ti()->node);
     int rc = -1;
     ti_epkg_t * epkg;
-    const uint64_t cevid = ti()->node->cevid;
+    const uint64_t * cevid = &ti()->node->cevid;
 
     if (ti()->args->forget_nodes && (epkg = queue_last(archive->queue)))
     {
@@ -100,12 +100,12 @@ static int archive__init_queue(void)
     uv_mutex_lock(ti()->events->lock);
 
     for (queue_each(archive->queue, ti_epkg_t, epkg))
-        if (epkg->event_id > cevid)
+        if (epkg->event_id > *cevid)
             if (ti_events_add_event(ti()->node, epkg) < 0)
                 goto stop;
 
     /* remove events from queue */
-    while ((epkg = queue_last(archive->queue)) && epkg->event_id > cevid)
+    while ((epkg = queue_last(archive->queue)) && epkg->event_id > *cevid)
     {
         (void) queue_pop(archive->queue);
         assert (epkg->ref > 1); /* add event has created a new reference */
@@ -394,6 +394,11 @@ int ti_archive_push(ti_epkg_t * epkg)
      */
     int rc = 0;
 
+    if (queue_last(archive->queue) && epkg->event_id <= ((ti_epkg_t *) queue_last(archive->queue))->event_id)
+    {
+        LOGC("Event ID: %u", epkg->event_id);
+        LOGC("Last Event ID: %u", ((ti_epkg_t *) queue_last(archive->queue))->event_id);
+    }
     assert (
         !queue_last(archive->queue) ||
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id

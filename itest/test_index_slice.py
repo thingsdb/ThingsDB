@@ -90,7 +90,7 @@ class TestIndexSlice(TestBase):
         self.assertEqual(await client0.query('.ti["likes"];'), ['swimming'])
 
         await client0.query('.ti["likes"][0] = "Cato";')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti["likes"];'), ['Cato'])
 
@@ -104,17 +104,17 @@ class TestIndexSlice(TestBase):
         ''')
 
         await client0.query('.ti["name"] = "Cato";')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti.name;'), 'Cato')
 
         await client0.query('.ti["age"] -= 1;')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti.age;'), 5)
 
         await client0.query('.ti["hairColor"] = "blonde";')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti.hairColor;'), 'blonde')
 
@@ -123,6 +123,7 @@ class TestIndexSlice(TestBase):
         n = len(s)
         await client0.query(f'.raw = "{s}";')
 
+        await asyncio.sleep(0.2)
         for i in range(-n, n):
             self.assertEqual(await client0.query(f'.raw[{i}]'), s[i])
 
@@ -147,6 +148,7 @@ class TestIndexSlice(TestBase):
         n = len(s)
         await client0.query(f'.raw = "{s}";')
 
+        await asyncio.sleep(0.2)
         self.assertTrue(await client0.query('(.raw[] == .raw);'))
         self.assertTrue(await client0.query('(.raw[:] == .raw);'))
         self.assertTrue(await client0.query('(.raw[::] == .raw);'))
@@ -170,6 +172,7 @@ class TestIndexSlice(TestBase):
         n = len(li)
         await client0.query(f'.list = {li};')
 
+        await asyncio.sleep(0.2)
         for i in range(-n, n):
             self.assertEqual(await client0.query(f'.list[{i}]'), li[i])
 
@@ -194,6 +197,7 @@ class TestIndexSlice(TestBase):
         n = len(li)
         await client0.query(f'.list = {li};')
 
+        await asyncio.sleep(0.2)
         self.assertTrue(await client0.query('(.list[] == .list);'))
         self.assertTrue(await client0.query('(.list[:] == .list);'))
         self.assertTrue(await client0.query('(.list[::] == .list);'))
@@ -218,20 +222,21 @@ class TestIndexSlice(TestBase):
         n = len(li)
         await client0.query(f'.list = {li};')
 
+        await asyncio.sleep(0.2)
         for i, c in enumerate(to):
             self.assertEqual(await client0.query(f'.list[{i}] = "{c}";'), c)
 
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), to)
 
         await client.query('.list[0] += "bc";')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list[0]'), 'abc')
 
         await client0.query(r'.list[0] = [{}, {}];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertTrue(await client.query('istuple(.list[0]);'))
 
@@ -240,6 +245,7 @@ class TestIndexSlice(TestBase):
         n = len(li)
         await client0.query(f'.list = {li};')
 
+        await asyncio.sleep(0.2)
         with self.assertRaisesRegex(
                 ValueError,
                 r'slice assignments require a step '
@@ -258,32 +264,32 @@ class TestIndexSlice(TestBase):
             await client0.query(f'.list[] *= [];')
 
         await client0.query('.list[2:0] = [3, 4];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), [1, 2, 3, 4, 5, 6])
 
         await client0.query('.list[] = [1, 7, 4];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), [1, 7, 4])
 
         await client0.query('.list[1:2] = [2, 3];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), [1, 2, 3, 4])
 
         await client0.query('.list[10:] = [5, 6];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), [1, 2, 3, 4, 5, 6])
 
         await client0.query('.list[0:0] = [0];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), list(range(7)))
 
         await client0.query('.list[-3:] = [];')
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), [0, 1, 2, 3])
 

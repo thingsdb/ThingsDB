@@ -16,6 +16,10 @@
 #include <uv.h>
 
 static ti_away_t * away = NULL;
+static uv_work_t away__uv_work;
+static uv_timer_t away__uv_repeat;
+static uv_timer_t away__uv_waiter;
+
 
 #define AWAY__ACCEPT_COUNTER 3  /* ignore `x` requests after accepting one */
 #define AWAY__SOON_TIMER 10000  /* seconds might be a nice default */
@@ -28,7 +32,6 @@ enum away__status
     AWAY__STATUS_WAITING,
     AWAY__STATUS_WORKING,
     AWAY__STATUS_SYNCING,
-    AWAY__STATUS_STOP,
 };
 
 static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
@@ -55,23 +58,14 @@ static const char * away__status_str(void)
     case AWAY__STATUS_WAITING:  return "WAITING";
     case AWAY__STATUS_WORKING:  return "WORKING";
     case AWAY__STATUS_SYNCING:  return "SYNCING";
-    case AWAY__STATUS_STOP:     return "STOP";
     }
     return "UNKNOWN";
 }
 
-static void away__destroy(uv_handle_t * handle)
+static void away__destroy(void)
 {
     if (away)
     {
-        free(away->work);
-        free(away->repeat);
-        /* only call free on timer if we have a handle since it otherwise will
-         * be removed by ti_away_stop()
-         */
-        if (!handle)
-            free(away->waiter);
-
         vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_drop);
         free(away);
     }
@@ -99,13 +93,13 @@ static void away__update_expexted_id(uint32_t node_id)
     away->expected_node_id = node_id;
     away->sleep = 2500 + ((my_idx - node_idx) * 11000);
 
-    uv_timer_set_repeat(away->repeat, 2500 + ((my_idx - node_idx) * 11000));
+    uv_timer_set_repeat(&away__uv_repeat, 2500 + ((my_idx - node_idx) * 11000));
 }
 
 static void away__reschedule_by_id(uint32_t node_id)
 {
     away__update_expexted_id(node_id);
-    uv_timer_set_repeat(away->repeat, away->sleep);
+    uv_timer_set_repeat(&away__uv_repeat, away->sleep);
 }
 
 
@@ -240,12 +234,12 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     if (status)
         log_error(uv_strerror(status));
 
-    rc = uv_timer_init(ti()->loop, away->waiter);
+    rc = uv_timer_init(ti()->loop, &away__uv_waiter);
     if (rc)
         goto fail1;
 
     rc = uv_timer_start(
-            away->waiter,
+            &away__uv_waiter,
             away__waiter_after_cb,
             0,          /* check immediately, no reason to wait */
             2000        /* check on repeat if finished */
@@ -257,7 +251,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     return;
 
 fail2:
-    uv_close((uv_handle_t *) away->waiter, NULL);
+    uv_close((uv_handle_t *) &away__uv_waiter, NULL);
 
 fail1:
     log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
@@ -286,7 +280,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     away->status = AWAY__STATUS_WORKING;
     if (uv_queue_work(
             ti()->loop,
-            away->work,
+            &away__uv_work,
             away__work,
             away__work_finish))
     {
@@ -312,11 +306,11 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 
     away__reschedule_by_id(ti()->node->id);
 
-    if (uv_timer_init(ti()->loop, away->waiter))
+    if (uv_timer_init(ti()->loop, &away__uv_waiter))
         goto fail1;
 
     if (uv_timer_start(
-            away->waiter,
+            &away__uv_waiter,
             away__waiter_pre_cb,
             AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
             1000                /* a little longer if events are still queued */
@@ -328,7 +322,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     return;
 
 fail2:
-    uv_close((uv_handle_t *) away->waiter, NULL);
+    uv_close((uv_handle_t *) &away__uv_waiter, NULL);
 fail1:
     log_critical(EX_INTERNAL_S);
 fail0:
@@ -390,18 +384,15 @@ int ti_away_create(void)
     if (!away)
         return -1;
 
-    away->work = malloc(sizeof(uv_work_t));
-    away->repeat = malloc(sizeof(uv_timer_t));
-    away->waiter = malloc(sizeof(uv_timer_t));
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
     away->accept_counter = 0;
     away->expected_node_id = 0;
     away->sleep = 0;
 
-    if (!away->work || !away->repeat || !away->waiter || !away->syncers)
+    if (!away->syncers)
     {
-        away__destroy(NULL);
+        away__destroy();
         return -1;
     }
 
@@ -416,11 +407,11 @@ int ti_away_start(void)
 
     away__update_expexted_id(((ti_node_t *) vec_first(nodes_vec))->id);
 
-    if (uv_timer_init(ti()->loop, away->repeat))
+    if (uv_timer_init(ti()->loop, &away__uv_repeat))
         goto fail0;
 
     if (uv_timer_start(
-            away->repeat,
+            &away__uv_repeat,
             away__repeat_cb,
             away->sleep,
             away->sleep))
@@ -430,7 +421,8 @@ int ti_away_start(void)
     return 0;
 
 fail1:
-    uv_close((uv_handle_t *) away->repeat, away__destroy);
+    uv_close((uv_handle_t *) &away__uv_repeat, NULL);
+    away__destroy();
 fail0:
     return -1;
 }
@@ -481,30 +473,20 @@ void ti_away_trigger(void)
 
 void ti_away_stop(void)
 {
-    if (!away || away->status == AWAY__STATUS_STOP)
+    if (!away)
         return;
 
-    if (away->status == AWAY__STATUS_INIT)
+    if (away->status != AWAY__STATUS_INIT)
     {
-        away__destroy(NULL);
-    }
-    else
-    {
-        if (    away->status == AWAY__STATUS_WAITING ||
-                away->status == AWAY__STATUS_SYNCING)
+        if (!uv_is_closing((uv_handle_t *) &away__uv_waiter))
         {
-            uv_timer_stop(away->waiter);
-            uv_close((uv_handle_t *) away->waiter, (uv_close_cb) free);
+            uv_timer_stop(&away__uv_waiter);
+            uv_close((uv_handle_t *) &away__uv_waiter, NULL);
         }
-        else
-        {
-            free(away->waiter);
-        }
-        away->status = AWAY__STATUS_STOP;
-
-        uv_timer_stop(away->repeat);
-        uv_close((uv_handle_t *) away->repeat, away__destroy);
+        uv_timer_stop(&away__uv_repeat);
+        uv_close((uv_handle_t *) &away__uv_repeat, NULL);
     }
+    away__destroy();
 }
 
 _Bool ti_away_accept(uint32_t node_id)
@@ -518,7 +500,6 @@ _Bool ti_away_accept(uint32_t node_id)
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
-    case AWAY__STATUS_STOP:
         log_debug(
                 "reject away request for "TI_NODE_ID
                 " due to away status: `%s`",

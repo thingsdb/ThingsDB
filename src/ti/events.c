@@ -501,14 +501,19 @@ static void events__loop(uv_async_t * UNUSED(handle))
     util_time_t timing;
     uint64_t * cevid_p = &ti()->node->cevid;
 
+    LOGC("START LOOP");
+
     if (uv_mutex_trylock(events->lock))
         return;  /* TODO: handle watchers? */
+
+    LOGC("NO LOCK");
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
 
     while ((ev = queue_first(events->queue)))
     {
+        LOGC("event id: %u cevid: %u", ev->id, *cevid_p);
         if (ev->id <= *cevid_p)
         {
             /* cancelled events which are `skipped` can be removed */

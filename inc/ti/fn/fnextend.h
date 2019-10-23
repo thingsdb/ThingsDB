@@ -53,7 +53,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         (source_n + current_n) >= query->collection->quota->max_array_size)
     {
         ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached"DOC_QUOTAS,
+                "maximum array size quota of %zu has been reached"DOC_SET_QUOTA,
                 query->collection->quota->max_array_size);
         goto fail2;
     }

@@ -46,7 +46,7 @@ static inline _Bool ti_quota_things(ti_quota_t * quota, size_t n, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum things quota of %zu has been reached"
-                DOC_QUOTAS, quota->max_things);
+                DOC_SET_QUOTA, quota->max_things);
         return true;
     }
     return false;

@@ -367,7 +367,7 @@ int ti_thing_o_set_val_from_strn(
         thing->items->n == thing->collection->quota->max_props)
     {
         ex_set(e, EX_MAX_QUOTA,
-            "maximum properties quota of %zu has been reached"DOC_QUOTAS,
+            "maximum properties quota of %zu has been reached"DOC_SET_QUOTA,
             thing->collection->quota->max_props);
         return e->nr;
     }

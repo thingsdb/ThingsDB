@@ -71,7 +71,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum array size quota of %zu has been reached"
-                DOC_QUOTAS,
+                DOC_SET_QUOTA,
                 query->collection->quota->max_array_size);
         return e->nr;
     }
@@ -723,7 +723,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_MAX_QUOTA,
                     "maximum properties quota of %zu has been reached"
-                    DOC_QUOTAS, max_props);
+                    DOC_SET_QUOTA, max_props);
             goto err;
         }
 

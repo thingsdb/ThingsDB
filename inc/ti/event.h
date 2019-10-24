@@ -39,6 +39,7 @@ typedef union ti_event_u ti_event_via_t;
 #include <util/logger.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
+void ti_event_broadcast_cancel(uint64_t event_id);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);

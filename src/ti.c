@@ -709,11 +709,10 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     if (!client_rpkg)
     {
         log_critical(EX_MEMORY_S);
-        goto fail;
+        return;
     }
-    ti_clients_write_rpkg(client_rpkg);
 
-fail:
+    ti_clients_write_rpkg(client_rpkg);
     ti_rpkg_drop(client_rpkg);
 }
 

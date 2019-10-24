@@ -74,8 +74,9 @@ int ti_events_create(void)
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
     events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
+    events->cancelled = omap_create();
 
-    if (!events->lock || uv_mutex_init(events->lock))
+    if (!events->cancelled || !events->lock || uv_mutex_init(events->lock))
     {
         log_critical("failed to initiate uv_mutex lock");
         goto failed;
@@ -224,7 +225,6 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 
         assert (ev->tp != TI_EVENT_TP_EPKG);
 
-        /* TODO: check if CANCEL event from node is really checking the node */
         if (ev->tp == TI_EVENT_TP_SLAVE)
         {
             if (ev->via.node != node)
@@ -370,6 +370,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     free(events->lock);
     free(events->evloop);
     vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
+    omap_destroy(events->cancelled, NULL);
     events = ti()->events = NULL;
 }
 
@@ -377,14 +378,94 @@ static void events__new_id(ti_event_t * ev)
 {
     ex_t e = {0};
 
-    /* remove the event from the queue (if still there) */
-    (void) queue_rmval(events->queue, ev);
-
-    if (events__req_event_id(ev, &e))
+    /* remove the event from the queue (if still there) and reserve one
+     * space if nothing is removed */
+    if (!queue_rmval(events->queue, ev) &&
+        queue_reserve(&events->queue, 1))
     {
-        ti_query_send(ev->via.query, &e);
-        ev->status = TI_EVENT_STAT_CACNCEL;
+        ex_set_mem(&e);
+        goto fail;
     }
+
+    /* mark the current event id as cancelled */
+    ti_events_cancel(ev->id);
+
+    if (events__req_event_id(ev, &e) == 0)
+        return;
+
+    /* in case of an error, `ev->id` is not changed */
+fail:
+    ti_event_broadcast_cancel(ev->id);
+    ti_query_send(ev->via.query, &e);
+    ev->status = TI_EVENT_STAT_CACNCEL;
+}
+
+typedef struct
+{
+    uint8_t threshold;
+    uint8_t n;
+    uint16_t pad16_;
+#if __WORDSIZE == 64
+    uint32_t pad32_;
+#endif
+} events_cancel_t;
+
+void events__new_cancel(uint64_t event_id)
+{
+    uint8_t nnodes = ti()->nodes->imap->n;
+    events_cancel_t c;
+    uintptr_t ptr;
+
+    memset(&c, 0, sizeof(events_cancel_t));
+
+    c.n = 1;
+    c.threshold = nnodes == 2 ? 2 : nnodes - ti_nodes_quorum();
+
+    memcpy(&ptr, &c, sizeof(uintptr_t));
+
+    if (!omap_set(events->cancelled, event_id, (void *) ptr))
+        log_critical(EX_MEMORY_S);
+}
+
+void ti_events_cancel(uint64_t event_id)
+{
+    _Bool found = false;
+    _Bool trigger = false;
+    uint64_t * cevid = &ti()->node->cevid;
+    omap_iter_t iter = omap_iter(events->cancelled);
+
+    for (size_t n = events->cancelled->n; n--;)
+    {
+        uint64_t id = omap_iter_id(iter);
+        events_cancel_t * cancel = (events_cancel_t *) (&iter->data_);
+
+        iter = iter->next_;
+
+        if (!found && id > event_id)
+            break;
+
+        if (id == event_id)
+        {
+            ++cancel->n;
+            found = true;
+        }
+
+        if (cancel->n >= cancel->threshold && id == (*cevid) + 1)
+        {
+            /* Update committed event id */
+            *cevid = id;
+            trigger = true;
+        }
+
+        if (id <= *cevid)
+            omap_rm(events->cancelled, id);
+    }
+
+    if (!found)
+        events__new_cancel(event_id);
+
+    if (trigger && events__trigger() < 0)
+        log_error("cannot trigger the events loop");
 }
 
 static int events__req_event_id(ti_event_t * ev, ex_t * e)
@@ -459,6 +540,8 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
     if (!accepted)
     {
         ++ti()->counters->events_quorum_lost;
+
+        ti_event_broadcast_cancel(ev->id);
 
         if (!ti_nodes_has_quorum())
         {

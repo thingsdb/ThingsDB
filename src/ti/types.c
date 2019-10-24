@@ -72,9 +72,9 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 {
     uintptr_t utype;
     void * ptype;
-    char name[TI_TYPE_NAME_MAX+1];
+    char name[TI_NAME_MAX+1];
 
-    assert (rname->n <= TI_TYPE_NAME_MAX);
+    assert (rname->n <= TI_NAME_MAX);
 
     memcpy(name, rname->data, rname->n);
     name[rname->n] = '\0';

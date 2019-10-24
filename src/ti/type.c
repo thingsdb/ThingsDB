@@ -133,18 +133,6 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
     return n;
 }
 
-_Bool ti_type_is_valid_strn(const char * str, size_t n)
-{
-    if (!n || n > TI_TYPE_NAME_MAX || (!isalpha(*str) && *str != '_'))
-        return false;
-
-    while(--n)
-        if (!isalnum(str[n]) && str[n] != '_')
-            return false;
-
-    return true;
-}
-
 static inline int type__field(
         ti_type_t * type,
         ti_name_t * name,

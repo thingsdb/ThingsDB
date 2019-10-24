@@ -50,7 +50,8 @@ typedef enum
      * 128..159 node fire and forgets
      */
     TI_PROTO_NODE_EVENT         =158,   /* event */
-    TI_PROTO_NODE_INFO          =159,   /* [...] */
+    TI_PROTO_NODE_EVENT_CANCEL  =159,   /* event_id */
+    TI_PROTO_NODE_INFO          =160,   /* [...] */
 
     /*
      * 160..191 node requests

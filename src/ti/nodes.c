@@ -969,6 +969,35 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_events_on_event(other_node, pkg);
 }
 
+static void nodes__on_event_cancel(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    mp_obj_t mp_event_id;
+    ti_node_t * this_node = ti()->node;
+    ti_node_t * other_node = stream->via.node;
+
+    if (!other_node)
+    {
+        log_error(
+                "got a `%s` from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+
+    if (mp_next(&up, &mp_event_id) != MP_U64)
+    {
+        log_error(
+                "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
+                ti_proto_str(pkg->id), other_node->id, this_node->id);
+        return;
+    }
+
+    ti_events_cancel(mp_event_id.via.u64);
+}
+
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     mp_unp_t up;
@@ -1123,7 +1152,20 @@ int ti_nodes_write_global_status(void)
  */
 uint8_t ti_nodes_quorum(void)
 {
-    return nodes->imap->n == 2 ? 0 : (uint8_t) (nodes->imap->n / 2);
+    if (nodes->imap->n == 2)
+    {
+        /* we have a special case when there are only two nodes.
+         * usually we want to calculate the quorum by simply dividing the
+         * number of nodes by two, but it only two nodes exists, and the
+         * second node is unreachable, we would never have a change to do
+         * anything since no event could be created.
+         */
+        vec_t * nodes_vec = imap_vec(nodes->imap);
+        for (vec_each(nodes_vec, ti_node_t, node))
+            if (node->status <= TI_NODE_STAT_BUILDING)
+                return 0;
+    }
+    return (uint8_t) (nodes->imap->n / 2);
 }
 
 _Bool ti_nodes_has_quorum(void)
@@ -1132,7 +1174,7 @@ _Bool ti_nodes_has_quorum(void)
     size_t q = 0;
     vec_t * nodes_vec = imap_vec(nodes->imap);
     for (vec_each(nodes_vec, ti_node_t, node))
-        if (node->status > TI_NODE_STAT_CONNECTING && ++q == quorum)
+        if (node->status > TI_NODE_STAT_BUILDING && ++q == quorum)
             return true;
     return false;
 }
@@ -1529,6 +1571,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_EVENT:
         nodes__on_event(stream, pkg);
         break;
+    case TI_PROTO_NODE_EVENT_CANCEL:
+        nodes__on_event_cancel(stream, pkg);
+        break;
     case TI_PROTO_NODE_INFO:
         nodes__on_info(stream, pkg);
         break;
@@ -1622,4 +1667,10 @@ int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e)
     ex_set(e, EX_SYNTAX_ERROR,
             "not all nodes are running the required "TI_SYNTAX, syntax_ver);
     return e->nr;
+}
+
+_Bool ti_nodes_win_out_of_two(void)
+{
+    vec_t * vec = imap_vec(nodes->imap);
+    return vec_first(vec) == ti()->node;
 }

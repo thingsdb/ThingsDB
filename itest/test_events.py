@@ -40,6 +40,18 @@ class TestEvents(TestBase):
         for _ in range(x):
             await self.mquery('.x += 1', client0, client1)
 
+        i = 0
+        while True:
+            nodes_info = await client0.query('nodes_info();', scope='@n')
+            if all([node['status'] == 'READY' for node in nodes_info]):
+                await self.mquery('.x += 1', client0, client1)
+                i += 1
+                if i == x:
+                    break
+                continue
+
+            await asyncio.sleep(0.5)
+
         await self.node2.join_until_ready(client0)
 
         client2 = await get_client(self.node2)
@@ -51,7 +63,21 @@ class TestEvents(TestBase):
         await asyncio.sleep(0.2)
 
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.x'), x * 5)
+            self.assertEqual(await client.query('.x'), x * 7)
+
+        i = 0
+        while True:
+            nodes_info = await client0.query('nodes_info();', scope='@n')
+            if all([node['status'] == 'READY' for node in nodes_info]):
+                await self.mquery('.x += 1', client0, client1, client2)
+                i += 1
+                if i == x:
+                    break
+                continue
+
+            await asyncio.sleep(0.5)
+
+        await asyncio.sleep(0.2)
 
         # check so that we are sure none of the nodes is in away mode
         checked = False
@@ -61,7 +87,7 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2):
-                    self.assertEqual(await client.query('.x'), x * 5)
+                    self.assertEqual(await client.query('.x'), x * 10)
                 checked = True
 
             await asyncio.sleep(0.5)

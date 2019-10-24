@@ -29,6 +29,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
 
     case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
+    case TI_PROTO_NODE_EVENT_CANCEL:        return "NODE_EVENT_CANCEL";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";

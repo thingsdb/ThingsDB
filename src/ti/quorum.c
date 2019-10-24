@@ -42,7 +42,9 @@ void ti_quorum_go(ti_quorum_t * quorum)
         }
         else if (quorum->n - quorum->accepted == quorum->reject_threshold)
         {
-            quorum->cb_(quorum->data, false);
+            quorum->cb_(
+                quorum->data,
+                quorum->reject_threshold == 1 && ti_nodes_win_out_of_two());
             quorum->cb_ = NULL;
         }
     }

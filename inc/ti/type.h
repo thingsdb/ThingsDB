@@ -4,8 +4,6 @@
 #ifndef TI_TYPE_H_
 #define TI_TYPE_H_
 
-#define TI_TYPE_NAME_MAX 255
-
 typedef struct ti_type_s ti_type_t;
 
 enum

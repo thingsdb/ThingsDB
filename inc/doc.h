@@ -52,7 +52,6 @@
 #define DOC_TYPE                    DOC_SEE("collection-api/type")
 #define DOC_TYPE_COUNT              DOC_SEE("collection-api/type_count")
 #define DOC_TYPE_INFO               DOC_SEE("collection-api/type_info")
-#define DOC_TYPES                   DOC_SEE("collection-api/types")
 #define DOC_TYPES_INFO              DOC_SEE("collection-api/types_info")
 #define DOC_WSE                     DOC_SEE("collection-api/wse")
 

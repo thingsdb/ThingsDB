@@ -46,7 +46,7 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 int ti_store_types_store(ti_types_t * types, const char * fn)
 {
     msgpack_packer pk;
-    char namebuf[TI_TYPE_NAME_MAX];
+    char namebuf[TI_NAME_MAX];
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -83,7 +83,7 @@ done:
 int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 {
     const char * types_position;
-    char namebuf[TI_TYPE_NAME_MAX+1];
+    char namebuf[TI_NAME_MAX+1];
     int rc = -1;
     fx_mmap_t fmap;
     ex_t e = {0};

@@ -24,11 +24,11 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     rname = (ti_raw_t *) query->rval;
 
-    if (!ti_type_is_valid_strn((const char *) rname->data, rname->n))
+    if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_VALUE_ERROR,
             "function `new_type` expects "
-            "argument 1 to be a valid type name"DOC_TYPES);
+            "argument 1 to be a valid type name"DOC_NAMES);
         return e->nr;
     }
 

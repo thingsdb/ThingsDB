@@ -45,6 +45,7 @@ void ti_nodes_set_not_ready_err(ex_t * e);
 void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 ti_varr_t * ti_nodes_info(void);
 int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e);
+_Bool ti_nodes_win_out_of_two(void);
 
 struct ti_nodes_s
 {

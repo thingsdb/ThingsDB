@@ -13,7 +13,7 @@ enum
 
 typedef struct omap_s omap_t;
 typedef struct omap__s omap__t;
-typedef struct omap__s ** omap_iter_t;
+typedef struct omap__s * omap_iter_t;
 
 #include <inttypes.h>
 
@@ -38,9 +38,9 @@ static inline omap_iter_t omap_iter(omap_t * omap);
 static inline uint64_t omap_iter_id(omap_iter_t iter);
 #define omap_each(iter__, dt__, var__) \
         dt__ * var__; \
-        *iter__ && \
-        (var__ = (dt__ *) (*iter__)->data_); \
-        iter__ = &(*iter__)->next_
+        iter__ && \
+        (var__ = (dt__ *) iter__->data_); \
+        iter__ = iter__->next_
 
 struct omap_s
 {
@@ -50,12 +50,12 @@ struct omap_s
 
 static inline omap_iter_t omap_iter(omap_t * omap)
 {
-    return &omap->next_;
+    return omap->next_;
 }
 
 static inline uint64_t omap_iter_id(omap_iter_t iter)
 {
-    return (*iter)->id_;
+    return iter->id_;
 }
 
 

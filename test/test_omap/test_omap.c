@@ -48,9 +48,13 @@ int main()
         _assert (omap_set(omap, i, entries[i]) == entries[i]);
     }
 
-    for (unsigned int i = 0; i < num_entries; i++)
+    omap_iter_t iter = omap_iter(omap);
+    for (unsigned int n = omap->n; n--;)
     {
-        _assert (omap_rm(omap, i) == entries[i]);
+       size_t i =  iter->id_;
+       char * s = iter->data_;
+       iter = iter->next_;
+        _assert (omap_rm(omap, i) == s);
     }
 
     _assert (omap->n == 0);

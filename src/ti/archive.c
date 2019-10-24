@@ -68,6 +68,7 @@ static int archive__load_file(ti_archfile_t * archfile)
                 log_critical(EX_MEMORY_S);
                 goto close;
             }
+            epkg->flags |= TI_EPKG_FLAG_ALLOW_GAP;
             ti()->node->sevid = epkg->event_id;
         }
     }

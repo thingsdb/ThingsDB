@@ -246,7 +246,9 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         }
 
         /* event is owned by MASTER and needs to stay with MASTER */
-        (void) queue_rmval(events->queue, ev);
+        ev = queue_rmval(events->queue, ev);
+        if (ev)
+            ti_event_drop(ev);
 
         /* bubble down and create a new event */
     }
@@ -380,11 +382,14 @@ static void events__new_id(ti_event_t * ev)
 
     /* remove the event from the queue (if still there) and reserve one
      * space if nothing is removed */
-    if (!queue_rmval(events->queue, ev) &&
-        queue_reserve(&events->queue, 1))
+    if (!queue_rmval(events->queue, ev))
     {
-        ex_set_mem(&e);
-        goto fail;
+        if (queue_reserve(&events->queue, 1))
+        {
+            ex_set_mem(&e);
+            goto fail;
+        }
+        ti_incref(ev);
     }
 
     /* mark the current event id as cancelled */
@@ -573,6 +578,8 @@ static int events__push(ti_event_t * ev)
     size_t idx = 0;
     ti_event_t * last_ev = queue_last(events->queue);
 
+    LOGC("Push id %u status %u tp %u", ev->id, ev->status, ev->tp);
+
     if (!last_ev || ev->id > last_ev->id)
         return queue_push(&events->queue, ev);
 
@@ -603,12 +610,14 @@ static void events__loop(uv_async_t * UNUSED(handle))
             /* cancelled events which are `skipped` can be removed */
             if (ev->status != TI_EVENT_STAT_CACNCEL)
             {
-                log_error(
+                if (ev->tp == TI_EVENT_STAT_READY)
+                {
+                    log_error(
                         TI_EVENT_ID" will be skipped because "TI_EVENT_ID
                         " is already committed",
                         ev->id, *cevid_p);
-                ti_event_log("event is skipped", ev, LOGGER_ERROR);
-
+                    ti_event_log("event is skipped", ev, LOGGER_ERROR);
+                }
                 ++ti()->counters->events_skipped;
             }
 
@@ -616,10 +625,17 @@ static void events__loop(uv_async_t * UNUSED(handle))
         }
         else if (ev->id > (*cevid_p) + 1)
         {
-            /* Continue if the node is synchronizing; this is also the status
-             * when synchronizing archives when building a new node */
-            if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING &&
-                util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+            /* Continue if the event is allowed a gap or if the node is
+             * not synchronizing and a timeout is reached;
+             */
+            if (!(
+                    ev->tp == TI_EVENT_TP_EPKG &&
+                    (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP)
+                  ) &&
+                (
+                        ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
+                        util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT
+                ))
                 break;
 
             ++ti()->counters->events_with_gap;

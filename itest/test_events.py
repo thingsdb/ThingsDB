@@ -92,7 +92,9 @@ class TestEvents(TestBase):
 
             await asyncio.sleep(0.5)
 
-        await self.node3.join_until_ready(client0)
+        await asyncio.gather(
+            self.node3.join_until_ready(client0),
+            self.loop_add(x * 3, client0, client1, client2))
 
         client3 = await get_client(self.node3)
         client3.use('stuff')
@@ -104,7 +106,7 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2, client3):
-                    self.assertEqual(await client.query('.x'), x * 10)
+                    self.assertEqual(await client.query('.x'), x * 19)
                 checked = True
 
             await asyncio.sleep(0.5)
@@ -121,6 +123,12 @@ class TestEvents(TestBase):
     async def mquery(self, query, *clients):
         tasks = (client.query(query) for client in clients)
         await asyncio.gather(*tasks)
+
+    async def loop_add(self, x, *clients):
+        for _ in range(x):
+            await self.mquery('.x += 1', *clients)
+            await asyncio.sleep(0.1)
+
 
 
 if __name__ == '__main__':

@@ -74,6 +74,7 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
+    epkg->flags |= TI_EPKG_FLAG_ALLOW_GAP;
     next_event_id = epkg->event_id;
     ti_events_set_next_missing_id(&next_event_id);
     assert (next_event_id > epkg->event_id);

@@ -17,6 +17,7 @@ ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
         return NULL;
     epkg->ref = 1;
     epkg->pkg = pkg;
+    epkg->flags = 0;
     epkg->event_id = event_id;
     return epkg;
 }

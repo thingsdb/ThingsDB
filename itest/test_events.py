@@ -21,7 +21,7 @@ class TestEvents(TestBase):
 
     title = 'Test with multiple events at the same time'
 
-    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=4, seed=1, threshold_full_storage=1000000)
     async def run(self):
         x = 20
 
@@ -92,8 +92,25 @@ class TestEvents(TestBase):
 
             await asyncio.sleep(0.5)
 
+        await self.node3.join_until_ready(client0)
+
+        client3 = await get_client(self.node3)
+        client3.use('stuff')
+
+        checked = False
+        while True:
+            nodes_info = await client0.query('nodes_info();', scope='@n')
+            if all([node['status'] == 'READY' for node in nodes_info]):
+                if checked:
+                    break
+                for client in (client0, client1, client2, client3):
+                    self.assertEqual(await client.query('.x'), x * 10)
+                checked = True
+
+            await asyncio.sleep(0.5)
+
         # expected no garbage collection
-        for client in (client0, client1, client2):
+        for client in (client0, client1, client2, client3):
             counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
             self.assertEqual(counters['events_failed'], 0)

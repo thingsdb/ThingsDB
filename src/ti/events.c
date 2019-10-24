@@ -616,8 +616,9 @@ static void events__loop(uv_async_t * UNUSED(handle))
         }
         else if (ev->id > (*cevid_p) + 1)
         {
-            /* We expect at least one event before this one */
-            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
+            /* Continue if the node is synchronizing; this is also the status
+             * when synchronizing archives when building a new node */
+            if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING &&
                 util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
 

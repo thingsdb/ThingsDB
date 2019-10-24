@@ -45,7 +45,6 @@
 #define DOC_RETURN                  DOC_SEE("collection-api/return")
 #define DOC_SET                     DOC_SEE("collection-api/set")
 #define DOC_SET_TYPE                DOC_SEE("collection-api/set_type")
-#define DOC_SLICES                  DOC_SEE("collection-api/slices")
 #define DOC_STR                     DOC_SEE("collection-api/str")
 #define DOC_THING                   DOC_SEE("collection-api/thing")
 #define DOC_TRY                     DOC_SEE("collection-api/try")
@@ -137,7 +136,7 @@
 #define DOC_THING_SET               DOC_SEE("data-types/thing/set")
 #define DOC_THING_VALUES            DOC_SEE("data-types/thing/values")
 #define DOC_THING_WRAP              DOC_SEE("data-types/thing/wrap")
-#define DOC_WTYPE_UNWRAP            DOC_SEE("data-types/WType/unwrap")
+#define DOC_WTYPE_UNWRAP            DOC_SEE("data-types/wtype/unwrap")
 
 /* Errors */
 #define DOC_ASSERT_ERR              DOC_SEE("errors/assert_err")
@@ -159,12 +158,12 @@
 #define DOC_NAMES                   DOC_SEE("names")
 #define DOC_QUERY                   DOC_SEE("query")
 #define DOC_SCOPES                  DOC_SEE("scopes")
+#define DOC_SLICES                  DOC_SEE("slices")
 #define DOC_SPEC                    DOC_SEE("custom-types")
 #define DOC_WATCHING                DOC_SEE("watching")
 
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
 #define DOC_CLOSURE                 DOC_SEE("data-types/closure")
-
 
 #endif  /* TI_DOC_H_ */

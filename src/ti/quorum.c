@@ -42,6 +42,11 @@ void ti_quorum_go(ti_quorum_t * quorum)
         }
         else if (quorum->n - quorum->accepted == quorum->reject_threshold)
         {
+            /* a special case is when we only have a `reject_threshold` of just
+             * one; this happens when we have two nodes and both are reachable;
+             * since there is a clean rule which of the two nodes can win, one
+             * will be chosen.
+             */
             quorum->cb_(
                 quorum->data,
                 quorum->reject_threshold == 1 && ti_nodes_win_out_of_two());

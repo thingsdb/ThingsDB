@@ -22,7 +22,6 @@ void ti_away_syncer_done(ti_stream_t * stream);
 struct ti_away_s
 {
     vec_t * syncers;            /* weak ti_watch_t for synchronizing */
-    uint8_t accept_counter;     /* set when a request is accepted */
     uint8_t status;             /* internal state */
     uint32_t expected_node_id;  /* id in the node range */
     uint32_t sleep;

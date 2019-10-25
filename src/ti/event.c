@@ -43,38 +43,6 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     return ev;
 }
 
-void ti_event_broadcast_cancel(uint64_t event_id)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-    msgpack_pack_uint64(&pk, event_id);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT_CANCEL, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-    {
-        log_critical(EX_MEMORY_S);
-        free(pkg);
-        return;
-    }
-
-    ti_nodes_write_rpkg(rpkg);
-    ti_rpkg_drop(rpkg);
-}
-
-
 ti_event_t * ti_event_initial(void)
 {
     ti_event_t * ev;
@@ -287,7 +255,7 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
 
 const char * ti_event_status_str(ti_event_t * ev)
 {
-    switch ((ti_event_tp_enum) ev->status)
+    switch ((ti_event_status_enum) ev->status)
     {
     case TI_EVENT_STAT_NEW:         return "NEW";
     case TI_EVENT_STAT_CACNCEL:     return "CANCEL";

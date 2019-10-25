@@ -14,11 +14,25 @@
 #include <util/util.h>
 #include <util/vec.h>
 
+typedef struct
+{
+    uint8_t n;
+    uint8_t nnodes;
+    uint8_t threshold;
+    uint8_t pad8_;
+#if __WORDSIZE == 64
+    uint32_t pad32_;
+#endif
+} events__id_t;
+
 /*
  * If an event is in the queue for this time, continue regardless of the event
  * status.
  */
 #define EVENTS__TIMEOUT 42.0f
+
+/* Short time-out for events which are rejected at least once */
+#define EVENTS__SHORT_TIMEOUT 4.2f
 
 /*
  * Avoid extreme gaps between event id's
@@ -74,9 +88,9 @@ int ti_events_create(void)
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
     events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
-    events->event_ids = omap_create();
+    events->request_ids = omap_create();
 
-    if (!events->event_ids ||
+    if (!events->request_ids ||
         !events->lock ||
         uv_mutex_init(events->lock))
     {
@@ -261,24 +275,62 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     return 0;
 }
 
+static void events__new_request_id(uint64_t event_id, events__id_t * r)
+{
+    uintptr_t ptr;
+
+    memset(r, 0, sizeof(events__id_t));
+
+    r->n = 0;
+    ti_nodes_nnodes_reject_threshold(&r->nnodes, &r->threshold);
+
+    memcpy(&ptr, r, sizeof(uintptr_t));
+
+    omap_set(events->request_ids, event_id, (void *) ptr);
+}
 
 /* Returns true if the event is accepted, false if not. In case the event
  * is not accepted due to an error, logging is done.
  */
 _Bool ti_events_accept_id(ti_node_t * node, uint64_t event_id)
 {
+    events__id_t req_id;
+    uint64_t * cevid;
+    omap_iter_t iter;
+
     if (event_id >= events->next_event_id)
     {
-        log_debug("accept requested "TI_EVENT_ID" from "TI_NODE_ID,
-                event_id, node->id);
         events->next_event_id = event_id + 1;
         return true;
     }
 
-    log_debug("reject requested "TI_EVENT_ID" from "TI_NODE_ID,
-            event_id, node->id);
+    cevid = &ti()->node->cevid;
+    iter = omap_iter(events->request_ids);
 
-    return false;
+    for (size_t n = events->request_ids->n; n--;)
+    {
+        uint64_t id = omap_iter_id(iter);
+        events__id_t * request_id = (events__id_t *) (&iter->data_);
+        iter = iter->next_;
+
+        if (id <= *cevid)
+        {
+            omap_rm(events->request_ids, id);
+            continue;
+        }
+
+        if (id > event_id)
+            break;
+
+        if (id == event_id)
+            return (++request_id->n >= request_id->threshold &&
+                    ti()->node->id > node->id);
+    }
+
+    events__new_request_id(event_id, &req_id);
+
+    return (req_id.n >= req_id.threshold &&
+            ti()->node->id > node->id);
 }
 
 /* Sets the next missing event id, at least higher than the given event_id.
@@ -336,19 +388,13 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     free(events->lock);
     free(events->evloop);
     vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
-    omap_destroy(events->cancelled, NULL);
+    omap_destroy(events->request_ids, NULL);
     events = ti()->events = NULL;
 }
 
 static void events__new_id(ti_event_t * ev)
 {
     ex_t e = {0};
-
-    /* mark the current event id as cancelled */
-    ti_events_cancel(ev->id);
-
-    /* broadcast the cancel to other nodes */
-    ti_event_broadcast_cancel(ev->id);
 
     /* remove the event from the queue (if still there) and reserve one
      * space if nothing is removed */
@@ -380,100 +426,6 @@ fail:
     ti_event_drop(ev);  /* reference for the queue */
     ti_query_send(ev->via.query, &e);
     ev->status = TI_EVENT_STAT_CACNCEL;
-}
-
-typedef struct
-{
-    uint8_t threshold;
-    uint8_t n;
-    uint16_t pad16_;
-#if __WORDSIZE == 64
-    uint32_t pad32_;
-#endif
-} events_cancel_t;
-
-void events__new_cancel(uint64_t event_id)
-{
-    uint8_t nnodes = ti()->nodes->imap->n;
-    events_cancel_t c;
-    uintptr_t ptr;
-
-    memset(&c, 0, sizeof(events_cancel_t));
-
-    c.n = 1;
-    c.threshold = nnodes == 2 ? 2 : nnodes - ti_nodes_quorum();
-
-    memcpy(&ptr, &c, sizeof(uintptr_t));
-
-    if (!omap_set(events->cancelled, event_id, (void *) ptr))
-        log_critical(EX_MEMORY_S);
-}
-
-void ti_events_cancel(uint64_t event_id)
-{
-    _Bool found = false;
-    _Bool trigger = false;
-    uint64_t * cevid = &ti()->node->cevid;
-    omap_iter_t iter = omap_iter(events->cancelled);
-
-    for (size_t n = events->cancelled->n; n--;)
-    {
-        uint64_t id = omap_iter_id(iter);
-        events_cancel_t * cancel = (events_cancel_t *) (&iter->data_);
-
-        iter = iter->next_;
-
-        if (!found && id > event_id)
-            break;
-
-        if (id == event_id)
-        {
-            ++cancel->n;
-            found = true;
-        }
-
-        if (cancel->n >= cancel->threshold && id == (*cevid) + 1)
-        {
-            /* Update committed event id */
-            *cevid = id;
-            trigger = true;
-        }
-
-        if (id <= *cevid)
-            omap_rm(events->cancelled, id);
-    }
-
-    if (!found)
-        events__new_cancel(event_id);
-
-    if (trigger && events__trigger() < 0)
-        log_error("cannot trigger the events loop");
-}
-
-typedef struct
-{
-    uint8_t n;
-    uint8_t threshold;
-    uint16_t pad16_;
-#if __WORDSIZE == 64
-    uint32_t pad32_;
-#endif
-} events_rid_t;
-
-void events__new_req(uint64_t event_id, uint8_t threshold)
-{
-    events_rid_t r;
-    uintptr_t ptr;
-
-    memset(&r, 0, sizeof(events_rid_t));
-
-    r.n = 1;
-    r.threshold = threshold;
-
-    memcpy(&ptr, &r, sizeof(uintptr_t));
-
-    if (!omap_set(events->event_ids, event_id, (void *) ptr))
-        log_critical(EX_MEMORY_S);
 }
 
 static int events__req_event_id(ti_event_t * ev, ex_t * e)
@@ -520,7 +472,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
             continue;
 
         dup = NULL;
-        if (node->status <= TI_NODE_STAT_CONNECTING ||
+        if (node->status <= TI_NODE_STAT_BUILDING ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
                 node->stream,
@@ -536,8 +488,6 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
                         "was successful");
         }
     }
-
-    events__new_req(ev->id, quorum->reject_threshold);
 
     free(pkg);
 
@@ -571,6 +521,8 @@ static int events__push(ti_event_t * ev)
     size_t idx = 0;
     ti_event_t * last_ev = queue_last(events->queue);
 
+    LOGC("PUSH id %u status %u tp %u", ev->id, ev->status, ev->tp);
+
     if (!last_ev || ev->id > last_ev->id)
         return queue_push(&events->queue, ev);
 
@@ -580,6 +532,43 @@ static int events__push(ti_event_t * ev)
             break;
 
     return queue_insert(&events->queue, idx, ev);
+}
+
+static _Bool events__may_skip(
+        util_time_t * timing,
+        ti_event_t * ev,
+        uint64_t * cevid_p)
+{
+    omap_iter_t iter = omap_iter(events->request_ids);
+    for (size_t n = events->request_ids->n; n--;)
+    {
+        uint64_t id = omap_iter_id(iter);
+        events__id_t * request_id = (events__id_t *) (&iter->data_);
+        iter = iter->next_;
+
+        if (id <= *cevid_p)
+        {
+            omap_rm(events->request_ids, id);
+            continue;
+        }
+
+        if (id == (*cevid_p) + 1)
+        {
+            if ((request_id->nnodes & 1) || request_id->nnodes == 2)
+                return false;
+
+            if (++request_id->n >= request_id->threshold)
+            {
+                *cevid_p = id;
+                if (ev->id == (*cevid_p) + 1)
+                    return true;
+            }
+
+            ev->time = *timing;
+            return false;
+        }
+    }
+    return false;
 }
 
 static void events__loop(uv_async_t * UNUSED(handle))
@@ -620,16 +609,22 @@ static void events__loop(uv_async_t * UNUSED(handle))
             /* Continue if the event is allowed a gap or if the node is
              * not synchronizing and a timeout is reached;
              */
-            if (!(
-                    ev->tp == TI_EVENT_TP_EPKG &&
-                    (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP)
-                  ) &&
-                (
-                        ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
-                        util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT
-                ))
+            if (ev->tp == TI_EVENT_TP_EPKG &&
+                (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP))
+                goto gap;
+
+            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
                 break;
 
+            double diff = util_time_diff(&ev->time, &timing);
+
+            if (diff > EVENTS__TIMEOUT || (
+                diff > EVENTS__SHORT_TIMEOUT &&
+                events__may_skip(&timing, ev, cevid_p)))
+                goto gap;
+
+            break;
+gap:
             ++ti()->counters->events_with_gap;
             /* Reached time-out, continue */
         }

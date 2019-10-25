@@ -36,9 +36,9 @@ typedef union ti_event_u ti_event_via_t;
 #include <ti/stream.h>
 #include <util/omap.h>
 #include <util/logger.h>
+#include <util/util.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
-void ti_event_broadcast_cancel(uint64_t event_id);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);
@@ -66,7 +66,7 @@ struct ti_event_s
     ti_event_via_t via;
     ti_collection_t * collection;   /* collection with reference or NULL */
     vec_t * _tasks;                 /* ti_task_t */
-    struct timespec time;           /* timing an event, used for elapsed
+    util_time_t time;           /* timing an event, used for elapsed
                                      * time etc.
                                      */
 };

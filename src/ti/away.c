@@ -186,16 +186,6 @@ static size_t away__syncers(void)
     return count;
 }
 
-typedef struct  /* TODO: cleanup */
-{
-    uint8_t threshold;
-    uint8_t n;
-    uint16_t pad16_;
-#if __WORDSIZE == 64
-    uint32_t pad32_;
-#endif
-} cancel_t;
-
 static void away__waiter_after_cb(uv_timer_t * waiter)
 {
     assert (away->status == AWAY__STATUS_SYNCING);
@@ -281,25 +271,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
                 events_to_process,
                 events_to_process == 1 ? "event" : "events");
 
-        for (queue_each(ti()->events->queue, ti_event_t, ev))
-        {
-            LOGC("Event id %u status %u tp %u", ev->id, ev->status, ev->tp);
-            omap_iter_t iter = omap_iter(ti()->events->cancelled);
-            for (size_t n = ti()->events->cancelled->n; n--;)
-            {
-                uint64_t id = omap_iter_id(iter);
-                cancel_t * cancel = (cancel_t *) (&iter->data_);
-                iter = iter->next_;
-                if (id == ev->id)
-                {
-                    LOGC("Cancel n %u threshold %u", cancel->n, cancel->threshold);
-                }
-            }
-        }
-
-
         return;
-
     }
 
     if (ti()->flags & TI_FLAG_SIGNAL)
@@ -335,7 +307,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail0;;
     }
 
-    away__reschedule_by_id(ti()->node->id);
+    away__reschedule_by_id(ti_nodes_next(ti()->node->id)->id);
 
     if (uv_timer_init(ti()->loop, &away__uv_waiter))
         goto fail1;
@@ -380,7 +352,7 @@ static void away__req_away_id(void)
             continue;
 
         dup = NULL;
-        if (node->status <= TI_NODE_STAT_CONNECTING ||
+        if (node->status <= TI_NODE_STAT_BUILDING ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
                 node->stream,
@@ -417,7 +389,6 @@ int ti_away_create(void)
 
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
-    away->accept_counter = 0;
     away->expected_node_id = 0;
     away->sleep = 0;
 
@@ -525,6 +496,7 @@ void ti_away_stop(void)
 
 _Bool ti_away_accept(uint32_t node_id)
 {
+    ti_node_t * node;
     switch ((enum away__status) away->status)
     {
     case AWAY__STATUS_INIT:
@@ -541,19 +513,14 @@ _Bool ti_away_accept(uint32_t node_id)
         return false;
     }
 
-    if (node_id != away->expected_node_id && away->accept_counter--)
-    {
-        log_debug(
-                "reject away request for "TI_NODE_ID
-                " since it is not the expected "TI_NODE_ID
-                " (will be rejected %u more time(s))",
-                node_id, away->expected_node_id, away->accept_counter);
-        return false;
-    }
+    if (node_id == away->expected_node_id)
+        return true;
 
-    away->accept_counter = AWAY__ACCEPT_COUNTER;
-    away__reschedule_by_id(node_id);
-    return true;
+    node = ti_nodes_node_by_id(away->expected_node_id);
+    if (!node || node->status != TI_NODE_STAT_READY)
+        away->expected_node_id = ti_nodes_next(away->expected_node_id)->id;
+
+    return node_id == away->expected_node_id;
 }
 
 _Bool ti_away_is_working(void)

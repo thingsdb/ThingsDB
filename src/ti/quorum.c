@@ -14,7 +14,6 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
 
     ti_quorum_t * quorum;
     uint8_t nnodes = ti()->nodes->imap->n;
-    uint8_t sz = nnodes - 1;
 
     quorum = malloc(sizeof(ti_quorum_t));
     if (!quorum)
@@ -22,9 +21,12 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
 
     quorum->n = 0;
     quorum->accepted = 0;
-    quorum->sz = sz;
+    quorum->sz = nnodes;
     quorum->quorum = ti_nodes_quorum();
-    quorum->reject_threshold = nnodes - quorum->quorum;
+
+    /* sets accept and reject threshold */
+    (void) ti_quorum_shrink_one(quorum);
+
     quorum->data = data;
     quorum->cb_ = cb;
 
@@ -35,21 +37,14 @@ void ti_quorum_go(ti_quorum_t * quorum)
 {
     if (quorum->cb_)
     {
-        if (quorum->accepted == quorum->quorum)
+        if (quorum->accepted == quorum->accept_threshold)
         {
             quorum->cb_(quorum->data, true);
             quorum->cb_ = NULL;
         }
         else if (quorum->n - quorum->accepted == quorum->reject_threshold)
         {
-            /* a special case is when we only have a `reject_threshold` of just
-             * one; this happens when we have two nodes and both are reachable;
-             * since there is a clean rule which of the two nodes can win, one
-             * will be chosen.
-             */
-            quorum->cb_(
-                quorum->data,
-                quorum->reject_threshold == 1 && ti_nodes_win_out_of_two());
+            quorum->cb_(quorum->data, false);
             quorum->cb_ = NULL;
         }
     }

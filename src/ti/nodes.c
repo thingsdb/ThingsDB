@@ -403,7 +403,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_events_slave_req(other_node, mp_event_id.via.u64);
+    accepted = ti_events_accept_id(other_node, mp_event_id.via.u64);
 
     assert (e.nr == 0);
     resp = ti_pkg_new(

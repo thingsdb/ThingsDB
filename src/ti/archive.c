@@ -26,7 +26,7 @@ static int archive__load_file(ti_archfile_t * archfile)
     mp_unp_t up;
     mp_obj_t obj, mp_pkg;
     fx_mmap_t fmap;
-    ti_event_t * event = queue_first(ti()->events->queue);
+//    ti_event_t * event = queue_first(ti()->events->queue);
     ti_epkg_t * epkg;
 
     log_debug("loading archive file `%s`", archfile->fn);
@@ -56,8 +56,7 @@ static int archive__load_file(ti_archfile_t * archfile)
         if (!epkg)  /* ti_epkg_from_pkg() is a log function */
             goto close;
 
-        if (epkg->event_id <= ti()->node->sevid ||
-            (event && epkg->event_id >= event->id))
+        if (epkg->event_id <= ti()->node->sevid)
         {
             ti_epkg_drop(epkg);
         }
@@ -109,8 +108,7 @@ static int archive__init_queue(void)
     while ((epkg = queue_last(archive->queue)) && epkg->event_id > *cevid)
     {
         (void) queue_pop(archive->queue);
-        assert (epkg->ref > 1); /* add event has created a new reference */
-        ti_decref(epkg);
+        ti_epkg_drop(epkg);
     }
 
     rc = 0;

@@ -23,7 +23,8 @@ struct ti_quorum_s
     uint8_t n;                  /* number of received answers */
     uint8_t accepted;           /* accepted answers */
     uint8_t sz;                 /* expected answers */
-    uint8_t quorum;             /* minimal required accepted answers */
+    uint8_t quorum;             /* minimal accessible nodes */
+    uint8_t accept_threshold;   /* minimal required accepted */
     uint8_t reject_threshold;   /* maximum rejected answers */
     ti_quorum_cb cb_;           /* store the callback function */
     void * data;                /* public data binding */
@@ -42,6 +43,8 @@ static inline void ti_quorum_destroy(ti_quorum_t * quorum)
  */
 static inline int ti_quorum_shrink_one(ti_quorum_t * quorum)
 {
+    quorum->accept_threshold = quorum->sz / 2;
+    quorum->reject_threshold = quorum->sz - quorum->accept_threshold;
     return (quorum->sz && --quorum->sz >= quorum->quorum) ? 0 : -1;
 }
 

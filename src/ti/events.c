@@ -74,9 +74,11 @@ int ti_events_create(void)
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
     events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
-    events->cancelled = omap_create();
+    events->event_ids = omap_create();
 
-    if (!events->cancelled || !events->lock || uv_mutex_init(events->lock))
+    if (!events->event_ids ||
+        !events->lock ||
+        uv_mutex_init(events->lock))
     {
         log_critical("failed to initiate uv_mutex lock");
         goto failed;
@@ -211,39 +213,24 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     {
         if (ev->status == TI_EVENT_STAT_READY)
         {
-            assert (ev->tp != TI_EVENT_TP_SLAVE);
-
-            log_warning(
-                TI_EVENT_ID" is being processed and "
-                "can not be reused for node `%s`",
-                ev->id,
-                ti_node_name(node)
-            );
-
+            switch ((ti_event_tp_enum) ev->tp)
+            {
+            case TI_EVENT_TP_MASTER:
+                log_warning(
+                     TI_EVENT_ID" is being processed and "
+                     "can not be reused for node `%s`",
+                     ev->id,
+                     ti_node_name(node)
+                 );
+                 break;
+            case TI_EVENT_TP_EPKG:
+                ev->via.epkg->flags |= epkg->flags;
+                break;
+            }
             return 1;
         }
 
         assert (ev->tp != TI_EVENT_TP_EPKG);
-
-        if (ev->tp == TI_EVENT_TP_SLAVE)
-        {
-            if (ev->via.node != node)
-            {
-                log_info(
-                    TI_EVENT_ID" was create for node `%s` but is now "
-                    "reused by an event from node `%s`",
-                    ev->id,
-                    ti_node_name(ev->via.node),
-                    ti_node_name(node)
-                );
-            }
-
-            ti_node_drop(ev->via.node);
-            ev->tp = TI_EVENT_TP_EPKG;
-            ev->via.epkg = ti_grab(epkg);
-
-            goto done;
-        }
 
         /* event is owned by MASTER and needs to stay with MASTER */
         ev = queue_rmval(events->queue, ev);
@@ -266,7 +253,6 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     /* we have space so this function always succeeds */
     (void) events__push(ev);
 
-done:
     ev->status = TI_EVENT_STAT_READY;
 
     if (events__trigger() < 0)
@@ -275,50 +261,22 @@ done:
     return 0;
 }
 
-static ti_event_t * events__slave_new(ti_node_t * node, uint64_t event_id)
-{
-    assert (event_id >= events->next_event_id);
-    ti_event_t * ev;
-
-    if (queue_reserve(&events->queue, 1))
-    {
-        log_critical(EX_MEMORY_S);
-        return NULL;
-    }
-
-    ev = ti_event_create(TI_EVENT_TP_SLAVE);
-    if (!ev)
-    {
-        log_critical(EX_MEMORY_S);
-        return NULL;
-    }
-
-    ev->id = event_id;
-    ev->via.node = ti_grab(node);
-    events->next_event_id = event_id + 1;
-
-    (void) events__push(ev);
-
-    return ev;
-}
 
 /* Returns true if the event is accepted, false if not. In case the event
  * is not accepted due to an error, logging is done.
  */
-_Bool ti_events_slave_req(ti_node_t * node, uint64_t event_id)
+_Bool ti_events_accept_id(ti_node_t * node, uint64_t event_id)
 {
-    if (event_id == events->next_event_id)
+    if (event_id >= events->next_event_id)
     {
-        return events__slave_new(node, event_id) != NULL;
+        log_debug("accept requested "TI_EVENT_ID" from "TI_NODE_ID,
+                event_id, node->id);
+        events->next_event_id = event_id + 1;
+        return true;
     }
 
-    if (event_id > events->next_event_id)
-    {
-        log_debug(
-            "next expected event is "TI_EVENT_ID" but received "TI_EVENT_ID,
-            events->next_event_id, event_id);
-        return events__slave_new(node, event_id) != NULL;
-    }
+    log_debug("reject requested "TI_EVENT_ID" from "TI_NODE_ID,
+            event_id, node->id);
 
     return false;
 }
@@ -328,6 +286,11 @@ _Bool ti_events_slave_req(ti_node_t * node, uint64_t event_id)
  */
 void ti_events_set_next_missing_id(uint64_t * event_id)
 {
+    uint64_t cevid = ti()->node->cevid;
+
+    if (cevid > *event_id)
+        *event_id = cevid;
+
     for (queue_each(events->queue, ti_event_t, ev))
     {
         if (ev->id <= *event_id)
@@ -338,6 +301,7 @@ void ti_events_set_next_missing_id(uint64_t * event_id)
 
         return;
     }
+
     ++(*event_id);
 }
 
@@ -380,27 +344,40 @@ static void events__new_id(ti_event_t * ev)
 {
     ex_t e = {0};
 
+    /* mark the current event id as cancelled */
+    ti_events_cancel(ev->id);
+
+    /* broadcast the cancel to other nodes */
+    ti_event_broadcast_cancel(ev->id);
+
     /* remove the event from the queue (if still there) and reserve one
      * space if nothing is removed */
     if (!queue_rmval(events->queue, ev))
     {
+        ti_incref(ev);
         if (queue_reserve(&events->queue, 1))
         {
             ex_set_mem(&e);
             goto fail;
         }
-        ti_incref(ev);
     }
 
-    /* mark the current event id as cancelled */
-    ti_events_cancel(ev->id);
+    if (!ti_nodes_has_quorum())
+    {
+        ex_set(&e, EX_NODE_ERROR,
+                "node `%s` does not have the required quorum "
+                "of at least %u connected nodes",
+                ti_node_name(ti()->node),
+                ti_nodes_quorum());
+        goto fail;
+    }
 
     if (events__req_event_id(ev, &e) == 0)
         return;
 
     /* in case of an error, `ev->id` is not changed */
 fail:
-    ti_event_broadcast_cancel(ev->id);
+    ti_event_drop(ev);  /* reference for the queue */
     ti_query_send(ev->via.query, &e);
     ev->status = TI_EVENT_STAT_CACNCEL;
 }
@@ -473,6 +450,32 @@ void ti_events_cancel(uint64_t event_id)
         log_error("cannot trigger the events loop");
 }
 
+typedef struct
+{
+    uint8_t n;
+    uint8_t threshold;
+    uint16_t pad16_;
+#if __WORDSIZE == 64
+    uint32_t pad32_;
+#endif
+} events_rid_t;
+
+void events__new_req(uint64_t event_id, uint8_t threshold)
+{
+    events_rid_t r;
+    uintptr_t ptr;
+
+    memset(&r, 0, sizeof(events_rid_t));
+
+    r.n = 1;
+    r.threshold = threshold;
+
+    memcpy(&ptr, &r, sizeof(uintptr_t));
+
+    if (!omap_set(events->event_ids, event_id, (void *) ptr))
+        log_critical(EX_MEMORY_S);
+}
+
 static int events__req_event_id(ti_event_t * ev, ex_t * e)
 {
     assert (queue_space(events->queue) > 0);
@@ -496,6 +499,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         ex_set_mem(e);
         return e->nr;
     }
+
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     ti_incref(ev);
@@ -533,6 +537,8 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         }
     }
 
+    events__new_req(ev->id, quorum->reject_threshold);
+
     free(pkg);
 
     ti_quorum_go(quorum);
@@ -546,24 +552,11 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
     {
         ++ti()->counters->events_quorum_lost;
 
-        ti_event_broadcast_cancel(ev->id);
-
-        if (!ti_nodes_has_quorum())
-        {
-            ex_t e = {0};
-            ev->status = TI_EVENT_STAT_CACNCEL;
-            ex_set(&e, EX_NODE_ERROR,
-                    "node `%s` does not have the required quorum "
-                    "of at least %u connected nodes",
-                    ti_node_name(ti()->node),
-                    ti_nodes_quorum());
-            ti_query_send(ev->via.query, &e);
-            goto done;
-        }
-
         events__new_id(ev);
         goto done;
     }
+
+    LOGC(TI_EVENT_ID" accepted", ev->id);
 
     ev->status = TI_EVENT_STAT_READY;
     if (events__trigger() < 0)
@@ -577,8 +570,6 @@ static int events__push(ti_event_t * ev)
 {
     size_t idx = 0;
     ti_event_t * last_ev = queue_last(events->queue);
-
-    LOGC("Push id %u status %u tp %u", ev->id, ev->status, ev->tp);
 
     if (!last_ev || ev->id > last_ev->id)
         return queue_push(&events->queue, ev);
@@ -597,29 +588,30 @@ static void events__loop(uv_async_t * UNUSED(handle))
     util_time_t timing;
     uint64_t * cevid_p = &ti()->node->cevid;
 
+
     if (uv_mutex_trylock(events->lock))
         return;  /* TODO: handle watchers? */
+
+    LOGC("GO: n %u first id: %u cevid: %u",
+            events->queue->n,
+            ((ti_event_t *)queue_first(events->queue))->id,
+            *cevid_p);
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
 
     while ((ev = queue_first(events->queue)))
     {
+        /* Cancelled event should be removed from the queue */
+        assert (ev->status != TI_EVENT_STAT_CACNCEL);
+
         if (ev->id <= *cevid_p)
         {
-            /* cancelled events which are `skipped` can be removed */
-            if (ev->status != TI_EVENT_STAT_CACNCEL)
-            {
-                if (ev->tp == TI_EVENT_STAT_READY)
-                {
-                    log_error(
-                        TI_EVENT_ID" will be skipped because "TI_EVENT_ID
-                        " is already committed",
-                        ev->id, *cevid_p);
-                    ti_event_log("event is skipped", ev, LOGGER_ERROR);
-                }
-                ++ti()->counters->events_skipped;
-            }
+            log_error(
+                TI_EVENT_ID" will be skipped because "TI_EVENT_ID
+                " is already committed",
+                ev->id, *cevid_p);
+            ti_event_log("event is skipped", ev, LOGGER_ERROR);
 
             goto shift_drop_loop;
         }
@@ -642,12 +634,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
             /* Reached time-out, continue */
         }
 
-        if (    ev->status == TI_EVENT_STAT_CACNCEL ||
-                ev->status == TI_EVENT_STAT_NEW)
+        if (ev->status == TI_EVENT_STAT_NEW)
         {
-            /* An event must have status READY before we can continue,
-             * cancelled events can be replaced with valid events so wait for
-             * those too
+            /*
+             * An event must have status READY before we can continue;
              */
             if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
@@ -686,8 +676,6 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 ti_event_log("event has failed", ev, LOGGER_ERROR);
             }
             break;
-        case TI_EVENT_TP_SLAVE:
-            assert (0);
         }
 
         ti_event_log("event is processed", ev, LOGGER_DEBUG);

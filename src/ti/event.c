@@ -102,9 +102,6 @@ void ti_event_drop(ti_event_t * ev)
 
     ti_collection_drop(ev->collection);
 
-    if (ev->tp == TI_EVENT_TP_SLAVE)
-        ti_node_drop(ev->via.node);
-
     if (ev->tp == TI_EVENT_TP_EPKG)
         ti_epkg_drop(ev->via.epkg);
 
@@ -275,9 +272,6 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
     {
     case TI_EVENT_TP_MASTER:
         (void) fprintf(Logger.ostream, "task count: %"PRIu32, ev->_tasks->n);
-        break;
-    case TI_EVENT_TP_SLAVE:
-        (void) fprintf(Logger.ostream, "status: %s", ti_event_status_str(ev));
         break;
     case TI_EVENT_TP_EPKG:
         mp_print(

@@ -101,7 +101,7 @@ struct ti_node_s
      *      - low on memory
      *      - low on disk space
      *      - unreachable (set from another node)
-     *    uint16_t wflags;
+     *    uint16_t flags;
      */
     struct sockaddr_storage * sockaddr_;
     char addr[INET6_ADDRSTRLEN];    /* null terminated (last known) address */

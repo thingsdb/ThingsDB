@@ -20,8 +20,6 @@ static uv_work_t away__uv_work;
 static uv_timer_t away__uv_repeat;
 static uv_timer_t away__uv_waiter;
 
-static int away__wait_finish_counter = 3;
-
 #define AWAY__ACCEPT_COUNTER 3  /* ignore `x` requests after accepting one */
 #define AWAY__SOON_TIMER 10000  /* seconds might be a nice default */
 
@@ -188,7 +186,7 @@ static size_t away__syncers(void)
     return count;
 }
 
-typedef struct
+typedef struct  /* TODO: cleanup */
 {
     uint8_t threshold;
     uint8_t n;
@@ -203,35 +201,19 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     assert (away->status == AWAY__STATUS_SYNCING);
 
     size_t nsyncers;
-    ssize_t queue_size = ti_events_trigger_loop();
+    ssize_t events_to_process = ti_events_trigger_loop();
 
     /*
      * First check and process events before start with synchronizing
      * optional nodes. This order is required so nodes will receive events
      * from the archive queue which they might require.
      */
-    if (queue_size && away__wait_finish_counter--)
+    if (events_to_process)
     {
         log_warning(
                 "stay in away mode since the queue contains %zd %s",
-                queue_size,
-                queue_size == 1 ? "event" : "events");
-        for (queue_each(ti()->events->queue, ti_event_t, ev))
-        {
-            LOGC("Event id %u status %u tp %u", ev->id, ev->status, ev->tp);
-            omap_iter_t iter = omap_iter(ti()->events->cancelled);
-            for (size_t n = ti()->events->cancelled->n; n--;)
-            {
-                uint64_t id = omap_iter_id(iter);
-                cancel_t * cancel = (cancel_t *) (&iter->data_);
-                iter = iter->next_;
-                if (id == ev->id)
-                {
-                    LOGC("Cancel n %u threshold %u", cancel->n, cancel->threshold);
-                }
-            }
-        }
-
+                events_to_process,
+                events_to_process == 1 ? "event" : "events");
         return;
     }
 
@@ -265,8 +247,6 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     if (rc)
         goto fail1;
 
-    away__wait_finish_counter = 3;
-
     rc = uv_timer_start(
             &away__uv_waiter,
             away__waiter_after_cb,
@@ -290,18 +270,37 @@ fail1:
 
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
-    /*
-     * TODO : why must we wait for an empty queue?
     ssize_t events_to_process = ti_events_trigger_loop();
     if (events_to_process)
     {
+        /* empty the queue because other nodes might wait for these evens to
+         * be processed
+         */
         log_warning(
                 "waiting for %zd %s to finish before going to away mode",
                 events_to_process,
                 events_to_process == 1 ? "event" : "events");
+
+        for (queue_each(ti()->events->queue, ti_event_t, ev))
+        {
+            LOGC("Event id %u status %u tp %u", ev->id, ev->status, ev->tp);
+            omap_iter_t iter = omap_iter(ti()->events->cancelled);
+            for (size_t n = ti()->events->cancelled->n; n--;)
+            {
+                uint64_t id = omap_iter_id(iter);
+                cancel_t * cancel = (cancel_t *) (&iter->data_);
+                iter = iter->next_;
+                if (id == ev->id)
+                {
+                    LOGC("Cancel n %u threshold %u", cancel->n, cancel->threshold);
+                }
+            }
+        }
+
+
         return;
+
     }
-    */
 
     if (ti()->flags & TI_FLAG_SIGNAL)
         return;

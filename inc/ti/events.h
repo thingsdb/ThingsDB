@@ -26,7 +26,7 @@ int ti_events_on_event(ti_node_t * from_node, ti_pkg_t * pkg);
 void ti_events_cancel(uint64_t event_id);
 int ti_events_create_new_event(ti_query_t * query, ex_t * e);
 int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg);
-_Bool ti_events_slave_req(ti_node_t * node, uint64_t event_id);
+_Bool ti_events_accept_id(ti_node_t * node, uint64_t event_id);
 void ti_events_set_next_missing_id(uint64_t * event_id);
 void ti_events_free_dropped(void);
 int ti_events_resize_dropped(void);
@@ -47,7 +47,7 @@ struct ti_events_s
                                    hold by this queue. (order low->high) */
     uv_async_t * evloop;
     vec_t * dropped;            /* ti_thing_t, dropped while running event */
-    omap_t * cancelled;
+    omap_t * event_ids;
 };
 
 static inline void ti_events_keep_dropped(void)

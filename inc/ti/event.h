@@ -14,7 +14,6 @@ typedef enum
 typedef enum
 {
     TI_EVENT_TP_MASTER,     /* status can be anything */
-    TI_EVENT_TP_SLAVE,      /* status is never READY */
     TI_EVENT_TP_EPKG,       /* status is always READY */
 } ti_event_tp_enum;
 
@@ -53,7 +52,6 @@ const char * ti_event_status_str(ti_event_t * ev);
 union ti_event_u
 {
     ti_query_t * query;         /* TI_EVENT_TP_MASTER (no reference) */
-    ti_node_t * node;           /* TI_EVENT_TP_SLAVE (with reference) */
     ti_epkg_t * epkg;           /* TI_EVENT_TP_EPKG (with reference) */
 };
 
@@ -61,7 +59,7 @@ struct ti_event_s
 {
     uint32_t ref;           /* reference counting */
     uint8_t status;         /* NEW / CANCEL / READY */
-    uint8_t tp;             /* MASTER / SLAVE / EPKG */
+    uint8_t tp;             /* MASTER / EPKG */
     uint8_t flags;
     uint8_t pad0;
     uint64_t id;

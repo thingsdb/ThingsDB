@@ -58,18 +58,18 @@ class TestEvents(TestBase):
         client2.use('stuff')
 
         for _ in range(x):
-            await self.mquery('.x += 1', client0, client1)  # client2
+            await self.mquery('.x += 1', client0, client1, client2)
 
         await asyncio.sleep(0.2)
 
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.x'), x * 6)  # 7
+            self.assertEqual(await client.query('.x'), x * 7)
 
         i = 0
         while True:
             nodes_info = await client0.query('nodes_info();', scope='@n')
             if all([node['status'] == 'READY' for node in nodes_info]):
-                await self.mquery('.x += 1', client0, client1)  # client2
+                await self.mquery('.x += 1', client0, client1, client2)
                 i += 1
                 if i == x:
                     break
@@ -87,14 +87,14 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2):
-                    self.assertEqual(await client.query('.x'), x * 8)  # 10
+                    self.assertEqual(await client.query('.x'), x * 10)
                 checked = True
 
             await asyncio.sleep(0.5)
 
         await asyncio.gather(
             self.node3.join_until_ready(client0),
-            self.loop_add(x * 3, client0, client1))  # client2
+            self.loop_add(x * 3, client0, client1, client2))
 
         client3 = await get_client(self.node3)
         client3.use('stuff')
@@ -106,7 +106,7 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2, client3):
-                    self.assertEqual(await client.query('.x'), x * 14)  # 19
+                    self.assertEqual(await client.query('.x'), x * 19)
                 checked = True
 
             await asyncio.sleep(0.5)

@@ -20,8 +20,8 @@ static uv_work_t away__uv_work;
 static uv_timer_t away__uv_repeat;
 static uv_timer_t away__uv_waiter;
 
-#define AWAY__ACCEPT_COUNTER 3  /* ignore `x` requests after accepting one */
-#define AWAY__SOON_TIMER 10000  /* seconds might be a nice default */
+#define AWAY__RESET_COUNTER 5   /* reset expect after X times reject   */
+#define AWAY__SOON_TIMER 10000  /* 10 seconds might be a nice default  */
 
 enum away__status
 {
@@ -80,23 +80,23 @@ static void away__update_expexted_id(uint32_t node_id)
     for (vec_each(nodes_vec, ti_node_t, node), ++idx)
     {
         if (node->id == node_id)
-            node_idx = (idx+1)%n;
+            node_idx = idx;
         if (node == this_node)
             my_idx = idx;
     }
 
-    if (my_idx < node_idx)
+    if (node_idx > my_idx)
         my_idx += n;
 
     /* update expected node id */
     away->expected_node_id = node_id;
     away->sleep = 2500 + ((my_idx - node_idx) * 11000);
-
-    uv_timer_set_repeat(&away__uv_repeat, 2500 + ((my_idx - node_idx) * 11000));
 }
 
 static void away__reschedule_by_id(uint32_t node_id)
 {
+    if (node_id == away->expected_node_id)
+        return;
     away__update_expexted_id(node_id);
     uv_timer_set_repeat(&away__uv_repeat, away->sleep);
 }
@@ -294,6 +294,11 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
 }
+static void away__reset_expected(void)
+{
+    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    away__update_expexted_id(((ti_node_t *) vec_first(nodes_vec))->id);
+}
 
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
 {
@@ -391,6 +396,7 @@ int ti_away_create(void)
     away->status = AWAY__STATUS_INIT;
     away->expected_node_id = 0;
     away->sleep = 0;
+    away->reset_counter = AWAY__RESET_COUNTER;
 
     if (!away->syncers)
     {
@@ -405,9 +411,8 @@ int ti_away_create(void)
 int ti_away_start(void)
 {
     assert (away->status == AWAY__STATUS_INIT);
-    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
 
-    away__update_expexted_id(((ti_node_t *) vec_first(nodes_vec))->id);
+    away__reset_expected();
 
     if (uv_timer_init(ti()->loop, &away__uv_repeat))
         goto fail0;
@@ -427,6 +432,12 @@ fail1:
     away__destroy();
 fail0:
     return -1;
+}
+
+void ti_away_on_away_status(uint32_t node_id)
+{
+    /* reschedule for the next node_id */
+    away__reschedule_by_id(ti_nodes_next(node_id)->id);
 }
 
 void ti_away_trigger(void)
@@ -518,9 +529,25 @@ _Bool ti_away_accept(uint32_t node_id)
 
     node = ti_nodes_node_by_id(away->expected_node_id);
     if (!node || node->status != TI_NODE_STAT_READY)
-        away->expected_node_id = ti_nodes_next(away->expected_node_id)->id;
+        away__reschedule_by_id(ti_nodes_next(away->expected_node_id)->id);
 
-    return node_id == away->expected_node_id;
+    if (node_id == away->expected_node_id)
+        return true;
+
+    if (!--away->reset_counter)
+    {
+        log_warning("reset expected away node");
+        away__reset_expected();
+        away->reset_counter = AWAY__RESET_COUNTER;
+        return node_id == away->expected_node_id;
+    }
+
+    log_warning(
+        "reject away request from "TI_NODE_ID" "
+        "(expecting "TI_NODE_ID")",
+        node_id, away->expected_node_id);
+
+    return false;
 }
 
 _Bool ti_away_is_working(void)

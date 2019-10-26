@@ -285,6 +285,11 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
         ti()->flags |= TI_FLAG_NODES_CHANGED;
     }
 
+    if (node->status == TI_NODE_STAT_AWAY)
+    {
+        ti_away_on_away_status(node->id);
+    }
+
     return 0;
 }
 

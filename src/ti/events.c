@@ -502,11 +502,13 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
     {
         ++ti()->counters->events_quorum_lost;
 
+        LOGC(TI_EVENT_ID" quorum lost :-(", ev->id);
+
         events__new_id(ev);
         goto done;
     }
 
-    LOGC(TI_EVENT_ID" accepted", ev->id);
+    LOGC(TI_EVENT_ID" quorum win :-)", ev->id);
 
     ev->status = TI_EVENT_STAT_READY;
     if (events__trigger() < 0)
@@ -539,6 +541,26 @@ static _Bool events__may_skip(
         ti_event_t * ev,
         uint64_t * cevid_p)
 {
+    double diff = util_time_diff(&ev->time, timing);
+
+    if (diff < EVENTS__SHORT_TIMEOUT)
+        return false;
+
+    if (diff > EVENTS__TIMEOUT)
+    {
+        ++(*cevid_p);
+
+        log_warning(
+                "commit "TI_EVENT_ID" since the event is not received after "
+                "approximately %f seconds", *cevid_p, diff);
+
+        if (ev->id == (*cevid_p) + 1)
+            return true;
+
+        ev->time = *timing;
+        return false;
+    }
+
     omap_iter_t iter = omap_iter(events->request_ids);
     for (size_t n = events->request_ids->n; n--;)
     {
@@ -560,6 +582,9 @@ static _Bool events__may_skip(
             if (++request_id->n >= request_id->threshold)
             {
                 *cevid_p = id;
+                log_warning(
+                        "commit "TI_EVENT_ID" since the id it is most likely "
+                        "rejected by all nodes", *cevid_p);
                 if (ev->id == (*cevid_p) + 1)
                     return true;
             }
@@ -613,17 +638,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP))
                 goto gap;
 
-            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
+            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
+                !events__may_skip(&timing, ev, cevid_p))
                 break;
 
-            double diff = util_time_diff(&ev->time, &timing);
-
-            if (diff > EVENTS__TIMEOUT || (
-                diff > EVENTS__SHORT_TIMEOUT &&
-                events__may_skip(&timing, ev, cevid_p)))
-                goto gap;
-
-            break;
 gap:
             ++ti()->counters->events_with_gap;
             /* Reached time-out, continue */

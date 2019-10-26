@@ -49,63 +49,63 @@ typedef enum
     /*
      * 128..159 node fire and forgets
      */
-    TI_PROTO_NODE_EVENT         =158,   /* event */
-    TI_PROTO_NODE_INFO          =160,   /* [...] */
+    TI_PROTO_NODE_EVENT         =128,   /* event */
+    TI_PROTO_NODE_INFO          =129,   /* [...] */
 
     /*
      * 160..191 node requests
      */
 
     /* expects a client response which will be forwarded back to the client */
-    TI_PROTO_NODE_REQ_QUERY     =162,   /* [user_id, [original]] */
-    TI_PROTO_NODE_REQ_RUN       =163,   /* [user_id, [original]] */
+    TI_PROTO_NODE_REQ_QUERY     =160,   /* [user_id, [original]] */
+    TI_PROTO_NODE_REQ_RUN       =161,   /* [user_id, [original]] */
 
-    TI_PROTO_NODE_REQ_CONNECT   =176,   /* [...] */
-    TI_PROTO_NODE_REQ_EVENT_ID  =177,   /* event id */
-    TI_PROTO_NODE_REQ_AWAY      =178,   /* empty */
-    TI_PROTO_NODE_REQ_SETUP     =180,   /* empty */
-    TI_PROTO_NODE_REQ_SYNC      =181,   /* event_id */
+    TI_PROTO_NODE_REQ_CONNECT   =168,   /* [...] */
+    TI_PROTO_NODE_REQ_EVENT_ID  =169,   /* event id */
+    TI_PROTO_NODE_REQ_AWAY      =170,   /* empty */
+    TI_PROTO_NODE_REQ_SETUP     =171,   /* empty */
+    TI_PROTO_NODE_REQ_SYNC      =172,   /* event_id */
 
     /* [scope_id, file_id, offset, bytes, more]
      * more is a boolean which is set to true in case the file is not yet
      * complete.
      */
-    TI_PROTO_NODE_REQ_SYNCFPART =182,   /* full sync part */
-    TI_PROTO_NODE_REQ_SYNCFDONE =183,   /* full sync completed */
-    TI_PROTO_NODE_REQ_SYNCAPART =184,   /* archive sync part */
-    TI_PROTO_NODE_REQ_SYNCADONE =185,   /* archive sync completed */
-    TI_PROTO_NODE_REQ_SYNCEPART =186,   /* event sync part */
-    TI_PROTO_NODE_REQ_SYNCEDONE =187,   /* event sync completed */
+    TI_PROTO_NODE_REQ_SYNCFPART =173,   /* full sync part */
+    TI_PROTO_NODE_REQ_SYNCFDONE =174,   /* full sync completed */
+    TI_PROTO_NODE_REQ_SYNCAPART =175,   /* archive sync part */
+    TI_PROTO_NODE_REQ_SYNCADONE =176,   /* archive sync completed */
+    TI_PROTO_NODE_REQ_SYNCEPART =177,   /* event sync part */
+    TI_PROTO_NODE_REQ_SYNCEDONE =178,   /* event sync completed */
 
     /*
      * 192..223 node responses
      */
-    TI_PROTO_NODE_RES_CONNECT   =208,   /* [node_id, status] */
-    TI_PROTO_NODE_RES_EVENT_ID  =209,   /* empty, event id accepted */
-    TI_PROTO_NODE_RES_AWAY      =210,   /* empty, away id accepted */
-    TI_PROTO_NODE_RES_SETUP     =212,   /* ti_data */
-    TI_PROTO_NODE_RES_SYNC      =213,   /* empty */
-    TI_PROTO_NODE_RES_SYNCFPART =214,   /* [scope, file, offset]
+    TI_PROTO_NODE_RES_CONNECT   =192,   /* [node_id, status] */
+    TI_PROTO_NODE_RES_ACCEPT    =193,   /* quorum request accepted */
+    TI_PROTO_NODE_RES_SETUP     =194,   /* ti_data */
+    TI_PROTO_NODE_RES_SYNC      =195,   /* empty */
+    TI_PROTO_NODE_RES_SYNCFPART =196,   /* [scope, file, offset]
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */
-    TI_PROTO_NODE_RES_SYNCFDONE =215,   /* empty, ack */
-    TI_PROTO_NODE_RES_SYNCAPART =216,   /* [first, last, offset]
+    TI_PROTO_NODE_RES_SYNCFDONE =197,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCAPART =198,   /* [first, last, offset]
                                            here
                                            here offset is 0 in case no more
                                            data for the file is required
                                          */
-    TI_PROTO_NODE_RES_SYNCADONE =217,   /* empty, ack */
-    TI_PROTO_NODE_RES_SYNCEPART =218,   /* event */
-    TI_PROTO_NODE_RES_SYNCEDONE =219,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCADONE =199,   /* empty, ack */
+    TI_PROTO_NODE_RES_SYNCEPART =200,   /* event */
+    TI_PROTO_NODE_RES_SYNCEDONE =201,   /* empty, ack */
 
 
     /*
      * 224..255 node errors
      */
-    TI_PROTO_NODE_ERR_RES           =240,   /* message */
-    TI_PROTO_NODE_ERR_EVENT_ID      =241,   /* empty */
-    TI_PROTO_NODE_ERR_AWAY          =242,   /* empty */
+    TI_PROTO_NODE_ERR               =224,   /* empty, error */
+    TI_PROTO_NODE_ERR_RES           =225,   /* message */
+    TI_PROTO_NODE_ERR_REJECT        =226,   /* quorum request rejected */
+    TI_PROTO_NODE_ERR_COLLISION     =227,   /* quorum request collision */
 
 } ti_proto_enum_t;
 

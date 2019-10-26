@@ -47,8 +47,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_REQ_SYNCEDONE:       return "NODE_REQ_SYNCEDONE";
 
     case TI_PROTO_NODE_RES_CONNECT:         return "NODE_RES_CONNECT";
-    case TI_PROTO_NODE_RES_EVENT_ID:        return "NODE_RES_EVENT_ID";
-    case TI_PROTO_NODE_RES_AWAY:            return "NODE_RES_AWAY";
+    case TI_PROTO_NODE_RES_ACCEPT:          return "NODE_RES_ACCEPT";
     case TI_PROTO_NODE_RES_SETUP:           return "NODE_RES_SETUP";
     case TI_PROTO_NODE_RES_SYNC:            return "NODE_RES_SYNC";
     case TI_PROTO_NODE_RES_SYNCFPART:       return "NODE_RES_SYNCFPART";
@@ -59,8 +58,8 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_RES_SYNCEDONE:       return "NODE_RES_SYNCEDONE";
 
     case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES";
-    case TI_PROTO_NODE_ERR_EVENT_ID:        return "NODE_ERR_EVENT_ID";
-    case TI_PROTO_NODE_ERR_AWAY:            return "NODE_ERR_AWAY";
+    case TI_PROTO_NODE_ERR_REJECT:          return "NODE_ERR_REJECT";
+    case TI_PROTO_NODE_ERR_COLLISION:       return "NODE_ERR_COLLISION";
 
     }
     log_error("asking a string for an unexpected protocol type: `%d`", tp);

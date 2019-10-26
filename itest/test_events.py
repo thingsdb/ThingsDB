@@ -101,13 +101,17 @@ class TestEvents(TestBase):
 
         checked = False
         while True:
+            print('\n\n!!!!!CHECK!!!\n\n')
             nodes_info = await client0.query('nodes_info();', scope='@n')
             if all([node['status'] == 'READY' for node in nodes_info]):
+                print('\n\n!!!!!READY!!!\n\n')
                 if checked:
                     break
                 for client in (client0, client1, client2, client3):
                     self.assertEqual(await client.query('.x'), x * 19)
                 checked = True
+
+            print('\n\n!!!!!HERE!!!\n\n')
 
             await asyncio.sleep(0.5)
 
@@ -128,7 +132,6 @@ class TestEvents(TestBase):
         for _ in range(x):
             await self.mquery('.x += 1', *clients)
             await asyncio.sleep(0.1)
-
 
 
 if __name__ == '__main__':

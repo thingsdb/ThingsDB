@@ -19,10 +19,12 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     if (!quorum)
         return NULL;
 
-    quorum->n = 0;
     quorum->accepted = 0;
-    quorum->sz = nnodes;
+    quorum->rejected = 0;
+    quorum->collisions = 0;
+    quorum->requests = nnodes;
     quorum->quorum = ti_nodes_quorum();
+    quorum->win_collision = 1;  /* true */
 
     /* sets accept and reject threshold */
     (void) ti_quorum_shrink_one(quorum);
@@ -35,47 +37,62 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
 
 void ti_quorum_go(ti_quorum_t * quorum)
 {
+    uint8_t n = quorum->accepted + quorum->rejected + quorum->collisions;
+
     if (quorum->cb_)
     {
-        if (quorum->accepted == quorum->accept_threshold)
+        if (quorum->requests < quorum->quorum)
+        {
+            quorum->cb_(quorum->data, false);
+            quorum->cb_ = NULL;
+        }
+        else if (quorum->accepted == quorum->accept_threshold)
         {
             quorum->cb_(quorum->data, true);
             quorum->cb_ = NULL;
         }
-        else if (quorum->n - quorum->accepted == quorum->reject_threshold)
+        else if (quorum->rejected == quorum->accept_threshold)
         {
             quorum->cb_(quorum->data, false);
             quorum->cb_ = NULL;
         }
     }
 
-    if (quorum->n == quorum->sz)
-    {
-        if (quorum->cb_)
-            quorum->cb_(quorum->data, false);
+    if (n < quorum->requests)
+        return;
 
-        free(quorum);
-    }
+    if (quorum->cb_)
+        quorum->cb_(
+                quorum->data,
+                quorum->accepted == quorum->rejected
+                    ? quorum->win_collision
+                    : quorum->accepted > quorum->rejected);
+
+    free(quorum);
 }
 
 void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
 {
     ti_quorum_t * quorum = req->data;
-    ++quorum->n;
-    if (status == 0)
+    uint8_t tp = status == 0 ? req->pkg_res->tp : TI_PROTO_NODE_ERR;
+
+    switch (tp)
     {
-        switch (req->pkg_res->tp)
-        {
-        case TI_PROTO_NODE_RES_EVENT_ID:
-        case TI_PROTO_NODE_RES_AWAY:
-            ++quorum->accepted;
-            break;
-        case TI_PROTO_NODE_ERR_EVENT_ID:
-        case TI_PROTO_NODE_ERR_AWAY:
-            break;
-        default:
+    case TI_PROTO_NODE_RES_ACCEPT:
+        ++quorum->accepted;
+        break;
+    case TI_PROTO_NODE_ERR_REJECT:
+        ++quorum->rejected;
+        break;
+    case TI_PROTO_NODE_ERR_COLLISION:
+        if (req->stream->via.node->id < ti()->node->id)
+            quorum->win_collision = 0;  /* false */
+        ++quorum->collisions;
+        break;
+    default:
+        if (status == 0)
             ti_pkg_log(req->pkg_res);
-        }
+        (void) ti_quorum_shrink_one(quorum);
     }
     ti_req_destroy(req);
     ti_quorum_go(quorum);

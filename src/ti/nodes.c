@@ -375,7 +375,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti()->node;
     mp_obj_t mp_event_id;
-    _Bool accepted;
+    ti_proto_enum_t accepted;
 
     if (!this_node)
     {
@@ -403,19 +403,15 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_events_accept_id(other_node, mp_event_id.via.u64);
+    accepted = ti_events_accept_id(mp_event_id.via.u64);
 
-    log_debug("%s requested "TI_EVENT_ID" from "TI_NODE_ID,
-            accepted ? "accept" : "reject",
+    log_debug("respond with %s to requested "TI_EVENT_ID" from "TI_NODE_ID,
+            ti_proto_str(accepted),
             mp_event_id.via.u64,
             other_node->id);
 
     assert (e.nr == 0);
-    resp = ti_pkg_new(
-            pkg->id,
-            accepted ? TI_PROTO_NODE_RES_EVENT_ID : TI_PROTO_NODE_ERR_EVENT_ID,
-            NULL,
-            0);
+    resp = ti_pkg_new(pkg->id, accepted, NULL, 0);
 
 finish:
     if (e.nr)
@@ -456,7 +452,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
     assert (e.nr == 0);
     resp = ti_pkg_new(
             pkg->id,
-            accepted ? TI_PROTO_NODE_RES_AWAY : TI_PROTO_NODE_ERR_AWAY,
+            accepted ? TI_PROTO_NODE_RES_ACCEPT : TI_PROTO_NODE_ERR_REJECT,
             NULL,
             0);
 
@@ -995,11 +991,6 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
         return;
     }
-
-    log_debug("got a `%s` package from "TI_NODE_ID" (%s)",
-            ti_proto_str(pkg->tp),
-            other_node->id,
-            ti_stream_name(stream));
 }
 
 static const char * nodes__get_status_fn(void)
@@ -1612,8 +1603,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         nodes__on_req_syncedone(stream, pkg);
         break;
     case TI_PROTO_NODE_RES_CONNECT:
-    case TI_PROTO_NODE_RES_EVENT_ID:
-    case TI_PROTO_NODE_RES_AWAY:
+    case TI_PROTO_NODE_RES_ACCEPT:
     case TI_PROTO_NODE_RES_SETUP:
     case TI_PROTO_NODE_RES_SYNC:
     case TI_PROTO_NODE_RES_SYNCFPART:
@@ -1623,8 +1613,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_RES_SYNCEPART:
     case TI_PROTO_NODE_RES_SYNCEDONE:
     case TI_PROTO_NODE_ERR_RES:
-    case TI_PROTO_NODE_ERR_EVENT_ID:
-    case TI_PROTO_NODE_ERR_AWAY:
+    case TI_PROTO_NODE_ERR_REJECT:
+    case TI_PROTO_NODE_ERR_COLLISION:
         ti_stream_on_response(stream, pkg);
         break;
     default:

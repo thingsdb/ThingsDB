@@ -31,9 +31,6 @@ typedef struct
  */
 #define EVENTS__TIMEOUT 42.0f
 
-/* Short time-out for events which are rejected at least once */
-#define EVENTS__SHORT_TIMEOUT 4.2f
-
 /*
  * Avoid extreme gaps between event id's
  */
@@ -88,9 +85,9 @@ int ti_events_create(void)
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
     events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
-    events->request_ids = omap_create();
+    events->skipped_ids = omap_create();  /* TODO : an even simpler map */
 
-    if (!events->request_ids ||
+    if (!events->skipped_ids ||
         !events->lock ||
         uv_mutex_init(events->lock))
     {
@@ -275,62 +272,68 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
     return 0;
 }
 
-static void events__new_request_id(uint64_t event_id, events__id_t * r)
-{
-    uintptr_t ptr;
-
-    memset(r, 0, sizeof(events__id_t));
-
-    r->n = 0;
-    ti_nodes_nnodes_reject_threshold(&r->nnodes, &r->threshold);
-
-    memcpy(&ptr, r, sizeof(uintptr_t));
-
-    omap_set(events->request_ids, event_id, (void *) ptr);
-}
-
 /* Returns true if the event is accepted, false if not. In case the event
  * is not accepted due to an error, logging is done.
  */
-_Bool ti_events_accept_id(ti_node_t * node, uint64_t event_id)
+ti_proto_enum_t ti_events_accept_id(uint64_t event_id)
 {
-    events__id_t req_id;
-    uint64_t * cevid;
+    uint64_t * cevid_p;
     omap_iter_t iter;
 
-    if (event_id >= events->next_event_id)
+    if (event_id == events->next_event_id)
     {
-        events->next_event_id = event_id + 1;
-        return true;
+        ++events->next_event_id;
+        return TI_PROTO_NODE_RES_ACCEPT;
     }
 
-    cevid = &ti()->node->cevid;
-    iter = omap_iter(events->request_ids);
+    if (event_id > events->next_event_id)
+    {
+        log_info("skipped %u event id's while accepting "TI_EVENT_ID,
+                event_id - events->next_event_id,
+                event_id);
+        do
+        {
+            omap_set(events->skipped_ids, events->next_event_id, events);
 
-    for (size_t n = events->request_ids->n; n--;)
+        } while (++events->next_event_id < event_id);
+
+        ++events->next_event_id;
+        return TI_PROTO_NODE_RES_ACCEPT;
+    }
+
+    for (queue_each(events->queue, ti_event_t, ev))
+        if (ev->id > event_id)
+            break;
+        else if (ev->id == event_id)
+            return ev->tp == TI_EVENT_TP_MASTER
+                    ? TI_PROTO_NODE_ERR_COLLISION
+                    : TI_PROTO_NODE_ERR_REJECT;
+
+    cevid_p = &ti()->node->cevid;
+    iter = omap_iter(events->skipped_ids);
+
+    for (size_t n = events->skipped_ids->n; n--;)
     {
         uint64_t id = omap_iter_id(iter);
-        events__id_t * request_id = (events__id_t *) (&iter->data_);
         iter = iter->next_;
 
-        if (id <= *cevid)
+        if (id <= *cevid_p)
         {
-            omap_rm(events->request_ids, id);
+            omap_rm(events->skipped_ids, id);
             continue;
+        }
+
+        if (id == event_id)
+        {
+            omap_rm(events->skipped_ids, id);
+            return TI_PROTO_NODE_RES_ACCEPT;
         }
 
         if (id > event_id)
             break;
-
-        if (id == event_id)
-            return (++request_id->n >= request_id->threshold &&
-                    ti()->node->id > node->id);
     }
 
-    events__new_request_id(event_id, &req_id);
-
-    return (req_id.n >= req_id.threshold &&
-            ti()->node->id > node->id);
+    return TI_PROTO_NODE_ERR_REJECT;
 }
 
 /* Sets the next missing event id, at least higher than the given event_id.
@@ -388,7 +391,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     free(events->lock);
     free(events->evloop);
     vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
-    omap_destroy(events->request_ids, NULL);
+    omap_destroy(events->skipped_ids, NULL);
     events = ti()->events = NULL;
 }
 
@@ -536,66 +539,6 @@ static int events__push(ti_event_t * ev)
     return queue_insert(&events->queue, idx, ev);
 }
 
-static _Bool events__may_skip(
-        util_time_t * timing,
-        ti_event_t * ev,
-        uint64_t * cevid_p)
-{
-    double diff = util_time_diff(&ev->time, timing);
-
-    if (diff < EVENTS__SHORT_TIMEOUT)
-        return false;
-
-    if (diff > EVENTS__TIMEOUT)
-    {
-        ++(*cevid_p);
-
-        log_warning(
-                "commit "TI_EVENT_ID" since the event is not received after "
-                "approximately %f seconds", *cevid_p, diff);
-
-        if (ev->id == (*cevid_p) + 1)
-            return true;
-
-        ev->time = *timing;
-        return false;
-    }
-
-    omap_iter_t iter = omap_iter(events->request_ids);
-    for (size_t n = events->request_ids->n; n--;)
-    {
-        uint64_t id = omap_iter_id(iter);
-        events__id_t * request_id = (events__id_t *) (&iter->data_);
-        iter = iter->next_;
-
-        if (id <= *cevid_p)
-        {
-            omap_rm(events->request_ids, id);
-            continue;
-        }
-
-        if (id == (*cevid_p) + 1)
-        {
-            if ((request_id->nnodes & 1) || request_id->nnodes == 2)
-                return false;
-
-            if (++request_id->n >= request_id->threshold)
-            {
-                *cevid_p = id;
-                log_warning(
-                        "commit "TI_EVENT_ID" since the id it is most likely "
-                        "rejected by all nodes", *cevid_p);
-                if (ev->id == (*cevid_p) + 1)
-                    return true;
-            }
-
-            ev->time = *timing;
-            return false;
-        }
-    }
-    return false;
-}
-
 static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
@@ -631,15 +574,14 @@ static void events__loop(uv_async_t * UNUSED(handle))
         }
         else if (ev->id > (*cevid_p) + 1)
         {
-            /* Continue if the event is allowed a gap or if the node is
-             * not synchronizing and a timeout is reached;
-             */
+            /* continue if the event is allowed a gap */
             if (ev->tp == TI_EVENT_TP_EPKG &&
                 (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP))
                 goto gap;
 
+            /* wait if the node is synchronizing or still below a time-out */
             if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
-                !events__may_skip(&timing, ev, cevid_p))
+                util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
                 break;
 
 gap:

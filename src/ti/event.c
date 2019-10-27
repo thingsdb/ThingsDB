@@ -231,15 +231,18 @@ fail:
 
 void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
 {
-    log_with_level(log_level, "%s, event details:", prefix);
+    log_with_level(log_level, "%s: "TI_EVENT_ID" details:", prefix, ev->id);
 
     uv_mutex_lock(&Logger.lock);
-    (void) fprintf(Logger.ostream, "\t"TI_EVENT_ID" (", ev->id);
+    (void) fprintf(Logger.ostream, "\t");
 
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        (void) fprintf(Logger.ostream, "task count: %"PRIu32, ev->_tasks->n);
+        (void) fprintf(
+                Logger.ostream,
+                "<query: `%s`>",
+                ev->via.query->querystr);
         break;
     case TI_EVENT_TP_EPKG:
         mp_print(
@@ -249,7 +252,7 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
         break;
     }
 
-    (void) fprintf(Logger.ostream, ")\n");
+    (void) fprintf(Logger.ostream, "\n");
     uv_mutex_unlock(&Logger.lock);
 }
 

@@ -57,6 +57,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_RES_SYNCEPART:       return "NODE_RES_SYNCEPART";
     case TI_PROTO_NODE_RES_SYNCEDONE:       return "NODE_RES_SYNCEDONE";
 
+    case TI_PROTO_NODE_ERR:                 return "NODE_ERR";
     case TI_PROTO_NODE_ERR_RES:             return "NODE_ERR_RES";
     case TI_PROTO_NODE_ERR_REJECT:          return "NODE_ERR_REJECT";
     case TI_PROTO_NODE_ERR_COLLISION:       return "NODE_ERR_COLLISION";

@@ -16,6 +16,7 @@ C_SRCS += \
 ../src/util/link.c \
 ../src/util/lock.c \
 ../src/util/logger.c \
+../src/util/olist.c \
 ../src/util/omap.c \
 ../src/util/queue.c \
 ../src/util/smap.c \
@@ -37,6 +38,7 @@ OBJS += \
 ./src/util/link.o \
 ./src/util/lock.o \
 ./src/util/logger.o \
+./src/util/olist.o \
 ./src/util/omap.o \
 ./src/util/queue.o \
 ./src/util/smap.o \
@@ -58,6 +60,7 @@ C_DEPS += \
 ./src/util/link.d \
 ./src/util/lock.d \
 ./src/util/logger.d \
+./src/util/olist.d \
 ./src/util/omap.d \
 ./src/util/queue.d \
 ./src/util/smap.d \

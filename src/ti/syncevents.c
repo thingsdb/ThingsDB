@@ -79,7 +79,9 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
     ti_events_set_next_missing_id(&next_event_id);
     assert (next_event_id > epkg->event_id);
 
-    rc = ti_events_add_event(ti()->node, epkg);
+    rc = epkg->event_id > ti()->node->cevid
+            ? ti_events_add_event(ti()->node, epkg)
+            : 0;
     ti_epkg_drop(epkg);
 
     if (rc < 0)

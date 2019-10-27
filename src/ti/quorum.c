@@ -25,6 +25,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     quorum->requests = nnodes;
     quorum->quorum = ti_nodes_quorum();
     quorum->win_collision = 1;  /* true */
+    quorum->more_requests = 0;  /* false */
 
     /* sets accept and reject threshold */
     (void) ti_quorum_shrink_one(quorum);
@@ -63,10 +64,12 @@ void ti_quorum_go(ti_quorum_t * quorum)
 
     if (quorum->cb_)
         quorum->cb_(
-                quorum->data,
-                quorum->accepted == quorum->rejected
-                    ? quorum->win_collision
-                    : quorum->accepted > quorum->rejected);
+            quorum->data,
+            quorum->more_requests
+            ? quorum->win_collision && quorum->accepted > quorum->rejected
+            : quorum->accepted == quorum->rejected
+            ? quorum->win_collision
+            : quorum->accepted > quorum->rejected);
 
     free(quorum);
 }
@@ -85,10 +88,23 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
         ++quorum->rejected;
         break;
     case TI_PROTO_NODE_ERR_COLLISION:
+    {
+        mp_unp_t up;
+        mp_obj_t n;
+
+        mp_unp_init(&up, req->pkg_res->data, req->pkg_res->n);
+
+        if (mp_next(&up, &n) == MP_U64 && n.via.u64 < quorum->requests)
+            quorum->more_requests = 1;  /* true */
+
         if (req->stream->via.node->id < ti()->node->id)
+        {
             quorum->win_collision = 0;  /* false */
+        }
+
         ++quorum->collisions;
         break;
+    }
     default:
         if (status == 0)
             ti_pkg_log(req->pkg_res);

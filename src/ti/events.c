@@ -31,10 +31,12 @@ typedef struct
  */
 #define EVENTS__TIMEOUT 42.0f
 
+#define EVENTS__NEW_TIMEOUT 21.0f
+
 /*
  * Avoid extreme gaps between event id's
  */
-#define EVENTS__MAX_ID_GAP 10000
+#define EVENTS__MAX_ID_GAP 1000
 
 /*
  *
@@ -85,7 +87,9 @@ int ti_events_create(void)
     events->lock = malloc(sizeof(uv_mutex_t));
     events->next_event_id = 0;
     events->dropped = vec_new(EVENTS__INIT_DROPPED_SZ);
-    events->skipped_ids = omap_create();  /* TODO : an even simpler map */
+    events->skipped_ids = olist_create();
+    memset(&events->wait_gap_time, 0, sizeof(events->wait_gap_time));
+    events->wait_cevid = 0;
 
     if (!events->skipped_ids ||
         !events->lock ||
@@ -275,10 +279,10 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
 /* Returns true if the event is accepted, false if not. In case the event
  * is not accepted due to an error, logging is done.
  */
-ti_proto_enum_t ti_events_accept_id(uint64_t event_id)
+ti_proto_enum_t ti_events_accept_id(uint64_t event_id, uint8_t * n)
 {
     uint64_t * cevid_p;
-    omap_iter_t iter;
+    olist_iter_t iter;
 
     if (event_id == events->next_event_id)
     {
@@ -293,7 +297,8 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id)
                 event_id);
         do
         {
-            omap_set(events->skipped_ids, events->next_event_id, events);
+            if (olist_set(events->skipped_ids, events->next_event_id))
+                log_error(EX_MEMORY_S);
 
         } while (++events->next_event_id < event_id);
 
@@ -302,30 +307,33 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id)
     }
 
     for (queue_each(events->queue, ti_event_t, ev))
+    {
         if (ev->id > event_id)
             break;
-        else if (ev->id == event_id)
-            return ev->tp == TI_EVENT_TP_MASTER
+
+        if (ev->id == event_id)
+            return ev->tp == TI_EVENT_TP_MASTER && ((*n = ev->requests) || 1)
                     ? TI_PROTO_NODE_ERR_COLLISION
                     : TI_PROTO_NODE_ERR_REJECT;
+    }
 
     cevid_p = &ti()->node->cevid;
-    iter = omap_iter(events->skipped_ids);
+    iter = olist_iter(events->skipped_ids);
 
     for (size_t n = events->skipped_ids->n; n--;)
     {
-        uint64_t id = omap_iter_id(iter);
+        uint64_t id = olist_iter_id(iter);
         iter = iter->next_;
 
         if (id <= *cevid_p)
         {
-            omap_rm(events->skipped_ids, id);
+            olist_rm(events->skipped_ids, id);
             continue;
         }
 
         if (id == event_id)
         {
-            omap_rm(events->skipped_ids, id);
+            olist_rm(events->skipped_ids, id);
             return TI_PROTO_NODE_RES_ACCEPT;
         }
 
@@ -391,7 +399,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     free(events->lock);
     free(events->evloop);
     vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
-    omap_destroy(events->skipped_ids, NULL);
+    olist_destroy(events->skipped_ids);
     events = ti()->events = NULL;
 }
 
@@ -492,6 +500,8 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
         }
     }
 
+    ev->requests = quorum->requests;
+
     free(pkg);
 
     ti_quorum_go(quorum);
@@ -505,13 +515,13 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
     {
         ++ti()->counters->events_quorum_lost;
 
-        LOGC(TI_EVENT_ID" quorum lost :-(", ev->id);
+        log_debug(TI_EVENT_ID" quorum lost :-(", ev->id);
 
         events__new_id(ev);
         goto done;
     }
 
-    LOGC(TI_EVENT_ID" quorum win :-)", ev->id);
+    log_debug(TI_EVENT_ID" quorum win :-)", ev->id);
 
     ev->status = TI_EVENT_STAT_READY;
     if (events__trigger() < 0)
@@ -525,8 +535,6 @@ static int events__push(ti_event_t * ev)
 {
     size_t idx = 0;
     ti_event_t * last_ev = queue_last(events->queue);
-
-    LOGC("PUSH id %u status %u tp %u", ev->id, ev->status, ev->tp);
 
     if (!last_ev || ev->id > last_ev->id)
         return queue_push(&events->queue, ev);
@@ -545,14 +553,8 @@ static void events__loop(uv_async_t * UNUSED(handle))
     util_time_t timing;
     uint64_t * cevid_p = &ti()->node->cevid;
 
-
     if (uv_mutex_trylock(events->lock))
         return;  /* TODO: handle watchers? */
-
-    LOGC("GO: n %u first id: %u cevid: %u",
-            events->queue->n,
-            ((ti_event_t *)queue_first(events->queue))->id,
-            *cevid_p);
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
@@ -564,7 +566,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
         if (ev->id <= *cevid_p)
         {
-            log_error(
+            log_warning(
                 TI_EVENT_ID" will be skipped because "TI_EVENT_ID
                 " is already committed",
                 ev->id, *cevid_p);
@@ -574,38 +576,55 @@ static void events__loop(uv_async_t * UNUSED(handle))
         }
         else if (ev->id > (*cevid_p) + 1)
         {
+            double diff;
+
             /* continue if the event is allowed a gap */
             if (ev->tp == TI_EVENT_TP_EPKG &&
                 (ev->via.epkg->flags & TI_EPKG_FLAG_ALLOW_GAP))
-                goto gap;
+                goto process;
 
-            /* wait if the node is synchronizing or still below a time-out */
-            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING ||
-                util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+            /* wait if the node is synchronizing */
+            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
                 break;
 
-gap:
+            if (events->wait_cevid != *cevid_p)
+            {
+                events->wait_cevid = *cevid_p;
+                clock_gettime(TI_CLOCK_MONOTONIC, &events->wait_gap_time);
+                break;
+            }
+
+            diff = util_time_diff(&events->wait_gap_time, &timing);
+
+            if (diff < EVENTS__TIMEOUT)
+                break;
+
+            ++(*cevid_p);
             ++ti()->counters->events_with_gap;
-            /* Reached time-out, continue */
+
+            log_warning(
+                    "committed "TI_EVENT_ID" since the event is not received "
+                    "within approximately %f seconds", *cevid_p, diff);
+
+            if (ev->id > (*cevid_p) + 1)
+                break;
         }
 
         if (ev->status == TI_EVENT_STAT_NEW)
         {
+            double diff = util_time_diff(&ev->time, &timing);
             /*
              * An event must have status READY before we can continue;
              */
-            if (util_time_diff(&ev->time, &timing) < EVENTS__TIMEOUT)
+            if (diff < EVENTS__NEW_TIMEOUT)
                 break;
 
-            if (ev->status == TI_EVENT_STAT_NEW)
-            {
-                log_error(
-                        "killed "TI_EVENT_ID" on node `%s` "
-                        "after approximately %f seconds",
-                        ev->id,
-                        ti_name(),
-                        util_time_diff(&ev->time, &timing));
-            }
+            log_error(
+                    "killed "TI_EVENT_ID" on node `%s` "
+                    "after approximately %f seconds",
+                    ev->id,
+                    ti_name(),
+                    diff);
 
             /* Reached time-out, kill the event */
             ++ti()->counters->events_killed;
@@ -613,27 +632,22 @@ gap:
             goto shift_drop_loop;
         }
 
+process:
         assert (ev->status == TI_EVENT_STAT_READY);
 
-        switch ((ti_event_tp_enum) ev->tp)
-        {
-        case TI_EVENT_TP_MASTER:
-            assert (ev->status == TI_EVENT_STAT_READY);
-            ti_query_run(ev->via.query);
-            break;
-        case TI_EVENT_TP_EPKG:
-            assert (ev->tp == TI_EVENT_TP_EPKG);
-            if (ti_archive_push(ev->via.epkg) || ti_event_run(ev))
-            {
-                /* logging is done, but we increment the failed counter and
-                 * log the full event */
-                ++ti()->counters->events_failed;
-                ti_event_log("event has failed", ev, LOGGER_ERROR);
-            }
-            break;
-        }
+        ti_event_log("processing", ev, LOGGER_DEBUG);
 
-        ti_event_log("event is processed", ev, LOGGER_DEBUG);
+        if (ev->tp == TI_EVENT_TP_MASTER)
+        {
+            ti_query_run(ev->via.query);
+        }
+        else if (ti_archive_push(ev->via.epkg) || ti_event_run(ev))
+        {
+            /* logging is done, but we increment the failed counter and
+             * log the full event */
+            ++ti()->counters->events_failed;
+            ti_event_log("event has failed", ev, LOGGER_ERROR);
+        }
 
         /* update counters */
         ti_counters_upd_commit_event(&ev->time);

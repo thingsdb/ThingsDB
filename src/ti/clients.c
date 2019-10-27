@@ -235,6 +235,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
             ex_set_internal(&e);
             goto finish;
         }
+
         /* the response to the client will be handled by a callback on the
          * query forward request so we simply return;
          */
@@ -290,7 +291,6 @@ finish:
         log_error(EX_MEMORY_S);
     }
 }
-
 
 static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
 {

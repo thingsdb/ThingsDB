@@ -105,7 +105,7 @@ typedef enum
     TI_PROTO_NODE_ERR               =224,   /* empty, error */
     TI_PROTO_NODE_ERR_RES           =225,   /* message */
     TI_PROTO_NODE_ERR_REJECT        =226,   /* quorum request rejected */
-    TI_PROTO_NODE_ERR_COLLISION     =227,   /* quorum request collision */
+    TI_PROTO_NODE_ERR_COLLISION     =227,   /* `n`, quorum request collision */
 
 } ti_proto_enum_t;
 

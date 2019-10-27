@@ -61,7 +61,7 @@ struct ti_event_s
     uint8_t status;         /* NEW / CANCEL / READY */
     uint8_t tp;             /* MASTER / EPKG */
     uint8_t flags;
-    uint8_t pad0;
+    uint8_t requests;       /* when master, keep the `n` requests */
     uint64_t id;
     ti_event_via_t via;
     ti_collection_t * collection;   /* collection with reference or NULL */

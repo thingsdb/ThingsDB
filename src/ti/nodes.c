@@ -376,6 +376,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_node_t * this_node = ti()->node;
     mp_obj_t mp_event_id;
     ti_proto_enum_t accepted;
+    uint8_t n = 0;
 
     if (!this_node)
     {
@@ -403,12 +404,27 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_events_accept_id(mp_event_id.via.u64);
+    accepted = ti_events_accept_id(mp_event_id.via.u64, &n);
 
     log_debug("respond with %s to requested "TI_EVENT_ID" from "TI_NODE_ID,
             ti_proto_str(accepted),
             mp_event_id.via.u64,
             other_node->id);
+
+    if (accepted == TI_PROTO_NODE_ERR_COLLISION)
+    {
+        msgpack_packer pk;
+        msgpack_sbuffer buffer;
+        if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)) == 0)
+        {
+            msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+            msgpack_pack_uint8(&pk, n);
+
+            resp = (ti_pkg_t *) buffer.data;
+            pkg_init(resp, pkg->id, TI_PROTO_NODE_ERR_COLLISION, buffer.size);
+            goto finish;
+        }
+    }
 
     assert (e.nr == 0);
     resp = ti_pkg_new(pkg->id, accepted, NULL, 0);

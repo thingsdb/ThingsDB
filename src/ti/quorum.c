@@ -95,9 +95,10 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
         mp_unp_init(&up, req->pkg_res->data, req->pkg_res->n);
 
         if (mp_next(&up, &n) == MP_U64 && n.via.u64 < quorum->requests)
+        {
             quorum->more_requests = 1;  /* true */
-
-        if (req->stream->via.node->id < ti()->node->id)
+        }
+        else if (req->stream->via.node->id < ti()->node->id)
         {
             quorum->win_collision = 0;  /* false */
         }

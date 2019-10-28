@@ -20,13 +20,13 @@ static inline int ti_quorum_shrink_one(ti_quorum_t * quorum);
 
 struct ti_quorum_s
 {
+    int8_t diff_requests;       /* difference in requests between collisions */
     uint8_t accepted;           /* accepted answers */
     uint8_t rejected;           /* number of rejected answers */
     uint8_t collisions;         /* number of collisions */
     uint8_t requests;           /* number of requests (expected answers) */
     uint8_t quorum;             /* minimal required accessible nodes */
     uint8_t win_collision;      /* true when lowest collision id */
-    uint8_t more_requests;      /* more requests then a collision request */
     uint8_t accept_threshold;   /* minimal required accepted */
     ti_quorum_cb cb_;           /* store the callback function */
     void * data;                /* public data binding */

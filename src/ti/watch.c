@@ -28,7 +28,7 @@ void ti_watch_drop(ti_watch_t * watch)
         free(watch);
 }
 
-ti_rpkg_t * ti_watch_rpkg(
+ti_pkg_t * ti_watch_pkg(
         uint64_t thing_id,
         uint64_t event_id,
         const unsigned char * mpjobs,
@@ -36,7 +36,6 @@ ti_rpkg_t * ti_watch_rpkg(
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_rpkg_t * rpkg;
     ti_pkg_t * pkg;
 
     if (mp_sbuffer_alloc_init(&buffer, size + 64, sizeof(ti_pkg_t)))
@@ -56,6 +55,20 @@ ti_rpkg_t * ti_watch_rpkg(
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
+
+    return pkg;
+}
+
+ti_rpkg_t * ti_watch_rpkg(
+        uint64_t thing_id,
+        uint64_t event_id,
+        const unsigned char * mpjobs,
+        size_t size)
+{
+    ti_rpkg_t * rpkg;
+    ti_pkg_t * pkg = ti_watch_pkg(thing_id, event_id, mpjobs, size);
+    if (!pkg)
+        return NULL;
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)

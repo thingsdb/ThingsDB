@@ -254,6 +254,7 @@ static void wareq__watch_cb(uv_async_t * task)
     while (n--)
     {
         ti_pkg_t * pkg;
+        vec_t * pkgs_queue;
         msgpack_packer pk;
         msgpack_sbuffer buffer;
 
@@ -301,10 +302,20 @@ static void wareq__watch_cb(uv_async_t * task)
         pkg = (ti_pkg_t *) buffer.data;
         pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
 
-        if (    ti_stream_is_closed(wareq->stream) ||
-                ti_stream_write_pkg(wareq->stream, pkg))
-        {
+        if (ti_stream_is_closed(wareq->stream) ||
+            ti_stream_write_pkg(wareq->stream, pkg))
             free(pkg);
+
+        pkgs_queue = ti_events_pkgs_from_queue(thing);
+        if (pkgs_queue)
+        {
+            for (vec_each(pkgs_queue, ti_pkg_t, pkg))
+            {
+                if (ti_stream_is_closed(wareq->stream) ||
+                    ti_stream_write_pkg(wareq->stream, pkg))
+                    free(pkg);
+            }
+            vec_destroy(pkgs_queue, NULL);
         }
     }
 

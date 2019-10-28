@@ -25,7 +25,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     quorum->requests = nnodes;
     quorum->quorum = ti_nodes_quorum();
     quorum->win_collision = 1;  /* true */
-    quorum->more_requests = 0;  /* false */
+    quorum->diff_requests = 0;
 
     /* sets accept and reject threshold */
     (void) ti_quorum_shrink_one(quorum);
@@ -65,9 +65,10 @@ void ti_quorum_go(ti_quorum_t * quorum)
     if (quorum->cb_)
         quorum->cb_(
             quorum->data,
-            quorum->more_requests
-            ? quorum->win_collision && quorum->accepted > quorum->rejected
-            : quorum->accepted == quorum->rejected
+            quorum->diff_requests < 0
+            ? false
+            : quorum->collisions > quorum->diff_requests &&
+              quorum->accepted == quorum->rejected
             ? quorum->win_collision
             : quorum->accepted > quorum->rejected);
 
@@ -94,9 +95,12 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
 
         mp_unp_init(&up, req->pkg_res->data, req->pkg_res->n);
 
-        if (mp_next(&up, &n) == MP_U64 && n.via.u64 < quorum->requests)
+        if (mp_next(&up, &n) == MP_U64 && n.via.u64 != quorum->requests)
         {
-            quorum->more_requests = 1;  /* true */
+            if (quorum->requests > n.via.u64)
+                ++quorum->diff_requests;
+            else
+                --quorum->diff_requests;
         }
         else if (req->stream->via.node->id < ti()->node->id)
         {

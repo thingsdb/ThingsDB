@@ -78,6 +78,175 @@ void ti_event_drop(ti_event_t * ev)
     free(ev);
 }
 
+int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs)
+{
+    ti_pkg_t * pkg = ev->via.epkg->pkg;
+    mp_unp_t up;
+    size_t i;
+    mp_obj_t obj, mp_scope, mp_id;
+    const char * jobs_position;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        /* key */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_U64 ||                       /* event id */
+        mp_next(&up, &mp_scope) != MP_U64 ||            /* scope id */
+        /* value */
+        mp_next(&up, &obj) != MP_MAP)           /* map with thing_id:task */
+    {
+        log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
+        return -1;
+    }
+
+    if (mp_scope.via.u64 != thing->collection->root->id)
+        return 0;  /* not a collection scope */
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(&up, &mp_id) != MP_U64)
+            goto fail_mp_data;
+
+        /* keep the current position so we can update watchers */
+        jobs_position = up.pt;
+
+        if (mp_skip(&up) != MP_ARR)
+            goto fail_mp_data;
+
+        if (mp_id.via.u64 == thing->id)
+        {
+            size_t n = up.pt - jobs_position;
+            ti_pkg_t * pkg = ti_watch_pkg(
+                    thing->id,
+                    ev->id,
+                    (const unsigned char *) jobs_position, n);
+
+            if (!pkg ||
+                (*pkgs == NULL && !(*pkgs = vec_new(7))) ||
+                vec_push(pkgs, pkg))
+            {
+                ++ti()->counters->watcher_failed;
+                log_critical(EX_MEMORY_S);
+            }
+        }
+    }
+
+    return 0;
+
+fail_mp_data:
+    log_critical("msgpack event data incorrect for "TI_EVENT_ID, ev->id);
+    return -1;
+}
+
+int ti_event_watch(ti_event_t * ev)
+{
+    int rc = 0;
+    ti_collection_t * collection;
+    ti_thing_t * thing;
+    ti_pkg_t * pkg = ev->via.epkg->pkg;
+    mp_unp_t up;
+    size_t i;
+    mp_obj_t obj, mp_scope, mp_id;
+    const char * jobs_position;
+
+    ev->flags |= TI_EVENT_FLAG_WATCHED;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        /* key */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_skip(&up) != MP_U64 ||                       /* event id */
+        mp_next(&up, &mp_scope) != MP_U64 ||            /* scope id */
+        /* value */
+        mp_next(&up, &obj) != MP_MAP)           /* map with thing_id:task */
+    {
+        log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
+        return -1;
+    }
+
+    if (!mp_scope.via.u64)
+        return 0;  /* not a collection scope */
+
+    collection = ti_collections_get_by_id(mp_scope.via.u64);
+    if (!collection)
+    {
+        log_critical(
+                "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
+                mp_scope.via.u64, ev->id);
+        return -1;
+    }
+
+    uv_mutex_lock(collection->lock);
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(&up, &mp_id) != MP_U64)
+            goto fail_mp_data;
+
+        thing = ti_collection_thing_by_id(collection, mp_id.via.u64);
+        if (!thing)
+        {
+            log_critical(
+                    "thing "TI_THING_ID" not found in collection `%.*s`, "
+                    "skip updating watchers with "TI_EVENT_ID,
+                    mp_id.via.u64,
+                    (int) collection->name->n,
+                    (const char *) collection->name->data,
+                    ev->id);
+            goto fail;
+        }
+
+        /* keep the current position so we can update watchers */
+        jobs_position = up.pt;
+
+        if (mp_skip(&up) != MP_ARR)
+            goto fail_mp_data;
+
+        if (ti_thing_has_watchers(thing))
+        {
+            size_t n = up.pt - jobs_position;
+            ti_rpkg_t * rpkg = ti_watch_rpkg(
+                    thing->id,
+                    ev->id,
+                    (const unsigned char *) jobs_position, n);
+
+            if (rpkg)
+            {
+                for (vec_each(thing->watchers, ti_watch_t, watch))
+                {
+                    if (ti_stream_is_closed(watch->stream))
+                        continue;
+
+                    if (ti_stream_write_rpkg(watch->stream, rpkg))
+                    {
+                        ++ti()->counters->watcher_failed;
+                        log_error(EX_INTERNAL_S);
+                    }
+                }
+                ti_rpkg_drop(rpkg);
+            }
+            else
+            {
+                ++ti()->counters->watcher_failed;
+                log_critical(EX_MEMORY_S);
+            }
+        }
+    }
+
+    goto done;
+
+fail_mp_data:
+    log_critical("msgpack event data incorrect for "TI_EVENT_ID, ev->id);
+fail:
+    rc = -1;
+done:
+    uv_mutex_unlock(collection->lock);
+
+    return rc;
+}
+
 /* (Log function)
  * Returns 0 when successful, or -1 in case of an error.
  * This function creates the event tasks.
@@ -175,7 +344,7 @@ int ti_event_run(ti_event_t * ev)
                 }
             }
 
-            if (ti_thing_has_watchers(thing))
+            if (ti_event_require_watch_upd(ev) && ti_thing_has_watchers(thing))
             {
                 size_t n = up.pt - jobs_position;
                 ti_rpkg_t * rpkg = ti_watch_rpkg(

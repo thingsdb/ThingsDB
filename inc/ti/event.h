@@ -19,7 +19,8 @@ typedef enum
 
 typedef enum
 {
-    TI_EVENT_FLAG_SAVE  = 1<<0,    /* ti_save() must be triggered */
+    TI_EVENT_FLAG_SAVE      = 1<<0,    /* ti_save() must be triggered */
+    TI_EVENT_FLAG_WATCHED   = 1<<1,    /* event is pushed to watchers */
 } ti_event_flags_enum;
 
 typedef struct ti_event_s ti_event_t;
@@ -34,13 +35,17 @@ typedef union ti_event_u ti_event_via_t;
 #include <ti/query.h>
 #include <ti/raw.h>
 #include <ti/stream.h>
+#include <ti/thing.h>
 #include <util/omap.h>
 #include <util/logger.h>
 #include <util/util.h>
+#include <util/vec.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
+int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs);
+int ti_event_watch(ti_event_t * ev);
 int ti_event_run(ti_event_t * ev);
 static inline void ti_event_log(
         const char * prefix,
@@ -78,6 +83,11 @@ static inline void ti_event_log(
 {
     if (Logger.level <= log_level)
         ti__event_log_(prefix, ev, log_level);
+}
+
+static inline _Bool ti_event_require_watch_upd(ti_event_t * ev)
+{
+    return ev->tp == TI_EVENT_TP_EPKG && (~ev->flags & TI_EVENT_FLAG_WATCHED);
 }
 
 #endif /* TI_EVENT_H_ */

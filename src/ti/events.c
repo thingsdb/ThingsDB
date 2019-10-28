@@ -390,6 +390,22 @@ int ti_events_resize_dropped(void)
             : vec_resize(&events->dropped, EVENTS__INIT_DROPPED_SZ);
 }
 
+vec_t * ti_events_pkgs_from_queue(ti_thing_t * thing)
+{
+    uint64_t next_event = ti()->node->cevid;
+    vec_t * pkgs = NULL;
+
+    for (queue_each(events->queue, ti_event_t, ev))
+    {
+        if (ev->id != ++next_event)
+            break;
+
+        if (ev->flags & TI_EVENT_FLAG_WATCHED)
+            (void) ti_event_append_pkgs(ev, thing, &pkgs);
+    }
+    return pkgs;
+}
+
 static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)
@@ -547,6 +563,20 @@ static int events__push(ti_event_t * ev)
     return queue_insert(&events->queue, idx, ev);
 }
 
+static void events__watch_queue(void)
+{
+    uint64_t next_event = ti()->node->cevid;
+
+    for (queue_each(events->queue, ti_event_t, ev))
+    {
+        if (ev->id != ++next_event)
+            return;
+
+        if (ti_event_require_watch_upd(ev))
+            (void) ti_event_watch(ev);
+    }
+}
+
 static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
@@ -554,7 +584,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
     uint64_t * cevid_p = &ti()->node->cevid;
 
     if (uv_mutex_trylock(events->lock))
-        return;  /* TODO: handle watchers? */
+    {
+        events__watch_queue();
+        return;
+    }
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;

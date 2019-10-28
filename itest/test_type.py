@@ -36,7 +36,7 @@ class TestType(TestBase):
 
     async def test_new_type(self, client):
         await client.query(r'''
-            set_type(new_type('User'), {
+            set_type('User', {
                 name: 'str',
                 age: 'uint',
                 likes: '[User]?',
@@ -68,10 +68,10 @@ class TestType(TestBase):
                 age: 'uint',
                 likes: '[User]?',
             });
-            set_type(new_type('People'), {
+            set_type('People', {
                 users: '[User]'
             });
-            set_type(new_type('UserName'), {
+            set_type('UserName', {
                 name: 'str',
                 u: 'UserName?',
             });

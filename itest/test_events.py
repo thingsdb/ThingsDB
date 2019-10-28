@@ -24,7 +24,7 @@ class TestEvents(TestBase):
     @default_test_setup(num_nodes=4, seed=1, threshold_full_storage=1000000)
     async def run(self):
         x = 30
-        mq = '.x += 1; .y += .y % {}'
+        mq = '.x += .x % {}; .arr.push(.x);'
 
         await self.node0.init_and_run()
 
@@ -32,7 +32,7 @@ class TestEvents(TestBase):
         client0.use('stuff')
         client0.id = 2
 
-        await client0.query('.x = 0; .y = 10')
+        await client0.query('.x = 10; .arr = [];')
 
         await self.node1.join_until_ready(client0)
 
@@ -67,7 +67,7 @@ class TestEvents(TestBase):
         await asyncio.sleep(0.2)
 
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.x'), x * 7)
+            self.assertEqual(await client.query('.arr.len()'), x * 7)
 
         i = 0
         while True:
@@ -91,7 +91,7 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2):
-                    self.assertEqual(await client.query('.x'), x * 10)
+                    self.assertEqual(await client.query('.arr.len()'), x * 10)
                 checked = True
 
             await asyncio.sleep(0.5)
@@ -105,9 +105,9 @@ class TestEvents(TestBase):
         client3.id = 11
 
         await asyncio.sleep(0.5)
-        check_y = await client0.query('.y;')
+        check_arr = await client0.query('.arr;')
 
-        # `y` might be different in each run, but must be equal on all nodes
+        # `arr` might be different in each run, but must be equal on all nodes
 
         checked = False
         while True:
@@ -116,8 +116,8 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client0, client1, client2, client3):
-                    self.assertEqual(await client.query('.x'), x * 19)
-                    self.assertEqual(await client.query('.y'), check_y)
+                    self.assertEqual(await client.query('.arr.len();'), x * 19)
+                    self.assertEqual(await client.query('.arr;'), check_arr)
                 checked = True
 
             await asyncio.sleep(0.5)
@@ -133,9 +133,9 @@ class TestEvents(TestBase):
             await asyncio.sleep(0.4)
 
         await asyncio.sleep(0.5)
-        check_y = await client1.query('.y;')
+        check_arr = await client1.query('.arr;')
 
-        # `y` might be different in each run, but must be equal on all nodes
+        # `arr` might be different in each run, but must be equal on all nodes
 
         checked = False
         while True:
@@ -147,8 +147,8 @@ class TestEvents(TestBase):
                 if checked:
                     break
                 for client in (client1, client2, client3):
-                    self.assertEqual(await client.query('.x'), x * 25)
-                    self.assertEqual(await client.query('.y'), check_y)
+                    self.assertEqual(await client.query('.arr.len();'), x * 25)
+                    self.assertEqual(await client.query('.arr;'), check_arr)
                 checked = True
 
             await asyncio.sleep(0.5)

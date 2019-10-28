@@ -16,15 +16,41 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)
-        return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
+    {
+        uint16_t type_id;
+        ti_raw_t * rname = (ti_raw_t *) query->rval;
 
-    if (type->fields->n)
+        if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                "function `new_type` expects "
+                "argument 1 to be a valid type name"DOC_NAMES);
+            return e->nr;
+        }
+
+        type_id = ti_types_get_new_id(query->collection->types, rname, e);
+        if (e->nr)
+            return e->nr;
+
+        type = ti_type_create(
+                query->collection->types,
+                type_id,
+                (const char *) rname->data,
+                rname->n);
+
+        if (!type)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+    }
+    else if (type->fields->n)
     {
         ex_set(e, EX_OPERATION_ERROR,
             "function `set_type` works only on a new type; "
             "use `mod_type()` if you want to change an existing type"
             DOC_MOD_TYPE);
-        goto fail0;
+        return e->nr;
     }
 
     if (ti_type_try_lock(type, e))

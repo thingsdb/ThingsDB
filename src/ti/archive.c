@@ -424,7 +424,8 @@ int ti_archive_to_disk(void)
     if (n > ti()->cfg->threshold_full_storage)
         (void) ti_store_store();
 
-    ti_sleep(100);
+    /* sleep a little before archiving */
+    ti_sleep(200);
 
     /* archive events, even after full store for synchronizing `other` nodes */
     if (archive__to_disk())

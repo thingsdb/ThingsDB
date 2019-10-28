@@ -197,19 +197,19 @@ class TestWatch(TestBase):
 
                     await ev.client.query('.iris.age = 6;')
 
-                    await asyncio.sleep(0.4)
+                    await asyncio.sleep(0.5)
 
                     Iris = Thing(ev, iris['#'])
 
                     await Iris.watch()
 
-                    await asyncio.sleep(0.4)
+                    await asyncio.sleep(0.5)
 
                     self.assertEqual(Iris.age, 6)
 
                     await ev.client.query('.iris.name = "Iris";')
 
-                    await asyncio.sleep(0.4)
+                    await asyncio.sleep(0.5)
 
                     self.assertEqual(Iris.name, 'Iris')
 

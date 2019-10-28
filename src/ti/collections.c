@@ -80,6 +80,8 @@ int ti_collections_gc(void)
         }
 
         uv_mutex_unlock(collection->lock);
+
+        ti_sleep(100);
     }
 
     return rc;

@@ -272,6 +272,8 @@ int ti_backups_backup(void)
 
     do
     {
+        ti_sleep(100);
+
         uv_mutex_lock(backups->lock);
 
         backup = backups__get_pending(now, backup_id);

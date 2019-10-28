@@ -424,12 +424,15 @@ int ti_archive_to_disk(void)
     if (n > ti()->cfg->threshold_full_storage)
         (void) ti_store_store();
 
+    ti_sleep(100);
+
     /* archive events, even after full store for synchronizing `other` nodes */
     if (archive__to_disk())
         return -1;
 
     ti()->node->sevid = leid;  /* last_epkg cannot be used, it's cleared */
 
+    ti_sleep(100);
 done:
     (void) archive__remove_files();
     return 0;

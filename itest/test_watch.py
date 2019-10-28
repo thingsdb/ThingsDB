@@ -172,6 +172,59 @@ class TestWatch(TestBase):
         await iris1.unwatch()
         await iris2.unwatch()
 
+    async def test_away_mode(self, ev0, ev1, ev2):
+        evmap = [ev for ev in (ev0, ev1, ev2)]
+        make_iris = True
+        need_check = True
+        away_soon = False
+
+        while need_check:
+
+            if make_iris:
+                iris = await ev0.client.query(r'.iris = {};')
+                make_iris = False
+
+            nodes_info = await ev0.client.query('nodes_info();', scope='@n')
+            for node in nodes_info:
+                if node['status'] == 'AWAY_SOON':
+                    away_soon = True
+
+                if away_soon and node['status'] == 'AWAY':
+                    node_id = node['node_id']
+                    await asyncio.sleep(0.1)
+
+                    ev = evmap[node_id]
+
+                    await ev.client.query('.iris.age = 6;')
+
+                    await asyncio.sleep(0.2)
+
+                    Iris = Thing(ev, iris['#'])
+
+                    await Iris.watch()
+
+                    await asyncio.sleep(0.2)
+
+                    self.assertEqual(Iris.age, 6)
+
+                    await ev.client.query('.iris.name = "Iris";')
+
+                    await asyncio.sleep(0.2)
+
+                    self.assertEqual(Iris.name, 'Iris')
+
+                    ninfo = await ev0.client.query('nodes_info();', scope='@n')
+                    for n in nodes_info:
+                        if n['status'] == 'AWAY' and n['node_id'] == node_id:
+                            need_check = False
+                            break
+                    else:
+                        make_iris = True
+
+                    break
+
+            await asyncio.sleep(0.4)
+
 
 if __name__ == '__main__':
     run_test(TestWatch())

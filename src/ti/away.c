@@ -357,7 +357,7 @@ static void away__req_away_id(void)
             continue;
 
         dup = NULL;
-        if (node->status <= TI_NODE_STAT_BUILDING ||
+        if (node->status <= TI_NODE_STAT_SHUTTING_DOWN ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
                 node->stream,

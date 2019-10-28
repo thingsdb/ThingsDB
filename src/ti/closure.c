@@ -360,12 +360,6 @@ int ti_closure_vars_nameval(
             prop->val = val;
             /*
              * Re-assign variable since we require a copy of lists and sets.
-             * It is not possible to work with pointers unless we consider
-             * using pointers when assigning to variable, but
-             * that requires sets and lists to have a reference to the thing
-             * and name they are assigned to.
-             *
-             * TODO: consider the above behavior
              */
             if (ti_val_make_assignable(&prop->val, e))
                 return e->nr;

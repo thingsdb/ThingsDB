@@ -33,6 +33,20 @@ static ti_val_t * val__empty_str;
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
+static ti_val_t * val__sbool;
+static ti_val_t * val__sint;
+static ti_val_t * val__sfloat;
+static ti_val_t * val__sstr;
+static ti_val_t * val__sbytes;
+static ti_val_t * val__sinfo;
+static ti_val_t * val__sregex;
+static ti_val_t * val__serror;
+static ti_val_t * val__sclosure;
+static ti_val_t * val__slist;
+static ti_val_t * val__stuple;
+static ti_val_t * val__sset;
+static ti_val_t * val__sthing;
+static ti_val_t * val__swthing;
 
 
 #define VAL__BUF_SZ 128
@@ -387,13 +401,30 @@ ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
 int ti_val_init_common(void)
 {
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
-    val__empty_str = (ti_val_t *) ti_str_from_fmt("");
-    val__snil = (ti_val_t *) ti_str_from_fmt("nil");
-    val__strue = (ti_val_t *) ti_str_from_fmt("true");
-    val__sfalse = (ti_val_t *) ti_str_from_fmt("false");
+    val__empty_str = (ti_val_t *) ti_str_from_str("");
+    val__snil = (ti_val_t *) ti_str_from_str(TI_VAL_NIL_S);
+    val__strue = (ti_val_t *) ti_str_from_str("true");
+    val__sfalse = (ti_val_t *) ti_str_from_str("false");
+    val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
+    val__sint = (ti_val_t *) ti_str_from_str(TI_VAL_INT_S);
+    val__sfloat = (ti_val_t *) ti_str_from_str(TI_VAL_FLOAT_S);
+    val__sstr = (ti_val_t *) ti_str_from_str(TI_VAL_STR_S);
+    val__sbytes = (ti_val_t *) ti_str_from_str(TI_VAL_BYTES_S);
+    val__sinfo = (ti_val_t *) ti_str_from_str(TI_VAL_INFO_S);
+    val__sregex = (ti_val_t *) ti_str_from_str(TI_VAL_REGEX_S);
+    val__serror = (ti_val_t *) ti_str_from_str(TI_VAL_ERROR_S);
+    val__sclosure = (ti_val_t *) ti_str_from_str(TI_VAL_CLOSURE_S);
+    val__slist = (ti_val_t *) ti_str_from_str(TI_VAL_LIST_S);
+    val__stuple = (ti_val_t *) ti_str_from_str(TI_VAL_TUPLE_S);
+    val__sset = (ti_val_t *) ti_str_from_str(TI_VAL_SET_S);
+    val__sthing = (ti_val_t *) ti_str_from_str(TI_VAL_THING_S);
+    val__swthing = (ti_val_t *) ti_str_from_str("<thing>");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
-        !val__sfalse)
+        !val__sfalse || !val__sbool || !val__sint || !val__sfloat ||
+        !val__sstr || !val__sbytes || !val__sinfo || !val__sregex ||
+        !val__serror || !val__sclosure || !val__slist || !val__stuple ||
+        !val__sset || !val__sthing || !val__swthing)
     {
         ti_val_drop_common();
         return -1;
@@ -408,6 +439,20 @@ void ti_val_drop_common(void)
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
+    ti_val_drop(val__sbool);
+    ti_val_drop(val__sint);
+    ti_val_drop(val__sfloat);
+    ti_val_drop(val__sstr);
+    ti_val_drop(val__sbytes);
+    ti_val_drop(val__sinfo);
+    ti_val_drop(val__sregex);
+    ti_val_drop(val__serror);
+    ti_val_drop(val__sclosure);
+    ti_val_drop(val__slist);
+    ti_val_drop(val__stuple);
+    ti_val_drop(val__sset);
+    ti_val_drop(val__sthing);
+    ti_val_drop(val__swthing);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -499,6 +544,13 @@ ti_val_t * ti_val_empty_bin(void)
     ti_incref(val__empty_bin);
     return val__empty_bin;
 }
+
+ti_val_t * ti_val_wthing_str(void)
+{
+    ti_incref(val__swthing);
+    return val__swthing;
+}
+
 
 /*
  * Returns an address to the `access` object by a given value and set the
@@ -704,7 +756,6 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-
 
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
 {
@@ -1174,6 +1225,38 @@ const char * ti_val_str(ti_val_t * val)
     assert (0);
     return "unknown";
 }
+
+ti_val_t * ti_val_strv(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:            return ti_grab(val__snil);
+    case TI_VAL_INT:            return ti_grab(val__sint);
+    case TI_VAL_FLOAT:          return ti_grab(val__sfloat);
+    case TI_VAL_BOOL:           return ti_grab(val__sbool);
+    case TI_VAL_MP:             return ti_grab(val__sinfo);
+    case TI_VAL_NAME:
+    case TI_VAL_STR:            return ti_grab(val__sstr);
+    case TI_VAL_BYTES:          return ti_grab(val__sbytes);
+    case TI_VAL_REGEX:          return ti_grab(val__sregex);
+    case TI_VAL_THING:
+        return ti_thing_is_object((ti_thing_t *) val)
+                ? ti_grab(val__sthing)
+                : (ti_val_t *) ti_thing_type_strv((ti_thing_t *) val);
+    case TI_VAL_WRAP:
+        return (ti_val_t *) ti_wrap_strv((ti_wrap_t *) val);
+    case TI_VAL_ARR:
+        return ti_varr_is_list((ti_varr_t *) val)
+                ? ti_grab(val__slist)
+                : ti_grab(val__stuple);
+    case TI_VAL_SET:            return ti_grab(val__sset);
+    case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
+    case TI_VAL_ERROR:          return ti_grab(val__serror);
+    }
+    assert (0);
+    return ti_val_empty_str();
+}
+
 
 /* checks for CLOSURE, ARR, SET */
 

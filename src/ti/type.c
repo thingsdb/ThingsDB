@@ -40,7 +40,8 @@ ti_type_t * ti_type_create(
     type->flags = 0;
     type->name = strndup(name, n);
     type->wname = type__wrap_name(name, n);
-    type->name_n = n;
+    type->rname = ti_str_create(name, n);
+    type->rwname = ti_str_from_str(type->wname);
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
     type->types = types;
@@ -119,6 +120,8 @@ void ti_type_destroy(ti_type_t * type)
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     imap_destroy(type->t_mappings, type__map_free);
+    ti_val_drop((ti_val_t *) type->rname);
+    ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
     free(type->name);
     free(type->wname);

@@ -45,9 +45,11 @@ struct ti_type_s
                                included in this counter */
     uint16_t type_id;       /* type id */
     uint8_t flags;          /* type flags */
-    uint8_t name_n;         /* name length (restricted to TI_TYPE_NAME_MAX) */
+    uint8_t pad0_;
     char * name;            /* name (null terminated) */
     char * wname;           /* wrapped name (null terminated) */
+    ti_raw_t * rname;
+    ti_raw_t * rwname;
     ti_types_t * types;
     vec_t * dependencies;   /* ti_type_t; contains type where this type is
                                depended on. type may be more than one inside

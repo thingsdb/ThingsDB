@@ -26,6 +26,14 @@ typedef enum
     TI_NODE_STAT_BUILDING,
 
     /*
+     * Shutting-Down: Few seconds before going offline, the node still accepts
+     *                requests but all nodes and clients should change to
+     *                another connection. Client request should be forwarded
+     *                so no new event will be created by this node.
+     */
+    TI_NODE_STAT_SHUTTING_DOWN,
+
+    /*
      * Synchronizing: We have at least the known nodes. In this mode we can
      *                accept (or reject) event id's, although processing events
      *                and queries is not possible.
@@ -47,13 +55,6 @@ typedef enum
      */
     TI_NODE_STAT_AWAY_SOON,     /* few seconds before going away,
                                    back-end still accepts queries */
-    /*
-     * Shutting-Down: Few seconds before going offline, the node still accepts
-     *                requests but all nodes and clients should change to
-     *                another connection. Client request should be forwarded
-     *                so no new event will be created by this node.
-     */
-    TI_NODE_STAT_SHUTTING_DOWN,
 
     /*
      * Ready: This node is ready to accept and handle requests.

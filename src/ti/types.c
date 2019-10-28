@@ -101,7 +101,7 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 static int types__pack_sz(ti_type_t * type, msgpack_packer * pk)
 {
     return (
-         mp_pack_strn(pk, type->name, type->name_n) ||
+         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
          ti_type_fields_to_pk(type, pk)
      );
 }

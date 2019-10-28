@@ -11,6 +11,11 @@ static inline ti_raw_t * ti_str_create(const char * str, size_t n)
 {
     return ti_raw_create(TI_VAL_STR, str, n);
 }
+static inline ti_raw_t * ti_str_from_str(const char * str)
+{
+    return ti_raw_create(TI_VAL_STR, str, strlen(str));
+}
+
 static inline ti_raw_t * ti_bin_create(const unsigned char * bin, size_t n)
 {
     return ti_raw_create(TI_VAL_BYTES, bin, n);

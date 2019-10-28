@@ -679,15 +679,7 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
         return false;
     }
 
-    if (f_spec < TI_SPEC_ANY)
-    {
-        /* we are left with two type */
-        assert (t_spec != f_spec);
-        assert (t_spec < TI_SPEC_ANY);
-        assert (f_spec < TI_SPEC_ANY);
-        return true;
-    }
-    return false;
+    return f_spec < TI_SPEC_ANY;
 }
 
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)

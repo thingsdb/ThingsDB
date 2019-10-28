@@ -221,7 +221,8 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (this_node->status < TI_NODE_STAT_READY)
+    if (this_node->status < TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
     {
         other_node = ti_nodes_random_ready_node();
         if (!other_node)
@@ -371,7 +372,8 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto finish;
 
-    if (this_node->status < TI_NODE_STAT_READY)
+    if (this_node->status < TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
     {
         ti_node_t * other_node = ti_nodes_random_ready_node();
         if (!other_node)

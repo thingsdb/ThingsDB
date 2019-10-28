@@ -182,7 +182,7 @@ fail_pack:
 
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 {
-    size_t alloc = 64 + type->name_n;
+    size_t alloc = 64 + type->rname->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -200,7 +200,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_uint16(&pk, type->type_id);
 
     mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, type->name, type->name_n);
+    mp_pack_strn(&pk, type->rname->data, type->rname->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

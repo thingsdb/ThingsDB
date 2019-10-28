@@ -28,7 +28,7 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     uintptr_t p;
     if (msgpack_pack_array(pk, 3) ||
         msgpack_pack_uint16(pk, type->type_id) ||
-        mp_pack_strn(pk, type->name, type->name_n) ||
+        mp_pack_strn(pk, type->rname->data, type->rname->n) ||
         msgpack_pack_map(pk, type->fields->n)
     ) return -1;
 

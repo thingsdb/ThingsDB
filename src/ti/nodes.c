@@ -382,15 +382,15 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(&e, EX_AUTH_ERROR,
                 "got an `%s` request from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->id), ti()->hostname);
+                ti_proto_str(pkg->tp), ti()->hostname);
         goto finish;
     }
 
-    if (this_node->status < TI_NODE_STAT_SYNCHRONIZING)
+    if (this_node->status < TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle `%s` requests",
-                ti()->hostname, ti_proto_str(pkg->id));
+                ti()->hostname, ti_proto_str(pkg->tp));
         goto finish;
     }
 
@@ -400,7 +400,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
-                ti_proto_str(pkg->id), other_node->id, this_node->id);
+                ti_proto_str(pkg->tp), other_node->id, this_node->id);
         goto finish;
     }
 
@@ -455,7 +455,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (node->status < TI_NODE_STAT_SYNCHRONIZING)
+    if (node->status < TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle away requests",
@@ -533,7 +533,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (scope.tp != TI_SCOPE_NODE &&
         this_node->status != TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_AWAY_SOON)
+        this_node->status != TI_NODE_STAT_AWAY_SOON &&
+        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -1140,12 +1141,12 @@ uint8_t ti_nodes_quorum(void)
         /* we have a special case when there are only two nodes.
          * usually we want to calculate the quorum by simply dividing the
          * number of nodes by two, but it only two nodes exists, and the
-         * second node is unreachable, we would never have a change to do
+         * second node is unreachable, we would never have a chance to do
          * anything since no event could be created.
          */
         vec_t * nodes_vec = imap_vec(nodes->imap);
         for (vec_each(nodes_vec, ti_node_t, node))
-            if (node->status <= TI_NODE_STAT_BUILDING)
+            if (node->status <= TI_NODE_STAT_SHUTTING_DOWN)
                 return 0;
     }
     return (uint8_t) (nodes->imap->n / 2);
@@ -1157,7 +1158,7 @@ _Bool ti_nodes_has_quorum(void)
     size_t q = 0;
     vec_t * nodes_vec = imap_vec(nodes->imap);
     for (vec_each(nodes_vec, ti_node_t, node))
-        if (node->status > TI_NODE_STAT_BUILDING && ++q == quorum)
+        if (node->status > TI_NODE_STAT_SHUTTING_DOWN && ++q == quorum)
             return true;
     return false;
 }
@@ -1171,17 +1172,6 @@ ti_node_t * ti_nodes_next(uint32_t cur_node_id)
             return vec_get(nodes_vec, idx % nodes_vec->n);
 
     return vec_get(nodes_vec, 0);
-}
-
-void ti_nodes_nnodes_reject_threshold(uint8_t * nnodes, uint8_t * threshold)
-{
-    *nnodes = 0;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
-        if (node->status > TI_NODE_STAT_BUILDING)
-            ++(*nnodes);
-
-    *threshold = (uint8_t) (((*nnodes) - 1) / 2);
 }
 
 /* increases with a new reference as long as required */

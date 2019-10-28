@@ -56,6 +56,17 @@ static inline const char * ti_wrap_str(ti_wrap_t * wrap)
     return type ? type->wname : "<thing>";
 }
 
+static inline ti_raw_t * ti_wrap_strv(ti_wrap_t * wrap)
+{
+    ti_type_t * type = ti_wrap_maybe_type(wrap);
+    if (type)
+    {
+        ti_incref(type->rwname);
+        return type->rwname;
+    }
+    return (ti_raw_t *) ti_val_wthing_str();
+}
+
 static inline int ti_wrap_to_pk(
         ti_wrap_t * wrap,
         msgpack_packer * pk,

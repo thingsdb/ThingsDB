@@ -499,7 +499,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
             continue;
 
         dup = NULL;
-        if (node->status <= TI_NODE_STAT_BUILDING ||
+        if (node->status <= TI_NODE_STAT_SHUTTING_DOWN ||
             !(dup = ti_pkg_dup(pkg)) ||
             ti_req_create(
                 node->stream,
@@ -603,7 +603,8 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 TI_EVENT_ID" will be skipped because "TI_EVENT_ID
                 " is already committed",
                 ev->id, *cevid_p);
-            ti_event_log("event is skipped", ev, LOGGER_ERROR);
+
+            ++ti()->counters->events_skipped;
 
             goto shift_drop_loop;
         }

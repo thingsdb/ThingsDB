@@ -247,7 +247,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
              mp_zone,
              mp_port,
              mp_syntax_ver;
-    uint8_t syntax_ver;
+    uint16_t syntax_ver;
     uint16_t node_port;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 7 ||

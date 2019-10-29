@@ -96,10 +96,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     uint8_t
         from_node_status,
-        from_node_zone,
-        from_node_syntax_ver;
+        from_node_zone;
 
-    uint16_t from_node_port;
+    uint16_t
+        from_node_syntax_ver,
+        from_node_port;
+
     ti_node_t * node, * this_node = ti()->node;
     char * min_ver = NULL;
     char * version = NULL;
@@ -145,7 +147,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     from_node_port = (uint16_t) mp_port.via.u64;
     from_node_status = (uint8_t) mp_status.via.u64;
     from_node_zone = (uint8_t) mp_zone.via.u64;
-    from_node_syntax_ver = (uint8_t) mp_syntax_ver.via.u64;
+    from_node_syntax_ver = (uint16_t) mp_syntax_ver.via.u64;
 
     if (from_node_id == this_node_id)
     {
@@ -1344,7 +1346,7 @@ uint32_t ti_nodes_next_id(void)
     return nodes->next_id;
 }
 
-void ti_nodes_update_syntax_ver(uint8_t syntax_ver)
+void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
 {
     vec_t * nodes_vec = imap_vec(nodes->imap);
     if (syntax_ver == nodes->syntax_ver)
@@ -1651,7 +1653,7 @@ ti_varr_t * ti_nodes_info(void)
     return varr;
 }
 
-int ti_nodes_check_syntax(uint8_t syntax_ver, ex_t * e)
+int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e)
 {
     if (nodes_.syntax_ver >= syntax_ver)
         return 0;

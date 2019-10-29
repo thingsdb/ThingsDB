@@ -84,10 +84,9 @@ struct ti_node_s
 
     uint16_t port;
     uint16_t pad0_;
+    uint16_t syntax_ver;            /* syntax version */
     uint8_t status;
     uint8_t zone;                   /* zone info */
-    uint8_t syntax_ver;             /* syntax version */
-    uint8_t pad1_;
 
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */

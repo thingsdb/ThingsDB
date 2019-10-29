@@ -6,6 +6,7 @@
 
 typedef struct ti_name_s ti_name_t;
 
+/* it is possible to extend the name limit without consequences */
 #define TI_NAME_MAX 255
 
 #include <stdint.h>

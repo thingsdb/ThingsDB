@@ -173,6 +173,9 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
 
+    if (ti_.cfg->query_duration_error > ti_.cfg->query_duration_warn)
+        ti_.cfg->query_duration_warn = ti_.cfg->query_duration_error;
+
     if (ti_val_init_common() || ti_backups_restore())
         return -1;
 
@@ -239,7 +242,7 @@ int ti_build(void)
 
 failed:
     (void) fx_rmdir(ti_.cfg->storage_path);
-    (void) mkdir(ti_.cfg->storage_path, 0700);
+    (void) mkdir(ti_.cfg->storage_path, TI_DEFAULT_DIR_ACCESS);
     ti_node_drop(ti_.node);
     ti_.node = NULL;
     (void) imap_pop(ti_.nodes->imap, 0);
@@ -258,7 +261,7 @@ int ti_rebuild(void)
         (void) fx_rmdir(ti_.store->store_path);
     }
 
-    if (mkdir(ti_.store->store_path, 0700))
+    if (mkdir(ti_.store->store_path, TI_DEFAULT_DIR_ACCESS))
     {
         log_error("cannot create directory `%s` (%s)",
                 ti_.store->store_path,

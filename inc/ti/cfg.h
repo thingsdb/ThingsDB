@@ -11,6 +11,7 @@ typedef struct ti_cfg_s  ti_cfg_t;
 int ti_cfg_create(void);
 void ti_cfg_destroy(void);
 int ti_cfg_parse(const char * cfg_file);
+int ti_cfg_ensure_storage_path(void);
 
 struct ti_cfg_s
 {
@@ -30,6 +31,8 @@ struct ti_cfg_s
     char * bind_node_addr;
     char * pipe_client_name;
     char * storage_path;                /* with trailing `/` */
+    double query_duration_warn;
+    double query_duration_error;
 };
 
 #endif /* TI_CFG_H_ */

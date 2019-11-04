@@ -150,7 +150,7 @@ class TestWatch(TestBase):
     async def test_watch(self, ev0, ev1, ev2):
         iris = await ev0.client.query('.iris = {};')
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.5)
 
         iris0 = Thing(ev0, iris['#'])
         iris1 = Thing(ev1, iris['#'])

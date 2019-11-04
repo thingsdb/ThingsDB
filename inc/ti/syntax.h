@@ -14,6 +14,8 @@ enum
     TI_SYNTAX_FLAG_EVENT        =1<<3,
     TI_SYNTAX_FLAG_WSE          =1<<4,
     TI_SYNTAX_FLAG_AS_PROCEDURE =1<<5,
+
+    TI_SYNTAX_FLAG_ON_VAR       =1<<6,
 };
 
 typedef struct ti_syntax_s ti_syntax_t;

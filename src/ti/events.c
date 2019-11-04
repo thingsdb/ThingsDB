@@ -684,7 +684,7 @@ process:
         }
 
         /* update counters */
-        ti_counters_upd_commit_event(&ev->time);
+        (void) ti_counters_upd_commit_event(&ev->time);
 
         /* update committed event id */
         *cevid_p = ev->id;

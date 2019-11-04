@@ -11,13 +11,14 @@
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
+#include <ti/evars.h>
 #include <ti/store.h>
 #include <ti/user.h>
 #include <ti/version.h>
-#include <ti.h>
 #include <time.h>
 #include <util/fx.h>
 #include <util/logger.h>
@@ -61,7 +62,16 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    rc = ti_cfg_parse(ti()->args->config);
+    if (*ti()->args->config)
+    {
+        rc = ti_cfg_parse(ti()->args->config);
+        if (rc)
+            goto stop;
+    }
+
+    ti_evars_parse();
+
+    rc = ti_cfg_ensure_storage_path();
     if (rc)
         goto stop;
 

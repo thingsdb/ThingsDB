@@ -23,23 +23,14 @@ static const char * cfg__section = "thingsdb";
 static int cfg__storage_path(cfgparser_t * parser, const char * cfg_file)
 {
     const char * option_name = "storage_path";
-    char * storage_path;
     cfgparser_option_t * option;
     cfgparser_return_t rc;
-    size_t len;
+
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
     if (rc != CFGPARSER_SUCCESS)
-    {
-        log_warning(
-                "missing `%s` in `%s` (%s), "
-                "using default value `%s`",
-                option_name,
-                cfg_file,
-                cfgparser_errmsg(rc),
-                cfg->storage_path);
-        storage_path = cfg->storage_path;
-    }
-    else if (option->tp != CFGPARSER_TP_STRING)
+        return 0;
+
+    if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
                 "error reading `%s` in `%s` (%s), "
@@ -48,44 +39,13 @@ static int cfg__storage_path(cfgparser_t * parser, const char * cfg_file)
                 cfg_file,
                 "expecting a string value",
                 cfg->storage_path);
-        storage_path = cfg->storage_path;
-    }
-    else
-    {
-        free(cfg->storage_path);
-        storage_path = option->val->string;
+        return 0;
     }
 
-    if (!fx_is_dir(storage_path) && mkdir(storage_path, 0700))
-        log_error("cannot create directory `%s` (%s)",
-                storage_path, strerror(errno));
+    free(cfg->storage_path);
+    cfg->storage_path = strdup(option->val->string);
 
-    cfg->storage_path = realpath(storage_path, NULL);
-
-    if (!cfg->storage_path)
-    {
-        printf("cannot find storage path `%s`\n", storage_path);
-        return -1;
-    }
-
-    /* add trailing slash (/) if its not already there */
-    len = strlen(cfg->storage_path);
-    if (cfg->storage_path[len - 1] != '/')
-    {
-        char * tmp = malloc(len + 2);
-        if (!tmp)
-        {
-            printf("allocation error\n");
-            return -1;
-        }
-        memcpy(tmp, cfg->storage_path, len);
-        tmp[len] = '/';
-        tmp[len + 1] = '\0';
-        free(cfg->storage_path);
-        cfg->storage_path = tmp;
-    }
-
-    return 0;
+    return cfg->storage_path ? 0 : -1;
 }
 
 static void cfg__port(
@@ -102,16 +62,8 @@ static void cfg__port(
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
     if (rc != CFGPARSER_SUCCESS)
-    {
-        log_debug(
-                "missing `%s` in `%s` (%s), "
-                "using default value %u",
-                option_name,
-                cfg_file,
-                cfgparser_errmsg(rc),
-                *port);
         return;
-    }
+
     if (    option->tp != CFGPARSER_TP_INTEGER ||
             option->val->integer < min_ ||
             option->val->integer > max_)
@@ -144,15 +96,8 @@ static void cfg__zone(
     rc = cfgparser_get_option(&option, parser, cfg__section, "zone");
 
     if (rc != CFGPARSER_SUCCESS)
-    {
-        log_debug(
-                "missing `zone` in `%s` (%s), "
-                "using default value %u",
-                cfg_file,
-                cfgparser_errmsg(rc),
-                *zone);
         return;
-    }
+
     if (    option->tp != CFGPARSER_TP_INTEGER ||
             option->val->integer < min_ ||
             option->val->integer > max_)
@@ -179,16 +124,7 @@ static void cfg__ip_support(cfgparser_t * parser, const char * cfg_file)
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
     if (rc != CFGPARSER_SUCCESS)
-    {
-        log_warning(
-                "missing `%s` in `%s` (%s), "
-                "using default value `%s`",
-                option_name,
-                cfg_file,
-                cfgparser_errmsg(rc),
-                ti_tcp_ip_support_str(cfg->ip_support));
         return;
-    }
 
     if (option->tp != CFGPARSER_TP_STRING)
     {
@@ -202,23 +138,8 @@ static void cfg__ip_support(cfgparser_t * parser, const char * cfg_file)
         return;
     }
 
-    if (strcmp(option->val->string, "ALL") == 0)
-    {
-        cfg->ip_support = AF_UNSPEC;
+    if (ti_tcp_ip_support_int(option->val->string, &cfg->ip_support) == 0)
         return;
-    }
-
-    if (strcmp(option->val->string, "IPV4ONLY") == 0)
-    {
-        cfg->ip_support = AF_INET;
-        return;
-    }
-
-    if (strcmp(option->val->string, "IPV6ONLY") == 0)
-    {
-        cfg->ip_support = AF_INET6;
-        return;
-    }
 
     log_warning(
             "error reading `%s` in `%s` "
@@ -240,17 +161,8 @@ static int cfg__str(
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
     if (rc != CFGPARSER_SUCCESS)
-    {
-        if (*str)
-            log_warning(
-                    "missing `%s` in `%s` (%s), "
-                    "using default value `%s`",
-                    option_name,
-                    cfg_file,
-                    cfgparser_errmsg(rc),
-                    *str);
         return 0;
-    }
+
     if (option->tp != CFGPARSER_TP_STRING)
     {
         log_warning(
@@ -276,7 +188,7 @@ static int cfg__str(
 
     free(*str);
     *str = strdup(option->val->string);
-    return -(!*str);
+    return *str ? 0 : -1;
 }
 
 static void cfg__threshold_full_storage(
@@ -290,16 +202,8 @@ static void cfg__threshold_full_storage(
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
     if (rc != CFGPARSER_SUCCESS)
-    {
-        log_debug(
-                "missing `%s` in `%s` (%s), "
-                "using default value %zu",
-                option_name,
-                cfg_file,
-                cfgparser_errmsg(rc),
-                cfg->threshold_full_storage);
         return;
-    }
+
     if (    option->tp != CFGPARSER_TP_INTEGER ||
             option->val->integer < 0)
     {
@@ -314,6 +218,40 @@ static void cfg__threshold_full_storage(
     }
 
     cfg->threshold_full_storage = (size_t) option->val->integer;
+}
+
+static void cfg__duration(
+        cfgparser_t * parser,
+        const char * cfg_file,
+        const char * option_name,
+        double * duration)
+{
+    double d;
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
+
+    if (rc != CFGPARSER_SUCCESS)
+        return;
+
+    d = option->tp == CFGPARSER_TP_INTEGER
+            ? option->val->integer
+            : option->tp == CFGPARSER_TP_REAL
+            ? option->val->real
+            : -1.0f;
+    if (d < 0)
+    {
+        log_warning(
+                "error reading `%s` in `%s` "
+                "(expecting an value greater than, or equal to 0), "
+                "using default value %f",
+                option_name,
+                cfg_file,
+                *duration);
+        return;
+    }
+
+    *duration = d;
 }
 
 int ti_cfg_create(void)
@@ -336,9 +274,11 @@ int ti_cfg_create(void)
     cfg->bind_node_addr = strdup("127.0.0.1");
     cfg->storage_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
             ? strdup("/var/lib/thingsdb/")
-            :
+            : fx_path_join(homedir, ".thingsdb/");
     cfg->pipe_client_name = NULL;
     cfg->zone = 0;
+    cfg->query_duration_warn = 0;
+    cfg->query_duration_error = 0;
 
     if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->storage_path)
         ti_cfg_destroy();
@@ -404,8 +344,68 @@ int ti_cfg_parse(const char * cfg_file)
     cfg__zone(parser, cfg_file, &cfg->zone);
     cfg__ip_support(parser, cfg_file);
     cfg__threshold_full_storage(parser, cfg_file);
+    cfg__duration(
+            parser,
+            cfg_file,
+            "query_duration_warn",
+            &cfg->query_duration_warn);
+    cfg__duration(
+            parser,
+            cfg_file,
+            "query_duration_error",
+            &cfg->query_duration_error);
 
 exit_parse:
     cfgparser_destroy(parser);
     return rc;
+}
+
+int ti_cfg_ensure_storage_path(void)
+{
+    size_t len;
+    char * storage_path;
+
+    if (!fx_is_dir(cfg->storage_path) &&
+        mkdir(cfg->storage_path, TI_DEFAULT_DIR_ACCESS))
+    {
+        printf(
+            "cannot create directory `%s` (%s)",
+            cfg->storage_path, strerror(errno)
+        );
+        return -1;
+    }
+
+    storage_path = realpath(cfg->storage_path, NULL);
+
+    if (!storage_path)
+    {
+        printf("cannot find storage path `%s`\n", cfg->storage_path);
+        return -1;
+    }
+
+    free(cfg->storage_path);
+    cfg->storage_path = storage_path;
+
+    /* add trailing slash (/) if its not already there */
+    len = strlen(cfg->storage_path);
+
+    if (!len || cfg->storage_path[len - 1] != '/')
+    {
+        char * tmp = malloc(len + 2);
+
+        if (!tmp)
+        {
+            printf("allocation error\n");
+            return -1;
+        }
+
+        memcpy(tmp, cfg->storage_path, len);
+        tmp[len] = '/';
+        tmp[len + 1] = '\0';
+
+        free(cfg->storage_path);
+        cfg->storage_path = tmp;
+    }
+
+    return 0;
 }

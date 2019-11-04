@@ -24,6 +24,7 @@ C_SRCS += \
 ../src/ti/data.c \
 ../src/ti/do.c \
 ../src/ti/epkg.c \
+../src/ti/evars.c \
 ../src/ti/event.c \
 ../src/ti/events.c \
 ../src/ti/field.c \
@@ -109,6 +110,7 @@ OBJS += \
 ./src/ti/data.o \
 ./src/ti/do.o \
 ./src/ti/epkg.o \
+./src/ti/evars.o \
 ./src/ti/event.o \
 ./src/ti/events.o \
 ./src/ti/field.o \
@@ -194,6 +196,7 @@ C_DEPS += \
 ./src/ti/data.d \
 ./src/ti/do.d \
 ./src/ti/epkg.d \
+./src/ti/evars.d \
 ./src/ti/event.d \
 ./src/ti/events.d \
 ./src/ti/field.d \

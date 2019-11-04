@@ -164,7 +164,7 @@ int ti_store_store(void)
     /* not need for checking on errors */
     (void) fx_rmdir(store->prev_path);
 
-    if (mkdir(store->tmp_path, 0700))
+    if (mkdir(store->tmp_path, TI_DEFAULT_DIR_ACCESS))
     {
         log_warning("cannot create directory `%s` (%s)",
                 store->tmp_path,
@@ -196,7 +196,7 @@ int ti_store_store(void)
         if (!store_collection)
             goto failed;
 
-        rc = mkdir(store_collection->collection_path, 0700);
+        rc = mkdir(store_collection->collection_path, TI_DEFAULT_DIR_ACCESS);
         if (rc)
         {
             log_critical(

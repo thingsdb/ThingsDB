@@ -60,7 +60,7 @@ int ti_args_parse(int argc, char *argv[])
         .action = ARGPARSE_STORE_STRING,
         .default_int32_t = 0,
         .pt_value_int32_t = NULL,
-        .str_default = "/etc/thingsdb/thingsdb.conf",
+        .str_default = "",
         .str_value = args->config,
         .choices = NULL
     };

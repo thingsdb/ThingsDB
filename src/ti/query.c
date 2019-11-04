@@ -522,6 +522,8 @@ void ti_query_run(ti_query_t * query)
     cleri_children_t * child, * seqchild;
     ex_t e = {0};
 
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
     if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
@@ -569,8 +571,26 @@ stop:
     ti_query_send(query, &e);
 }
 
+static void query__duration_log(
+        ti_query_t * query,
+        double duration,
+        int log_level)
+{
+    if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
+    {
+        log_with_level(log_level, "procedure took %f seconds to process: `%s`",
+                duration,
+                query->closure->node->str);
+        return;
+    }
+    log_with_level(log_level, "query took %f seconds to process: `%s`",
+            duration,
+            query->querystr);
+}
+
 void ti_query_send(ti_query_t * query, ex_t * e)
 {
+    double duration, warn = ti()->cfg->query_duration_warn;
     ti_pkg_t * pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -595,7 +615,17 @@ void ti_query_send(ti_query_t * query, ex_t * e)
         goto pkg_err;
     }
 
-    ++ti()->counters->queries_success;
+    duration = ti_counters_upd_success_query(&query->time);
+    if (warn && duration > warn)
+    {
+        double derror = ti()->cfg->query_duration_error;
+        query__duration_log(
+                query,
+                duration,
+                derror && duration > derror ? LOGGER_ERROR : LOGGER_WARNING
+        );
+    }
+
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,
             query->syntax.pkg_id,

@@ -22,6 +22,32 @@ const char * ti_tcp_ip_support_str(int ip_support)
     }
 }
 
+int ti_tcp_ip_support_int(const char * str, int * ip_support)
+{
+    if (!str)
+        return -1;
+
+    if (strcmp(str, "ALL") == 0)
+    {
+        *ip_support = AF_UNSPEC;
+        return 0;
+    }
+
+    if (strcmp(str, "IPV4ONLY") == 0)
+    {
+        *ip_support = AF_INET;
+        return 0;
+    }
+
+    if (strcmp(str, "IPV6ONLY") == 0)
+    {
+        *ip_support = AF_INET6;
+        return 0;
+    }
+
+    return -1;
+}
+
 /*
  * Return a name for the connection if successful or NULL in case of a failure.
  *

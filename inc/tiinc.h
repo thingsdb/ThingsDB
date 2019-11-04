@@ -32,6 +32,8 @@
  */
 #define TI_FN_SCHEMA 0
 
+#define TI_DEFAULT_DIR_ACCESS S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+
 /*
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
  * some data in void pointers.

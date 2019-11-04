@@ -77,6 +77,7 @@ struct ti_query_s
                                    required
                                 */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
+    util_time_t time;           /* time query duration */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

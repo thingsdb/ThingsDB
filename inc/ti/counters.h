@@ -14,7 +14,8 @@ typedef struct ti_counters_s ti_counters_t;
 int ti_counters_create(void);
 void ti_counters_destroy(void);
 void ti_counters_reset(void);
-void ti_counters_upd_commit_event(struct timespec * start);
+double ti_counters_upd_commit_event(struct timespec * start);
+double ti_counters_upd_success_query(struct timespec * start);
 int ti_counters_to_pk(msgpack_packer * pk);
 ti_val_t * ti_counters_as_mpval(void);
 
@@ -58,8 +59,15 @@ struct ti_counters_s
                                        a higher event id is already queued
                                     */
     uint64_t garbage_collected;     /* total garbage collected */
+    double longest_query_duration;  /* longest duration it took for a
+                                       successful query to process (in seconds)
+                                    */
     double longest_event_duration;  /* longest duration it took for an event
                                        to complete (in seconds)
+                                    */
+    double total_query_duration;    /* can be used to calculate the average
+                                       total_query_duration / queries_success
+                                        (in seconds)
                                     */
     double total_event_duration;    /* can be used to calculate the average
                                        total_event_duration / events_committed

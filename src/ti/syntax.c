@@ -167,7 +167,13 @@ static inline void syntax__set_both_event(ti_syntax_t * syntax)
 
 static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd);
 
-static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
+enum
+{
+    FN__CHAIN   = 1<<0,
+    FN__ON_VAR  = TI_SYNTAX_FLAG_ON_VAR,
+};
+
+static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, int flags)
 {
     /* a function name has at least size 1 */
     switch ((ti_alpha_lower_t) *nd->str)
@@ -206,7 +212,10 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__zev_fn(q, nd, "del_backup", do__f_del_backup);
         break;
     case 'e':
-        syntax__cev_fn(q, nd, "extend", do__f_extend);
+        if (flags & FN__ON_VAR)
+            syntax__nev_fn(q, nd, "extend", do__f_extend);
+        else
+            syntax__cev_fn(q, nd, "extend", do__f_extend);
         syntax__nev_fn(q, nd, "endswith", do__f_endswith);
         syntax__nev_fn(q, nd, "err", do__f_err);
         break;
@@ -281,8 +290,16 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__nev_fn(q, nd, "operation_err", do__f_operation_err);
         break;
     case 'p':
-        syntax__cev_fn(q, nd, "pop", do__f_pop);
-        syntax__cev_fn(q, nd, "push", do__f_push);
+        if (flags & FN__ON_VAR)
+        {
+            syntax__nev_fn(q, nd, "pop", do__f_pop);
+            syntax__nev_fn(q, nd, "push", do__f_push);
+        }
+        else
+        {
+            syntax__cev_fn(q, nd, "pop", do__f_pop);
+            syntax__cev_fn(q, nd, "push", do__f_push);
+        }
         syntax__nev_fn(q, nd, "procedure_doc", do__f_procedure_doc);
         syntax__nev_fn(q, nd, "procedure_info", do__f_procedure_info);
         syntax__nev_fn(q, nd, "procedures_info", do__f_procedures_info);
@@ -301,8 +318,11 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, _Bool chain)
         syntax__zev_fn(q, nd, "reset_counters", do__f_reset_counters);
         break;
     case 's':
-        syntax__cev_fn(q, nd, "splice", do__f_splice);
-        if (chain)
+        if (flags & FN__ON_VAR)
+            syntax__nev_fn(q, nd, "splice", do__f_splice);
+        else
+            syntax__cev_fn(q, nd, "splice", do__f_splice);
+        if (flags & FN__CHAIN)
             syntax__cev_fn(q, nd, "set", do__f_set);
         else
             syntax__nev_fn(q, nd, "set", do__f_set);
@@ -394,13 +414,13 @@ static _Bool syntax__operations(
     return gid > parent_gid;
 }
 
-static void syntax__function(ti_syntax_t * syntax, cleri_node_t * nd, _Bool chain)
+static void syntax__function(ti_syntax_t * syntax, cleri_node_t * nd, int flags)
 {
     intptr_t nargs = 0;
     cleri_children_t * child;
 
     /* map function to node */
-    syntax__map_fn(syntax, nd->children->node, chain);
+    syntax__map_fn(syntax, nd->children->node, flags);
 
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;
@@ -471,7 +491,7 @@ static void syntax__var_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
         switch (nd->children->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
-            syntax__function(syntax, nd, false);
+            syntax__function(syntax, nd, 0);
             return;
         case CLERI_GID_ASSIGN:
             syntax__statement(
@@ -486,6 +506,9 @@ static void syntax__var_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
             return;
         }
     }
+    else
+        syntax->flags |= TI_SYNTAX_FLAG_ON_VAR;
+
     nd->children->node->data = NULL;
     ++syntax->val_cache_n;
 }
@@ -497,7 +520,10 @@ static void syntax__name_opt_fa(ti_syntax_t * syntax, cleri_node_t * nd)
         switch (nd->children->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
-            syntax__function(syntax, nd, true);
+            syntax__function(
+                    syntax,
+                    nd,
+                    FN__CHAIN | (syntax->flags & TI_SYNTAX_FLAG_ON_VAR));
             return;
         case CLERI_GID_ASSIGN:
             syntax__set_collection_event(syntax);
@@ -519,6 +545,8 @@ static inline void syntax__chain(ti_syntax_t * syntax, cleri_node_t * nd)
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
 
     syntax__name_opt_fa(syntax, nd->children->next->node);
+
+    syntax->flags &= ~TI_SYNTAX_FLAG_ON_VAR;
 
     /* index */
     if (nd->children->next->next->node->children)
@@ -631,6 +659,7 @@ static void syntax__statement(ti_syntax_t * syntax, cleri_node_t * nd)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_EXPRESSION:
+        syntax->flags &= ~TI_SYNTAX_FLAG_ON_VAR;
         syntax__expression(syntax, node);
         return;
     case CLERI_GID_OPERATIONS:

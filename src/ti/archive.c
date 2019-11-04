@@ -324,7 +324,7 @@ int ti_archive_init(void)
     if (!archive_path)
         return -1;
 
-    if (!fx_is_dir(archive_path) && mkdir(archive_path, 0700))
+    if (!fx_is_dir(archive_path) && mkdir(archive_path, TI_DEFAULT_DIR_ACCESS))
     {
         log_critical("cannot create archive directory: `%s` (%s)",
                 archive_path,

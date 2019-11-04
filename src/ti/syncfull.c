@@ -337,7 +337,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
                 log_warning("cannot remove directory: `%s`", path);
             }
         }
-        rc = mkdir(path, 0700);
+        rc = mkdir(path, TI_DEFAULT_DIR_ACCESS);
         if (rc)
         {
             log_error("cannot create directory `%s` (%s)",

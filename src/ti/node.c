@@ -173,9 +173,9 @@ fail0:
 
 int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
 {
-    static char syntax_buf[5]; /* vXXX_ */
+    static char syntax_buf[7]; /* vXXXXX_ */
     ti_node_t * this_node = ti()->node;
-    (void) sprintf(syntax_buf, "v%u", node->syntax_ver);
+    (void) sprintf(syntax_buf, "v%"PRIu16, node->syntax_ver);
 
     return -(
         msgpack_pack_map(pk, 10) ||

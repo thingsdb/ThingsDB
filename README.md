@@ -10,7 +10,7 @@
 - [ ] Update documentation
 - [x] Documentation testing
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
-- [ ] Accept environment variable and make config file optional
+- [x] Accept environment variable and make config file optional
     - When both a config file and environment variable, the latter should win
 - [ ] Syntax Highlighting
     - [x] Pygments (Python)

@@ -42,7 +42,7 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 13)
+        self.assertEqual(len(counters), 15)
 
         self.assertIn("queries_success", counters)
         self.assertIn("queries_with_error", counters)
@@ -55,7 +55,9 @@ class TestNodeFunctions(TestBase):
         self.assertIn("events_quorum_lost", counters)
         self.assertIn("events_unaligned", counters)
         self.assertIn("garbage_collected", counters)
+        self.assertIn("longest_query_duration", counters)
         self.assertIn("longest_event_duration", counters)
+        self.assertIn("average_query_duration", counters)
         self.assertIn("average_event_duration", counters)
 
         self.assertTrue(isinstance(counters["queries_success"], int))
@@ -69,7 +71,9 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["events_quorum_lost"], int))
         self.assertTrue(isinstance(counters["events_unaligned"], int))
         self.assertTrue(isinstance(counters["garbage_collected"], int))
+        self.assertTrue(isinstance(counters["longest_query_duration"], float))
         self.assertTrue(isinstance(counters["longest_event_duration"], float))
+        self.assertTrue(isinstance(counters["average_query_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
 
     async def test_node_info(self, client):

@@ -47,7 +47,9 @@ class TestType(TestBase):
                 r'property `animal` has definition `{Pet}` but '
                 r'got a set with type `thing` instead'):
             await client.query(r'''
-                .t.p = setPet{ animal: set([{}])};
+                .t.p = setPet{
+                    animal: set({})
+                };
             ''')
 
     async def test_new_type(self, client):

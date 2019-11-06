@@ -518,7 +518,7 @@ static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
     for (vec_each(vec, ti_thing_t, thing))
     {
         /* sets cannot hold type `nil` so we can ignore the nillable flag */
-        if (thing->type_id != (*vset)->spec)
+        if (thing->type_id != field->nested_spec)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "

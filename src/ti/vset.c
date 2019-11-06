@@ -42,8 +42,10 @@ int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
 {
     vec_t * vec = imap_vec(vset->imap);
     if (!vec ||
-        msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
+        (options < 0 && (
+                msgpack_pack_map(pk, 1) ||
+                mp_pack_strn(pk, TI_KIND_S_SET, 1)
+        )) ||
         msgpack_pack_array(pk, vec->n)
     ) return -1;
 

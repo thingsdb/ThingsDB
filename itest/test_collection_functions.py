@@ -514,19 +514,19 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(
             (await client.query('.girls.filter(|v|(v.age == 6))'))
-            ['$'][0]['age'],
+            [0]['age'],
             6)
 
         self.assertEqual(
             (await client.query(
-                '.girls.filter(|_v, i|(i == .cato.id()))'))['$'][0]['age'],
+                '.girls.filter(|_v, i|(i == .cato.id()))'))[0]['age'],
             5)
 
         self.assertEqual(await client.query('.iris.filter(||nil);'), {})
         self.assertEqual(await client.query('.iris.likes.filter(||nil);'), [])
         self.assertEqual(await client.query(r'{}.filter(||true)'), {})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
-        self.assertEqual(await client.query(r'set().filter(||1)'), {'$': []})
+        self.assertEqual(await client.query(r'set().filter(||1)'), [])
 
     async def test_find(self, client):
         await client.query(r'''
@@ -1675,18 +1675,18 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `int` to a set'):
             await client.query(r'set([{}, thing(.id()), 3]);')
 
-        self.assertEqual(await client.query('set();'), {'$': []})
-        self.assertEqual(await client.query('set([]);'), {'$': []})
-        self.assertEqual(await client.query('set(set());'), {'$': []})
+        self.assertEqual(await client.query('set();'), [])
+        self.assertEqual(await client.query('set([]);'), [])
+        self.assertEqual(await client.query('set(set());'), [])
         self.assertEqual(
             await client.query(r'set([{}, {}]);'),
-            {'$': [{}, {}]})
+            [{}, {}])
         self.assertEqual(
             await client.query(r'set({}, {});'),
-            {'$': [{}, {}]})
+            [{}, {}])
         self.assertEqual(
             await client.query(r'set({});'),
-            {'$': [{}]})
+            [{}])
 
     async def test_sort(self, client):
         with self.assertRaisesRegex(

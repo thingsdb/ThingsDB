@@ -47,19 +47,10 @@ static int wrap__set(
         ti_vset_t * vset,
         uint16_t * spec,
         msgpack_packer * pk,
-        _Bool as_set,
         int options)
 {
     vec_t * vec = imap_vec(vset->imap);
-    if (!vec)
-        return -1;
-
-    if (as_set && (
-            msgpack_pack_map(pk, 1) ||
-            mp_pack_strn(pk, TI_KIND_S_SET, 1)
-    )) return -1;
-
-    if (msgpack_pack_array(pk, vec->n))
+    if (!vec || msgpack_pack_array(pk, vec->n))
         return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
@@ -116,7 +107,6 @@ static int wrap__field_val(
                 (ti_vset_t *) val,
                 &t_field->nested_spec,
                 pk,
-                (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_VAL_SET,
                 options);
     }
 

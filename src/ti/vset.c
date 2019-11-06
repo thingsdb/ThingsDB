@@ -131,7 +131,17 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 {
     if (!ti_val_is_thing(val))
     {
-        ex_set(e, EX_TYPE_ERROR, "cannot add type `%s` to a "TI_VAL_SET_S,
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot add type `%s` to a "TI_VAL_SET_S,
+                ti_val_str(val));
+        return e->nr;
+    }
+
+    if (vset->spec != TI_SPEC_ANY &&
+        vset->spec != ((ti_thing_t *) val)->type_id)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "type `%s` is not allowed in restricted "TI_VAL_SET_S,
                 ti_val_str(val));
         return e->nr;
     }

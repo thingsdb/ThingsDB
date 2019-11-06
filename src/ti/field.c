@@ -528,7 +528,7 @@ static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
                 field->name->str,
                 (int) field->spec_raw->n,
                 (const char *) field->spec_raw->data,
-                ti_thing_type_str(thing));
+                ti_val_str((ti_val_t *) thing));
             return e->nr;
         }
     }

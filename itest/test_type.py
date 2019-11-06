@@ -34,6 +34,22 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_set_prop(self, client):
+        await client.query(r'''
+            set_type('Pet', {});
+            set_type('setPet', {animal: '{Pet}'});
+            .t = {};
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `setPet`; '
+                r'property `animal` has definition `{Pet}` but '
+                r'got a set with type `thing` instead'):
+            await client.query(r'''
+                .t.p = setPet{ animal: set([{}])};
+            ''')
+
     async def test_new_type(self, client):
         await client.query(r'''
             set_type('User', {

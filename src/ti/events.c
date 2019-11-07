@@ -26,12 +26,22 @@ typedef struct
 } events__id_t;
 
 /*
- * If an event is in the queue for this time, continue regardless of the event
- * status.
+ * When waiting for a missing event for this amount of time, continue and
+ * accept that the missing event is not received;
  */
 #define EVENTS__TIMEOUT 42.0f
 
+/*
+ * When a new event is created and no quorum is reach in this amount of time,
+ * kill the event and continue;
+ */
 #define EVENTS__NEW_TIMEOUT 21.0f
+
+/*
+ * When waiting for a missing event for this amount of time, do an attempt to
+ * request the missing event to a random online node;
+ */
+#define EVENTS__MISSING_TIMEOUT 6.0f
 
 /*
  * Avoid extreme gaps between event id's
@@ -630,6 +640,9 @@ static void events__loop(uv_async_t * UNUSED(handle))
 
             diff = util_time_diff(&events->wait_gap_time, &timing);
 
+            if (diff > EVENTS__MISSING_TIMEOUT)
+                ti_event_missing_event((*cevid_p) + 1);
+
             if (diff < EVENTS__TIMEOUT)
                 break;
 
@@ -675,7 +688,7 @@ process:
         {
             ti_query_run(ev->via.query);
         }
-        else if (ti_archive_push(ev->via.epkg) || ti_event_run(ev))
+        else if (ti_event_run(ev) || ti_archive_push(ev->via.epkg))
         {
             /* logging is done, but we increment the failed counter and
              * log the full event */

@@ -635,6 +635,11 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     goto finish;
 
 pkg_err:
+    log_debug("query failed: `%s`",
+            query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE
+            ? query->closure->node->str
+            : query->querystr);
+
     ++ti()->counters->queries_with_error;
     pkg = ti_pkg_client_err(query->syntax.pkg_id, e);
 

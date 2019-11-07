@@ -9,13 +9,13 @@ typedef enum
     /*
      * Offline: node is not connected.
      */
-    TI_NODE_STAT_OFFLINE,
+    TI_NODE_STAT_OFFLINE        =1<<0,
 
     /*
      * Connecting: changed to connecting when trying to setup a connection
      *             to a node. This-node can never have status connection.
      */
-    TI_NODE_STAT_CONNECTING,
+    TI_NODE_STAT_CONNECTING     =1<<1,
 
     /*
      * Building: this state has a node when it starts building ThingsDB. It is
@@ -23,7 +23,7 @@ typedef enum
      *           know which nodes are available. (and This node might not even
      *           exist)
      */
-    TI_NODE_STAT_BUILDING,
+    TI_NODE_STAT_BUILDING       =1<<2,
 
     /*
      * Shutting-Down: Few seconds before going offline, the node still accepts
@@ -31,21 +31,21 @@ typedef enum
      *                another connection. Client request should be forwarded
      *                so no new event will be created by this node.
      */
-    TI_NODE_STAT_SHUTTING_DOWN,
+    TI_NODE_STAT_SHUTTING_DOWN  =1<<3,
 
     /*
      * Synchronizing: We have at least the known nodes. In this mode we can
      *                accept (or reject) event id's, although processing events
      *                and queries is not possible.
      */
-    TI_NODE_STAT_SYNCHRONIZING,
+    TI_NODE_STAT_SYNCHRONIZING  =1<<4,
 
     /*
      * Away: In this mode we cannot access collection data. Client queries are
      *       forwarded and changes etc. are stored to disk. We can still accept
      *       or reject event id's and append new events to the queue.
      */
-    TI_NODE_STAT_AWAY,
+    TI_NODE_STAT_AWAY           =1<<5,
 
     /*
      * Away-Soon: Few seconds before going into `away` mode. The node still
@@ -53,13 +53,12 @@ typedef enum
      *            another node. Back-end request are still handled but nodes
      *            should stop asking for collection data (attributes).
      */
-    TI_NODE_STAT_AWAY_SOON,     /* few seconds before going away,
-                                   back-end still accepts queries */
+    TI_NODE_STAT_AWAY_SOON      =1<<6,
 
     /*
      * Ready: This node is ready to accept and handle requests.
      */
-    TI_NODE_STAT_READY
+    TI_NODE_STAT_READY          =1<<7,
 } ti_node_status_t;
 
 #define TI_NODE_INFO_PK_SZ 128

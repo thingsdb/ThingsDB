@@ -51,6 +51,7 @@ typedef enum
      */
     TI_PROTO_NODE_EVENT         =128,   /* event */
     TI_PROTO_NODE_INFO          =129,   /* [...] */
+    TI_PROTO_NODE_MISSING_EVENT =130,   /* event_id */
 
     /*
      * 160..191 node requests

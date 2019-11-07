@@ -55,6 +55,8 @@ class TestIndexSlice(TestBase):
         await client0.query(f'.raw = "{s}";')
         await client0.query(f'.list = [{tu}];')
 
+        await asyncio.sleep(0.2)
+
         with self.assertRaisesRegex(
                 TypeError,
                 r'type `str` does not support index assignments'):
@@ -73,6 +75,7 @@ class TestIndexSlice(TestBase):
                 likes: ['swimming'],
             };
         ''')
+        await asyncio.sleep(0.2)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -91,6 +94,7 @@ class TestIndexSlice(TestBase):
 
         await client0.query('.ti["likes"][0] = "Cato";')
         await asyncio.sleep(0.2)
+
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti["likes"];'), ['Cato'])
 
@@ -102,14 +106,17 @@ class TestIndexSlice(TestBase):
                 likes: ['swimming'],
             };
         ''')
+        await asyncio.sleep(0.2)
 
         await client0.query('.ti["name"] = "Cato";')
         await asyncio.sleep(0.2)
+
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti.name;'), 'Cato')
 
         await client0.query('.ti["age"] -= 1;')
         await asyncio.sleep(0.2)
+
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.ti.age;'), 5)
 

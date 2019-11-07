@@ -46,6 +46,7 @@ ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs);
 int ti_event_watch(ti_event_t * ev);
+void ti_event_missing_event(uint64_t event_id);
 int ti_event_run(ti_event_t * ev);
 static inline void ti_event_log(
         const char * prefix,

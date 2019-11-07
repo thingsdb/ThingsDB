@@ -453,3 +453,20 @@ uint64_t ti_archive_get_first_event_id(void)
     return event_id;
 }
 
+ti_epkg_t * ti_archive_get_event(uint64_t event_id)
+{
+    ti_epkg_t * last_epkg = queue_last(archive->queue);
+
+    if (!last_epkg || last_epkg->event_id < event_id)
+        return NULL;
+
+    if (last_epkg->event_id == event_id)
+        return last_epkg;
+
+    for (queue_each(archive->queue, ti_epkg_t, epkg))
+        if (epkg->event_id >= event_id)
+            return epkg->event_id == event_id ? epkg : NULL;
+
+    return NULL;
+}
+

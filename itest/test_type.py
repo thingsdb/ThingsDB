@@ -52,6 +52,16 @@ class TestType(TestBase):
                 };
             ''')
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `thing` is not allowed in restricted set'):
+            await client.query(r'''
+                .t.p = setPet{
+                    animal: set()
+                };
+                .t.p.animal.add({});
+            ''')
+
     async def test_new_type(self, client):
         await client.query(r'''
             set_type('User', {

@@ -140,4 +140,7 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
         }
     }
     ti_rpkg_drop(rpkg);
+
+    /* trigger the event loop */
+    (void) ti_events_trigger_loop();
 }

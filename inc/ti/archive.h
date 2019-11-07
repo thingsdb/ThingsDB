@@ -29,5 +29,6 @@ int ti_archive_load(void);
 int ti_archive_push(ti_epkg_t * epkg);
 int ti_archive_to_disk(void);
 uint64_t ti_archive_get_first_event_id(void);
+ti_epkg_t * ti_archive_get_event(uint64_t event_id);
 
 #endif /* TI_ARCHIVE_H_ */

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <ti.h>
 #include <ti/access.h>
+#include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/auth.h>
 #include <ti/away.h>
@@ -534,9 +535,10 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     if (scope.tp != TI_SCOPE_NODE &&
-        this_node->status != TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_AWAY_SOON &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+        (this_node->status & (
+                TI_NODE_STAT_READY |
+                TI_NODE_STAT_AWAY_SOON |
+                TI_NODE_STAT_SHUTTING_DOWN)) == 0)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle query requests",
@@ -625,8 +627,10 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (this_node->status != TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_AWAY_SOON)
+    if ((this_node->status & (
+            TI_NODE_STAT_READY |
+            TI_NODE_STAT_AWAY_SOON |
+            TI_NODE_STAT_SHUTTING_DOWN)) == 0)
     {
         ex_set(&e, EX_NODE_ERROR,
                 "node `%s` is not ready to handle `run` requests",
@@ -759,8 +763,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (ti()->node->status != TI_NODE_STAT_AWAY_SOON &&
-        ti()->node->status != TI_NODE_STAT_AWAY)
+    if ((ti()->node->status & (TI_NODE_STAT_AWAY_SOON|TI_NODE_STAT_AWAY)) == 0)
     {
         log_error(
                 "got a sync request from `%s` "
@@ -1012,6 +1015,39 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
+static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    mp_obj_t mp_id;
+    ti_epkg_t * epkg;
+
+    if (!other_node)
+    {
+        log_error(
+                "got a `%s` from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &mp_id) != MP_U64)
+    {
+        log_error("got an invalid missing event package");
+        return;
+    }
+
+    epkg = ti_archive_get_event(mp_id.via.u64);
+    if (epkg)
+        (void) ti_stream_write_rpkg(stream, (ti_rpkg_t *) epkg);
+
+    log_info("%s missing "TI_EVENT_ID"; (request from "TI_NODE_ID")",
+            epkg ? "respond with event to" : "cannot find",
+            mp_id.via.u64,
+            other_node->id);
+}
+
 static const char * nodes__get_status_fn(void)
 {
     if (nodes->status_fn)
@@ -1188,14 +1224,13 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
         if (node == this_node)
             continue;
 
-        if (    status != TI_NODE_STAT_READY &&
-                status != TI_NODE_STAT_AWAY_SOON &&
-                status != TI_NODE_STAT_AWAY &&
-                status != TI_NODE_STAT_SYNCHRONIZING)
-            continue;
-
-        if (ti_stream_write_rpkg(node->stream, rpkg))
-            log_error(EX_INTERNAL_S);
+        if ((status & (
+                TI_NODE_STAT_READY |
+                TI_NODE_STAT_AWAY_SOON |
+                TI_NODE_STAT_AWAY |
+                TI_NODE_STAT_SYNCHRONIZING
+            )) && ti_stream_write_rpkg(node->stream, rpkg)
+        ) log_error(EX_INTERNAL_S);
     }
 }
 
@@ -1543,9 +1578,10 @@ void ti_nodes_set_not_ready_err(ex_t * e)
             return;
         }
 
-        if (node->status == TI_NODE_STAT_OFFLINE ||
-            node->status == TI_NODE_STAT_CONNECTING ||
-            node->status == TI_NODE_STAT_SHUTTING_DOWN)
+        if (node->status & (
+                TI_NODE_STAT_OFFLINE |
+                TI_NODE_STAT_CONNECTING |
+                TI_NODE_STAT_SHUTTING_DOWN))
         {
             ex_set(e, EX_NODE_ERROR,
                 "cannot find a node for handling this request; "
@@ -1570,6 +1606,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_INFO:
         nodes__on_info(stream, pkg);
+        break;
+    case TI_PROTO_NODE_MISSING_EVENT:
+        nodes__on_missing_event(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

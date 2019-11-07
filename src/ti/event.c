@@ -20,6 +20,8 @@
 #include <util/omap.h>
 
 
+static uint64_t event__req_id = 0;
+
 ti_event_t * ti_event_create(ti_event_tp_enum tp)
 {
     ti_event_t * ev = malloc(sizeof(ti_event_t));
@@ -247,6 +249,36 @@ done:
     return rc;
 }
 
+void ti_event_missing_event(uint64_t event_id)
+{
+    ti_pkg_t * pkg;
+    ti_node_t * node;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (event__req_id == event_id)
+        return;
+
+    node = ti_nodes_random_ready_node();
+    if (!node)
+        return;
+
+    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
+        return;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_uint64(&pk, event_id);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_MISSING_EVENT, buffer.size);
+
+    if (ti_stream_write_pkg(node->stream, pkg))
+        free(pkg);
+    else
+        event__req_id = event_id;
+}
+
 /* (Log function)
  * Returns 0 when successful, or -1 in case of an error.
  * This function creates the event tasks.
@@ -289,7 +321,7 @@ int ti_event_run(ti_event_t * ev)
         ev->collection = ti_collections_get_by_id(mp_scope.via.u64);
         if (!ev->collection)
         {
-            log_critical(
+            log_error(
                     "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
                     mp_scope.via.u64, ev->id);
             return -1;

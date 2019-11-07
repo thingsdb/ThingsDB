@@ -54,9 +54,14 @@ int ti_sync_start(void)
 
     sync_->status = SYNC__STAT_STARTED;
 
+    /* give all nodes some time to connect; it is not a big issue if not
+     * all nodes are connected, except that we might miss an event from a node
+     * which is not connected and broadcasted between the time the sync is
+     * finished and the node still not connected;
+     */
     if (uv_timer_start(sync_->repeat,
             sync__find_away_node_cb,
-            500,
+            2000,
             1000))
         goto fail1;
 

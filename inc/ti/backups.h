@@ -18,6 +18,7 @@ int ti_backups_create(void);
 void ti_backups_destroy(void);
 int ti_backups_backup(void);
 int ti_backups_restore(void);
+int ti_backups_store(void);
 size_t ti_backups_scheduled(void);
 size_t ti_backups_pending(void);
 ti_varr_t * ti_backups_info(void);

@@ -183,11 +183,16 @@ fail:
     log_error("failed to write file: `%s`", backups->fn);
 done:
     uv_mutex_unlock(backups->lock);
+
+
     if (fclose(f))
     {
         log_error("cannot close file `%s` (%s)", backups->fn, strerror(errno));
         return -1;
     }
+
+    backups->changed = false;
+
     return 0;
 }
 
@@ -261,6 +266,11 @@ fail0:
      * do not return `rc`, but 0 since nothing except the file name is critical
      */
     return 0;
+}
+
+int ti_backups_store(void)
+{
+    return backups->changed ? backups__store() : 0;
 }
 
 int ti_backups_backup(void)

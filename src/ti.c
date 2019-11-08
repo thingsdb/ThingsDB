@@ -486,6 +486,7 @@ void ti_stop(void)
 
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
+        (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
         if (ti_.flags & TI_FLAG_NODES_CHANGED)
             (void) ti_save();

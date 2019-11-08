@@ -714,7 +714,7 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
         msgpack_pack_uint16(pk, thing->type_id) ||
         mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
         msgpack_pack_uint64(pk, thing->id) ||
-        mp_pack_strn(pk, "", 0) ||
+        msgpack_pack_str(pk, 0) ||
         msgpack_pack_array(pk, thing->items->n))
         return -1;
 

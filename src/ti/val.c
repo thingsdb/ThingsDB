@@ -96,6 +96,12 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
+        if (sz != 3)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "expecting exactly 3 key value pairs for a type");
+            return NULL;
+        }
         return (ti_val_t *) ti_things_thing_t_from_unp(vup, e);
     case TI_KIND_C_CLOSURE:
     {

@@ -89,13 +89,14 @@ typedef enum
 {
     /*
      * Reserved (may be implemented in the future):
+     *   All specials are in the binary 0010xxxx range.
      *   + positive big type
      *   - negative big type
-     *   @ date type
+     *   % date type
      */
     TI_KIND_C_THING     ='#',
     TI_KIND_C_INSTANCE  ='.',
-    TI_KIND_C_CLOSURE   ='>',
+    TI_KIND_C_CLOSURE   ='/',
     TI_KIND_C_REGEX     ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
@@ -104,11 +105,10 @@ typedef enum
 
 #define TI_KIND_S_THING     "#"
 #define TI_KIND_S_INSTANCE  "."
-#define TI_KIND_S_CLOSURE   ">"
+#define TI_KIND_S_CLOSURE   "/"
 #define TI_KIND_S_REGEX     "*"
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
-#define TI_KIND_S_INFO      "?"
 #define TI_KIND_S_WRAP      "&"
 
 typedef struct ti_val_s ti_val_t;

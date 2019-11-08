@@ -20,10 +20,11 @@
     - [ ] Ace editor
 - [x] set_type, for configuring an empty type without instances
 - [ ] thing.watch()/thing.unwatch() function calls.
+- [ ] sets add/remove
 
 ## Plans and Ideas for the Future
 - [ ] Big number support?
-
+- [ ] support for things with any "raw" keys?
 
 ## Installation msgpack
 

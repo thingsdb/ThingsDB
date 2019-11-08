@@ -192,13 +192,15 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
         return NULL;
     }
 
-    if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz < 2 ||
+    if (mp_next(vup->up, &mp_type_id) != MP_U64 ||
+        mp_skip(vup->up) != MP_STR ||   /* `#` */
         mp_next(vup->up, &mp_thing_id) != MP_U64 ||
-        mp_next(vup->up, &mp_type_id) != MP_U64)
+        mp_skip(vup->up) != MP_STR ||   /* `` */
+        mp_next(vup->up, &obj) != MP_ARR)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "
-                "expecting an array with at least to integer values");
+                "expecting an type_id, things_id and array with values");
         return NULL;
     }
 
@@ -211,12 +213,12 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
         return NULL;
     }
 
-    if (obj.via.sz - 2 != type->fields->n)
+    if (obj.via.sz != type->fields->n)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "
                 "expecting %"PRIu32" values for type `%s` but got only %u",
-                type->fields->n, type->name, obj.via.sz - 2);
+                type->fields->n, type->name, obj.via.sz);
         return NULL;
     }
 
@@ -224,6 +226,7 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
             mp_thing_id.via.u64,
             type,
             vup->collection);
+
     if (!thing)
     {
         if (ti_collection_thing_by_id(vup->collection, mp_thing_id.via.u64))

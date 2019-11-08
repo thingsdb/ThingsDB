@@ -709,11 +709,13 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(pk, 1) ||
+    if (msgpack_pack_map(pk, 3) ||
         mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
-        msgpack_pack_array(pk, 2 + thing->items->n) ||
+        msgpack_pack_uint16(pk, thing->type_id) ||
+        mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
         msgpack_pack_uint64(pk, thing->id) ||
-        msgpack_pack_uint16(pk, thing->type_id))
+        mp_pack_strn(pk, "", 0) ||
+        msgpack_pack_array(pk, thing->items->n))
         return -1;
 
     for (vec_each(thing->items, ti_val_t, val))

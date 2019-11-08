@@ -477,6 +477,14 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     return (o->tp = MP_ERR);
 }
 
+static mp_enum_t __attribute__((unused))mp_peek(mp_unp_t * up, mp_obj_t * o)
+{
+    const char * keep = up->pt;
+    mp_enum_t tp = mp_next(up, o);
+    up->pt = keep;
+    return tp;
+}
+
 static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
 {
     if (up->pt >= up->end)

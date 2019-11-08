@@ -223,6 +223,12 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         return 1;
     }
 
+    if (epkg->event_id <= ti()->node->cevid)
+    {
+        log_warning(TI_EVENT_ID" is already committed", epkg->event_id);
+        return 1;
+    }
+
     /*
      * Update the event id in an early stage, this should be done even if
      * something else fails

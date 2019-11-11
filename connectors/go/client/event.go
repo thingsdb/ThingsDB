@@ -6,8 +6,8 @@ import (
 
 // Event is writting to the client event channel in case of an event
 type Event struct {
-	proto Proto
-	data  interface{}
+	Proto Proto
+	Data  interface{}
 }
 
 // newEvent creates a new event
@@ -19,7 +19,7 @@ func newEvent(pkg *pkg) (*Event, error) {
 	}
 
 	return &Event{
-		proto: Proto(pkg.tp),
-		data:  result,
+		Proto: Proto(pkg.tp),
+		Data:  result,
 	}, nil
 }

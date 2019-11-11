@@ -465,6 +465,7 @@ void ti_away_trigger(void)
     if (!away__required())
     {
         log_debug(away__skip_msg, "no reason for going into away mode");
+        away__reschedule_by_id(ti_nodes_next(away->expected_node_id)->id);
         return;
     }
 

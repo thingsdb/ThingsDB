@@ -18,7 +18,7 @@ type Conn struct {
 	buf     *buffer
 	respMap map[uint16]chan *pkg
 	OnClose func()
-	eventCh chan *Event
+	EventCh chan *Event
 	LogCh   chan string
 	mux     sync.Mutex
 }
@@ -32,6 +32,7 @@ func NewConn(host string, port uint16) *Conn {
 		buf:     newBuffer(),
 		respMap: make(map[uint16]chan *pkg),
 		OnClose: nil,
+		EventCh: nil,
 		LogCh:   nil,
 	}
 }
@@ -105,6 +106,26 @@ func (conn *Conn) Query(scope string, query string, arguments map[string]interfa
 	return conn.write(ProtoReqQuery, data, timeout)
 }
 
+// Watch
+func (conn *Conn) Watch(scope string, ids []uint64, timeout uint16) (interface{}, error) {
+	data := make([]interface{}, 1)
+	data[0] = scope
+	for _, v := range ids {
+		data = append(data, v)
+	}
+	return conn.write(ProtoReqWatch, data, timeout)
+}
+
+// Unwatch
+func (conn *Conn) Unwatch(scope string, ids []uint64, timeout uint16) (interface{}, error) {
+	data := make([]interface{}, 1)
+	data[0] = scope
+	for _, v := range ids {
+		data = append(data, v)
+	}
+	return conn.write(ProtoReqUnwatch, data, timeout)
+}
+
 // Close will close an open connection.
 func (conn *Conn) Close() {
 	if conn.buf.conn != nil {
@@ -122,7 +143,7 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 		switch Proto(pkg.tp) {
 		case ProtoResQuery:
 			err = msgpack.Unmarshal(pkg.data, &result)
-		case ProtoResPing, ProtoResAuth:
+		case ProtoResPing, ProtoResAuth, ProtoResWatch, ProtoResUnWatch:
 			result = nil
 		case ProtoResError:
 			err = NewErrorFromByte(pkg.data)
@@ -191,7 +212,7 @@ func (conn *Conn) listen() {
 		case pkg := <-conn.buf.evCh:
 			ev, err := newEvent(pkg)
 			if err == nil {
-				conn.eventCh <- ev
+				conn.EventCh <- ev
 			}
 		case pkg := <-conn.buf.pkgCh:
 			conn.mux.Lock()

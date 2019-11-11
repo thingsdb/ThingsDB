@@ -51,4 +51,10 @@ const (
 	ProtoReqAuth Proto = 33
 	// ProtoReqQuery requires `[scope, query [, arguments]]`
 	ProtoReqQuery Proto = 34
+	//[scope, thing id's....]}
+	ProtoReqWatch Proto = 35
+	//[scope, thing id's....]}
+	ProtoReqUnwatch Proto = 36
+	//[scope, procedure, arguments....]}
+	ProtoReqRun Proto = 37
 )

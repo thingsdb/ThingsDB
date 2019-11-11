@@ -43,7 +43,7 @@ static _Bool away__required(void)
     return (
         ti()->archive->queue->n ||
         ti_nodes_require_sync() ||
-        ti_backups_pending()
+        ti_backups_require_away()
     );
 }
 

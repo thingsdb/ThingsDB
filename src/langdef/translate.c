@@ -34,8 +34,6 @@ const char * langdef_translate(cleri_t * elem)
     case CLERI_GID_X_TERNARY:
     case CLERI_GID_X_THING:
         return "";
-    case CLERI_GID_NAME:
-        return "<name>";
     }
     return NULL;
 }

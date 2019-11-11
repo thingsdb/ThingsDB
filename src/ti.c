@@ -176,7 +176,7 @@ int ti_init(void)
     if (ti_.cfg->query_duration_error > ti_.cfg->query_duration_warn)
         ti_.cfg->query_duration_warn = ti_.cfg->query_duration_error;
 
-    if (ti_val_init_common() || ti_backups_restore())
+    if (ti_val_init_common())
         return -1;
 
     ti_.fn = strx_cat(ti_.cfg->storage_path, ti__fn);
@@ -269,7 +269,7 @@ int ti_rebuild(void)
         return -1;
     }
 
-    return ti_archive_rmdir();
+    return ti_backups_rm() || ti_archive_rmdir() ? -1 : 0;
 }
 
 int ti_write_node_id(uint32_t * node_id)
@@ -378,6 +378,9 @@ fail:
 int ti_run(void)
 {
     int rc, attempts;
+
+    if (ti_backups_restore())
+        return -1;
 
     if (uv_loop_init(&loop_))
         return -1;

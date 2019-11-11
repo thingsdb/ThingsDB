@@ -134,19 +134,11 @@ int main(int argc, char * argv[])
             if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
 
-            if (fx_is_dir(ti()->store->store_path) &&
-                fx_rmdir(ti()->store->store_path))
+            if (ti_rebuild())
             {
-                log_error("error: directory `%s` cannot be removed\n",
-                        ti()->store->store_path);
-                rc = -1;
-            }
-
-            if (ti_archive_rmdir())
-                rc = -1;
-
-            if (rc)
+                printf("error while rebuilding\n");
                 goto stop;
+            }
         }
 
         ti_print_connect_info();

@@ -171,7 +171,9 @@ static int backups__store(void)
             msgpack_pack_uint64(&pk, backup->timestamp) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             mp_pack_str(&pk, backup->fn_template) ||
-            mp_pack_str(&pk, result_msg) ||
+            (backup->result_msg
+                    ? mp_pack_str(&pk, result_msg)
+                    : msgpack_pack_nil(&pk)) ||
             mp_pack_bool(&pk, backup->scheduled) ||
             msgpack_pack_fix_int32(&pk, backup->result_code)
         ) goto fail;
@@ -196,6 +198,28 @@ done:
     return 0;
 }
 
+static int backups__ensure_fn(void)
+{
+    if (backups->fn)
+        return 0;
+
+    backups->fn = fx_path_join(ti()->cfg->storage_path, backups__fn);
+    return backups->fn ? 0 : -1;
+}
+
+int ti_backups_rm(void)
+{
+    if (backups__ensure_fn())
+        return -1;
+
+    if (fx_file_exist(ti_.backups->fn))
+    {
+        log_warning("removing backup schedules: `%s`", ti_.backups->fn);
+        (void) unlink(ti_.backups->fn);
+    }
+    return 0;
+}
+
 int ti_backups_restore(void)
 {
     int rc = -1;
@@ -206,9 +230,7 @@ int ti_backups_restore(void)
     ti_backup_t * backup;
     uint64_t now = util_now_tsec();
 
-    backups->fn = fx_path_join(ti()->cfg->storage_path, backups__fn);
-
-    if (!backups->fn)
+    if (backups__ensure_fn())
         return -1;
 
     if (!fx_file_exist(backups->fn))
@@ -230,7 +252,7 @@ int ti_backups_restore(void)
             mp_next(&up, &mp_ts) != MP_U64 ||
             mp_next(&up, &mp_repeat) != MP_U64 ||
             mp_next(&up, &mp_fn) != MP_STR ||
-            mp_next(&up, &mp_msg) != MP_STR ||
+            mp_next(&up, &mp_msg) <= 0  ||
             mp_next(&up, &mp_plan) != MP_BOOL ||
             mp_next(&up, &mp_code) != MP_I64
         ) goto fail1;
@@ -244,7 +266,10 @@ int ti_backups_restore(void)
 
         if (backup)
         {
-            backup->result_msg = strndup(mp_msg.via.str.data, mp_msg.via.str.n);
+
+            backup->result_msg = mp_msg.tp == MP_STR
+                    ? strndup(mp_msg.via.str.data, mp_msg.via.str.n)
+                    : NULL;
             backup->result_code = (int) mp_code.via.i64;
             backup->scheduled = mp_plan.via.bool_;
             if (backup->repeat)
@@ -349,6 +374,11 @@ size_t ti_backups_pending(void)
     return n;
 }
 
+_Bool ti_backups_require_away(void)
+{
+    return backups->changed || ti_backups_pending() > 0;
+}
+
 ti_varr_t * ti_backups_info(void)
 {
     omap_iter_t iter;
@@ -383,7 +413,10 @@ void ti_backups_del_backup(uint64_t backup_id, ex_t * e)
 
     backup = omap_rm(backups->omap, backup_id);
     if (backup)
+    {
         ti_backup_destroy(backup);
+        backups->changed = true;
+    }
     else
         ex_set(e, EX_LOOKUP_ERROR,
                 "backup with id %"PRIu64" not found", backup_id);

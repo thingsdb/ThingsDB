@@ -57,7 +57,7 @@ static inline int things__set_cb(ti_thing_t * thing, void * UNUSED(arg))
     return 0;
 }
 
-static void things__gc_val(ti_val_t * val)
+static inline void things__gc_val(ti_val_t * val)
 {
     switch(val->tp)
     {
@@ -261,28 +261,34 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
 int ti_things_gc(imap_t * things, ti_thing_t * root)
 {
     size_t n = 0;
-    vec_t * things_vec = imap_vec_pop(things);
+    vec_t * things_vec;
+    struct timespec start, stop;
+    double duration;
+
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
+
+    things_vec = imap_vec_pop(things);
     if (!things_vec)
         return -1;
 
-    (void) ti_sleep(100);
+    (void) ti_sleep(1);  /* sleeps are here to allow thread switching */
 
     if (root)
         things__gc_mark_thing(root);
 
-    (void) ti_sleep(100);
+    (void) ti_sleep(1);
 
     for (vec_each(things_vec, ti_thing_t, thing))
         if (thing->flags & TI_VFLAG_THING_SWEEP)
             thing->ref = 0;
 
-    (void) ti_sleep(100);
+    (void) ti_sleep(1);
 
     for (vec_each(things_vec, ti_thing_t, thing))
         if (thing->flags & TI_VFLAG_THING_SWEEP)
             ti_thing_clear(thing);
 
-    (void) ti_sleep(100);
+    (void) ti_sleep(1);
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
@@ -299,7 +305,11 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     ti()->counters->garbage_collected += n;
 
-    log_debug("garbage collection cleaned: %zd thing(s)", n);
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
+    duration = util_time_diff(&start, &stop);
+
+    log_debug("garbage collection took %f seconds and cleaned: %zu thing(s)",
+            duration, n);
 
     return 0;
 }

@@ -15,7 +15,6 @@ from lib.client import get_client
 THINGSDB_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INC_PATH = os.path.join(THINGSDB_PATH, 'inc')
 DOC_FN = os.path.join(INC_PATH, 'doc.h')
-RE_DOC_DOCS = re.compile(r'#define DOC_DOCS.*"(http[a-zA-Z0-9\:\.\/\-_]*)"')
 RE_DOC = re.compile(r'#define DOC_.*DOC_SEE\("([a-zA-Z0-9\.\/\-_]+)"\)')
 
 
@@ -33,11 +32,7 @@ class TestDocUrl(TestBase):
 
     @staticmethod
     def get_url(lines):
-        for line in lines:
-            m = RE_DOC_DOCS.match(line)
-            if m:
-                return m.group(1)
-        raise ValueError('DOC_DOCS not defined in doc.h')
+        return 'https://docs.thingsdb.net/v0/'
 
     @staticmethod
     def test_url(lines, url):

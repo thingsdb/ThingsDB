@@ -15,6 +15,7 @@
 #define DOC_ARRAY                   DOC_SEE("collection-api/array")
 #define DOC_ASSERT                  DOC_SEE("collection-api/assert")
 #define DOC_BOOL                    DOC_SEE("collection-api/bool")
+#define DOC_BYTES                   DOC_SEE("collection-api/bytes")
 #define DOC_DEEP                    DOC_SEE("collection-api/deep")
 #define DOC_DEL_TYPE                DOC_SEE("collection-api/del_type")
 #define DOC_ERR                     DOC_SEE("collection-api/err")

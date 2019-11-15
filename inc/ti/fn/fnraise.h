@@ -18,11 +18,24 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
+    if (ti_val_is_raw(query->rval))
+    {
+        ti_raw_t * msg;
+        msg = (ti_raw_t *) query->rval;
+
+        if (ti_verror_check_msg((const char *) msg->data, msg->n, e))
+            return e->nr;
+
+        ti_raw_to_e(msg, e, TI_VERROR_DEF_CODE);
+        return e->nr;
+    }
+
     if (!ti_val_is_error(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `raise` expects argument 1 to be of "
-            "type `"TI_VAL_ERROR_S"` but got type `%s` instead"DOC_RAISE,
+            "type `"TI_VAL_ERROR_S"` or type `"TI_VAL_STR_S"` "
+            "but got type `%s` instead"DOC_RAISE,
             ti_val_str(query->rval));
         return e->nr;
     }

@@ -202,6 +202,15 @@ int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n)
     );
 }
 
+void ti_raw_to_e(const ti_raw_t * r, ex_t * e, ex_enum code)
+{
+    assert(r->n < EX_MAX_SZ);
+    e->n = r->n;
+    e->nr = code;
+    memcpy(e->msg, r->data, r->n);
+    e->msg[e->n] = '\0';
+}
+
 ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
 {
     size_t n = a->n + b->n;

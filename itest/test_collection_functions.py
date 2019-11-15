@@ -1419,13 +1419,18 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `raise` expects argument 1 to be of type `error` '
-                'but got type `nil` instead'):
+                'or type `str` but got type `nil` instead'):
             await client.query('raise(nil);')
 
         with self.assertRaisesRegex(
                 ThingsDBError,
                 'error:-100'):
             await client.query('raise();')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'no licenses left'):
+            await client.query('raise("no licenses left");')
 
         with self.assertRaisesRegex(
                 ThingsDBError,

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-10-12 16:58:48
+ * Created at: 2019-11-15 13:47:55
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_

@@ -68,7 +68,7 @@ class LangDef(Grammar):
 
     o_not = Repeat(x_not)
     comments = Repeat(Choice(
-        Regex(r'(?s)//.*?\r?\n'),  # Single line comment
+        Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
         Regex(r'(?s)/\\*.*?\\*/'),  # Block comment
     ))
 
@@ -172,16 +172,9 @@ class LangDef(Grammar):
 if __name__ == '__main__':
     langdef = LangDef()
 
-    langdef.test(r'''
-        (1 && 2) - 2;
-        true ? 4 : 5;
-        !true ? 4 : 5;
-        !(true ? 4 : 5);
-        .a = 1;
-        .a.b = 2;
-        !!!.a[0][1].c['bla'];
-        .map(|x, y| x == y);
-    ''')
+    res = langdef.parse(r'''
+        // :: test''')
+    # print(res.is_valid)
     # exit(0)
 
     c, h = langdef.export_c(target='langdef', headerf='<langdef/langdef.h>')

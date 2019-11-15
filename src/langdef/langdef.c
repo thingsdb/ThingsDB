@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-10-12 16:58:48
+ * Created at: 2019-11-15 13:47:55
  */
 
 #include <langdef/langdef.h>
@@ -51,7 +51,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_NONE,
         CLERI_FIRST_MATCH,
         2,
-        cleri_regex(CLERI_NONE, "^(?s)//.*?\\r?\\n"),
+        cleri_regex(CLERI_NONE, "^(?s)//.*?(\\r?\\n|$)"),
         cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/")
     ), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");

@@ -41,6 +41,10 @@ class TestTypes(TestBase):
                 r'missing closing parenthesis'):
             await client.query(r'r = /invalid(regex/;')
 
+    async def test_comment(self, client):
+        self.assertIs(await client.query(r'/* comment */'), None)
+        self.assertIs(await client.query(r'// comment'), None)
+
     async def test_raw(self, client):
         self.assertEqual(await client.query(r'''
             "Hi ""Iris""!!";

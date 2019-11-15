@@ -4,8 +4,12 @@
 #ifndef DOC_H_
 #define DOC_H_
 
-#define DOC_DOCS(__uri) "https://thingsdb.github.io/ThingsDocs/"__uri
-#define DOC_SEE(__uri) "; see "DOC_DOCS(__uri)
+#include <ti/version.h>
+
+#define DOC_DOCS(__uri) \
+    "https://docs.thingsdb.net/"TI_VERSION_SYNTAX_STR"/"__uri
+#define DOC_SEE(__uri) \
+    "; see "DOC_DOCS(__uri)
 
 /* Collection API */
 #define DOC_ARRAY                   DOC_SEE("collection-api/array")

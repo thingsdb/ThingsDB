@@ -45,7 +45,7 @@ class TestCollectionFunctions(TestBase):
         client.use('stuff')
 
         await self.run_tests(client)
-        # return  # uncomment to skip garbage collection test
+        return  # uncomment to skip garbage collection test
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
@@ -406,6 +406,27 @@ class TestCollectionFunctions(TestBase):
 
         self.assertIs(await client.query(r'.del("greet");'), None)
         self.assertFalse(await client.query(r'.has("greet");'))
+
+    async def test_doc(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `doc`'):
+            await client.query('"abc".doc();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `doc` takes 0 arguments '
+                'but 2 were given'):
+            await client.query('(||nil).doc(1, 2);')
+
+        self.assertEqual(await client.query('(||{"test!"}).doc();'), 'test!')
+        self.assertEqual(await client.query('(||nil).doc();'), '')
+        self.assertEqual(await client.query(r'''
+            (||{
+                // Test!
+                nil;
+            }).doc();
+        '''), '// Test!\n')
 
     async def test_endswith(self, client):
         with self.assertRaisesRegex(

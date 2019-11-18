@@ -31,6 +31,7 @@
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
+#include <ti/fn/fndoc.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
@@ -201,6 +202,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, int flags)
     case 'd':
         syntax__cev_fn(q, nd, "del", do__f_del);  /* most frequent used */
         syntax__nev_fn(q, nd, "deep", do__f_deep);
+        syntax__nev_fn(q, nd, "doc", do__f_doc);
         syntax__tev_fn(q, nd, "del_expired", do__f_del_expired);
         syntax__tev_fn(q, nd, "del_token", do__f_del_token);
         syntax__bev_fn(q, nd, "del_procedure", do__f_del_procedure);
@@ -209,6 +211,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, int flags)
         syntax__tev_fn(q, nd, "del_user", do__f_del_user);
         syntax__tev_fn(q, nd, "del_node", do__f_del_node);
         syntax__zev_fn(q, nd, "del_backup", do__f_del_backup);
+
         break;
     case 'e':
         if (flags & FN__ON_VAR)

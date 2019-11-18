@@ -103,6 +103,7 @@
 /* Data Types */
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")
 #define DOC_CLOSURE_CALL            DOC_SEE("data-types/closure/call")
+#define DOC_CLOSURE_DOC             DOC_SEE("data-types/closure/doc")
 #define DOC_ERROR_LEN               DOC_SEE("data-types/error/len")
 #define DOC_LIST_EXTEND             DOC_SEE("data-types/list/extend")
 #define DOC_LIST_FILTER             DOC_SEE("data-types/list/filter")

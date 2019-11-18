@@ -535,7 +535,10 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
         goto done;
 
     doc = node->children->node->data;
-    ti_incref(doc);
+    if (doc)
+        ti_incref(doc);
+    else
+        doc = ti_str_from_ti_string(node->str, node->len);
 
 done:
     return doc ? doc : (ti_raw_t *) ti_val_empty_str();

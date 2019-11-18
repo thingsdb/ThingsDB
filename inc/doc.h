@@ -12,7 +12,6 @@
     "; see "DOC_DOCS(__uri)
 
 /* Collection API */
-#define DOC_ARRAY                   DOC_SEE("collection-api/array")
 #define DOC_ASSERT                  DOC_SEE("collection-api/assert")
 #define DOC_BOOL                    DOC_SEE("collection-api/bool")
 #define DOC_BYTES                   DOC_SEE("collection-api/bytes")
@@ -38,6 +37,7 @@
 #define DOC_ISTHING                 DOC_SEE("collection-api/isthing")
 #define DOC_ISTUPLE                 DOC_SEE("collection-api/istuple")
 #define DOC_ISUTF8                  DOC_SEE("collection-api/isutf8")
+#define DOC_LIST                    DOC_SEE("collection-api/list")
 #define DOC_MOD_TYPE                DOC_SEE("collection-api/mod_type")
 #define DOC_MOD_TYPE_ADD            DOC_SEE("collection-api/mod_type/add")
 #define DOC_MOD_TYPE_DEL            DOC_SEE("collection-api/mod_type/del")

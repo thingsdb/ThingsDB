@@ -11,7 +11,6 @@
 #include <util/logger.h>
 
 #include <ti/fn/fnadd.h>
-#include <ti/fn/fnarray.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnbackupinfo.h>
 #include <ti/fn/fnbackupsinfo.h>
@@ -65,6 +64,7 @@
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnkeys.h>
 #include <ti/fn/fnlen.h>
+#include <ti/fn/fnlist.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodtype.h>
@@ -180,7 +180,6 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, int flags)
     {
     case 'a':
         syntax__cev_fn(q, nd, "add", do__f_add);
-        syntax__nev_fn(q, nd, "array", do__f_array);
         syntax__nev_fn(q, nd, "assert", do__f_assert);
         syntax__nev_fn(q, nd, "assert_err", do__f_assert_err);
         syntax__nev_fn(q, nd, "auth_err", do__f_auth_err);
@@ -263,6 +262,7 @@ static void syntax__map_fn(ti_syntax_t * q, cleri_node_t * nd, int flags)
     case 'l':
         syntax__nev_fn(q, nd, "len", do__f_len);
         syntax__nev_fn(q, nd, "lower", do__f_lower);
+        syntax__nev_fn(q, nd, "list", do__f_list);
         syntax__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
         break;
     case 'm':

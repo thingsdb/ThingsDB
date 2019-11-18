@@ -95,25 +95,25 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r'.s.add(.a, .b, {}, nil);')
 
-    async def test_array(self, client):
+    async def test_list(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `nil` has no function `array`'):
-            await client.query('nil.array();')
+                'type `nil` has no function `list`'):
+            await client.query('nil.list();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `array` takes at most 1 argument but 2 were given'):
-            await client.query('array(1, 2);')
+                'function `list` takes at most 1 argument but 2 were given'):
+            await client.query('list(1, 2);')
 
         with self.assertRaisesRegex(
                 TypeError,
                 'cannot convert type `nil` to `list`'):
-            await client.query('array(nil);')
+            await client.query('list(nil);')
 
-        self.assertEqual(await client.query('array();'), [])
-        self.assertEqual(await client.query('array( [] );'), [])
-        self.assertEqual(await client.query(r'array(set([{}]));'), [{}])
+        self.assertEqual(await client.query('list();'), [])
+        self.assertEqual(await client.query('list( [] );'), [])
+        self.assertEqual(await client.query(r'list(set([{}]));'), [{}])
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(

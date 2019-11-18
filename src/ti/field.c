@@ -17,6 +17,59 @@
 #include <ti/vset.h>
 #include <util/strx.h>
 
+static void field__remove_dep(ti_field_t * field)
+{
+    ti_type_t * type;
+    uint32_t idx;
+    uint16_t spec;
+
+    spec = field->spec & TI_SPEC_MASK_NILLABLE;
+    if (spec < TI_SPEC_ANY)
+        goto decref;
+
+    spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
+    if (spec < TI_SPEC_ANY)
+        goto decref;
+
+    return;
+
+decref:
+    idx = 0;
+    type = ti_types_by_id(field->type->types, spec);
+    for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
+    {
+        if (t == type)
+        {
+            vec_remove(field->type->dependencies, idx);
+            break;
+        }
+    }
+    --type->refcount;
+}
+
+static int field__add_dep(ti_field_t * field)
+{
+    ti_type_t * type;
+    uint16_t spec;
+
+    spec = field->spec & TI_SPEC_MASK_NILLABLE;
+    if (spec < TI_SPEC_ANY)
+        goto incref;
+
+    spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
+    if (spec < TI_SPEC_ANY)
+        goto incref;
+
+    return 0;
+
+incref:
+    type = ti_types_by_id(field->type->types, spec);
+    if (vec_push(&field->type->dependencies, type))
+        return -1;
+    ++type->refcount;
+    return 0;
+}
+
 static _Bool field__spec_is_ascii(
         ti_field_t * field,
         const char * str,
@@ -247,6 +300,7 @@ skip_nesting:
         }
 
         ++dep->refcount;
+        return 0;
     }
 
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET &&
@@ -338,6 +392,8 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
 
+    field__remove_dep(field);
+
     field->spec_raw = spec_raw;
     if (field__init(field, e))
         goto undo;
@@ -353,10 +409,10 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
     case TI_SPEC_MOD_NESTED:
         switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
         {
-        case TI_SPEC_MOD_SUCCESS:       goto success;
-        case TI_SPEC_MOD_ERR:           goto incompatible;
-        case TI_SPEC_MOD_NILLABLE_ERR:  goto nillable;
-        case TI_SPEC_MOD_NESTED:        goto incompatible;
+        case TI_SPEC_MOD_SUCCESS:           goto success;
+        case TI_SPEC_MOD_ERR:               goto incompatible;
+        case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
+        case TI_SPEC_MOD_NESTED:            goto incompatible;
         }
     }
 
@@ -387,9 +443,12 @@ incompatible:
         (int) prev_spec_raw->n, (const char *) prev_spec_raw->data);
 
 undo:
+    field__remove_dep(field);
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
+    (void) field__add_dep(field);
+
     return e->nr;
 
 success:
@@ -478,6 +537,10 @@ void ti_field_remove(ti_field_t * field)
     ti_field_t * swap;
     if (!field)
         return;
+
+    /* removed dependency if required */
+    field__remove_dep(field);
+
     (void) vec_swap_remove(field->type->fields, field->idx);
 
     swap = vec_get_or_null(field->type->fields, field->idx);

@@ -164,7 +164,7 @@
 #define DOC_QUERY                   DOC_SEE("query")
 #define DOC_SCOPES                  DOC_SEE("scopes")
 #define DOC_SLICES                  DOC_SEE("slices")
-#define DOC_SPEC                    DOC_SEE("custom-types")
+#define DOC_SPEC                    DOC_SEE("data-types/type")
 #define DOC_WATCHING                DOC_SEE("watching")
 
 /* No functions */

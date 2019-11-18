@@ -600,6 +600,18 @@ static int rjob__revoke(mp_unp_t * up)
         return -1;
     }
 
+    if (mp_scope.via.u64 > 1)
+    {
+        collection = ti_collections_get_by_id(mp_scope.via.u64);
+        if (!collection)
+        {
+            log_critical(
+                    "job `revoke`: "TI_COLLECTION_ID" not found",
+                    mp_scope.via.u64);
+            return -1;
+        }
+    }
+
     user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {

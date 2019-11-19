@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/ti/access.c \
+../src/ti/api.c \
 ../src/ti/archfile.c \
 ../src/ti/archive.c \
 ../src/ti/args.c \
@@ -91,6 +92,7 @@ C_SRCS += \
 
 OBJS += \
 ./src/ti/access.o \
+./src/ti/api.o \
 ./src/ti/archfile.o \
 ./src/ti/archive.o \
 ./src/ti/args.o \
@@ -177,6 +179,7 @@ OBJS += \
 
 C_DEPS += \
 ./src/ti/access.d \
+./src/ti/api.d \
 ./src/ti/archfile.d \
 ./src/ti/archive.d \
 ./src/ti/args.d \

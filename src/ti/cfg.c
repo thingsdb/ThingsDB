@@ -267,6 +267,7 @@ int ti_cfg_create(void)
     /* set defaults */
     cfg->client_port = TI_DEFAULT_CLIENT_PORT;
     cfg->node_port = TI_DEFAULT_NODE_PORT;
+    cfg->http_api_port = TI_DEFAULT_HTTP_API_PORT;
     cfg->http_status_port = TI_DEFAULT_HTTP_STATUS_PORT;
     cfg->threshold_full_storage = TI_DEFAULT_THRESHOLD_FULL_STORAGE;
     cfg->ip_support = AF_UNSPEC;
@@ -341,6 +342,7 @@ int ti_cfg_parse(const char * cfg_file)
     cfg__port(parser, cfg_file, "listen_client_port", &cfg->client_port);
     cfg__port(parser, cfg_file, "listen_node_port", &cfg->node_port);
     cfg__port(parser, cfg_file, "http_status_port", &cfg->http_status_port);
+    cfg__port(parser, cfg_file, "http_api_port", &cfg->http_api_port);
     cfg__zone(parser, cfg_file, &cfg->zone);
     cfg__ip_support(parser, cfg_file);
     cfg__threshold_full_storage(parser, cfg_file);

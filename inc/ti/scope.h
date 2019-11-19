@@ -21,6 +21,7 @@ typedef enum
     TI_SCOPE_COLLECTION_ID,
 } ti_scope_enum_t;
 
+int ti_scope_init_uri(ti_scope_t * scope, const char * str, size_t n);
 int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e);
 int ti_scope_init_packed(
         ti_scope_t * scope,

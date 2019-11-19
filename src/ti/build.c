@@ -3,6 +3,8 @@
  */
 #include <assert.h>
 #include <ex.h>
+#include <ti.h>
+#include <ti/api.h>
 #include <ti/build.h>
 #include <ti/node.h>
 #include <ti/pkg.h>
@@ -10,7 +12,6 @@
 #include <ti/req.h>
 #include <ti/sync.h>
 #include <ti/version.h>
-#include <ti.h>
 #include <util/logger.h>
 
 static ti_build_t * build;
@@ -147,6 +148,9 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         goto failed;
 
     if (ti_clients_listen())
+        goto failed;
+
+    if (ti_api_init())
         goto failed;
 
     if (ti_connect_start())

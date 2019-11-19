@@ -1,5 +1,5 @@
 /*
- * ti/web.h
+ * ti/web.c
  */
 #include <ti/web.h>
 #include <ti.h>
@@ -106,7 +106,7 @@ static void web__data_cb(
     }
     else if (parsed != (size_t) n)
     {
-        log_warning("error parsing HTTP request");
+        log_warning("error parsing HTTP status request");
         ti_web_close(web_request);
     }
 
@@ -181,7 +181,9 @@ static int web__url_cb(http_parser * parser, const char * at, size_t length)
 static void web__write_cb(uv_write_t * req, int status)
 {
     if (status)
-        log_error("error writing HTTP response: `%s`", uv_strerror(status));
+        log_error(
+                "error writing HTTP status response: `%s`",
+                uv_strerror(status));
 
     ti_web_close((ti_web_request_t *) req->handle->data);
 }
@@ -209,7 +211,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
 
     if (status < 0)
     {
-        log_error("HTTP connection error: `%s`", uv_strerror(status));
+        log_error("HTTP status connection error: `%s`", uv_strerror(status));
         return;
     }
 
@@ -232,7 +234,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
     rc = uv_accept(server, &web_request->uvstream);
     if (rc)
     {
-        log_error("cannot accept HTTP request: `%s`", uv_strerror(rc));
+        log_error("cannot accept HTTP status request: `%s`", uv_strerror(rc));
         ti_web_close(web_request);
         return;
     }
@@ -242,7 +244,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
     rc = uv_read_start(&web_request->uvstream, web__alloc_cb, web__data_cb);
     if (rc)
     {
-        log_error("cannot read HTTP request: `%s`", uv_strerror(rc));
+        log_error("cannot read HTTP status request: `%s`", uv_strerror(rc));
         ti_web_close(web_request);
         return;
     }

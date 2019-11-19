@@ -16,6 +16,11 @@
 #define SCOPE__NODE "@node"
 #define SCOPE__COLLECTION "@collection"
 
+/* for URI's the scope is initialized a little different */
+#define URI__THINGSDB "/thingsdb"
+#define URI__NODE "/node"
+#define URI__COLLECTION "/collection"
+
 static _Bool scope__is_ascii(const char * str, size_t n, ex_t * e)
 {
     if (!strx_is_asciin(str, n))
@@ -90,6 +95,71 @@ static int scope__collection(
     scope->via.collection_name.sz = n;
 
     return 0;  /* success */
+}
+
+int ti_scope_init_uri(ti_scope_t * scope, const char * str, size_t n)
+{
+    if (n < 2)
+        return -1;
+
+    switch (str[1])
+    {
+    case 't':
+        if (n > strlen(URI__THINGSDB) || memcmp(str, URI__THINGSDB, n))
+            return -1;
+
+        scope->tp = TI_SCOPE_THINGSDB;
+
+        return 0;    /* success */
+    case 'n':
+    {
+        size_t i = 2;
+        int64_t node_id;
+
+        for (; i < n; ++i)
+            if (str[i] == '/')
+                break;
+
+        if (i > strlen(URI__NODE) || memcmp(str, URI__NODE, i))
+            return -1;
+
+        if (++i >= n)
+        {
+            scope->tp = TI_SCOPE_NODE;
+            scope->via.node_id = ti()->node->id;
+
+            return 0;  /* success */
+        }
+
+        node_id = scope__read_id(str + i, n - i);
+
+        if (node_id < 0 || node_id >= 0x40)
+            return -1;
+
+        scope->tp = TI_SCOPE_NODE;
+        scope->via.node_id = (uint8_t) node_id;
+
+        return 0;  /* success */
+    }
+    case 'c':
+    {
+        ex_t e = {0};
+        size_t i = 2;
+
+        for (; i < n; ++i)
+            if (str[i] == '/')
+                break;
+
+        if (i > strlen(URI__COLLECTION) || memcmp(str, URI__COLLECTION, i))
+            return -1;
+
+        if (++i >= n)
+            return -1;
+
+        return scope__collection(scope, str + i, n - i, &e) ? -1 : 0;
+    }
+    }
+    return -1;
 }
 
 int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)

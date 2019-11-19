@@ -7,7 +7,7 @@
 #include <lib/http_parser.h>
 #include <uv.h>
 
-#define TI_WEB_IDENTIFIER UINT64_MAX;
+#define TI_WEB_IDENTIFIER UINT32_MAX;
 
 typedef struct ti_web_request_s ti_web_request_t;
 
@@ -17,7 +17,7 @@ static inline _Bool ti_web_is_handle(uv_handle_t * handle);
 
 struct ti_web_request_s
 {
-    uint64_t _id;               /* set to TI_WEB_IDENTIFIER */
+    uint32_t _id;               /* set to TI_WEB_IDENTIFIER */
     _Bool is_closed;
     uv_write_t req;
     uv_stream_t uvstream;

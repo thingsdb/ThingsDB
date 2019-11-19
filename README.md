@@ -50,3 +50,12 @@ wget -q -O - http://node.local:8080/status
 ## Fonts:
 
 https://fonts.adobe.com/fonts/keraleeyam
+
+
+
+## Install msgpack, yajl, libuv from apt:
+```
+sudo apt install libmsgpack-dev
+sudo apt install libuv1-dev
+sudo apt install libyajl-dev
+```

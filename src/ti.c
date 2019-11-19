@@ -4,25 +4,26 @@
 #include <assert.h>
 #include <langdef/langdef.h>
 #include <stdlib.h>
+#include <ifaddrs.h>
 #include <ti.h>
 #include <ti/access.h>
+#include <ti/api.h>
 #include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collections.h>
 #include <ti/event.h>
 #include <ti/names.h>
+#include <ti/procedure.h>
 #include <ti/proto.h>
 #include <ti/regex.h>
 #include <ti/signals.h>
 #include <ti/store.h>
+#include <ti/sync.h>
 #include <ti/things.h>
 #include <ti/user.h>
-#include <ti/sync.h>
 #include <ti/users.h>
 #include <ti/verror.h>
-#include <ti/procedure.h>
 #include <ti/version.h>
-#include <ifaddrs.h>
 #include <ti/web.h>
 #include <tiinc.h>
 #include <unistd.h>
@@ -414,6 +415,9 @@ int ti_run(void)
         if (ti_clients_listen())
             goto failed;
 
+        if (ti_api_init())
+            goto failed;
+
         if (ti_connect_start())
             goto failed;
 
@@ -421,6 +425,7 @@ int ti_run(void)
         {
             ti_.node->status = TI_NODE_STAT_READY;
         }
+
         else if (ti_sync_start())
             goto failed;
 
@@ -760,7 +765,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti_.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 29) ||
+        msgpack_pack_map(pk, 30) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti_.node->id) ||
@@ -850,6 +855,11 @@ int ti_this_node_to_pk(msgpack_packer * pk)
                 ? msgpack_pack_uint16(pk, ti_.cfg->http_status_port)
                 : mp_pack_str(pk, "disabled")) ||
         /* 29 */
+        mp_pack_str(pk, "http_api_port") ||
+        (ti_.cfg->http_api_port
+                ? msgpack_pack_uint16(pk, ti_.cfg->http_api_port)
+                : mp_pack_str(pk, "disabled")) ||
+        /* 30 */
         mp_pack_str(pk, "scheduled_backups") ||
         msgpack_pack_uint64(pk, ti_backups_scheduled())
     );
@@ -924,6 +934,10 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         if (ti_web_is_handle(handle))
         {
             ti_web_close((ti_web_request_t *) handle->data);
+        }
+        else if (ti_api_is_handle(handle))
+        {
+            ti_api_close((ti_api_request_t *) handle->data);
         }
         else if (handle->data)
         {

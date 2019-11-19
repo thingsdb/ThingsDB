@@ -85,6 +85,9 @@ void ti_evars_parse(void)
     evars__u16(
             "THINGSDB_HTTP_STATUS_PORT",
             &ti()->cfg->http_status_port);
+    evars__u16(
+            "THINGSDB_HTTP_API_PORT",
+            &ti()->cfg->http_api_port);
     evars__u8(
             "THINGSDB_ZONE",
             &ti()->cfg->zone);

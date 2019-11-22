@@ -223,6 +223,49 @@ expired:
     return NULL;
 }
 
+/*
+ * Returns a `borrowed` user or NULL if not found and `e` is set.
+ */
+ti_user_t * ti_users_auth_by_basic(const char * b64, size_t n, ex_t * e)
+{
+    ti_user_t * user;
+    mp_obj_t mp_user, mp_pass;
+    ti_raw_t * auth = ti_bytes_from_base64(b64, n);
+    if (!auth)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    mp_user.tp = MP_STR;
+    mp_user.via.bin.data = auth->data;
+
+    for (size_t n = 0, end = auth->n; n < end; ++n)
+    {
+        if (auth->data[n] == ':')
+        {
+            mp_user.via.bin.n = n;
+
+            ++n;
+            if (n > end)
+                goto failed;
+
+            mp_pass.tp = MP_STR;
+            mp_pass.via.bin.data = auth->data + n;
+            mp_pass.via.bin.n = end - n;
+
+            user = ti_users_auth(&mp_user, &mp_pass, e);
+            goto done;
+        }
+    }
+
+failed:
+    ex_set(e, EX_AUTH_ERROR, "invalid basic authentication");
+done:
+    ti_val_drop((ti_val_t *) auth);
+    return user;
+}
+
 /* Returns a borrowed reference */
 ti_user_t * ti_users_get_by_id(uint64_t id)
 {

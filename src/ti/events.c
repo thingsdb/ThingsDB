@@ -29,19 +29,19 @@ typedef struct
  * When waiting for a missing event for this amount of time, continue and
  * accept that the missing event is not received;
  */
-#define EVENTS__TIMEOUT 42.0f
+#define EVENTS__TIMEOUT 42.0
 
 /*
  * When a new event is created and no quorum is reach in this amount of time,
  * kill the event and continue;
  */
-#define EVENTS__NEW_TIMEOUT 21.0f
+#define EVENTS__NEW_TIMEOUT 21.0
 
 /*
  * When waiting for a missing event for this amount of time, do an attempt to
  * request the missing event to a random online node;
  */
-#define EVENTS__MISSING_TIMEOUT 6.0f
+#define EVENTS__MISSING_TIMEOUT 6.0
 
 /*
  * Avoid extreme gaps between event id's

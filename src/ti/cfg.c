@@ -238,7 +238,7 @@ static void cfg__duration(
             ? option->val->integer
             : option->tp == CFGPARSER_TP_REAL
             ? option->val->real
-            : -1.0f;
+            : -1.0;
     if (d < 0)
     {
         log_warning(

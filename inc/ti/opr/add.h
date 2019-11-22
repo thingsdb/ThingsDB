@@ -3,7 +3,7 @@
 static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
-    double float_ = 0.0f;   /* set to 0 only to prevent warning */
+    double float_ = 0.0;    /* set to 0 only to prevent warning */
     ti_raw_t * raw = NULL;  /* set to 0 only to prevent warning */
 
     switch ((ti_val_enum) a->tp)

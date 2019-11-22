@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 import requests
+import os
+import json
 
 url = 'http://localhost:9210/collection/1'
+fn = '/home/joente/Downloads/sqlsrv01.insignit.local.json'
+fn = '/home/joente/Downloads/test.json'
 
-data = {
-    'somekey': 'somevalue'
-}
+with open(fn, 'r') as f:
+    data = json.load(f)
 
-x = requests.post(url, data=data)
+
+
+x = requests.post(url, json=data, auth=('admin', 'pass'))

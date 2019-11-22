@@ -41,17 +41,19 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     stream->pkg_cb = cb;
     stream->buf = NULL;
     stream->name_ = NULL;
-    stream->reqmap = omap_create();
+    stream->reqmap = NULL;
     stream->uvstream->data = stream;
     stream->next_pkg_id = 0;
     stream->watching = NULL;
-    if (!stream->reqmap)
-        goto failed;
 
     switch (tp)
     {
     case TI_STREAM_TCP_OUT_NODE:
     case TI_STREAM_TCP_IN_NODE:
+        stream->reqmap = omap_create();
+        if (!stream->reqmap)
+            goto failed;
+        /* fall through */
     case TI_STREAM_TCP_IN_CLIENT:
         if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
             goto failed;

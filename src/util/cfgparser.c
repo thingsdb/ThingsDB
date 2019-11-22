@@ -121,7 +121,7 @@ cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
         else if (strx_is_float(pt))
         {
             sscanf(pt, "%lf", &d);
-            option = cfgparser_real_option(section, name, d, 0.0f);
+            option = cfgparser_real_option(section, name, d, 0.0);
         }
         else
         {

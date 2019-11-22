@@ -95,7 +95,7 @@ class LangDef(Grammar):
         t_closure,
     )
 
-    opr0_mul_div_mod = Tokens('* / % //')
+    opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
     opr2_bitwise_and = Tokens('&')
     opr3_bitwise_xor = Tokens('^')

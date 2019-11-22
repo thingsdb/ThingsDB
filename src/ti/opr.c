@@ -7,7 +7,6 @@
 #include <ti/opr/eq.h>
 #include <ti/opr/ge.h>
 #include <ti/opr/gt.h>
-#include <ti/opr/idiv.h>
 #include <ti/opr/le.h>
 #include <ti/opr/lt.h>
 #include <ti/opr/mod.h>
@@ -74,9 +73,8 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
             assert (nd->str[1] == '=');
             return opr__sub(a, b, e);
         case '/':
-            return nd->str[1] == '=' && a->tp == TI_VAL_FLOAT
-                ? opr__div(a, b, e)
-                : opr__idiv(a, b, e);
+            assert (nd->str[1] == '=');
+            return opr__div(a, b, e);
         case '<':
             assert (nd->str[1] == '=');
             return opr__le(a, b, e);

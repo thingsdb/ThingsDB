@@ -39,10 +39,10 @@ void ti_counters_reset(void)
     counters->events_quorum_lost = 0;
     counters->events_unaligned = 0;
     counters->garbage_collected = 0;
-    counters->longest_query_duration = 0.0f;
-    counters->longest_event_duration = 0.0f;
-    counters->total_query_duration = 0.0f;
-    counters->total_event_duration = 0.0f;
+    counters->longest_query_duration = 0.0;
+    counters->longest_event_duration = 0.0;
+    counters->total_query_duration = 0.0;
+    counters->total_event_duration = 0.0;
 }
 
 /*
@@ -135,7 +135,7 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "average_query_duration") ||
         msgpack_pack_double(pk, counters->queries_success
             ? counters->total_query_duration / counters->queries_success
-            : 0.0f) ||
+            : 0.0) ||
 
         mp_pack_str(pk, "longest_event_duration") ||
         msgpack_pack_double(pk, counters->longest_event_duration) ||
@@ -143,7 +143,7 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "average_event_duration") ||
         msgpack_pack_double(pk, counters->events_committed
             ? counters->total_event_duration / counters->events_committed
-            : 0.0f)
+            : 0.0)
     );
 }
 

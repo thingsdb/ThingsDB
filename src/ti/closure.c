@@ -490,8 +490,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->children->node                /* expression */
             ->children->next->node;         /* the choice */
 
-    if ((
-            node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
+    while ((node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
             node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
         ) &&
             node->children->next &&
@@ -516,28 +515,22 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
 
-    if (node->children->next->node->children)
-    {
-        /* return comment as doc */
-        node = node->children->next->node->children->node;
-        doc = ti_str_create(node->str, node->len);
-        goto done;
-    }
-
     node = node->children->next->next   /* node=block */
             ->node->children            /* node=list mi=1 */
             ->node->children            /* node=statement */
             ->node->children->next      /* node=expression */
             ->node;                     /* node=the choice */
 
-    if (    node->cl_obj->gid != CLERI_GID_IMMUTABLE ||
-            node->children->node->cl_obj->gid != CLERI_GID_T_STRING)
+    if (node->cl_obj->gid != CLERI_GID_IMMUTABLE ||
+        node->children->node->cl_obj->gid != CLERI_GID_T_STRING)
         goto done;
 
     doc = node->children->node->data;
     if (doc)
+        /* from cache */
         ti_incref(doc);
     else
+        /* create and return a new string */
         doc = ti_str_from_ti_string(node->str, node->len);
 
 done:

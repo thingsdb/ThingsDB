@@ -18,7 +18,14 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
     va_start(args, errmsg);
     n = vsnprintf(e->msg, EX_MAX_SZ, errmsg, args);
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
-    assert (e->n >= 0);
+    if (e->n < 0)
+    {
+        LOGC("error in ex_set()");
+        LOGC("plain message: %s", errmsg);
+        e->n = 0;
+        e->msg[0] = '\0';
+        assert(0);
+    }
     va_end(args);
 }
 

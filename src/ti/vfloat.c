@@ -10,7 +10,7 @@
 static ti_vfloat_t vfloat__0 = {
         .ref = 1,
         .tp = TI_VAL_FLOAT,
-        .float_ = 0.0f,
+        .float_ = 0.0,
 };
 
 

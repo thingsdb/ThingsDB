@@ -63,7 +63,7 @@ big_t * big_from_str2n(const char * str, size_t n)
         --n;
     }
 
-    m = (uint32_t) ceil(n / 32.0f);
+    m = (uint32_t) ceil(n / 32.0);
     big = calloc(1, sizeof(big_t) + sizeof(uint32_t) * m);
     if (!big)
         return NULL;

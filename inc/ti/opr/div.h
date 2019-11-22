@@ -2,7 +2,8 @@
 
 static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
-    double float_ = 0.0f;   /* set to 0 only to prevent warning */
+    int64_t int_ = 0;       /* set to 0 only to prevent warning */
+    double float_ = 0.0;    /* set to 0 only to prevent warning */
 
     switch ((ti_val_enum) a->tp)
     {
@@ -16,18 +17,20 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_INT:
             if (OPR__INT(*b) == 0)
                 goto zerodiv;
-            float_ = (double) OPR__INT(a) / (double) OPR__INT(*b);
-            break;
+            if (OPR__INT(a) == LLONG_MAX && OPR__INT(*b) == -1)
+                goto overflow;
+            int_ = OPR__INT(a) / OPR__INT(*b);
+            goto ret_int;
         case TI_VAL_FLOAT:
             if (OPR__FLOAT(*b) == 0.0)
                 goto zerodiv;
             float_ = (double) OPR__INT(a) / OPR__FLOAT(*b);
-            break;
+            goto ret_float;
         case TI_VAL_BOOL:
             if (OPR__BOOL(*b) == 0)
                 goto zerodiv;
-            float_ = (double) OPR__INT(a) / (double) OPR__BOOL(*b);
-            break;
+            int_ = OPR__INT(a) / OPR__BOOL(*b);
+            goto ret_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -41,6 +44,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ERROR:
             goto type_err;
         }
+        assert (0);
         break;
     case TI_VAL_FLOAT:
         switch ((ti_val_enum) (*b)->tp)
@@ -51,17 +55,17 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
             if (OPR__INT(*b) == 0)
                 goto zerodiv;
             float_ = OPR__FLOAT(a) / (double) OPR__INT(*b);
-            break;
+            goto ret_float;
         case TI_VAL_FLOAT:
             if (OPR__FLOAT(*b) == 0.0)
                 goto zerodiv;
             float_ = OPR__FLOAT(a) / OPR__FLOAT(*b);
-            break;
+            goto ret_float;
         case TI_VAL_BOOL:
             if (OPR__BOOL(*b) == 0)
                 goto zerodiv;
             float_ = OPR__FLOAT(a) / (double) OPR__BOOL(*b);
-            break;
+            goto ret_float;
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -75,6 +79,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ERROR:
             goto type_err;
         }
+        assert (0);
         break;
     case TI_VAL_BOOL:
         switch ((ti_val_enum) (*b)->tp)
@@ -84,18 +89,18 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_INT:
             if (OPR__INT(*b) == 0)
                 goto zerodiv;
-            float_ = (double) OPR__BOOL(a) / (double) OPR__INT(*b);
-            break;
+            int_ = OPR__BOOL(a) / OPR__INT(*b);
+            goto ret_int;
         case TI_VAL_FLOAT:
             if (OPR__FLOAT(*b) == 0.0)
                 goto zerodiv;
             float_ = (double) OPR__BOOL(a) / OPR__FLOAT(*b);
-            break;
+            goto ret_float;
         case TI_VAL_BOOL:
             if (OPR__BOOL(*b) == 0)
                 goto zerodiv;
-            float_ = (double) OPR__BOOL(a) / (double) OPR__BOOL(*b);
-            break;
+            int_ = OPR__BOOL(a) / OPR__BOOL(*b);
+            goto ret_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -109,6 +114,7 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_ERROR:
             goto type_err;
         }
+        assert (0);
         break;
     case TI_VAL_MP:
     case TI_VAL_NAME:
@@ -124,14 +130,23 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         goto type_err;
     }
 
+ret_float:
     if (ti_val_make_float(b, float_))
         ex_set_mem(e);
+    return e->nr;
 
+ret_int:
+    if (ti_val_make_int(b, int_))
+        ex_set_mem(e);
     return e->nr;
 
 type_err:
     ex_set(e, EX_TYPE_ERROR, "`/` not supported between `%s` and `%s`",
         ti_val_str(a), ti_val_str(*b));
+    return e->nr;
+
+overflow:
+    ex_set(e, EX_OVERFLOW, "integer overflow");
     return e->nr;
 
 zerodiv:

@@ -47,8 +47,8 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_val_is_float(query->rval))
         {
             double ts = ((ti_vfloat_t *) query->rval)->float_;
-            if (ts < 0.0f)
-                ts = 0.0f;
+            if (ts < 0.0)
+                ts = 0.0;
             timestamp = (uint64_t) ts;
         }
         else if (ti_val_is_int(query->rval))

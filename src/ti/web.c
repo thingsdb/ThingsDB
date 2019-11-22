@@ -70,7 +70,7 @@ static void web__alloc_cb(
         uv_buf_t * buf)
 {
     buf->base = malloc(HTTP_MAX_HEADER_SIZE);
-    buf->len = buf->base ? HTTP_MAX_HEADER_SIZE : 0;
+    buf->len = buf->base ? HTTP_MAX_HEADER_SIZE-1 : 0;
 }
 
 static void web__data_cb(
@@ -192,9 +192,6 @@ static int web__message_complete_cb(http_parser * parser)
 {
     ti_web_request_t * web_request = parser->data;
 
-    if (!web_request->response)
-        web_request->response = &web__uv_nfound_buf;
-
     (void) uv_write(
             &web_request->req,
             &web_request->uvstream,
@@ -230,6 +227,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
     web_request->is_closed = false;
     web_request->uvstream.data = web_request;
     web_request->parser.data = web_request;
+    web_request->response = &web__uv_nfound_buf;
 
     rc = uv_accept(server, &web_request->uvstream);
     if (rc)

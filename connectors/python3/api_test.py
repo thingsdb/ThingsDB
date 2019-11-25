@@ -12,4 +12,6 @@ with open(fn, 'r') as f:
 
 
 
-x = requests.post(url, json=data, auth=('admin', 'pass'))
+x = requests.post(url, data=b'123', auth=('admin', 'pass'))
+
+print(x)

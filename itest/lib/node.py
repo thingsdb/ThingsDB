@@ -44,6 +44,7 @@ class Node:
         )
 
         self.listen_client_port = 9200 + n
+        self.http_api_port = 9210 + n
         self.listen_node_port = 9220 + n
 
         # can be used for clients to connect
@@ -141,6 +142,7 @@ class Node:
 
         config.set('thingsdb', 'listen_client_port', self.listen_client_port)
         config.set('thingsdb', 'listen_node_port', self.listen_node_port)
+        config.set('thingsdb', 'http_api_port', self.http_api_port)
 
         config.set('thingsdb', 'bind_client_addr', self.bind_client_addr)
         config.set('thingsdb', 'bind_node_addr', self.bind_node_addr)

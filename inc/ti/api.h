@@ -29,8 +29,8 @@ typedef enum
 typedef enum
 {
     TI_API_FLAG_IS_CLOSED,
-    TI_API_FLAG_IS_USED,
-    TI_API_FLAG_VALID_SCOPE,
+    TI_API_FLAG_IN_USE,
+    TI_API_FLAG_INVALID_SCOPE,
 } ti_api_flags_t;
 
 typedef struct ti_api_request_s ti_api_request_t;

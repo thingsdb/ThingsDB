@@ -45,7 +45,7 @@ class TestCollectionFunctions(TestBase):
         client.use('stuff')
 
         await self.run_tests(client)
-        return  # uncomment to skip garbage collection test
+        # return  # uncomment to skip garbage collection test
 
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
@@ -279,7 +279,7 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('bool([0]);'))
         self.assertTrue(await client.query(r'bool(set([{}]));'))
         self.assertTrue(await client.query(r'bool({answer: 42});'))
-        self.assertTrue(await client.query('bool(//);'))
+        self.assertTrue(await client.query(r'bool(/.*/);'))
         self.assertTrue(await client.query('bool(||nil);'))
 
     async def test_call(self, client):
@@ -422,11 +422,11 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('(||{"test!"}).doc();'), 'test!')
         self.assertEqual(await client.query('(||nil).doc();'), '')
         self.assertEqual(await client.query(r'''
-            (||{
-                // Test!
+            (||wse(return({
+                "Test!";
                 nil;
-            }).doc();
-        '''), '// Test!\n')
+            }, 2))).doc();
+        '''), 'Test!')
 
     async def test_endswith(self, client):
         with self.assertRaisesRegex(
@@ -1945,7 +1945,7 @@ class TestCollectionFunctions(TestBase):
                 r'type `regex` but got type `str` instead'):
             await client.query('"".test("abc");')
 
-        self.assertTrue(await client.query(r'"".test(//);'))
+        self.assertTrue(await client.query(r'"".test(/.*/);'))
         self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
         self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))
         self.assertFalse(await client.query(r'"Hi".test(/hi/);'))
@@ -1996,17 +1996,17 @@ class TestCollectionFunctions(TestBase):
                 TypeError,
                 r'function `try` expects arguments 2..X to be of '
                 r'type `error` but got type `nil` instead'):
-            await client.query('try((10 //0), nil);')
+            await client.query('try((10 / 0), nil);')
 
-        self.assertIs(await client.query('iserr(try( (10 // 2) ));'), False)
-        self.assertIs(await client.query('iserr(try( (10 // 0) ));'), True)
+        self.assertIs(await client.query('iserr(try( (10 / 2) ));'), False)
+        self.assertIs(await client.query('iserr(try( (10 / 0) ));'), True)
         self.assertIs(await client.query(
-            'iserr(try( (10 // 0), zero_div_err() ));'), True)
+            'iserr(try( (10 / 0), zero_div_err() ));'), True)
 
         with self.assertRaisesRegex(
                 ZeroDivisionError,
                 'division or modulo by zero'):
-            await client.query('try( (10 // 0), lookup_err());')
+            await client.query('try( (10 / 0), lookup_err());')
 
     async def test_type(self, client):
         with self.assertRaisesRegex(
@@ -2030,7 +2030,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'type({});'), "thing")
         self.assertEqual(await client.query('type(set());'), "set")
         self.assertEqual(await client.query('type(||nil);'), "closure")
-        self.assertEqual(await client.query('type(//);'), "regex")
+        self.assertEqual(await client.query('type(/.*/);'), "regex")
 
     async def test_upper(self, client):
         with self.assertRaisesRegex(

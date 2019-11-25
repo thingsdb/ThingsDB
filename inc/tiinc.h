@@ -13,7 +13,7 @@
 #define TI_DEFAULT_HTTP_STATUS_PORT 0
 
 /* HTTP API port binding, 0=disabled, 1-65535=enabled */
-#define TI_DEFAULT_HTTP_API_PORT 9210
+#define TI_DEFAULT_HTTP_API_PORT 0
 
 /* Incremental events are stored until this threshold is reached */
 #define TI_DEFAULT_THRESHOLD_FULL_STORAGE 1000UL

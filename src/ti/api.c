@@ -14,6 +14,13 @@
     "\r\n" \
     "NOK\n"
 
+#define UNAUTHORIZED_RESPONSE \
+    "HTTP/1.1 401 Unauthorized\r\n" \
+    "Content-Type: text/plain\r\n" \
+    "Content-Length: 13\r\n" \
+    "\r\n" \
+    "UNAUTHORIZED\n"
+
 #define NFOUND_RESPONSE \
     "HTTP/1.1 404 Not Found\r\n" \
     "Content-Type: text/plain\r\n" \
@@ -38,8 +45,9 @@
 
 /* static response buffers */
 static uv_buf_t api__uv_nok_buf;
+static uv_buf_t api__uv_unauthorized_buf;
 static uv_buf_t api__uv_nfound_buf;
-static uv_buf_t api__unsupported_buf;
+static uv_buf_t api__uv_unsupported_buf;
 
 static uv_tcp_t api__uv_server;
 static http_parser_settings api__settings;
@@ -169,10 +177,8 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
     if (ti_scope_init_uri(&scope, at, n))
     {
         log_debug("URI (scope) not found: %.*s", (int) n, at);
-        api_request->flags |= TI_API_FLAG_VALID_SCOPE;
+        api_request->flags |= TI_API_FLAG_INVALID_SCOPE;
     }
-
-    scope->tp
 
     return 0;
 }
@@ -247,6 +253,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
 
             break;
         }
+
         log_debug("invalid authorization type: %.*s", (int) n, at);
         break;
 
@@ -292,33 +299,60 @@ static void api__write_cb(uv_write_t * req, int status)
     ti_api_close((ti_api_request_t *) req->handle->data);
 }
 
+static void api__write_free_cb(uv_write_t * req, int status)
+{
+    free(req->data);
+    api__write_cb(req, status);
+}
+
 void ti_api_err_response(ti_api_request_t * api_request)
 {
     assert(api_request->e.nr);
     assert(api_request->content_type);
     free(api_request->content);
-
-
 }
 
 static int api__message_complete_cb(http_parser * parser)
 {
     ti_api_request_t * api_request = parser->data;
 
-    if ()
-        api_request->response = &api__unsupported_buf;
-
-
-    if (api_request->response)
+    if (api_request->flags & TI_API_FLAG_INVALID_SCOPE)
     {
         (void) uv_write(
                 &api_request->req,
                 &api_request->uvstream,
-                api_request->response, 1,
+                &api__uv_nfound_buf, 1,
                 api__write_cb);
-
         return 0;
     }
+
+    if (api_request->content_type == TI_API_CT_UNKNOWN)
+    {
+        (void) uv_write(
+                &api_request->req,
+                &api_request->uvstream,
+                &api__uv_unsupported_buf, 1,
+                api__write_cb);
+        return 0;
+    }
+
+    if (!api_request->user)
+    {
+        (void) uv_write(
+                &api_request->req,
+                &api_request->uvstream,
+                &api__uv_unauthorized_buf, 1,
+                api__write_cb);
+        return 0;
+    }
+
+    (void) uv_write(
+            &api_request->req,
+            &api_request->uvstream,
+            &api__uv_nok_buf, 1,
+            api__write_cb);
+
+    return 0;
 }
 
 static int api__chunk_header_cb(http_parser * parser)
@@ -346,9 +380,11 @@ int ti_api_init(void)
 
     api__uv_nok_buf =
             uv_buf_init(NOK_RESPONSE, strlen(NOK_RESPONSE));
+    api__uv_unauthorized_buf =
+            uv_buf_init(UNAUTHORIZED_RESPONSE, strlen(UNAUTHORIZED_RESPONSE));
     api__uv_nfound_buf =
             uv_buf_init(NFOUND_RESPONSE, strlen(NFOUND_RESPONSE));
-    api__unsupported_buf =
+    api__uv_unsupported_buf =
             uv_buf_init(UNSUPPORTED_RESPONSE, strlen(UNSUPPORTED_RESPONSE));
 
     api__settings.on_url = api__url_cb;
@@ -381,10 +417,24 @@ int ti_api_init(void)
     return 0;
 }
 
+void ti_api_acquire(ti_api_request_t * api_request)
+{
+    api_request->flags |= TI_API_FLAG_IN_USE;
+}
+
+void ti_api_release(ti_api_request_t * api_request)
+{
+    api_request->flags &= ~TI_API_FLAG_IN_USE;
+}
+
 void ti_api_close(ti_api_request_t * api_request)
 {
-    if (!api_request || api_request->is_closed)
+    if (!api_request || (api_request->flags &
+            (TI_API_FLAG_IN_USE|TI_API_FLAG_IS_CLOSED)))
         return;
-    api_request->is_closed = true;
+
+    api_request->flags |= TI_API_FLAG_IS_CLOSED;
     uv_close((uv_handle_t *) &api_request->uvstream, api__close_cb);
 }
+
+

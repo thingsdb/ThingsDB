@@ -228,7 +228,7 @@ expired:
  */
 ti_user_t * ti_users_auth_by_basic(const char * b64, size_t n, ex_t * e)
 {
-    ti_user_t * user;
+    ti_user_t * user = NULL;
     mp_obj_t mp_user, mp_pass;
     ti_raw_t * auth = ti_bytes_from_base64(b64, n);
     if (!auth)

@@ -273,7 +273,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
         if (syntax_ver < node->syntax_ver)
             log_warning(
                     "got an unexpected syntax version update for `%s` "
-                    "(current "TI_SYNTAX", received "TI_SYNTAX")",
+                    "(current "TI_QBIND", received "TI_QBIND")",
                     ti_node_name(node), node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
         node->syntax_ver = mp_syntax_ver.via.u64;

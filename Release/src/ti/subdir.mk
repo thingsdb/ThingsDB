@@ -47,6 +47,7 @@ C_SRCS += \
 ../src/ti/prom.c \
 ../src/ti/prop.c \
 ../src/ti/proto.c \
+../src/ti/qbind.c \
 ../src/ti/query.c \
 ../src/ti/quorum.c \
 ../src/ti/quota.c \
@@ -65,7 +66,6 @@ C_SRCS += \
 ../src/ti/syncer.c \
 ../src/ti/syncevents.c \
 ../src/ti/syncfull.c \
-../src/ti/syntax.c \
 ../src/ti/task.c \
 ../src/ti/tcp.c \
 ../src/ti/thing.c \
@@ -134,6 +134,7 @@ OBJS += \
 ./src/ti/prom.o \
 ./src/ti/prop.o \
 ./src/ti/proto.o \
+./src/ti/qbind.o \
 ./src/ti/query.o \
 ./src/ti/quorum.o \
 ./src/ti/quota.o \
@@ -152,7 +153,6 @@ OBJS += \
 ./src/ti/syncer.o \
 ./src/ti/syncevents.o \
 ./src/ti/syncfull.o \
-./src/ti/syntax.o \
 ./src/ti/task.o \
 ./src/ti/tcp.o \
 ./src/ti/thing.o \
@@ -221,6 +221,7 @@ C_DEPS += \
 ./src/ti/prom.d \
 ./src/ti/prop.d \
 ./src/ti/proto.d \
+./src/ti/qbind.d \
 ./src/ti/query.d \
 ./src/ti/quorum.d \
 ./src/ti/quota.d \
@@ -239,7 +240,6 @@ C_DEPS += \
 ./src/ti/syncer.d \
 ./src/ti/syncevents.d \
 ./src/ti/syncfull.d \
-./src/ti/syntax.d \
 ./src/ti/task.d \
 ./src/ti/tcp.d \
 ./src/ti/thing.d \

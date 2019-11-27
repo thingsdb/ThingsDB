@@ -171,5 +171,6 @@
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
 #define DOC_CLOSURE                 DOC_SEE("data-types/closure")
+#define DOC_API_REQUEST             DOC_SEE("http-api-request")
 
 #endif  /* TI_DOC_H_ */

@@ -6,9 +6,9 @@
 #include <ti/access.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
+#include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/rjob.h>
-#include <ti/syntax.h>
 #include <ti/users.h>
 #include <ti/val.h>
 #include <util/cryptx.h>

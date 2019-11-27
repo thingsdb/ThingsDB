@@ -25,7 +25,7 @@ static inline _Bool closure__is_unbound(ti_closure_t * closure)
 }
 
 static cleri_node_t * closure__node_from_strn(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         const char * str,
         size_t n,
         ex_t * e)
@@ -78,7 +78,7 @@ static cleri_node_t * closure__node_from_strn(
 
     /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
     statement = node->children->next->next->next->node;
-    ti_syntax_probe(syntax, statement);
+    ti_qbind_probe(syntax, statement);
 
     ncache = ti_ncache_create(query, syntax->val_cache_n);
     if (!ncache)
@@ -206,7 +206,7 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
 }
 
 ti_closure_t * ti_closure_from_strn(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         const char * str,
         size_t n, ex_t * e)
 {
@@ -217,7 +217,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->node = closure__node_from_strn(syntax, str, n, e);
-    closure->flags = syntax->flags & TI_SYNTAX_FLAG_EVENT
+    closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
     closure->vars = closure->node ? closure__create_vars(closure) : NULL;
@@ -256,11 +256,11 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (ti_closure_try_lock(closure, e))
         return e->nr;
 
-    ti_syntax_t syntax = {
+    ti_qbind_t syntax = {
             .val_cache_n = 0,
             .flags = closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
-                ? TI_SYNTAX_FLAG_THINGSDB
-                : TI_SYNTAX_FLAG_COLLECTION,
+                ? TI_QBIND_FLAG_THINGSDB
+                : TI_QBIND_FLAG_COLLECTION,
     };
 
     node = closure__node_from_strn(
@@ -274,7 +274,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     }
 
     /* overwrite the existing flags, this will also unlock */
-    closure->flags = syntax.flags & TI_SYNTAX_FLAG_EVENT
+    closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
     closure->node = node;
@@ -434,7 +434,7 @@ int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
                 TI_VFLAG_CLOSURE_BCSCOPE|
                 TI_VFLAG_CLOSURE_WSE
             )) == TI_VFLAG_CLOSURE_WSE) &&
-            (~query->syntax.flags & TI_SYNTAX_FLAG_WSE))
+            (~query->qbind.flags & TI_QBIND_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION_ERROR,
                 "stored closures with side effects must be "

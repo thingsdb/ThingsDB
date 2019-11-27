@@ -14,13 +14,13 @@ typedef struct ti_closure_s ti_closure_t;
 #include <tiinc.h>
 #include <ti/val.h>
 #include <ex.h>
-#include <ti/syntax.h>
+#include <ti/qbind.h>
 #include <ti/query.h>
 #include <ti/do.h>
 
 ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags);
 ti_closure_t * ti_closure_from_strn(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         const char * str,
         size_t n, ex_t * e);
 void ti_closure_destroy(ti_closure_t * closure);

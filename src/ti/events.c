@@ -467,7 +467,7 @@ static void events__new_id(ti_event_t * ev)
     /* in case of an error, `ev->id` is not changed */
 fail:
     ti_event_drop(ev);  /* reference for the queue */
-    ti_query_send(ev->via.query, &e);
+    (void) ti_query_send_pkg(ev->via.query, &e);
     ev->status = TI_EVENT_STAT_CACNCEL;
 }
 

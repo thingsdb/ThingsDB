@@ -36,9 +36,10 @@ typedef enum
 typedef struct ti_api_request_s ti_api_request_t;
 
 int ti_api_init(void);
+ti_api_request_t * ti_api_acquire(ti_api_request_t * api_request);
+void ti_api_release(ti_api_request_t * api_request);
+int ti_api_close_with_err(ti_api_request_t * api_request);
 void ti_api_close(ti_api_request_t * api_request);
-static inline _Bool ti_api_is_handle(uv_handle_t * handle);
-
 
 struct ti_api_request_s
 {

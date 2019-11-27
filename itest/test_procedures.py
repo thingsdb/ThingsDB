@@ -91,7 +91,7 @@ class TestProcedures(TestBase):
             ));
 
             new_procedure('default_deep', || {
-                /* Return one level deep. */
+                "Return one level deep.";
                 .t;  // Return `t`
             });
 
@@ -183,7 +183,7 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.run('get_first'), first)
 
-        # force a full database store
+        # force a full database store ✅
         for x in range(10):
             await client.query(f'.x = {x};')
 
@@ -216,7 +216,7 @@ class TestProcedures(TestBase):
 
             self.assertEqual(
                 await client.query('procedure_doc("default_deep");'),
-                "/* Return one level deep. */"
+                "Return one level deep."
             )
 
             self.assertEqual(

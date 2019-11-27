@@ -21,7 +21,7 @@
 
 static inline int do__no_collection_scope(ti_query_t * query)
 {
-    return ~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION;
+    return ~query->qbind.flags & TI_QBIND_FLAG_COLLECTION;
 }
 
 typedef int (*do__fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
@@ -542,7 +542,7 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             node->data = (ti_val_t *) ti_closure_from_node(
                     node,
-                    (query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
+                    (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
                         ? TI_VFLAG_CLOSURE_BTSCOPE
                         : TI_VFLAG_CLOSURE_BCSCOPE);
             if (!node->data)

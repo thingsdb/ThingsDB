@@ -29,7 +29,6 @@ typedef enum
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
 #define TI_VAL_BOOL_S       "bool"
-#define TI_VAL_RAW_S        "raw"
 #define TI_VAL_INFO_S       "info"
 #define TI_VAL_STR_S        "str"
 #define TI_VAL_BYTES_S      "bytes"

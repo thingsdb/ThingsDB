@@ -40,6 +40,14 @@ int main(int argc, char * argv[])
     putenv("TZ=:UTC");
     tzset();
 
+    printf(
+"   _____ _   _             ____  _____    \n"
+"  |_   _| |_|_|___ ___ ___|    \\| __  |   \n"
+"    | | |   | |   | . |_ -|  |  | __ -|   \n"
+"    |_| |_|_|_|_|_|_  |___|____/|_____|   version: "TI_VERSION"\n"
+"                  |___|                   \n"
+"\n");
+
     rc = ti_create();
     if (rc)
         goto stop;

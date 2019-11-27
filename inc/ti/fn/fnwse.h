@@ -9,13 +9,13 @@ static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("wse", DOC_WSE, 1, nargs, e))
         return e->nr;
 
-    has_wse_flag = query->syntax.flags & TI_SYNTAX_FLAG_WSE;
-    query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
+    has_wse_flag = query->qbind.flags & TI_QBIND_FLAG_WSE;
+    query->qbind.flags |= TI_QBIND_FLAG_WSE;
 
     (void) ti_do_statement(query, nd->children->node, e);
 
     if (!has_wse_flag)
-        query->syntax.flags &= ~TI_SYNTAX_FLAG_WSE;
+        query->qbind.flags &= ~TI_QBIND_FLAG_WSE;
 
     return e->nr;
 }

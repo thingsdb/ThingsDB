@@ -245,7 +245,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
 query:
 
-    query = ti_query_create(stream, user);
+    query = ti_query_create(stream, user, 0);
     if (!query)
     {
         ex_set_mem(&e);
@@ -395,7 +395,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    query = ti_query_create(stream, user);
+    query = ti_query_create(stream, user, 0);
     if (!query)
     {
         ex_set_mem(&e);

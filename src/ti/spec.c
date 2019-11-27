@@ -122,12 +122,12 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     {
     case TI_SPEC_ANY:           return "any";
     case TI_SPEC_OBJECT:        return TI_VAL_THING_S;
-    case TI_SPEC_RAW:           return TI_VAL_RAW_S;
-    case TI_SPEC_STR:
-    case TI_SPEC_UTF8:          return TI_VAL_STR_S;
+    case TI_SPEC_RAW:           return "raw";
+    case TI_SPEC_STR:           return TI_VAL_STR_S;
+    case TI_SPEC_UTF8:          return "utf8";
     case TI_SPEC_BYTES:         return TI_VAL_BYTES_S;
-    case TI_SPEC_INT:
-    case TI_SPEC_UINT:          return TI_VAL_INT_S;
+    case TI_SPEC_INT:           return TI_VAL_INT_S;
+    case TI_SPEC_UINT:          return "uint";
     case TI_SPEC_FLOAT:         return TI_VAL_FLOAT_S;
     case TI_SPEC_NUMBER:        return "number";
     case TI_SPEC_BOOL:          return TI_VAL_BOOL_S;

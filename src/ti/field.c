@@ -234,13 +234,21 @@ skip_nesting:
     {
         *spec |= TI_SPEC_OBJECT;
     }
-    else if (field__cmp(str, n, TI_VAL_RAW_S))
+    else if (field__cmp(str, n, "raw"))
     {
         *spec |= TI_SPEC_RAW;
     }
-    else if (field__cmp(str, n, "str") || field__cmp(str, n, "utf8"))
+    else if (field__cmp(str, n, TI_VAL_STR_S))
     {
         *spec |= TI_SPEC_STR;
+    }
+    else if (field__cmp(str, n, "utf8"))
+    {
+        *spec |= TI_SPEC_UTF8;
+    }
+    else if (field__cmp(str, n, TI_VAL_BYTES_S))
+    {
+        *spec |= TI_SPEC_BYTES;
     }
     else if (field__cmp(str, n, TI_VAL_INT_S))
     {

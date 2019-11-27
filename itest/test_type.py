@@ -21,13 +21,16 @@ class TestType(TestBase):
 
     title = 'Test type'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
     async def run(self):
 
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
         client.use('stuff')
+
+        # add another node for query validation
+        await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -129,6 +132,22 @@ class TestType(TestBase):
             mod_type('User', 'del', 'age');
             mod_type('User', 'mod', 'name', 'str?');
         ''')
+
+        await asyncio.sleep(1.5)
+
+        client1 = await get_client(self.node1)
+        client1.use('stuff')
+
+        await self.wait_nodes_ready(client)
+        iris_node0 = await client.query('.iris')
+        iris_node1 = await client1.query('.iris')
+
+        client1.close()
+        await client1.wait_closed()
+
+        self.assertEqual(iris_node0, iris_node1)
+        self.assertIs(iris_node0.get('age'), None)
+        self.assertIs(iris_node0.get('friend'), {'name': 'Anne', 'age': 5})
 
 
 if __name__ == '__main__':

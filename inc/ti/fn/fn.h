@@ -23,10 +23,10 @@
 #include <ti/opr.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
+#include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/scope.h>
-#include <ti/syntax.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
@@ -77,7 +77,7 @@ static inline int fn_not_node_scope(
     if (fn_chained(name, query, e))
         return e->nr;
 
-    if (~query->syntax.flags & TI_SYNTAX_FLAG_NODE)
+    if (~query->qbind.flags & TI_QBIND_FLAG_NODE)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@node` scope?"DOC_SCOPES,
@@ -94,7 +94,7 @@ static inline int fn_not_thingsdb_scope(
     if (fn_chained(name, query, e))
         return e->nr;
 
-    if (~query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB)
+    if (~query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query the `@thingsdb` scope?"DOC_SCOPES,
@@ -201,7 +201,7 @@ static inline int fn_not_collection_scope(
     if (fn_chained(name, query, e))
         return e->nr;
 
-    if (~query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION)
+    if (~query->qbind.flags & TI_QBIND_FLAG_COLLECTION)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@collection` scope?"DOC_SCOPES,
@@ -218,8 +218,8 @@ static inline int fn_not_thingsdb_or_collection_scope(
     if (fn_chained(name, query, e))
         return e->nr;
 
-    if (!(query->syntax.flags &
-            (TI_SYNTAX_FLAG_THINGSDB|TI_SYNTAX_FLAG_COLLECTION)))
+    if (!(query->qbind.flags &
+            (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION)))
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query the `@thingsdb` "

@@ -6,9 +6,9 @@
 
 #include <inttypes.h>
 #include <ti/data.h>
-#include <ti/syntax.h>
 #include <ti/pkg.h>
 #include <ex.h>
+#include <ti/qbind.h>
 
 typedef struct ti_scope_s ti_scope_t;
 typedef struct ti_scope_name_s ti_scope_name_t;

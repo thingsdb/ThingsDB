@@ -48,7 +48,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
 
-        query->syntax.deep = (uint8_t) deepi;
+        query->qbind.deep = (uint8_t) deepi;
     }
 
     if (ti_do_statement(query, nd->children->node, e) == 0)

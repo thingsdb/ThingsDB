@@ -16,7 +16,7 @@
 
 
 static int ncache__statement(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e);
@@ -54,7 +54,7 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
 }
 
 int ncache__gen_immutable(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -68,7 +68,7 @@ int ncache__gen_immutable(
         assert (!nd->data);
         nd->data = ti_closure_from_node(
                 nd,
-                (syntax->flags & TI_SYNTAX_FLAG_THINGSDB)
+                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
                             ? TI_VFLAG_CLOSURE_BTSCOPE
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         if (ncache__statement(
@@ -132,7 +132,7 @@ int ncache__gen_name(vec_t * vcache, cleri_node_t * nd, ex_t * e)
 }
 
 static inline int ncache__list(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_children_t * child,
         ex_t * e)
@@ -144,7 +144,7 @@ static inline int ncache__list(
 }
 
 static int ncache__index(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -180,7 +180,7 @@ static int ncache__index(
 }
 
 static inline int ncache__thing(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -205,7 +205,7 @@ static inline int ncache__thing(
 }
 
 static int ncache__varname_opt_fa(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -241,7 +241,7 @@ static int ncache__varname_opt_fa(
 }
 
 static int ncache__chain(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -267,7 +267,7 @@ static int ncache__chain(
 }
 
 static int ncache__expr_choice(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -326,7 +326,7 @@ static int ncache__expr_choice(
 }
 
 static inline int ncache__expression(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -352,7 +352,7 @@ static inline int ncache__expression(
 }
 
 static int ncache__operations(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -373,7 +373,7 @@ static int ncache__operations(
 }
 
 static int ncache__statement(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)
@@ -385,7 +385,7 @@ static int ncache__statement(
 }
 
 int ti_ncache_gen_node_data(
-        ti_syntax_t * syntax,
+        ti_qbind_t * syntax,
         vec_t * vcache,
         cleri_node_t * nd,
         ex_t * e)

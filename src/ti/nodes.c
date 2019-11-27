@@ -557,7 +557,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user);
+    query = ti_query_create(stream, user, 0);
     if (!query)
     {
         ex_set_mem(&e);
@@ -661,7 +661,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user);
+    query = ti_query_create(stream, user, 0);
     if (!query)
     {
         ex_set_mem(&e);
@@ -1151,7 +1151,7 @@ int ti_nodes_write_global_status(void)
     log_debug(
             "save global committed "TI_EVENT_ID", "
             "global stored "TI_EVENT_ID" and "
-            "lowest known "TI_SYNTAX" to disk",
+            "lowest known "TI_QBIND" to disk",
             cevid, sevid, nodes->syntax_ver);
 
     if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
@@ -1394,7 +1394,7 @@ void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
     if (syntax_ver < nodes->syntax_ver)
     {
         log_error(
-                "new "TI_SYNTAX" is older than the current "TI_SYNTAX,
+                "new "TI_QBIND" is older than the current "TI_QBIND,
                 syntax_ver, nodes->syntax_ver);
         nodes->syntax_ver = syntax_ver;
         return;
@@ -1697,6 +1697,6 @@ int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e)
     if (nodes_.syntax_ver >= syntax_ver)
         return 0;
     ex_set(e, EX_SYNTAX_ERROR,
-            "not all nodes are running the required "TI_SYNTAX, syntax_ver);
+            "not all nodes are running the required "TI_QBIND, syntax_ver);
     return e->nr;
 }

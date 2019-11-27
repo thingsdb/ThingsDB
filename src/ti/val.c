@@ -105,11 +105,11 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) ti_things_thing_t_from_unp(vup, e);
     case TI_KIND_C_CLOSURE:
     {
-        ti_syntax_t syntax = {
+        ti_qbind_t syntax = {
                 .val_cache_n = 0,
                 .flags = vup->collection
-                    ? TI_SYNTAX_FLAG_COLLECTION
-                    : TI_SYNTAX_FLAG_THINGSDB,
+                    ? TI_QBIND_FLAG_COLLECTION
+                    : TI_QBIND_FLAG_THINGSDB,
         };
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
         {

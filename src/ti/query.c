@@ -10,6 +10,7 @@
 #include <ti.h>
 #include <ti/collections.h>
 #include <ti/do.h>
+#include <ti/query.inline.h>
 #include <ti/procedures.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
@@ -135,12 +136,12 @@ static void query__event_handle(ti_query_t * query)
     ti_epkg_drop(epkg);
 }
 
-static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
+int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
 {
     switch (scope->tp)
     {
     case TI_SCOPE_COLLECTION_NAME:
-        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
@@ -153,7 +154,7 @@ static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
-        query->syntax.flags |= TI_SYNTAX_FLAG_COLLECTION;
+        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_id(scope->via.collection_id);
         if (query->collection)
             ti_incref(query->collection);
@@ -162,10 +163,10 @@ static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
                     scope->via.collection_id);
         return e->nr;
     case TI_SCOPE_NODE:
-        query->syntax.flags |= TI_SYNTAX_FLAG_NODE;
+        query->qbind.flags |= TI_QBIND_FLAG_NODE;
         return e->nr;
     case TI_SCOPE_THINGSDB:
-        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
         return e->nr;
     }
 
@@ -173,20 +174,23 @@ static int query__set_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
-ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user)
+ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
 {
     ti_query_t * query = malloc(sizeof(ti_query_t));
     if (!query)
         return NULL;
 
     query->rval = NULL;
-    query->syntax.flags = 0;
-    query->syntax.deep = 1;
-    query->syntax.val_cache_n = 0;
+    query->qbind.flags = flags;
+    query->qbind.deep = 1;
+    query->qbind.val_cache_n = 0;
     query->collection = NULL;  /* node or thingsdb when NULL */
     query->parseres = NULL;
     query->closure = NULL;
-    query->stream = ti_grab(stream);
+    if (query->qbind.flags & TI_QBIND_FLAG_API)
+        query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
+    else
+        query->via.stream = ti_grab((ti_stream_t *) via);
     query->user = ti_grab(user);
     query->ev = NULL;
     query->querystr = NULL;
@@ -218,7 +222,10 @@ void ti_query_destroy(ti_query_t * query)
     vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
     ti_val_drop((ti_val_t *) query->closure);
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
-    ti_stream_drop(query->stream);
+    if (query->qbind.flags & TI_QBIND_FLAG_API)
+        ti_api_release(query->via.api_request);
+    else
+        ti_stream_drop(query->via.stream);
     ti_user_drop(query->user);
     ti_collection_drop(query->collection);
     ti_event_drop(query->ev);
@@ -228,7 +235,7 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-static int query__args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
+int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
 {
     size_t i, n;
     mp_obj_t obj, mp_key;
@@ -304,7 +311,7 @@ int ti_query_unpack(
     mp_unp_t up;
     mp_unp_init(&up, data, n);
 
-    query->syntax.pkg_id = pkg_id;
+    query->qbind.pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -317,7 +324,7 @@ int ti_query_unpack(
         return e->nr;
     }
 
-    if (query__set_scope(query, scope, e))
+    if (ti_query_apply_scope(query, scope, e))
         return e->nr;
 
     query->querystr = mp_strdup(&mp_query);
@@ -332,7 +339,7 @@ int ti_query_unpack(
             .collection = query->collection,
             .up = &up,
     };
-    return obj.via.sz == 2 ? 0 : query__args(query, &vup, e);
+    return obj.via.sz == 2 ? 0 : ti_query_unpack_args(query, &vup, e);
 }
 
 int ti_query_unp_run(
@@ -361,8 +368,8 @@ int ti_query_unp_run(
     assert (e->nr == 0);
     assert (query->val_cache == NULL);
 
-    query->syntax.flags |= TI_SYNTAX_FLAG_AS_PROCEDURE;
-    query->syntax.pkg_id = pkg_id;
+    query->qbind.flags |= TI_QBIND_FLAG_AS_PROCEDURE;
+    query->qbind.pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -385,13 +392,13 @@ int ti_query_unp_run(
                 DOC_PROCEDURES_API);
         return e->nr;
     case TI_SCOPE_THINGSDB:
-        query->syntax.flags |= TI_SYNTAX_FLAG_THINGSDB;
+        query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
         procedures = ti()->procedures;
         vup.collection = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
     case TI_SCOPE_COLLECTION_ID:
-        if (query__set_scope(query, scope, e))
+        if (ti_query_apply_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
         vup.collection = query->collection;
@@ -425,7 +432,7 @@ int ti_query_unp_run(
     }
 
     if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
-        query->syntax.flags |= TI_SYNTAX_FLAG_EVENT;
+        query->qbind.flags |= TI_QBIND_FLAG_EVENT;
 
     query->val_cache = vec_new(procedure->closure->vars->n);
     if (!query->val_cache)
@@ -505,16 +512,33 @@ int ti_query_investigate(ti_query_t * query, ex_t * e)
             ->children;
 
     /* list statements */
-    ti_syntax_probe(&query->syntax, seqchildren->next->node);
+    ti_qbind_probe(&query->qbind, seqchildren->next->node);
 
     /*
      * Create value cache for immutable, names and things.
      */
-    if (    query->syntax.val_cache_n &&
-            !(query->val_cache = vec_new(query->syntax.val_cache_n)))
+    if (    query->qbind.val_cache_n &&
+            !(query->val_cache = vec_new(query->qbind.val_cache_n)))
         ex_set_mem(e);
 
     return e->nr;
+}
+
+static void query__duration_log(
+        ti_query_t * query,
+        double duration,
+        int log_level)
+{
+    if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
+    {
+        log_with_level(log_level, "procedure took %f seconds to process: `%s`",
+                duration,
+                query->closure->node->str);
+        return;
+    }
+    log_with_level(log_level, "query took %f seconds to process: `%s`",
+            duration,
+            query->querystr);
 }
 
 void ti_query_run(ti_query_t * query)
@@ -524,12 +548,12 @@ void ti_query_run(ti_query_t * query)
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
+    if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
         {
             assert (query->ev);
-            query->syntax.flags |= TI_SYNTAX_FLAG_WSE;
+            query->qbind.flags |= TI_QBIND_FLAG_WSE;
         }
         (void) ti_closure_call(query->closure, query, query->val_cache, &e);
         goto stop;
@@ -571,24 +595,12 @@ stop:
     ti_query_send(query, &e);
 }
 
-static void query__duration_log(
-        ti_query_t * query,
-        double duration,
-        int log_level)
+void ti_query_send_response(ti_query_t * query, ex_t * e)
 {
-    if (query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE)
-    {
-        log_with_level(log_level, "procedure took %f seconds to process: `%s`",
-                duration,
-                query->closure->node->str);
-        return;
-    }
-    log_with_level(log_level, "query took %f seconds to process: `%s`",
-            duration,
-            query->querystr);
+
 }
 
-void ti_query_send(ti_query_t * query, ex_t * e)
+void ti_query_send_pkg(ti_query_t * query, ex_t * e)
 {
     double duration, warn = ti()->cfg->query_duration_warn;
     ti_pkg_t * pkg;
@@ -608,7 +620,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(query->rval, &pk, (int) query->syntax.deep))
+    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
     {
         msgpack_sbuffer_destroy(&buffer);
         ex_set_mem(e);
@@ -628,7 +640,7 @@ void ti_query_send(ti_query_t * query, ex_t * e)
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,
-            query->syntax.pkg_id,
+            query->qbind.pkg_id,
             TI_PROTO_CLIENT_RES_QUERY,
             buffer.size);
 
@@ -636,17 +648,18 @@ void ti_query_send(ti_query_t * query, ex_t * e)
 
 pkg_err:
     log_debug("query failed: `%s`",
-            query->syntax.flags & TI_SYNTAX_FLAG_AS_PROCEDURE
+            query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
             ? query->closure->node->str
             : query->querystr);
 
     ++ti()->counters->queries_with_error;
-    pkg = ti_pkg_client_err(query->syntax.pkg_id, e);
+    pkg = ti_pkg_client_err(query->qbind.pkg_id, e);
 
 finish:
-    if (!pkg || ti_stream_write_pkg(query->stream, pkg))
+    if (!pkg || ti_stream_write_pkg(query->via.stream, pkg))
     {
         free(pkg);
+        ex_set_mem(e);
         log_critical(EX_MEMORY_S);
     }
 

@@ -15,8 +15,9 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/prop.h>
 #include <ti/raw.h>
 #include <ti/user.h>
-#include <ti/syntax.h>
+#include <ti/qbind.h>
 #include <ti/stream.h>
+#include <ti/api.h>
 #include <ti/chain.h>
 #include <ti/scope.h>
 #include <ti/closure.h>
@@ -29,7 +30,7 @@ typedef int (*ti_query_unpack_cb) (
         size_t,
         ex_t *);
 
-ti_query_t * ti_query_create(ti_stream_t * stream, ti_user_t * user);
+ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags);
 void ti_query_destroy(ti_query_t * query);
 int ti_query_unpack(
         ti_query_t * query,
@@ -48,7 +49,10 @@ int ti_query_unp_run(
 int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
-void ti_query_send(ti_query_t * query, ex_t * e);
+void ti_query_send_response(ti_query_t * query, ex_t * e);
+void ti_query_send_pkg(ti_query_t * query, ex_t * e);
+int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e);
+int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
@@ -58,9 +62,15 @@ size_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
 
+typedef union
+{
+    ti_stream_t * stream;               /* with reference */
+    ti_api_request_t * api_request;     /* with ownership of the api_request */
+} ti_query_via_t;
+
 struct ti_query_s
 {
-    ti_syntax_t syntax;             /* syntax binding */
+    ti_qbind_t qbind;               /* query binding */
     ti_chain_t chain;               /* ti_chain_t */
     ti_val_t * rval;                /* return value of a statement */
     ti_collection_t * collection;   /* with reference, NULL when the scope is
@@ -69,7 +79,7 @@ struct ti_query_s
     char * querystr;            /* 0 terminated query string */
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
-    ti_stream_t * stream;       /* with reference */
+    ti_query_via_t via;         /* with reference */
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
     vec_t * vars;               /* ti_prop_t - variable */
@@ -82,16 +92,16 @@ struct ti_query_s
 
 static inline _Bool ti_query_will_update(ti_query_t * query)
 {
-    return query->syntax.flags & TI_SYNTAX_FLAG_EVENT;
+    return query->qbind.flags & TI_QBIND_FLAG_EVENT;
 }
 
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
-    return query->syntax.flags & TI_SYNTAX_FLAG_NODE
+    return query->qbind.flags & TI_QBIND_FLAG_NODE
             ? "@node"
-            : query->syntax.flags & TI_SYNTAX_FLAG_THINGSDB
+            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
             ? "@thingsdb"
-            : query->syntax.flags & TI_SYNTAX_FLAG_COLLECTION
+            : query->qbind.flags & TI_QBIND_FLAG_COLLECTION
             ? "@collection"
             : "<unknown>";
 }

@@ -9,14 +9,6 @@
 #include <ti.h>
 #include <ti/query.h>
 
-static inline void ti_query_send(ti_query_t * query, ex_t * e)
-{
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
-        ti_query_send_response(query, e);
-    else
-        ti_query_send_pkg(query, e);
-}
-
 static inline vec_t * ti_query_access(ti_query_t * query)
 {
     return query->qbind.flags & TI_QBIND_FLAG_COLLECTION

@@ -33,6 +33,7 @@
 #include <util/mpack.h>
 #include <util/strx.h>
 #include <util/util.h>
+#include <yajl/yajl_version.h>
 
 ti_t ti_;
 
@@ -761,11 +762,12 @@ int ti_this_node_to_pk(msgpack_packer * pk)
 {
     struct timespec timing;
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
+    int yv = yajl_version();
 
     double uptime = util_time_diff(&ti_.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 30) ||
+        msgpack_pack_map(pk, 31) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti_.node->id) ||
@@ -861,7 +863,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
                 : mp_pack_str(pk, "disabled")) ||
         /* 30 */
         mp_pack_str(pk, "scheduled_backups") ||
-        msgpack_pack_uint64(pk, ti_backups_scheduled())
+        msgpack_pack_uint64(pk, ti_backups_scheduled()) ||
+        /* 31 */
+        mp_pack_str(pk, "yajl_version") ||
+        mp_pack_fmt(pk, "%d.%d.%d", yv/10000, yv%10000/100, yv%100)
     );
 }
 

@@ -23,6 +23,9 @@ static const int base64__idx[256] = {
         37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
 };
 
+static const unsigned char base64__table[65] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
 {
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
@@ -42,6 +45,9 @@ void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
     raw->n = total_n - sizeof(ti_raw_t);
 }
 
+/*
+ * decode
+ */
 ti_raw_t * ti_bytes_from_base64(const void * data, size_t n)
 {
     const unsigned char * p = data;
@@ -83,6 +89,55 @@ ti_raw_t * ti_bytes_from_base64(const void * data, size_t n)
     r->tp = TI_VAL_BYTES;
     r->n = j;
 
+    return r;
+}
+
+/*
+ * encode
+ */
+ti_raw_t * ti_str_base64_from_raw(ti_raw_t * src)
+{
+    ti_raw_t * r;
+    unsigned char * pos;
+    const unsigned char * end, * in;
+    size_t olen = 4 * ((src->n + 2) / 3); /* 3-byte blocks to 4-byte */
+
+    if (olen < src->n || !(r = malloc(sizeof(ti_raw_t) + olen)))
+        /* integer overflow or allocation error */
+        return NULL;
+
+    end = src->data + src->n;
+    in = src->data;
+    pos = r->data;
+
+    while (end - in >= 3)
+    {
+        *pos++ = base64__table[in[0] >> 2];
+        *pos++ = base64__table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+        *pos++ = base64__table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+        *pos++ = base64__table[in[2] & 0x3f];
+        in += 3;
+    }
+
+    if (end - in)
+    {
+        *pos++ = base64__table[in[0] >> 2];
+        if (end - in == 1)
+        {
+            *pos++ = base64__table[(in[0] & 0x03) << 4];
+            *pos++ = '=';
+        }
+        else
+        {
+            *pos++ = base64__table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+            *pos++ = base64__table[(in[1] & 0x0f) << 2];
+        }
+        *pos++ = '=';
+    }
+
+    r->ref = 1;
+    r->tp = TI_VAL_STR;
+    r->n = pos - r->data;
     return r;
 }
 

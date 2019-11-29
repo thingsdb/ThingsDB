@@ -174,7 +174,7 @@ char * fx_get_exec_path(void)
             goto failed;
         if (rc < (ssize_t) buffer_sz)
             break;
-        buffer_sz *= 2;
+        buffer_sz <<= 1;
         tmp = realloc(buffer, buffer_sz);
         if (!tmp)
             goto failed;

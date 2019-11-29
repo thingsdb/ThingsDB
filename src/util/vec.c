@@ -72,21 +72,19 @@ int vec_push(vec_t ** vaddr, void * data)
     vec_t * vec = *vaddr;
     if (vec->n == vec->sz)
     {
-        size_t sz = vec->sz;
+        size_t prev = vec->sz;
 
-        if (sz < 2)
-            vec->sz++;
-        else if (sz < 64)
-            vec->sz *= 2;
+        if (prev)
+            vec->sz <<= 1;
         else
-            vec->sz += 64;
+            vec->sz = 1;  /* the first item */
 
         vec_t * tmp = realloc(vec, sizeof(vec_t) + vec->sz * sizeof(void*));
 
         if (!tmp)
         {
             /* restore original size */
-            vec->sz = sz;
+            vec->sz = prev;
             return -1;
         }
 

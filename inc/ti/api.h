@@ -14,7 +14,7 @@
 
 typedef enum
 {
-    TI_API_CT_UNKNOWN,
+    TI_API_CT_TEXT,
     TI_API_CT_JSON,
     TI_API_CT_MSGPACK,
 } ti_api_content_t;
@@ -28,9 +28,11 @@ typedef enum
 
 typedef enum
 {
-    TI_API_FLAG_IS_CLOSED,
-    TI_API_FLAG_IN_USE,
-    TI_API_FLAG_INVALID_SCOPE,
+    TI_API_FLAG_IS_CLOSED       =1<<0,
+    TI_API_FLAG_IN_USE          =1<<1,
+    TI_API_FLAG_INVALID_SCOPE   =1<<2,
+    TI_API_FLAG_JSON_BEAUTY     =1<<3,
+    TI_API_FLAG_JSON_UTF8       =1<<4,
 } ti_api_flags_t;
 
 typedef struct ti_api_request_s ti_api_request_t;
@@ -38,7 +40,8 @@ typedef struct ti_api_request_s ti_api_request_t;
 int ti_api_init(void);
 ti_api_request_t * ti_api_acquire(ti_api_request_t * api_request);
 void ti_api_release(ti_api_request_t * api_request);
-int ti_api_close_with_err(ti_api_request_t * api_request);
+int ti_api_close_with_msgpack(ti_api_request_t * ar, void * data, size_t size);
+int ti_api_close_with_err(ti_api_request_t * api_request, ex_t * e);
 void ti_api_close(ti_api_request_t * api_request);
 
 struct ti_api_request_s
@@ -56,6 +59,11 @@ struct ti_api_request_s
     char * content;
     ti_user_t * user;
 };
+
+static inline _Bool ti_api_is_closed(ti_api_request_t * ar)
+{
+    return ar->flags & TI_API_FLAG_IS_CLOSED;
+}
 
 static inline _Bool ti_api_is_handle(uv_handle_t * handle)
 {

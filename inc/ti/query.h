@@ -50,7 +50,6 @@ int ti_query_parse(ti_query_t * query, ex_t * e);
 int ti_query_investigate(ti_query_t * query, ex_t * e);
 void ti_query_run(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
-void ti_query_send_pkg(ti_query_t * query, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e);
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);

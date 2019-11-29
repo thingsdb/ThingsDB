@@ -10,7 +10,6 @@
 #include <ti.h>
 #include <ti/collections.h>
 #include <ti/do.h>
-#include <ti/query.inline.h>
 #include <ti/procedures.h>
 #include <ti/epkg.h>
 #include <ti/proto.h>
@@ -592,17 +591,44 @@ stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_send(query, &e);
+    ti_query_send_response(query, &e);
 }
 
-void ti_query_send_response(ti_query_t * query, ex_t * e)
+static int query__response_msgpack(ti_query_t * query, ex_t * e)
 {
+    ti_api_request_t * ar = query->via.api_request;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t alloc = 24;
 
+    if (e->nr)
+        goto response_err;
+
+    ti_val_may_change_pack_sz(query->rval, &alloc);
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, 0))
+    {
+        ex_set_mem(e);
+        goto response_err;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        ex_set_mem(e);
+        goto response_err;
+    }
+
+    return ti_api_close_with_msgpack(ar, buffer.data, buffer.size);
+
+response_err:
+    return -(ti_api_close_with_err(ar, e) || 1);
 }
 
-void ti_query_send_pkg(ti_query_t * query, ex_t * e)
+static int query__response_pkg(ti_query_t * query, ex_t * e)
 {
-    double duration, warn = ti()->cfg->query_duration_warn;
     ti_pkg_t * pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -627,6 +653,59 @@ void ti_query_send_pkg(ti_query_t * query, ex_t * e)
         goto pkg_err;
     }
 
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg,
+            query->qbind.pkg_id,
+            TI_PROTO_CLIENT_RES_QUERY,
+            buffer.size);
+
+    if (ti_stream_write_pkg(query->via.stream, pkg))
+    {
+        free(pkg);
+        log_critical(EX_MEMORY_S);
+    }
+    return 0;
+
+pkg_err:
+    pkg = ti_pkg_client_err(query->qbind.pkg_id, e);
+    if (!pkg || ti_stream_write_pkg(query->via.stream, pkg))
+    {
+        free(pkg);
+        log_critical(EX_MEMORY_S);
+    }
+    return -1;
+}
+
+
+void ti_query_send_response(ti_query_t * query, ex_t * e)
+{
+    double duration, warn = ti()->cfg->query_duration_warn;
+
+    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    {
+        ti_api_request_t * ar = query->via.api_request;
+
+        switch (ar->content_type)
+        {
+        case TI_API_CT_TEXT:
+            assert(0);
+            return;
+        case TI_API_CT_JSON:
+            assert(0);
+            return;
+        case TI_API_CT_MSGPACK:
+            if (query__response_msgpack(query, e))
+                goto failed;
+            goto success;
+        }
+        assert (0);
+        goto failed;
+    }
+
+    if (query__response_pkg(query, e))
+        goto failed;
+
+success:
     duration = ti_counters_upd_success_query(&query->time);
     if (warn && duration > warn)
     {
@@ -637,32 +716,17 @@ void ti_query_send_pkg(ti_query_t * query, ex_t * e)
                 derror && duration > derror ? LOGGER_ERROR : LOGGER_WARNING
         );
     }
+    goto done;
 
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg,
-            query->qbind.pkg_id,
-            TI_PROTO_CLIENT_RES_QUERY,
-            buffer.size);
-
-    goto finish;
-
-pkg_err:
+failed:
     log_debug("query failed: `%s`",
             query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
             ? query->closure->node->str
             : query->querystr);
 
     ++ti()->counters->queries_with_error;
-    pkg = ti_pkg_client_err(query->qbind.pkg_id, e);
 
-finish:
-    if (!pkg || ti_stream_write_pkg(query->via.stream, pkg))
-    {
-        free(pkg);
-        ex_set_mem(e);
-        log_critical(EX_MEMORY_S);
-    }
-
+done:
     ti_query_destroy(query);
 }
 

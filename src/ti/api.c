@@ -5,53 +5,60 @@
 #include <ti/api.h>
 #include <ti.h>
 #include <stdlib.h>
-#include <util/base64.h>
+#include <util/mpjson.h>
 #include <util/logger.h>
 #include <ti/auth.h>
 #include <ti/access.h>
 #include <ti/query.inline.h>
 
-#define NOK_RESPONSE \
-    "HTTP/1.1 503 Service Unavailable\r\n" \
-    "Content-Type: text/plain\r\n" \
-    "Content-Length: 4\r\n" \
-    "\r\n" \
-    "NOK\n"
 
-#define UNAUTHORIZED_RESPONSE \
-    "HTTP/1.1 401 Unauthorized\r\n" \
-    "Content-Type: text/plain\r\n" \
-    "Content-Length: 13\r\n" \
-    "\r\n" \
-    "UNAUTHORIZED\n"
-
-#define NFOUND_RESPONSE \
-    "HTTP/1.1 404 Not Found\r\n" \
-    "Content-Type: text/plain\r\n" \
-    "Content-Length: 10\r\n" \
-    "\r\n" \
-    "NOT FOUND\n"
-
-#define UNSUPPORTED_RESPONSE \
-    "HTTP/1.1 415 Unsupported Media Type\r\n" \
-    "Content-Type: text/plain\r\n" \
-    "Content-Length: 23\r\n" \
-    "\r\n" \
-    "UNSUPPORTED MEDIA TYPE\n"
-
+#define API_HEADER_MAX_SZ 256
 
 #define CONTENT_TYPE_JSON "application/json"
 #define CONTENT_TYPE_MSGPACK "application/msgpack"
 
+static const char api__content_type[3][20] = {
+        "text/plain",
+        "application/json",
+        "application/msgpack",
+};
+
+static const char api__html_header[8][32] = {
+        "200 OK",
+        "400 Bad Request",
+        "401 Unauthorized",
+        "403 Forbidden",
+        "404 Not Found",
+        "415 Unsupported Media Type",
+        "500 Internal Server Error",
+        "503 Service Unavailable",
+};
+
+static const char api__default_body[8][30] = {
+        "OK\r\n",
+        "BAD REQUEST\r\n",
+        "UNAUTHORIZED\r\n",
+        "FORBIDDEN\r\n",
+        "NOT FOUND\r\n",
+        "UNSUPPORTED MEDIA TYPE\r\n",
+        "INTERNAL SERVER ERROR\r\n",
+        "SERVICE UNAVAILABLE\r\n",
+};
+
+typedef enum
+{
+    E200_OK,
+    E400_BAD_REQUEST,
+    E401_UNAUTHORIZED,
+    E403_FORBIDDEN,
+    E404_NOT_FOUND,
+    E415_UNSUPPORTED_MEDIA_TYPE,
+    E500_INTERNAL_SERVER_ERROR,
+    E503_SERVICE_UNAVAILABLE
+} api__header_t;
 
 #define API__ICMP_WITH(__s, __n, __w) \
     __n == strlen(__w) && strncasecmp(__s, __w, __n) == 0
-
-/* static response buffers */
-static uv_buf_t api__uv_nok_buf;
-static uv_buf_t api__uv_unauthorized_buf;
-static uv_buf_t api__uv_nfound_buf;
-static uv_buf_t api__uv_unsupported_buf;
 
 static uv_tcp_t api__uv_server;
 static http_parser_settings api__settings;
@@ -71,10 +78,10 @@ static inline _Bool api__starts_with(
 
 static void api__close_cb(uv_handle_t * handle)
 {
-    ti_api_request_t * api_request = handle->data;
-    ti_user_drop(api_request->user);
-    free(api_request->content);
-    free(api_request);
+    ti_api_request_t * ar = handle->data;
+    ti_user_drop(ar->user);
+    free(ar->content);
+    free(ar);
 }
 
 static void api__alloc_cb(
@@ -92,9 +99,9 @@ static void api__data_cb(
         const uv_buf_t * buf)
 {
     size_t parsed;
-    ti_api_request_t * api_request = uvstream->data;
+    ti_api_request_t * ar = uvstream->data;
 
-    if (api_request->flags & TI_API_FLAG_IS_CLOSED)
+    if (ar->flags & TI_API_FLAG_IS_CLOSED)
         goto done;
 
     if (n < 0)
@@ -102,18 +109,18 @@ static void api__data_cb(
         if (n != UV_EOF)
             log_error(uv_strerror(n));
 
-        ti_api_close(api_request);
+        ti_api_close(ar);
         goto done;
     }
 
     buf->base[HTTP_MAX_HEADER_SIZE-1] = '\0';
 
     parsed = http_parser_execute(
-            &api_request->parser,
+            &ar->parser,
             &api__settings,
             buf->base, n);
 
-    if (api_request->parser.upgrade)
+    if (ar->parser.upgrade)
     {
         /* TODO: do we need to do something? */
         log_debug("upgrade to a new protocol");
@@ -121,7 +128,7 @@ static void api__data_cb(
     else if (parsed != (size_t) n)
     {
         log_warning("error parsing HTTP API request");
-        ti_api_close(api_request);
+        ti_api_close(ar);
     }
 
 done:
@@ -131,7 +138,7 @@ done:
 static void api__connection_cb(uv_stream_t * server, int status)
 {
     int rc;
-    ti_api_request_t * api_request;
+    ti_api_request_t * ar;
 
     if (status < 0)
     {
@@ -141,47 +148,46 @@ static void api__connection_cb(uv_stream_t * server, int status)
 
     log_debug("received a HTTP API call");
 
-    api_request = calloc(1, sizeof(ti_api_request_t));
-    if (!api_request)
+    ar = calloc(1, sizeof(ti_api_request_t));
+    if (!ar)
     {
         log_critical(EX_MEMORY_S);
         return;
     }
 
-    (void) uv_tcp_init(ti()->loop, (uv_tcp_t *) &api_request->uvstream);
+    (void) uv_tcp_init(ti()->loop, (uv_tcp_t *) &ar->uvstream);
 
-    api_request->_id = TI_API_IDENTIFIER;
-    api_request->uvstream.data = api_request;
-    api_request->parser.data = api_request;
+    ar->_id = TI_API_IDENTIFIER;
+    ar->uvstream.data = ar;
+    ar->parser.data = ar;
 
-    rc = uv_accept(server, &api_request->uvstream);
+    rc = uv_accept(server, &ar->uvstream);
     if (rc)
     {
         log_error("cannot accept HTTP API request: `%s`", uv_strerror(rc));
-        ti_api_close(api_request);
+        ti_api_close(ar);
         return;
     }
 
-    http_parser_init(&api_request->parser, HTTP_REQUEST);
+    http_parser_init(&ar->parser, HTTP_REQUEST);
 
-    rc = uv_read_start(&api_request->uvstream, api__alloc_cb, api__data_cb);
+    rc = uv_read_start(&ar->uvstream, api__alloc_cb, api__data_cb);
     if (rc)
     {
         log_error("cannot read HTTP API request: `%s`", uv_strerror(rc));
-        ti_api_close(api_request);
+        ti_api_close(ar);
         return;
     }
 }
 
 static int api__url_cb(http_parser * parser, const char * at, size_t n)
 {
-    ti_scope_t scope;
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
-    if (ti_scope_init_uri(&scope, at, n))
+    if (ti_scope_init_uri(&ar->scope, at, n))
     {
         log_debug("URI (scope) not found: %.*s", (int) n, at);
-        api_request->flags |= TI_API_FLAG_INVALID_SCOPE;
+        ar->flags |= TI_API_FLAG_INVALID_SCOPE;
     }
 
     return 0;
@@ -189,29 +195,29 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
 
 static int api__header_field_cb(http_parser * parser, const char * at, size_t n)
 {
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
     if (API__ICMP_WITH(at, n, "content-type"))
     {
-        api_request->state = TI_API_STATE_CONTENT_TYPE;
+        ar->state = TI_API_STATE_CONTENT_TYPE;
         return 0;
     }
 
     if (API__ICMP_WITH(at, n, "authorization"))
     {
-        api_request->state = TI_API_STATE_AUTHORIZATION;
+        ar->state = TI_API_STATE_AUTHORIZATION;
         return 0;
     }
 
-    api_request->state = TI_API_STATE_NONE;
+    ar->state = TI_API_STATE_NONE;
     return 0;
 }
 
 static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
 {
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
-    switch (api_request->state)
+    switch (ar->state)
     {
     case TI_API_STATE_NONE:
         break;
@@ -219,13 +225,13 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
     case TI_API_STATE_CONTENT_TYPE:
         if (API__ICMP_WITH(at, n, CONTENT_TYPE_JSON))
         {
-            api_request->content_type = TI_API_CT_JSON;
+            ar->content_type = TI_API_CT_JSON;
             break;
         }
         if ((API__ICMP_WITH(at, n, CONTENT_TYPE_MSGPACK)) ||
             (API__ICMP_WITH(at, n, "application/x-msgpack")))
         {
-            api_request->content_type = TI_API_CT_MSGPACK;
+            ar->content_type = TI_API_CT_MSGPACK;
             break;
         }
 
@@ -240,20 +246,20 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
             mp_t.tp = MP_STR;
             mp_t.via.str.n = n;
             mp_t.via.str.data = at;
-            api_request->user = ti_users_auth_by_token(&mp_t, &api_request->e);
+            ar->user = ti_users_auth_by_token(&mp_t, &ar->e);
 
-            if (api_request->user)
-                ti_incref(api_request->user);
+            if (ar->user)
+                ti_incref(ar->user);
 
             break;
         }
 
         if (api__starts_with(&at, &n, "basic ", strlen("basic ")))
         {
-            api_request->user = ti_users_auth_by_basic(at, n, &api_request->e);
+            ar->user = ti_users_auth_by_basic(at, n, &ar->e);
 
-            if (api_request->user)
-                ti_incref(api_request->user);
+            if (ar->user)
+                ti_incref(ar->user);
 
             break;
         }
@@ -266,13 +272,13 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
 
 static int api__headers_complete_cb(http_parser * parser)
 {
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
-    assert (!api_request->content);
+    assert (!ar->content);
 
-    api_request->content = malloc(parser->content_length);
-    if (api_request->content)
-        api_request->content_n = parser->content_length;
+    ar->content = malloc(parser->content_length);
+    if (ar->content)
+        ar->content_n = parser->content_length;
 
     return 0;
 }
@@ -280,14 +286,14 @@ static int api__headers_complete_cb(http_parser * parser)
 static int api__body_cb(http_parser * parser, const char * at, size_t n)
 {
     size_t offset;
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
-    if (!n || !api_request->content_n)
+    if (!n || !ar->content_n)
         return 0;
 
-    offset = api_request->content_n - (parser->content_length + n);
-    assert (offset + n <= api_request->content_n);
-    memcpy(api_request->content + offset, at, n);
+    offset = ar->content_n - (parser->content_length + n);
+    assert (offset + n <= ar->content_n);
+    memcpy(ar->content + offset, at, n);
 
     return 0;
 }
@@ -308,36 +314,55 @@ static void api__write_free_cb(uv_write_t * req, int status)
     api__write_cb(req, status);
 }
 
-void ti_api_err_response(ti_api_request_t * api_request)
+inline static int api__header(
+        char * ptr,
+        const api__header_t ht,
+        const ti_api_content_t ct,
+        size_t content_length)
 {
-    assert(api_request->e.nr);
-    assert(api_request->content_type);
-    free(api_request->content);
-}
-
-
-static int api__err(char ** ptr, const char * message, ex_t * e)
-{
-    return asprintf(
+    int len = sprintf(
         ptr,
-        "HTTP/1.1 %s\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: %zu\r\n"
-        "\r\n"
-        "%s (%04d)\n",
-        message,
-        e->n + strlen(" (-000)\n"),
-        e->msg,
-        e->nr);
+        "HTTP/1.1 %s\r\n" \
+        "Content-Type: %s\r\n" \
+        "Content-Length: %zu\r\n" \
+        "\r\n",
+        api__html_header[ht],
+        api__content_type[ct],
+        content_length);
+    return len;
 }
 
-int ti_api_close_with_err(ti_api_request_t * api_request)
+static inline int api__err_body(char ** ptr, ex_t * e)
 {
-    assert (api_request->e.nr);
+    return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
+}
 
-    char * response = NULL;
-    int size = 0;
-    ex_t * e = &api_request->e;
+int ti_api_close_with_msgpack(ti_api_request_t * ar, void * data, size_t size)
+{
+    char header[API_HEADER_MAX_SZ];
+    int header_size = 0;
+
+    header_size = api__header(header, E200_OK, TI_API_CT_MSGPACK, size);
+
+    uv_buf_t uvbufs[2] = {
+            uv_buf_init(header, (unsigned int) header_size),
+            uv_buf_init(data, size),
+    };
+
+    /* bind response to request to we can free in the callback */
+    ar->req.data = data;
+
+    uv_write(&ar->req, &ar->uvstream, uvbufs, 2, api__write_free_cb);
+    return 0;
+}
+
+int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
+{
+    assert (e->nr);
+
+    char header[API_HEADER_MAX_SZ];
+    char * body = NULL;
+    int header_size = 0, body_size = 0;
 
     switch (e->nr)
     {
@@ -352,16 +377,36 @@ int ti_api_close_with_err(ti_api_request_t * api_request)
     case EX_BAD_DATA:
     case EX_SYNTAX_ERROR:
     case EX_ASSERT_ERROR:
-        size = api__err(&response, "400 Bad Request", e);
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E400_BAD_REQUEST,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
         break;
     case EX_AUTH_ERROR:
-        size = api__err(&response, "401 Unauthorized", e);
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E401_UNAUTHORIZED,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
         break;
     case EX_FORBIDDEN:
-        size = api__err(&response, "403 Forbidden", e);
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E403_FORBIDDEN,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
         break;
     case EX_NODE_ERROR:
-        size = api__err(&response, "503 Service Unavailable", e);
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E503_SERVICE_UNAVAILABLE,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
         break;
     case EX_RESULT_TOO_LARGE:
     case EX_REQUEST_TIMEOUT:
@@ -369,7 +414,12 @@ int ti_api_close_with_err(ti_api_request_t * api_request)
     case EX_WRITE_UV:
     case EX_MEMORY:
     case EX_INTERNAL:
-        size = api__err(&response, "500 Internal Server Error", e);
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E500_INTERNAL_SERVER_ERROR,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
         break;
 
     case EX_SUCCESS:
@@ -377,25 +427,28 @@ int ti_api_close_with_err(ti_api_request_t * api_request)
         assert (0);
     }
 
-    if (size > 0)
+    if (header_size > 0 && body_size > 0)
     {
-        uv_buf_t uvbuf = uv_buf_init(response, (unsigned int) size);
+        uv_buf_t uvbufs[2] = {
+                uv_buf_init(header, (unsigned int) header_size),
+                uv_buf_init(body, (unsigned int) body_size),
+        };
 
         /* bind response to request to we can free in the callback */
-        api_request->req.data = response;
+        ar->req.data = body;
 
         (void) uv_write(
-                &api_request->req,
-                &api_request->uvstream,
-                &uvbuf,
-                1,
+                &ar->req,
+                &ar->uvstream,
+                uvbufs,
+                2,
                 api__write_free_cb);
         return 0;
     }
 
     /* error, close */
-    free(response);
-    ti_api_close(api_request);
+    free(body);
+    ti_api_close(ar);
     return -1;
 }
 
@@ -408,35 +461,235 @@ typedef struct
     mp_obj_t mp_vars;
 } api__req_t;
 
-static int api__run(ti_api_request_t * api_request, api__req_t * req)
+
+static int api__gen_query_data(
+        ti_api_request_t * ar,
+        api__req_t * req,
+        unsigned char ** data,
+        size_t * size)
 {
-    ex_t * e = &api_request->e;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, 0, 0);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (msgpack_pack_array(&pk, 2 + !!req->mp_vars.tp))
+        goto fail;
+
+    switch (ar->scope.tp)
+    {
+    case TI_SCOPE_THINGSDB:
+        if (mp_pack_str(&pk, "@t"))
+            goto fail;
+        break;
+    case TI_SCOPE_NODE:
+        if (mp_pack_fmt(&pk, "@n:%d", ar->scope.via.node_id))
+            goto fail;
+        break;
+    case TI_SCOPE_COLLECTION_NAME:
+        if (mp_pack_fmt(&pk, "@:%.*s",
+                (int) ar->scope.via.collection_name.sz,
+                ar->scope.via.collection_name.name))
+            goto fail;
+        break;
+    case TI_SCOPE_COLLECTION_ID:
+        if (mp_pack_fmt(&pk, "@:%"PRIu64, ar->scope.via.collection_id))
+            goto fail;
+    }
+
+    if (mp_pack_strn(&pk, req->mp_query.via.str.data, req->mp_query.via.str.n))
+        goto fail;
+
+    if (req->mp_vars.tp == MP_BIN &&
+        mp_pack_append(&pk, req->mp_vars.via.bin.data, req->mp_vars.via.bin.n))
+        goto fail;
+
+    *data = (unsigned char *) buffer.data;
+    *size = buffer.size;
+
+    return 0;
+
+fail:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+static ti_pkg_t * api__gen_fwd_pkg(
+        ti_api_request_t * ar,
+        api__req_t * req,
+        ti_proto_enum_t proto)
+{
+    ti_pkg_t * pkg;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    unsigned char * data;
+    size_t size;
+
+    if (mp_sbuffer_alloc_init(&buffer, 128 + ar->content_n, sizeof(ti_pkg_t)))
+        return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    /* some extra size for setting the raw size + user_id */
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, ar->user->id);
+
+    if (api__gen_query_data(ar, req, &data, &size) ||
+        mp_pack_bin(&pk, data, size))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    free(data);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, proto, buffer.size);
+
+    return pkg;
+}
+
+static void api__fwd_cb(ti_req_t * req, ex_enum status)
+{
+    ti_api_request_t * ar = req->data;
+    _Bool is_closed = ti_api_is_closed(ar);
+    size_t size;
+    char * data;
+
+    ti_api_release(ar);
+
+    if (is_closed)
+        goto done;
+
+    if (status)
+    {
+        ex_set(&ar->e, status, ex_str(status));
+        goto fail;
+    }
+
+    size = req->pkg_res->n;
+    data = malloc(size);
+    if (!data)
+    {
+        ex_set_mem(&ar->e);
+        goto fail;
+    }
+
+    memcpy(data, req->pkg_res->data, size);
+    ti_api_close_with_msgpack(ar, data, size);
+
+    goto done;
+
+fail:
+    ti_api_close_with_err(ar, &ar->e);
+done:
+    ti_req_destroy(req);
+}
+
+static int api__fwd(ti_api_request_t * ar, ti_node_t * to_node, ti_pkg_t * pkg)
+{
+    ti_api_acquire(ar);
+
+    if (ti_req_create(
+            to_node->stream,
+            pkg,
+            TI_PROTO_NODE_REQ_FWD_TIMEOUT,
+            api__fwd_cb,
+            ar))
+    {
+        ti_api_release(ar);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int api__run(ti_api_request_t * ar, api__req_t * req)
+{
+    ex_t * e = &ar->e;
     return e->nr;
 }
 
-static int api__query(ti_api_request_t * api_request, api__req_t * req)
+static int api__query(ti_api_request_t * ar, api__req_t * req)
 {
+    ti_pkg_t * pkg;
     vec_t * access_;
-    ti_query_t * query;
-    ex_t * e = &api_request->e;
+    ti_query_t * query = NULL;
+    ti_node_t * this_node = ti()->node, * other_node;
+    ex_t * e = &ar->e;
 
     if (req->mp_query.tp != MP_STR)
         goto invalid_api_request;
 
-    if (req->mp_vars.tp && req->mp_vars.tp != MP_MAP)
-        goto invalid_api_request;
+    if (ar->scope.tp == TI_SCOPE_NODE)
+    {
+        if (ar->scope.via.node_id == this_node->id)
+            goto query;
+
+        other_node = ti_nodes_node_by_id(ar->scope.via.node_id);
+        if (!other_node)
+        {
+            ex_set(e, EX_LOOKUP_ERROR, TI_NODE_ID" does not exist",
+                    ar->scope.via.node_id);
+            return e->nr;
+        }
+
+        if (other_node->status <= TI_NODE_STAT_BUILDING)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    TI_NODE_ID" is not able to handle this request",
+                    ar->scope.via.node_id);
+            return e->nr;
+        }
+
+        pkg = api__gen_fwd_pkg(ar, req, TI_PROTO_NODE_REQ_QUERY);
+        if (!pkg || api__fwd(ar, other_node, pkg))
+        {
+            free(pkg);
+            ex_set_internal(e);
+            return e->nr;
+        }
+        /* the response to the client will be handled by a callback on the
+         * query forward request so we simply return;
+         */
+        return 0;
+    }
+
+    if (this_node->status < TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        other_node = ti_nodes_random_ready_node();
+        if (!other_node)
+        {
+            ti_nodes_set_not_ready_err(e);
+            return e->nr;
+        }
+
+        pkg = api__gen_fwd_pkg(ar, req, TI_PROTO_NODE_REQ_QUERY);
+        if (!pkg || api__fwd(ar, other_node, pkg))
+        {
+            free(pkg);
+            ex_set_internal(e);
+            return e->nr;
+        }
+
+        /* the response to the client will be handled by a callback on the
+         * query forward request so we simply return;
+         */
+        return 0;
+    }
 
 query:
-    query = ti_query_create(api_request, api_request->user, 0);
+    query = ti_query_create(ar, ar->user, TI_QBIND_FLAG_API);
 
     if (!query || !(query->querystr = mp_strdup(&req->mp_query)))
     {
         ex_set_mem(e);
-        goto finish;
+        goto failed;
     }
 
-    if (ti_query_apply_scope(query, &api_request->scope, e))
-        goto finish;
+    if (ti_query_apply_scope(query, &ar->scope, e))
+        goto failed;
 
     if (req->mp_vars.tp)
     {
@@ -449,7 +702,7 @@ query:
         };
 
         if (ti_query_unpack_args(query, &vup, e))
-            goto finish;
+            goto failed;
     }
 
     access_ = ti_query_access(query);
@@ -458,16 +711,17 @@ query:
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e) ||
         ti_query_parse(query, e) ||
         ti_query_investigate(query, e))
-        goto finish;
+        goto failed;
 
     if (ti_query_will_update(query))
     {
-        assert (api_request->scope.tp != TI_SCOPE_NODE);
+        assert (ar->scope.tp != TI_SCOPE_NODE);
 
         if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
             ti_events_create_new_event(query, e))
-            goto finish;
+            goto failed;
 
+        /* cleanup will be done by the event */
         return 0;
     }
 
@@ -476,19 +730,19 @@ query:
 
 invalid_api_request:
     ex_set(e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
-finish:
+failed:
     ti_query_destroy(query);
     return e->nr;
 }
 
-static void api__from_msgpack(ti_api_request_t * api_request)
+static int api__from_msgpack(ti_api_request_t * ar)
 {
     api__req_t request = {0};
     mp_unp_t up;
     mp_obj_t obj, mp_key;
-    ex_t * e = &api_request->e;
     size_t i;
-    mp_unp_init(&up, api_request->content, api_request->content_n);
+
+    mp_unp_init(&up, ar->content, ar->content_n);
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz < 2)
         goto invalid_api_request;
@@ -540,76 +794,84 @@ static void api__from_msgpack(ti_api_request_t * api_request)
 
     if (mp_str_eq(&request.mp_type, "query"))
     {
-        if (api__query(api_request, &request))
+        if (api__query(ar, &request))
             goto failed;
-        return;
+        return 0;
     }
 
     if (mp_str_eq(&request.mp_type, "run"))
     {
-        if (api__run(api_request, &request))
+        if (api__run(ar, &request))
             goto failed;
-        return;
+        return 0;
     }
 
 invalid_api_request:
-    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
+    ex_set(&ar->e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
 failed:
     ++ti()->counters->queries_with_error;
-    ti_api_close_with_err(api_request);
+    ti_api_close_with_err(ar, &ar->e);
+
+    return 0;
 }
 
+static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
+{
+    const char * body = api__default_body[ht];
+    char header[API_HEADER_MAX_SZ];
+    size_t body_size;
+    int header_size;
+
+    body_size = strlen(body);
+    header_size = api__header(header, ht, TI_API_CT_TEXT, body_size);
+    if (header_size > 0)
+    {
+        uv_buf_t uvbufs[2] = {
+                uv_buf_init(header, (size_t) header_size),
+                uv_buf_init((char *) body, body_size),
+        };
+
+        (void) uv_write(
+                &ar->req,
+                &ar->uvstream,
+                uvbufs, 2,
+                api__write_cb);
+        return 0;
+    }
+    return -1;
+}
 
 static int api__message_complete_cb(http_parser * parser)
 {
-    ti_api_request_t * api_request = parser->data;
+    ti_api_request_t * ar = parser->data;
 
-    if (api_request->flags & TI_API_FLAG_INVALID_SCOPE)
-    {
-        (void) uv_write(
-                &api_request->req,
-                &api_request->uvstream,
-                &api__uv_nfound_buf, 1,
-                api__write_cb);
-        return 0;
-    }
+    if (ar->flags & TI_API_FLAG_INVALID_SCOPE)
+        return api__plain_response(ar, E404_NOT_FOUND);
 
-    if (!api_request->user)
-    {
-        (void) uv_write(
-                &api_request->req,
-                &api_request->uvstream,
-                &api__uv_unauthorized_buf, 1,
-                api__write_cb);
-        return 0;
-    }
+    if (!ar->user)
+        return api__plain_response(ar, E401_UNAUTHORIZED);
 
-    switch (api_request->content_type)
+    switch (ar->content_type)
     {
-    case TI_API_CT_UNKNOWN:
-        (void) uv_write(
-                &api_request->req,
-                &api_request->uvstream,
-                &api__uv_unsupported_buf, 1,
-                api__write_cb);
-        return 0;
+    case TI_API_CT_TEXT:
+        return api__plain_response(ar, E415_UNSUPPORTED_MEDIA_TYPE);
     case TI_API_CT_JSON:
-        assert (0);
-        break;
+    {
+        char * data;
+        size_t size;
+        if (mpjson_json_to_mp(ar->content, ar->content_n, &data, &size))
+            break;
+        free(ar->content);
+        ar->content = data;
+        ar->content_n = size;
+    }
+    /* fall through */
     case TI_API_CT_MSGPACK:
-        assert (api_request->e.nr == 0);
-        api__from_msgpack(api_request);
-        return 0;
-
+        assert (ar->e.nr == 0);
+        return api__from_msgpack(ar);
     }
 
-    (void) uv_write(
-            &api_request->req,
-            &api_request->uvstream,
-            &api__uv_nok_buf, 1,
-            api__write_cb);
-
-    return 0;
+    return api__plain_response(ar, E500_INTERNAL_SERVER_ERROR);
 }
 
 static int api__chunk_header_cb(http_parser * parser)
@@ -634,15 +896,6 @@ int ti_api_init(void)
         return 0;
 
     (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
-
-    api__uv_nok_buf =
-            uv_buf_init(NOK_RESPONSE, strlen(NOK_RESPONSE));
-    api__uv_unauthorized_buf =
-            uv_buf_init(UNAUTHORIZED_RESPONSE, strlen(UNAUTHORIZED_RESPONSE));
-    api__uv_nfound_buf =
-            uv_buf_init(NFOUND_RESPONSE, strlen(NFOUND_RESPONSE));
-    api__uv_unsupported_buf =
-            uv_buf_init(UNSUPPORTED_RESPONSE, strlen(UNSUPPORTED_RESPONSE));
 
     api__settings.on_url = api__url_cb;
     api__settings.on_header_field = api__header_field_cb;
@@ -674,31 +927,31 @@ int ti_api_init(void)
     return 0;
 }
 
-ti_api_request_t * ti_api_acquire(ti_api_request_t * api_request)
+ti_api_request_t * ti_api_acquire(ti_api_request_t * ar)
 {
-    api_request->flags |= TI_API_FLAG_IN_USE;
-    return api_request;
+    ar->flags |= TI_API_FLAG_IN_USE;
+    return ar;
 }
 
-void ti_api_release(ti_api_request_t * api_request)
+void ti_api_release(ti_api_request_t * ar)
 {
-    api_request->flags &= ~TI_API_FLAG_IN_USE;
+    ar->flags &= ~TI_API_FLAG_IN_USE;
 
-    if (api_request->flags & TI_API_FLAG_IS_CLOSED)
-        uv_close((uv_handle_t *) &api_request->uvstream, api__close_cb);
+    if (ar->flags & TI_API_FLAG_IS_CLOSED)
+        uv_close((uv_handle_t *) &ar->uvstream, api__close_cb);
 }
 
-void ti_api_close(ti_api_request_t * api_request)
+void ti_api_close(ti_api_request_t * ar)
 {
-    if (!api_request || (api_request->flags & TI_API_FLAG_IS_CLOSED))
+    if (!ar || (ar->flags & TI_API_FLAG_IS_CLOSED))
         return;
 
-    api_request->flags |= TI_API_FLAG_IS_CLOSED;
+    ar->flags |= TI_API_FLAG_IS_CLOSED;
 
-    if (api_request->flags & TI_API_FLAG_IN_USE)
+    if (ar->flags & TI_API_FLAG_IN_USE)
         return;
 
-    uv_close((uv_handle_t *) &api_request->uvstream, api__close_cb);
+    uv_close((uv_handle_t *) &ar->uvstream, api__close_cb);
 }
 
 

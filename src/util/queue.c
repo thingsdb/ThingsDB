@@ -134,7 +134,8 @@ int queue_reserve(queue_t ** qaddr, size_t n)
          * It is important to resize with at least x2, otherwise the memcpy
          * later might fail.
          */
-        queue->sz *= 2;
+        queue->sz <<= 1;
+
         if (nn > queue->sz)
             queue->sz = nn;
 
@@ -287,8 +288,10 @@ static queue_t * queue__grow(queue_t * queue)
     queue_t * q;
     size_t sz = queue->sz;
 
-    queue->sz *= 2;
-    queue->sz += !queue->sz;
+    if (!sz)
+        queue->sz = 1;
+
+    queue->sz <<= 1;
 
     q = realloc(queue, sizeof(queue_t) + queue->sz * sizeof(void*));
     if (!q)

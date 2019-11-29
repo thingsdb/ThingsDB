@@ -18,15 +18,16 @@ int buf_append(buf_t * buf, const char * s, size_t n)
     if (buf->len + n > buf->cap)
     {
         char * tmp;
-        size_t nsize = buf->cap ? buf->cap * 2 : 8192;
+        size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
         while(nsize < buf->cap + n)
-            nsize *= 2;
+            nsize <<= 1;
 
 
         tmp = realloc(buf->data, nsize);
         if (!tmp)
             return -1;
+
         buf->data = tmp;
         buf->cap = nsize;
     }

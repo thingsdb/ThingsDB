@@ -5,7 +5,7 @@ import json
 import msgpack
 import pprint
 
-url = 'http://localhost:9210/node/1'
+url = 'http://localhost:9210/collection/stuff'
 fn = '/home/joente/Downloads/sqlsrv01.insignit.local.json'
 fn = '/home/joente/Downloads/test.json'
 
@@ -35,11 +35,11 @@ else:
 
 x = requests.post(
     url,
-    json={'type': 'query', 'query': '5 5 5;'},
+    json={'type': 'query', 'query': '5;'},
     auth=('admin', 'pass')
 )
 
 if x.status_code == 200:
-    pprint.pprint(x.json)
+    pprint.pprint(x.text)
 else:
     print(x.text)

@@ -594,7 +594,7 @@ stop:
     ti_query_send_response(query, &e);
 }
 
-static int query__response_msgpack(ti_query_t * query, ex_t * e)
+static int query__response_api(ti_query_t * query, ex_t * e)
 {
     ti_api_request_t * ar = query->via.api_request;
     msgpack_packer pk;
@@ -621,7 +621,7 @@ static int query__response_msgpack(ti_query_t * query, ex_t * e)
         goto response_err;
     }
 
-    return ti_api_close_with_msgpack(ar, buffer.data, buffer.size);
+    return ti_api_close_with_response(ar, buffer.data, buffer.size);
 
 response_err:
     return -(ti_api_close_with_err(ar, e) || 1);
@@ -676,36 +676,26 @@ pkg_err:
     return -1;
 }
 
+typedef int (*query__cb)(ti_query_t *, ex_t *);
 
 void ti_query_send_response(ti_query_t * query, ex_t * e)
 {
     double duration, warn = ti()->cfg->query_duration_warn;
+    query__cb cb = query->qbind.flags & TI_QBIND_FLAG_API
+            ? query__response_api
+            : query__response_pkg;
 
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    if (cb(query, e))
     {
-        ti_api_request_t * ar = query->via.api_request;
+        log_debug("query failed: `%s`",
+                query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
+                ? query->closure->node->str
+                : query->querystr);
 
-        switch (ar->content_type)
-        {
-        case TI_API_CT_TEXT:
-            assert(0);
-            return;
-        case TI_API_CT_JSON:
-            assert(0);
-            return;
-        case TI_API_CT_MSGPACK:
-            if (query__response_msgpack(query, e))
-                goto failed;
-            goto success;
-        }
-        assert (0);
-        goto failed;
+        ++ti()->counters->queries_with_error;
+        goto done;
     }
 
-    if (query__response_pkg(query, e))
-        goto failed;
-
-success:
     duration = ti_counters_upd_success_query(&query->time);
     if (warn && duration > warn)
     {
@@ -716,15 +706,6 @@ success:
                 derror && duration > derror ? LOGGER_ERROR : LOGGER_WARNING
         );
     }
-    goto done;
-
-failed:
-    log_debug("query failed: `%s`",
-            query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
-            ? query->closure->node->str
-            : query->querystr);
-
-    ++ti()->counters->queries_with_error;
 
 done:
     ti_query_destroy(query);

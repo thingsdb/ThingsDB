@@ -40,7 +40,7 @@ typedef struct ti_api_request_s ti_api_request_t;
 int ti_api_init(void);
 ti_api_request_t * ti_api_acquire(ti_api_request_t * api_request);
 void ti_api_release(ti_api_request_t * api_request);
-int ti_api_close_with_msgpack(ti_api_request_t * ar, void * data, size_t size);
+int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size);
 int ti_api_close_with_err(ti_api_request_t * api_request, ex_t * e);
 void ti_api_close(ti_api_request_t * api_request);
 

@@ -101,7 +101,7 @@ static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t * up)
 yajl_gen_status mpjson_mp_to_json(
         const void * src,
         size_t src_n,
-        const unsigned char ** dst,
+        unsigned char ** dst,
         size_t * dst_n,
         int flags)
 {
@@ -119,7 +119,9 @@ yajl_gen_status mpjson_mp_to_json(
     yajl_gen_config(g, yajl_gen_validate_utf8, flags & MPJSON_FLAG_VALIDATE_UTF8);
 
     if ((stat = mp__to_json(g, &up)) == yajl_status_ok)
-        yajl_gen_get_buf(g, dst, dst_n);
+    {
+        yajl_gen_get_buf(g, (const unsigned char **)dst, dst_n);
+    }
 
     yajl_gen_free(g);
     return stat;

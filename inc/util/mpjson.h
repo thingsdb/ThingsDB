@@ -120,7 +120,13 @@ yajl_gen_status mpjson_mp_to_json(
 
     if ((stat = mp__to_json(g, &up)) == yajl_status_ok)
     {
-        yajl_gen_get_buf(g, (const unsigned char **)dst, dst_n);
+        const unsigned char * tmp;
+        yajl_gen_get_buf(g, &tmp, dst_n);
+        *dst = malloc(*dst_n);
+        if (*dst)
+            memcpy(*dst, tmp, *dst_n);
+        else
+            stat = yajl_gen_in_error_state;
     }
 
     yajl_gen_free(g);
@@ -245,7 +251,7 @@ static void take_buffer(
     memset(buffer, 0, sizeof(msgpack_sbuffer));
 }
 
-int mpjson_json_to_mp(
+yajl_status mpjson_json_to_mp(
         const void * src,
         size_t src_n,
         char ** dst,
@@ -266,7 +272,6 @@ int mpjson_json_to_mp(
         goto fail1;
 
     stat = yajl_parse(hand, src, src_n);
-
     if (stat == yajl_status_ok)
         take_buffer(&buffer, dst, dst_n);
 

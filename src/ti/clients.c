@@ -378,9 +378,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         ti_node_t * other_node = ti_nodes_random_ready_node();
         if (!other_node)
         {
-            ex_set(&e, EX_NODE_ERROR,
-                    "node `%s` is unable to handle query requests",
-                    ti()->hostname);
+            ti_nodes_set_not_ready_err(&e);
             goto finish;
         }
 
@@ -408,12 +406,13 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     access_ = ti_query_access(query);
     assert (access_);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+            ti_events_create_new_event(query, &e))
             goto finish;
         return;
     }

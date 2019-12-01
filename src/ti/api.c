@@ -535,6 +535,72 @@ typedef struct
     mp_obj_t mp_vars;
 } api__req_t;
 
+static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
+{
+    switch (ar->scope.tp)
+    {
+    case TI_SCOPE_THINGSDB:
+        return mp_pack_str(pk, "@t");
+    case TI_SCOPE_NODE:
+        return mp_pack_fmt(pk, "@n:%d", ar->scope.via.node_id);
+    case TI_SCOPE_COLLECTION_NAME:
+        return mp_pack_fmt(pk, "@:%.*s",
+                (int) ar->scope.via.collection_name.sz,
+                ar->scope.via.collection_name.name);
+    case TI_SCOPE_COLLECTION_ID:
+        return mp_pack_fmt(pk, "@:%"PRIu64, ar->scope.via.collection_id);
+    }
+    return -1;
+}
+
+typedef int (*api__gen_data_cb)(
+        ti_api_request_t *,
+        api__req_t *,
+        unsigned char **,
+        size_t *);
+
+static int api__gen_run_data(
+        ti_api_request_t * ar,
+        api__req_t * req,
+        unsigned char ** data,
+        size_t * size)
+{
+    size_t i = 0;
+    mp_unp_t up;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, 0, 0);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (req->mp_args.tp == MP_BIN)
+    {
+        mp_obj_t obj;
+        mp_unp_init(&up, req->mp_args.via.bin.data, req->mp_args.via.bin.n);
+        mp_next(&up, &obj);
+        i = obj.via.sz;
+    }
+
+    if (msgpack_pack_array(&pk, 2 + i) ||
+        api__gen_scope(ar, &pk) ||
+        mp_pack_strn(
+                &pk,
+                req->mp_procedure.via.str.data,
+                req->mp_procedure.via.str.n))
+        goto fail;
+
+    if (i && mp_pack_append(&pk, up.pt, up.end- up.pt))
+        goto fail;
+
+    *data = (unsigned char *) buffer.data;
+    *size = buffer.size;
+
+    return 0;
+
+fail:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
 
 static int api__gen_query_data(
         ti_api_request_t * ar,
@@ -548,31 +614,9 @@ static int api__gen_query_data(
     mp_sbuffer_alloc_init(&buffer, 0, 0);
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_array(&pk, 2 + !!req->mp_vars.tp))
-        goto fail;
-
-    switch (ar->scope.tp)
-    {
-    case TI_SCOPE_THINGSDB:
-        if (mp_pack_str(&pk, "@t"))
-            goto fail;
-        break;
-    case TI_SCOPE_NODE:
-        if (mp_pack_fmt(&pk, "@n:%d", ar->scope.via.node_id))
-            goto fail;
-        break;
-    case TI_SCOPE_COLLECTION_NAME:
-        if (mp_pack_fmt(&pk, "@:%.*s",
-                (int) ar->scope.via.collection_name.sz,
-                ar->scope.via.collection_name.name))
-            goto fail;
-        break;
-    case TI_SCOPE_COLLECTION_ID:
-        if (mp_pack_fmt(&pk, "@:%"PRIu64, ar->scope.via.collection_id))
-            goto fail;
-    }
-
-    if (mp_pack_strn(&pk, req->mp_query.via.str.data, req->mp_query.via.str.n))
+    if (msgpack_pack_array(&pk, 2 + !!req->mp_vars.tp) ||
+        api__gen_scope(ar, &pk) ||
+        mp_pack_strn(&pk, req->mp_query.via.str.data, req->mp_query.via.str.n))
         goto fail;
 
     if (req->mp_vars.tp == MP_BIN &&
@@ -592,6 +636,7 @@ fail:
 static ti_pkg_t * api__gen_fwd_pkg(
         ti_api_request_t * ar,
         api__req_t * req,
+        api__gen_data_cb gen_data_cb,
         ti_proto_enum_t proto)
 {
     ti_pkg_t * pkg;
@@ -608,7 +653,7 @@ static ti_pkg_t * api__gen_fwd_pkg(
     msgpack_pack_array(&pk, 2);
     msgpack_pack_uint64(&pk, ar->user->id);
 
-    if (api__gen_query_data(ar, req, &data, &size) ||
+    if (gen_data_cb(ar, req, &data, &size) ||
         mp_pack_bin(&pk, data, size))
     {
         msgpack_sbuffer_destroy(&buffer);
@@ -648,7 +693,6 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
     {
         size_t size;
         unsigned char * data;
-        LOGC("response type: %s", ti_proto_str(req->pkg_res->tp));
         yajl_gen_status stat = mpjson_mp_to_json(
                 req->pkg_res->data,
                 req->pkg_res->n,
@@ -704,7 +748,78 @@ static int api__fwd(ti_api_request_t * ar, ti_node_t * to_node, ti_pkg_t * pkg)
 
 static int api__run(ti_api_request_t * ar, api__req_t * req)
 {
+    ti_pkg_t * pkg;
+    vec_t * access_;
+    ti_query_t * query = NULL;
+    ti_node_t * this_node = ti()->node, * other_node;
     ex_t * e = &ar->e;
+    unsigned char * data = NULL;
+    size_t n;
+
+    if (req->mp_procedure.tp != MP_STR)
+        goto invalid_api_request;
+
+    if (this_node->status < TI_NODE_STAT_READY &&
+        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        other_node = ti_nodes_random_ready_node();
+        if (!other_node)
+        {
+            ti_nodes_set_not_ready_err(e);
+            return e->nr;
+        }
+
+        pkg = api__gen_fwd_pkg(ar, req, api__gen_run_data, TI_PROTO_NODE_REQ_RUN);
+        if (!pkg || api__fwd(ar, other_node, pkg))
+        {
+            free(pkg);
+            ex_set_internal(e);
+            return e->nr;
+        }
+
+        /* the response to the client will be handled by a callback on the
+         * query forward request so we simply return;
+         */
+        return 0;
+    }
+
+    query = ti_query_create(ar, ar->user, TI_QBIND_FLAG_API);
+
+    if (!query || api__gen_run_data(ar, req, &data, &n))
+    {
+        ex_set_mem(e);
+        goto failed;
+    }
+
+    if (ti_query_unp_run(query, &ar->scope, 0, data, n, &ar->e))
+        goto failed;
+
+    free(data);
+
+    access_ = ti_query_access(query);
+    assert (access_);
+
+    if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
+        goto failed;
+
+    if (ti_query_will_update(query))
+    {
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+            ti_events_create_new_event(query, e))
+            goto failed;
+
+        /* cleanup will be done by the event */
+        return 0;
+    }
+
+    ti_query_run(query);
+    return 0;
+
+invalid_api_request:
+    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
+failed:
+    ti_query_destroy(query);
+    free(data);
     return e->nr;
 }
 
@@ -740,7 +855,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
             return e->nr;
         }
 
-        pkg = api__gen_fwd_pkg(ar, req, TI_PROTO_NODE_REQ_QUERY);
+        pkg = api__gen_fwd_pkg(ar, req, api__gen_query_data, TI_PROTO_NODE_REQ_QUERY);
         if (!pkg || api__fwd(ar, other_node, pkg))
         {
             free(pkg);
@@ -763,7 +878,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
             return e->nr;
         }
 
-        pkg = api__gen_fwd_pkg(ar, req, TI_PROTO_NODE_REQ_QUERY);
+        pkg = api__gen_fwd_pkg(ar, req, api__gen_query_data, TI_PROTO_NODE_REQ_QUERY);
         if (!pkg || api__fwd(ar, other_node, pkg))
         {
             free(pkg);
@@ -958,7 +1073,8 @@ static int api__message_complete_cb(http_parser * parser)
         char * data;
         size_t size;
         if (mpjson_json_to_mp(ar->content, ar->content_n, &data, &size))
-            break;
+            return api__plain_response(ar, E400_BAD_REQUEST);
+
         free(ar->content);
         ar->content = data;
         ar->content_n = size;

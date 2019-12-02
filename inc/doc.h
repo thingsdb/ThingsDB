@@ -13,6 +13,8 @@
 
 /* Collection API */
 #define DOC_ASSERT                  DOC_SEE("collection-api/assert")
+#define DOC_BASE64_ENCODE           DOC_SEE("collection-api/base64_encode")
+#define DOC_BASE64_DECODE           DOC_SEE("collection-api/base64_decode")
 #define DOC_BOOL                    DOC_SEE("collection-api/bool")
 #define DOC_BYTES                   DOC_SEE("collection-api/bytes")
 #define DOC_DEEP                    DOC_SEE("collection-api/deep")

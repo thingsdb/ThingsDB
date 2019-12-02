@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-11-25 12:01:41
+ * Created at: 2019-12-01 22:07:50
  */
 
 #include <langdef/langdef.h>
@@ -37,7 +37,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)");
     cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))");
     cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
-    cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^(/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/i?)");
+    cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/i?");
     cleri_t * t_string = cleri_choice(
         CLERI_GID_T_STRING,
         CLERI_FIRST_MATCH,
@@ -52,7 +52,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_FIRST_MATCH,
         2,
         cleri_regex(CLERI_NONE, "^(?s)//.*?(\\r?\\n|$)"),
-        cleri_regex(CLERI_NONE, "^(?s)/\\\\*.*?\\\\*/")
+        cleri_regex(CLERI_NONE, "^(?s)/\\*.*?\\*/")
     ), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
     cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]*");

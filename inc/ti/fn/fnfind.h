@@ -9,9 +9,6 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_t * iterval;
     int lock_was_set;
 
-    if (fn_not_chained("find", query, e))
-        return e->nr;
-
     doc = doc_find(query->rval);
     if (!doc)
     {

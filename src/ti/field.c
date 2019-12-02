@@ -88,10 +88,8 @@ static _Bool field__spec_is_ascii(
     return true;
 }
 
-static inline _Bool field__cmp(const char * a, size_t na, const char * str)
-{
-    return strlen(str) == na && memcmp(a, str, na) == 0;
-}
+#define field__cmp(__a, __na, __str) \
+        strlen(__str) == __na && memcmp(__a, __str, __na) == 0
 
 static ti_data_t * field___set_job(ti_name_t * name, ti_val_t * val)
 {

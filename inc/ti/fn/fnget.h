@@ -7,9 +7,6 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_wprop_t wprop;
     _Bool found;
 
-    if (fn_not_chained("get", query, e))
-        return e->nr;
-
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

@@ -1,7 +1,9 @@
 /*
  * util/mpjson.h
  *
- * TESTED with msgpack version: 3.2.0
+ * TESTED with:
+ * - msgpack version: 3.2.0
+ * - yajl version: 2.1.0
  */
 
 #ifndef MPJSON_H_

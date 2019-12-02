@@ -6,8 +6,7 @@ static int do__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_ascii;
     ti_raw_t * raw;
 
-    if (fn_chained("isascii", query, e) ||
-        fn_nargs("isascii", DOC_ISASCII, 1, nargs, e) ||
+    if (fn_nargs("isascii", DOC_ISASCII, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

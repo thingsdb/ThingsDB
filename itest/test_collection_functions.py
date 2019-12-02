@@ -2,6 +2,7 @@
 import asyncio
 import pickle
 import time
+import base64
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -245,6 +246,62 @@ class TestCollectionFunctions(TestBase):
         err = await client.query('bad_data_err("my custom error msg");')
         self.assertEqual(err['error_code'], EX_BAD_DATA)
         self.assertEqual(err['error_msg'], "my custom error msg")
+
+    async def test_base64_decode(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `base64_decode`'):
+            await client.query('"".base64_decode();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `base64_decode` takes 1 argument '
+                'but 0 were given'):
+            await client.query('base64_decode();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `base64_decode` expects argument 1 to be of '
+                r'type `str` or type `bytes` but got type `int` instead'):
+            await client.query('base64_decode(1);')
+
+        self.assertEqual(await client.query('base64_decode("");'), b'')
+        self.assertEqual(
+            await client.query('base64_decode("VGhpbmdzREI=");'),
+            b'ThingsDB')
+        self.assertEqual(
+            await client.query('base64_decode("VGhpbmdzREI");'),
+            b'ThingsDB')
+
+    async def test_base64_encode(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `base64_encode`'):
+            await client.query('"".base64_encode();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `base64_encode` takes 1 argument '
+                'but 0 were given'):
+            await client.query('base64_encode();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `base64_encode` expects argument 1 to be of '
+                r'type `str` or type `bytes` but got type `int` instead'):
+            await client.query('base64_encode(1);')
+
+        self.assertEqual(await client.query('base64_encode("");'), '')
+        self.assertEqual(
+            await client.query('base64_encode("ThingsDB");'),
+            'VGhpbmdzREI=')
+
+        src = b'TEST: ThingsDB\r\r\nDATE: 2019/12/02\r\r\n'
+        enc = base64.b64encode(src)
+        self.assertEqual(
+            await client.query(f'base64_decode(e);', e=enc), src)
+        self.assertEqual(
+            await client.query(f'bytes(base64_encode(s));', s=src), enc)
 
     async def test_bool(self, client):
         with self.assertRaisesRegex(
@@ -760,6 +817,11 @@ class TestCollectionFunctions(TestBase):
 
     async def test_has_thing(self, client):
         await client.query(r'.x = 0.0;')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `has` is undefined'):
+            await client.query('has("x");')
 
         with self.assertRaisesRegex(
                 LookupError,

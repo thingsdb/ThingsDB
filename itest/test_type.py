@@ -139,15 +139,15 @@ class TestType(TestBase):
         client1.use('stuff')
 
         await self.wait_nodes_ready(client)
-        iris_node0 = await client.query('.iris')
-        iris_node1 = await client1.query('.iris')
+        iris_node0 = await client.query('return(.iris, 2);')
+        iris_node1 = await client1.query('return(.iris, 2);')
 
         client1.close()
         await client1.wait_closed()
 
         self.assertEqual(iris_node0, iris_node1)
         self.assertIs(iris_node0.get('age'), None)
-        self.assertIs(iris_node0.get('friend'), {'name': 'Anne', 'age': 5})
+        self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
 
 if __name__ == '__main__':

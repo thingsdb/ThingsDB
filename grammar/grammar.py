@@ -62,14 +62,14 @@ class LangDef(Grammar):
     t_int = Regex(
         r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
     t_nil = Keyword('nil')
-    t_regex = Regex('(/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/i?)')
+    t_regex = Regex('/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/i?')
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
 
     o_not = Repeat(x_not)
     comments = Repeat(Choice(
         Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
-        Regex(r'(?s)/\\*.*?\\*/'),  # Block comment
+        Regex(r'(?s)/\*.*?\*/'),  # Block comment
     ))
 
     name = Regex(RE_NAME)
@@ -172,9 +172,15 @@ class LangDef(Grammar):
 if __name__ == '__main__':
     langdef = LangDef()
 
-    res = langdef.parse(r'''
-        test(/./)''')
+    # res = langdef.parse(r'''x = /./;''')
     # print(res.is_valid)
+
+    # res = langdef.parse(r'''/./;''')
+    # print(res.is_valid)
+
+    # res = langdef.parse(r'''5;''')
+    # print(res.is_valid)
+
     # exit(0)
 
     c, h = langdef.export_c(target='langdef', headerf='<langdef/langdef.h>')

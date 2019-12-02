@@ -5,7 +5,6 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../src/util/argparse.c \
-../src/util/base64.c \
 ../src/util/big.c \
 ../src/util/buf.c \
 ../src/util/cfgparser.c \
@@ -28,7 +27,6 @@ C_SRCS += \
 
 OBJS += \
 ./src/util/argparse.o \
-./src/util/base64.o \
 ./src/util/big.o \
 ./src/util/buf.o \
 ./src/util/cfgparser.o \
@@ -51,7 +49,6 @@ OBJS += \
 
 C_DEPS += \
 ./src/util/argparse.d \
-./src/util/base64.d \
 ./src/util/big.d \
 ./src/util/buf.d \
 ./src/util/cfgparser.d \
@@ -77,7 +74,7 @@ C_DEPS += \
 src/util/%.o: ../src/util/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -msse4.2 -finline-limit=2000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra -Winline -c -fmessage-length=0 -msse4.2 -finline-limit=4000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

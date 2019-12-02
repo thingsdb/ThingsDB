@@ -10,9 +10,6 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_varr_t * varr;
     ti_chain_t chain;
 
-    if (fn_not_chained("splice", query, e))
-        return e->nr;
-
     if (!ti_val_is_list(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

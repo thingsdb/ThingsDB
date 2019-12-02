@@ -286,9 +286,6 @@ fail0:
 
 static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (fn_not_chained("remove", query, e))
-        return e->nr;
-
     if (ti_val_is_list(query->rval))
     {
         do__f_remove_list(query, nd, e);

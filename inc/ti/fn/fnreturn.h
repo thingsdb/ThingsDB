@@ -7,8 +7,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_chained("return", query, e) ||
-        fn_nargs_max("return", DOC_RETURN, 2, nargs, e))
+    if (fn_nargs_max("return", DOC_RETURN, 2, nargs, e))
         return e->nr;
 
     if (nargs == 0)

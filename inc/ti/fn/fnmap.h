@@ -10,9 +10,6 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_t * iterval;
     int lock_was_set;
 
-    if (fn_not_chained("map", query, e))
-        return e->nr;
-
     doc = doc_map(query->rval);
     if (!doc)
     {

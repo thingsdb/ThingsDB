@@ -6,9 +6,6 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_varr_t * varr;
     ti_chain_t chain;
 
-    if (fn_not_chained("pop", query, e))
-        return e->nr;
-
     ti_chain_move(&chain, &query->chain);
 
     if (!ti_val_is_list(query->rval))

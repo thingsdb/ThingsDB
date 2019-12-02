@@ -7,8 +7,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ex_enum errnr;
     ti_verror_t * verror;
 
-    if (fn_chained("try", query, e) ||
-        fn_nargs_min("try", DOC_TRY, 1, nargs, e))
+    if (fn_nargs_min("try", DOC_TRY, 1, nargs, e))
         return e->nr;
 
     errnr = ti_do_statement(query, child->node, e);

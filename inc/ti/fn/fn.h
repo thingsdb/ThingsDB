@@ -47,36 +47,11 @@
 #include <uv.h>
 
 
-static inline int fn_not_chained(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
-{
-    if (!query->rval)
-        ex_set(e, EX_LOOKUP_ERROR, "function `%s` is undefined", name);
-    return e->nr;
-}
-
-static inline int fn_chained(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
-{
-    if (query->rval)
-        ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no function `%s`",
-            ti_val_str(query->rval),
-            name);
-    return e->nr;
-}
-
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
 {
-    if (fn_chained(name, query, e))
-        return e->nr;
-
     if (~query->qbind.flags & TI_QBIND_FLAG_NODE)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
@@ -91,9 +66,6 @@ static inline int fn_not_thingsdb_scope(
         ti_query_t * query,
         ex_t * e)
 {
-    if (fn_chained(name, query, e))
-        return e->nr;
-
     if (~query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
@@ -198,9 +170,6 @@ static inline int fn_not_collection_scope(
         ti_query_t * query,
         ex_t * e)
 {
-    if (fn_chained(name, query, e))
-        return e->nr;
-
     if (~query->qbind.flags & TI_QBIND_FLAG_COLLECTION)
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
@@ -215,9 +184,6 @@ static inline int fn_not_thingsdb_or_collection_scope(
         ti_query_t * query,
         ex_t * e)
 {
-    if (fn_chained(name, query, e))
-        return e->nr;
-
     if (!(query->qbind.flags &
             (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION)))
         ex_set(e, EX_LOOKUP_ERROR,

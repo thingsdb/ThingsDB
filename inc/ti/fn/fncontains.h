@@ -6,9 +6,6 @@ static int do__f_contains(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raw;
     _Bool contains;
 
-    if (fn_not_chained("contains", query, e))
-        return e->nr;
-
     if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

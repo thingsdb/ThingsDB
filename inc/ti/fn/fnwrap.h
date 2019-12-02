@@ -6,9 +6,6 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_thing_t * thing;
 
-    if (fn_not_chained("wrap", query, e))
-        return e->nr;
-
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

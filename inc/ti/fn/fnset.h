@@ -111,7 +111,7 @@ fail0:
     return e->nr;
 }
 
-static int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return query->rval
             ? do__set_property(query, nd, e)

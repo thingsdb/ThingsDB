@@ -8,9 +8,6 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_closure_t * closure;
     int lock_was_set;
 
-    if (fn_not_chained("findindex", query, e))
-        return e->nr;
-
     if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

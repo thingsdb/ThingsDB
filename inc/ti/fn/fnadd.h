@@ -8,9 +8,6 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_vset_t * vset;
     ti_chain_t chain;
 
-    if (fn_not_chained("add", query, e))
-        return e->nr;
-
     if (!ti_val_is_set(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

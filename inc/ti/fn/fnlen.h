@@ -6,9 +6,6 @@ static int do__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     ti_val_t * val;
 
-    if (fn_not_chained("len", query, e))
-        return e->nr;
-
     doc = doc_len(query->rval);
     if (!doc)
     {

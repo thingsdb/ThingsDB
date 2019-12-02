@@ -5,7 +5,8 @@ import json
 import msgpack
 import pprint
 
-url = 'http://localhost:9210/collection/stuff'
+stuff = 'http://localhost:9210/collection/stuff'
+thingsdb = 'http://localhost:9210/t'
 fn = '/home/joente/Downloads/sqlsrv01.insignit.local.json'
 fn = '/home/joente/Downloads/test.json'
 
@@ -15,12 +16,11 @@ with open(fn, 'r') as f:
 
 data = msgpack.dumps({
     'type': 'query',
-
-    'query': '"Hello world!";'
+    'code': '"Hello world!";'
 })
 
 x = requests.post(
-    url,
+    thingsdb,
     data=data,
     auth=('admin', 'pass'),
     headers={'Content-Type': 'application/msgpack'}
@@ -48,26 +48,30 @@ else:
 #     print(x.text)
 
 x = requests.post(
-    url,
+    stuff,
     json={
         'type': 'query',
-        'query': ".iris.age = 6"
+        'code': ".iris.age = age;",
+        'vars': {
+            'age': 6
+        }
     },
-    auth=('admin', 'pass')
+    headers={'Authorization': 'TOKEN BerXvDO5BHkPybYyA55A3m'}
 )
 
 if x.status_code == 200:
-    pprint.pprint(x.text)
+    j = x.json()
+    print(j)
 else:
     print(x.text)
 
 
 x = requests.post(
-    url,
+    stuff,
     json={
         'type': 'run',
         'procedure': 'addone',
-        'args': [5]
+        'args': [41]
     },
     auth=('admin', 'pass')
 )

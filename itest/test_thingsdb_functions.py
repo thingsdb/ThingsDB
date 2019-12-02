@@ -179,7 +179,7 @@ class TestThingsDBFunctions(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid scope; '
-                r'scopes must start with a `@` but got `A` instead'):
+                r'scopes must start with a `@` or `/` but got `A` instead'):
             await client.query('grant("A", "x", FULL);')
 
         with self.assertRaisesRegex(LookupError, 'collection `A` not found'):

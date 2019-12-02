@@ -7,9 +7,6 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_thing_t * thing;
 
-    if (fn_not_chained("del", query, e))
-        return e->nr;
-
     if (!ti_val_is_object(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

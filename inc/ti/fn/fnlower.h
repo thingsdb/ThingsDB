@@ -5,9 +5,6 @@ static int do__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * raw;
 
-    if (fn_not_chained("lower", query, e))
-        return e->nr;
-
     if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

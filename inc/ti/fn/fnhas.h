@@ -73,9 +73,6 @@ fail1:
 
 static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (fn_not_chained("has", query, e))
-        return e->nr;
-
     if (ti_val_is_thing(query->rval))
         return do__f_has_thing(query, nd, e);
 

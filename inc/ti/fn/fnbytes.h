@@ -4,8 +4,7 @@ static int do__f_bytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_chained("bytes", query, e) ||
-        fn_nargs_max("bytes", DOC_BYTES, 1, nargs, e))
+    if (fn_nargs_max("bytes", DOC_BYTES, 1, nargs, e))
         return e->nr;
 
     if (nargs == 0)

@@ -6,9 +6,6 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t idx = 0;
     ti_varr_t * varr;
 
-    if (fn_not_chained("indexof", query, e))
-        return e->nr;
-
     if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

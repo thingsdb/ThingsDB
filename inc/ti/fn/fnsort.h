@@ -97,9 +97,6 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_closure_t * closure;
     _Bool reverse = false;
 
-    if (fn_not_chained("sort", query, e))
-        return e->nr;
-
     if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_LOOKUP_ERROR,

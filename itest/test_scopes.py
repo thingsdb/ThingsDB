@@ -43,7 +43,7 @@ class TestScopes(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'invalid scope; scopes must start with a `@` '
+                r'invalid scope; scopes must start with a `@` or `/` '
                 r'but got `!` instead'):
             await client.query(r'''
                 grant('!', FULL, 'iris');
@@ -55,6 +55,14 @@ class TestScopes(TestBase):
                 r'like `@thingsdb`, `@node:...` or `@collection:...`'):
             await client.query(r'''
                 grant('@', FULL, 'iris');
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid scope; expecting a scope name '
+                r'like `/thingsdb`, `/node/...` or `/collection/...`'):
+            await client.query(r'''
+                grant('/', FULL, 'iris');
             ''')
 
         with self.assertRaisesRegex(
@@ -100,9 +108,18 @@ class TestScopes(TestBase):
                 ValueError,
                 r"invalid scope; expecting a scope name "
                 r"like `@thingsdb`, `@node:...` or `@collection:...` "
-                r"but got `@collectionn:stuff` instead;"):
+                r"but got `@collection/stuff` instead;"):
             await client.query(r'''
-                grant('@collectionn:stuff', FULL, 'iris');
+                grant('@collection/stuff', FULL, 'iris');
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"invalid scope; expecting a scope name "
+                r"like `/thingsdb`, `/node/...` or `/collection/...` "
+                r"but got `/collection:stuff` instead;"):
+            await client.query(r'''
+                grant('/collection:stuff', FULL, 'iris');
             ''')
 
     async def test_node_scope(self, client):
@@ -113,12 +130,21 @@ class TestScopes(TestBase):
         self.assertTrue(await client.query(q, scope='@node:'))
         self.assertTrue(await client.query(q, scope='@n:0'))
         self.assertTrue(await client.query(q, scope='@node:0'))
+        self.assertTrue(await client.query(q, scope='/n'))
+        self.assertTrue(await client.query(q, scope='/no'))
+        self.assertTrue(await client.query(q, scope='/node'))
+        self.assertTrue(await client.query(q, scope='/node/'))
+        self.assertTrue(await client.query(q, scope='/n/0'))
+        self.assertTrue(await client.query(q, scope='/node/0'))
 
     async def test_thingsdb_scope(self, client):
         q = 'users_info(); true;'
         self.assertTrue(await client.query(q, scope='@t'))
         self.assertTrue(await client.query(q, scope='@thing'))
         self.assertTrue(await client.query(q, scope='@thingsdb'))
+        self.assertTrue(await client.query(q, scope='/t'))
+        self.assertTrue(await client.query(q, scope='/thing'))
+        self.assertTrue(await client.query(q, scope='/thingsdb'))
 
     async def test_collection_scope(self, client):
         q = '.id(); true;'
@@ -126,6 +152,10 @@ class TestScopes(TestBase):
         self.assertTrue(await client.query(q, scope='@c:stuff'))
         self.assertTrue(await client.query(q, scope='@col:stuff'))
         self.assertTrue(await client.query(q, scope='@collection:stuff'))
+        self.assertTrue(await client.query(q, scope='//stuff'))
+        self.assertTrue(await client.query(q, scope='/c/stuff'))
+        self.assertTrue(await client.query(q, scope='/col/stuff'))
+        self.assertTrue(await client.query(q, scope='/collection/stuff'))
 
 
 if __name__ == '__main__':

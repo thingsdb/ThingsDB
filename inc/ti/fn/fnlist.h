@@ -4,8 +4,7 @@ static int do__f_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
-    if (fn_chained("list", query, e) ||
-        fn_nargs_max("list", DOC_LIST, 1, nargs, e))
+    if (fn_nargs_max("list", DOC_LIST, 1, nargs, e))
         return e->nr;
 
     if (nargs == 1)

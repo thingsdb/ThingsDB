@@ -12,15 +12,6 @@
 #include <util/mpack.h>
 #include <util/strx.h>
 
-#define SCOPE__THINGSDB "@thingsdb"
-#define SCOPE__NODE "@node"
-#define SCOPE__COLLECTION "@collection"
-
-/* for URI's the scope is initialized a little different */
-#define URI__THINGSDB "/thingsdb"
-#define URI__NODE "/node"
-#define URI__COLLECTION "/collection"
-
 static _Bool scope__is_ascii(const char * str, size_t n, ex_t * e)
 {
     if (!strx_is_asciin(str, n))
@@ -97,80 +88,25 @@ static int scope__collection(
     return 0;  /* success */
 }
 
-int ti_scope_init_uri(ti_scope_t * scope, const char * str, size_t n)
-{
-    if (n < 2)
-        return -1;
-
-    switch (str[1])
-    {
-    case 't':
-        if (n > strlen(URI__THINGSDB) || memcmp(str, URI__THINGSDB, n))
-            return -1;
-
-        scope->tp = TI_SCOPE_THINGSDB;
-
-        return 0;    /* success */
-    case 'n':
-    {
-        size_t i = 2;
-        int64_t node_id;
-
-        for (; i < n; ++i)
-            if (str[i] == '/')
-                break;
-
-        if (i > strlen(URI__NODE) || memcmp(str, URI__NODE, i))
-            return -1;
-
-        if (++i >= n)
-        {
-            scope->tp = TI_SCOPE_NODE;
-            scope->via.node_id = ti()->node->id;
-
-            return 0;  /* success */
-        }
-
-        node_id = scope__read_id(str + i, n - i);
-
-        if (node_id < 0 || node_id >= 0x40)
-            return -1;
-
-        scope->tp = TI_SCOPE_NODE;
-        scope->via.node_id = (uint8_t) node_id;
-
-        return 0;  /* success */
-    }
-    case 'c':
-    {
-        ex_t e = {0};
-        size_t i = 2;
-
-        for (; i < n; ++i)
-            if (str[i] == '/')
-                break;
-
-        if (i > strlen(URI__COLLECTION) || memcmp(str, URI__COLLECTION, i))
-            return -1;
-
-        if (++i >= n)
-            return -1;
-
-        return scope__collection(scope, str + i, n - i, &e) ? -1 : 0;
-    }
-    }
-    return -1;
-}
-
 int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
 {
+    char sep_char;
+
     if (n < 2)
         goto invalid_scope;
 
+    switch(*str)
+    {
+    case '@': sep_char = ':'; break;
+    case '/': sep_char = '/'; break;
+    default:
+        goto invalid_scope;
+    }
+
     switch (str[1])
     {
     case 't':
-        if (n > strlen(SCOPE__THINGSDB) || memcmp(str, SCOPE__THINGSDB, n))
+        if (n > strlen("/thingsdb") || memcmp(str+1, "thingsdb", n-1))
             goto invalid_scope;
 
         scope->tp = TI_SCOPE_THINGSDB;
@@ -182,10 +118,10 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
         int64_t node_id;
 
         for (; i < n; ++i)
-            if (str[i] == ':')
+            if (str[i] == sep_char)
                 break;
 
-        if (i > strlen(SCOPE__NODE) || memcmp(str, SCOPE__NODE, i))
+        if (i > strlen("/node") || memcmp(str+1, "node", i-1))
             goto invalid_scope;
 
         if (++i >= n)
@@ -215,11 +151,10 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
         size_t i = 2;
 
         for (; i < n; ++i)
-            if (str[i] == ':')
+            if (str[i] == sep_char)
                 break;
 
-        if (i > strlen(SCOPE__COLLECTION) ||
-            memcmp(str, SCOPE__COLLECTION, i))
+        if (i > strlen("/collection") || memcmp(str+1, "collection", i-1))
             goto invalid_scope;
 
         if (++i >= n)
@@ -233,8 +168,9 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
         return scope__collection(scope, str + i, n - i, e);
 
     }
+    case '/':
     case ':':
-        if (n < 3 || *str != '@')
+        if (n < 3 || str[1] != sep_char)
             goto invalid_scope;
 
         return scope__collection(scope, str + 2, n - 2, e);
@@ -251,15 +187,17 @@ invalid_scope:
         return e->nr;
     }
 
+    sep_char = *str == '@' ? ':' : *str == '/' ? '/' : '\0';
+
     if (!scope__is_ascii(str, n, e))
         return e->nr;
 
-    if (*str != '@')
+    if (!sep_char)
     {
-
         ex_set(e, EX_VALUE_ERROR,
             "invalid scope; "
-            "scopes must start with a `@` but got `%.*s` instead"DOC_SCOPES,
+            "scopes must start with a `@` or `/` but got `%.*s` instead"
+            DOC_SCOPES,
             (int) n, str);
 
         return e->nr;
@@ -270,7 +208,9 @@ invalid_scope:
         ex_set(e, EX_VALUE_ERROR,
             "invalid scope; "
             "expecting a scope name like "
-            "`@thingsdb`, `@node:...` or `@collection:...`"DOC_SCOPES);
+            "`%c""thingsdb`, `%c""node%c""...` or `%c""collection%c""...`"
+            DOC_SCOPES,
+            *str, *str, sep_char, *str, sep_char);
 
         return e->nr;
     }
@@ -278,8 +218,9 @@ invalid_scope:
     ex_set(e, EX_VALUE_ERROR,
         "invalid scope; "
         "expecting a scope name like "
-        "`@thingsdb`, `@node:...` or `@collection:...` "
+        "`%c""thingsdb`, `%c""node%c""...` or `%c""collection%c""...` "
         "but got `%.*s` instead"DOC_SCOPES,
+        *str, *str, sep_char, *str, sep_char,
         (int) n, str);
 
     return e->nr;

@@ -12,7 +12,7 @@
 #include <ti/query.inline.h>
 
 
-#define API_HEADER_MAX_SZ 256
+#define API__HEADER_MAX_SZ 256
 
 #define CONTENT_TYPE_JSON "application/json"
 #define CONTENT_TYPE_MSGPACK "application/msgpack"
@@ -184,9 +184,9 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
 {
     ti_api_request_t * ar = parser->data;
 
-    if (ti_scope_init_uri(&ar->scope, at, n))
+    if (ti_scope_init(&ar->scope, at, n, &ar->e))
     {
-        log_debug("URI (scope) not found: %.*s", (int) n, at);
+        log_debug("URI (scope) not found: %s", ar->e.msg);
         ar->flags |= TI_API_FLAG_INVALID_SCOPE;
     }
 
@@ -370,7 +370,7 @@ static void api__set_yajl_gen_status_error(ex_t * e, yajl_gen_status stat)
 
 int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
 {
-    char header[API_HEADER_MAX_SZ];
+    char header[API__HEADER_MAX_SZ];
     int header_size = 0;
 
     header_size = api__header(header, E200_OK, TI_API_CT_MSGPACK, size);
@@ -389,7 +389,7 @@ int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
 
 static int api__close_resp(ti_api_request_t * ar, void * data, size_t size)
 {
-    char header[API_HEADER_MAX_SZ];
+    char header[API__HEADER_MAX_SZ];
     int header_size = 0;
 
     header_size = api__header(header, E200_OK, ar->content_type, size);
@@ -434,7 +434,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 {
     assert (e->nr);
 
-    char header[API_HEADER_MAX_SZ];
+    char header[API__HEADER_MAX_SZ];
     char * body = NULL;
     int header_size = 0, body_size = 0;
 
@@ -529,7 +529,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 typedef struct
 {
     mp_obj_t mp_type;
-    mp_obj_t mp_query;
+    mp_obj_t mp_code;
     mp_obj_t mp_procedure;
     mp_obj_t mp_args;
     mp_obj_t mp_vars;
@@ -566,7 +566,7 @@ static int api__gen_run_data(
         size_t * size)
 {
     size_t i = 0;
-    mp_unp_t up;
+    mp_unp_t up = {0};
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -616,7 +616,7 @@ static int api__gen_query_data(
 
     if (msgpack_pack_array(&pk, 2 + !!req->mp_vars.tp) ||
         api__gen_scope(ar, &pk) ||
-        mp_pack_strn(&pk, req->mp_query.via.str.data, req->mp_query.via.str.n))
+        mp_pack_strn(&pk, req->mp_code.via.str.data, req->mp_code.via.str.n))
         goto fail;
 
     if (req->mp_vars.tp == MP_BIN &&
@@ -831,7 +831,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
     ti_node_t * this_node = ti()->node, * other_node;
     ex_t * e = &ar->e;
 
-    if (req->mp_query.tp != MP_STR)
+    if (req->mp_code.tp != MP_STR)
         goto invalid_api_request;
 
     if (ar->scope.tp == TI_SCOPE_NODE)
@@ -895,7 +895,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
 query:
     query = ti_query_create(ar, ar->user, TI_QBIND_FLAG_API);
 
-    if (!query || !(query->querystr = mp_strdup(&req->mp_query)))
+    if (!query || !(query->querystr = mp_strdup(&req->mp_code)))
     {
         ex_set_mem(e);
         goto failed;
@@ -968,8 +968,8 @@ static int api__from_msgpack(ti_api_request_t * ar)
         if (mp_str_eq(&mp_key, "type"))
             mp_next(&up, &request.mp_type);
 
-        else if (mp_str_eq(&mp_key, "query"))
-            mp_next(&up, &request.mp_query);
+        else if (mp_str_eq(&mp_key, "code"))
+            mp_next(&up, &request.mp_code);
 
         else if (mp_str_eq(&mp_key, "procedure"))
             mp_next(&up, &request.mp_procedure);
@@ -1031,7 +1031,7 @@ failed:
 static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
 {
     const char * body = api__default_body[ht];
-    char header[API_HEADER_MAX_SZ];
+    char header[API__HEADER_MAX_SZ];
     size_t body_size;
     int header_size;
 

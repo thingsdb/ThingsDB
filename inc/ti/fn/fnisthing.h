@@ -5,8 +5,7 @@ static int do__f_isthing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_thing;
 
-    if (fn_chained("isthing", query, e) ||
-        fn_nargs("isthing", DOC_ISTHING, 1, nargs, e) ||
+    if (fn_nargs("isthing", DOC_ISTHING, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

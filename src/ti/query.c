@@ -245,8 +245,8 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
     if (mp_next(vup->up, &obj) != MP_MAP)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "expecting the array in a `query` request to have an "
-                "optional third value of type `map`"DOC_QUERY);
+                "expecting variable for a `query` to be of type `map`"
+                DOC_PROTOCOL);
         return e->nr;
     }
 
@@ -318,8 +318,8 @@ int ti_query_unpack(
     if (obj.via.sz < 2 || mp_next(&up, &mp_query) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "expecting the array in a `query` request to have a "
-                "second value of type `"TI_VAL_STR_S"`"DOC_QUERY);
+                "expecting the code in a `query` request to be of type `string`"
+                DOC_PROTOCOL);
         return e->nr;
     }
 
@@ -656,7 +656,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,
             query->qbind.pkg_id,
-            TI_PROTO_CLIENT_RES_QUERY,
+            TI_PROTO_CLIENT_RES_DATA ,
             buffer.size);
 
     if (ti_stream_write_pkg(query->via.stream, pkg))

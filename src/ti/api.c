@@ -223,15 +223,24 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         break;
 
     case TI_API_STATE_CONTENT_TYPE:
+        if (API__ICMP_WITH(at, n, CONTENT_TYPE_MSGPACK))
+        {
+            ar->content_type = TI_API_CT_MSGPACK;
+            break;
+        }
         if (API__ICMP_WITH(at, n, CONTENT_TYPE_JSON))
         {
             ar->content_type = TI_API_CT_JSON;
             break;
         }
-        if ((API__ICMP_WITH(at, n, CONTENT_TYPE_MSGPACK)) ||
-            (API__ICMP_WITH(at, n, "application/x-msgpack")))
+        if (API__ICMP_WITH(at, n, "application/x-msgpack"))
         {
             ar->content_type = TI_API_CT_MSGPACK;
+            break;
+        }
+        if (API__ICMP_WITH(at, n, "text/json"))
+        {
+            ar->content_type = TI_API_CT_JSON;
             break;
         }
 
@@ -816,7 +825,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     return 0;
 
 invalid_api_request:
-    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
+    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
     ti_query_destroy(query);
     free(data);
@@ -942,7 +951,7 @@ query:
     return 0;
 
 invalid_api_request:
-    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
+    ex_set(e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
     ti_query_destroy(query);
     return e->nr;
@@ -1020,7 +1029,7 @@ static int api__from_msgpack(ti_api_request_t * ar)
     }
 
 invalid_api_request:
-    ex_set(&ar->e, EX_BAD_DATA, "invalid API request"DOC_API_REQUEST);
+    ex_set(&ar->e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
     ++ti()->counters->queries_with_error;
     ti_api_close_with_err(ar, &ar->e);

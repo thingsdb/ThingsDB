@@ -30,14 +30,10 @@ const (
 
 	// ProtoResPing responds with `nil`
 	ProtoResPing Proto = 16
-	// ProtoResAuth responds with `nil`
-	ProtoResAuth Proto = 17
-	// ProtoResQuery responds with `...`
-	ProtoResQuery Proto = 18
-	// ProtoResWatch responds with `nil`
-	ProtoResWatch Proto = 19
-	// ProtoResUnWatch responds with `nil`
-	ProtoResUnWatch Proto = 20
+	// ProtoResOk responds with `nil`
+	ProtoResOk Proto = 17
+	// ProtoResData responds with `...`
+	ProtoResData Proto = 18
 	// ProtoResError responds with `{error_msg:..., error_code:,...}`
 	ProtoResError Proto = 21
 
@@ -51,10 +47,10 @@ const (
 	ProtoReqAuth Proto = 33
 	// ProtoReqQuery requires `[scope, query [, arguments]]`
 	ProtoReqQuery Proto = 34
-	//[scope, thing id's....]}
+	// ProtoReqWatch requires `[scope, thing id's....]`
 	ProtoReqWatch Proto = 35
-	//[scope, thing id's....]}
+	// ProtoReqUnwatch requires `[scope, thing id's....]`
 	ProtoReqUnwatch Proto = 36
-	//[scope, procedure, arguments....]}
+	// ProtoReqRun requires `[scope, procedure, arguments....]`
 	ProtoReqRun Proto = 37
 )

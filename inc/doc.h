@@ -163,16 +163,16 @@
 #define DOC_ZERO_DIV_ERR            DOC_SEE("errors/zero_div_err")
 
 /* Other */
-#define DOC_NAMES                   DOC_SEE("names")
-#define DOC_QUERY                   DOC_SEE("query")
-#define DOC_SCOPES                  DOC_SEE("scopes")
-#define DOC_SLICES                  DOC_SEE("slices")
+#define DOC_NAMES                   DOC_SEE("overview/names")
+#define DOC_PROTOCOL                DOC_SEE("connect/protocol")
+#define DOC_SCOPES                  DOC_SEE("overview/scopes")
+#define DOC_SLICES                  DOC_SEE("overview/slices")
 #define DOC_SPEC                    DOC_SEE("data-types/type")
 #define DOC_WATCHING                DOC_SEE("watching")
 
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
 #define DOC_CLOSURE                 DOC_SEE("data-types/closure")
-#define DOC_API_REQUEST             DOC_SEE("http-api-request")
+#define DOC_HTTP_API                DOC_SEE("connect/http-api")
 
 #endif  /* TI_DOC_H_ */

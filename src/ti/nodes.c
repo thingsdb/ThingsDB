@@ -1597,7 +1597,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
     {
-    case TI_PROTO_CLIENT_RES_QUERY:
+    case TI_PROTO_CLIENT_RES_DATA :
     case TI_PROTO_CLIENT_RES_ERROR:
         ti_stream_on_response(stream, pkg);
         break;

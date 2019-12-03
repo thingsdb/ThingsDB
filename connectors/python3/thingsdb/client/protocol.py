@@ -31,11 +31,9 @@ ON_WATCH_DEL = 3
 ON_WARN = 4
 
 RES_PING = 16
-RES_AUTH = 17
-RES_QUERY = 18
-RES_WATCH = 19
-RES_UNWATCH = 20
-RES_ERROR = 21
+RES_OK = 17
+RES_DATA = 18
+RES_ERROR = 19
 
 REQ_PING = 32
 REQ_AUTH = 33
@@ -43,7 +41,6 @@ REQ_QUERY = 34
 REQ_WATCH = 35
 REQ_UNWATCH = 36
 REQ_RUN = 37
-
 
 # ThingsDB build-in errors
 EX_OPERATION_ERROR = -63
@@ -95,10 +92,8 @@ ERRMAP = {
 
 PROTOMAP = {
     RES_PING: lambda f, d: f.set_result(None),
-    RES_AUTH: lambda f, d: f.set_result(None),
-    RES_QUERY: lambda f, d: f.set_result(d),
-    RES_WATCH: lambda f, d: f.set_result(None),
-    RES_UNWATCH: lambda f, d: f.set_result(None),
+    RES_OK: lambda f, d: f.set_result(None),
+    RES_DATA: lambda f, d: f.set_result(d),
     RES_ERROR:
         lambda f, d: f.set_exception(ERRMAP.get(
             d['error_code'],
@@ -144,10 +139,8 @@ class Protocol(asyncio.Protocol):
         ON_WATCH_DEL,
     ), _responses=(
         RES_PING,
-        RES_AUTH,
-        RES_QUERY,
-        RES_WATCH,
-        RES_UNWATCH,
+        RES_OK,
+        RES_DATA,
         RES_ERROR
     )):
         '''

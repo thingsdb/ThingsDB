@@ -105,7 +105,7 @@ fail0:
 
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PING, NULL, 0);
+    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PONG, NULL, 0);
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
@@ -150,7 +150,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         assert (user != NULL);
         ti_stream_set_user(stream, user);
-        resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_AUTH, NULL, 0);
+        resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
     }
 
 finish:
@@ -308,7 +308,7 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (e.nr)
         goto finish;
 
-    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_WATCH, NULL, 0);
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
     if (!resp)
         ex_set_mem(&e);
 
@@ -341,7 +341,7 @@ static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
     if (e.nr)
         goto finish;
 
-    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_UNWATCH, NULL, 0);
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
     if (!resp)
         ex_set_mem(&e);
 

@@ -14,11 +14,9 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_WATCH_DEL:         return "CLIENT_WATCH_DEL";
     case TI_PROTO_CLIENT_WARN:              return "CLIENT_WARN";
 
-    case TI_PROTO_CLIENT_RES_PING:          return "CLIENT_RES_PING";
-    case TI_PROTO_CLIENT_RES_AUTH:          return "CLIENT_RES_AUTH";
-    case TI_PROTO_CLIENT_RES_QUERY:         return "CLIENT_RES_QUERY";
-    case TI_PROTO_CLIENT_RES_WATCH:         return "CLIENT_RES_WATCH";
-    case TI_PROTO_CLIENT_RES_UNWATCH:       return "CLIENT_RES_UNWATCH";
+    case TI_PROTO_CLIENT_RES_PONG:          return "CLIENT_RES_PONG";
+    case TI_PROTO_CLIENT_RES_OK:            return "CLIENT_RES_OK";
+    case TI_PROTO_CLIENT_RES_DATA:          return "CLIENT_RES_DATA";
     case TI_PROTO_CLIENT_RES_ERROR:         return "CLIENT_RES_ERROR";
 
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";

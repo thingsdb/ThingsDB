@@ -141,9 +141,9 @@ func getResult(respCh chan *pkg, timeoutCh chan bool) (interface{}, error) {
 	select {
 	case pkg := <-respCh:
 		switch Proto(pkg.tp) {
-		case ProtoResQuery:
+		case ProtoResData:
 			err = msgpack.Unmarshal(pkg.data, &result)
-		case ProtoResPing, ProtoResAuth, ProtoResWatch, ProtoResUnWatch:
+		case ProtoResPing, ProtoResOk:
 			result = nil
 		case ProtoResError:
 			err = NewErrorFromByte(pkg.data)

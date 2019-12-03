@@ -24,12 +24,10 @@ typedef enum
     /*
      * 0x0001xxxx  16..31 client responses
      */
-    TI_PROTO_CLIENT_RES_PING    =16,    /* empty */
-    TI_PROTO_CLIENT_RES_AUTH    =17,    /* empty */
-    TI_PROTO_CLIENT_RES_QUERY   =18,    /* [{}, {}, ...] */
-    TI_PROTO_CLIENT_RES_WATCH   =19,    /* empty */
-    TI_PROTO_CLIENT_RES_UNWATCH =20,    /* empty */
-    TI_PROTO_CLIENT_RES_ERROR   =21,    /* {error_msg:..., error_code: x} */
+    TI_PROTO_CLIENT_RES_PONG    =16,    /* empty */
+    TI_PROTO_CLIENT_RES_OK      =17,    /* empty */
+    TI_PROTO_CLIENT_RES_DATA    =18,    /* ... */
+    TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x} */
 
     /*
      * 0x0010xxxx  32..63 client requests

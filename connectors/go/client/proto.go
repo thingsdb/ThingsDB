@@ -35,7 +35,7 @@ const (
 	// ProtoResData responds with `...`
 	ProtoResData Proto = 18
 	// ProtoResError responds with `{error_msg:..., error_code:,...}`
-	ProtoResError Proto = 21
+	ProtoResError Proto = 19
 
 	/*
 	 * Requests

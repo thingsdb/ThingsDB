@@ -42,6 +42,9 @@ class TestMultiNode(TestBase):
                 .counter += 1;
             ''', scope=stuff)
 
+        # wait for sync
+        await asyncio.sleep(0.75)
+
         # the client points to the same node so we expect the correct result
         counter = await client.query(r'.counter;', scope=stuff)
         assert (counter == expected_counter)

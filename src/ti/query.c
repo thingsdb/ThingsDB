@@ -246,7 +246,7 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting variable for a `query` to be of type `map`"
-                DOC_PROTOCOL);
+                DOC_SOCKET_QUERY);
         return e->nr;
     }
 
@@ -319,7 +319,7 @@ int ti_query_unpack(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting the code in a `query` request to be of type `string`"
-                DOC_PROTOCOL);
+                DOC_SOCKET_QUERY);
         return e->nr;
     }
 

@@ -106,7 +106,8 @@
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")
 #define DOC_CLOSURE_CALL            DOC_SEE("data-types/closure/call")
 #define DOC_CLOSURE_DOC             DOC_SEE("data-types/closure/doc")
-#define DOC_ERROR_LEN               DOC_SEE("data-types/error/len")
+#define DOC_ERROR_CODE              DOC_SEE("data-types/error/code")
+#define DOC_ERROR_MSG               DOC_SEE("data-types/error/msg")
 #define DOC_LIST_EXTEND             DOC_SEE("data-types/list/extend")
 #define DOC_LIST_FILTER             DOC_SEE("data-types/list/filter")
 #define DOC_LIST_FIND               DOC_SEE("data-types/list/find")
@@ -164,7 +165,7 @@
 
 /* Other */
 #define DOC_NAMES                   DOC_SEE("overview/names")
-#define DOC_PROTOCOL                DOC_SEE("connect/protocol")
+#define DOC_SOCKET_QUERY            DOC_SEE("connect/socket/query")
 #define DOC_SCOPES                  DOC_SEE("overview/scopes")
 #define DOC_SLICES                  DOC_SEE("overview/slices")
 #define DOC_SPEC                    DOC_SEE("data-types/type")

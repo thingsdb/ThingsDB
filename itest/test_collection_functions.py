@@ -339,6 +339,44 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(r'bool(/.*/);'))
         self.assertTrue(await client.query('bool(||nil);'))
 
+    async def test_code(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `code`'):
+            await client.query('nil.code();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `code` is undefined'):
+            await client.query('code();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `code` takes 0 arguments but 2 were given'):
+            await client.query('type_err().code(1, 2);')
+
+        self.assertEqual(await client.query('type_err().code();'), -61)
+
+    async def test_msg(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `msg`'):
+            await client.query('nil.msg();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `msg` is undefined'):
+            await client.query('msg();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `msg` takes 0 arguments but 2 were given'):
+            await client.query('type_err().msg(1, 2);')
+
+        self.assertEqual(
+            await client.query('type_err().msg();'),
+            'object of inappropriate type')
+
     async def test_call(self, client):
         with self.assertRaisesRegex(
                 LookupError,

@@ -88,6 +88,7 @@ typedef struct ex_s ex_t;
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <string.h>
 
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
@@ -105,5 +106,10 @@ struct ex_s
 #define ex_set_mem(e__) ex_set((e__), EX_MEMORY, EX_MEMORY_S)
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
 #define ex_set_return(e__) ex_setn((e__), EX_RETURN, EX_RETURN_S, 6)
+
+static inline void ex_clear(ex_t * e)
+{
+    memset(e, 0, sizeof(ex_t));
+}
 
 #endif /* EX_H_ */

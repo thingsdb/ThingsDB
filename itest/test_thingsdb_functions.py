@@ -15,6 +15,7 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import ForbiddenError
 
 
 class TestThingsDBFunctions(TestBase):
@@ -52,6 +53,21 @@ class TestThingsDBFunctions(TestBase):
             await client.query('.v = 1;')
 
     async def test_collection_info(self, client):
+        await client.query('''
+            new_user('user1');
+            set_password('user1', 'pass1');
+            grant('@t', 'user1', READ);
+            grant('@n', 'user1', WATCH);
+        ''', scope='@t')
+
+        user1_cl = await get_client(self.node0, auth=['user1', 'pass1'])
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'user `user1` is missing the required privileges \(`READ`\) '
+                r'on scope `@collection:stuff`'):
+            await user1_cl.query('collection_info("stuff");')
+
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `collection_info` takes 1 argument '
@@ -87,11 +103,23 @@ class TestThingsDBFunctions(TestBase):
             collection)
 
     async def test_collections_info(self, client):
+        await client.query('''
+            new_user('user2');
+            set_password('user2', 'pass2');
+            grant('@t', 'user2', READ);
+            grant('@n', 'user2', WATCH);
+        ''', scope='@t')
+
+        user1_cl = await get_client(self.node0, auth=['user2', 'pass2'])
+
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `collections_info` takes 0 arguments '
                 'but 1 was given'):
             await client.query('collections_info(nil);')
+
+        collections = await user1_cl.query('collections_info();')
+        self.assertEqual(len(collections), 0)
 
         collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)

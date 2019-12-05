@@ -286,9 +286,10 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     }
 
     if (node->status == TI_NODE_STAT_AWAY)
-    {
-        ti_away_on_away_status(node->id);
-    }
+        ti_away_set_away_node_id(node->id);
+
+    if (node->status == TI_NODE_STAT_SHUTTING_DOWN)
+        ti_away_reschedule();  /* reschedule away */
 
     return 0;
 }

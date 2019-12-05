@@ -18,6 +18,7 @@
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
+#include <ti/fn/fncode.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
@@ -70,6 +71,7 @@
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodtype.h>
+#include <ti/fn/fnmsg.h>
 #include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewbackup.h>
 #include <ti/fn/fnnewcollection.h>
@@ -344,6 +346,7 @@ static void qbind__map_chained_fn(ti_qbind_t * q, cleri_node_t * nd, int flags)
         break;
     case 'c':
         qbind__nev_fn(q, nd, "call", do__f_call);
+        qbind__nev_fn(q, nd, "code", do__f_code);
         qbind__nev_fn(q, nd, "contains", do__f_contains);
         break;
     case 'd':
@@ -383,6 +386,7 @@ static void qbind__map_chained_fn(ti_qbind_t * q, cleri_node_t * nd, int flags)
         break;
     case 'm':
         qbind__nev_fn(q, nd, "map", do__f_map);  /* most frequent used */
+        qbind__nev_fn(q, nd, "msg", do__f_msg);
         break;
     case 'n':
         break;

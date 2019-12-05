@@ -1075,7 +1075,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ERROR:
-        return ((ti_verror_t *) val)->msg_n;
+        break;
     }
     assert (0);
     return 0;

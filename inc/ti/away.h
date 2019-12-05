@@ -13,8 +13,8 @@ typedef struct ti_away_s ti_away_t;
 
 int ti_away_create(void);
 int ti_away_start(void);
-void ti_away_on_away_status(uint32_t node_id);
-void ti_away_trigger(void);
+void ti_away_set_away_node_id(uint32_t node_id);
+void ti_away_reschedule(void);
 void ti_away_stop(void);
 _Bool ti_away_accept(uint32_t node_id);
 _Bool ti_away_is_working(void);
@@ -25,8 +25,7 @@ struct ti_away_s
 {
     vec_t * syncers;            /* weak ti_watch_t for synchronizing */
     uint8_t status;             /* internal state */
-    uint8_t reset_counter;      /* reset expect after X times rejext */
-    uint32_t expected_node_id;  /* id in the node range */
+    uint32_t away_node_id;      /* schedule based on the node in away mode */
     uint32_t sleep;
 };
 

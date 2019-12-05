@@ -17,26 +17,27 @@
 
 static ti_away_t * away = NULL;
 static uv_work_t away__uv_work;
-static uv_timer_t away__uv_repeat;
+static uv_timer_t away__uv_trigger;
 static uv_timer_t away__uv_waiter;
 
 #define AWAY__RESET_COUNTER 5   /* reset expect after X times reject   */
-#define AWAY__SOON_TIMER 10000  /* 10 seconds might be a nice default  */
+#define AWAY__SOON_TIMER 10000  /* in soon mode for X seconds  */
+#define AWAY__BLOCK_TIME 15000  /* block accepting for X seconds */
 
 enum away__status
 {
+    /* The status shifts from INIT to ACCEPTED_INIT, and from IDLE
+     * to ACCEPTED_IDLE, so they must lay 2 steps from apart.
+     */
     AWAY__STATUS_INIT,
     AWAY__STATUS_IDLE,
+    AWAY__STATUS_ACCEPTED_INIT,
+    AWAY__STATUS_ACCEPTED_IDLE,
     AWAY__STATUS_REQ_AWAY,
     AWAY__STATUS_WAITING,
     AWAY__STATUS_WORKING,
     AWAY__STATUS_SYNCING,
 };
-
-static inline void away__repeat_cb(uv_timer_t * UNUSED(repeat))
-{
-    ti_away_trigger();
-}
 
 static _Bool away__required(void)
 {
@@ -51,12 +52,14 @@ static const char * away__status_str(void)
 {
     switch ((enum away__status) away->status)
     {
-    case AWAY__STATUS_INIT:     return "INIT";
-    case AWAY__STATUS_IDLE:     return "IDLE";
-    case AWAY__STATUS_REQ_AWAY: return "REQ_AWAY";
-    case AWAY__STATUS_WAITING:  return "WAITING";
-    case AWAY__STATUS_WORKING:  return "WORKING";
-    case AWAY__STATUS_SYNCING:  return "SYNCING";
+    case AWAY__STATUS_INIT:             return "INIT";
+    case AWAY__STATUS_IDLE:             return "IDLE";
+    case AWAY__STATUS_ACCEPTED_INIT:    return "ACCEPTED_NODE";
+    case AWAY__STATUS_ACCEPTED_IDLE:    return "ACCEPTED_NODE";
+    case AWAY__STATUS_REQ_AWAY:         return "REQ_AWAY";
+    case AWAY__STATUS_WAITING:          return "WAITING";
+    case AWAY__STATUS_WORKING:          return "WORKING";
+    case AWAY__STATUS_SYNCING:          return "SYNCING";
     }
     return "UNKNOWN";
 }
@@ -71,36 +74,71 @@ static void away__destroy(void)
     away = ti()->away = NULL;
 }
 
-static void away__update_expexted_id(uint32_t node_id)
+static void away__update_sleep(void)
 {
     vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
     ti_node_t * this_node = ti()->node;
-    size_t idx = 0, my_idx = 0, node_idx = 0, n = ti()->nodes->imap->n;
+    size_t idx = 0, my_idx = 0, c_idx = 0, n = ti()->nodes->imap->n;
 
     for (vec_each(nodes_vec, ti_node_t, node), ++idx)
     {
-        if (node->id == node_id)
-            node_idx = idx;
+        if (node->id == away->away_node_id)
+            c_idx = idx;
         if (node == this_node)
             my_idx = idx;
     }
 
-    if (node_idx > my_idx)
+    /* get the next `READY` node,  *after* the current away node */
+    do
+    {
+        ++c_idx;
+        c_idx %= n;
+    }
+    while (
+            c_idx != my_idx &&
+        ((ti_node_t *) vec_get(nodes_vec, c_idx))->status != TI_NODE_STAT_READY
+    );
+
+    if (c_idx > my_idx)
         my_idx += n;
 
     /* update expected node id */
-    away->expected_node_id = node_id;
-    away->sleep = 2500 + ((my_idx - node_idx) * 11000);
+    away->sleep = 2500 + ((my_idx - c_idx) * 17000);
 }
 
-static void away__reschedule_by_id(uint32_t node_id)
+static void away__accept_close_cb(uv_handle_t * UNUSED(handle))
 {
-    if (node_id == away->expected_node_id)
-        return;
-    away__update_expexted_id(node_id);
-    uv_timer_set_repeat(&away__uv_repeat, away->sleep);
+    assert (away->status == AWAY__STATUS_ACCEPTED_IDLE ||
+            away->status == AWAY__STATUS_ACCEPTED_INIT);
+    away->status -= 2;
 }
 
+static void away__accept_cb(uv_timer_t * waiter)
+{
+    (void) uv_timer_stop(waiter);
+    uv_close((uv_handle_t *) waiter, away__accept_close_cb);
+}
+
+static void away__accept_node_id(uint32_t node_id)
+{
+    int rc;
+    assert (away->status == AWAY__STATUS_IDLE ||
+            away->status == AWAY__STATUS_INIT);
+
+    away->status += 2;
+
+    ti_away_set_away_node_id(node_id);
+
+    rc = uv_timer_init(ti()->loop, &away__uv_waiter);
+    if (rc)
+        return;
+
+    rc = uv_timer_start(
+            &away__uv_waiter,
+            away__accept_cb,
+            AWAY__BLOCK_TIME,
+            0);
+}
 
 static void away__work(uv_work_t * UNUSED(work))
 {
@@ -186,6 +224,12 @@ static size_t away__syncers(void)
     return count;
 }
 
+static void away__waiter_after_close_cb(uv_handle_t * UNUSED(handle))
+{
+    away->status = AWAY__STATUS_IDLE;
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+}
+
 static void away__waiter_after_cb(uv_timer_t * waiter)
 {
     assert (away->status == AWAY__STATUS_SYNCING);
@@ -219,10 +263,7 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     }
 
     (void) uv_timer_stop(waiter);
-    uv_close((uv_handle_t *) waiter, NULL);
-
-    away->status = AWAY__STATUS_IDLE;
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+    uv_close((uv_handle_t *) waiter, away__waiter_after_close_cb);
 }
 
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
@@ -258,6 +299,23 @@ fail1:
     ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 }
 
+static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
+{
+    away->status = AWAY__STATUS_WORKING;
+    if (uv_queue_work(
+            ti()->loop,
+            &away__uv_work,
+            away__work,
+            away__work_finish))
+    {
+        away->status = AWAY__STATUS_IDLE;
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+        return;
+    }
+
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
+}
+
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
     ssize_t events_to_process = ti_events_trigger_loop();
@@ -278,26 +336,14 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
 
     (void) uv_timer_stop(waiter);
-    uv_close((uv_handle_t *) waiter, NULL);
-
-    away->status = AWAY__STATUS_WORKING;
-    if (uv_queue_work(
-            ti()->loop,
-            &away__uv_work,
-            away__work,
-            away__work_finish))
-    {
-        away->status = AWAY__STATUS_IDLE;
-        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
-        return;
-    }
-
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
+    uv_close((uv_handle_t *) waiter, away__waiter_pre_close_cb);
 }
-static void away__reset_expected(void)
+
+static void away__reset_sleep(void)
 {
     vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
-    away__update_expexted_id(((ti_node_t *) vec_first(nodes_vec))->id);
+    away->away_node_id = ((ti_node_t *) vec_first(nodes_vec))->id;
+    away__update_sleep();
 }
 
 static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
@@ -305,14 +351,10 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     if (!accepted)
     {
         log_info(
-                "node `%s` does not have the required quorum "
-                "of at least %u connected nodes for going into away mode",
-                ti_node_name(ti()->node),
-                ti_nodes_quorum());
+            "not received the required quorum (%u) for going into away mode",
+            ti_nodes_quorum());
         goto fail0;;
     }
-
-    away__reschedule_by_id(ti_nodes_next(ti()->node->id)->id);
 
     if (uv_timer_init(ti()->loop, &away__uv_waiter))
         goto fail1;
@@ -325,6 +367,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     ))
         goto fail2;
 
+    ti_away_set_away_node_id(ti()->node->id);
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY_SOON);
     away->status = AWAY__STATUS_WAITING;
     return;
@@ -386,6 +429,64 @@ failed:
     away->status = AWAY__STATUS_IDLE;
 }
 
+static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
+{
+    static const char * away__skip_msg = "not going in away mode (%s)";
+    ti_node_t * node;
+
+    if (ti()->nodes->imap->n == 1)
+    {
+        log_debug(away__skip_msg, "running as single node");
+        return;
+    }
+
+    switch (away->status)
+    {
+    case AWAY__STATUS_INIT:
+        log_debug(away__skip_msg, "away mode is not initialized");
+        return;
+    case AWAY__STATUS_IDLE:
+        break;
+    case AWAY__STATUS_ACCEPTED_INIT:
+    case AWAY__STATUS_ACCEPTED_IDLE:
+        log_debug(away__skip_msg, "accepted another node to go into away mode");
+        return;
+    case AWAY__STATUS_REQ_AWAY:
+    case AWAY__STATUS_WAITING:
+    case AWAY__STATUS_WORKING:
+    case AWAY__STATUS_SYNCING:
+        return;  /* this node is going into away mode, no logging */
+    }
+
+    if (ti()->node->status != TI_NODE_STAT_READY)
+    {
+        log_debug(away__skip_msg, "node status is not ready");
+        return;
+    }
+
+    if (!away__required())
+    {
+        log_debug(away__skip_msg, "no reason for going into away mode");
+        return;
+    }
+
+    if ((node = ti_nodes_get_away_or_soon()))
+    {
+        log_debug(away__skip_msg, "other node is away or going away soon");
+        ti_away_set_away_node_id(node->id);
+        return;
+    }
+
+    if (!ti_nodes_has_quorum())
+    {
+        log_debug(away__skip_msg, "quorum not reached");
+        return;
+    }
+
+    away->status = AWAY__STATUS_REQ_AWAY;
+    away__req_away_id();
+}
+
 int ti_away_create(void)
 {
     away = malloc(sizeof(ti_nodes_t));
@@ -394,9 +495,8 @@ int ti_away_create(void)
 
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
-    away->expected_node_id = 0;
+    away->away_node_id = 0;
     away->sleep = 0;
-    away->reset_counter = AWAY__RESET_COUNTER;
 
     if (!away->syncers)
     {
@@ -412,14 +512,14 @@ int ti_away_start(void)
 {
     assert (away->status == AWAY__STATUS_INIT);
 
-    away__reset_expected();
+    away__reset_sleep();
 
-    if (uv_timer_init(ti()->loop, &away__uv_repeat))
+    if (uv_timer_init(ti()->loop, &away__uv_trigger))
         goto fail0;
 
     if (uv_timer_start(
-            &away__uv_repeat,
-            away__repeat_cb,
+            &away__uv_trigger,
+            away__trigger_cb,
             away->sleep,
             away->sleep))
         goto fail1;
@@ -428,61 +528,10 @@ int ti_away_start(void)
     return 0;
 
 fail1:
-    uv_close((uv_handle_t *) &away__uv_repeat, NULL);
+    uv_close((uv_handle_t *) &away__uv_trigger, NULL);
     away__destroy();
 fail0:
     return -1;
-}
-
-void ti_away_on_away_status(uint32_t node_id)
-{
-    /* reschedule for the next node_id */
-    away__reschedule_by_id(ti_nodes_next(node_id)->id);
-}
-
-void ti_away_trigger(void)
-{
-    static const char * away__skip_msg = "not going in away mode (%s)";
-
-    if (ti()->nodes->imap->n == 1)
-    {
-        log_debug(away__skip_msg, "running as single node");
-        return;
-    }
-
-    if ((away->status != AWAY__STATUS_IDLE))
-    {
-        log_debug(away__skip_msg, "away status is not idle");
-        return;
-    }
-
-    if (ti()->node->status != TI_NODE_STAT_READY)
-    {
-        log_debug(away__skip_msg, "node status is not ready");
-        return;
-    }
-
-    if (!away__required())
-    {
-        log_debug(away__skip_msg, "no reason for going into away mode");
-        away__reschedule_by_id(ti_nodes_next(away->expected_node_id)->id);
-        return;
-    }
-
-    if (ti_nodes_get_away_or_soon())
-    {
-        log_debug(away__skip_msg, "other node is away or going away soon");
-        return;
-    }
-
-    if (!ti_nodes_has_quorum())
-    {
-        log_debug(away__skip_msg, "quorum not reached");
-        return;
-    }
-
-    away->status = AWAY__STATUS_REQ_AWAY;
-    away__req_away_id();
 }
 
 void ti_away_stop(void)
@@ -490,17 +539,22 @@ void ti_away_stop(void)
     if (!away)
         return;
 
-    if (away->status == AWAY__STATUS_WAITING ||
+    if (away->status == AWAY__STATUS_ACCEPTED_INIT ||
+        away->status == AWAY__STATUS_ACCEPTED_IDLE ||
+        away->status == AWAY__STATUS_WAITING ||
         away->status == AWAY__STATUS_SYNCING)
     {
-        uv_timer_stop(&away__uv_waiter);
-        uv_close((uv_handle_t *) &away__uv_waiter, NULL);
+        if (!uv_is_closing((uv_handle_t *) &away__uv_waiter))
+        {
+            uv_timer_stop(&away__uv_waiter);
+            uv_close((uv_handle_t *) &away__uv_waiter, NULL);
+        }
     }
 
     if (away->status != AWAY__STATUS_INIT)
     {
-        uv_timer_stop(&away__uv_repeat);
-        uv_close((uv_handle_t *) &away__uv_repeat, NULL);
+        uv_timer_stop(&away__uv_trigger);
+        uv_close((uv_handle_t *) &away__uv_trigger, NULL);
     }
 
     away__destroy();
@@ -508,47 +562,55 @@ void ti_away_stop(void)
 
 _Bool ti_away_accept(uint32_t node_id)
 {
-    ti_node_t * node;
+    ti_node_t * node = NULL;
+
     switch ((enum away__status) away->status)
     {
     case AWAY__STATUS_INIT:
     case AWAY__STATUS_IDLE:
+        away__accept_node_id(node_id);
+        return true;
+    case AWAY__STATUS_ACCEPTED_INIT:
+    case AWAY__STATUS_ACCEPTED_IDLE:
+        node = ti_nodes_get_away_or_soon();
         break;
     case AWAY__STATUS_REQ_AWAY:
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
-        log_debug(
-                "reject away request for "TI_NODE_ID
-                " due to away status: `%s`",
-                node_id, away__status_str());
-        return false;
+        node = ti()->node;
+        break;
     }
 
-    if (node_id == away->expected_node_id)
+    if (node)
+        ti_away_set_away_node_id(node->id);
+
+    if (away->away_node_id == node_id)
         return true;
-
-    node = ti_nodes_node_by_id(away->expected_node_id);
-    if (!node || node->status != TI_NODE_STAT_READY)
-        away__reschedule_by_id(ti_nodes_next(away->expected_node_id)->id);
-
-    if (node_id == away->expected_node_id)
-        return true;
-
-    if (!--away->reset_counter)
-    {
-        log_warning("reset expected away node");
-        away__reset_expected();
-        away->reset_counter = AWAY__RESET_COUNTER;
-        return node_id == away->expected_node_id;
-    }
 
     log_warning(
-        "reject away request from "TI_NODE_ID" "
-        "(expecting "TI_NODE_ID")",
-        node_id, away->expected_node_id);
+            "reject away request from "TI_NODE_ID
+            "; away status: `%s`; (pending) away node: "TI_NODE_ID,
+            node_id, away__status_str(), away->away_node_id);
 
     return false;
+}
+
+void ti_away_set_away_node_id(uint32_t node_id)
+{
+    if (node_id == away->away_node_id)
+        return;
+    away->away_node_id = node_id;
+    away__update_sleep();
+    uv_timer_set_repeat(&away__uv_trigger, away->sleep);
+}
+
+void ti_away_reschedule(void)
+{
+    uint32_t prev_sleep = away->sleep;
+    away__update_sleep();
+    if (prev_sleep != away->sleep)
+        uv_timer_set_repeat(&away__uv_trigger, away->sleep);
 }
 
 _Bool ti_away_is_working(void)

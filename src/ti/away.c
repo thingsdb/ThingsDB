@@ -95,7 +95,7 @@ static void away__update_sleep(void)
         c_idx %= n;
     }
     while (
-            c_idx != my_idx &&
+        c_idx != my_idx &&
         ((ti_node_t *) vec_get(nodes_vec, c_idx))->status != TI_NODE_STAT_READY
     );
 

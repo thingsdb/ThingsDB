@@ -456,7 +456,6 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
     case EX_OVERFLOW:
     case EX_ZERO_DIV:
     case EX_MAX_QUOTA:
-    case EX_LOOKUP_ERROR:
     case EX_BAD_DATA:
     case EX_SYNTAX_ERROR:
     case EX_ASSERT_ERROR:
@@ -480,6 +479,14 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E403_FORBIDDEN,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
+        break;
+    case EX_LOOKUP_ERROR:
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E404_NOT_FOUND,
                 TI_API_CT_TEXT,
                 (size_t) body_size);
         break;
@@ -693,43 +700,52 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
         goto fail;
     }
 
-    switch (ar->content_type)
+    switch (req->pkg_res->tp)
     {
-    case TI_API_CT_TEXT:
-        assert (0);
-        break;
-    case TI_API_CT_JSON:
-    {
-        size_t size;
-        unsigned char * data;
-        yajl_gen_status stat = mpjson_mp_to_json(
-                req->pkg_res->data,
-                req->pkg_res->n,
-                &data,
-                &size,
-                ar->flags);
-        if (stat)
+    case TI_PROTO_CLIENT_RES_ERROR:
+        ti_pkg_client_err_to_e(&ar->e, req->pkg_res);
+        goto fail;
+
+    case TI_PROTO_CLIENT_RES_DATA:
+        switch (ar->content_type)
         {
-            api__set_yajl_gen_status_error(&ar->e, stat);
-            goto fail;
-        }
-        api__close_resp(ar, data, size);
-        goto done;
-    }
-    case TI_API_CT_MSGPACK:
-    {
-        size_t size = req->pkg_res->n;
-        char * data = malloc(size);
-        if (!data)
+        case TI_API_CT_TEXT:
+            break;
+        case TI_API_CT_JSON:
         {
-            ex_set_mem(&ar->e);
-            goto fail;
+            size_t size;
+            unsigned char * data;
+            yajl_gen_status stat = mpjson_mp_to_json(
+                    req->pkg_res->data,
+                    req->pkg_res->n,
+                    &data,
+                    &size,
+                    ar->flags);
+            if (stat)
+            {
+                api__set_yajl_gen_status_error(&ar->e, stat);
+                goto fail;
+            }
+            api__close_resp(ar, data, size);
+            goto done;
         }
-        memcpy(data, req->pkg_res->data, size);
-        api__close_resp(ar, data, size);
-        goto done;
+        case TI_API_CT_MSGPACK:
+        {
+            size_t size = req->pkg_res->n;
+            char * data = malloc(size);
+            if (!data)
+            {
+                ex_set_mem(&ar->e);
+                goto fail;
+            }
+            memcpy(data, req->pkg_res->data, size);
+            api__close_resp(ar, data, size);
+            goto done;
+        }
+        }
     }
-    }
+
+    ex_set_internal(&ar->e);
 
 fail:
     ti_api_close_with_err(ar, &ar->e);

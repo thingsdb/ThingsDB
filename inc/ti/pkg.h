@@ -20,6 +20,7 @@ ti_pkg_t * ti_pkg_new(
 void pkg_init(ti_pkg_t * pkg, uint16_t id, uint8_t tp, size_t total_n);
 ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg);
 ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e);
+void ti_pkg_client_err_to_e(ex_t * e, ti_pkg_t * pkg);
 ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e);
 void ti_pkg_log(ti_pkg_t * pkg);
 void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp);

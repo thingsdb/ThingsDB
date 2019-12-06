@@ -51,7 +51,7 @@ x = requests.post(
     stuff,
     json={
         'type': 'query',
-        'code': ".iris.age = age;",
+        'code': ".iiris.age = age;",
         'vars': {
             'age': 6
         }
@@ -71,7 +71,7 @@ x = requests.post(
     json={
         'type': 'run',
         'procedure': 'addone',
-        'args': [41]
+        'args': [411213254564564]
     },
     auth=('admin', 'pass')
 )
@@ -80,4 +80,23 @@ if x.status_code == 200:
     j = x.json()
     print(j)
 else:
+    print(x.status_code)
+    print(x.text)
+
+
+x = requests.post(
+    stuff,
+    json={
+        'type': 'query',
+        'code': '.addone',
+        'args': [123]
+    },
+    auth=('admin', 'pass')
+)
+
+if x.status_code == 200:
+    j = x.json()
+    print(j)
+else:
+    print(x.status_code)
     print(x.text)

@@ -76,6 +76,32 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     return pkg;
 }
 
+void ti_pkg_client_err_to_e(ex_t * e, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    mp_obj_t obj, mp_code, mp_msg;
+
+    assert (pkg->tp == TI_PROTO_CLIENT_RES_ERROR);
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_next(&up, &obj) != MP_STR || !(mp_str_eq(&obj, "error_code")) ||
+        mp_next(&up, &mp_code) != MP_I64 ||
+        mp_code.via.i64 < EX_MIN_ERR || mp_code.via.i64 >= 0 ||
+        mp_next(&up, &obj) != MP_STR || !(mp_str_eq(&obj, "error_msg")) ||
+        mp_next(&up, &mp_msg) != MP_STR || mp_msg.via.str.n > EX_MAX_SZ)
+    {
+        ex_set(e, EX_BAD_DATA, "invalid error package");
+        return;
+    }
+
+    e->nr = (ex_enum) mp_code.via.i64;
+    e->n = mp_msg.via.str.n;
+    e->msg[e->n] = '\0';
+    memcpy(e->msg,  mp_msg.via.str.data, e->n);
+}
+
 ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e)
 {
     return ti_pkg_new(

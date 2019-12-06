@@ -6,6 +6,7 @@ from test_collection_functions import TestCollectionFunctions
 from test_doc_url import TestDocUrl
 from test_events import TestEvents
 from test_gc import TestGC
+from test_http_api import TestHTTPAPI
 from test_index_slice import TestIndexSlice
 from test_multi_node import TestMultiNode
 from test_nested import TestNested
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     run_test(TestDocUrl())
     run_test(TestEvents())
     run_test(TestGC())
+    run_test(TestHTTPAPI())
     run_test(TestIndexSlice())
     run_test(TestMultiNode())
     run_test(TestNested())

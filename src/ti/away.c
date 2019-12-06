@@ -124,7 +124,6 @@ static void away__accept_node_id(uint32_t node_id)
     int rc;
     assert (away->status == AWAY__STATUS_IDLE ||
             away->status == AWAY__STATUS_INIT);
-
     away->status += 2;
 
     ti_away_set_away_node_id(node_id);
@@ -418,7 +417,6 @@ static void away__req_away_id(void)
     }
 
     free(pkg);
-
     ti_quorum_go(quorum);
 
     return;

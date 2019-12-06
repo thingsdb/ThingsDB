@@ -149,6 +149,39 @@ class TestType(TestBase):
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
+    async def test_wrap(self, client0):
+        only_name = await client0.query(r'''
+            set_type('_Name', {name: 'any'});
+            .only_name = {
+                name: 'Iris',
+                age: 6
+            }.wrap('_Name');
+        ''')
+
+        self.assertEqual(only_name['name'], 'Iris')
+        self.assertIn('#', only_name)
+
+        iris = {k: v for k, v in only_name.items()}
+        iris['age'] = 6
+
+        await asyncio.sleep(1.5)
+
+        client1 = await get_client(self.node1)
+        client1.use('stuff')
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            test = await client.query('.only_name;')
+            self.assertEqual(test, only_name)
+
+        for client in (client0, client1):
+            test = await client.query('.only_name.unwrap();')
+            self.assertEqual(test, iris)
+
+        client1.close()
+        await client1.wait_closed()
+
 
 if __name__ == '__main__':
     run_test(TestType())

@@ -216,7 +216,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
             mp_next(vup->up, &mp_type_id) != MP_U64 ||
-            mp_next(vup->up, &mp_val) != MP_MAP || mp_val.via.sz != 1)
+            mp_next(vup->up, &mp_val) != MP_MAP || mp_val.via.sz < 1)
         {
             ex_set(e, EX_BAD_DATA,
                 "wrap type must be written according the "
@@ -224,7 +224,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        vthing = val__unp_map(vup, 1, e);
+        vthing = val__unp_map(vup, mp_val.via.sz, e);
         if (!vthing)
             return NULL;
 

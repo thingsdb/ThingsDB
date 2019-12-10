@@ -129,6 +129,7 @@ int ti_val_make_float(ti_val_t ** val, double d);
 ti_val_t * ti_val_from_unp(ti_vup_t * vup);
 ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
+ti_val_t * ti_val_borrow_tar_gz_str(void);
 ti_val_t * ti_val_empty_bin(void);
 ti_val_t * ti_val_wthing_str(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);

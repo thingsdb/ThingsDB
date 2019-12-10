@@ -958,6 +958,28 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err['error_code'], EX_LOOKUP_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
+    async def test_if(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `if`'):
+            await client.query('nil.if();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `if` requires at least 2 arguments but 0 were given'):
+            await client.query('if();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `if` takes at most 3 arguments but 4 were given'):
+            await client.query('if(1, 2, 3, 4);')
+
+        self.assertIs(await client.query('if(2 > 1, a=1, a=0);'), None)
+        self.assertEqual(await client.query('if(2>1, a=1, a=0); a;'), 1)
+        self.assertEqual(await client.query('if(1>2, a=1, a=0); a;'), 0)
+        self.assertEqual(await client.query('a=2; if(2>1, a=1); a;'), 1)
+        self.assertEqual(await client.query('a=0; if(1>2, a=1); a;'), 0)
+
     async def test_int(self, client):
         with self.assertRaisesRegex(
                 LookupError,

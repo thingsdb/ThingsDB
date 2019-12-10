@@ -47,6 +47,7 @@
 #include <ti/fn/fnhas.h>
 #include <ti/fn/fnid.h>
 #include <ti/fn/fnindexof.h>
+#include <ti/fn/fnif.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
@@ -226,6 +227,7 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
     case 'h':
         break;
     case 'i':
+        qbind__nev_fn(q, nd, "if", do__f_if);
         qbind__nev_fn(q, nd, "int", do__f_int);
         qbind__nev_fn(q, nd, "isarray", do__f_isarray);
         qbind__nev_fn(q, nd, "isascii", do__f_isascii);

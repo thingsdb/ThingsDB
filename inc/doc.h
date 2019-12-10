@@ -21,6 +21,7 @@
 #define DOC_DEL_TYPE                DOC_SEE("collection-api/del_type")
 #define DOC_ERR                     DOC_SEE("collection-api/err")
 #define DOC_FLOAT                   DOC_SEE("collection-api/float")
+#define DOC_IF                      DOC_SEE("collection-api/if")
 #define DOC_INT                     DOC_SEE("collection-api/int")
 #define DOC_ISARRAY                 DOC_SEE("collection-api/isarray")
 #define DOC_ISASCII                 DOC_SEE("collection-api/isascii")

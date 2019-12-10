@@ -10,6 +10,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint64_t timestamp = 0;
     uint64_t repeat = 0;
     ti_backup_t * backup;
+    ti_raw_t * tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
 
     if (fn_not_node_scope("new_backup", query, e) ||
         fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 3, nargs, e) ||
@@ -38,6 +39,14 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+    if (!ti_raw_endswith(rname, tar_gz_str))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "expecting a backup file-name to end with `%.*s`"
+            DOC_NEW_BACKUP, (int) tar_gz_str->n, (char *) tar_gz_str->data);
+        goto fail0;
+    }
+
     if (nargs >= 2)
     {
         child = child->next->next;
@@ -65,7 +74,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ts < 0)
             {
                 ex_set(e, EX_VALUE_ERROR,
-                        "invalid date/time string as expiration time"
+                        "invalid date/time string as backup start time"
                         DOC_NEW_BACKUP);
                 goto fail0;
             }

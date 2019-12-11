@@ -14,11 +14,6 @@ typedef struct ti_chain_s ti_chain_t;
 #include <ex.h>
 
 void ti_chain_set(ti_chain_t * chain, ti_thing_t * thing, ti_name_t * name);
-void ti_chain_move(ti_chain_t * target, ti_chain_t * source);
-void ti__chain_unset_(ti_chain_t * chain);
-static inline void ti_chain_init(ti_chain_t * chain);
-static inline void ti_chain_unset(ti_chain_t * chain);
-static inline _Bool ti_chain_is_set(ti_chain_t * chain);
 
 struct ti_chain_s
 {
@@ -32,10 +27,21 @@ static inline void ti_chain_init(ti_chain_t * chain)
     chain->name = NULL;
 }
 
+static inline void ti_chain_move(ti_chain_t * target, ti_chain_t * source)
+{
+    target->thing = source->thing;
+    target->name = source->name;
+    source->thing = NULL;
+}
+
 static inline void ti_chain_unset(ti_chain_t * chain)
 {
     if (chain->thing)
-        ti__chain_unset_(chain);
+    {
+        ti_val_drop((ti_val_t *) chain->thing);
+        ti_name_drop(chain->name);
+        chain->thing = NULL;
+    }
 }
 
 static inline _Bool ti_chain_is_set(ti_chain_t * chain)

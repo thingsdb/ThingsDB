@@ -14,12 +14,12 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = OPR__INT(a) | OPR__INT(*b);
+            int_ = VINT(a) | VINT(*b);
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = OPR__INT(a) | OPR__BOOL(*b);
+            int_ = VINT(a) | VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -43,12 +43,12 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            int_ = OPR__BOOL(a) | OPR__INT(*b);
+            int_ = VBOOL(a) | VINT(*b);
             break;
         case TI_VAL_FLOAT:
             goto type_err;
         case TI_VAL_BOOL:
-            int_ = OPR__BOOL(a) | OPR__BOOL(*b);
+            int_ = VBOOL(a) | VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:

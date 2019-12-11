@@ -41,7 +41,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    i = ((ti_vint_t *) query->rval)->int_;
+    i = VINT(query->rval);
     ti_val_drop(query->rval);
     query->rval = NULL;
     child = child->next->next;
@@ -59,7 +59,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    c = ((ti_vint_t *) query->rval)->int_;
+    c = VINT(query->rval);
     current_n = varr->vec->n;
 
     ti_val_drop(query->rval);

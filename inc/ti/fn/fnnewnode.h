@@ -102,7 +102,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail1;
         }
 
-        iport = ((ti_vint_t *) query->rval)->int_;
+        iport = VINT(query->rval);
         if (iport < 1<<0 || iport >= 1<<16)
         {
             ex_set(e, EX_VALUE_ERROR,

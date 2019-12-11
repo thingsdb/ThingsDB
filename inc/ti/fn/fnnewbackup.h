@@ -55,14 +55,14 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_val_is_float(query->rval))
         {
-            double ts = ((ti_vfloat_t *) query->rval)->float_;
+            double ts = VFLOAT(query->rval);
             if (ts < 0.0)
                 ts = 0.0;
             timestamp = (uint64_t) ts;
         }
         else if (ti_val_is_int(query->rval))
         {
-            int64_t ts = ((ti_vint_t *) query->rval)->int_;
+            int64_t ts = VINT(query->rval);
             if (ts < 0)
                 ts = 0;
             timestamp = (uint64_t) ts;
@@ -110,7 +110,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        repeat_ts = ((ti_vint_t *) query->rval)->int_;
+        repeat_ts = VINT(query->rval);
         if (repeat_ts < 0)
             repeat_ts = 0;
 

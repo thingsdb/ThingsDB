@@ -20,8 +20,7 @@ static int do__f_backup_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-
-    backup_id = ((ti_vint_t *) query->rval)->int_;
+    backup_id = VINT(query->rval);
 
     if (backup_id < 0)
     {

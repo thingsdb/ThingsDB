@@ -108,11 +108,11 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_NIL:
             return false;
         case TI_VAL_INT:
-            return OPR__INT(a) == OPR__INT(b);
+            return VINT(a) == VINT(b);
         case TI_VAL_FLOAT:
-            return OPR__INT(a) == OPR__FLOAT(b);
+            return VINT(a) == VFLOAT(b);
         case TI_VAL_BOOL:
-            return OPR__INT(a) == OPR__BOOL(b);
+            return VINT(a) == VBOOL(b);
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -133,11 +133,11 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_NIL:
             return false;
         case TI_VAL_INT:
-            return OPR__FLOAT(a) == OPR__INT(b);
+            return VFLOAT(a) == VINT(b);
         case TI_VAL_FLOAT:
-            return OPR__FLOAT(a) == OPR__FLOAT(b);
+            return VFLOAT(a) == VFLOAT(b);
         case TI_VAL_BOOL:
-            return OPR__FLOAT(a) == OPR__BOOL(b);
+            return VFLOAT(a) == VBOOL(b);
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -158,11 +158,11 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         case TI_VAL_NIL:
             return false;
         case TI_VAL_INT:
-            return  OPR__BOOL(a) == OPR__INT(b);
+            return  VBOOL(a) == VINT(b);
         case TI_VAL_FLOAT:
-            return OPR__BOOL(a) == OPR__FLOAT(b);
+            return VBOOL(a) == VFLOAT(b);
         case TI_VAL_BOOL:
-            return OPR__BOOL(a) == OPR__BOOL(b);
+            return VBOOL(a) == VBOOL(b);
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -342,14 +342,14 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_NIL:
             break;
         case TI_VAL_INT:
-            return  (OPR__INT(a) > OPR__INT(b)) -
-                    (OPR__INT(a) < OPR__INT(b));
+            return  (VINT(a) > VINT(b)) -
+                    (VINT(a) < VINT(b));
         case TI_VAL_FLOAT:
-            return  (OPR__INT(a) > OPR__FLOAT(b)) -
-                    (OPR__INT(a) < OPR__FLOAT(b));
+            return  (VINT(a) > VFLOAT(b)) -
+                    (VINT(a) < VFLOAT(b));
         case TI_VAL_BOOL:
-            return  (OPR__INT(a) > OPR__BOOL(b)) -
-                    (OPR__INT(a) < OPR__BOOL(b));
+            return  (VINT(a) > VBOOL(b)) -
+                    (VINT(a) < VBOOL(b));
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -371,14 +371,14 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_NIL:
             break;
         case TI_VAL_INT:
-            return  (OPR__FLOAT(a) > OPR__INT(b)) -
-                    (OPR__FLOAT(a) < OPR__INT(b));
+            return  (VFLOAT(a) > VINT(b)) -
+                    (VFLOAT(a) < VINT(b));
         case TI_VAL_FLOAT:
-            return  (OPR__FLOAT(a) > OPR__FLOAT(b)) -
-                    (OPR__FLOAT(a) < OPR__FLOAT(b));
+            return  (VFLOAT(a) > VFLOAT(b)) -
+                    (VFLOAT(a) < VFLOAT(b));
         case TI_VAL_BOOL:
-            return  (OPR__FLOAT(a) > OPR__BOOL(b)) -
-                    (OPR__FLOAT(a) < OPR__BOOL(b));
+            return  (VFLOAT(a) > VBOOL(b)) -
+                    (VFLOAT(a) < VBOOL(b));
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -399,14 +399,14 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         case TI_VAL_NIL:
             break;
         case TI_VAL_INT:
-            return  (OPR__BOOL(a) > OPR__INT(b)) -
-                    (OPR__BOOL(a) < OPR__INT(b));
+            return  (VBOOL(a) > VINT(b)) -
+                    (VBOOL(a) < VINT(b));
         case TI_VAL_FLOAT:
-            return  (OPR__BOOL(a) > OPR__FLOAT(b)) -
-                    (OPR__BOOL(a) < OPR__FLOAT(b));
+            return  (VBOOL(a) > VFLOAT(b)) -
+                    (VBOOL(a) < VFLOAT(b));
         case TI_VAL_BOOL:
-            return  (OPR__BOOL(a) > OPR__BOOL(b)) -
-                    (OPR__BOOL(a) < OPR__BOOL(b));
+            return  (VBOOL(a) > VBOOL(b)) -
+                    (VBOOL(a) < VBOOL(b));
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:

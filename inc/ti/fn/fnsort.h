@@ -41,7 +41,7 @@ int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
         return 0;
     }
 
-    i = ((ti_vint_t *) cc->query->rval)->int_;
+    i = VINT(cc->query->rval);
 
     ti_val_drop(cc->query->rval);
     cc->query->rval = NULL;
@@ -143,7 +143,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1 && ti_val_is_bool(query->rval))
     {
-        reverse = ((ti_vbool_t *) query->rval)->bool_;
+        reverse = VBOOL(query->rval);
 
         ti_val_drop(query->rval);
         query->rval = NULL;
@@ -198,7 +198,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail1;
         }
 
-        reverse = ((ti_vbool_t *) query->rval)->bool_;
+        reverse = VBOOL(query->rval);
 
         ti_val_drop(query->rval);
         query->rval = NULL;

@@ -3,11 +3,6 @@
 
 #define CAST_MAX 9223372036854775808.0
 
-#define OPR__BOOL(__x)  ((ti_vbool_t *) __x)->bool_
-#define OPR__INT(__x)   ((ti_vint_t *) __x)->int_
-#define OPR__FLOAT(__x) ((ti_vfloat_t *) __x)->float_
-#define OPR__RAW(__x)   ((ti_raw_t *) __x)
-
 #include <assert.h>
 #include <ti/opr.h>
 #include <ti/raw.h>

@@ -15,21 +15,21 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            if (OPR__INT(a) == LLONG_MAX && OPR__INT(*b) == -1)
+            if (VINT(a) == LLONG_MAX && VINT(*b) == -1)
                 goto overflow;
-            int_ = OPR__INT(a) / OPR__INT(*b);
+            int_ = VINT(a) / VINT(*b);
             goto ret_int;
         case TI_VAL_FLOAT:
-            if (OPR__FLOAT(*b) == 0.0)
+            if (VFLOAT(*b) == 0.0)
                 goto zerodiv;
-            float_ = (double) OPR__INT(a) / OPR__FLOAT(*b);
+            float_ = (double) VINT(a) / VFLOAT(*b);
             goto ret_float;
         case TI_VAL_BOOL:
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__INT(a) / OPR__BOOL(*b);
+            int_ = VINT(a) / VBOOL(*b);
             goto ret_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -52,19 +52,19 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            float_ = OPR__FLOAT(a) / (double) OPR__INT(*b);
+            float_ = VFLOAT(a) / (double) VINT(*b);
             goto ret_float;
         case TI_VAL_FLOAT:
-            if (OPR__FLOAT(*b) == 0.0)
+            if (VFLOAT(*b) == 0.0)
                 goto zerodiv;
-            float_ = OPR__FLOAT(a) / OPR__FLOAT(*b);
+            float_ = VFLOAT(a) / VFLOAT(*b);
             goto ret_float;
         case TI_VAL_BOOL:
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            float_ = OPR__FLOAT(a) / (double) OPR__BOOL(*b);
+            float_ = VFLOAT(a) / (double) VBOOL(*b);
             goto ret_float;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -87,19 +87,19 @@ static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__BOOL(a) / OPR__INT(*b);
+            int_ = VBOOL(a) / VINT(*b);
             goto ret_int;
         case TI_VAL_FLOAT:
-            if (OPR__FLOAT(*b) == 0.0)
+            if (VFLOAT(*b) == 0.0)
                 goto zerodiv;
-            float_ = (double) OPR__BOOL(a) / OPR__FLOAT(*b);
+            float_ = (double) VBOOL(a) / VFLOAT(*b);
             goto ret_float;
         case TI_VAL_BOOL:
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__BOOL(a) / OPR__BOOL(*b);
+            int_ = VBOOL(a) / VBOOL(*b);
             goto ret_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:

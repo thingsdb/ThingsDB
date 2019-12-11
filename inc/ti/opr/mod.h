@@ -14,22 +14,22 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__INT(a) % OPR__INT(*b);
+            int_ = VINT(a) % VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(OPR__FLOAT(*b)))
+            if (ti_val_overflow_cast(VFLOAT(*b)))
                 goto overflow;
-            int_ = (int64_t) OPR__FLOAT(*b);
+            int_ = (int64_t) VFLOAT(*b);
             if (int_ == 0)
                 goto zerodiv;
-            int_ = OPR__INT(a) % int_;
+            int_ = VINT(a) % int_;
             break;
         case TI_VAL_BOOL:
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__INT(a) % OPR__BOOL(*b);
+            int_ = VINT(a) % VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -51,27 +51,27 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (ti_val_overflow_cast(OPR__FLOAT(a)))
+            if (ti_val_overflow_cast(VFLOAT(a)))
                 goto overflow;
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            int_ = (int64_t) OPR__FLOAT(a) % OPR__INT(*b);
+            int_ = (int64_t) VFLOAT(a) % VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(OPR__FLOAT(a)) ||
-                ti_val_overflow_cast(OPR__FLOAT(*b)))
+            if (ti_val_overflow_cast(VFLOAT(a)) ||
+                ti_val_overflow_cast(VFLOAT(*b)))
                 goto overflow;
-            int_ = (int64_t) OPR__FLOAT(*b);
+            int_ = (int64_t) VFLOAT(*b);
             if (int_ == 0)
                 goto zerodiv;
-            int_ = (int64_t) OPR__FLOAT(a) % int_;
+            int_ = (int64_t) VFLOAT(a) % int_;
             break;
         case TI_VAL_BOOL:
-            if (ti_val_overflow_cast(OPR__FLOAT(a)))
+            if (ti_val_overflow_cast(VFLOAT(a)))
                 goto overflow;
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            int_ = (int64_t) OPR__FLOAT(a) % OPR__BOOL(*b);
+            int_ = (int64_t) VFLOAT(a) % VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -93,22 +93,22 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == 0)
+            if (VINT(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__BOOL(a) % OPR__INT(*b);
+            int_ = VBOOL(a) % VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(OPR__FLOAT(*b)))
+            if (ti_val_overflow_cast(VFLOAT(*b)))
                 goto overflow;
-            int_ = (int64_t) OPR__FLOAT(*b);
+            int_ = (int64_t) VFLOAT(*b);
             if (int_ == 0)
                 goto zerodiv;
-            int_ = OPR__BOOL(a) % int_;
+            int_ = VBOOL(a) % int_;
             break;
         case TI_VAL_BOOL:
-            if (OPR__BOOL(*b) == 0)
+            if (VBOOL(*b) == 0)
                 goto zerodiv;
-            int_ = OPR__BOOL(a) % OPR__BOOL(*b);
+            int_ = VBOOL(a) % VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:

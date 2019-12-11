@@ -55,7 +55,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    mask = (uint64_t) ((ti_vint_t *) query->rval)->int_;
+    mask = (uint64_t) VINT(query->rval);
 
     /* make sure READ when MODIFY and MODIFY when GRANT */
     if (mask & TI_AUTH_GRANT)

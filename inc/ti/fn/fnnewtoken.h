@@ -61,7 +61,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_val_is_float(query->rval))
         {
             double now = util_now();
-            double ts = ((ti_vfloat_t *) query->rval)->float_;
+            double ts = VFLOAT(query->rval);
             if (ts < now)
                 goto errpast;
             if (ts > TI_MAX_EXPIRATION_DOUDLE)
@@ -72,7 +72,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         else if (ti_val_is_int(query->rval))
         {
             int64_t now = (int64_t) util_now_tsec();
-            int64_t ts = ((ti_vint_t *) query->rval)->int_;
+            int64_t ts = VINT(query->rval);
             if (ts < now)
                 goto errpast;
             if (ts > TI_MAX_EXPIRATION_LONG)

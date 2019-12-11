@@ -643,7 +643,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     {
         size_t n;
-        const char * s = strx_from_int64((*(ti_vint_t **) val)->int_, &n);
+        const char * s = strx_from_int64(VINT(*val), &n);
         v = (ti_val_t *) ti_str_create(s, n);
         if (!v)
         {
@@ -655,7 +655,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     {
         size_t n;
-        const char * s = strx_from_double((*(ti_vfloat_t **) val)->float_, &n);
+        const char * s = strx_from_double(VFLOAT(*val), &n);
         v = (ti_val_t *) ti_str_create(s, n);
         if (!v)
         {
@@ -665,7 +665,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         break;
     }
     case TI_VAL_BOOL:
-        v = (*(ti_vbool_t **) val)->bool_ ? val__strue : val__sfalse;
+        v = VBOOL(*val) ? val__strue : val__sfalse;
         ti_incref(v);
         break;
     case TI_VAL_NAME:
@@ -791,13 +791,13 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
         return 0;
     case TI_VAL_FLOAT:
-        if (ti_val_overflow_cast((*(ti_vfloat_t **) val)->float_))
+        if (ti_val_overflow_cast(VFLOAT(*val)))
             goto overflow;
 
-        i = (int64_t) (*(ti_vfloat_t **) val)->float_;
+        i = (int64_t) VFLOAT(*val);
         break;
     case TI_VAL_BOOL:
-        i = (*(ti_vbool_t **) val)->bool_;
+        i = VBOOL(*val);
         break;
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -862,12 +862,12 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
-        d = (double) (*(ti_vint_t **) val)->int_;
+        d = (double) VINT(*val);
         break;
     case TI_VAL_FLOAT:
         return 0;
     case TI_VAL_BOOL:
-        d = (double) (*(ti_vbool_t **) val)->bool_;
+        d = (double) VBOOL(*val);
         break;
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1017,11 +1017,11 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_NIL:
         return false;
     case TI_VAL_INT:
-        return !!((ti_vint_t *) val)->int_;
+        return !!VINT(val);
     case TI_VAL_FLOAT:
-        return !!((ti_vfloat_t *) val)->float_;
+        return !!VFLOAT(val);
     case TI_VAL_BOOL:
-        return ((ti_vbool_t *) val)->bool_;
+        return VBOOL(val);
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:

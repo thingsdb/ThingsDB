@@ -33,7 +33,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        deepi = ((ti_vint_t *) query->rval)->int_;
+        deepi = VINT(query->rval);
 
         if (deepi < 0 || deepi > RETURN_MAX_DEEP_HINT)
         {

@@ -6,6 +6,8 @@
 
 typedef struct ti_vbool_s ti_vbool_t;
 
+#define VBOOL(__x)  ((ti_vbool_t *) (__x))->bool_
+
 #include <inttypes.h>
 
 struct ti_vbool_s

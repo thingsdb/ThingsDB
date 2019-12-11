@@ -68,11 +68,11 @@ static inline int ti_val_make_assignable(ti_val_t ** val, ex_t * e)
     case TI_VAL_NIL: \
         return msgpack_pack_nil(pk__); \
     case TI_VAL_INT: \
-        return msgpack_pack_int64(pk__, ((ti_vint_t *) val__)->int_); \
+        return msgpack_pack_int64(pk__, VINT(val__)); \
     case TI_VAL_FLOAT: \
-        return msgpack_pack_double(pk__, ((ti_vfloat_t *) val__)->float_); \
+        return msgpack_pack_double(pk__, VFLOAT(val__)); \
     case TI_VAL_BOOL: \
-        return ((ti_vbool_t *) val__)->bool_ \
+        return VBOOL(val__) \
                 ? msgpack_pack_true(pk__) \
                 : msgpack_pack_false(pk__); \
     case TI_VAL_MP: \

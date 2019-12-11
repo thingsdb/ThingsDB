@@ -154,7 +154,6 @@ static inline int type__field(
     return e->nr;
 }
 
-
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
     for (vec_each(thing->items, ti_prop_t, prop))
@@ -291,7 +290,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type)
 /*
  * Returns a vector with all the properties of a given `to` type when are
  * found and compatible with a `to` type.
- * The return value might be NULL when a memory allocation has occurred.
+ * The return is NULL when a memory allocation has occurred.
  */
 vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 {

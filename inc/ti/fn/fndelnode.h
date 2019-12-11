@@ -21,13 +21,13 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    node_id = (uint32_t) ((ti_vint_t *) query->rval)->int_;
+    node_id = (uint32_t) VINT(query->rval);
 
     node = ti_nodes_node_by_id(node_id);
     if (!node)
     {
         ex_set(e, EX_LOOKUP_ERROR, "node with id %"PRId64" not found",
-                ((ti_vint_t *) query->rval)->int_);
+                VINT(query->rval));
         return e->nr;
     }
 

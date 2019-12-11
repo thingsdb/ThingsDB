@@ -24,7 +24,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        id = ((ti_vint_t *) query->rval)->int_;
+        id = VINT(query->rval);
         thing = ti_query_thing_from_id(query, id, e);
         if (!thing)
             return e->nr;

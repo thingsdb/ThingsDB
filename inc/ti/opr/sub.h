@@ -15,18 +15,18 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if ((OPR__INT(*b) < 0 && OPR__INT(a) > LLONG_MAX + OPR__INT(*b)) ||
-                (OPR__INT(*b) > 0 && OPR__INT(a) < LLONG_MIN + OPR__INT(*b)))
+            if ((VINT(*b) < 0 && VINT(a) > LLONG_MAX + VINT(*b)) ||
+                (VINT(*b) > 0 && VINT(a) < LLONG_MIN + VINT(*b)))
                 goto overflow;
-            int_ = OPR__INT(a) - OPR__INT(*b);
+            int_ = VINT(a) - VINT(*b);
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = OPR__INT(a) - OPR__FLOAT(*b);
+            float_ = VINT(a) - VFLOAT(*b);
             goto type_float;
         case TI_VAL_BOOL:
-            if (OPR__INT(a) == LLONG_MIN && OPR__BOOL(*b))
+            if (VINT(a) == LLONG_MIN && VBOOL(*b))
                 goto overflow;
-            int_ = OPR__INT(a) - OPR__BOOL(*b);
+            int_ = VINT(a) - VBOOL(*b);
             goto type_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -48,13 +48,13 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            float_ = OPR__FLOAT(a) - OPR__INT(*b);
+            float_ = VFLOAT(a) - VINT(*b);
             goto type_float;
         case TI_VAL_FLOAT:
-            float_ = OPR__FLOAT(a) - OPR__FLOAT(*b);
+            float_ = VFLOAT(a) - VFLOAT(*b);
             goto type_float;
         case TI_VAL_BOOL:
-            float_ = OPR__FLOAT(a) - OPR__BOOL(*b);
+            float_ = VFLOAT(a) - VBOOL(*b);
             goto type_float;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -76,16 +76,16 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            if (OPR__INT(*b) == LLONG_MIN ||
-                (OPR__BOOL(a) && OPR__INT(*b) == -LLONG_MAX))
+            if (VINT(*b) == LLONG_MIN ||
+                (VBOOL(a) && VINT(*b) == -LLONG_MAX))
                 goto overflow;
-            int_ = OPR__BOOL(a) - OPR__INT(*b);
+            int_ = VBOOL(a) - VINT(*b);
             goto type_int;
         case TI_VAL_FLOAT:
-            float_ = OPR__BOOL(a) - OPR__FLOAT(*b);
+            float_ = VBOOL(a) - VFLOAT(*b);
             goto type_float;
         case TI_VAL_BOOL:
-            int_ = OPR__BOOL(a) - OPR__BOOL(*b);
+            int_ = VBOOL(a) - VBOOL(*b);
             goto type_int;
         case TI_VAL_MP:
         case TI_VAL_NAME:

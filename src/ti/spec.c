@@ -42,7 +42,7 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_UINT:
         return !ti_val_is_int(val)
             ? TI_SPEC_RVAL_TYPE_ERROR
-            : ((ti_vint_t *) val)->int_ < 0 ? TI_SPEC_RVAL_UINT_ERROR : 0;
+            : VINT(val) < 0 ? TI_SPEC_RVAL_UINT_ERROR : 0;
     case TI_SPEC_FLOAT:
         return ti_val_is_float(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_NUMBER:
@@ -93,7 +93,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_UINT:
         return !ti_val_is_int(val)
             ? false
-            : ((ti_vint_t *) val)->int_ >= 0;
+            : VINT(val) >= 0;
     case TI_SPEC_FLOAT:
         return ti_val_is_float(val);
     case TI_SPEC_NUMBER:

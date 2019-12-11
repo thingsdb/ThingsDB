@@ -16,7 +16,7 @@ static int do__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         is_nan = false;
         break;
     case TI_VAL_FLOAT:
-        is_nan = isnan(((ti_vfloat_t *) query->rval)->float_);
+        is_nan = isnan(VFLOAT(query->rval));
         break;
     default:
         is_nan = true;

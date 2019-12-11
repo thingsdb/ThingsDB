@@ -16,7 +16,7 @@ static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         is_inf = false;
         break;
     case TI_VAL_FLOAT:
-        is_inf = isinf(((ti_vfloat_t *) query->rval)->float_);
+        is_inf = isinf(VFLOAT(query->rval));
         break;
     default:
         ex_set(e, EX_TYPE_ERROR,

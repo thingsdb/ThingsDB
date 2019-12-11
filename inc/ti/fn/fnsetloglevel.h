@@ -22,7 +22,7 @@ static int do__f_set_log_level(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ilog = ((ti_vint_t *) query->rval)->int_;
+    ilog = VINT(query->rval);
 
     log_level = ilog < LOGGER_DEBUG
             ? LOGGER_DEBUG

@@ -236,7 +236,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
         break;
     case TI_VAL_INT:
         {
-            uint64_t id = (uint64_t) ((ti_vint_t *) val)->int_;
+            uint64_t id = (uint64_t) VINT(val);
             collection = ti_collections_get_by_id(id);
             if (!collection)
                 ex_set(

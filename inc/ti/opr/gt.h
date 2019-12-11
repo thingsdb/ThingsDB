@@ -13,13 +13,13 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            bool_ = OPR__INT(a) > OPR__INT(*b);
+            bool_ = VINT(a) > VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            bool_ = OPR__INT(a) > OPR__FLOAT(*b);
+            bool_ = VINT(a) > VFLOAT(*b);
             break;
         case TI_VAL_BOOL:
-            bool_ = OPR__INT(a) > OPR__BOOL(*b);
+            bool_ = VINT(a) > VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -41,13 +41,13 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            bool_ = OPR__FLOAT(a) > OPR__INT(*b);
+            bool_ = VFLOAT(a) > VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            bool_ = OPR__FLOAT(a) > OPR__FLOAT(*b);
+            bool_ = VFLOAT(a) > VFLOAT(*b);
             break;
         case TI_VAL_BOOL:
-            bool_ = OPR__FLOAT(a) > OPR__BOOL(*b);
+            bool_ = VFLOAT(a) > VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:
@@ -69,13 +69,13 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         case TI_VAL_NIL:
             goto type_err;
         case TI_VAL_INT:
-            bool_ = OPR__BOOL(a) > OPR__INT(*b);
+            bool_ = VBOOL(a) > VINT(*b);
             break;
         case TI_VAL_FLOAT:
-            bool_ = OPR__BOOL(a) > OPR__FLOAT(*b);
+            bool_ = VBOOL(a) > VFLOAT(*b);
             break;
         case TI_VAL_BOOL:
-            bool_ = OPR__BOOL(a) > OPR__BOOL(*b);
+            bool_ = VBOOL(a) > VBOOL(*b);
             break;
         case TI_VAL_MP:
         case TI_VAL_NAME:

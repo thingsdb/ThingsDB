@@ -48,7 +48,7 @@ static int index__read_slice_indices(
 
         if (ti_val_is_int(query->rval))
         {
-            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            ssize_t i = VINT(query->rval);
             if (i > 0)
             {
                 *start = i > n ? n : i;
@@ -81,7 +81,7 @@ static int index__read_slice_indices(
 
         if (ti_val_is_int(query->rval))
         {
-            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            ssize_t i = VINT(query->rval);
             if (i < n)
             {
                 *stop = i < 0 ? ((n + i) < 0 ? 0 : n + i) : i;
@@ -112,7 +112,7 @@ static int index__read_slice_indices(
 
         if (ti_val_is_int(query->rval))
         {
-            ssize_t i = ((ti_vint_t *) query->rval)->int_;
+            ssize_t i = VINT(query->rval);
             if (i < 0)
             {
                 if (!start_)
@@ -295,7 +295,7 @@ static int index__numeric(
         return e->nr;
     }
 
-    i = ((ti_vint_t * ) query->rval)->int_;
+    i = VINT(query->rval);
 
     ti_val_drop(query->rval);
     query->rval = NULL;

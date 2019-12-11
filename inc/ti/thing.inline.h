@@ -27,8 +27,9 @@ static inline const char * ti_thing_type_str(ti_thing_t * thing)
 
 static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
 {
-    ti_incref(ti_thing_type(thing)->rname);
-    return ti_thing_type(thing)->rname;
+    ti_raw_t * r = ti_thing_type(thing)->rname;
+    ti_incref(r);
+    return r;
 }
 
 static inline int ti_thing_set_val_from_strn(

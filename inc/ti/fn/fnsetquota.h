@@ -58,9 +58,9 @@ static int do__f_set_quota(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     quota = (size_t) (ti_val_is_nil(query->rval)
             ? TI_QUOTA_NOT_SET
-            : ((ti_vint_t *) query->rval)->int_ < 0
+            : VINT(query->rval) < 0
             ? 0
-            : ((ti_vint_t *) query->rval)->int_);
+            : VINT(query->rval));
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
     if (!task)

@@ -8,6 +8,12 @@
 #include <ti/nodes.h>
 #include <util/mpack.h>
 
+/*
+ * Wait for X seconds for off-line nodes to come online when no node is
+ * available for going into away mode
+ */
+#define SYNC__WAIT_FOR_OFFLINE_NODES 60
+
 enum
 {
     SYNC__STAT_INIT,
@@ -46,10 +52,7 @@ int ti_sync_start(void)
 {
     assert (sync_->status == SYNC__STAT_INIT);
 
-    /* set a minimum try-to-sync when having two nodes since in this case
-     * only, we have to wait some time to see if the other node becomes
-     * available. */
-    sync_->min_try_count = ti()->nodes->imap->n == 2 ? 5 : 0;
+    sync_->retry_offline = SYNC__WAIT_FOR_OFFLINE_NODES;
 
     if (uv_timer_init(ti()->loop, sync_->repeat))
         goto fail0;
@@ -117,20 +120,27 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
 
     if (node == NULL)
     {
-
-        if (sync_->min_try_count == 0 && ti_nodes_ignore_sync())
+        switch(ti_nodes_ignore_sync(sync_->retry_offline))
         {
+        case TI_NODES_IGNORE_SYNC:
             log_warning(
-                    "ignore the synchronize step because no node is available "
-                    "to synchronize with, and the quorum of nodes is in "
-                    "synchronization mode, and this node has the highest "
-                    "known committed event id");
+                "ignore the synchronize step because no node is available "
+                "to synchronize with, and the quorum of nodes is in "
+                "synchronization mode, and this node has the highest "
+                "known committed event id");
             sync__finish();
-        }
-        else
-        {
-            sync_->min_try_count -= !!sync_->min_try_count;
+            break;
+        case TI_NODES_RETRY_OFFLINE:
+            if (sync_->retry_offline % 10 == 0)
+                log_warning(
+                    "waiting for a node to enter `away` mode and at least "
+                    "one node is not available; wait %u more seconds",
+                    sync_->retry_offline);
+            sync_->retry_offline -= !!sync_->retry_offline;
+            break;
+        case TI_NODES_WAIT_AWAY:
             log_info("waiting for a node to enter `away` mode");
+            break;
         }
         return;
     }

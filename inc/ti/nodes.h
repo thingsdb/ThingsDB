@@ -13,6 +13,13 @@
 
 typedef struct ti_nodes_s ti_nodes_t;
 
+typedef enum
+{
+    TI_NODES_IGNORE_SYNC,
+    TI_NODES_RETRY_OFFLINE,
+    TI_NODES_WAIT_AWAY,
+} ti_nodes_ignore_t;
+
 int ti_nodes_create(void);
 void ti_nodes_destroy(void);
 int ti_nodes_read_scevid(void);
@@ -24,7 +31,7 @@ ti_node_t * ti_nodes_next(uint32_t cur_node_id);
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg);
 int ti_nodes_to_pk(msgpack_packer * pk);
 int ti_nodes_from_up(mp_unp_t * up);
-_Bool ti_nodes_ignore_sync(void);
+ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline);
 _Bool ti_nodes_require_sync(void);
 int ti_nodes_check_add(ex_t * e);
 uint64_t ti_nodes_cevid(void);

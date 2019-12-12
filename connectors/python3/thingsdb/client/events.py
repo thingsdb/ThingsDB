@@ -1,3 +1,4 @@
+from .protocol import Proto
 import abc
 
 
@@ -5,6 +6,13 @@ class Events(metaclass=abc.ABCMeta):
 
     def __init__(self, client):
         self.client = client
+        self._evmap = {
+            Proto.ON_NODE_STATUS: self.on_node_status,
+            Proto.ON_WARN: self.on_warning,
+            Proto.ON_WATCH_INI: self.on_watch_init,
+            Proto.ON_WATCH_UPD: self.on_watch_update,
+            Proto.ON_WATCH_DEL: self.on_watch_delete,
+        }
 
     @abc.abstractmethod
     async def on_reconnect(self) -> None:

@@ -1294,24 +1294,32 @@ int ti_nodes_from_up(mp_unp_t * up)
     return 0;
 }
 
-_Bool ti_nodes_ignore_sync(void)
+ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 {
     uint64_t m = ti()->node->cevid;
-    uint8_t n = 0;
+    uint8_t n = 0, offline = 0;
     vec_t * nodes_vec = imap_vec(nodes->imap);
 
     if (!m)
-        return false;
+        return TI_NODES_WAIT_AWAY;
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
         if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
-            return false;
+            return TI_NODES_WAIT_AWAY;
+
+        if (retry_offline && node->status < TI_NODE_STAT_SYNCHRONIZING)
+            ++offline;
 
         if (node->status == TI_NODE_STAT_SYNCHRONIZING)
             ++n;
     }
-    return n > ti_nodes_quorum();
+
+    return offline
+            ? TI_NODES_RETRY_OFFLINE
+            : n > ti_nodes_quorum()
+            ? TI_NODES_IGNORE_SYNC
+            : TI_NODES_WAIT_AWAY;
 }
 
 _Bool ti_nodes_require_sync(void)

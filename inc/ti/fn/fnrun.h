@@ -6,9 +6,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_procedure_t * procedure;
     vec_t * args;
-    vec_t * procedures = query->collection
-            ? query->collection->procedures
-            : ti()->procedures;
+    vec_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
         fn_nargs_min("run", DOC_RUN, 1, nargs, e) ||

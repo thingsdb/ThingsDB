@@ -14,7 +14,7 @@ ti_procedure_t * ti_procedures_by_strn(
         vec_t * procedures,
         const char * str,
         size_t n);
-ti_varr_t * ti_procedures_info(vec_t * procedures);
+ti_varr_t * ti_procedures_info(vec_t * procedures, _Bool with_definition);
 ti_procedure_t * ti_procedures_pop_name(vec_t * procedures, ti_raw_t * name);
 ti_procedure_t * ti_procedures_pop_strn(
         vec_t * procedures,

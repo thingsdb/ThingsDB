@@ -5,9 +5,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     ti_procedure_t * procedure;
     ti_task_t * task;
-    vec_t * procedures = query->collection
-            ? query->collection->procedures
-            : ti()->procedures;
+    vec_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e) ||
         fn_nargs("del_procedure", DOC_DEL_PROCEDURE, 1, nargs, e) ||

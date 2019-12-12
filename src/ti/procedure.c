@@ -71,12 +71,15 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
     return procedure->def;
 }
 
-int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk)
+int ti_procedure_info_to_pk(
+        ti_procedure_t * procedure,
+        msgpack_packer * pk,
+        _Bool with_definition)
 {
     ti_raw_t * doc = ti_procedure_doc(procedure);
     ti_raw_t * def = ti_procedure_def(procedure);
 
-    if (msgpack_pack_map(pk,  5) ||
+    if (msgpack_pack_map(pk, 4 + !!with_definition) ||
 
         mp_pack_str(pk, "doc") ||
         mp_pack_strn(pk, doc->data, doc->n) ||
@@ -84,8 +87,10 @@ int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk)
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, procedure->name->data, procedure->name->n) ||
 
-        mp_pack_str(pk, "definition") ||
-        mp_pack_strn(pk, def->data, def->n) ||
+        (with_definition && (
+            mp_pack_str(pk, "definition") ||
+            mp_pack_strn(pk, def->data, def->n)
+        )) ||
 
         mp_pack_str(pk, "with_side_effects") ||
         mp_pack_bool(pk, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
@@ -100,7 +105,9 @@ int ti_procedure_info_to_pk(ti_procedure_t * procedure, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_procedure_as_mpval(ti_procedure_t * procedure)
+ti_val_t * ti_procedure_as_mpval(
+        ti_procedure_t * procedure,
+        _Bool with_definition)
 {
     ti_raw_t * raw;
     msgpack_packer pk;
@@ -109,7 +116,7 @@ ti_val_t * ti_procedure_as_mpval(ti_procedure_t * procedure)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_procedure_info_to_pk(procedure, &pk))
+    if (ti_procedure_info_to_pk(procedure, &pk, with_definition))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

@@ -20,4 +20,10 @@ static inline vec_t * ti_query_access(ti_query_t * query)
             : NULL;
 }
 
+static inline vec_t * ti_query_procedures(ti_query_t * query)
+{
+    return query->collection
+            ? query->collection->procedures
+            : ti()->procedures;
+}
 #endif  /* TI_QUERY_INLINE_H_ */

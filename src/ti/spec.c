@@ -43,6 +43,14 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
         return !ti_val_is_int(val)
             ? TI_SPEC_RVAL_TYPE_ERROR
             : VINT(val) < 0 ? TI_SPEC_RVAL_UINT_ERROR : 0;
+    case TI_SPEC_PINT:
+        return !ti_val_is_int(val)
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : VINT(val) <= 0 ? TI_SPEC_RVAL_PINT_ERROR : 0;
+    case TI_SPEC_NINT:
+        return !ti_val_is_int(val)
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : VINT(val) >= 0 ? TI_SPEC_RVAL_NINT_ERROR : 0;
     case TI_SPEC_FLOAT:
         return ti_val_is_float(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_NUMBER:
@@ -94,6 +102,14 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
         return !ti_val_is_int(val)
             ? false
             : VINT(val) >= 0;
+    case TI_SPEC_PINT:
+        return !ti_val_is_int(val)
+            ? false
+            : VINT(val) > 0;
+    case TI_SPEC_NINT:
+        return !ti_val_is_int(val)
+            ? false
+            : VINT(val) < 0;
     case TI_SPEC_FLOAT:
         return ti_val_is_float(val);
     case TI_SPEC_NUMBER:
@@ -108,10 +124,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
     }
 
     assert (spec < TI_SPEC_ANY);
-    /*
-     * Just compare the specification with the type since the nillable mask is
-     * removed the specification
-     */
+    /* any *thing* can be mapped */
     return ti_val_is_thing(val);
 }
 
@@ -128,6 +141,8 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_BYTES:         return TI_VAL_BYTES_S;
     case TI_SPEC_INT:           return TI_VAL_INT_S;
     case TI_SPEC_UINT:          return "uint";
+    case TI_SPEC_PINT:          return "pint";
+    case TI_SPEC_NINT:          return "nint";
     case TI_SPEC_FLOAT:         return TI_VAL_FLOAT_S;
     case TI_SPEC_NUMBER:        return "number";
     case TI_SPEC_BOOL:          return TI_VAL_BOOL_S;
@@ -170,21 +185,31 @@ ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)
         )? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_UTF8:
     case TI_SPEC_BYTES:
-    case TI_SPEC_UINT:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+    case TI_SPEC_UINT:
+        return (
+            ospec == TI_SPEC_UINT ||
+            ospec == TI_SPEC_PINT
+        ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_INT:
         return (
             ospec == TI_SPEC_INT ||
-            ospec == TI_SPEC_UINT
+            ospec == TI_SPEC_UINT ||
+            ospec == TI_SPEC_PINT ||
+            ospec == TI_SPEC_NINT
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_NUMBER:
         return (
             ospec == TI_SPEC_NUMBER ||
             ospec == TI_SPEC_FLOAT ||
             ospec == TI_SPEC_INT ||
-            ospec == TI_SPEC_UINT
+            ospec == TI_SPEC_UINT ||
+            ospec == TI_SPEC_PINT ||
+            ospec == TI_SPEC_NINT
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_ARR:
     case TI_SPEC_SET:

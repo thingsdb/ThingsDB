@@ -22,6 +22,8 @@ typedef enum
     TI_SPEC_BYTES,          /* `bytes`              */
     TI_SPEC_INT,            /* `int`                */
     TI_SPEC_UINT,           /* `uint`               */
+    TI_SPEC_PINT,           /* `pint`               */
+    TI_SPEC_NINT,           /* `nint`               */
     TI_SPEC_FLOAT,          /* `float`              */
     TI_SPEC_NUMBER,         /* `number`             */
     TI_SPEC_BOOL,           /* `bool`               */
@@ -35,6 +37,8 @@ typedef enum
     TI_SPEC_RVAL_TYPE_ERROR,
     TI_SPEC_RVAL_UTF8_ERROR,
     TI_SPEC_RVAL_UINT_ERROR,
+    TI_SPEC_RVAL_PINT_ERROR,
+    TI_SPEC_RVAL_NINT_ERROR,
 } ti_spec_rval_enum;
 
 typedef enum

@@ -150,7 +150,16 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
         return e->nr;
     case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to integer values "
+                "greater than or equal to 0");
+        return e->nr;
+    case TI_SPEC_RVAL_PINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
                 "array is restricted to positive integer values");
+        return e->nr;
+    case TI_SPEC_RVAL_NINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to negative integer values");
         return e->nr;
     }
 

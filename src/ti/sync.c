@@ -46,8 +46,10 @@ int ti_sync_start(void)
 {
     assert (sync_->status == SYNC__STAT_INIT);
 
-    /* set a minimum try-to-sync so nodes have time to connect */
-    sync_->min_try_count = ti()->nodes->imap->n == 1 ? 1 : 5;
+    /* set a minimum try-to-sync when having two nodes since in this case
+     * only, we have to wait some time to see if the other node becomes
+     * available. */
+    sync_->min_try_count = ti()->nodes->imap->n == 2 ? 5 : 0;
 
     if (uv_timer_init(ti()->loop, sync_->repeat))
         goto fail0;
@@ -115,7 +117,8 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
 
     if (node == NULL)
     {
-        if (--sync_->min_try_count == 0 && ti_nodes_ignore_sync())
+
+        if (sync_->min_try_count == 0 && ti_nodes_ignore_sync())
         {
             log_warning(
                     "ignore the synchronize step because no node is available "
@@ -126,6 +129,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
         }
         else
         {
+            sync_->min_try_count -= !!sync_->min_try_count;
             log_info("waiting for a node to enter `away` mode");
         }
         return;

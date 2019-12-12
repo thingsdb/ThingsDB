@@ -256,6 +256,14 @@ skip_nesting:
     {
         *spec |= TI_SPEC_UINT;
     }
+    else if (field__cmp(str, n, "pint"))
+    {
+        *spec |= TI_SPEC_PINT;
+    }
+    else if (field__cmp(str, n, "nint"))
+    {
+        *spec |= TI_SPEC_NINT;
+    }
     else if (field__cmp(str, n, TI_VAL_FLOAT_S))
     {
         *spec |= TI_SPEC_FLOAT;
@@ -641,7 +649,22 @@ static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
         case TI_SPEC_RVAL_UINT_ERROR:
             ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
+                "property `%s` requires an array with integer values "
+                "greater than or equal to 0",
+                field->type->name,
+                field->name->str);
+            return e->nr;
+        case TI_SPEC_RVAL_PINT_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
                 "property `%s` requires an array with positive integer values",
+                field->type->name,
+                field->name->str);
+            return e->nr;
+        case TI_SPEC_RVAL_NINT_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires an array with negative integer values",
                 field->type->name,
                 field->name->str);
             return e->nr;
@@ -701,7 +724,22 @@ int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
     case TI_SPEC_RVAL_UINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
+                "property `%s` only accepts integer values "
+                "greater than or equal to 0",
+                field->type->name,
+                field->name->str);
+        break;
+    case TI_SPEC_RVAL_PINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
                 "property `%s` only accepts positive integer values",
+                field->type->name,
+                field->name->str);
+        break;
+    case TI_SPEC_RVAL_NINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` only accepts negative integer values",
                 field->type->name,
                 field->name->str);
         break;
@@ -731,16 +769,23 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
                 f_spec == TI_SPEC_UTF8 ||
                 f_spec == TI_SPEC_BYTES);
     case TI_SPEC_INT:
-        return f_spec == TI_SPEC_UINT;
+        return (f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT);
+    case TI_SPEC_UINT:
+        return f_spec == TI_SPEC_PINT;
     case TI_SPEC_NUMBER:
         return (f_spec == TI_SPEC_INT ||
                 f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
                 f_spec == TI_SPEC_FLOAT);
     case TI_SPEC_STR:
         return f_spec == TI_SPEC_UTF8;
     case TI_SPEC_UTF8:
     case TI_SPEC_BYTES:
-    case TI_SPEC_UINT:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
     case TI_SPEC_ARR:

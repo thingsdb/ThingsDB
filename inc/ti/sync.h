@@ -21,7 +21,7 @@ void ti_sync_stop(void);
 struct ti_sync_s
 {
     uint8_t status;
-    uint8_t min_try_count;
+    uint8_t min_try_count;      /* required for two nodes */
     uv_timer_t * repeat;
     ti_node_t * node;
 };

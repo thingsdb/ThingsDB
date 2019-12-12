@@ -182,6 +182,91 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
+    async def test_type_specs(self, client):
+        await client.query(r'''
+            set_type('_str', {test: 'str'});
+            set_type('_utf8', {test: 'utf8'});
+            set_type('_raw', {test: 'raw'});
+            set_type('_bytes', {test: 'bytes'});
+            set_type('_bool', {test: 'bool'});
+            set_type('_int', {test: 'int'});
+            set_type('_uint', {test: 'uint'});
+            set_type('_pint', {test: 'pint'});
+            set_type('_nint', {test: 'nint'});
+            set_type('_float', {test: 'float'});
+            set_type('_number', {test: 'number'});
+            set_type('_thing', {test: 'thing'});
+            set_type('_Type', {test: '_str'});
+            set_type('_array', {test: '[]'});
+            set_type('_set', {test: '{}'});
+            set_type('_r_array', {test: '[str]'});
+            set_type('_r_set', {test: '{_str}'});
+            set_type('_o_array', {test: '[str?]'});
+            set_type('_any', {test: 'any'});
+        ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `_uint`; '
+                r'property `test` only accepts integer values '
+                r'greater than or equal to 0'):
+            await client.query(r'''_uint{test: -1};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_uint`; '
+                r'type `nil` is invalid for property `test` '
+                r'with definition `uint`'):
+            await client.query(r'''_uint{test: nil};''')
+
+        self.assertEqual(
+            await client.query(r'_uint{test: 0}.test;'), 0)
+        self.assertEqual(
+            await client.query(r'_uint{test: 0}.wrap("_pint");'), {})
+        self.assertEqual(
+            await client.query(r'_uint{test: 0}.wrap("_int");'), {'test': 0})
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `_pint`; '
+                r'property `test` only accepts positive integer values'):
+            await client.query(r'''_pint{test: 0};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_pint`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `pint`'):
+            await client.query(r'''_pint{test: '0'};''')
+
+        self.assertEqual(
+            await client.query(r'_pint{test:42}.test;'), 42)
+        self.assertEqual(
+            await client.query(r'_pint{test:42}.wrap("_nint");'), {})
+        self.assertEqual(
+            await client.query(r'_pint{test:42}.wrap("_uint");'), {'test': 42})
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `_nint`; '
+                r'property `test` only accepts negative integer values'):
+            await client.query(r'''_nint{test: 0};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_nint`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `nint`'):
+            await client.query(r'''_nint{test: '0'};''')
+
+        self.assertEqual(
+            await client.query(r'_nint{test:-6}.test;'), -6)
+        self.assertEqual(
+            await client.query(r'_nint{test:-6}.wrap("_uint");'), {})
+        self.assertEqual(
+            await client.query(r'_nint{test:-6}.wrap("_number")'),
+            {'test': -6})
+
 
 if __name__ == '__main__':
     run_test(TestType())

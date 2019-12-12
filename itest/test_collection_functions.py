@@ -966,7 +966,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `if` requires at least 2 arguments but 0 were given'):
+                'function `if` requires at least 2 arguments '
+                'but 0 were given'):
             await client.query('if();')
 
         with self.assertRaisesRegex(

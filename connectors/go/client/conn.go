@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strings"
@@ -17,20 +18,22 @@ type Conn struct {
 	pid     uint16
 	buf     *buffer
 	respMap map[uint16]chan *pkg
+	ssl     *tls.Config
+	mux     sync.Mutex
 	OnClose func()
 	EventCh chan *Event
 	LogCh   chan string
-	mux     sync.Mutex
 }
 
 // NewConn creates a new connection
-func NewConn(host string, port uint16) *Conn {
+func NewConn(host string, port uint16, ssl *tls.Config) *Conn {
 	return &Conn{
 		host:    host,
 		port:    port,
 		pid:     0,
 		buf:     newBuffer(),
 		respMap: make(map[uint16]chan *pkg),
+		ssl:     ssl,
 		OnClose: nil,
 		EventCh: nil,
 		LogCh:   nil,
@@ -51,14 +54,22 @@ func (conn *Conn) Connect() error {
 		return nil
 	}
 
-	cn, err := net.Dial("tcp", conn.ToString())
-
-	if err != nil {
-		return err
+	if conn.ssl == nil {
+		cn, err := net.Dial("tcp", conn.ToString())
+		if err != nil {
+			return err
+		}
+		conn.writeLog("connected to %s:%d", conn.host, conn.port)
+		conn.buf.conn = cn
+	} else {
+		fmt.Println("HERE")
+		cn, err := tls.Dial("tcp", conn.ToString(), conn.ssl)
+		if err != nil {
+			return err
+		}
+		conn.writeLog("connected to %s:%d using a secure connection", conn.host, conn.port)
+		conn.buf.conn = cn
 	}
-
-	conn.writeLog("connected to %s:%d", conn.host, conn.port)
-	conn.buf.conn = cn
 
 	go conn.buf.read()
 	go conn.listen()

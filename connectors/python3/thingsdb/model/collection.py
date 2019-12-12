@@ -1,5 +1,5 @@
 import asyncio
-from ..client.protocol import REQ_WATCH
+from ..client.protocol import Proto
 from .thing import Thing
 
 

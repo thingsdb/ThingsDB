@@ -17,20 +17,7 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ThingsDBError
-from thingsdb.client.protocol import EX_OPERATION_ERROR
-from thingsdb.client.protocol import EX_NUM_ARGUMENTS
-from thingsdb.client.protocol import EX_TYPE_ERROR
-from thingsdb.client.protocol import EX_VALUE_ERROR
-from thingsdb.client.protocol import EX_OVERFLOW
-from thingsdb.client.protocol import EX_ZERO_DIV
-from thingsdb.client.protocol import EX_MAX_QUOTA
-from thingsdb.client.protocol import EX_AUTH_ERROR
-from thingsdb.client.protocol import EX_FORBIDDEN
-from thingsdb.client.protocol import EX_LOOKUP_ERROR
-from thingsdb.client.protocol import EX_BAD_DATA
-from thingsdb.client.protocol import EX_SYNTAX_ERROR
-from thingsdb.client.protocol import EX_NODE_ERROR
-from thingsdb.client.protocol import EX_ASSERT_ERROR
+from thingsdb.client.protocol import Err
 
 
 class TestCollectionFunctions(TestBase):
@@ -126,7 +113,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('assert((1>2), "my custom message");')
         except AssertionError as e:
             self.assertEqual(str(e), 'my custom message')
-            self.assertEqual(e.error_code, EX_ASSERT_ERROR)
+            self.assertEqual(e.error_code, Err.EX_ASSERT_ERROR)
         else:
             raise Exception('AssertionError not raised')
 
@@ -180,11 +167,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('assert_err();')
-        self.assertEqual(err['error_code'], EX_ASSERT_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_ASSERT_ERROR)
         self.assertEqual(err['error_msg'], "assertion statement has failed")
 
         err = await client.query('assert_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_ASSERT_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_ASSERT_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_auth_err(self, client):
@@ -209,11 +196,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('auth_err();')
-        self.assertEqual(err['error_code'], EX_AUTH_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_AUTH_ERROR)
         self.assertEqual(err['error_msg'], "authentication error")
 
         err = await client.query('auth_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_AUTH_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_AUTH_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_bad_data_err(self, client):
@@ -238,13 +225,13 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('bad_data_err();')
-        self.assertEqual(err['error_code'], EX_BAD_DATA)
+        self.assertEqual(err['error_code'], Err.EX_BAD_DATA)
         self.assertEqual(
             err['error_msg'],
             "unable to handle request due to invalid data")
 
         err = await client.query('bad_data_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_BAD_DATA)
+        self.assertEqual(err['error_code'], Err.EX_BAD_DATA)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_base64_decode(self, client):
@@ -786,11 +773,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('forbidden_err();')
-        self.assertEqual(err['error_code'], EX_FORBIDDEN)
+        self.assertEqual(err['error_code'], Err.EX_FORBIDDEN)
         self.assertEqual(err['error_msg'], "forbidden (access denied)")
 
         err = await client.query('forbidden_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_FORBIDDEN)
+        self.assertEqual(err['error_code'], Err.EX_FORBIDDEN)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_get(self, client):
@@ -951,11 +938,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('lookup_err();')
-        self.assertEqual(err['error_code'], EX_LOOKUP_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_LOOKUP_ERROR)
         self.assertEqual(err['error_msg'], "requested resource not found")
 
         err = await client.query('lookup_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_LOOKUP_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_LOOKUP_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_if(self, client):
@@ -1412,11 +1399,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('max_quota_err();')
-        self.assertEqual(err['error_code'], EX_MAX_QUOTA)
+        self.assertEqual(err['error_code'], Err.EX_MAX_QUOTA)
         self.assertEqual(err['error_msg'], "max quota is reached")
 
         err = await client.query('max_quota_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_MAX_QUOTA)
+        self.assertEqual(err['error_code'], Err.EX_MAX_QUOTA)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_node_err(self, client):
@@ -1441,13 +1428,13 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('node_err();')
-        self.assertEqual(err['error_code'], EX_NODE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_NODE_ERROR)
         self.assertEqual(
             err['error_msg'],
             "node is temporary unable to handle the request")
 
         err = await client.query('node_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_NODE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_NODE_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_now(self, client):
@@ -1483,11 +1470,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('overflow_err();')
-        self.assertEqual(err['error_code'], EX_OVERFLOW)
+        self.assertEqual(err['error_code'], Err.EX_OVERFLOW)
         self.assertEqual(err['error_msg'], "integer overflow")
 
         err = await client.query('overflow_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_OVERFLOW)
+        self.assertEqual(err['error_code'], Err.EX_OVERFLOW)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_pop(self, client):
@@ -2044,11 +2031,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('syntax_err();')
-        self.assertEqual(err['error_code'], EX_SYNTAX_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_SYNTAX_ERROR)
         self.assertEqual(err['error_msg'], "syntax error in query")
 
         err = await client.query('syntax_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_SYNTAX_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_SYNTAX_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_test(self, client):
@@ -2233,11 +2220,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('zero_div_err();')
-        self.assertEqual(err['error_code'], EX_ZERO_DIV)
+        self.assertEqual(err['error_code'], Err.EX_ZERO_DIV)
         self.assertEqual(err['error_msg'], "division or module by zero")
 
         err = await client.query('zero_div_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_ZERO_DIV)
+        self.assertEqual(err['error_code'], Err.EX_ZERO_DIV)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_value_err(self, client):
@@ -2262,13 +2249,13 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('value_err();')
-        self.assertEqual(err['error_code'], EX_VALUE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_VALUE_ERROR)
         self.assertEqual(
             err['error_msg'],
             "object has the right type but an inappropriate value")
 
         err = await client.query('value_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_VALUE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_VALUE_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_type_err(self, client):
@@ -2293,11 +2280,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('type_err();')
-        self.assertEqual(err['error_code'], EX_TYPE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_TYPE_ERROR)
         self.assertEqual(err['error_msg'], "object of inappropriate type")
 
         err = await client.query('type_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_TYPE_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_TYPE_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_num_arguments_err(self, client):
@@ -2322,11 +2309,11 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('num_arguments_err();')
-        self.assertEqual(err['error_code'], EX_NUM_ARGUMENTS)
+        self.assertEqual(err['error_code'], Err.EX_NUM_ARGUMENTS)
         self.assertEqual(err['error_msg'], "wrong number of arguments")
 
         err = await client.query('num_arguments_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_NUM_ARGUMENTS)
+        self.assertEqual(err['error_code'], Err.EX_NUM_ARGUMENTS)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_operation_err(self, client):
@@ -2351,13 +2338,13 @@ class TestCollectionFunctions(TestBase):
                 blob=pickle.dumps({}))
 
         err = await client.query('operation_err();')
-        self.assertEqual(err['error_code'], EX_OPERATION_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
         self.assertEqual(
             err['error_msg'],
             "operation is not valid in the current context")
 
         err = await client.query('operation_err("my custom error msg");')
-        self.assertEqual(err['error_code'], EX_OPERATION_ERROR)
+        self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
 

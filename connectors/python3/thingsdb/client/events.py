@@ -1,8 +1,3 @@
-from .protocol import ON_NODE_STATUS
-from .protocol import ON_WARN
-from .protocol import ON_WATCH_INI
-from .protocol import ON_WATCH_UPD
-from .protocol import ON_WATCH_DEL
 import abc
 
 
@@ -10,39 +5,32 @@ class Events(metaclass=abc.ABCMeta):
 
     def __init__(self, client):
         self.client = client
-        self._evmap = {
-            ON_NODE_STATUS: self.on_node_status,
-            ON_WARN: self.on_warning,
-            ON_WATCH_INI: self.on_watch_init,
-            ON_WATCH_UPD: self.on_watch_update,
-            ON_WATCH_DEL: self.on_watch_delete,
-        }
 
     @abc.abstractmethod
-    async def on_reconnect(self):
+    async def on_reconnect(self) -> None:
         """On re-connect
         Called after a re-concect is finished (inclusing authentication)
         """
         pass
 
     @abc.abstractmethod
-    def on_node_status(self, status):
+    def on_node_status(self, status: str) -> None:
         """On node status
         status: String containing a `new` node status.
                 Optional values:
                     - OFFLINE
                     - CONNECTING
                     - BUILDING
+                    - SHUTTING_DOWN
                     - SYNCHRONIZING
                     - AWAY
                     - AWAY_SOON
-                    - SHUTTING_DOWN
                     - READY
         """
         pass
 
     @abc.abstractmethod
-    def on_warning(self, warn):
+    def on_warning(self, warn: dict) -> None:
         """On warning
         warn: a dictionary with `warn_msg` and `warn_code`. for example:
 

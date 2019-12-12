@@ -20,6 +20,7 @@ func example(conn *client.Conn, ok chan bool) {
 
 	defer conn.Close()
 
+	// if err := conn.AuthToken("aoaOPzCZ1y+/f0S/jL1DUB"); err != nil {
 	if err := conn.AuthPassword("admin", "pass"); err != nil {
 		println(err.Error())
 		ok <- false
@@ -38,8 +39,11 @@ func example(conn *client.Conn, ok chan bool) {
 }
 
 func main() {
-	conn := client.NewConn("127.0.0.1", 9200)
-
+	// conf := &tls.Config{
+	// 	InsecureSkipVerify: true,
+	// }
+	// conn := client.NewConn("35.204.223.30", 9400, conf)
+	conn := client.NewConn("localhost", 9200, nil)
 	ok := make(chan bool)
 
 	go example(conn, ok)

@@ -3,20 +3,12 @@ import logging
 import msgpack
 import weakref
 import random
+import ssl
 from .package import Package
 from .buildin import Buildin
-from .protocol import ON_NODE_STATUS
-from .protocol import ON_WARN
-from .protocol import ON_WATCH_DEL
-from .protocol import ON_WATCH_INI
-from .protocol import ON_WATCH_UPD
+from .protocol import Proto
 from .protocol import PROTOMAP
 from .protocol import Protocol
-from .protocol import REQ_AUTH
-from .protocol import REQ_QUERY
-from .protocol import REQ_RUN
-from .protocol import REQ_UNWATCH
-from .protocol import REQ_WATCH
 from .protocol import proto_unkown
 from ..convert import convert
 from .events import Events
@@ -52,7 +44,7 @@ class Client(Buildin):
     MAX_RECONNECT_WAIT_TIME = 120
     MAX_RECONNECT_TIMEOUT = 10
 
-    def __init__(self, auto_reconnect=True, loop=None):
+    def __init__(self, auto_reconnect=True, loop=None, ssl=None):
         self._loop = loop if loop else asyncio.get_event_loop()
         self._auth = None
         self._pool = None
@@ -64,6 +56,7 @@ class Client(Buildin):
         self._pool_idx = 0
         self._reconnecting = False
         self._event_handlers = []
+        self._ssl = ssl
         if auto_reconnect:
             self.add_event_handler(_ReconnectEv(self))
 
@@ -131,7 +124,8 @@ class Client(Buildin):
             conn = self._loop.create_connection(
                 lambda: Protocol(on_lost=self._on_lost, loop=self._loop),
                 host=host,
-                port=port)
+                port=port,
+                ssl=self._ssl)
             _, self._protocol = await asyncio.wait_for(
                 conn,
                 timeout=timeout)
@@ -233,7 +227,7 @@ class Client(Buildin):
 
     async def _authenticate(self, timeout):
         future = self._write_package(
-            REQ_AUTH,
+            Proto.REQ_AUTH,
             data=self._auth,
             timeout=timeout)
         await future
@@ -260,7 +254,7 @@ class Client(Buildin):
         else:
             data = [scope, query]
 
-        future = self._write_package(REQ_QUERY, data, timeout=timeout)
+        future = self._write_package(Proto.REQ_QUERY, data, timeout=timeout)
         return await future
 
     async def run(self, procedure: str, *args, scope=None, convert_args=True):
@@ -270,7 +264,7 @@ class Client(Buildin):
         arguments = (convert(arg) for arg in args) if convert_args else args
 
         future = self._write_package(
-            REQ_RUN,
+            Proto.REQ_RUN,
             [scope, procedure, *arguments],
             timeout=None)
 
@@ -280,13 +274,13 @@ class Client(Buildin):
         if scope is None:
             scope = self._scope
 
-        return self._write_package(REQ_WATCH, [scope, *ids])
+        return self._write_package(Proto.REQ_WATCH, [scope, *ids])
 
     def unwatch(self, *ids: int, scope=None):
         if scope is None:
             scope = self._scope
 
-        return self._write_package(REQ_UNWATCH, [scope, *ids])
+        return self._write_package(Proto.REQ_UNWATCH, [scope, *ids])
 
     def _on_event_received(self, pkg):
         for event_handler in self._event_handlers:

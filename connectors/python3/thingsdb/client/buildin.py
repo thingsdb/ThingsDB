@@ -4,7 +4,7 @@ from typing import Union as U
 
 class Buildin:
 
-    async def collection_info(self, collection: U[int, str]):
+    async def collection_info(self, collection: U[int, str]) -> dict:
         return await self.query(
             f'collection_info({collection!r})',
             scope='@t')

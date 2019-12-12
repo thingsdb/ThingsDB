@@ -92,8 +92,8 @@ class TestType(TestBase):
             .people = new('People', {users: [.iris, .cato]});
         ''')
 
-    async def test_mod_type_add(self, client):
-        await client.query(r'''
+    async def test_mod_type_add(self, client0):
+        await client0.query(r'''
             set_type(new_type('User'), {
                 name: 'str',
                 age: 'uint',
@@ -108,7 +108,7 @@ class TestType(TestBase):
             });
         ''')
 
-        await client.query(r'''
+        await client0.query(r'''
             .iris = new('User', {
                 name: 'Iris',
                 age: 6,
@@ -124,7 +124,7 @@ class TestType(TestBase):
             .people = new('People', {users: [.iris, .cato, .lena]});
         ''')
 
-        await client.query(r'''
+        await client0.query(r'''
             mod_type('User', 'add', 'friend', 'User?', User{
                 name: 'Anne',
                 age: 5
@@ -138,8 +138,8 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.use('stuff')
 
-        await self.wait_nodes_ready(client)
-        iris_node0 = await client.query('return(.iris, 2);')
+        await self.wait_nodes_ready(client0)
+        iris_node0 = await client0.query('return(.iris, 2);')
         iris_node1 = await client1.query('return(.iris, 2);')
 
         client1.close()
@@ -201,9 +201,28 @@ class TestType(TestBase):
             set_type('_set', {test: '{}'});
             set_type('_r_array', {test: '[str]'});
             set_type('_r_set', {test: '{_str}'});
+            set_type('_o_str', {test: 'str?'});
             set_type('_o_array', {test: '[str?]'});
             set_type('_any', {test: 'any'});
         ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_str`; '
+                r'type `bytes` is invalid for property `test` '
+                r'with definition `str`'):
+            await client.query(r'''_str{test: bytes('')};''')
+
+        self.assertEqual(
+            await client.query(r'_str{test: "x"}.test;'), 'x')
+        self.assertEqual(
+            await client.query(r'_str{test: "x"}.wrap("_utf8");'), {})
+        self.assertEqual(
+            await client.query(r'_str{test: "x"}.wrap("_raw");'),
+            {'test': 'x'})
+        self.assertEqual(
+            await client.query(r'_str{test: "x"}.wrap("_any");'),
+            {'test': 'x'})
 
         with self.assertRaisesRegex(
                 ValueError,

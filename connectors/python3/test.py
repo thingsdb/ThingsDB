@@ -9,6 +9,26 @@ from thingsdb.client import Client
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import NodeError
+from thingsdb.model import Collection, Thing
+
+
+def PropType(b):
+    return b
+
+
+class Book(Thing):
+
+    title = 'str',
+    me = 'Book', lambda: Book
+
+
+class Stuff(Collection):
+
+    __NAME__ = 'stuff'
+
+    greet = 'str',
+    x = 'int?',
+    books = '[Book]', lambda: Book
 
 
 interrupted = False
@@ -17,24 +37,26 @@ interrupted = False
 async def test(client):
     global osdata
 
-    await client.connect('35.204.223.30', port=9400)
-    await client.authenticate('aoaOPzCZ1y+/f0S/jL1DUB')  # admin
+    # await client.connect('35.204.223.30', port=9400)
+    # await client.authenticate('aoaOPzCZ1y+/f0S/jL1DUB')  # admin
     # await client.authenticate('V1CsgMetJcOHlqPGCigitz')  # Kolnilia
+    # client.set_default_scope('//Kolnilia')
 
-    client.set_default_scope('//Kolnilia')
+    await client.connect('localhost', port=9200)
+    await client.authenticate('admin', 'pass')
+
+    stuff = Stuff()
+    await stuff.load(client)
 
     try:
         res = await client.query('''
-            .greet;
+            "Hello ThingsDB!";
         ''')
 
         pprint.pprint(res)
 
-        res = await client.query('''
-            nodes_info();
-        ''', scope='@n')
-
-        pprint.pprint(res)
+        while not interrupted:
+            await asyncio.sleep(0.5)
 
         # res = await client.query('''
         #     nodes_info();
@@ -55,7 +77,8 @@ def signal_handler(signal, frame):
 
 
 if __name__ == '__main__':
-    client = Client(ssl=ssl.SSLContext(ssl.PROTOCOL_TLS))
+    # client = Client(ssl=ssl.SSLContext(ssl.PROTOCOL_TLS))
+    client = Client()
     signal.signal(signal.SIGINT, signal_handler)
 
     logger = logging.getLogger()

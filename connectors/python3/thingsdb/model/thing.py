@@ -2,7 +2,119 @@ import logging
 from .keys import ARRAY_OF, SET_OF, REQUIRED, OPTIONAL
 
 
+class Prop:
+
+    __slots__ = (
+        'nillable',
+        'tp',
+        'spec',
+    )
+
+    def __init__(self, spec, cb=None):
+        self.nillable = False
+        self.is_array = False
+        self.is_set = False
+        self.tp = cb
+        self.spec = spec
+        self.unpacked = False
+
+    def unpack(self):
+        if self.unpacked:
+            return
+        self.unpacked = True
+
+        spec = self.spec
+        if spec.endswith('?'):
+            self.nillable = True
+            spec = spec[:-1]
+
+        if not spec:
+            raise ValueError('empty specification')
+
+        if spec.startswith('['):
+            if not spec.endswith(']'):
+                raise ValueError('missing `]` in specification')
+            self.is_array = True
+            spec = spec[1:-1]
+        elif spec.startswith('{'):
+            if not spec.endswith('}'):
+                raise ValueError('missing `}` in specification')
+            self.is_set = True
+            spec = spec[1:-1]
+
+
+
+        if self.tp is not None:
+            self.tp = self.tp()
+        if
+
 class Thing:
+
+    __slots__ = (
+        '_id',
+        '_collection',
+        '__weakref__',
+    )
+
+    def __init__(self, collection, id: int):
+        self._id = id
+        self._collection = collection
+        collection.register(self)
+
+    def __init_subclass__(cls):
+        cls._props = dict()
+        for key, val in cls.__dict__.items():
+            if not key.startswith('__'):
+                if isinstance(val, str):
+                    cls._props[key] = Prop(val)
+                elif isinstance(val, tuple):
+                    cls._props[key] = Prop(*val)
+
+    def id(self):
+        return self._id
+
+    def on_init(self, event, data):
+        for k, v in data.items():
+            setattr(self, k, v)
+
+    def _job_add(self, add_job):
+        raise NotImplementedError
+
+    def _job_remove(self, remove_job):
+        raise NotImplementedError
+
+    def _job_set(self, set_job):
+        for prop, val in set_job.items():
+            setattr(self, prop, val)
+
+    def _job_splice(self, splice_job):
+        raise NotImplementedError
+
+    def _job_del(self, job_del):
+        for prop in job_del:
+            delattr(self, prop)
+
+    def on_update(self, event, jobs):
+        for job_dict in jobs:
+            for name, job in job_dict.items():
+                jobfun = self._UPDMAP.get(name)
+                if jobfun is None:
+                    raise TypeError(f'unknown job `{name}` for `{self}`')
+                jobfun(self, job)
+
+    def on_delete(self):
+        self._evhandler._things.pop(self._id)
+
+    _UPDMAP = {
+        'set': _job_set,
+        'del': _job_del,
+        'splice': _job_splice,
+        'add': _job_add,
+        'remove': _job_remove,
+    }
+
+
+class _Thing:
 
     __slots__ = (
         '_id',

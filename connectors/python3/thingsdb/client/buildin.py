@@ -55,10 +55,10 @@ class Buildin:
     async def node_info(self):
         return await self.query('node_info()', scope='@n')
 
-    async def nodes_info(self):
+    async def nodes_info(self) -> list:
         return await self.query('nodes_info()', scope='@n')
 
-    async def reset_counters(self):
+    async def reset_counters(self) -> None:
         return await self.query('reset_counters()', scope='@n')
 
     async def revoke(self, target: U[int, str], user: str, mask: int):
@@ -66,20 +66,17 @@ class Buildin:
             f'grant({target!r}, {user!r}, {mask})',
             scope='@t')
 
-    async def set_log_level(self, log_level: str):
+    async def set_log_level(self, log_level: str) -> None:
         assert log_level in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
         return await self.query(f'set_log_level({log_level})', scope='@n')
 
-    async def set_zone(self, zone: int):
-        return await self.query(f'set_zone({zone})', scope='@n')
-
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         return await self.query('shutdown()', scope='@n')
 
-    async def user_info(self, user: str = None):
+    async def user_info(self, user: str = None) -> dict:
         if user is None:
             return await self.query('user_info()', scope='@t')
         return await self.query(f'user_info({user!r})', scope='@t')
 
-    async def users_info(self):
+    async def users_info(self) -> list:
         return await self.query('users_info()', scope='@t')

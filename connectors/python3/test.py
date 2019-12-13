@@ -21,7 +21,7 @@ async def test(client):
     await client.authenticate('aoaOPzCZ1y+/f0S/jL1DUB')  # admin
     # await client.authenticate('V1CsgMetJcOHlqPGCigitz')  # Kolnilia
 
-    client.use('Kolnilia')
+    client.set_default_scope('//Kolnilia')
 
     try:
         res = await client.query('''
@@ -31,8 +31,8 @@ async def test(client):
         pprint.pprint(res)
 
         res = await client.query('''
-            procedures_info();
-        ''', scope='@t')
+            nodes_info();
+        ''', scope='@n')
 
         pprint.pprint(res)
 

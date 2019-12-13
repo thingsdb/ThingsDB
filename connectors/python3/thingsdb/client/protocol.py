@@ -1,6 +1,8 @@
 import enum
 import asyncio
 import logging
+import msgpack
+from typing import Optional, Any, Callable
 from .package import Package
 from ..exceptions import AssertionError
 from ..exceptions import AuthError
@@ -31,7 +33,7 @@ class Proto(enum.IntEnum):
     ON_WATCH_INI = 0x01
     ON_WATCH_UPD = 0x02
     ON_WATCH_DEL = 0x03
-    ON_WARN = 4
+    ON_WARN = 0x04
 
     # Responses
     RES_PING = 0x10
@@ -76,7 +78,7 @@ class Err(enum.IntEnum):
     EX_INTERNAL = -1
 
 
-ERRMAP = {
+_ERRMAP = {
     Err.EX_OPERATION_ERROR: OperationError,
     Err.EX_NUM_ARGUMENTS: NumArgumentsError,
     Err.EX_TYPE_ERROR: TypeError,
@@ -99,16 +101,22 @@ ERRMAP = {
     Err.EX_INTERNAL: InternalError,
 }
 
-
-PROTOMAP = {
+_PROTO_RESPONSE_MAP = {
     Proto.RES_PING: lambda f, d: f.set_result(None),
     Proto.RES_OK: lambda f, d: f.set_result(None),
     Proto.RES_DATA: lambda f, d: f.set_result(d),
-    Proto.RES_ERROR:
-        lambda f, d: f.set_exception(ERRMAP.get(
-            d['error_code'],
-            ThingsDBError)(errdata=d)),
+    Proto.RES_ERROR: lambda f, d: f.set_exception(_ERRMAP.get(
+        d['error_code'],
+        ThingsDBError)(errdata=d)),
 }
+
+_PROTO_EVENTS = (
+    Proto.ON_NODE_STATUS,
+    Proto.ON_WATCH_INI,
+    Proto.ON_WATCH_UPD,
+    Proto.ON_WATCH_DEL,
+    Proto.ON_WARN
+)
 
 
 def proto_unkown(f, d):
@@ -117,42 +125,51 @@ def proto_unkown(f, d):
 
 class Protocol(asyncio.Protocol):
 
-    def __init__(self, on_lost, loop=None):
+    def __init__(
+        self,
+        on_connection_lost: Callable[[asyncio.Protocol, Exception], None],
+        on_event: Callable[[Package], None],
+        loop: Optional[asyncio.AbstractEventLoop] = None
+    ):
         self._buffered_data = bytearray()
         self.package = None
         self.transport = None
         self.loop = asyncio.get_event_loop() if loop is None else loop
         self.close_future = None
-        self._on_lost = on_lost
+        self._requests = {}
+        self._pid = 0
+        self._on_connection_lost = on_connection_lost
+        self._on_event = on_event
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: asyncio.Transport) -> None:
         '''
         override asyncio.Protocol
         '''
         self.close_future = self.loop.create_future()
         self.transport = transport
 
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: Exception) -> None:
         '''
         override asyncio.Protocol
         '''
+        if self._requests:
+            logging.error(
+                f'canceling {len(self._requests)} requests '
+                'due to a lost connection'
+            )
+            while self._requests:
+                _key, (future, task) = self._requests.popitem()
+                if task is not None:
+                    task.cancel()
+                if not future.cancelled():
+                    future.cancel()
+
         self.close_future.set_result(None)
         self.close_future = None
         self.transport = None
-        self._on_lost(self, exc)
+        self._on_connection_lost(self, exc)
 
-    def data_received(self, data, _events=(
-        Proto.ON_NODE_STATUS,
-        Proto.ON_WARN,
-        Proto.ON_WATCH_INI,
-        Proto.ON_WATCH_UPD,
-        Proto.ON_WATCH_DEL,
-    ), _responses=(
-        Proto.RES_PING,
-        Proto.RES_OK,
-        Proto.RES_DATA,
-        Proto.RES_ERROR
-    )):
+    def data_received(self, data: bytes) -> None:
         '''
         override asyncio.Protocol
         '''
@@ -175,19 +192,74 @@ class Protocol(asyncio.Protocol):
                 self._buffered_data.clear()
             else:
                 tp = self.package.tp
-                if tp in _events:
-                    self.on_event_received(self.package)
-                elif tp in _responses:
-                    self.on_response_received(self.package)
+                if tp in _PROTO_RESPONSE_MAP:
+                    self._on_response(self.package)
+                elif tp in _PROTO_EVENTS:
+                    self._on_event(self.package)
                 else:
                     logging.error(f'Unsupported package type received: {tp}')
 
             self.package = None
 
-    @staticmethod
-    def on_event_received(pkg):
-        raise NotImplementedError
+    def write(
+            self,
+            tp: Proto,
+            data: Any = None,
+            is_bin: bool = False,
+            timeout: Optional[int] = None
+    ) -> asyncio.Future:
+        """Write data to ThingsDB.
+        This will create a new PID and returns a Future which will be
+        set when a response is received from ThingsDB, or time-out is reached.
+        """
+        if self.transport is None:
+            raise ConnectionError('no connection')
 
-    @staticmethod
-    def on_package_received(pkg):
-        raise NotImplementedError
+        self._pid += 1
+        self._pid %= 0x10000  # pid is handled as uint16_t
+
+        data = data if is_bin else b'' if data is None else \
+            msgpack.packb(data, use_bin_type=True)
+
+        header = Package.st_package.pack(
+            len(data),
+            self._pid,
+            tp,
+            tp ^ 0xff)
+
+        self.transport.write(header + data)
+
+        task = asyncio.ensure_future(
+            self._timer(self._pid, timeout)) if timeout else None
+
+        future = asyncio.Future()
+        self._requests[self._pid] = (future, task)
+        return future
+
+    async def _timer(self, pid: int, timeout: Optional[int]) -> None:
+        await asyncio.sleep(timeout)
+        try:
+            future, task = self._requests.pop(pid)
+        except KeyError:
+            logging.error('timed out package id not found: {}'.format(
+                    self._data_package.pid))
+            return None
+
+        future.set_exception(TimeoutError(
+            'request timed out on package id {}'.format(pid)))
+
+    def _on_response(self, pkg: Package) -> None:
+        try:
+            future, task = self._requests.pop(pkg.pid)
+        except KeyError:
+            logging.error('received package id not found: {}'.format(pkg.pid))
+            return None
+
+        # cancel the timeout task
+        if task is not None:
+            task.cancel()
+
+        if future.cancelled():
+            return
+
+        _PROTO_RESPONSE_MAP.get(pkg.tp, proto_unkown)(future, pkg.data)

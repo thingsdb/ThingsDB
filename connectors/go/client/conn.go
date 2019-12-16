@@ -20,7 +20,7 @@ type Conn struct {
 	respMap map[uint16]chan *pkg
 	ssl     *tls.Config
 	mux     sync.Mutex
-	OnClose func()
+	OnClose func(error)
 	EventCh chan *Event
 	LogCh   chan string
 }
@@ -239,7 +239,7 @@ func (conn *Conn) listen() {
 			conn.buf.conn.Close()
 			conn.buf.conn = nil
 			if conn.OnClose != nil {
-				conn.OnClose()
+				conn.OnClose(err)
 			}
 		}
 	}

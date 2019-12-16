@@ -18,16 +18,18 @@ def PropType(b):
 
 class Book(Thing):
 
-    title = 'str',
+    title = 'str'
     me = 'Book', lambda: Book
+
 
 
 class Stuff(Collection):
 
     __NAME__ = 'stuff'
+    __ONLY_DEFINED
 
-    greet = 'str',
-    x = 'int?',
+    greet = 'str'
+    x = 'int?'
     books = '[Book]', lambda: Book
 
 

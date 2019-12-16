@@ -1,52 +1,7 @@
 import logging
 from .keys import ARRAY_OF, SET_OF, REQUIRED, OPTIONAL
+from .prop import Prop
 
-
-class Prop:
-
-    __slots__ = (
-        'nillable',
-        'tp',
-        'spec',
-    )
-
-    def __init__(self, spec, cb=None):
-        self.nillable = False
-        self.is_array = False
-        self.is_set = False
-        self.tp = cb
-        self.spec = spec
-        self.unpacked = False
-
-    def unpack(self):
-        if self.unpacked:
-            return
-        self.unpacked = True
-
-        spec = self.spec
-        if spec.endswith('?'):
-            self.nillable = True
-            spec = spec[:-1]
-
-        if not spec:
-            raise ValueError('empty specification')
-
-        if spec.startswith('['):
-            if not spec.endswith(']'):
-                raise ValueError('missing `]` in specification')
-            self.is_array = True
-            spec = spec[1:-1]
-        elif spec.startswith('{'):
-            if not spec.endswith('}'):
-                raise ValueError('missing `}` in specification')
-            self.is_set = True
-            spec = spec[1:-1]
-
-
-
-        if self.tp is not None:
-            self.tp = self.tp()
-        if
 
 class Thing:
 
@@ -74,6 +29,7 @@ class Thing:
         return self._id
 
     def on_init(self, event, data):
+        props = self._props
         for k, v in data.items():
             setattr(self, k, v)
 

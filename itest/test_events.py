@@ -29,7 +29,7 @@ class TestEvents(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('stuff')
+        client0.set_default_scope('//stuff')
         client0.id = 2
 
         await client0.query('.x = 10; .arr = [];')
@@ -37,7 +37,7 @@ class TestEvents(TestBase):
         await self.node1.join_until_ready(client0)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
         client1.id = 5
 
         for _ in range(x):
@@ -58,7 +58,7 @@ class TestEvents(TestBase):
         await self.node2.join_until_ready(client0)
 
         client2 = await get_client(self.node2)
-        client2.use('stuff')
+        client2.set_default_scope('//stuff')
         client2.id = 9
 
         for _ in range(x):
@@ -101,7 +101,7 @@ class TestEvents(TestBase):
             self.loop_add(x * 3, mq, client0, client1, client2))
 
         client3 = await get_client(self.node3)
-        client3.use('stuff')
+        client3.set_default_scope('//stuff')
         client3.id = 11
 
         await asyncio.sleep(0.5)

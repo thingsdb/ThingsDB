@@ -22,7 +22,7 @@ class TestOperators(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.use('stuff')
+        client.set_default_scope('//stuff')
 
         await self.run_tests(client)
 

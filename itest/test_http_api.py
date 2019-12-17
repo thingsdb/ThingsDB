@@ -29,13 +29,13 @@ class TestHTTPAPI(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('stuff')
+        client0.set_default_scope('//stuff')
 
         # add more nodes for watch validation
         await self.node1.join_until_ready(client0)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
 
         api0 = f'http://localhost:{self.node0.http_api_port}'
         api1 = f'http://localhost:{self.node1.http_api_port}'

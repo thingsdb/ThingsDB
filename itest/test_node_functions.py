@@ -27,7 +27,7 @@ class TestNodeFunctions(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.use('@n')
+        client.set_default_scope('@n')
 
         await self.run_tests(client)
 

@@ -54,6 +54,10 @@ class Client(Buildin):
     def get_default_scope(self):
         return self._scope
 
+    @deprecated(details='Use `get_default_scope` instead')
+    def get_scope(self):
+        return self._scope
+
     def close(self):
         if self._protocol and self._protocol.transport:
             self._reconnect = False

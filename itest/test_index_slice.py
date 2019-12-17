@@ -23,7 +23,7 @@ class TestIndexSlice(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('stuff')
+        client0.set_default_scope('//stuff')
 
         # uncomment for quick test
         # return (await self.run_tests(client0, client0, client0))
@@ -33,10 +33,10 @@ class TestIndexSlice(TestBase):
         await self.node2.join_until_ready(client0)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
 
         client2 = await get_client(self.node2)
-        client2.use('stuff')
+        client2.set_default_scope('//stuff')
 
         await self.run_tests(client0, client1, client2)
 

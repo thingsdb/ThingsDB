@@ -27,7 +27,7 @@ class TestProcedures(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('@:stuff')
+        client0.set_default_scope('@:stuff')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -131,10 +131,10 @@ class TestProcedures(TestBase):
         await self.node2.join_until_ready(client0)
 
         client1 = await get_client(self.node1, auth=iris_token)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
 
         client2 = await get_client(self.node2, auth=iris_token)
-        client2.use('stuff')
+        client2.set_default_scope('//stuff')
 
         for client in (client0, client1, client2):
             self.assertTrue(await client.run('validate'))
@@ -192,10 +192,10 @@ class TestProcedures(TestBase):
         await self.node4.join_until_ready(client0)
 
         client3 = await get_client(self.node3, auth=iris_token)
-        client3.use('stuff')
+        client3.set_default_scope('//stuff')
 
         client4 = await get_client(self.node4, auth=iris_token)
-        client4.use('stuff')
+        client4.set_default_scope('//stuff')
 
         for client in (client0, client1, client2, client3, client4):
             self.assertTrue(await client.run('validate'))

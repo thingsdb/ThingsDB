@@ -27,7 +27,7 @@ class TestType(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.use('stuff')
+        client.set_default_scope('//stuff')
 
         # add another node for query validation
         await self.node1.join_until_ready(client)
@@ -136,7 +136,7 @@ class TestType(TestBase):
         await asyncio.sleep(1.5)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
 
         await self.wait_nodes_ready(client0)
         iris_node0 = await client0.query('return(.iris, 2);')
@@ -167,7 +167,7 @@ class TestType(TestBase):
         await asyncio.sleep(1.5)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
 
         await self.wait_nodes_ready(client0)
 

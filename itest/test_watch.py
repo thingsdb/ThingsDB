@@ -16,18 +16,19 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
-from thingsdb.client.events import Events
+from thingsdb.client.abc.events import Events
 
 
 class TestEvents(Events):
     def __init__(self, client):
-        super().__init__(client)
+        super().__init__()
+        self.client = client
         self._things = weakref.WeakValueDictionary()  # watching these things
 
     def register(self, thing):
         self._things[thing._id] = thing
 
-    async def on_reconnect(self):
+    def on_reconnect(self):
         pass
 
     def on_node_status(self, status):
@@ -118,7 +119,7 @@ class TestWatch(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.use('stuff')
+        client0.set_default_scope('//stuff')
         ev0 = TestEvents(client0)
         client0.add_event_handler(ev0)
 
@@ -127,12 +128,12 @@ class TestWatch(TestBase):
         await self.node2.join_until_ready(client0)
 
         client1 = await get_client(self.node1)
-        client1.use('stuff')
+        client1.set_default_scope('//stuff')
         ev1 = TestEvents(client1)
         client1.add_event_handler(ev1)
 
         client2 = await get_client(self.node2)
-        client2.use('stuff')
+        client2.set_default_scope('//stuff')
         ev2 = TestEvents(client2)
         client2.add_event_handler(ev2)
 

@@ -22,7 +22,7 @@ class TestVariable(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.use('stuff')
+        client.set_default_scope('//stuff')
 
         self.assertEqual(await client.query('a=1;'), 1)
         self.assertEqual(await client.query('a=1; a;'), 1)

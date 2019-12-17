@@ -4,10 +4,10 @@ from ..client.abc.events import Events
 class EventHandler(Events):
 
     def __init__(self, collection):
-        super().__init__(self)
+        super().__init__()
         self._collection = collection
 
-    async def on_reconnect(self):
+    def on_reconnect(self):
         self._collection.on_reconnect()
 
     def on_node_status(self, _status):

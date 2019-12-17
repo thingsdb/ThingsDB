@@ -15,7 +15,7 @@ class Events(abc.ABC):
         }
 
     def __call__(self, tp: Proto, data: Any) -> None:
-        self._evmap.get(tp, data)
+        self._evmap.get(tp)(data)
 
     @abc.abstractmethod
     def on_reconnect(self) -> None:

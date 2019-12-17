@@ -233,6 +233,9 @@ int ti_args_parse(int argc, char *argv[])
 
     }
 
+    if (parser->show_help)
+        rc = 1;
+
     argparse_destroy(parser);
     return rc;
 }

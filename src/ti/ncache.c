@@ -188,7 +188,7 @@ static inline int ncache__thing(
     cleri_children_t * child = nd           /* sequence */
             ->children->next->node          /* list */
             ->children;
-    for (; child; child = child->next->next)
+    for (; child; child = child->next ? child->next->next : NULL)
     {
         /* sequence(name: statement) (only investigate the statements */
         if (ncache__statement(
@@ -197,9 +197,6 @@ static inline int ncache__thing(
                 child->node->children->next->next->node,
                 e))
             return e->nr;
-
-        if (!child->next)
-            break;
     }
     return e->nr;
 }
@@ -290,7 +287,7 @@ static int ncache__expr_choice(
         cleri_children_t * child = nd           /* sequence */
                 ->children->next->node          /* list */
                 ->children;
-        for (; child; child = child->next->next)
+        for (; child; child = child->next ? child->next->next : NULL)
         {
             /* sequence(name: statement) (only investigate the statements */
             if (ncache__statement(
@@ -299,9 +296,6 @@ static int ncache__expr_choice(
                     child->node->children->next->next->node,
                     e))
                 return e->nr;
-
-            if (!child->next)
-                break;
         }
         return e->nr;
     }

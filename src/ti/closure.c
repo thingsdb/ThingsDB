@@ -144,9 +144,9 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
             ->children->next->node      /* list */
             ->children;                 /* first child */
 
-    for (n = 0, child = first; child && ++n; child = child->next->next)
-        if (!child->next)
-            break;
+    for(n = 0, child = first;
+        child && ++n;
+        child = child->next? child->next->next : NULL);
 
     vars = vec_new(n);
     if (!vars)

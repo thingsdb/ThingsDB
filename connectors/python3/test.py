@@ -1,4 +1,5 @@
 import time
+import warnings
 import asyncio
 import logging
 import pprint
@@ -17,20 +18,18 @@ def PropType(b):
 
 
 class Book(Thing):
-
     title = 'str'
     me = 'Book', lambda: Book
-
 
 
 class Stuff(Collection):
 
     __NAME__ = 'stuff'
-    __ONLY_DEFINED
 
     greet = 'str'
     x = 'int?'
-    books = '[Book]', lambda: Book
+    books = '[Book]', Book
+    s = '{}'
 
 
 interrupted = False
@@ -58,6 +57,11 @@ async def test(client):
         pprint.pprint(res)
 
         while not interrupted:
+            if hasattr(stuff, 'books'):
+                for book in stuff.books:
+                    if hasattr(book, 'title'):
+                        print(book.title)
+
             await asyncio.sleep(0.5)
 
         # res = await client.query('''

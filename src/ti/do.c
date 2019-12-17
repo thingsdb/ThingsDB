@@ -823,7 +823,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->node              /* list */
             ->children;                         /* list items */
 
-    for (n = 0; child; child = child->next->next)
+    for (n = 0; child; child = child->next ? child->next->next: NULL)
     {
         cleri_node_t * name_nd;
         cleri_node_t * scope;
@@ -857,9 +857,6 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         vec_set(thing->items, query->rval, field->idx);
 
         query->rval = NULL;
-
-        if (!child->next)
-            break;
     }
 
     if (n < type->fields->n)

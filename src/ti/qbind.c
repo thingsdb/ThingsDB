@@ -500,13 +500,11 @@ static void qbind__function(ti_qbind_t * qbind, cleri_node_t * nd, int flags)
     nd = nd->children->next->node->children->next->node;
 
     /* investigate arguments */
-    for (child = nd->children; child; child = child->next->next)
+    for(child = nd->children;
+        child;
+        child = child->next ? child->next->next : NULL, ++nargs)
     {
         qbind__statement(qbind, child->node);  /* statement */
-        ++nargs;
-
-        if (!child->next)
-            break;
     }
 
     /* bind `nargs` to node->data */
@@ -672,14 +670,8 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         cleri_children_t * child = nd          /* sequence */
                 ->children->next->node         /* list */
                 ->children;
-        for (; child; child = child->next->next)
-        {
+        for (; child; child = child->next ? child->next->next : NULL, ++sz)
             qbind__statement(qbind, child->node);  /* statement */
-            ++sz;
-
-            if (!child->next)
-                break;
-        }
         nd->data = (void *) sz;
         return;
     }

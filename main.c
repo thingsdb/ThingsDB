@@ -56,7 +56,10 @@ int main(int argc, char * argv[])
     /* parse arguments */
     rc = ti_args_parse(argc, argv);
     if (rc)
+    {
+        rc = rc > 0 ? 0 : rc;
         goto stop;
+    }
 
     if (ti()->args->version)
     {

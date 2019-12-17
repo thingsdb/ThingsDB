@@ -3,53 +3,62 @@ from .keys import ARRAY_OF, SET_OF, REQUIRED, OPTIONAL
 from .prop import Prop
 
 
-class Thing:
+def checkevent(f):
+    def wrapper(self, event_id, *args):
+        if self._event_id > event_id:
+            logging.warning(
+                f'ignore event because the current event `{self._event_id}` '
+                f'is greather than the received event `{event_id}`')
+            return
+        self._event_id = event_id
+        f(self, event_id, *args)
+        self._collection.go_pending()
+    return wrapper
 
-    __slots__ = (
-        '_id',
-        '_collection',
-        '__weakref__',
-    )
+
+class Thing:
+    # When __STRICT__ is set to `True`, only properties which are defined in
+    # the model class are assigned to a `Thing` instance. If `False`, all
+    # properties are set, not only the ones defined by the model class.
+    __STRICT__ = False
+
+    # When __SET_ANYWAY__ is set to `True`, values which do mot match the
+    # specification will be assigned to a `Thing` instance anyway and only
+    # a warning will be logged. If `False`, the properties will not be set.
+    __SET_ANYWAY__ = False
+
+    _props = dict()
 
     def __init__(self, collection, id: int):
         self._id = id
+        self._event_id = 0
         self._collection = collection
         collection.register(self)
 
     def __init_subclass__(cls):
-        cls._props = dict()
-        for key, val in cls.__dict__.items():
-            if not key.startswith('__'):
-                if isinstance(val, str):
-                    cls._props[key] = Prop(val)
-                elif isinstance(val, tuple):
-                    cls._props[key] = Prop(*val)
+        items = {
+            k: v for k, v in cls.__dict__.items() if not k.startswith('__')}
+        for key, val in items.items():
+            if isinstance(val, str):
+                val = val,
+            if isinstance(val, tuple):
+                prop = cls._props[key] = Prop(*val)
+                delattr(cls, key)
+
+    def __bool__(self):
+        return bool(self._event_id)
+
+    def __repr__(self):
+        return f'#{self._id}'
 
     def id(self):
         return self._id
 
+    @checkevent
     def on_init(self, event, data):
-        props = self._props
-        for k, v in data.items():
-            setattr(self, k, v)
+        self._job_set(data)
 
-    def _job_add(self, add_job):
-        raise NotImplementedError
-
-    def _job_remove(self, remove_job):
-        raise NotImplementedError
-
-    def _job_set(self, set_job):
-        for prop, val in set_job.items():
-            setattr(self, prop, val)
-
-    def _job_splice(self, splice_job):
-        raise NotImplementedError
-
-    def _job_del(self, job_del):
-        for prop in job_del:
-            delattr(self, prop)
-
+    @checkevent
     def on_update(self, event, jobs):
         for job_dict in jobs:
             for name, job in job_dict.items():
@@ -59,7 +68,74 @@ class Thing:
                 jobfun(self, job)
 
     def on_delete(self):
-        self._evhandler._things.pop(self._id)
+        self._collection.pop(self)
+
+    def _job_add(self, add_job):
+        print(add_job)
+
+    def _job_remove(self, remove_job):
+        raise NotImplementedError
+
+    def _job_set(self, pairs):
+        props = self._props
+        strict = self.__STRICT__
+        for k, v in pairs.items():
+            prop = props.get(k)
+            if prop:
+                try:
+                    v = prop.vconv(v)
+                except (TypeError, ValueError, KeyError) as e:
+                    logging.warning(
+                        f'got a value for property `{k}` on `{self}` '
+                        f'which does not match `{prop.spec}` ({e})')
+                    if not self.__SET_ANYWAY__:
+                        continue
+            elif strict:
+                continue
+            setattr(self, k, v)
+        self._collection.go_pending()
+
+    def _job_splice(self, pair):
+        (k, v), = pair.items()
+        prop = self._props.get(k)
+
+        try:
+            arr = getattr(self, k)
+        except AttributeError:
+            if prop:
+                logging.warning(
+                    f'missing property `{k}` on `{self}` '
+                    f'while the property is defined in the '
+                    f'model class as `{prop.spec}`')
+            return
+
+        if not isinstance(arr, list):
+            logging.warning(
+                f'got a splice job for property `{k}` on `{self}` '
+                f'while the property is of type `{type(arr)}`')
+            return
+
+        index, count, *items = v
+        if prop:
+            try:
+                items = [prop.nconv(item) for item in items]
+            except (TypeError, ValueError) as e:
+                logging.warning(
+                    f'got a value for property `{k}` on `{self}` '
+                    f'which does not match `{prop.spec}` ({e})')
+
+        arr[index:index+count] = items
+
+    def _job_del(self, k):
+        prop = self._props.get(k)
+        if prop:
+            logging.warning(
+                f'property `{k}` on `{self}` will be removed while it '
+                f'is defined in the model class as `{prop.spec}`')
+        try:
+            delattr(self, k)
+        except AttributeError:
+            pass
 
     _UPDMAP = {
         'set': _job_set,
@@ -93,7 +169,7 @@ class _Thing:
     def _init(self, id, collection):
         self._id = id
         self._collection = collection
-        self._event_id = 0
+        self._event_id = None
         collection._client._things[id] = self
         self._to_wqueue()
 
@@ -345,5 +421,6 @@ class _Thing:
     }
 
 
-class _Thing(Thing):
-    __strict__ = False
+class ThingStrict(Thing):
+
+    __STRICT__ = True

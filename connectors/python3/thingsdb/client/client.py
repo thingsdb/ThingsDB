@@ -255,7 +255,7 @@ class Client(Buildin):
         await self._authenticate(timeout=5)
 
         if self._reconnect:
-            await self.client.watch(scope='@n')
+            await self.watch(scope='@n')
 
         for event_handler in self._event_handlers:
             event_handler.on_reconnect()

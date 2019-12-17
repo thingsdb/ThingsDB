@@ -1,57 +1,5 @@
-class PropTypes:
-
-    @staticmethod
-    def any_(v):
-        return v
-
-    @staticmethod
-    def str_(v):
-        if not isinstance(v, str):
-            raise TypeError(f'expecting type `str`, got `{type(v)}`')
-        return v
-
-    @staticmethod
-    def int_(v):
-        if not isinstance(v, int):
-            raise TypeError(f'expecting type `int`, got `{type(v)}`')
-        return v
-
-    @staticmethod
-    def uint_(v):
-        if not isinstance(v, int):
-            raise TypeError(f'expecting type `int`, got `{type(v)}`')
-        if v < 0:
-            raise ValueError(f'expecting an integer value >= 0, got {v}')
-        return v
-
-    @staticmethod
-    def pint_(v):
-        if not isinstance(v, int):
-            raise TypeError(f'expecting type `int`, got `{type(v)}`')
-        if v <= 0:
-            raise ValueError(f'expecting an integer value > 0, got {v}')
-        return v
-
-    @staticmethod
-    def nint_(v):
-        if not isinstance(v, int):
-            raise TypeError(f'expecting type `int`, got `{type(v)}`')
-        if v >= 0:
-            raise ValueError(f'expecting an integer value < 0, got {v}')
-        return v
-
-    @staticmethod
-    def array_(v):
-        if not isinstance(v, (list, tuple)):
-            raise TypeError(f'expecting a `list` or `tuple`, got `{type(v)}`')
-        return v
-
-    @staticmethod
-    def set_(v):
-        if not isinstance(v, (list, tuple, set)):
-            raise TypeError(
-                f'expecting a `list`, `tuple` or `set`, got `{type(v)}`')
-        return set(v)
+import functools
+from .proptypes import PropTypes
 
 
 class Prop:
@@ -60,40 +8,42 @@ class Prop:
         'vconv',
         'nconv',
         'spec',
+        'nillable'
     )
 
     @staticmethod
-    def get_conv(fname, is_nillable):
-        func = getattr(PropTypes, f'{fname}_')
-        noneType = type(None)
+    def get_conv(fname, is_nillable, **kwrags):
+        func = getattr(PropTypes, f'{fname}_', None)
+        if kwrags:
+            func = functools.partial(func, **kwrags)
         if func:
-            return func if is_nillable else \
-                    def validate(v): \
-                    return isinstance(v, noneType) or func(v)
+            return functools.partial(PropTypes.nillable, func=func) \
+                if is_nillable else func
 
     def __init__(self, spec, cb=None):
-        self.vconv = cb
+        self.vconv = (cb, )
         self.nconv = None
         self.spec = spec
+        self.nillable = False
 
-    def unpack(self):
+    def unpack(self, collection):
         from .thing import Thing  # nopep8
-        if calleble(self.vconv):
+        if callable(self.vconv):
             return
 
-        cb_type, self.vconv = self.types, lambda: True
+        cb_type, self.vconv = self.vconv[0], lambda: True
         spec = self.spec
         is_nillable = False
 
         if spec.endswith('?'):
-            is_nillable = True
+            self.nillable = is_nillable = True
             spec = spec[:-1]
 
         assert spec, 'an empty specification is not allowed'
 
         if spec.startswith('['):
             assert spec.endswith(']'), 'missing `]` in specification'
-            self.nconv = self.get_conv('array', is_nillable)
+            self.nconv = ('array', is_nillable)
             spec = spec[1:-1]
             is_nillable = spec.endswith('?')
             if is_nillable:
@@ -101,71 +51,53 @@ class Prop:
 
         elif spec.startswith('{'):
             assert spec.endswith('}'), 'missing `}` in specification'
-            self.nconv = self.get_conv('set', is_nillable)
+            self.nconv = ('set', is_nillable)
             spec = spec[1:-1]
             is_nillable = False
 
+        kwargs = {
+            'klass': Thing,
+            'collection': collection,
+        }
+
         if not spec:
-            self.vconv, self.nconv = self.nconv, self.get_conv('any', False)
+            nested = self.get_conv('any', False, **kwargs)
+            self.vconv = self.get_conv(*self.nconv, nested=nested)
+            self.nconv = nested
             return  # finished, this is an array or set
 
-        self.vconv = self.get_conv(spec, is_nillable)
+        self.vconv = self.get_conv(
+            spec, is_nillable, **kwargs
+            if spec == 'any' or spec == 'thing' else {})
+
         if self.vconv is None:
-            assert calleble(cb_type), \
+            assert callable(cb_type), \
                 f'type `{spec}` is not a build-in, a calleble is required'
 
-            custum_type = cb_type()
+            custum_type = cb_type \
+                if isinstance(cb_type, type) and issubclass(cb_type, Thing) \
+                else cb_type()
+
             name = getattr(custum_type, '__NAME__', custum_type.__name__)
+
             assert spec == name, \
                 f'type `{name}` does not match the specification `{spec}`'
+
             assert hasattr(custum_type, '_props'), \
                 f'missing `_props`, type `{name}` ' \
                 f'must be a subclass of `Thing`'
-            for p in custum_type._props.values():
-                p.unpack()
-            self.vconv = def custom_type(v):
-                if
 
+            kwargs['watch'] = {
+                'klass': custum_type,
+                'collection': collection,
+                'watch': True,
+            }
+            self.vconv = self.get_conv('thing', is_nillable, **kwargs)
 
-        if spec == 'any':
-            types.insert(0, object)
-            lambda v: True
-        elif spec == 'str' or spec == 'utf8':
-            types.insert(0, str)
-        elif spec == 'bytes':
-            types.insert(0, bytes)
-        elif spec == 'raw':
-            types.insert(0, bytes)
-            types.insert(0, str)
-        elif (
-            spec == 'int' or
-            spec == 'uint' or
-            spec == 'nint' or
-            spec == 'pint'
-        ):
-            types.insert(0, int)
-        elif spec == 'float':
-            types.insert(0, float)
-        elif spec == 'number':
-            types.insert(0, int)
-            types.insert(0, float)
-        elif spec == 'bool':
-            types.insert(0, bool)
-        elif spec == 'thing':
-            types.insert(0, dict)
-        elif spec == 'Thing':
-            types.insert(0, Thing)
-        elif callable(cb_type):
-            custum_type = cb_type()
-            name = getattr(custum_type, '__NAME__', custum_type.__name__)
-            assert spec == name, \
-                f'type `{name}` does not match the specification `{spec}`'
-            types.insert(0, custum_type)
-            assert hasattr(custum_type, '_props'), \
-                f'missing `_props`, type `{name}` ' \
-                f'must be a subclass of `Thing`'
             for p in custum_type._props.values():
-                p.unpack()
-        else:
-            assert 0, \
-                f'type `{spec}` is not a build-in, a calleble is required'
+                p.unpack(collection)
+
+        if self.nconv is not None:
+            vconf = self.vconv
+            self.vconv = self.get_conv(*self.nconv, nested=vconf)
+            self.nconv = vconf

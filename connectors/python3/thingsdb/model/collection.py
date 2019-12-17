@@ -16,34 +16,37 @@ class Collection(Thing):
         self._client = None  # use load, build or rebuild
         self._id = None
         for p in self._props.values():
-            p.unpack()
+            p.unpack(self)
 
     async def load(self, client: Client) -> None:
         assert self._client is None, 'This collection is already loaded'
         self._client = client
         id = await self._client.query('.id()', scope=self._scope)
         super().__init__(self, id)
+        client.add_event_handler(EventHandler(self))
+        await self._client.watch(id, scope=self._scope)
 
     def on_reconnect(self):
         """Called from the `EventHandler`."""
-        for t in self._things.values():
-            self._pending.add(t.id())
+        for thing in self._things.keys():
+            self._pending.add(thing._id)
 
         self.go_pending()
 
-    def go_pending(self):
-        self._client.watch()
-        data = {
-            'things': list(self._wqueue),
-            'collection': self._scope
-        }
+    def add_pending(self, thing):
+        self._pending.add(thing.id())
 
+    def pop(self, thing):
+        self._things.pop(thing.id())
+
+    def go_pending(self):
+        if not self._pending:
+            return
         future = asyncio.ensure_future(
-            self._client._write_package(REQ_WATCH, data, timeout=10),
+            self._client.watch(*self._pending, scope=self._scope),
             loop=self._client._loop
         )
-
-        self._wqueue.clear()
+        self._pending.clear()
         return future
 
     def register(self, thing: Thing) -> None:
@@ -111,3 +114,8 @@ class Collection(Thing):
 
 #         self._wqueue.clear()
 #         return future
+
+
+class CollectionStrict(Collection):
+
+    __STRICT__ = True

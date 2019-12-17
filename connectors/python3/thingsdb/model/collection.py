@@ -28,8 +28,7 @@ class Collection(Thing):
 
     def on_reconnect(self):
         """Called from the `EventHandler`."""
-        for thing in self._things.keys():
-            self._pending.add(thing._id)
+        self._pending.update(self._things.keys())
 
         self.go_pending()
 

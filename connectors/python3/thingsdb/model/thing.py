@@ -16,7 +16,18 @@ def checkevent(f):
     return wrapper
 
 
-class Thing:
+class ThingHash:
+    def __init__(self, id):
+        self._id = id
+
+    def __hash__(self):
+        return self._id
+
+    def __eq__(self, other):
+        return self._id == other._id
+
+
+class Thing(ThingHash):
     # When __STRICT__ is set to `True`, only properties which are defined in
     # the model class are assigned to a `Thing` instance. If `False`, all
     # properties are set, not only the ones defined by the model class.
@@ -28,11 +39,16 @@ class Thing:
     __SET_ANYWAY__ = False
 
     _props = dict()
+    _any = None
+    _thing = None
 
     def __init__(self, collection, id: int):
-        self._id = id
+        super().__init__(id)
+        cls = self.__class__
         self._event_id = 0
         self._collection = collection
+        cls._any = Prop.get_conv('any', klass=Thing, collection=collection)
+        cls._thing = Prop.get_conv('thing', klass=Thing, collection=collection)
         collection.register(self)
 
     def __init_subclass__(cls):
@@ -70,34 +86,84 @@ class Thing:
     def on_delete(self):
         self._collection.pop(self)
 
-    def _job_add(self, add_job):
-        print(add_job)
+    def _job_add(self, pair):
+        cls = self.__class__
+        (k, v), = pair.items()
+        prop = cls._props.get(k)
 
-    def _job_remove(self, remove_job):
-        raise NotImplementedError
+        try:
+            set_ = getattr(self, k)
+        except AttributeError:
+            if prop:
+                logging.warning(
+                    f'missing property `{k}` on `{self}` '
+                    f'while the property is defined in the '
+                    f'model class as `{prop.spec}`')
+            return
+
+        if not isinstance(set_, set):
+            logging.warning(
+                f'got a add job for property `{k}` on `{self}` '
+                f'while the property is of type `{type(set_)}`')
+            return
+
+        convert = prop.nconv if prop else cls._thing
+        try:
+            set_.update((convert(item) for item in v))
+        except Exception as e:
+            logging.warning(
+                f'got a value for property `{k}` on `{self}` which '
+                f'does not match `{prop.spec if prop else "thing"}` ({e})')
+
+    def _job_remove(self, pair):
+        cls = self.__class__
+        (k, v), = pair.items()
+
+        try:
+            set_ = getattr(self, k)
+        except AttributeError:
+            if prop:
+                logging.warning(
+                    f'missing property `{k}` on `{self}` '
+                    f'while the property is defined in the '
+                    f'model class as `{prop.spec}`')
+            return
+
+        if not isinstance(set_, set):
+            logging.warning(
+                f'got a remove job for property `{k}` on `{self}` '
+                f'while the property is of type `{type(set_)}`')
+            return
+
+        set_.difference_update((ThingHash(id) for id in v))
 
     def _job_set(self, pairs):
-        props = self._props
-        strict = self.__STRICT__
+        cls = self.__class__
         for k, v in pairs.items():
-            prop = props.get(k)
+            prop = cls._props.get(k)
             if prop:
-                try:
-                    v = prop.vconv(v)
-                except (TypeError, ValueError, KeyError) as e:
-                    logging.warning(
-                        f'got a value for property `{k}` on `{self}` '
-                        f'which does not match `{prop.spec}` ({e})')
-                    if not self.__SET_ANYWAY__:
-                        continue
-            elif strict:
+                convert = prop.vconv
+            elif cls.__STRICT__:
                 continue
+            else:
+                convert = cls._any(v)
+            try:
+                v = convert(v)
+            except Exception as e:
+                logging.warning(
+                    f'got a value for property `{k}` on `{self}` which '
+                    f'does not match `{prop.spec if prop else "any"}` ({e})')
+                if not cls.__SET_ANYWAY__:
+                    continue
+
             setattr(self, k, v)
+
         self._collection.go_pending()
 
     def _job_splice(self, pair):
+        cls = self.__class__
         (k, v), = pair.items()
-        prop = self._props.get(k)
+        prop = cls._props.get(k)
 
         try:
             arr = getattr(self, k)
@@ -116,18 +182,16 @@ class Thing:
             return
 
         index, count, *items = v
-        if prop:
-            try:
-                items = [prop.nconv(item) for item in items]
-            except (TypeError, ValueError) as e:
-                logging.warning(
-                    f'got a value for property `{k}` on `{self}` '
-                    f'which does not match `{prop.spec}` ({e})')
-
-        arr[index:index+count] = items
+        convert = prop.nconv if prop else cls._any
+        try:
+            arr[index:index+count] = (convert(item) for item in items)
+        except (TypeError, ValueError) as e:
+            logging.warning(
+                f'got a value for property `{k}` on `{self}` '
+                f'which does not match `{prop.spec if prop else "any"}` ({e})')
 
     def _job_del(self, k):
-        prop = self._props.get(k)
+        prop = self.__class__._props.get(k)
         if prop:
             logging.warning(
                 f'property `{k}` on `{self}` will be removed while it '

@@ -12,7 +12,7 @@ class Prop:
     )
 
     @staticmethod
-    def get_conv(fname, is_nillable, **kwrags):
+    def get_conv(fname, is_nillable=False, **kwrags):
         func = getattr(PropTypes, f'{fname}_', None)
         if kwrags:
             func = functools.partial(func, **kwrags)
@@ -61,7 +61,7 @@ class Prop:
         }
 
         if not spec:
-            nested = self.get_conv('any', False, **kwargs)
+            nested = self.get_conv('any', **kwargs)
             self.vconv = self.get_conv(*self.nconv, nested=nested)
             self.nconv = nested
             return  # finished, this is an array or set

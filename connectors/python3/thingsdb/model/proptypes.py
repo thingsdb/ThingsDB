@@ -1,9 +1,9 @@
+import re
 import functools
+import logging
 
 
 class PropTypes:
-
-    ThingClass = None
 
     @staticmethod
     def any_(v, klass, collection):
@@ -15,6 +15,20 @@ class PropTypes:
                     klass=klass,
                     collection=collection
                 ))
+            if '*' in v:
+                pattern = v['*']
+                flags = 0
+                if pattern.endswith('i'):
+                    flags |= re.IGNORECASE
+                    pattern = pattern[:-2]
+                else:
+                    pattern = pattern[1:-1]
+                return re.compile(pattern, flags)
+            if '!':
+                msg = v['error_msg']
+                # TODO : Return correct exception
+                return Exception(msg)
+            logging.warning(f'unhandled dict: {v}')
         return v
 
     @staticmethod

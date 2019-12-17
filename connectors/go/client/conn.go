@@ -62,7 +62,6 @@ func (conn *Conn) Connect() error {
 		conn.writeLog("connected to %s:%d", conn.host, conn.port)
 		conn.buf.conn = cn
 	} else {
-		fmt.Println("HERE")
 		cn, err := tls.Dial("tcp", conn.ToString(), conn.ssl)
 		if err != nil {
 			return err

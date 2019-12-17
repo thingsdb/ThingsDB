@@ -57,6 +57,8 @@ async def test(client):
         pprint.pprint(res)
 
         while not interrupted:
+            if hasattr(stuff, 's'):
+                print(stuff.s)
             if hasattr(stuff, 'books'):
                 for book in stuff.books:
                     if hasattr(book, 'title'):

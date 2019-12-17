@@ -291,8 +291,11 @@ static void wareq__watch_cb(uv_async_t * task)
         msgpack_pack_uint64(&pk, ti()->node->cevid);
 
         mp_pack_str(&pk, "thing");
-        /* fetch exactly one level, options = 1 */
-        if (ti_thing_to_pk(thing, &pk, 1 /* options */))
+
+        /* mark as new so all props will be packed */
+        ti_thing_mark_new(thing);
+
+        if (ti_thing_to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
         {
             log_critical(EX_MEMORY_S);
             msgpack_sbuffer_destroy(&buffer);

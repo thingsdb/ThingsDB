@@ -5,8 +5,8 @@
 #define TI_VERSION_H_
 
 #define TI_VERSION_MAJOR 0
-#define TI_VERSION_MINOR 2
-#define TI_VERSION_PATCH 29
+#define TI_VERSION_MINOR 3
+#define TI_VERSION_PATCH 0
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */

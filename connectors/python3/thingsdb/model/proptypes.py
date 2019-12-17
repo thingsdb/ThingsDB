@@ -96,8 +96,9 @@ class PropTypes:
 
     @staticmethod
     def set_(v, nested):
-        if isinstance(v, dict):
-            v = v['$']
+        if not isinstance(v, dict):
+            raise TypeError(f'expecting a `dict`, got `{type(v)}`')
+        v = v['$']
         return {nested(item) for item in v}
 
     def nillable(v, func=None):

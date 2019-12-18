@@ -69,6 +69,14 @@ class Thing(ThingHash):
     def id(self):
         return self._id
 
+    async def watch(self):
+        collection = self._collection
+        await collection._client.watch(self._id, scope=collection._scope)
+
+    async def unwatch(self):
+        collection = self._collection
+        await collection._client.unwatch(self._id, scope=collection._scope)
+
     @checkevent
     def on_init(self, event, data):
         self._job_set(data)

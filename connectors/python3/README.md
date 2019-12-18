@@ -25,9 +25,6 @@ python setup.py install
 
 ## Quick usage
 
-This is an async client which can be used for running queries to ThingsDB.
-It required
-
 ```python
 import asyncio
 from thingsdb.client import Client
@@ -60,12 +57,16 @@ asyncio.get_event_loop().run_until_complete(hello_world())
 
 ## Client
 
-### thingsdb.client.Client 
+This is an client using `asyncio` which can be used for running queries to
+ThingsDB.
+
+
+### thingsdb.client.Client
 
 ```python3
 thingsdb.client.Client(
-    auto_reconnect: bool = True, 
-    ssl: Optional[Union[bool, ssl.SSLContext]] = None, 
+    auto_reconnect: bool = True,
+    ssl: Optional[Union[bool, ssl.SSLContext]] = None,
     loop: Optional[asyncio.AbstractEventLoop] = None
 ) -> Client
 ```
@@ -88,11 +89,52 @@ Initialize a ThingsDB client
         used. Defaults to None.
 
 
+
 ## Model
 
 It is possible to create a model which will map to data in ThingsDB.
 The model will be kept up-to-date be the client. It is possible to break
 anywhere you want in the model. What is not provided, will not be watched.
+
+## Collection
+
+```python
+import asyncio
+from thingsdb.client import Client
+from thingsdb.model import Collection
+
+class Foo(Collection):
+    name = 'str'
+```
+
+## Thing
+
+```python
+import asyncio
+from thingsdb.client import Client
+from thingsdb.model import Collection, Thing
+
+class Bar(Thing):
+    name = 'str'
+    other = 'Bar', lambda: Bar
+
+class Foo(Collection):
+    bar: 'Bar', Bar
+
+async def example():
+    client = Client()
+    foo = Foo()
+    bar = Bar(foo)
+    await client.connect('localhost')
+    try:
+        await client.authenticate('admin', 'pass')
+        await foo.load(client)
+
+    finally:
+        client.close()
+        await client.wait_closed()
+```
+
 
 
 

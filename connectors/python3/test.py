@@ -16,17 +16,12 @@ def PropType(b):
 
 class Book(Thing):
     title = 'str'
-    me = 'Book', lambda: Book
+    me = 'Book?', lambda: Book
 
 
 class Stuff(Collection):
 
     __NAME__ = 'stuff'
-
-    greet = 'str'
-    x = 'int?'
-    books = '[Book]', Book
-    s = '{}'
 
 
 interrupted = False
@@ -50,18 +45,14 @@ async def test(client):
         res = await client.query('''
             "Hello ThingsDB!";
         ''')
-
-        await client.watch(123, scope='//stuff')
-
         pprint.pprint(res)
 
+        book = Book(stuff, 5)
+        await book.watch()
+
         while not interrupted:
-            if hasattr(stuff, 's'):
-                print(stuff.s)
-            if hasattr(stuff, 'books'):
-                for book in stuff.books:
-                    if hasattr(book, 'title'):
-                        print(book.title)
+            if hasattr(book, 'title'):
+                print(book.title)
 
             await asyncio.sleep(0.5)
 

@@ -1,9 +1,3 @@
-from .model.thing import Thing
-
-
-REPRS = (int, float, str, Thing)
-
-
 def _wrap(value, blobs):
 
     if value is None:
@@ -26,10 +20,8 @@ def _wrap(value, blobs):
         return f'#{thing_id}'
     if isinstance(value, (list, tuple)):
         return f"[{','.join(_wrap(v, blobs) for v in value)}]"
-    if isinstance(value, REPRS):
-        return repr(value)
 
-    raise TypeError(f'cannot wrap type `{type(value)}`')
+    return repr(value)
 
 
 def fmt(val, blobs=None):

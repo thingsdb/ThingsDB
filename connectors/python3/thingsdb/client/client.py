@@ -7,8 +7,8 @@ from deprecation import deprecated
 from .buildin import Buildin
 from .protocol import Proto
 from .protocol import Protocol
-from ..convert import convert
 from .abc.events import Events
+from ..util.convert import convert
 
 
 class Client(Buildin):

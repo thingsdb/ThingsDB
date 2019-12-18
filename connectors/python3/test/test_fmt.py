@@ -1,7 +1,7 @@
 import sys
 import unittest
 sys.path.insert(0, '../')
-from thingsdb import fmt  # nopep8
+from thingsdb.util import fmt  # nopep8
 from thingsdb.model import Thing, Collection  # nopep8
 
 

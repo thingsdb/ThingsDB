@@ -1,3 +1,10 @@
+"""
+Upload to PyPI
+
+python3 setup.py sdist
+twine upload --repository pypitest dist/python-thingsdb-X.X.X.tar.gz
+twine upload --repository pypi dist/python-thingsdb-X.X.X.tar.gz
+"""
 from setuptools import setup, find_packages
 from thingsdb import __version__
 

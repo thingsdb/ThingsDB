@@ -50,7 +50,6 @@ C_SRCS += \
 ../src/ti/qbind.c \
 ../src/ti/query.c \
 ../src/ti/quorum.c \
-../src/ti/quota.c \
 ../src/ti/raw.c \
 ../src/ti/regex.c \
 ../src/ti/req.c \
@@ -84,7 +83,6 @@ C_SRCS += \
 ../src/ti/vint.c \
 ../src/ti/vset.c \
 ../src/ti/wareq.c \
-../src/ti/warn.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
 ../src/ti/wrap.c \
@@ -137,7 +135,6 @@ OBJS += \
 ./src/ti/qbind.o \
 ./src/ti/query.o \
 ./src/ti/quorum.o \
-./src/ti/quota.o \
 ./src/ti/raw.o \
 ./src/ti/regex.o \
 ./src/ti/req.o \
@@ -171,7 +168,6 @@ OBJS += \
 ./src/ti/vint.o \
 ./src/ti/vset.o \
 ./src/ti/wareq.o \
-./src/ti/warn.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
 ./src/ti/wrap.o \
@@ -224,7 +220,6 @@ C_DEPS += \
 ./src/ti/qbind.d \
 ./src/ti/query.d \
 ./src/ti/quorum.d \
-./src/ti/quota.d \
 ./src/ti/raw.d \
 ./src/ti/regex.d \
 ./src/ti/req.d \
@@ -258,7 +253,6 @@ C_DEPS += \
 ./src/ti/vint.d \
 ./src/ti/vset.d \
 ./src/ti/wareq.d \
-./src/ti/warn.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \
 ./src/ti/wrap.d \

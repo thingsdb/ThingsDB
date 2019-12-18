@@ -51,6 +51,8 @@ async def test(client):
             "Hello ThingsDB!";
         ''')
 
+        await client.watch(123, scope='//stuff')
+
         pprint.pprint(res)
 
         while not interrupted:

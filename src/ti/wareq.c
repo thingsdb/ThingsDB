@@ -11,6 +11,7 @@
 #include <ti/proto.h>
 #include <ti/thing.inline.h>
 #include <ti/wareq.h>
+#include <ti/warn.h>
 #include <util/mpack.h>
 
 static void wareq__destroy(ti_wareq_t * wareq);
@@ -269,7 +270,16 @@ static void wareq__watch_cb(uv_async_t * task)
         thing = imap_get(wareq->collection->things, id);
 
         if (!thing)
+        {
+            ti_warn(wareq->stream,
+                    TI_WARN_THING_NOT_FOUND,
+                    "failed to watch thing "TI_THING_ID", "
+                    "it is not found in collection `%.*s`",
+                    id,
+                    (int) wareq->collection->name->n,
+                    (char *) wareq->collection->name->data);
             continue;
+        }
 
         watch = ti_thing_watch(thing, wareq->stream);
         if (!watch)

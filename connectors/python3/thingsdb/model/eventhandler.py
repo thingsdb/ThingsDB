@@ -1,3 +1,4 @@
+import logging
 from ..client.abc.events import Events
 
 
@@ -13,8 +14,8 @@ class EventHandler(Events):
     def on_node_status(self, _status):
         pass
 
-    def on_warning(self, _warn):
-        pass
+    def on_warning(self, warn):
+        logging.warning(f'{warn["warn_msg"]} ({warn["warn_code"]})')
 
     def on_watch_init(self, data):
         thing_dict = data['thing']

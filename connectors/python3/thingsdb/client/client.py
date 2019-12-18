@@ -385,7 +385,51 @@ class Client(Buildin):
 
         return await future
 
-    def watch(self, *ids: int, scope: Optional[str] = None):
+    def watch(self, *ids: int, scope: Optional[str] = None) -> None:
+        """Subscibe for changes on given things.
+
+        This method accepts one or more thing ids to subscribe to. This
+        method will simply return None as soon as the subscribe request is
+        successful handled by ThingsDB. After the response, the client will
+        receive `INIT` events for all subscribed ids. After that, ThingsDB
+        will continue to provide the client with `UPDATE` events which contain
+        changes to the subscribed thing. A `DELETE` event might be received
+        if, and only if the thing is removed and garbage collected from the
+        collection.
+
+        Args:
+            *ids (int):
+                Thing IDs to subscribe to. No error is returned in case one of
+                the given things are not found within the collection.
+            *args (any):
+                Arguments which are injected as the procedure arguments. The
+                number of args must match the number the procedure requires.
+            scope (str, optional):
+                Run the procedure in this scope. If not specified, the default
+                scope will be used.
+                See https://docs.thingsdb.net/v0/overview/scopes/ for how to
+                format a scope.
+            timeout (int, optional):
+                Raise a time-out exception if no response is received within X
+                seconds. If no time-out is given, the client will wait forever.
+                Defaults to None.
+            convert_args (bool, optional):
+                Only applicable if `*args` are given. If set to True, then
+                the provided *args values will be converted so ThingsDB can
+                understand them. For example, a thing should be given just by
+                it's ID and with conversion the `#` will be extracted. When
+                this argument is False, the **kwargs stay untouched.
+                Defaults to True.
+
+        Retuns:
+            result (any): The result of the ThingsDB procedure.
+
+        Remarks:
+            If the ThingsDB code will return with an exception, then this
+            exception will be translated to a Python Exception which will be
+            raised. See thingsdb.exceptions for all possible exceptions and
+            https://docs.thingsdb.net/v0/errors/ for info on the error codes.
+        """
         if self._protocol is None:
             raise ConnectionError('no connection')
 

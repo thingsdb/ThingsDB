@@ -3,9 +3,14 @@
 > This library requires Python 3.6 or higher.
 
 ---------------------------------------
+
   * [Installation](#installation)
   * [Quick usage](#quick-usage)
   * [Client](#client)
+    * [Client()](thingsdb.client.Client)
+  * [Model](#model)
+    * [Collection](#collection)
+    * [Thing](#thing)
 
 ---------------------------------------
 
@@ -63,7 +68,7 @@ ThingsDB.
 
 ### thingsdb.client.Client
 
-```python3
+```python
 thingsdb.client.Client(
     auto_reconnect: bool = True,
     ssl: Optional[Union[bool, ssl.SSLContext]] = None,
@@ -88,7 +93,63 @@ Initialize a ThingsDB client
         If this argument is not used, the default event loop will be
         used. Defaults to None.
 
+### thingsdb.client.Client.query
 
+```python
+await query(
+        code: str,
+        scope: Optional[str] = None,
+        timeout: Optional[int] = None,
+        convert_vars: bool = True,
+        **kwargs: Any
+) -> Any
+```
+
+Query ThingsDB.
+
+Use this method to run `code` in a scope.
+
+- Args:
+    - *code (str)*:
+        ThingsDB code to run.
+    - *scope (str, optional)*:
+        Run the code in this scope. If not specified, the default scope
+        will be used. See https://docs.thingsdb.net/v0/overview/scopes/
+        for how to format a scope.
+    - *timeout (int, optional)*:
+        Raise a time-out exception if no response is received within X
+        seconds. If no time-out is given, the client will wait forever.
+        Defaults to None.
+    - *convert_vars (bool, optional)*:
+        Only applicable if `**kwargs` are given. If set to True, then
+        the provided **kwargs values will be converted so ThingsDB can
+        understand them. For example, a thing should be given just by
+        it's ID and with conversion the `#` will be extracted. When
+        this argument is False, the **kwargs stay untouched.
+        Defaults to True.
+    - *\*\*kwargs (any, optional)*:
+        Can be used to inject variable into the ThingsDB code.
+
+#### Examples
+
+Although we could just as easy have wrote everything in the
+ThingsDB code itself, this example shows how to use **kwargs for
+injecting variable into code. In this case the variable `book`.
+
+```python
+res = await client.query(".my_book = book;", book={
+    'title': 'Manual ThingsDB'
+})
+```
+
+#### Returns
+
+The result of the ThingsDB code.
+
+> If the ThingsDB code will return with an exception, then this
+> exception will be translated to a Python Exception which will be
+> raised. See thingsdb.exceptions for all possible exceptions and
+> https://docs.thingsdb.net/v0/errors/ for info on the error codes.
 
 ## Model
 
@@ -96,7 +157,11 @@ It is possible to create a model which will map to data in ThingsDB.
 The model will be kept up-to-date be the client. It is possible to break
 anywhere you want in the model. What is not provided, will not be watched.
 
-## Collection
+### Collection
+
+A collection is always required, even you do not plan to watch anything in the
+root of the collection. In the latter case you can just create an empty
+collection which can be used when initializing individual things.
 
 ```python
 import asyncio
@@ -107,7 +172,7 @@ class Foo(Collection):
     name = 'str'
 ```
 
-## Thing
+### Thing
 
 ```python
 import asyncio
@@ -124,17 +189,23 @@ class Foo(Collection):
 async def example():
     client = Client()
     foo = Foo()
-    bar = Bar(foo)
     await client.connect('localhost')
     try:
         await client.authenticate('admin', 'pass')
         await foo.load(client)
+
+        # ... now the collection will be watched
 
     finally:
         client.close()
         await client.wait_closed()
 ```
 
+Suppose you have an ID and want to watch that single thing, then
+you can initialize the thing and call `watch()` manually. For example,
+consider we have an `#5` for a `Bar` type in collection `Foo`:
 
-
-
+```python
+bar = Bar(foo, 5)
+await bar.watch()
+```

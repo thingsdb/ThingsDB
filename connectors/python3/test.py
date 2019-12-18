@@ -7,9 +7,6 @@ import pickle
 import signal
 import ssl
 from thingsdb.client import Client
-from thingsdb.exceptions import ThingsDBError
-from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import NodeError
 from thingsdb.model import Collection, Thing
 
 

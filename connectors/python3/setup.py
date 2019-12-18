@@ -1,8 +1,15 @@
 from setuptools import setup, find_packages
 from thingsdb import __version__
 
-long_description = '''
-The ThingsDB connector can be used to communicate with a ThingsDB database.
+try:
+    with open('README.md', 'r') as f:
+        long_description = f.read()
+except IOError:
+    long_description = '''
+The ThingsDB connector can be used to communicate with ThingsDB.
+
+Besides a connector it also contains an ORM layer which can be used for
+creating models and subscribing to things within a collection.
 '''.strip()
 
 setup(
@@ -10,7 +17,8 @@ setup(
     version=__version__,
     description='ThingsDB Connector',
     long_description=long_description,
-    url='https://github.com/thingsdb/python-thingsdb',
+    long_description_content_type='text/markdown',
+    url='https://github.com/thingsdb/ThingsDB',
     author='Jeroen van der Heijden',
     author_email='jeroen@transceptor.technology',
     license='MIT',
@@ -19,7 +27,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -32,21 +40,15 @@ setup(
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
-
-    # What does your project relate to?
-    keywords='database connector',
+    install_requires=[
+        'msgpack',
+        'deprecation'
+    ],
+    keywords='database connector orm',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-
-    # List additional groups of dependencies here (e.g. development
-    # dependencies). You can install these using the following syntax,
-    # for example:
-    # $ pip install -e .[dev,test]
-    # extras_require={
-    #     'dev': ['check-manifest'],
-    #     'test': ['coverage'],
-    # },
 )

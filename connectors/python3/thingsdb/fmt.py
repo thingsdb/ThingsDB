@@ -12,8 +12,9 @@ def _wrap(value, blobs):
         return 'true' if value else 'false'
     if isinstance(value, bytes):
         idx = len(blobs)
-        blobs.append(value)
-        return f'blob({idx})'
+        name = f'blob{idx}'
+        blobs[name] = value
+        return name
     if isinstance(value, dict):
         thing_id = value.get('#')
         if thing_id is None:
@@ -22,7 +23,7 @@ def _wrap(value, blobs):
                 for k, v in value.items()
             )
             return f"{{{thing}}}"
-        return f't({thing_id})'
+        return f'#{thing_id}'
     if isinstance(value, (list, tuple)):
         return f"[{','.join(_wrap(v, blobs) for v in value)}]"
     if isinstance(value, REPRS):
@@ -33,5 +34,5 @@ def _wrap(value, blobs):
 
 def fmt(val, blobs=None):
     if blobs is None:
-        blobs = []
+        blobs = {}
     return _wrap(val, blobs)

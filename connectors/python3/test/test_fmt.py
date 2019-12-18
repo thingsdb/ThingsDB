@@ -3,7 +3,6 @@ import unittest
 sys.path.insert(0, '../')
 from thingsdb import fmt  # nopep8
 from thingsdb.model import Thing, Collection  # nopep8
-from thingsdb.client import Client  # nopep8
 
 
 def fmt_fmt(formatted):
@@ -59,14 +58,14 @@ class TestWrap(unittest.TestCase):
         )
 
     def test_blobs(self):
-        blobs = []
-        self.assertEqual(r"x=[blob(0),blob(1)]", val_fmt([b'a', b'b'], blobs))
-        self.assertEqual(blobs, [b'a', b'b'])
+        blobs = {}
+        self.assertEqual(r"x=[blob0,blob1]", val_fmt([b'a', b'b'], blobs))
+        self.assertEqual(blobs, {'blob0': b'a', 'blob1': b'b'})
 
     def test_fmt_thing(self):
-        t = Thing(42, Collection(Client()))
-        self.assertEqual("x=t(42)", val_fmt(t))
-        self.assertEqual("x=t(42)", val_fmt({'#': 42, "test": "xyz"}))
+        t = Thing(Collection(), 42)
+        self.assertEqual("x=#42", val_fmt(t))
+        self.assertEqual("x=#42", val_fmt({'#': 42, "test": "xyz"}))
 
 
 if __name__ == '__main__':

@@ -8,6 +8,7 @@
   * [Quick usage](#quick-usage)
   * [Client](#client)
     * [Client()](thingsdb.client.Client)
+    * [query](thingsdb.client.Client.query)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)

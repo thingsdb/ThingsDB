@@ -60,26 +60,29 @@ asyncio.get_event_loop().run_until_complete(hello_world())
 
 ## Client
 
+### thingsdb.client.Client 
+
+```python3
 thingsdb.client.Client(
-      auto_reconnect: bool = True,
-      ssl: Optional[Union[bool, ssl.SSLContext]] = None,
-      loop: Optional[asyncio.AbstractEventLoop] = None,
-) -> None
+    auto_reconnect: bool = True, 
+    ssl: Optional[Union[bool, ssl.SSLContext]] = None, 
+    loop: Optional[asyncio.AbstractEventLoop] = None
+) -> Client
+```
+Initialize a ThingsDB client
 
-Initialize a ThingsDB client.
-
-Args:
-    auto_reconnect (bool, optional):
+- Args:
+    - *auto_reconnect (bool, optional)*:
         When set to `True`, the client will automatically
         reconnect when a connection is lost. If set to `False` and the
         connection gets lost, one may call the `reconnect()` method to
         make a new connection. Defaults to True.
-    ssl (SSLContext or bool, optional):
+    - *ssl (SSLContext or bool, optional)*:
         Accepts an ssl.SSLContext for creating a secure connection
         using SSL/TLS. This argument may simply be set to `True` in
         which case a context using `ssl.PROTOCOL_TLS` is created.
         Defaults to None.
-    loop (AbstractEventLoop, optional):
+    - *loop (AbstractEventLoop, optional)*:
         Can be used to run the client on a specific event loop.
         If this argument is not used, the default event loop will be
         used. Defaults to None.

@@ -37,15 +37,14 @@ ti_collection_t * ti_collection_create(
     collection->things = imap_create();
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
-    collection->quota = ti_quota_create();
     collection->types = ti_types_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->access ||
-        !collection->procedures || !collection->quota || !collection->lock ||
-        !collection->types || uv_mutex_init(collection->lock))
+        !collection->procedures || !collection->lock ||!collection->types ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -63,7 +62,6 @@ void ti_collection_destroy(ti_collection_t * collection)
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
-    ti_quota_destroy(collection->quota);
     ti_types_destroy(collection->types);
     uv_mutex_destroy(collection->lock);
     free(collection->lock);
@@ -155,28 +153,6 @@ ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
     ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
     return (ti_val_t *) raw;
-}
-
-void ti_collection_set_quota(
-        ti_collection_t * collection,
-        ti_quota_enum_t quota_tp,
-        size_t quota)
-{
-    switch (quota_tp)
-    {
-    case QUOTA_THINGS:
-        collection->quota->max_things = quota;
-        break;
-    case QUOTA_PROPS:
-        collection->quota->max_props = quota;
-        break;
-    case QUOTA_ARRAY_SIZE:
-        collection->quota->max_array_size = quota;
-        break;
-    case QUOTA_RAW_SIZE:
-        collection->quota->max_raw_size = quota;
-        break;
-    }
 }
 
 typedef struct

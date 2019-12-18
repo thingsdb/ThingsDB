@@ -13,7 +13,6 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <util/imap.h>
 #include <util/guid.h>
 #include <ex.h>
-#include <ti/quota.h>
 #include <ti/type.h>
 #include <ti/types.h>
 #include <ti/val.h>
@@ -30,10 +29,6 @@ int ti_collection_rename(
         ti_raw_t * rname,
         ex_t * e);
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection);
-void ti_collection_set_quota(
-        ti_collection_t * collection,
-        ti_quota_enum_t quota_tp,
-        size_t quota);
 size_t ti_collection_ntype(ti_collection_t * collection, ti_type_t * type);
 
 struct ti_collection_s
@@ -45,7 +40,6 @@ struct ti_collection_s
     vec_t * access;         /* ti_auth_t */
     vec_t * procedures;     /* ti_procedure_t */
     ti_thing_t * root;
-    ti_quota_t * quota;
     ti_types_t * types;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
 };

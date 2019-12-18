@@ -101,7 +101,6 @@
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>
-#include <ti/fn/fnsetquota.h>
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshutdown.h>
 #include <ti/fn/fnsort.h>
@@ -301,7 +300,6 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
         qbind__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
         qbind__cev_fn(q, nd, "set_type", do__f_set_type);
         qbind__tev_fn(q, nd, "set_password", do__f_set_password);
-        qbind__tev_fn(q, nd, "set_quota", do__f_set_quota);
         qbind__zev_fn(q, nd, "set_log_level", do__f_set_log_level);
         qbind__zev_fn(q, nd, "shutdown", do__f_shutdown);
         break;

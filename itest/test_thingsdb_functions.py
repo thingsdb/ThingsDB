@@ -123,23 +123,15 @@ class TestThingsDBFunctions(TestBase):
 
         collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)
-        self.assertEqual(len(collections[0]), 7)
+        self.assertEqual(len(collections[0]), 3)
 
         self.assertIn("collection_id", collections[0])
         self.assertIn("name", collections[0])
         self.assertIn("things", collections[0])
-        self.assertIn("quota_things", collections[0])
-        self.assertIn("quota_properties", collections[0])
-        self.assertIn("quota_array_size", collections[0])
-        self.assertIn("quota_raw_size", collections[0])
 
         self.assertTrue(isinstance(collections[0]["collection_id"], int))
         self.assertTrue(isinstance(collections[0]["name"], str))
         self.assertTrue(isinstance(collections[0]["things"], int))
-        self.assertIs(collections[0]["quota_things"], None)
-        self.assertIs(collections[0]["quota_properties"], None)
-        self.assertIs(collections[0]["quota_array_size"], None)
-        self.assertIs(collections[0]["quota_raw_size"], None)
 
     async def test_del_collection(self, client):
         with self.assertRaisesRegex(

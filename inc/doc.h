@@ -91,7 +91,6 @@
 #define DOC_RENAME_USER             DOC_SEE("thingsdb-api/rename_user")
 #define DOC_REVOKE                  DOC_SEE("thingsdb-api/revoke")
 #define DOC_SET_PASSWORD            DOC_SEE("thingsdb-api/set_password/")
-#define DOC_SET_QUOTA               DOC_SEE("thingsdb-api/set_quota")
 #define DOC_USER_INFO               DOC_SEE("thingsdb-api/user_info")
 #define DOC_USERS_INFO              DOC_SEE("thingsdb-api/users_info")
 

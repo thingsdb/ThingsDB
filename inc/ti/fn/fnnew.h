@@ -105,10 +105,6 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
 
     if (fn_not_collection_scope("new", query, e) ||
-        ti_quota_things(
-                query->collection->quota,
-                query->collection->things->n,
-                e) ||
         fn_nargs("new", DOC_NEW, 2, nargs, e))
         return e->nr;
 

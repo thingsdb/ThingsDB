@@ -67,15 +67,6 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ->children->next->node         /* list */
             ->children;
 
-    if (query->collection && sz >= query->collection->quota->max_array_size)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached"
-                DOC_SET_QUOTA,
-                query->collection->quota->max_array_size);
-        return e->nr;
-    }
-
     varr = ti_varr_create(sz);
     if (!varr)
     {
@@ -688,22 +679,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_thing_t * thing;
     cleri_children_t * child;
-    size_t max_props;
     uintptr_t sz = (uintptr_t) nd->data;
-
-    if (query->collection)
-    {
-        if (ti_quota_things(
-                query->collection->quota,
-                query->collection->things->n,
-                e))
-            return e->nr;
-        max_props = query->collection->quota->max_props;
-    }
-    else
-    {
-        max_props = TI_QUOTA_NOT_SET;
-    }
 
     thing = ti_thing_o_create(0, sz, query->collection);
     if (!thing)
@@ -718,14 +694,6 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         cleri_node_t * name_nd;
         cleri_node_t * scope;
         ti_name_t * name;
-
-        if (thing->items->n == max_props)
-        {
-            ex_set(e, EX_MAX_QUOTA,
-                    "maximum properties quota of %zu has been reached"
-                    DOC_SET_QUOTA, max_props);
-            goto err;
-        }
 
         name_nd = child->node                       /* sequence */
                 ->children->node;                   /* name */
@@ -799,12 +767,6 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 name_nd->str);
         return e->nr;
     }
-
-    if (ti_quota_things(
-            query->collection->quota,
-            query->collection->things->n,
-            e))
-        return e->nr;
 
     thing = ti_thing_t_create(0, type, query->collection);
     if (!thing)

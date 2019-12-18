@@ -675,49 +675,6 @@ static int rjob__set_password(mp_unp_t * up)
     return 0;
 }
 
-/*
- * Returns 0 on success
- * - for example: {'collection':id, 'quota_tp': quota_enum_t, 'quota': size_t}
- */
-static int rjob__set_quota(mp_unp_t * up)
-{
-    ti_collection_t * collection;
-    ti_quota_enum_t quota_tp;
-    mp_obj_t obj, mp_id, mp_tp, mp_quota;
-
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_id) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_tp) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_quota) != MP_U64)
-    {
-        log_critical("job `set_quota`: invalid format");
-        return -1;
-    }
-
-    if (!mp_id.via.u64)
-    {
-        log_critical("job `set_quota`: cannot set quota on root (scope: 0)");
-        return -1;
-    }
-
-    collection = ti_collections_get_by_id(mp_id.via.u64);
-    if (!collection)
-    {
-        log_critical(
-                "job `set_quota`: "TI_COLLECTION_ID" not found",
-                mp_id.via.u64);
-        return -1;
-    }
-
-    quota_tp = (ti_quota_enum_t) mp_tp.via.u64;
-    ti_collection_set_quota(collection, quota_tp, mp_quota.via.u64);
-
-    return 0;
-}
-
 int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 {
     mp_obj_t obj, mp_job;
@@ -774,7 +731,13 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
         if (mp_str_eq(&mp_job, "set_password"))
             return rjob__set_password(up);
         if (mp_str_eq(&mp_job, "set_quota"))
-            return rjob__set_quota(up);
+        {
+            /*
+             * DEPRECATED: `set_quota` is removed, skip this job
+             */
+            mp_skip(up);
+            return 0;
+        }
         break;
     }
 

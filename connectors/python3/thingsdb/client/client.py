@@ -182,7 +182,7 @@ class Client(Buildin):
             self,
             host: str,
             port: int = 9200,
-            timeout: int = 5
+            timeout: Optional[int] = 5
     ) -> None:
         """Connect to ThingsDB.
 
@@ -199,7 +199,9 @@ class Client(Buildin):
                 Defaults to 9200.
             timeout (int, optional):
                 Can be be used to control the maximum time the client will
-                attempt to create a connection. Defaults to 5.
+                attempt to create a connection. The timeout may be set to None
+                in which case the client will wait forever on a response.
+                Defaults to 5.
 
         Remarks:
             Do not use this method if the client is already
@@ -235,7 +237,7 @@ class Client(Buildin):
         if self._protocol and self._protocol.close_future:
             await self._protocol.close_future
 
-    async def authenticate(self, *auth, timeout: int = 5) -> None:
+    async def authenticate(self, *auth, timeout: Optional[int] = 5) -> None:
         """Authenticate a ThingsDB connection.
 
         Args:
@@ -246,7 +248,8 @@ class Client(Buildin):
             timeout (int, optional):
                 Can be be used to control the maximum time in seconds for the
                 client to wait for response on the authentication request.
-                Defaults to 5.
+                The timeout may be set to None in which case the client will
+                wait forever on a response. Defaults to 5.
         """
         if len(auth) == 1:
             auth = auth[0]
@@ -261,9 +264,52 @@ class Client(Buildin):
             code: str,
             scope: Optional[str] = None,
             timeout: Optional[int] = None,
-            convert_args: Optional[bool] = True,
+            convert_vars: bool = True,
             **kwargs: Any
     ) -> Any:
+        """Query ThingsDB.
+
+        Use this method to run `code` in a scope.
+
+        Args:
+            code (str):
+                ThingsDB code to run.
+            scope (str, optional):
+                Run the code in this scope. If not specified, the default scope
+                will be used. See https://docs.thingsdb.net/v0/overview/scopes/
+                for how to format a scope.
+            timeout (int, optional):
+                Raise a time-out exception if no response is received within X
+                seconds. If no time-out is given, the client will wait forever.
+                Defaults to None.
+            convert_vars (bool, optional):
+                Only applicable if `**kwargs` are given. If set to True, then
+                the provided **kwargs values will be converted so ThingsDB can
+                understand them. For example, a thing should be given just by
+                it's ID and with conversion the `#` will be extracted. When
+                this argument is False, the **kwargs stay untouched.
+                Defaults to True.
+            **kwargs (any, optional):
+                Can be used to inject variable into the ThingsDB code.
+
+        Examples:
+            Although we could just as easy have wrote everything in the
+            ThingsDB code itself, this example shows how to use **kwargs for
+            injecting variable into code. In this case the variable `book`.
+
+            >>> res = await client.query(".my_book = book;", book={
+                'title': 'Manual ThingsDB'
+            })
+
+        Retuns:
+            result (any): The result of the ThingsDB code.
+
+        Remarks:
+            If the ThingsDB code will return with an exception, then this
+            exception will be translated to a Python Exception which will be
+            raised. See thingsdb.exceptions for all possible exceptions and
+            https://docs.thingsdb.net/v0/errors/ for info on the error codes.
+        """
         if self._protocol is None:
             raise ConnectionError('no connection')
 
@@ -280,7 +326,50 @@ class Client(Buildin):
         future = self._protocol.write(Proto.REQ_QUERY, data, timeout=timeout)
         return await future
 
-    async def run(self, procedure: str, *args, scope=None, convert_args=True):
+    async def run(
+            self,
+            procedure: str,
+            *args: Optional[Any],
+            scope: Optional[str] = None,
+            timeout: Optional[int] = None,
+            convert_args: bool = True
+    ) -> Any:
+        """Run a procedure.
+
+        Use this method to run a stored procedure in a scope.
+
+        Args:
+            procedure (str):
+                Name of the procedure to run.
+            *args (any):
+                Arguments which are injected as the procedure arguments. The
+                number of args must match the number the procedure requires.
+            scope (str, optional):
+                Run the procedure in this scope. If not specified, the default
+                scope will be used.
+                See https://docs.thingsdb.net/v0/overview/scopes/ for how to
+                format a scope.
+            timeout (int, optional):
+                Raise a time-out exception if no response is received within X
+                seconds. If no time-out is given, the client will wait forever.
+                Defaults to None.
+            convert_args (bool, optional):
+                Only applicable if `*args` are given. If set to True, then
+                the provided *args values will be converted so ThingsDB can
+                understand them. For example, a thing should be given just by
+                it's ID and with conversion the `#` will be extracted. When
+                this argument is False, the **kwargs stay untouched.
+                Defaults to True.
+
+        Retuns:
+            result (any): The result of the ThingsDB procedure.
+
+        Remarks:
+            If the ThingsDB code will return with an exception, then this
+            exception will be translated to a Python Exception which will be
+            raised. See thingsdb.exceptions for all possible exceptions and
+            https://docs.thingsdb.net/v0/errors/ for info on the error codes.
+        """
         if self._protocol is None:
             raise ConnectionError('no connection')
 
@@ -292,7 +381,7 @@ class Client(Buildin):
         future = self._protocol.write(
             Proto.REQ_RUN,
             [scope, procedure, *arguments],
-            timeout=None)
+            timeout=timeout)
 
         return await future
 

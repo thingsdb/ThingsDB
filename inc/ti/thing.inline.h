@@ -6,6 +6,7 @@
 
 #include <ti/type.h>
 #include <ti/thing.h>
+#include <doc.h>
 
 /* returns IMAP_ERR_EXIST if the thing is already in the map */
 static inline int ti_thing_to_map(ti_thing_t * thing)

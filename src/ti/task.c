@@ -1062,49 +1062,6 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_quota(
-        ti_task_t * task,
-        uint64_t collection_id,
-        ti_quota_enum_t quota_tp,
-        size_t quota)
-{
-    size_t alloc = 128;
-    ti_data_t * data;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
-        return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&pk, 1);
-
-    mp_pack_str(&pk, "set_quota");
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_str(&pk, "collection");
-    msgpack_pack_uint64(&pk, collection_id);
-
-    mp_pack_str(&pk, "quota_tp");
-    msgpack_pack_uint8(&pk, quota_tp);
-
-    mp_pack_str(&pk, "quota");
-    msgpack_pack_uint64(&pk, quota);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    if (vec_push(&task->jobs, data))
-        goto fail_data;
-
-    task__upd_approx_sz(task, data);
-    return 0;
-
-fail_data:
-    free(data);
-    return -1;
-}
-
 int ti_task_add_splice(
         ti_task_t * task,
         ti_name_t * name,

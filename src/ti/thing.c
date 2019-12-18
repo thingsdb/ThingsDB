@@ -361,18 +361,7 @@ int ti_thing_o_set_val_from_strn(
         ti_val_t ** val,
         ex_t * e)
 {
-    ti_name_t * name;
-
-    if (thing->collection &&
-        thing->items->n == thing->collection->quota->max_props)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-            "maximum properties quota of %zu has been reached"DOC_SET_QUOTA,
-            thing->collection->quota->max_props);
-        return e->nr;
-    }
-
-    name = ti_names_get(str, n);
+    ti_name_t * name = ti_names_get(str, n);
     if (!name)
     {
         ex_set_mem(e);

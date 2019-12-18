@@ -50,7 +50,6 @@ C_SRCS += \
 ../src/ti/qbind.c \
 ../src/ti/query.c \
 ../src/ti/quorum.c \
-../src/ti/quota.c \
 ../src/ti/raw.c \
 ../src/ti/regex.c \
 ../src/ti/req.c \
@@ -137,7 +136,6 @@ OBJS += \
 ./src/ti/qbind.o \
 ./src/ti/query.o \
 ./src/ti/quorum.o \
-./src/ti/quota.o \
 ./src/ti/raw.o \
 ./src/ti/regex.o \
 ./src/ti/req.o \
@@ -224,7 +222,6 @@ C_DEPS += \
 ./src/ti/qbind.d \
 ./src/ti/query.d \
 ./src/ti/quorum.d \
-./src/ti/quota.d \
 ./src/ti/raw.d \
 ./src/ti/regex.d \
 ./src/ti/req.d \

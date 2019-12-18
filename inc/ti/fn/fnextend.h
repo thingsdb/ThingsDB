@@ -46,15 +46,6 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     source_n = varr_source->vec->n;
 
-    if (query->collection &&
-        (source_n + current_n) >= query->collection->quota->max_array_size)
-    {
-        ex_set(e, EX_MAX_QUOTA,
-                "maximum array size quota of %zu has been reached"DOC_SET_QUOTA,
-                query->collection->quota->max_array_size);
-        goto fail2;
-    }
-
     if (vec_extend(&varr_dest->vec, varr_source->vec->data, source_n))
     {
         ex_set_mem(e);

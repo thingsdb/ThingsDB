@@ -7,8 +7,11 @@
   * [Installation](#installation)
   * [Quick usage](#quick-usage)
   * [Client](#client)
-    * [Client()](thingsdb.client.Client)
-    * [query](thingsdb.client.Client.query)
+    * [Client()](#thingsdb.client.Client)
+    * [add_event_handler](#thingsdb.client.Client.add_event_handler)
+    * [connect_pool](#thingsdb.client.Client.connect_pool)
+    * [get_event_loop](#thingsdb.client.Client.get_event_loop)
+    * [query](#thingsdb.client.Client.query)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)
@@ -89,11 +92,11 @@ Initialize a ThingsDB client
     Accepts an ssl.SSLContext for creating a secure connection
     using SSL/TLS. This argument may simply be set to `True` in
     which case a context using `ssl.PROTOCOL_TLS` is created.
-    Defaults to None.
+    Defaults to `None`.
 - *loop (AbstractEventLoop, optional)*:
     Can be used to run the client on a specific event loop.
     If this argument is not used, the default event loop will be
-    used. Defaults to None.
+    used. Defaults to `None`.
 
 ### thingsdb.client.Client.add_event_handler
 
@@ -110,7 +113,7 @@ Event handlers will called in the order they are added.
 - *event_handler (Events)*:
     An instance of Events (see `thingsdb.client.abc.events`).
 
-#### connect_pool
+### thingsdb.client.Client.connect_pool
 
 ```python
 async connect_pool(pool: list, *auth: Union[str, tuple]) -> None
@@ -147,7 +150,7 @@ await connect_pool([
 > Do not use this method if the client is already
 > connected. This can be checked with `client.is_connected()`.
 
-### get_event_loop
+### thingsdb.client.Client.get_event_loop
 
 ```python
 get_event_loop() -> asyncio.AbstractEventLoop
@@ -186,14 +189,14 @@ Use this method to run `code` in a scope.
 - *timeout (int, optional)*:
     Raise a time-out exception if no response is received within X
     seconds. If no time-out is given, the client will wait forever.
-    Defaults to None.
+    Defaults to `None`.
 - *convert_vars (bool, optional)*:
-    Only applicable if `**kwargs` are given. If set to True, then
-    the provided **kwargs values will be converted so ThingsDB can
+    Only applicable if `**kwargs` are given. If set to `True`, then
+    the provided `**kwargs` values will be converted so ThingsDB can
     understand them. For example, a thing should be given just by
     it's ID and with conversion the `#` will be extracted. When
-    this argument is False, the **kwargs stay untouched.
-    Defaults to True.
+    this argument is `False`, the `**kwargs` stay untouched.
+    Defaults to `True`.
 - *\*\*kwargs (any, optional)*:
     Can be used to inject variable into the ThingsDB code.
 

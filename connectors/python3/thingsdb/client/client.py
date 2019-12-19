@@ -200,9 +200,9 @@ class Client(Buildin):
                 Defaults to 9200.
             timeout (int, optional):
                 Can be be used to control the maximum time the client will
-                attempt to create a connection. The timeout may be set to None
-                in which case the client will wait forever on a response.
-                Defaults to 5.
+                attempt to create a connection. The timeout may be set to
+                `None` in which case the client will wait forever on a
+                response. Defaults to 5.
 
         Remarks:
             Do not use this method if the client is already
@@ -249,7 +249,7 @@ class Client(Buildin):
             timeout (int, optional):
                 Can be be used to control the maximum time in seconds for the
                 client to wait for response on the authentication request.
-                The timeout may be set to None in which case the client will
+                The timeout may be set to `None` in which case the client will
                 wait forever on a response. Defaults to 5.
         """
         if len(auth) == 1:
@@ -282,14 +282,14 @@ class Client(Buildin):
             timeout (int, optional):
                 Raise a time-out exception if no response is received within X
                 seconds. If no time-out is given, the client will wait forever.
-                Defaults to None.
+                Defaults to `None`.
             convert_vars (bool, optional):
-                Only applicable if `**kwargs` are given. If set to True, then
+                Only applicable if `**kwargs` are given. If set to `True`, then
                 the provided **kwargs values will be converted so ThingsDB can
                 understand them. For example, a thing should be given just by
                 it's ID and with conversion the `#` will be extracted. When
-                this argument is False, the **kwargs stay untouched.
-                Defaults to True.
+                this argument is `False`, the **kwargs stay untouched.
+                Defaults to `True`.
             **kwargs (any, optional):
                 Can be used to inject variable into the ThingsDB code.
 

@@ -9,6 +9,7 @@
   * [Client](#client)
     * [Client()](#thingsdb-client-Client)
     * [add_event_handler](#thingsdb-client-Client-add_event_handler)
+    * [connect](#thingsdb-client-Client-connect)
     * [connect_pool](#thingsdb-client-Client-connect_pool)
     * [get_event_loop](#thingsdb-client-Client-get_event_loop)
     * [query](#thingsdb-client-Client.query)
@@ -132,13 +133,13 @@ connection before using the connection.
 
 #### Args
 
-***host (str)***:
+- ***host (str)***:
     A hostname, IP address, FQDN to connect to.
-***port (int, optional)***:
+- ***port (int, optional)***:
     Integer value between 0 and 65535 and should be the port number
     where a ThingsDB node is listening to for client connections.
     Defaults to 9200.
-***timeout (int, optional)***:
+- ***timeout (int, optional)***:
     Can be be used to control the maximum time the client will
     attempt to create a connection. The timeout may be set to
     `None` in which case the client will wait forever on a

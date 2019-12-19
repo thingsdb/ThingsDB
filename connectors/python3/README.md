@@ -7,11 +7,11 @@
   * [Installation](#installation)
   * [Quick usage](#quick-usage)
   * [Client](#client)
-    * [Client()](#thingsdb.client.Client)
-    * [add_event_handler](#thingsdb.client.Client.add_event_handler)
-    * [connect_pool](#thingsdb.client.Client.connect_pool)
-    * [get_event_loop](#thingsdb.client.Client.get_event_loop)
-    * [query](#thingsdb.client.Client.query)
+    * [Client()](#thingsdb-client-Client)
+    * [add_event_handler](#thingsdb-client-Client-add_event_handler)
+    * [connect_pool](#thingsdb-client-Client-connect_pool)
+    * [get_event_loop](#thingsdb-client-Client-get_event_loop)
+    * [query](#thingsdb-client-Client.query)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)
@@ -112,6 +112,40 @@ Event handlers will called in the order they are added.
 
 - *event_handler (Events)*:
     An instance of Events (see `thingsdb.client.abc.events`).
+
+
+### thingsdb.client.Client.connect
+
+```python
+async connect(
+    host: str,
+    port: int = 9200,
+    timeout: Optional[int] = 5
+) -> None
+```
+
+Connect to ThingsDB.
+
+This method will *only* create a connection, so the connection is not
+authenticated yet. Use the `authenticate(..)` method after creating a
+connection before using the connection.
+
+#### Args
+
+***host (str)***:
+    A hostname, IP address, FQDN to connect to.
+***port (int, optional)***:
+    Integer value between 0 and 65535 and should be the port number
+    where a ThingsDB node is listening to for client connections.
+    Defaults to 9200.
+***timeout (int, optional)***:
+    Can be be used to control the maximum time the client will
+    attempt to create a connection. The timeout may be set to
+    `None` in which case the client will wait forever on a
+    response. Defaults to 5.
+
+> Do not use this method if the client is already
+> connected. This can be checked with `client.is_connected()`.
 
 ### thingsdb.client.Client.connect_pool
 

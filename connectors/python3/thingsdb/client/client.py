@@ -79,10 +79,10 @@ class Client(Buildin):
         return self._loop
 
     def is_connected(self) -> bool:
-        """Can be used to check if the client is conected.
+        """Can be used to check if the client is connected.
 
         Returns:
-            bool: True when the client is connected else False.
+            bool: `True` when the client is connected else `False`.
         """
         return bool(self._protocol and self._protocol.transport)
 
@@ -144,9 +144,9 @@ class Client(Buildin):
 
         When using a connection pool, the client will randomly choose a node
         to connect to. When a node is going down, it will inform the client
-        so it will automitically re-connect to another node. Connections will
+        so it will automatically re-connect to another node. Connections will
         automatically authenticate so the connection pool requires credentials
-        to perfrom the authentication.
+        to perform the authentication.
 
         Examples:
             >>> await connect_pool([

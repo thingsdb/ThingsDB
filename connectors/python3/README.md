@@ -6,13 +6,16 @@
 
   * [Installation](#installation)
   * [Quick usage](#quick-usage)
-  * [Client](#client)
-    * [Client()](#thingsdb-client-Client)
-    * [add_event_handler](#thingsdb-client-Client-add_event_handler)
-    * [connect](#thingsdb-client-Client-connect)
-    * [connect_pool](#thingsdb-client-Client-connect_pool)
-    * [get_event_loop](#thingsdb-client-Client-get_event_loop)
-    * [query](#thingsdb-client-Client.query)
+  * [Client module](#client-module)
+    * [Client()](#Client)
+    * [add_event_handler](#add_event_handler)
+    * [connect](#connect)
+    * [connect_pool](#connect_pool)
+    * [get_default_scope](#get_default_scope)
+    * [get_event_loop](#get_event_loop)
+    * [is_connected](#is_connected)
+    * [query](#query)
+    * [set_default_scope](#set_default_scope)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)
@@ -65,13 +68,13 @@ asyncio.get_event_loop().run_until_complete(hello_world())
 ```
 
 
-## Client
+## Client module
 
 This is an client using `asyncio` which can be used for running queries to
 ThingsDB.
 
 
-### thingsdb.client.Client
+### Client()
 
 ```python
 thingsdb.client.Client(
@@ -88,7 +91,7 @@ Initialize a ThingsDB client
     When set to `True`, the client will automatically
     reconnect when a connection is lost. If set to `False` and the
     connection gets lost, one may call the `reconnect()` method to
-    make a new connection. Defaults to True.
+    make a new connection. Defaults to `True`.
 - *ssl (SSLContext or bool, optional)*:
     Accepts an ssl.SSLContext for creating a secure connection
     using SSL/TLS. This argument may simply be set to `True` in
@@ -99,10 +102,10 @@ Initialize a ThingsDB client
     If this argument is not used, the default event loop will be
     used. Defaults to `None`.
 
-### thingsdb.client.Client.add_event_handler
+### add_event_handler
 
 ```python
-add_event_handler(event_handler: Events) -> None:
+Client().add_event_handler(event_handler: Events) -> None:
 ```
 
 Add an event handler.
@@ -115,10 +118,10 @@ Event handlers will called in the order they are added.
     An instance of Events (see `thingsdb.client.abc.events`).
 
 
-### thingsdb.client.Client.connect
+### connect
 
 ```python
-async connect(
+async Client().connect(
     host: str,
     port: int = 9200,
     timeout: Optional[int] = 5
@@ -133,13 +136,13 @@ connection before using the connection.
 
 #### Args
 
-- ***host (str)***:
+- *host (str)*:
     A hostname, IP address, FQDN to connect to.
-- ***port (int, optional)***:
+- *port (int, optional)*:
     Integer value between 0 and 65535 and should be the port number
     where a ThingsDB node is listening to for client connections.
     Defaults to 9200.
-- ***timeout (int, optional)***:
+- *timeout (int, optional)*:
     Can be be used to control the maximum time the client will
     attempt to create a connection. The timeout may be set to
     `None` in which case the client will wait forever on a
@@ -148,19 +151,19 @@ connection before using the connection.
 > Do not use this method if the client is already
 > connected. This can be checked with `client.is_connected()`.
 
-### thingsdb.client.Client.connect_pool
+### connect_pool
 
 ```python
-async connect_pool(pool: list, *auth: Union[str, tuple]) -> None
+async Client().connect_pool(pool: list, *auth: Union[str, tuple]) -> None
 ```
 
 Connect using a connection pool.
 
 When using a connection pool, the client will randomly choose a node
 to connect to. When a node is going down, it will inform the client
-so it will automitically re-connect to another node. Connections will
+so it will automatically re-connect to another node. Connections will
 automatically authenticate so the connection pool requires credentials
-to perfrom the authentication.
+to perform the authentication.
 
 #### Examples
 
@@ -185,10 +188,28 @@ await connect_pool([
 > Do not use this method if the client is already
 > connected. This can be checked with `client.is_connected()`.
 
-### thingsdb.client.Client.get_event_loop
+
+### get_default_scope
 
 ```python
-get_event_loop() -> asyncio.AbstractEventLoop
+Client().get_default_scope() -> str
+```
+
+Get the default scope.
+
+        The default scope may be changed with the `set_default_scope()` method.
+
+        Returns:
+            str:
+                The default scope which is used by the client when no specific
+                scope is specified.
+        """
+
+
+### get_event_loop
+
+```python
+Client().get_event_loop() -> asyncio.AbstractEventLoop
 ```
 
 Can be used to get the event loop.
@@ -197,10 +218,21 @@ Can be used to get the event loop.
 
 The event loop used by the client.
 
-### thingsdb.client.Client.query
+### is_connected
 
 ```python
-await query(
+Client().is_connected() -> bool
+```
+
+Can be used to check if the client is connected.
+
+#### Returns
+`True` when the client is connected else `False`.
+
+### query
+
+```python
+async Client().query(
         code: str,
         scope: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -255,6 +287,21 @@ The result of the ThingsDB code.
 > exception will be translated to a Python Exception which will be
 > raised. See thingsdb.exceptions for all possible exceptions and
 > https://docs.thingsdb.net/v0/errors/ for info on the error codes.
+
+### set_default_scope
+
+```python
+Client().set_default_scope(scope: str) -> None
+```
+
+Set the default scope.
+
+Can be used to change the default scope which is initially set to `@t`.
+
+#### Args
+- *scope (str)*:
+    Set the default scope. A scope may start with either the `/`
+    character, or `@`. Examples: `"//stuff"`, `"@:stuff"`, `"/node"`
 
 ## Model
 

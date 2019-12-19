@@ -79,27 +79,27 @@ class Prop:
             assert callable(cb_type), \
                 f'type `{spec}` is not a build-in, a calleble is required'
 
-            custum_type = cb_type \
+            self.model = cb_type \
                 if isinstance(cb_type, type) and issubclass(cb_type, Thing) \
                 else cb_type()
 
-            name = custum_type._type_name
+            name = self.model._type_name
 
             assert spec == name, \
                 f'type `{name}` does not match the specification `{spec}`'
 
-            assert hasattr(custum_type, '_props'), \
+            assert hasattr(self.model, '_props'), \
                 f'missing `_props`, type `{name}` ' \
                 f'must be a subclass of `Thing`'
 
             kwargs['watch'] = {
-                'klass': custum_type,
+                'klass': self.model,
                 'collection': collection,
                 'watch': True,
             }
             self.vconv = self.get_conv('thing', is_nillable, **kwargs)
 
-            for p in custum_type._props.values():
+            for p in self.model._props.values():
                 p.unpack(collection)
 
         if self.nconv is not None:

@@ -265,7 +265,7 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     if (ti_type_init_from_unp(type, up, &e))
     {
         log_critical(
-            "job `sew_type` for "TI_COLLECTION_ID" has failed; "
+            "job `set_type` for "TI_COLLECTION_ID" has failed; "
             "%s; remove type `%s`...",
             collection->root->id, e.msg, type->name);
         (void) ti_type_del(type);

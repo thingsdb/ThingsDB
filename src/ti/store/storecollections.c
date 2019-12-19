@@ -105,7 +105,7 @@ int ti_store_collections_restore(const char * fn)
 
 unpack_v0:
     /*
-     * Unpack code for collections stored using version 0 which included
+     * TODO: Unpack code for collections stored using version 0 which included
      * a third element containing four unsigned integer quota's.
      */
     log_info("reading collections based on version 0...");

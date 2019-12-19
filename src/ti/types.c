@@ -98,32 +98,26 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
     return (uint16_t) utype;
 }
 
-static int types__pack_sz(ti_type_t * type, msgpack_packer * pk)
+static int types__pack_type(ti_type_t * type, ti_varr_t * varr)
 {
-    return (
-         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
-         ti_type_fields_to_pk(type, pk)
-     );
+    ti_val_t * mpinfo = ti_type_as_mpval(type);
+    if (!mpinfo)
+        return -1;
+    VEC_push(varr->vec, mpinfo);
+    return 0;
 }
 
-ti_val_t * ti_types_as_mpval(ti_types_t * types)
+ti_varr_t * ti_types_info(ti_types_t * types)
 {
-    ti_raw_t * raw;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
+    ti_varr_t * varr = ti_varr_create(types->imap->n);
+    if (!varr)
+        return NULL;
 
-    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    if (msgpack_pack_map(&pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) types__pack_sz, &pk))
+    if (imap_walk(types->imap, (imap_cb) types__pack_type, varr))
     {
-        msgpack_sbuffer_destroy(&buffer);
+        ti_val_drop((ti_val_t *) varr);
         return NULL;
     }
 
-    raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
-
-    return (ti_val_t *) raw;
+    return varr;
 }

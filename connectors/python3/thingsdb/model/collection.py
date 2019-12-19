@@ -1,6 +1,6 @@
 import asyncio
 import weakref
-from typing import Iterable, Optional, Union, TextIO, Type
+from typing import Iterable, Optional, Union, TextIO, Type, Any
 from ..client import Client
 from .eventhandler import EventHandler
 from .thing import Thing
@@ -9,7 +9,7 @@ from .thing import Thing
 class Collection(Thing):
 
     __STRICT__ = True
-    __BUILD_AS_TYPE__ = False
+    __AS_TYPE__ = False
 
     def __init__(self):
         self._things = weakref.WeakValueDictionary()
@@ -19,16 +19,45 @@ class Collection(Thing):
         self._pending = set()  # Thing ID's
         self._client = None  # use load, build or rebuild
         self._id = None
+        self._types = {}
         for p in self._props.values():
             p.unpack(self)
 
-    async def load(self, client: Client) -> None:
+    async def load(self, client: Client, load_procedures: bool = True) -> None:
         assert self._client is None, 'This collection is already loaded'
         self._client = client
         id = await self._client.query('.id()', scope=self._scope)
         super().__init__(self, id)
         client.add_event_handler(EventHandler(self))
         await self._client.watch(id, scope=self._scope)
+        await self.refresh_types()
+        if load_procedures:
+            await self.load_procedures()
+
+    async def load_procedures(self) -> None:
+        """Load (re-load) all procedures.
+
+        Procedures in the collection will be added to the collection as async
+        methods.
+        """
+        assert self._client is not None, 'This collection is not loaded'
+
+        procedures = await self.query('procedures_info();')
+        for procedure in procedures:
+            print(procedure)
+
+    async def refresh_types(self) -> None:
+        """Refresh types info.
+
+        Procedures in the collection will be added to the collection as async
+        methods.
+        """
+        assert self._client is not None, 'This collection is not loaded'
+
+        types_info = await self.query('types_info();')
+        print('HERE', types_info)
+        for type_info in types_info:
+            print(type_info)
 
     async def build(
             self,
@@ -69,10 +98,37 @@ class Collection(Thing):
             else:
                 raise KeyError(f'Collection `{self._name}` already exists')
 
+        # create the collection, we are sure it does not exists
         await client.new_collection(self._name)
-        self._make_type(client)
 
-        await self._build(client)
+        # first create the types so circular dependencies may be handled
+        await self._new_type(client, self)
+        if classes:
+            for model in classes:
+                await model._new_type(client, self)
+
+        # set the type definitions and
+        await self._set_type(client, self)
+        if classes:
+            for model in classes:
+                await model._set_type(client, self)
+
+        for script in scripts:
+            code = script if isinstance(script, str) else script.read()
+            await client.query(
+                code=code,
+                scope=self._scope,
+                convert_vars=False)
+
+    async def query(self, code: str, **kwargs: Any) -> Any:
+        """Query using this collection as scope.
+
+        This is the same as calling the `query(..)` method on the client with
+        the scope='...' argument set to the collection scope. All keyword
+        arguments will be parsed to the `Client().query(..)` method so look at
+        that method for more information.
+        """
+        return await self._client.query(code, scope=self._scope, **kwargs)
 
     def on_reconnect(self):
         """Called from the `EventHandler`."""

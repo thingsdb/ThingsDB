@@ -7,7 +7,7 @@ import pickle
 import signal
 import ssl
 from thingsdb.client import Client
-from thingsdb.model import Collection, Thing
+from thingsdb.model import Collection, Thing, ThingStrict
 
 
 def PropType(b):
@@ -19,14 +19,29 @@ class Book(Thing):
     me = 'Book?', lambda: Book
 
 
-class Stuff(Collection):
+class Bar(ThingStrict):
+    bar = 'str'
 
+
+class Stuff(Collection):
     __COLLECTION_NAME__ = 'stuff'
 
-    book = 'Thing'
+    book = 'Book', Book
+    bar = 'Bar', Bar
+    other = 'Thing?'
 
 
 interrupted = False
+
+setup_code = '''
+.book = Book{
+    title: 'Some example book',
+};
+.bar = Bar{
+    bar: 'Chocolate bar',
+};
+.other = nil;
+'''
 
 
 async def test(client):
@@ -41,7 +56,7 @@ async def test(client):
     await client.authenticate('admin', 'pass')
 
     stuff = Stuff()
-    await stuff.build(client)
+    await stuff.build(client, scripts=[setup_code], delete_if_exists=True)
     await stuff.load(client)
 
     try:
@@ -50,12 +65,10 @@ async def test(client):
         ''')
         pprint.pprint(res)
 
-        book = Book(stuff, 5)
-        await book.watch()
-
         while not interrupted:
-            if hasattr(book, 'title'):
-                print(book.title)
+            if hasattr(stuff, 'book'):
+                if hasattr(stuff.book, 'title'):
+                    print(stuff.book.title)
 
             await asyncio.sleep(0.5)
 

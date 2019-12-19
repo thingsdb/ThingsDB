@@ -182,23 +182,26 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
             : type__init_thing_t(type, thing, e);
 }
 
-int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
+/*
+ * TODO: This function can be removed when we want to stop support for
+ * events containing type events using the `old map` format.
+ */
+static int type__deprecated_init(
+        ti_type_t * type,
+        mp_unp_t * up,
+        mp_obj_t * obj,
+        ex_t * e)
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
-    mp_obj_t obj, mp_field, mp_spec;
+    mp_obj_t mp_field, mp_spec;
     size_t i;
 
-    if (mp_next(up, &obj) != MP_MAP)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "failed unpacking fields for type `%s`;"
-                "expecting `type` to start with a map",
-                type->name);
-        return e->nr;
-    }
+    log_warning(
+        "reading fields for type `%s` using the deprecated `map` format",
+        type->name);
 
-    for (i = obj.via.sz; i--;)
+    for (i = obj->via.sz; i--;)
     {
         if (mp_next(up, &mp_field) != MP_STR)
         {
@@ -250,15 +253,80 @@ failed:
     return e->nr;
 }
 
+int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
+{
+    ti_name_t * name;
+    ti_raw_t * spec_raw;
+    mp_obj_t obj, mp_field, mp_spec;
+    size_t i;
+
+    if (mp_next(up, &obj) != MP_ARR)
+    {
+        if (obj.tp == MP_MAP)
+            return type__deprecated_init(type, up, &obj, e);
+
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking fields for type `%s`;"
+                "expecting the field as an array",
+                type->name);
+        return e->nr;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(up, &mp_field) != MP_STR ||
+            mp_next(up, &mp_spec) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`;"
+                    "expecting an array with two string values",
+                    type->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_field.via.str.data, mp_field.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking fields for type `%s`;"
+                    "fields must follow the naming rules"DOC_NAMES,
+                    type->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_field.via.str.data, mp_field.via.str.n);
+        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+
+        if (!name || !spec_raw ||
+            !ti_field_create(name, spec_raw, type, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(spec_raw);
+    }
+
+    return e->nr;
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+
+    ti_name_drop(name);
+    ti_val_drop((ti_val_t *) spec_raw);
+
+    return e->nr;
+}
+
 /* adds a map with key/value pairs */
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 {
-    if (msgpack_pack_map(pk, type->fields->n))
+    if (msgpack_pack_array(pk, type->fields->n))
         return -1;
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if (mp_pack_strn(pk, field->name->str, field->name->n) ||
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, field->name->str, field->name->n) ||
             mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n))
             return -1;
     }
@@ -275,7 +343,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_type_fields_to_pk(type, &pk))
+    if (ti_type_to_pk(type, &pk))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

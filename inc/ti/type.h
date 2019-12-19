@@ -84,6 +84,21 @@ static inline void ti_type_unlock(ti_type_t * type, int lock_was_set)
         type->flags &= ~TI_TYPE_FLAG_LOCK;
 }
 
+static inline int ti_type_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    return (
+        msgpack_pack_map(pk, 3) ||
+        mp_pack_str(pk, "type_id") ||
+        msgpack_pack_uint16(pk, type->type_id) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, type->rname->data, type->rname->n) ||
+
+        mp_pack_str(pk, "fields") ||
+        ti_type_fields_to_pk(type, pk)
+    );
+}
+
 
 #endif  /* TI_TYPE_H_ */
 

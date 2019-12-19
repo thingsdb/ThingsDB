@@ -37,15 +37,16 @@ class Thing(ThingHash):
     # a warning will be logged. If `False`, the properties will not be set.
     __SET_ANYWAY__ = False
 
-    # When __BUILD_AS_TYPE__ is set to `True`, this class will be created in
+    # When __AS_TYPE__ is set to `True`, this class will be created in
     # thingsdb as a Type when using the `build(..)` method. If `False`, no type
     # will be created. A Collection instance will have `False` as default.
-    __BUILD_AS_TYPE__ = True
+    __AS_TYPE__ = True
 
     _props = dict()
     _any = None
     _thing = None
-    _type_name = None
+    _type_name = None  # Only set when __AS_TYPE__ is True
+    _visited = 0  # For build, 0=not visited, 1=new_type, 2=set_type, 3=build
 
     def __init__(self, collection, id: int):
         super().__init__(id)
@@ -57,6 +58,7 @@ class Thing(ThingHash):
         collection.register(self)
 
     def __init_subclass__(cls):
+        cls._props = {}
         items = {
             k: v for k, v in cls.__dict__.items() if not k.startswith('__')}
         for key, val in items.items():
@@ -65,7 +67,7 @@ class Thing(ThingHash):
             if isinstance(val, tuple):
                 prop = cls._props[key] = Prop(*val)
                 delattr(cls, key)
-        if cls.__BUILD_AS_TYPE__:
+        if cls.__AS_TYPE__:
             cls._type_name = getattr(cls, '__TYPE_NAME__', cls.__name__)
 
     def __bool__(self):
@@ -129,6 +131,17 @@ class Thing(ThingHash):
             logging.warning(
                 f'got a value for property `{k}` on `{self}` which '
                 f'does not match `{prop.spec if prop else "thing"}` ({e})')
+
+    def _job_del(self, k):
+        prop = self.__class__._props.get(k)
+        if prop:
+            logging.warning(
+                f'property `{k}` on `{self}` will be removed while it '
+                f'is defined in the model class as `{prop.spec}`')
+        try:
+            delattr(self, k)
+        except AttributeError:
+            pass
 
     def _job_remove(self, pair):
         cls = self.__class__
@@ -205,44 +218,84 @@ class Thing(ThingHash):
                 f'got a value for property `{k}` on `{self}` '
                 f'which does not match `{prop.spec if prop else "any"}` ({e})')
 
-    def _job_del(self, k):
-        prop = self.__class__._props.get(k)
-        if prop:
-            logging.warning(
-                f'property `{k}` on `{self}` will be removed while it '
-                f'is defined in the model class as `{prop.spec}`')
-        try:
-            delattr(self, k)
-        except AttributeError:
-            pass
+    def _job_del_procedure(self, data):
+        print('_job_del_procedure', data)
+
+    def _job_del_type(self, data):
+        print('_job_del_type', data)
+
+    def _job_mod_type_add(self, data):
+        print('_job_mod_type_add', data)
+
+    def _job_mod_type_del(self, data):
+        print('_job_mod_type_del', data)
+
+    def _job_mod_type_mod(self, data):
+        print('_job_mod_type_mod', data)
+
+    def _job_new_procedure(self, data):
+        print('_job_new_procedure', data)
+
+    def _job_new_type(self, data):
+        print('_job_new_type', data)
+
+    def _job_set_type(self, data):
+        print('_job_set_type', data)
 
     _UPDMAP = {
-        'set': _job_set,
-        'del': _job_del,
-        'splice': _job_splice,
+        # Thing jobs
         'add': _job_add,
+        'del': _job_del,
         'remove': _job_remove,
+        'set': _job_set,
+        'splice': _job_splice,
+
+        # Collection jobs
+        'del_procedure': _job_del_procedure,
+        'del_type': _job_del_type,
+        'mod_type_add': _job_mod_type_add,
+        'mod_type_del': _job_mod_type_del,
+        'mod_type_mod': _job_mod_type_mod,
+        'new_procedure': _job_new_procedure,
+        'new_type': _job_new_type,
+        'set_type': _job_set_type,
     }
 
     @classmethod
-    async def _build(cls, client):
-        if cls._type_name:
-            props = cls._props
-            await client.query(f'''
-                set_type('{cls._type_name}', {{
-                    {','.join(f'{k}: "{p.spec}"' for k, v in props.items())}
-                }});
-            ''')
+    async def _new_type(cls, client, collection):
+        if cls._visited > 0:
+            return
+        cls._visited += 1
+
+        for prop in cls._props.values():
+            if prop.model:
+                await prop.model._new_type(client, collection)
+
+        if not cls._type_name:
+            return
+
+        await client.query(f'''
+            new_type('{cls._type_name}');
+        ''', scope=collection._scope)
 
     @classmethod
-    async def _make_type(cls, client):
+    async def _set_type(cls, client, collection):
+        if cls._visited > 1:
+            return
+        cls._visited += 1
+
         for prop in cls._props.values():
+            if prop.model:
+                await prop.model._set_type(client, collection)
 
+        if not cls._type_name:
+            return
 
-        if cls._type_name:
-            await client.query(f'''
-                new_type('{cls._type_name}');
-            ''')
+        await client.query(f'''
+            set_type('{cls._type_name}', {{
+                {', '.join(f'{k}: "{p.spec}"' for k, p in cls._props.items())}
+            }});
+        ''', scope=collection._scope)
 
 
 class ThingStrict(Thing):

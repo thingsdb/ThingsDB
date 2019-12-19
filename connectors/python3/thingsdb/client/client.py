@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import ssl
+from ssl import SSLContext, PROTOCOL_TLS
 from typing import Optional, Union, Any
 from deprecation import deprecated
 from .buildin import Buildin
@@ -51,7 +52,7 @@ class Client(Buildin):
         self._pool_idx = 0
         self._reconnecting = False
         if ssl is True:
-            self._ssl = ssl.SSLContext(ssl.PROTOCOL_TLS)
+            self._ssl = SSLContext(PROTOCOL_TLS)
         elif ssl is False:
             self._ssl = None
         else:
@@ -151,7 +152,7 @@ class Client(Buildin):
             >>> await connect_pool([
                 'node01.local',             # address as string
                 'node02.local',             # port will default to 9200
-                ('node03.local', 9201),     # ..or with an eplicit port
+                ('node03.local', 9201),     # ..or with an explicit port
             ], "admin", "pass")
 
         Args:

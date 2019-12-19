@@ -78,21 +78,86 @@ thingsdb.client.Client(
 ```
 Initialize a ThingsDB client
 
-- Args:
-    - *auto_reconnect (bool, optional)*:
-        When set to `True`, the client will automatically
-        reconnect when a connection is lost. If set to `False` and the
-        connection gets lost, one may call the `reconnect()` method to
-        make a new connection. Defaults to True.
-    - *ssl (SSLContext or bool, optional)*:
-        Accepts an ssl.SSLContext for creating a secure connection
-        using SSL/TLS. This argument may simply be set to `True` in
-        which case a context using `ssl.PROTOCOL_TLS` is created.
-        Defaults to None.
-    - *loop (AbstractEventLoop, optional)*:
-        Can be used to run the client on a specific event loop.
-        If this argument is not used, the default event loop will be
-        used. Defaults to None.
+#### Args
+
+- *auto_reconnect (bool, optional)*:
+    When set to `True`, the client will automatically
+    reconnect when a connection is lost. If set to `False` and the
+    connection gets lost, one may call the `reconnect()` method to
+    make a new connection. Defaults to True.
+- *ssl (SSLContext or bool, optional)*:
+    Accepts an ssl.SSLContext for creating a secure connection
+    using SSL/TLS. This argument may simply be set to `True` in
+    which case a context using `ssl.PROTOCOL_TLS` is created.
+    Defaults to None.
+- *loop (AbstractEventLoop, optional)*:
+    Can be used to run the client on a specific event loop.
+    If this argument is not used, the default event loop will be
+    used. Defaults to None.
+
+### thingsdb.client.Client.add_event_handler
+
+```python
+add_event_handler(event_handler: Events) -> None:
+```
+
+Add an event handler.
+
+Event handlers will called in the order they are added.
+
+#### Args
+
+- *event_handler (Events)*:
+    An instance of Events (see `thingsdb.client.abc.events`).
+
+#### connect_pool
+
+```python
+async connect_pool(pool: list, *auth: Union[str, tuple]) -> None
+```
+
+Connect using a connection pool.
+
+When using a connection pool, the client will randomly choose a node
+to connect to. When a node is going down, it will inform the client
+so it will automitically re-connect to another node. Connections will
+automatically authenticate so the connection pool requires credentials
+to perfrom the authentication.
+
+#### Examples
+
+```python
+await connect_pool([
+    'node01.local',             # address as string
+    'node02.local',             # port will default to 9200
+    ('node03.local', 9201),     # ..or with an explicit port
+], "admin", "pass")
+```
+
+#### Args
+
+- *pool (list of addresses)*:
+    Should be an iterable with node address strings, or tuples
+    with `address` and `port` combinations in a tuple or list.
+- *\*auth (str or (str, str))*:
+    Argument `auth` can be be either a string with a token or a
+    tuple with username and password. (the latter may be provided
+    as two separate arguments
+
+> Do not use this method if the client is already
+> connected. This can be checked with `client.is_connected()`.
+
+### get_event_loop
+
+```python
+get_event_loop() -> asyncio.AbstractEventLoop
+```
+
+Can be used to get the event loop.
+
+#### Returns
+
+The event loop used by the client.
 
 ### thingsdb.client.Client.query
 
@@ -110,26 +175,27 @@ Query ThingsDB.
 
 Use this method to run `code` in a scope.
 
-- Args:
-    - *code (str)*:
-        ThingsDB code to run.
-    - *scope (str, optional)*:
-        Run the code in this scope. If not specified, the default scope
-        will be used. See https://docs.thingsdb.net/v0/overview/scopes/
-        for how to format a scope.
-    - *timeout (int, optional)*:
-        Raise a time-out exception if no response is received within X
-        seconds. If no time-out is given, the client will wait forever.
-        Defaults to None.
-    - *convert_vars (bool, optional)*:
-        Only applicable if `**kwargs` are given. If set to True, then
-        the provided **kwargs values will be converted so ThingsDB can
-        understand them. For example, a thing should be given just by
-        it's ID and with conversion the `#` will be extracted. When
-        this argument is False, the **kwargs stay untouched.
-        Defaults to True.
-    - *\*\*kwargs (any, optional)*:
-        Can be used to inject variable into the ThingsDB code.
+#### Args
+
+- *code (str)*:
+    ThingsDB code to run.
+- *scope (str, optional)*:
+    Run the code in this scope. If not specified, the default scope
+    will be used. See https://docs.thingsdb.net/v0/overview/scopes/
+    for how to format a scope.
+- *timeout (int, optional)*:
+    Raise a time-out exception if no response is received within X
+    seconds. If no time-out is given, the client will wait forever.
+    Defaults to None.
+- *convert_vars (bool, optional)*:
+    Only applicable if `**kwargs` are given. If set to True, then
+    the provided **kwargs values will be converted so ThingsDB can
+    understand them. For example, a thing should be given just by
+    it's ID and with conversion the `#` will be extracted. When
+    this argument is False, the **kwargs stay untouched.
+    Defaults to True.
+- *\*\*kwargs (any, optional)*:
+    Can be used to inject variable into the ThingsDB code.
 
 #### Examples
 

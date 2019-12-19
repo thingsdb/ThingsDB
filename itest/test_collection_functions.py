@@ -809,6 +809,28 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('.iris.get("x", "?");'), '?')
         self.assertEqual(await client.query('.iris.get("name");'), 'Iris')
 
+    async def test_has_type(self, client):
+        await client.query(r'''new_type('Ti')''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_type`'):
+            await client.query('nil.has_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_type` takes 1 argument but 0 were given'):
+            await client.query('has_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_type` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('has_type(0);')
+
+        self.assertTrue(await client.query(r'''has_type('Ti');'''))
+        self.assertFalse(await client.query(r'''has_type('ti');'''))
+
     async def test_has_set(self, client):
         await client.query(r'''
             .iris = {name: "Iris"};

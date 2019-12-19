@@ -12,8 +12,8 @@ class Buildin:
     async def collections_info(self):
         return await self.query('collections_info()', scope='@t')
 
-    async def counters(self):
-        return await self.query('counters()', scope='@n')
+    async def counters(self, scope='@n'):
+        return await self.query('counters()', scope=scope)
 
     async def del_collection(self, collection: U[int, str]):
         return await self.query(
@@ -34,6 +34,12 @@ class Buildin:
             f'grant({target!r}, {user!r}, {mask})',
             scope='@t')
 
+    async def has_collection(self, name: str):
+        return await self.query(f'has_collection({name!r})', scope='@t')
+
+    async def has_user(self, name: str):
+        return await self.query(f'has_user({name!r})', scope='@t')
+
     async def new_collection(self, name: str):
         return await self.query(f'new_collection({name!r})', scope='@t')
 
@@ -52,26 +58,26 @@ class Buildin:
             f'new_token({user!r}, {expiration_time}, {description!r})',
             scope='@t')
 
-    async def node_info(self):
-        return await self.query('node_info()', scope='@n')
+    async def node_info(self, scope='@n'):
+        return await self.query('node_info()', scope=scope)
 
-    async def nodes_info(self) -> list:
-        return await self.query('nodes_info()', scope='@n')
+    async def nodes_info(self, scope='@n') -> list:
+        return await self.query('nodes_info()', scope=scope)
 
-    async def reset_counters(self) -> None:
-        return await self.query('reset_counters()', scope='@n')
+    async def reset_counters(self, scope='@n') -> None:
+        return await self.query('reset_counters()', scope=scope)
 
     async def revoke(self, target: U[int, str], user: str, mask: int):
         return await self.query(
             f'grant({target!r}, {user!r}, {mask})',
             scope='@t')
 
-    async def set_log_level(self, log_level: str) -> None:
+    async def set_log_level(self, log_level: str, scope='@n') -> None:
         assert log_level in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-        return await self.query(f'set_log_level({log_level})', scope='@n')
+        return await self.query(f'set_log_level({log_level})', scope=scope)
 
-    async def shutdown(self) -> None:
-        return await self.query('shutdown()', scope='@n')
+    async def shutdown(self, scope='@n') -> None:
+        return await self.query('shutdown()', scope=scope)
 
     async def user_info(self, user: str = None) -> dict:
         if user is None:

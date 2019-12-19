@@ -25,6 +25,7 @@ size_t ti_backups_pending(void);
 _Bool ti_backups_require_away(void);
 ti_varr_t * ti_backups_info(void);
 void ti_backups_del_backup(uint64_t backup_id, ex_t * e);
+_Bool ti_backups_has_backup(uint64_t backup_id);
 ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e);
 ti_backup_t * ti_backups_new_backup(
         uint64_t id,

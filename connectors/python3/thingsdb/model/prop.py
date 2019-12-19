@@ -8,7 +8,8 @@ class Prop:
         'vconv',
         'nconv',
         'spec',
-        'nillable'
+        'nillable',
+        'model',
     )
 
     @staticmethod
@@ -25,6 +26,7 @@ class Prop:
         self.nconv = None
         self.spec = spec
         self.nillable = False
+        self.model = None
 
     def unpack(self, collection):
         from .thing import Thing  # nopep8
@@ -66,6 +68,9 @@ class Prop:
             self.nconv = nested
             return  # finished, this is an array or set
 
+        if spec == 'Thing' and cb_type is None:
+            spec, kwargs['watch'] = 'thing', True
+
         self.vconv = self.get_conv(
             spec, is_nillable, **kwargs
             if spec == 'any' or spec == 'thing' else {})
@@ -78,7 +83,7 @@ class Prop:
                 if isinstance(cb_type, type) and issubclass(cb_type, Thing) \
                 else cb_type()
 
-            name = getattr(custum_type, '__NAME__', custum_type.__name__)
+            name = custum_type._type_name
 
             assert spec == name, \
                 f'type `{name}` does not match the specification `{spec}`'

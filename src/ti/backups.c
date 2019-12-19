@@ -424,6 +424,19 @@ void ti_backups_del_backup(uint64_t backup_id, ex_t * e)
     uv_mutex_unlock(backups->lock);
 }
 
+_Bool ti_backups_has_backup(uint64_t backup_id)
+{
+    _Bool has_backup;
+
+    uv_mutex_lock(backups->lock);
+
+    has_backup = !!omap_get(backups->omap, backup_id);
+
+    uv_mutex_unlock(backups->lock);
+
+    return has_backup;
+}
+
 ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e)
 {
     ti_val_t * mpinfo = NULL;

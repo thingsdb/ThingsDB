@@ -282,6 +282,30 @@ class TestProcedures(TestBase):
 
         self.assertIs(await client.query('del_procedure("test");'), None)
 
+    async def test_has_procedure(self, client):
+        await client.query(r'''
+            new_procedure('test', |x| (x * 10));
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_procedure`'):
+            await client.query('nil.has_procedure();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_procedure` takes 1 argument but 0 were given'):
+            await client.query('has_procedure();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_procedure` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('has_procedure(0);')
+
+        self.assertTrue(await client.query(r'''has_procedure('test');'''))
+        self.assertFalse(await client.query(r'''has_procedure('test0');'''))
+
     async def test_new_procedure(self, client):
         await client.query(r'''
             new_procedure('test', |x| (x * 10));

@@ -21,7 +21,9 @@ class Book(Thing):
 
 class Stuff(Collection):
 
-    __NAME__ = 'stuff'
+    __COLLECTION_NAME__ = 'stuff'
+
+    book = 'Thing'
 
 
 interrupted = False
@@ -39,6 +41,7 @@ async def test(client):
     await client.authenticate('admin', 'pass')
 
     stuff = Stuff()
+    await stuff.build(client)
     await stuff.load(client)
 
     try:

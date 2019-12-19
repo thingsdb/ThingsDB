@@ -222,6 +222,133 @@ class TestThingsDBFunctions(TestBase):
 
         await client.query('del_user("iris");')
 
+    async def test_has_collection(self, client):
+        await client.query(r'''new_collection('Ti')''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_collection`'):
+            await client.query('nil.has_collection();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_collection` takes 1 argument but 0 were given'):
+            await client.query('has_collection();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'expecting type `str` or `int` as collection '
+                r'but got type `nil` instead'):
+            await client.query('has_collection(nil);')
+
+        self.assertTrue(await client.query(r'''has_collection('Ti');'''))
+        self.assertFalse(await client.query(r'''has_collection('ti');'''))
+
+    async def test_has_node(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_node`'):
+            await client.query('nil.has_node();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_node` takes 1 argument but 2 were given'):
+            await client.query('has_node(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_node` expects argument 1 to be of '
+                r'type `int` but got type `str` instead'):
+            await client.query('has_node("@n");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `has_node` expects argument 1 to be an '
+                r'integer value between 0 and 4294967295'):
+            await client.query('has_node(-1);')
+
+        self.assertTrue(await client.query(r'''has_node(0);'''))
+        self.assertFalse(await client.query(r'''has_node(42);'''))
+
+    async def test_has_token(self, client):
+        token = await client.query('''
+            new_user('has_token');
+            set_password('has_token', 'pass');
+            grant('@t', 'has_token', READ);
+            grant('@n', 'has_token', WATCH);
+            new_token('admin');
+        ''', scope='@t')
+
+        cl = await get_client(self.node0, auth=['has_token', 'pass'])
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_token`'):
+            await client.query('nil.has_token();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_token` takes 1 argument but 2 were given'):
+            await client.query('has_token(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_token` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('has_token(123);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `has_token` expects argument 1 to be token string'):
+            await client.query('has_token("invalid");')
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'user `has_token` is missing the required '
+                r'privileges \(`GRANT`\) on scope `@thingsdb`'):
+            await cl.query('has_token("stuff");')
+
+        self.assertTrue(await client.query(
+            f'''has_token("{token}");'''))
+
+        self.assertFalse(await client.query(
+            f'''has_token("{'X' * len(token)}");'''))
+
+    async def test_has_user(self, client):
+        await client.query('''
+            new_user('has_user');
+            set_password('has_user', 'pass');
+            grant('@t', 'has_user', READ);
+            grant('@n', 'has_user', WATCH);
+        ''', scope='@t')
+
+        cl = await get_client(self.node0, auth=['has_user', 'pass'])
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_user`'):
+            await client.query('nil.has_user();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_user` takes 1 argument but 2 were given'):
+            await client.query('has_user(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_user` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('has_user(123);')
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'user `has_user` is missing the required '
+                r'privileges \(`GRANT`\) on scope `@thingsdb`'):
+            await cl.query('has_token("stuff");')
+
+        self.assertTrue(await client.query(f'''has_user("has_user");'''))
+        self.assertFalse(await client.query(f'''has_user("XX");'''))
+
     async def test_rename_collection(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

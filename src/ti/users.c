@@ -310,6 +310,15 @@ void ti_users_del_expired(uint64_t after_ts)
         ti_user_del_expired(user, after_ts);
 }
 
+_Bool ti_users_has_token(ti_token_key_t * key)
+{
+    for (vec_each(users->vec, ti_user_t, user))
+        for (vec_each(user->tokens, ti_token_t, token))
+            if (memcmp(token->key, key, sizeof(ti_token_key_t)) == 0)
+                return true;
+    return false;
+}
+
 ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key)
 {
     ti_token_t * token;

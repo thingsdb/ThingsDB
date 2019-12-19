@@ -45,6 +45,13 @@
 #include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
+#include <ti/fn/fnhasbackup.h>
+#include <ti/fn/fnhascollection.h>
+#include <ti/fn/fnhasnode.h>
+#include <ti/fn/fnhasprocedure.h>
+#include <ti/fn/fnhastoken.h>
+#include <ti/fn/fnhastype.h>
+#include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
 #include <ti/fn/fnindexof.h>
 #include <ti/fn/fnif.h>
@@ -224,6 +231,13 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
         qbind__tev_fn(q, nd, "grant", do__f_grant);
         break;
     case 'h':
+        qbind__nev_fn(q, nd, "has_backup", do__f_has_backup);
+        qbind__nev_fn(q, nd, "has_collection", do__f_has_collection);
+        qbind__nev_fn(q, nd, "has_node", do__f_has_node);
+        qbind__nev_fn(q, nd, "has_procedure", do__f_has_procedure);
+        qbind__nev_fn(q, nd, "has_token", do__f_has_token);
+        qbind__nev_fn(q, nd, "has_type", do__f_has_type);
+        qbind__nev_fn(q, nd, "has_user", do__f_has_user);
         break;
     case 'i':
         qbind__nev_fn(q, nd, "if", do__f_if);

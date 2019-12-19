@@ -31,7 +31,7 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
             "function `del_token` expects argument 1 to be token string"
-            DOC_DEL_TOKEN,ti_val_str(query->rval));
+            DOC_DEL_TOKEN);
         return e->nr;
     }
 

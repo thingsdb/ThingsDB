@@ -35,6 +35,7 @@ ti_user_t * ti_users_get_by_id(uint64_t id);
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n);
 ti_varr_t * ti_users_info(void);
 void ti_users_del_expired(uint64_t after_ts);
+_Bool ti_users_has_token(ti_token_key_t * key);
 ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key);
 
 struct ti_users_s

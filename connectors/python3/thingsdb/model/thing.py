@@ -37,9 +37,15 @@ class Thing(ThingHash):
     # a warning will be logged. If `False`, the properties will not be set.
     __SET_ANYWAY__ = False
 
+    # When __BUILD_AS_TYPE__ is set to `True`, this class will be created in
+    # thingsdb as a Type when using the `build(..)` method. If `False`, no type
+    # will be created. A Collection instance will have `False` as default.
+    __BUILD_AS_TYPE__ = True
+
     _props = dict()
     _any = None
     _thing = None
+    _type_name = None
 
     def __init__(self, collection, id: int):
         super().__init__(id)
@@ -59,6 +65,8 @@ class Thing(ThingHash):
             if isinstance(val, tuple):
                 prop = cls._props[key] = Prop(*val)
                 delattr(cls, key)
+        if cls.__BUILD_AS_TYPE__:
+            cls._type_name = getattr(cls, '__TYPE_NAME__', cls.__name__)
 
     def __bool__(self):
         return bool(self._event_id)
@@ -215,6 +223,26 @@ class Thing(ThingHash):
         'add': _job_add,
         'remove': _job_remove,
     }
+
+    @classmethod
+    async def _build(cls, client):
+        if cls._type_name:
+            props = cls._props
+            await client.query(f'''
+                set_type('{cls._type_name}', {{
+                    {','.join(f'{k}: "{p.spec}"' for k, v in props.items())}
+                }});
+            ''')
+
+    @classmethod
+    async def _make_type(cls, client):
+        for prop in cls._props.values():
+
+
+        if cls._type_name:
+            await client.query(f'''
+                new_type('{cls._type_name}');
+            ''')
 
 
 class ThingStrict(Thing):

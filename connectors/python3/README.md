@@ -105,7 +105,7 @@ Initialize a ThingsDB client
 ### add_event_handler
 
 ```python
-Client().add_event_handler(event_handler: Events) -> None:
+Client().add_event_handler(event_handler: Events) -> None
 ```
 
 Add an event handler.

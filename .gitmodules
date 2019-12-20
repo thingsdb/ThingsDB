@@ -1,3 +1,6 @@
 [submodule "connectors/python3"]
 	path = connectors/python3
 	url = git@github.com:thingsdb/python-thingsdb.git
+[submodule "connectors/go"]
+	path = connectors/go
+	url = git@github.com:thingsdb/go-thingsdb.git

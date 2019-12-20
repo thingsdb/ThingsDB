@@ -8,14 +8,19 @@
   * [Quick usage](#quick-usage)
   * [Client module](#client-module)
     * [Client()](#Client)
+    * [authenticate](#authenticate)
     * [add_event_handler](#add_event_handler)
+    * [close](#close)
     * [connect](#connect)
     * [connect_pool](#connect_pool)
     * [get_default_scope](#get_default_scope)
     * [get_event_loop](#get_event_loop)
     * [is_connected](#is_connected)
     * [query](#query)
+    * [reconnect](#reconnect)
+    * [run](#run)
     * [set_default_scope](#set_default_scope)
+    * [wait_closed](#wait_closed)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)
@@ -90,7 +95,7 @@ Initialize a ThingsDB client
 - *auto_reconnect (bool, optional)*:
     When set to `True`, the client will automatically
     reconnect when a connection is lost. If set to `False` and the
-    connection gets lost, one may call the `reconnect()` method to
+    connection gets lost, one may call the [reconnect()](#reconnect) method to
     make a new connection. Defaults to `True`.
 - *ssl (SSLContext or bool, optional)*:
     Accepts an ssl.SSLContext for creating a secure connection
@@ -101,6 +106,29 @@ Initialize a ThingsDB client
     Can be used to run the client on a specific event loop.
     If this argument is not used, the default event loop will be
     used. Defaults to `None`.
+
+### authenticate
+
+```python
+async Client().authenticate(
+    *auth: Union[str, tuple],
+    timeout: Optional[int] = 5
+) -> None
+```
+
+Authenticate a ThingsDB connection.
+
+#### Args
+
+- *\*auth (str or (str, str))*:
+    Argument `auth` can be be either a string with a token or a
+    tuple with username and password. (the latter may be provided
+    as two separate arguments
+- *timeout (int, optional)*:
+    Can be be used to control the maximum time in seconds for the
+    client to wait for response on the authentication request.
+    The timeout may be set to `None` in which case the client will
+    wait forever on a response. Defaults to 5.
 
 ### add_event_handler
 
@@ -117,6 +145,17 @@ Event handlers will called in the order they are added.
 - *event_handler (Events)*:
     An instance of Events (see `thingsdb.client.abc.events`).
 
+### close
+
+```python
+Client().close() -> None
+```
+
+Close the ThingsDB connection.
+
+This method will return immediately so the connection may not be
+closed yet after a call to `close()`. Use the [wait_closed()](#wait_closed) method
+after calling this method if this is required.
 
 ### connect
 
@@ -131,7 +170,7 @@ async Client().connect(
 Connect to ThingsDB.
 
 This method will *only* create a connection, so the connection is not
-authenticated yet. Use the `authenticate(..)` method after creating a
+authenticated yet. Use the [authenticate(..)](#authenticate) method after creating a
 connection before using the connection.
 
 #### Args
@@ -197,13 +236,11 @@ Client().get_default_scope() -> str
 
 Get the default scope.
 
-        The default scope may be changed with the `set_default_scope()` method.
+The default scope may be changed with the [set_default_scope()](#set_default_scope) method.
 
-        Returns:
-            str:
-                The default scope which is used by the client when no specific
-                scope is specified.
-        """
+#### Returns
+
+The default scope which is used by the client when no specific scope is specified.
 
 
 ### get_event_loop
@@ -288,6 +325,69 @@ The result of the ThingsDB code.
 > raised. See thingsdb.exceptions for all possible exceptions and
 > https://docs.thingsdb.net/v0/errors/ for info on the error codes.
 
+### reconnect
+
+```python
+async Client().reconnect() -> None
+```
+
+Re-connect to ThingsDB.
+
+This method can be used, even when a connection still exists. In case
+of a connection pool, a call to `reconnect()` will switch to another
+node.
+
+
+### run
+
+```python
+async Cliet().run(
+    procedure: str,
+    *args: Optional[Any],
+    scope: Optional[str] = None,
+    timeout: Optional[int] = None,
+    convert_args: bool = True
+) -> Any
+```
+
+Run a procedure.
+
+Use this method to run a stored procedure in a scope.
+
+#### Args
+
+- *procedure (str)*:
+    Name of the procedure to run.
+- *\*args (any)*:
+    Arguments which are injected as the procedure arguments. The
+    number of args must match the number the procedure requires.
+- *scope (str, optional)*:
+    Run the procedure in this scope. If not specified, the default
+    scope will be used.
+    See https://docs.thingsdb.net/v0/overview/scopes/ for how to
+    format a scope.
+- *timeout (int, optional)*:
+    Raise a time-out exception if no response is received within X
+    seconds. If no time-out is given, the client will wait forever.
+    Defaults to `None`.
+- *convert_args (bool, optional)*:
+    Only applicable if `*args` are given. If set to `True`, then
+    the provided `*args` values will be converted so ThingsDB can
+    understand them. For example, a thing should be given just by
+    it's ID and with conversion the `#` will be extracted. When
+    this argument is `False`, the `*args` stay untouched.
+    Defaults to `True`.
+
+#### Returns
+
+The result of the ThingsDB procedure.
+
+> If the ThingsDB code will return with an exception, then this
+> exception will be translated to a Python Exception which will be
+> raised. See thingsdb.exceptions for all possible exceptions and
+> https://docs.thingsdb.net/v0/errors/ for info on the error codes.
+
+
 ### set_default_scope
 
 ```python
@@ -302,6 +402,17 @@ Can be used to change the default scope which is initially set to `@t`.
 - *scope (str)*:
     Set the default scope. A scope may start with either the `/`
     character, or `@`. Examples: `"//stuff"`, `"@:stuff"`, `"/node"`
+
+### wait_closed
+
+```python
+async Client().wait_closed() -> None
+```
+
+Wait for a connection to close.
+
+Can be used after calling the `close()` method to determine when the
+connection is actually closed.
 
 ## Model
 

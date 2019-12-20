@@ -230,15 +230,19 @@ class Client(Buildin):
             self._reconnecting = False
 
     async def wait_closed(self) -> None:
-        """Wait for a connecion to close.
+        """Wait for a connection to close.
 
-        Can be used after calliing the `close()` method to determine when the
+        Can be used after calling the `close()` method to determine when the
         connection is actually closed.
         """
         if self._protocol and self._protocol.close_future:
             await self._protocol.close_future
 
-    async def authenticate(self, *auth, timeout: Optional[int] = 5) -> None:
+    async def authenticate(
+            self,
+            *auth: Union[str, tuple],
+            timeout: Optional[int] = 5
+    ) -> None:
         """Authenticate a ThingsDB connection.
 
         Args:
@@ -353,16 +357,16 @@ class Client(Buildin):
             timeout (int, optional):
                 Raise a time-out exception if no response is received within X
                 seconds. If no time-out is given, the client will wait forever.
-                Defaults to None.
+                Defaults to `None`.
             convert_args (bool, optional):
-                Only applicable if `*args` are given. If set to True, then
-                the provided *args values will be converted so ThingsDB can
+                Only applicable if `*args` are given. If set to `True`, then
+                the provided `*args` values will be converted so ThingsDB can
                 understand them. For example, a thing should be given just by
                 it's ID and with conversion the `#` will be extracted. When
-                this argument is False, the **kwargs stay untouched.
-                Defaults to True.
+                this argument is `False`, the `*args` stay untouched.
+                Defaults to `True`.
 
-        Retuns:
+        Returns:
             result (any): The result of the ThingsDB procedure.
 
         Remarks:

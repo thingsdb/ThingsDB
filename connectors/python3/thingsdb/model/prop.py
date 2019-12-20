@@ -92,7 +92,7 @@ class Prop:
                 f'missing `_props`, type `{name}` ' \
                 f'must be a subclass of `Thing`'
 
-            kwargs['watch'] = {
+            kwargs = {
                 'klass': self.model,
                 'collection': collection,
                 'watch': True,

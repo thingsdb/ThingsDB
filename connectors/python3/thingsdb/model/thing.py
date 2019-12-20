@@ -89,6 +89,7 @@ class Thing(ThingHash):
 
     @checkevent
     def on_init(self, event, data):
+        print('data', data)
         self._job_set(data)
 
     @checkevent
@@ -179,8 +180,8 @@ class Thing(ThingHash):
                 v = convert(v)
             except Exception as e:
                 logging.warning(
-                    f'got a value for property `{k}` on `{self}` which '
-                    f'does not match `{prop.spec if prop else "any"}` ({e})')
+                    f'got a value for property `{k}` on `{self}` which does '
+                    f'not match `{prop.spec if prop else "any"}` ({repr(e)})')
                 if not cls.__SET_ANYWAY__:
                     continue
 
@@ -222,7 +223,7 @@ class Thing(ThingHash):
         print('_job_del_procedure', data)
 
     def _job_del_type(self, data):
-        print('_job_del_type', data)
+        pass
 
     def _job_mod_type_add(self, data):
         print('_job_mod_type_add', data)
@@ -237,10 +238,10 @@ class Thing(ThingHash):
         print('_job_new_procedure', data)
 
     def _job_new_type(self, data):
-        print('_job_new_type', data)
+        pass
 
     def _job_set_type(self, data):
-        print('_job_set_type', data)
+        self._collection._set_type(data)
 
     _UPDMAP = {
         # Thing jobs

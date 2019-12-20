@@ -72,7 +72,6 @@ async def hello_world():
 asyncio.get_event_loop().run_until_complete(hello_world())
 ```
 
-
 ## Client module
 
 This is an client using `asyncio` which can be used for running queries to

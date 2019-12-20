@@ -29,6 +29,7 @@ class Stuff(Collection):
     book = 'Book', Book
     bar = 'Bar', Bar
     other = 'Thing?'
+    s = '{}'
 
 
 interrupted = False

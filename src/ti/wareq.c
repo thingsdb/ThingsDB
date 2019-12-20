@@ -302,10 +302,7 @@ static void wareq__watch_cb(uv_async_t * task)
 
         mp_pack_str(&pk, "thing");
 
-        /* mark as new so all props will be packed */
-        ti_thing_mark_new(thing);
-
-        if (ti_thing_to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
+        if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
         {
             log_critical(EX_MEMORY_S);
             msgpack_sbuffer_destroy(&buffer);

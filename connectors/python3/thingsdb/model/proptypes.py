@@ -41,7 +41,15 @@ class PropTypes:
 
         if thing is None:
             thing = klass(collection, thing_id)
+
+        type_id = v.pop('.', None)
+        if type_id is None:
             thing.__dict__.update(v)
+        else:
+            fmap = collection._types.get(type_id)
+            print(fmap)
+            if fmap:
+                thing.__dict__.update(zip(fmap, v['']))
 
         if watch and not thing:
             collection.add_pending(thing)

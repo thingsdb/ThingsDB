@@ -19,7 +19,7 @@ class Collection(Thing):
         self._pending = set()  # Thing ID's
         self._client = None  # use load, build or rebuild
         self._id = None
-        self._types = {}
+        self._types = {}  # mapping where the keys is a type_id
         for p in self._props.values():
             p.unpack(self)
 
@@ -54,10 +54,13 @@ class Collection(Thing):
         """
         assert self._client is not None, 'This collection is not loaded'
 
+        self._types = {}
         types_info = await self.query('types_info();')
-        print('HERE', types_info)
         for type_info in types_info:
-            print(type_info)
+            self._update_type(type_info)
+
+    def _update_type(self, data):
+        self._types[data['type_id']] = tuple(k[0] for k in data['fields'])
 
     async def build(
             self,

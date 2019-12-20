@@ -57,7 +57,7 @@ async def test(client):
     await client.authenticate('admin', 'pass')
 
     stuff = Stuff()
-    await stuff.build(client, scripts=[setup_code], delete_if_exists=True)
+    # await stuff.build(client, scripts=[setup_code], delete_if_exists=True)
     await stuff.load(client)
 
     try:

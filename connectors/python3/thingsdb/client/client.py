@@ -139,7 +139,11 @@ class Client(Buildin):
         addr, port = socket.getpeername()
         return f'{addr}:{port}'
 
-    async def connect_pool(self, pool: list, *auth: Union[str, tuple]) -> None:
+    def connect_pool(
+            self,
+            pool: list,
+            *auth: Union[str, tuple]
+    ) -> asyncio.Future:
         """Connect using a connection pool.
 
         When using a connection pool, the client will randomly choose a node
@@ -164,6 +168,11 @@ class Client(Buildin):
                 tuple with username and password. (the latter may be provided
                 as two separate arguments
 
+        Returns:
+            asyncio.Future (None):
+                Future which should be awaited. The result of the future will
+                be set to `None` when successful.
+
         Remarks:
             Do not use this method if the client is already
             connected. This can be checked with `client.is_connected()`.
@@ -177,14 +186,14 @@ class Client(Buildin):
             for address in pool))
         self._auth = self._auth_check(auth)
         self._pool_idx = random.randint(0, len(pool) - 1)
-        await self.reconnect()
+        return self.reconnect()
 
-    async def connect(
+    def connect(
             self,
             host: str,
             port: int = 9200,
             timeout: Optional[int] = 5
-    ) -> None:
+    ) -> asyncio.Future:
         """Connect to ThingsDB.
 
         This method will *only* create a connection, so the connection is not
@@ -204,6 +213,11 @@ class Client(Buildin):
                 `None` in which case the client will wait forever on a
                 response. Defaults to 5.
 
+        Returns:
+            asyncio.Future (None):
+                Future which should be awaited. The result of the future will
+                be set to `None` when successful.
+
         Remarks:
             Do not use this method if the client is already
             connected. This can be checked with `client.is_connected()`.
@@ -211,7 +225,7 @@ class Client(Buildin):
         assert self.is_connected() is False
         self._pool = ((host, port),)
         self._pool_idx = 0
-        await self._connect(timeout=timeout)
+        return self._connect(timeout=timeout)
 
     async def reconnect(self) -> None:
         """Re-connect to ThingsDB.
@@ -264,14 +278,14 @@ class Client(Buildin):
         if self._reconnect:
             await self.watch(scope='@n')
 
-    async def query(
+    def query(
             self,
             code: str,
             scope: Optional[str] = None,
             timeout: Optional[int] = None,
             convert_vars: bool = True,
             **kwargs: Any
-    ) -> Any:
+    ) -> asyncio.Future:
         """Query ThingsDB.
 
         Use this method to run `code` in a scope.
@@ -306,8 +320,10 @@ class Client(Buildin):
                 'title': 'Manual ThingsDB'
             })
 
-        Retuns:
-            result (any): The result of the ThingsDB code.
+        Returns:
+            asyncio.Future (any):
+                Future which should be awaited. The result of the future will
+                contain the result of the ThingsDB code when successful.
 
         Remarks:
             If the ThingsDB code will return with an exception, then this
@@ -328,17 +344,16 @@ class Client(Buildin):
         else:
             data = [scope, code]
 
-        future = self._protocol.write(Proto.REQ_QUERY, data, timeout=timeout)
-        return await future
+        return self._protocol.write(Proto.REQ_QUERY, data, timeout=timeout)
 
-    async def run(
+    def run(
             self,
             procedure: str,
             *args: Optional[Any],
             scope: Optional[str] = None,
             timeout: Optional[int] = None,
             convert_args: bool = True
-    ) -> Any:
+    ) -> asyncio.Future:
         """Run a procedure.
 
         Use this method to run a stored procedure in a scope.
@@ -367,7 +382,9 @@ class Client(Buildin):
                 Defaults to `True`.
 
         Returns:
-            result (any): The result of the ThingsDB procedure.
+            asyncio.Future (any):
+                Future which should be awaited. The result of the future will
+                contain the result of the ThingsDB procedure when successful.
 
         Remarks:
             If the ThingsDB code will return with an exception, then this
@@ -383,15 +400,13 @@ class Client(Buildin):
 
         arguments = (convert(arg) for arg in args) if convert_args else args
 
-        future = self._protocol.write(
+        return self._protocol.write(
             Proto.REQ_RUN,
             [scope, procedure, *arguments],
             timeout=timeout)
 
-        return await future
-
-    def watch(self, *ids: int, scope: Optional[str] = None) -> None:
-        """Subscibe for changes on given things.
+    def watch(self, *ids: int, scope: Optional[str] = None) -> asyncio.Future:
+        """Subscribe for changes on given things.
 
         This method accepts one or more thing ids to subscribe to. This
         method will simply return None as soon as the subscribe request is
@@ -413,6 +428,10 @@ class Client(Buildin):
                 things so only collection scopes can be used.
                 See https://docs.thingsdb.net/v0/overview/scopes/ for how to
                 format a scope.
+
+        Returns:
+            asyncio.Future (None):
+                Future which result will be set to `None` if successful.
         """
         if self._protocol is None:
             raise ConnectionError('no connection')
@@ -422,7 +441,11 @@ class Client(Buildin):
 
         return self._protocol.write(Proto.REQ_WATCH, [scope, *ids])
 
-    def unwatch(self, *ids: int, scope: Optional[str] = None):
+    def unwatch(
+            self,
+            *ids: int,
+            scope: Optional[str] = None
+    ) -> asyncio.Future:
         """Unsubscribe for changes on given things.
 
         Stop receiving events for the things given by one or more ids. It is
@@ -440,6 +463,10 @@ class Client(Buildin):
                 things so only collection scopes can be used.
                 See https://docs.thingsdb.net/v0/overview/scopes/ for how to
                 format a scope.
+
+        Returns:
+            asyncio.Future (None):
+                Future which result will be set to `None` if successful.
         """
         if self._protocol is None:
             raise ConnectionError('no connection')
@@ -532,11 +559,11 @@ class Client(Buildin):
         for event_handler in self._event_handlers:
             event_handler.on_reconnect()
 
-    async def _authenticate(self, timeout):
+    def _authenticate(self, timeout):
         if self._protocol is None:
             raise ConnectionError('no connection')
 
-        await self._protocol.write(
+        return self._protocol.write(
             Proto.REQ_AUTH,
             data=self._auth,
             timeout=timeout)

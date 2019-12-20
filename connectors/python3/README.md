@@ -20,7 +20,9 @@
     * [reconnect](#reconnect)
     * [run](#run)
     * [set_default_scope](#set_default_scope)
+    * [unwatch](#unwatch)
     * [wait_closed](#wait_closed)
+    * [watch](#watch)
   * [Model](#model)
     * [Collection](#collection)
     * [Thing](#thing)
@@ -163,7 +165,7 @@ async Client().connect(
     host: str,
     port: int = 9200,
     timeout: Optional[int] = 5
-) -> None
+) -> asyncio.Future
 ```
 
 Connect to ThingsDB.
@@ -186,13 +188,21 @@ connection before using the connection.
     `None` in which case the client will wait forever on a
     response. Defaults to 5.
 
+### Returns
+
+Future which should be awaited. The result of the future will be
+set to `None` when successful.
+
 > Do not use this method if the client is already
 > connected. This can be checked with `client.is_connected()`.
 
 ### connect_pool
 
 ```python
-async Client().connect_pool(pool: list, *auth: Union[str, tuple]) -> None
+async Client().connect_pool(
+    pool: list,
+    *auth: Union[str, tuple]
+) -> asyncio.Future
 ```
 
 Connect using a connection pool.
@@ -222,6 +232,11 @@ await connect_pool([
     Argument `auth` can be be either a string with a token or a
     tuple with username and password. (the latter may be provided
     as two separate arguments
+
+### Returns
+
+Future which should be awaited. The result of the future will be
+set to `None` when successful.
 
 > Do not use this method if the client is already
 > connected. This can be checked with `client.is_connected()`.
@@ -268,13 +283,13 @@ Can be used to check if the client is connected.
 ### query
 
 ```python
-async Client().query(
+Client().query(
         code: str,
         scope: Optional[str] = None,
         timeout: Optional[int] = None,
         convert_vars: bool = True,
         **kwargs: Any
-) -> Any
+) -> asyncio.Future
 ```
 
 Query ThingsDB.
@@ -317,7 +332,8 @@ res = await client.query(".my_book = book;", book={
 
 #### Returns
 
-The result of the ThingsDB code.
+Future which should be awaited. The result of the future will
+contain the result of the ThingsDB code when successful.
 
 > If the ThingsDB code will return with an exception, then this
 > exception will be translated to a Python Exception which will be
@@ -340,13 +356,13 @@ node.
 ### run
 
 ```python
-async Cliet().run(
+Client().run(
     procedure: str,
     *args: Optional[Any],
     scope: Optional[str] = None,
     timeout: Optional[int] = None,
     convert_args: bool = True
-) -> Any
+) -> asyncio.Future
 ```
 
 Run a procedure.
@@ -379,7 +395,9 @@ Use this method to run a stored procedure in a scope.
 
 #### Returns
 
-The result of the ThingsDB procedure.
+Future which should be awaited. The result of the future will
+contain the result of the ThingsDB procedure when successful.
+
 
 > If the ThingsDB code will return with an exception, then this
 > exception will be translated to a Python Exception which will be
@@ -402,6 +420,38 @@ Can be used to change the default scope which is initially set to `@t`.
     Set the default scope. A scope may start with either the `/`
     character, or `@`. Examples: `"//stuff"`, `"@:stuff"`, `"/node"`
 
+### unwatch
+
+```python
+Client().unwatch(
+    *ids: int,
+    scope: Optional[str] = None
+) -> asyncio.Future
+```
+
+Unsubscribe for changes on given things.
+
+Stop receiving events for the things given by one or more ids. It is
+possible that the client receives an event shortly after calling the
+unsubscribe method because the event was queued.
+
+#### Args
+- *\*ids (int)*:
+    Thing IDs to unsubscribe. No error is returned in case one of
+    the given things are not found within the collection or if the
+    thing was not being watched.
+- *scope (str, optional)*:
+    Unsubscribe for things in this scope. If not specified, the
+    default scope will be used. Only collection scopes may contain
+    things so only collection scopes can be used.
+    See https://docs.thingsdb.net/v0/overview/scopes/ for how to
+    format a scope.
+
+#### Returns
+
+Future which result will be set to `None` if successful.
+
+
 ### wait_closed
 
 ```python
@@ -412,6 +462,41 @@ Wait for a connection to close.
 
 Can be used after calling the `close()` method to determine when the
 connection is actually closed.
+
+
+### watch
+
+```python
+Client().watch(self, *ids: int, scope: Optional[str] = None) -> asyncio.Future
+```
+
+Subscribe for changes on given things.
+
+This method accepts one or more thing ids to subscribe to. This
+method will simply return None as soon as the subscribe request is
+successful handled by ThingsDB. After the response, the client will
+receive `INIT` events for all subscribed ids. After that, ThingsDB
+will continue to provide the client with `UPDATE` events which contain
+changes to the subscribed thing. A `DELETE` event might be received
+if, and only if the thing is removed and garbage collected from the
+collection.
+
+#### Args
+
+- *\*ids (int)*:
+    Thing IDs to subscribe to. No error is returned in case one of
+    the given things are not found within the collection, instead a
+    `WARN` event will be send to the client.
+- *scope (str, optional)*:
+    Subscribe on things in this scope. If not specified, the
+    default scope will be used. Only collection scopes may contain
+    things so only collection scopes can be used.
+    See https://docs.thingsdb.net/v0/overview/scopes/ for how to
+    format a scope.
+
+#### Returns
+
+Future which result will be set to `None` if successful.
 
 ## Model
 

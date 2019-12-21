@@ -1,10 +1,10 @@
 {
     "name": "thingsdb-lang",
     "displayName": "ThingsDB Lang",
-    "description": "Syntax highlighting for ThingsDB lang",
+    "description": "Syntax highlighting for ThingsDB",
     "version": "0.0.1",
     "engines": {
-        "vscode": "^1.37.0"
+        "vscode": "^1.41.0"
     },
     "categories": [
         "Programming Languages"

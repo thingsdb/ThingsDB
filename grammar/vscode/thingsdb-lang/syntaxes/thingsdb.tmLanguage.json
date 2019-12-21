@@ -15,6 +15,9 @@
 			"include": "#numbers"
 		},
 		{
+			"include": "#support"
+		},
+		{
 			"match": ";",
 			"name": "punctuation.terminator.statement.thingsdb"
 		}
@@ -71,6 +74,10 @@
 					}
 				},
 				"name": "comment.block.thingsdb"
+			},  {
+				"name": "comment.line.double-slash.thingsdb",
+				"begin": "//",
+				"end": "$"
 			}]
 		},
 		"numbers": {
@@ -98,6 +105,42 @@
 					"name": "invalid.illegal.name.thingsdb",
 					"match": "\\b[0-9]+\\w+"
 				}
+			]
+		},
+		"support": {
+			"patterns": [
+				{
+					"name": "storage.type.function.collection.thingsdb",
+					"match": "\\b(assert|base64_encode|base64_decode|bool|bytes|deep|del_type|err|float|has_type|if|int|isarray|isascii|isbool|isbytes|iserr|isfloat|isinf|isint|islist|isnan|isnil|israw|isset|isstr|isthing|istuple|isutf8|list|mod_type|new|new_type|now|raise|refs|return|set|set_type|str|thing|try|type|type_count|type_info|types_info|wse)\\s*(?=\\()"
+				},
+				{
+					"name": "storage.type.function.node.thingsdb",
+					"match": "\\b(backup_info|backups_info|counters|del_backup|has_backup|new_backup|node_info|nodes_info|reset_counters|set_log_level|shutdown)\\s*(?=\\()"
+				},
+				{
+					"name": "storage.type.function.thingsdb.thingsdb",
+					"match": "\\b(collection_info|collections_info|del_collection|del_expired|del_node|del_token|del_user|grant|has_collection|has_node|has_token|has_user|new_collection|new_node|new_token|new_user|rename_collection|rename_user|revoke|set_password|user_info|users_info)\\s*(?=\\()"
+				},
+				{
+					"name": "storage.type.function.procedure.thingsdb",
+					"match": "\\b(del_procedure|has_procedure|new_procedure|procedure_doc|procedure_info|procedures_info|run)\\s*(?=\\()"
+				},
+				{
+					"name": "storage.type.function.chain.thingsdb",
+					"match": "\\.\\s*(len|call|doc|code|msg|extend|filter|find|findindex|indexof|map|pop|push|remove|sort|splice|add|has|contains|endswith|lower|startswith|test|upper|del|get|id|keys|set|values|wrap|unwrap)\\s*(?=\\()"
+				},
+				{
+					"name": "storage.type.function.error.thingsdb",
+					"match": "\\.\\s*(assert_err|auth_err|bad_data_err|forbidden_err|lookup_err|max_quota_err|node_err|num_arguments_err|operation_err|overflow_err|syntax_err|type_err|value_err|zero_div_err)\\s*(?=\\()"
+				},
+				{
+                    "name": "constant.numeric.privilege.thingsdb",
+                    "match": "\\b(FULL|GRANT|MODIFY|READ|WATCH|RUN)\\b"
+                },
+				{
+                    "name": "constant.numeric.loglevel.thingsdb",
+                    "match": "\\b(DEBUG|INFO|WARNING|ERROR|CRITICAL)\\b"
+                }
 			]
 		},
 		"number-float": {
@@ -150,7 +193,7 @@
 					"name": "storage.type.number.thingsdb"
 				}
 			}
-		},
+		}
 	},
 	"scopeName": "source.ti"
 }

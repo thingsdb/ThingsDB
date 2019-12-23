@@ -4,6 +4,9 @@
 #ifndef TI_VINT_H_
 #define TI_VINT_H_
 
+#include <stdlib.h>
+#include <inttypes.h>
+
 typedef struct ti_vint_s ti_vint_t;
 
 ti_vint_t * ti_vint_create(int64_t i);

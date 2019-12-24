@@ -47,6 +47,7 @@
 #include <util/util.h>
 #include <uv.h>
 
+typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 
 static inline int fn_not_node_scope(
         const char * name,

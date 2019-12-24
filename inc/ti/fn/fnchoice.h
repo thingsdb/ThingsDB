@@ -20,6 +20,12 @@ static int do__f_choice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     arr = (ti_varr_t *) query->rval;
     n = arr->vec->n;
 
+    if (n == 0)
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "choice from empty list");
+        return e->nr;
+    }
+
     /*
      * When the `size` is large relative to RAND_MAX, then simply the module
      * of rand() will result in very badly random numbers (low numbers will

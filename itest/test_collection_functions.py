@@ -1590,6 +1590,98 @@ class TestCollectionFunctions(TestBase):
                 'my custom error'):
             await client.query('raise(err(-100, "my custom error"));')
 
+    async def test_rand(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `rand`'):
+            await client.query('nil.rand();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `rand` takes 0 arguments but 1 was given'):
+            await client.query('rand(3);')
+
+        res = await client.query('rand();')
+        self.assertTrue(isinstance(res, float))
+        self.assertGreaterEqual(res, 0.0)
+        self.assertLessEqual(res, 1.0)
+
+    async def test_randint(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `randint`'):
+            await client.query('nil.randint();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `randint` takes 2 arguments but 0 were given'):
+            await client.query('randint();')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `randint` does not accept an empty range'):
+            await client.query('randint(10, 10);')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query(
+                'randint(-0x4000000000000000, 0x4000000000000001);')
+
+        res = await client.query('randint(0, 10);')
+        self.assertTrue(isinstance(res, int))
+        self.assertGreaterEqual(res, 0)
+        self.assertLess(res, 10)
+
+        res = await client.query('randint(-15, -10);')
+        self.assertTrue(isinstance(res, int))
+        self.assertGreaterEqual(res, -15)
+        self.assertLess(res, -10)
+
+        values = set()
+        for _ in range(200):
+            values.add(await client.query('randint(5, 8);'))
+        self.assertEqual(3, len(values))
+        self.assertIn(5, values)
+        self.assertIn(6, values)
+        self.assertIn(7, values)
+
+        res = await client.query(
+                'randint(-0x4000000000000000, 0x4000000000000000);')
+        self.assertTrue(isinstance(res, int))
+
+    async def test_choice(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `thing` has no function `choice`'):
+            await client.query('.choice();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `choice` is undefined'):
+            await client.query('choice();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `choice` takes 0 arguments but 2 were given'):
+            await client.query('[0].choice(1, 2);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'choice from empty list'):
+            await client.query('[].choice();')
+
+        res = await client.query('["a"].choice();')
+        self.assertEqual(res, "a")
+
+        values = set()
+        for _ in range(200):
+            values.add(await client.query('["a", "b", "c"].choice();'))
+        self.assertEqual(3, len(values))
+        self.assertIn("a", values)
+        self.assertIn("b", values)
+        self.assertIn('c', values)
+
     async def test_refs(self, client):
         with self.assertRaisesRegex(
                 LookupError,

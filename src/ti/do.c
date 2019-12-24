@@ -24,8 +24,6 @@ static inline int do__no_collection_scope(ti_query_t * query)
     return ~query->qbind.flags & TI_QBIND_FLAG_COLLECTION;
 }
 
-typedef int (*do__fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
-
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
@@ -53,7 +51,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    return ((do__fn_cb) fname->data)(query, args, e);
+    return ((fn_cb) fname->data)(query, args, e);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)

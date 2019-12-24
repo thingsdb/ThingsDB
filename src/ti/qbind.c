@@ -135,7 +135,7 @@
 
 
 #define SYNTAX__X(__ev, __q, __nd, __str, __fn)                             \
-do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
+do if (!memcmp(__nd->str, __str, __nd->len))                                \
 {                                                                           \
     __nd->data = &__fn;                                                     \
     __ev(__q);                                                              \
@@ -149,6 +149,15 @@ do if (__nd->len == strlen(__str) && !memcmp(__nd->str, __str, __nd->len))  \
 /* 'n'o event, used for collection scope */
 #define qbind__nev_fn(__q, __nd, __str, __fn) \
         SYNTAX__X((void), __q, __nd, __str, __fn)
+
+#define qbind__vev_fn(__q, __nd, __str, __fn, __flags) \
+    do { \
+        if (__flags & FN__ON_VAR) { \
+            SYNTAX__X((void), __q, __nd, __str, __fn); \
+        } else { \
+            SYNTAX__X(qbind__set_collection_event, __q, __nd, __str, __fn); \
+        } \
+    } while(0)
 
 /* set 't'hingsdb event, used for thingsdb scope */
 #define qbind__tev_fn(__q, __nd, __str, __fn) \
@@ -280,20 +289,41 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
         }
         break;
     case 'f':
-        qbind__nev_fn(q, nd, "float", do__f_float);
-        qbind__nev_fn(q, nd, "forbidden_err", do__f_forbidden_err);
+        switch (nd->len)
+        {
+        case 5:
+            qbind__nev_fn(q, nd, "float", do__f_float);
+            break;
+        case 13:
+            qbind__nev_fn(q, nd, "forbidden_err", do__f_forbidden_err);
+            break;
+        }
         break;
     case 'g':
-        qbind__tev_fn(q, nd, "grant", do__f_grant);
+        if (nd->len == 5)
+            qbind__tev_fn(q, nd, "grant", do__f_grant);
         break;
     case 'h':
-        qbind__nev_fn(q, nd, "has_backup", do__f_has_backup);
-        qbind__nev_fn(q, nd, "has_collection", do__f_has_collection);
-        qbind__nev_fn(q, nd, "has_node", do__f_has_node);
-        qbind__nev_fn(q, nd, "has_procedure", do__f_has_procedure);
-        qbind__nev_fn(q, nd, "has_token", do__f_has_token);
-        qbind__nev_fn(q, nd, "has_type", do__f_has_type);
-        qbind__nev_fn(q, nd, "has_user", do__f_has_user);
+        switch (nd->len)
+        {
+        case 8:
+            qbind__nev_fn(q, nd, "has_node", do__f_has_node);
+            qbind__nev_fn(q, nd, "has_type", do__f_has_type);
+            qbind__nev_fn(q, nd, "has_user", do__f_has_user);
+            break;
+        case 9:
+            qbind__nev_fn(q, nd, "has_token", do__f_has_token);
+            break;
+        case 10:
+            qbind__nev_fn(q, nd, "has_backup", do__f_has_backup);
+            break;
+        case 13:
+            qbind__nev_fn(q, nd, "has_procedure", do__f_has_procedure);
+            break;
+        case 14:
+            qbind__nev_fn(q, nd, "has_collection", do__f_has_collection);
+            break;
+        }
         break;
     case 'i':
         switch (nd->len)
@@ -333,95 +363,189 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
     case 'k':
         break;
     case 'l':
-        qbind__nev_fn(q, nd, "list", do__f_list);
-        qbind__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
+        switch (nd->len)
+        {
+        case 4:
+            qbind__nev_fn(q, nd, "list", do__f_list);
+            break;
+        case 10:
+            qbind__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
+            break;
+        }
         break;
     case 'm':
-        qbind__cev_fn(q, nd, "mod_type", do__f_mod_type);
-        qbind__nev_fn(q, nd, "max_quota_err", do__f_max_quota_err);
+        switch (nd->len)
+        {
+        case 8:
+            qbind__cev_fn(q, nd, "mod_type", do__f_mod_type);
+            break;
+        case 13:
+            qbind__nev_fn(q, nd, "max_quota_err", do__f_max_quota_err);
+            break;
+        }
         break;
     case 'n':
-        qbind__nev_fn(q, nd, "new", do__f_new);  /* most frequent used */
-        qbind__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
-        qbind__cev_fn(q, nd, "new_type", do__f_new_type);
-        qbind__nev_fn(q, nd, "node_err", do__f_node_err);
-        qbind__nev_fn(q, nd, "now", do__f_now);
-        qbind__nev_fn(q, nd, "num_arguments_err", do__f_num_arguments_err);
-        qbind__tev_fn(q, nd, "new_collection", do__f_new_collection);
-        qbind__tev_fn(q, nd, "new_node", do__f_new_node);
-        qbind__tev_fn(q, nd, "new_token", do__f_new_token);
-        qbind__tev_fn(q, nd, "new_user", do__f_new_user);
-        qbind__zev_fn(q, nd, "new_backup", do__f_new_backup);
-        qbind__zev_fn(q, nd, "node_info", do__f_node_info);
-        qbind__zev_fn(q, nd, "nodes_info", do__f_nodes_info);
+        switch (nd->len)
+        {
+        case 3:
+            qbind__nev_fn(q, nd, "new", do__f_new);  /* most frequent used */
+            qbind__nev_fn(q, nd, "now", do__f_now);
+            break;
+        case 8:
+            qbind__cev_fn(q, nd, "new_type", do__f_new_type);
+            qbind__nev_fn(q, nd, "node_err", do__f_node_err);
+            qbind__tev_fn(q, nd, "new_node", do__f_new_node);
+            qbind__tev_fn(q, nd, "new_user", do__f_new_user);
+            break;
+        case 9:
+            qbind__tev_fn(q, nd, "new_token", do__f_new_token);
+            qbind__zev_fn(q, nd, "node_info", do__f_node_info);
+            break;
+        case 10:
+            qbind__zev_fn(q, nd, "new_backup", do__f_new_backup);
+            qbind__zev_fn(q, nd, "nodes_info", do__f_nodes_info);
+            break;
+        case 13:
+            qbind__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
+            break;
+        case 14:
+            qbind__tev_fn(q, nd, "new_collection", do__f_new_collection);
+            break;
+        case 17:
+            qbind__nev_fn(q, nd, "num_arguments_err", do__f_num_arguments_err);
+            break;
+        }
         break;
     case 'o':
-        qbind__nev_fn(q, nd, "overflow_err", do__f_overflow_err);
-        qbind__nev_fn(q, nd, "operation_err", do__f_operation_err);
+        switch (nd->len)
+        {
+        case 12:
+            qbind__nev_fn(q, nd, "overflow_err", do__f_overflow_err);
+            break;
+        case 13:
+            qbind__nev_fn(q, nd, "operation_err", do__f_operation_err);
+            break;
+        }
         break;
     case 'p':
-        qbind__nev_fn(q, nd, "procedure_doc", do__f_procedure_doc);
-        qbind__nev_fn(q, nd, "procedure_info", do__f_procedure_info);
-        qbind__nev_fn(q, nd, "procedures_info", do__f_procedures_info);
+        switch (nd->len)
+        {
+        case 13:
+            qbind__nev_fn(q, nd, "procedure_doc", do__f_procedure_doc);
+            break;
+        case 14:
+            qbind__nev_fn(q, nd, "procedure_info", do__f_procedure_info);
+            break;
+        case 15:
+            qbind__nev_fn(q, nd, "procedures_info", do__f_procedures_info);
+            break;
+        }
         break;
     case 'q':
         break;
     case 'r':
-        qbind__nev_fn(q, nd, "raise", do__f_raise);
-        qbind__nev_fn(q, nd, "rand", do__f_rand);
-        qbind__nev_fn(q, nd, "randint", do__f_randint);
-        qbind__nev_fn(q, nd, "refs", do__f_refs);
-        qbind__nev_fn(q, nd, "return", do__f_return);
-        qbind__nev_fn(q, nd, "run", do__f_run);
-        qbind__tev_fn(q, nd, "rename_collection", do__f_rename_collection);
-        qbind__tev_fn(q, nd, "rename_user", do__f_rename_user);
-        qbind__tev_fn(q, nd, "revoke", do__f_revoke);
-        qbind__zev_fn(q, nd, "reset_counters", do__f_reset_counters);
-        break;
-    case 's':
-        qbind__nev_fn(q, nd, "set", do__f_set);
-        qbind__nev_fn(q, nd, "str", do__f_str);
-        qbind__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
-        qbind__cev_fn(q, nd, "set_type", do__f_set_type);
-        qbind__tev_fn(q, nd, "set_password", do__f_set_password);
-        qbind__zev_fn(q, nd, "set_log_level", do__f_set_log_level);
-        qbind__zev_fn(q, nd, "shutdown", do__f_shutdown);
-        break;
-    case 't':
-        qbind__nev_fn(q, nd, "thing", do__f_thing);  /* most frequent used */
-        qbind__nev_fn(q, nd, "try", do__f_try);
-        qbind__nev_fn(q, nd, "type", do__f_type);
-        qbind__nev_fn(q, nd, "type_count", do__f_type_count);
-        qbind__nev_fn(q, nd, "type_err", do__f_type_err);
-        qbind__nev_fn(q, nd, "type_info", do__f_type_info);
-        qbind__nev_fn(q, nd, "types_info", do__f_types_info);
-        break;
-    case 'u':
-        qbind__zev_fn(q, nd, "user_info", do__f_user_info);
-        qbind__zev_fn(q, nd, "users_info", do__f_users_info);
-        break;
-    case 'v':
-        qbind__nev_fn(q, nd, "value_err", do__f_value_err);
-        break;
-    case 'w':
         switch (nd->len)
         {
         case 3:
-            qbind__bev_fn(q, nd, "wse", do__f_wse);
+            qbind__nev_fn(q, nd, "run", do__f_run);
+            break;
+        case 4:
+            qbind__nev_fn(q, nd, "rand", do__f_rand);
+            qbind__nev_fn(q, nd, "refs", do__f_refs);
+            break;
+        case 5:
+            qbind__nev_fn(q, nd, "raise", do__f_raise);
+            qbind__tev_fn(q, nd, "revoke", do__f_revoke);
+            break;
+        case 6:
+            qbind__nev_fn(q, nd, "return", do__f_return);
+            break;
+        case 7:
+            qbind__nev_fn(q, nd, "randint", do__f_randint);
+            break;
+        case 11:
+            qbind__tev_fn(q, nd, "rename_user", do__f_rename_user);
+            break;
+        case 14:
+            qbind__zev_fn(q, nd, "reset_counters", do__f_reset_counters);
+            break;
+        case 17:
+            qbind__tev_fn(q, nd, "rename_collection", do__f_rename_collection);
             break;
         }
+        break;
+    case 's':
+        switch (nd->len)
+        {
+        case 3:
+            qbind__nev_fn(q, nd, "set", do__f_set);
+            qbind__nev_fn(q, nd, "str", do__f_str);
+            break;
+        case 8:
+            qbind__cev_fn(q, nd, "set_type", do__f_set_type);
+            qbind__zev_fn(q, nd, "shutdown", do__f_shutdown);
+            break;
+        case 10:
+            qbind__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
+            break;
+        case 12:
+            qbind__tev_fn(q, nd, "set_password", do__f_set_password);
+            break;
+        case 13:
+            qbind__zev_fn(q, nd, "set_log_level", do__f_set_log_level);
+            break;
+        }
+        break;
+    case 't':
+        switch (nd->len)
+        {
+        case 3:
+            qbind__nev_fn(q, nd, "try", do__f_try);
+            break;
+        case 4:
+            qbind__nev_fn(q, nd, "type", do__f_type);
+            break;
+        case 5:
+            qbind__nev_fn(q, nd, "thing", do__f_thing);  /* most frequent used */
+            break;
+        case 8:
+            qbind__nev_fn(q, nd, "type_err", do__f_type_err);
+            break;
+        case 9:
+            qbind__nev_fn(q, nd, "type_info", do__f_type_info);
+            break;
+        case 10:
+            qbind__nev_fn(q, nd, "type_count", do__f_type_count);
+            qbind__nev_fn(q, nd, "types_info", do__f_types_info);
+            break;
+        }
+        break;
+    case 'u':
+        switch (nd->len)
+        {
+        case 9:
+            qbind__zev_fn(q, nd, "user_info", do__f_user_info);
+            break;
+        case 10:
+            qbind__zev_fn(q, nd, "users_info", do__f_users_info);
+            break;
+        }
+        break;
+    case 'v':
+        if (nd->len == 9)
+            qbind__nev_fn(q, nd, "value_err", do__f_value_err);
+        break;
+    case 'w':
+        if (nd->len == 3)
+            qbind__bev_fn(q, nd, "wse", do__f_wse);
         break;
     case 'x':
         break;
     case 'y':
         break;
     case 'z':
-        switch (nd->len)
-        {
-        case 12:
+        if (nd->len == 12)
             qbind__nev_fn(q, nd, "zero_div_err", do__f_zero_div_err);
-            break;
-        }
         break;
     }
 
@@ -434,50 +558,93 @@ static void qbind__map_chained_fn(ti_qbind_t * q, cleri_node_t * nd, int flags)
     switch ((ti_alpha_lower_t) *nd->str)
     {
     case 'a':
-        qbind__cev_fn(q, nd, "add", do__f_add);
+        if (nd->len == 3)
+            qbind__vev_fn(q, nd, "add", do__f_add, flags);
         break;
     case 'b':
         break;
     case 'c':
-        qbind__nev_fn(q, nd, "call", do__f_call);
-        qbind__nev_fn(q, nd, "choice", do__f_choice);
-        qbind__nev_fn(q, nd, "code", do__f_code);
-        qbind__nev_fn(q, nd, "contains", do__f_contains);
+        switch (nd->len)
+        {
+        case 4:
+            qbind__nev_fn(q, nd, "call", do__f_call);
+            qbind__nev_fn(q, nd, "code", do__f_code);
+            break;
+        case 6:
+            qbind__nev_fn(q, nd, "choice", do__f_choice);
+            break;
+        case 8:
+            qbind__nev_fn(q, nd, "contains", do__f_contains);
+            break;
+        }
         break;
     case 'd':
-        qbind__cev_fn(q, nd, "del", do__f_del);  /* most frequent used */
-        qbind__nev_fn(q, nd, "doc", do__f_doc);
+        if (nd->len == 3)
+        {
+            qbind__cev_fn(q, nd, "del", do__f_del);  /* most frequent used */
+            qbind__nev_fn(q, nd, "doc", do__f_doc);
+        }
         break;
     case 'e':
-        if (flags & FN__ON_VAR)
-            qbind__nev_fn(q, nd, "extend", do__f_extend);
-        else
-            qbind__cev_fn(q, nd, "extend", do__f_extend);
-        qbind__nev_fn(q, nd, "endswith", do__f_endswith);
+        switch (nd->len)
+        {
+        case 6:
+            qbind__vev_fn(q, nd, "extend", do__f_extend, flags);
+            break;
+        case 8:
+            qbind__nev_fn(q, nd, "endswith", do__f_endswith);
+            break;
+        }
         break;
     case 'f':
-        qbind__nev_fn(q, nd, "filter", do__f_filter);
-        qbind__nev_fn(q, nd, "find", do__f_find);
-        qbind__nev_fn(q, nd, "findindex", do__f_findindex);
+        switch (nd->len)
+        {
+        case 4:
+            qbind__nev_fn(q, nd, "find", do__f_find);
+            break;
+        case 6:
+            qbind__nev_fn(q, nd, "filter", do__f_filter);
+            break;
+        case 9:
+            qbind__nev_fn(q, nd, "findindex", do__f_findindex);
+            break;
+        }
         break;
     case 'g':
-        qbind__nev_fn(q, nd, "get", do__f_get);
+        if (nd->len == 3)
+            qbind__nev_fn(q, nd, "get", do__f_get);
         break;
     case 'h':
-        qbind__nev_fn(q, nd, "has", do__f_has);
+        if (nd->len == 3)
+            qbind__nev_fn(q, nd, "has", do__f_has);
         break;
     case 'i':
-        qbind__nev_fn(q, nd, "id", do__f_id);
-        qbind__nev_fn(q, nd, "indexof", do__f_indexof);
+        switch (nd->len)
+        {
+        case 2:
+            qbind__nev_fn(q, nd, "id", do__f_id);
+            break;
+        case 7:
+            qbind__nev_fn(q, nd, "indexof", do__f_indexof);
+            break;
+        }
         break;
     case 'j':
         break;
     case 'k':
-        qbind__nev_fn(q, nd, "keys", do__f_keys);
+        if (nd->len == 4)
+            qbind__nev_fn(q, nd, "keys", do__f_keys);
         break;
     case 'l':
-        qbind__nev_fn(q, nd, "len", do__f_len);
-        qbind__nev_fn(q, nd, "lower", do__f_lower);
+        switch (nd->len)
+        {
+        case 3:
+            qbind__nev_fn(q, nd, "len", do__f_len);
+            break;
+        case 5:
+            qbind__nev_fn(q, nd, "lower", do__f_lower);
+            break;
+        }
         break;
     case 'm':
         qbind__nev_fn(q, nd, "map", do__f_map);  /* most frequent used */
@@ -488,43 +655,61 @@ static void qbind__map_chained_fn(ti_qbind_t * q, cleri_node_t * nd, int flags)
     case 'o':
         break;
     case 'p':
-        if (flags & FN__ON_VAR)
+        switch (nd->len)
         {
-            qbind__nev_fn(q, nd, "pop", do__f_pop);
-            qbind__nev_fn(q, nd, "push", do__f_push);
-        }
-        else
-        {
-            qbind__cev_fn(q, nd, "pop", do__f_pop);
-            qbind__cev_fn(q, nd, "push", do__f_push);
+        case 3:
+            qbind__vev_fn(q, nd, "pop", do__f_pop, flags);
+            break;
+        case 4:
+            qbind__vev_fn(q, nd, "push", do__f_push, flags);
+            break;
         }
         break;
     case 'q':
         break;
     case 'r':
-        qbind__cev_fn(q, nd, "remove", do__f_remove);
+        if (nd->len == 6)
+            qbind__vev_fn(q, nd, "remove", do__f_remove, flags);
         break;
     case 's':
-        if (flags & FN__ON_VAR)
-            qbind__nev_fn(q, nd, "splice", do__f_splice);
-        else
-            qbind__cev_fn(q, nd, "splice", do__f_splice);
-        qbind__cev_fn(q, nd, "set", do__f_set);
-        qbind__nev_fn(q, nd, "startswith", do__f_startswith);
-        qbind__nev_fn(q, nd, "sort", do__f_sort);
+        switch (nd->len)
+        {
+        case 3:
+            qbind__cev_fn(q, nd, "set", do__f_set);
+            break;
+        case 4:
+            qbind__nev_fn(q, nd, "sort", do__f_sort);
+            break;
+        case 6:
+            qbind__vev_fn(q, nd, "splice", do__f_splice, flags);
+            break;
+        case 10:
+            qbind__nev_fn(q, nd, "startswith", do__f_startswith);
+            break;
+        }
         break;
     case 't':
-        qbind__nev_fn(q, nd, "test", do__f_test);
+        if (nd->len == 4)
+            qbind__nev_fn(q, nd, "test", do__f_test);
         break;
     case 'u':
-        qbind__nev_fn(q, nd, "unwrap", do__f_unwrap);  /* most frequent used */
-        qbind__nev_fn(q, nd, "upper", do__f_upper);
+        switch (nd->len)
+        {
+        case 6:
+            qbind__nev_fn(q, nd, "unwrap", do__f_unwrap);
+            break;
+        case 5:
+            qbind__nev_fn(q, nd, "upper", do__f_upper);
+            break;
+        }
         break;
     case 'v':
-        qbind__nev_fn(q, nd, "values", do__f_values);
+        if (nd->len == 6)
+            qbind__nev_fn(q, nd, "values", do__f_values);
         break;
     case 'w':
-        qbind__nev_fn(q, nd, "wrap", do__f_wrap);
+        if (nd->len == 4)
+            qbind__nev_fn(q, nd, "wrap", do__f_wrap);
         break;
     case 'x':
     case 'y':

@@ -229,8 +229,8 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
             qbind__zev_fn(q, nd, "backup_info", do__f_backup_info);
             break;
         case 12:
-            qbind__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
             qbind__zev_fn(q, nd, "backups_info", do__f_backups_info);
+            qbind__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
             break;
         case 13:
             qbind__nev_fn(q, nd, "base64_decode", do__f_base64_decode);
@@ -398,12 +398,12 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
             qbind__tev_fn(q, nd, "new_user", do__f_new_user);
             break;
         case 9:
-            qbind__tev_fn(q, nd, "new_token", do__f_new_token);
             qbind__zev_fn(q, nd, "node_info", do__f_node_info);
+            qbind__tev_fn(q, nd, "new_token", do__f_new_token);
             break;
         case 10:
-            qbind__zev_fn(q, nd, "new_backup", do__f_new_backup);
             qbind__zev_fn(q, nd, "nodes_info", do__f_nodes_info);
+            qbind__zev_fn(q, nd, "new_backup", do__f_new_backup);
             break;
         case 13:
             qbind__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
@@ -515,8 +515,8 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
             qbind__nev_fn(q, nd, "type_info", do__f_type_info);
             break;
         case 10:
-            qbind__nev_fn(q, nd, "type_count", do__f_type_count);
             qbind__nev_fn(q, nd, "types_info", do__f_types_info);
+            qbind__nev_fn(q, nd, "type_count", do__f_type_count);
             break;
         }
         break;

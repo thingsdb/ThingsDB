@@ -455,10 +455,10 @@ static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
             break;
         case 5:
             qbind__nev_fn(q, nd, "raise", do__f_raise);
-            qbind__tev_fn(q, nd, "revoke", do__f_revoke);
             break;
         case 6:
             qbind__nev_fn(q, nd, "return", do__f_return);
+            qbind__tev_fn(q, nd, "revoke", do__f_revoke);
             break;
         case 7:
             qbind__nev_fn(q, nd, "randint", do__f_randint);

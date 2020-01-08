@@ -121,3 +121,11 @@ ti_varr_t * ti_types_info(ti_types_t * types)
 
     return varr;
 }
+
+int ti_types_to_pk(ti_types_t * types, msgpack_packer * pk)
+{
+    return (
+        msgpack_pack_array(pk, types->imap->n) ||
+        imap_walk(types->imap, (imap_cb) ti_type_to_pk, pk)
+    );
+}

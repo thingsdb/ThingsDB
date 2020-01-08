@@ -6,6 +6,7 @@
 
 #include <ti/procedure.h>
 #include <ti/val.h>
+#include <util/mpack.h>
 #include <util/vec.h>
 
 int ti_procedures_add(vec_t ** procedures, ti_procedure_t * procedure);
@@ -20,5 +21,6 @@ ti_procedure_t * ti_procedures_pop_strn(
         vec_t * procedures,
         const char * str,
         size_t n);
+int ti_procedures_to_pk(vec_t * procedures, msgpack_packer * pk);
 
 #endif /* TI_PROCEDURES_H_ */

@@ -197,19 +197,12 @@ static int api__header_field_cb(http_parser * parser, const char * at, size_t n)
 {
     ti_api_request_t * ar = parser->data;
 
-    if (API__ICMP_WITH(at, n, "content-type"))
-    {
-        ar->state = TI_API_STATE_CONTENT_TYPE;
-        return 0;
-    }
+    ar->state = API__ICMP_WITH(at, n, "content-type")
+            ? TI_API_STATE_CONTENT_TYPE
+            : API__ICMP_WITH(at, n, "authorization")
+            ? TI_API_STATE_AUTHORIZATION
+            : TI_API_STATE_NONE;
 
-    if (API__ICMP_WITH(at, n, "authorization"))
-    {
-        ar->state = TI_API_STATE_AUTHORIZATION;
-        return 0;
-    }
-
-    ar->state = TI_API_STATE_NONE;
     return 0;
 }
 

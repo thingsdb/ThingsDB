@@ -76,3 +76,15 @@ ti_procedure_t * ti_procedures_pop_strn(
             return vec_swap_remove(procedures, idx);
     return NULL;
 }
+
+int ti_procedures_to_pk(vec_t * procedures, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, procedures->n))
+        return -1;
+
+    for (vec_each(procedures, ti_procedure_t, procedure))
+        if (ti_procedure_info_to_pk(procedure, pk, true))
+            return -1;
+
+    return 0;
+}

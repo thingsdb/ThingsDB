@@ -8,6 +8,7 @@
 #include <ti/auth.h>
 #include <ti/collections.h>
 #include <ti/fwd.h>
+#include <ti/procedures.h>
 #include <ti/proto.h>
 #include <ti/thing.inline.h>
 #include <ti/wareq.h>
@@ -258,6 +259,7 @@ static void wareq__watch_cb(uv_async_t * task)
         vec_t * pkgs_queue;
         msgpack_packer pk;
         msgpack_sbuffer buffer;
+        _Bool is_collection;
 
         #if TI_USE_VOID_POINTER
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
@@ -268,6 +270,7 @@ static void wareq__watch_cb(uv_async_t * task)
         #endif
 
         thing = imap_get(wareq->collection->things, id);
+        is_collection = thing == wareq->collection->root;
 
         if (!thing)
         {
@@ -295,7 +298,7 @@ static void wareq__watch_cb(uv_async_t * task)
         }
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-        msgpack_pack_map(&pk, 2);
+        msgpack_pack_map(&pk, is_collection ? 4 : 2);
 
         mp_pack_str(&pk, "event");
         msgpack_pack_uint64(&pk, ti()->node->cevid);
@@ -303,6 +306,17 @@ static void wareq__watch_cb(uv_async_t * task)
         mp_pack_str(&pk, "thing");
 
         if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
+        {
+            log_critical(EX_MEMORY_S);
+            msgpack_sbuffer_destroy(&buffer);
+            break;
+        }
+
+        if (is_collection && (
+                mp_pack_str(&pk, "types") ||
+                ti_types_to_pk(wareq->collection->types, &pk) ||
+                mp_pack_str(&pk, "procedures") ||
+                ti_procedures_to_pk(wareq->collection->procedures, &pk)))
         {
             log_critical(EX_MEMORY_S);
             msgpack_sbuffer_destroy(&buffer);

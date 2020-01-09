@@ -295,6 +295,14 @@ class TestHTTPAPI(TestBase):
 
         x = requests.post(
             f'{api0}/t',
+            json=data,
+            headers={'Authorization': f'Bearer {token}'}
+        )
+        self.assertEqual(x.status_code, 200)
+        self.assertEqual(x.json(), 42)
+
+        x = requests.post(
+            f'{api0}/t',
             data=msgpack.dumps(data),
             auth=('admin', 'pass'),
             headers={'Content-Type': 'application/msgpack'}

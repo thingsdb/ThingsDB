@@ -245,7 +245,8 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         break;
 
     case TI_API_STATE_AUTHORIZATION:
-        if (api__starts_with(&at, &n, "token ", strlen("token ")))
+        if (api__starts_with(&at, &n, "Token ", strlen("Token ")) ||
+            api__starts_with(&at, &n, "Bearer ", strlen("Bearer ")))
         {
             mp_obj_t mp_t;
             mp_t.tp = MP_STR;
@@ -259,7 +260,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
             break;
         }
 
-        if (api__starts_with(&at, &n, "basic ", strlen("basic ")))
+        if (api__starts_with(&at, &n, "Basic ", strlen("Basic ")))
         {
             ar->user = ti_users_auth_by_basic(at, n, &ar->e);
 

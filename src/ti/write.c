@@ -17,10 +17,12 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
         return -1;
 
     req->req_.data = req;
-    req->stream = ti_grab(stream);
+    req->stream = stream;
     req->pkg = pkg;
     req->data = data;
     req->cb_ = cb;
+
+    ti_incref(stream);
 
     wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
     uv_write(&req->req_, stream->uvstream, &wrbuf, 1, &ti__write_cb);

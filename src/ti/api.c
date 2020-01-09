@@ -23,23 +23,25 @@ static const char api__content_type[3][20] = {
         "application/msgpack",
 };
 
-static const char api__html_header[8][32] = {
+static const char api__html_header[9][32] = {
         "200 OK",
         "400 Bad Request",
         "401 Unauthorized",
         "403 Forbidden",
         "404 Not Found",
+        "405 Method Not Allowed",
         "415 Unsupported Media Type",
         "500 Internal Server Error",
         "503 Service Unavailable",
 };
 
-static const char api__default_body[8][30] = {
+static const char api__default_body[9][30] = {
         "OK\r\n",
         "BAD REQUEST\r\n",
         "UNAUTHORIZED\r\n",
         "FORBIDDEN\r\n",
         "NOT FOUND\r\n",
+        "METHOD NOT ALLOWED\r\n",
         "UNSUPPORTED MEDIA TYPE\r\n",
         "INTERNAL SERVER ERROR\r\n",
         "SERVICE UNAVAILABLE\r\n",
@@ -52,6 +54,7 @@ typedef enum
     E401_UNAUTHORIZED,
     E403_FORBIDDEN,
     E404_NOT_FOUND,
+    E405_METHOD_NOT_ALLOWED,
     E415_UNSUPPORTED_MEDIA_TYPE,
     E500_INTERNAL_SERVER_ERROR,
     E503_SERVICE_UNAVAILABLE
@@ -1075,6 +1078,9 @@ static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
 static int api__message_complete_cb(http_parser * parser)
 {
     ti_api_request_t * ar = parser->data;
+
+    if (parser->method != HTTP_POST)
+        return api__plain_response(ar, E405_METHOD_NOT_ALLOWED);
 
     if (ar->flags & TI_API_FLAG_INVALID_SCOPE)
         return api__plain_response(ar, E404_NOT_FOUND);

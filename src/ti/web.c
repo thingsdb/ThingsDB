@@ -26,6 +26,13 @@
     "\r\n" \
     "NOT FOUND\n"
 
+#define MNA_RESPONSE \
+    "HTTP/1.1 405 Method Not Allowed\r\n" \
+    "Content-Type: text/plain\r\n" \
+    "Content-Length: 19\r\n" \
+    "\r\n" \
+    "METHOD NOT ALLOWED\n"
+
 #define SYNC_RESPONSE \
     "HTTP/1.1 200 OK\r\n" \
     "Content-Type: text/plain\r\n" \
@@ -51,6 +58,7 @@
 static uv_buf_t web__uv_ok_buf;
 static uv_buf_t web__uv_nok_buf;
 static uv_buf_t web__uv_nfound_buf;
+static uv_buf_t web__uv_mna_buf;
 static uv_buf_t web__uv_sync_buf;
 static uv_buf_t web__uv_away_buf;
 static uv_buf_t web__uv_ready_buf;
@@ -147,9 +155,10 @@ static uv_buf_t * web__get_ready_response(void)
              * can be used to indicate a shutdown of another node during
              * an upgrade cycle.
              */
-            this_node->status == TI_NODE_STAT_AWAY ||
-            this_node->status == TI_NODE_STAT_AWAY_SOON ||
-            this_node->status == TI_NODE_STAT_READY
+            this_node->status & (
+                TI_NODE_STAT_AWAY|
+                TI_NODE_STAT_AWAY_SOON|
+                TI_NODE_STAT_READY)
         )) ? &web__uv_ok_buf : &web__uv_nok_buf;
 }
 
@@ -195,7 +204,10 @@ static int web__message_complete_cb(http_parser * parser)
     (void) uv_write(
             &web_request->req,
             &web_request->uvstream,
-            web_request->response, 1,
+            parser->method == HTTP_GET
+                ? web_request->response
+                : &web__uv_mna_buf,
+            1,
             web__write_cb);
 
     return 0;
@@ -262,6 +274,8 @@ int ti_web_init(void)
             uv_buf_init(NOK_RESPONSE, strlen(NOK_RESPONSE));
     web__uv_nfound_buf =
             uv_buf_init(NFOUND_RESPONSE, strlen(NFOUND_RESPONSE));
+    web__uv_mna_buf =
+            uv_buf_init(MNA_RESPONSE, strlen(MNA_RESPONSE));
     web__uv_sync_buf =
             uv_buf_init(SYNC_RESPONSE, strlen(SYNC_RESPONSE));
     web__uv_away_buf =

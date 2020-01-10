@@ -14,16 +14,13 @@
 
 #define API__HEADER_MAX_SZ 256
 
-#define CONTENT_TYPE_JSON "application/json"
-#define CONTENT_TYPE_MSGPACK "application/msgpack"
-
 static const char api__content_type[3][20] = {
         "text/plain",
         "application/json",
         "application/msgpack",
 };
 
-static const char api__html_header[9][32] = {
+static const char api__html_header[10][32] = {
         "200 OK",
         "400 Bad Request",
         "401 Unauthorized",
@@ -31,11 +28,12 @@ static const char api__html_header[9][32] = {
         "404 Not Found",
         "405 Method Not Allowed",
         "415 Unsupported Media Type",
+        "422 Unprocessable Entity",
         "500 Internal Server Error",
         "503 Service Unavailable",
 };
 
-static const char api__default_body[9][30] = {
+static const char api__default_body[10][30] = {
         "OK\r\n",
         "BAD REQUEST\r\n",
         "UNAUTHORIZED\r\n",
@@ -43,6 +41,7 @@ static const char api__default_body[9][30] = {
         "NOT FOUND\r\n",
         "METHOD NOT ALLOWED\r\n",
         "UNSUPPORTED MEDIA TYPE\r\n",
+        "UNPROCESSABLE ENTITY\r\n",
         "INTERNAL SERVER ERROR\r\n",
         "SERVICE UNAVAILABLE\r\n",
 };
@@ -56,6 +55,7 @@ typedef enum
     E404_NOT_FOUND,
     E405_METHOD_NOT_ALLOWED,
     E415_UNSUPPORTED_MEDIA_TYPE,
+    E422_UNPROCESSABLE_ENTITY,
     E500_INTERNAL_SERVER_ERROR,
     E503_SERVICE_UNAVAILABLE
 } api__header_t;
@@ -219,12 +219,12 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         break;
 
     case TI_API_STATE_CONTENT_TYPE:
-        if (API__ICMP_WITH(at, n, CONTENT_TYPE_MSGPACK))
+        if (API__ICMP_WITH(at, n, api__content_type[TI_API_CT_MSGPACK]))
         {
             ar->content_type = TI_API_CT_MSGPACK;
             break;
         }
-        if (API__ICMP_WITH(at, n, CONTENT_TYPE_JSON))
+        if (API__ICMP_WITH(at, n, api__content_type[TI_API_CT_JSON]))
         {
             ar->content_type = TI_API_CT_JSON;
             break;
@@ -446,6 +446,15 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 
     switch (e->nr)
     {
+    case EX_BAD_DATA:
+    case EX_SYNTAX_ERROR:
+        body_size = api__err_body(&body, e);
+        header_size = api__header(
+                header,
+                E400_BAD_REQUEST,
+                TI_API_CT_TEXT,
+                (size_t) body_size);
+        break;
     case EX_OPERATION_ERROR:
     case EX_NUM_ARGUMENTS:
     case EX_TYPE_ERROR:
@@ -453,13 +462,11 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
     case EX_OVERFLOW:
     case EX_ZERO_DIV:
     case EX_MAX_QUOTA:
-    case EX_BAD_DATA:
-    case EX_SYNTAX_ERROR:
     case EX_ASSERT_ERROR:
         body_size = api__err_body(&body, e);
         header_size = api__header(
                 header,
-                E400_BAD_REQUEST,
+                E422_UNPROCESSABLE_ENTITY,
                 TI_API_CT_TEXT,
                 (size_t) body_size);
         break;
@@ -810,11 +817,11 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     if (!query || api__gen_run_data(ar, req, &data, &n))
     {
         ex_set_mem(e);
-        goto failed;
+        goto fail0;
     }
 
     if (ti_query_unp_run(query, &ar->scope, 0, data, n, &ar->e))
-        goto failed;
+        goto fail0;
 
     free(data);
 
@@ -822,13 +829,13 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     assert (access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
-        goto failed;
+        goto fail1;
 
     if (ti_query_will_update(query))
     {
         if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
             ti_events_create_new_event(query, e))
-            goto failed;
+            goto fail1;
 
         /* cleanup will be done by the event */
         return 0;
@@ -839,9 +846,10 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
 
 invalid_api_request:
     ex_set(e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
-failed:
-    ti_query_destroy(query);
+fail0:
     free(data);
+fail1:
+    ti_query_destroy(query);
     return e->nr;
 }
 

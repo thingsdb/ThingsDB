@@ -257,7 +257,7 @@ class TestHTTPAPI(TestBase):
             json={'type': 'query', 'code': '1 / 0;'},
             auth=('admin', 'pass'),
         )
-        self.assertEqual(x.status_code, 400)
+        self.assertEqual(x.status_code, 422)
         self.assertEqual(x.text, 'division or modulo by zero (-58)\r\n')
 
         data = {

@@ -160,7 +160,7 @@ static int reformat_double(void * ctx, double d)
 {
     mpjson_convert_t * c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
-    return 0 == msgpack_pack_int64(&c->pk, d);
+    return 0 == msgpack_pack_double(&c->pk, d);
 }
 
 static int reformat_string(void * ctx, const unsigned char * s, size_t n)

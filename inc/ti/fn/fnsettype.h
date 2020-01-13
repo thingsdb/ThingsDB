@@ -12,10 +12,8 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_collection_scope("set_type", query, e) ||
         fn_nargs("set_type", DOC_SET_TYPE, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("set_type", DOC_SET_TYPE, 1, query->rval, e) ||
-        !(task = ti_task_get_task(query->ev, query->collection->root, e)))
+        fn_arg_str("set_type", DOC_SET_TYPE, 1, query->rval, e))
         return e->nr;
-
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)
@@ -90,6 +88,10 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_type_init_from_thing(type, thing, e))
+        goto fail2;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
         goto fail2;
 
     if ((is_new_type && ti_task_add_new_type(task, type)) ||

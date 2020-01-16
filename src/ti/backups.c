@@ -160,8 +160,11 @@ static int backups__store(void)
 
     iter = omap_iter(backups->omap);
 
-    if (msgpack_pack_array(&pk, backups->omap->n))
-        goto fail;
+    if (
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "backups") ||
+        msgpack_pack_array(&pk, backups->omap->n)
+    ) goto fail;
 
     for (omap_each(iter, ti_backup_t, backup))
     {
@@ -226,7 +229,7 @@ int ti_backups_restore(void)
     int rc = -1;
     fx_mmap_t fmap;
     size_t i;
-    mp_obj_t obj, mp_id, mp_ts, mp_repeat, mp_fn,
+    mp_obj_t obj, mp_ver, mp_id, mp_ts, mp_repeat, mp_fn,
              mp_msg, mp_plan, mp_code, mp_created;
     mp_unp_t up;
     ti_backup_t * backup;
@@ -244,7 +247,9 @@ int ti_backups_restore(void)
 
     mp_unp_init(&up, fmap.data, fmap.n);
 
-    if (mp_next(&up, &obj) != MP_ARR)
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(&up, &mp_ver) != MP_STR ||
+        mp_next(&up, &obj) != MP_ARR)
         goto fail1;
 
     for (i = obj.via.sz; i--;)

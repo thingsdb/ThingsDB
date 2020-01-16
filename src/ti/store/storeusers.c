@@ -33,13 +33,14 @@ int ti_store_users_store(const char * fn)
 
     for (vec_each(users->vec, ti_user_t, user))
     {
-        if (msgpack_pack_array(&pk, 4) ||
+        if (msgpack_pack_array(&pk, 5) ||
             msgpack_pack_uint64(&pk, user->id) ||
             mp_pack_strn(&pk, user->name->data, user->name->n) ||
             (user->encpass
                     ? mp_pack_str(&pk, user->encpass)
                     : msgpack_pack_nil(&pk)
             ) ||
+            msgpack_pack_uint64(&pk, user->created_at) ||
             msgpack_pack_array(&pk, user->tokens->n)
         ) goto fail;
 
@@ -72,7 +73,8 @@ int ti_store_users_restore(const char * fn)
     int rc = -1;
     size_t i, ii;
     ssize_t n;
-    mp_obj_t obj, mp_id, mp_name, mp_pass, mp_key, mp_expire, mp_desc;
+    mp_obj_t obj, mp_id, mp_name, mp_pass, mp_key,
+             mp_expire, mp_desc, mp_created;
     mp_unp_t up;
     ti_token_t * token;
     ti_user_t * user;
@@ -90,10 +92,11 @@ int ti_store_users_restore(const char * fn)
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_name) != MP_STR ||
             mp_next(&up, &mp_pass) <= MP_END ||
+            mp_next(&up, &mp_created) != MP_U64 ||
             mp_next(&up, &obj) != MP_ARR
         ) goto fail;
 
@@ -104,6 +107,7 @@ int ti_store_users_restore(const char * fn)
                 mp_name.via.str.data,
                 mp_name.via.str.n,
                 encrypted,
+                mp_created.via.u64,
                 &e);
         free(encrypted);
 

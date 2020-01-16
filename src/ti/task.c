@@ -194,10 +194,13 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_type");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, type->created_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, type->rname->data, type->rname->n);
@@ -230,10 +233,13 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "set_type");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
 
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);
@@ -518,7 +524,7 @@ int ti_task_add_new_collection(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_collection");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, collection->name->data, collection->name->n);
@@ -528,6 +534,9 @@ int ti_task_add_new_collection(
 
     mp_pack_str(&pk, "root");
     msgpack_pack_uint64(&pk, collection->root->id);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, collection->created_at);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -600,9 +609,15 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_procedure");
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&pk, 3);
 
+    mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, procedure->name->data, procedure->name->n);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, procedure->created_at);
+
+    mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1);
     if (ti_closure_to_pk(procedure->closure, &pk))
         goto fail_pack;
 
@@ -683,13 +698,16 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_user");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, user->id);
 
     mp_pack_str(&pk, "username");
     mp_pack_strn(&pk, user->name->data, user->name->n);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, user->created_at);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -723,10 +741,13 @@ int ti_task_add_mod_type_add(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "mod_type_add");
-    msgpack_pack_map(&pk, val ? 4 : 3);
+    msgpack_pack_map(&pk, val ? 5 : 4);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, field->name->str, field->name->n);
@@ -776,10 +797,13 @@ int ti_task_add_mod_type_del(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "mod_type_del");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, name->str, name->n);
@@ -798,7 +822,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
+int ti_task_add_mod_type_mod(
+        ti_task_t * task,
+        ti_field_t * field,
+        uint64_t modified_at)
 {
     size_t alloc = 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
@@ -812,10 +839,13 @@ int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "mod_type_mod");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, field->type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, modified_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, field->name->str, field->name->n);

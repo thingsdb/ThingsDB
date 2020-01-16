@@ -26,8 +26,10 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(pk, 3) ||
+    if (msgpack_pack_array(pk, 5) ||
         msgpack_pack_uint16(pk, type->type_id) ||
+        msgpack_pack_uint64(pk, type->created_at) ||
+        msgpack_pack_uint64(pk, type->modified_at) ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
         msgpack_pack_map(pk, type->fields->n)
     ) return -1;
@@ -93,7 +95,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     uint16_t type_id;
     uintptr_t utype_id;
     ti_raw_t * spec;
-    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_created, mp_modified;
     mp_unp_t up;
 
     fx_mmap_init(&fmap, fn);
@@ -138,8 +140,10 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
+            mp_next(&up, &mp_created) != MP_U64 ||
+            mp_next(&up, &mp_modified) != MP_U64 ||
             mp_next(&up, &mp_name) != MP_STR ||
             mp_skip(&up) != MP_MAP
         ) goto fail1;
@@ -148,7 +152,9 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 types,
                 mp_id.via.u64,
                 mp_name.via.str.data,
-                mp_name.via.str.n))
+                mp_name.via.str.n,
+                mp_created.via.u64,
+                mp_modified.via.u64))
         {
             log_critical("cannot create type `%.*s`",
                     (int) mp_name.via.str.n,

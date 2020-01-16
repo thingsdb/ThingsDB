@@ -5,15 +5,15 @@
 #define TI_VERSION_H_
 
 #define TI_VERSION_MAJOR 0
-#define TI_VERSION_MINOR 3
-#define TI_VERSION_PATCH 10
+#define TI_VERSION_MINOR 4
+#define TI_VERSION_PATCH 0
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
 #define TI_VERSION_SYNTAX 0
 
 /* ThingsDB can only connect with servers having at least this version. */
-#define TI_MINIMAL_VERSION "0.2.0"
+#define TI_MINIMAL_VERSION "0.4.0"
 
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha release versions.

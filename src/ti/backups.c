@@ -166,8 +166,9 @@ static int backups__store(void)
     for (omap_each(iter, ti_backup_t, backup))
     {
         result_msg = backup->result_msg ? backup->result_msg : empty;
-        if (msgpack_pack_array(&pk, 7) ||
+        if (msgpack_pack_array(&pk, 8) ||
             msgpack_pack_uint64(&pk, backup->id) ||
+            msgpack_pack_uint64(&pk, backup->created_at) ||
             msgpack_pack_uint64(&pk, backup->timestamp) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             mp_pack_str(&pk, backup->fn_template) ||
@@ -225,7 +226,8 @@ int ti_backups_restore(void)
     int rc = -1;
     fx_mmap_t fmap;
     size_t i;
-    mp_obj_t obj, mp_id, mp_ts, mp_repeat, mp_fn, mp_msg, mp_plan, mp_code;
+    mp_obj_t obj, mp_id, mp_ts, mp_repeat, mp_fn,
+             mp_msg, mp_plan, mp_code, mp_created;
     mp_unp_t up;
     ti_backup_t * backup;
     uint64_t now = util_now_tsec();
@@ -247,8 +249,9 @@ int ti_backups_restore(void)
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 7 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 8 ||
             mp_next(&up, &mp_id) != MP_U64 ||
+            mp_next(&up, &mp_created) != MP_U64 ||
             mp_next(&up, &mp_ts) != MP_U64 ||
             mp_next(&up, &mp_repeat) != MP_U64 ||
             mp_next(&up, &mp_fn) != MP_STR ||
@@ -262,7 +265,8 @@ int ti_backups_restore(void)
                 mp_fn.via.str.data,
                 mp_fn.via.str.n,
                 mp_ts.via.u64,
-                mp_repeat.via.u64);
+                mp_repeat.via.u64,
+                mp_created.via.u64);
 
         if (backup)
         {
@@ -464,10 +468,16 @@ ti_backup_t * ti_backups_new_backup(
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,
-        uint64_t repeat)
+        uint64_t repeat,
+        uint64_t created_at)
 {
     ti_backup_t * backup = ti_backup_create(
-            id, fn_template, fn_templare_n, timestamp, repeat);
+            id,
+            fn_template,
+            fn_templare_n,
+            timestamp,
+            repeat,
+            created_at);
     if (!backup)
         return NULL;
 

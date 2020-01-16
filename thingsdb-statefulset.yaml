@@ -1,0 +1,61 @@
+# Example from:
+# https://kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: thingsdb
+spec:
+  selector:
+    matchLabels:
+      app: thingsdb
+  serviceName: thingsdb
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: thingsdb
+    spec:
+      containers:
+      - name: thingsdb
+        image: thingsdb:0.4
+        env:
+        - name: THINGSDB_HTTP_STATUS_PORT
+          value: "8080"
+        - name: THINGSDB_HTTP_API_PORT
+          value: "9210"
+        ports:
+        - name: thingsdb.client
+          containerPort: 9200
+        - name: thingsdb.http
+          containerPort: 9210
+        - name: thingsdb.node
+          containerPort: 9220
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/thingsdb
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /healthy
+            port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

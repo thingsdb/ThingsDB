@@ -22,7 +22,12 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     rname = (ti_raw_t *) query->rval;
-    nuser = ti_users_new_user((const char *) rname->data, rname->n, NULL, e);
+    nuser = ti_users_new_user(
+            (const char *) rname->data,
+            rname->n,
+            NULL,
+            util_now_tsec(),
+            e);
     if (!nuser)
         return e->nr;
 

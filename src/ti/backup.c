@@ -17,7 +17,8 @@ ti_backup_t * ti_backup_create(
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,
-        uint64_t repeat)
+        uint64_t repeat,
+        uint64_t created_at)
 {
     ti_backup_t * backup = malloc(sizeof(ti_backup_t));
     if (!backup)
@@ -30,6 +31,7 @@ ti_backup_t * ti_backup_create(
     backup->repeat = repeat;
     backup->scheduled = true;
     backup->result_code = 0;
+    backup->created_at = created_at;
 
     if (!backup->fn_template)
     {
@@ -67,7 +69,7 @@ char * backup__next_run(ti_backup_t * backup)
 
 int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
 {
-    size_t n = 2;
+    size_t n = 3;
     if (backup->scheduled)
         n += 1;
     if (backup->repeat)
@@ -79,6 +81,9 @@ int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
 
         mp_pack_str(pk, "id") ||
         msgpack_pack_uint64(pk, backup->id) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, backup->created_at) ||
 
         mp_pack_str(pk, "file_template") ||
         mp_pack_str(pk, backup->fn_template)

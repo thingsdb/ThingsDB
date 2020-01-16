@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import asyncio
+import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -54,6 +55,7 @@ class TestUserAccess(TestBase):
             auto_reconnect=False)
 
         error_msg = 'user .* is missing the required privileges'
+        now = time.time()
 
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''new_collection('Collection');''')
@@ -84,6 +86,14 @@ class TestUserAccess(TestBase):
         await client.query(r'''revoke('@:Collection', 'test1', MODIFY);''')
 
         users_access = await testcl1.query(r'''user_info('admin');''')
+
+        self.assertTrue(isinstance(users_access["created_at"], int))
+
+        # at least one info should be checked for a correct created_at info
+        self.assertGreater(users_access['created_at'], now - 60)
+        self.assertLess(users_access['created_at'], now + 60)
+        created_at = users_access['created_at']
+
         self.assertEqual(users_access, {
             'access': [{
                 'privileges': 'FULL',
@@ -99,6 +109,7 @@ class TestUserAccess(TestBase):
                 'scope': '@collection:Collection'
             }],
             'has_password': True,
+            'created_at': created_at,
             'name': 'admin',
             'tokens': [],
             'user_id': 1

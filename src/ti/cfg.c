@@ -1,7 +1,6 @@
 /*
  * ti/cfg.c
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -262,7 +261,6 @@ int ti_cfg_create(void)
     cfg = malloc(sizeof(ti_cfg_t));
     if (!cfg)
         return -1;
-
 
     /* set defaults */
     cfg->client_port = TI_DEFAULT_CLIENT_PORT;

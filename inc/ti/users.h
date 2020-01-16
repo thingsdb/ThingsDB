@@ -17,14 +17,16 @@ int ti_users_create(void);
 void ti_users_destroy(void);
 ti_user_t * ti_users_new_user(
         const char * name,
-        size_t n,
+        size_t name_n,
         const char * passstr,
+        uint64_t created_at,
         ex_t * e);
 ti_user_t * ti_users_load_user(
         uint64_t user_id,
         const char * name,
-        size_t n,
+        size_t name_n,
         const char * encrypted,
+        uint64_t created_at,
         ex_t * e);
 int ti_users_clear(void);
 void ti_users_del_user(ti_user_t * user);

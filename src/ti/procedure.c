@@ -18,7 +18,10 @@
 
 #define PROCEDURE__DEEP_UNSET 255
 
-ti_procedure_t * ti_procedure_create(ti_raw_t * name, ti_closure_t * closure)
+ti_procedure_t * ti_procedure_create(
+        ti_raw_t * name,
+        ti_closure_t * closure,
+        uint64_t created_at)
 {
     ti_procedure_t * procedure = malloc(sizeof(ti_procedure_t));
     if (!procedure)
@@ -31,6 +34,7 @@ ti_procedure_t * ti_procedure_create(ti_raw_t * name, ti_closure_t * closure)
     procedure->doc = NULL;
     procedure->def = NULL;
     procedure->closure = ti_grab(closure);
+    procedure->created_at = created_at;
 
     return procedure;
 }
@@ -79,13 +83,16 @@ int ti_procedure_info_to_pk(
     ti_raw_t * doc = ti_procedure_doc(procedure);
     ti_raw_t * def = ti_procedure_def(procedure);
 
-    if (msgpack_pack_map(pk, 4 + !!with_definition) ||
+    if (msgpack_pack_map(pk, 5 + !!with_definition) ||
 
         mp_pack_str(pk, "doc") ||
         mp_pack_strn(pk, doc->data, doc->n) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, procedure->name->data, procedure->name->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, procedure->created_at) ||
 
         (with_definition && (
             mp_pack_str(pk, "definition") ||

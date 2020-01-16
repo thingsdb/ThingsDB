@@ -44,20 +44,21 @@ void ti_users_destroy(void)
 
 ti_user_t * ti_users_new_user(
         const char * name,
-        size_t n,
+        size_t name_n,
         const char * passstr,
+        uint64_t created_at,
         ex_t * e)
 {
     ti_user_t * user = NULL;
     assert (e->nr == 0);
 
-    if (!ti_user_name_check(name, n, e))
+    if (!ti_user_name_check(name, name_n, e))
         goto done;
 
     if (passstr && !ti_user_pass_check(passstr, e))
         goto done;
 
-    user = ti_user_create(ti_next_thing_id(), name, n, NULL);
+    user = ti_user_create(ti_next_thing_id(), name, name_n, NULL, created_at);
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
@@ -76,14 +77,15 @@ done:
 ti_user_t * ti_users_load_user(
         uint64_t user_id,
         const char * name,
-        size_t n,
+        size_t name_n,
         const char * encrypted,
+        uint64_t created_at,
         ex_t * e)
 {
     ti_user_t * user = NULL;
     assert (e->nr == 0);
 
-    if (!ti_user_name_check(name, n, e))
+    if (!ti_user_name_check(name, name_n, e))
         goto done;
 
     if (ti_users_get_by_id(user_id))
@@ -95,7 +97,7 @@ ti_user_t * ti_users_load_user(
     if (user_id >= ti()->node->next_thing_id)
         ti()->node->next_thing_id = user_id + 1;
 
-    user = ti_user_create(user_id, name, n, encrypted);
+    user = ti_user_create(user_id, name, name_n, encrypted, created_at);
 
     if (!user || vec_push(&users->vec, user))
     {

@@ -13,13 +13,16 @@ static inline int ti_collection_to_pk(
         msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 3) ||
+        msgpack_pack_map(pk, 4) ||
 
         mp_pack_str(pk, "collection_id") ||
         msgpack_pack_uint64(pk, collection->root->id) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, collection->name->data, collection->name->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, collection->created_at) ||
 
         mp_pack_str(pk, "things") ||
         msgpack_pack_uint64(pk, collection->things->n)

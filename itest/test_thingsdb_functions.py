@@ -103,6 +103,7 @@ class TestThingsDBFunctions(TestBase):
             collection)
 
     async def test_collections_info(self, client):
+        now = time.time()
         await client.query('''
             new_user('user2');
             set_password('user2', 'pass2');
@@ -123,15 +124,21 @@ class TestThingsDBFunctions(TestBase):
 
         collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)
-        self.assertEqual(len(collections[0]), 3)
+        self.assertEqual(len(collections[0]), 4)
 
         self.assertIn("collection_id", collections[0])
         self.assertIn("name", collections[0])
         self.assertIn("things", collections[0])
+        self.assertIn("created_at", collections[0])
 
         self.assertTrue(isinstance(collections[0]["collection_id"], int))
         self.assertTrue(isinstance(collections[0]["name"], str))
         self.assertTrue(isinstance(collections[0]["things"], int))
+        self.assertTrue(isinstance(collections[0]["created_at"], int))
+
+        # at least one info should be checked for a correct created_at info
+        self.assertGreater(collections[0]['created_at'], now - 60)
+        self.assertLess(collections[0]['created_at'], now + 60)
 
     async def test_del_collection(self, client):
         with self.assertRaisesRegex(

@@ -29,7 +29,9 @@ ti_type_t * ti_type_create(
         ti_types_t * types,
         uint16_t type_id,
         const char * name,
-        size_t n)
+        size_t name_n,
+        uint64_t created_at,
+        uint64_t modified_at)
 {
     ti_type_t * type = malloc(sizeof(ti_type_t));
     if (!type)
@@ -38,14 +40,16 @@ ti_type_t * ti_type_create(
     type->refcount = 0;
     type->type_id = type_id;
     type->flags = 0;
-    type->name = strndup(name, n);
-    type->wname = type__wrap_name(name, n);
-    type->rname = ti_str_create(name, n);
+    type->name = strndup(name, name_n);
+    type->wname = type__wrap_name(name, name_n);
+    type->rname = ti_str_create(name, name_n);
     type->rwname = ti_str_from_str(type->wname);
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
     type->types = types;
     type->t_mappings = imap_create();
+    type->created_at = created_at;
+    type->modified_at = modified_at;
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->t_mappings || ti_types_add(types, type))

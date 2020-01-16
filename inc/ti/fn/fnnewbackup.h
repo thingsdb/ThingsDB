@@ -127,7 +127,8 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             (const char *) rname->data,
             rname->n,
             timestamp,
-            repeat);
+            repeat,
+            util_now_tsec());
 
     if (!backup)
     {

@@ -21,11 +21,12 @@ extern const unsigned int ti_max_name;
 extern const unsigned int ti_min_pass;
 extern const unsigned int ti_max_pass;
 
-ti_user_t * ti_user_create(
+ti_user_t* ti_user_create(
         uint64_t id,
         const char * name,
-        size_t n,
-        const char * encrpass);
+        size_t name_n,
+        const char * encrpass,
+        uint64_t created_at);
 void ti_user_drop(ti_user_t * user);
 static inline int ti_user_add_token(ti_user_t * user, ti_token_t * token);
 void ti_user_del_expired(ti_user_t * user, uint64_t after_ts);
@@ -41,9 +42,10 @@ struct ti_user_s
 {
     uint32_t ref;
     uint64_t id;
+    uint64_t created_at;    /* UNIX time-stamp in seconds */
     ti_raw_t * name;
-    char * encpass;     /* may be NULL if no password is set */
-    vec_t * tokens;     /* ti_token_t */
+    char * encpass;         /* may be NULL if no password is set */
+    vec_t * tokens;         /* ti_token_t */
 };
 
 static inline int ti_user_add_token(ti_user_t * user, ti_token_t * token)

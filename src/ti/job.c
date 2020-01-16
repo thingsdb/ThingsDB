@@ -176,11 +176,13 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
-    mp_obj_t obj, mp_id, mp_name;
+    mp_obj_t obj, mp_id, mp_name, mp_created;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
@@ -203,7 +205,9 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
             collection->types,
             mp_id.via.u64,
             mp_name.via.str.data,
-            mp_name.via.str.n);
+            mp_name.via.str.n,
+            mp_created.via.u64,
+            0);  /* modified_at = 0 */
 
     if (!type)
     {
@@ -230,11 +234,13 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     ex_t e = {0};
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
-    mp_obj_t obj, mp_id;
+    mp_obj_t obj, mp_id, mp_modified;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR)
     {
         log_critical(
@@ -271,6 +277,10 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
         (void) ti_type_del(type);
         return -1;
     }
+
+    /* update modified time-stamp */
+    type->modified_at = mp_modified.via.u64;
+
     return 0;
 }
 
@@ -288,7 +298,7 @@ static int job__mod_type_add(
     ti_raw_t * spec_raw;
     ti_field_t * field;
     ti_val_t * val = NULL;
-    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_modified;
     int rc = -1;
     ti_vup_t vup = {
             .isclient = false,
@@ -296,9 +306,11 @@ static int job__mod_type_add(
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 3 && obj.via.sz != 4) ||
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 5) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
@@ -310,7 +322,7 @@ static int job__mod_type_add(
         return rc;
     }
 
-    if (obj.via.sz == 4)
+    if (obj.via.sz == 5)
     {
         if (mp_skip(up) != MP_STR )
         {
@@ -362,6 +374,9 @@ static int job__mod_type_add(
         goto done;
     }
 
+    /* update modified time-stamp */
+    type->modified_at = mp_modified.via.u64;
+
     rc = 0;
 
 done:
@@ -383,11 +398,13 @@ static int job__mod_type_del(
     ti_type_t * type;
     ti_name_t * name;
     ti_field_t * field;
-    mp_obj_t obj, mp_id, mp_name;
+    mp_obj_t obj, mp_id, mp_name, mp_modified;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
@@ -433,6 +450,9 @@ static int job__mod_type_del(
         return -1;
     }
 
+    /* update modified time-stamp */
+    type->modified_at = mp_modified.via.u64;
+
     return 0;
 }
 
@@ -448,11 +468,13 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     ti_name_t * name;
     ti_field_t * field;
     ti_raw_t * spec_raw;
-    mp_obj_t obj, mp_id, mp_name, mp_spec;
+    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_modified;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
@@ -506,6 +528,9 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         log_critical(e.msg);
         goto done;
     }
+
+    /* update modified time-stamp */
+    type->modified_at = mp_modified.via.u64;
 
     rc = 0;
 done:
@@ -602,7 +627,7 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
 static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
 {
     int rc;
-    mp_obj_t obj, mp_name;
+    mp_obj_t obj, mp_name, mp_created;
     ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
@@ -613,8 +638,12 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        mp_next(up, &mp_name) != MP_STR)
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR)
     {
         log_critical(
                 "job `new_procedure` for "TI_COLLECTION_ID": "
@@ -628,7 +657,7 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        !(procedure = ti_procedure_create(rname, closure)))
+        !(procedure = ti_procedure_create(rname, closure, mp_created.via.u64)))
         goto failed;
 
     rc = ti_procedures_add(&collection->procedures, procedure);

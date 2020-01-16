@@ -7,6 +7,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     size_t n;
+    uint64_t ts_now = util_now_tsec();
     _Bool is_new_type = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
@@ -37,7 +38,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->collection->types,
                 type_id,
                 (const char *) rname->data,
-                rname->n);
+                rname->n,
+                ts_now,
+                0);
 
         if (!type)
         {
@@ -93,6 +96,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
         goto fail2;
+
+    /* update modified time-stamp */
+    type->modified_at = ts_now;
 
     if ((is_new_type && ti_task_add_new_type(task, type)) ||
         ti_task_add_set_type(task, type))

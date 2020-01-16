@@ -209,17 +209,19 @@ static int rjob__grant(mp_unp_t * up)
 static int rjob__new_collection(mp_unp_t * up)
 {
     ex_t e = {0};
-    mp_obj_t obj, mp_name, mp_user, mp_root;
+    mp_obj_t obj, mp_name, mp_user, mp_root, mp_created;
     ti_user_t * user;
     ti_collection_t * collection;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_user) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_root) != MP_U64)
+        mp_next(up, &mp_root) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64)
     {
         log_critical("job `new_collection`: invalid format");
         return -1;
@@ -238,6 +240,7 @@ static int rjob__new_collection(mp_unp_t * up)
             mp_root.via.u64,
             mp_name.via.str.data,
             mp_name.via.str.n,
+            mp_created.via.u64,
             user,
             &e);
     if (!collection)
@@ -319,7 +322,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
 static int rjob__new_procedure(mp_unp_t * up)
 {
     int rc;
-    mp_obj_t obj, mp_name;
+    mp_obj_t obj, mp_name, mp_created;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     ti_raw_t * rname;
@@ -329,8 +332,12 @@ static int rjob__new_procedure(mp_unp_t * up)
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        mp_next(up, &mp_name) != MP_STR)
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR)
     {
         log_critical(
                 "job `new_procedure` for `.thingsdb`: "
@@ -343,7 +350,7 @@ static int rjob__new_procedure(mp_unp_t * up)
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        !(procedure = ti_procedure_create(rname, closure)))
+        !(procedure = ti_procedure_create(rname, closure, mp_created.via.u64)))
         goto failed;
 
 
@@ -432,13 +439,15 @@ static int rjob__new_token(mp_unp_t * up)
 static int rjob__new_user(mp_unp_t * up)
 {
     ex_t e = {0};
-    mp_obj_t obj, mp_id, mp_name;
+    mp_obj_t obj, mp_id, mp_name, mp_created;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) != MP_STR)
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64)
     {
         log_critical("job `new_user`: invalid format");
         return -1;
@@ -449,6 +458,7 @@ static int rjob__new_user(mp_unp_t * up)
             mp_name.via.str.data,
             mp_name.via.str.n,
             NULL,
+            mp_created.via.u64,
             &e))
     {
         log_critical("job `new_user`: %s", e.msg);

@@ -64,13 +64,16 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_map(&pk, 1);           /* job 1 */
 
     mp_pack_str(&pk, "new_user");
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, user_id);
 
     mp_pack_str(&pk, "username");
     mp_pack_str(&pk, ti_user_def_name);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, util_now_tsec());
 
     msgpack_pack_map(&pk, 1);           /* job 2 */
 
@@ -114,7 +117,7 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_map(&pk, 1);           /* job 5 */
 
     mp_pack_str(&pk, "new_collection");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "name");
     mp_pack_str(&pk, "stuff");
@@ -125,6 +128,8 @@ ti_epkg_t * ti_epkg_initial(void)
     mp_pack_str(&pk, "root");
     msgpack_pack_uint64(&pk, stuff_id);
 
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, util_now_tsec());
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);

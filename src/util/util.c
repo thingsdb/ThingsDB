@@ -19,6 +19,7 @@ double util_now(void)
     return ((double) util__now.tv_sec) + (util__now.tv_nsec / 1000000000.0);
 }
 
+/* Returns the current UNIX time-stamp in seconds */
 uint64_t util_now_tsec(void)
 {
     (void) clock_gettime(CLOCK_REALTIME, &util__now);

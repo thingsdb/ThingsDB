@@ -25,16 +25,17 @@ int ti_store_collections_store(const char * fn)
 
     if (
         msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "collections_v1") ||
+        mp_pack_str(&pk, "collections") ||
         msgpack_pack_array(&pk, vec->n)
     ) goto fail;
 
     for (vec_each(vec, ti_collection_t, collection))
     {
         if (
-            msgpack_pack_array(&pk, 2) ||
+            msgpack_pack_array(&pk, 3) ||
             mp_pack_strn(&pk, collection->guid.guid, sizeof(guid_t)) ||
-            mp_pack_strn(&pk, collection->name->data, collection->name->n)
+            mp_pack_strn(&pk, collection->name->data, collection->name->n) ||
+            msgpack_pack_uint64(&pk, collection->created_at)
         ) goto fail;
     }
 
@@ -57,7 +58,7 @@ int ti_store_collections_restore(const char * fn)
     int rc = -1;
     size_t i;
     ssize_t n;
-    mp_obj_t obj, mp_ver, mp_guid, mp_name;
+    mp_obj_t obj, mp_ver, mp_guid, mp_name, mp_created;
     mp_unp_t up;
     guid_t guid;
     ti_collection_t * collection;
@@ -76,39 +77,6 @@ int ti_store_collections_restore(const char * fn)
         mp_next(&up, &obj) != MP_ARR
     ) goto fail;
 
-    if (mp_str_eq(&mp_ver, "collections"))
-        goto unpack_v0;
-
-    for (i = obj.via.sz; i--;)
-    {
-        if (
-            mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
-            mp_next(&up, &mp_guid) != MP_STR ||
-            mp_guid.via.str.n != sizeof(guid_t) ||
-            mp_next(&up, &mp_name) != MP_STR
-        ) goto fail;
-
-        /* copy and check GUID, must be null terminated */
-        memcpy(guid.guid, mp_guid.via.str.data, sizeof(guid_t));
-        if (guid.guid[sizeof(guid_t) - 1])
-            goto fail;
-
-        collection = ti_collection_create(
-                &guid,
-                mp_name.via.str.data,
-                mp_name.via.str.n);
-        if (!collection || vec_push(&ti()->collections->vec, collection))
-            goto fail;
-
-    }
-    goto done;
-
-unpack_v0:
-    /*
-     * TODO: Unpack code for collections stored using version 0 which included
-     * a third element containing four unsigned integer quota's.
-     */
-    log_info("reading collections based on version 0...");
     for (i = obj.via.sz; i--;)
     {
         if (
@@ -116,7 +84,7 @@ unpack_v0:
             mp_next(&up, &mp_guid) != MP_STR ||
             mp_guid.via.str.n != sizeof(guid_t) ||
             mp_next(&up, &mp_name) != MP_STR ||
-            mp_skip(&up) != MP_ARR
+            mp_next(&up, &mp_created) != MP_U64
         ) goto fail;
 
         /* copy and check GUID, must be null terminated */
@@ -127,15 +95,14 @@ unpack_v0:
         collection = ti_collection_create(
                 &guid,
                 mp_name.via.str.data,
-                mp_name.via.str.n);
+                mp_name.via.str.n,
+                mp_created.via.u64);
         if (!collection || vec_push(&ti()->collections->vec, collection))
             goto fail;
+
     }
-    log_info("re-write collections");
-    (void) ti_store_collections_store(fn);
-    /*
-     * Finished migrating collections version 0 to version 1
-     */
+    goto done;
+
 
 done:
     rc = 0;

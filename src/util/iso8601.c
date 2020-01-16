@@ -157,6 +157,8 @@ int64_t iso8601_parse_date(const char * str)
     return -1;
 }
 
+/* Return a given date as a UNIX time-stamp in seconds.
+ * A value < 0 indicates an error */
 int64_t iso8601_parse_date_n(const char * str, size_t n)
 {
 

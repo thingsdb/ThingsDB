@@ -20,7 +20,8 @@ typedef struct ti_thing_s  ti_thing_t;
 ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
-        size_t n);
+        size_t n,
+        uint64_t created_at);
 void ti_collection_destroy(ti_collection_t * collection);
 void ti_collection_drop(ti_collection_t * collection);
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
@@ -35,6 +36,7 @@ struct ti_collection_s
 {
     uint32_t ref;
     guid_t guid;            /* derived from collection->root->id */
+    uint64_t created_at;    /* UNIX time-stamp in seconds */
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
     vec_t * access;         /* ti_auth_t */

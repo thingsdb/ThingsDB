@@ -81,6 +81,9 @@ static void type__add(
         }
     }
 
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+
     /* query->rval might be null; when there are no instances */
     if (ti_task_add_mod_type_add(task, type, query->rval))
     {
@@ -93,7 +96,7 @@ static void type__add(
         assert (query->rval);
 
         /* check for variable to update, val_cache is not required since only
-         * things with an id are store in cache
+         * things with an id are stored in cache
          */
         for (vec_each(query->vars, ti_prop_t, prop))
         {
@@ -183,6 +186,9 @@ static void type__del(
         return;
     }
 
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+
     if (ti_task_add_mod_type_del(task, type, name))
         ex_set_mem(e);
 }
@@ -227,7 +233,10 @@ static void type__mod(
     if (!task)
         return;
 
-    if (ti_task_add_mod_type_mod(task, field))
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_type_mod(task, field, type->modified_at))
     {
         ex_set_mem(e);
         return;
@@ -240,7 +249,6 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_raw_t * rmod;
     cleri_children_t * child;
-
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||

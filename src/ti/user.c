@@ -90,7 +90,8 @@ ti_user_t * ti_user_create(
         uint64_t id,
         const char * name,
         size_t name_n,
-        const char * encrpass)
+        const char * encrpass,
+        uint64_t created_at)
 {
     ti_user_t * user = malloc(sizeof(ti_user_t));
     if (!user)
@@ -101,6 +102,7 @@ ti_user_t * ti_user_create(
     user->name = ti_str_create(name, name_n);
     user->encpass = encrpass ? strdup(encrpass) : NULL;
     user->tokens = vec_new(0);
+    user->created_at = created_at;
 
     if (!user->name || (encrpass && !user->encpass) || !user->tokens)
     {
@@ -275,13 +277,16 @@ size_t user__count_access(ti_user_t * user)
 
 int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
 {
-    if (msgpack_pack_map(pk, 5) ||  /* four below + tokens */
+    if (msgpack_pack_map(pk, 6) ||  /* four below + tokens */
 
         mp_pack_str(pk, "user_id") ||
         msgpack_pack_uint64(pk, user->id) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, user->name->data, user->name->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, user->created_at) ||
 
         mp_pack_str(pk, "has_password") ||
         mp_pack_bool(pk, !!user->encpass) ||

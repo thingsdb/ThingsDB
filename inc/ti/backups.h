@@ -32,7 +32,8 @@ ti_backup_t * ti_backups_new_backup(
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,
-        uint64_t repeat);
+        uint64_t repeat,
+        uint64_t created_at);
 
 
 struct ti_backups_s

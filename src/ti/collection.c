@@ -25,7 +25,8 @@ static const size_t ti_collection_max_name = 128;
 ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
-        size_t n)
+        size_t n,
+        uint64_t created_at)
 {
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
     if (!collection)
@@ -39,6 +40,7 @@ ti_collection_t * ti_collection_create(
     collection->procedures = vec_new(0);
     collection->types = ti_types_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
+    collection->created_at = created_at;
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 

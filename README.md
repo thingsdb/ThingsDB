@@ -53,9 +53,14 @@ https://fonts.adobe.com/fonts/keraleeyam
 
 
 
-## Install msgpack, yajl, libuv from apt:
+## Install yajl, libuv from apt:
 ```
-sudo apt install libmsgpack-dev
 sudo apt install libuv1-dev
 sudo apt install libyajl-dev
+```
+
+## Run integration tests
+```
+docker build -t thingsdb/itest -f itest/Dockerfile .
+docker run thingsdb/itest:latest
 ```

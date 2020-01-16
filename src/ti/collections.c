@@ -132,14 +132,15 @@ int ti_collections_gc_collect_dropped(void)
 ti_collection_t * ti_collections_create_collection(
         uint64_t root_id,
         const char * name,
-        size_t n,
+        size_t name_n,
+        uint64_t created_at,
         ti_user_t * user,
         ex_t * e)
 {
     guid_t guid;
     ti_collection_t * collection = NULL;
 
-    if (!ti_name_is_valid_strn(name, n))
+    if (!ti_name_is_valid_strn(name, name_n))
     {
         ex_set(e, EX_VALUE_ERROR,
                 "collection name must follow the naming rules"
@@ -147,10 +148,10 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    if (ti_collections_get_by_strn(name, n))
+    if (ti_collections_get_by_strn(name, name_n))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "collection `%.*s` already exists", (int) n, name);
+                "collection `%.*s` already exists", (int) name_n, name);
         goto fail0;
     }
 
@@ -167,7 +168,7 @@ ti_collection_t * ti_collections_create_collection(
 
     guid_init(&guid, root_id);
 
-    collection = ti_collection_create(&guid, name, n);
+    collection = ti_collection_create(&guid, name, name_n, created_at);
     if (!collection || vec_push(&collections->vec, collection))
     {
         ex_set_mem(e);

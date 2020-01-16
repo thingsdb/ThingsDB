@@ -409,7 +409,7 @@ class TestProcedures(TestBase):
             'With side effects.')
 
     async def test_procedure_info(self, client):
-
+        now = time.time()
         await client.query(r'''
             new_procedure('square', |x| {
                 "No side effects.";
@@ -448,19 +448,26 @@ class TestProcedures(TestBase):
             await client.query('procedure_info("0123");')
 
         procedure_info = await client.query('procedure_info("square");')
-        self.assertEqual(len(procedure_info), 5)
+        self.assertEqual(len(procedure_info), 6)
         self.assertEqual(procedure_info['with_side_effects'], False)
         self.assertEqual(procedure_info['arguments'], ['x'])
         self.assertEqual(procedure_info['name'], 'square')
         self.assertEqual(procedure_info['doc'], 'No side effects.')
+        self.assertTrue(isinstance(procedure_info['created_at'], int))
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
         procedure_info = await client.query('procedure_info("set_a");')
-        self.assertEqual(len(procedure_info), 5)
+        self.assertEqual(len(procedure_info), 6)
         self.assertEqual(procedure_info['with_side_effects'], True)
         self.assertEqual(procedure_info['arguments'], ['a'])
         self.assertEqual(procedure_info['name'], 'set_a')
         self.assertEqual(procedure_info['doc'], 'With side effects.')
+        self.assertTrue(isinstance(procedure_info['created_at'], int))
+
+        # at least one info should be checked for a correct created_at info
+        self.assertGreater(procedure_info['created_at'], now - 60)
+        self.assertLess(procedure_info['created_at'], now + 60)
+
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
     async def test_procedures_info(self, client):
@@ -489,10 +496,11 @@ class TestProcedures(TestBase):
         procedures_info = await client.query('procedures_info();')
         self.assertEqual(len(procedures_info), 2)
         for info in procedures_info:
-            self.assertEqual(len(info), 5)
+            self.assertEqual(len(info), 6)
             self.assertEqual(len(info['arguments']), 1)
             self.assertTrue(isinstance(info['with_side_effects'], bool))
             self.assertTrue(isinstance(info['name'], str))
+            self.assertTrue(isinstance(info['created_at'], int))
             self.assertTrue(isinstance(info['doc'], str))
             self.assertTrue(isinstance(info['definition'], str))
 

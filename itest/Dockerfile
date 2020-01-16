@@ -30,6 +30,7 @@ RUN apt-get update && \
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY --from=builder /usr/lib/libcleri* /usr/lib/
 COPY ./itest/ /itest/
+COPY ./inc/doc.h /inc/doc.h
 WORKDIR /itest
 RUN pip install -r requirements.txt
 ENV THINGSDB_BIN /Release/thingsdb

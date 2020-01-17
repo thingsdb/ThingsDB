@@ -9,6 +9,7 @@
 ti_token_t * ti_token_create(
         ti_token_key_t * key,
         uint64_t expire_ts,
+        uint64_t created_at,
         const char * description,
         size_t description_sz)
 {
@@ -17,6 +18,7 @@ ti_token_t * ti_token_create(
         return NULL;
 
     token->expire_ts = expire_ts;
+    token->created_at = created_at;
     token->description = strndup(description, description_sz);
     if (!token->description)
     {

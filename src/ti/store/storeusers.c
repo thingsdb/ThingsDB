@@ -46,9 +46,10 @@ int ti_store_users_store(const char * fn)
 
         for (vec_each(user->tokens, ti_token_t, token))
         {
-            if (msgpack_pack_array(&pk, 3) ||
+            if (msgpack_pack_array(&pk, 4) ||
                 mp_pack_strn(&pk, token->key, sizeof(ti_token_key_t)) ||
                 msgpack_pack_uint64(&pk, token->expire_ts) ||
+                msgpack_pack_uint64(&pk, token->created_at) ||
                 mp_pack_str(&pk, token->description)
             ) goto fail;
         }
@@ -119,9 +120,10 @@ int ti_store_users_restore(const char * fn)
 
         for (ii = obj.via.sz; ii--;)
         {
-            if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+            if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
                 mp_next(&up, &mp_key) != MP_STR ||
                 mp_next(&up, &mp_expire) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_desc) != MP_STR
             ) goto fail;
 
@@ -131,6 +133,7 @@ int ti_store_users_restore(const char * fn)
             token = ti_token_create(
                     (ti_token_key_t *) mp_key.via.str.data,
                     mp_expire.via.u64,
+                    mp_created.via.u64,
                     mp_desc.via.str.data,
                     mp_desc.via.str.n);
 

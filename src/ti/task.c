@@ -656,7 +656,7 @@ int ti_task_add_new_token(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_token");
-    msgpack_pack_map(&pk, 4);
+    msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, user->id);
@@ -666,6 +666,9 @@ int ti_task_add_new_token(
 
     mp_pack_str(&pk, "expire_ts");
     msgpack_pack_uint64(&pk, token->expire_ts);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, token->created_at);
 
     mp_pack_str(&pk, "description");
     mp_pack_str(&pk, token->description);

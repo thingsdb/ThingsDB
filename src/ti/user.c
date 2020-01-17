@@ -53,19 +53,20 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
 
     for (vec_each(user->tokens, ti_token_t, token))
     {
-        const char * status, * expires_at;
+        const char * status, * isotimestr;
+
         if (token->expire_ts)
         {
             status = token->expire_ts > now ? "OK" : "EXPIRED";
-            expires_at = iso8601_time_str((const time_t *) &token->expire_ts);
+            isotimestr = iso8601_time_str((const time_t *) &token->expire_ts);
         }
         else
         {
             status = "OK";
-            expires_at = "never";
+            isotimestr = "never";
         }
 
-        if (msgpack_pack_map(pk, *token->description ? 4 : 3) ||
+        if (msgpack_pack_map(pk, *token->description ? 5 : 4) ||
 
             mp_pack_str(pk, "key") ||
             mp_pack_strn(pk, token->key, key_sz) ||
@@ -74,13 +75,21 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
             mp_pack_str(pk, status) ||
 
             mp_pack_str(pk, "expiration_time") ||
-            mp_pack_str(pk, expires_at) ||
+            mp_pack_str(pk, isotimestr) ||
 
             (*token->description && (
                 mp_pack_str(pk, "description") ||
                 mp_pack_str(pk, token->description)
             ))
         ) return -1;
+
+        /* the iso8601_time_str() return a pointer to an internal buffer so
+         * we cannot have both the created and expire time together
+         */
+        isotimestr = iso8601_time_str((const time_t *) &token->created_at);
+
+        if (mp_pack_str(pk, "created_on") || mp_pack_str(pk, isotimestr))
+            return -1;
     }
 
     return 0;

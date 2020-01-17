@@ -384,17 +384,19 @@ failed:
  */
 static int rjob__new_token(mp_unp_t * up)
 {
-    mp_obj_t obj, mp_user, mp_key, mp_expire, mp_desc;
+    mp_obj_t obj, mp_user, mp_key, mp_expire, mp_desc, mp_created;
     ti_user_t * user;
     ti_token_t * token;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_user) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_key) != MP_STR ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_expire) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_desc) != MP_STR)
     {
@@ -420,6 +422,7 @@ static int rjob__new_token(mp_unp_t * up)
     token = ti_token_create(
             (ti_token_key_t *) mp_key.via.str.data,
             mp_expire.via.u64,
+            mp_created.via.u64,
             mp_desc.via.str.data,
             mp_desc.via.str.n);
     if (!token || ti_user_add_token(user, token))

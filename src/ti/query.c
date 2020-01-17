@@ -16,9 +16,13 @@
 #include <ti/names.h>
 #include <ti/query.h>
 #include <ti/nil.h>
+#include <ti/wrap.h>
 #include <ti/task.h>
 #include <ti/data.h>
 #include <util/strx.h>
+#include <ti/vset.h>
+#include <ti/query.inline.h>
+
 
 /*
  *  tasks are ordered for low to high thing ids
@@ -173,6 +177,118 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
+static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query);
+
+int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:
+    {
+        ti_thing_t * thing = (ti_thing_t *) val;
+        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
+        {
+            /* prevents loop and double add to `garbage` */
+            thing->flags &= ~TI_VFLAG_THING_SWEEP;
+
+            if (thing->ref > 1)
+            {
+                LOGC("ADD FOR GC, REF: %u", thing->ref);
+                if (vec_push_create(&query->gc, thing))
+                    return -1;
+
+                ti_incref(thing);
+                return 0;
+            }
+
+            assert (thing->ref == 1);
+            query__t_clean_gc(thing, query);
+        }
+        return 0;
+    }
+    case TI_VAL_WRAP:
+    {
+        ti_wrap_t * wrap = (ti_wrap_t *) val;
+        ti_thing_t * thing = wrap->thing;
+        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
+        {
+            /* prevents loop and double add to `garbage` */
+            thing->flags &= ~TI_VFLAG_THING_SWEEP;
+
+            if (wrap->ref > 1 || thing->ref > 1)
+            {
+                LOGC("ADD WRAPPED FOR GC, REF: %u", thing->ref);
+                if (vec_push_create(&query->gc, thing))
+                    return -1;
+
+                ti_incref(thing);
+                return 0;
+            }
+
+            assert (wrap->ref == 1 && thing->ref == 1);
+            query__t_clean_gc(thing, query);
+        }
+        return 0;
+    }
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_MP:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+        return 0;
+    case TI_VAL_ARR:
+        if (ti_varr_may_have_things((ti_varr_t *) val))
+        {
+            vec_t * vec = ((ti_varr_t *) val)->vec;
+            ti_val_t * v;
+            while((v = vec_pop(vec)))
+            {
+                ti_query_val_gc(v, query);
+                ti_val_drop(v);
+            }
+        }
+        return 0;
+    case TI_VAL_SET:
+        return imap_walk(
+                ((ti_vset_t *) val)->imap,
+                (imap_cb) ti_query_val_gc,
+                query);
+    }
+    assert (0);
+    return -1;
+}
+
+static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query)
+{
+    if (ti_thing_is_object(thing))
+    {
+        ti_prop_t * prop;
+        while((prop = vec_pop(thing->items)))
+        {
+            ti_query_val_gc(prop->val, query);
+            ti_prop_destroy(prop);
+        }
+    }
+    else
+    {
+        ti_val_t * v;
+        while((v = vec_pop(thing->items)))
+        {
+            ti_query_val_gc(v, query);
+            ti_val_destroy(v);
+        }
+        /* convert to a simple object since the thing is not
+         * type compliant anymore */
+        thing->type_id = TI_SPEC_OBJECT;
+    }
+}
+
 ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
 {
     ti_query_t * query = malloc(sizeof(ti_query_t));
@@ -199,6 +315,7 @@ ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
                                 * we also must allow closures to still grow
                                 * this vector, so a fixed size may be the best
                                 */
+    query->gc = NULL;
     ti_chain_init(&query->chain);
 
     if (!query->vars)
@@ -218,7 +335,39 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->vars, (vec_destroy_cb) ti_prop_destroy);
+    while(query->vars->n)
+        ti_query_var_drop_gc(VEC_pop(query->vars), query);
+    free(query->vars);
+
+    if (query->gc)
+    {
+        ti_thing_t * thing;
+        LOGC("CLEAN GC");
+        for (vec_each(query->gc, ti_thing_t, thing))
+            if (!thing->id)
+                thing->ref = 0;
+
+        for (vec_each(query->gc, ti_thing_t, thing))
+            if (!thing->id)
+            {
+                LOGC("CLEAN THING...");
+                ti_thing_clear(thing);
+            }
+
+        while((thing = vec_pop(query->gc)))
+        {
+            if (thing->id)
+            {
+                thing->flags |= TI_VFLAG_THING_SWEEP;
+                ti_val_drop((ti_val_t *) thing);
+                continue;
+            }
+            ti_thing_destroy(thing);
+        }
+
+        free(query->gc);
+    }
+
     ti_val_drop((ti_val_t *) query->closure);
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
     if (query->qbind.flags & TI_QBIND_FLAG_API)

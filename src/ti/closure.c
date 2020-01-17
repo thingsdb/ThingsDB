@@ -5,6 +5,7 @@
 #include <langdef/langdef.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
+#include <ti/query.inline.h>
 #include <ti/do.h>
 #include <ti/names.h>
 #include <ti/ncache.h>
@@ -405,7 +406,7 @@ void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
 
     /* drop temporary added props */
     while (query->vars->n > closure->locked_n)
-        ti_prop_destroy(vec_pop(query->vars));
+        ti_query_var_drop_gc(VEC_pop(query->vars), query);
 
     /* restore `old` size so closure keeps ownership of it's own props */
     query->vars->n -= closure->vars->n;
@@ -415,6 +416,7 @@ void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
     {
         if (!ti_val_is_nil(p->val))
         {
+            ti_query_val_gc(p->val, query);
             ti_val_drop(p->val);
             p->val = (ti_val_t *) ti_nil_get();
         }

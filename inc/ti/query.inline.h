@@ -8,6 +8,7 @@
 #include <util/vec.h>
 #include <ti.h>
 #include <ti/query.h>
+#include <ti/prop.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
 {
@@ -26,4 +27,11 @@ static inline vec_t * ti_query_procedures(ti_query_t * query)
             ? query->collection->procedures
             : ti()->procedures;
 }
+
+static inline void ti_query_var_drop_gc(ti_prop_t * prop, ti_query_t * query)
+{
+    ti_query_val_gc(prop->val, query);
+    ti_prop_destroy(prop);
+}
+
 #endif  /* TI_QUERY_INLINE_H_ */

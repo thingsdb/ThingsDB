@@ -78,7 +78,7 @@ alloc_err:
 
 fail1:
     while (added->n)
-        ti_val_drop((ti_val_t *) ti_vset_pop(vset, vec_pop(added)));
+        ti_val_drop((ti_val_t *) ti_vset_pop(vset, VEC_pop(added)));
 
 done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);

@@ -272,7 +272,7 @@ fail2:
         /* if the `thing` is already in the set, then the set still owns the
          * thing, else the thing was owned by the `removed` vector so in
          * neither case we have to adjust the reference counter */
-        if (ti_vset_add(vset, vec_pop(removed)) == IMAP_ERR_ALLOC)
+        if (ti_vset_add(vset, VEC_pop(removed)) == IMAP_ERR_ALLOC)
             ex_set_mem(e);
     free(removed);
 

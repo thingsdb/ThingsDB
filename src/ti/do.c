@@ -328,7 +328,7 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     while (query->vars->n > current_varn)
-        ti_prop_destroy(vec_pop(query->vars));
+        ti_query_var_drop_gc(VEC_pop(query->vars), query);
 
     return e->nr;
 }

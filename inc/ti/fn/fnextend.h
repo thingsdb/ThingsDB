@@ -89,7 +89,7 @@ alloc_err:
 fail3:
     while (varr_dest->vec->n > current_n)
     {
-        ti_val_drop(vec_pop(varr_dest->vec));
+        ti_val_drop(VEC_pop(varr_dest->vec));
     }
     (void) vec_shrink(&varr_dest->vec);
 

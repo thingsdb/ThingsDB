@@ -38,6 +38,9 @@ _Bool vec_is_sorting(void);
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_push(vec__, data_) ((vec__)->data[(vec__)->n++] = data_)
 
+/* unsafe macro for vec_push() which assumes the vector has enough space */
+#define VEC_pop(vec__) (vec__)->data[--(vec__)->n]
+
 /* use vec_each in a for loop to go through all values by it's address */
 #define vec_each_addr(vec__, dt__, var__) \
     dt__ ** var__ = (dt__ **) (vec__)->data, \
@@ -121,6 +124,17 @@ typedef int (*__vec_sort_cb) (const void *, const void *);
 static inline void vec_sort(vec_t * vec, vec_sort_cb compare)
 {
     qsort(vec->data, vec->n, sizeof(void *), (__vec_sort_cb) compare);
+}
+
+static inline int vec_push_create(vec_t ** vec, void * data)
+{
+    if (*vec)
+        return vec_push(vec, data);
+    *vec = vec_new(3);
+    if (!*vec)
+        return -1;
+    VEC_push(*vec, data);
+    return 0;
 }
 
 #endif /* VEC_H_ */

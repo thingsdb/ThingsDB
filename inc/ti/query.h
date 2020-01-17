@@ -52,6 +52,7 @@ void ti_query_run(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e);
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);
+int ti_query_val_gc(ti_val_t * val, ti_query_t * query);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
@@ -86,6 +87,9 @@ struct ti_query_s
                                    required
                                 */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
+    vec_t * gc;                 /* ti_vat_t, requires garbage collection
+                                   only wrapped values and things will be added
+                                   since they are by reference */
     util_time_t time;           /* time query duration */
 };
 

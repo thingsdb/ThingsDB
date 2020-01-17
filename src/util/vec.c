@@ -6,7 +6,7 @@
 #include <util/vec.h>
 
 /*
- * Returns a new vec with size sz.
+ * Returns a new vector with a given size.
  */
 vec_t * vec_new(uint32_t sz)
 {
@@ -19,7 +19,7 @@ vec_t * vec_new(uint32_t sz)
 }
 
 /*
- * Destroy a vec with optional callback. If callback is NULL then it is
+ * Destroy a vector with optional callback. If callback is NULL then it is
  * just as safe to simply call free() instead of this function.
  */
 void vec_destroy(vec_t * vec, vec_destroy_cb cb)
@@ -45,8 +45,8 @@ void * vec_swap_remove(vec_t * vec, uint32_t i)
 }
 
 /*
- * Returns a copy of vec with an exact fit so the new vec->sz and vec->n will
- * be equal. In case of an allocation error the return value is NULL.
+ * Returns a copy of a given vector with an exact fit so the new size and `n`
+ * will be equal. In case of an allocation error the return value is NULL.
  */
 vec_t * vec_dup(const vec_t * vec)
 {
@@ -61,11 +61,7 @@ vec_t * vec_dup(const vec_t * vec)
 }
 
 /*
- * Append data to vec and returns vec.
- *
- * Returns a pointer to vec. The returned vec can be equal to the original
- * vec but there is no guarantee. The return value is NULL in case of an
- * allocation error.
+ * Returns 0 when successful.
  */
 int vec_push(vec_t ** vaddr, void * data)
 {
@@ -95,9 +91,7 @@ int vec_push(vec_t ** vaddr, void * data)
 }
 
 /*
- * Extends a vec with n data things and returns the new extended vec.
- *
- * In case of an error NULL is returned.
+ * Returns 0 when successful.
  */
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 {
@@ -121,7 +115,9 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 }
 
 /*
- * Resize a vec to sz. If the new size is smaller then vec->n might decrease.
+ * Resize a vector to a given size.
+ *
+ * If the new size is smaller then `n` might decrease.
  */
 int vec_resize(vec_t ** vaddr, uint32_t sz)
 {
@@ -139,9 +135,9 @@ int vec_resize(vec_t ** vaddr, uint32_t sz)
 }
 
 /*
- * Shrinks a vec to an exact fit.
+ * Shrinks a vector to an exact fit.
  *
- * Returns a pointer to the new vec.
+ * Returns 0 when successful.
  */
 int vec_shrink(vec_t ** vaddr)
 {

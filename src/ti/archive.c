@@ -307,7 +307,7 @@ int ti_archive_rmdir(void)
     log_warning("removing archive directory: `%s`", archive->path);
 
     while (archive->archfiles->n)
-        ti_archfile_destroy(vec_pop(archive->archfiles));
+        ti_archfile_destroy(VEC_pop(archive->archfiles));
 
     rc = fx_rmdir(archive->path);
     if (rc)

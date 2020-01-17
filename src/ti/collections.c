@@ -54,7 +54,7 @@ void ti_collections_destroy(void)
 void ti_collections_clear(void)
 {
     while (collections->vec->n)
-        ti_collection_drop(vec_pop(collections->vec));
+        ti_collection_drop(VEC_pop(collections->vec));
 }
 
 /*

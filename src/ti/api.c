@@ -550,7 +550,7 @@ typedef struct
 {
     mp_obj_t mp_type;
     mp_obj_t mp_code;
-    mp_obj_t mp_procedure;
+    mp_obj_t mp_name;
     mp_obj_t mp_args;
     mp_obj_t mp_vars;
 } api__req_t;
@@ -605,8 +605,8 @@ static int api__gen_run_data(
         api__gen_scope(ar, &pk) ||
         mp_pack_strn(
                 &pk,
-                req->mp_procedure.via.str.data,
-                req->mp_procedure.via.str.n))
+                req->mp_name.via.str.data,
+                req->mp_name.via.str.n))
         goto fail;
 
     if (i && mp_pack_append(&pk, up.pt, up.end- up.pt))
@@ -785,7 +785,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     unsigned char * data = NULL;
     size_t n;
 
-    if (req->mp_procedure.tp != MP_STR)
+    if (req->mp_name.tp != MP_STR)
         goto invalid_api_request;
 
     if (this_node->status < TI_NODE_STAT_READY &&
@@ -1001,8 +1001,8 @@ static int api__from_msgpack(ti_api_request_t * ar)
         else if (mp_str_eq(&mp_key, "code"))
             mp_next(&up, &request.mp_code);
 
-        else if (mp_str_eq(&mp_key, "procedure"))
-            mp_next(&up, &request.mp_procedure);
+        else if (mp_str_eq(&mp_key, "name"))
+            mp_next(&up, &request.mp_name);
 
         else if (mp_str_eq(&mp_key, "vars"))
         {

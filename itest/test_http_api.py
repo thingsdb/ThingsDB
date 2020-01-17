@@ -319,7 +319,7 @@ class TestHTTPAPI(TestBase):
             auth=('admin', 'pass'),
         )
 
-        data = {'type': 'run', 'procedure': 'addone', 'args': [42]}
+        data = {'type': 'run', 'name': 'addone', 'args': [42]}
 
         x = requests.post(
             f'{api0}//stuff',

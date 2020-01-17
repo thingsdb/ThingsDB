@@ -20,8 +20,6 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
     if (e->n < 0)
     {
-        LOGC("error in ex_set()");
-        LOGC("plain message: %s", errmsg);
         e->n = 0;
         e->msg[0] = '\0';
         assert(0);

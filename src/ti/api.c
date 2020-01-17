@@ -1121,18 +1121,6 @@ static int api__message_complete_cb(http_parser * parser)
     return api__plain_response(ar, E500_INTERNAL_SERVER_ERROR);
 }
 
-static int api__chunk_header_cb(http_parser * parser)
-{
-    LOGC("Chunk header\n Content-Length: %zu", parser->content_length);
-    return 0;
-}
-
-static int api__chunk_complete_cb(http_parser * parser)
-{
-    LOGC("Chunk complete\n Content-Length: %zu", parser->content_length);
-    return 0;
-}
-
 int ti_api_init(void)
 {
     int rc;
@@ -1149,8 +1137,6 @@ int ti_api_init(void)
     api__settings.on_header_value = api__header_value_cb;
     api__settings.on_message_complete = api__message_complete_cb;
     api__settings.on_body = api__body_cb;
-    api__settings.on_chunk_header = api__chunk_header_cb;
-    api__settings.on_chunk_complete = api__chunk_complete_cb;
     api__settings.on_headers_complete = api__headers_complete_cb;
 
     if (

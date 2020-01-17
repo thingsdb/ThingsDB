@@ -37,37 +37,33 @@ class TestGC(TestBase):
             .other = {};
 
             // test nested things
-            //tmp = {
-            //    other: .other,
-            //    a: {
-            //        other: .other
-            //    }
-            //};
-            //tmp.a.me = tmp.a;
-            //tmp.me = tmp;
+            tmp = {
+                other: .other,
+                a: {
+                    other: .other
+                }
+            };
+            tmp.a.me = tmp.a;
+            tmp.me = tmp;
 
             // test cross-refferences in block scopes
             {
                 arr = [{other: .other}, {other: .other}];
-
                 arr[0].t1 = arr[1];
                 arr[1].t0 = arr[0];
             };
 
             // test as closure arguments
-            //fun = |x| {
-            //    x.me = x;
-            //    nil;
-            //};
-            //fun.call({other: .other});
+            fun = |x| {
+                x.me = x;
+                nil;
+            };
+            fun.call({other: .other});
 
             id = .other.id();
             .del('other');
             id;
         ''', scope=stuff)
-
-        # num = await client.query(f'refs(#{other_id});', scope=stuff)
-        # print('\n\nNUM: ', num)
 
         with self.assertRaisesRegex(
                 LookupError,

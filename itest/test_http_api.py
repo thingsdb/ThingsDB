@@ -21,7 +21,7 @@ from thingsdb.exceptions import OperationError
 
 class TestHTTPAPI(TestBase):
 
-    title = 'Test simple run'
+    title = 'Test HTTP API'
 
     @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):

@@ -617,7 +617,7 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, procedure->created_at);
 
-    mp_pack_strn(&pk, TI_KIND_S_CLOSURE, 1);
+    mp_pack_str(&pk, "closure");
     if (ti_closure_to_pk(procedure->closure, &pk))
         goto fail_pack;
 

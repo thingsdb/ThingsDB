@@ -5,7 +5,6 @@ RUN apt-get update && \
         libuv1-dev \
         libpcre2-dev \
         libyajl-dev \
-        uuid-dev \
         build-essential
 RUN git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \

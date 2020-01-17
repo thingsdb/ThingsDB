@@ -26,17 +26,6 @@
 - [ ] Big number support?
 - [ ] support for things with any "raw" keys?
 
-## Installation msgpack
-
-```
-git clone https://github.com/msgpack/msgpack-c.git
-cd msgpack-c
-cmake .
-make
-make test
-sudo make install
-```
-
 ## Get status
 
 ```
@@ -51,12 +40,18 @@ wget -q -O - http://node.local:8080/status
 
 https://fonts.adobe.com/fonts/keraleeyam
 
-
-
-## Install yajl, libuv from apt:
+## Install pcre2, yajl, libuv from apt:
 ```
-sudo apt install libuv1-dev
-sudo apt install libyajl-dev
+sudo apt install -y libpcre2-dev libyajl-dev libuv1-dev
+```
+
+## Install libcleri
+```
+git clone https://github.com/transceptor-technology/libcleri.git
+cd Release
+make clean
+make
+sudo make install
 ```
 
 ## Run integration tests

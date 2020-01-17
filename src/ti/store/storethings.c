@@ -31,8 +31,11 @@ int ti_store_things_store(imap_t * things, const char * fn)
         goto fail;
     }
 
-    if (msgpack_pack_map(&pk, things_vec->n))
-        goto fail;
+    if (
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "things") ||
+        msgpack_pack_map(&pk, things_vec->n)
+    ) goto fail;
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
@@ -72,8 +75,11 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (msgpack_pack_map(&pk, things_vec->n))
-        goto fail;
+    if (
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "data") ||
+        msgpack_pack_map(&pk, things_vec->n)
+    ) goto fail;
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {
@@ -123,7 +129,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     size_t i;
     uint16_t type_id;
     ssize_t n;
-    mp_obj_t obj, mp_thing_id, mp_type_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id;
     mp_unp_t up;
     ti_type_t * type;
     uchar * data = fx_read(fn, &n);
@@ -131,8 +137,12 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         return -1;
 
     mp_unp_init(&up, data, (size_t) n);
-    if (mp_next(&up, &obj) != MP_MAP)
-        goto fail;
+
+    if (
+        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(&up, &mp_ver) != MP_STR ||
+        mp_next(&up, &obj) != MP_MAP
+    ) goto fail;
 
     for (i = obj.via.sz; i--;)
     {
@@ -178,7 +188,7 @@ int ti_store_things_restore_data(
     ti_name_t * name;
     ti_type_t * type;
     ti_val_t * val;
-    mp_obj_t obj, mp_thing_id, mp_name_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_name_id;
     mp_unp_t up;
     size_t i, ii;
     ti_vup_t vup = {
@@ -193,8 +203,11 @@ int ti_store_things_restore_data(
 
     mp_unp_init(&up, fmap.data, fmap.n);
 
-    if (mp_next(&up, &obj) != MP_MAP)
-        goto fail1;
+    if (
+        mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(&up, &mp_ver) != MP_STR ||
+        mp_next(&up, &obj) != MP_MAP
+    ) goto fail1;
 
     for (i = obj.via.sz; i--;)
     {

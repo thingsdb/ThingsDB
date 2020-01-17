@@ -28,22 +28,25 @@ class TestDocUrl(TestBase):
 
         lines = iter(lines)
         url = self.get_url(lines)
-        self.test_url(lines, url)
+        await self.test_url(lines, url)
 
     @staticmethod
     def get_url(lines):
         return 'https://docs.thingsdb.net/v0/'
 
     @staticmethod
-    def test_url(lines, url):
+    async def test_url(lines, url):
+        loop = asyncio.get_event_loop()
         for line in lines:
             m = RE_DOC.match(line)
             if m:
                 testurl = f'{url}{m.group(1)}'
                 logging.info(f'testing `{testurl}`...')
                 try:
-                    with urllib.request.urlopen(testurl) as response:
-                        html = response.read()
+                    future = loop.run_in_executor(None, urllib.request.urlopen, testurl)
+                    response = await future
+                    html = response.read()
+
                 except urllib.error.HTTPError as e:
                     raise ValueError(f'`{e}` happens with `{testurl}`')
 

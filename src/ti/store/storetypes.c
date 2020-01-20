@@ -168,9 +168,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     for (i = types->imap->n; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
-            mp_skip(&up) != MP_STR ||
+            mp_skip(&up) != MP_U64 ||  /* created */
+            mp_skip(&up) != MP_U64 ||  /* modified */
+            mp_skip(&up) != MP_STR ||  /* name */
             mp_next(&up, &obj) != MP_MAP
         ) goto fail1;
 

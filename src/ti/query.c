@@ -371,7 +371,7 @@ static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query)
         while((v = vec_pop(thing->items)))
         {
             ti_query_val_gc(v, query);
-            ti_val_destroy(v);
+            ti_val_drop(v);
         }
         /* convert to a simple object since the thing is not
          * type compliant anymore */

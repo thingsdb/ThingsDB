@@ -7,13 +7,12 @@ static int do__f_has_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * uname;
 
     if (fn_not_thingsdb_scope("has_user", query, e) ||
-        fn_nargs("has_user", DOC_HAS_USER, 1, nargs, e) ||
         ti_access_check_err(
                         ti()->access_thingsdb,
                         query->user, TI_AUTH_GRANT, e) ||
+        fn_nargs("has_user", DOC_HAS_USER, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
-
 
     if (!ti_val_is_str(query->rval))
     {

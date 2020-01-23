@@ -6,7 +6,6 @@ static int do__f_has_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool has_token;
     ti_raw_t * rkey;
 
-
     if (fn_not_thingsdb_scope("has_token", query, e) ||
         ti_access_check_err(
             ti()->access_thingsdb,

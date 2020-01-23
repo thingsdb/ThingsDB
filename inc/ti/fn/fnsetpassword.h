@@ -24,8 +24,14 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     uname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
+
     if (!user)
         return ti_raw_err_not_found(uname, "user", e);
+
+    if (user != query->user && ti_access_check_err(
+            ti()->access_thingsdb,
+            query->user, TI_AUTH_GRANT, e))
+        return e->nr;
 
     ti_val_drop(query->rval);
     query->rval = NULL;

@@ -8,6 +8,9 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rname;
 
     if (fn_not_thingsdb_scope("rename_user", query, e) ||
+        ti_access_check_err(
+                    ti()->access_thingsdb,
+                    query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("rename_user", DOC_RENAME_USER, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;

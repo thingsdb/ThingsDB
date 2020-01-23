@@ -13,9 +13,9 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
 
     if (fn_not_node_scope("new_backup", query, e) ||
-        fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 3, nargs, e) ||
         ti_access_check_err(ti()->access_node,
             query->user, TI_AUTH_MODIFY, e) ||
+        fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 3, nargs, e) ||
         ti_do_statement(query, child->node, e))
         return e->nr;
 

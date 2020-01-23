@@ -8,9 +8,6 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rkey;
 
     if (fn_not_thingsdb_scope("del_token", query, e) ||
-        ti_access_check_err(
-            ti()->access_thingsdb,
-            query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("del_token", DOC_DEL_TOKEN, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
@@ -35,7 +32,9 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    token = ti_users_pop_token_by_key((ti_token_key_t *) rkey->data);
+    token = ti_access_check(ti()->access_thingsdb, query->user, TI_AUTH_GRANT)
+            ? ti_users_pop_token_by_key((ti_token_key_t *) rkey->data)
+            : ti_user_pop_token_by_key(query->user, (ti_token_key_t *) rkey->data);
     if (!token)
         return ti_raw_err_not_found(rkey, "token", e);
 

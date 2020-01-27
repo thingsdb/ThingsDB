@@ -423,8 +423,9 @@ static void qbind__function(ti_qbind_t * q, cleri_node_t * nd, int flags)
 
     q->flags |= (
             fnname->data &&
-            ((~fmap->q_flags&FN__FLAG_ON_VAR) || (~flags&FN__FLAG_ON_VAR)) &&
-            (q->flags & fmap->e_flags)) << TI_QBIND_BIT_EVENT;
+            (q->flags & fmap->e_flags) &&
+            ((~fmap->q_flags & FN__FLAG_ON_VAR) || (~flags & FN__FLAG_ON_VAR))
+    ) << TI_QBIND_BIT_EVENT;
 
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;

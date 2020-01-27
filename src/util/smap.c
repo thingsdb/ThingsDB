@@ -98,10 +98,7 @@ int smap_add(smap_t * smap, const char * key, void * data)
     if (*nd)
     {
         rc = smap__add(*nd, key, data);
-        if (rc == 0)
-        {
-            smap->n++;
-        }
+        smap->n += rc == 0;
     }
     else
     {

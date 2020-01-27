@@ -133,591 +133,235 @@
 #include <ti/fn/fnwse.h>
 #include <ti/qbind.h>
 
-
-#define SYNTAX__X(__ev, __q, __nd, __str, __fn)                             \
-do if (!memcmp(__nd->str, __str, __nd->len))                                \
-{                                                                           \
-    __nd->data = &__fn;                                                     \
-    __ev(__q);                                                              \
-    return;                                                                 \
-} while(0)
-
-/* set 'c'ollection event, used for collection scope */
-#define qbind__cev_fn(__q, __nd, __str, __fn) \
-        SYNTAX__X(qbind__set_collection_event, __q, __nd, __str, __fn)
-
-/* 'n'o event, used for collection scope */
-#define qbind__nev_fn(__q, __nd, __str, __fn) \
-        SYNTAX__X((void), __q, __nd, __str, __fn)
-
-#define qbind__vev_fn(__q, __nd, __str, __fn, __flags) \
-    do { \
-        if (__flags & FN__ON_VAR) { \
-            SYNTAX__X((void), __q, __nd, __str, __fn); \
-        } else { \
-            SYNTAX__X(qbind__set_collection_event, __q, __nd, __str, __fn); \
-        } \
-    } while(0)
-
-/* set 't'hingsdb event, used for thingsdb scope */
-#define qbind__tev_fn(__q, __nd, __str, __fn) \
-        SYNTAX__X(qbind__set_thingsdb_event, __q, __nd, __str, __fn)
-/* 'z'ero (no) event, used for node and thingsdb scope */
-#define qbind__zev_fn(__q, __nd, __str, __fn) \
-        SYNTAX__X((void), __q, __nd, __str, __fn)
-
-/* set 'b'oth thingsdb and collection event */
-#define qbind__bev_fn(__q, __nd, __str, __fn) \
-        SYNTAX__X(qbind__set_both_event, __q, __nd, __str, __fn)
-
-static inline void qbind__set_collection_event(ti_qbind_t * qbind)
-{
-    qbind->flags |= qbind->flags & TI_QBIND_FLAG_COLLECTION
-            ? TI_QBIND_FLAG_EVENT : 0;
-}
-
-static inline void qbind__set_thingsdb_event(ti_qbind_t * qbind)
-{
-    qbind->flags |= qbind->flags & TI_QBIND_FLAG_THINGSDB
-            ? TI_QBIND_FLAG_EVENT : 0;
-}
-
-static inline void qbind__set_both_event(ti_qbind_t * qbind)
-{
-    qbind->flags |= qbind->flags & (
-                TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION
-            ) ? TI_QBIND_FLAG_EVENT : 0;
-}
+#define qbind__set_collection_event(__f) \
+    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_EVENT
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
-enum
+#define qbind__flag_conv(__flag) \
+    ((((__flag) & TI_QBIND_FLAG_ON_VAR) && 1)<<FN__BIT_ON_VAR)
+
+typedef enum
 {
-    FN__CHAIN   = 1<<0,
-    FN__ON_VAR  = TI_QBIND_FLAG_ON_VAR,
+    FN__BIT_CHAIN,
+    FN__BIT_ON_VAR,
+} qbind__fn_bit_t;
+
+typedef enum
+{
+    FN__FLAG_CHAIN   = 1<<FN__BIT_CHAIN,
+    FN__FLAG_ON_VAR  = 1<<FN__BIT_ON_VAR,
+} qbind__fn_flag_t;
+
+typedef struct
+{
+    char name[18];
+    fn_cb fn;
+    int e_flags;
+    qbind__fn_flag_t q_flags;
+    size_t n;
+} qbind__fn_t;
+
+#define ROOT_NE \
+        .e_flags=0, .q_flags=0
+#define ROOT_BE \
+        .e_flags=TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION, .q_flags=0
+#define ROOT_CE \
+        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=0
+#define ROOT_TE \
+        .e_flags=TI_QBIND_FLAG_THINGSDB, .q_flags=0
+#define CHAIN_NE \
+        .e_flags=0, .q_flags=FN__FLAG_CHAIN
+#define CHAIN_CE \
+        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=FN__FLAG_CHAIN
+#define CHAIN_NE_VAR \
+        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=FN__FLAG_CHAIN|FN__FLAG_ON_VAR
+
+#define QBIND__NUM_FN 136
+
+qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
+    {.name="add",               .fn=do__f_add,                  CHAIN_NE_VAR},
+    {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
+    {.name="assert",            .fn=do__f_assert,               ROOT_NE},
+    {.name="auth_err",          .fn=do__f_auth_err,             ROOT_NE},
+    {.name="backup_info",       .fn=do__f_backup_info,          ROOT_NE},
+    {.name="backups_info",      .fn=do__f_backups_info,         ROOT_NE},
+    {.name="bad_data_err",      .fn=do__f_bad_data_err,         ROOT_NE},
+    {.name="base64_decode",     .fn=do__f_base64_decode,        ROOT_NE},
+    {.name="base64_encode",     .fn=do__f_base64_encode,        ROOT_NE},
+    {.name="bool",              .fn=do__f_bool,                 ROOT_NE},
+    {.name="bytes",             .fn=do__f_bytes,                ROOT_NE},
+    {.name="call",              .fn=do__f_call,                 CHAIN_NE},
+    {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
+    {.name="code",              .fn=do__f_code,                 CHAIN_NE},
+    {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
+    {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},
+    {.name="contains",          .fn=do__f_contains,             CHAIN_NE},
+    {.name="counters",          .fn=do__f_counters,             ROOT_NE},
+    {.name="deep",              .fn=do__f_deep,                 ROOT_NE},
+    {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
+    {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
+    {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},
+    {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
+    {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
+    {.name="del_token",         .fn=do__f_del_token,            ROOT_TE},
+    {.name="del_type",          .fn=do__f_del_type,             ROOT_CE},
+    {.name="del_user",          .fn=do__f_del_user,             ROOT_TE},
+    {.name="del",               .fn=do__f_del,                  CHAIN_CE},
+    {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
+    {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
+    {.name="err",               .fn=do__f_err,                  ROOT_NE},
+    {.name="extend",            .fn=do__f_extend,               CHAIN_NE_VAR},
+    {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
+    {.name="find",              .fn=do__f_find,                 CHAIN_NE},
+    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},
+    {.name="float",             .fn=do__f_float,                ROOT_NE},
+    {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
+    {.name="get",               .fn=do__f_get,                  CHAIN_NE},
+    {.name="grant",             .fn=do__f_grant,                ROOT_TE},
+    {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
+    {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
+    {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
+    {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
+    {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
+    {.name="has_type",          .fn=do__f_has_type,             ROOT_NE},
+    {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
+    {.name="has",               .fn=do__f_has,                  CHAIN_NE},
+    {.name="id",                .fn=do__f_id,                   CHAIN_NE},
+    {.name="if",                .fn=do__f_if,                   ROOT_NE},
+    {.name="indexof",           .fn=do__f_indexof,              CHAIN_NE},
+    {.name="int",               .fn=do__f_int,                  ROOT_NE},
+    {.name="isarray",           .fn=do__f_isarray,              ROOT_NE},
+    {.name="isascii",           .fn=do__f_isascii,              ROOT_NE},
+    {.name="isbool",            .fn=do__f_isbool,               ROOT_NE},
+    {.name="isbytes",           .fn=do__f_isbytes,              ROOT_NE},
+    {.name="iserr",             .fn=do__f_iserr,                ROOT_NE},
+    {.name="isfloat",           .fn=do__f_isfloat,              ROOT_NE},
+    {.name="isinf",             .fn=do__f_isinf,                ROOT_NE},
+    {.name="isint",             .fn=do__f_isint,                ROOT_NE},
+    {.name="islist",            .fn=do__f_islist,               ROOT_NE},
+    {.name="isnan",             .fn=do__f_isnan,                ROOT_NE},
+    {.name="isnil",             .fn=do__f_isnil,                ROOT_NE},
+    {.name="israw",             .fn=do__f_israw,                ROOT_NE},
+    {.name="isset",             .fn=do__f_isset,                ROOT_NE},
+    {.name="isstr",             .fn=do__f_isstr,                ROOT_NE},
+    {.name="isthing",           .fn=do__f_isthing,              ROOT_NE},
+    {.name="istuple",           .fn=do__f_istuple,              ROOT_NE},
+    {.name="isutf8",            .fn=do__f_isutf8,               ROOT_NE},
+    {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
+    {.name="len",               .fn=do__f_len,                  CHAIN_NE},
+    {.name="list",              .fn=do__f_list,                 ROOT_NE},
+    {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
+    {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
+    {.name="map",               .fn=do__f_map,                  CHAIN_NE},
+    {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
+    {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
+    {.name="msg",               .fn=do__f_msg,                  CHAIN_NE},
+    {.name="new_backup",        .fn=do__f_new_backup,           ROOT_NE},
+    {.name="new_collection",    .fn=do__f_new_collection,       ROOT_TE},
+    {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
+    {.name="new_procedure",     .fn=do__f_new_procedure,        ROOT_BE},
+    {.name="new_token",         .fn=do__f_new_token,            ROOT_TE},
+    {.name="new_type",          .fn=do__f_new_type,             ROOT_CE},
+    {.name="new_user",          .fn=do__f_new_user,             ROOT_TE},
+    {.name="new",               .fn=do__f_new,                  ROOT_NE},
+    {.name="node_err",          .fn=do__f_node_err,             ROOT_NE},
+    {.name="node_info",         .fn=do__f_node_info,            ROOT_NE},
+    {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
+    {.name="now",               .fn=do__f_now,                  ROOT_NE},
+    {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
+    {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
+    {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
+    {.name="pop",               .fn=do__f_pop,                  CHAIN_NE_VAR},
+    {.name="procedure_doc",     .fn=do__f_procedure_doc,        ROOT_NE},
+    {.name="procedure_info",    .fn=do__f_procedure_info,       ROOT_NE},
+    {.name="procedures_info",   .fn=do__f_procedures_info,      ROOT_NE},
+    {.name="push",              .fn=do__f_push,                 CHAIN_NE_VAR},
+    {.name="raise",             .fn=do__f_raise,                ROOT_NE},
+    {.name="rand",              .fn=do__f_rand,                 ROOT_NE},
+    {.name="randint",           .fn=do__f_randint,              ROOT_NE},
+    {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
+    {.name="remove",            .fn=do__f_remove,               CHAIN_NE_VAR},
+    {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
+    {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
+    {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
+    {.name="return",            .fn=do__f_return,               ROOT_NE},
+    {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
+    {.name="run",               .fn=do__f_run,                  ROOT_NE},
+    {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
+    {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
+    {.name="set",               .fn=do__f_set_property,         CHAIN_CE},
+    {.name="set",               .fn=do__f_set_new_type,         ROOT_NE},
+    {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
+    {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
+    {.name="splice",            .fn=do__f_splice,               CHAIN_NE_VAR},
+    {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},
+    {.name="str",               .fn=do__f_str,                  ROOT_NE},
+    {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
+    {.name="test",              .fn=do__f_test,                 CHAIN_NE},
+    {.name="thing",             .fn=do__f_thing,                ROOT_NE},
+    {.name="try",               .fn=do__f_try,                  ROOT_NE},
+    {.name="type_count",        .fn=do__f_type_count,           ROOT_NE},
+    {.name="type_err",          .fn=do__f_type_err,             ROOT_NE},
+    {.name="type_info",         .fn=do__f_type_info,            ROOT_NE},
+    {.name="type",              .fn=do__f_type,                 ROOT_NE},
+    {.name="types_info",        .fn=do__f_types_info,           ROOT_NE},
+    {.name="unwrap",            .fn=do__f_unwrap,               CHAIN_NE},
+    {.name="upper",             .fn=do__f_upper,                CHAIN_NE},
+    {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
+    {.name="users_info",        .fn=do__f_users_info,           ROOT_NE},
+    {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
+    {.name="values",            .fn=do__f_values,               CHAIN_NE},
+    {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},
+    {.name="wse",               .fn=do__f_wse,                  ROOT_BE},
+    {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
 };
 
-static void qbind__map_root_fn(ti_qbind_t * q, cleri_node_t * nd)
-{
-    /* a function name has at least size 1 */
-    switch ((ti_alpha_lower_t) *nd->str)
-    {
-    case 'a':
-        switch (nd->len)
-        {
-        case 6:
-            qbind__nev_fn(q, nd, "assert", do__f_assert);
-            break;
-        case 8:
-            qbind__nev_fn(q, nd, "auth_err", do__f_auth_err);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "assert_err", do__f_assert_err);
-            break;
-        }
-        break;
-    case 'b':
-        switch (nd->len)
-        {
-        case 4:
-            qbind__nev_fn(q, nd, "bool", do__f_bool);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "bytes", do__f_bytes);
-            break;
-        case 11:
-            qbind__zev_fn(q, nd, "backup_info", do__f_backup_info);
-            break;
-        case 12:
-            qbind__zev_fn(q, nd, "backups_info", do__f_backups_info);
-            qbind__nev_fn(q, nd, "bad_data_err", do__f_bad_data_err);
-            break;
-        case 13:
-            qbind__nev_fn(q, nd, "base64_decode", do__f_base64_decode);
-            qbind__nev_fn(q, nd, "base64_encode", do__f_base64_encode);
-            break;
-        }
-        break;
-    case 'c':
-        switch (nd->len)
-        {
-        case 8:
-            qbind__zev_fn(q, nd, "counters", do__f_counters);
-            break;
-        case 15:
-            qbind__zev_fn(q, nd, "collection_info", do__f_collection_info);
-            break;
-        case 16:
-            qbind__zev_fn(q, nd, "collections_info", do__f_collections_info);
-            break;
-        }
-        break;
-    case 'd':
-        switch (nd->len)
-        {
-        case 4:
-            qbind__nev_fn(q, nd, "deep", do__f_deep);
-            break;
-        case 8:
-            qbind__cev_fn(q, nd, "del_type", do__f_del_type);
-            qbind__tev_fn(q, nd, "del_user", do__f_del_user);
-            qbind__tev_fn(q, nd, "del_node", do__f_del_node);
-            break;
-        case 9:
-            qbind__tev_fn(q, nd, "del_token", do__f_del_token);
-            break;
-        case 10:
-            qbind__zev_fn(q, nd, "del_backup", do__f_del_backup);
-            break;
-        case 11:
-            qbind__tev_fn(q, nd, "del_expired", do__f_del_expired);
-            break;
-        case 13:
-            qbind__bev_fn(q, nd, "del_procedure", do__f_del_procedure);
-            break;
-        case 14:
-            qbind__tev_fn(q, nd, "del_collection", do__f_del_collection);
-            break;
-        }
-        break;
-    case 'e':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "err", do__f_err);
-            break;
-        }
-        break;
-    case 'f':
-        switch (nd->len)
-        {
-        case 5:
-            qbind__nev_fn(q, nd, "float", do__f_float);
-            break;
-        case 13:
-            qbind__nev_fn(q, nd, "forbidden_err", do__f_forbidden_err);
-            break;
-        }
-        break;
-    case 'g':
-        if (nd->len == 5)
-            qbind__tev_fn(q, nd, "grant", do__f_grant);
-        break;
-    case 'h':
-        switch (nd->len)
-        {
-        case 8:
-            qbind__nev_fn(q, nd, "has_node", do__f_has_node);
-            qbind__nev_fn(q, nd, "has_type", do__f_has_type);
-            qbind__nev_fn(q, nd, "has_user", do__f_has_user);
-            break;
-        case 9:
-            qbind__nev_fn(q, nd, "has_token", do__f_has_token);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "has_backup", do__f_has_backup);
-            break;
-        case 13:
-            qbind__nev_fn(q, nd, "has_procedure", do__f_has_procedure);
-            break;
-        case 14:
-            qbind__nev_fn(q, nd, "has_collection", do__f_has_collection);
-            break;
-        }
-        break;
-    case 'i':
-        switch (nd->len)
-        {
-        case 2:
-            qbind__nev_fn(q, nd, "if", do__f_if);
-            break;
-        case 3:
-            qbind__nev_fn(q, nd, "int", do__f_int);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "iserr", do__f_iserr);
-            qbind__nev_fn(q, nd, "isinf", do__f_isinf);
-            qbind__nev_fn(q, nd, "isint", do__f_isint);
-            qbind__nev_fn(q, nd, "isnan", do__f_isnan);
-            qbind__nev_fn(q, nd, "isnil", do__f_isnil);
-            qbind__nev_fn(q, nd, "israw", do__f_israw);
-            qbind__nev_fn(q, nd, "isset", do__f_isset);
-            qbind__nev_fn(q, nd, "isstr", do__f_isstr);
-            break;
-        case 6:
-            qbind__nev_fn(q, nd, "isbool", do__f_isbool);
-            qbind__nev_fn(q, nd, "islist", do__f_islist);
-            qbind__nev_fn(q, nd, "isutf8", do__f_isutf8);
-            break;
-        case 7:
-            qbind__nev_fn(q, nd, "isarray", do__f_isarray);
-            qbind__nev_fn(q, nd, "isascii", do__f_isascii);
-            qbind__nev_fn(q, nd, "isbytes", do__f_isbytes);
-            qbind__nev_fn(q, nd, "isfloat", do__f_isfloat);
-            qbind__nev_fn(q, nd, "isthing", do__f_isthing);
-            qbind__nev_fn(q, nd, "istuple", do__f_istuple);
-        }
-        break;
-    case 'j':
-        break;
-    case 'k':
-        break;
-    case 'l':
-        switch (nd->len)
-        {
-        case 4:
-            qbind__nev_fn(q, nd, "list", do__f_list);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "lookup_err", do__f_lookup_err);
-            break;
-        }
-        break;
-    case 'm':
-        switch (nd->len)
-        {
-        case 8:
-            qbind__cev_fn(q, nd, "mod_type", do__f_mod_type);
-            break;
-        case 13:
-            qbind__nev_fn(q, nd, "max_quota_err", do__f_max_quota_err);
-            break;
-        }
-        break;
-    case 'n':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "new", do__f_new);  /* most frequent used */
-            qbind__nev_fn(q, nd, "now", do__f_now);
-            break;
-        case 8:
-            qbind__cev_fn(q, nd, "new_type", do__f_new_type);
-            qbind__nev_fn(q, nd, "node_err", do__f_node_err);
-            qbind__tev_fn(q, nd, "new_node", do__f_new_node);
-            qbind__tev_fn(q, nd, "new_user", do__f_new_user);
-            break;
-        case 9:
-            qbind__zev_fn(q, nd, "node_info", do__f_node_info);
-            qbind__tev_fn(q, nd, "new_token", do__f_new_token);
-            break;
-        case 10:
-            qbind__zev_fn(q, nd, "nodes_info", do__f_nodes_info);
-            qbind__zev_fn(q, nd, "new_backup", do__f_new_backup);
-            break;
-        case 13:
-            qbind__bev_fn(q, nd, "new_procedure", do__f_new_procedure);
-            break;
-        case 14:
-            qbind__tev_fn(q, nd, "new_collection", do__f_new_collection);
-            break;
-        case 17:
-            qbind__nev_fn(q, nd, "num_arguments_err", do__f_num_arguments_err);
-            break;
-        }
-        break;
-    case 'o':
-        switch (nd->len)
-        {
-        case 12:
-            qbind__nev_fn(q, nd, "overflow_err", do__f_overflow_err);
-            break;
-        case 13:
-            qbind__nev_fn(q, nd, "operation_err", do__f_operation_err);
-            break;
-        }
-        break;
-    case 'p':
-        switch (nd->len)
-        {
-        case 13:
-            qbind__nev_fn(q, nd, "procedure_doc", do__f_procedure_doc);
-            break;
-        case 14:
-            qbind__nev_fn(q, nd, "procedure_info", do__f_procedure_info);
-            break;
-        case 15:
-            qbind__nev_fn(q, nd, "procedures_info", do__f_procedures_info);
-            break;
-        }
-        break;
-    case 'q':
-        break;
-    case 'r':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "run", do__f_run);
-            break;
-        case 4:
-            qbind__nev_fn(q, nd, "rand", do__f_rand);
-            qbind__nev_fn(q, nd, "refs", do__f_refs);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "raise", do__f_raise);
-            break;
-        case 6:
-            qbind__nev_fn(q, nd, "return", do__f_return);
-            qbind__tev_fn(q, nd, "revoke", do__f_revoke);
-            break;
-        case 7:
-            qbind__nev_fn(q, nd, "randint", do__f_randint);
-            break;
-        case 11:
-            qbind__tev_fn(q, nd, "rename_user", do__f_rename_user);
-            break;
-        case 14:
-            qbind__zev_fn(q, nd, "reset_counters", do__f_reset_counters);
-            break;
-        case 17:
-            qbind__tev_fn(q, nd, "rename_collection", do__f_rename_collection);
-            break;
-        }
-        break;
-    case 's':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "set", do__f_set);
-            qbind__nev_fn(q, nd, "str", do__f_str);
-            break;
-        case 8:
-            qbind__cev_fn(q, nd, "set_type", do__f_set_type);
-            qbind__zev_fn(q, nd, "shutdown", do__f_shutdown);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "syntax_err", do__f_syntax_err);
-            break;
-        case 12:
-            qbind__tev_fn(q, nd, "set_password", do__f_set_password);
-            break;
-        case 13:
-            qbind__zev_fn(q, nd, "set_log_level", do__f_set_log_level);
-            break;
-        }
-        break;
-    case 't':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "try", do__f_try);
-            break;
-        case 4:
-            qbind__nev_fn(q, nd, "type", do__f_type);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "thing", do__f_thing);  /* most frequent used */
-            break;
-        case 8:
-            qbind__nev_fn(q, nd, "type_err", do__f_type_err);
-            break;
-        case 9:
-            qbind__nev_fn(q, nd, "type_info", do__f_type_info);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "types_info", do__f_types_info);
-            qbind__nev_fn(q, nd, "type_count", do__f_type_count);
-            break;
-        }
-        break;
-    case 'u':
-        switch (nd->len)
-        {
-        case 9:
-            qbind__zev_fn(q, nd, "user_info", do__f_user_info);
-            break;
-        case 10:
-            qbind__zev_fn(q, nd, "users_info", do__f_users_info);
-            break;
-        }
-        break;
-    case 'v':
-        if (nd->len == 9)
-            qbind__nev_fn(q, nd, "value_err", do__f_value_err);
-        break;
-    case 'w':
-        if (nd->len == 3)
-            qbind__bev_fn(q, nd, "wse", do__f_wse);
-        break;
-    case 'x':
-        break;
-    case 'y':
-        break;
-    case 'z':
-        if (nd->len == 12)
-            qbind__nev_fn(q, nd, "zero_div_err", do__f_zero_div_err);
-        break;
-    }
+static imap_t * qbind__imap;
 
-    nd->data = NULL;  /* unknown function */
+/*
+ * Hash function for the function bindings. This function is called at runtime
+ * with user input but a length of at least one is still guaranteed.
+ * If new functions are added, starting ThingsDB might fail if the computed
+ * hash is no longer unique for each function. In this case it is save to make
+ * some changes. If they compile unique, the function is good. Attempts should
+ * be made to generate "low" key values since this will speed-up later lookups.
+ */
+static inline uint32_t qbind__fn_key(const char * s, const size_t n, int flags)
+{
+    uint16_t m = 0;
+    size_t nn = n & 0b1111;
+    for (; nn--; ++s)
+        m += (*s & 0x1f) << (nn & 0x7);
+    return ((m & 0x03ff) << 3) | ((n >> 1) ^ (flags & FN__FLAG_CHAIN));
 }
 
-static void qbind__map_chained_fn(ti_qbind_t * q, cleri_node_t * nd, int flags)
+int ti_qbind_init(void)
 {
-    /* a function name has at least size 1 */
-    switch ((ti_alpha_lower_t) *nd->str)
-    {
-    case 'a':
-        if (nd->len == 3)
-            qbind__vev_fn(q, nd, "add", do__f_add, flags);
-        break;
-    case 'b':
-        break;
-    case 'c':
-        switch (nd->len)
-        {
-        case 4:
-            qbind__nev_fn(q, nd, "call", do__f_call);
-            qbind__nev_fn(q, nd, "code", do__f_code);
-            break;
-        case 6:
-            qbind__nev_fn(q, nd, "choice", do__f_choice);
-            break;
-        case 8:
-            qbind__nev_fn(q, nd, "contains", do__f_contains);
-            break;
-        }
-        break;
-    case 'd':
-        if (nd->len == 3)
-        {
-            qbind__cev_fn(q, nd, "del", do__f_del);  /* most frequent used */
-            qbind__nev_fn(q, nd, "doc", do__f_doc);
-        }
-        break;
-    case 'e':
-        switch (nd->len)
-        {
-        case 6:
-            qbind__vev_fn(q, nd, "extend", do__f_extend, flags);
-            break;
-        case 8:
-            qbind__nev_fn(q, nd, "endswith", do__f_endswith);
-            break;
-        }
-        break;
-    case 'f':
-        switch (nd->len)
-        {
-        case 4:
-            qbind__nev_fn(q, nd, "find", do__f_find);
-            break;
-        case 6:
-            qbind__nev_fn(q, nd, "filter", do__f_filter);
-            break;
-        case 9:
-            qbind__nev_fn(q, nd, "findindex", do__f_findindex);
-            break;
-        }
-        break;
-    case 'g':
-        if (nd->len == 3)
-            qbind__nev_fn(q, nd, "get", do__f_get);
-        break;
-    case 'h':
-        if (nd->len == 3)
-            qbind__nev_fn(q, nd, "has", do__f_has);
-        break;
-    case 'i':
-        switch (nd->len)
-        {
-        case 2:
-            qbind__nev_fn(q, nd, "id", do__f_id);
-            break;
-        case 7:
-            qbind__nev_fn(q, nd, "indexof", do__f_indexof);
-            break;
-        }
-        break;
-    case 'j':
-        break;
-    case 'k':
-        if (nd->len == 4)
-            qbind__nev_fn(q, nd, "keys", do__f_keys);
-        break;
-    case 'l':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__nev_fn(q, nd, "len", do__f_len);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "lower", do__f_lower);
-            break;
-        }
-        break;
-    case 'm':
-        qbind__nev_fn(q, nd, "map", do__f_map);  /* most frequent used */
-        qbind__nev_fn(q, nd, "msg", do__f_msg);
-        break;
-    case 'n':
-        break;
-    case 'o':
-        break;
-    case 'p':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__vev_fn(q, nd, "pop", do__f_pop, flags);
-            break;
-        case 4:
-            qbind__vev_fn(q, nd, "push", do__f_push, flags);
-            break;
-        }
-        break;
-    case 'q':
-        break;
-    case 'r':
-        if (nd->len == 6)
-            qbind__vev_fn(q, nd, "remove", do__f_remove, flags);
-        break;
-    case 's':
-        switch (nd->len)
-        {
-        case 3:
-            qbind__cev_fn(q, nd, "set", do__f_set);
-            break;
-        case 4:
-            qbind__nev_fn(q, nd, "sort", do__f_sort);
-            break;
-        case 6:
-            qbind__vev_fn(q, nd, "splice", do__f_splice, flags);
-            break;
-        case 10:
-            qbind__nev_fn(q, nd, "startswith", do__f_startswith);
-            break;
-        }
-        break;
-    case 't':
-        if (nd->len == 4)
-            qbind__nev_fn(q, nd, "test", do__f_test);
-        break;
-    case 'u':
-        switch (nd->len)
-        {
-        case 6:
-            qbind__nev_fn(q, nd, "unwrap", do__f_unwrap);
-            break;
-        case 5:
-            qbind__nev_fn(q, nd, "upper", do__f_upper);
-            break;
-        }
-        break;
-    case 'v':
-        if (nd->len == 6)
-            qbind__nev_fn(q, nd, "values", do__f_values);
-        break;
-    case 'w':
-        if (nd->len == 4)
-            qbind__nev_fn(q, nd, "wrap", do__f_wrap);
-        break;
-    case 'x':
-    case 'y':
-    case 'z':
-        break;
-    }
+    int rc = 0;
+    qbind__imap = imap_create();
+    if (!qbind__imap)
+        return -1;
 
-    nd->data = NULL;  /* unknown function */
+    for (size_t i = 0, n = QBIND__NUM_FN; i < n; ++i)
+    {
+        uint32_t key;
+        qbind__fn_t * fmap = &fn_mapping[i];
+
+        fmap->n = strlen(fmap->name);
+        key = qbind__fn_key(fmap->name, fmap->n, fmap->q_flags);
+        rc = imap_add(qbind__imap, key, fmap);
+        assert (rc == 0);  /* printf("k: %u, s: %s\n", key, fmap->name); */
+        if (rc)
+            return rc;
+    }
+    return 0;
+}
+
+void ti_qbind_destroy(void)
+{
+    imap_destroy(qbind__imap, NULL);
 }
 
 static _Bool qbind__operations(
@@ -763,16 +407,24 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
-static void qbind__function(ti_qbind_t * qbind, cleri_node_t * nd, int flags)
+static void qbind__function(ti_qbind_t * q, cleri_node_t * nd, int flags)
 {
     intptr_t nargs = 0;
     cleri_children_t * child;
+    cleri_node_t * fnname = nd->children->node;
 
-    /* map function to node */
-    if (flags & FN__CHAIN)
-        qbind__map_chained_fn(qbind, nd->children->node, flags);
-    else
-        qbind__map_root_fn(qbind, nd->children->node);
+    uint32_t key = qbind__fn_key(fnname->str, fnname->len, flags);
+    qbind__fn_t * fmap = imap_get(qbind__imap, key);
+
+    fnname->data = (
+            fmap &&
+            fmap->n == fnname->len &&
+            memcmp(fnname->str, fmap->name, fmap->n) == 0) ? fmap->fn : NULL;
+
+    q->flags |= (
+            fnname->data &&
+            ((~fmap->q_flags&FN__FLAG_ON_VAR) || (~flags&FN__FLAG_ON_VAR)) &&
+            (q->flags & fmap->e_flags)) << TI_QBIND_BIT_EVENT;
 
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;
@@ -782,7 +434,7 @@ static void qbind__function(ti_qbind_t * qbind, cleri_node_t * nd, int flags)
         child;
         child = child->next ? child->next->next : NULL, ++nargs)
     {
-        qbind__statement(qbind, child->node);  /* statement */
+        qbind__statement(q, child->node);  /* statement */
     }
 
     /* bind `nargs` to node->data */
@@ -801,8 +453,8 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 
         if (child->node->children->next->next->next)
         {
-            qbind__set_collection_event(qbind);
-            qbind__statement(qbind, child->node           /* sequence */
+            qbind__set_collection_event(qbind->flags);
+            qbind__statement(qbind, child->node             /* sequence */
                     ->children->next->next->next->node      /* assignment */
                     ->children->next->node);                /* statement */
         }
@@ -873,10 +525,10 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__function(
                     qbind,
                     nd,
-                    FN__CHAIN | (qbind->flags & TI_QBIND_FLAG_ON_VAR));
+                    FN__FLAG_CHAIN|qbind__flag_conv(qbind->flags));
             return;
         case CLERI_GID_ASSIGN:
-            qbind__set_collection_event(qbind);
+            qbind__set_collection_event(qbind->flags);
             qbind__statement(
                     qbind,
                     nd->children->next->node->children->next->node);
@@ -951,6 +603,7 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         for (; child; child = child->next ? child->next->next : NULL, ++sz)
             qbind__statement(qbind, child->node);  /* statement */
         nd->data = (void *) sz;
+        qbind->flags |= TI_QBIND_FLAG_ON_VAR;   /* enable var mode */
         return;
     }
     case CLERI_GID_BLOCK:

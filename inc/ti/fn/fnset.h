@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
@@ -49,7 +49,7 @@ static int do__set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_wprop_t wprop;
@@ -109,11 +109,4 @@ fail0:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
-}
-
-static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    return query->rval
-            ? do__set_property(query, nd, e)
-            : do__set_new_type(query, nd, e);
 }

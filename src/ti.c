@@ -15,6 +15,7 @@
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/proto.h>
+#include <ti/qbind.h>
 #include <ti/regex.h>
 #include <ti/signals.h>
 #include <ti/store.h>
@@ -66,6 +67,7 @@ int ti_create(void)
     ti_.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
             gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
+            ti_qbind_init() ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||
@@ -122,6 +124,7 @@ void ti_destroy(void)
     ti_collections_destroy();
     ti_users_destroy();
     ti_store_destroy();
+    ti_qbind_destroy();
     ti_val_drop((ti_val_t *) ti_.thing0);
 
     vec_destroy(ti_.access_node, (vec_destroy_cb) ti_auth_destroy);
@@ -455,7 +458,7 @@ finish:
         if (!rc)
             break;
         uv_walk(ti_.loop, ti__close_handles, NULL);
-        (void) uv_run(ti_.loop, UV_RUN_DEFAULT);
+        (void) uv_run(ti_.loop, UV_RUN_NOWAIT);
     }
     return rc;
 }

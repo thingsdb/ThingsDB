@@ -188,11 +188,12 @@ class TestType(TestBase):
             set_type('Foo', {
                 foo: 'Foo?',
             });
-            .tmp = Foo{};
-            .tmp.foo = Foo{
-                foo: .tmp,
-            };
-            .del('tmp');
+            .arr = [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10,11, 12, 13, 14, 15,
+                16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28
+            ].map(|| Foo{});
+            .arr.map(|foo, i| foo.foo = .arr[i-1]);
+            .del('arr');
         ''')
 
         await client.query(r'''

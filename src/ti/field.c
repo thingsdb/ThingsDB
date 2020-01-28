@@ -471,78 +471,69 @@ success:
     return 0;
 }
 
-typedef struct
+static void field__del_watch(
+        ti_thing_t * thing,
+        ti_data_t * data,
+        uint64_t event_id)
 {
-    ti_data_t * data;
-    uint64_t event_id;
-    uint32_t idx;
-    uint16_t type_id;
-} field__del_t;
-
-static int field__del(ti_thing_t * thing, field__del_t * deljob)
-{
-    if (thing->type_id != deljob->type_id)
-        return 0;
-
-    if (ti_thing_has_watchers(thing))
+    ti_rpkg_t * rpkg = ti_watch_rpkg(
+            thing->id,
+            event_id,
+            data->data,
+            data->n);
+    if (!rpkg)
     {
-        ti_rpkg_t * rpkg = ti_watch_rpkg(
-                thing->id,
-                deljob->event_id,
-                deljob->data->data,
-                deljob->data->n);
+        /*
+         * Only log and continue if updating a watcher has failed
+         */
+        ++ti()->counters->watcher_failed;
+        log_critical(EX_MEMORY_S);
+        return;
+    }
 
-        if (rpkg)
-        {
-            for (vec_each(thing->watchers, ti_watch_t, watch))
-            {
-                if (ti_stream_is_closed(watch->stream))
-                    continue;
+    for (vec_each(thing->watchers, ti_watch_t, watch))
+    {
+        if (ti_stream_is_closed(watch->stream))
+            continue;
 
-                if (ti_stream_write_rpkg(watch->stream, rpkg))
-                {
-                    ++ti()->counters->watcher_failed;
-                    log_error(EX_INTERNAL_S);
-                }
-            }
-            ti_rpkg_drop(rpkg);
-        }
-        else
+        if (ti_stream_write_rpkg(watch->stream, rpkg))
         {
-            /*
-             * Only log and continue if updating a watcher has failed
-             */
             ++ti()->counters->watcher_failed;
-            log_critical(EX_MEMORY_S);
+            log_error(EX_INTERNAL_S);
         }
     }
 
-    ti_val_drop(vec_swap_remove(thing->items, deljob->idx));
-
-    return 0;
+    ti_rpkg_drop(rpkg);
 }
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
-    int rc;
-    field__del_t deljob = {
-            .data = field__del_job(field->name->str, field->name->n),
-            .event_id = ev_id,
-            .idx = field->idx,
-            .type_id = field->type->type_id,
-    };
+    vec_t * vec = imap_vec_pop(field->type->types->collection->things);
+    uint16_t type_id = field->type->type_id;
+    ti_data_t * data = field__del_job(field->name->str, field->name->n);
 
-    if (!deljob.data)
-        return -1;
+    if (!data || !vec)
+        return -1;  /* might leak a few bytes */
 
-    rc = imap_walk(
-            field->type->types->collection->things,
-            (imap_cb) field__del,
-            &deljob);
+    for (vec_each(vec, ti_thing_t, thing))
+        ++thing->ref;
 
-    free(deljob.data);
+    for (vec_each(vec, ti_thing_t, thing))
+    {
+        if (thing->type_id == type_id)
+        {
+            if (ti_thing_has_watchers(thing))
+                field__del_watch(thing, data, ev_id);
+
+            ti_val_drop(vec_swap_remove(thing->items, field->idx));
+        }
+        ti_val_drop((ti_val_t *) thing);
+    }
+
+    free(data);
+    free(vec);
     ti_field_remove(field);
-    return rc;
+    return 0;
 }
 
 /* remove field from type and destroy; no update of things; */

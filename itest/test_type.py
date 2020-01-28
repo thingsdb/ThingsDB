@@ -182,6 +182,23 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
+    async def test_mod_del(self, client):
+        await client.query(r'''
+            new_type('Foo');
+            set_type('Foo', {
+                foo: 'Foo?',
+            });
+            .tmp = Foo{};
+            .tmp.foo = Foo{
+                foo: .tmp,
+            };
+            .del('tmp');
+        ''')
+
+        await client.query(r'''
+            mod_type('Foo', 'del', 'foo');
+        ''')
+
     async def test_type_specs(self, client):
         await client.query(r'''
             set_type('_str', {test: 'str'});

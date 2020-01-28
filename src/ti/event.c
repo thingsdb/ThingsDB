@@ -188,17 +188,6 @@ int ti_event_watch(ti_event_t * ev)
             goto fail_mp_data;
 
         thing = ti_collection_thing_by_id(collection, mp_id.via.u64);
-        if (!thing)
-        {
-            log_critical(
-                    "thing "TI_THING_ID" not found in collection `%.*s`, "
-                    "skip updating watchers with "TI_EVENT_ID,
-                    mp_id.via.u64,
-                    (int) collection->name->n,
-                    (const char *) collection->name->data,
-                    ev->id);
-            goto fail;
-        }
 
         /* keep the current position so we can update watchers */
         jobs_position = up.pt;
@@ -206,7 +195,12 @@ int ti_event_watch(ti_event_t * ev)
         if (mp_skip(&up) != MP_ARR)
             goto fail_mp_data;
 
-        if (ti_thing_has_watchers(thing))
+        /*
+         * The `thing` may be NULL here since it is possible the ID will be
+         * created by this event. In this case it is not possible that there
+         * are watchers so it can be skipped without problems.
+         */
+        if (thing && ti_thing_has_watchers(thing))
         {
             size_t n = up.pt - jobs_position;
             ti_rpkg_t * rpkg = ti_watch_rpkg(
@@ -241,11 +235,10 @@ int ti_event_watch(ti_event_t * ev)
 
 fail_mp_data:
     log_critical("msgpack event data incorrect for "TI_EVENT_ID, ev->id);
-fail:
     rc = -1;
+
 done:
     uv_mutex_unlock(collection->lock);
-
     return rc;
 }
 

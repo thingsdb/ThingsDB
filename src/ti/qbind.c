@@ -146,7 +146,9 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  * The following `enum` and `asso_values` are generated using `gperf` and
  * the utility `pcregrep` to generate the input.
  *
- *  pcregrep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 200
+ * Command:
+ *
+ *    pcregrep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 200
  */
 enum
 {
@@ -435,7 +437,7 @@ void ti_qbind_init(void)
 
         fmap->n = strlen(fmap->name);
         key = qbind__hash(fmap->name, fmap->n);
-        /* printf("key: %u, name: %s\n", key, fmap->name); */
+
         assert (qbind__map[key] == NULL);
         assert (key <= MAX_HASH_VALUE);
 

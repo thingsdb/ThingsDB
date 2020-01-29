@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__ne(ti_val_t * a, ti_val_t ** b, ex_t * e)
+static inline int opr__ne(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     _Bool bool_ = !ti_opr_eq(a, *b);
 

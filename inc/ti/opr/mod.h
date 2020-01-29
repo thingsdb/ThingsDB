@@ -3,150 +3,88 @@
 static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
+    ti_opr_perm_t perm = TI_OPR_PERM(a, *b);
 
-    switch ((ti_val_enum) a->tp)
+    switch (perm)
     {
-    case TI_VAL_NIL:
-        goto type_err;
-    case TI_VAL_INT:
-        switch ((ti_val_enum) (*b)->tp)
-        {
-        case TI_VAL_NIL:
-            goto type_err;
-        case TI_VAL_INT:
-            if (VINT(*b) == 0)
-                goto zerodiv;
-            int_ = VINT(a) % VINT(*b);
-            break;
-        case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(VFLOAT(*b)))
-                goto overflow;
-            int_ = (int64_t) VFLOAT(*b);
-            if (int_ == 0)
-                goto zerodiv;
-            int_ = VINT(a) % int_;
-            break;
-        case TI_VAL_BOOL:
-            if (VBOOL(*b) == 0)
-                goto zerodiv;
-            int_ = VINT(a) % VBOOL(*b);
-            break;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            goto type_err;
-        }
+    default:
+        ex_set(e, EX_TYPE_ERROR,
+                "`%` not supported between `%s` and `%s`",
+                ti_val_str(a), ti_val_str(*b));
+        return e->nr;
+
+    case OPR_INT_INT:
+        if (VINT(*b) == 0)
+            goto zerodiv;
+        int_ = VINT(a) % VINT(*b);
         break;
-    case TI_VAL_FLOAT:
-        switch ((ti_val_enum) (*b)->tp)
-        {
-        case TI_VAL_NIL:
-            goto type_err;
-        case TI_VAL_INT:
-            if (ti_val_overflow_cast(VFLOAT(a)))
-                goto overflow;
-            if (VINT(*b) == 0)
-                goto zerodiv;
-            int_ = (int64_t) VFLOAT(a) % VINT(*b);
-            break;
-        case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(VFLOAT(a)) ||
-                ti_val_overflow_cast(VFLOAT(*b)))
-                goto overflow;
-            int_ = (int64_t) VFLOAT(*b);
-            if (int_ == 0)
-                goto zerodiv;
-            int_ = (int64_t) VFLOAT(a) % int_;
-            break;
-        case TI_VAL_BOOL:
-            if (ti_val_overflow_cast(VFLOAT(a)))
-                goto overflow;
-            if (VBOOL(*b) == 0)
-                goto zerodiv;
-            int_ = (int64_t) VFLOAT(a) % VBOOL(*b);
-            break;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            goto type_err;
-        }
+
+    case OPR_INT_FLOAT:
+        if (ti_val_overflow_cast(VFLOAT(*b)))
+            goto overflow;
+        int_ = (int64_t) VFLOAT(*b);
+        if (int_ == 0)
+            goto zerodiv;
+        int_ = VINT(a) % int_;
         break;
-    case TI_VAL_BOOL:
-        switch ((ti_val_enum) (*b)->tp)
-        {
-        case TI_VAL_NIL:
-            goto type_err;
-        case TI_VAL_INT:
-            if (VINT(*b) == 0)
-                goto zerodiv;
-            int_ = VBOOL(a) % VINT(*b);
-            break;
-        case TI_VAL_FLOAT:
-            if (ti_val_overflow_cast(VFLOAT(*b)))
-                goto overflow;
-            int_ = (int64_t) VFLOAT(*b);
-            if (int_ == 0)
-                goto zerodiv;
-            int_ = VBOOL(a) % int_;
-            break;
-        case TI_VAL_BOOL:
-            if (VBOOL(*b) == 0)
-                goto zerodiv;
-            int_ = VBOOL(a) % VBOOL(*b);
-            break;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            goto type_err;
-        }
+
+    case OPR_INT_BOOL:
+        if (VBOOL(*b) == 0)
+            goto zerodiv;
+        int_ = VINT(a) % VBOOL(*b);
         break;
-    case TI_VAL_MP:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-        goto type_err;
+
+    case OPR_FLOAT_INT:
+        if (ti_val_overflow_cast(VFLOAT(a)))
+            goto overflow;
+        if (VINT(*b) == 0)
+            goto zerodiv;
+        int_ = (int64_t) VFLOAT(a) % VINT(*b);
+        break;
+
+    case OPR_FLOAT_FLOAT:
+        if (ti_val_overflow_cast(VFLOAT(a)) ||
+            ti_val_overflow_cast(VFLOAT(*b)))
+            goto overflow;
+        int_ = (int64_t) VFLOAT(*b);
+        if (int_ == 0)
+            goto zerodiv;
+        int_ = (int64_t) VFLOAT(a) % int_;
+        break;
+
+    case OPR_FLOAT_BOOL:
+        if (ti_val_overflow_cast(VFLOAT(a)))
+            goto overflow;
+        if (VBOOL(*b) == 0)
+            goto zerodiv;
+        int_ = (int64_t) VFLOAT(a) % VBOOL(*b);
+        break;
+
+    case OPR_BOOL_INT:
+        if (VINT(*b) == 0)
+            goto zerodiv;
+        int_ = VBOOL(a) % VINT(*b);
+        break;
+
+    case OPR_BOOL_FLOAT:
+        if (ti_val_overflow_cast(VFLOAT(*b)))
+            goto overflow;
+        int_ = (int64_t) VFLOAT(*b);
+        if (int_ == 0)
+            goto zerodiv;
+        int_ = VBOOL(a) % int_;
+        break;
+
+    case OPR_BOOL_BOOL:
+        if (VBOOL(*b) == 0)
+            goto zerodiv;
+        int_ = VBOOL(a) % VBOOL(*b);
+        break;
     }
 
     if (ti_val_make_int(b, int_))
         ex_set_mem(e);
-
-    return e->nr;
-
-type_err:
-    ex_set(e, EX_TYPE_ERROR, "`%` not supported between `%s` and `%s`",
-        ti_val_str(a), ti_val_str(*b));
-    return e->nr;
+    return e->nr;  /* success */
 
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");

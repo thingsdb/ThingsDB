@@ -47,6 +47,22 @@ decref:
     --type->refcount;
 }
 
+static int field__dep_check(ti_type_t * dep, ti_type_t * type)
+{
+    for (vec_each(dep->fields, ti_field_t, field))
+    {
+        if (field->spec == type->type_id)
+            return -1;
+
+        if (field->spec < TI_SPEC_ANY &&
+            field__dep_check(
+                ti_types_by_id(field->type->types, field->spec),
+                type)
+        ) return -1;
+    }
+    return 0;
+}
+
 static int field__add_dep(ti_field_t * field)
 {
     ti_type_t * type;
@@ -280,23 +296,14 @@ skip_nesting:
     {
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
-        {
-            ex_set(e, EX_VALUE_ERROR,
-                "invalid declaration for `%s` on type `%s`; "
-                "missing `?` after declaration `%.*s`; "
-                "self references must be nillable"
-                DOC_SPEC,
-                field->name->str, field->type->name,
-                (int) n, str);
-            return e->nr;
-        }
+            goto circular_dep;
     }
     else
     {
         ti_type_t * dep = smap_getn(field->type->types->smap, str, n);
         if (!dep)
         {
-            if (field__spec_is_ascii(field,str, n, e))
+            if (field__spec_is_ascii(field, str, n, e))
                 ex_set(e, EX_TYPE_ERROR,
                         "invalid declaration for `%s` on type `%s`; "
                         "unknown type `%.*s` in declaration"DOC_SPEC,
@@ -306,6 +313,9 @@ skip_nesting:
         }
 
         *spec |= dep->type_id;
+        if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
+            field__dep_check(dep, field->type))
+            goto circular_dep;
 
         if (vec_push(&field->type->dependencies, dep))
         {
@@ -355,6 +365,17 @@ invalid:
         (const char *) field->spec_raw->data);
 
     return e->nr;
+
+circular_dep:
+    ex_set(e, EX_VALUE_ERROR,
+        "invalid declaration for `%s` on type `%s`; "
+        "missing `?` after declaration `%.*s`; "
+        "circular dependencies must be nillable "
+        "at least at one point in the chain"DOC_SPEC,
+        field->name->str, field->type->name,
+        (int) field->spec_raw->n,
+        (const char *) field->spec_raw->data);
+    return e->nr;
 }
 
 /*
@@ -382,17 +403,17 @@ ti_field_t * ti_field_create(
     ti_incref(name);
     ti_incref(spec_raw);
 
-    if (field__init(field, e))
-    {
-        assert (e->nr);
-        ti_field_destroy(field);
-        return NULL;
-    }
-
     if (vec_push(&type->fields, field))
     {
         ex_set_mem(e);
         ti_field_destroy(field);
+        return NULL;
+    }
+
+    if (field__init(field, e))
+    {
+        assert (e->nr);        ;
+        ti_field_destroy(vec_pop(type->fields));
         return NULL;
     }
 

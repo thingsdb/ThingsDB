@@ -182,6 +182,63 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
+    async def test_circular_dep(self, client):
+        await client.query(r'''
+            new_type('Tic');
+            new_type('Tac');
+            new_type('Toe');
+        ''')
+        await client.query(r'''
+            set_type('Tic', {
+                tac: 'Tac'
+            });
+            set_type('Tac', {
+                toe: 'Toe'
+            });
+        ''')
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `toe` on type `Toe`; '
+                r'missing `\?` after declaration `Toe`; '
+                r'circular dependencies must be nillable '
+                r'at least at one point in the chain'):
+            await client.query(r'''
+                set_type('Toe', {
+                    toe: 'Toe'
+                });
+            ''')
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `tic` on type `Toe`; '
+                r'missing `\?` after declaration `Tic`; '
+                r'circular dependencies must be nillable '
+                r'at least at one point in the chain'):
+            await client.query(r'''
+                set_type('Toe', {
+                    tic: 'Tic'
+                });
+            ''')
+        await client.query(r'''
+            set_type('Toe', {
+                tic: 'Tic?'
+            });
+        ''')
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `alt` on type `Toe`; '
+                r'missing `\?` after declaration `Tic`; '
+                r'circular dependencies must be nillable '
+                r'at least at one point in the chain'):
+            await client.query(r'''
+                mod_type('Toe', 'add', 'alt', 'Tic');
+            ''')
+        await client.query(r'''
+            mod_type('Tac', 'mod', 'toe', 'Toe?');
+        ''')
+        await client.query(r'''
+            mod_type('Toe', 'add', 'alt', 'Tic');
+        ''')
+
     async def test_mod_del(self, client):
         await client.query(r'''
             new_type('Foo');

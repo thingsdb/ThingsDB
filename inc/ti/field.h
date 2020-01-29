@@ -36,7 +36,7 @@ struct ti_field_s
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
-    ti_type_t * type;
+    ti_type_t * type;           /* parent type */
     uint16_t spec;
     uint16_t nested_spec;       /* array/set have a nested specification */
     uint32_t idx;               /* index of the field withing the type */

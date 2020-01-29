@@ -24,73 +24,32 @@
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
-    switch (nd->len)
+    switch (*nd->str)
     {
-    case 1:
-        switch (*nd->str)
-        {
-        case '%':
-            return opr__mod(a, b, e);
-        case '&':
-            return opr__and(a, b, e);
-        case '*':
-            return opr__mul(a, b, e);
-        case '+':
-            return opr__add(a, b, e);
-        case '-':
-            return opr__sub(a, b, e);
-        case '/':
-            return opr__div(a, b, e);
-        case '<':
-            return opr__lt(a, b, e);
-        case '>':
-            return opr__gt(a, b, e);
-        case '^':
-            return opr__xor(a, b, e);
-        case '|':
-            return opr__or(a, b, e);
-        }
-        break;
-    case 2:
-        switch (*nd->str)
-        {
-        case '!':
-            assert (nd->str[1] == '=');
-            return opr__ne(a, b, e);
-        case '%':
-            assert (nd->str[1] == '=');
-            return opr__mod(a, b, e);
-        case '&':
-            assert (nd->str[1] == '=');
-            return opr__and(a, b, e);
-        case '*':
-            assert (nd->str[1] == '=');
-            return opr__mul(a, b, e);
-        case '+':
-            assert (nd->str[1] == '=');
-            return opr__add(a, b, e);
-        case '-':
-            assert (nd->str[1] == '=');
-            return opr__sub(a, b, e);
-        case '/':
-            assert (nd->str[1] == '=');
-            return opr__div(a, b, e);
-        case '<':
-            assert (nd->str[1] == '=');
-            return opr__le(a, b, e);
-        case '=':
-            assert (nd->str[1] == '=');
-            return opr__eq(a, b, e);
-        case '>':
-            assert (nd->str[1] == '=');
-            return opr__ge(a, b, e);
-        case '^':
-            assert (nd->str[1] == '=');
-            return opr__xor(a, b, e);
-        case '|':
-            assert (nd->str[1] == '=');
-            return opr__or(a, b, e);
-        }
+    case '!':
+        return opr__ne(a, b, e);
+    case '%':
+        return opr__mod(a, b, e);
+    case '&':
+        return opr__and(a, b, e);
+    case '*':
+        return opr__mul(a, b, e);
+    case '+':
+        return opr__add(a, b, e);
+    case '-':
+        return opr__sub(a, b, e);
+    case '/':
+        return opr__div(a, b, e);
+    case '<':
+        return nd->len == 1 ? opr__lt(a, b, e) : opr__le(a, b, e);
+    case '=':
+        return opr__eq(a, b, e);
+    case '>':
+        return nd->len == 1 ? opr__gt(a, b, e) : opr__ge(a, b, e);
+    case '^':
+        return opr__xor(a, b, e);
+    case '|':
+        return opr__or(a, b, e);
     }
     assert (0);
     return e->nr;
@@ -98,230 +57,60 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 
 _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
 {
-    switch ((ti_val_enum) a->tp)
+    ti_opr_perm_t perm = TI_OPR_PERM(a, b);
+    switch (perm)
     {
-    case TI_VAL_NIL:
-        return  a->tp == b->tp;
-    case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            return false;
-        case TI_VAL_INT:
-            return VINT(a) == VINT(b);
-        case TI_VAL_FLOAT:
-            return VINT(a) == VFLOAT(b);
-        case TI_VAL_BOOL:
-            return VINT(a) == VBOOL(b);
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            return false;
-        case TI_VAL_INT:
-            return VFLOAT(a) == VINT(b);
-        case TI_VAL_FLOAT:
-            return VFLOAT(a) == VFLOAT(b);
-        case TI_VAL_BOOL:
-            return VFLOAT(a) == VBOOL(b);
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            return false;
-        case TI_VAL_INT:
-            return  VBOOL(a) == VINT(b);
-        case TI_VAL_FLOAT:
-            return VBOOL(a) == VFLOAT(b);
-        case TI_VAL_BOOL:
-            return VBOOL(a) == VBOOL(b);
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_MP:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-            return false;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-            return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_REGEX:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-            return false;
-        case TI_VAL_REGEX:
-            return ti_regex_eq((ti_regex_t *) a, (ti_regex_t *) b);
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_THING:
-        return a == b;
-    case TI_VAL_WRAP:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-            return false;
-        case TI_VAL_WRAP:
-            return  ((ti_wrap_t *) a)->type_id == ((ti_wrap_t *) b)->type_id &&
-                    ((ti_wrap_t *) a)->thing == ((ti_wrap_t *) b)->thing;
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_ARR:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-            return false;
-        case TI_VAL_ARR:
-            return ti_varr_eq((ti_varr_t *) a, (ti_varr_t *) b);
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_SET:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-            return false;
-        case TI_VAL_SET:
-            return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            return false;
-        }
-        break;
-    case TI_VAL_CLOSURE:
+    default:
+        assert (a != b);
         return false;
-    case TI_VAL_ERROR:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-            return false;
-        case TI_VAL_ERROR:
-            return ((ti_verror_t *) a)->code == ((ti_verror_t *) b)->code;
-        }
-        break;
+    case OPR_NIL_NIL:
+        return true;
+    case OPR_INT_INT:
+        return VINT(a) == VINT(b);
+    case OPR_INT_FLOAT:
+        return VINT(a) == VFLOAT(b);
+    case OPR_INT_BOOL:
+        return VINT(a) == VBOOL(b);
+    case OPR_FLOAT_INT:
+        return VFLOAT(a) == VINT(b);
+    case OPR_FLOAT_FLOAT:
+        return VFLOAT(a) == VFLOAT(b);
+    case OPR_FLOAT_BOOL:
+        return VFLOAT(a) == VBOOL(b);
+    case OPR_BOOL_INT:
+        return  VBOOL(a) == VINT(b);
+    case OPR_BOOL_FLOAT:
+        return VBOOL(a) == VFLOAT(b);
+    case OPR_BOOL_BOOL:
+        return VBOOL(a) == VBOOL(b);
+    case OPR_MP_MP:
+    case OPR_MP_NAME:
+    case OPR_MP_STR:
+    case OPR_MP_BYTES:
+    case OPR_NAME_MP:
+    case OPR_NAME_NAME:
+    case OPR_NAME_STR:
+    case OPR_NAME_BYTES:
+    case OPR_STR_MP:
+    case OPR_STR_NAME:
+    case OPR_STR_STR:
+    case OPR_STR_BYTES:
+    case OPR_BYTES_MP:
+    case OPR_BYTES_NAME:
+    case OPR_BYTES_STR:
+    case OPR_BYTES_BYTES:
+        return ti_raw_eq((ti_raw_t *) a, (ti_raw_t *) b);
+    case OPR_REGEX_REGEX:
+        return ti_regex_eq((ti_regex_t *) a, (ti_regex_t *) b);
+    case OPR_WRAP_WRAP:
+        return  ((ti_wrap_t *) a)->type_id == ((ti_wrap_t *) b)->type_id &&
+                ((ti_wrap_t *) a)->thing == ((ti_wrap_t *) b)->thing;
+    case OPR_ARR_ARR:
+        return ti_varr_eq((ti_varr_t *) a, (ti_varr_t *) b);
+    case OPR_SET_SET:
+        return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
+    case OPR_ERROR_ERROR:
+        return ((ti_verror_t *) a)->code == ((ti_verror_t *) b)->code;
     }
     return false;
 }
@@ -332,134 +121,53 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
  */
 int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
 {
-    switch ((ti_val_enum) a->tp)
+    ti_opr_perm_t perm = TI_OPR_PERM(a, b);
+    switch (perm)
     {
-    case TI_VAL_NIL:
-        break;
-    case TI_VAL_INT:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            break;
-        case TI_VAL_INT:
-            return  (VINT(a) > VINT(b)) -
-                    (VINT(a) < VINT(b));
-        case TI_VAL_FLOAT:
-            return  (VINT(a) > VFLOAT(b)) -
-                    (VINT(a) < VFLOAT(b));
-        case TI_VAL_BOOL:
-            return  (VINT(a) > VBOOL(b)) -
-                    (VINT(a) < VBOOL(b));
-            break;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            break;
-        }
-        break;
-    case TI_VAL_FLOAT:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            break;
-        case TI_VAL_INT:
-            return  (VFLOAT(a) > VINT(b)) -
-                    (VFLOAT(a) < VINT(b));
-        case TI_VAL_FLOAT:
-            return  (VFLOAT(a) > VFLOAT(b)) -
-                    (VFLOAT(a) < VFLOAT(b));
-        case TI_VAL_BOOL:
-            return  (VFLOAT(a) > VBOOL(b)) -
-                    (VFLOAT(a) < VBOOL(b));
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            break;
-        }
-        break;
-    case TI_VAL_BOOL:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-            break;
-        case TI_VAL_INT:
-            return  (VBOOL(a) > VINT(b)) -
-                    (VBOOL(a) < VINT(b));
-        case TI_VAL_FLOAT:
-            return  (VBOOL(a) > VFLOAT(b)) -
-                    (VBOOL(a) < VFLOAT(b));
-        case TI_VAL_BOOL:
-            return  (VBOOL(a) > VBOOL(b)) -
-                    (VBOOL(a) < VBOOL(b));
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            break;
-        }
-        break;
-    case TI_VAL_MP:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-        switch ((ti_val_enum) b->tp)
-        {
-        case TI_VAL_NIL:
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-            break;
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-            return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-        case TI_VAL_ARR:
-        case TI_VAL_SET:
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-            break;
-        }
-        break;
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-        break;
+    default:
+        /* careful, `e` might already be set, in which case we should not touch
+         * the error value
+         */
+        if (!e->nr)
+            ex_set(e, EX_TYPE_ERROR,
+                "`<` not supported between `%s` and `%s`",
+                ti_val_str(a), ti_val_str(b));
+        return 0;
+    case OPR_INT_INT:
+        return (VINT(a) > VINT(b)) - (VINT(a) < VINT(b));
+    case OPR_INT_FLOAT:
+        return (VINT(a) > VFLOAT(b)) - (VINT(a) < VFLOAT(b));
+    case OPR_INT_BOOL:
+        return (VINT(a) > VBOOL(b)) - (VINT(a) < VBOOL(b));
+    case OPR_FLOAT_INT:
+        return (VFLOAT(a) > VINT(b)) - (VFLOAT(a) < VINT(b));
+    case OPR_FLOAT_FLOAT:
+        return (VFLOAT(a) > VFLOAT(b)) - (VFLOAT(a) < VFLOAT(b));
+    case OPR_FLOAT_BOOL:
+        return (VFLOAT(a) > VBOOL(b)) - (VFLOAT(a) < VBOOL(b));
+    case OPR_BOOL_INT:
+        return (VBOOL(a) > VINT(b)) - (VBOOL(a) < VINT(b));
+    case OPR_BOOL_FLOAT:
+        return (VBOOL(a) > VFLOAT(b)) - (VBOOL(a) < VFLOAT(b));
+    case OPR_BOOL_BOOL:
+        return (VBOOL(a) > VBOOL(b)) - (VBOOL(a) < VBOOL(b));
+    case OPR_MP_MP:
+    case OPR_MP_NAME:
+    case OPR_MP_STR:
+    case OPR_MP_BYTES:
+    case OPR_NAME_MP:
+    case OPR_NAME_NAME:
+    case OPR_NAME_STR:
+    case OPR_NAME_BYTES:
+    case OPR_STR_MP:
+    case OPR_STR_NAME:
+    case OPR_STR_STR:
+    case OPR_STR_BYTES:
+    case OPR_BYTES_MP:
+    case OPR_BYTES_NAME:
+    case OPR_BYTES_STR:
+    case OPR_BYTES_BYTES:
+        return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
     }
-
-    if (!e->nr)
-        ex_set(e, EX_TYPE_ERROR, "`<` not supported between `%s` and `%s`",
-            ti_val_str(a), ti_val_str(b));
-
     return 0;
 }

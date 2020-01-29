@@ -110,3 +110,10 @@ fail0:
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }
+
+static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return query->rval
+            ? do__f_set_property(query, nd, e)
+            : do__f_set_new_type(query, nd, e);
+}

@@ -8,10 +8,11 @@
 
 typedef enum
 {
-    /* first three flags are exclusive, only one may be set */
+    /* First three flags are exclusive, only one may be set.
+     * The order is important since the order is used in function binding */
     TI_QBIND_BIT_NODE,
-    TI_QBIND_BIT_THINGSDB,
-    TI_QBIND_BIT_COLLECTION,
+    TI_QBIND_BIT_THINGSDB=1,      /* must be one (see qbind) */
+    TI_QBIND_BIT_COLLECTION=2,    /* must be two (see qbind) */
 
     TI_QBIND_BIT_EVENT,
     TI_QBIND_BIT_WSE,
@@ -41,8 +42,7 @@ typedef struct ti_qbind_s ti_qbind_t;
 #include <inttypes.h>
 #include <cleri/cleri.h>
 
-int ti_qbind_init(void);
-void ti_qbind_destroy(void);
+void ti_qbind_init(void);
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd);
 
 struct ti_qbind_s

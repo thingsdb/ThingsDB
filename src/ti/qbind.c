@@ -138,49 +138,156 @@
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
-#define qbind__flag_conv(__flag) \
-    ((((__flag) & TI_QBIND_FLAG_ON_VAR) && 1)<<FN__BIT_ON_VAR)
+#define FN__BIT_EXCL_VAR 2
+
+#define qbind__flag_conv(__flag) (((__flag) & TI_QBIND_FLAG_ON_VAR) && 1)
+
+/*
+ * The following `enum` and `asso_values` are generated using `gperf` and
+ * the utility `pcregrep` to generate the input.
+ *
+ *  pcregrep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 200
+ */
+enum
+{
+    TOTAL_KEYWORDS = 135,
+    MIN_WORD_LENGTH = 2,
+    MAX_WORD_LENGTH = 17,
+    MIN_HASH_VALUE = 2,
+    MAX_HASH_VALUE = 207
+};
+
+static inline unsigned int qbind__hash(
+        register const char * s,
+        register size_t n)
+{
+    static unsigned char asso_values[] =
+    {
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208,   3, 208,   3, 208,   0, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208,   0, 208,   3,  19,  15,
+        0,   5,  21,  43,  63,   0, 208,  41,  14,  43,
+        8,  13,  27,   0,   2,   0,   0,  13,  63,  44,
+        51,  82,   4, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208, 208, 208, 208, 208,
+        208, 208, 208, 208, 208, 208
+    };
+
+    register unsigned int hval = n;
+
+    switch (hval)
+    {
+        default:
+            hval += asso_values[(unsigned char)s[16]];
+            /*fall through*/
+        case 16:
+            hval += asso_values[(unsigned char)s[15]];
+            /*fall through*/
+        case 15:
+            hval += asso_values[(unsigned char)s[14]];
+            /*fall through*/
+        case 14:
+            hval += asso_values[(unsigned char)s[13]];
+            /*fall through*/
+        case 13:
+            hval += asso_values[(unsigned char)s[12]];
+            /*fall through*/
+        case 12:
+            hval += asso_values[(unsigned char)s[11]];
+            /*fall through*/
+        case 11:
+            hval += asso_values[(unsigned char)s[10]];
+            /*fall through*/
+        case 10:
+            hval += asso_values[(unsigned char)s[9]];
+            /*fall through*/
+        case 9:
+            hval += asso_values[(unsigned char)s[8]];
+            /*fall through*/
+        case 8:
+            hval += asso_values[(unsigned char)s[7]];
+            /*fall through*/
+        case 7:
+            hval += asso_values[(unsigned char)s[6]];
+            /*fall through*/
+        case 6:
+            hval += asso_values[(unsigned char)s[5]];
+            /*fall through*/
+        case 5:
+            hval += asso_values[(unsigned char)s[4]];
+            /*fall through*/
+        case 4:
+            hval += asso_values[(unsigned char)s[3]];
+            /*fall through*/
+        case 3:
+            hval += asso_values[(unsigned char)s[2]];
+            /*fall through*/
+        case 2:
+            hval += asso_values[(unsigned char)s[1]];
+            /*fall through*/
+        case 1:
+            hval += asso_values[(unsigned char)s[0]];
+            break;
+    }
+    return hval;
+}
 
 typedef enum
 {
-    FN__BIT_CHAIN,
-    FN__BIT_ON_VAR,
-} qbind__fn_bit_t;
-
-typedef enum
-{
-    FN__FLAG_CHAIN   = 1<<FN__BIT_CHAIN,
-    FN__FLAG_ON_VAR  = 1<<FN__BIT_ON_VAR,
+    FN__FLAG_EXCL_VAR   = 1<<0, /* must be 1, see qbind__flag_conv() */
+    FN__FLAG_EV_T       = 1<<1, /* must be 2, maps to ti_qbind_bit_t */
+    FN__FLAG_EV_C       = 1<<2, /* must be 4, maps to ti_qbind_bit_t */
+    FN__FLAG_ROOT       = 1<<3,
+    FN__FLAG_CHAIN      = 1<<4,
+    FN__FLAG_XROOT      = 1<<5,
 } qbind__fn_flag_t;
 
 typedef struct
 {
-    char name[18];
+    char name[MAX_WORD_LENGTH+1];
+    qbind__fn_flag_t flags;
     fn_cb fn;
-    int e_flags;
-    qbind__fn_flag_t q_flags;
     size_t n;
-} qbind__fn_t;
+} qbind__fmap_t;
 
 #define ROOT_NE \
-        .e_flags=0, .q_flags=0
+        .flags=FN__FLAG_ROOT
 #define ROOT_BE \
-        .e_flags=TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION, .q_flags=0
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C|FN__FLAG_EV_T
 #define ROOT_CE \
-        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=0
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C
 #define ROOT_TE \
-        .e_flags=TI_QBIND_FLAG_THINGSDB, .q_flags=0
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_T
 #define CHAIN_NE \
-        .e_flags=0, .q_flags=FN__FLAG_CHAIN
+        .flags=FN__FLAG_CHAIN
 #define CHAIN_CE \
-        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=FN__FLAG_CHAIN
-#define CHAIN_NE_VAR \
-        .e_flags=TI_QBIND_FLAG_COLLECTION, .q_flags=FN__FLAG_CHAIN|FN__FLAG_ON_VAR
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C
+#define CHAIN_CE_XVAR \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C
+#define BOTH_CE_XROOT \
+        .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT
 
-#define QBIND__NUM_FN 136
 
-qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
-    {.name="add",               .fn=do__f_add,                  CHAIN_NE_VAR},
+qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
+    {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
     {.name="assert",            .fn=do__f_assert,               ROOT_NE},
     {.name="auth_err",          .fn=do__f_auth_err,             ROOT_NE},
@@ -211,7 +318,7 @@ qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
-    {.name="extend",            .fn=do__f_extend,               CHAIN_NE_VAR},
+    {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find",              .fn=do__f_find,                 CHAIN_NE},
     {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},
@@ -272,16 +379,16 @@ qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
-    {.name="pop",               .fn=do__f_pop,                  CHAIN_NE_VAR},
+    {.name="pop",               .fn=do__f_pop,                  CHAIN_CE_XVAR},
     {.name="procedure_doc",     .fn=do__f_procedure_doc,        ROOT_NE},
     {.name="procedure_info",    .fn=do__f_procedure_info,       ROOT_NE},
     {.name="procedures_info",   .fn=do__f_procedures_info,      ROOT_NE},
-    {.name="push",              .fn=do__f_push,                 CHAIN_NE_VAR},
+    {.name="push",              .fn=do__f_push,                 CHAIN_CE_XVAR},
     {.name="raise",             .fn=do__f_raise,                ROOT_NE},
     {.name="rand",              .fn=do__f_rand,                 ROOT_NE},
     {.name="randint",           .fn=do__f_randint,              ROOT_NE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
-    {.name="remove",            .fn=do__f_remove,               CHAIN_NE_VAR},
+    {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
@@ -291,11 +398,10 @@ qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
-    {.name="set",               .fn=do__f_set_property,         CHAIN_CE},
-    {.name="set",               .fn=do__f_set_new_type,         ROOT_NE},
+    {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
-    {.name="splice",            .fn=do__f_splice,               CHAIN_NE_VAR},
+    {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XVAR},
     {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
@@ -318,50 +424,23 @@ qbind__fn_t fn_mapping[QBIND__NUM_FN] = {
     {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
 };
 
-static imap_t * qbind__imap;
+static qbind__fmap_t * qbind__map[MAX_HASH_VALUE+1];
 
-/*
- * Hash function for the function bindings. This function is called at runtime
- * with user input but a length of at least one is still guaranteed.
- * If new functions are added, starting ThingsDB might fail if the computed
- * hash is no longer unique for each function. In this case it is save to make
- * some changes. If they compile unique, the function is good. Attempts should
- * be made to generate "low" key values since this will speed-up later lookups.
- */
-static inline uint32_t qbind__fn_key(const char * s, const size_t n, int flags)
+void ti_qbind_init(void)
 {
-    uint16_t m = 0;
-    size_t nn = n & 0b1111;
-    for (; nn--; ++s)
-        m += (*s & 0x1f) << (nn & 0x7);
-    return ((m & 0x03ff) << 3) | ((n >> 1) ^ (flags & FN__FLAG_CHAIN));
-}
-
-int ti_qbind_init(void)
-{
-    int rc = 0;
-    qbind__imap = imap_create();
-    if (!qbind__imap)
-        return -1;
-
-    for (size_t i = 0, n = QBIND__NUM_FN; i < n; ++i)
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         uint32_t key;
-        qbind__fn_t * fmap = &fn_mapping[i];
+        qbind__fmap_t * fmap = &fn_mapping[i];
 
         fmap->n = strlen(fmap->name);
-        key = qbind__fn_key(fmap->name, fmap->n, fmap->q_flags);
-        rc = imap_add(qbind__imap, key, fmap);
-        assert (rc == 0);  /* printf("k: %u, s: %s\n", key, fmap->name); */
-        if (rc)
-            return rc;
-    }
-    return 0;
-}
+        key = qbind__hash(fmap->name, fmap->n);
+        /* printf("key: %u, name: %s\n", key, fmap->name); */
+        assert (qbind__map[key] == NULL);
+        assert (key <= MAX_HASH_VALUE);
 
-void ti_qbind_destroy(void)
-{
-    imap_destroy(qbind__imap, NULL);
+        qbind__map[key] = fmap;
+    }
 }
 
 static _Bool qbind__operations(
@@ -407,24 +486,33 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
-static void qbind__function(ti_qbind_t * q, cleri_node_t * nd, int flags)
+static void qbind__function(
+        ti_qbind_t * q,
+        cleri_node_t * nd,
+        int flags)
 {
-    intptr_t nargs = 0;
     cleri_children_t * child;
     cleri_node_t * fnname = nd->children->node;
-
-    uint32_t key = qbind__fn_key(fnname->str, fnname->len, flags);
-    qbind__fn_t * fmap = imap_get(qbind__imap, key);
+    register intptr_t nargs = 0;
+    register size_t n = fnname->len;
+    register uint32_t key = qbind__hash(fnname->str, n);
+    register qbind__fmap_t * fmap = (
+            n <= MAX_WORD_LENGTH &&
+            n >= MIN_WORD_LENGTH &&
+            key <= MAX_HASH_VALUE
+    ) ? qbind__map[key] : NULL;
 
     fnname->data = (
             fmap &&
-            fmap->n == fnname->len &&
-            memcmp(fnname->str, fmap->name, fmap->n) == 0) ? fmap->fn : NULL;
+            fmap->n == n &&
+            ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
+            memcmp(fnname->str, fmap->name, n) == 0
+    ) ? fmap->fn : NULL;
 
     q->flags |= (
-            fnname->data &&
-            (q->flags & fmap->e_flags) &&
-            ((~fmap->q_flags & FN__FLAG_ON_VAR) || (~flags & FN__FLAG_ON_VAR))
+        fnname->data &&
+        ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmap->flags) &&
+        ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR))
     ) << TI_QBIND_BIT_EVENT;
 
     /* list (arguments) */
@@ -486,7 +574,6 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
-
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -494,7 +581,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
         switch (nd->children->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
-            qbind__function(qbind, nd, 0);
+            qbind__function(qbind, nd, FN__FLAG_ROOT);
             return;
         case CLERI_GID_ASSIGN:
             qbind__statement(

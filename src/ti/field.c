@@ -36,6 +36,9 @@ static void field__remove_dep(ti_field_t * field)
 decref:
     idx = 0;
     type = ti_types_by_id(field->type->types, spec);
+    if (type == field->type)
+        return;  /* self references are not counted within dependencies */
+
     for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
     {
         if (t == type)
@@ -313,6 +316,7 @@ skip_nesting:
         }
 
         *spec |= dep->type_id;
+
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
             field__dep_check(dep, field->type))
             goto circular_dep;
@@ -644,7 +648,7 @@ static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
         case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
-                "property `%s` requires an array with items that match "
+                "property `%s` requires an array with items that matches "
                 "definition `%.*s`",
                 field->type->name,
                 field->name->str,

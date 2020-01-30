@@ -257,6 +257,140 @@ class TestType(TestBase):
             mod_type('Foo', 'del', 'foo');
         ''')
 
+    async def test_del_type(self, client):
+        await client.query(r'''
+            new_type('Tic');
+            new_type('Tac');
+            new_type('Toe');
+            new_type('Foo');
+            new_type('Bar');
+
+            set_type('Tic', {
+                tic: '[Tic]'
+            });
+            set_type('Tac', {
+                tac: '{Tac}'
+            });
+            set_type('Toe', {
+                Toe: 'Toe?'
+            });
+            set_type('Foo', {
+                foo: 'Foo?'
+            });
+            set_type('Bar', {
+                bar: '[Bar]'
+            });
+            .tic = Tic{tic: []};
+            .tac = Tac{tac: {}};
+            .toe = Toe{};
+            .foo = Foo{};
+            .bar = Bar{bar: []};
+        ''')
+
+        await client.query(r'''
+            mod_type('Foo', 'del', 'foo');
+            mod_type('Bar', 'del', 'bar');
+        ''')
+
+        await client.query(r'''
+            del_type('Tic');
+            del_type('Tac');
+            del_type('Toe');
+            del_type('Foo');
+            del_type('Bar');
+        ''')
+
+    async def test_del_type(self, client):
+        await client.query(r'''
+            new_type('Tic');
+            new_type('Tac');
+            new_type('Toe');
+
+            set_type('Tic', {
+                tac: '[Tac]'
+            });
+
+            .tic = Tic{
+                tac: []
+            };
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `Tic`; '
+                r'property `tac` requires an array with items that '
+                r'matches definition `\[Tac\]`'):
+            await client.query(r'''
+                tic = Tic{
+                    tac: [{
+                        foo: 42
+                    }]
+                };
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `thing` is not allowed in restricted array'):
+            await client.query(r'''
+                .tic.tac.push({
+                    foo: 1
+                });
+            ''')
+
+    async def test_circular_del(self, client):
+        await client.query(r'''
+            new_type('Foo');
+            new_type('Bar');
+
+            set_type('Foo', {
+                bar: '[Bar]'
+            });
+
+            set_type('Bar', {
+                foo: 'Foo'
+            });
+        ''')
+
+        res = await client.query(r'''
+            mod_type('Foo', 'del', 'bar');
+            del_type('Bar');
+        ''')
+        self.assertIs(res, None)
+
+        res = await client.query(r'''
+            del_type('Foo');
+        ''')
+        self.assertIs(res, None)
+
+    async def test_del_type(self, client):
+        await client.query(r'''
+            new_type('Tic');
+            new_type('Tac');
+            new_type('Toe');
+            set_type('Tic', {tac: 'Tac?', toe: 'Toe?'});
+            set_type('Tac', {tic: '[Tic]', toe: '[Toe]'});
+            set_type('Toe', {tic: 'Tic?', tac: 'Tac?'});
+        ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'type `Toe` is used by at least one other type; '
+                r'use `types_info\(..\)` to find all dependencies and remove '
+                r'them by using `mod_type\(..\)` or delete the dependency '
+                r'types as well'):
+            await client.query(r'''
+                del_type('Toe');
+            ''')
+
+        await client.query(r'''
+            mod_type('Tic', 'del', 'toe');
+            mod_type('Tac', 'mod', 'toe', 'any');
+        ''')
+
+        await client.query(r'''
+            del_type('Toe');
+        ''')
+
     async def test_type_specs(self, client):
         await client.query(r'''
             set_type('_str', {test: 'str'});

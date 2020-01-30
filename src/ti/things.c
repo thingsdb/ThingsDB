@@ -250,16 +250,7 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
             ex_append(e, "; error while loading field `%s` for type `%s`",
                     field->name->str,
                     type->name);
-            if (val)
-            {
-                ex_append(e,
-                        "; value is read but type `%s` cannot be assigned",
-                        ti_val_str(val));
-                ti_val_drop(val);
-            }
-            else
-                ex_append(e, "; cannot read value from data");
-
+            ti_val_drop(val);
             ti_val_drop((ti_val_t *) thing);
             return NULL;
         }

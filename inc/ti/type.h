@@ -58,7 +58,7 @@ struct ti_type_s
     vec_t * dependencies;   /* ti_type_t; contains type where this type is
                                depended on. type may be more than one inside
                                this vector but a self dependency is not
-                               included */
+                               included, order is not important */
     vec_t * fields;         /* ti_field_t */
     imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
 };

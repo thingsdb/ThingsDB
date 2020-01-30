@@ -83,8 +83,12 @@ static int field__add_dep(ti_field_t * field)
 
 incref:
     type = ti_types_by_id(field->type->types, spec);
+    if (type == field->type)
+        return 0;  /* self references are not counted within dependencies */
+
     if (vec_push(&field->type->dependencies, type))
         return -1;
+
     ++type->refcount;
     return 0;
 }

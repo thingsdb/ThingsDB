@@ -43,7 +43,7 @@ decref:
     {
         if (t == type)
         {
-            vec_remove(field->type->dependencies, idx);
+            vec_swap_remove(field->type->dependencies, idx);
             break;
         }
     }

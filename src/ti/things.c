@@ -168,8 +168,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
         return NULL;
     }
 
-    if (thing_id >= ti()->node->next_thing_id)
-        ti()->node->next_thing_id = thing_id + 1;
+    ti_update_next_thing_id(thing_id);
 
     if (ti_thing_props_from_unp(thing, vup, sz, e))
     {
@@ -239,15 +238,28 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
         return NULL;
     }
 
-    if (mp_thing_id.via.u64 >= ti()->node->next_thing_id)
-        ti()->node->next_thing_id = mp_thing_id.via.u64 + 1;
+    /* Update the next thing id if required */
+    ti_update_next_thing_id(mp_thing_id.via.u64);
 
     for (vec_each(type->fields, ti_field_t, field))
     {
         ti_val_t * val = ti_val_from_unp_e(vup, e);
-        if (!val)
+
+        if (!val || ti_field_make_assignable(field, &val, e))
         {
-            ex_append(e, "; error while loading type `%s`", type->name);
+            ex_append(e, "; error while loading field `%s` for type `%s`",
+                    field->name->str,
+                    type->name);
+            if (val)
+            {
+                ex_append(e,
+                        "; value is read but type `%s` cannot be assigned",
+                        ti_val_str(val));
+                ti_val_drop(val);
+            }
+            else
+                ex_append(e, "; cannot read value from data");
+
             ti_val_drop((ti_val_t *) thing);
             return NULL;
         }

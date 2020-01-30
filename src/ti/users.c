@@ -94,8 +94,7 @@ ti_user_t * ti_users_load_user(
         goto done;
     }
 
-    if (user_id >= ti()->node->next_thing_id)
-        ti()->node->next_thing_id = user_id + 1;
+    ti_update_next_thing_id(user_id);
 
     user = ti_user_create(user_id, name, name_n, encrypted, created_at);
 

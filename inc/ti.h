@@ -158,4 +158,10 @@ static inline int ti_to_pk(msgpack_packer * pk)
     );
 }
 
+static inline void ti_update_next_thing_id(uint64_t thing_id)
+{
+    if (thing_id >= ti_.node->next_thing_id)
+        ti_.node->next_thing_id = thing_id + 1;
+}
+
 #endif /* TI_H_ */

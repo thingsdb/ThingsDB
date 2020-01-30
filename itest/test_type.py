@@ -337,6 +337,67 @@ class TestType(TestBase):
                 });
             ''')
 
+    async def test_sync_add(self, client0):
+        await client0.query(r'''
+            set_type('Book', {
+                title: 'str',
+            });
+            set_type('Books', {
+                own: '[Book]',
+                fav: 'Book?',
+                unique: '{Book}'
+            });
+            .books = Books{
+                own: [],
+                unique: set(),
+            };
+        ''')
+
+        await asyncio.sleep(1.5)
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            with self.assertRaisesRegex(
+                    TypeError,
+                    r'type `thing` is not allowed in restricted array'):
+                await client.query(r'''
+                    .books.own.push({
+                        foo: 'Not a book'
+                    });
+                ''')
+
+            with self.assertRaisesRegex(
+                    TypeError,
+                    r'mismatch in type `Books`; type `thing` is invalid '
+                    r'for property `fav` with definition `Book\?`'):
+                await client.query(r'''
+                    .books.fav = {
+                        foo: 'Not a book'
+                    };
+                ''')
+
+            with self.assertRaisesRegex(
+                    TypeError,
+                    r'type `thing` is not allowed in restricted set'):
+                await client.query(r'''
+                    .books.unique.add({
+                        foo: 'Not a book'
+                    });
+                ''')
+
+        books0 = await client0.query(r'.books.filter(||true);')
+        books1 = await client1.query(r'.books.filter(||true);')
+
+        client1.close()
+        await client1.wait_closed()
+
+        self.assertEqual(books0, {"own": [], "fav": None, "unique": []})
+        self.assertEqual(books1, {"own": [], "fav": None, "unique": []})
+
     async def test_circular_del(self, client):
         await client.query(r'''
             new_type('Foo');

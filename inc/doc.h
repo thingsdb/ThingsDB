@@ -127,6 +127,7 @@
 #define DOC_LIST_MAP                DOC_SEE("data-types/list/map")
 #define DOC_LIST_POP                DOC_SEE("data-types/list/pop")
 #define DOC_LIST_PUSH               DOC_SEE("data-types/list/push")
+#define DOC_LIST_REDUCE             DOC_SEE("data-types/list/reduce")
 #define DOC_LIST_REMOVE             DOC_SEE("data-types/list/remove")
 #define DOC_LIST_SORT               DOC_SEE("data-types/list/sort")
 #define DOC_LIST_SPLICE             DOC_SEE("data-types/list/splice")

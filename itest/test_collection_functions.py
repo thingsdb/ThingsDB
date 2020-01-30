@@ -562,7 +562,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `extend` expects argument 1 to be of '
-                'type `list` but got type `nil` instead'):
+                'type `list` or type `tuple` but got type `nil` instead'):
             await client.query('.list.extend(nil);')
 
         with self.assertRaisesRegex(
@@ -1681,6 +1681,52 @@ class TestCollectionFunctions(TestBase):
         self.assertIn("a", values)
         self.assertIn("b", values)
         self.assertIn('c', values)
+
+    async def test_reduce(self, client):
+        arr = [2, 3, 5, 7, 11]
+
+        await client.query(r'''
+            .list = arr;
+        ''', arr=arr)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `reduce`'):
+            await client.query('nil.reduce(||nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `reduce` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('.list.reduce();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `reduce` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('.list.reduce(|a, b| a+b, 2, 3);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'reduce on empty list with no initial value set'):
+            await client.query('[].reduce(|a, b| a+b);')
+
+        res = await client.query(r'''
+            .list.reduce(|a, b| a+b);
+        ''')
+        self.assertEqual(res, sum(arr))
+
+        res = await client.query(r'''
+            .list.reduce(|a, b| a+b, 42);
+        ''')
+        self.assertEqual(res, sum(arr) + 42)
+
+        self.assertEqual(await client.query(r'[].reduce(||5, 42);'), 42)
+        self.assertEqual(await client.query(r'[42].reduce(||5);'), 42)
+        self.assertEqual(await client.query(r'[1,2,3].reduce(||42);'), 42)
+        self.assertEqual(
+            await client.query(r'[0,9,9].reduce(|a,_,i|a+i);'),
+            0 + 1 + 2)
 
     async def test_refs(self, client):
         with self.assertRaisesRegex(

@@ -345,54 +345,54 @@ int ti_closure_vars_nameval(
         ti_val_t * val,
         ex_t * e)
 {
-    size_t n = 0;
-    for (vec_each(closure->vars, ti_prop_t, prop), ++n)
+    ti_prop_t * prop;
+    switch(closure->vars->n)
     {
-        switch (n)
-        {
-        case 0:
-            ti_incref(name);
-            ti_val_drop(prop->val);
-            prop->val = (ti_val_t *) name;
-            break;
-        case 1:
-            ti_incref(val);
-            ti_val_drop(prop->val);
-            prop->val = val;
-            /*
-             * Re-assign variable since we require a copy of lists and sets.
-             */
-            if (ti_val_make_assignable(&prop->val, e))
-                return e->nr;
-            break;
-        default:
-            return 0;
-        }
+    default:
+    case 2:
+        prop = vec_get(closure->vars, 1);
+        ti_incref(val);
+        ti_val_drop(prop->val);
+        prop->val = val;
+        /*
+         * Re-assign variable since we require a copy of lists and sets.
+         */
+        if (ti_val_make_assignable(&prop->val, e))
+            return e->nr;
+        /* fall through */
+    case 1:
+        prop = vec_get(closure->vars, 0);
+        ti_incref(name);
+        ti_val_drop(prop->val);
+        prop->val = (ti_val_t *) name;
+        /* fall through */
+    case 0:
+        break;
     }
     return 0;
 }
 
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
 {
-    size_t n = 0;
-    for (vec_each(closure->vars, ti_prop_t, p), ++n)
+    ti_prop_t * prop;
+    switch(closure->vars->n)
     {
-       switch (n)
-       {
-       case 0:
-           ti_incref(v);
-           ti_val_drop(p->val);
-           p->val = v;
-           break;
-       case 1:
-           ti_val_drop(p->val);
-           p->val = (ti_val_t *) ti_vint_create(i);
-           if (!p->val)
-               return -1;
-           break;
-       default:
-           return 0;
-       }
+    default:
+    case 2:
+        prop = vec_get(closure->vars, 1);
+        ti_val_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(i);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        prop = vec_get(closure->vars, 0);
+        ti_incref(v);
+        ti_val_drop(prop->val);
+        prop->val = v;
+        /* fall through */
+    case 0:
+        break;
     }
     return 0;
 }

@@ -31,11 +31,12 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         goto fail1;
 
-    if (!ti_val_is_list(query->rval))
+    if (!ti_val_is_array(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "function `extend` expects argument 1 to be of "
-                "type `"TI_VAL_LIST_S"` but got type `%s` instead"
+                "type `"TI_VAL_LIST_S"` or type `"TI_VAL_TUPLE_S"` "
+                "but got type `%s` instead"
                 DOC_LIST_EXTEND,
                 ti_val_str(query->rval));
         goto fail1;

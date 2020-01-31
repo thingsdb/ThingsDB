@@ -350,58 +350,46 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     cleri_children_t * child = nd           /* sequence */
                     ->children->next;       /* first is .(dot), next choice */
-
-    cleri_node_t * node = child->node;      /* function, assignment,
-                                               name */
+    cleri_node_t * node = child->node;      /* function, assignment, name */
     cleri_node_t * index_node = child->next->node;
 
     child = child->next->next;          /* set to chain child (or NULL) */
 
-    switch (node->cl_obj->gid)
+    if (!node->children->next)
     {
-    case CLERI_GID_NAME_OPT_MORE:
-        if (!node->children->next)
+        ti_wprop_t wprop;
+        ti_thing_t * thing;
+
+        if (!ti_val_is_thing(query->rval))
         {
-            ti_wprop_t wprop;
-            ti_thing_t * thing;
-
-            if (!ti_val_is_thing(query->rval))
-            {
-                ex_set(e, EX_TYPE_ERROR, "type `%s` has no properties",
-                        ti_val_str(query->rval));
-                return e->nr;
-            }
-
-            thing = (ti_thing_t *) query->rval;
-
-            if (do__get_wprop(&wprop, query, thing, node->children->node, e))
-                return e->nr;
-
-            if (thing->id && (index_node->children || child))
-                ti_chain_set(&query->chain, thing, wprop.name);
-
-            query->rval = *wprop.val;
-            ti_incref(query->rval);
-            ti_val_drop((ti_val_t *) thing);
-            break;
+            ex_set(e, EX_TYPE_ERROR, "type `%s` has no properties",
+                    ti_val_str(query->rval));
+            return e->nr;
         }
 
-        switch (node->children->next->node->cl_obj->gid)
-        {
-        case CLERI_GID_FUNCTION:
-            if (do__function(query, node, e))
-                return e->nr;
-            break;
-        case CLERI_GID_ASSIGN:
-            /* nothing is possible after assign since it ends with a scope */
-            return do__name_assign(query, node, e);
-        default:
-            assert (0);
-            return -1;
-        }
+        thing = (ti_thing_t *) query->rval;
+
+        if (do__get_wprop(&wprop, query, thing, node->children->node, e))
+            return e->nr;
+
+        if (thing->id && (index_node->children || child))
+            ti_chain_set(&query->chain, thing, wprop.name);
+
+        query->rval = *wprop.val;
+        ti_incref(query->rval);
+        ti_val_drop((ti_val_t *) thing);
+    }
+    else switch (node->children->next->node->cl_obj->gid)
+    {
+    case CLERI_GID_FUNCTION:
+        if (do__function(query, node, e))
+            return e->nr;
         break;
+    case CLERI_GID_ASSIGN:
+        /* nothing is possible after assign since it ends with a scope */
+        return do__name_assign(query, node, e);
     default:
-        assert (0);  /* all possible should be handled */
+        assert (0);
         return -1;
     }
 

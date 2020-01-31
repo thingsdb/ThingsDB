@@ -141,7 +141,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
 #define FN__BIT_EXCL_VAR 2
 
-#define qbind__flag_conv(__flag) (((__flag) & TI_QBIND_FLAG_ON_VAR) && 1)
+/*
+ * Used to convert the TI_QBIND_FLAG_ON_VAR to FN__FLAG_EXCL_VAR. Therefore
+ * the FN__FLAG_EXCL_VAR must be `1`.
+ */
+#define qbind__is_onvar(__flag) (((__flag) & TI_QBIND_FLAG_ON_VAR) && 1)
 
 /*
  * The following `enum` and `asso_values` are generated using `gperf` and
@@ -255,7 +259,7 @@ static inline unsigned int qbind__hash(
 
 typedef enum
 {
-    FN__FLAG_EXCL_VAR   = 1<<0, /* must be 1, see qbind__flag_conv() */
+    FN__FLAG_EXCL_VAR   = 1<<0, /* must be 1, see qbind__is_onvar() */
     FN__FLAG_EV_T       = 1<<1, /* must be 2, maps to ti_qbind_bit_t */
     FN__FLAG_EV_C       = 1<<2, /* must be 4, maps to ti_qbind_bit_t */
     FN__FLAG_ROOT       = 1<<3,
@@ -506,7 +510,7 @@ static void qbind__function(
             key <= MAX_HASH_VALUE
     ) ? qbind__map[key] : NULL;
 
-    fnname->data = (
+    nd->data = (
             fmap &&
             fmap->n == n &&
             ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
@@ -514,7 +518,7 @@ static void qbind__function(
     ) ? fmap->fn : NULL;
 
     q->flags |= (
-        fnname->data &&
+        nd->data &&
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmap->flags) &&
         ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR))
     ) << TI_QBIND_BIT_EVENT;
@@ -617,7 +621,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__function(
                     qbind,
                     nd,
-                    FN__FLAG_CHAIN|qbind__flag_conv(qbind->flags));
+                    FN__FLAG_CHAIN|qbind__is_onvar(qbind->flags));
             return;
         case CLERI_GID_ASSIGN:
             qbind__set_collection_event(qbind->flags);

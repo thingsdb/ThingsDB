@@ -29,14 +29,14 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
 
-    cleri_node_t * fname = nd       /* sequence */
-            ->children->node;       /* name node */
     cleri_node_t * args = nd        /* sequence */
             ->children->next->node  /* function sequence */
             ->children->next->node; /* arguments */
 
-    if (!fname->data)
+    if (!nd->data)
     {
+        cleri_node_t * fname = nd       /* sequence */
+                ->children->node;       /* name node */
         if (query->rval)
             ex_set(e, EX_LOOKUP_ERROR,
                     "type `%s` has no function `%.*s`",
@@ -51,7 +51,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    return ((fn_cb) fname->data)(query, args, e);
+    return ((fn_cb) nd->data)(query, args, e);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)

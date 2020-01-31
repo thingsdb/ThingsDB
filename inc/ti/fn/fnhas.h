@@ -62,9 +62,7 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
-            name && (ti_thing_is_object(thing)
-            ? ti_thing_o_val_weak_get(thing, name)
-            : ti_thing_t_val_weak_get(thing, name)));
+            name && ti_thing_val_weak_get(thing, name));
 
 fail1:
     ti_val_drop((ti_val_t *) thing);
@@ -73,13 +71,9 @@ fail1:
 
 static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_val_is_thing(query->rval))
-        return do__f_has_thing(query, nd, e);
-
-    if (ti_val_is_set(query->rval))
-        return do__f_has_set(query, nd, e);
-
-    ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no function `has`",
-            ti_val_str(query->rval));
-    return e->nr;
+    return ti_val_is_thing(query->rval)
+            ? do__f_has_thing(query, nd, e)
+            : ti_val_is_set(query->rval)
+            ? do__f_has_set(query, nd, e)
+            : fn_call_try("has", query, nd, e);
 }

@@ -7,12 +7,7 @@ static int do__f_contains(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool contains;
 
     if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `contains`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("contains", query, nd, e);
 
     if (fn_nargs("contains", DOC_STR_CONTAINS, 1, nargs, e))
         return e->nr;

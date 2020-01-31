@@ -7,12 +7,7 @@ static int do__f_choice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t n;
 
     if (!ti_val_is_array(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `choice`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("choice", query, nd, e);
 
     if (fn_nargs("choice", DOC_LIST_CHOICE, 0, nargs, e))
         return e->nr;

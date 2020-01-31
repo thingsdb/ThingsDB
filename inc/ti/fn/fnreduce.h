@@ -9,12 +9,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int lock_was_set;
 
     if (!ti_val_is_array(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `reduce`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("reduce", query, nd, e);
 
     if (fn_nargs_range("reduce", DOC_LIST_REDUCE, 1, 2, nargs, e))
         return e->nr;

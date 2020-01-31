@@ -6,12 +6,7 @@ static int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
 
     if (!ti_val_is_thing(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `id`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("id", query, nd, e);
 
     if (fn_nargs("id", DOC_THING_ID, 0, nargs, e))
         return e->nr;

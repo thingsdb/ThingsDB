@@ -11,12 +11,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     doc = doc_find(query->rval);
     if (!doc)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `find`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("find", query, nd, e);
 
     if (fn_nargs_range("find", doc, 1, 2, nargs, e))
         return e->nr;

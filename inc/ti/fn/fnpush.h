@@ -8,15 +8,10 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_varr_t * varr;
     ti_chain_t chain;
 
-    ti_chain_move(&chain, &query->chain);
-
     if (!ti_val_is_list(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `push`",
-                ti_val_str(query->rval));
-        goto fail0;
-    }
+        return fn_call_try("push", query, nd, e);
+
+    ti_chain_move(&chain, &query->chain);
 
     if (fn_nargs_min("push", DOC_LIST_PUSH, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))

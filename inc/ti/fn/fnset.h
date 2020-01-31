@@ -57,12 +57,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rname;
 
     if (!ti_val_is_thing(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `set`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("set", query, nd, e);
 
     if (fn_nargs("set", DOC_THING_SET, 2, nargs, e) ||
         ti_val_try_lock(query->rval, e))

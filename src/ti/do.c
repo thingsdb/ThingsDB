@@ -5,13 +5,14 @@
 #include <ti/fn/fn.h>
 #include <ti/auth.h>
 #include <ti/do.h>
-#include <ti/regex.h>
-#include <ti/vint.h>
-#include <ti/task.h>
+#include <ti/fn/fncall.h>
+#include <ti/index.h>
 #include <ti/names.h>
 #include <ti/nil.h>
-#include <ti/index.h>
 #include <ti/opr/oprinc.h>
+#include <ti/regex.h>
+#include <ti/task.h>
+#include <ti/vint.h>
 #include <cleri/cleri.h>
 #include <langdef/nd.h>
 #include <langdef/langdef.h>
@@ -22,36 +23,6 @@
 static inline int do__no_collection_scope(ti_query_t * query)
 {
     return ~query->qbind.flags & TI_QBIND_FLAG_COLLECTION;
-}
-
-static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (e->nr == 0);
-    assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
-
-    cleri_node_t * args = nd        /* sequence */
-            ->children->next->node  /* function sequence */
-            ->children->next->node; /* arguments */
-
-    if (!nd->data)
-    {
-        cleri_node_t * fname = nd       /* sequence */
-                ->children->node;       /* name node */
-        if (query->rval)
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "type `%s` has no function `%.*s`",
-                    ti_val_str(query->rval),
-                    fname->len,
-                    fname->str);
-        else
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "function `%.*s` is undefined",
-                    fname->len,
-                    fname->str);
-        return e->nr;
-    }
-
-    return ((fn_cb) nd->data)(query, args, e);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -298,6 +269,106 @@ done:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
+}
+
+static inline ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd)
+{
+    return nd->data
+            ? ti_query_var_get(query, nd->data)
+            : (do__cache_name(query, nd)
+                ? ti_query_var_get(query, nd->data)
+                : NULL);
+}
+
+static inline ti_prop_t * do__get_var_e(
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_prop_t * prop = do__get_var(query, nd);
+    if (!prop)
+        ex_set(e, EX_LOOKUP_ERROR,
+                "variable `%.*s` is undefined",
+                (int) nd->len, nd->str);
+    return prop;
+}
+
+static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
+
+    cleri_node_t * args = nd        /* sequence */
+            ->children->next->node  /* function sequence */
+            ->children->next->node; /* arguments */
+
+    if (!nd->data)
+    {
+        cleri_node_t * fname = nd       /* sequence */
+                ->children->node;       /* name node */
+
+        if (query->rval)
+        {
+            if (ti_val_is_thing(query->rval))
+            {
+                ti_wprop_t wprop;
+                ti_thing_t * thing = (ti_thing_t *) query->rval;
+
+                if (do__get_wprop(&wprop, query, thing, fname, e))
+                    return e->nr;
+
+                if (!ti_val_is_closure(*wprop.val))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                        "property `%.*s` is of type `%s` and is not callable",
+                        fname->len,
+                        fname->str,
+                        ti_val_str(*wprop.val));
+                    return e->nr;
+                }
+
+                query->rval = *wprop.val;
+                ti_incref(query->rval);
+                ti_val_drop((ti_val_t *) thing);
+
+                return fn_call(query, args, e);
+            }
+
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "type `%s` has no function `%.*s`",
+                    ti_val_str(query->rval),
+                    fname->len,
+                    fname->str);
+        }
+        else
+        {
+            ti_prop_t * prop = do__get_var(query, fname);
+            if (prop)
+            {
+                if (!ti_val_is_closure(prop->val))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                        "variable `%.*s` is of type `%s` and is not callable",
+                        fname->len,
+                        fname->str,
+                        ti_val_str(prop->val));
+                    return e->nr;
+                }
+
+                query->rval = prop->val;
+                ti_incref(query->rval);
+
+                return fn_call(query, args, e);
+            }
+
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "function `%.*s` is undefined",
+                    fname->len,
+                    fname->str);
+        }
+        return e->nr;
+    }
+    return ((fn_cb) nd->data)(query, args, e);
 }
 
 static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -842,34 +913,15 @@ done:
     return e->nr;
 }
 
-static inline ti_prop_t * do__get_var(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
-{
-    ti_prop_t * prop = nd->data
-            ? ti_query_var_get(query, nd->data)
-            : (do__cache_name(query, nd)
-                ? ti_query_var_get(query, nd->data)
-                : NULL);
-
-    if (!prop)
-        ex_set(e, EX_LOOKUP_ERROR,
-                "variable `%.*s` is undefined",
-                (int) nd->len, nd->str);
-
-    return prop;
-}
-
 /* changes scope->name and/or scope->thing */
-static int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
     assert (query->rval == NULL);
     assert (!ti_chain_is_set(&query->chain));
 
-    ti_prop_t * prop = do__get_var(query, nd, e);
+    ti_prop_t * prop = do__get_var_e(query, nd, e);
 
     if (!prop)
     {
@@ -906,7 +958,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (tokens_nd->len == 2)
     {
-        prop = do__get_var(query, name_nd, e);
+        prop = do__get_var_e(query, name_nd, e);
         if (!prop)
             return e->nr;
 

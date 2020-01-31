@@ -6,12 +6,7 @@ static int do__f_upper(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raw;
 
     if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `upper`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("upper", query, nd, e);
 
     if (fn_nargs("upper", DOC_STR_UPPER, 0, nargs, e))
         return e->nr;

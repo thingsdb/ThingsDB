@@ -7,12 +7,7 @@ static int do__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool endswith;
 
     if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `endswith`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("endswith", query, nd, e);
 
     if (fn_nargs("endswith", DOC_STR_ENDSWITH, 1, nargs, e))
         return e->nr;

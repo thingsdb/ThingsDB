@@ -517,11 +517,16 @@ static void qbind__function(
             memcmp(fnname->str, fmap->name, n) == 0
     ) ? fmap->fn : NULL;
 
+    /* may set event flag */
     q->flags |= (
         nd->data &&
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmap->flags) &&
         ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR))
     ) << TI_QBIND_BIT_EVENT;
+
+    /* update the value cache if no function is found */
+    q->val_cache_n += nd->data == NULL;
+    fnname->data = NULL;
 
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;

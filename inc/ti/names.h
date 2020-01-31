@@ -16,7 +16,6 @@ void ti_names_destroy(void);
 void ti_names_inject_common(void);
 ti_name_t * ti_names_new(const char * str, size_t n);
 
-
 /*
  * returns a name when the name exists and with a borrowed reference, if the
  * name does not exists, NULL will be the return value.
@@ -45,6 +44,11 @@ static inline ti_name_t * ti_names_from_raw(ti_raw_t * raw)
 static inline ti_name_t * ti_names_weak_from_raw(ti_raw_t * raw)
 {
     return ti_names_weak_get((const char *) raw->data, raw->n);
+}
+
+static inline ti_name_t * ti_names_weak_get_str(const char * str)
+{
+    return smap_get(names, str);
 }
 
 

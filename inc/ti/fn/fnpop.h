@@ -6,15 +6,10 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_varr_t * varr;
     ti_chain_t chain;
 
-    ti_chain_move(&chain, &query->chain);
-
     if (!ti_val_is_list(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `pop`",
-                ti_val_str(query->rval));
-        goto fail0;
-    }
+        return fn_call_try("pop", query, nd, e);
+
+    ti_chain_move(&chain, &query->chain);
 
     if (fn_nargs("pop", DOC_LIST_POP, 0, nargs, e) ||
         ti_val_try_lock(query->rval, e))

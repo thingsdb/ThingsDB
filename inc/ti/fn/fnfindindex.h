@@ -9,12 +9,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int lock_was_set;
 
     if (!ti_val_is_array(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `findindex`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("findindex", query, nd, e);
 
     if (fn_nargs("findindex", DOC_LIST_FINDINDEX, 1, nargs, e))
         return e->nr;

@@ -11,12 +11,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     doc = doc_filter(query->rval);
     if (!doc)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `filter`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("filter", query, nd, e);
 
     if (fn_nargs("filter", doc, 1, nargs, e))
         return e->nr;

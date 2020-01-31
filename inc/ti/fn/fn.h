@@ -48,6 +48,7 @@
 #include <uv.h>
 
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
+static int fn_call_try(const char *, ti_query_t *, cleri_node_t *, ex_t *);
 
 static inline int fn_not_node_scope(
         const char * name,
@@ -196,6 +197,92 @@ static inline int fn_not_thingsdb_or_collection_scope(
             ti_query_scope_name(query));
 
     return e->nr;
+}
+
+static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+    cleri_children_t * child = nd->children;    /* first in argument list */
+    ti_closure_t * closure;
+    vec_t * args;
+
+    if (!ti_val_is_closure(query->rval))
+        return fn_call_try("call", query, nd, e);
+
+    args = vec_new(nargs);
+    if (!args)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    while (child)
+    {
+        if (ti_do_statement(query, child->node, e))
+            goto failed;
+
+        VEC_push(args, query->rval);
+        query->rval = NULL;
+
+        if (!child->next)
+            break;
+
+        child = child->next->next;
+    }
+
+    (void) ti_closure_call(closure, query, args, e);
+
+failed:
+    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+    ti_val_drop((ti_val_t *) closure);
+    return e->nr;
+}
+
+static int fn_call_try(
+        const char * name,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_val_t * val;
+    ti_thing_t * thing;
+    ti_name_t * name_;
+
+    if (!ti_val_is_thing(query->rval))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no function `%s`",
+                ti_val_str(query->rval), name);
+        return e->nr;
+    }
+
+    thing = (ti_thing_t *) query->rval;
+    name_ = ti_names_weak_get_str(name);
+
+    if (!name_ || !(val = ti_thing_val_weak_get(thing, name_)))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "thing "TI_THING_ID" has no property `%s`",
+                thing->id, name);
+        return e->nr;
+    }
+
+    if (!ti_val_is_closure(val))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+            "property `%s` is of type `%s` and is not callable",
+            name, ti_val_str(val));
+        return e->nr;
+    }
+
+    query->rval = val;
+    ti_incref(val);
+    ti_val_drop((ti_val_t *) thing);
+
+    return fn_call(query, nd, e);
 }
 
 #endif /* TI_FN_FN_H_ */

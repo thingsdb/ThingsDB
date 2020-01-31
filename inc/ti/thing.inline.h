@@ -96,6 +96,15 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
+static inline ti_val_t * ti_thing_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_val_weak_get(thing, name)
+            : ti_thing_t_val_weak_get(thing, name);
+}
+
 static inline int ti_thing_to_pk(
         ti_thing_t * thing,
         msgpack_packer * pk,

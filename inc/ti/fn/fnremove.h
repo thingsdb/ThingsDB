@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static void do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
@@ -99,6 +99,7 @@ fail1:
     ti_val_drop((ti_val_t *) varr);
 fail0:
     ti_chain_unset(&chain);
+    return e->nr;
 }
 
 static int do__f_remove_set_from_closure(
@@ -160,7 +161,7 @@ fail1:
     return e->nr;
 }
 
-static void do__f_remove_set(
+static int do__f_remove_set(
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
@@ -282,23 +283,14 @@ done:
     ti_val_drop((ti_val_t *) vset);
 fail0:
     ti_chain_unset(&chain);
+    return e->nr;
 }
 
-static int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_val_is_list(query->rval))
-    {
-        do__f_remove_list(query, nd, e);
-    }
-    else if (ti_val_is_set(query->rval))
-    {
-        do__f_remove_set(query, nd, e);
-    }
-    else
-    {
-        ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no function `remove`",
-                ti_val_str(query->rval));
-    }
-
-    return e->nr;
+    return ti_val_is_list(query->rval)
+            ? do__f_remove_list(query, nd, e)
+            : ti_val_is_set(query->rval)
+            ? do__f_remove_set(query, nd, e)
+            : fn_call_try("remove", query, nd, e);
 }

@@ -8,12 +8,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_chain_t chain;
 
     if (!ti_val_is_list(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `extend`",
-                ti_val_str(query->rval));
-        return e->nr;
-    }
+        return fn_call_try("extend", query, nd, e);
 
     if (fn_nargs("extend", DOC_LIST_EXTEND, 1, nargs, e))
         return e->nr;

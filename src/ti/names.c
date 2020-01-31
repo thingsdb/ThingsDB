@@ -33,6 +33,10 @@ void ti_names_destroy(void)
 void ti_names_inject_common(void)
 {
     (void) ti_names_get(NAMES__INJECT("_"));
+    (void) ti_names_get(NAMES__INJECT("a"));
+    (void) ti_names_get(NAMES__INJECT("b"));
+    (void) ti_names_get(NAMES__INJECT("x"));
+    (void) ti_names_get(NAMES__INJECT("y"));
     (void) ti_names_get(NAMES__INJECT("tmp"));
 }
 

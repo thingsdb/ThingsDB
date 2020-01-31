@@ -370,6 +370,12 @@ class TestCollectionFunctions(TestBase):
                 'type `nil` has no function `call`'):
             await client.query('nil.call();')
 
+    async def test_call(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                'variable `unknown` is of type `nil` and is not callable'):
+            await client.query('unknown = nil; unknown();')
+
         with self.assertRaisesRegex(
                 LookupError,
                 'function `call` is undefined'):
@@ -381,6 +387,11 @@ class TestCollectionFunctions(TestBase):
             await client.query('(||nil).call(nil);')
 
         with self.assertRaisesRegex(
+                NumArgumentsError,
+                'this closure takes 0 arguments but 1 was given'):
+            await client.query('fun = ||nil; fun(nil);')
+
+        with self.assertRaisesRegex(
                 OperationError,
                 r'stored closures with side effects must be wrapped '
                 r'using `wse\(...\)`'):
@@ -389,11 +400,26 @@ class TestCollectionFunctions(TestBase):
                 .test.call(42);
             ''')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                r'stored closures with side effects must be wrapped '
+                r'using `wse\(...\)`'):
+            await client.query(r'''
+                .test = |x| .x = x;
+                .test(42);
+            ''')
+
         self.assertEqual(await client.query('(|y|.y = y).call(42);'), 42)
         self.assertEqual(await client.query('wse(.test.call(42));'), 42)
 
         self.assertEqual(await client.query('.x'), 42)
         self.assertEqual(await client.query('.y'), 42)
+
+        self.assertEqual(await client.query('f = (|y|.y = y); f(666);'), 666)
+        self.assertEqual(await client.query('wse(.test(666));'), 666)
+
+        self.assertEqual(await client.query('.x'), 666)
+        self.assertEqual(await client.query('.y'), 666)
 
     async def test_contains(self, client):
         with self.assertRaisesRegex(
@@ -648,8 +674,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `thing` has no function `find`'):
-            await client.query('.find(||true);')
+                'type `nil` has no function `find`'):
+            await client.query('nil.find(||true);')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -691,8 +717,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `thing` has no function `findindex`'):
-            await client.query('.findindex(||true);')
+                'type `int` has no function `findindex`'):
+            await client.query('(1).findindex(||true);')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -917,8 +943,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `thing` has no function `indexof`'):
-            await client.query('.indexof("x");')
+                'type `float` has no function `indexof`'):
+            await client.query('(1.0).indexof("x");')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -1653,8 +1679,8 @@ class TestCollectionFunctions(TestBase):
     async def test_choice(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `thing` has no function `choice`'):
-            await client.query('.choice();')
+                'type `set` has no function `choice`'):
+            await client.query('set().choice();')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -2064,8 +2090,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `thing` has no function `splice`'):
-            await client.query('.splice();')
+                'type `bool` has no function `splice`'):
+            await client.query('true.splice();')
 
         with self.assertRaisesRegex(
                 LookupError,

@@ -41,7 +41,14 @@
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
  * some data in void pointers.
  */
-#define TI_USE_VOID_POINTER __WORDSIZE == 64
+#include <stdint.h>
+#if UINTPTR_MAX == 0xffffffff
+#define TI_IS64BIT 0
+#elif UINTPTR_MAX == 0xffffffffffffffff
+#define TI_IS64BIT 1
+#else
+#define TI_IS64BIT __WORDSIZE == 64
+#endif
 
 typedef unsigned char uchar;
 

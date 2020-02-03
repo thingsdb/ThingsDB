@@ -48,7 +48,6 @@ int main(int argc, char * argv[])
 "    |_| |_|_|_|_|_|_  |___|____/|_____|   version: "TI_VERSION"\n"
 "                  |___|                   \n"
 "\n");
-    fflush(stdout);
 
     rc = ti_create();
     if (rc)
@@ -218,6 +217,7 @@ load:
     }
 
 run:
+    fflush(stdout);
     rc = ti_run();
 
 stop:

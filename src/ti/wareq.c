@@ -84,7 +84,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             return e->nr;
         }
 
-        #if TI_USE_VOID_POINTER
+        #if TI_IS64BIT
         uintptr_t id = (uintptr_t) mp_id.via.u64;
         #else
         uint64_t * id = malloc(sizeof(uint64_t));
@@ -93,7 +93,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        *id = (uint64_t) val.via.int64;
+        *id = (uint64_t) mp_id.via.blau64;
         #endif
 
         VEC_push(wareq->thing_ids, (void *) id);
@@ -219,7 +219,7 @@ int ti_wareq_run(ti_wareq_t * wareq)
 
 static void wareq__destroy(ti_wareq_t * wareq)
 {
-    #if TI_USE_VOID_POINTER
+    #if TI_IS64BIT
     vec_destroy(wareq->thing_ids, NULL);
     #else
     vec_destroy(wareq->thing_ids, free);
@@ -261,7 +261,7 @@ static void wareq__watch_cb(uv_async_t * task)
         msgpack_sbuffer buffer;
         _Bool is_collection;
 
-        #if TI_USE_VOID_POINTER
+        #if TI_IS64BIT
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
         #else
         uint64_t * idp = vec_pop(wareq->thing_ids);
@@ -367,7 +367,7 @@ static void wareq__unwatch_cb(uv_async_t * task)
 
     while (n--)
     {
-        #if TI_USE_VOID_POINTER
+        #if TI_IS64BIT
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
         #else
         uint64_t * idp = vec_pop(wareq->thing_ids);

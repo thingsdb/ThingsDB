@@ -14,17 +14,6 @@
 #include <util/util.h>
 #include <util/vec.h>
 
-typedef struct
-{
-    uint8_t n;
-    uint8_t nnodes;
-    uint8_t threshold;
-    uint8_t pad8_;
-#if __WORDSIZE == 64
-    uint32_t pad32_;
-#endif
-} events__id_t;
-
 /*
  * When waiting for a missing event for this amount of time, continue and
  * accept that the missing event is not received;

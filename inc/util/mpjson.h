@@ -109,7 +109,7 @@ yajl_gen_status mpjson_mp_to_json(
 {
     mp_unp_t up;
     yajl_gen g;
-    yajl_status stat;
+    yajl_gen_status stat;
 
     mp_unp_init(&up, src, src_n);
 
@@ -120,7 +120,7 @@ yajl_gen_status mpjson_mp_to_json(
     yajl_gen_config(g, yajl_gen_beautify, flags & MPJSON_FLAG_BEAUTIFY);
     yajl_gen_config(g, yajl_gen_validate_utf8, flags & MPJSON_FLAG_VALIDATE_UTF8);
 
-    if ((stat = mp__to_json(g, &up)) == yajl_status_ok)
+    if ((stat = mp__to_json(g, &up)) == yajl_gen_status_ok)
     {
         const unsigned char * tmp;
         yajl_gen_get_buf(g, &tmp, dst_n);

@@ -581,6 +581,7 @@ _Bool ti_ask_continue(const char * warn)
 {
     printf("\nWarning: %s!!\n\n"
             "Type `yes` + ENTER if you really want to continue: ", warn);
+    fflush(stdout);
 
     if (getchar() != 'y')
         return false;

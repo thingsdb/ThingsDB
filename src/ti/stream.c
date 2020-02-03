@@ -18,10 +18,11 @@ static void stream__close_cb(uv_handle_t * uvstream);
 
 #define STREAM__UNRESOLVED "unresolved";
 
+static size_t stream__client_connections;
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
 {
-    ti_stream_t * stream = malloc(sizeof(ti_stream_t));
+    ti_stream_t * stream = calloc(1, sizeof(ti_stream_t));
     if (!stream)
         return NULL;
 
@@ -33,18 +34,9 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     }
 
     stream->ref = 1;
-    stream->n = 0;
-    stream->sz = 0;
     stream->tp = tp;
-    stream->flags = 0;
-    stream->via.user = NULL;  /* set user/node to NULL */
     stream->pkg_cb = cb;
-    stream->buf = NULL;
-    stream->name_ = NULL;
-    stream->reqmap = NULL;
     stream->uvstream->data = stream;
-    stream->next_pkg_id = 0;
-    stream->watching = NULL;
 
     switch (tp)
     {
@@ -52,21 +44,24 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     case TI_STREAM_TCP_IN_NODE:
         stream->reqmap = omap_create();
         if (!stream->reqmap)
-            goto failed;
-        /* fall through */
-    case TI_STREAM_TCP_IN_CLIENT:
+            break;
         if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
-            goto failed;
-        break;
+            break;
+        return stream;
+
+    case TI_STREAM_TCP_IN_CLIENT:
+        ++stream__client_connections;
+        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
+            break;
+        return stream;
+
     case TI_STREAM_PIPE_IN_CLIENT:
+        ++stream__client_connections;
         if (uv_pipe_init(ti()->loop, (uv_pipe_t *) stream->uvstream, 0))
-            goto failed;
-        break;
+            break;
+        return stream;
     }
 
-    return stream;
-
-failed:
     omap_destroy(stream->reqmap, NULL);
     free(stream);
     return NULL;
@@ -337,6 +332,11 @@ int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
     return 0;
 }
 
+size_t ti_stream_client_connections(void)
+{
+    return stream__client_connections;
+}
+
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
@@ -375,6 +375,7 @@ static void stream__close_cb(uv_handle_t * uvstream)
         break;
     case TI_STREAM_TCP_IN_CLIENT:
     case TI_STREAM_PIPE_IN_CLIENT:
+        --stream__client_connections;
         ti_user_drop(stream->via.user);
         break;
     }

@@ -84,7 +84,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 31)
+        self.assertEqual(len(node), 32)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -117,6 +117,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('http_status_port', node)
         self.assertIn('http_api_port', node)
         self.assertIn('scheduled_backups', node)
+        self.assertIn('connected_clients', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -149,6 +150,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["http_status_port"], (int, str)))
         self.assertTrue(isinstance(node["http_api_port"], (int, str)))
         self.assertTrue(isinstance(node["scheduled_backups"], int))
+        self.assertTrue(isinstance(node["connected_clients"], int))
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(

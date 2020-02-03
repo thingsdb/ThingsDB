@@ -769,7 +769,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti_.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 31) ||
+        msgpack_pack_map(pk, 32) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti_.node->id) ||
@@ -868,7 +868,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti_backups_scheduled()) ||
         /* 31 */
         mp_pack_str(pk, "yajl_version") ||
-        mp_pack_fmt(pk, "%d.%d.%d", yv/10000, yv%10000/100, yv%100)
+        mp_pack_fmt(pk, "%d.%d.%d", yv/10000, yv%10000/100, yv%100) ||
+        /* 32 */
+        mp_pack_str(pk, "connected_clients") ||
+        msgpack_pack_uint64(pk, ti_stream_client_connections())
     );
 }
 

@@ -44,6 +44,7 @@ const char * ti_stream_name(ti_stream_t * stream);
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg);
+size_t ti_stream_client_connections(void);
 static inline _Bool ti_stream_is_closed(ti_stream_t * stream);
 static inline _Bool ti_stream_is_client(ti_stream_t * stream);
 

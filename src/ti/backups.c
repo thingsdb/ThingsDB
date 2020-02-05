@@ -275,7 +275,6 @@ int ti_backups_restore(void)
 
         if (backup)
         {
-
             backup->result_msg = mp_msg.tp == MP_STR
                     ? strndup(mp_msg.via.str.data, mp_msg.via.str.n)
                     : NULL;
@@ -297,7 +296,7 @@ fail0:
         log_error("failed to restore from file: `%s`", backups->fn);
 
     /*
-     * do not return `rc`, but 0 since nothing except the file name is critical
+     * do not return rc`, but 0 since nothing except the file name is critical
      */
     return 0;
 }

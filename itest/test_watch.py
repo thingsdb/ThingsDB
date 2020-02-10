@@ -56,6 +56,9 @@ class TestEvents(Events):
 
         thing.on_delete()
 
+    def on_watch_stop(self, data):
+        pass
+
 
 class Thing:
     def __init__(self, evhandler, id):

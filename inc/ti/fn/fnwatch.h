@@ -14,10 +14,19 @@ static int do__f_watch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = (ti_thing_t *) query->rval;
 
+    if (!thing->id)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "thing has no `#ID`; "
+                "if you really want to watch this `thing` then you need to "
+                "assign it to a collection"DOC_THING_WATCH);
+        return e->nr;
+    }
+
     if (query->qbind.flags & TI_QBIND_FLAG_API)
     {
         log_debug(
-            "function `watch()` from a HTTP API connection has no effect");
+            "function `watch()` with a HTTP API request has no effect");
         goto done;  /* Do nothings with HTTP API watch requests */
     }
 

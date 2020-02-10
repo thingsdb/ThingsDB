@@ -1075,9 +1075,8 @@ static void nodes__on_fwd_wu(
     if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
         mp_next(&up, &mp_cid) != MP_U64 ||
         mp_next(&up, &mp_tid) != MP_U64)
-
     {
-        log_error("got an invalid forwarded `%s` package", action);
+        log_error("got an invalid (forwarded) `%s` package", action);
         return;
     }
 
@@ -1087,12 +1086,12 @@ static void nodes__on_fwd_wu(
         if (req && ti_api_is_fwd_req(req))
         {
             log_debug(
-                "function `%s()` from a HTTP API connection has no effect",
+                "function `%s()` with a HTTP API request has no effect",
                 action);
         }
         else
         {
-            log_warning("unexpected or lost request");
+            log_warning("unexpected or lost request (package id %u)", pkg->id);
         }
         return;
     }

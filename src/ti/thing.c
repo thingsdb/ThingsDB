@@ -41,6 +41,31 @@ static inline int thing__val_locked(
     return 0;
 }
 
+static void thing__unwatch(ti_thing_t * thing, ti_stream_t * stream)
+{
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    ti_pkg_t * pkg;
+
+    if (ti_stream_is_closed(stream))
+        return;
+
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+    {
+        log_critical(EX_MEMORY_S);
+        return;
+    }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    (void) ti_thing_id_to_pk(thing, &pk);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_STOP, buffer.size);
+
+    if (ti_stream_write_pkg(stream, pkg))
+        log_critical(EX_INTERNAL_S);
+}
+
 static void thing__watch_del(ti_thing_t * thing)
 {
     assert (thing->watchers);
@@ -672,11 +697,11 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
     return 0;
 }
 
-_Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
+int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
 {
     size_t idx = 0;
     if (!thing->watchers)
-        return false;
+        return 0;
 
     for (vec_each(thing->watchers, ti_watch_t, watch), ++idx)
     {
@@ -684,10 +709,11 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
         {
             watch->stream = NULL;
             vec_swap_remove(thing->watchers, idx);
-            return true;
+            thing__unwatch(thing, stream);
+            return 0;
         }
     }
-    return false;
+    return 0;
 }
 
 static ti_pkg_t * thing__fwd(

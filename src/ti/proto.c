@@ -12,6 +12,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_WATCH_INI:         return "CLIENT_WATCH_INI";
     case TI_PROTO_CLIENT_WATCH_UPD:         return "CLIENT_WATCH_UPD";
     case TI_PROTO_CLIENT_WATCH_DEL:         return "CLIENT_WATCH_DEL";
+    case TI_PROTO_CLIENT_WATCH_STOP:        return "CLIENT_WATCH_STOP";
     case TI_PROTO_CLIENT_WARN:              return "CLIENT_WARN";
 
     case TI_PROTO_CLIENT_RES_PONG:          return "CLIENT_RES_PONG";

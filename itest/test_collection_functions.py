@@ -2363,6 +2363,50 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'{a:1}.values();'), [1])
         self.assertEqual(await client.query(r'{a:1, b:2}.values();'), [1, 2])
 
+    async def test_watch(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `watch`'):
+            await client.query('nil.watch();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `watch` is undefined'):
+            await client.query('watch();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `watch` takes 0 arguments but 1 was given'):
+            await client.query('.watch(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'thing has no `#ID`; '
+                'if you really want to watch this `thing` then you need to '
+                'assign it to a collection;'):
+            await client.query('{}.watch();')
+
+        self.assertIs(await client.query(r'.watch();'), None)
+
+    async def test_unwatch(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `unwatch`'):
+            await client.query('nil.unwatch();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `unwatch` is undefined'):
+            await client.query('unwatch();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `unwatch` takes 0 arguments but 1 was given'):
+            await client.query('.unwatch(nil);')
+
+        self.assertIs(await client.query(r'{}.unwatch();'), None)
+        self.assertIs(await client.query(r'.unwatch();'), None)
+
     async def test_wse(self, client):
         with self.assertRaisesRegex(
                 LookupError,

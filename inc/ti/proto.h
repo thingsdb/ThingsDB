@@ -19,7 +19,8 @@ typedef enum
     TI_PROTO_CLIENT_WATCH_INI   =1,     /* {event:x, thing: {#:x, ...}      */
     TI_PROTO_CLIENT_WATCH_UPD   =2,     /* {event:x. #:x, jobs:[] etc }     */
     TI_PROTO_CLIENT_WATCH_DEL   =3,     /* {#:x}                            */
-    TI_PROTO_CLIENT_WARN        =4,     /* {warn_msg:..., warn_code: x}     */
+    TI_PROTO_CLIENT_WATCH_STOP  =4,     /* {#:x}                            */
+    TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
 
     /*
      * 0x0001xxxx  16..31 client responses

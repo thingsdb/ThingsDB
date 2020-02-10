@@ -187,30 +187,6 @@ void ti_wareq_destroy(ti_wareq_t * wareq)
     uv_close((uv_handle_t *) wareq->task, (uv_close_cb) wareq__destroy_cb);
 }
 
-int ti_wareq_init(ti_stream_t * stream)
-{
-    if (ti_stream_is_closed(stream))
-        return -1;
-
-    if (!stream->watching)
-    {
-        /*
-         * This is the first watch request for this client, add listening for
-         * thing0
-         */
-        ti_watch_t * watch = ti_thing_watch(ti()->thing0, stream);
-        if (!watch)
-        {
-            log_error(EX_MEMORY_S);
-            /*
-             * This is not critical, it does however mean that the client will
-             * not receive broadcast messages
-             */
-        }
-    }
-    return 0;
-}
-
 int ti_wareq_run(ti_wareq_t * wareq)
 {
     return uv_async_send(wareq->task);

@@ -20,7 +20,6 @@ ti_wareq_t * ti_wareq_may_create(
         const char * task,
         ex_t * e);
 void ti_wareq_destroy(ti_wareq_t * wareq);
-int ti_wareq_init(ti_stream_t * stream);
 int ti_wareq_run(ti_wareq_t * wareq);
 
 struct ti_wareq_s

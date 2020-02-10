@@ -323,12 +323,26 @@ finish:
 
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
+        /* serious error, watch cannot continue */
         free(resp);
+        ti_wareq_destroy(wareq);
         log_error(EX_MEMORY_S);
+        return;
     }
 
-    if (e.nr || ti_wareq_init(stream) || (wareq && ti_wareq_run(wareq)))
-        ti_wareq_destroy(wareq);
+    if (ti_stream_is_closed(stream))
+        return;
+
+    if (wareq)
+    {
+        /* a watch request, so watch things in a collection scope */
+        if (ti_wareq_run(wareq))
+            ti_wareq_destroy(wareq);
+        return;  /* success */
+    }
+
+    /* this must be the node scope */
+    ti_thing_watch(ti()->thing0, stream);
 }
 
 static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)

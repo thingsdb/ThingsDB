@@ -29,6 +29,8 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
     case TI_PROTO_NODE_MISSING_EVENT:       return "NODE_MISSING_EVENT";
+    case TI_PROTO_NODE_FWD_WATCH:           return "NODE_FWD_WATCH";
+    case TI_PROTO_NODE_FWD_UNWATCH:         return "NODE_FWD_UNWATCH";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
     case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";

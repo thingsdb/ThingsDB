@@ -9,6 +9,7 @@
 #include <ti/stream.h>
 #include <ti/pkg.h>
 #include <ti/rpkg.h>
+#include <ti/req.h>
 
 typedef struct ti_clients_s ti_clients_t;
 
@@ -16,6 +17,7 @@ int ti_clients_create(void);
 void ti_clients_destroy(void);
 int ti_clients_listen(void);
 void ti_clients_write_rpkg(ti_rpkg_t * rpkg);
+_Bool ti_clients_is_fwd_req(ti_req_t * req);
 
 struct ti_clients_s
 {

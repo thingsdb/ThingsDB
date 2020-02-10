@@ -757,6 +757,11 @@ done:
     ti_req_destroy(req);
 }
 
+_Bool ti_api_is_fwd_req(ti_req_t * req)
+{
+    return req->cb_ == api__fwd_cb;
+}
+
 static int api__fwd(ti_api_request_t * ar, ti_node_t * to_node, ti_pkg_t * pkg)
 {
     ti_api_acquire(ar);

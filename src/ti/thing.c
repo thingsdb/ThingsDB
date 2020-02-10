@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/names.h>
+#include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/thing.h>
@@ -555,7 +556,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
     return 0;
 }
 
-ti_watch_t *  ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
+ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
 {
     ti_watch_t * watch;
     ti_watch_t ** empty_watch = NULL;
@@ -611,6 +612,66 @@ failed:
     return NULL;
 }
 
+int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
+{
+    _Bool is_collection = thing == thing->collection->root;
+    ti_pkg_t * pkg;
+    vec_t * pkgs_queue;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    ti_watch_t * watch = ti_thing_watch(thing, stream);
+    if (!watch)
+        return -1;
+
+    if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
+        return -1;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, is_collection ? 4 : 2);
+
+    mp_pack_str(&pk, "event");
+    msgpack_pack_uint64(&pk, ti()->node->cevid);
+
+    mp_pack_str(&pk, "thing");
+
+    if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return -1;
+    }
+
+    if (is_collection && (
+            mp_pack_str(&pk, "types") ||
+            ti_types_to_pk(thing->collection->types, &pk) ||
+            mp_pack_str(&pk, "procedures") ||
+            ti_procedures_to_pk(thing->collection->procedures, &pk)))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return -1;
+    }
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
+
+    if (ti_stream_is_closed(stream) ||
+        ti_stream_write_pkg(stream, pkg))
+        free(pkg);
+
+    pkgs_queue = ti_events_pkgs_from_queue(thing);
+    if (pkgs_queue)
+    {
+        for (vec_each(pkgs_queue, ti_pkg_t, pkg))
+        {
+            if (ti_stream_is_closed(stream) ||
+                ti_stream_write_pkg(stream, pkg))
+                free(pkg);
+        }
+        vec_destroy(pkgs_queue, NULL);
+    }
+    return 0;
+}
+
 _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
 {
     size_t idx = 0;
@@ -627,6 +688,47 @@ _Bool ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
         }
     }
     return false;
+}
+
+static ti_pkg_t * thing__fwd(
+        ti_thing_t * thing,
+        uint16_t pkg_id,
+        ti_proto_enum_t proto)
+{
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    ti_pkg_t * pkg;
+
+    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
+        return NULL;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, thing->collection->root->id);
+    msgpack_pack_uint64(&pk, thing->id);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, pkg_id, proto, buffer.size);
+
+    return pkg;
+}
+
+int ti_thing_watch_fwd(
+        ti_thing_t * thing,
+        ti_stream_t * stream,
+        uint16_t pkg_id)
+{
+    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_WATCH);
+    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
+}
+
+int ti_thing_unwatch_fwd(
+        ti_thing_t * thing,
+        ti_stream_t * stream,
+        uint16_t pkg_id)
+{
+    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_UNWATCH);
+    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
 }
 
 void ti_thing_t_to_object(ti_thing_t * thing)

@@ -154,7 +154,9 @@
 #define DOC_THING_LEN               DOC_SEE("data-types/thing/len")
 #define DOC_THING_MAP               DOC_SEE("data-types/thing/map")
 #define DOC_THING_SET               DOC_SEE("data-types/thing/set")
+#define DOC_THING_UNWATCH           DOC_SEE("data-types/thing/unwatch")
 #define DOC_THING_VALUES            DOC_SEE("data-types/thing/values")
+#define DOC_THING_WATCH             DOC_SEE("data-types/thing/watch")
 #define DOC_THING_WRAP              DOC_SEE("data-types/thing/wrap")
 #define DOC_WTYPE_UNWRAP            DOC_SEE("data-types/wtype/unwrap")
 

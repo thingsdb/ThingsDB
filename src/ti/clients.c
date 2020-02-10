@@ -58,6 +58,11 @@ finish:
     ti_req_destroy(req);
 }
 
+_Bool ti_clients_is_fwd_req(ti_req_t * req)
+{
+    return req->cb_ == clients__fwd_cb;
+}
+
 static int clients__fwd(
         ti_node_t * to_node,
         ti_stream_t * src_stream,

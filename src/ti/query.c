@@ -381,33 +381,22 @@ static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query)
 
 ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
 {
-    ti_query_t * query = malloc(sizeof(ti_query_t));
+    ti_query_t * query = calloc(1, sizeof(ti_query_t));
     if (!query)
         return NULL;
 
-    query->rval = NULL;
     query->qbind.flags = flags;
     query->qbind.deep = 1;
-    query->qbind.val_cache_n = 0;
-    query->collection = NULL;  /* node or thingsdb when NULL */
-    query->parseres = NULL;
-    query->closure = NULL;
     if (query->qbind.flags & TI_QBIND_FLAG_API)
         query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
     else
         query->via.stream = ti_grab((ti_stream_t *) via);
     query->user = ti_grab(user);
-    query->ev = NULL;
-    query->querystr = NULL;
-    query->val_cache = NULL;
     query->vars = vec_new(7);  /* with some initial size; we could find the
                                 * exact number in the syntax (maybe), but then
                                 * we also must allow closures to still grow
                                 * this vector, so a fixed size may be the best
                                 */
-    query->gc = NULL;
-    ti_chain_init(&query->chain);
-
     if (!query->vars)
     {
         ti_query_destroy(query);

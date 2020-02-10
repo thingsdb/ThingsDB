@@ -10,6 +10,7 @@
 #include <ti/auth.h>
 #include <ti/away.h>
 #include <ti/nodes.h>
+#include <ti/fwd.h>
 #include <ti/proto.h>
 #include <ti/query.inline.h>
 #include <ti/syncarchive.h>
@@ -1048,6 +1049,83 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node->id);
 }
 
+static void nodes__on_fwd_wu(
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        const char * action)  /* action = "watch" or "unwatch" */
+{
+    ti_thing_t * thing;
+    ti_collection_t * collection;
+    ti_fwd_t * fwd;
+    ti_req_t * req;
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    mp_obj_t obj, mp_cid, mp_tid;
+
+    if (!other_node)
+    {
+        log_error(
+                "got a `%s` from an unauthorized connection: `%s`",
+                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(&up, &mp_cid) != MP_U64 ||
+        mp_next(&up, &mp_tid) != MP_U64)
+
+    {
+        log_error("got an invalid forwarded `%s` package", action);
+        return;
+    }
+
+    req = omap_get(stream->reqmap, pkg->id);
+    if (!req || !ti_clients_is_fwd_req(req))
+    {
+        if (req && ti_api_is_fwd_req(req))
+        {
+            log_debug(
+                "function `%s()` from a HTTP API connection has no effect",
+                action);
+        }
+        else
+        {
+            log_warning("unexpected or lost request");
+        }
+        return;
+    }
+
+    fwd = req->data;
+    collection = ti_collections_get_by_id(mp_cid.via.u64);
+    if (!collection)
+    {
+        log_warning("cannot find "TI_COLLECTION_ID, mp_cid.via.u64);
+        return;
+    }
+
+    uv_mutex_lock(collection->lock);
+
+    thing = imap_get(collection->things, mp_tid.via.u64);
+    if (thing)
+    {
+        int rc = *action == 'w'
+                ? ti_thing_watch_init(thing, fwd->stream)
+                : ti_thing_unwatch(thing, fwd->stream);
+        if (rc)
+            log_error("%s() has failed (%d)", action, rc);
+    }
+    else
+    {
+        log_warning(
+                "cannot find "TI_THING_ID" in "TI_COLLECTION_ID,
+                mp_tid.via.u64, mp_cid.via.u64);
+    }
+
+    uv_mutex_unlock(collection->lock);
+}
+
 static const char * nodes__get_status_fn(void)
 {
     if (nodes->status_fn)
@@ -1617,6 +1695,12 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_MISSING_EVENT:
         nodes__on_missing_event(stream, pkg);
+        break;
+    case TI_PROTO_NODE_FWD_WATCH:
+        nodes__on_fwd_wu(stream, pkg, "watch");
+        break;
+    case TI_PROTO_NODE_FWD_UNWATCH:
+        nodes__on_fwd_wu(stream, pkg, "unwatch");
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

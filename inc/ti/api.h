@@ -7,6 +7,7 @@
 #include <lib/http_parser.h>
 #include <uv.h>
 #include <ti/user.h>
+#include <ti/req.h>
 #include <ti/scope.h>
 #include <ex.h>
 
@@ -38,6 +39,7 @@ typedef enum
 typedef struct ti_api_request_s ti_api_request_t;
 
 int ti_api_init(void);
+_Bool ti_api_is_fwd_req(ti_req_t * req);
 ti_api_request_t * ti_api_acquire(ti_api_request_t * api_request);
 void ti_api_release(ti_api_request_t * api_request);
 int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size);

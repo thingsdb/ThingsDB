@@ -208,7 +208,6 @@ int ti_wareq_init(ti_stream_t * stream)
              */
         }
     }
-
     return 0;
 }
 
@@ -240,7 +239,6 @@ static void wareq__watch_cb(uv_async_t * task)
 {
     ti_wareq_t * wareq = task->data;
     ti_thing_t * thing;
-    ti_watch_t * watch;
     uint32_t n;
 
     if (!wareq->collection || !wareq->thing_ids)
@@ -255,12 +253,6 @@ static void wareq__watch_cb(uv_async_t * task)
 
     while (n--)
     {
-        ti_pkg_t * pkg;
-        vec_t * pkgs_queue;
-        msgpack_packer pk;
-        msgpack_sbuffer buffer;
-        _Bool is_collection;
-
         #if TI_IS64BIT
         uintptr_t id = (uintptr_t) vec_pop(wareq->thing_ids);
         #else
@@ -270,7 +262,6 @@ static void wareq__watch_cb(uv_async_t * task)
         #endif
 
         thing = imap_get(wareq->collection->things, id);
-        is_collection = thing == wareq->collection->root;
 
         if (!thing)
         {
@@ -284,62 +275,10 @@ static void wareq__watch_cb(uv_async_t * task)
             continue;
         }
 
-        watch = ti_thing_watch(thing, wareq->stream);
-        if (!watch)
+        if (ti_thing_watch_init(thing, wareq->stream))
         {
             log_critical(EX_MEMORY_S);
             break;
-        }
-
-        if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
-        {
-            log_critical(EX_MEMORY_S);
-            break;
-        }
-        msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-        msgpack_pack_map(&pk, is_collection ? 4 : 2);
-
-        mp_pack_str(&pk, "event");
-        msgpack_pack_uint64(&pk, ti()->node->cevid);
-
-        mp_pack_str(&pk, "thing");
-
-        if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
-        {
-            log_critical(EX_MEMORY_S);
-            msgpack_sbuffer_destroy(&buffer);
-            break;
-        }
-
-        if (is_collection && (
-                mp_pack_str(&pk, "types") ||
-                ti_types_to_pk(wareq->collection->types, &pk) ||
-                mp_pack_str(&pk, "procedures") ||
-                ti_procedures_to_pk(wareq->collection->procedures, &pk)))
-        {
-            log_critical(EX_MEMORY_S);
-            msgpack_sbuffer_destroy(&buffer);
-            break;
-        }
-
-        pkg = (ti_pkg_t *) buffer.data;
-        pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
-
-        if (ti_stream_is_closed(wareq->stream) ||
-            ti_stream_write_pkg(wareq->stream, pkg))
-            free(pkg);
-
-        pkgs_queue = ti_events_pkgs_from_queue(thing);
-        if (pkgs_queue)
-        {
-            for (vec_each(pkgs_queue, ti_pkg_t, pkg))
-            {
-                if (ti_stream_is_closed(wareq->stream) ||
-                    ti_stream_write_pkg(wareq->stream, pkg))
-                    free(pkg);
-            }
-            vec_destroy(pkgs_queue, NULL);
         }
     }
 

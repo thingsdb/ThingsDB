@@ -107,8 +107,10 @@ void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
     free(stream->name_);
     stream->name_ = NULL;
 
-    stream->via.node = ti_grab(node);
+    stream->via.node = node;
     node->stream = stream;
+
+    ti_incref(node);
 }
 
 void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)

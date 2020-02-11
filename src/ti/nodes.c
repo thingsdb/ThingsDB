@@ -332,8 +332,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         /*
          * We leave the old stream alone since it will be closed once a
          * connection response is received.
+         * Instead of dropping the node, we just decrement here so the node
+         * might actually drop down to 0 references but the call to
+         * ti_stream_set_node(..) below will immediately increase the reference
+         * counter by one.
          */
-        ti_node_drop(node);
+        ti_decref(node);
 
         node->stream->via.node = NULL;
         node->stream = NULL;

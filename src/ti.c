@@ -43,6 +43,7 @@ const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 5;
 static uv_timer_t * shutdown_timer = NULL;
+static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
 
 static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
@@ -379,6 +380,88 @@ fail:
     return -1;
 }
 
+static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
+{
+    free(delayed_start_timer);
+    delayed_start_timer = NULL;
+}
+
+static void ti__delayed_start_stop(void)
+{
+    (void) uv_timer_stop(delayed_start_timer);
+    uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
+}
+
+
+static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
+{
+    ssize_t n = ti_events_trigger_loop();
+
+    if (n > 0)
+    {
+        log_info("wait for %zd event%s to load", n, n == 1 ? "" : "s");
+        return;
+    }
+
+    if (n < 0)
+        goto failed;
+
+    if (ti_.node)
+    {
+        if (ti_away_start())
+            goto failed;
+
+        if (ti_clients_listen())
+            goto failed;
+
+        if (ti_api_init())
+            goto failed;
+
+        if (ti_connect_start())
+            goto failed;
+
+        if (ti()->nodes->imap->n == 1)
+        {
+            ti_.node->status = TI_NODE_STAT_READY;
+        }
+        else if (ti_sync_start())
+            goto failed;
+    }
+
+    if (ti_nodes_listen())
+        goto failed;
+
+    ti__delayed_start_stop();
+    return;
+
+failed:
+    ti_stop();
+}
+
+int ti_delayed_start(void)
+{
+    assert (delayed_start_timer == NULL);
+
+    delayed_start_timer = malloc(sizeof(uv_timer_t));
+    if (!delayed_start_timer)
+        goto fail0;
+
+    if (uv_timer_init(ti_.loop, delayed_start_timer))
+        goto fail0;
+
+    if (uv_timer_start(delayed_start_timer, ti__delayed_start_cb, 100, 1000))
+        goto fail1;
+
+    return 0;
+
+fail1:
+    uv_close((uv_handle_t *) delayed_start_timer, (uv_close_cb) free);
+fail0:
+    free(delayed_start_timer);
+    delayed_start_timer = NULL;
+    return -1;
+}
+
 int ti_run(void)
 {
     int rc, attempts;
@@ -411,27 +494,6 @@ int ti_run(void)
 
         if (ti_archive_load())
             goto failed;
-
-        if (ti_away_start())
-            goto failed;
-
-        if (ti_clients_listen())
-            goto failed;
-
-        if (ti_api_init())
-            goto failed;
-
-        if (ti_connect_start())
-            goto failed;
-
-        if (ti()->nodes->imap->n == 1)
-        {
-            ti_.node->status = TI_NODE_STAT_READY;
-        }
-
-        else if (ti_sync_start())
-            goto failed;
-
     }
     else
     {
@@ -439,8 +501,7 @@ int ti_run(void)
             goto failed;
     }
 
-    if (ti_nodes_listen())
-        goto failed;
+    ti_delayed_start();
 
     rc = uv_run(ti_.loop, UV_RUN_DEFAULT);
     goto finish;
@@ -962,6 +1023,8 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     case UV_TIMER:
         if (handle == (uv_handle_t *) shutdown_timer)
             ti__shutdown_stop();
+        else if (handle == (uv_handle_t *) delayed_start_timer)
+            ti__delayed_start_stop();
         else
         {
             log_error("non closing timer found");

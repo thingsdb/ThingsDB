@@ -389,8 +389,8 @@ static void node__on_connect(uv_connect_t * req, int status)
     if (node->stream != (ti_stream_t *) req->handle->data)
     {
         log_warning(
-                "connection to "TI_NODE_ID" (%s) already established "
-                "from the other side",
+                "cancel connect; connection to "TI_NODE_ID" (%s) already  "
+                "established from the other side",
                 node->id, ti_node_name(node));
         goto failed;
     }
@@ -470,8 +470,8 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     if (node->stream != req->stream)
     {
         log_warning(
-                "connection to "TI_NODE_ID" (%s) already established "
-                "from the other side",
+                "ignore connect request; connection to "TI_NODE_ID" (%s) "
+                "already established from the other side",
                 node->id, ti_node_name(node));
         goto failed;
     }

@@ -4,8 +4,8 @@
 
 - [ ] Update watch documentation
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
-- [ ] thing.watch()/thing.unwatch() function calls.
-- [ ] sets add/remove
+- [ ] check long running events, in combination with node connect loop
+
 
 ## Plans and Ideas for the Future
 

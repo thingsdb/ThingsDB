@@ -587,6 +587,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
     ti_event_t * ev;
     util_time_t timing;
     uint64_t * cevid_p = &ti()->node->cevid;
+    int process_events = 5;
 
     if (uv_mutex_trylock(events->lock))
     {
@@ -597,7 +598,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;
 
-    while ((ev = queue_first(events->queue)))
+    while (process_events-- && (ev = queue_first(events->queue)))
     {
         /* Cancelled event should be removed from the queue */
         assert (ev->status != TI_EVENT_STAT_CACNCEL);
@@ -710,5 +711,8 @@ stop:
 
     /* status will be send to nodes on next `connect` loop */
     ti_connect_force_sync();
+
+    /* trigger the event loop again (only if there are changes) */
+    (void) events__trigger();
 }
 

@@ -340,6 +340,7 @@ int ti_archive_load(void)
     struct dirent ** file_list;
     int n, total, rc = 0;
     ti_archfile_t * archfile;
+    const uint64_t * cevid = &ti()->node->cevid;
 
     log_debug("loading archive files from `%s`", archive->path);
 
@@ -368,6 +369,9 @@ int ti_archive_load(void)
             rc = -1;
             continue;
         }
+
+        if (archfile->last <= *cevid)
+            continue;
 
         /* we are sure this fits since the filename is checked */
         if (archive__load_file(archfile))

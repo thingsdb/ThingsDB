@@ -20,8 +20,8 @@ _Bool ti_archfile_is_valid_fn(const char * fn);
 
 struct ti_archfile_s
 {
-    uint64_t first;
-    uint64_t last;
+    uint64_t first;     /* inclusive */
+    uint64_t last;      /* includive */
     char * fn;
 };
 

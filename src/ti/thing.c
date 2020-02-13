@@ -639,12 +639,13 @@ failed:
 
 int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
 {
-    _Bool is_collection = thing == thing->collection->root;
     ti_pkg_t * pkg;
     vec_t * pkgs_queue;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_watch_t * watch = ti_thing_watch(thing, stream);
+    ti_collection_t * collection = thing->collection;
+    _Bool is_collection = thing == collection->root;
+     ti_watch_t * watch = ti_thing_watch(thing, stream);
     if (!watch)
         return -1;
 
@@ -653,14 +654,16 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, is_collection ? 4 : 2);
+    msgpack_pack_map(&pk, is_collection ? 5 : 3);
 
     mp_pack_str(&pk, "event");
     msgpack_pack_uint64(&pk, ti()->node->cevid);
 
     mp_pack_str(&pk, "thing");
 
-    if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */))
+    if (ti_thing__to_pk(thing, &pk, TI_VAL_PACK_TASK /* options */) ||
+        mp_pack_str(&pk, "collection") ||
+        mp_pack_strn(&pk, collection->name->data, collection->name->n))
     {
         msgpack_sbuffer_destroy(&buffer);
         return -1;
@@ -668,9 +671,9 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
 
     if (is_collection && (
             mp_pack_str(&pk, "types") ||
-            ti_types_to_pk(thing->collection->types, &pk) ||
+            ti_types_to_pk(collection->types, &pk) ||
             mp_pack_str(&pk, "procedures") ||
-            ti_procedures_to_pk(thing->collection->procedures, &pk)))
+            ti_procedures_to_pk(collection->procedures, &pk)))
     {
         msgpack_sbuffer_destroy(&buffer);
         return -1;

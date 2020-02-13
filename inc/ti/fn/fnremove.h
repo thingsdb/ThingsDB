@@ -102,6 +102,36 @@ fail0:
     return e->nr;
 }
 
+typedef struct
+{
+    ex_t * e;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    vec_t ** removed;
+} remove__walk_t;
+
+static int remove__walk(ti_thing_t * t, remove__walk_t * w)
+{
+    if (ti_closure_vars_val_idx(w->closure, (ti_val_t *) t, t->id))
+    {
+        ex_set_mem(w->e);
+        return -1;
+    }
+
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval) && vec_push(w->removed, t))
+    {
+        ex_set_mem(w->e);
+        return -1;
+    }
+
+    ti_val_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_remove_set_from_closure(
         vec_t ** removed,
         ti_vset_t * vset,
@@ -110,13 +140,7 @@ static int do__f_remove_set_from_closure(
         ex_t * e)
 {
     ti_closure_t * closure = (ti_closure_t *) query->rval;
-    vec_t * vec = imap_vec(vset->imap);
     query->rval = NULL;
-    if (!vec)
-    {
-        ex_set_mem(e);
-        goto fail1;
-    }
 
     /* do not use the usual arguments check since we want a special message */
     if (nargs > 1)
@@ -125,38 +149,24 @@ static int do__f_remove_set_from_closure(
                 "function `remove` takes at most 1 argument when using a `"
                 TI_VAL_CLOSURE_S"` but %d were given"DOC_SET_REMOVE,
                 nargs);
-        goto fail1;
+        goto fail;
     }
 
     if (    ti_closure_try_wse(closure, query, e) ||
             ti_closure_try_lock_and_use(closure, query, e))
-        goto fail1;
+        goto fail;
 
-    for (vec_each(vec, ti_thing_t, t))
-    {
-        if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
-        {
-            ex_set_mem(e);
-            goto fail2;
-        }
+    remove__walk_t w = {
+            .e = e,
+            .closure = closure,
+            .query = query,
+            .removed = removed,
+    };
 
-        if (ti_closure_do_statement(closure, query, e))
-            goto fail2;
-
-        if (ti_val_as_bool(query->rval) && vec_push(removed, t))
-        {
-            ex_set_mem(e);
-            goto fail2;
-        }
-
-        ti_val_drop(query->rval);
-        query->rval = NULL;
-    }
-
-fail2:
+    (void) imap_walk(vset->imap, (imap_cb) remove__walk, &w);
     ti_closure_unlock_use(closure, query);
 
-fail1:
+fail:
     ti_val_drop((ti_val_t *) closure);
     return e->nr;
 }

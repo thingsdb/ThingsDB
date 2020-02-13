@@ -13,9 +13,9 @@ typedef struct ti_wrap_s  ti_wrap_t;
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id);
 void ti_wrap_destroy(ti_wrap_t * wrap);
 int ti__wrap_field_thing(
-        uint16_t spec,
         ti_thing_t * thing,
         msgpack_packer * pk,
+        uint16_t spec,
         int options);
 
 struct ti_wrap_s

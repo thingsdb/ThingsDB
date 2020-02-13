@@ -43,24 +43,35 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
     free(wrap);
 }
 
+typedef struct
+{
+    msgpack_packer * pk;
+    uint16_t spec;
+    uint16_t _pad0;
+    int options;
+} wrap__walk_t;
+
+static int wrap__walk(ti_thing_t * thing, wrap__walk_t * w)
+{
+    return ti__wrap_field_thing(thing, w->pk, w->spec, w->options);
+}
+
 static int wrap__set(
         ti_vset_t * vset,
-        uint16_t * spec,
         msgpack_packer * pk,
+        uint16_t spec,
         int options)
 {
-    vec_t * vec = imap_vec(vset->imap);
-    if (!vec || msgpack_pack_array(pk, vec->n))
-        return -1;
+    wrap__walk_t w = {
+            .pk = pk,
+            .spec = spec,
+            .options = options,
+    };
 
-    for (vec_each(vec, ti_thing_t, thing))
-        if (ti__wrap_field_thing(
-                *spec,
-                thing,
-                pk,
-                options)
-        ) return -1;
-    return 0;
+    return (
+            msgpack_pack_array(pk, vset->imap->n) ||
+            imap_walk(vset->imap, (imap_cb) wrap__walk, &w)
+    );
 }
 
 static int wrap__field_val(
@@ -75,15 +86,15 @@ static int wrap__field_val(
     TI_VAL_PACK_CASE_IMMUTABLE(val, pk, options)
     case TI_VAL_THING:
         return ti__wrap_field_thing(
-                *spec,
                 (ti_thing_t *) val,
                 pk,
+                *spec,
                 options);
     case TI_VAL_WRAP:
         return ti__wrap_field_thing(
-                *spec,
                 ((ti_wrap_t *) val)->thing,
                 pk,
+                *spec,
                 options);
     case TI_VAL_ARR:
     {
@@ -105,8 +116,8 @@ static int wrap__field_val(
     case TI_VAL_SET:
         return wrap__set(
                 (ti_vset_t *) val,
-                &t_field->nested_spec,
                 pk,
+                t_field->nested_spec,
                 options);
     }
 
@@ -134,9 +145,9 @@ static inline int wrap__thing_id_to_pk(
  * Do not use directly, use ti_wrap_to_pk() instead
  */
 int ti__wrap_field_thing(
-        uint16_t spec,
         ti_thing_t * thing,
         msgpack_packer * pk,
+        uint16_t spec,
         int options)
 {
     assert (options >= 0);

@@ -187,7 +187,7 @@ load:
             if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
 
-            if (ti()->nodes->imap->n < 2)
+            if (ti()->nodes->vec->n < 2)
             {
                 printf( "At least 2 nodes are required for a rebuild. "
                         "You might want to use --init or --secret with "

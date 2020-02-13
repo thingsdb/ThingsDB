@@ -104,7 +104,8 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     if (ti_unpack(pkg->data, pkg->n))
         goto failed;
 
-    nodes_vec = imap_vec(ti()->nodes->imap);
+    /* assign nodes_vec not earlier since ti_unpack might change the pointer */
+    nodes_vec = ti()->nodes->vec;
     for(vec_each(nodes_vec, ti_node_t, node))
     {
         if (node->id == build->from_node_id)

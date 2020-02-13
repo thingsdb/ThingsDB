@@ -537,7 +537,7 @@ static void field__del_watch(
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
-    vec_t * vec = imap_vec_pop(field->type->types->collection->things);
+    vec_t * vec = imap_vec(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
     ti_data_t * data = field__del_job(field->name->str, field->name->n);
 
@@ -596,38 +596,29 @@ void ti_field_destroy(ti_field_t * field)
     free(field);
 }
 
+static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
+{
+    return thing->type_id != field->nested_spec;
+}
+
 static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
 {
-    vec_t * vec;
-
     if (field->nested_spec == TI_SPEC_ANY ||
         field->nested_spec == (*vset)->spec ||
         (*vset)->imap->n == 0)
         goto done;
 
-    vec = imap_vec((*vset)->imap);
-    if (!vec)
+    if (imap_walk((*vset)->imap, (imap_cb) field__walk_assign, field))
     {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    for (vec_each(vec, ti_thing_t, thing))
-    {
-        /* sets cannot hold type `nil` so we can ignore the nillable flag */
-        if (thing->type_id != field->nested_spec)
-        {
-            ex_set(e, EX_TYPE_ERROR,
+        ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
                 "property `%s` has definition `%.*s` but got a set with "
-                "type `%s` instead",
+                "at least one thing of another type",
                 field->type->name,
                 field->name->str,
                 (int) field->spec_raw->n,
-                (const char *) field->spec_raw->data,
-                ti_val_str((ti_val_t *) thing));
-            return e->nr;
-        }
+                (const char *) field->spec_raw->data);
+        return e->nr;
     }
 
 done:

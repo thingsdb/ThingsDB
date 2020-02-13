@@ -87,12 +87,6 @@ int ti_collections_gc(void)
     return rc;
 }
 
-void ti_collections_cleanup(void)
-{
-    for (vec_each(collections->vec, ti_collection_t, collection))
-        imap_vec_clear(collection->things);
-}
-
 _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;

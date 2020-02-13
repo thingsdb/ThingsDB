@@ -37,8 +37,6 @@ void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
 _Bool imap__eq_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
-vec_t * imap_vec_pop(imap_t * imap);
-void imap_vec_clear(imap_t * imap);
 uint64_t imap_unused_id(imap_t * imap, uint64_t max);
 void imap_union_ref(
         imap_t * dest,
@@ -67,7 +65,6 @@ struct imap_node_s
 struct imap_s
 {
     size_t n;
-    vec_t * vec;
     imap_node_t nodes[];
 };
 

@@ -250,7 +250,7 @@ failed:
     (void) mkdir(ti_.cfg->storage_path, TI_DEFAULT_DIR_ACCESS);
     ti_node_drop(ti_.node);
     ti_.node = NULL;
-    (void) imap_pop(ti_.nodes->imap, 0);
+    (void) vec_pop(ti_.nodes->vec);
 
 done:
     ti_event_drop(ev);
@@ -420,7 +420,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
         if (ti_connect_start())
             goto failed;
 
-        if (ti()->nodes->imap->n == 1)
+        if (ti()->nodes->vec->n == 1)
         {
             ti_.node->status = TI_NODE_STAT_READY;
         }

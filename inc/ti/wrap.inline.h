@@ -40,7 +40,7 @@ static inline int ti_wrap_to_pk(
 {
     return  /* for a client */
             options > 0
-            ? ti__wrap_field_thing(wrap->type_id, wrap->thing, pk, options)
+            ? ti__wrap_field_thing(wrap->thing, pk, wrap->type_id, options)
 
             /* no nesting, just the id */
             : options == 0

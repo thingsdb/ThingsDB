@@ -270,7 +270,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
 
-    things_vec = imap_vec_pop(things);
+    things_vec = imap_vec(things);
     if (!things_vec)
         return -1;
 

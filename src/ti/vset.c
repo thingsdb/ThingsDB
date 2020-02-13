@@ -38,28 +38,35 @@ void ti_vset_destroy(ti_vset_t * vset)
     free(vset);
 }
 
+typedef struct
+{
+    msgpack_packer * pk;
+    int options;
+} vset__walk_to_pk_t;
+
+static inline int vset__walk_to_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
+{
+    return ti_thing_to_pk(thing, w->pk, w->options);
+}
+
 int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
 {
-    vec_t * vec = imap_vec(vset->imap);
-    if (!vec ||
-        (options < 0 && (
+    vset__walk_to_pk_t w = {
+            .pk = pk,
+            .options = options,
+    };
+    return ((options < 0 && (
                 msgpack_pack_map(pk, 1) ||
                 mp_pack_strn(pk, TI_KIND_S_SET, 1)
         )) ||
-        msgpack_pack_array(pk, vec->n)
-    ) return -1;
-
-    for (vec_each(vec, ti_thing_t, thing))
-        if (ti_thing_to_pk(thing, pk, options))
-            return -1;
-
-    return 0;
+        msgpack_pack_array(pk, vset->imap->n)
+    ) ? -1 : imap_walk(vset->imap, (imap_cb) vset__walk_to_pk, &w);
 }
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)
 {
     ti_varr_t * list;
-    vec_t * vec = imap_vec_pop((*vsetaddr)->imap);
+    vec_t * vec = imap_vec((*vsetaddr)->imap);
     if (!vec)
         goto failed;
 
@@ -94,27 +101,29 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
     return 0;
 }
 
+static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
+{
+    if (ti_vset_add(vset, t))
+    {
+        ti_vset_destroy(vset);
+        return -1;
+    }
+    ti_incref(t);
+    return 0;
+}
+
 int ti_vset_assign(ti_vset_t ** vsetaddr)
 {
-    vec_t * vec;
     ti_vset_t * vset = *vsetaddr;
 
     if (vset->ref == 1)
         return 0;  /* with only one reference we do not require a copy */
 
-    if (!(vec = imap_vec(vset->imap)) ||
-        !(vset = ti_vset_create()))
+    if (!(vset = ti_vset_create()))
         return -1;
 
-    for (vec_each(vec, ti_thing_t, t))
-    {
-        if (ti_vset_add(vset, t))
-        {
-            ti_vset_destroy(vset);
-            return -1;
-        }
-        ti_incref(t);
-    }
+    if (imap_walk(vset->imap, (imap_cb) vset__walk_assign, vset))
+        return -1;  /* vset is destroyed if walk has failed */
 
     ti_decref(*vsetaddr);
     *vsetaddr = vset;

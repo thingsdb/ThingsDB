@@ -10,10 +10,7 @@
 
 ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
 {
-    assert (ti()->nodes->imap->n);
-
     ti_quorum_t * quorum;
-    uint8_t nnodes = ti()->nodes->imap->n;
 
     quorum = malloc(sizeof(ti_quorum_t));
     if (!quorum)
@@ -22,7 +19,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     quorum->accepted = 0;
     quorum->rejected = 0;
     quorum->collisions = 0;
-    quorum->requests = nnodes;
+    quorum->requests = ti()->nodes->vec->n;
     quorum->quorum = ti_nodes_quorum();
     quorum->win_collision = 1;  /* true */
     quorum->diff_requests = 0;

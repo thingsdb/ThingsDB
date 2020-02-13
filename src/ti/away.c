@@ -76,9 +76,9 @@ static void away__destroy(void)
 
 static void away__update_sleep(void)
 {
-    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    vec_t * nodes_vec = ti()->nodes->vec;
     ti_node_t * this_node = ti()->node;
-    size_t idx = 0, my_idx = 0, c_idx = 0, n = ti()->nodes->imap->n;
+    size_t idx = 0, my_idx = 0, c_idx = 0, n = nodes_vec->n;
 
     for (vec_each(nodes_vec, ti_node_t, node), ++idx)
     {
@@ -157,9 +157,6 @@ static void away__work(uv_work_t * UNUSED(work))
 
     /* write global status to disk */
     (void) ti_nodes_write_global_status();
-
-    /* remove optional things vector caches */
-    ti_collections_cleanup();
 
     /* backup ThingsDB if backups are pending */
     (void) ti_backups_backup();
@@ -340,7 +337,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 
 static void away__reset_sleep(void)
 {
-    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    vec_t * nodes_vec = ti()->nodes->vec;
     away->away_node_id = ((ti_node_t *) vec_first(nodes_vec))->id;
     away__update_sleep();
 }
@@ -381,7 +378,7 @@ fail0:
 
 static void away__req_away_id(void)
 {
-    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    vec_t * nodes_vec = ti()->nodes->vec;
     ti_quorum_t * quorum = NULL;
     ti_pkg_t * pkg, * dup;
 
@@ -432,7 +429,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
     static const char * away__skip_msg = "not going in away mode (%s)";
     ti_node_t * node;
 
-    if (ti()->nodes->imap->n == 1)
+    if (ti()->nodes->vec->n == 1)
     {
         log_debug(away__skip_msg, "running as single node");
         return;

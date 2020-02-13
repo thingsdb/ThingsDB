@@ -466,7 +466,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    vec_t * nodes_vec = imap_vec(ti()->nodes->imap);
+    vec_t * nodes_vec = ti()->nodes->vec;
     ti_quorum_t * quorum;
     ti_pkg_t * pkg, * dup;
 

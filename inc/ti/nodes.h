@@ -27,7 +27,6 @@ int ti_nodes_write_global_status(void);
 int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
 _Bool ti_nodes_has_quorum(void);
-ti_node_t * ti_nodes_next(uint32_t cur_node_id);
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg);
 int ti_nodes_to_pk(msgpack_packer * pk);
 int ti_nodes_from_up(mp_unp_t * up);
@@ -56,7 +55,7 @@ int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e);
 
 struct ti_nodes_s
 {
-    imap_t * imap;          /* store the nodes with vector available */
+    vec_t * vec;            /* store the nodes */
     uv_tcp_t tcp;
     uint64_t cevid;         /* last committed event id by ALL nodes,
                                ti_archive_t saves this value to disk at

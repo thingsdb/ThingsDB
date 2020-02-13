@@ -1149,17 +1149,17 @@ int ti_nodes_create(void)
     nodes->status_fn = NULL;
     nodes->next_id = 0;
 
-    nodes->imap = imap_create();
+    nodes->vec = vec_new(3);
     ti()->nodes = nodes;
 
-    return -(nodes->imap == NULL);
+    return -(nodes->vec == NULL);
 }
 
 void ti_nodes_destroy(void)
 {
     if (!nodes)
         return;
-    imap_destroy(nodes->imap, (imap_destroy_cb) ti_node_drop);
+    vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes->status_fn);
     ti()->nodes = nodes = NULL;
 }
@@ -1255,7 +1255,7 @@ int ti_nodes_write_global_status(void)
  */
 uint8_t ti_nodes_quorum(void)
 {
-    if (nodes->imap->n == 2)
+    if (nodes->vec->n == 2)
     {
         /* we have a special case when there are only two nodes.
          * usually we want to calculate the quorum by simply dividing the
@@ -1263,41 +1263,28 @@ uint8_t ti_nodes_quorum(void)
          * second node is unreachable, we would never have a chance to do
          * anything since no event could be created.
          */
-        vec_t * nodes_vec = imap_vec(nodes->imap);
-        for (vec_each(nodes_vec, ti_node_t, node))
+        for (vec_each(nodes->vec, ti_node_t, node))
             if (node->status <= TI_NODE_STAT_SHUTTING_DOWN)
                 return 0;
     }
-    return (uint8_t) (nodes->imap->n / 2);
+    return (uint8_t) (nodes->vec->n / 2);
 }
 
 _Bool ti_nodes_has_quorum(void)
 {
     size_t quorum = ti_nodes_quorum() + 1;  /* include `this` node */
     size_t q = 0;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status > TI_NODE_STAT_SHUTTING_DOWN && ++q == quorum)
             return true;
     return false;
-}
-
-ti_node_t * ti_nodes_next(uint32_t cur_node_id)
-{
-    uint32_t idx = 1;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node), ++idx)
-        if (node->id == cur_node_id)
-            return vec_get(nodes_vec, idx % nodes_vec->n);
-
-    return vec_get(nodes_vec, 0);
 }
 
 /* increases with a new reference as long as required */
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {
     ti_node_t * this_node = ti()->node;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
+    vec_t * nodes_vec = nodes->vec;
     for (vec_each(nodes_vec, ti_node_t, node))
     {
         ti_node_status_t status = node->status;
@@ -1317,7 +1304,7 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 
 int ti_nodes_to_pk(msgpack_packer * pk)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
+    vec_t * nodes_vec = nodes->vec;
     if (msgpack_pack_array(pk, nodes_vec->n))
         return -1;
 
@@ -1379,12 +1366,11 @@ ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 {
     uint64_t m = ti()->node->cevid;
     uint8_t n = 0, offline = 0;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
 
     if (!m)
         return TI_NODES_WAIT_AWAY;
 
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
             return TI_NODES_WAIT_AWAY;
@@ -1405,8 +1391,7 @@ ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 
 _Bool ti_nodes_require_sync(void)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_SYNCHRONIZING)
             return true;
     return false;
@@ -1418,7 +1403,7 @@ _Bool ti_nodes_require_sync(void)
  */
 int ti_nodes_check_add(ex_t * e)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
+    vec_t * nodes_vec = nodes->vec;
     uint8_t may_skip = nodes_vec->n >= 4
             ? ((uint8_t) (nodes_vec->n / 2)) - 1
             : 0;
@@ -1440,8 +1425,7 @@ int ti_nodes_check_add(ex_t * e)
 uint64_t ti_nodes_cevid(void)
 {
     uint64_t m = ti()->node->cevid;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->cevid < m)
             m = node->cevid;
 
@@ -1454,8 +1438,7 @@ uint64_t ti_nodes_cevid(void)
 uint64_t ti_nodes_sevid(void)
 {
     uint64_t m = ti()->node->sevid;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->sevid < m)
             m = node->sevid;
 
@@ -1472,11 +1455,10 @@ uint32_t ti_nodes_next_id(void)
 
 void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
     if (syntax_ver == nodes->syntax_ver)
         return;
 
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->syntax_ver < syntax_ver)
             syntax_ver = node->syntax_ver;
 
@@ -1502,7 +1484,7 @@ ti_node_t * ti_nodes_new_node(
         const char * secret)
 {
     ti_node_t * node = ti_node_create(id, zone, port, addr, secret);
-    if (!node || imap_add(nodes->imap, id, node))
+    if (!node || vec_push(&nodes->vec, node))
     {
         ti_node_drop(node);
         return NULL;
@@ -1514,7 +1496,15 @@ ti_node_t * ti_nodes_new_node(
 
 void ti_nodes_del_node(uint32_t node_id)
 {
-    ti_node_drop(imap_pop(nodes->imap, node_id));
+    size_t idx = 0;
+    for (vec_each(nodes->vec, ti_node_t, node), ++idx)
+    {
+        if (node->id == node_id)
+        {
+            ti_node_drop(vec_swap_remove(nodes->vec, idx));
+            return;
+        }
+    }
 }
 
 /*
@@ -1522,7 +1512,10 @@ void ti_nodes_del_node(uint32_t node_id)
  */
 ti_node_t * ti_nodes_node_by_id(uint32_t node_id)
 {
-    return imap_get(nodes->imap, node_id);
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->id == node_id)
+            return node;
+    return NULL;
 }
 
 int ti_nodes_listen(void)
@@ -1602,8 +1595,7 @@ int ti_nodes_listen(void)
  */
 ti_node_t * ti_nodes_get_away(void)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_AWAY)
             return node;
     return NULL;
@@ -1614,8 +1606,7 @@ ti_node_t * ti_nodes_get_away(void)
  */
 ti_node_t * ti_nodes_get_away_or_soon(void)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_AWAY ||
             node->status == TI_NODE_STAT_AWAY_SOON)
             return node;
@@ -1630,8 +1621,7 @@ ti_node_t * ti_nodes_random_ready_node(void)
 {
     ti_node_t * this_node = ti()->node;
     uint32_t zn = 0, on = 0;
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node == this_node || node->status != TI_NODE_STAT_READY)
             continue;
@@ -1646,8 +1636,7 @@ ti_node_t * ti_nodes_random_ready_node(void)
 
 void ti_nodes_set_not_ready_err(ex_t * e)
 {
-    vec_t * nodes_vec = imap_vec(nodes->imap);
-    for (vec_each(nodes_vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         if (node->status == TI_NODE_STAT_SYNCHRONIZING)
         {
@@ -1769,12 +1758,11 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 
 ti_varr_t * ti_nodes_info(void)
 {
-    vec_t * vec = imap_vec(nodes->imap);
-    ti_varr_t * varr = ti_varr_create(vec->n);
+    ti_varr_t * varr = ti_varr_create(nodes->vec->n);
     if (!varr)
         return NULL;
 
-    for (vec_each(vec, ti_node_t, node))
+    for (vec_each(nodes->vec, ti_node_t, node))
     {
         ti_val_t * mpinfo = ti_node_as_mpval(node);
         if (!mpinfo)

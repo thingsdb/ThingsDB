@@ -1089,6 +1089,11 @@ size_t ti_val_get_len(ti_val_t * val)
     return 0;
 }
 
+static inline int val__walk_set(ti_thing_t * thing, void * UNUSED(_))
+{
+    return !thing->id && ti_thing_gen_id(thing);
+}
+
 /*
  * Must be called when, and only when generating a new `task`. New ID's must
  * also be present in a task so other nodes will consume the same ID's.
@@ -1134,17 +1139,10 @@ int ti_val_gen_ids(ti_val_t * val)
                     return -1;
         break;
     case TI_VAL_SET:
-        if (((ti_vset_t *) val)->imap->n)
-        {
-            vec_t * vec = imap_vec(((ti_vset_t *) val)->imap);
-            if (!vec)
-                return -1;
-
-            for (vec_each(vec, ti_thing_t, thing))
-                if (!thing->id && ti_thing_gen_id(thing))
-                    return -1;
-        }
-        break;
+        return imap_walk(
+                ((ti_vset_t *) val)->imap,
+                (imap_cb) val__walk_set,
+                NULL);
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         break;

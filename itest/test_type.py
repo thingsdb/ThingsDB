@@ -48,7 +48,7 @@ class TestType(TestBase):
                 TypeError,
                 r'mismatch in type `setPet`; '
                 r'property `animal` has definition `{Pet}` but '
-                r'got a set with type `thing` instead'):
+                r'got a set with at least one thing of another type'):
             await client.query(r'''
                 .t.p = setPet{
                     animal: set({})

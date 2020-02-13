@@ -706,17 +706,25 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 
     if (!query->parseres)
     {
-        ex_set_mem(e);
+        ex_set(e, EX_OPERATION_ERROR,
+                "query has reached the maximum recursion depth of %d",
+                MAX_RECURSION_DEPTH);
         return e->nr;
     }
 
     if (!query->parseres->is_valid)
     {
+        int i;
         cleri_parse_free(query->parseres);
 
         query->parseres = cleri_parse2(ti()->langdef, query->querystr, 0);
+        if (!query->parseres)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
 
-        int i = cleri_parse_strn(
+        i = cleri_parse_strn(
                 e->msg,
                 EX_MAX_SZ,
                 query->parseres,

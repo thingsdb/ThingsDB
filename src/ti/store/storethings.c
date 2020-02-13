@@ -11,9 +11,16 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
+static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
+{
+    return (
+            msgpack_pack_uint64(pk, thing->id) ||
+            msgpack_pack_uint16(pk, thing->type_id)
+    );
+}
+
 int ti_store_things_store(imap_t * things, const char * fn)
 {
-    vec_t * things_vec;
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
@@ -24,25 +31,14 @@ int ti_store_things_store(imap_t * things, const char * fn)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    things_vec = imap_vec(things);
-    if (!things_vec)
-    {
-        log_error(EX_MEMORY_S);
-        goto fail;
-    }
-
     if (
         msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "things") ||
-        msgpack_pack_map(&pk, things_vec->n)
+        msgpack_pack_map(&pk, things->n)
     ) goto fail;
 
-    for (vec_each(things_vec, ti_thing_t, thing))
-    {
-        if (msgpack_pack_uint64(&pk, thing->id) ||
-            msgpack_pack_uint16(&pk, thing->type_id)
-        ) goto fail;
-    }
+    if (imap_walk(things, (imap_cb) store__things_cb, &pk))
+        goto fail;
 
     log_debug("stored thing id's and type to file: `%s`", fn);
     goto done;
@@ -57,10 +53,38 @@ done:
     return 0;
 }
 
+static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
+{
+    if (msgpack_pack_uint64(pk, thing->id))
+        return -1;
+
+    if (ti_thing_is_object(thing))
+    {
+        if (msgpack_pack_map(pk, thing->items->n))
+            return -1;
+
+        for (vec_each(thing->items, ti_prop_t, prop))
+        {
+            uintptr_t p = (uintptr_t) prop->name;
+            if (msgpack_pack_uint64(pk, p) ||
+                ti_val_to_pk(prop->val, pk, TI_VAL_PACK_FILE)
+            ) return -1;
+        }
+    }
+    else
+    {
+        if (msgpack_pack_array(pk, thing->items->n))
+            return -1;
+
+        for (vec_each(thing->items, ti_val_t, val))
+            if (ti_val_to_pk(val, pk, TI_VAL_PACK_FILE))
+                return -1;
+    }
+    return 0;
+}
+
 int ti_store_things_store_data(imap_t * things, const char * fn)
 {
-    vec_t * things_vec;
-    uintptr_t p;
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
@@ -69,46 +93,16 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
         return -1;
     }
 
-    things_vec = imap_vec(things);
-    if (!things_vec)
-        goto fail;
-
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
         msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "data") ||
-        msgpack_pack_map(&pk, things_vec->n)
+        msgpack_pack_map(&pk, things->n)
     ) goto fail;
 
-    for (vec_each(things_vec, ti_thing_t, thing))
-    {
-        if (msgpack_pack_uint64(&pk, thing->id))
-            goto fail;
-
-        if (ti_thing_is_object(thing))
-        {
-            if (msgpack_pack_map(&pk, thing->items->n))
-                goto fail;
-
-            for (vec_each(thing->items, ti_prop_t, prop))
-            {
-                p = (uintptr_t) prop->name;
-                if (msgpack_pack_uint64(&pk, p) ||
-                    ti_val_to_pk(prop->val, &pk, TI_VAL_PACK_FILE)
-                ) goto fail;
-            }
-        }
-        else
-        {
-            if (msgpack_pack_array(&pk, thing->items->n))
-                goto fail;
-
-            for (vec_each(thing->items, ti_val_t, val))
-                if (ti_val_to_pk(val, &pk, TI_VAL_PACK_FILE))
-                    goto fail;
-        }
-    }
+    if (imap_walk(things, (imap_cb) store__walk_data, &pk))
+        goto fail;
 
     log_debug("stored things data to file: `%s`", fn);
     goto done;

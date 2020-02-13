@@ -9,7 +9,7 @@ typedef struct
     vec_sort_r_cb cb;
 } closure_cmp_t;
 
-int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
+static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 {
     int64_t i;
     ti_prop_t * pa, *pb;
@@ -49,7 +49,7 @@ int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     return i < INT_MIN ? INT_MIN : i > INT_MAX ? INT_MAX : i;
 }
 
-int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
+static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 {
     int i;
     ti_prop_t * p;

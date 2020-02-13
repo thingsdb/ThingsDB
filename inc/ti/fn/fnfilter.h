@@ -1,5 +1,31 @@
 #include <ti/fn/fn.h>
 
+typedef struct
+{
+    ex_t * e;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ti_vset_t * vset;
+} filter__walk_t;
+
+static int filter__walk_set(ti_thing_t * t, filter__walk_t * w)
+{
+    if (ti_closure_vars_val_idx(w->closure, (ti_val_t *) t, t->id) ||
+        ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval))
+    {
+        if (ti_vset_add(w->vset, t))
+            return -1;
+        ti_incref(t);
+    }
+
+    ti_val_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
@@ -55,10 +81,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             for (vec_each(t->items, ti_prop_t, p))
             {
-                if (ti_closure_vars_prop(closure, p, e))
-                    goto fail2;
-
-                if (ti_closure_do_statement(closure, query, e))
+                if (ti_closure_vars_prop(closure, p, e) ||
+                    ti_closure_do_statement(closure, query, e))
                     goto fail2;
 
                 if (ti_val_as_bool(query->rval))
@@ -80,10 +104,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_each(t, name, val))
             {
-                if (ti_closure_vars_nameval(closure, name, val, e))
-                    goto fail2;
-
-                if (ti_closure_do_statement(closure, query, e))
+                if (ti_closure_vars_nameval(closure, name, val, e) ||
+                    ti_closure_do_statement(closure, query, e))
                     goto fail2;
 
                 if (ti_val_as_bool(query->rval))
@@ -113,10 +135,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
         {
-            if (ti_closure_vars_val_idx(closure, v, idx))
-                goto fail2;
-
-            if (ti_closure_do_statement(closure, query, e))
+            if (ti_closure_vars_val_idx(closure, v, idx) ||
+                ti_closure_do_statement(closure, query, e))
                 goto fail2;
 
             if (ti_val_as_bool(query->rval))
@@ -134,31 +154,23 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     case TI_VAL_SET:
     {
-        vec_t * vec = imap_vec(((ti_vset_t *) iterval)->imap);
-        ti_vset_t * vset = ti_vset_create();
-        if (!vset || !vec)
+        filter__walk_t w = {
+                .e = e,
+                .closure = closure,
+                .query = query,
+                .vset = ti_vset_create(),
+        };
+
+        if (!w.vset)
             goto fail2;
 
-        retval = (ti_val_t *) vset;
+        retval = (ti_val_t *) w.vset;
 
-        for (vec_each(vec, ti_thing_t, t))
-        {
-            if (ti_closure_vars_val_idx(closure, (ti_val_t *) t, t->id))
-                goto fail2;
-
-            if (ti_closure_do_statement(closure, query, e))
-                goto fail2;
-
-            if (ti_val_as_bool(query->rval))
-            {
-                if (ti_vset_add(vset, t))
-                    goto fail2;
-                ti_incref(t);
-            }
-
-            ti_val_drop(query->rval);
-            query->rval = NULL;
-        }
+        if (imap_walk(
+                ((ti_vset_t *) iterval)->imap,
+                (imap_cb) filter__walk_set,
+                &w))
+            goto fail2;
     }
     }
 

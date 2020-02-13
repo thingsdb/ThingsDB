@@ -100,7 +100,9 @@ struct ti_thing_s
                                      * only `null` when in thingsdb or node
                                      * scope, but never in a collection scope
                                      */
-    vec_t * items;                  /* vec contains ti_prop_t */
+    vec_t * items;                  /* vec contains ti_prop_t or ti_val_t,
+                                     * depending if a thing is an object or
+                                     * instance */
     vec_t * watchers;               /* vec contains ti_watch_t,
                                        NULL if no watchers,  */
 };

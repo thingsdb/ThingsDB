@@ -379,7 +379,7 @@ void ti_thing_t_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
  * Return 0 if successful; This function makes a given `value` assignable so
  * it should not be used within a job.
  */
-int ti_thing_o_set_val_from_strn(
+int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
         const char * str,
@@ -411,6 +411,7 @@ int ti_thing_o_set_val_from_strn(
 
     return 0;
 }
+
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so

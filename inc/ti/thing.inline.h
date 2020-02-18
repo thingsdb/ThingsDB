@@ -33,6 +33,23 @@ static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
     return r;
 }
 
+static inline int ti_thing_o_set_val_from_strn(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    if (!ti_name_is_valid_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "properties must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+    return ti_thing_o_set_val_from_valid_strn(wprop, thing, str, n, val, e);
+}
+
 static inline int ti_thing_set_val_from_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
@@ -45,6 +62,20 @@ static inline int ti_thing_set_val_from_strn(
             ? ti_thing_o_set_val_from_strn(wprop, thing, str, n, val, e)
             : ti_thing_t_set_val_from_strn(wprop, thing, str, n, val, e);
 }
+
+static inline int ti_thing_set_val_from_valid_strn(
+        ti_wprop_t * wprop,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_set_val_from_valid_strn(wprop, thing, str, n, val, e)
+            : ti_thing_t_set_val_from_strn(wprop, thing, str, n, val, e);
+}
+
 
 static inline void ti_thing_set_not_found(
         ti_thing_t * thing,

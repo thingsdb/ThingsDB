@@ -67,7 +67,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_name_check("set", DOC_THING_SET, 1, query->rval, e))
+        fn_arg_str("set", DOC_THING_SET, 1, query->rval, e))
         goto fail0;
 
     rname = (ti_raw_t *) query->rval;

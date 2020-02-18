@@ -130,7 +130,16 @@ static void api__data_cb(
     }
     else if (parsed != (size_t) n)
     {
-        log_warning("error parsing HTTP API request");
+        char addr[INET6_ADDRSTRLEN];
+        if (ti_tcp_addr(addr, (uv_tcp_t *) uvstream) == 0)
+        {
+            log_warning("error parsing HTTP API request from %s", addr);
+        }
+        else
+        {
+            /* cannot read address */
+            log_warning("error parsing HTTP API request");
+        }
         ti_api_close(ar);
     }
 

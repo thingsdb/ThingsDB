@@ -70,6 +70,7 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
     case AF_INET:
         {
             char addr[INET_ADDRSTRLEN];
+            memset(addr, 0, INET_ADDRSTRLEN);
             uv_inet_ntop(
                     AF_INET,
                     &((struct sockaddr_in *) &name)->sin_addr,
@@ -86,6 +87,7 @@ char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
     case AF_INET6:
         {
             char addr[INET6_ADDRSTRLEN];
+            memset(addr, 0, INET6_ADDRSTRLEN);
             uv_inet_ntop(
                     AF_INET6,
                     &((struct sockaddr_in6 *) &name)->sin6_addr,
@@ -121,6 +123,7 @@ int ti_tcp_addr(char * addr, uv_tcp_t * client)
     switch (name.ss_family)
     {
     case AF_INET:
+        memset(addr, 0, INET_ADDRSTRLEN);
         uv_inet_ntop(
                 AF_INET,
                 &((struct sockaddr_in *) &name)->sin_addr,
@@ -128,6 +131,7 @@ int ti_tcp_addr(char * addr, uv_tcp_t * client)
                 INET_ADDRSTRLEN);
         return 0;
     case AF_INET6:
+        memset(addr, 0, INET6_ADDRSTRLEN);
         uv_inet_ntop(
                 AF_INET6,
                 &((struct sockaddr_in6 *) &name)->sin6_addr,

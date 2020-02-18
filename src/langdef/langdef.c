@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2019-12-01 22:07:50
+ * Created at: 2020-02-18 20:10:10
  */
 
 #include <langdef/langdef.h>
@@ -54,8 +54,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_regex(CLERI_NONE, "^(?s)//.*?(\\r?\\n|$)"),
         cleri_regex(CLERI_NONE, "^(?s)/\\*.*?\\*/")
     ), 0, 0);
-    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]*");
-    cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]*");
+    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
+    cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
     cleri_t * chain = cleri_ref();
     cleri_t * t_closure = cleri_sequence(
         CLERI_GID_T_CLOSURE,
@@ -253,7 +253,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, chain)
     ));
 
-    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]*");
+    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
 
     return grammar;
 }

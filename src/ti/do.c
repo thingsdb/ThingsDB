@@ -239,7 +239,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (tokens_nd->len == 2
             ? do__upd_prop(&wprop, query, thing, name_nd, tokens_nd, e)
-            : ti_thing_set_val_from_strn(
+            : ti_thing_set_val_from_valid_strn(
                     &wprop,
                     thing,
                     name_nd->str,

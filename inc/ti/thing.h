@@ -73,7 +73,7 @@ int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
 int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
-int ti_thing_o_set_val_from_strn(
+int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
         const char * str,

@@ -18,8 +18,8 @@ from pyleri import (
     THIS,
 )
 
-
-RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]*'
+# names have a max length of 255 characters
+RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}'
 
 
 class Choice(Choice_):
@@ -178,8 +178,8 @@ if __name__ == '__main__':
     # res = langdef.parse(r'''/./;''')
     # print(res.is_valid)
 
-    # res = langdef.parse(r'''5;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''|x| x?0:''')
+    print(res.is_valid)
 
     # exit(0)
 

@@ -64,6 +64,12 @@ class TestSyntax(TestBase):
                 r'properties must follow the naming rules'):
             await client.query('thing(.id())[prop] = 1', prop='c'*256)
 
+    async def test_invalid_syntax(self, client):
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 16, expecting: :'):
+            await client.query('|x| iserr(x)?x+2')
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

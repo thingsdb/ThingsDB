@@ -178,8 +178,8 @@ if __name__ == '__main__':
     # res = langdef.parse(r'''/./;''')
     # print(res.is_valid)
 
-    res = langdef.parse(r'''|x| x?0:''')
-    print(res.is_valid)
+    # res = langdef.parse(r'''|x|...)''')
+    # print(res.is_valid)
 
     # exit(0)
 

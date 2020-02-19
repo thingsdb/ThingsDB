@@ -17,6 +17,7 @@
 #include <ti/vint.h>
 #include <util/logger.h>
 #include <util/strx.h>
+#include <cleri/node.inline.h>
 
 #define TI_CLOSURE_QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
 

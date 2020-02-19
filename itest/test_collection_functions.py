@@ -2010,6 +2010,63 @@ class TestCollectionFunctions(TestBase):
             await client.query(r'set({});'),
             [{}])
 
+    async def test_every(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `every` is undefined'):
+            await client.query('every(||true);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `set` has no function `every`'):
+            await client.query('set().every(||true);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `every` takes 1 argument but 0 were given'):
+            await client.query('[].every();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `every` expects argument 1 to be a `closure` '
+                r'but got type `int` instead'):
+            await client.query('[1,2,3].every(42);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`\+` not supported between `int` and `str`'):
+            await client.query('[1,2,3].every(|x| x + "text");')
+
+        self.assertFalse(await client.query('[1, 2, 3].every(|x| x > 2)'))
+        self.assertTrue(await client.query('[1, 2, 3].every(|x| x <= 3)'))
+        self.assertTrue(await client.query('[].every(||false)'))
+
+    async def test_some(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `some` is undefined'):
+            await client.query('some(||true);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `some`'):
+            await client.query('nil.some(||true);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `some` takes 1 argument but 0 were given'):
+            await client.query('[].some();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `some` expects argument 1 to be a `closure` '
+                r'but got type `str` instead'):
+            await client.query('[1,2,3].some("text");')
+
+        self.assertTrue(await client.query('[1, 2, 3].some(|x| x > 2)'))
+        self.assertFalse(await client.query('[1, 2, 3].some(|x| x > 3)'))
+        self.assertFalse(await client.query('[].some(||true)'))
+
     async def test_sort(self, client):
         with self.assertRaisesRegex(
                 LookupError,

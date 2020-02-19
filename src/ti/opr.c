@@ -63,8 +63,11 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     default:
         assert (a != b);
         return false;
+    /*
     case OPR_NIL_NIL:
-        return true;
+        no need to compare the nil values since they always
+        point to the same address
+    */
     case OPR_INT_INT:
         return VINT(a) == VINT(b);
     case OPR_INT_FLOAT:
@@ -81,14 +84,21 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         return  VBOOL(a) == VINT(b);
     case OPR_BOOL_FLOAT:
         return VBOOL(a) == VFLOAT(b);
+    /*
     case OPR_BOOL_BOOL:
-        return VBOOL(a) == VBOOL(b);
+        boolean values true and false always point to the
+        same address so they must be different since a != b
+    */
     case OPR_MP_MP:
     case OPR_MP_NAME:
     case OPR_MP_STR:
     case OPR_MP_BYTES:
     case OPR_NAME_MP:
+    /*
     case OPR_NAME_NAME:
+        the same name values only exist once and must point to the
+        same address so they must be different since a != b
+    */
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
     case OPR_STR_MP:

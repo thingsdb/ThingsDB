@@ -38,6 +38,7 @@
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
+#include <ti/fn/fnevery.h>
 #include <ti/fn/fnextend.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
@@ -114,6 +115,7 @@
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshutdown.h>
+#include <ti/fn/fnsome.h>
 #include <ti/fn/fnsort.h>
 #include <ti/fn/fnsplice.h>
 #include <ti/fn/fnstartswith.h>
@@ -159,7 +161,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 138,
+    TOTAL_KEYWORDS = 140,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 2,
@@ -327,6 +329,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
+    {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find",              .fn=do__f_find,                 CHAIN_NE},
@@ -410,6 +413,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
+    {.name="some",              .fn=do__f_some,                 CHAIN_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
     {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XVAR},
     {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},

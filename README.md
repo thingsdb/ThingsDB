@@ -4,8 +4,9 @@
 
 - [ ] Update watch documentation
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
-- [ ] check long running events, in combination with node connect loop
-
+- [ ] Check long running events, in combination with node connect loop
+- [ ] Re-visit recursive closures
+- [ ] Document reason behind restrictions
 
 ## Plans and Ideas for the Future
 

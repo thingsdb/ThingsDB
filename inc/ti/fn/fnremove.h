@@ -33,7 +33,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock_and_use(closure, query, e))
+            ti_closure_inc(closure, query, e))
         goto fail2;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
@@ -89,7 +89,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 done:
 fail3:
-    ti_closure_unlock_use(closure, query);
+    ti_closure_dec(closure, query);
 
 fail2:
     ti_val_drop((ti_val_t *) closure);
@@ -153,7 +153,7 @@ static int do__f_remove_set_from_closure(
     }
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock_and_use(closure, query, e))
+            ti_closure_inc(closure, query, e))
         goto fail;
 
     remove__walk_t w = {
@@ -164,7 +164,7 @@ static int do__f_remove_set_from_closure(
     };
 
     (void) imap_walk(vset->imap, (imap_cb) remove__walk, &w);
-    ti_closure_unlock_use(closure, query);
+    ti_closure_dec(closure, query);
 
 fail:
     ti_val_drop((ti_val_t *) closure);

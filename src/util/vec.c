@@ -115,6 +115,43 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 }
 
 /*
+ * Reserve at least `n` free spots in the vector.
+ *
+ * If *vaddr is NULL, a new vector will be created with the required space.
+ *
+ * More spots might be allocated and nothing happens if enough empty
+ * spots are already available.
+ */
+int vec_reserve(vec_t ** vaddr, uint32_t n)
+{
+    vec_t * vec = *vaddr;
+    if (!vec)
+    {
+        *vaddr = vec_new(n);
+        return -!*vaddr;
+    }
+
+    if (vec_space(vec) < n)
+    {
+        vec_t * tmp;
+        size_t sz = vec->sz << 1;
+
+        vec->sz = (sz - vec->n) < n ? n : sz;
+
+        tmp = realloc(vec, sizeof(vec_t) + vec->sz * sizeof(void*));
+        if (!tmp)
+        {
+            /* restore original size */
+            vec->sz = sz >> 1;
+            return -1;
+        }
+
+        *vaddr = vec = tmp;
+    }
+    return 0;
+}
+
+/*
  * Resize a vector to a given size.
  *
  * If the new size is smaller then `n` might decrease.

@@ -166,6 +166,19 @@ class TestTypes(TestBase):
                 [1 ,2 ,3].map(.a[0]);
             ''')
 
+        res = self.assertEqual(await client.query(r'''
+            res = [];
+            closure = || {
+                a = 1;
+                .c = closure;  /* store the closure, this will unbound the
+                                * closure from the query */
+                a += 1;
+                res.push(a);
+            };
+            closure();
+            res;
+        '''), [2])
+
         # test two-level deep nesting
         self.assertEqual(await client.query(r'''
             .b = |k1|.map(|k2|(k1 + k2));

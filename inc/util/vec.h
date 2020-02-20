@@ -29,6 +29,7 @@ void * vec_swap_remove(vec_t * vec, uint32_t i);
 vec_t * vec_dup(const vec_t * vec);
 int vec_push(vec_t ** vaddr, void * data);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);
+int vec_reserve(vec_t ** vaddr, uint32_t n);
 int vec_resize(vec_t ** vaddr, uint32_t sz);
 int vec_shrink(vec_t ** vaddr);
 static inline void vec_sort(vec_t * vec, vec_sort_cb compare);

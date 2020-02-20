@@ -56,7 +56,6 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_closure_unbound(closure, e))
         goto fail1;
 
-
     procedure = ti_procedure_create(raw, closure, util_now_tsec());
     if (!procedure)
         goto alloc_error;

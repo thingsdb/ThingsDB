@@ -19,11 +19,11 @@
 #include <util/strx.h>
 #include <cleri/node.inline.h>
 
-#define TI_CLOSURE_QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
+#define CLOSURE__QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
 
 static inline _Bool closure__is_unbound(ti_closure_t * closure)
 {
-    return (~closure->flags & TI_CLOSURE_QBOUND) == TI_CLOSURE_QBOUND;
+    return (~closure->flags & CLOSURE__QBOUND) == CLOSURE__QBOUND;
 }
 
 static cleri_node_t * closure__node_from_strn(
@@ -197,7 +197,9 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->flags = flags;
+    closure->depth = 0;
     closure->node = node;
+    closure->stacked = NULL;
     closure->vars = closure__create_vars(closure);
     if (!closure->vars)
     {
@@ -218,10 +220,12 @@ ti_closure_t * ti_closure_from_strn(
 
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
+    closure->depth = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
     closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
+    closure->stacked = NULL;
     closure->vars = closure->node ? closure__create_vars(closure) : NULL;
 
     if (!closure->node || !closure->vars)
@@ -255,9 +259,6 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (closure__is_unbound(closure))
         return 0;
 
-    if (ti_closure_try_lock(closure, e))
-        return e->nr;
-
     ti_qbind_t syntax = {
             .val_cache_n = 0,
             .flags = closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
@@ -270,12 +271,8 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
             closure->node->str,
             closure->node->len, e);
     if (!node)
-    {
-        ti_closure_unlock(closure);
         return e->nr;
-    }
 
-    /* overwrite the existing flags, this will also unlock */
     closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
             : 0;
@@ -323,21 +320,84 @@ char * ti_closure_char(ti_closure_t * closure, size_t * n)
     return buf;
 }
 
-int ti_closure_lock_and_use(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        ex_t * e)
+int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
-    if (vec_extend(&query->vars, closure->vars->data, closure->vars->n))
+
+    switch (closure->depth)
     {
-        ex_set_mem(e);
+    case TI_CLOSURE_MAX_RECURSION_DEPTH:
+        ex_set(e, EX_OPERATION_ERROR,
+                "maximum recursion depth exceeded"DOC_CLOSURE);
         return -1;
+    case 0:
+        if (vec_extend(&query->vars, closure->vars->data, closure->vars->n))
+            goto err_alloc;
+        break;
+    default:
+        if (vec_reserve(closure->stacked, closure->vars->n))
+            goto err_alloc;
+
     }
 
-    closure->locked_n = query->vars->n;
-    closure->flags |= TI_VFLAG_LOCK;
+    closure->depth_n[closure->depth++] = query->vars->n;
 
     return 0;
+
+    if (closure->depth)
+    {
+
+        uint32_t idx, end = closure->depth_n[closure->depth-1];
+        for (idx = end - closure->vars->n; idx < end; ++idx)
+        {
+            ti_prop_t * dup = ti_prop_dup(vec_get(query->vars, idx));
+            if (!dup)
+                goto err_alloc;
+            query->vars->data[idx] = dup;
+        }
+    }
+    else
+    {
+
+
+err_alloc:
+    ex_set_mem(e);
+    return -1;
+}
+
+/* Unlock use, resets all variable to `nil` */
+void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
+{
+    assert (query->vars->n >= closure->vars->n);
+
+    uint32_t n = closure->depth_n[--closure->depth];
+
+    /* drop temporary added props */
+    while (query->vars->n > n)
+        ti_query_var_drop_gc(VEC_pop(query->vars), query);
+
+    /* restore `old` size so closure keeps ownership of it's own props */
+    query->vars->n -= closure->vars->n;
+
+    if (closure->depth)
+    {
+        /* reset props */
+        for (vec_each(closure->vars, ti_prop_t, p))
+        {
+            ti_query_val_gc(p->val, query);
+            ti_val_drop(p->val);
+            p->val = NULL;
+        }
+    }
+    else
+    {
+        /* reset props */
+        for (vec_each(closure->vars, ti_prop_t, p))
+        {
+            ti_query_val_gc(p->val, query);
+            ti_val_drop(p->val);
+            p->val = NULL;
+        }
+    }
 }
 
 int ti_closure_vars_nameval(
@@ -398,32 +458,6 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
-/* Unlock use, resets all variable to `nil` */
-void ti_closure_unlock_use(ti_closure_t * closure, ti_query_t * query)
-{
-    assert (query->vars->n >= closure->vars->n);
-
-    closure->flags &= ~TI_VFLAG_LOCK;
-
-    /* drop temporary added props */
-    while (query->vars->n > closure->locked_n)
-        ti_query_var_drop_gc(VEC_pop(query->vars), query);
-
-    /* restore `old` size so closure keeps ownership of it's own props */
-    query->vars->n -= closure->vars->n;
-
-    /* reset props to `nil` */
-    for (vec_each(closure->vars, ti_prop_t, p))
-    {
-        if (!ti_val_is_nil(p->val))
-        {
-            ti_query_val_gc(p->val, query);
-            ti_val_drop(p->val);
-            p->val = (ti_val_t *) ti_nil_get();
-        }
-    }
-}
-
 /* cannot be static in-line due to syntax */
 int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
@@ -470,7 +504,7 @@ int ti_closure_call(
     }
 
     if (ti_closure_try_wse(closure, query, e) ||
-        ti_closure_try_lock_and_use(closure, query, e))
+        ti_closure_inc(closure, query, e))
         return e->nr;
 
     for (vec_each(closure->vars, ti_prop_t, prop), ++i)
@@ -481,7 +515,7 @@ int ti_closure_call(
     }
 
     (void) ti_closure_do_statement(closure, query, e);
-    ti_closure_unlock_use(closure, query);
+    ti_closure_dec(closure, query);
 
     return e->nr;
 }

@@ -57,7 +57,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     n = ti_val_get_len(iterval);
 
     if (    ti_closure_try_wse(closure, query, e) ||
-            ti_closure_try_lock_and_use(closure, query, e))
+            ti_closure_inc(closure, query, e))
         goto fail1;
 
     retvarr = ti_varr_create(n);
@@ -140,7 +140,7 @@ fail2:
     ti_val_drop((ti_val_t *) retvarr);
 
 done:
-    ti_closure_unlock_use(closure, query);
+    ti_closure_dec(closure, query);
 
 fail1:
     ti_val_drop((ti_val_t *) closure);

@@ -29,6 +29,48 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
     free(vec);
 }
 
+static inline uint32_t vec__gcd(uint32_t a, uint32_t b)
+{
+    do
+    {
+        if (a > b)
+            a -= b;
+        else
+            b -= a;
+    } while (a != b);
+    return a;
+}
+
+void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
+{
+    uint32_t range, gcd, m, i, j, _;
+    void * tmp;
+
+    if (to == pos)
+        return;
+    if (to < pos)
+        return vec_move(vec, to, pos - to, to + n);
+
+    assert (to + n <= vec->n);
+
+    range = to + n - pos;
+    gcd = vec__gcd(range, n);
+    m = range / gcd - 1;
+
+    while (gcd--)
+    {
+        i = gcd;
+        tmp = vec->data[i + pos];
+        for (_ = m; _ < m; ++_)
+        {
+            j = (i + n) % range;
+            vec->data[i + pos] = vec->data[j + pos];
+            i = j;
+        }
+        vec->data[i + pos] = tmp;
+    }
+}
+
 void * vec_remove(vec_t * vec, uint32_t i)
 {
     void * data = vec_get(vec, i);

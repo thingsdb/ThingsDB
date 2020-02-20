@@ -249,6 +249,7 @@ void ti_closure_destroy(ti_closure_t * closure)
     }
 
     vec_destroy(closure->vars, (vec_destroy_cb) ti_prop_destroy);
+    free(closure->stacked);
     free(closure);
 }
 
@@ -322,6 +323,7 @@ char * ti_closure_char(ti_closure_t * closure, size_t * n)
 
 int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
+    uint32_t n = closure->vars->n;
 
     switch (closure->depth)
     {
@@ -330,34 +332,29 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
                 "maximum recursion depth exceeded"DOC_CLOSURE);
         return -1;
     case 0:
-        if (vec_extend(&query->vars, closure->vars->data, closure->vars->n))
+        if (n && vec_extend(&query->vars, closure->vars->data, n))
             goto err_alloc;
         break;
     default:
-        if (vec_reserve(closure->stacked, closure->vars->n))
-            goto err_alloc;
-
-    }
-
-    closure->depth_n[closure->depth++] = query->vars->n;
-
-    return 0;
-
-    if (closure->depth)
-    {
-
-        uint32_t idx, end = closure->depth_n[closure->depth-1];
-        for (idx = end - closure->vars->n; idx < end; ++idx)
+        if (n)
         {
-            ti_prop_t * dup = ti_prop_dup(vec_get(query->vars, idx));
-            if (!dup)
+            uint32_t pos = closure->stack_pos[closure->depth-1] - n;
+            uint32_t to = query->vars->n - n;
+
+            if (vec_reserve(&closure->stacked, n))
                 goto err_alloc;
-            query->vars->data[idx] = dup;
+
+            for (vec_each(closure->vars, ti_prop_t, p))
+            {
+                VEC_push(closure->stacked, p->val);
+                ti_incref(p->val);
+            }
+            vec_move(query->vars, pos, n, to);
         }
     }
-    else
-    {
 
+    closure->stack_pos[closure->depth++] = query->vars->n;
+    return 0;
 
 err_alloc:
     ex_set_mem(e);
@@ -368,28 +365,33 @@ err_alloc:
 void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 {
     assert (query->vars->n >= closure->vars->n);
-
-    uint32_t n = closure->depth_n[--closure->depth];
+    uint32_t n = closure->vars->n;
+    uint32_t pos = closure->stack_pos[--closure->depth];
 
     /* drop temporary added props */
-    while (query->vars->n > n)
+    while (query->vars->n > pos)
         ti_query_var_drop_gc(VEC_pop(query->vars), query);
-
-    /* restore `old` size so closure keeps ownership of it's own props */
-    query->vars->n -= closure->vars->n;
 
     if (closure->depth)
     {
-        /* reset props */
-        for (vec_each(closure->vars, ti_prop_t, p))
+        uint32_t to = closure->stack_pos[closure->depth-1];
+
+        /* restore property values */
+        for (vec_each_rev(closure->vars, ti_prop_t, p))
         {
             ti_query_val_gc(p->val, query);
             ti_val_drop(p->val);
-            p->val = NULL;
+            p->val = VEC_pop(closure->stacked);
         }
+
+        /* move the property values to the correct place on the stack */
+        vec_move(query->vars, pos-n, n, to-n);
     }
     else
     {
+        /* restore `old` size so closure keeps ownership of it's own props */
+        query->vars->n -= n;
+
         /* reset props */
         for (vec_each(closure->vars, ti_prop_t, p))
         {

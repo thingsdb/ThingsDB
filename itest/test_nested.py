@@ -41,7 +41,7 @@ class TestNested(TestBase):
 
         await self.run_tests(client0, client1, client2)
 
-        await asyncio.sleep(1.0)
+        await self.wait_nodes_ready(client0)
 
         # expected no garbage collection
         for client in (client0, client1, client2):

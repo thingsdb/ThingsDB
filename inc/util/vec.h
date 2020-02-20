@@ -24,6 +24,7 @@ static inline void ** vec_get_addr(vec_t * vec, uint32_t i);
 static inline void * vec_get_or_null(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
+void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to);
 void * vec_remove(vec_t * vec, uint32_t i);
 void * vec_swap_remove(vec_t * vec, uint32_t i);
 vec_t * vec_dup(const vec_t * vec);

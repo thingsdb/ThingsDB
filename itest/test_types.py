@@ -142,7 +142,7 @@ class TestTypes(TestBase):
     async def test_closure(self, client):
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures cannot be used recursively'):
+                r'maximum recursion depth exceeded'):
             await client.query(r'''
                 .a = ||.map((b = .a));
                 .map(.a);
@@ -166,7 +166,13 @@ class TestTypes(TestBase):
                 [1 ,2 ,3].map(.a[0]);
             ''')
 
-        res = self.assertEqual(await client.query(r'''
+        # test two-level deep nesting
+        self.assertEqual(await client.query(r'''
+            .b = |k1|.map(|k2|(k1 + k2));
+            .map(.b);
+        '''), [["aa", "ab"], ["ba", "bb"]])
+
+        self.assertEqual(await client.query(r'''
             res = [];
             closure = || {
                 a = 1;
@@ -179,11 +185,20 @@ class TestTypes(TestBase):
             res;
         '''), [2])
 
-        # test two-level deep nesting
         self.assertEqual(await client.query(r'''
-            .b = |k1|.map(|k2|(k1 + k2));
-            .map(.b);
-        '''), [["aa", "ab"], ["ba", "bb"]])
+            res = [];
+            c = |x, y, i, c| {
+                a = x + i;
+                b = y + i;
+                if (i < 3, {
+                    c(x, y, i+1, c);
+                });
+                c = a + b;
+                res.push([i, c]);
+            };
+            c(7, 5, 0, c);
+            res;
+        '''), [[3, 18], [2, 16], [1, 14], [0, 12]])
 
     async def test_set(self, client):
         self.assertTrue(await client.query(r'''

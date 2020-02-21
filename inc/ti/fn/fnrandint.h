@@ -9,33 +9,17 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `randint` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                DOC_RANDINT,
-                ti_val_str(query->rval));
+    if (fn_arg_int("randint", DOC_RANDINT, 1, query->rval, e))
         return e->nr;
-    }
 
     a = VINT(query->rval);
 
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_int("randint", DOC_RANDINT, 2, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `randint` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                DOC_RANDINT,
-                ti_val_str(query->rval));
-        return e->nr;
-    }
 
     b = VINT(query->rval);
 

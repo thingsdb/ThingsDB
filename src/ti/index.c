@@ -120,6 +120,11 @@ static int index__read_slice_indices(
                 if (!stop_)
                     *stop = -1;
             }
+            else if (i == 0)
+            {
+                ex_set(e, EX_VALUE_ERROR, "slice step cannot be zero");
+                return e->nr;
+            }
             *step = i;
         }
         else if (index__slice_also_not_nil(query->rval, e))

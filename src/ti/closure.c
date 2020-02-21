@@ -364,7 +364,6 @@ err_alloc:
 /* Unlock use, resets all variable to `nil` */
 void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 {
-    assert (query->vars->n >= closure->vars->n);
     uint32_t n = closure->vars->n;
     uint32_t pos = closure->stack_pos[--closure->depth];
 

@@ -52,6 +52,7 @@
 #define DOC_RAISE                   DOC_SEE("collection-api/raise")
 #define DOC_RAND                    DOC_SEE("collection-api/rand")
 #define DOC_RANDINT                 DOC_SEE("collection-api/randint")
+#define DOC_RANGE                   DOC_SEE("collection-api/range")
 #define DOC_REFS                    DOC_SEE("collection-api/refs")
 #define DOC_RETURN                  DOC_SEE("collection-api/return")
 #define DOC_SET                     DOC_SEE("collection-api/set")

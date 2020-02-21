@@ -1884,6 +1884,52 @@ class TestCollectionFunctions(TestBase):
         # check if `t` is restored
         self.assertEqual(await client.query('.s.len();'), 3)
 
+    async def test_range(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `range` takes at most 3 arguments '
+                'but 4 were given'):
+            await client.query('range(1, 2 ,3, 4);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `range` expects argument 1 to be of '
+                r'type `int` but got type `float` instead'):
+            await client.query('range(0.0);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `range` expects argument 2 to be of '
+                r'type `int` but got type `nil` instead'):
+            await client.query('range(0, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `range` expects argument 3 to be of '
+                r'type `int` but got type `str` instead'):
+            await client.query('range(0, 0, "1");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'step value must not be zero'):
+            await client.query('range(0, 0, 0);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'maximum range length exceeded'):
+            await client.query('range(0, 30000, 2);')
+
+        self.assertEqual(
+            await client.query('range(8)'), list(range(8)))
+        self.assertEqual(
+            await client.query('range(-8, 8)'), list(range(-8, 8)))
+        self.assertEqual(
+            await client.query('range(0, -8, -1)'), list(range(0, -8, -1)))
+        for step in range(1, 12):
+            self.assertEqual(
+                await client.query('range(0, 10, step)', step=step),
+                list(range(0, 10, step)))
+
     async def test_return(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

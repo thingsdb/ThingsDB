@@ -184,6 +184,11 @@ class TestIndexSlice(TestBase):
             self.assertEqual(await client0.query(f'.list[{i}]'), li[i])
 
         with self.assertRaisesRegex(
+                ValueError,
+                r'slice step cannot be zero'):
+            await client0.query(f'.list[0:0:0];')
+
+        with self.assertRaisesRegex(
                 LookupError,
                 'index out of range'):
             await client0.query(f'.list[{n}];')

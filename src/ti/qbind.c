@@ -101,6 +101,7 @@
 #include <ti/fn/fnraise.h>
 #include <ti/fn/fnrand.h>
 #include <ti/fn/fnrandint.h>
+#include <ti/fn/fnrange.h>
 #include <ti/fn/fnreduce.h>
 #include <ti/fn/fnrefs.h>
 #include <ti/fn/fnremove.h>
@@ -161,7 +162,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 140,
+    TOTAL_KEYWORDS = 141,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 2,
@@ -399,6 +400,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="raise",             .fn=do__f_raise,                ROOT_NE},
     {.name="rand",              .fn=do__f_rand,                 ROOT_NE},
     {.name="randint",           .fn=do__f_randint,              ROOT_NE},
+    {.name="range",             .fn=do__f_range,                ROOT_NE},
     {.name="reduce",            .fn=do__f_reduce,               CHAIN_NE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},

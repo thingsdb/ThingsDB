@@ -190,11 +190,12 @@ class TestTypes(TestBase):
             c = |x, y, i, c| {
                 a = x + i;
                 b = y + i;
-                if (i < 3, {
-                    c(x, y, i+1, c);
+                i = i + 1;  // writes a variable `i` in the local scope
+                if (i < 4, {
+                    c(x, y, i, c);
                 });
                 c = a + b;
-                res.push([i, c]);
+                res.push([i-1, c]);
             };
             c(7, 5, 0, c);
             res;

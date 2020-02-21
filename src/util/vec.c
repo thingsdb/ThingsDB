@@ -46,10 +46,16 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
     uint32_t range, gcd, m, i, j, _;
     void * tmp;
 
-    if (to == pos)
-        return;
+    if (to == pos || !n)
+        return;  /* no move required */
+
     if (to < pos)
-        return vec_move(vec, to, pos - to, to + n);
+    {
+        _ = to + n;
+        n = pos - to;
+        pos = to;
+        to = _;
+    }
 
     assert (to + n <= vec->n);
 

@@ -7,9 +7,10 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     int64_t start = 0, stop, step = 1, n;
     ti_varr_t * varr;
+    cleri_children_t * child = nd->children;
 
     if (fn_nargs_range("range", DOC_RANGE, 1, 3, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, child->node, e) ||
         fn_arg_int("range", DOC_RANGE, 1, query->rval, e))
         return e->nr;
 
@@ -19,7 +20,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs >= 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
             fn_arg_int("range", DOC_RANGE, 2, query->rval, e))
             return e->nr;
 
@@ -31,7 +32,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        if (ti_do_statement(query, nd->children->next->next->next->next->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
             fn_arg_int("range", DOC_RANGE, 3, query->rval, e))
             return e->nr;
 
@@ -51,7 +52,8 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (n > TI_RANGE_MAX)
     {
-        ex_set(e, EX_OPERATION_ERROR, "maximum range length exceeded"DOC_RANGE);
+        ex_set(e, EX_OPERATION_ERROR,
+                "maximum range length exceeded"DOC_RANGE);
         return e->nr;
     }
 

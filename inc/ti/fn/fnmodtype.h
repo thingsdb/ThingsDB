@@ -56,8 +56,7 @@ static void type__add(
          * the scope will be handled according the `old` type for the case
          * where a reference to the own type is made.
          */
-        child = child->next->next;
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             goto fail0;
     }
 
@@ -248,12 +247,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_name_t * name;
     ti_raw_t * rmod;
-    cleri_children_t * child;
+    cleri_children_t * child = nd->children;
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, child->node, e) ||
         fn_arg_str("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -266,17 +265,15 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = NULL;
-    child = nd->children->next->next;
 
-    if (ti_do_statement(query, child->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 2, query->rval, e))
         goto fail0;
 
     rmod = (ti_raw_t *) query->rval;
     query->rval = NULL;
-    child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
 

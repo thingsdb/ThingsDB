@@ -10,7 +10,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rsecret;
     ti_raw_t * raddr;
     ti_task_t * task;
-    cleri_children_t * child;
+    cleri_children_t * child = nd->children;
     struct in_addr sa;
     struct in6_addr sa6;
     struct sockaddr_storage addr;
@@ -21,7 +21,6 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs_range("new_node", DOC_NEW_NODE, 2, 3, nargs, e))
         return e->nr;
 
-    child = nd->children;
     if (ti_do_statement(query, child->node, e))
         return e->nr;
 
@@ -52,9 +51,8 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = NULL;
-    child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, (child = child->next->next)->node, e))
         goto fail0;
 
     if (!ti_val_is_str(query->rval))
@@ -87,10 +85,9 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t iport;
         ti_val_drop(query->rval);
         query->rval = NULL;
-        child = child->next->next;
 
         /* Read the port number from arguments */
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             goto fail1;
 
         if (!ti_val_is_int(query->rval))

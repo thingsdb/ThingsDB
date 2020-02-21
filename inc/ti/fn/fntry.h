@@ -37,7 +37,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    while (1)
+    do
     {
         if (ti_do_statement(query, child->node, e))
             goto failed;
@@ -61,10 +61,8 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         ti_val_drop(query->rval);
         query->rval = NULL;
-
-        if (!child->next || !(child = child->next->next))
-            break;
     }
+    while (child->next && (child = child->next->next));
 
     ti_verror_to_e(verror, e);
 

@@ -9,7 +9,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
-    cleri_children_t * child;
+    cleri_children_t * child = nd->children;
     uint64_t exp_time = 0;
     ti_token_t * token;
     size_t description_sz = 0;
@@ -19,7 +19,6 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e))
         return e->nr;
 
-    child = nd->children;
     if (ti_do_statement(query, child->node, e))
         return e->nr;
 
@@ -56,8 +55,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
 
-        child = child->next->next;
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             return e->nr;
 
         if (ti_val_is_float(query->rval))
@@ -115,8 +113,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
 
-        child = child->next->next;
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             return e->nr;
 
         if (!ti_val_is_str(query->rval))

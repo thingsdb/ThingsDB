@@ -2,16 +2,19 @@
 
 ## TODO / Road map
 
-- [ ] Update watch documentation
+- [x] Update watch documentation
 - [ ] Start project **ThingsBook** for a beginner guide on how to work with ThingsDB
 - [ ] Check long running events, in combination with node connect loop
-- [ ] Re-visit recursive closures
-- [ ] Document reason behind restrictions
+- [x] Re-visit recursive closures
 
 ## Plans and Ideas for the Future
 
 - [ ] Big number support?
 - [ ] support for things with any "raw" keys?
+- [ ] allow procedure arguments as a dictionary
+- [ ] should closures accept any amount of arguments when called? and `nil` values
+      when not enough arguments are given? This behavior would be more inline with
+      how functions currently handle closures when given as argument.
 
 ## Special thanks to:
 

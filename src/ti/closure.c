@@ -459,29 +459,6 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
-/* cannot be static in-line due to syntax */
-int ti_closure_try_wse(ti_closure_t * closure, ti_query_t * query, ex_t * e)
-{
-    /*
-     * The current implementation never set's the `WSE` flag when bound to a
-     * scope, but nevertheless we check for explicit only the WSE flag for
-     * we might change the code so the WSE flag will be set, even when bound
-     */
-    if (    ((closure->flags & (
-                TI_VFLAG_CLOSURE_BTSCOPE|
-                TI_VFLAG_CLOSURE_BCSCOPE|
-                TI_VFLAG_CLOSURE_WSE
-            )) == TI_VFLAG_CLOSURE_WSE) &&
-            (~query->qbind.flags & TI_QBIND_FLAG_WSE))
-    {
-        ex_set(e, EX_OPERATION_ERROR,
-                "stored closures with side effects must be "
-                "wrapped using `wse(...)`"DOC_WSE);
-        return -1;
-    }
-    return 0;
-}
-
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,

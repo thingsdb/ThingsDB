@@ -44,9 +44,12 @@ class TestNested(TestBase):
         await self.wait_nodes_ready(client0)
 
         # expected no garbage collection
-        for client in (client0, client1, client2):
+        for i, client in enumerate((client0, client1, client2)):
             counters = await client.query('counters();', scope='@node')
-            self.assertEqual(counters['garbage_collected'], 0)
+            self.assertEqual(
+                counters['garbage_collected'],
+                0,
+                msg=f'found garbage on node {i}')
             self.assertEqual(counters['events_failed'], 0)
 
             client.close()

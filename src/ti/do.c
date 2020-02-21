@@ -452,25 +452,17 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else switch (node->children->next->node->cl_obj->gid)
     {
-    case CLERI_GID_FUNCTION:
-        if (do__function(query, node, e))
-            return e->nr;
-        break;
     case CLERI_GID_ASSIGN:
         /* nothing is possible after assign since it ends with a scope */
         return do__name_assign(query, node, e);
-    default:
-        assert (0);
-        return -1;
-    }
+    case CLERI_GID_FUNCTION:
+        if (do__function(query, node, e))
+            return e->nr;
+    } /* no other case statements are possible */
 
-    if (do__index(query, index_node, e))
-        goto done;
-
-    if (child)
+    if (do__index(query, index_node, e) == 0 && child)
         (void) do__chain(query, child->node, e);
 
-done:
     ti_chain_unset(&query->chain);
     return e->nr;
 }

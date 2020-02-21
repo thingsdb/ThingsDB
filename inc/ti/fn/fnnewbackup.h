@@ -49,8 +49,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs >= 2)
     {
-        child = child->next->next;
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             goto fail0;
 
         if (ti_val_is_float(query->rval))
@@ -97,8 +96,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 3)
     {
         int64_t repeat_ts;
-        child = child->next->next;
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
             goto fail0;
 
         if (!ti_val_is_int(query->rval))

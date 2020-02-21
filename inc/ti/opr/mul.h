@@ -14,10 +14,11 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         return e->nr;
 
     case OPR_INT_INT:
-        if ((VINT(a) > LLONG_MAX / VINT(*b)) ||
-            (VINT(a) < LLONG_MIN / VINT(*b)) ||
-            (VINT(a) == -1 && VINT(*b) == LLONG_MIN) ||
-            (VINT(*b) == -1 && VINT(a) == LLONG_MIN))
+        if (VINT(*b) && (
+                (VINT(a) > LLONG_MAX / VINT(*b)) ||
+                (VINT(a) < LLONG_MIN / VINT(*b)) ||
+                (VINT(a) == -1 && VINT(*b) == LLONG_MIN) ||
+                (VINT(*b) == -1 && VINT(a) == LLONG_MIN)))
             goto overflow;
         int_ = VINT(a) * VINT(*b);
         goto type_int;

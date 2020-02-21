@@ -29,6 +29,9 @@ class TestOperators(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mul(self, client):
+        self.assertEqual(await client.query('8 * 0'), 0)
+
     async def test_within_closure(self, client):
         self.assertIs(await client.query('.a = ||nil; nil;'), None)
 

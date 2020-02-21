@@ -213,11 +213,15 @@ static int ncache__varname_opt_fa(
     switch (nd->children->next->node->cl_obj->gid)
     {
     case CLERI_GID_FUNCTION:
-        return ncache__list(
+        return (ncache__list(
                 syntax,
                 vcache,
                 nd->children->next->node->children->next->node->children,
-                e);
+                e)
+        ) || (
+                !nd->data &&
+                ncache__gen_name(vcache, nd->children->node, e)
+        ) ? e->nr : 0;
     case CLERI_GID_ASSIGN:
         return (ncache__statement(
                 syntax,

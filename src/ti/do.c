@@ -66,7 +66,6 @@ failed:
 static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
 {
     assert (nd->data == NULL);
-
     ti_name_t * name = nd->data = ti_names_weak_get(nd->str, nd->len);
     if (name)
     {

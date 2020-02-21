@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+import asyncio
+import pickle
+import time
+from lib import run_test
+from lib import default_test_setup
+from lib.testbase import TestBase
+from lib.client import get_client
+from thingsdb.exceptions import AssertionError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import NumArgumentsError
+from thingsdb.exceptions import BadDataError
+from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import OperationError
+
+
+class TestAdvanced(TestBase):
+
+    title = 'Test advanced, single node'
+
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    async def run(self):
+
+        await self.node0.init_and_run()
+
+        client = await get_client(self.node0)
+        client.set_default_scope('//stuff')
+
+        await self.run_tests(client)
+
+        client.close()
+        await client.wait_closed()
+
+    async def test_make(self, client):
+        await client.query('''
+            new_procedure('create_host', |env_id, name, address, probes, labels, description| {
+                env = thing(env_id);
+                host = {
+                    parent: env,
+                    name: name,
+                    address: address,
+                    probes: probes,
+                    labels: set(labels.map(|l| thing(l))),
+                    description: description,
+                };
+                env.hosts.add(host);
+                labels.map(|l| thing(l)._hosts.add(host));
+                host.id();
+            });
+            new_procedure('add_container', |env_id, name| {
+                env = thing(env_id);
+                container = {
+                    parent: env,
+                    name: name,
+                    children: set(),
+                    users: set(),
+                    hosts: set(),
+                    labels: set(),
+                    conditions: set(),
+                };
+                env.children.add(container);
+                container.id();
+            });
+            .root = {name: 'a', parent: nil, children: set(), users: set(), hosts: set(), labels: set(), conditions: set()};
+        ''')
+        root = await client.query('.root.id()')
+        self.assertGreater(root, 0)
+
+        a = await client.run('add_container', root, 'a')
+        self.assertGreater(a, root)
+
+        b = await client.run('add_container', a, 'b')
+        self.assertGreater(b, a)
+
+        host_a = await client.run(
+            'create_host',
+            root, 'name', '127.0.0.1', [], [], '')
+        self.assertGreater(host_a, b)
+
+        host_b = await client.run(
+            'create_host',
+            root, 'name', '127.0.0.1', [], [], '')
+        self.assertGreater(host_b, host_a)
+
+
+if __name__ == '__main__':
+    run_test(TestAdvanced())

@@ -396,7 +396,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         {
             ti_query_val_gc(p->val, query);
             ti_val_drop(p->val);
-            p->val = NULL;
+            p->val = (ti_val_t *) ti_nil_get();
         }
     }
 }

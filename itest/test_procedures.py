@@ -331,7 +331,7 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `new_procedure` expects argument 2 to be '
-                r'a `closure` but got type `nil` instead'):
+                r'of type `closure` but got type `nil` instead'):
             await client.query('new_procedure("create_user", nil);')
 
         with self.assertRaisesRegex(

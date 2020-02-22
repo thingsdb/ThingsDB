@@ -533,7 +533,8 @@ static void qbind__function(
     q->flags |= (
         nd->data &&
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmap->flags) &&
-        ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR))
+        ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
+        ((~fmap->flags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
     ) << TI_QBIND_BIT_EVENT;
 
     /* update the value cache if no function is found */

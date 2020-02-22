@@ -10,17 +10,9 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("set_password", query, e) ||
         fn_nargs("set_password", DOC_SET_PASSWORD, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("set_password", DOC_SET_PASSWORD, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `set_password` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_SET_PASSWORD,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     uname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);

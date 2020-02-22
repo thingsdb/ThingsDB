@@ -21,20 +21,11 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         int64_t deepi;
 
-        if (ti_do_statement(query, nd->children->next->next->node, e))
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_int("return", DOC_RETURN, 2, query->rval, e))
             return e->nr;
-
-        if (!ti_val_is_int(query->rval))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `return` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_RETURN,
-                ti_val_str(query->rval));
-            return e->nr;
-        }
 
         deepi = VINT(query->rval);
-
         if (deepi < 0 || deepi > RETURN_MAX_DEEP_HINT)
         {
             ex_set(e, EX_VALUE_ERROR,

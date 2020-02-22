@@ -12,17 +12,9 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti()->access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("rename_user", DOC_RENAME_USER, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("rename_user", DOC_RENAME_USER, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `rename_user` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_RENAME_USER,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     rname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) rname->data, rname->n);
@@ -31,17 +23,10 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = NULL;
-    if (ti_do_statement(query, nd->children->next->next->node, e))
-        return e->nr;
 
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `rename_user` expects argument 2 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_RENAME_USER,
-            ti_val_str(query->rval));
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_str("rename_user", DOC_RENAME_USER, 2, query->rval, e))
         return e->nr;
-    }
 
     rname = (ti_raw_t *) query->rval;
     if (!rname)

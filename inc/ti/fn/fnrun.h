@@ -10,17 +10,9 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
         fn_nargs_min("run", DOC_RUN, 1, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_str("run", DOC_RUN, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `run` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_RUN,
-                ti_val_str(query->rval));
-        return e->nr;
-    }
 
     procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)

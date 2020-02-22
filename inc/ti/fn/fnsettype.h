@@ -64,17 +64,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_thing("set_type", DOC_SET_TYPE, 2, query->rval, e))
         goto fail1;
-
-    if (!ti_val_is_thing(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `set_type` expects argument 2 to be of "
-            "type `"TI_VAL_THING_S"` but got type `%s` instead"DOC_NEW_TYPE,
-            ti_val_str(query->rval));
-        goto fail1;
-    }
 
     n = ti_query_count_type(query, type);
     if (n)

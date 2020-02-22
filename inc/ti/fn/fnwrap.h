@@ -15,18 +15,9 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("wrap", DOC_THING_WRAP, 1, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `wrap` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"
-            DOC_TYPE_INFO,
-            ti_val_str(query->rval));
-        goto fail0;
-    }
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)

@@ -23,36 +23,18 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child->node, e) ||
+        fn_arg_int("splice", DOC_LIST_SPLICE, 1, query->rval, e))
         goto fail1;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `splice` expects argument 1 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                DOC_LIST_SPLICE,
-                ti_val_str(query->rval));
-        goto fail1;
-    }
 
     i = VINT(query->rval);
     ti_val_drop(query->rval);
     query->rval = NULL;
     child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child->node, e) ||
+        fn_arg_int("splice", DOC_LIST_SPLICE, 2, query->rval, e))
         goto fail1;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `splice` expects argument 2 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                DOC_LIST_SPLICE,
-                ti_val_str(query->rval));
-        goto fail1;
-    }
 
     c = VINT(query->rval);
     current_n = varr->vec->n;

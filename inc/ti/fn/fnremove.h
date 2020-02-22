@@ -221,8 +221,8 @@ static int do__f_remove_set(
                 ex_set(e, EX_TYPE_ERROR,
                         narg == 1
                         ?
-                        "function `remove` expects argument %d to be "
-                        "a `"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
+                        "function `remove` expects argument %d to be of type "
+                        "`"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
                         "but got type `%s` instead"DOC_SET_REMOVE
                         :
                         "function `remove` expects argument %d to be "

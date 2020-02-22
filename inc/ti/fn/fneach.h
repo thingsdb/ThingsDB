@@ -20,7 +20,6 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
     const int nargs = langdef_nd_n_function_params(nd);
-    size_t n;
     ti_closure_t * closure;
     ti_val_t * iterval;
     int lock_was_set;
@@ -42,8 +41,6 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
-
-    n = ti_val_get_len(iterval);
 
     if (ti_closure_try_wse(closure, query, e) ||
         ti_closure_inc(closure, query, e))

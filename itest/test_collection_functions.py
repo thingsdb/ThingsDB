@@ -621,7 +621,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `filter` expects argument 1 to be a `closure` '
+                'function `filter` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('.filter(nil);')
 
@@ -691,7 +691,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `find` expects argument 1 to be a `closure` '
+                'function `find` expects argument 1 to be of type `closure` '
                 'but got type `int` instead'):
             await client.query('.x.find(0);')
 
@@ -727,8 +727,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `findindex` expects argument 1 to be a `closure` '
-                'but got type `bool` instead'):
+                'function `findindex` expects argument 1 to be of '
+                'type `closure` but got type `bool` instead'):
             await client.query('.x.findindex(true);')
 
         self.assertIs(await client.query('[].findindex(||true);'), None)
@@ -1367,6 +1367,59 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('"l".lower();'), "l")
         self.assertEqual(await client.query('"HI !!".lower();'), "hi !!")
 
+    async def test_each(self, client):
+        await client.query(r'''
+            .iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+            .cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            .girls = set([.iris, .cato]);
+        ''')
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `each`'):
+            await client.query('nil.each(||nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `each` takes 1 argument but 0 were given'):
+            await client.query('.each();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `each` expects argument 1 to be of type `closure` '
+                'but got type `nil` instead'):
+            await client.query('.each(nil);')
+
+        self.assertEqual(await client.query(r'[].each(||1)'), None)
+        self.assertEqual(await client.query(r'{}.each(||1)'), None)
+        self.assertEqual(await client.query(r'set().each(||1)'), None)
+
+        self.assertEqual(
+            set(await client.query('r = []; .iris.each(|k|r.push(k)); r;')),
+            set({'name', 'age', 'likes'}))
+
+        self.assertEqual(
+            await client.query('r = []; range(3).each(|x| r.push(x)); r;'),
+            [0, 1, 2])
+
+        self.assertEqual(
+            set(await client.query('r=[]; .girls.each(|g|r.push(g.name)); r')),
+            set(['Iris', 'Cato'])
+        )
+
+        iris_id, cato_id = await client.query('[.iris.id(), .cato.id()];')
+
+        self.assertEqual(
+            set(await client.query('r=[]; .girls.each(|_,i| r.push(i)); r;')),
+            set([iris_id, cato_id])
+        )
+
     async def test_map(self, client):
         await client.query(r'''
             .iris = {
@@ -1392,7 +1445,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `map` expects argument 1 to be a `closure` '
+                'function `map` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('.map(nil);')
 
@@ -1811,7 +1864,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `remove` expects argument 1 to be a `closure` '
+                'function `remove` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('.list.remove(nil);')
 
@@ -1871,7 +1924,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `remove` expects argument 1 to be a `closure` '
+                'function `remove` expects argument 1 to be of type `closure` '
                 'or type `thing` but got type `nil` instead'):
             await client.query('.s.remove(nil);')
 
@@ -2074,7 +2127,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `every` expects argument 1 to be a `closure` '
+                r'function `every` expects argument 1 to be of type `closure` '
                 r'but got type `int` instead'):
             await client.query('[1,2,3].every(42);')
 
@@ -2105,7 +2158,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `some` expects argument 1 to be a `closure` '
+                r'function `some` expects argument 1 to be of type `closure` '
                 r'but got type `str` instead'):
             await client.query('[1,2,3].some("text");')
 
@@ -2131,7 +2184,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `sort` expects argument 1 to be a `closure` '
+                'function `sort` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('[2, 0, 1, 3].sort(nil);')
 

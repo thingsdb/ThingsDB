@@ -7,19 +7,10 @@ static int do__f_type_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t n;
 
     if (fn_not_collection_scope("type_count", query, e) ||
-        fn_nargs("type_count", DOC_TYPE_INFO, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        fn_nargs("type_count", DOC_TYPE_COUNT, 1, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("type_count", DOC_TYPE_COUNT, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `type_count` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"
-            DOC_TYPE_INFO,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)

@@ -35,6 +35,7 @@
 #include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fndoc.h>
+#include <ti/fn/fneach.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
@@ -162,7 +163,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 141,
+    TOTAL_KEYWORDS = 142,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 2,
@@ -180,7 +181,7 @@ static inline unsigned int qbind__hash(
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
-        261, 261,  10, 261,  10, 261,   0, 261, 261, 261,
+        261, 261,  14, 261,  13, 261,   0, 261, 261, 261,
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
         261, 261, 261, 261, 261, 261, 261, 261, 261, 261,
@@ -328,6 +329,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_user",          .fn=do__f_del_user,             ROOT_TE},
     {.name="del",               .fn=do__f_del,                  CHAIN_CE},
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
+    {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},

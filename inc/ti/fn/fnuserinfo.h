@@ -26,18 +26,9 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->user, TI_AUTH_GRANT, e))
             return e->nr;
 
-        if (ti_do_statement(query, nd->children->node, e))
+        if (ti_do_statement(query, nd->children->node, e) ||
+            fn_arg_str("user_info", DOC_USER_INFO, 1, query->rval, e))
             return e->nr;
-
-        if (!ti_val_is_str(query->rval))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `user_info` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_USER_INFO,
-                ti_val_str(query->rval));
-            return e->nr;
-        }
 
         uname = (ti_raw_t *) query->rval;
         user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);

@@ -8,17 +8,9 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("del_type", query, e) ||
         fn_nargs("del_type", DOC_DEL_TYPE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("del_type", DOC_DEL_TYPE, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `del_type` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_DEL_TYPE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)

@@ -46,17 +46,9 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_closure("filter", doc, 1, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_closure(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `filter` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
-                ti_val_str(query->rval), doc);
-        goto fail0;
-    }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;

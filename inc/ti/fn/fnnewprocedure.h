@@ -14,18 +14,9 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e) ||
         fn_nargs("new_procedure", DOC_NEW_PROCEDURE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("new_procedure", DOC_NEW_PROCEDURE, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_procedure` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"
-            DOC_NEW_PROCEDURE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
@@ -37,18 +28,9 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_closure("new_procedure", DOC_NEW_PROCEDURE, 2, query->rval, e))
         goto fail0;;
-
-    if (!ti_val_is_closure(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `new_procedure` expects argument 2 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                DOC_NEW_PROCEDURE,
-                ti_val_str(query->rval));
-        goto fail0;
-    }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;

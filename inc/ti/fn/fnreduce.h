@@ -20,18 +20,9 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     vec = ((ti_varr_t *) lockval)->vec;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_closure("reduce", DOC_LIST_REDUCE, 1, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_closure(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `reduce` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                DOC_LIST_REDUCE,
-                ti_val_str(query->rval));
-        goto fail0;
-    }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;

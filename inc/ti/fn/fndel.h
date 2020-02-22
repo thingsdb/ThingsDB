@@ -30,19 +30,9 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     name_nd = nd->children->node;
 
-    if (ti_do_statement(query, name_nd, e))
-        goto unlock;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `del` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_THING_DEL,
-                ti_val_str(query->rval));
-        goto unlock;
-    }
-
-    if (ti_thing_o_del_e(thing, (ti_raw_t *) query->rval, e))
+    if (ti_do_statement(query, name_nd, e) ||
+        fn_arg_str("del", DOC_THING_DEL, 1, query->rval, e) ||
+        ti_thing_o_del_e(thing, (ti_raw_t *) query->rval, e))
         goto unlock;
 
     if (thing->id)

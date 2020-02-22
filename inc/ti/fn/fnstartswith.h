@@ -15,18 +15,9 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("startswith", DOC_STR_STARTSWITH, 1, query->rval, e))
         goto failed;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `startswith` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_STR_STARTSWITH,
-                ti_val_str(query->rval));
-        goto failed;
-    }
 
     startswith = ti_raw_startswith(raw, (ti_raw_t *) query->rval);
     ti_val_drop(query->rval);

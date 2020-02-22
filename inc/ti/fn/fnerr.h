@@ -17,17 +17,9 @@ static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_int("err", DOC_ERR, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `err` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_ERR,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     vcode = (ti_vint_t *) query->rval;
     if (vcode->int_ < EX_MIN_ERR || vcode->int_ > EX_MAX_BUILD_IN_ERR)
@@ -50,17 +42,9 @@ static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_str("err", DOC_ERR, 2, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `err` expects argument 2 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_ERR,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     msg = (ti_raw_t *) query->rval;
 

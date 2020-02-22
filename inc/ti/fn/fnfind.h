@@ -52,17 +52,9 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_closure("find", doc, 1, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_closure(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `find` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
-                ti_val_str(query->rval), doc);
-        goto fail0;
-    }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;

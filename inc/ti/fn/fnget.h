@@ -16,17 +16,9 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("get", DOC_THING_GET, 1, query->rval, e))
         goto done;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `get` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_THING_GET,
-            ti_val_str(query->rval));
-        goto done;
-    }
 
     found = ti_thing_get_by_raw(&wprop, thing, (ti_raw_t *) query->rval);
 

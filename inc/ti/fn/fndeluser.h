@@ -12,17 +12,9 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti()->access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("del_user", DOC_DEL_USER, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("del_user", DOC_DEL_USER, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `del_user` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_DEL_USER,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     ruser = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) ruser->data, ruser->n);

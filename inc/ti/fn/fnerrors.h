@@ -23,17 +23,9 @@ static int do__make_err(
 
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str(fn_name, fn_doc, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `%s` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
-            fn_name, ti_val_str(query->rval), fn_doc);
-        return e->nr;
-    }
 
     msg = (ti_raw_t *) query->rval;
 

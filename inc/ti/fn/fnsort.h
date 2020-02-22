@@ -157,15 +157,8 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (!ti_val_is_closure(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `sort` expects argument 1 to be "
-                "a `"TI_VAL_CLOSURE_S"` but got type `%s` instead"
-                DOC_LIST_SORT,
-                ti_val_str(query->rval));
+    if (fn_arg_closure("sort", DOC_LIST_SORT, 1, query->rval, e))
         goto fail0;
-    }
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
@@ -180,18 +173,9 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e))
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_bool("sort", DOC_LIST_SORT, 2, query->rval, e))
             goto fail1;
-
-        if (!ti_val_is_bool(query->rval))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "function `sort` expects argument 2 to be "
-                    "a `"TI_VAL_BOOL_S"` but got type `%s` instead"
-                    DOC_LIST_SORT,
-                    ti_val_str(query->rval));
-            goto fail1;
-        }
 
         reverse = VBOOL(query->rval);
 

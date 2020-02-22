@@ -15,18 +15,9 @@ static int do__f_contains(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("contains", DOC_STR_CONTAINS, 1, query->rval, e))
         goto failed;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `contains` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_STR_CONTAINS,
-                ti_val_str(query->rval));
-        goto failed;
-    }
 
     contains = ti_raw_contains(raw, (ti_raw_t *) query->rval);
     ti_val_drop(query->rval);

@@ -66,4 +66,16 @@ static inline const char * doc_map(ti_val_t * val)
     }
 }
 
+static inline const char * doc_each(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:          return DOC_THING_EACH;
+    case TI_VAL_ARR:            return DOC_LIST_EACH;
+    case TI_VAL_SET:            return DOC_SET_EACH;
+    default:                    return NULL;
+    }
+}
+
+
 #endif  /* DOC_INLINE_H_ */

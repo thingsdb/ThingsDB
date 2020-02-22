@@ -12,17 +12,9 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti()->access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("new_user", DOC_NEW_USER, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("new_user", DOC_NEW_USER, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_user` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_USER,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     rname = (ti_raw_t *) query->rval;
     nuser = ti_users_new_user(

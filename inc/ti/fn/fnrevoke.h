@@ -3,6 +3,7 @@
 static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+    cleri_children_t * child = nd->children;
     ti_user_t * user;
     ti_raw_t * uname;
     ti_task_t * task;
@@ -11,7 +12,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("revoke", query, e) ||
         fn_nargs("revoke", DOC_REVOKE, 3, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, child->node, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
@@ -22,17 +23,9 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read user */
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        fn_arg_str("revoke", DOC_REVOKE, 2, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `revoke` expects argument 2 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_REVOKE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     uname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
@@ -43,17 +36,9 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read mask */
-    if (ti_do_statement(query, nd->children->next->next->next->next->node, e))
+    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        fn_arg_int("revoke", DOC_REVOKE, 3, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `revoke` expects argument 3 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s`"DOC_REVOKE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     mask = (uint64_t) VINT(query->rval);
 

@@ -10,20 +10,11 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("new_type", query, e) ||
         fn_nargs("new_type", DOC_NEW_TYPE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("new_type", DOC_NEW_TYPE, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_type` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_TYPE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     rname = (ti_raw_t *) query->rval;
-
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_VALUE_ERROR,

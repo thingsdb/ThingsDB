@@ -16,17 +16,9 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_access_check_err(ti()->access_node,
             query->user, TI_AUTH_MODIFY, e) ||
         fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_str("new_backup", DOC_NEW_BACKUP, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_backup` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"
-            DOC_NEW_BACKUP, ti_val_str(query->rval));
-        return e->nr;
-    }
 
     if (ti()->nodes->vec->n == 1)
     {
@@ -95,24 +87,11 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        int64_t repeat_ts;
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+            fn_arg_int("new_backup", DOC_NEW_BACKUP, 3, query->rval, e))
             goto fail0;
 
-        if (!ti_val_is_int(query->rval))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `new_backup` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"
-                DOC_NEW_BACKUP, ti_val_str(query->rval));
-            return e->nr;
-        }
-
-        repeat_ts = VINT(query->rval);
-        if (repeat_ts < 0)
-            repeat_ts = 0;
-
-        repeat = (uint64_t) repeat_ts;
+        repeat = VINT(query->rval) < 0 ? 0 : (uint64_t) VINT(query->rval);
 
         ti_val_drop(query->rval);
         query->rval = NULL;

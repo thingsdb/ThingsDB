@@ -16,20 +16,10 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     char * description = NULL;
 
     if (fn_not_thingsdb_scope("new_token", query, e) ||
-        fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e))
+        fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e) ||
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_str("new_token", DOC_NEW_TOKEN, 1, query->rval, e))
         return e->nr;
-
-    if (ti_do_statement(query, child->node, e))
-        return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_token` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_TOKEN,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     uname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);

@@ -18,20 +18,10 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int port;
 
     if (fn_not_thingsdb_scope("new_node", query, e) ||
-        fn_nargs_range("new_node", DOC_NEW_NODE, 2, 3, nargs, e))
+        fn_nargs_range("new_node", DOC_NEW_NODE, 2, 3, nargs, e) ||
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_str("new_node", DOC_NEW_NODE, 1, query->rval, e))
         return e->nr;
-
-    if (ti_do_statement(query, child->node, e))
-        return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_node` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_NODE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     rsecret = (ti_raw_t *) query->rval;
     if (!rsecret->n || !strx_is_graphn((char *) rsecret->data, rsecret->n))
@@ -52,17 +42,9 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e))
+    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        fn_arg_str("new_node", DOC_NEW_NODE, 2, query->rval, e))
         goto fail0;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `new_node` expects argument 2 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_NODE,
-            ti_val_str(query->rval));
-        goto fail0;
-    }
 
     raddr = (ti_raw_t *) query->rval;
     if (raddr->n >= INET6_ADDRSTRLEN)
@@ -87,17 +69,9 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         /* Read the port number from arguments */
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+            fn_arg_int("new_node", DOC_NEW_NODE, 3, query->rval, e))
             goto fail1;
-
-        if (!ti_val_is_int(query->rval))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `new_node` expects argument 3 to be of "
-                "type `"TI_VAL_INT_S"` but got type `%s` instead"DOC_NEW_NODE,
-                ti_val_str(query->rval));
-            goto fail1;
-        }
 
         iport = VINT(query->rval);
         if (iport < 1<<0 || iport >= 1<<16)

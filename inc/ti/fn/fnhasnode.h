@@ -7,18 +7,9 @@ static int do__f_has_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("has_node", query, e) ||
         fn_nargs("has_node", DOC_HAS_NODE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_int("has_node", DOC_HAS_NODE, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_int(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `has_node` expects argument 1 to be of "
-            "type `"TI_VAL_INT_S"` but got type `%s` instead"
-            DOC_HAS_NODE,
-            ti_val_str(query->rval));
-        return e->nr;
-    }
 
     node_id = VINT(query->rval);
 

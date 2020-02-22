@@ -8,18 +8,9 @@ static int do__f_has_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("has_procedure", query, e) ||
         fn_nargs("has_procedure", DOC_HAS_PROCEDURE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("has_procedure", DOC_HAS_PROCEDURE, 1, query->rval, e))
         return e->nr;
-
-    if (!ti_val_is_str(query->rval))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "function `has_procedure` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_HAS_PROCEDURE,
-                ti_val_str(query->rval));
-        return e->nr;
-    }
 
     has_procedure = !!ti_procedures_by_name(
             procedures,

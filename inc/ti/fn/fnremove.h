@@ -169,7 +169,7 @@ static int do__f_remove_set(
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
@@ -275,8 +275,6 @@ fail1:
 done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
     ti_val_drop((ti_val_t *) vset);
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }
 

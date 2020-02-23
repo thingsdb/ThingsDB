@@ -6,16 +6,13 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
     ti_varr_t * varr;
-    ti_chain_t chain;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("push", query, nd, e);
 
-    ti_chain_move(&chain, &query->chain);
-
     if (fn_nargs_min("push", DOC_LIST_PUSH, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -39,15 +36,15 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     while (child->next && (child = child->next->next));
 
-    if (ti_chain_is_set(&chain))
+    if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
         if (!task)
             goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                chain.name,
+                varr->name,
                 varr,
                 current_n,
                 0,
@@ -74,8 +71,5 @@ fail1:
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
-
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }

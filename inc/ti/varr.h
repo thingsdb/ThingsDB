@@ -8,8 +8,6 @@ typedef struct ti_varr_s ti_varr_t;
 typedef struct ti_tuple_s ti_tuple_t;
 
 #include <inttypes.h>
-#include <ti/thing.h>
-#include <ti/name.h>
 #include <util/vec.h>
 #include <ex.h>
 
@@ -40,6 +38,9 @@ struct ti_tuple_s
     uint16_t spec;
     vec_t * vec;
 };
+
+#include <ti/thing.h>
+#include <ti/name.h>
 
 struct ti_varr_s
 {

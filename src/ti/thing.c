@@ -161,6 +161,30 @@ ti_thing_t * ti_thing_t_create(
     return thing;
 }
 
+static inline void thing__prop_destroy(ti_prop_t * prop)
+{
+    if (ti_val_is_array(prop->val))
+        ((ti_varr_t *) prop->val)->parent = NULL;
+    else if (ti_val_is_set(prop->val))
+        ((ti_vset_t *) prop->val)->parent = NULL;
+    ti_prop_destroy(prop);
+}
+
+static inline void thing__val_drop(ti_val_t * val)
+{
+    if (!val)
+        return;
+    if (--val->ref)
+    {
+        if (ti_val_is_array(val))
+            ((ti_varr_t *) val)->parent = NULL;
+        else if (ti_val_is_set(val))
+            ((ti_vset_t *) val)->parent = NULL;
+        return;
+    }
+    ti_val_destroy(val);
+}
+
 void ti_thing_destroy(ti_thing_t * thing)
 {
     assert (thing);
@@ -174,11 +198,18 @@ void ti_thing_destroy(ti_thing_t * thing)
     if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);
 
+    /*
+     * While dropping, mutable variable must clear the parent; for example
+     *
+     *   ({}.t = []).push(42);
+     *
+     * In this case the `thing` will be removed while the list stays alive.
+     */
     vec_destroy(
             thing->items,
             ti_thing_is_object(thing)
-                    ? (vec_destroy_cb) ti_prop_destroy
-                    : (vec_destroy_cb) ti_val_drop);
+                    ? (vec_destroy_cb) thing__prop_destroy
+                    : (vec_destroy_cb) thing__val_drop);
 
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
@@ -232,7 +263,8 @@ int ti_thing_props_from_unp(
         name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
         val = ti_val_from_unp_e(vup, e);
 
-        if (!val || !name || !ti_thing_o_prop_set(thing, name, val))
+        if (!val || !name || ti_val_make_assignable(&val, thing, name, e) ||
+            !ti_thing_o_prop_set(thing, name, val))
         {
             if (!e->nr)
                 ex_set_mem(e);

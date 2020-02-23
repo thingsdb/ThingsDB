@@ -15,7 +15,6 @@ C_SRCS += \
 ../src/ti/backups.c \
 ../src/ti/build.c \
 ../src/ti/cfg.c \
-../src/ti/chain.c \
 ../src/ti/clients.c \
 ../src/ti/closure.c \
 ../src/ti/collection.c \
@@ -100,7 +99,6 @@ OBJS += \
 ./src/ti/backups.o \
 ./src/ti/build.o \
 ./src/ti/cfg.o \
-./src/ti/chain.o \
 ./src/ti/clients.o \
 ./src/ti/closure.o \
 ./src/ti/collection.o \
@@ -185,7 +183,6 @@ C_DEPS += \
 ./src/ti/backups.d \
 ./src/ti/build.d \
 ./src/ti/cfg.d \
-./src/ti/chain.d \
 ./src/ti/clients.d \
 ./src/ti/closure.d \
 ./src/ti/collection.d \

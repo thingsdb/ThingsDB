@@ -4,16 +4,13 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_varr_t * varr;
-    ti_chain_t chain;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("pop", query, nd, e);
 
-    ti_chain_move(&chain, &query->chain);
-
     if (fn_nargs("pop", DOC_LIST_POP, 0, nargs, e) ||
         ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     varr = (ti_varr_t*) query->rval;
     query->rval = vec_pop(varr->vec);
@@ -24,15 +21,15 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_chain_is_set(&chain))
+    if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
         if (!task)
             goto restore;
 
         if (ti_task_add_splice(
                 task,
-                chain.name,
+                varr->name,
                 NULL,
                 varr->vec->n,
                 1,
@@ -51,8 +48,5 @@ restore:
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
-
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }

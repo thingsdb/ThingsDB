@@ -13,6 +13,7 @@
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
 #include <ti/vup.h>
@@ -92,6 +93,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
  */
 static int job__set(ti_thing_t * thing, mp_unp_t * up)
 {
+    ex_t e = {0};
     ti_val_t * val;
     ti_name_t * name;
     mp_obj_t obj, mp_prop;
@@ -134,6 +136,17 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
                 "error reading value for property: `%s`",
                 thing->id,
                 name->str);
+        goto fail;
+    }
+
+    if (ti_val_make_assignable(&val, thing, name, &e))
+    {
+        log_critical(
+                "job `set` to "TI_THING_ID": "
+                "error making variable assignable: `%s`",
+                thing->id,
+                name->str,
+                e.msg);
         goto fail;
     }
 

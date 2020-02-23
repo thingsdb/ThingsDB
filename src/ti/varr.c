@@ -236,11 +236,8 @@ int ti_varr_to_list(ti_varr_t ** varr)
     if (list->ref == 1)
     {
         /* This can never happen to a tuple since a tuple is always nested
-         * and therefore always has more than one reference;
-         * For almost the same reason this van never happen to a list with
-         * parent. */
+         * and therefore always has more than one reference; */
         assert (~list->flags & TI_VFLAG_ARR_TUPLE);
-        assert (list->parent == NULL);
         return 0;
     }
 

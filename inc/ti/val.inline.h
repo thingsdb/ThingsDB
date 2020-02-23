@@ -64,7 +64,6 @@ static inline int ti_val_make_assignable(
         return 0;
     case TI_VAL_SET:
         if (ti_vset_assign((ti_vset_t **) val))
-            ex_set_mem(e);
         {
             ex_set_mem(e);
             return e->nr;

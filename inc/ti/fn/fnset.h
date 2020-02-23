@@ -95,7 +95,6 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             goto fail1;
         }
-        ti_chain_set(&query->chain, thing, wprop.name);
     }
 
 fail1:

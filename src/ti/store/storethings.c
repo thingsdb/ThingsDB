@@ -6,6 +6,7 @@
 #include <ti/types.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/prop.h>
+#include <ti/val.inline.h>
 #include <ti/store/storethings.h>
 #include <ti/things.h>
 #include <util/fx.h>
@@ -177,6 +178,7 @@ int ti_store_things_restore_data(
         const char * fn)
 {
     int rc = -1;
+    ex_t e = {0};
     fx_mmap_t fmap;
     ti_thing_t * thing;
     ti_name_t * name;
@@ -240,7 +242,8 @@ int ti_store_things_restore_data(
 
                 val = ti_val_from_unp(&vup);
 
-                if (!val || !ti_thing_o_prop_add(thing, name, val))
+                if (!val || ti_val_make_assignable(&val, thing, name, &e) ||
+                    !ti_thing_o_prop_add(thing, name, val))
                     goto fail1;
 
                 ti_incref(name);
@@ -258,10 +261,11 @@ int ti_store_things_restore_data(
                 goto fail1;
             }
 
-            for (ii = obj.via.sz; ii--;)
+            for (vec_each(type->fields, ti_field_t, field))
             {
                 val = ti_val_from_unp(&vup);
-                if (!val)
+                if (!val ||
+                    ti_val_make_assignable(&val, thing, field->name, &e))
                     goto fail1;
                 VEC_push(thing->items, val);
             }

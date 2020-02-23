@@ -27,6 +27,28 @@ class TestBase(unittest.TestCase):
             attempts -= 1
             await asyncio.sleep(0.5)
 
+    async def assertEvent(self, client, query):
+        before = \
+            (await client.query('counters();', scope='@n'))['events_committed']
+        await client.query(query)
+        after = \
+            (await client.query('counters();', scope='@n'))['events_committed']
+        self.assertGreater(
+            after-before,
+            0,
+            f'missing event for query: `{query}`')
+
+    async def assertNoEvent(self, client, query):
+        before = \
+            (await client.query('counters();', scope='@n'))['events_committed']
+        await client.query(query)
+        after = \
+            (await client.query('counters();', scope='@n'))['events_committed']
+        self.assertEqual(
+            before,
+            after,
+            f'unexpected event for query: `{query}`')
+
     async def run_tests(self, *args, **kwargs):
         for attr, f in self.__class__.__dict__.items():
             if attr.startswith('test_') and callable(f):

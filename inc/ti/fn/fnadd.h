@@ -78,6 +78,5 @@ done:
 
 fail0:
     free(added);
-    ti_chain_unset(&chain);
     return e->nr;
 }

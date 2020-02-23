@@ -34,6 +34,28 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_events(self, client):
+        await self.assertEvent(client, r'''
+            .arr = range(3);
+        ''')
+        await self.assertEvent(client, r'''
+            thing(.id()).arr.push(3);
+        ''')
+        await self.assertEvent(client, r'''
+            .get('arr').push(4);
+        ''')
+        await self.assertEvent(client, r'''
+            thing(.id()).set('a', []);
+        ''')
+
+    async def test_no_events(self, client):
+        await self.assertNoEvent(client, r'''
+            arr = range(3);
+        ''')
+        await self.assertNoEvent(client, r'''
+            range(3).push(4);
+        ''')
+
     async def test_make(self, client):
         await client.query('''
             new_procedure('create_host', |env_id, name, address, probes, labels, description| {

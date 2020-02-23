@@ -5,18 +5,13 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     uint32_t current_n, source_n;
     ti_varr_t * varr_dest, * varr_source;
-    ti_chain_t chain;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("extend", query, nd, e);
 
-    if (fn_nargs("extend", DOC_LIST_EXTEND, 1, nargs, e))
+    if (fn_nargs("extend", DOC_LIST_EXTEND, 1, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
-
-    ti_chain_move(&chain, &query->chain);
-
-    if (ti_val_try_lock(query->rval, e))
-        goto fail0;
 
     varr_dest = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -57,15 +52,15 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else for (vec_each(varr_source->vec, ti_val_t, v))
         ti_incref(v);
 
-    if (ti_chain_is_set(&chain))
+    if (varr_dest->parent && varr_dest->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent, e);
         if (!task)
             goto fail3;
 
         if (ti_task_add_splice(
                 task,
-                chain.name,
+                varr_dest->name,
                 varr_dest,
                 current_n,
                 0,
@@ -96,8 +91,5 @@ fail2:
 fail1:
     ti_val_unlock((ti_val_t *) varr_dest, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr_dest);
-
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }

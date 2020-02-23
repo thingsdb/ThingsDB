@@ -252,6 +252,42 @@ class TestIndexSlice(TestBase):
         for client in (client0, client1, client2):
             self.assertTrue(await client.query('istuple(.list[0]);'))
 
+    async def test_reference(self, client0, client1, client2):
+        res = await client0.query(r'''
+            a = range(2);
+            b = range(2);
+            c = range(2);
+            .a = a;
+            .set('b', b);
+            thing(.id())['c'] = c;
+            aa = a;
+            bb = b;
+            cc = c;
+            a.push(3);
+            b.push(3);
+            c.push(3);
+            .a.push(4);
+            .get('b').push(4);
+            thing(.id())['c'].push(4);
+            aa.push(5);
+            bb.push(5);
+            cc.push(5);
+            [a, b, c, .a, .b, .c, aa, bb, cc];
+        ''')
+        self.assertEqual(
+            res, [
+                [0, 1, 3, 5], [0, 1, 3, 5], [0, 1, 3, 5],
+                [0, 1, 4], [0, 1, 4], [0, 1, 4],
+                [0, 1, 3, 5], [0, 1, 3, 5], [0, 1, 3, 5]
+            ]
+        )
+
+        await asyncio.sleep(0.2)
+        for client in (client0, client1, client2):
+            self.assertEqual(
+                await client0.query('[.a, .b, .c];'),
+                [[0, 1, 4], [0, 1, 4], [0, 1, 4]])
+
     async def test_set_arr_by_slice(self, client0, client1, client2):
         li = [1, 2, 5, 6]
         n = len(li)

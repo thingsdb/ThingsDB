@@ -255,14 +255,8 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto done;
 
         if (ti_task_add_set(task, wprop.name, *wprop.val))
-            goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+            ex_set_mem(e);
     }
-
-    goto done;
-
-alloc_err:
-    ex_set_mem(e);
 
 done:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
@@ -727,7 +721,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = ti_thing_o_create(0, sz, query->collection);
     if (!thing)
-        goto alloc_err;
+        goto failed;
 
     child = nd                                  /* sequence */
             ->children->next->node              /* list */
@@ -746,15 +740,13 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ->children->next->next->node;       /* scope */
 
         name = ti_names_get(name_nd->str, name_nd->len);
-        if (!name)
-            goto alloc_err;
-
-        if (    ti_do_statement(query, scope, e) ||
+        if (    !name||
+                ti_do_statement(query, scope, e) ||
                 ti_val_make_assignable(&query->rval, thing, name, e) ||
                 !ti_thing_o_prop_set(thing, name, query->rval))
         {
             ti_name_drop(name);
-            goto alloc_err;
+            goto failed;
         }
 
         query->rval = NULL;
@@ -766,9 +758,9 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) thing;
     return 0;
 
-alloc_err:
-    ex_set_mem(e);
-err:
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;
 }

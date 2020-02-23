@@ -245,7 +245,7 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
     {
         ti_val_t * val = ti_val_from_unp_e(vup, e);
 
-        if (!val || ti_field_make_assignable(field, &val, e))
+        if (!val || ti_field_make_assignable(field, &val, thing, e))
         {
             ex_append(e, "; error while loading field `%s` for type `%s`",
                     field->name->str,

@@ -394,7 +394,7 @@ int ti_thing_o_set_val_from_valid_strn(
         return e->nr;
     }
 
-    if (ti_val_make_assignable(val, e))
+    if (ti_val_make_assignable(val, thing, name, e))
         return e->nr;
 
     if (thing_o__prop_set_e(thing, name, *val, e))
@@ -430,7 +430,7 @@ int ti_thing_t_set_val_from_strn(
     ti_val_t ** vaddr;
     ti_type_t * type = ti_thing_type(thing);
     ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
-    if (!field || ti_field_make_assignable(field, val, e))
+    if (!field || ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
     vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);

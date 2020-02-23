@@ -135,6 +135,20 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
 
+    async def test_ret_val(self, client0, client1, client2):
+        await client0.query(r'''
+            .arr = [];
+            .g = ||.arr;
+        ''')
+
+        arr = await client0.query(r'''.g().push(123); .arr;''')
+
+        await asyncio.sleep(0.1)
+
+        for client in (client0, client1, client2):
+            # This should be [123] or at least [] at all nodes
+            self.assertEqual(await client.query('.arr'), [123])
+
     async def test_assign_del(self, client0, client1, client2):
         await client0.query(r'''
             .x = {

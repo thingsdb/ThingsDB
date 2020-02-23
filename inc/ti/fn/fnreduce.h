@@ -73,6 +73,8 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             prop->val = v;
             /* fall through */
         case 1:
+            if (ti_val_make_variable(&query->rval, e))
+                goto fail2;
             prop = vec_get(closure->vars, 0);
             ti_val_drop(prop->val);
             prop->val = query->rval;

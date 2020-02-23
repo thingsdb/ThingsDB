@@ -176,7 +176,7 @@ static inline int do__t_upd_prop(
 
         return (
             ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
-            ti_field_make_assignable(field, &query->rval, e)
+            ti_field_make_assignable(field, &query->rval, thing, e)
         ) ? e->nr : 0;
     }
 
@@ -442,9 +442,6 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__get_wprop(&wprop, query, thing, node->children->node, e))
             return e->nr;
 
-        if (thing->id && (index_node->children || child))
-            ti_chain_set(&query->chain, thing, wprop.name);
-
         query->rval = *wprop.val;
         ti_incref(query->rval);
         ti_val_drop((ti_val_t *) thing);
@@ -462,7 +459,6 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (do__index(query, index_node, e) == 0 && child)
         (void) do__chain(query, child->node, e);
 
-    ti_chain_unset(&query->chain);
     return e->nr;
 }
 
@@ -749,15 +745,13 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         scope = child->node                         /* sequence */
                 ->children->next->next->node;       /* scope */
 
-        if (    ti_do_statement(query, scope, e) ||
-                ti_val_make_assignable(&query->rval, e))
-            goto err;
-
         name = ti_names_get(name_nd->str, name_nd->len);
         if (!name)
             goto alloc_err;
 
-        if (!ti_thing_o_prop_set(thing, name, query->rval))
+        if (    ti_do_statement(query, scope, e) ||
+                ti_val_make_assignable(&query->rval, thing, name, e) ||
+                !ti_thing_o_prop_set(thing, name, query->rval))
         {
             ti_name_drop(name);
             goto alloc_err;
@@ -856,7 +850,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             continue;
 
         if (    ti_do_statement(query, scope, e) ||
-                ti_field_make_assignable(field, &query->rval, e))
+                ti_field_make_assignable(field, &query->rval, thing, e))
             goto fail;
 
         val = vec_get(thing->items, field->idx);
@@ -910,7 +904,6 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
     assert (query->rval == NULL);
-    assert (!ti_chain_is_set(&query->chain));
 
     ti_prop_t * prop = do__get_var_e(query, nd, e);
 
@@ -934,7 +927,6 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_MORE);
     assert (query->rval == NULL);
-    assert (!ti_chain_is_set(&query->chain));
 
     ti_name_t * name = NULL;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
@@ -970,7 +962,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * unbound from the query if the `variable` is assigned or pushed to a list
      */
     if (    !ti_val_is_closure(query->rval) &&
-            ti_val_make_assignable(&query->rval, e))
+            ti_val_make_variable(&query->rval, e))
         goto failed;
 
     name = ti_names_get(name_nd->str, name_nd->len);
@@ -1009,8 +1001,6 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     nd = child->node;                   /* immutable, function,
                                            assignment, name, thing,
                                            array, compare, closure */
-
-    ti_chain_unset(&query->chain);
 
     switch (nd->cl_obj->gid)
     {

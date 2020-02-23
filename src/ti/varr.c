@@ -22,10 +22,11 @@ static int varr__to_tuple(ti_varr_t ** varr)
     if (tuple->ref == 1)
     {
         tuple->flags |= TI_VFLAG_ARR_TUPLE;
+        tuple->parent = NULL;  /* make sure no parent is set */
         return 0;  /* with only one reference we do not require a copy */
     }
 
-    tuple = malloc(sizeof(ti_varr_t));
+    tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
         return -1;
 
@@ -60,6 +61,7 @@ ti_varr_t * ti_varr_create(size_t sz)
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
     varr->spec = TI_SPEC_ANY;
+    varr->parent = NULL;
 
     varr->vec = vec_new(sz);
     if (!varr->vec)
@@ -81,8 +83,8 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
     varr->spec = TI_SPEC_ANY;
-
     varr->vec = vec;
+    varr->parent = NULL;
     return varr;
 }
 
@@ -102,6 +104,7 @@ ti_varr_t * ti_varr_from_slice(
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
     varr->spec = source->spec;
+    varr->parent = NULL;
 
     n = n / step + !!(n % step);
     sz = (uint32_t) (n < 0 ? 0 : n);
@@ -233,8 +236,11 @@ int ti_varr_to_list(ti_varr_t ** varr)
     if (list->ref == 1)
     {
         /* This can never happen to a tuple since a tuple is always nested
-         * and therefore always has more than one reference */
+         * and therefore always has more than one reference;
+         * For almost the same reason this van never happen to a list with
+         * parent. */
         assert (~list->flags & TI_VFLAG_ARR_TUPLE);
+        assert (list->parent == NULL);
         return 0;
     }
 
@@ -247,6 +253,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
     list->flags = (*varr)->flags & TI_VFLAG_ARR_MHT;
     list->spec = (*varr)->spec;
     list->vec = vec_dup((*varr)->vec);
+    list->parent = NULL;
 
     if (!list->vec)
     {

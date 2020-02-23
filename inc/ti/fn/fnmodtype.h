@@ -69,7 +69,7 @@ static void type__add(
     if (n)
     {
         assert (query->rval);
-        if (ti_field_make_assignable(field, &query->rval, e))
+        if (ti_field_make_assignable(field, &query->rval, NULL, e))
             goto fail1;
 
         /* here we create the ID's for optional new things */
@@ -104,7 +104,7 @@ static void type__add(
                 thing->id == 0 &&
                 thing->type_id == type->type_id)
             {
-                if (ti_val_make_assignable(&query->rval, e))
+                if (ti_val_make_assignable(&query->rval, thing, prop->name, e))
                     goto fail1;
 
                 if (vec_push(&thing->items, query->rval))

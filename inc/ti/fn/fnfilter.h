@@ -79,7 +79,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
                 if (ti_val_as_bool(query->rval))
                 {
-                    if (    ti_val_make_assignable(&p->val, e) ||
+                    if (    ti_val_make_variable(&p->val, e) ||
                             !ti_thing_o_prop_add(thing, p->name, p->val))
                         goto fail2;
                     ti_incref(p->name);
@@ -102,7 +102,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
                 if (ti_val_as_bool(query->rval))
                 {
-                    if (    ti_val_make_assignable(&val, e) ||
+                    if (    ti_val_make_variable(&val, e) ||
                             !ti_thing_o_prop_add(thing, name, val))
                         goto fail2;
                     ti_incref(name);

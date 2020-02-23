@@ -181,7 +181,6 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     cleri_node_t * ass_statem = inode->children->next->next->next->node;
     cleri_node_t * ass_tokens = ass_statem->children->node;
     ti_varr_t * evarr, * varr = (ti_varr_t *) query->rval;
-    ti_chain_t chain;
     ssize_t c, n;
     ssize_t start = 0, stop = (ssize_t) varr->vec->n, step = 1;
     uint32_t current_n, new_n;
@@ -194,10 +193,8 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         return e->nr;
     }
 
-    ti_chain_move(&chain, &query->chain);
-
     if (ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     query->rval = NULL;
 
@@ -254,15 +251,15 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     varr->vec->n = new_n;
 
-    if (ti_chain_is_set(&chain))
+    if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
         if (!task)
             goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                chain.name,
+                varr->name,
                 varr,
                 (uint32_t) start,
                 (uint32_t) c,
@@ -273,8 +270,6 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 
 }
@@ -365,13 +360,10 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     cleri_node_t * ass_statem = inode->children->next->next->next->node;
     cleri_node_t * ass_tokens = ass_statem->children->node;
     ti_varr_t * varr;
-    ti_chain_t chain;
     size_t idx = 0;  /* only set to prevent warning */
 
-    ti_chain_move(&chain, &query->chain);
-
     if (ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -394,15 +386,15 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     ti_incref(query->rval);
 
-    if (ti_chain_is_set(&chain))
+    if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
         if (!task)
             goto fail1;
 
         if (ti_task_add_splice(
                 task,
-                chain.name,
+                varr->name,
                 varr,
                 (uint32_t) idx,
                 1,
@@ -413,8 +405,6 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }
 
@@ -438,9 +428,6 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
 
     if (ti_thing_get_by_raw_e(&wprop, thing, (ti_raw_t *) query->rval, e))
         goto fail0;
-
-    if (thing->id)
-        ti_chain_set(&query->chain, thing, wprop.name);
 
     ti_val_drop(query->rval);
     query->rval = *wprop.val;
@@ -484,7 +471,7 @@ static inline int index__t_upd_prop(
 
         return (
             ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
-            ti_field_make_assignable(field, &query->rval, e)
+            ti_field_make_assignable(field, &query->rval, thing, e)
         ) ? e->nr : 0;
     }
 
@@ -567,7 +554,6 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
             ex_set_mem(e);
             goto fail1;
         }
-        ti_chain_set(&query->chain, thing, wprop.name);
     }
 
 fail1:

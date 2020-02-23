@@ -58,7 +58,7 @@ static int fn_new_instance(
             }
             else
             {
-                if (ti_field_make_assignable(field, &val, e))
+                if (ti_field_make_assignable(field, &val, new_thing, e))
                     goto failed;
 
                 ti_incref(val);
@@ -78,9 +78,11 @@ static int fn_new_instance(
             goto failed;
         }
 
-        for (vec_each(from_thing->items, ti_val_t, val))
+        for (vec_each(type->fields, ti_field_t, field))
         {
-            if (ti_val_make_assignable(&val, e))
+            ti_val_t * val = vec_get(from_thing->items, field->idx);
+
+            if (ti_val_make_assignable(&val, from_thing, field->name, e))
                 goto failed;
 
             ti_incref(val);

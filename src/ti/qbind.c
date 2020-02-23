@@ -271,6 +271,7 @@ typedef enum
     FN__FLAG_ROOT       = 1<<3,
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
+    FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
 } qbind__fn_flag_t;
 
 typedef struct
@@ -282,27 +283,42 @@ typedef struct
 } qbind__fmap_t;
 
 #define ROOT_NE \
-        .flags=FN__FLAG_ROOT
+        .flags=FN__FLAG_ROOT|FN__FLAG_AS_ON_VAR
 #define ROOT_BE \
-        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C|FN__FLAG_EV_T
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C|FN__FLAG_EV_T|FN__FLAG_AS_ON_VAR
 #define ROOT_CE \
-        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define ROOT_TE \
-        .flags=FN__FLAG_ROOT|FN__FLAG_EV_T
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_T|FN__FLAG_AS_ON_VAR
 #define CHAIN_NE \
-        .flags=FN__FLAG_CHAIN
+        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE \
-        .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE_XVAR \
-        .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define BOTH_CE_XROOT \
+        .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
+#define XROOT_NE \
+        .flags=FN__FLAG_ROOT
+#define XROOT_BE \
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C|FN__FLAG_EV_T
+#define XROOT_CE \
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_C
+#define XROOT_TE \
+        .flags=FN__FLAG_ROOT|FN__FLAG_EV_T
+#define XCHAIN_NE \
+        .flags=FN__FLAG_CHAIN
+#define XCHAIN_CE \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C
+#define XCHAIN_CE_XVAR \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C
+#define XBOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT
-
 
 qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
-    {.name="assert",            .fn=do__f_assert,               ROOT_NE},
+    {.name="assert",            .fn=do__f_assert,               XROOT_NE},
     {.name="auth_err",          .fn=do__f_auth_err,             ROOT_NE},
     {.name="backup_info",       .fn=do__f_backup_info,          ROOT_NE},
     {.name="backups_info",      .fn=do__f_backups_info,         ROOT_NE},
@@ -311,7 +327,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="base64_encode",     .fn=do__f_base64_encode,        ROOT_NE},
     {.name="bool",              .fn=do__f_bool,                 ROOT_NE},
     {.name="bytes",             .fn=do__f_bytes,                ROOT_NE},
-    {.name="call",              .fn=do__f_call,                 CHAIN_NE},
+    {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
@@ -335,11 +351,11 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
-    {.name="find",              .fn=do__f_find,                 CHAIN_NE},
+    {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
     {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
-    {.name="get",               .fn=do__f_get,                  CHAIN_NE},
+    {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
     {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
@@ -403,7 +419,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="rand",              .fn=do__f_rand,                 ROOT_NE},
     {.name="randint",           .fn=do__f_randint,              ROOT_NE},
     {.name="range",             .fn=do__f_range,                ROOT_NE},
-    {.name="reduce",            .fn=do__f_reduce,               CHAIN_NE},
+    {.name="reduce",            .fn=do__f_reduce,               XCHAIN_NE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
@@ -411,7 +427,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
-    {.name="run",               .fn=do__f_run,                  ROOT_NE},
+    {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
@@ -425,7 +441,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
-    {.name="try",               .fn=do__f_try,                  ROOT_NE},
+    {.name="try",               .fn=do__f_try,                  XROOT_NE},
     {.name="type_count",        .fn=do__f_type_count,           ROOT_NE},
     {.name="type_err",          .fn=do__f_type_err,             ROOT_NE},
     {.name="type_info",         .fn=do__f_type_info,            ROOT_NE},
@@ -440,7 +456,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
     {.name="watch",             .fn=do__f_watch,                CHAIN_NE},
     {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},
-    {.name="wse",               .fn=do__f_wse,                  ROOT_BE},
+    {.name="wse",               .fn=do__f_wse,                  XROOT_BE},
     {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
 };
 
@@ -521,20 +537,19 @@ static void qbind__function(
             n >= MIN_WORD_LENGTH &&
             key <= MAX_HASH_VALUE
     ) ? qbind__map[key] : NULL;
+    register uint8_t fmflags = fmap ? fmap->flags : 0;
 
     nd->data = (
-            fmap &&
+            ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmflags) &&
             fmap->n == n &&
-            ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
             memcmp(fnname->str, fmap->name, n) == 0
     ) ? fmap->fn : NULL;
 
     /* may set event flag */
     q->flags |= (
-        nd->data &&
-        ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmap->flags) &&
-        ((~fmap->flags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
-        ((~fmap->flags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
+        ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmflags) &&
+        ((~fmflags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
+        ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
     ) << TI_QBIND_BIT_EVENT;
 
     /* update the value cache if no function is found */
@@ -551,6 +566,8 @@ static void qbind__function(
     {
         qbind__statement(q, child->node);  /* statement */
     }
+
+    q->flags |= ((fmflags & FN__FLAG_AS_ON_VAR) && 1) << TI_QBIND_BIT_ON_VAR;
 
     /* bind `nargs` to node->data */
     nd->data = (void *) nargs;

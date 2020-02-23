@@ -601,7 +601,11 @@ static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
     return thing->type_id != field->nested_spec;
 }
 
-static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
+static int field__vset_assign(
+        ti_field_t * field,
+        ti_vset_t ** vset,
+        ti_thing_t * parent,
+        ex_t * e)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
         field->nested_spec == (*vset)->spec ||
@@ -622,12 +626,16 @@ static int field__vset_assign(ti_field_t * field, ti_vset_t ** vset, ex_t * e)
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) vset, e) == 0)
+    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e) == 0)
         (*vset)->spec = field->nested_spec;
     return e->nr;
 }
 
-static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
+static int field__varr_assign(
+        ti_field_t * field,
+        ti_varr_t ** varr,
+        ti_thing_t * parent,
+        ex_t * e)
 {
     if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
         (*varr)->vec->n == 0 ||
@@ -683,7 +691,7 @@ static int field__varr_assign(ti_field_t * field, ti_varr_t ** varr, ex_t * e)
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) varr, e) == 0)
+    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e) == 0)
         (*varr)->spec = field->nested_spec;
     return e->nr;
 }
@@ -705,16 +713,22 @@ static _Bool field__maps_to_varr(ti_field_t * field, ti_varr_t * varr)
 /*
  * Returns 0 if the given value is valid for this field
  */
-int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e)
+int ti_field_make_assignable(
+        ti_field_t * field,
+        ti_val_t ** val,
+        ti_thing_t * parent,  /* may be NULL */
+        ex_t * e)
 {
     switch (ti_spec_check_val(field->spec, *val))
     {
     case TI_SPEC_RVAL_SUCCESS:
         return ti_val_is_array(*val)
-                ? field__varr_assign(field, (ti_varr_t **) val, e)
+                ? field__varr_assign(field, (ti_varr_t **) val, parent, e)
                 : ti_val_is_set(*val)
-                ? field__vset_assign(field, (ti_vset_t **) val, e)
-                : ti_val_make_assignable(val, e);
+                ? field__vset_assign(field, (ti_vset_t **) val, parent, e)
+                : ti_val_is_closure(*val)
+                ? ti_closure_unbound((ti_closure_t * ) *val, e)
+                : 0;
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
@@ -889,31 +903,32 @@ ti_field_t * ti_field_by_strn_e(
 typedef struct
 {
     ti_data_t * data;
+    ti_name_t * name;
     ti_val_t ** vaddr;
     uint64_t event_id;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
 
-static int field__add(ti_thing_t * thing, field__add_t * addjob)
+static int field__add(ti_thing_t * thing, field__add_t * w)
 {
-    if (thing->type_id != addjob->type_id)
+    if (thing->type_id != w->type_id)
         return 0;
 
     /* closure is already unbound, so only a memory exception can occur */
-    if (ti_val_make_assignable(addjob->vaddr, &addjob->e) ||
-        vec_push(&thing->items, *addjob->vaddr))
+    if (ti_val_make_assignable(w->vaddr, thing, w->name, &w->e) ||
+        vec_push(&thing->items, *w->vaddr))
         return 1;
 
-    ti_incref(*addjob->vaddr);
+    ti_incref(*w->vaddr);
 
     if (ti_thing_has_watchers(thing))
     {
         ti_rpkg_t * rpkg = ti_watch_rpkg(
                 thing->id,
-                addjob->event_id,
-                addjob->data->data,
-                addjob->data->n);
+                w->event_id,
+                w->data->data,
+                w->data->n);
 
         if (rpkg)
         {
@@ -939,7 +954,6 @@ static int field__add(ti_thing_t * thing, field__add_t * addjob)
             log_critical(EX_MEMORY_S);
         }
     }
-
     return 0;
 }
 
@@ -957,6 +971,7 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     int rc;
     field__add_t addjob = {
             .data = field___set_job(field->name, *vaddr),
+            .name = field->name,
             .vaddr = vaddr,
             .event_id = ev_id,
             .type_id = field->type->type_id,

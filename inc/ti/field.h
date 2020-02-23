@@ -9,6 +9,7 @@ typedef struct ti_field_s ti_field_t;
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <ti/val.h>
+#include <ti/thing.h>
 #include <inttypes.h>
 #include <ex.h>
 
@@ -21,7 +22,11 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e);
 int ti_field_del(ti_field_t * field, uint64_t ev_id);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
-int ti_field_make_assignable(ti_field_t * field, ti_val_t ** val, ex_t * e);
+int ti_field_make_assignable(
+        ti_field_t * field,
+        ti_val_t ** val,
+        ti_thing_t * parent,  /* may be NULL */
+        ex_t * e);
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val);
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field);
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name);

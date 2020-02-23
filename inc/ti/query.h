@@ -18,7 +18,6 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/qbind.h>
 #include <ti/stream.h>
 #include <ti/api.h>
-#include <ti/chain.h>
 #include <ti/scope.h>
 #include <ti/closure.h>
 #include <util/omap.h>
@@ -71,7 +70,6 @@ typedef union
 struct ti_query_s
 {
     ti_qbind_t qbind;               /* query binding */
-    ti_chain_t chain;               /* ti_chain_t */
     ti_val_t * rval;                /* return value of a statement */
     ti_collection_t * collection;   /* with reference, NULL when the scope is
                                      * @node or @thingsdb

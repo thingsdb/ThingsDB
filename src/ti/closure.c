@@ -419,7 +419,7 @@ int ti_closure_vars_nameval(
         /*
          * Re-assign variable since we require a copy of lists and sets.
          */
-        if (ti_val_make_assignable(&prop->val, e))
+        if (ti_val_make_variable(&prop->val, e))
             return e->nr;
         /* fall through */
     case 1:

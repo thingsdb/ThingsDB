@@ -19,6 +19,7 @@ ti_vset_t * ti_vset_create(void)
     vset->tp = TI_VAL_SET;
     vset->flags = 0;
     vset->spec = TI_SPEC_ANY;
+    vset->parent = NULL;
 
     vset->imap = imap_create();
     if (!vset->imap)
@@ -79,6 +80,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     list->flags = vec->n ? TI_VFLAG_ARR_MHT : 0;
     list->spec = (*vsetaddr)->spec;
     list->vec = vec;
+    list->parent = NULL;
 
     for (vec_each(list->vec, ti_val_t, val))
         ti_incref(val);

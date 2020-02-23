@@ -33,7 +33,10 @@ struct ti_vset_s
     uint8_t tp;
     uint8_t flags;
     uint16_t spec;
-    imap_t * imap;      /* key: thing_key() / value: *ti_things_t */
+    ti_thing_t * parent;    /* without reference,
+                               NULL when this is a variable */
+    ti_name_t * name;       /* without reference */
+    imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
 };
 
 /*

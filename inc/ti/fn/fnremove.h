@@ -6,13 +6,10 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t idx = 0;
     ti_closure_t * closure;
     ti_varr_t * varr;
-    ti_chain_t chain;
-
-    ti_chain_move(&chain, &query->chain);
 
     if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
         ti_val_try_lock(query->rval, e))
-        goto fail0;
+        return e->nr;
 
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
@@ -46,16 +43,16 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             (void) vec_remove(varr->vec, idx);
 
-            if (ti_chain_is_set(&chain))
+            if (varr->parent && varr->parent->id)
             {
                 ti_task_t * task;
-                task = ti_task_get_task(query->ev, chain.thing, e);
+                task = ti_task_get_task(query->ev, varr->parent, e);
                 if (!task)
                     goto fail3;
 
                 if (ti_task_add_splice(
                         task,
-                        chain.name,
+                        varr->name,
                         NULL,
                         idx,
                         1,
@@ -89,8 +86,6 @@ fail2:
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
     ti_val_drop((ti_val_t *) varr);
-fail0:
-    ti_chain_unset(&chain);
     return e->nr;
 }
 
@@ -171,9 +166,6 @@ static int do__f_remove_set(
     vec_t * removed = NULL;
     const int nargs = langdef_nd_n_function_params(nd);
     ti_vset_t * vset;
-    ti_chain_t chain;
-
-    ti_chain_move(&chain, &query->chain);
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))
@@ -247,15 +239,15 @@ static int do__f_remove_set(
         }
     }
 
-    if (removed->n && ti_chain_is_set(&chain))
+    if (removed->n && vset->parent && vset->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, chain.thing, e);
+        ti_task_t * task = ti_task_get_task(query->ev, vset->parent, e);
         if (!task)
             goto fail2;
 
         if (ti_task_add_remove(
                 task,
-                chain.name,
+                vset->name,
                 removed))
         {
             ex_set_mem(e);

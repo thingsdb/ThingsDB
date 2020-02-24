@@ -39,11 +39,11 @@ static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
 uint64_t imap_unused_id(imap_t * imap, uint64_t max);
 
-/* union */
+/* union `|` */
 void imap_union_move(imap_t * dest, imap_t * imap);
 int imap_union_make(imap_t * dest, imap_t * a, imap_t * b);
 
-/* difference */
+/* difference `-` */
 void imap_difference_inplace(imap_t * dest, imap_t * imap);
 int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b);
 

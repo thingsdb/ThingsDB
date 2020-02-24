@@ -391,15 +391,6 @@ static void imap__union_move(imap_node_t * dest, imap_node_t * node)
     free(node->nodes);
 }
 
-/*
- * Map 'dest' will be the union between the two maps. Map 'imap' will be
- * destroyed so it cannot be used anymore.
- *
- * This function can call 'decref_cb' when an item is removed from the map.
- * We only call the function for sure when the item is removed from both maps.
- * When we are sure the item still exists in the 'dest' map and is only removed
- * from the 'imap', we simply decrement the ref counter.
- */
 void imap_union_move(imap_t * dest, imap_t * imap)
 {
     if (imap->n)
@@ -624,16 +615,6 @@ static void imap__difference_inplace(imap_node_t * dest, imap_node_t * node)
     }
 }
 
-
-/*
- * Map 'dest' will be the difference between the two maps. Map 'imap' will be
- * destroyed so it cannot be used anymore.
- *
- * This function can call 'decref_cb' when an item is removed from the map.
- * We only call the function for sure when the item is removed from both maps.
- * When we are sure the item still exists in the 'dest' map and is only removed
- * from the 'imap', we simply decrement the ref counter.
- */
 void imap_difference_inplace(imap_t * dest, imap_t * imap)
 {
     if (imap->n)

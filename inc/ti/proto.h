@@ -40,7 +40,6 @@ typedef enum
     TI_PROTO_CLIENT_REQ_UNWATCH =36,    /* [scope, thing id's....]}         */
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
 
-
     /*
      * protocol definition for node connections
      */

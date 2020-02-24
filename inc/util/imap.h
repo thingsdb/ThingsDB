@@ -38,19 +38,20 @@ _Bool imap__eq_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
 uint64_t imap_unused_id(imap_t * imap, uint64_t max);
-void imap_union_ref(
+
+/* union */
+void imap_union_move(imap_t * dest, imap_t * imap);
+int imap_union_make(imap_t * dest, imap_t * a, imap_t * b);
+
+/* difference */
+void imap_difference_inplace(imap_t * dest, imap_t * imap);
+int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b);
+
+void imap_symmetric_difference_ref(
         imap_t * dest,
         imap_t * imap,
         imap_destroy_cb decref_cb);
 void imap_intersection_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb);
-void imap_difference_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb);
-void imap_symmetric_difference_ref(
         imap_t * dest,
         imap_t * imap,
         imap_destroy_cb decref_cb);

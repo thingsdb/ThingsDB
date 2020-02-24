@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <util/imap.h>
 #include <util/logger.h>
@@ -19,12 +20,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
-static void imap__union_ref(imap_node_t * dest, imap_node_t * node);
 static void imap__intersection_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb);
-static void imap__difference_ref(
         imap_node_t * dest,
         imap_node_t * node,
         imap_destroy_cb decref_cb);
@@ -33,6 +29,7 @@ static void imap__symmetric_difference_ref(
         imap_node_t * node,
         imap_destroy_cb decref_cb);
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max);
+static imap_node_t * imap__nodes_dup(imap_node_t * node);
 
 /*
  * Returns a new imap or NULL in case of an allocation error.
@@ -351,6 +348,49 @@ uint64_t imap_unused_id(imap_t * imap, uint64_t max)
     return max;
 }
 
+static void imap__union_move(imap_node_t * dest, imap_node_t * node)
+{
+    imap_node_t * dest_nd;
+    imap_node_t * node_nd;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        dest_nd = dest->nodes + i;
+        node_nd = node->nodes + i;
+
+        if (node_nd->data)
+        {
+            if (dest_nd->data)
+            {
+                /* we are sure there is a reference left */
+                ti_decref((ti_ref_t *) node_nd->data);
+            }
+            else
+            {
+                dest_nd->data = node_nd->data;
+                dest->sz++;
+            }
+        }
+
+        if (node_nd->nodes)
+        {
+            if (dest_nd->nodes)
+            {
+                size_t tmp = dest_nd->sz;
+                imap__union_move(dest_nd, node_nd);
+                dest->sz += dest_nd->sz - tmp;
+            }
+            else
+            {
+                dest_nd->nodes = node_nd->nodes;
+                dest_nd->sz = node_nd->sz;
+                dest->sz += dest_nd->sz;
+            }
+        }
+    }
+    free(node->nodes);
+}
+
 /*
  * Map 'dest' will be the union between the two maps. Map 'imap' will be
  * destroyed so it cannot be used anymore.
@@ -360,10 +400,7 @@ uint64_t imap_unused_id(imap_t * imap, uint64_t max)
  * When we are sure the item still exists in the 'dest' map and is only removed
  * from the 'imap', we simply decrement the ref counter.
  */
-void imap_union_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb __attribute__((unused)))
+void imap_union_move(imap_t * dest, imap_t * imap)
 {
     if (imap->n)
     {
@@ -394,7 +431,7 @@ void imap_union_ref(
                 if (dest_nd->nodes)
                 {
                     size_t tmp = dest_nd->sz;
-                    imap__union_ref(dest_nd, imap_nd);
+                    imap__union_move(dest_nd, imap_nd);
                     dest->n += dest_nd->sz - tmp;
                 }
                 else
@@ -407,8 +444,95 @@ void imap_union_ref(
         }
     }
 
-    /* cleanup source imap */
-    free(imap);
+    /* everything is clear */
+    memset(imap, 0, sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t));
+}
+
+static int imap__union_make(imap_node_t * dest, imap_node_t * node)
+{
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        imap_node_t * dest_nd = dest->nodes + i;
+        imap_node_t * node_nd = node->nodes + i;
+
+        if (node_nd->data && !dest_nd->data)
+        {
+            dest_nd->data = node_nd->data;
+            dest->sz++;
+        }
+
+        if (node_nd->nodes)
+        {
+            if (dest_nd->nodes)
+            {
+                size_t tmp = dest_nd->sz;
+                if (imap__union_make(dest_nd, node_nd))
+                    return -1;
+                dest->sz += dest_nd->sz - tmp;
+            }
+            else
+            {
+                if (!(dest_nd->nodes = imap__nodes_dup(node_nd->nodes)))
+                    return -1;
+                dest_nd->sz = node_nd->sz;
+                dest->sz += dest_nd->sz;
+            }
+        }
+    }
+    return 0;
+}
+
+int imap_union_make(imap_t * dest, imap_t * a, imap_t * b)
+{
+    if (a->n || b->n)
+    {
+        imap_node_t * dest_nd;
+        imap_node_t * a_nd;
+        imap_node_t * b_nd;
+
+        for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+        {
+            dest_nd = dest->nodes + i;
+            a_nd = a->nodes + i;
+            b_nd = b->nodes + i;
+
+            dest_nd->data = a_nd->data ? a_nd->data : b_nd->data;
+            if (dest_nd->data)
+            {
+                ti_incref((ti_ref_t *) dest_nd->data);
+                ++dest->n;
+            }
+
+            if (a_nd->nodes)
+            {
+                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                    return -1;
+                dest_nd->sz = a_nd->sz;
+                dest->n += dest_nd->sz;
+            }
+
+            if (b_nd->nodes)
+            {
+                if (dest_nd->nodes)
+                {
+                    size_t tmp = dest_nd->sz;
+                    if (imap__union_make(dest_nd, b_nd))
+                        return -1;
+                    dest->n += dest_nd->sz - tmp;
+                }
+                else
+                {
+                    if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+                        return -1;
+                    dest_nd->sz = b_nd->sz;
+                    dest->n += dest_nd->sz;
+
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 /*
@@ -468,6 +592,39 @@ void imap_intersection_ref(
     free(imap);
 }
 
+static void imap__difference_inplace(imap_node_t * dest, imap_node_t * node)
+{
+    imap_node_t * dest_nd;
+    imap_node_t * node_nd;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        dest_nd = dest->nodes + i;
+        node_nd = node->nodes + i;
+
+        if (node_nd->data && dest_nd->data)
+        {
+            /* we are sure to have one reference left */
+            ti_decref((ti_ref_t *) dest_nd->data);
+            dest_nd->data = NULL;
+            dest->sz--;
+        }
+
+        if (node_nd->nodes && dest_nd->nodes)
+        {
+            size_t tmp = dest_nd->sz;
+            imap__difference_inplace(dest_nd, node_nd);
+            dest->sz -= tmp - dest_nd->sz;
+            if (!dest_nd->sz)
+            {
+                free(dest_nd->nodes);
+                dest_nd->nodes = NULL;
+            }
+        }
+    }
+}
+
+
 /*
  * Map 'dest' will be the difference between the two maps. Map 'imap' will be
  * destroyed so it cannot be used anymore.
@@ -477,10 +634,7 @@ void imap_intersection_ref(
  * When we are sure the item still exists in the 'dest' map and is only removed
  * from the 'imap', we simply decrement the ref counter.
  */
-void imap_difference_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb)
+void imap_difference_inplace(imap_t * dest, imap_t * imap)
 {
     if (imap->n)
     {
@@ -492,38 +646,111 @@ void imap_difference_ref(
             dest_nd = dest->nodes + i;
             imap_nd = imap->nodes + i;
 
-            if (imap_nd->data)
+            if (imap_nd->data && dest_nd->data)
             {
-                if (dest_nd->data)
-                {
-                    /* we are sure to have one reference left */
-                    ti_decref((ti_ref_t *) dest_nd->data);
-                    dest_nd->data = NULL;
-                    dest->n--;
-
-                }
-                /* now we are not sure anymore if we have reference left */
-                (*decref_cb)(imap_nd->data);
+                /* we are sure to have one reference left */
+                ti_decref((ti_ref_t *) dest_nd->data);
+                dest_nd->data = NULL;
+                dest->n--;
             }
 
-            if (imap_nd->nodes)
+            if (imap_nd->nodes && dest_nd->nodes)
             {
-                if (dest_nd->nodes)
+                size_t tmp = dest_nd->sz;
+                imap__difference_inplace(dest_nd, imap_nd);
+                dest->n -= tmp - dest_nd->sz;
+                if (!dest_nd->sz)
                 {
-                    size_t tmp = dest_nd->sz;
-                    imap__difference_ref(dest_nd, imap_nd, decref_cb);
-                    dest->n -= tmp - dest_nd->sz;
-                }
-                else
-                {
-                    imap__node_destroy_cb(imap_nd, decref_cb);
+                    free(dest_nd->nodes);
+                    dest_nd->nodes = NULL;
                 }
             }
         }
     }
+}
 
-    /* cleanup source imap */
-    free(imap);
+static int imap__difference_make(
+        imap_node_t * dest,
+        imap_node_t * a,
+        imap_node_t * b)
+{
+    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    if (!dest->nodes)
+        return -1;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        imap_node_t * dest_nd = dest->nodes + i;
+        imap_node_t * a_nd = a->nodes + i;
+        imap_node_t * b_nd = b->nodes + i;
+
+        if (a_nd->data && !b_nd->data)
+        {
+            dest_nd->data = a_nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
+            ++dest->sz;
+        }
+
+        if (a_nd->nodes)
+        {
+            if (!b_nd->nodes)
+            {
+                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                    return -1;
+                dest_nd->sz = a_nd->sz;
+                dest->sz += dest_nd->sz;
+            }
+            else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
+            {
+                if (imap__difference_make(dest_nd, a_nd, b_nd))
+                    return -1;
+                dest->sz += dest_nd->sz;
+            }
+        }
+    }
+    return 0;
+}
+
+int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b)
+{
+    if (a->n)
+    {
+        imap_node_t * dest_nd;
+        imap_node_t * a_nd;
+        imap_node_t * b_nd;
+
+        for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+        {
+            dest_nd = dest->nodes + i;
+            a_nd = a->nodes + i;
+            b_nd = b->nodes + i;
+
+            if (a_nd->data && !b_nd->data)
+            {
+                dest_nd->data = a_nd->data;
+                ti_incref((ti_ref_t *) dest_nd->data);
+                ++dest->n;
+            }
+
+            if (a_nd->nodes)
+            {
+                if (!b_nd->nodes)
+                {
+                    if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                        return -1;
+                    dest_nd->sz = a_nd->sz;
+                    dest->n += dest_nd->sz;
+                }
+                else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
+                {
+                    if (imap__difference_make(dest_nd, a_nd, b_nd))
+                        return -1;
+                    dest->n += dest_nd->sz;
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 /*
@@ -761,7 +988,8 @@ static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
             * end = nda + IMAP_NODE_SZ;
 
     for (; nda < end; ++nda, ++ndb)
-        if (nda->data != ndb->data ||
+        if (nda->sz != ndb->sz ||
+            nda->data != ndb->data ||
             !nda->nodes != !ndb->nodes ||
             (nda->nodes && !imap__eq(nda, ndb)))
             return false;
@@ -784,47 +1012,9 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
     while (++nd < end);
 }
 
-static void imap__union_ref(imap_node_t * dest, imap_node_t * node)
+static void imap__nodes_dec(void * data)
 {
-    imap_node_t * dest_nd;
-    imap_node_t * node_nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
-
-        if (node_nd->data)
-        {
-            if (dest_nd->data)
-            {
-                /* we are sure there is a reference left */
-                ti_decref((ti_ref_t *) node_nd->data);
-            }
-            else
-            {
-                dest_nd->data = node_nd->data;
-                dest->sz++;
-            }
-        }
-
-        if (node_nd->nodes)
-        {
-            if (dest_nd->nodes)
-            {
-                size_t tmp = dest_nd->sz;
-                imap__union_ref(dest_nd, node_nd);
-                dest->sz += dest_nd->sz - tmp;
-            }
-            else
-            {
-                dest_nd->nodes = node_nd->nodes;
-                dest_nd->sz = node_nd->sz;
-                dest->sz += dest_nd->sz;
-            }
-        }
-    }
-    free(node->nodes);
+    ti_decref((ti_ref_t *) data);
 }
 
 static void imap__intersection_ref(
@@ -871,57 +1061,6 @@ static void imap__intersection_ref(
             dest_nd->nodes = NULL;
         }
 
-    }
-
-    if (!dest->sz)
-    {
-        imap__node_destroy(dest);
-        dest->nodes = NULL;
-    }
-
-    free(node->nodes);
-}
-
-static void imap__difference_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb)
-{
-    imap_node_t * dest_nd;
-    imap_node_t * node_nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
-
-        if (node_nd->data)
-        {
-            if (dest_nd->data)
-            {
-                /* we are sure to have one reference left */
-                ti_decref((ti_ref_t *) dest_nd->data);
-                dest_nd->data = NULL;
-                dest->sz--;
-
-            }
-            /* now we are not sure anymore if we have reference left */
-            (*decref_cb)(node_nd->data);
-        }
-
-        if (node_nd->nodes)
-        {
-            if (dest_nd->nodes)
-            {
-                size_t tmp = dest_nd->sz;
-                imap__difference_ref(dest_nd, node_nd, decref_cb);
-                dest->sz -= tmp - dest_nd->sz;
-            }
-            else
-            {
-                imap__node_destroy_cb(node_nd, decref_cb);
-            }
-        }
     }
 
     if (!dest->sz)
@@ -1022,4 +1161,33 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
         }
     }
     return max;
+}
+
+static imap_node_t * imap__nodes_dup(imap_node_t * node)
+{
+    imap_node_t * dest = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    imap_node_t * ret = dest;
+    imap_node_t * end = node + IMAP_NODE_SZ;
+
+    if (!ret)
+        return NULL;
+
+    for (; node < end; ++node, ++dest)
+    {
+        if (node->data)
+        {
+            dest->data = node->data;
+            ti_incref((ti_ref_t *) dest->data);
+        }
+
+        if (node->nodes && !(dest->nodes = imap__nodes_dup(node->nodes)))
+        {
+            imap__node_destroy_cb(ret, imap__nodes_dec);
+            return NULL;
+        }
+
+        dest->sz = node->sz;
+    }
+
+    return ret;
 }

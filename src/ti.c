@@ -41,7 +41,7 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
-static int shutdown_counter = 5;
+static int shutdown_counter = 1;  /* TODO: restore shutdown timer to 5 */
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;

@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
+static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0;    /* set to 0 only to prevent warning */
@@ -57,6 +57,28 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e)
         int_ = VBOOL(a) - VBOOL(*b);
         goto type_int;
 
+    case OPR_SET_SET:
+        if (inplace || a->ref == 1)
+        {
+            imap_difference_inplace(
+                    ((ti_vset_t *) a)->imap,
+                    ((ti_vset_t *) *b)->imap);
+            ti_val_drop(*b);
+            ti_incref(a);
+            *b = a;
+        }
+        else
+        {
+            ti_vset_t * vset = ti_vset_create();
+            if (!vset || imap_difference_make(
+                    vset->imap,
+                    ((ti_vset_t *) a)->imap,
+                    ((ti_vset_t *) *b)->imap))
+                goto alloc_err;
+            ti_val_drop(*b);
+            *b = (ti_val_t *) vset;
+        }
+        return e->nr;
     }
     assert (0);
 
@@ -72,5 +94,9 @@ type_int:
 
 overflow:
     ex_set(e, EX_OVERFLOW, "integer overflow");
+    return e->nr;
+
+alloc_err:
+    ex_set_mem(e);
     return e->nr;
 }

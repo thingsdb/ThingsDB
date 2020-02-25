@@ -158,7 +158,7 @@ static void type__del(
     if (!field)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no property `%.*s`",
+                "type `%s` has no property `%s`",
                 type->name, name->str);
         return;
     }

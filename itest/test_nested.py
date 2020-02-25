@@ -335,6 +335,20 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
+    async def test_set_assign(self, client0, client1, client2):
+        await client0.query(r'''
+            x = {n: 0}; y = {n: 1}; z = {n: 2};
+            .a = set(x, y);
+            .b = set(x, z);
+            .a ^= .b;
+        ''')
+
+        await asyncio.sleep(1.0)
+
+        for client in (client0, client1, client2):
+            res = await client.query(r'.a.map(|x| x.n);')
+            self.assertEqual(set(res), {1, 2})
+
     async def test_ids(self, client0, client1, client2):
         nones, ids = await client0.query(r'''
             a = {b: {c: {}}};

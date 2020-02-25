@@ -41,7 +41,7 @@ ti_t ti_;
 /* settings, nodes etc. */
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
-static int shutdown_counter = 5;
+static int shutdown_counter = 6;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
@@ -537,7 +537,7 @@ void ti_shutdown(void)
     if (uv_timer_init(ti_.loop, shutdown_timer))
         goto fail0;
 
-    if (uv_timer_start(shutdown_timer, ti__shutdown_cb, 1000, 1000))
+    if (uv_timer_start(shutdown_timer, ti__shutdown_cb, 250, 1000))
         goto fail1;
 
     return;
@@ -972,9 +972,15 @@ static void ti__shutdown_stop(void)
 
 static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
 {
-    if (shutdown_counter)
+    /*
+     * The shutdown counter is here so the node might still process queries
+     * from other nodes during this time. Other nodes are informed of the
+     * shutdown so request should stop in a short period. When there is only
+     * one node, there is no point in waiting.
+     */
+    if (ti_.nodes->vec->n > 1 && shutdown_counter)
     {
-        log_info("going offline in %d second%s",
+        log_info("going off-line in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
         --shutdown_counter;
         return;

@@ -292,6 +292,13 @@ class TestType(TestBase):
             mod_type('Bar', 'del', 'bar');
         ''')
 
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Foo` has no property `card`'):
+            await client.query(r'''
+                mod_type('Foo', 'del', 'card');
+            ''')
+
         await client.query(r'''
             del_type('Tic');
             del_type('Tac');
@@ -336,6 +343,34 @@ class TestType(TestBase):
                     foo: 1
                 });
             ''')
+
+    async def test_migrate(self, client0):
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            set_type('User', {
+                name: 'str'
+            });
+            .users = [
+                User{name: 'Iris'},
+                User{name: 'Cato'},
+                User{name: 'Anna'},
+            ];
+            set_type('Color', {
+                name: 'str'
+            });
+            .colors = [
+                Color{name: 'red'},
+                Color{name: 'green'},
+                Color{name: 'blue'},
+            ];
+            mod_type('User', 'add', 'color', 'Color', Color{name: 'dummy'});
+            .users.each(|u| {
+                u.color = .colors.choice();
+            });
+        ''')
 
     async def test_sync_add(self, client0):
         await client0.query(r'''
@@ -447,6 +482,60 @@ class TestType(TestBase):
             mod_type('Tic', 'del', 'toe');
             mod_type('Tac', 'mod', 'toe', 'any');
         ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `mod` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'''
+                mod_type('Tac', 'mod', 'card');
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `del` takes 3 arguments '
+                r'but 4 were given'):
+            await client.query(r'''
+                mod_type('Tac', 'del', 'xxx', 5);
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` requires at least 3 arguments '
+                r'but 2 were given'):
+            await client.query(r'''
+                mod_type('Tac', 'del');
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `add` requires at least 4 '
+                r'arguments but 3 were given'):
+            await client.query(r'''
+                mod_type('Tac', 'add', 'xxx');
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `add` takes at most 5 '
+                r'arguments but 6 were given'):
+            await client.query(r'''
+                mod_type('Tac', 'add', 'xxx', 'str', 0, 0);
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Tac` has no property `card`'):
+            await client.query(r'''
+                mod_type('Tac', 'mod', 'card', 'any');
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'property `toe` already exist on type `Tac`'):
+            await client.query(r'''
+                mod_type('Tac', 'add', 'toe', 'any');
+            ''')
 
         await client.query(r'''
             del_type('Toe');

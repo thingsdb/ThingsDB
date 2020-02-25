@@ -380,7 +380,7 @@ void ti_events_free_dropped(void)
     events->keep_dropped = false;
 
     while ((thing = vec_pop(events->dropped)))
-        if (!thing->ref)
+        if (!--thing->ref)
             ti_thing_destroy(thing);
 
     assert (events->dropped->n == 0);

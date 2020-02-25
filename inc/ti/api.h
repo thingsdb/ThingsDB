@@ -15,7 +15,8 @@
 
 typedef enum
 {
-    TI_API_CT_TEXT,
+    TI_API_CT_TEXT_PLAIN,
+    TI_API_CT_TEXT_HTML,
     TI_API_CT_JSON,
     TI_API_CT_MSGPACK,
 } ti_api_content_t;
@@ -34,6 +35,7 @@ typedef enum
     TI_API_FLAG_INVALID_SCOPE   =1<<2,
     TI_API_FLAG_JSON_BEAUTY     =1<<3,
     TI_API_FLAG_JSON_UTF8       =1<<4,
+    TI_API_FLAG_HOME            =1<<5,
 } ti_api_flags_t;
 
 typedef struct ti_api_request_s ti_api_request_t;

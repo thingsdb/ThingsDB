@@ -14,8 +14,9 @@
 
 #define API__HEADER_MAX_SZ 256
 
-static const char api__content_type[3][20] = {
+static const char api__content_type[4][20] = {
         "text/plain",
+        "text/html",
         "application/json",
         "application/msgpack",
 };
@@ -196,7 +197,13 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
 {
     ti_api_request_t * ar = parser->data;
 
-    if (ti_scope_init(&ar->scope, at, n, &ar->e))
+    if (parser->method == HTTP_GET && n == 1 && *at == '/')
+    {
+        ar->flags |= TI_API_FLAG_INVALID_SCOPE|TI_API_FLAG_HOME;
+    }
+    else if (
+            parser->method == HTTP_POST &&
+            ti_scope_init(&ar->scope, at, n, &ar->e))
     {
         log_debug("URI (scope) not found: %s", ar->e.msg);
         ar->flags |= TI_API_FLAG_INVALID_SCOPE;
@@ -291,9 +298,12 @@ static int api__headers_complete_cb(http_parser * parser)
 
     assert (!ar->content);
 
-    ar->content = malloc(parser->content_length);
-    if (ar->content)
-        ar->content_n = parser->content_length;
+    if (parser->content_length != ULLONG_MAX)
+    {
+        ar->content = malloc(parser->content_length);
+        if (ar->content)
+            ar->content_n = parser->content_length;
+    }
 
     return 0;
 }
@@ -402,7 +412,11 @@ int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
     return 0;
 }
 
-static int api__close_resp(ti_api_request_t * ar, void * data, size_t size)
+static int api__close_resp(
+        ti_api_request_t * ar,
+        void * data,
+        size_t size,
+        uv_write_cb write_cb)
 {
     char header[API__HEADER_MAX_SZ];
     int header_size = 0;
@@ -417,7 +431,7 @@ static int api__close_resp(ti_api_request_t * ar, void * data, size_t size)
     /* bind response to request to we can free in the callback */
     ar->req.data = data;
 
-    uv_write(&ar->req, &ar->uvstream, uvbufs, 2, api__write_free_cb);
+    uv_write(&ar->req, &ar->uvstream, uvbufs, 2, write_cb);
     return 0;
 }
 
@@ -442,7 +456,7 @@ int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
         data = tmp;
         size = tmp_sz;
     }
-    return api__close_resp(ar, data, size);
+    return api__close_resp(ar, data, size, api__write_free_cb);
 }
 
 int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
@@ -461,7 +475,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E400_BAD_REQUEST,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_OPERATION_ERROR:
@@ -476,7 +490,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E422_UNPROCESSABLE_ENTITY,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_AUTH_ERROR:
@@ -484,7 +498,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E401_UNAUTHORIZED,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_FORBIDDEN:
@@ -492,7 +506,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E403_FORBIDDEN,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_LOOKUP_ERROR:
@@ -500,7 +514,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E404_NOT_FOUND,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_NODE_ERROR:
@@ -508,7 +522,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E503_SERVICE_UNAVAILABLE,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
     case EX_RESULT_TOO_LARGE:
@@ -521,7 +535,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
         header_size = api__header(
                 header,
                 E500_INTERNAL_SERVER_ERROR,
-                TI_API_CT_TEXT,
+                TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
 
@@ -722,7 +736,8 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
     case TI_PROTO_CLIENT_RES_DATA:
         switch (ar->content_type)
         {
-        case TI_API_CT_TEXT:
+        case TI_API_CT_TEXT_PLAIN:
+        case TI_API_CT_TEXT_HTML:
             break;
         case TI_API_CT_JSON:
         {
@@ -739,7 +754,7 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
                 api__set_yajl_gen_status_error(&ar->e, stat);
                 goto fail;
             }
-            api__close_resp(ar, data, size);
+            api__close_resp(ar, data, size, api__write_free_cb);
             goto done;
         }
         case TI_API_CT_MSGPACK:
@@ -752,7 +767,7 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
                 goto fail;
             }
             memcpy(data, req->pkg_res->data, size);
-            api__close_resp(ar, data, size);
+            api__close_resp(ar, data, size, api__write_free_cb);
             goto done;
         }
         }
@@ -1080,7 +1095,7 @@ static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
     int header_size;
 
     body_size = strlen(body);
-    header_size = api__header(header, ht, TI_API_CT_TEXT, body_size);
+    header_size = api__header(header, ht, TI_API_CT_TEXT_PLAIN, body_size);
     if (header_size > 0)
     {
         uv_buf_t uvbufs[2] = {
@@ -1102,6 +1117,45 @@ static int api__message_complete_cb(http_parser * parser)
 {
     ti_api_request_t * ar = parser->data;
 
+    if (ar->flags & TI_API_FLAG_HOME)
+    {
+        char * home = \
+"<!DOCTYPE html>\n" \
+"<html>\n" \
+"<head>\n" \
+"<meta charset=\"utf-8\" />\n" \
+"<meta http-equiv=\"Content-Language\" content=\"en\" />\n" \
+"<title>ThingsDB API</title>\n" \
+"<style type=\"text/css\" media=\"screen\">\n" \
+"body { \n" \
+"  font-family: \"Work Sans\", \"Helvetica\", \"Tahoma\", \"Geneva\", \"Arial\", sans-serif; \n" \
+"}\n" \
+"a:link { color:#618fca; text-decoration: none; }\n" \
+"a:visited { color:#618fca; text-decoration: none; }\n" \
+"a:hover { color:#89afe0; text-decoration: none; }\n" \
+"a:active { color:#618fca; text-decoration: underline; }\n" \
+"</style>\n" \
+"</head>\n" \
+"<body>\n" \
+"<pre>\n" \
+"   _____ _   _             ____  _____    \n" \
+"  |_   _| |_|_|___ ___ ___|    \\| __  |   \n" \
+"    | | |   | |   | . |_ -|  |  | __ -|   \n" \
+"    |_| |_|_|_|_|_|_  |___|____/|_____|   version: "TI_VERSION"\n" \
+"                  |___|                   \n" \
+"</pre>\n" \
+"<p>\n"
+"<b>Welcome to the ThingsDB API</b>"
+"</p>\n"
+"<p>\n"
+"Visit <a href=\"https://docs.thingsdb.net\">https://docs.thingsdb.net</a> for more information\n"
+"</p>\n"
+"</body>\n" \
+"</html>\n";
+
+        ar->content_type = TI_API_CT_TEXT_HTML;
+        return api__close_resp(ar, home, strlen(home), api__write_cb);
+    }
     if (parser->method != HTTP_POST)
         return api__plain_response(ar, E405_METHOD_NOT_ALLOWED);
 
@@ -1113,7 +1167,8 @@ static int api__message_complete_cb(http_parser * parser)
 
     switch (ar->content_type)
     {
-    case TI_API_CT_TEXT:
+    case TI_API_CT_TEXT_PLAIN:
+    case TI_API_CT_TEXT_HTML:
         return api__plain_response(ar, E415_UNSUPPORTED_MEDIA_TYPE);
     case TI_API_CT_JSON:
     {

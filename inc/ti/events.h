@@ -32,8 +32,6 @@ void ti_events_set_next_missing_id(uint64_t * event_id);
 void ti_events_free_dropped(void);
 int ti_events_resize_dropped(void);
 vec_t * ti_events_pkgs_from_queue(ti_thing_t * thing);
-static inline void ti_events_keep_dropped(void);
-static inline _Bool ti_events_cache_dropped_thing(ti_thing_t * thing);
 
 /*
  * Changes to commit_id, archive require the lock.
@@ -59,9 +57,18 @@ static inline void ti_events_keep_dropped(void)
     events_.keep_dropped = true;
 }
 
+/*
+ * The dropped list must take a reference because the thing might increase a
+ * reference within an event, and then drop again. When that happens, the
+ * thing will be added to the dropped list twice, so when destroying the
+ * list we only need to destroy the last one.
+ */
 static inline _Bool ti_events_cache_dropped_thing(ti_thing_t * thing)
 {
-    return events_.keep_dropped && !vec_push(&events_.dropped, thing);
+    _Bool keep = events_.keep_dropped && !vec_push(&events_.dropped, thing);
+    if (keep)
+        ti_incref(thing);
+    return keep;
 }
 
 #endif /* TI_EVENTS_H_ */

@@ -47,14 +47,13 @@ int imap_union_make(imap_t * dest, imap_t * a, imap_t * b);
 void imap_difference_inplace(imap_t * dest, imap_t * imap);
 int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b);
 
-void imap_symmetric_difference_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb);
-void imap_intersection_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb);
+/* intersection `&` */
+void imap_intersection_inplace(imap_t * dest, imap_t * imap, imap_destroy_cb cb);
+int imap_intersection_make(imap_t * dest, imap_t * a, imap_t * b);
+
+/* symmetric difference `^` */
+void imap_symmdiff_move(imap_t * dest, imap_t * imap, imap_destroy_cb cb);
+int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b);
 
 struct imap_node_s
 {

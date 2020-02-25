@@ -92,6 +92,139 @@ class TestOperators(TestBase):
         self.assertFalse(await client.query('!!false'))
         self.assertTrue(await client.query('!!true'))
 
+    async def test_set_operations(self, client):
+        await client.query(r'''
+            range(0, 200).each(|x| .set('x' + str(x), {n: x}));
+        ''')
+
+        res = await client.query(r'''
+            (set(.x1, .x2, .x150) | set(.x1, .x150, .x160)).map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {1, 2, 150, 160})
+
+        res = await client.query(r'''
+            (set(.x1, .x2, .x150) & set(.x1, .x150, .x160)).map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {1, 150})
+
+        res = await client.query(r'''
+            (set(.x1, .x2, .x150) - set(.x1, .x150, .x160)).map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {2})
+
+        res = await client.query(r'''
+            (set(.x1, .x2, .x150) ^ set(.x1, .x150, .x160)).map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {2, 160})
+
+        res = await client.query(r'''
+            a = set(.x1, .x2, .x150);
+            b = set(.x1, .x150, .x160);
+            res = (a | b).map(|x| x.n);
+            assert (a == set(.x1, .x2, .x150));
+            assert (b == set(.x1, .x150, .x160));
+            res;
+        ''')
+        self.assertEqual(set(res), {1, 2, 150, 160})
+
+        res = await client.query(r'''
+            a = set(.x1, .x2, .x150);
+            b = set(.x1, .x150, .x160);
+            res = (a & b).map(|x| x.n);
+            assert (a == set(.x1, .x2, .x150));
+            assert (b == set(.x1, .x150, .x160));
+            res;
+        ''')
+        self.assertEqual(set(res), {1, 150})
+
+        res = await client.query(r'''
+            a = set(.x1, .x2, .x150);
+            b = set(.x1, .x150, .x160);
+            res = (a - b).map(|x| x.n);
+            assert (a == set(.x1, .x2, .x150));
+            assert (b == set(.x1, .x150, .x160));
+            res;
+        ''')
+        self.assertEqual(set(res), {2})
+
+        res = await client.query(r'''
+            a = set(.x1, .x2, .x150);
+            b = set(.x1, .x150, .x160);
+            res = (a ^ b).map(|x| x.n);
+            assert (a == set(.x1, .x2, .x150));
+            assert (b == set(.x1, .x150, .x160));
+            res;
+        ''')
+        self.assertEqual(set(res), {2, 160})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            a |= set(.x40, .x41, .x42);
+            a.map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 40, 41, 42, 50})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            a &= set(.x40, .x41, .x42);
+            a.map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {40})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            a -= set(.x40, .x41, .x42);
+            a.map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 50})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            a ^= set(.x40, .x41, .x42);
+            a.map(|x| x.n);
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 41, 42, 50})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            b = set(.x40, .x41, .x42);
+            a |= b;
+            res = a.map(|x| x.n);
+            assert (b == set(.x40, .x41, .x42));
+            res;
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 40, 41, 42, 50})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            b = set(.x40, .x41, .x42);
+            a &= b;
+            res = a.map(|x| x.n);
+            assert (b == set(.x40, .x41, .x42));
+            res;
+        ''')
+        self.assertEqual(set(res), {40})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            b = set(.x40, .x41, .x42);
+            a -= b;
+            res = a.map(|x| x.n);
+            assert (b == set(.x40, .x41, .x42));
+            res;
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 50})
+
+        res = await client.query(r'''
+            a = set(.x10, .x20, .x30, .x40, .x50);
+            b = set(.x40, .x41, .x42);
+            a ^= b;
+            res = a.map(|x| x.n);
+            assert (b == set(.x40, .x41, .x42));
+            res;
+        ''')
+        self.assertEqual(set(res), {10, 20, 30, 41, 42, 50})
+
 
 if __name__ == '__main__':
     run_test(TestOperators())

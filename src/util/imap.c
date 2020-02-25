@@ -20,14 +20,6 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
-static void imap__intersection_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb);
-static void imap__symmetric_difference_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb);
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max);
 static imap_node_t * imap__nodes_dup(imap_node_t * node);
 
@@ -383,8 +375,7 @@ static void imap__union_move(imap_node_t * dest, imap_node_t * node)
             else
             {
                 dest_nd->nodes = node_nd->nodes;
-                dest_nd->sz = node_nd->sz;
-                dest->sz += dest_nd->sz;
+                dest->sz += (dest_nd->sz = node_nd->sz);
             }
         }
     }
@@ -428,8 +419,7 @@ void imap_union_move(imap_t * dest, imap_t * imap)
                 else
                 {
                     dest_nd->nodes = imap_nd->nodes;
-                    dest_nd->sz = imap_nd->sz;
-                    dest->n += dest_nd->sz;
+                    dest->n += (dest_nd->sz = imap_nd->sz);
                 }
             }
         }
@@ -466,8 +456,7 @@ static int imap__union_make(imap_node_t * dest, imap_node_t * node)
             {
                 if (!(dest_nd->nodes = imap__nodes_dup(node_nd->nodes)))
                     return -1;
-                dest_nd->sz = node_nd->sz;
-                dest->sz += dest_nd->sz;
+                dest->sz += (dest_nd->sz = node_nd->sz);
             }
         }
     }
@@ -499,8 +488,7 @@ int imap_union_make(imap_t * dest, imap_t * a, imap_t * b)
             {
                 if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
                     return -1;
-                dest_nd->sz = a_nd->sz;
-                dest->n += dest_nd->sz;
+                dest->n += (dest_nd->sz = a_nd->sz);
             }
 
             if (b_nd->nodes)
@@ -516,71 +504,13 @@ int imap_union_make(imap_t * dest, imap_t * a, imap_t * b)
                 {
                     if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
                         return -1;
-                    dest_nd->sz = b_nd->sz;
-                    dest->n += dest_nd->sz;
+                    dest->n += (dest_nd->sz = b_nd->sz);
 
                 }
             }
         }
     }
     return 0;
-}
-
-/*
- * Map 'dest' will be the intersection between the two maps. Map 'imap' will be
- * destroyed so it cannot be used anymore.
- *
- * This function can call 'decref_cb' when an item is removed from the map.
- * We only call the function for sure when the item is removed from both maps.
- * When we are sure the item still exists in the 'dest' map and is only removed
- * from the 'imap', we simply decrement the ref counter.
- */
-void imap_intersection_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb)
-{
-    imap_node_t * dest_nd;
-    imap_node_t * imap_nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        dest_nd = dest->nodes + i;
-        imap_nd = imap->nodes + i;
-        if (imap_nd->data)
-        {
-            (*decref_cb)(imap_nd->data);
-        }
-        else if (dest_nd->data)
-        {
-            (*decref_cb)(dest_nd->data);
-            dest_nd->data = NULL;
-            dest->n--;
-        }
-
-        if (imap_nd->nodes)
-        {
-            if (dest_nd->nodes)
-            {
-                size_t tmp = dest_nd->sz;
-                imap__intersection_ref(dest_nd, imap_nd, decref_cb);
-                dest->n -= tmp - dest_nd->sz;
-            }
-            else
-            {
-                imap__node_destroy_cb(imap_nd, decref_cb);
-            }
-        }
-        else if (dest_nd->nodes)
-        {
-            dest->n -= dest_nd->sz;
-            imap__node_destroy_cb(dest_nd, decref_cb);
-            dest_nd->nodes = NULL;
-        }
-    }
-
-    /* cleanup source imap */
-    free(imap);
 }
 
 static void imap__difference_inplace(imap_node_t * dest, imap_node_t * node)
@@ -678,8 +608,7 @@ static int imap__difference_make(
             {
                 if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
                     return -1;
-                dest_nd->sz = a_nd->sz;
-                dest->sz += dest_nd->sz;
+                dest->sz += (dest_nd->sz = a_nd->sz);
             }
             else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
             {
@@ -719,8 +648,7 @@ int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b)
                 {
                     if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
                         return -1;
-                    dest_nd->sz = a_nd->sz;
-                    dest->n += dest_nd->sz;
+                    dest->n += (dest_nd->sz = a_nd->sz);
                 }
                 else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
                 {
@@ -734,19 +662,207 @@ int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b)
     return 0;
 }
 
-/*
- * Map 'dest' will be the symmetric difference between the two maps. Map 'imap'
- * will be destroyed so it cannot be used anymore.
- *
- * This function can call 'decref_cb' when an item is removed from the map.
- * We only call the function for sure when the item is removed from both maps.
- * When we are sure the item still exists in the 'dest' map and is only removed
- * from the 'imap', we simply decrement the ref counter.
- */
-void imap_symmetric_difference_ref(
-        imap_t * dest,
-        imap_t * imap,
-        imap_destroy_cb decref_cb)
+static void imap__intersection_inplace(
+        imap_node_t * dest,
+        imap_node_t * node,
+        imap_destroy_cb cb)
+{
+    imap_node_t * dest_nd;
+    imap_node_t * node_nd;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        dest_nd = dest->nodes + i;
+        node_nd = node->nodes + i;
+
+        if (!node_nd->data && dest_nd->data)
+        {
+            (*cb)(dest_nd->data);
+            dest_nd->data = NULL;
+            dest->sz--;
+        }
+
+        if (dest_nd->nodes)
+        {
+            if (node_nd->nodes)
+            {
+                size_t tmp = dest_nd->sz;
+                imap__intersection_inplace(dest_nd, node_nd, cb);
+                dest->sz -= tmp - dest_nd->sz;
+            }
+            else
+            {
+                dest->sz -= dest_nd->sz;
+                imap__node_destroy_cb(dest_nd, cb);
+                dest_nd->nodes = NULL;
+            }
+        }
+    }
+
+    if (!dest->sz)
+    {
+        free(dest->nodes);
+        dest->nodes = NULL;
+    }
+}
+
+void imap_intersection_inplace(imap_t * dest, imap_t * imap, imap_destroy_cb cb)
+{
+    imap_node_t * dest_nd;
+    imap_node_t * imap_nd;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        dest_nd = dest->nodes + i;
+        imap_nd = imap->nodes + i;
+
+        if (!imap_nd->data && dest_nd->data)
+        {
+            (*cb)(dest_nd->data);
+            dest_nd->data = NULL;
+            dest->n--;
+        }
+
+        if (dest_nd->nodes)
+        {
+            if (imap_nd->nodes)
+            {
+                size_t tmp = dest_nd->sz;
+                imap__intersection_inplace(dest_nd, imap_nd, cb);
+                dest->n -= tmp - dest_nd->sz;
+            }
+            else
+            {
+                dest->n -= dest_nd->sz;
+                imap__node_destroy_cb(dest_nd, cb);
+                dest_nd->nodes = NULL;
+            }
+        }
+    }
+}
+
+static int imap__intersection_make(
+        imap_node_t * dest,
+        imap_node_t * a,
+        imap_node_t * b)
+{
+    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    if (!dest->nodes)
+        return -1;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        imap_node_t * dest_nd = dest->nodes + i;
+        imap_node_t * a_nd = a->nodes + i;
+        imap_node_t * b_nd = b->nodes + i;
+
+        if (a_nd->data && b_nd->data)
+        {
+            dest_nd->data = a_nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
+            ++dest->sz;
+        }
+
+        if (a_nd->nodes && b_nd->nodes)
+        {
+            if (imap__intersection_make(dest_nd, a_nd, b_nd))
+                return -1;
+            dest->sz += dest_nd->sz;
+        }
+    }
+    return 0;
+}
+
+int imap_intersection_make(imap_t * dest, imap_t * a, imap_t * b)
+{
+    if (a->n && b->n)
+    {
+        imap_node_t * dest_nd;
+        imap_node_t * a_nd;
+        imap_node_t * b_nd;
+
+        for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+        {
+            dest_nd = dest->nodes + i;
+            a_nd = a->nodes + i;
+            b_nd = b->nodes + i;
+
+            if (a_nd->data && b_nd->data)
+            {
+                dest_nd->data = a_nd->data;
+                ti_incref((ti_ref_t *) dest_nd->data);
+                ++dest->n;
+            }
+
+            if (a_nd->nodes && b_nd->nodes)
+            {
+                if (imap__intersection_make(dest_nd, a_nd, b_nd))
+                    return -1;
+                dest->n += dest_nd->sz;
+            }
+        }
+    }
+    return 0;
+}
+
+static void imap__symmdiff_move(
+        imap_node_t * dest,
+        imap_node_t * node,
+        imap_destroy_cb cb)
+{
+    imap_node_t * dest_nd;
+    imap_node_t * node_nd;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        dest_nd = dest->nodes + i;
+        node_nd = node->nodes + i;
+
+        if (node_nd->data)
+        {
+            if (dest_nd->data)
+            {
+                /* we are sure to have one reference left */
+                ti_decref((ti_ref_t *) dest_nd->data);
+
+                /* but now we are not sure anymore */
+                (*cb)(node_nd->data);
+
+                dest_nd->data = NULL;
+                dest->sz--;
+            }
+            else
+            {
+                dest_nd->data = node_nd->data;
+                dest->sz++;
+            }
+        }
+
+        if (node_nd->nodes)
+        {
+            if (dest_nd->nodes)
+            {
+                size_t tmp = dest_nd->sz;
+                imap__symmdiff_move(dest_nd, node_nd, cb);
+                dest->sz += dest_nd->sz - tmp;
+            }
+            else
+            {
+                dest_nd->nodes = node_nd->nodes;
+                dest->sz += (dest_nd->sz = node_nd->sz);
+            }
+        }
+    }
+
+    if (!dest->sz)
+    {
+        free(dest->nodes);
+        dest->nodes = NULL;
+    }
+    free(node->nodes);
+}
+
+void imap_symmdiff_move(imap_t * dest, imap_t * imap, imap_destroy_cb cb)
 {
     if (imap->n)
     {
@@ -766,7 +882,7 @@ void imap_symmetric_difference_ref(
                     ti_decref((ti_ref_t *) dest_nd->data);
 
                     /* but now we are not sure anymore */
-                    (*decref_cb)(imap_nd->data);
+                    (*cb)(imap_nd->data);
 
                     dest_nd->data = NULL;
                     dest->n--;
@@ -778,29 +894,130 @@ void imap_symmetric_difference_ref(
                 }
             }
 
+
             if (imap_nd->nodes)
             {
                 if (dest_nd->nodes)
                 {
                     size_t tmp = dest_nd->sz;
-                    imap__symmetric_difference_ref(
-                            dest_nd,
-                            imap_nd,
-                            decref_cb);
+                    imap__symmdiff_move(dest_nd, imap_nd, cb);
                     dest->n += dest_nd->sz - tmp;
                 }
                 else
                 {
                     dest_nd->nodes = imap_nd->nodes;
-                    dest_nd->sz = imap_nd->sz;
-                    dest->n += dest_nd->sz;
+                    dest->n += (dest_nd->sz = imap_nd->sz);
                 }
             }
         }
     }
 
-    /* cleanup source imap */
-    free(imap);
+    /* everything is clear */
+    memset(imap, 0, sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t));
+}
+
+static int imap__symmdiff_make(
+        imap_node_t * dest,
+        imap_node_t * a,
+        imap_node_t * b)
+{
+    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    if (!dest->nodes)
+        return -1;
+
+    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    {
+        imap_node_t * dest_nd = dest->nodes + i;
+        imap_node_t * a_nd = a->nodes + i;
+        imap_node_t * b_nd = b->nodes + i;
+
+        if (a_nd->data && !b_nd->data)
+        {
+            dest_nd->data = a_nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
+            ++dest->sz;
+        }
+        else if (!a_nd->data && b_nd->data)
+        {
+            dest_nd->data = b_nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
+            ++dest->sz;
+        }
+
+        if (a_nd->nodes &&
+            b_nd->nodes &&
+            (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd)))
+        {
+            if (imap__symmdiff_make(dest_nd, a_nd, b_nd))
+                return -1;
+            dest->sz += dest_nd->sz;
+        }
+        else if (a_nd->nodes && !b_nd->nodes)
+        {
+            if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                return -1;
+            dest->sz +=(dest_nd->sz = a_nd->sz);
+        }
+        else if (!a_nd->nodes && b_nd->nodes)
+        {
+            if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+                return -1;
+            dest->sz += (dest_nd->sz = b_nd->sz);
+        }
+    }
+    return 0;
+}
+
+int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b)
+{
+    if (a->n || b->n)
+    {
+        imap_node_t * dest_nd;
+        imap_node_t * a_nd;
+        imap_node_t * b_nd;
+
+        for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+        {
+            dest_nd = dest->nodes + i;
+            a_nd = a->nodes + i;
+            b_nd = b->nodes + i;
+
+            if (a_nd->data && !b_nd->data)
+            {
+                dest_nd->data = a_nd->data;
+                ti_incref((ti_ref_t *) dest_nd->data);
+                ++dest->n;
+            }
+            else if (!a_nd->data && b_nd->data)
+            {
+                dest_nd->data = b_nd->data;
+                ti_incref((ti_ref_t *) dest_nd->data);
+                ++dest->n;
+            }
+
+            if (a_nd->nodes &&
+                b_nd->nodes &&
+                (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd)))
+            {
+                if (imap__symmdiff_make(dest_nd, a_nd, b_nd))
+                    return -1;
+                dest->n += dest_nd->sz;
+            }
+            else if (a_nd->nodes && !b_nd->nodes)
+            {
+                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                    return -1;
+                dest->n +=(dest_nd->sz = a_nd->sz);
+            }
+            else if (!a_nd->nodes && b_nd->nodes)
+            {
+                if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+                    return -1;
+                dest->n += (dest_nd->sz = b_nd->sz);
+            }
+        }
+    }
+    return 0;
 }
 
 static void imap__node_destroy(imap_node_t * node)
@@ -993,128 +1210,6 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
     while (++nd < end);
 }
 
-static void imap__nodes_dec(void * data)
-{
-    ti_decref((ti_ref_t *) data);
-}
-
-static void imap__intersection_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb)
-{
-    imap_node_t * dest_nd;
-    imap_node_t * node_nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
-
-        if (node_nd->data)
-        {
-            (*decref_cb)(node_nd->data);
-        }
-        else if (dest_nd->data)
-        {
-            (*decref_cb)(dest_nd->data);
-            dest_nd->data = NULL;
-            dest->sz--;
-        }
-
-        if (node_nd->nodes)
-        {
-            if (dest_nd->nodes)
-            {
-                size_t tmp = dest_nd->sz;
-                imap__intersection_ref(dest_nd, node_nd, decref_cb);
-                dest->sz -= tmp - dest_nd->sz;
-            }
-            else
-            {
-                imap__node_destroy_cb(node_nd, decref_cb);
-            }
-        }
-        else if (dest_nd->nodes)
-        {
-            dest->sz -= dest_nd->sz;
-            imap__node_destroy_cb(dest_nd, decref_cb);
-            dest_nd->nodes = NULL;
-        }
-
-    }
-
-    if (!dest->sz)
-    {
-        imap__node_destroy(dest);
-        dest->nodes = NULL;
-    }
-
-    free(node->nodes);
-}
-
-static void imap__symmetric_difference_ref(
-        imap_node_t * dest,
-        imap_node_t * node,
-        imap_destroy_cb decref_cb)
-{
-    imap_node_t * dest_nd;
-    imap_node_t * node_nd;
-
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
-    {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
-
-        if (node_nd->data)
-        {
-            if (dest_nd->data)
-            {
-                /* we are sure to have one reference left */
-                ti_decref((ti_ref_t *) dest_nd->data);
-
-                /* but now we are not sure anymore */
-                (*decref_cb)(node_nd->data);
-
-                dest_nd->data = NULL;
-                dest->sz--;
-            }
-            else
-            {
-                dest_nd->data = node_nd->data;
-                dest->sz++;
-            }
-        }
-
-        if (node_nd->nodes)
-        {
-            if (dest_nd->nodes)
-            {
-                size_t tmp = dest_nd->sz;
-                imap__symmetric_difference_ref(
-                        dest_nd,
-                        node_nd,
-                        decref_cb);
-                dest->sz += dest_nd->sz - tmp;
-            }
-            else
-            {
-                dest_nd->nodes = node_nd->nodes;
-                dest_nd->sz = node_nd->sz;
-                dest->sz += dest_nd->sz;
-            }
-        }
-    }
-
-    if (!dest->sz)
-    {
-        imap__node_destroy(dest);
-        dest->nodes = NULL;
-    }
-
-    free(node->nodes);
-}
-
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 {
     imap_node_t * nd = node->nodes;
@@ -1142,6 +1237,11 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
         }
     }
     return max;
+}
+
+static inline void imap__nodes_dec(void * data)
+{
+    ti_decref((ti_ref_t *) data);
 }
 
 static imap_node_t * imap__nodes_dup(imap_node_t * node)

@@ -58,7 +58,10 @@ class TestAdvanced(TestBase):
 
     async def test_make(self, client):
         await client.query('''
-            new_procedure('create_host', |env_id, name, address, probes, labels, description| {
+            new_procedure('create_host', |
+                    env_id, name, address, probes,
+                    labels, description
+                | {
                 env = thing(env_id);
                 host = {
                     parent: env,
@@ -86,7 +89,15 @@ class TestAdvanced(TestBase):
                 env.children.add(container);
                 container.id();
             });
-            .root = {name: 'a', parent: nil, children: set(), users: set(), hosts: set(), labels: set(), conditions: set()};
+            .root = {
+                name: 'a',
+                parent: nil,
+                children: set(),
+                users: set(),
+                hosts: set(),
+                labels: set(),
+                conditions: set()
+            };
         ''')
         root = await client.query('.root.id()')
         self.assertGreater(root, 0)

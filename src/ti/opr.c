@@ -31,7 +31,7 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     case '%':
         return opr__mod(a, b, e);
     case '&':
-        return opr__and(a, b, e);
+        return opr__and(a, b, e, nd->len == 2);
     case '*':
         return opr__mul(a, b, e);
     case '+':
@@ -47,7 +47,7 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     case '>':
         return nd->len == 1 ? opr__gt(a, b, e) : opr__ge(a, b, e);
     case '^':
-        return opr__xor(a, b, e);
+        return opr__xor(a, b, e, nd->len == 2);
     case '|':
         return opr__or(a, b, e, nd->len == 2);
     }

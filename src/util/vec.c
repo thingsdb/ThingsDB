@@ -28,16 +28,18 @@ void vec_destroy(vec_t * vec, vec_destroy_cb cb)
         for (vec_each(vec, void, obj), (*cb)(obj));
     free(vec);
 }
+#include <util/logger.h>
 
 static inline uint32_t vec__gcd(uint32_t a, uint32_t b)
 {
+    /* do-while may be used since both a != 0 and b != 0 */
     do
     {
-        if (a > b)
-            a -= b;
-        else
-            b -= a;
-    } while (a != b);
+        uint32_t t = b;
+        b = a % b;
+        a = t;
+    }
+    while (b);
     return a;
 }
 

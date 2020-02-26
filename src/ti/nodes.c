@@ -1180,7 +1180,10 @@ int ti_nodes_read_scevid(void)
     f = fopen(fn, "r");
     if (!f)
     {
-        log_debug("cannot open file `%s` (%s)", fn, strerror(errno));
+        char ebuf[512];
+        log_debug(
+                "cannot open file `%s` (%s)",
+                fn, log_strerror(errno, ebuf, sizeof(ebuf)));
         return -1;
     }
 
@@ -1202,7 +1205,7 @@ int ti_nodes_read_scevid(void)
 stop:
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         rc = -1;
     }
     return rc;
@@ -1225,7 +1228,7 @@ int ti_nodes_write_global_status(void)
     f = fopen(fn, "w");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         return -1;
     }
 
@@ -1244,7 +1247,7 @@ int ti_nodes_write_global_status(void)
 
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         rc = -1;
     }
     return rc;

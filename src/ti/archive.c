@@ -165,7 +165,7 @@ static int archive__to_disk(void)
     f = fopen(archfile->fn, "w");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", archfile->fn, strerror(errno));
+        log_errno_file("cannot open file", errno, archfile->fn);
         goto fail1;
     }
 
@@ -198,8 +198,7 @@ static int archive__to_disk(void)
 fail2:
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)",
-                archfile->fn, strerror(errno));
+        log_errno_file("cannot close file", errno, archfile->fn);
         rc = -1;
     }
 
@@ -326,9 +325,7 @@ int ti_archive_init(void)
 
     if (!fx_is_dir(archive_path) && mkdir(archive_path, TI_DEFAULT_DIR_ACCESS))
     {
-        log_critical("cannot create archive directory: `%s` (%s)",
-                archive_path,
-                strerror(errno));
+        log_errno_file("cannot create archive directory", errno, archive_path);
         return -1;
     }
 
@@ -350,10 +347,7 @@ int ti_archive_load(void)
     if (total < 0)
     {
         /* no need to free shard_list when total < 0 */
-        log_critical(
-                "cannot scan directory `%s` (%s)",
-                archive->path,
-                strerror(errno));
+        log_errno_file("cannot scan directory", errno, archive->path);
         return -1;
     }
 

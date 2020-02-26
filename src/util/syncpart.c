@@ -21,13 +21,13 @@ int syncpart_to_pk(msgpack_packer * pk, const char * fn, off_t offset)
     FILE * fp = fopen(fn, "r");
     if (!fp)
     {
-        log_critical("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         goto fail0;
     }
 
     if (fseeko(fp, 0, SEEK_END) == -1 || (restsz = ftello(fp)) == -1)
     {
-        log_critical("error seeking file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("error seeking file", errno, fn);
         goto fail1;
     }
 
@@ -50,7 +50,7 @@ int syncpart_to_pk(msgpack_packer * pk, const char * fn, off_t offset)
 
     if (fseeko(fp, offset, SEEK_SET) == -1)
     {
-        log_critical("error seeking file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("error seeking file", errno, fn);
         goto fail2;
     }
 
@@ -62,7 +62,7 @@ int syncpart_to_pk(msgpack_packer * pk, const char * fn, off_t offset)
 
     if (fclose(fp))
     {
-        log_critical("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         goto fail2;
     }
 
@@ -91,25 +91,25 @@ int syncpart_write(
     fp = fopen(fn, offset ? "ab" : "wb");
     if (!fp)
     {
+        char ebuf[512];
         /* lock is required for use of strerror */
-        uv_mutex_lock(&Logger.lock);
         ex_set(e, EX_INTERNAL,
                 "cannot open file `%s` (%s)",
-                fn, strerror(errno));
-        uv_mutex_unlock(&Logger.lock);
+                fn, log_strerror(errno, ebuf, sizeof(ebuf)));
         return e->nr;
     }
     sz = ftello(fp);
     if (sz != offset)
     {
-        uv_mutex_lock(&Logger.lock);
+        char ebuf[512];
         ex_set(e, EX_BAD_DATA,
                 "file `%s` is expected to have size %zd (got: %zd, %s)",
                 fn,
                 offset,
                 sz,
-                sz == -1 ? strerror(errno) : "file size is different");
-        uv_mutex_unlock(&Logger.lock);
+                sz == -1
+                    ? log_strerror(errno, ebuf, sizeof(ebuf))
+                    : "file size is different");
         goto done;
     }
 
@@ -122,10 +122,9 @@ int syncpart_write(
 done:
     if (fclose(fp) && !e->nr)
     {
-        uv_mutex_lock(&Logger.lock);
+        char ebuf[512];
         ex_set(e, EX_INTERNAL, "cannot close file `%s` (%s)",
-                fn, strerror(errno));
-        uv_mutex_unlock(&Logger.lock);
+                fn, log_strerror(errno, ebuf, sizeof(ebuf)));
     }
 
     return e->nr;

@@ -165,7 +165,8 @@ int ti_init_logger(void)
         strx_lower_case(lname);
         if (strlen(lname) == len && strcmp(ti_.args->log_level, lname) == 0)
         {
-            return logger_init(stdout, n);
+            logger_init(stdout, n);
+            return 0;
         }
     }
     assert (0);
@@ -268,9 +269,7 @@ int ti_rebuild(void)
 
     if (mkdir(ti_.store->store_path, TI_DEFAULT_DIR_ACCESS))
     {
-        log_error("cannot create directory `%s` (%s)",
-                ti_.store->store_path,
-                strerror(errno));
+        log_errno_file("cannot create directory", errno, ti_.store->store_path);
         return -1;
     }
 
@@ -573,7 +572,7 @@ int ti_save(void)
     FILE * f = fopen(ti_.fn, "w");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", ti_.fn, strerror(errno));
+        log_errno_file("cannot open file", errno, ti_.fn);
         return -1;
     }
 
@@ -592,7 +591,7 @@ fail:
 done:
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", ti_.fn, strerror(errno));
+        log_errno_file("cannot close file", errno, ti_.fn);
         return -1;
     }
     return 0;

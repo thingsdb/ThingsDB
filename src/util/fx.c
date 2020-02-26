@@ -22,7 +22,7 @@ int fx_write(const char * fn, unsigned char * data, size_t n)
     FILE * fp = fopen(fn, "w");
     if (!fp)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         return -1;
     }
 
@@ -34,7 +34,7 @@ int fx_write(const char * fn, unsigned char * data, size_t n)
 
     if (fclose(fp))
     {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         rc = -1;
     }
 
@@ -47,7 +47,7 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
     FILE * fp = fopen(fn, "r");
     if (!fp)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         return NULL;
     }
 
@@ -55,7 +55,7 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
         (*size = ftello(fp)) < 0  ||
         fseeko(fp, 0, SEEK_SET))
     {
-        log_error("cannot read size of file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot read size of file", errno, fn);
         goto final;
     }
 
@@ -76,7 +76,7 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
 
 final:
     if (fclose(fp))
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
 
     return data;
 }
@@ -203,15 +203,13 @@ int fx_mmap_open(fx_mmap_t * x)
     x->_fd = open(x->fn, O_RDONLY);
     if (x->_fd < 0)
     {
-        log_error("cannot open file descriptor `%s` (%s)",
-                x->fn, strerror(errno));
+        log_errno_file("cannot open file descriptor", errno, x->fn);
         goto fail;
     }
 
     if (fstat(x->_fd, &st) < 0)
     {
-        log_error("unable to get file statistics: `%s` (%s)",
-                x->fn, strerror(errno));
+        log_errno_file("unable to get file statistics", errno, x->fn);
         goto fail;
     }
 
@@ -221,9 +219,7 @@ int fx_mmap_open(fx_mmap_t * x)
     x->data = mmap(0, size, PROT_READ, MAP_PRIVATE, x->_fd, 0);
     if (x->data == MAP_FAILED)
     {
-        log_error("unable to memory map file `%s` (%s)",
-                x->fn, strerror(errno));
-
+        log_errno_file("unable to memory map file", errno, x->fn);
         goto fail;
     }
 
@@ -240,14 +236,12 @@ int fx_mmap_close(fx_mmap_t * x)
 {
     if (x->data && munmap(x->data, x->n))
     {
-        log_error("memory unmap failed: `%s` (%s)", x->fn, strerror(errno));
+        log_errno_file("memory unmap failed", errno, x->fn);
         return -1;
     }
     if (close(x->_fd))
     {
-        log_error(
-                "cannot close file descriptor `%s` (%s)",
-                x->fn, strerror(errno));
+        log_errno_file("cannot close file descriptor", errno, x->fn);
         return -1;
     }
     return 0;

@@ -231,7 +231,5 @@ stop:
         log_error("exit with error code %d", rc);
     else
         log_info("bye");
-    logger_destroy();
-
     return rc;
 }

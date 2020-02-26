@@ -166,9 +166,7 @@ int ti_store_store(void)
 
     if (mkdir(store->tmp_path, TI_DEFAULT_DIR_ACCESS))
     {
-        log_warning("cannot create directory `%s` (%s)",
-                store->tmp_path,
-                strerror(errno));
+        log_errno_file("cannot create directory", errno, store->tmp_path);
     }
 
     store__set_filename(/* use_tmp: */ true);
@@ -199,10 +197,8 @@ int ti_store_store(void)
         rc = mkdir(store_collection->collection_path, TI_DEFAULT_DIR_ACCESS);
         if (rc)
         {
-            log_critical(
-                    "cannot create collection path: `%s` (%s)",
-                    store_collection->collection_path,
-                    strerror(errno));
+            log_errno_file("cannot create collection path",
+                    errno, store_collection->collection_path);
         }
         else
         {

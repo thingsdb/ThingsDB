@@ -7,7 +7,7 @@
 #include <time.h>
 #include <util/logger.h>
 #include <stdbool.h>
-
+#include <string.h>
 
 logger_t Logger = {
         .level=10,
@@ -26,9 +26,6 @@ logger_t Logger = {
 #define KMAG  "\x1B[35m"    /* critical */
 #define KCYN  "\x1B[36m"    /* debug */
 #define KWHT  "\x1B[37m"    /* -- not used -- */
-
-static _Bool logger__initialized = false;
-
 
 const char * LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS] =
     {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
@@ -78,21 +75,10 @@ const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
 /*
  * Initialize the logger.
  */
-int logger_init(struct _LOGGER_IO_FILE * ostream, int log_level)
+void logger_init(struct _LOGGER_IO_FILE * ostream, int log_level)
 {
-    int rc = uv_mutex_init(&Logger.lock);
-    Logger.main_thread = uv_thread_self();
     Logger.ostream = ostream;
     logger_set_level(log_level);
-    if (rc)
-        logger__initialized = true;
-    return rc;
-}
-
-void logger_destroy(void)
-{
-    if (logger__initialized)
-        uv_mutex_destroy(&Logger.lock);
 }
 
 /*
@@ -114,9 +100,7 @@ const char * logger_level_name(int log_level)
 
 void log_with_level(int log_level, const char * fmt, ...)
 {
-    uv_mutex_lock(&Logger.lock);
     LOGGER_LOG_STUFF(log_level)
-    uv_mutex_unlock(&Logger.lock);
 }
 
 void log__debug(const char * fmt, ...)
@@ -133,4 +117,14 @@ void log__error(const char * fmt, ...)
 
 void log__critical(const char * fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_CRITICAL)
+
+
+char * log_strerror(int errnum, char * buf, size_t n)
+{
+    memset(buf, 0, n);
+    strerror_r(errnum, buf, n);
+    if (*buf == '\0')
+        strncpy(buf, "unknown errno", n-1);
+    return buf;
+}
 

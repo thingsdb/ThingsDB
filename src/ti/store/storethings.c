@@ -26,7 +26,7 @@ int ti_store_things_store(imap_t * things, const char * fn)
     FILE * f = fopen(fn, "w");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         return -1;
     }
 
@@ -48,7 +48,7 @@ fail:
 done:
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         return -1;
     }
     return 0;
@@ -90,7 +90,7 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
     FILE * f = fopen(fn, "w");
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot open file", errno, fn);
         return -1;
     }
 
@@ -112,7 +112,7 @@ fail:
 done:
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", fn, strerror(errno));
+        log_errno_file("cannot close file", errno, fn);
         return -1;
     }
     return 0;

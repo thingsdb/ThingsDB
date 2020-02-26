@@ -150,7 +150,7 @@ static int backups__store(void)
     char * result_msg;
     if (!f)
     {
-        log_error("cannot open file `%s` (%s)", backups->fn, strerror(errno));
+        log_errno_file("cannot open file", errno,  backups->fn);
         return -1;
     }
 
@@ -193,7 +193,7 @@ done:
 
     if (fclose(f))
     {
-        log_error("cannot close file `%s` (%s)", backups->fn, strerror(errno));
+        log_errno_file("cannot close file", errno, backups->fn);
         return -1;
     }
 

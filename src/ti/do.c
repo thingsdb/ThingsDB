@@ -606,15 +606,16 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_INT:
         if (!node->data)
         {
-            node->data = ti_vint_create(strx_to_int64(node->str));
-            if (!node->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
+            int64_t i = strx_to_int64(node->str);
             if (errno == ERANGE)
             {
                 ex_set(e, EX_OVERFLOW, "integer overflow");
+                return e->nr;
+            }
+            node->data = ti_vint_create(i);
+            if (!node->data)
+            {
+                ex_set_mem(e);
                 return e->nr;
             }
             assert (vec_space(query->val_cache));

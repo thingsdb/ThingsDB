@@ -201,6 +201,12 @@ class TestTypes(TestBase):
             res;
         '''), [[3, 18], [2, 16], [1, 14], [0, 12]])
 
+    async def test_integer(self, client):
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('9999999999999999999;')
+
     async def test_set(self, client):
         self.assertTrue(await client.query(r'''
             ( set() == set() )

@@ -83,14 +83,17 @@ int ncache__gen_immutable(
         nd->data = ti_vfloat_create(strx_to_double(nd->str));
         break;
     case CLERI_GID_T_INT:
+    {
         assert (!nd->data);
-        nd->data = ti_vint_create(strx_to_int64(nd->str));
+        int64_t i = strx_to_int64(nd->str);
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
             return e->nr;
         }
+        nd->data = ti_vint_create(i);
         break;
+    }
     case CLERI_GID_T_REGEX:
         assert (!nd->data);
         nd->data = ti_regex_from_strn(nd->str, nd->len, e);

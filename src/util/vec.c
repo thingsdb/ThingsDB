@@ -53,6 +53,7 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
 
     if (to < pos)
     {
+        /* swap, this could be done with a recursive call as well */
         _ = to + n;
         n = pos - to;
         pos = to;
@@ -61,8 +62,13 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
 
     assert (to + n <= vec->n);
 
+    /* calculate the range involved in the move */
     range = to + n - pos;
+
+    /* calculate the greatest common divisor */
     gcd = vec__gcd(range, n);
+
+    /* inner loop cycle based on the range and greatest common divisor */
     m = range / gcd - 1;
 
     while (gcd--)

@@ -1145,7 +1145,7 @@ static int api__message_complete_cb(http_parser * parser)
 "                  |___|                   \n" \
 "</pre>\n" \
 "<p>\n"
-"<b>Welcome to the ThingsDB API</b>"
+"<b>Welcome to the ThingsDB API</b>\n"
 "</p>\n"
 "<p>\n"
 "Visit <a href=\"https://docs.thingsdb.net\">https://docs.thingsdb.net</a> for more information\n"

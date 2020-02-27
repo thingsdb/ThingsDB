@@ -141,6 +141,11 @@ class TestTypes(TestBase):
 
     async def test_closure(self, client):
         with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('.x = ||(1+999999999999999999999);')
+
+        with self.assertRaisesRegex(
                 OperationError,
                 r'maximum recursion depth exceeded'):
             await client.query(r'''

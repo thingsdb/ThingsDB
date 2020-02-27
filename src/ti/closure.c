@@ -88,7 +88,7 @@ static cleri_node_t * closure__node_from_strn(
         ex_set_mem(e);
         goto fail1;
     }
-
+    query = NULL;  /* ownership is moved to ncache */
     node->data = ncache;
     if (ti_ncache_gen_node_data(syntax, ncache->val_cache, statement, e))
         goto fail2;

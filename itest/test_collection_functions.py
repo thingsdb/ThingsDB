@@ -1399,6 +1399,8 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'[].each(||1)'), None)
         self.assertEqual(await client.query(r'{}.each(||1)'), None)
         self.assertEqual(await client.query(r'set().each(||1)'), None)
+        self.assertEqual(
+            await client.query(r'range(10).each(|i| i+9999);'), None)
 
         self.assertEqual(
             set(await client.query('r = []; .iris.each(|k|r.push(k)); r;')),

@@ -66,17 +66,17 @@ int ncache__gen_immutable(
     {
     case CLERI_GID_T_CLOSURE:
         assert (!nd->data);
-        nd->data = ti_closure_from_node(
-                nd,
-                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
-                            ? TI_VFLAG_CLOSURE_BTSCOPE
-                            : TI_VFLAG_CLOSURE_BCSCOPE);
         if (ncache__statement(
                     syntax,
                     vcache,
                     nd->children->next->next->next->node,
                     e))
             return e->nr;
+        nd->data = ti_closure_from_node(
+                nd,
+                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
+                            ? TI_VFLAG_CLOSURE_BTSCOPE
+                            : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
         assert (!nd->data);

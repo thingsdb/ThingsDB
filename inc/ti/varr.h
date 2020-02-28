@@ -7,6 +7,8 @@
 typedef struct ti_varr_s ti_varr_t;
 typedef struct ti_tuple_s ti_tuple_t;
 
+#define VARR(__x)  ((ti_varr_t *) (__x))->vec
+
 #include <inttypes.h>
 #include <util/vec.h>
 #include <ex.h>

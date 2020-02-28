@@ -87,3 +87,6 @@ connectors/go/test/test
 
 # Backup git
 .git-old/
+
+# Kubernetes files
+kube/

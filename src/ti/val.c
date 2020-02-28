@@ -980,7 +980,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     }
     case TI_VAL_ARR:
     {
-        vec_t * vec = ((ti_varr_t *) *val)->vec;
+        vec_t * vec = VARR(*val);
         ti_vset_t * vset = ti_vset_create();
         if (!vset)
         {
@@ -1030,9 +1030,9 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_REGEX:
         return true;
     case TI_VAL_ARR:
-        return !!((ti_varr_t *) val)->vec->n;
+        return !!VARR(val)->n;
     case TI_VAL_SET:
-        return !!((ti_vset_t *) val)->imap->n;
+        return !!VSET(val)->n;
     case TI_VAL_THING:
         return !!((ti_thing_t *) val)->items->n;
     case TI_VAL_WRAP:
@@ -1077,9 +1077,9 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_WRAP:
         return ((ti_wrap_t *) val)->thing->items->n;
     case TI_VAL_ARR:
-        return ((ti_varr_t *) val)->vec->n;
+        return VARR(val)->n;
     case TI_VAL_SET:
-        return ((ti_vset_t *) val)->imap->n;
+        return VSET(val)->n;
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ERROR:
@@ -1134,15 +1134,12 @@ int ti_val_gen_ids(ti_val_t * val)
          * must attached arrays will contain "only" things, or no things.
          */
         if (ti_varr_may_have_things((ti_varr_t *) val))
-            for (vec_each(((ti_varr_t *) val)->vec, ti_val_t, v))
+            for (vec_each(VARR(val), ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;
         break;
     case TI_VAL_SET:
-        return imap_walk(
-                ((ti_vset_t *) val)->imap,
-                (imap_cb) val__walk_set,
-                NULL);
+        return imap_walk(VSET(val), (imap_cb) val__walk_set, NULL);
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         break;

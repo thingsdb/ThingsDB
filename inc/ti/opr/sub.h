@@ -60,9 +60,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
     case OPR_SET_SET:
         if (inplace || a->ref == 1)
         {
-            imap_difference_inplace(
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap);
+            imap_difference_inplace(VSET(a), VSET(*b));
             ti_val_drop(*b);
             ti_incref(a);
             *b = a;
@@ -70,10 +68,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         else
         {
             ti_vset_t * vset = ti_vset_create();
-            if (!vset || imap_difference_make(
-                    vset->imap,
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap))
+            if (!vset || imap_difference_make(vset->imap, VSET(a), VSET(*b)))
                 goto alloc_err;
             ti_val_drop(*b);
             *b = (ti_val_t *) vset;

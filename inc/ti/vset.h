@@ -6,6 +6,8 @@
 
 typedef struct ti_vset_s ti_vset_t;
 
+#define VSET(__x)  ((ti_vset_t *) (__x))->imap
+
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/thing.h>

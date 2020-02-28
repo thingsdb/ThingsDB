@@ -18,7 +18,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     lockval = query->rval;
     query->rval = NULL;
 
-    vec = ((ti_varr_t *) lockval)->vec;
+    vec = VARR(lockval);
 
     if (ti_do_statement(query, nd->children->node, e) ||
         fn_arg_closure("reduce", DOC_LIST_REDUCE, 1, query->rval, e))

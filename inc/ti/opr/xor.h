@@ -32,8 +32,8 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         if ((inplace || a->ref == 1) && (*b)->ref == 1)
         {
             imap_symmdiff_move(
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap,
+                    VSET(a),
+                    VSET(*b),
                     (imap_destroy_cb) ti_val_drop);
             ti_val_drop(*b);
             ti_incref(a);
@@ -42,10 +42,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         else
         {
             ti_vset_t * vset = ti_vset_create();
-            if (!vset || imap_symmdiff_make(
-                    vset->imap,
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap))
+            if (!vset || imap_symmdiff_make(vset->imap, VSET(a), VSET(*b)))
                 goto alloc_err;
             ti_val_drop(*b);
             *b = (ti_val_t *) vset;

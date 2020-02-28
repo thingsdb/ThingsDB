@@ -24,6 +24,7 @@
 #include <util/fx.h>
 #include <util/logger.h>
 
+
 int main(int argc, char * argv[])
 {
     int rc = EXIT_SUCCESS;
@@ -94,6 +95,8 @@ int main(int argc, char * argv[])
     rc = ti_init();
     if (rc)
         goto stop;
+
+    ti_evars_deploy();
 
     if (ti()->args->init)
     {

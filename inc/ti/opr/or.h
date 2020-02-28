@@ -31,9 +31,7 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
     case OPR_SET_SET:
         if ((inplace || a->ref == 1) && (*b)->ref == 1)
         {
-            imap_union_move(
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap);
+            imap_union_move(VSET(a), VSET(*b));
             ti_val_drop(*b);
             ti_incref(a);
             *b = a;
@@ -41,10 +39,7 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         else
         {
             ti_vset_t * vset = ti_vset_create();
-            if (!vset || imap_union_make(
-                    vset->imap,
-                    ((ti_vset_t *) a)->imap,
-                    ((ti_vset_t *) *b)->imap))
+            if (!vset || imap_union_make(vset->imap, VSET(a), VSET(*b)))
                 goto alloc_err;
             ti_val_drop(*b);
             *b = (ti_val_t *) vset;

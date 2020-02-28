@@ -238,16 +238,13 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
         {
-            vec_t * vec = ((ti_varr_t *) val)->vec;
+            vec_t * vec = VARR(val);
             for (vec_each(vec, ti_val_t, v))
                 ti_query_mark_gc(v, query);
         }
         return 0;
     case TI_VAL_SET:
-        return imap_walk(
-                ((ti_vset_t *) val)->imap,
-                (imap_cb) ti_query_mark_gc,
-                query);
+        return imap_walk(VSET(val), (imap_cb) ti_query_mark_gc, query);
     }
     assert (0);
     return -1;
@@ -319,7 +316,7 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
         {
-            vec_t * vec = ((ti_varr_t *) val)->vec;
+            vec_t * vec = VARR(val);
             if (val->ref == 1)
             {
                 ti_val_t * v;
@@ -336,7 +333,7 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
         return 0;
     case TI_VAL_SET:
         return imap_walk(
-                ((ti_vset_t *) val)->imap,
+                VSET(val),
                 (imap_cb) (val->ref == 1 ? ti_query_val_gc : ti_query_mark_gc),
                 query);
     }

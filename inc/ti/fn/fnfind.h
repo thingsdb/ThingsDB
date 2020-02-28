@@ -66,7 +66,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (iterval->tp)
     {
     case TI_VAL_ARR:
-        for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
+        for (vec_each(VARR(iterval), ti_val_t, v), ++idx)
         {
             _Bool found;
 
@@ -101,10 +101,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
         };
 
-        rc = imap_walk(
-                ((ti_vset_t *) iterval)->imap,
-                (imap_cb) find__walk_set,
-                &w);
+        rc = imap_walk(VSET(iterval), (imap_cb) find__walk_set, &w);
 
         if (rc > 0)
             goto done;

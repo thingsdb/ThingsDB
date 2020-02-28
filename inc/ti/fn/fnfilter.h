@@ -119,13 +119,13 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
     {
         int64_t idx = 0;
-        ti_varr_t * varr = ti_varr_create(((ti_varr_t *) iterval)->vec->n);
+        ti_varr_t * varr = ti_varr_create(VARR(iterval)->n);
         if (!varr)
             goto fail2;
 
         retval = (ti_val_t *) varr;
 
-        for (vec_each(((ti_varr_t *) iterval)->vec, ti_val_t, v), ++idx)
+        for (vec_each(VARR(iterval), ti_val_t, v), ++idx)
         {
             if (ti_closure_vars_val_idx(closure, v, idx) ||
                 ti_closure_do_statement(closure, query, e))
@@ -158,10 +158,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         retval = (ti_val_t *) w.vset;
 
-        if (imap_walk(
-                ((ti_vset_t *) iterval)->imap,
-                (imap_cb) filter__walk_set,
-                &w))
+        if (imap_walk(VSET(iterval), (imap_cb) filter__walk_set, &w))
             goto fail2;
     }
     }

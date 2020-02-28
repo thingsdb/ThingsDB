@@ -3,6 +3,7 @@
  */
 #include <ti.h>
 #include <ti/evars.h>
+#include <util/fx.h>
 
 static void evars__u8(const char * evar, uint8_t * u8)
 {
@@ -97,4 +98,32 @@ void ti_evars_parse(void)
     evars__double(
             "THINGSDB_QUERY_DURATION_ERROR",
             &ti()->cfg->query_duration_error);
+}
+
+void ti_evars_deploy(void)
+{
+    size_t n;
+    char * pod_id;
+
+    if (fx_file_exist(ti()->fn) ||
+        !(pod_id = getenv("THINGSDB_POD_ID")))
+        return;
+
+    n = strlen(pod_id);
+    if (!n)
+        return;
+
+    if (pod_id[n-1] == '0' && (n == 1 || pod_id[n-2] == '-'))
+    {
+        /* this is the fist node and ThingsDB is not yet initialized */
+        ti()->args->init = 1;
+    }
+    else if (!(*ti()->args->secret))
+    {
+        char * pod_secret = getenv("THINGSDB_POD_SECRET");
+        pod_secret = pod_secret ? pod_secret : pod_id;
+
+        memset(ti()->args->secret, 0, ARGPARSE_MAX_LEN_ARG);
+        strncpy(ti()->args->secret, pod_secret, ARGPARSE_MAX_LEN_ARG-1);
+    }
 }

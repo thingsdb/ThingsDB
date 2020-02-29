@@ -19,6 +19,34 @@ static ti_cfg_t * cfg;
 static const char * cfg__section = "thingsdb";
 
 
+static int cfg__node_name(cfgparser_t * parser, const char * cfg_file)
+{
+    const char * option_name = "node_name";
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+
+    rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
+    if (rc != CFGPARSER_SUCCESS)
+        return 0;
+
+    if (option->tp != CFGPARSER_TP_STRING)
+    {
+        log_warning(
+                "error reading `%s` in `%s` (%s), "
+                "using default value `%s`",
+                option_name,
+                cfg_file,
+                "expecting a string value",
+                cfg->node_name);
+        return 0;
+    }
+
+    free(cfg->node_name);
+    cfg->node_name = strdup(option->val->string);
+
+    return cfg->node_name ? 0 : -1;
+}
+
 static int cfg__storage_path(cfgparser_t * parser, const char * cfg_file)
 {
     const char * option_name = "storage_path";
@@ -255,8 +283,13 @@ static void cfg__duration(
 
 int ti_cfg_create(void)
 {
+    /* SUSv2 guarantees that "Host names are limited to 255 bytes,
+     * excluding terminating null byte" */
+    char hostname[256];
     char * sysuser = getenv("USER");
     char * homedir = getenv("HOME");
+    if (gethostname(hostname, sizeof(hostname)))
+        return -1;
 
     cfg = malloc(sizeof(ti_cfg_t));
     if (!cfg)
@@ -278,8 +311,12 @@ int ti_cfg_create(void)
     cfg->zone = 0;
     cfg->query_duration_warn = 0;
     cfg->query_duration_error = 0;
+    cfg->node_name = strdup(hostname);
 
-    if (!cfg->bind_client_addr || !cfg->bind_node_addr || !cfg->storage_path)
+    if (!cfg->bind_client_addr ||
+        !cfg->bind_node_addr ||
+        !cfg->storage_path ||
+        !cfg->node_name)
         ti_cfg_destroy();
 
     ti()->cfg = cfg;
@@ -290,6 +327,7 @@ void ti_cfg_destroy(void)
 {
     if (!cfg)
         return;
+    free(cfg->node_name);
     free(cfg->bind_client_addr);
     free(cfg->bind_node_addr);
     free(cfg->pipe_client_name);
@@ -319,7 +357,8 @@ int ti_cfg_parse(const char * cfg_file)
         goto exit_parse;
     }
 
-    if (    (rc = cfg__storage_path(parser, cfg_file)) ||
+    if (    (rc = cfg__node_name(parser, cfg_file)) ||
+            (rc = cfg__storage_path(parser, cfg_file)) ||
             (rc = cfg__str(
                     parser,
                     cfg_file,

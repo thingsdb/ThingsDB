@@ -111,11 +111,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         if (node->id == build->from_node_id)
         {
             ti_stream_set_node(req->stream, node);
-
-            (void) ti_node_upd_addr_from_stream(
-                    node,
-                    req->stream,
-                    build->from_node_port);
+            ti_node_upd_port(node, build->from_node_port);
 
             node->status = build->from_node_status;
             node->zone = build->from_node_zone;

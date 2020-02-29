@@ -93,7 +93,7 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
  */
 static void connect__cb(uv_timer_t * UNUSED(handle))
 {
-    ex_t e = {0};
+//    ex_t e = {0};
     uint32_t n = ++connect_loop->n_loops;
     ti_rpkg_t * rpkg = NULL;
     vec_t * nodes_vec = ti()->nodes->vec;
@@ -117,8 +117,8 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
             /* max step will be 60 * CONNECT__INTERVAL seconds */
             node->next_retry = n + (step < 60 ? step : 60);
 
-            if (!node->stream && ti_node_connect(node, &e))
-                log_error(e.msg);
+            if (!node->stream)
+                ti_node_connect(node);
         }
         else if (
             /* write if there are changes, or each 25 loops */

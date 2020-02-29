@@ -102,8 +102,7 @@ struct ti_node_s
      *      - unreachable (set from another node)
      *    uint16_t flags;
      */
-    struct sockaddr_storage * sockaddr_;
-    char addr[INET6_ADDRSTRLEN];    /* null terminated (last known) address */
+    char * addr;                    /* host-name or IP address */
     char secret[CRYPTX_SZ];         /* null terminated encrypted secret */
 };
 
@@ -114,17 +113,13 @@ ti_node_t * ti_node_create(
         const char * addr,
         const char * secret);
 void ti_node_drop(ti_node_t * node);
-int ti_node_upd_addr_from_stream(
-        ti_node_t * node,
-        ti_stream_t * stream,
-        uint16_t port);
+void ti_node_upd_port(ti_node_t * node, uint16_t port);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
-int ti_node_connect(ti_node_t * node, ex_t * e);
+void ti_node_connect(ti_node_t * node);
 int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk);
 ti_val_t * ti_node_as_mpval(ti_node_t * node);
 int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up);
-int ti_node_update_sockaddr(ti_node_t * node, ex_t * e);
 
 static inline int ti_node_status_to_pk(ti_node_t * node, msgpack_packer * pk)
 {

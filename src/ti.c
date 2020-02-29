@@ -67,7 +67,6 @@ int ti_create(void)
     ti_.langdef = compile_langdef();
     ti_.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti_.boottime) ||
-            gethostname(ti_.hostname, TI_MAX_HOSTNAME_SZ) ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||
@@ -203,7 +202,7 @@ int ti_build_node(void)
             0,
             ti()->cfg->zone,
             ti_.cfg->node_port,
-            "0.0.0.0",
+            ti_.cfg->node_name,
             encrypted);
 
     if (!ti_.node)
@@ -772,8 +771,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     if (ti()->node->status == status)
         return;  /* node status is not changed */
 
-    log_info("changing status of node `%s` from %s to %s",
-            ti_node_name(ti()->node),
+    log_info("changing status from %s to %s",
             ti_node_status_str(ti()->node->status),
             ti_node_status_str(status));
 
@@ -794,8 +792,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
 
 void ti_set_and_broadcast_node_zone(uint8_t zone)
 {
-    log_debug("changing zone of node `%s` from %s to %s",
-            ti_node_name(ti()->node),
+    log_debug("changing zone from %s to %s",
             ti_node_status_str(ti()->node->zone),
             ti_node_status_str(zone));
 
@@ -862,8 +859,8 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "log_level") ||
         mp_pack_str(pk, Logger.level_name) ||
         /* 11 */
-        mp_pack_str(pk, "hostname") ||
-        mp_pack_str(pk, ti_.hostname) ||
+        mp_pack_str(pk, "node_name") ||
+        mp_pack_str(pk, ti_.cfg->node_name) ||
         /* 12 */
         mp_pack_str(pk, "client_port") ||
         msgpack_pack_uint16(pk, ti_.cfg->client_port) ||

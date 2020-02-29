@@ -175,8 +175,8 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
     else if (ti()->node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle query requests",
-                ti()->hostname);
+                TI_NODE_ID" is not ready to handle query requests",
+                ti()->node->id);
     }
     return e->nr;
 }

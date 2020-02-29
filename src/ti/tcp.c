@@ -112,6 +112,21 @@ failed:
     return NULL;
 }
 
+int ti_tcp_addrstr(char * addr, struct addrinfo * source)
+{
+    switch (source->ai_family)
+    {
+    case AF_INET:
+        uv_ip4_name((struct sockaddr_in *) source->ai_addr, addr, 16);
+        return 0;
+
+    case AF_INET6:
+        uv_ip6_name((struct sockaddr_in6 *) source->ai_addr, addr, 46);
+        return 0;
+    }
+    return -1;
+}
+
 int ti_tcp_addr(char * addr, uv_tcp_t * client)
 {
     struct sockaddr_storage name;

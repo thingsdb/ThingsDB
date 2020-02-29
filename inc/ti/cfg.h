@@ -28,6 +28,7 @@ struct ti_cfg_s
                                            performed
                                         */
     int ip_support;                     /* AF_UNSPEC / AF_INET / AF_INET6 */
+    char * node_name;
     char * bind_client_addr;
     char * bind_node_addr;
     char * pipe_client_name;

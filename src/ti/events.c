@@ -165,9 +165,9 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
     {
         uint8_t quorum = ti_nodes_quorum();
         ex_set(e, EX_NODE_ERROR,
-                "node `%s` does not have the required quorum "
+                TI_NODE_ID" does not have the required quorum "
                 "of at least %u connected %s",
-                ti()->hostname,
+                ti()->node->id,
                 quorum, quorum == 1 ? "node" : "nodes");
         return e->nr;
     }
@@ -238,10 +238,8 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
             case TI_EVENT_TP_MASTER:
                 log_warning(
                      TI_EVENT_ID" is being processed and "
-                     "can not be reused for node `%s`",
-                     ev->id,
-                     ti_node_name(node)
-                 );
+                     "can not be reused for "TI_NODE_ID,
+                     ev->id, node->id);
                  break;
             case TI_EVENT_TP_EPKG:
                 ev->via.epkg->flags |= epkg->flags;
@@ -443,9 +441,9 @@ static void events__new_id(ti_event_t * ev)
     if (!ti_nodes_has_quorum())
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` does not have the required quorum "
+                TI_NODE_ID" does not have the required quorum "
                 "of at least %u connected nodes",
-                ti_node_name(ti()->node),
+                ti()->node->id,
                 ti_nodes_quorum());
         goto fail;
     }
@@ -663,10 +661,10 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 break;
 
             log_error(
-                    "killed "TI_EVENT_ID" on node `%s` "
-                    "after approximately %f seconds",
+                    "killed "TI_EVENT_ID" on "TI_NODE_ID
+                    " after approximately %f seconds",
                     ev->id,
-                    ti_name(),
+                    ti()->node->id,
                     diff);
 
             /* Reached time-out, kill the event */

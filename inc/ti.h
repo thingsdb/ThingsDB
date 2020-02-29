@@ -75,7 +75,6 @@ ti_val_t * ti_this_node_as_mpval(void);
 static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
-static inline const char * ti_name(void);
 static inline int ti_to_pk(msgpack_packer * pk);
 
 struct ti_s
@@ -108,7 +107,6 @@ struct ti_s
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     uint8_t flags;
-    char hostname[256];
 };
 
 static inline ti_t * ti(void)
@@ -132,11 +130,6 @@ static inline int ti_sleep(int ms)
     return (ti_.flags & TI_FLAG_SIGNAL)
             ? -2
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);
-}
-
-static inline const char * ti_name(void)
-{
-    return ti_.hostname;
 }
 
 static inline int ti_to_pk(msgpack_packer * pk)

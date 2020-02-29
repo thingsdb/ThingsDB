@@ -16,7 +16,6 @@
 
 static void node__on_connect(uv_connect_t * req, int status);
 static void node__on_connect_req(ti_req_t * req, ex_enum status);
-static void node__clear_sockaddr(ti_node_t * node);
 
 /*
  * Nodes are created ti_nodes_new_node() to ensure a correct id
@@ -48,11 +47,14 @@ ti_node_t * ti_node_create(
     node->next_thing_id = 0;
     node->stream = NULL;
     node->port = port;
-    node->sockaddr_ = NULL;     /* must be updated using
-                                   node__update_sockaddr()
-                                */
-    strcpy(node->addr, addr);
+    node->addr = strdup(addr);
     memcpy(node->secret, secret, CRYPTX_SZ);
+
+    if (!node->addr)
+    {
+        free(node);
+        return NULL;
+    }
 
     return node;
 }
@@ -61,39 +63,24 @@ void ti_node_drop(ti_node_t * node)
 {
     if (node && !--node->ref)
     {
-        ti_stream_close(node->stream);
-        free(node->sockaddr_);
+        if (node->stream)
+        {
+            /* usually the stream should already be closed */
+            node->stream->via.node = NULL;
+            ti_stream_close(node->stream);
+        }
+        free(node->addr);
         free(node);
     }
 }
 
-int ti_node_upd_addr_from_stream(
-        ti_node_t * node,
-        ti_stream_t * stream,
-        uint16_t port)
+void ti_node_upd_port(ti_node_t * node, uint16_t port)
 {
-    char addr[INET6_ADDRSTRLEN];
-
-    /* try to update the address and port information if required */
-    if (ti_stream_tcp_address(stream, addr))
-    {
-        log_warning("cannot read address from node stream");
-        return -1;
-    }
-
-    if (strncmp(node->addr, addr, INET6_ADDRSTRLEN) || node->port != port)
+    if (node->port != port)
     {
         node->port = port;
-        node__clear_sockaddr(node);
-        (void) strcpy(node->addr, addr);
         (void) ti_save();
     }
-    return 0;
-}
-
-const char * ti_node_name(ti_node_t * node)
-{
-    return ti()->node == node ? ti_name() : ti_stream_name(node->stream);
 }
 
 const char * ti_node_status_str(ti_node_status_t status)
@@ -112,24 +99,19 @@ const char * ti_node_status_str(ti_node_status_t status)
     return "UNKNOWN";
 }
 
-int ti_node_connect(ti_node_t * node, ex_t * e)
+static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
 {
-    assert (!node->stream);
-    assert (node->status == TI_NODE_STAT_OFFLINE);
-
-    log_debug("connecting to "TI_NODE_ID, node->id);
-
     int rc;
     ti_stream_t * stream;
     uv_connect_t * req;
 
-    if (!node->sockaddr_ && ti_node_update_sockaddr(node, e))
-        return e->nr;
+    if (node->stream)
+        return;
 
     stream = ti_stream_create(TI_STREAM_TCP_OUT_NODE, ti_nodes_pkg_cb);
     if (!stream)
     {
-        ex_set_internal(e);
+        log_error(EX_INTERNAL_S);
         goto fail0;
     }
 
@@ -138,29 +120,30 @@ int ti_node_connect(ti_node_t * node, ex_t * e)
     req = malloc(sizeof(uv_connect_t));
     if (!req)
     {
-        ex_set_mem(e);
+        log_error(EX_MEMORY_S);
         goto fail0;
     }
 
-    req->data = ti_grab(node);
+    req->data = node;
     node->status = TI_NODE_STAT_CONNECTING;
+    ti_incref(node);
 
     rc = uv_tcp_connect(
             req,
             (uv_tcp_t *) node->stream->uvstream,
-            (const struct sockaddr*) node->sockaddr_,
+            (const struct sockaddr *) sockaddr,
             node__on_connect);
 
     if (rc)
     {
-        ex_set(e, EX_INTERNAL,
+        log_error(
                 "TCP connect to "TI_NODE_ID" has failed (%s)",
                 node->id, uv_strerror(rc));
         node->status = TI_NODE_STAT_OFFLINE;
         goto fail1;
     }
 
-    return 0;
+    return;
 
 fail1:
     ti_node_drop(node);
@@ -168,13 +151,144 @@ fail1:
 
 fail0:
     ti_stream_close(stream);
-    return e->nr;
+}
+
+/*
+ * Return 0 if successful, < 0 in case of error, > 0 for lookup required
+ */
+static int node__addr(
+        ti_node_t * node,
+        const char * addr,
+        struct sockaddr_storage * sockaddr)
+{
+    struct in_addr sa;
+    struct in6_addr sa6;
+    if (inet_pton(AF_INET, addr, &sa))  /* try IPv4 */
+    {
+        if (uv_ip4_addr(
+                addr,
+                node->port,
+                (struct sockaddr_in *) sockaddr))
+        {
+            log_error(
+                    "cannot create IPv4 address from `%s:%d` for "TI_NODE_ID,
+                    addr, node->port, node->id);
+            return -1;
+        }
+        return 0;
+    }
+
+    if (inet_pton(AF_INET6, addr, &sa6))  /* try IPv6 */
+    {
+        if (uv_ip6_addr(
+                addr,
+                node->port,
+                (struct sockaddr_in6 *) sockaddr))
+        {
+            log_error(
+                    "cannot create IPv6 address from `[%s]:%d` for "TI_NODE_ID,
+                    addr, node->port, node->id);
+            return -1;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+static void node__on_resolved(
+        uv_getaddrinfo_t * resolver,
+        int status,
+        struct addrinfo * res)
+{
+    char addr[INET6_ADDRSTRLEN];
+    struct sockaddr_storage sockaddr;
+    ti_node_t * node = resolver->data;
+
+    if (status < 0)
+    {
+        log_error("cannot resolve address for `%s` (error: %s)",
+                node->addr,
+                uv_err_name(status));
+        goto done;
+    }
+
+    if (ti_tcp_addrstr(addr, res))
+    {
+        log_error("failed to read address for `%s`", node->addr);
+        goto done;
+    }
+
+    if (node->stream)
+    {
+        log_info(
+                "resolved address `%s` for `%s` but "
+                "a connection to "TI_NODE_ID" has already been made",
+                addr, node->addr, node->id);
+        goto done;
+    }
+
+    log_info("resolved address `%s` for `%s`", addr, node->addr);
+
+    if (node__addr(node, addr, &sockaddr)== 0)
+        node__connect(node, &sockaddr);
+
+done:
+    ti_node_drop(node);
+    uv_freeaddrinfo(res);
+    free(resolver);
+}
+
+static void node__resolve_dns(ti_node_t * node)
+{
+    int rc;
+    char port[6]= {0};
+    struct addrinfo hints = {
+            .ai_family = AF_UNSPEC,
+            .ai_socktype = SOCK_STREAM,
+            .ai_protocol = IPPROTO_TCP,
+            .ai_flags = AI_NUMERICSERV,
+    };
+    uv_getaddrinfo_t * resolver = malloc(sizeof(uv_getaddrinfo_t));
+    if (!resolver)
+        return;
+
+    ti_incref(node);
+    resolver->data = node;
+    sprintf(port, "%u", node->port);
+
+    rc = uv_getaddrinfo(
+            ti()->loop,
+            resolver,
+            node__on_resolved,
+            node->addr,
+            port,
+            &hints);
+
+    if (rc)
+    {
+        log_error("uv_getaddrinfo call error %s", uv_err_name(rc));
+        free(resolver);
+        ti_node_drop(node);
+    }
+}
+
+void ti_node_connect(ti_node_t * node)
+{
+    int rc;
+    struct sockaddr_storage sockaddr;
+
+    log_debug("connecting to "TI_NODE_ID, node->id);
+
+    rc = node__addr(node, node->addr, &sockaddr);
+    if (rc == 0)
+        node__connect(node, &sockaddr);
+    else if (rc > 0)
+        node__resolve_dns(node);
 }
 
 int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
 {
     static char syntax_buf[7]; /* vXXXXX_ */
-    ti_node_t * this_node = ti()->node;
     (void) sprintf(syntax_buf, "v%"PRIu16, node->syntax_ver);
 
     return -(
@@ -202,9 +316,7 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
         msgpack_pack_uint64(pk, node->next_thing_id) ||
 
         mp_pack_str(pk, "address") ||
-        mp_pack_str(
-                pk,
-                node == this_node ? ti_name() : node->addr) ||
+        mp_pack_str(pk, node->addr) ||
 
         mp_pack_str(pk, "port") ||
         msgpack_pack_uint16(pk, node->port) ||
@@ -272,9 +384,9 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     {
         if (syntax_ver < node->syntax_ver)
             log_warning(
-                    "got an unexpected syntax version update for `%s` "
-                    "(current "TI_QBIND", received "TI_QBIND")",
-                    ti_node_name(node), node->syntax_ver, syntax_ver);
+                    "got an unexpected syntax version update from "TI_NODE_ID
+                    " (current "TI_QBIND", received "TI_QBIND")",
+                    node->id, node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
         node->syntax_ver = mp_syntax_ver.via.u64;
     }
@@ -292,81 +404,6 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
         ti_away_reschedule();  /* reschedule away */
 
     return 0;
-}
-
-int ti_node_update_sockaddr(ti_node_t * node, ex_t * e)
-{
-    assert (e->nr == 0);
-
-    struct in_addr sa;
-    struct in6_addr sa6;
-    struct sockaddr_storage * tmp_sockaddr;
-
-    tmp_sockaddr = malloc(sizeof(struct sockaddr_storage));
-    if (!tmp_sockaddr)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    if (inet_pton(AF_INET, node->addr, &sa))  /* try IPv4 */
-    {
-        if (uv_ip4_addr(
-                node->addr,
-                node->port,
-                (struct sockaddr_in *) tmp_sockaddr))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv4 address from `%s:%d` for "TI_NODE_ID,
-                    node->addr, node->port, node->id);
-            goto failed;
-        }
-    }
-    else if (inet_pton(AF_INET6, node->addr, &sa6))  /* try IPv6 */
-    {
-        if (uv_ip6_addr(
-                node->addr,
-                node->port,
-                (struct sockaddr_in6 *) tmp_sockaddr))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv6 address from `[%s]:%d` for "TI_NODE_ID,
-                    node->addr, node->port, node->id);
-            goto failed;
-        }
-    }
-    else
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "invalid IPv4/6 address for "TI_NODE_ID
-                ": `%s`", node->id, node->addr);
-        goto failed;
-    }
-
-    assert (e->nr == 0);
-
-    free(node->sockaddr_);
-    node->sockaddr_ = tmp_sockaddr;
-
-    return 0;
-
-failed:
-    free(tmp_sockaddr);
-    return e->nr;
-}
-
-static void node__upd_address(ti_node_t * node)
-{
-    char addr[INET6_ADDRSTRLEN];
-
-    if (ti_tcp_addr(addr, (uv_tcp_t *) node->stream->uvstream))
-        return;
-
-    if (strcmp(addr, node->addr))
-    {
-        (void) strcpy(node->addr, addr);
-        ti()->flags |= TI_FLAG_NODES_CHANGED;
-    }
 }
 
 static void node__on_connect(uv_connect_t * req, int status)
@@ -389,18 +426,15 @@ static void node__on_connect(uv_connect_t * req, int status)
     if (node->stream != (ti_stream_t *) req->handle->data)
     {
         log_warning(
-                "cancel connect; connection to "TI_NODE_ID" (%s) already  "
+                "cancel connect; connection to "TI_NODE_ID" (%s:%u) already  "
                 "established from the other side",
-                node->id, ti_node_name(node));
+                node->id, node->addr, node->port);
         goto failed;
     }
 
     log_debug(
-            "connection to "TI_NODE_ID" (%s) created",
-            node->id,
-            ti_node_name(node));
-
-    node__upd_address(node);
+            "connection to "TI_NODE_ID" (%s:%u) created",
+            node->id, node->addr, node->port);
 
     rc = uv_read_start(req->handle, ti_stream_alloc_buf, ti_stream_on_data);
     if (rc)
@@ -470,9 +504,9 @@ static void node__on_connect_req(ti_req_t * req, ex_enum status)
     if (node->stream != req->stream)
     {
         log_warning(
-                "ignore connect request; connection to "TI_NODE_ID" (%s) "
+                "ignore connect request; connection to "TI_NODE_ID" (%s:%u) "
                 "already established from the other side",
-                node->id, ti_node_name(node));
+                node->id, node->addr, node->port);
         goto failed;
     }
 
@@ -496,11 +530,5 @@ done:
     /* drop the request node reference */
     ti_node_drop(node);
     ti_req_destroy(req);
-}
-
-static void node__clear_sockaddr(ti_node_t * node)
-{
-    free(node->sockaddr_);
-    node->sockaddr_ = NULL;
 }
 

@@ -345,8 +345,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     ti_stream_set_node(stream, node);
 
-    /* try to update the address and port information if required */
-    (void) ti_node_upd_addr_from_stream(node, stream, from_node_port);
+    /* update port if required */
+    ti_node_upd_port(node, from_node_port);
 
     if (mp_sbuffer_alloc_init(
             &buffer,
@@ -389,16 +389,16 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!this_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got an `%s` request from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->tp), ti()->hostname);
+                "got an `%s` request from an unauthorized connection",
+                ti_proto_str(pkg->tp));
         goto finish;
     }
 
     if (this_node->status < TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle `%s` requests",
-                ti()->hostname, ti_proto_str(pkg->tp));
+                TI_NODE_ID" is not ready to handle `%s` requests",
+                this_node->id, ti_proto_str(pkg->tp));
         goto finish;
     }
 
@@ -458,16 +458,15 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got an away request from an unauthorized connection: `%s`",
-                ti()->hostname);
+                "got an away request from an unauthorized connection");
         goto finish;
     }
 
     if (node->status < TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle away requests",
-                ti()->hostname);
+                TI_NODE_ID" is not ready to handle away requests",
+                ti()->node->id);
         goto finish;
     }
 
@@ -507,16 +506,15 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got a forwarded query from an unauthorized connection: `%s`",
-                ti()->hostname);
+                "got a forwarded query from an unauthorized connection");
         goto finish;
     }
 
     if (this_node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle query requests",
-                ti()->hostname);
+                TI_NODE_ID" is not ready to handle query requests",
+                this_node->id);
         goto finish;
     }
 
@@ -546,8 +544,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
                 TI_NODE_STAT_SHUTTING_DOWN)) == 0)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle query requests",
-                ti()->hostname);
+                TI_NODE_ID" is not ready to handle query requests",
+                this_node->id);
         goto finish;
     }
 
@@ -626,9 +624,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got a forwarded run request from an "
-                "unauthorized connection: `%s`",
-                ti()->hostname);
+                "got a forwarded run request from an unauthorized connection");
         goto finish;
     }
 
@@ -638,8 +634,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
             TI_NODE_STAT_SHUTTING_DOWN)) == 0)
     {
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not ready to handle `run` requests",
-                ti()->hostname);
+                TI_NODE_ID" is not ready to handle `run` requests",
+                this_node->id);
         goto finish;
     }
 
@@ -726,9 +722,7 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!node)
     {
-        log_error(
-                "got a setup request from an unauthorized connection: `%s`",
-                ti_stream_name(stream));
+        log_error("got a setup request from an unauthorized connection");
         return;
     }
 
@@ -762,9 +756,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!node)
     {
-        log_error(
-                "got a sync request from an unauthorized connection: `%s`",
-                ti_stream_name(stream));
+        log_error("got a sync request from an unauthorized connection");
         return;
     }
 
@@ -775,9 +767,9 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
                 "but this node is not in `away` mode",
                 ti_stream_name(stream));
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not in `away` mode and therefore cannot handle "
+                TI_NODE_ID" is not in `away` mode and therefore cannot handle "
                 "sync requests",
-                ti_name());
+                ti()->node->id);
         goto finish;
     }
 
@@ -836,9 +828,9 @@ static void nodes__on_req_syncpart(
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
 
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not in `synchronizing` mode and therefore "
+                TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti_name());
+                ti()->node->id);
         goto finish;
     }
 
@@ -877,9 +869,9 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not in `synchronizing` mode and therefore "
+                TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti_name());
+                ti()->node->id);
         goto finish;
     }
 
@@ -918,9 +910,9 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not in `synchronizing` mode and therefore "
+                TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti_name());
+                ti()->node->id);
         goto finish;
     }
 
@@ -960,9 +952,9 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
                 "but this node is not in `synchronizing` mode",
                 ti_proto_str(pkg->tp), ti_stream_name(stream));
         ex_set(&e, EX_NODE_ERROR,
-                "node `%s` is not in `synchronizing` mode and therefore "
+                TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti_name());
+                ti()->node->id);
         goto finish;
     }
 

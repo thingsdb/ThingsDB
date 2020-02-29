@@ -76,10 +76,6 @@ typedef struct ti_ref_s { uint32_t ref; } ti_ref_t;
 #define ti_max(x__, y__) ((x__) >= (y__) ? (x__) : (y__));
 #define ti_min(x__, y__) ((x__) <= (y__) ? (x__) : (y__));
 
-/* SUSv2 guarantees that "Host names are limited to 255 bytes,
- * excluding terminating null byte" */
-#define TI_MAX_HOSTNAME_SZ 256
-
 static const int TI_CLERI_PARSE_FLAGS =
     CLERI_FLAG_EXPECTING_DISABLED|
     CLERI_FLAG_EXCLUDE_OPTIONAL|

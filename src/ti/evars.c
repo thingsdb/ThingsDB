@@ -65,9 +65,12 @@ void ti_evars_parse(void)
     evars__str(
             "THINGSDB_BIND_CLIENT_ADDR",
             &ti()->cfg->bind_client_addr);
+    evars__str(
+            "THINGSDB_NODE_NAME",
+            &ti()->cfg->node_name);
     evars__u16(
             "THINGSDB_LISTEN_NODE_PORT",
-            &ti()->cfg->client_port);
+            &ti()->cfg->node_port);
     evars__str(
             "THINGSDB_BIND_NODE_ADDR",
             &ti()->cfg->bind_node_addr);

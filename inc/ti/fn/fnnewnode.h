@@ -11,9 +11,6 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raddr;
     ti_task_t * task;
     cleri_children_t * child = nd->children;
-    struct in_addr sa;
-    struct in6_addr sa6;
-    struct sockaddr_storage addr;
     char * addrstr;
     int port;
 
@@ -47,14 +44,6 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
 
     raddr = (ti_raw_t *) query->rval;
-    if (raddr->n >= INET6_ADDRSTRLEN)
-    {
-        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%.*s`",
-                (int) raddr->n,
-                (char *) raddr->data);
-        goto fail0;
-    }
-
     addrstr = ti_raw_to_str(raddr);
     if (!addrstr)
     {
@@ -88,32 +77,6 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         /* Use default port number as no port is given as argument */
         port = TI_DEFAULT_NODE_PORT;
-    }
-
-    if (inet_pton(AF_INET, addrstr, &sa))  /* try IPv4 */
-    {
-        if (uv_ip4_addr(addrstr, port, (struct sockaddr_in *) &addr))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv4 address from `%s:%d`",
-                    addrstr, port);
-            goto fail1;
-        }
-    }
-    else if (inet_pton(AF_INET6, addrstr, &sa6))  /* try IPv6 */
-    {
-        if (uv_ip6_addr(addrstr, port, (struct sockaddr_in6 *) &addr))
-        {
-            ex_set(e, EX_INTERNAL,
-                    "cannot create IPv6 address from `[%s]:%d`",
-                    addrstr, port);
-            goto fail1;
-        }
-    }
-    else
-    {
-        ex_set(e, EX_VALUE_ERROR, "invalid IPv4/6 address: `%s`", addrstr);
-        goto fail1;
     }
 
     if (ti_nodes_check_add(e))

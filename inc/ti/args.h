@@ -15,6 +15,7 @@ int ti_args_parse(int argc, char *argv[]);
 struct ti_args_s
 {
     /* true/false props */
+    int32_t deploy;
     int32_t force;
     int32_t init;
     int32_t log_colorized;

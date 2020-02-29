@@ -25,6 +25,34 @@
 #include <util/logger.h>
 
 
+static void main__init_deploy(void)
+{
+    size_t n;
+    char * node_name = ti()->cfg->node_name;
+
+    if (fx_file_exist(ti()->fn))
+        return;
+
+    n = strlen(node_name);
+    if (!n)
+        return;
+
+    if (node_name[n-1] == '0' && (n == 1 || node_name[n-2] == '-'))
+    {
+        /* this is the fist node and ThingsDB is not yet initialized */
+        ti()->args->init = 1;
+    }
+    else
+    {
+        char * secret = getenv("THINGSDB_NODE_SECRET");
+        secret = secret ? secret : node_name;
+
+        memset(ti()->args->secret, 0, ARGPARSE_MAX_LEN_ARG);
+        strncpy(ti()->args->secret, secret, ARGPARSE_MAX_LEN_ARG-1);
+    }
+}
+
+
 int main(int argc, char * argv[])
 {
     int rc = EXIT_SUCCESS;
@@ -96,7 +124,8 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
-    ti_evars_deploy();
+    if (ti()->args->deploy)
+        main__init_deploy();
 
     if (ti()->args->init)
     {

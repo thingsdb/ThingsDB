@@ -24,6 +24,7 @@ int ti_args_create(void)
     args = &args_;
 
     /* boolean */
+    args->deploy = 0;
     args->force = 0;
     args->init = 0;
     args->log_colorized = 0;
@@ -63,6 +64,18 @@ int ti_args_parse(int argc, char *argv[])
         .str_default = "",
         .str_value = args->config,
         .choices = NULL
+    };
+
+    argparse_argument_t deploy_ = {
+        .name = "deploy",
+        .shortcut = 0,
+        .help = "auto set `--init` or `--secret` based on the name name",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->deploy,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
     };
 
     argparse_argument_t init_ = {
@@ -162,6 +175,7 @@ int ti_args_parse(int argc, char *argv[])
     };
 
     if (    argparse_add_argument(parser, &config_) ||
+            argparse_add_argument(parser, &deploy_) ||
             argparse_add_argument(parser, &init_) ||
             argparse_add_argument(parser, &force_) ||
             argparse_add_argument(parser, &secret_) ||
@@ -198,14 +212,33 @@ int ti_args_parse(int argc, char *argv[])
             rc = -1;
         }
 
+        if (args->deploy)
+        {
+            if (args->init)
+            {
+                printf("--deploy cannot be used together with --init\n");
+                rc = -1;
+            }
+            if (*args->secret)
+            {
+                printf("--deploy cannot be used together with --secret\n");
+                rc = -1;
+            }
+        }
+
         if (args->rebuild)
         {
+            if (args->deploy)
+            {
+                printf("--rebuild cannot be used together with --deploy\n");
+                rc = -1;
+            }
             if (args->init)
             {
                 printf("--rebuild cannot be used together with --init\n");
                 rc = -1;
             }
-            else if (*args->secret)
+            if (*args->secret)
             {
                 printf("--rebuild cannot be used together with --secret\n");
                 rc = -1;
@@ -214,17 +247,22 @@ int ti_args_parse(int argc, char *argv[])
 
         if (args->forget_nodes)
         {
+            if (args->deploy)
+            {
+                printf("--forget-nodes cannot be used together with --deploy\n");
+                rc = -1;
+            }
             if (args->init)
             {
                 printf("--forget-nodes cannot be used together with --init\n");
                 rc = -1;
             }
-            else if (*args->secret)
+            if (*args->secret)
             {
                 printf("--forget-nodes cannot be used together with --secret\n");
                 rc = -1;
             }
-            else if (args->rebuild)
+            if (args->rebuild)
             {
                 printf("--forget-nodes cannot be used together with --rebuild\n");
                 rc = -1;

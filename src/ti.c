@@ -653,65 +653,16 @@ _Bool ti_ask_continue(const char * warn)
 
 void ti_print_connect_info(void)
 {
-    struct ifaddrs * addrs, * tmp;
-
     printf(
-        "Waiting for an invite from a node to join ThingsDB...\n");
-
-    if (getifaddrs(&addrs))
-        goto done;
-
-    printf(
+        "Waiting for an invite from a node to join ThingsDB...\n"
         "\n"
-        "You can use one of the following queries to add this node:\n");
-
-    for (tmp = addrs; tmp; tmp = tmp->ifa_next)
-    {
-        if (!tmp->ifa_addr)
-            continue;
-
-        if (tmp->ifa_addr->sa_family == AF_INET)
-        {
-            struct sockaddr_in * addr = (struct sockaddr_in *) tmp->ifa_addr;
-            printf(
-                "\n"
-                "  interface: %s\n"
-                "    new_node('%s', '%s', %u);\n",
-                tmp->ifa_name,
-                ti()->args->secret,
-                inet_ntoa(addr->sin_addr),
-                ti()->cfg->node_port);
-        }
-        if (tmp->ifa_addr->sa_family == AF_INET6)
-        {
-            char ipv6[INET6_ADDRSTRLEN];
-
-            struct sockaddr_in6 * addr = (struct sockaddr_in6 *) tmp->ifa_addr;
-
-            inet_ntop(
-                    AF_INET6,
-                    &addr->sin6_addr,
-                    ipv6,
-                    sizeof(ipv6));
-
-            printf(
-                "\n"
-                "  interface: %s\n"
-                "    new_node('%s', '%s', %u);\n",
-                tmp->ifa_name,
-                ti()->args->secret,
-                ipv6,
-                ti()->cfg->node_port);
-        }
-    }
-
-    freeifaddrs(addrs);
-
-done:
-    printf(
+        "You can use the following query to add this node:\n"
         "\n"
-        "(if you want to create a new ThingsDB instead, press CTRL+C and "
-        "use the --init argument)\n");
+        "    new_node('%s', '%s', %u);\n"
+        "\n",
+        ti()->args->secret,
+        ti()->cfg->node_name,
+        ti()->cfg->node_port);
 }
 
 ti_rpkg_t * ti_node_status_rpkg(void)

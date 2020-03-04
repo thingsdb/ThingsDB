@@ -195,7 +195,7 @@ int ti_args_parse(int argc, char *argv[])
         {
             if (*args->secret && !strx_is_graph(args->secret))
             {
-                printf("secret should only contain graphic characters\n");
+                printf("secret must only contain graphical characters\n");
                 rc = -1;
             }
         }

@@ -573,6 +573,82 @@ int ti_query_unpack(
     return obj.via.sz == 2 ? 0 : ti_query_unpack_args(query, &vup, e);
 }
 
+static int query__run_arr_props(
+        ti_query_t * query,
+        ti_vup_t * vup,
+        ti_procedure_t * procedure,
+        size_t nargs,
+        ex_t * e)
+{
+    size_t n = procedure->closure->vars->n;
+    n = nargs < n ? nargs : n;
+
+    for (size_t idx = 0; idx < n; ++idx)
+    {
+        ti_val_t * val = ti_val_from_unp_e(vup, e);
+        if (!val)
+        {
+            assert (e->nr);
+            ex_append(e, " (argument %zu for procedure `%.*s`)",
+                idx,
+                (int) procedure->name->n,
+                (const char *) procedure->name->data);
+            return e->nr;
+        }
+        ti_val_drop(vec_set(query->val_cache, val, idx));
+    }
+    return e->nr;
+}
+
+static int query__run_map_props(
+        ti_query_t * query,
+        ti_vup_t * vup,
+        ti_procedure_t * procedure,
+        size_t nargs,
+        ex_t * e)
+{
+    mp_obj_t arg_name;
+    ti_val_t * val;
+    vec_t * vars = procedure->closure->vars;
+
+    while (nargs--)
+    {
+        size_t idx = 0;
+        if (mp_next(vup->up, &arg_name) != MP_STR)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "arguments keys must be of type `"TI_VAL_STR_S"` "
+                    "but got type `%s` instead", mp_type_str(arg_name.tp));
+            return e->nr;
+        }
+
+        for (vec_each(vars, ti_prop_t, prop), ++idx)
+            if (mp_strn_eq(&arg_name, prop->name->str, prop->name->n))
+                break;
+
+        if (idx == vars->n)
+        {
+            mp_skip(vup->up);
+            continue;
+        }
+
+        val = ti_val_from_unp_e(vup, e);
+        if (!val)
+        {
+            assert (e->nr);
+            ex_append(e, " (argument `%.*s` for procedure `%.*s`)",
+                (int) arg_name.via.str.n,
+                arg_name.via.str.data,
+                (int) procedure->name->n,
+                (const char *) procedure->name->data);
+            return e->nr;
+        }
+
+        ti_val_drop(vec_set(query->val_cache, val, idx));
+    }
+    return e->nr;
+}
+
 int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,
@@ -584,8 +660,6 @@ int ti_query_unp_run(
     vec_t * procedures = NULL;
     mp_obj_t obj, mp_procedure;
     ti_procedure_t * procedure;
-    ti_val_t * argval;
-    size_t nargs, idx = 0;
 
     mp_unp_t up;
     mp_unp_init(&up, data, n);
@@ -605,6 +679,7 @@ int ti_query_unp_run(
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
 
+
     if (obj.via.sz < 2 || mp_next(&up, &mp_procedure) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -612,8 +687,6 @@ int ti_query_unp_run(
                 "second value of type `"TI_VAL_STR_S"`"DOC_PROCEDURES_API);
         return e->nr;
     }
-
-    nargs = obj.via.sz - 2;
 
     switch (scope->tp)
     {
@@ -649,21 +722,11 @@ int ti_query_unp_run(
         return e->nr;
     }
 
-    if (nargs != procedure->closure->vars->n)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "procedure `%.*s` takes %"PRIu32" argument%s but %d %s given",
-            (int) mp_procedure.via.str.n,
-            mp_procedure.via.str.data,
-            procedure->closure->vars->n,
-            procedure->closure->vars->n == 1 ? "" : "s",
-            nargs,
-            nargs==1 ? "was" : "were");
-        return e->nr;
-    }
-
     if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
         query->qbind.flags |= TI_QBIND_FLAG_EVENT;
+
+    query->closure = procedure->closure;
+    ti_incref(query->closure);
 
     query->val_cache = vec_new(procedure->closure->vars->n);
     if (!query->val_cache)
@@ -672,24 +735,20 @@ int ti_query_unp_run(
         return e->nr;
     }
 
-    for (vec_each(procedure->closure->vars, ti_prop_t, prop), ++idx)
+    for (vec_each(procedure->closure->vars, ti_prop_t, _))
+        VEC_push(query->val_cache, ti_nil_get());
+
+    mp_next(&up, &obj);
+
+    switch (obj.tp)
     {
-        argval = ti_val_from_unp_e(&vup, e);
-        if (!argval)
-        {
-            assert (e->nr);
-            ex_append(e, " (argument %zu for procedure `%.*s`)",
-                idx,
-                (int) mp_procedure.via.str.n,
-                mp_procedure.via.str.data);
-            return e->nr;
-        }
-        VEC_push(query->val_cache, argval);
+    case MP_ARR:
+        return query__run_arr_props(query, &vup, procedure, obj.via.sz, e);
+    case MP_MAP:
+        return query__run_map_props(query, &vup, procedure, obj.via.sz, e);
+    default:
+        break;
     }
-
-    query->closure = procedure->closure;
-    ti_incref(query->closure);
-
     return 0;
 }
 

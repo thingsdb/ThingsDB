@@ -608,23 +608,16 @@ static int api__gen_run_data(
         unsigned char ** data,
         size_t * size)
 {
-    size_t i = 0;
-    mp_unp_t up = {0};
+    int with_args;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, 0, 0);
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (req->mp_args.tp == MP_BIN)
-    {
-        mp_obj_t obj;
-        mp_unp_init(&up, req->mp_args.via.bin.data, req->mp_args.via.bin.n);
-        mp_next(&up, &obj);
-        i = obj.via.sz;
-    }
+    with_args = req->mp_args.tp == MP_BIN;
 
-    if (msgpack_pack_array(&pk, 2 + i) ||
+    if (msgpack_pack_array(&pk, 2 + with_args) ||
         api__gen_scope(ar, &pk) ||
         mp_pack_strn(
                 &pk,
@@ -632,7 +625,10 @@ static int api__gen_run_data(
                 req->mp_name.via.str.n))
         goto fail;
 
-    if (i && mp_pack_append(&pk, up.pt, up.end- up.pt))
+    if (with_args && mp_pack_append(
+            &pk,
+            req->mp_args.via.bin.data,
+            req->mp_args.via.bin.n))
         goto fail;
 
     *data = (unsigned char *) buffer.data;
@@ -1044,8 +1040,10 @@ static int api__from_msgpack(ti_api_request_t * ar)
 
         else if (mp_str_eq(&mp_key, "args"))
         {
+            mp_enum_t tp;
             request.mp_args.via.str.data = up.pt;
-            if (mp_skip(&up) != MP_ARR)
+            tp = mp_skip(&up);
+            if (tp != MP_ARR && tp != MP_MAP)
                 goto invalid_api_request;
             request.mp_args.via.str.n = up.pt - request.mp_args.via.str.data;
             request.mp_args.tp = MP_BIN;

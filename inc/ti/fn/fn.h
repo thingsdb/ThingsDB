@@ -266,28 +266,31 @@ static inline int fn_not_thingsdb_or_collection_scope(
 
 static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_closure_t * closure;
     vec_t * args;
+    size_t n;
 
     if (!ti_val_is_closure(query->rval))
         return fn_call_try("call", query, nd, e);
 
-    args = vec_new(nargs);
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+    n = closure->vars->n;
+
+    args = vec_new(n);
     if (!args)
     {
         ex_set_mem(e);
-        return e->nr;
+        goto fail0;
     }
 
-    closure = (ti_closure_t *) query->rval;
-    query->rval = NULL;
-
-    while (child)
+    while (child && n)
     {
+        --n;  // outside while so we do not go below zero
+
         if (ti_do_statement(query, child->node, e))
-            goto failed;
+            goto fail1;
 
         VEC_push(args, query->rval);
         query->rval = NULL;
@@ -298,10 +301,14 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         child = child->next->next;
     }
 
+    while (n--)
+        VEC_push(args, ti_nil_get());
+
     (void) ti_closure_call(closure, query, args, e);
 
-failed:
+fail1:
     vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+fail0:
     ti_val_drop((ti_val_t *) closure);
     return e->nr;
 }

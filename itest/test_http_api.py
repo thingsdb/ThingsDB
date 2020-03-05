@@ -329,6 +329,26 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.status_code, 200)
         self.assertEqual(x.json(), 43)
 
+        data = {'type': 'run', 'name': 'addone', 'args': {'x': 6}}
+
+        x = requests.post(
+            f'{api0}//stuff',
+            json=data,
+            auth=('admin', 'pass'),
+        )
+        self.assertEqual(x.status_code, 200)
+        self.assertEqual(x.json(), 7)
+
+        data = {'type': 'run', 'name': 'addone', 'args': {'x': 7, 'y': 5}}
+
+        x = requests.post(
+            f'{api0}//stuff',
+            json=data,
+            auth=('admin', 'pass'),
+        )
+        self.assertEqual(x.status_code, 200)
+        self.assertEqual(x.json(), 8)
+
 
 if __name__ == '__main__':
     run_test(TestHTTPAPI())

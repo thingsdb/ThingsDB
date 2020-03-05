@@ -163,7 +163,7 @@ class TestNodeFunctions(TestBase):
 
         self.assertEqual(len(node), 10)
 
-        self.assertIn("address", node)
+        self.assertIn("node_name", node)
         self.assertIn("committed_event_id", node)
         self.assertIn("next_thing_id", node)
         self.assertIn("node_id", node)
@@ -174,7 +174,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('zone', node)
         self.assertIn('stream', node)
 
-        self.assertTrue(isinstance(node["address"], str))
+        self.assertTrue(isinstance(node["node_name"], str))
         self.assertTrue(isinstance(node["committed_event_id"], int))
         self.assertTrue(isinstance(node["next_thing_id"], int))
         self.assertTrue(isinstance(node["node_id"], int))

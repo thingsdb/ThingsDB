@@ -7,6 +7,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_procedure_t * procedure;
     vec_t * args;
     vec_t * procedures = ti_query_procedures(query);
+    size_t n;
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
         fn_nargs_min("run", DOC_RUN, 1, nargs, e) ||
@@ -17,8 +18,9 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
+    n = procedure->closure->vars->n;
 
-    args = vec_new(nargs-1);
+    args = vec_new(n);
     if (!args)
     {
         ex_set_mem(e);
@@ -28,14 +30,18 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop((ti_val_t *) query->rval);
     query->rval = NULL;
 
-    while (child->next && (child = child->next->next))
+    while (child->next && (child = child->next->next) && n)
     {
+        --n;  // outside while so we do not go below zero
         if (ti_do_statement(query, child->node, e))
             goto failed;
 
         VEC_push(args, query->rval);
         query->rval = NULL;
     }
+
+    while (n--)
+        VEC_push(args, ti_nil_get());
 
     (void) ti_closure_call(procedure->closure, query, args, e);
 

@@ -382,16 +382,6 @@ class TestCollectionFunctions(TestBase):
             await client.query('call();')
 
         with self.assertRaisesRegex(
-                NumArgumentsError,
-                'this closure takes 0 arguments but 1 was given'):
-            await client.query('(||nil).call(nil);')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'this closure takes 0 arguments but 1 was given'):
-            await client.query('fun = ||nil; fun(nil);')
-
-        with self.assertRaisesRegex(
                 OperationError,
                 r'stored closures with side effects must be wrapped '
                 r'using `wse\(...\)`'):
@@ -409,6 +399,8 @@ class TestCollectionFunctions(TestBase):
                 .test(42);
             ''')
 
+        self.assertIs(await client.query('(||nil).call(nil);'), None)
+        self.assertIs(await client.query('fun = ||nil; fun(nil);'), None)
         self.assertEqual(await client.query('(|y|.y = y).call(42);'), 42)
         self.assertEqual(await client.query('wse(.test.call(42));'), 42)
 

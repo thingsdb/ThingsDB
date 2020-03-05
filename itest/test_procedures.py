@@ -154,28 +154,27 @@ class TestProcedures(TestBase):
 
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
-                    NumArgumentsError,
-                    r'procedure `upd_list` takes 1 argument but 0 were given'):
+                    TypeError,
+                    r'`\+` not supported between `int` and `nil`'):
                 await client.run('upd_list')
-
-            with self.assertRaisesRegex(
-                    NumArgumentsError,
-                    r'procedure `upd_list` takes 1 argument but 2 were given'):
-                await client.run('upd_list', 1, 2)
 
         first = 1
         for client in (client0, client1, client2):
             first += 2
             await client.run('upd_list', 2)
 
+        for client in (client0, client1, client2):
+            first += 3
+            await client.run('upd_list', i=3)
+
         await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.run('get_first'), first)
 
         for client in (client0, client1, client2):
-            first += 3
+            first += 4
             await client.query(r'''
-                wse(.upd_list.call(3));
+                wse(.upd_list.call(4));
                 nil;
             ''')
 
@@ -546,8 +545,8 @@ class TestProcedures(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                NumArgumentsError,
-                'this closure takes 1 argument but 0 were given'):
+                TypeError,
+                r'`\*` not supported between `nil` and `int`'):
             await client.query(r'''
                 run('test');
             ''')

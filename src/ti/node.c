@@ -315,7 +315,7 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
         mp_pack_str(pk, "next_thing_id") ||
         msgpack_pack_uint64(pk, node->next_thing_id) ||
 
-        mp_pack_str(pk, "address") ||
+        mp_pack_str(pk, "node_name") ||
         mp_pack_str(pk, node->addr) ||
 
         mp_pack_str(pk, "port") ||

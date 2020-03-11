@@ -113,7 +113,7 @@ ti_node_t * ti_node_create(
         const char * addr,
         const char * secret);
 void ti_node_drop(ti_node_t * node);
-void ti_node_upd_port(ti_node_t * node, uint16_t port);
+void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name);
 const char * ti_node_name(ti_node_t * node);
 const char * ti_node_status_str(ti_node_status_t status);
 void ti_node_connect(ti_node_t * node);

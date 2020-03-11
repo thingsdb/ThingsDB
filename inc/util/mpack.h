@@ -165,13 +165,13 @@ static int __attribute__((unused))mp_pack_strn(msgpack_packer * x, const void * 
 #define mp_pack_str(x__, s__) \
     mp_pack_strn(x__, s__, strlen(s__))
 
-#define mp_str_eq(o__, s__) \
+#define mp_str_eq(o__, s__) (\
     (o__)->via.str.n == strlen(s__) && \
-    memcmp(s__, (o__)->via.str.data, (o__)->via.str.n) == 0
+    memcmp(s__, (o__)->via.str.data, (o__)->via.str.n) == 0)
 
-#define mp_strn_eq(o__, s__, n__) \
+#define mp_strn_eq(o__, s__, n__) (\
     (o__)->via.str.n == n__ && \
-    memcmp(s__, (o__)->via.str.data, (o__)->via.str.n) == 0
+    memcmp(s__, (o__)->via.str.data, (o__)->via.str.n) == 0)
 
 #define mp_pack_append(pk__, s__, n__) \
     (*(pk__)->callback)((pk__)->data, (const char*)s__, n__)

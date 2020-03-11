@@ -69,7 +69,9 @@ int ti_args_parse(int argc, char *argv[])
     argparse_argument_t deploy_ = {
         .name = "deploy",
         .shortcut = 0,
-        .help = "auto set `--init` or `--secret` based on the name name",
+        .help = \
+            "auto set `--init` or `--secret` based on the `THINGSDB_NODE_NAME`"
+            " and `THINGSDB_NODE_SECRET` environment variable",
         .action = ARGPARSE_STORE_TRUE,
         .default_int32_t = 0,
         .pt_value_int32_t = &args->deploy,
@@ -138,6 +140,18 @@ int ti_args_parse(int argc, char *argv[])
         .choices = NULL,
     };
 
+    argparse_argument_t yes_ = {
+        .name = "yes",
+        .shortcut = 'y',
+        .help = "answer `yes` to all questions",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->yes,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
+    };
+
     argparse_argument_t version_ = {
         .name = "version",
         .shortcut = 'v',
@@ -181,6 +195,7 @@ int ti_args_parse(int argc, char *argv[])
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &rebuild_) ||
             argparse_add_argument(parser, &forget_nodes_) ||
+            argparse_add_argument(parser, &yes_) ||
             argparse_add_argument(parser, &version_) ||
             argparse_add_argument(parser, &log_level_) ||
             argparse_add_argument(parser, &log_colorized_))

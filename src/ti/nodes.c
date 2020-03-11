@@ -82,6 +82,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         mp_this_node_id,
         mp_secret,
         mp_from_node_id,
+        mp_from_node_name,
         mp_version,
         mp_min_ver,
         mp_next_thing_id,
@@ -112,11 +113,18 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
+    /*
+     * TODO: Required, only for compatibility with ThingsDB < 0.7.10
+     *       In newer versions `mp_node_name` must always be available.
+     */
+    mp_from_node_name.tp = 0;
+
+    if (mp_next(&up, &obj) != MP_ARR || (obj.via.sz != 6 && obj.via.sz != 7) ||
 
         mp_next(&up, &mp_this_node_id) != MP_U64 ||
         mp_next(&up, &mp_secret) != MP_STR ||
         mp_next(&up, &mp_from_node_id) != MP_U64 ||
+        (obj.via.sz == 7 && mp_next(&up, &mp_from_node_name) != MP_STR) ||
         mp_next(&up, &mp_version) != MP_STR ||
         mp_next(&up, &mp_min_ver) != MP_STR ||
         mp_next(&up, &obj) != MP_ARR || obj.via.sz != 7 ||
@@ -345,8 +353,11 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     ti_stream_set_node(stream, node);
 
-    /* update port if required */
-    ti_node_upd_port(node, from_node_port);
+    /* update node name and/or port if required
+     * TODO: type check is only for backward compatibility with < v0.7.10
+     */
+    if (mp_from_node_name.tp == MP_STR)
+        ti_node_upd_node(node, from_node_port, &mp_from_node_name);
 
     if (mp_sbuffer_alloc_init(
             &buffer,

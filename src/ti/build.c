@@ -111,8 +111,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         if (node->id == build->from_node_id)
         {
             ti_stream_set_node(req->stream, node);
-            ti_node_upd_port(node, build->from_node_port);
-
             node->status = build->from_node_status;
             node->zone = build->from_node_zone;
             node->syntax_ver = build->from_node_syntax_ver;

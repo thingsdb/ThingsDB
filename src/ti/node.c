@@ -74,12 +74,21 @@ void ti_node_drop(ti_node_t * node)
     }
 }
 
-void ti_node_upd_port(ti_node_t * node, uint16_t port)
+void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
 {
+    char * addr;
+
     if (node->port != port)
     {
         node->port = port;
-        (void) ti_save();
+        ti()->flags |= TI_FLAG_NODES_CHANGED;
+    }
+
+    if (!mp_str_eq(node_name, node->addr) && (addr = mp_strdup(node_name)))
+    {
+        free(node->addr);
+        node->addr = addr;
+        ti()->flags |= TI_FLAG_NODES_CHANGED;
     }
 }
 
@@ -452,10 +461,11 @@ static void node__on_connect(uv_connect_t * req, int status)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_array(&pk, 6);
+    msgpack_pack_array(&pk, 7);
     msgpack_pack_uint32(&pk, node->id);
     mp_pack_strn(&pk, node->secret, CRYPTX_SZ);
     msgpack_pack_uint32(&pk, ti_node->id);
+    mp_pack_str(&pk, ti_node->addr);
     mp_pack_str(&pk, TI_VERSION);
     mp_pack_str(&pk, TI_MINIMAL_VERSION);
     ti_node_status_to_pk(ti_node, &pk);

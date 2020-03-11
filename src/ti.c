@@ -371,6 +371,17 @@ int ti_unpack(uchar * data, size_t n)
         ti_.flags |= TI_FLAG_NODES_CHANGED;
     }
 
+    if (strcmp(ti_.node->addr, ti()->cfg->node_name) != 0)
+    {
+        char * addr = strdup(ti()->cfg->node_name);
+        if (addr)
+        {
+            free(ti_.node->addr);
+            ti_.node->addr = addr;
+            ti()->flags |= TI_FLAG_NODES_CHANGED;
+        }
+    }
+
     return 0;
 fail:
     ti_.node = NULL;
@@ -638,6 +649,8 @@ int ti_unlock(void)
 
 _Bool ti_ask_continue(const char * warn)
 {
+    if (ti_.args->yes)
+        return true;  /* continue without asking */
     printf("\nWarning: %s!!\n\n"
             "Type `yes` + ENTER if you really want to continue: ", warn);
     fflush(stdout);

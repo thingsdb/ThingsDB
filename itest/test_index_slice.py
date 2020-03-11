@@ -49,6 +49,19 @@ class TestIndexSlice(TestBase):
             client.close()
             await client.wait_closed()
 
+    async def test_example_doc(self, client0, client1, client2):
+        res = await client0.query(r'''
+            months = ['January', 'February', 'XXX', 'May'];
+
+            /* Replace 'XXX' with 'March' and 'April' */
+            months[2:3] = ['March', 'April'];
+
+            /* Return result */
+            months;
+        ''')
+
+        self.assertEqual(res, ['January', 'February', 'March', 'April', 'May'])
+
     async def test_illigal(self, client0, client1, client2):
         s = 'abcdef'
         tu = [1, 2, 3, 4, 5, 6]

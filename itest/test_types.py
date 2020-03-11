@@ -231,6 +231,19 @@ class TestTypes(TestBase):
             .a = {}; .b = {};
             ( set([.a]) != set([.b]) )
         '''))
+        await client.query(r'''
+            anna = {};
+            cato = {};
+            iris = {};
+
+            a = set(cato, iris);
+            b = set(cato, anna);
+
+            assert (a | b == set(anna, cato, iris));    // Union
+            assert (a & b == set(cato));                // Intersection
+            assert (a - b == set(iris));                // Difference
+            assert (a ^ b == set(anna, iris));          // Symmetric difference
+        ''')
 
 
 if __name__ == '__main__':

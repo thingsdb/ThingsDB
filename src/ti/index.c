@@ -235,6 +235,9 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail1;
     }
 
+    for (step = start; step < stop; ++step)
+        ti_val_drop(vec_get(varr->vec, step));
+
     memmove(
         varr->vec->data + start + n,
         varr->vec->data + start + c,

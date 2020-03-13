@@ -43,6 +43,11 @@ class TestOperators(TestBase):
         self.assertEqual(await client.query('5 - 0 ? 1 : 2;'), 1)
         self.assertEqual(await client.query('2 + 3 * 4 + 1'), 15)
         self.assertEqual(await client.query('2 * 3 + 4 * 2'), 14)
+        self.assertTrue(await client.query('2 + 2 * 2 + 2 & 1 == 0 && 2'))
+        self.assertTrue(await client.query('2 & 1 == 0 && 2'))
+        self.assertTrue(await client.query('2 & 1 == 0'))
+        self.assertTrue(await client.query('0 == 2 & 1'))
+        self.assertTrue(await client.query('2 && 0 == 2 + 2 * 2 + 2 & 1'))
 
     async def test_ternary(self, client):
         """Make sure we do this better than PHP ;-)"""

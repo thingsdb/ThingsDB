@@ -35,11 +35,7 @@ class TestSimple(TestBase):
         await client.wait_closed()
 
     async def test_hello_world(self, client):
-        self.assertTrue(await client.query('2 + 2 * 2 + 2 & 1 == 0 && 2'))
-        self.assertTrue(await client.query('2 & 1 == 0 && 2'))
-        self.assertTrue(await client.query('2 & 1 == 0'))
-        self.assertTrue(await client.query('0 == 2 & 1'))
-        self.assertTrue(await client.query('2 && 0 == 2 + 2 * 2 + 2 & 1'))
+        await client.query('"Hello world!"')
 
 
 if __name__ == '__main__':

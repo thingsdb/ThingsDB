@@ -503,6 +503,8 @@ static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
         syntax_childa = parent->node->children->node->children;
         childb->node->children->node = syntax_childa->node;
         syntax_childa->node = tmp;
+
+        /* Recursive swapping */
         qbind__swap(syntax_childa, gid);
     }
 
@@ -546,8 +548,17 @@ static _Bool qbind__operations(
         syntax_childa = parent->node->children->node->children;
         childb->node->children->node = syntax_childa->node;
         syntax_childa->node = tmp;
-        if (parent_gid == 0)
-            qbind__swap(syntax_childa, gid);
+
+        /* This is required for recursive swapping.
+         * For example the order:
+         *    C B A
+         * One iteration will perform the following swaps:
+         *    C A B
+         *    A C B
+         * But now we still need to swap C and B, therefore we require the
+         * recursive swap. (nothing except swapping)
+         */
+        qbind__swap(syntax_childa, gid);
     }
     return gid > parent_gid;
 }

@@ -440,6 +440,7 @@ static int imap__union_make(imap_node_t * dest, imap_node_t * node)
         if (node_nd->data && !dest_nd->data)
         {
             dest_nd->data = node_nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
             dest->sz++;
         }
 

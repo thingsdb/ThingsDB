@@ -202,6 +202,7 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
                 ti_incref(thing);
             }
             else
+                /* restore sweep flag since the thing is not added to GC */
                 thing->flags |= TI_VFLAG_THING_SWEEP;
         }
         return 0;
@@ -225,6 +226,7 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
                 ti_incref(thing);
             }
             else
+                /* restore sweep flag since the thing is not added to GC */
                 thing->flags |= TI_VFLAG_THING_SWEEP;
         }
         return 0;

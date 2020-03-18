@@ -89,6 +89,13 @@ class TestGC(TestBase):
         self.assertEqual(x, other)
 
         await client.query(r'''
+            .c = {arr: [{name: 'Iris'}]};
+            .c.arr.push(.c);
+            .c.arr.push({name: 'Cato'});
+            .del('c');
+        ''', scope=stuff)
+
+        await client.query(r'''
             .xx = {};
             .yy = {};
             .xx.yy = .yy;
@@ -119,7 +126,7 @@ class TestGC(TestBase):
         counters = await client.query('counters();', scope='@node')
 
         # expecting `w`, `xx`, `yy`, `a` and `a.other` in the garbage
-        self.assertEqual(counters['garbage_collected'], 5)
+        self.assertEqual(counters['garbage_collected'], 8)
 
 
 if __name__ == '__main__':

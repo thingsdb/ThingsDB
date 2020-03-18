@@ -192,14 +192,17 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
             /* prevents loop and double add to `garbage` */
             thing->flags &= ~TI_VFLAG_THING_SWEEP;
 
+            query__t_mark_gc(thing, query);
+
             if (thing->ref > 1)
             {
                 if (vec_push_create(&query->gc, thing))
                     return -1;
+
                 ti_incref(thing);
             }
-
-            query__t_mark_gc(thing, query);
+            else
+                thing->flags |= TI_VFLAG_THING_SWEEP;
         }
         return 0;
     }
@@ -212,6 +215,8 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
             /* prevents loop and double add to `garbage` */
             thing->flags &= ~TI_VFLAG_THING_SWEEP;
 
+            query__t_mark_gc(thing, query);
+
             if (wrap->ref > 1 || thing->ref > 1)
             {
                 if (vec_push_create(&query->gc, thing))
@@ -219,7 +224,8 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
 
                 ti_incref(thing);
             }
-            query__t_mark_gc(thing, query);
+            else
+                thing->flags |= TI_VFLAG_THING_SWEEP;
         }
         return 0;
     }
@@ -264,11 +270,12 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
                 /* prevents loop and double add to `garbage` */
                 thing->flags &= ~TI_VFLAG_THING_SWEEP;
 
+                query__t_mark_gc(thing, query);
+
                 if (vec_push_create(&query->gc, thing))
                     return -1;
 
                 ti_incref(thing);
-                query__t_mark_gc(thing, query);
                 return 0;
             }
 
@@ -288,11 +295,12 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
                 /* prevents loop and double add to `garbage` */
                 thing->flags &= ~TI_VFLAG_THING_SWEEP;
 
+                query__t_mark_gc(thing, query);
+
                 if (vec_push_create(&query->gc, thing))
                     return -1;
 
                 ti_incref(thing);
-                query__t_mark_gc(thing, query);
                 return 0;
             }
 

@@ -238,7 +238,7 @@ static void node__on_resolved(
 
     log_info("resolved address `%s` for `%s`", addr, node->addr);
 
-    if (node__addr(node, addr, &sockaddr)== 0)
+    if (node__addr(node, addr, &sockaddr) == 0)
         node__connect(node, &sockaddr);
 
 done:

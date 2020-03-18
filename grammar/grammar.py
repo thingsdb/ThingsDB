@@ -54,6 +54,15 @@ class LangDef(Grammar):
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
+    t_template = Sequence(
+        '`',
+        Repeat(Choice(
+            Regex(r"([^`{]|``|{{)*"),
+            Sequence('{', THIS, '}')
+        )),
+        '`'
+    )
+
     thing_by_id = Regex(r'#[0-9]+')
 
     t_false = Keyword('false')
@@ -93,6 +102,7 @@ class LangDef(Grammar):
         t_string,
         t_regex,
         t_closure,
+        t_template,
     )
 
     opr0_mul_div_mod = Tokens('* / %')

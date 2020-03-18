@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2020-02-19 15:48:20
+ * Created at: 2020-03-18 21:48:34
  */
 
 #include <langdef/langdef.h>
@@ -32,6 +32,25 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
     cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
+    cleri_t * t_template = cleri_sequence(
+        CLERI_GID_T_TEMPLATE,
+        3,
+        cleri_token(CLERI_NONE, "`"),
+        cleri_repeat(CLERI_NONE, cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            cleri_regex(CLERI_NONE, "^([^`{]|``|{{)*"),
+            cleri_sequence(
+                CLERI_NONE,
+                3,
+                cleri_token(CLERI_NONE, "{"),
+                CLERI_THIS,
+                cleri_token(CLERI_NONE, "}")
+            )
+        ), 0, 0),
+        cleri_token(CLERI_NONE, "`")
+    );
     cleri_t * thing_by_id = cleri_regex(CLERI_GID_THING_BY_ID, "^#[0-9]+");
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
     cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)");
@@ -96,7 +115,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * immutable = cleri_choice(
         CLERI_GID_IMMUTABLE,
         CLERI_FIRST_MATCH,
-        8,
+        9,
         t_false,
         t_nil,
         t_true,
@@ -104,7 +123,8 @@ cleri_grammar_t * compile_langdef(void)
         t_int,
         t_string,
         t_regex,
-        t_closure
+        t_closure,
+        t_template
     );
     cleri_t * opr0_mul_div_mod = cleri_tokens(CLERI_GID_OPR0_MUL_DIV_MOD, "* / %");
     cleri_t * opr1_add_sub = cleri_tokens(CLERI_GID_OPR1_ADD_SUB, "+ -");

@@ -92,6 +92,19 @@ class TestTypes(TestBase):
         res = await client.run('foo', x=7)
         self.assertEqual(res, '7 * 7 = 49')
 
+        res = await client.query(r' ```escape```')
+        self.assertEqual(res, '`escape`')
+
+        res = await client.query(r' `{{escape}}`')
+        self.assertEqual(res, r'{escape}')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                "division or modulo by zero"):
+            await client.query(r'''
+                `valid: {7*99} wrong: {613/0} never: {80*80}`;
+            ''')
+
     async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];

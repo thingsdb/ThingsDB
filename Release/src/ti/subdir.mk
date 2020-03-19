@@ -66,6 +66,7 @@ C_SRCS += \
 ../src/ti/syncfull.c \
 ../src/ti/task.c \
 ../src/ti/tcp.c \
+../src/ti/template.c \
 ../src/ti/thing.c \
 ../src/ti/things.c \
 ../src/ti/token.c \
@@ -150,6 +151,7 @@ OBJS += \
 ./src/ti/syncfull.o \
 ./src/ti/task.o \
 ./src/ti/tcp.o \
+./src/ti/template.o \
 ./src/ti/thing.o \
 ./src/ti/things.o \
 ./src/ti/token.o \
@@ -234,6 +236,7 @@ C_DEPS += \
 ./src/ti/syncfull.d \
 ./src/ti/task.d \
 ./src/ti/tcp.d \
+./src/ti/template.d \
 ./src/ti/thing.d \
 ./src/ti/things.d \
 ./src/ti/token.d \

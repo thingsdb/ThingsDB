@@ -9,6 +9,7 @@
 #include <ti/index.h>
 #include <ti/names.h>
 #include <ti/nil.h>
+#include <ti/template.h>
 #include <ti/opr/oprinc.h>
 #include <ti/regex.h>
 #include <ti/task.h>
@@ -654,6 +655,18 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = node->data;
         ti_incref(query->rval);
         break;
+    case CLERI_GID_T_TEMPLATE:
+        if (!node->data)
+        {
+            if (ti_template_build(node))
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, node->data);
+        }
+        return ti_template_compile(node->data, query, e);
     case CLERI_GID_T_TRUE:
         query->rval = (ti_val_t *) ti_vbool_get(true);
         break;

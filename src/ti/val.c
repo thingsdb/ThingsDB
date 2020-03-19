@@ -12,6 +12,7 @@
 #include <ti/raw.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/template.h>
 #include <ti/thing.inline.h>
 #include <ti/things.h>
 #include <ti/val.h>
@@ -293,6 +294,9 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "unexpected `set` which cannot be added to the array");
         return e->nr;
+    case TI_VAL_TEMPLATE:
+        assert (0);
+        return e->nr;
     }
 
     if (vec_push(&varr->vec, val))
@@ -502,6 +506,9 @@ void ti_val_destroy(ti_val_t * val)
         return;
     case TI_VAL_CLOSURE:
         ti_closure_destroy((ti_closure_t *) val);
+        return;
+    case TI_VAL_TEMPLATE:
+        ti_template_destroy((ti_template_t *) val);
         return;
     }
 }
@@ -716,6 +723,8 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         break;
         ti_incref(v);
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
 
     ti_val_drop(*val);
@@ -764,6 +773,8 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
         ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
                 ti_val_str(*val));
         return e->nr;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
 
     ti_val_drop(*val);
@@ -832,6 +843,8 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         i = (*((ti_verror_t **) val))->code;
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
 
     if (ti_val_make_int(val, i))
@@ -906,6 +919,8 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         d = (double) (*(ti_verror_t **) val)->code;
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
 
     if (ti_val_make_float(val, d))
@@ -941,6 +956,8 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
         if (ti_vset_to_list((ti_vset_t **) val))
             ex_set_mem(e);
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
     return e->nr;
 }
@@ -1003,6 +1020,8 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     }
     case TI_VAL_SET:
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
     return e->nr;
 }
@@ -1040,6 +1059,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         return true;
+    case TI_VAL_TEMPLATE:
+        assert(0);
     }
     assert (0);
     return false;
@@ -1065,6 +1086,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_MP:
+    case TI_VAL_TEMPLATE:
         break;
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1084,8 +1106,8 @@ size_t ti_val_get_len(ti_val_t * val)
         break;
     case TI_VAL_ERROR:
         break;
+        assert(0);
     }
-    assert (0);
     return 0;
 }
 
@@ -1143,6 +1165,8 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         break;
+    case TI_VAL_TEMPLATE:
+        assert (0);
     }
     return 0;
 }
@@ -1204,6 +1228,9 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
         return;
     case TI_VAL_ERROR:
         *sz = ((ti_verror_t *) val)->msg_n + 96;
+        return;
+    case TI_VAL_TEMPLATE:
+        assert (0);
     }
 }
 
@@ -1230,6 +1257,8 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
+    case TI_VAL_TEMPLATE:
+        assert (0);
     }
     assert (0);
     return "unknown";
@@ -1261,6 +1290,8 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_SET:            return ti_grab(val__sset);
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
+    case TI_VAL_TEMPLATE:
+        assert (0);
     }
     assert (0);
     return ti_val_empty_str();

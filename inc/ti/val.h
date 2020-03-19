@@ -23,6 +23,11 @@ typedef enum
     TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
+    TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
+                           note that a template is never stored like a value,
+                           rather it may build from either a query or a stored
+                           closure; therefore template does not need to be
+                           handled like all other value type. */
 } ti_val_enum;
 
 #define TI_VAL_NIL_S        "nil"

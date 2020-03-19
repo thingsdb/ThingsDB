@@ -10,6 +10,7 @@
 #include <ti/vint.h>
 #include <ti/names.h>
 #include <ti/regex.h>
+#include <ti/template.h>
 #include <ti/raw.h>
 #include <ti/closure.h>
 #include <langdef/langdef.h>
@@ -104,6 +105,23 @@ int ncache__gen_immutable(
         assert (!nd->data);
         nd->data = ti_str_from_ti_string(nd->str, nd->len);
         break;
+    case CLERI_GID_T_TEMPLATE:
+        assert (!nd->data);
+        for(cleri_children_t * child = nd      /* sequence */
+                ->children->next->node          /* repeat */
+                ->children;
+            child;
+            child = child->next)
+            if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE &&
+                ncache__statement(
+                        syntax,
+                        vcache,
+                        child->node->children->next->node,
+                        e))
+                return e->nr;
+        (void) ti_template_build(nd);
+        break;
+
 
     default:
         return 0;

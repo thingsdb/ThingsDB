@@ -751,11 +751,15 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
             cleri_children_t * child = nd          /* sequence */
                     ->children->next->node         /* repeat */
                     ->children;
+
             for (; child; child = child->next)
+            {
                 if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
                     qbind__statement(
                             qbind,
                             child->node->children->next->node);
+                child->node->data = NULL;
+            }
             ++qbind->val_cache_n;
             nd->data = NULL;        /* initialize data to null */
             return;

@@ -615,6 +615,9 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 : index__get(query, slice->children->node, e);
 
         break;
+    case TI_VAL_TEMPLATE:
+        assert(0);
+        /* fall through */
     case TI_VAL_BYTES:
     case TI_VAL_BOOL:
     case TI_VAL_CLOSURE:

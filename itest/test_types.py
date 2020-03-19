@@ -66,6 +66,32 @@ class TestTypes(TestBase):
         self.assertTrue(await client.query(' ("Hello" != "hello") '))
         self.assertTrue(await client.query(' ("Hello" != "Hello.") '))
 
+    async def test_template(self, client):
+        res = await client.query(r'`the answer = {6 * 7}`;')
+        self.assertEqual(res, f'the answer = {6 * 7}')
+
+        res = await client.query(r'` empty space `;')
+        self.assertEqual(res, ' empty space ')
+
+        res = await client.query(r'``;')
+        self.assertEqual(res, '')
+
+        res = await client.query(r'`   `;')
+        self.assertEqual(res, '   ')
+
+        res = await client.query(r'` {1 + 1} {2 + 2} `;')
+        self.assertEqual(res, ' 2 4 ')
+
+        await client.query(r'''
+            .foo = |x| `{x} * {x} = {x * x}`;
+            new_procedure('foo', .foo);
+        ''')
+        res = await client.query(r'.foo(5);')
+        self.assertEqual(res, '5 * 5 = 25')
+
+        res = await client.run('foo', x=7)
+        self.assertEqual(res, '7 * 7 = 49')
+
     async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];

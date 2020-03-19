@@ -73,6 +73,8 @@ static inline int ti_val_make_assignable(
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t * ) *val, e);
+    case TI_VAL_TEMPLATE:
+        break;
     }
     assert(0);
     return -1;
@@ -105,6 +107,8 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         return e->nr;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t * ) *val, e);
+    case TI_VAL_TEMPLATE:
+        break;
     }
     assert(0);
     return -1;
@@ -146,7 +150,9 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
    case TI_VAL_CLOSURE: \
         return ti_closure_to_pk((ti_closure_t *) val__, pk__); \
     case TI_VAL_ERROR: \
-        return ti_verror_to_pk((ti_verror_t *) val__, pk__);
+        return ti_verror_to_pk((ti_verror_t *) val__, pk__); \
+    case TI_VAL_TEMPLATE: \
+        assert (0); return -1;
 
 #endif  /* TI_VAL_INLINE_H_ */
 

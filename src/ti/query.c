@@ -253,6 +253,9 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
         return 0;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) ti_query_mark_gc, query);
+    case TI_VAL_TEMPLATE:
+        assert(0);
+        return -1;
     }
     assert (0);
     return -1;
@@ -346,6 +349,9 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
                 VSET(val),
                 (imap_cb) (val->ref == 1 ? ti_query_val_gc : ti_query_mark_gc),
                 query);
+    case TI_VAL_TEMPLATE:
+        assert(0);
+        return -1;
     }
     assert (0);
     return -1;
@@ -450,6 +456,7 @@ void ti_query_destroy(ti_query_t * query)
         cleri_parse_free(query->parseres);
 
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
+
     if (query->qbind.flags & TI_QBIND_FLAG_API)
         ti_api_release(query->via.api_request);
     else

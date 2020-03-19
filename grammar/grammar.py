@@ -57,7 +57,7 @@ class LangDef(Grammar):
     t_template = Sequence(
         '`',
         Repeat(Choice(
-            Regex(r"([^`{]|``|{{)*"),
+            Regex(r"([^`{}]|``|{{|}})+"),
             Sequence('{', THIS, '}')
         )),
         '`'

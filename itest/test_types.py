@@ -84,13 +84,21 @@ class TestTypes(TestBase):
 
         await client.query(r'''
             .foo = |x| `{x} * {x} = {x * x}`;
+            .bar = |x| ` ``{x}`` `;
             new_procedure('foo', .foo);
+            new_procedure('bar', .bar);
         ''')
         res = await client.query(r'.foo(5);')
         self.assertEqual(res, '5 * 5 = 25')
 
+        res = await client.query(r'.bar(5);')
+        self.assertEqual(res, ' `5` ')
+
         res = await client.run('foo', x=7)
         self.assertEqual(res, '7 * 7 = 49')
+
+        res = await client.run('bar', x=7)
+        self.assertEqual(res, ' `7` ')
 
         res = await client.query(r' ```escape```')
         self.assertEqual(res, '`escape`')

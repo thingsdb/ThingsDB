@@ -11,6 +11,10 @@ typedef struct
     char s[];
 } str_t;
 
+static cleri_t regex_t = {
+    .tp = CLERI_TP_REGEX,
+};
+
 size_t template_escaped(const char * s, size_t n)
 {
     size_t count = 0;
@@ -52,11 +56,30 @@ str_t * template_str(const char * s, size_t n, size_t nn)
     return nstr;
 }
 
+int template_child(cleri_children_t ** childaddr, const char * str, size_t n)
+{
+    cleri_children_t * ichild = malloc(sizeof(cleri_children_t));
+    cleri_node_t * inode = cleri__node_new(&regex_t, str, n);
+    if (!ichild || !inode)
+    {
+        free(ichild);
+        free(inode);
+        return -1;
+    }
+
+    inode->data = NULL;
+    ichild->next = *childaddr;
+    ichild->node = inode;
+
+    *childaddr = ichild;
+    return 0;
+}
+
 int ti_template_build(cleri_node_t * node)
 {
     ti_template_t * template = malloc(sizeof(ti_template_t));
-    cleri_children_t * child;
-    size_t count, diff;
+    cleri_children_t ** childaddr;
+    size_t count, diff = 0;
     const char * node_end;
 
     if (!template)
@@ -69,17 +92,19 @@ int ti_template_build(cleri_node_t * node)
     template->node->ref++;              /* take a reference */
     node_end = node->str + 1;           /* take node start (`) + 1 */
 
-    child = node                        /* sequence */
+    childaddr = &node                        /* sequence */
             ->children->next->node      /* repeat */
             ->children;
-    for (; child; child = child->next)
+    for (; *childaddr; childaddr = &(*childaddr)->next)
     {
-        cleri_node_t * nd = child->node;
+        cleri_node_t * nd = (*childaddr)->node;
+
+        diff = nd->str - node_end;
+
         if (nd->cl_obj->tp == CLERI_TP_REGEX)
         {
             count = template_escaped(nd->str, nd->len);
 
-            diff = nd->str - node_end;
             nd->len += diff;
             nd->str -= diff;
 
@@ -87,31 +112,41 @@ int ti_template_build(cleri_node_t * node)
             {
                 nd->data = template_str(node_end, nd->len, nd->len - count);
                 if (!nd->data)
-                {
-                    ti_template_destroy(template);
-                    return -1;
-                }
+                    goto failed;
             }
+        }
+        else if (diff)
+        {
+            if (template_child(childaddr, node_end, diff))
+                goto failed;
+            else
+                childaddr = &(*childaddr)->next;
         }
         node_end = nd->str + nd->len;
     }
 
+    diff = (node->str + node->len - 1) - node_end;
+    if (diff && template_child(childaddr, node_end, diff))
+        goto failed;
+
     node->data = template;
     return 0;
+
+failed:
+    ti_template_destroy(template);
+    return -1;
 }
 
 int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
 {
     cleri_node_t * node = template->node;
     cleri_children_t * child;
-    size_t end_ws, n = 0;
+    size_t n = 0;
     ti_raw_t * raw;
     unsigned char * ptr;
-    const char * node_end;
 
     assert (query->rval == NULL);
 
-    node_end = node->str + 1;
     child = node                        /* sequence */
             ->children->next->node      /* repeat */
             ->children;
@@ -122,25 +157,18 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
         if (nd->cl_obj->tp == CLERI_TP_REGEX)
         {
             n += nd->data ? ((str_t *) nd->data)->n : nd->len;
+            continue;
         }
-        else
-        {
-            n += nd->str - node_end;  /* optional white space */
 
-            if (ti_do_statement(query, nd->children->next->node, e) || (
-                !ti_val_is_str(query->rval) &&
-                ti_val_convert_to_str(&query->rval, e)))
-                goto failed;
+        if (ti_do_statement(query, nd->children->next->node, e) || (
+            !ti_val_is_str(query->rval) &&
+            ti_val_convert_to_str(&query->rval, e)))
+            goto failed;
 
-            n += ((ti_raw_t *) query->rval)->n;
-            nd->data = query->rval;
-            query->rval = NULL;
-        }
-        node_end = nd->str + nd->len;
+        n += ((ti_raw_t *) query->rval)->n;
+        nd->data = query->rval;
+        query->rval = NULL;
     }
-
-    end_ws = (node->str + node->len - 1) - node_end;
-    n += end_ws;
 
     raw = malloc(sizeof(ti_raw_t) + n);
     if (!raw)
@@ -156,7 +184,6 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
     child = node                        /* sequence */
             ->children->next->node      /* repeat */
             ->children;
-    node_end = node->str + 1;           /* reset node end */
 
     for (; child; child = child->next)
     {
@@ -180,25 +207,14 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
         }
         else
         {
-            ti_raw_t * expr;
-
-            /* copy optional white space */
-            n = nd->str - node_end;
-            memcpy(ptr, node_end, n);
-            ptr += n;
-
             /* copy expression value (as string) */
-            expr = nd->data;
+            ti_raw_t * expr = nd->data;
             nd->data = NULL;
             memcpy(ptr, expr->data, expr->n);
             ptr += expr->n;
             ti_val_drop((ti_val_t *) expr);
         }
-        node_end = nd->str + nd->len;
     }
-
-    /* copy optional white space at the end */
-    memcpy(ptr, node_end, end_ws);
 
     query->rval = (ti_val_t *) raw;
     return e->nr;

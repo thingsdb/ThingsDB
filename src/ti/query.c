@@ -1003,10 +1003,12 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
 
     if (cb(query, e))
     {
-        log_debug("query failed: `%s`",
+        log_debug("query failed: `%s`, %s: `%s`",
                 query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
                 ? query->closure->node->str
-                : query->querystr);
+                : query->querystr,
+                ex_str(e->nr),
+                e->msg);
 
         ++ti()->counters->queries_with_error;
         goto done;

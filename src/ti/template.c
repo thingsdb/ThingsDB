@@ -92,9 +92,10 @@ int ti_template_build(cleri_node_t * node)
     template->node->ref++;              /* take a reference */
     node_end = node->str + 1;           /* take node start (`) + 1 */
 
-    childaddr = &node                        /* sequence */
+    childaddr = &node                   /* sequence */
             ->children->next->node      /* repeat */
             ->children;
+
     for (; *childaddr; childaddr = &(*childaddr)->next)
     {
         cleri_node_t * nd = (*childaddr)->node;
@@ -105,6 +106,7 @@ int ti_template_build(cleri_node_t * node)
         {
             count = template_escaped(nd->str, nd->len);
 
+            /* this will insert optional white space to this node */
             nd->len += diff;
             nd->str -= diff;
 
@@ -117,6 +119,7 @@ int ti_template_build(cleri_node_t * node)
         }
         else if (diff)
         {
+            /* non-captured white space is found, add an additional node */
             if (template_child(childaddr, node_end, diff))
                 goto failed;
             else
@@ -125,6 +128,7 @@ int ti_template_build(cleri_node_t * node)
         node_end = nd->str + nd->len;
     }
 
+    /* check for non-captured white space at the end */
     diff = (node->str + node->len - 1) - node_end;
     if (diff && template_child(childaddr, node_end, diff))
         goto failed;
@@ -147,6 +151,10 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
 
     assert (query->rval == NULL);
 
+    /*
+     * First calculate the exact size, and therefore run each expression and
+     * convert the result to string if required.
+     */
     child = node                        /* sequence */
             ->children->next->node      /* repeat */
             ->children;
@@ -160,9 +168,8 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
             continue;
         }
 
-        if (ti_do_statement(query, nd->children->next->node, e) || (
-            !ti_val_is_str(query->rval) &&
-            ti_val_convert_to_str(&query->rval, e)))
+        if (ti_do_statement(query, nd->children->next->node, e) ||
+            ti_val_convert_to_str(&query->rval, e))
             goto failed;
 
         n += ((ti_raw_t *) query->rval)->n;
@@ -170,6 +177,7 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
         query->rval = NULL;
     }
 
+    /* we now have the exact size so we can allocate memory for the string */
     raw = malloc(sizeof(ti_raw_t) + n);
     if (!raw)
     {

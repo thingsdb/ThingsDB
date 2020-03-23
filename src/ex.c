@@ -78,7 +78,7 @@ const char * ex_str(ex_enum errnr)
     case EX_SUCCESS:            return EX_SUCCESS_X;
     case EX_RETURN:             return EX_RETURN_X;
     }
-    assert (0);
-    return "unknown error";
+    /* probably a custom error */
+    return "error";
 }
 

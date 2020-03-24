@@ -121,7 +121,7 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     assert (!ti_thing_is_object(thing));
     ti_name_t * n;
     ti_val_t * v;
-    for (thing_each(thing, n, v))
+    for (thing_t_each(thing, n, v))
         if (n == name)
             return v;
     return NULL;

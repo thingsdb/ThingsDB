@@ -548,7 +548,7 @@ static _Bool thing_t__get_by_name(
 {
     ti_name_t * n;
     ti_val_t ** v;
-    for (thing_each_addr(thing, n, v))
+    for (thing_t_each_addr(thing, n, v))
     {
         if (n == name)
         {
@@ -799,7 +799,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
     ti_name_t * name;
     ti_val_t ** val;
     ti_prop_t * prop;
-    for (thing_each_addr(thing, name, val))
+    for (thing_t_each_addr(thing, name, val))
     {
         prop = ti_prop_create(name, *val);
         if (!prop)
@@ -841,7 +841,7 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
     {
         ti_name_t * name;
         ti_val_t * val;
-        for (thing_each(thing, name, val))
+        for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(pk, name->str, name->n) ||
                 ti_val_to_pk(val, pk, options)

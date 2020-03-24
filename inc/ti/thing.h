@@ -161,7 +161,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     return NULL;
 }
 
-#define thing_each(t__, name__, val__)                          \
+#define thing_t_each(t__, name__, val__)                          \
     void ** v__ = t__->items->data,                             \
     ** e__ = v__ + t__->items->n,                               \
     ** n__ = ti_thing_type(t__)->fields->data;                  \
@@ -170,7 +170,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
     (val__ = *v__);                                             \
     ++v__, ++n__
 
-#define thing_each_addr(t__, name__, val__)                     \
+#define thing_t_each_addr(t__, name__, val__)                     \
     void ** v__ = t__->items->data,                             \
     ** e__ = v__ + t__->items->n,                               \
     ** n__ = ti_thing_type(t__)->fields->data;                  \

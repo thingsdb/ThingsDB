@@ -170,7 +170,7 @@ static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
     ti_name_t * name;
     ti_val_t * val;
-    for (thing_each(thing, name, val))
+    for (thing_t_each(thing, name, val))
         if (type__field(type, name, val, e))
             return e->nr;
     return 0;

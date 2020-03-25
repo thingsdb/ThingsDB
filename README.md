@@ -30,7 +30,7 @@ https://fonts.adobe.com/fonts/keraleeyam
 
 ## Installation
 
-https://docs.thingsdb.net/v0/installation/
+https://docs.thingsdb.net/v0/getting-started/build-from-source/
 
 ## Documentation
 

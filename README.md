@@ -15,6 +15,35 @@
 - [ ] should closures accept any amount of arguments when called? and `nil` values
       when not enough arguments are given? This behavior would be more inline with
       how functions currently handle closures when given as argument.
+- [ ] support for Type closures, see *Thoughts about Type closures*
+
+
+## Thoughts about Type closures
+
+```
+set_type('Foo', {
+    props: || this.keys(),
+});
+```
+
+Do we want to keep track of `this`?, or should we write more like Python
+```
+set_type('Foo', {
+    props: |this| this.keys(),
+});
+```
+
+Introducing `this` as a keyword will include more complex behavior as this
+should work and return with a proper value but enables more flexibilty for
+the same reason. For example, we could use `this` with normal things as well.
+
+we have to think of the following:
+ - Foo{}.len() will return 0, and does not count the Type closures
+ - Foo{}.props may return 'unknown property', this way we only need to catch
+      true calls to the function.
+ - Foo{}.props() return and empty [] since the Type closure is not included
+ 
+    
 
 ## Special thanks to:
 

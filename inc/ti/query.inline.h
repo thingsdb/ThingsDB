@@ -21,6 +21,14 @@ static inline vec_t * ti_query_access(ti_query_t * query)
             : NULL;
 }
 
+static inline _Bool ti_query_is_fwd(ti_query_t * query)
+{
+    return (
+        (~query->qbind.flags & TI_QBIND_FLAG_API) &&
+        !ti_stream_is_client(query->via.stream)
+    );
+}
+
 static inline vec_t * ti_query_procedures(ti_query_t * query)
 {
     return query->collection

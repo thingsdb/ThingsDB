@@ -1277,6 +1277,14 @@ _Bool ti_nodes_has_quorum(void)
     return false;
 }
 
+ti_node_t * ti_nodes_not_ready(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status != TI_NODE_STAT_READY)
+            return node;
+    return NULL;
+}
+
 /* increases with a new reference as long as required */
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {

@@ -52,6 +52,7 @@ C_SRCS += \
 ../src/ti/raw.c \
 ../src/ti/regex.c \
 ../src/ti/req.c \
+../src/ti/restore.c \
 ../src/ti/rjob.c \
 ../src/ti/rpkg.c \
 ../src/ti/scope.c \
@@ -137,6 +138,7 @@ OBJS += \
 ./src/ti/raw.o \
 ./src/ti/regex.o \
 ./src/ti/req.o \
+./src/ti/restore.o \
 ./src/ti/rjob.o \
 ./src/ti/rpkg.o \
 ./src/ti/scope.o \
@@ -222,6 +224,7 @@ C_DEPS += \
 ./src/ti/raw.d \
 ./src/ti/regex.d \
 ./src/ti/req.d \
+./src/ti/restore.d \
 ./src/ti/rjob.d \
 ./src/ti/rpkg.d \
 ./src/ti/scope.d \

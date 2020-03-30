@@ -770,6 +770,7 @@ static int imap__intersection_make(
             dest->sz += dest_nd->sz;
         }
     }
+
     if (!dest->sz)
     {
         free(dest->nodes);
@@ -864,6 +865,7 @@ static void imap__symmdiff_move(
         free(dest->nodes);
         dest->nodes = NULL;
     }
+
     free(node->nodes);
 }
 

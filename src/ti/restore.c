@@ -62,7 +62,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
     buf_append_str(&buf, "./store/collections.mp ");
     buf_append_str(&buf, "./store/idstat.mp ");
     buf_append_str(&buf, "./store/names.mp ");
-    buf_append_str(&buf, "./store/procedure.mp ");
+    buf_append_str(&buf, "./store/procedures.mp ");
     buf_append_str(&buf, "./store/users.mp ");
     buf_append_str(&buf, "2>&1");
 

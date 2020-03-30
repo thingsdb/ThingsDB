@@ -100,6 +100,31 @@ class TestBackup(TestBase):
         self.assertTrue(await client.query(f'''has_backup({backup_id});'''))
         self.assertFalse(await client.query(r'''has_backup(1234);'''))
 
+    async def test_restore(self, client):
+        await client.query(r''' .foo = 'bar'; ''', scope='//stuff')
+        backup_id = await client.query(r'''new_backup('/tmp/test.tar.gz');''')
+
+        # in 50 seconds both nodes should have been in `away` mode
+        await asyncio.sleep(50)
+
+        await client.query(r'''del_collection('stuff');''', scope='@t')
+
+        # in 50 seconds both nodes should have been in `away` mode
+        await asyncio.sleep(50)
+
+        await client.query(r'''restore('/tmp/test.tar.gz');''', scope='@t')
+
+        client.close()
+        await client.wait_closed()
+
+        # in 30 seconds synchronization should have been finished
+        await asyncio.sleep(30)
+
+        client = await get_client(self.node0)
+        bar = await client.query('.foo;')
+
+        self.assertEqual(bar, 'bar')
+
 
 if __name__ == '__main__':
     run_test(TestBackup())

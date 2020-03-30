@@ -216,10 +216,10 @@ int ti_backups_rm(void)
     if (backups__ensure_fn())
         return -1;
 
-    if (fx_file_exist(ti_.backups->fn))
+    if (fx_file_exist(ti()->backups->fn))
     {
-        log_warning("removing backup schedules: `%s`", ti_.backups->fn);
-        (void) unlink(ti_.backups->fn);
+        log_warning("removing backup schedules: `%s`", ti()->backups->fn);
+        (void) unlink(ti()->backups->fn);
     }
     return 0;
 }

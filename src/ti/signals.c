@@ -67,6 +67,6 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 
     ti_shutdown();
 
-    if (ti_.node)
+    if (ti()->node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 }

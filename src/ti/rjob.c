@@ -9,9 +9,11 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/rjob.h>
+#include <ti/restore.h>
 #include <ti/users.h>
 #include <ti/val.h>
 #include <util/cryptx.h>
+#include <util/fx.h>
 #include <util/mpack.h>
 
 /*
@@ -293,7 +295,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti_.last_event_id)
+    if (ev->id <= ti()->last_event_id)
         return 0;  /* this job is already applied */
 
     memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
@@ -486,7 +488,7 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti_.last_event_id)
+    if (ev->id <= ti()->last_event_id)
         return 0;   /* this job is already applied */
 
     if (mp_node.via.u64 == this_node->id)
@@ -589,6 +591,33 @@ static int rjob__rename_user(mp_unp_t * up)
     ti_val_drop((ti_val_t *) rname);
 
     return e.nr;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: true
+ */
+static int rjob__restore(mp_unp_t * up)
+{
+    mp_obj_t obj;
+
+    if (mp_next(up, &obj) != MP_BOOL || obj.via.bool_ != true)
+    {
+        log_critical("job `restore`: invalid format");
+        return -1;
+    }
+
+    if (fx_is_dir(ti()->store->store_path))
+    {
+        log_warning("removing store directory: `%s`", ti()->store->store_path);
+        if (fx_rmdir(ti()->store->store_path))
+            log_error("failed to remove path: `%s`", ti()->store->store_path);
+    }
+
+    if (ti_archive_rmdir())
+        log_error("failed to remove archives");
+
+    return ti_restore_slave();
 }
 
 /*
@@ -737,6 +766,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__rename_collection(up);
         if (mp_str_eq(&mp_job, "rename_user"))
             return rjob__rename_user(up);
+        if (mp_str_eq(&mp_job, "restore"))
+            return rjob__restore(up);
         if (mp_str_eq(&mp_job, "revoke"))
             return rjob__revoke(up);
         break;

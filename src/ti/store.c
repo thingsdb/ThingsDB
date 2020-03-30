@@ -133,6 +133,19 @@ fail0:
     return -1;
 }
 
+int ti_store_init(void)
+{
+    char * path = ti()->store->store_path;
+
+    if (!fx_is_dir(path) && mkdir(path, TI_DEFAULT_DIR_ACCESS))
+    {
+        log_errno_file("cannot create directory", errno, path);
+        return -1;
+    }
+
+    return 0;
+}
+
 void ti_store_destroy(void)
 {
     if (!store)

@@ -188,7 +188,12 @@ char * ti_backup_job(ti_backup_t * backup)
     buf_append_str(&buf, "\" -C \"");
     buf_append_str(&buf, ti()->cfg->storage_path);
     buf_append_str(&buf, "\" . 2>&1");
-    buf_append(&buf, "\0", 1);
+
+    if (buf_append(&buf, "\0", 1))
+    {
+        free(buf.data);
+        return NULL;
+    }
 
     data = buf.data;
     buf.data = NULL;

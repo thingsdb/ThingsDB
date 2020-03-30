@@ -247,7 +247,7 @@ int ti_build(void)
 
 failed:
     (void) fx_rmdir(ti_.cfg->storage_path);
-    (void) mkdir(ti_.cfg->storage_path, TI_DEFAULT_DIR_ACCESS);
+    (void) ti_store_init();
     ti_node_drop(ti_.node);
     ti_.node = NULL;
     (void) vec_pop(ti_.nodes->vec);
@@ -266,13 +266,7 @@ int ti_rebuild(void)
         (void) fx_rmdir(ti_.store->store_path);
     }
 
-    if (mkdir(ti_.store->store_path, TI_DEFAULT_DIR_ACCESS))
-    {
-        log_errno_file("cannot create directory", errno, ti_.store->store_path);
-        return -1;
-    }
-
-    return ti_backups_rm() || ti_archive_rmdir() ? -1 : 0;
+    return ti_store_init() || ti_backups_rm() || ti_archive_rmdir() ? -1 : 0;
 }
 
 int ti_write_node_id(uint32_t * node_id)

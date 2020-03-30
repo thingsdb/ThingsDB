@@ -4,9 +4,10 @@
 static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+    char * fn, * job;
     uint32_t n;
+    uint64_t cevid, sevid;
     ti_task_t * task;
-    ti_user_t * user;
     ti_raw_t * rname;
     ti_node_t * node;
     ti_raw_t * tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
@@ -30,6 +31,18 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (!(fn = ti_raw_to_str(rname)) || !(job = ti_restore_job(fn)))
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    if (!fx_file_exist(fn))
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "file not found: `%s`", fn);
+        goto fail0;
+    }
+
     if ((n = ti()->collections->vec->n))
     {
         ex_set(e, EX_LOOKUP_ERROR,
@@ -38,7 +51,47 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 n == 1 ? "is" : "are",
                 n,
                 n == 1 ? "" : "s");
-        return e->nr;
+        goto fail0;
+    }
+
+    if ((n = ti()->events->queue->n - 1))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "restore requires an empty event queue; "
+                "there %s still %"PRIu32" events%s pending"DOC_RESTORE,
+                n == 1 ? "is" : "are",
+                n,
+                n == 1 ? "" : "s");
+        goto fail0;
+    }
+
+    if (ti()->events->next_event_id - 1 > query->ev->id)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "restore is expecting to have the last event id but it seems "
+                "another event is claiming the last event id"DOC_RESTORE);
+        goto fail0;
+    }
+
+    cevid = ti_nodes_cevid();
+    sevid = ti_nodes_sevid();
+
+    if (cevid != ti()->node->cevid)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "restore requires the global committed "TI_EVENT_ID
+                "to be equal to the local committed "TI_EVENT_ID""DOC_RESTORE,
+                cevid, ti()->node->cevid);
+        goto fail0;
+    }
+
+    if (sevid != ti()->node->sevid)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "restore requires the global stored "TI_EVENT_ID
+                "to be equal to the local stored "TI_EVENT_ID""DOC_RESTORE,
+                sevid, ti()->node->sevid);
+        goto fail0;
     }
 
     if ((node = ti_nodes_not_ready()))
@@ -50,7 +103,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 node->id,
                 ti_node_status_str(node->status),
                 ti_node_status_str(TI_NODE_STAT_READY));
-        return e->nr;
+        goto fail0;
     }
 
     if (ti_query_is_fwd(query))
@@ -60,7 +113,35 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 DOC_RESTORE,
                 query->via.stream->via.node->id,
                 ti_node_status_str(TI_NODE_STAT_READY));
-        return e->nr;
+        goto fail0;
+    }
+
+    if (fx_is_dir(ti()->store->store_path))
+    {
+        log_warning("removing store directory: `%s`", ti()->store->store_path);
+        if (fx_rmdir(ti()->store->store_path))
+        {
+            ex_set(e, EX_OPERATION_ERROR,
+                        "failed to remove path: `%s`",
+                        ti()->store->store_path);
+            goto fail0;
+        }
+    }
+
+    if (ti_archive_rmdir())
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "failed to remove archives, check node log for more details");
+        goto fail0;
+    }
+
+    if (ti_restore_unp(job, e))
+        goto fail0;
+
+    if (ti_restore_master())
+    {
+        ex_set_internal(e);
+        goto fail0;
     }
 
     task = ti_task_get_task(query->ev, ti()->thing0, e);
@@ -70,12 +151,11 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_restore(task))
     {
         ex_set_mem(e);
-        return e->nr;
+        goto fail0;
     }
 
-    return e->nr;
-
 fail0:
-    ti_val_drop((ti_val_t *) rname);
+    free(job);
+    free(fn);
     return e->nr;
 }

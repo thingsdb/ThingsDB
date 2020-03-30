@@ -28,9 +28,9 @@
 static void main__init_deploy(void)
 {
     size_t n;
-    char * node_name = ti()->cfg->node_name;
+    char * node_name = ti.cfg->node_name;
 
-    if (fx_file_exist(ti()->fn))
+    if (fx_file_exist(ti.fn))
         return;
 
     n = strlen(node_name);
@@ -40,15 +40,15 @@ static void main__init_deploy(void)
     if (node_name[n-1] == '0' && (n == 1 || node_name[n-2] == '-'))
     {
         /* this is the fist node and ThingsDB is not yet initialized */
-        ti()->args->init = 1;
+        ti.args->init = 1;
     }
     else
     {
         char * secret = getenv("THINGSDB_NODE_SECRET");
         secret = secret ? secret : node_name;
 
-        memset(ti()->args->secret, 0, ARGPARSE_MAX_LEN_ARG);
-        strncpy(ti()->args->secret, secret, ARGPARSE_MAX_LEN_ARG-1);
+        memset(ti.args->secret, 0, ARGPARSE_MAX_LEN_ARG);
+        strncpy(ti.args->secret, secret, ARGPARSE_MAX_LEN_ARG-1);
     }
 }
 
@@ -90,7 +90,7 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    if (ti()->args->version)
+    if (ti.args->version)
     {
         ti_version_print();
         goto stop;
@@ -103,9 +103,9 @@ int main(int argc, char * argv[])
         goto stop;
     }
 
-    if (*ti()->args->config)
+    if (*ti.args->config)
     {
-        rc = ti_cfg_parse(ti()->args->config);
+        rc = ti_cfg_parse(ti.args->config);
         if (rc)
             goto stop;
     }
@@ -124,20 +124,20 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
-    if (ti()->args->deploy)
+    if (ti.args->deploy)
         main__init_deploy();
 
-    if (ti()->args->init)
+    if (ti.args->init)
     {
-        if (fx_file_exist(ti()->fn))
+        if (fx_file_exist(ti.fn))
         {
-            if (!ti()->args->force)
+            if (!ti.args->force)
             {
                 log_warning(
                         "directory `%s` is already initialized, use --force "
                         "if you want to remove existing data and initialize "
                         "a new data directory",
-                        ti()->cfg->storage_path);
+                        ti.cfg->storage_path);
                 goto load;
             }
 
@@ -161,17 +161,17 @@ int main(int argc, char * argv[])
         goto run;
     }
 
-    if (*ti()->args->secret)
+    if (*ti.args->secret)
     {
-        if (fx_file_exist(ti()->fn))
+        if (fx_file_exist(ti.fn))
         {
-            if (!ti()->args->force)
+            if (!ti.args->force)
             {
                 log_warning(
                         "directory `%s` is already initialized, use --force "
                         "if you want to remove existing data and wait for "
                         "a new join request",
-                        ti()->cfg->storage_path);
+                        ti.cfg->storage_path);
                 goto load;
             }
 
@@ -189,7 +189,7 @@ int main(int argc, char * argv[])
         goto run;
     }
 
-    if (ti()->args->forget_nodes)
+    if (ti.args->forget_nodes)
     {
         if (!ti_ask_continue("all nodes information will be lost"))
             goto stop;
@@ -206,20 +206,20 @@ int main(int argc, char * argv[])
     }
 
 load:
-    if (fx_file_exist(ti()->fn))
+    if (fx_file_exist(ti.fn))
     {
         if ((rc = ti_read()))
         {
-            printf("error reading ThingsDB from `%s`\n", ti()->fn);
+            printf("error reading ThingsDB from `%s`\n", ti.fn);
             goto stop;
         }
 
-        if (ti()->args->rebuild)
+        if (ti.args->rebuild)
         {
             if (!ti_ask_continue("all data on this node will be removed"))
                 goto stop;
 
-            if (ti()->nodes->vec->n < 2)
+            if (ti.nodes->vec->n < 2)
             {
                 printf( "At least 2 nodes are required for a rebuild. "
                         "You might want to use --init or --secret with "

@@ -24,7 +24,7 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    token = ti_access_check(ti()->access_thingsdb, query->user, TI_AUTH_GRANT)
+    token = ti_access_check(ti.access_thingsdb, query->user, TI_AUTH_GRANT)
             ? ti_users_pop_token_by_key((ti_token_key_t *) rkey->data)
             : ti_user_pop_token_by_key(query->user, (ti_token_key_t *) rkey->data);
     if (!token)
@@ -32,7 +32,7 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_token_destroy(token);
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0, e);
     if (!task)
         return e->nr;
 

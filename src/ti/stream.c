@@ -45,19 +45,19 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
         stream->reqmap = omap_create();
         if (!stream->reqmap)
             break;
-        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
+        if (uv_tcp_init(ti.loop, (uv_tcp_t *) stream->uvstream))
             break;
         return stream;
 
     case TI_STREAM_TCP_IN_CLIENT:
         ++stream__client_connections;
-        if (uv_tcp_init(ti()->loop, (uv_tcp_t *) stream->uvstream))
+        if (uv_tcp_init(ti.loop, (uv_tcp_t *) stream->uvstream))
             break;
         return stream;
 
     case TI_STREAM_PIPE_IN_CLIENT:
         ++stream__client_connections;
-        if (uv_pipe_init(ti()->loop, (uv_pipe_t *) stream->uvstream, 0))
+        if (uv_pipe_init(ti.loop, (uv_pipe_t *) stream->uvstream, 0))
             break;
         return stream;
     }

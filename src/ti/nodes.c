@@ -105,7 +105,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         from_node_syntax_ver,
         from_node_port;
 
-    ti_node_t * node, * this_node = ti()->node;
+    ti_node_t * node, * this_node = ti.node;
     char * min_ver = NULL;
     char * version = NULL;
     msgpack_packer pk;
@@ -194,10 +194,10 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         goto fail;
     }
 
-    if (!ti()->node)
+    if (!ti.node)
     {
-        assert (*ti()->args->secret);
-        assert (ti()->build);
+        assert (*ti.args->secret);
+        assert (ti.build);
 
         if (ti_version_cmp(TI_VERSION, version) < 0)
         {
@@ -212,7 +212,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             goto fail;
         }
 
-        if (ti()->build->status == TI_BUILD_REQ_SETUP)
+        if (ti.build->status == TI_BUILD_REQ_SETUP)
         {
             log_info(
                     "ignore connection request from `%s` since this node is ",
@@ -223,7 +223,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
         char validate[CRYPTX_SZ];
 
-        cryptx(ti()->args->secret, mp_secret.via.str.data, validate);
+        cryptx(ti.args->secret, mp_secret.via.str.data, validate);
         if (memcmp(mp_secret.via.str.data, validate, CRYPTX_SZ))
         {
             log_error(
@@ -256,8 +256,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         msgpack_pack_uint8(&pk, 0);                       /* cevid */
         msgpack_pack_uint8(&pk, 0);                       /* sevid */
         msgpack_pack_uint8(&pk, TI_NODE_STAT_BUILDING);   /* status */
-        msgpack_pack_uint8(&pk, ti()->cfg->zone);         /* zone */
-        msgpack_pack_uint16(&pk, ti()->cfg->node_port);   /* port */
+        msgpack_pack_uint8(&pk, ti.cfg->zone);         /* zone */
+        msgpack_pack_uint16(&pk, ti.cfg->node_port);   /* port */
         msgpack_pack_uint8(&pk, TI_VERSION_SYNTAX);       /* syntax version*/
 
         goto done;
@@ -383,7 +383,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     mp_obj_t mp_event_id;
     ti_proto_enum_t accepted;
     uint8_t n = 0;
@@ -468,7 +468,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not ready to handle away requests",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -501,7 +501,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     mp_obj_t obj, mp_user_id, mp_orig;
     ti_scope_t scope;
 
@@ -619,7 +619,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     mp_obj_t obj, mp_user_id, mp_orig;
     ti_scope_t scope;
 
@@ -762,7 +762,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if ((ti()->node->status & (TI_NODE_STAT_AWAY_SOON|TI_NODE_STAT_AWAY)) == 0)
+    if ((ti.node->status & (TI_NODE_STAT_AWAY_SOON|TI_NODE_STAT_AWAY)) == 0)
     {
         log_error(
                 "got a sync request from `%s` "
@@ -771,7 +771,7 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not in `away` mode and therefore cannot handle "
                 "sync requests",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -822,7 +822,7 @@ static void nodes__on_req_syncpart(
         return;
     }
 
-    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
                 "got a `%s` from `%s` "
@@ -832,7 +832,7 @@ static void nodes__on_req_syncpart(
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -864,7 +864,7 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
                 "got a `%s` from `%s` "
@@ -873,7 +873,7 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -905,7 +905,7 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
                 "got a `%s` from `%s` "
@@ -914,7 +914,7 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -947,7 +947,7 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (ti()->node->status != TI_NODE_STAT_SYNCHRONIZING)
+    if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
     {
         log_error(
                 "got a `%s` from `%s` "
@@ -956,7 +956,7 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not in `synchronizing` mode and therefore "
                 "cannot accept the request",
-                ti()->node->id);
+                ti.node->id);
         goto finish;
     }
 
@@ -1128,7 +1128,7 @@ static const char * nodes__get_status_fn(void)
     if (nodes->status_fn)
         return nodes->status_fn;
 
-    nodes->status_fn = fx_path_join(ti()->cfg->storage_path, nodes__status);
+    nodes->status_fn = fx_path_join(ti.cfg->storage_path, nodes__status);
     return nodes->status_fn;
 }
 
@@ -1144,7 +1144,7 @@ int ti_nodes_create(void)
     nodes->next_id = 0;
 
     nodes->vec = vec_new(3);
-    ti()->nodes = nodes;
+    ti.nodes = nodes;
 
     return -(nodes->vec == NULL);
 }
@@ -1155,7 +1155,7 @@ void ti_nodes_destroy(void)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes->status_fn);
-    ti()->nodes = nodes = NULL;
+    ti.nodes = nodes = NULL;
 }
 
 int ti_nodes_read_scevid(void)
@@ -1191,8 +1191,8 @@ int ti_nodes_read_scevid(void)
     log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
     log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
 
-    ti()->nodes->cevid = cevid;
-    ti()->nodes->sevid = sevid;
+    ti.nodes->cevid = cevid;
+    ti.nodes->sevid = sevid;
 
     rc = 0;
 
@@ -1288,7 +1288,7 @@ ti_node_t * ti_nodes_not_ready(void)
 /* increases with a new reference as long as required */
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     vec_t * nodes_vec = nodes->vec;
     for (vec_each(nodes_vec, ti_node_t, node))
     {
@@ -1369,7 +1369,7 @@ int ti_nodes_from_up(mp_unp_t * up)
 
 ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 {
-    uint64_t m = ti()->node->cevid;
+    uint64_t m = ti.node->cevid;
     uint8_t n = 0, offline = 0;
 
     if (!m)
@@ -1429,7 +1429,7 @@ int ti_nodes_check_add(ex_t * e)
 
 uint64_t ti_nodes_cevid(void)
 {
-    uint64_t m = ti()->node->cevid;
+    uint64_t m = ti.node->cevid;
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->cevid < m)
             m = node->cevid;
@@ -1442,7 +1442,7 @@ uint64_t ti_nodes_cevid(void)
 
 uint64_t ti_nodes_sevid(void)
 {
-    uint64_t m = ti()->node->sevid;
+    uint64_t m = ti.node->sevid;
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->sevid < m)
             m = node->sevid;
@@ -1527,11 +1527,11 @@ int ti_nodes_listen(void)
 {
     struct sockaddr_storage addr = {0};
     int rc;
-    ti_cfg_t * cfg = ti()->cfg;
+    ti_cfg_t * cfg = ti.cfg;
     _Bool is_ipv6 = false;
     char * ip;
 
-    uv_tcp_init(ti()->loop, &nodes->tcp);
+    uv_tcp_init(ti.loop, &nodes->tcp);
 
     if (cfg->bind_node_addr != NULL)
     {
@@ -1624,7 +1624,7 @@ ti_node_t * ti_nodes_get_away_or_soon(void)
  */
 ti_node_t * ti_nodes_random_ready_node(void)
 {
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     uint32_t zn = 0, on = 0;
     for (vec_each(nodes->vec, ti_node_t, node))
     {

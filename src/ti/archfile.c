@@ -39,7 +39,7 @@ ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
     archfile->last = last;
     archfile->fn = fx_path_join(path, fn);
 
-    if (!archfile->fn || vec_push(&ti()->archive->archfiles, archfile))
+    if (!archfile->fn || vec_push(&ti.archive->archfiles, archfile))
     {
         ti_archfile_destroy(archfile);
         return NULL;
@@ -83,7 +83,7 @@ void ti_archfile_destroy(ti_archfile_t * archfile)
 
 ti_archfile_t * ti_archfile_get(uint64_t first, uint64_t last)
 {
-    vec_t * archfiles = ti()->archive->archfiles;
+    vec_t * archfiles = ti.archive->archfiles;
     for (vec_each(archfiles, ti_archfile_t, archfile))
         if (archfile->first == first && archfile->last == last)
             return archfile;

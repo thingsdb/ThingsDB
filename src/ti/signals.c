@@ -29,7 +29,7 @@ int ti_signals_init(void)
     /* bind signals to the event loop */
     for (int i = 0; i < signals__nsigs; i++)
     {
-        if (uv_signal_init(ti()->loop, &signals[i]) ||
+        if (uv_signal_init(ti.loop, &signals[i]) ||
             uv_signal_start(&signals[i], signals__handler, signals__signms[i]))
         {
             return -1;
@@ -48,7 +48,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    if (ti()->flags & TI_FLAG_SIGNAL)
+    if (ti.flags & TI_FLAG_SIGNAL)
     {
         log_warning(
             "signal (%s) received but a shutdown is already initiated",
@@ -58,7 +58,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    ti()->flags |= TI_FLAG_SIGNAL;
+    ti.flags |= TI_FLAG_SIGNAL;
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
         log_warning("received stop signal (%s)", strsignal(signum));
@@ -67,6 +67,6 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
 
     ti_shutdown();
 
-    if (ti()->node)
+    if (ti.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 }

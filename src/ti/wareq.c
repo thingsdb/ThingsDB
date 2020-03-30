@@ -41,7 +41,7 @@ static ti_wareq_t * wareq__create(
     ti_incref(collection);
 
     if (!wareq->task || uv_async_init(
-            ti()->loop,
+            ti.loop,
             wareq->task,
             *task == 'w' ? wareq__watch_cb : wareq__unwatch_cb))
     {
@@ -142,10 +142,10 @@ ti_wareq_t * ti_wareq_may_create(
         }
         break;
     case TI_SCOPE_NODE:
-        if (ti_access_check_err(ti()->access_node, user, TI_AUTH_WATCH, e))
+        if (ti_access_check_err(ti.access_node, user, TI_AUTH_WATCH, e))
             return NULL;
 
-        if (scope->via.node_id != ti()->node->id)
+        if (scope->via.node_id != ti.node->id)
             ex_set(e, EX_LOOKUP_ERROR,
                     "watch request to a `@node` scope are only allowed to "
                     "the node the client is connected to; change the scope "

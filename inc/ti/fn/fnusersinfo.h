@@ -7,7 +7,7 @@ static int do__f_users_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_thingsdb_scope("users_info", query, e) ||
         /* check access */
         ti_access_check_err(
-                ti()->access_thingsdb,
+                ti.access_thingsdb,
                 query->user, TI_AUTH_GRANT, e
         ) ||
         fn_nargs("users_info", DOC_USERS_INFO, 0, nargs, e))

@@ -61,44 +61,44 @@ void ti_evars_parse(void)
 {
     evars__u16(
             "THINGSDB_LISTEN_CLIENT_PORT",
-            &ti()->cfg->client_port);
+            &ti.cfg->client_port);
     evars__str(
             "THINGSDB_BIND_CLIENT_ADDR",
-            &ti()->cfg->bind_client_addr);
+            &ti.cfg->bind_client_addr);
     evars__str(
             "THINGSDB_NODE_NAME",
-            &ti()->cfg->node_name);
+            &ti.cfg->node_name);
     evars__u16(
             "THINGSDB_LISTEN_NODE_PORT",
-            &ti()->cfg->node_port);
+            &ti.cfg->node_port);
     evars__str(
             "THINGSDB_BIND_NODE_ADDR",
-            &ti()->cfg->bind_node_addr);
+            &ti.cfg->bind_node_addr);
     evars__ip_support(
             "THINGSDB_IP_SUPPORT",
-            &ti()->cfg->ip_support);
+            &ti.cfg->ip_support);
     evars__str(
             "THINGSDB_STORAGE_PATH",
-            &ti()->cfg->storage_path);
+            &ti.cfg->storage_path);
     evars__str(
             "THINGSDB_PIPE_CLIENT_NAME",
-            &ti()->cfg->pipe_client_name);
+            &ti.cfg->pipe_client_name);
     evars__sizet(
             "THINGSDB_THRESHOLD_FULL_STORAGE",
-            &ti()->cfg->threshold_full_storage);
+            &ti.cfg->threshold_full_storage);
     evars__u16(
             "THINGSDB_HTTP_STATUS_PORT",
-            &ti()->cfg->http_status_port);
+            &ti.cfg->http_status_port);
     evars__u16(
             "THINGSDB_HTTP_API_PORT",
-            &ti()->cfg->http_api_port);
+            &ti.cfg->http_api_port);
     evars__u8(
             "THINGSDB_ZONE",
-            &ti()->cfg->zone);
+            &ti.cfg->zone);
     evars__double(
             "THINGSDB_QUERY_DURATION_WARN",
-            &ti()->cfg->query_duration_warn);
+            &ti.cfg->query_duration_warn);
     evars__double(
             "THINGSDB_QUERY_DURATION_ERROR",
-            &ti()->cfg->query_duration_error);
+            &ti.cfg->query_duration_error);
 }

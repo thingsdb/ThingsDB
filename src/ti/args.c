@@ -37,14 +37,14 @@ int ti_args_create(void)
     strcpy(args->log_level, "");
     strcpy(args->secret, "");
 
-    ti()->args = args;
+    ti.args = args;
 
     return 0;
 }
 
 void ti_args_destroy(void)
 {
-    args = ti()->args = NULL;
+    args = ti.args = NULL;
 }
 
 int ti_args_parse(int argc, char *argv[])

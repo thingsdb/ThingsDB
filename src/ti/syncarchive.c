@@ -22,7 +22,7 @@ static int syncarchive__init(ti_stream_t * stream, ti_archfile_t * archfile);
  */
 int ti_syncarchive_init(ti_stream_t * stream, uint64_t event_id)
 {
-    vec_t * archfiles = ti()->archive->archfiles;
+    vec_t * archfiles = ti.archive->archfiles;
     ti_archfile_t * closest = NULL;
     size_t closest_gap = SIZE_MAX;
 
@@ -84,7 +84,7 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
 
     if (!archfile)
     {
-        ti_archive_t * archive = ti()->archive;
+        ti_archive_t * archive = ti.archive;
 
         if (offset)
         {
@@ -292,7 +292,7 @@ done:
 static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
-    uint64_t next_event_id = ti()->node->sevid + 1;
+    uint64_t next_event_id = ti.node->sevid + 1;
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);

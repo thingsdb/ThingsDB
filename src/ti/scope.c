@@ -127,7 +127,7 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
         if (++i >= n)
         {
             scope->tp = TI_SCOPE_NODE;
-            scope->via.node_id = ti()->node->id;
+            scope->via.node_id = ti.node->id;
             return 0;  /* success */
         }
 

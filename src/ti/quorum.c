@@ -19,7 +19,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     quorum->accepted = 0;
     quorum->rejected = 0;
     quorum->collisions = 0;
-    quorum->requests = ti()->nodes->vec->n;
+    quorum->requests = ti.nodes->vec->n;
     quorum->quorum = ti_nodes_quorum();
     quorum->win_collision = 1;  /* true */
     quorum->diff_requests = 0;
@@ -99,7 +99,7 @@ void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
             else
                 --quorum->diff_requests;
         }
-        else if (req->stream->via.node->id < ti()->node->id)
+        else if (req->stream->via.node->id < ti.node->id)
         {
             quorum->win_collision = 0;  /* false */
         }

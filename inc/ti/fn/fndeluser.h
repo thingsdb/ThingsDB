@@ -9,7 +9,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_user", query, e) ||
         ti_access_check_err(
-                    ti()->access_thingsdb,
+                    ti.access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("del_user", DOC_DEL_USER, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
@@ -29,7 +29,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0, e);
     if (!task)
         return e->nr;
 

@@ -24,8 +24,8 @@ int ti_store_names_store(const char * fn)
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_array(&pk, ti()->names->n) ||
-        smap_values(ti()->names, (smap_val_cb) names__write_cb, &pk)
+        msgpack_pack_array(&pk, ti.names->n) ||
+        smap_values(ti.names, (smap_val_cb) names__write_cb, &pk)
     ) goto fail;
 
     log_debug("stored names to file: `%s`", fn);

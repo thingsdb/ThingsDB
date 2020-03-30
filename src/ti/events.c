@@ -101,7 +101,7 @@ int ti_events_create(void)
     if (!events->queue || !events->evloop)
         goto failed;
 
-    ti()->events = events;
+    ti.events = events;
     return 0;
 
 failed:
@@ -115,7 +115,7 @@ failed:
  */
 int ti_events_start(void)
 {
-    if (uv_async_init(ti()->loop, events->evloop, events__loop))
+    if (uv_async_init(ti.loop, events->evloop, events__loop))
         return -1;
     events->is_started = true;
     return 0;
@@ -167,7 +167,7 @@ int ti_events_create_new_event(ti_query_t * query, ex_t * e)
         ex_set(e, EX_NODE_ERROR,
                 TI_NODE_ID" does not have the required quorum "
                 "of at least %u connected %s",
-                ti()->node->id,
+                ti.node->id,
                 quorum, quorum == 1 ? "node" : "nodes");
         return e->nr;
     }
@@ -212,7 +212,7 @@ int ti_events_add_event(ti_node_t * node, ti_epkg_t * epkg)
         return 1;
     }
 
-    if (epkg->event_id <= ti()->node->cevid)
+    if (epkg->event_id <= ti.node->cevid)
     {
         log_warning(TI_EVENT_ID" is already committed", epkg->event_id);
         return 1;
@@ -320,7 +320,7 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id, uint8_t * n)
                     : TI_PROTO_NODE_ERR_REJECT;
     }
 
-    cevid_p = &ti()->node->cevid;
+    cevid_p = &ti.node->cevid;
     iter = olist_iter(events->skipped_ids);
 
     for (size_t n = events->skipped_ids->n; n--;)
@@ -352,7 +352,7 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id, uint8_t * n)
  */
 void ti_events_set_next_missing_id(uint64_t * event_id)
 {
-    uint64_t cevid = ti()->node->cevid;
+    uint64_t cevid = ti.node->cevid;
 
     if (cevid > *event_id)
         *event_id = cevid;
@@ -395,7 +395,7 @@ int ti_events_resize_dropped(void)
 
 vec_t * ti_events_pkgs_from_queue(ti_thing_t * thing)
 {
-    uint64_t next_event = ti()->node->cevid;
+    uint64_t next_event = ti.node->cevid;
     vec_t * pkgs = NULL;
 
     for (queue_each(events->queue, ti_event_t, ev))
@@ -419,7 +419,7 @@ static void events__destroy(uv_handle_t * UNUSED(handle))
     free(events->evloop);
     vec_destroy(events->dropped, (vec_destroy_cb) ti_thing_destroy);
     olist_destroy(events->skipped_ids);
-    events = ti()->events = NULL;
+    events = ti.events = NULL;
 }
 
 static void events__new_id(ti_event_t * ev)
@@ -443,7 +443,7 @@ static void events__new_id(ti_event_t * ev)
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" does not have the required quorum "
                 "of at least %u connected nodes",
-                ti()->node->id,
+                ti.node->id,
                 ti_nodes_quorum());
         goto fail;
     }
@@ -464,7 +464,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    vec_t * nodes_vec = ti()->nodes->vec;
+    vec_t * nodes_vec = ti.nodes->vec;
     ti_quorum_t * quorum;
     ti_pkg_t * pkg, * dup;
 
@@ -498,7 +498,7 @@ static int events__req_event_id(ti_event_t * ev, ex_t * e)
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
-        if (node == ti()->node)
+        if (node == ti.node)
             continue;
 
         dup = NULL;
@@ -532,7 +532,7 @@ static void events__on_req_event_id(ti_event_t * ev, _Bool accepted)
 {
     if (!accepted)
     {
-        ++ti()->counters->events_quorum_lost;
+        ++ti.counters->events_quorum_lost;
 
         log_debug(TI_EVENT_ID" quorum lost :-(", ev->id);
 
@@ -558,7 +558,7 @@ static int events__push(ti_event_t * ev)
     if (!last_ev || ev->id > last_ev->id)
         return queue_push(&events->queue, ev);
 
-    ++ti()->counters->events_unaligned;
+    ++ti.counters->events_unaligned;
     for (queue_each(events->queue, ti_event_t, event), ++idx)
         if (event->id > ev->id)
             break;
@@ -568,7 +568,7 @@ static int events__push(ti_event_t * ev)
 
 static void events__watch_queue(void)
 {
-    uint64_t next_event = ti()->node->cevid;
+    uint64_t next_event = ti.node->cevid;
 
     for (queue_each(events->queue, ti_event_t, ev))
     {
@@ -584,7 +584,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
     util_time_t timing;
-    uint64_t * cevid_p = &ti()->node->cevid;
+    uint64_t * cevid_p = &ti.node->cevid;
     int process_events = 5;
 
     if (uv_mutex_trylock(events->lock))
@@ -608,7 +608,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 " is already committed",
                 ev->id, *cevid_p);
 
-            ++ti()->counters->events_skipped;
+            ++ti.counters->events_skipped;
 
             goto shift_drop_loop;
         }
@@ -622,7 +622,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 goto process;
 
             /* wait if the node is synchronizing */
-            if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
+            if (ti.node->status == TI_NODE_STAT_SYNCHRONIZING)
                 break;
 
             if (events->wait_cevid != *cevid_p)
@@ -641,7 +641,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 break;
 
             ++(*cevid_p);
-            ++ti()->counters->events_with_gap;
+            ++ti.counters->events_with_gap;
 
             log_warning(
                     "committed "TI_EVENT_ID" since the event is not received "
@@ -664,11 +664,11 @@ static void events__loop(uv_async_t * UNUSED(handle))
                     "killed "TI_EVENT_ID" on "TI_NODE_ID
                     " after approximately %f seconds",
                     ev->id,
-                    ti()->node->id,
+                    ti.node->id,
                     diff);
 
             /* Reached time-out, kill the event */
-            ++ti()->counters->events_killed;
+            ++ti.counters->events_killed;
 
             goto shift_drop_loop;
         }
@@ -686,7 +686,7 @@ process:
         {
             /* logging is done, but we increment the failed counter and
              * log the full event */
-            ++ti()->counters->events_failed;
+            ++ti.counters->events_failed;
             ti_event_log("event has failed", ev, LOGGER_ERROR);
         }
 

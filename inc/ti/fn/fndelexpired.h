@@ -8,14 +8,14 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_expired", query, e) ||
         ti_access_check_err(
-            ti()->access_thingsdb,
+            ti.access_thingsdb,
             query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("del_expired", DOC_DEL_EXPIRED, 0, nargs, e))
         return e->nr;
 
     after_ts = util_now_tsec();
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0, e);
     if (!task)
         return e->nr;
 

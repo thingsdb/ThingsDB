@@ -9,7 +9,7 @@
 
 static uv_timer_t restore__timer;
 
-char * ti_restore_job(const char * fn)
+char * ti_restore_job(const char * fn, size_t n)
 {
     char * data;
     buf_t buf;
@@ -24,9 +24,9 @@ char * ti_restore_job(const char * fn)
     buf_append_str(&buf, "--exclude=.node ");
     buf_append_str(&buf, "--exclude=ti.mp ");
     buf_append_str(&buf, "-xzf \"");
-    buf_append_str(&buf, fn);
+    buf_append(&buf, fn, n);
     buf_append_str(&buf, "\" -C \"");
-    buf_append_str(&buf, ti()->cfg->storage_path);
+    buf_append_str(&buf, ti.cfg->storage_path);
     buf_append_str(&buf, "\" . 2>&1");
 
     if (buf_append(&buf, "\0", 1))
@@ -41,6 +41,65 @@ char * ti_restore_job(const char * fn)
     return data;
 }
 
+int ti_restore_chk(const char * fn, size_t n, ex_t * e)
+{
+    char * job;
+    char buffer[512];
+    int rc;
+    _Bool firstline = true;
+    buf_t buf;
+    FILE * fp;
+
+    buf_init(&buf);
+
+    buf_append_str(&buf, "tar ");
+    buf_append_str(&buf, "-tf \"");
+    buf_append(&buf, fn, n);
+    buf_append_str(&buf, "\" ./ti.mp 2>&1");
+
+    if (buf_append(&buf, "\0", 1))
+    {
+        free(buf.data);
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    job = buf.data;
+
+    buf_init(&buf);
+
+    fp = popen(job, "r");
+    if (!fp)
+    {
+        ex_set(e, EX_OPERATION_ERROR, "failed to start `restore` task");
+    }
+    else
+    {
+        while (fgets(buffer, sizeof(buffer), fp) != NULL)
+        {
+            size_t sz = strlen(buffer);
+            if (firstline && sz)
+            {
+                firstline = false;
+                buf_append(&buf, buffer, sz);
+            }
+        }
+
+        rc = pclose(fp);
+        if (rc)
+        {
+            if (buf.len)
+                ex_set(e, EX_BAD_DATA, "%.*s",
+                    (int) buf.len-1, buf.data);
+            else
+                ex_set(e, EX_BAD_DATA, "invalid tar file");
+        }
+    }
+
+    free(job);
+    free(buf.data);
+    return e->nr;
+}
 
 int ti_restore_unp(const char * restore_job, ex_t * e)
 {
@@ -53,7 +112,7 @@ int ti_restore_unp(const char * restore_job, ex_t * e)
     fp = popen(restore_job, "r");
     if (!fp)
     {
-        buf_append_str(&buf, "failed to start `restore` task");
+        ex_set(e, EX_OPERATION_ERROR, "failed to start `restore` task");
     }
     else
     {
@@ -81,21 +140,21 @@ static void restore__cb(void)
     uv_close((uv_handle_t *) &restore__timer, NULL);
 
     /* make sure the event queue is empty */
-    queue = ti()->events->queue;
+    queue = ti.events->queue;
     while (queue->n)
         ti_event_drop(queue_pop(queue));
 
     /* cleanup the archive queue */
-    queue = ti()->archive->queue;
+    queue = ti.archive->queue;
     while (queue->n)
         ti_epkg_drop(queue_pop(queue));
 
     /* reset all node status properties */
-    ti()->node->cevid = 0;
-    ti()->node->sevid = 0;
-    ti()->node->next_thing_id = 0;
-    ti()->nodes->cevid = 0;
-    ti()->nodes->sevid = 0;
+    ti.node->cevid = 0;
+    ti.node->sevid = 0;
+    ti.node->next_thing_id = 0;
+    ti.nodes->cevid = 0;
+    ti.nodes->sevid = 0;
 
     /* write global status (write zero status) */
     (void) ti_nodes_write_global_status();
@@ -130,7 +189,7 @@ static void restore__slave_cb(uv_timer_t * UNUSED(timer))
 
 int ti_restore_master(void)
 {
-    if (uv_timer_init(ti()->loop, &restore__timer))
+    if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 
     return uv_timer_start(&restore__timer, restore__master_cb, 150, 0);
@@ -138,7 +197,7 @@ int ti_restore_master(void)
 
 int ti_restore_slave(void)
 {
-    if (uv_timer_init(ti()->loop, &restore__timer))
+    if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 
     return uv_timer_start(&restore__timer, restore__slave_cb, 150, 0);

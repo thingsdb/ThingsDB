@@ -9,7 +9,7 @@ static int do__f_collections_info(ti_query_t * query, cleri_node_t * nd, ex_t * 
         fn_nargs("collections_info", DOC_COLLECTIONS_INFO, 0, nargs, e))
         return e->nr;
 
-    if (ti_access_check(ti()->access_thingsdb, user, TI_AUTH_MODIFY))
+    if (ti_access_check(ti.access_thingsdb, user, TI_AUTH_MODIFY))
     {
         /*
          * Only if the user has no `MODIFY` permissions in the thingsdb scope,

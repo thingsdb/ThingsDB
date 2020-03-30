@@ -6,7 +6,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_not_node_scope("del_backup", query, e) ||
-        ti_access_check_err(ti()->access_node,
+        ti_access_check_err(ti.access_node,
             query->user, TI_AUTH_MODIFY, e) ||
         fn_nargs("del_backup", DOC_DEL_BACKUP, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||

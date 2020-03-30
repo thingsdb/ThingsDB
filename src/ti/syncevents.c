@@ -49,7 +49,7 @@ static int syncevents__send(ti_stream_t * stream, ti_epkg_t * epkg)
  */
 int ti_syncevents_init(ti_stream_t * stream, uint64_t event_id)
 {
-    queue_t * events_queue = ti()->archive->queue;
+    queue_t * events_queue = ti.archive->queue;
 
     for (queue_each(events_queue, ti_epkg_t, epkg))
         if (epkg->event_id >= event_id)
@@ -79,8 +79,8 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
     ti_events_set_next_missing_id(&next_event_id);
     assert (next_event_id > epkg->event_id);
 
-    rc = epkg->event_id > ti()->node->cevid
-            ? ti_events_add_event(ti()->node, epkg)
+    rc = epkg->event_id > ti.node->cevid
+            ? ti_events_add_event(ti.node, epkg)
             : 0;
     ti_epkg_drop(epkg);
 

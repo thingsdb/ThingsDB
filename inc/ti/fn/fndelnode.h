@@ -31,12 +31,12 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    assert (node != ti()->node);
+    assert (node != ti.node);
 
     ti_nodes_del_node(node_id);
     query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0, e);
     if (!task)
         return e->nr;
 

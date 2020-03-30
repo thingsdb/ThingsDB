@@ -26,7 +26,7 @@ static int archive__load_file(ti_archfile_t * archfile)
     mp_unp_t up;
     mp_obj_t obj, mp_pkg;
     fx_mmap_t fmap;
-//    ti_event_t * event = queue_first(ti()->events->queue);
+//    ti_event_t * event = queue_first(ti_.events->queue);
     ti_epkg_t * epkg;
 
     log_debug("loading archive file `%s`", archfile->fn);
@@ -56,7 +56,7 @@ static int archive__load_file(ti_archfile_t * archfile)
         if (!epkg)  /* ti_epkg_from_pkg() is a log function */
             goto close;
 
-        if (epkg->event_id <= ti()->node->sevid)
+        if (epkg->event_id <= ti.node->sevid)
         {
             ti_epkg_drop(epkg);
         }
@@ -68,7 +68,7 @@ static int archive__load_file(ti_archfile_t * archfile)
                 goto close;
             }
             epkg->flags |= TI_EPKG_FLAG_ALLOW_GAP;
-            ti()->node->sevid = epkg->event_id;
+            ti.node->sevid = epkg->event_id;
         }
     }
 
@@ -78,17 +78,17 @@ close:
 
 static int archive__init_queue(void)
 {
-    assert (ti()->node);
+    assert (ti.node);
     int rc = -1;
     ti_epkg_t * epkg;
-    const uint64_t * cevid = &ti()->node->cevid;
+    const uint64_t * cevid = &ti.node->cevid;
 
-    if (ti()->args->forget_nodes && (epkg = queue_last(archive->queue)))
+    if (ti.args->forget_nodes && (epkg = queue_last(archive->queue)))
     {
         /* if we want to forget all nodes info, we should also forget events
          * in the queue which might depend on the current nodes.
          */
-        ti()->last_event_id = epkg->event_id;
+        ti.last_event_id = epkg->event_id;
         (void) ti_save();
     }
 
@@ -97,11 +97,11 @@ static int archive__init_queue(void)
      * checking is done properly, we take a lock to prevent events being
      * processed and added to the queue.
      */
-    uv_mutex_lock(ti()->events->lock);
+    uv_mutex_lock(ti.events->lock);
 
     for (queue_each(archive->queue, ti_epkg_t, epkg))
         if (epkg->event_id > *cevid)
-            if (ti_events_add_event(ti()->node, epkg) < 0)
+            if (ti_events_add_event(ti.node, epkg) < 0)
                 goto stop;
 
     /* remove events from queue */
@@ -113,7 +113,7 @@ static int archive__init_queue(void)
 
     rc = 0;
 stop:
-    uv_mutex_unlock(ti()->events->lock);
+    uv_mutex_unlock(ti.events->lock);
 
     return rc ? rc : -(ti_events_trigger_loop() < 0);
 }
@@ -127,7 +127,7 @@ static int archive__to_disk(void)
     ti_epkg_t * epkg;
     ti_epkg_t * last_epkg = queue_last(archive->queue);
     ti_archfile_t * archfile;
-    const uint64_t sevid = ti()->node->sevid;
+    const uint64_t sevid = ti.node->sevid;
 
     while ((epkg = queue_shift(archive->queue)) && epkg->event_id <= sevid)
     {
@@ -219,7 +219,7 @@ static int archive__remove_files(void)
 {
     int rc = 0;
     uint64_t sevid = ti_nodes_sevid();
-    uint64_t lseid = ti()->store->last_stored_event_id;
+    uint64_t lseid = ti.store->last_stored_event_id;
     uint64_t threshold = lseid < sevid ? lseid : sevid;
     _Bool found;
 
@@ -255,7 +255,7 @@ static int archive__remove_files(void)
 static char * archive__get_path(void)
 {
     if (!archive->path)
-        archive->path = fx_path_join(ti()->cfg->storage_path, archive__path);
+        archive->path = fx_path_join(ti.cfg->storage_path, archive__path);
 
     return archive->path;
 }
@@ -274,7 +274,7 @@ int ti_archive_create(void)
         return -1;
     }
 
-    ti()->archive = archive;
+    ti.archive = archive;
     return 0;
 }
 
@@ -285,7 +285,7 @@ void ti_archive_destroy(void)
     queue_destroy(archive->queue, (queue_destroy_cb) ti_epkg_drop);
     vec_destroy(archive->archfiles, (vec_destroy_cb) ti_archfile_destroy);
     free(archive->path);
-    archive = ti()->archive = NULL;
+    archive = ti.archive = NULL;
 }
 
 
@@ -317,7 +317,7 @@ int ti_archive_rmdir(void)
 
 int ti_archive_init(void)
 {
-    assert (ti()->node);
+    assert (ti.node);
 
     const char * archive_path = archive__get_path();
     if (!archive_path)
@@ -337,11 +337,11 @@ int ti_archive_load(void)
     struct dirent ** file_list;
     int n, total, rc = 0;
     ti_archfile_t * archfile;
-    const uint64_t * cevid = &ti()->node->cevid;
+    const uint64_t * cevid = &ti.node->cevid;
 
     log_debug("loading archive files from `%s`", archive->path);
 
-    assert (ti()->node);
+    assert (ti.node);
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
     if (total < 0)
@@ -396,7 +396,7 @@ int ti_archive_push(ti_epkg_t * epkg)
         epkg->event_id > ((ti_epkg_t *) queue_last(archive->queue))->event_id
     );
 
-    if (epkg->event_id > ti()->node->sevid)
+    if (epkg->event_id > ti.node->sevid)
     {
         rc = queue_push(&archive->queue, epkg);
         if (rc == 0)
@@ -414,12 +414,12 @@ int ti_archive_to_disk(void)
     uint64_t leid;
     ti_epkg_t * last_epkg = queue_last(archive->queue);
 
-    if (!last_epkg || (leid = last_epkg->event_id) == ti()->node->sevid)
+    if (!last_epkg || (leid = last_epkg->event_id) == ti.node->sevid)
         goto done;       /* nothing to save to disk */
 
-    n = leid - ti()->store->last_stored_event_id;
+    n = leid - ti.store->last_stored_event_id;
 
-    if (n > ti()->cfg->threshold_full_storage)
+    if (n > ti.cfg->threshold_full_storage)
         (void) ti_store_store();
 
     /* sleep a little before archiving */
@@ -429,7 +429,7 @@ int ti_archive_to_disk(void)
     if (archive__to_disk())
         return -1;
 
-    ti()->node->sevid = leid;  /* last_epkg cannot be used, it's cleared */
+    ti.node->sevid = leid;  /* last_epkg cannot be used, it's cleared */
 
     ti_sleep(100);
 done:

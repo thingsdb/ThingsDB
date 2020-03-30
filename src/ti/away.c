@@ -42,7 +42,7 @@ enum away__status
 static _Bool away__required(void)
 {
     return (
-        ti()->archive->queue->n ||
+        ti.archive->queue->n ||
         ti_nodes_require_sync() ||
         ti_backups_require_away()
     );
@@ -71,13 +71,13 @@ static void away__destroy(void)
         vec_destroy(away->syncers, (vec_destroy_cb) ti_watch_drop);
         free(away);
     }
-    away = ti()->away = NULL;
+    away = ti.away = NULL;
 }
 
 static void away__update_sleep(void)
 {
-    vec_t * nodes_vec = ti()->nodes->vec;
-    ti_node_t * this_node = ti()->node;
+    vec_t * nodes_vec = ti.nodes->vec;
+    ti_node_t * this_node = ti.node;
     size_t idx = 0, my_idx = 0, c_idx = 0, n = nodes_vec->n;
 
     for (vec_each(nodes_vec, ti_node_t, node), ++idx)
@@ -128,7 +128,7 @@ static void away__accept_node_id(uint32_t node_id)
 
     ti_away_set_away_node_id(node_id);
 
-    rc = uv_timer_init(ti()->loop, &away__uv_waiter);
+    rc = uv_timer_init(ti.loop, &away__uv_waiter);
     if (rc)
         return;
 
@@ -141,10 +141,10 @@ static void away__accept_node_id(uint32_t node_id)
 
 static void away__work(uv_work_t * UNUSED(work))
 {
-    uv_mutex_lock(ti()->events->lock);
+    uv_mutex_lock(ti.events->lock);
 
-    if ((ti()->flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
-        ti()->flags &= ~TI_FLAG_NODES_CHANGED;
+    if ((ti.flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
+        ti.flags &= ~TI_FLAG_NODES_CHANGED;
 
     /* garbage collect */
     (void) ti_collections_gc();
@@ -161,14 +161,14 @@ static void away__work(uv_work_t * UNUSED(work))
     /* backup ThingsDB if backups are pending */
     (void) ti_backups_backup();
 
-    uv_mutex_unlock(ti()->events->lock);
+    uv_mutex_unlock(ti.events->lock);
 }
 
 static size_t away__syncers(void)
 {
     size_t count = 0;
     uint64_t fa_event_id = ti_archive_get_first_event_id();
-    uint64_t fs_event_id = ti()->store->last_stored_event_id;
+    uint64_t fs_event_id = ti.store->last_stored_event_id;
 
     for (vec_each(away->syncers, ti_syncer_t, syncer))
     {
@@ -270,7 +270,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
     if (status)
         log_error(uv_strerror(status));
 
-    rc = uv_timer_init(ti()->loop, &away__uv_waiter);
+    rc = uv_timer_init(ti.loop, &away__uv_waiter);
     if (rc)
         goto fail1;
 
@@ -299,7 +299,7 @@ static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
 {
     away->status = AWAY__STATUS_WORKING;
     if (uv_queue_work(
-            ti()->loop,
+            ti.loop,
             &away__uv_work,
             away__work,
             away__work_finish))
@@ -328,7 +328,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
     }
 
-    if (ti()->flags & TI_FLAG_SIGNAL)
+    if (ti.flags & TI_FLAG_SIGNAL)
         return;
 
     (void) uv_timer_stop(waiter);
@@ -337,7 +337,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 
 static void away__reset_sleep(void)
 {
-    vec_t * nodes_vec = ti()->nodes->vec;
+    vec_t * nodes_vec = ti.nodes->vec;
     away->away_node_id = ((ti_node_t *) vec_first(nodes_vec))->id;
     away__update_sleep();
 }
@@ -352,7 +352,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
         goto fail0;;
     }
 
-    if (uv_timer_init(ti()->loop, &away__uv_waiter))
+    if (uv_timer_init(ti.loop, &away__uv_waiter))
         goto fail1;
 
     if (uv_timer_start(
@@ -363,7 +363,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     ))
         goto fail2;
 
-    ti_away_set_away_node_id(ti()->node->id);
+    ti_away_set_away_node_id(ti.node->id);
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY_SOON);
     away->status = AWAY__STATUS_WAITING;
     return;
@@ -378,7 +378,7 @@ fail0:
 
 static void away__req_away_id(void)
 {
-    vec_t * nodes_vec = ti()->nodes->vec;
+    vec_t * nodes_vec = ti.nodes->vec;
     ti_quorum_t * quorum = NULL;
     ti_pkg_t * pkg, * dup;
 
@@ -392,7 +392,7 @@ static void away__req_away_id(void)
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
-        if (node == ti()->node)
+        if (node == ti.node)
             continue;
 
         dup = NULL;
@@ -429,7 +429,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
     static const char * away__skip_msg = "not going in away mode (%s)";
     ti_node_t * node;
 
-    if (ti()->nodes->vec->n == 1)
+    if (ti.nodes->vec->n == 1)
     {
         log_debug(away__skip_msg, "running as single node");
         return;
@@ -453,7 +453,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         return;  /* this node is going into away mode, no logging */
     }
 
-    if (ti()->node->status != TI_NODE_STAT_READY)
+    if (ti.node->status != TI_NODE_STAT_READY)
     {
         log_debug(away__skip_msg, "node status is not ready");
         return;
@@ -499,7 +499,7 @@ int ti_away_create(void)
         return -1;
     }
 
-    ti()->away = away;
+    ti.away = away;
     return 0;
 }
 
@@ -509,7 +509,7 @@ int ti_away_start(void)
 
     away__reset_sleep();
 
-    if (uv_timer_init(ti()->loop, &away__uv_trigger))
+    if (uv_timer_init(ti.loop, &away__uv_trigger))
         goto fail0;
 
     if (uv_timer_start(
@@ -573,7 +573,7 @@ _Bool ti_away_accept(uint32_t node_id)
     case AWAY__STATUS_WAITING:
     case AWAY__STATUS_WORKING:
     case AWAY__STATUS_SYNCING:
-        node = ti()->node;
+        node = ti.node;
         break;
     }
 

@@ -319,7 +319,7 @@ int ti_cfg_create(void)
         !cfg->node_name)
         ti_cfg_destroy();
 
-    ti()->cfg = cfg;
+    ti.cfg = cfg;
     return 0;
 }
 
@@ -333,7 +333,7 @@ void ti_cfg_destroy(void)
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
     free(cfg);
-    cfg = ti()->cfg = NULL;
+    cfg = ti.cfg = NULL;
 }
 
 int ti_cfg_parse(const char * cfg_file)

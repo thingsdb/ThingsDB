@@ -35,7 +35,7 @@ int ti_backups_create(void)
         return -1;
     }
 
-    ti()->backups = backups;
+    ti.backups = backups;
     return 0;
 }
 
@@ -47,7 +47,7 @@ void ti_backups_destroy(void)
     uv_mutex_destroy(backups->lock);
     free(backups->lock);
     free(backups->fn);
-    ti()->backups = NULL;
+    ti.backups = NULL;
 }
 
 /* this function requires a lock since it returns a `backup` which requires
@@ -207,7 +207,7 @@ static int backups__ensure_fn(void)
     if (backups->fn)
         return 0;
 
-    backups->fn = fx_path_join(ti()->cfg->storage_path, backups__fn);
+    backups->fn = fx_path_join(ti.cfg->storage_path, backups__fn);
     return backups->fn ? 0 : -1;
 }
 
@@ -216,10 +216,10 @@ int ti_backups_rm(void)
     if (backups__ensure_fn())
         return -1;
 
-    if (fx_file_exist(ti()->backups->fn))
+    if (fx_file_exist(ti.backups->fn))
     {
-        log_warning("removing backup schedules: `%s`", ti()->backups->fn);
-        (void) unlink(ti()->backups->fn);
+        log_warning("removing backup schedules: `%s`", ti.backups->fn);
+        (void) unlink(ti.backups->fn);
     }
     return 0;
 }

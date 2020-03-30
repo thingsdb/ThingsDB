@@ -41,24 +41,24 @@ typedef enum
 
 static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
 {
-    char * path = ti()->store->store_path;
+    char * path = ti.store->store_path;
 
     switch (ft)
     {
     case SYNCFULL__USERS_FILE:
-        return strdup(ti()->store->users_fn);
+        return strdup(ti.store->users_fn);
     case SYNCFULL__ACCESS_NODE_FILE:
-        return strdup(ti()->store->access_node_fn);
+        return strdup(ti.store->access_node_fn);
     case SYNCFULL__ACCESS_THINGSDB_FILE:
-        return strdup(ti()->store->access_thingsdb_fn);
+        return strdup(ti.store->access_thingsdb_fn);
     case SYNCFULL__PROCEDURES_FILE:
-        return strdup(ti()->store->procedures_fn);
+        return strdup(ti.store->procedures_fn);
     case SYNCFULL__NAMES_FILE:
-        return strdup(ti()->store->names_fn);
+        return strdup(ti.store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:
-        return strdup(ti()->store->collections_fn);
+        return strdup(ti.store->collections_fn);
     case SYNCFULL__ID_STAT_FILE:
-        return strdup(ti()->store->id_stat_fn);
+        return strdup(ti.store->id_stat_fn);
     case SYNCFULL__COLLECTION_DAT_FILE:
         return ti_store_collection_dat_fn(path, scope_id);
     case SYNCFULL__COLLECTION_TYPES_FILE:
@@ -88,8 +88,8 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
     {
         size_t i = 0;
         uint64_t * collection_id;
-        vec_t * collection_ids = ti()->store->collection_ids;
-        char * path = ti()->store->store_path;
+        vec_t * collection_ids = ti.store->collection_ids;
+        char * path = ti.store->store_path;
 
         if (*scope_id)
             for (vec_each(collection_ids, uint64_t, collection_id))
@@ -117,7 +117,7 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
 static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
-    uint64_t next_event_id = ti()->store->last_stored_event_id + 1;
+    uint64_t next_event_id = ti.store->last_stored_event_id + 1;
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);
@@ -327,7 +327,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     if (ft == SYNCFULL__COLLECTION_DAT_FILE)
     {
         int rc;
-        char * path = ti()->store->store_path;
+        char * path = ti.store->store_path;
         path = ti_store_collection_get_path(path, scope_id);
         if (fx_is_dir(path))
         {

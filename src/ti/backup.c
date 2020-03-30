@@ -155,7 +155,7 @@ char * ti_backup_job(ti_backup_t * backup)
         if (TEMPLACE_CMP(pt, end, "{EVENT}", event_sz))
         {
             buf_append(&buf, pv, pt - pv);
-            sprintf(buffer, "%"PRIu64, ti()->node->cevid);
+            sprintf(buffer, "%"PRIu64, ti.node->cevid);
             buf_append_str(&buf, buffer);
             pt += event_sz;
             pv = pt;
@@ -186,7 +186,7 @@ char * ti_backup_job(ti_backup_t * backup)
     buf_append(&buf, pv, pt - pv);
 
     buf_append_str(&buf, "\" -C \"");
-    buf_append_str(&buf, ti()->cfg->storage_path);
+    buf_append_str(&buf, ti.cfg->storage_path);
     buf_append_str(&buf, "\" . 2>&1");
 
     if (buf_append(&buf, "\0", 1))

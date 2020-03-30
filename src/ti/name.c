@@ -26,7 +26,7 @@ ti_name_t * ti_name_create(const char * str, size_t n)
 /* call `ti_name_drop(..)`, not this function */
 void ti_name_destroy(ti_name_t * name)
 {
-    (void) smap_pop(ti()->names, name->str);
+    (void) smap_pop(ti.names, name->str);
     free(name);
 }
 

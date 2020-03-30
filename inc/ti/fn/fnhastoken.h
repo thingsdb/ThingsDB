@@ -8,7 +8,7 @@ static int do__f_has_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("has_token", query, e) ||
         ti_access_check_err(
-            ti()->access_thingsdb,
+            ti.access_thingsdb,
             query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("has_token", DOC_HAS_TOKEN, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||

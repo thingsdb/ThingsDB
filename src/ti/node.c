@@ -81,14 +81,14 @@ void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
     if (node->port != port)
     {
         node->port = port;
-        ti()->flags |= TI_FLAG_NODES_CHANGED;
+        ti.flags |= TI_FLAG_NODES_CHANGED;
     }
 
     if (!mp_str_eq(node_name, node->addr) && (addr = mp_strdup(node_name)))
     {
         free(node->addr);
         node->addr = addr;
-        ti()->flags |= TI_FLAG_NODES_CHANGED;
+        ti.flags |= TI_FLAG_NODES_CHANGED;
     }
 }
 
@@ -266,7 +266,7 @@ static void node__resolve_dns(ti_node_t * node)
     sprintf(port, "%u", node->port);
 
     rc = uv_getaddrinfo(
-            ti()->loop,
+            ti.loop,
             resolver,
             node__on_resolved,
             node->addr,
@@ -403,7 +403,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     if (node_port != node->port)
     {
         node->port = node_port;
-        ti()->flags |= TI_FLAG_NODES_CHANGED;
+        ti.flags |= TI_FLAG_NODES_CHANGED;
     }
 
     if (node->status == TI_NODE_STAT_AWAY)
@@ -422,7 +422,7 @@ static void node__on_connect(uv_connect_t * req, int status)
     msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_node_t * node = req->data;
-    ti_node_t * ti_node = ti()->node;
+    ti_node_t * ti_node = ti.node;
 
     if (status)
     {

@@ -44,7 +44,7 @@ int ti_sync_create(void)
         return -1;
     }
 
-    ti()->sync = sync_;
+    ti.sync = sync_;
     return 0;
 }
 
@@ -54,7 +54,7 @@ int ti_sync_start(void)
 
     sync_->retry_offline = SYNC__WAIT_FOR_OFFLINE_NODES;
 
-    if (uv_timer_init(ti()->loop, sync_->repeat))
+    if (uv_timer_init(ti.loop, sync_->repeat))
         goto fail0;
 
     sync_->status = SYNC__STAT_STARTED;
@@ -104,7 +104,7 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
         ti_node_drop(sync_->node);
         free(sync_->repeat);
     }
-    sync_ = ti()->sync = NULL;
+    sync_ = ti.sync = NULL;
 }
 
 static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
@@ -152,7 +152,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_uint64(&pk, ti()->node->cevid + 1);
+    msgpack_pack_uint64(&pk, ti.node->cevid + 1);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_REQ_SYNC, buffer.size);
@@ -193,7 +193,7 @@ static void sync__on_res_sync(ti_req_t * req, ex_enum status)
 static void sync__finish(void)
 {
     ti_sync_stop();
-    if (ti()->node->status == TI_NODE_STAT_SYNCHRONIZING)
+    if (ti.node->status == TI_NODE_STAT_SYNCHRONIZING)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
     }

@@ -128,7 +128,7 @@ int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs)
                 (*pkgs == NULL && !(*pkgs = vec_new(7))) ||
                 vec_push(pkgs, pkg))
             {
-                ++ti()->counters->watcher_failed;
+                ++ti.counters->watcher_failed;
                 log_critical(EX_MEMORY_S);
             }
         }
@@ -217,7 +217,7 @@ int ti_event_watch(ti_event_t * ev)
 
                     if (ti_stream_write_rpkg(watch->stream, rpkg))
                     {
-                        ++ti()->counters->watcher_failed;
+                        ++ti.counters->watcher_failed;
                         log_error(EX_INTERNAL_S);
                     }
                 }
@@ -225,7 +225,7 @@ int ti_event_watch(ti_event_t * ev)
             }
             else
             {
-                ++ti()->counters->watcher_failed;
+                ++ti.counters->watcher_failed;
                 log_critical(EX_MEMORY_S);
             }
         }
@@ -330,7 +330,7 @@ int ti_event_run(ti_event_t * ev)
             goto fail_mp_data;
 
         thing = ev->collection == NULL
-                ? ti()->thing0
+                ? ti.thing0
                 : ti_collection_thing_by_id(ev->collection, mp_id.via.u64);
 
         if (!thing)
@@ -386,7 +386,7 @@ int ti_event_run(ti_event_t * ev)
 
                         if (ti_stream_write_rpkg(watch->stream, rpkg))
                         {
-                            ++ti()->counters->watcher_failed;
+                            ++ti.counters->watcher_failed;
                             log_error(EX_INTERNAL_S);
                         }
                     }
@@ -394,7 +394,7 @@ int ti_event_run(ti_event_t * ev)
                 }
                 else
                 {
-                    ++ti()->counters->watcher_failed;
+                    ++ti.counters->watcher_failed;
                     log_critical(EX_MEMORY_S);
                 }
             }

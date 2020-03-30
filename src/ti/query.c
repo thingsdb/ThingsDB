@@ -92,7 +92,7 @@ static void query__task_to_watchers(ti_query_t * query)
             ti_pkg_t * pkg = ti_task_pkg_watch(task);
             if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
             {
-                ++ti()->counters->watcher_failed;
+                ++ti.counters->watcher_failed;
                 log_critical(EX_MEMORY_S);
                 free(pkg);
                 break;
@@ -105,7 +105,7 @@ static void query__task_to_watchers(ti_query_t * query)
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))
                 {
-                    ++ti()->counters->watcher_failed;
+                    ++ti.counters->watcher_failed;
                     log_error(EX_INTERNAL_S);
                 }
             }
@@ -714,7 +714,7 @@ int ti_query_unp_run(
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
-        procedures = ti()->procedures;
+        procedures = ti.procedures;
         vup.collection = NULL;
         break;
     case TI_SCOPE_COLLECTION_NAME:
@@ -773,7 +773,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
 {
     assert (e->nr == 0);
     query->parseres = cleri_parse2(
-            ti()->langdef,
+            ti.langdef,
             query->querystr,
             TI_CLERI_PARSE_FLAGS);
 
@@ -790,7 +790,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
         int i;
         cleri_parse_free(query->parseres);
 
-        query->parseres = cleri_parse2(ti()->langdef, query->querystr, 0);
+        query->parseres = cleri_parse2(ti.langdef, query->querystr, 0);
         if (!query->parseres)
         {
             ex_set_mem(e);
@@ -996,7 +996,7 @@ typedef int (*query__cb)(ti_query_t *, ex_t *);
 
 void ti_query_send_response(ti_query_t * query, ex_t * e)
 {
-    double duration, warn = ti()->cfg->query_duration_warn;
+    double duration, warn = ti.cfg->query_duration_warn;
     query__cb cb = query->qbind.flags & TI_QBIND_FLAG_API
             ? query__response_api
             : query__response_pkg;
@@ -1010,14 +1010,14 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
                 ex_str(e->nr),
                 e->msg);
 
-        ++ti()->counters->queries_with_error;
+        ++ti.counters->queries_with_error;
         goto done;
     }
 
     duration = ti_counters_upd_success_query(&query->time);
     if (warn && duration > warn)
     {
-        double derror = ti()->cfg->query_duration_error;
+        double derror = ti.cfg->query_duration_error;
         query__duration_log(
                 query,
                 duration,

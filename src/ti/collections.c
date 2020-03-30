@@ -27,7 +27,7 @@ int ti_collections_create(void)
     if (!collections->vec || !collections->dropped)
         goto failed;
 
-    ti()->collections = collections;
+    ti.collections = collections;
     return 0;
 
 failed:
@@ -48,7 +48,7 @@ void ti_collections_destroy(void)
     assert (collections->dropped->n == 0);
     vec_destroy(collections->dropped, NULL);
 
-    ti()->collections = collections = NULL;
+    ti.collections = collections = NULL;
 }
 
 void ti_collections_clear(void)
@@ -155,8 +155,8 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    if (root_id >= ti_.node->next_thing_id)
-        ++ti_.node->next_thing_id;
+    if (root_id >= ti.node->next_thing_id)
+        ++ti.node->next_thing_id;
     else
         root_id = ti_next_thing_id();
 

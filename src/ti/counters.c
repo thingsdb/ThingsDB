@@ -15,14 +15,14 @@ int ti_counters_create(void)
     counters = &counters_;
 
     ti_counters_reset();
-    ti()->counters = counters;
+    ti.counters = counters;
 
     return 0;
 }
 
 void ti_counters_destroy(void)
 {
-    counters = ti()->counters = NULL;
+    counters = ti.counters = NULL;
 }
 
 void ti_counters_reset(void)

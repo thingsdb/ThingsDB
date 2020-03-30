@@ -27,6 +27,7 @@
 #include <ti/query.inline.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/restore.h>
 #include <ti/scope.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
@@ -45,6 +46,7 @@
 #include <util/cryptx.h>
 #include <util/strx.h>
 #include <util/util.h>
+#include <util/fx.h>
 #include <uv.h>
 
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);

@@ -90,6 +90,7 @@ int ti_task_add_splice(
         uint32_t i,              /* start at index */
         uint32_t c,              /* number of items to remove */
         uint32_t n);             /* number of items to add */
+int ti_task_add_restore(ti_task_t * task);
 
 
 struct ti_task_s

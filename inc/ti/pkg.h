@@ -4,7 +4,8 @@
 #ifndef TI_PKG_H_
 #define TI_PKG_H_
 
-#define TI_PKG_MAX_SIZE 209715200
+/* 1GB */
+#define TI_PKG_MAX_SIZE 1073741824
 
 typedef struct ti_pkg_s ti_pkg_t;
 

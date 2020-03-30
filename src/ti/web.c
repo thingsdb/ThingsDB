@@ -133,7 +133,7 @@ done:
 
 static uv_buf_t * web__get_status_response(void)
 {
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
 
     if (this_node) switch ((ti_node_status_t) this_node->status)
     {
@@ -155,7 +155,7 @@ static uv_buf_t * web__get_status_response(void)
 
 static uv_buf_t * web__get_ready_response(void)
 {
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
 
     return (this_node && (
             /*
@@ -242,7 +242,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
         return;
     }
 
-    (void) uv_tcp_init(ti()->loop, (uv_tcp_t *) &web_request->uvstream);
+    (void) uv_tcp_init(ti.loop, (uv_tcp_t *) &web_request->uvstream);
 
     web_request->_id = TI_WEB_IDENTIFIER;
     web_request->is_closed = false;
@@ -273,7 +273,7 @@ int ti_web_init(void)
 {
     int rc;
     struct sockaddr_storage addr = {0};
-    uint16_t port = ti()->cfg->http_status_port;
+    uint16_t port = ti.cfg->http_status_port;
 
     (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
 
@@ -296,7 +296,7 @@ int ti_web_init(void)
     web__settings.on_message_complete = web__message_complete_cb;
 
     if (
-        (rc = uv_tcp_init(ti()->loop, &web__uv_server)) ||
+        (rc = uv_tcp_init(ti.loop, &web__uv_server)) ||
         (rc = uv_tcp_bind(
                 &web__uv_server,
                 (const struct sockaddr *) &addr,

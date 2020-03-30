@@ -21,7 +21,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     task = ti_task_get_task(
             query->ev,
-            query->collection ? query->collection->root : ti()->thing0,
+            query->collection ? query->collection->root : ti.thing0,
             e);
     if (!task)
         return e->nr;

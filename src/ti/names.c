@@ -15,7 +15,7 @@ smap_t * names;
 
 int ti_names_create(void)
 {
-    names = ti()->names = smap_create();
+    names = ti.names = smap_create();
     return -(names == NULL);
 }
 
@@ -24,7 +24,7 @@ void ti_names_destroy(void)
     if (!names)
         return;
     smap_destroy(names, free);
-    names = ti()->names = NULL;
+    names = ti.names = NULL;
 }
 
 /*

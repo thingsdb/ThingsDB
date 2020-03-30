@@ -72,7 +72,6 @@ void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
 int ti_this_node_to_pk(msgpack_packer * pk);
 ti_val_t * ti_this_node_as_mpval(void);
-static inline ti_t * ti(void);
 static inline uint64_t ti_next_thing_id(void);
 static inline int ti_sleep(int ms);
 static inline int ti_to_pk(msgpack_packer * pk);
@@ -109,15 +108,11 @@ struct ti_s
     uint8_t flags;
 };
 
-static inline ti_t * ti(void)
-{
-    return &ti_;
-}
 
 /* Return the next thing id and increment by one. */
 static inline uint64_t ti_next_thing_id(void)
 {
-    return ti_.node->next_thing_id++;
+    return ti.node->next_thing_id++;
 }
 
 /*
@@ -127,7 +122,7 @@ static inline uint64_t ti_next_thing_id(void)
 static inline int ti_sleep(int ms)
 {
     assert (ms < 1000);
-    return (ti_.flags & TI_FLAG_SIGNAL)
+    return (ti.flags & TI_FLAG_SIGNAL)
             ? -2
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);
 }
@@ -141,10 +136,10 @@ static inline int ti_to_pk(msgpack_packer * pk)
         msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||
 
         mp_pack_str(pk, "event_id") ||
-        msgpack_pack_uint64(pk, ti_.last_event_id) ||
+        msgpack_pack_uint64(pk, ti.last_event_id) ||
 
         mp_pack_str(pk, "next_node_id") ||
-        msgpack_pack_uint64(pk, ti_.nodes->next_id) ||
+        msgpack_pack_uint64(pk, ti.nodes->next_id) ||
 
         mp_pack_str(pk, "nodes") ||
         ti_nodes_to_pk(pk)
@@ -153,8 +148,8 @@ static inline int ti_to_pk(msgpack_packer * pk)
 
 static inline void ti_update_next_thing_id(uint64_t thing_id)
 {
-    if (thing_id >= ti_.node->next_thing_id)
-        ti_.node->next_thing_id = thing_id + 1;
+    if (thing_id >= ti.node->next_thing_id)
+        ti.node->next_thing_id = thing_id + 1;
 }
 
 #endif /* TI_H_ */

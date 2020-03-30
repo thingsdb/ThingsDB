@@ -515,7 +515,7 @@ static void field__del_watch(
         /*
          * Only log and continue if updating a watcher has failed
          */
-        ++ti()->counters->watcher_failed;
+        ++ti.counters->watcher_failed;
         log_critical(EX_MEMORY_S);
         return;
     }
@@ -527,7 +527,7 @@ static void field__del_watch(
 
         if (ti_stream_write_rpkg(watch->stream, rpkg))
         {
-            ++ti()->counters->watcher_failed;
+            ++ti.counters->watcher_failed;
             log_error(EX_INTERNAL_S);
         }
     }
@@ -939,7 +939,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
 
                 if (ti_stream_write_rpkg(watch->stream, rpkg))
                 {
-                    ++ti()->counters->watcher_failed;
+                    ++ti.counters->watcher_failed;
                     log_error(EX_INTERNAL_S);
                 }
             }
@@ -950,7 +950,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
             /*
              * Only log and continue if updating a watcher has failed
              */
-            ++ti()->counters->watcher_failed;
+            ++ti.counters->watcher_failed;
             log_critical(EX_MEMORY_S);
         }
     }

@@ -53,7 +53,7 @@
 typedef unsigned char uchar;
 
 typedef struct ti_s ti_t;
-extern ti_t ti_;
+extern ti_t ti;
 
 #ifdef UNUSED
 #elif defined(__GNUC__)

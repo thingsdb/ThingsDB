@@ -26,7 +26,7 @@ int ti_users_create(void)
     if (!users->vec)
         goto failed;
 
-    ti()->users = users;
+    ti.users = users;
     return 0;
 
 failed:
@@ -39,7 +39,7 @@ void ti_users_destroy(void)
     if (!users)
         return;
     vec_destroy(users->vec, (vec_destroy_cb) ti_user_drop);
-    ti()->users = users = NULL;
+    ti.users = users = NULL;
 }
 
 ti_user_t * ti_users_new_user(
@@ -127,13 +127,13 @@ void ti_users_del_user(ti_user_t * user)
     size_t i = 0;
 
     /* remove node access */
-    ti_access_revoke(ti()->access_node, user, TI_AUTH_MASK_FULL);
+    ti_access_revoke(ti.access_node, user, TI_AUTH_MASK_FULL);
 
     /* remove thingsdb access */
-    ti_access_revoke(ti()->access_thingsdb, user, TI_AUTH_MASK_FULL);
+    ti_access_revoke(ti.access_thingsdb, user, TI_AUTH_MASK_FULL);
 
     /* remove collection access */
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         ti_access_revoke(collection->access, user, TI_AUTH_MASK_FULL);
     }

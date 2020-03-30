@@ -13,14 +13,14 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
 
     if (fn_not_node_scope("new_backup", query, e) ||
-        ti_access_check_err(ti()->access_node,
+        ti_access_check_err(ti.access_node,
             query->user, TI_AUTH_MODIFY, e) ||
         fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 3, nargs, e) ||
         ti_do_statement(query, child->node, e) ||
         fn_arg_str("new_backup", DOC_NEW_BACKUP, 1, query->rval, e))
         return e->nr;
 
-    if (ti()->nodes->vec->n == 1)
+    if (ti.nodes->vec->n == 1)
     {
         ex_set(e, EX_OPERATION_ERROR,
             "at least 2 nodes are required to make a backup"
@@ -97,7 +97,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    backup_id = ti()->backups->next_id;
+    backup_id = ti.backups->next_id;
 
     backup = ti_backups_new_backup(
             backup_id,

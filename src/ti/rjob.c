@@ -9,9 +9,11 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/rjob.h>
+#include <ti/restore.h>
 #include <ti/users.h>
 #include <ti/val.h>
 #include <util/cryptx.h>
+#include <util/fx.h>
 #include <util/mpack.h>
 
 /*
@@ -73,7 +75,7 @@ static int rjob__del_procedure(mp_unp_t * up)
     }
 
     procedure = ti_procedures_pop_strn(
-            ti()->procedures,
+            ti.procedures,
             mp_name.via.str.data,
             mp_name.via.str.n);
 
@@ -191,8 +193,8 @@ static int rjob__grant(mp_unp_t * up)
     if (ti_access_grant(collection
             ? &collection->access
             : mp_scope.via.u64 == TI_SCOPE_NODE
-            ? &ti()->access_node
-            : &ti()->access_thingsdb,
+            ? &ti.access_node
+            : &ti.access_thingsdb,
               user, mp_mask.via.u64))
     {
         log_critical(EX_MEMORY_S);
@@ -293,7 +295,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti_.last_event_id)
+    if (ev->id <= ti.last_event_id)
         return 0;  /* this job is already applied */
 
     memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
@@ -354,7 +356,7 @@ static int rjob__new_procedure(mp_unp_t * up)
         goto failed;
 
 
-    rc = ti_procedures_add(&ti()->procedures, procedure);
+    rc = ti_procedures_add(&ti.procedures, procedure);
     if (rc == 0)
     {
         ti_decref(rname);
@@ -477,7 +479,7 @@ static int rjob__new_user(mp_unp_t * up)
  */
 static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
 {
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     mp_obj_t mp_node;
 
     if (mp_next(up, &mp_node) != MP_U64)
@@ -486,7 +488,7 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti_.last_event_id)
+    if (ev->id <= ti.last_event_id)
         return 0;   /* this job is already applied */
 
     if (mp_node.via.u64 == this_node->id)
@@ -593,6 +595,33 @@ static int rjob__rename_user(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: true
+ */
+static int rjob__restore(mp_unp_t * up)
+{
+    mp_obj_t obj;
+
+    if (mp_next(up, &obj) != MP_BOOL || obj.via.bool_ != true)
+    {
+        log_critical("job `restore`: invalid format");
+        return -1;
+    }
+
+    if (fx_is_dir(ti.store->store_path))
+    {
+        log_warning("removing store directory: `%s`", ti.store->store_path);
+        if (fx_rmdir(ti.store->store_path))
+            log_error("failed to remove path: `%s`", ti.store->store_path);
+    }
+
+    if (ti_archive_rmdir())
+        log_error("failed to remove archives");
+
+    return ti_restore_slave();
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
 static int rjob__revoke(mp_unp_t * up)
@@ -635,8 +664,8 @@ static int rjob__revoke(mp_unp_t * up)
     ti_access_revoke(collection
             ? collection->access
             : mp_scope.via.u64 == TI_SCOPE_NODE
-            ? ti()->access_node
-            : ti()->access_thingsdb,
+            ? ti.access_node
+            : ti.access_thingsdb,
               user, mp_mask.via.u64);
 
     return 0;
@@ -737,6 +766,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__rename_collection(up);
         if (mp_str_eq(&mp_job, "rename_user"))
             return rjob__rename_user(up);
+        if (mp_str_eq(&mp_job, "restore"))
+            return rjob__restore(up);
         if (mp_str_eq(&mp_job, "revoke"))
             return rjob__revoke(up);
         break;

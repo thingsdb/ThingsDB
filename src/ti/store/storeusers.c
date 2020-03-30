@@ -15,7 +15,7 @@
 
 int ti_store_users_store(const char * fn)
 {
-    ti_users_t * users = ti()->users;
+    ti_users_t * users = ti.users;
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)

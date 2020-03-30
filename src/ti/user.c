@@ -252,7 +252,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
 size_t user__count_access(ti_user_t * user)
 {
     size_t n = 0;
-    for (vec_each(ti()->access_node, ti_auth_t, auth))
+    for (vec_each(ti.access_node, ti_auth_t, auth))
     {
         if (auth->user == user)
         {
@@ -261,7 +261,7 @@ size_t user__count_access(ti_user_t * user)
         }
     }
 
-    for (vec_each(ti()->access_thingsdb, ti_auth_t, auth))
+    for (vec_each(ti.access_thingsdb, ti_auth_t, auth))
     {
         if (auth->user == user)
         {
@@ -270,7 +270,7 @@ size_t user__count_access(ti_user_t * user)
         }
     }
 
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         for (vec_each(collection->access, ti_auth_t, auth))
         {
@@ -305,14 +305,14 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
     ) return -1;
 
     if (user__pack_access(
-            user, pk, ti()->access_node, (uchar *) "@node", 5))
+            user, pk, ti.access_node, (uchar *) "@node", 5))
         return -1;
 
     if (user__pack_access(
-            user, pk, ti()->access_thingsdb, (uchar *) "@thingsdb", 9))
+            user, pk, ti.access_thingsdb, (uchar *) "@thingsdb", 9))
         return -1;
 
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         if (user__pack_access(
                 user,

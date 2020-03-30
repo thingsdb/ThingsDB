@@ -22,7 +22,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         /* check for `GRANT` privileges since user information is exposed */
         if (ti_access_check_err(
-                ti()->access_thingsdb,
+                ti.access_thingsdb,
                 query->user, TI_AUTH_GRANT, e))
             return e->nr;
 

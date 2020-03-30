@@ -172,11 +172,11 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
     {
         ex_set(e, EX_AUTH_ERROR, "connection is not authenticated");
     }
-    else if (ti()->node->status <= TI_NODE_STAT_BUILDING)
+    else if (ti.node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
                 TI_NODE_ID" is not ready to handle query requests",
-                ti()->node->id);
+                ti.node->id);
     }
     return e->nr;
 }
@@ -186,7 +186,7 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
-    ti_node_t * this_node = ti()->node, * other_node;
+    ti_node_t * this_node = ti.node, * other_node;
     ti_user_t * user = stream->via.user;
     vec_t * access_;
     ti_scope_t scope;
@@ -287,7 +287,7 @@ finish:
 
     if (e.nr)
     {
-        ++ti()->counters->queries_with_error;
+        ++ti.counters->queries_with_error;
         resp = ti_pkg_client_err(pkg->id, &e);
     }
 
@@ -342,7 +342,7 @@ finish:
     }
 
     /* this must be the node scope */
-    ti_thing_watch(ti()->thing0, stream);
+    ti_thing_watch(ti.thing0, stream);
 }
 
 static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -382,7 +382,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_user_t * user = stream->via.user;
-    ti_node_t * this_node = ti()->node;
+    ti_node_t * this_node = ti.node;
     ti_pkg_t * resp = NULL;
     vec_t * access_;
     ti_query_t * query = NULL;
@@ -444,7 +444,7 @@ finish:
 
     if (e.nr)
     {
-        ++ti()->counters->queries_with_error;
+        ++ti.counters->queries_with_error;
         resp = ti_pkg_client_err(pkg->id, &e);
     }
 
@@ -496,11 +496,11 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
         log_error("client connection error: `%s`", uv_strerror(status));
         return;
     }
-    else if (ti()->node->status == TI_NODE_STAT_SHUTTING_DOWN)
+    else if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
     {
         log_error(
                 "ignore client connection request; "
-                "node has status: %s", ti_node_status_str(ti()->node->status));
+                "node has status: %s", ti_node_status_str(ti.node->status));
         return;
     }
 
@@ -577,26 +577,26 @@ int ti_clients_create(void)
     clients->tcp.data = NULL;
     clients->pipe.data = NULL;
 
-    ti()->clients = clients;
+    ti.clients = clients;
 
     return 0;
 }
 
 void ti_clients_destroy(void)
 {
-    clients = ti()->clients = NULL;
+    clients = ti.clients = NULL;
 }
 
 int ti_clients_listen(void)
 {
     int rc;
-    ti_cfg_t * cfg = ti()->cfg;
+    ti_cfg_t * cfg = ti.cfg;
     struct sockaddr_storage addr = {0};
     _Bool is_ipv6 = false;
     char * ip;
 
-    uv_tcp_init(ti()->loop, &clients->tcp);
-    uv_pipe_init(ti()->loop, &clients->pipe, 0);
+    uv_tcp_init(ti.loop, &clients->tcp);
+    uv_pipe_init(ti.loop, &clients->pipe, 0);
 
     if (cfg->bind_client_addr != NULL)
     {
@@ -682,10 +682,10 @@ int ti_clients_listen(void)
 
 void ti_clients_write_rpkg(ti_rpkg_t * rpkg)
 {
-    if (!ti()->thing0->watchers)
+    if (!ti.thing0->watchers)
         return;
 
-    for (vec_each(ti()->thing0->watchers, ti_watch_t, watch))
+    for (vec_each(ti.thing0->watchers, ti_watch_t, watch))
     {
         if (ti_stream_is_closed(watch->stream))
             continue;

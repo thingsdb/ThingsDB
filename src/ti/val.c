@@ -601,10 +601,10 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     {
     case TI_SCOPE_THINGSDB:
         *scope_id = TI_SCOPE_THINGSDB;
-        return &ti()->access_thingsdb;
+        return &ti.access_thingsdb;
     case TI_SCOPE_NODE:
         *scope_id = TI_SCOPE_NODE;
-        return &ti()->access_node;
+        return &ti.access_node;
     case TI_SCOPE_COLLECTION_NAME:
         collection = ti_collections_get_by_strn(
                 scope.via.collection_name.name,

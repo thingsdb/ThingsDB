@@ -13,7 +13,7 @@
 int ti_store_collections_store(const char * fn)
 {
     msgpack_packer pk;
-    vec_t * vec = ti()->collections->vec;
+    vec_t * vec = ti.collections->vec;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -97,7 +97,7 @@ int ti_store_collections_restore(const char * fn)
                 mp_name.via.str.data,
                 mp_name.via.str.n,
                 mp_created.via.u64);
-        if (!collection || vec_push(&ti()->collections->vec, collection))
+        if (!collection || vec_push(&ti.collections->vec, collection))
             goto fail;
 
     }

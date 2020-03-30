@@ -18,7 +18,7 @@ static void access__helper_str(
         char ** name,
         size_t * name_sz)
 {
-    if (access == ti()->access_thingsdb)
+    if (access == ti.access_thingsdb)
     {
         *scope = "@thingsdb";
         *name = "";
@@ -26,7 +26,7 @@ static void access__helper_str(
         return;
     }
 
-    if (access == ti()->access_node)
+    if (access == ti.access_node)
     {
         *scope = "@node";
         *name = "";
@@ -36,7 +36,7 @@ static void access__helper_str(
 
     *scope = "@collection:";
 
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         if (access == collection->access)
         {

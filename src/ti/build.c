@@ -27,7 +27,7 @@ int ti_build_create(void)
 
     build->status = TI_BUILD_WAITING;
 
-    ti()->build = build;
+    ti.build = build;
     return 0;
 }
 
@@ -36,7 +36,7 @@ void ti_build_destroy(void)
     if (!build)
         return;
     free(build);
-    ti()->build = build = NULL;
+    ti.build = build = NULL;
 }
 
 int ti_build_setup(
@@ -105,7 +105,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         goto failed;
 
     /* assign nodes_vec not earlier since ti_unpack might change the pointer */
-    nodes_vec = ti()->nodes->vec;
+    nodes_vec = ti.nodes->vec;
     for(vec_each(nodes_vec, ti_node_t, node))
     {
         if (node->id == build->from_node_id)
@@ -117,7 +117,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         }
     }
 
-    ti_node = ti()->node;
+    ti_node = ti.node;
 
     ti_node->cevid = 0;
     ti_node->sevid = 0;

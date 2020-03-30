@@ -19,7 +19,7 @@ static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     collection_id = collection->root->id;
 
-    task = ti_task_get_task(query->ev, ti()->thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0, e);
     if (!task)
         return e->nr;
 

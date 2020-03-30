@@ -306,7 +306,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
 
     free(things_vec);
 
-    ti()->counters->garbage_collected += n;
+    ti.counters->garbage_collected += n;
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
     duration = util_time_diff(&start, &stop);

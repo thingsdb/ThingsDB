@@ -168,7 +168,7 @@ static void api__connection_cb(uv_stream_t * server, int status)
         return;
     }
 
-    (void) uv_tcp_init(ti()->loop, (uv_tcp_t *) &ar->uvstream);
+    (void) uv_tcp_init(ti.loop, (uv_tcp_t *) &ar->uvstream);
 
     ar->_id = TI_API_IDENTIFIER;
     ar->uvstream.data = ar;
@@ -805,7 +805,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     ti_pkg_t * pkg;
     vec_t * access_;
     ti_query_t * query = NULL;
-    ti_node_t * this_node = ti()->node, * other_node;
+    ti_node_t * this_node = ti.node, * other_node;
     ex_t * e = &ar->e;
     unsigned char * data = NULL;
     size_t n;
@@ -883,7 +883,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
     ti_pkg_t * pkg;
     vec_t * access_;
     ti_query_t * query = NULL;
-    ti_node_t * this_node = ti()->node, * other_node;
+    ti_node_t * this_node = ti.node, * other_node;
     ex_t * e = &ar->e;
 
     if (req->mp_code.tp != MP_STR)
@@ -1079,7 +1079,7 @@ static int api__from_msgpack(ti_api_request_t * ar)
 invalid_api_request:
     ex_set(&ar->e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
-    ++ti()->counters->queries_with_error;
+    ++ti.counters->queries_with_error;
     ti_api_close_with_err(ar, &ar->e);
 
     return 0;
@@ -1192,7 +1192,7 @@ int ti_api_init(void)
 {
     int rc;
     struct sockaddr_storage addr = {0};
-    uint16_t port = ti()->cfg->http_api_port;
+    uint16_t port = ti.cfg->http_api_port;
 
     if (port == 0)
         return 0;
@@ -1207,7 +1207,7 @@ int ti_api_init(void)
     api__settings.on_headers_complete = api__headers_complete_cb;
 
     if (
-        (rc = uv_tcp_init(ti()->loop, &api__uv_server)) ||
+        (rc = uv_tcp_init(ti.loop, &api__uv_server)) ||
         (rc = uv_tcp_bind(
                 &api__uv_server,
                 (const struct sockaddr *) &addr,

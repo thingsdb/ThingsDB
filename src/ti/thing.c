@@ -195,7 +195,7 @@ void ti_thing_destroy(ti_thing_t * thing)
         (void) imap_pop(thing->collection->things, thing->id);
     }
 
-    if ((~ti()->flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
+    if ((~ti.flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
         thing__watch_del(thing);
 
     /*
@@ -690,7 +690,7 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
     msgpack_pack_map(&pk, is_collection ? 5 : 3);
 
     mp_pack_str(&pk, "event");
-    msgpack_pack_uint64(&pk, ti()->node->cevid);
+    msgpack_pack_uint64(&pk, ti.node->cevid);
 
     mp_pack_str(&pk, "thing");
 

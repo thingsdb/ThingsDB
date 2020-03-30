@@ -59,7 +59,7 @@ static void store__set_filename(_Bool use_tmp)
 
 static int store__collection_ids(void)
 {
-    vec_t * collections_vec = ti()->collections->vec;
+    vec_t * collections_vec = ti.collections->vec;
 
     vec_destroy(store->collection_ids, free);
     store->collection_ids = vec_new(collections_vec->n);
@@ -79,7 +79,7 @@ static int store__collection_ids(void)
 
 int ti_store_create(void)
 {
-    char * storage_path = ti()->cfg->storage_path;
+    char * storage_path = ti.cfg->storage_path;
     assert (storage_path);
     store = &store_;
 
@@ -121,7 +121,7 @@ int ti_store_create(void)
             !store->users_fn)
         goto fail1;
 
-    ti()->store = store;
+    ti.store = store;
 
     store__set_filename(/* use_tmp: */ false);
 
@@ -131,6 +131,19 @@ fail1:
 fail0:
     store = NULL;
     return -1;
+}
+
+int ti_store_init(void)
+{
+    char * path = ti.store->store_path;
+
+    if (!fx_is_dir(path) && mkdir(path, TI_DEFAULT_DIR_ACCESS))
+    {
+        log_errno_file("cannot create directory", errno, path);
+        return -1;
+    }
+
+    return 0;
 }
 
 void ti_store_destroy(void)
@@ -149,7 +162,7 @@ void ti_store_destroy(void)
     free(store->procedures_fn);
     free(store->users_fn);
     vec_destroy(store->collection_ids, free);
-    ti()->store = store = NULL;
+    ti.store = store = NULL;
 }
 
 /*
@@ -175,18 +188,18 @@ int ti_store_store(void)
             ti_store_names_store(store->names_fn) ||
             ti_store_users_store(store->users_fn) ||
             ti_store_access_store(
-                    ti()->access_node,
+                    ti.access_node,
                     store->access_node_fn) ||
             ti_store_access_store(
-                    ti()->access_thingsdb,
+                    ti.access_thingsdb,
                     store->access_thingsdb_fn) ||
             ti_store_collections_store(store->collections_fn) ||
             ti_store_procedures_store(
-                    ti()->procedures,
+                    ti.procedures,
                     store->procedures_fn))
         goto failed;
 
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->tmp_path,
@@ -240,7 +253,7 @@ int ti_store_store(void)
 
     (void) fx_rmdir(store->prev_path);
 
-    store->last_stored_event_id = ti()->node->cevid;
+    store->last_stored_event_id = ti.node->cevid;
 
     log_info("stored thingsdb until "TI_EVENT_ID" to: `%s`",
             store->last_stored_event_id, store->store_path);
@@ -268,11 +281,11 @@ int ti_store_restore(void)
 
     store__set_filename(/* use_tmp: */ false);
 
-    if (!fx_is_dir(ti()->store->store_path))
+    if (!fx_is_dir(ti.store->store_path))
     {
         log_warning(
                 "store path not found: `%s`",
-                ti()->store->store_path);
+                ti.store->store_path);
 
         return ti_rebuild();
     }
@@ -283,21 +296,21 @@ int ti_store_restore(void)
             ti_store_status_restore(store->id_stat_fn) ||
             ti_store_users_restore(store->users_fn) ||
             ti_store_access_restore(
-                    &ti()->access_node,
+                    &ti.access_node,
                     store->access_node_fn) ||
             ti_store_access_restore(
-                    &ti()->access_thingsdb,
+                    &ti.access_thingsdb,
                     store->access_thingsdb_fn) ||
             ti_store_collections_restore(store->collections_fn) ||
             ti_store_procedures_restore(
-                    &ti()->procedures,
+                    &ti.procedures,
                     store->procedures_fn,
                     NULL));
 
     if (rc)
         goto stop;
 
-    for (vec_each(ti()->collections->vec, ti_collection_t, collection))
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->store_path,
@@ -340,7 +353,7 @@ int ti_store_restore(void)
                 NULL);
     }
 
-    store->last_stored_event_id = ti()->node->cevid;
+    store->last_stored_event_id = ti.node->cevid;
 
     rc = store__collection_ids();
 

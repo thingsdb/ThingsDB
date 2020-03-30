@@ -10,6 +10,7 @@ typedef struct ti_store_s ti_store_t;
 #include <util/vec.h>
 
 int ti_store_create(void);
+int ti_store_init(void);
 void ti_store_destroy(void);
 int ti_store_store(void);
 int ti_store_restore(void);

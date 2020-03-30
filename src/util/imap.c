@@ -272,7 +272,6 @@ _Bool imap__eq_(imap_t * a, imap_t * b)
     return true;
 }
 
-
 /*
  * Returns a pointer to imap->vec or NULL in case an allocation error has
  * occurred.
@@ -771,6 +770,12 @@ static int imap__intersection_make(
             dest->sz += dest_nd->sz;
         }
     }
+
+    if (!dest->sz)
+    {
+        free(dest->nodes);
+        dest->nodes = NULL;
+    }
     return 0;
 }
 
@@ -860,6 +865,7 @@ static void imap__symmdiff_move(
         free(dest->nodes);
         dest->nodes = NULL;
     }
+
     free(node->nodes);
 }
 

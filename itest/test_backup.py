@@ -121,7 +121,7 @@ class TestBackup(TestBase):
         await asyncio.sleep(30)
 
         client = await get_client(self.node0)
-        bar = await client.query('.foo;')
+        bar = await client.query('.foo;', scope='//stuff')
 
         self.assertEqual(bar, 'bar')
 

@@ -55,7 +55,16 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
     buf_append_str(&buf, "tar ");
     buf_append_str(&buf, "-tf \"");
     buf_append(&buf, fn, n);
-    buf_append_str(&buf, "\" ./ti.mp 2>&1");
+    buf_append_str(&buf, "\" ");
+    buf_append_str(&buf, "./ti.mp ");
+    buf_append_str(&buf, "./store/access_node.mp ");
+    buf_append_str(&buf, "./store/access_thingsdb.mp ");
+    buf_append_str(&buf, "./store/collections.mp ");
+    buf_append_str(&buf, "./store/idstat.mp ");
+    buf_append_str(&buf, "./store/names.mp ");
+    buf_append_str(&buf, "./store/procedure.mp ");
+    buf_append_str(&buf, "./store/users.mp ");
+    buf_append_str(&buf, "2>&1");
 
     if (buf_append(&buf, "\0", 1))
     {
@@ -78,7 +87,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
         while (fgets(buffer, sizeof(buffer), fp) != NULL)
         {
             size_t sz = strlen(buffer);
-            if (firstline && sz)
+            if (firstline && sz > 5 && memcmp(buffer, "tar: ", 5) == 0)
             {
                 firstline = false;
                 buf_append(&buf, buffer, sz);

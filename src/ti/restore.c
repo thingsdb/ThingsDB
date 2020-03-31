@@ -89,6 +89,10 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
             size_t sz = strlen(buffer);
             if (firstline && sz > 5 && memcmp(buffer, "tar: ", 5) == 0)
             {
+                /*
+                 * This captures the first line starting with `tar: ` which
+                 * usually contains the error if one occurs.
+                 */
                 firstline = false;
                 buf_append(&buf, buffer, sz);
             }
@@ -164,6 +168,9 @@ static void restore__cb(void)
     ti.node->next_thing_id = 0;
     ti.nodes->cevid = 0;
     ti.nodes->sevid = 0;
+
+    /* make sure we forget nodes info */
+    ti.args->forget_nodes = 1;
 
     /* write global status (write zero status) */
     (void) ti_nodes_write_global_status();

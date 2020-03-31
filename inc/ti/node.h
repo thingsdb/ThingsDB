@@ -26,10 +26,12 @@ typedef enum
     TI_NODE_STAT_BUILDING       =1<<2,
 
     /*
-     * Shutting-Down: Few seconds before going offline, the node still accepts
-     *                requests but all nodes and clients should change to
-     *                another connection. Client request should be forwarded
-     *                so no new event will be created by this node.
+     * Shutting-Down: Few seconds before going off-line, the node still accepts
+     *                requests on existing connections but all nodes and
+     *                clients should change to another connection. Client
+     *                request should be forwarded so no new event will be
+     *                created by this node. New connections should not be
+     *                accepted.
      */
     TI_NODE_STAT_SHUTTING_DOWN  =1<<3,
 

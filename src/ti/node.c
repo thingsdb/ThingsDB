@@ -108,6 +108,34 @@ const char * ti_node_status_str(ti_node_status_t status)
     return "UNKNOWN";
 }
 
+static uv_timer_t test_timer;
+static uv_tcp_t * test_stream;
+
+static void test_cb(uv_timer_t * UNUSED(timer))
+{
+    uv_connect_t * req = test_timer.data;
+    ti_node_t * node = req->data;
+
+    LOGC("CB");
+
+
+    if (node->status == TI_NODE_STAT_CONNECTING)
+    {
+        LOGC("OFFLINE");
+        node->status = TI_NODE_STAT_OFFLINE;
+    }
+
+    uv_close((uv_handle_t *) &test_timer, NULL);
+
+    if (!uv_is_closing((uv_handle_t *) test_stream))
+        ti_stream_close((ti_stream_t *) test_stream->data);
+
+    ti_node_drop(node);
+    free(req);
+}
+
+
+
 static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
 {
     int rc;
@@ -137,11 +165,24 @@ static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
     node->status = TI_NODE_STAT_CONNECTING;
     ti_incref(node);
 
+    test_stream = (uv_tcp_t *) node->stream->uvstream;
+
+    if (ti.node->id == 1)
+    {
+        rc = 0;
+
+        test_timer.data = req;
+        uv_timer_init(ti.loop, &test_timer);
+        uv_timer_start(&test_timer, test_cb, 10000, 0);
+        return;
+    }
+
     rc = uv_tcp_connect(
-            req,
-            (uv_tcp_t *) node->stream->uvstream,
-            (const struct sockaddr *) sockaddr,
-            node__on_connect);
+                req,
+                (uv_tcp_t *) node->stream->uvstream,
+                (const struct sockaddr *) sockaddr,
+                node__on_connect);
+
 
     if (rc)
     {
@@ -429,7 +470,7 @@ static void node__on_connect(uv_connect_t * req, int status)
         log_error("connecting to "TI_NODE_ID" has failed (%s)",
                 node->id,
                 uv_strerror(status));
-        goto failed;
+        goto offline;
     }
 
     if (node->stream != (ti_stream_t *) req->handle->data)
@@ -450,13 +491,13 @@ static void node__on_connect(uv_connect_t * req, int status)
     {
         log_error("cannot read TCP stream for "TI_NODE_ID": `%s`",
                 node->id, uv_strerror(rc));
-        goto failed;
+        goto offline;
     }
 
     if (mp_sbuffer_alloc_init(&buffer, 512, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
-        goto failed;
+        goto offline;
     }
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
@@ -482,10 +523,14 @@ static void node__on_connect(uv_connect_t * req, int status)
     {
         free(pkg);
         log_error(EX_INTERNAL_S);
-        goto failed;
+        goto offline;
     }
 
     goto done;
+
+offline:
+    if (node->status == TI_NODE_STAT_CONNECTING)
+        node->status = TI_NODE_STAT_OFFLINE;
 
 failed:
     if (!uv_is_closing((uv_handle_t *) req->handle))

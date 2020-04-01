@@ -303,15 +303,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         goto fail;
     }
 
-    node->status = from_node_status;
-    node->zone = from_node_zone;
-    node->syntax_ver = from_node_syntax_ver;
-    node->cevid = mp_cevid.via.u64;
-    node->sevid = mp_sevid.via.u64;
-    node->next_thing_id = mp_next_thing_id.via.u64;
-
-    ti_nodes_update_syntax_ver(from_node_zone);
-
     if (node->stream)
     {
         assert (node->stream->via.node == node);
@@ -346,6 +337,15 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     ti_stream_set_node(stream, node);
+
+    node->status = from_node_status;
+    node->zone = from_node_zone;
+    node->syntax_ver = from_node_syntax_ver;
+    node->cevid = mp_cevid.via.u64;
+    node->sevid = mp_sevid.via.u64;
+    node->next_thing_id = mp_next_thing_id.via.u64;
+
+    ti_nodes_update_syntax_ver(from_node_zone);
 
     /* Update node name and/or port if required */
     ti_node_upd_node(node, from_node_port, &mp_from_node_name);

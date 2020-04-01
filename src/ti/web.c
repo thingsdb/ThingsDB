@@ -139,6 +139,7 @@ static uv_buf_t * web__get_status_response(void)
     {
     case TI_NODE_STAT_OFFLINE:
     case TI_NODE_STAT_CONNECTING:
+    case TI_NODE_STAT_CONNECTED:
     case TI_NODE_STAT_BUILDING:
     case TI_NODE_STAT_SHUTTING_DOWN:
         break;

@@ -9,13 +9,19 @@ typedef enum
     /*
      * Offline: node is not connected.
      */
-    TI_NODE_STAT_OFFLINE        =1<<0,
+    TI_NODE_STAT_OFFLINE        =0,
 
     /*
      * Connecting: changed to connecting when trying to setup a connection
      *             to a node. This-node can never have status connection.
      */
-    TI_NODE_STAT_CONNECTING     =1<<1,
+    TI_NODE_STAT_CONNECTING     =1<<0,
+
+    /*
+     * Connecting: changed to connecting when trying to setup a connection
+     *             to a node. This-node can never have status connection.
+     */
+    TI_NODE_STAT_CONNECTED      =1<<1,
 
     /*
      * Building: this state has a node when it starts building ThingsDB. It is

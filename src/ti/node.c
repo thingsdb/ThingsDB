@@ -59,6 +59,25 @@ ti_node_t * ti_node_create(
     return node;
 }
 
+/*
+static uv_timer_t test_timer;
+static uv_tcp_t * test_stream;
+static void test_cb(uv_timer_t * UNUSED(timer))
+{
+    uv_connect_t * req = test_timer.data;
+    ti_node_t * node = req->data;
+
+    uv_close((uv_handle_t *) &test_timer, NULL);
+
+    if (!uv_is_closing((uv_handle_t *) test_stream))
+    {
+        ti_stream_close((ti_stream_t *) test_stream->data);
+    }
+    ti_node_drop(node);
+    free(req);
+}
+*/
+
 void ti_node_drop(ti_node_t * node)
 {
     if (node && !--node->ref)
@@ -98,6 +117,7 @@ const char * ti_node_status_str(ti_node_status_t status)
     {
     case TI_NODE_STAT_OFFLINE:          return "OFFLINE";
     case TI_NODE_STAT_CONNECTING:       return "CONNECTING";
+    case TI_NODE_STAT_CONNECTED:        return "CONNECTED";
     case TI_NODE_STAT_BUILDING:         return "BUILDING";
     case TI_NODE_STAT_SYNCHRONIZING:    return "SYNCHRONIZING";
     case TI_NODE_STAT_AWAY:             return "AWAY";
@@ -136,6 +156,19 @@ static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
     req->data = node;
     node->status = TI_NODE_STAT_CONNECTING;
     ti_incref(node);
+
+    /*
+    test_stream = (uv_tcp_t *) node->stream->uvstream;
+    if (ti.node->id == 1)
+    {
+        rc = 0;
+
+        test_timer.data = req;
+        uv_timer_init(ti.loop, &test_timer);
+        uv_timer_start(&test_timer, test_cb, 10000, 0);
+        return;
+    }
+    */
 
     rc = uv_tcp_connect(
             req,
@@ -444,6 +477,8 @@ static void node__on_connect(uv_connect_t * req, int status)
     log_debug(
             "connection to "TI_NODE_ID" (%s:%u) created",
             node->id, node->addr, node->port);
+
+    node->status = TI_NODE_STAT_CONNECTED;
 
     rc = uv_read_start(req->handle, ti_stream_alloc_buf, ti_stream_on_data);
     if (rc)

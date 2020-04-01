@@ -293,8 +293,12 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         goto fail;
     }
 
-    if (node->status > TI_NODE_STAT_CONNECTING)
+    if (node->status > TI_NODE_STAT_CONNECTED)
     {
+        /*
+         * When only CONNECTED, the connection is not yet authenticated and
+         * we might in this case want to switch the connection.
+         */
         log_error(
             "cannot accept connection request received from `%s` "
             "because "TI_NODE_ID" is already connected",
@@ -307,7 +311,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     {
         assert (node->stream->via.node == node);
 
-        if (node->id < this_node->id)
+        if (node->id < this_node->id &&
+            node->status != TI_NODE_STAT_CONNECTING)
         {
             log_warning(
                     "connection request from `%s` rejected since a connection "
@@ -317,7 +322,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
             goto fail;
         }
 
-        assert (node->id > this_node->id);
         log_warning("changing stream for "TI_NODE_ID" from `%s` to `%s",
                 node->id,
                 ti_stream_name(node->stream),
@@ -1415,7 +1419,7 @@ int ti_nodes_check_add(ex_t * e)
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
-        if (node->status <= TI_NODE_STAT_CONNECTING && !may_skip--)
+        if (node->status <= TI_NODE_STAT_CONNECTED && !may_skip--)
         {
             ex_set(e, EX_OPERATION_ERROR,
                 "wait for a connection to "TI_NODE_ID" before adding a new node; "
@@ -1661,10 +1665,10 @@ void ti_nodes_set_not_ready_err(ex_t * e)
             return;
         }
 
-        if (node->status & (
-                TI_NODE_STAT_OFFLINE |
+        if (node->status == TI_NODE_STAT_OFFLINE || (node->status & (
                 TI_NODE_STAT_CONNECTING |
-                TI_NODE_STAT_SHUTTING_DOWN))
+                TI_NODE_STAT_CONNECTED |
+                TI_NODE_STAT_SHUTTING_DOWN)))
         {
             ex_set(e, EX_NODE_ERROR,
                 "cannot find a node for handling this request; "

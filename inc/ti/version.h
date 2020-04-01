@@ -6,7 +6,7 @@
 
 #define TI_VERSION_MAJOR 0
 #define TI_VERSION_MINOR 8
-#define TI_VERSION_PATCH 2
+#define TI_VERSION_PATCH 3
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
@@ -56,7 +56,5 @@
 
 int ti_version_cmp(const char * version_a, const char * version_b);
 void ti_version_print(void);
-
-
 
 #endif /* TI_VERSION_H_ */

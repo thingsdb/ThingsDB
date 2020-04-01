@@ -143,7 +143,6 @@ static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
                 (const struct sockaddr *) sockaddr,
                 node__on_connect);
 
-
     if (rc)
     {
         log_error(

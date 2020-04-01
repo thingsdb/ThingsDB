@@ -138,10 +138,10 @@ static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
     ti_incref(node);
 
     rc = uv_tcp_connect(
-                req,
-                (uv_tcp_t *) node->stream->uvstream,
-                (const struct sockaddr *) sockaddr,
-                node__on_connect);
+            req,
+            (uv_tcp_t *) node->stream->uvstream,
+            (const struct sockaddr *) sockaddr,
+            node__on_connect);
 
     if (rc)
     {

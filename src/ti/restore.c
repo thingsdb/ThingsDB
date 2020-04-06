@@ -197,8 +197,6 @@ static void restore__slave_cb(uv_timer_t * UNUSED(timer))
     (void) ti_store_init();
     (void) ti_archive_init();
 
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);
-
     if (ti_sync_create() == 0)
         ti_sync_start();
 }
@@ -213,6 +211,8 @@ int ti_restore_master(void)
 
 int ti_restore_slave(void)
 {
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);
+
     if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 

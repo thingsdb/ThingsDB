@@ -146,7 +146,6 @@
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
-#define FN__BIT_EXCL_VAR 2
 
 /*
  * Used to convert the TI_QBIND_FLAG_ON_VAR to FN__FLAG_EXCL_VAR. Therefore
@@ -718,19 +717,19 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+    cleri_children_t * child = nd->children->next;
 
-    qbind__name_opt_fa(qbind, nd->children->next->node);
+    qbind__name_opt_fa(qbind, child->node);
 
     qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
 
     /* index */
-    if (nd->children->next->next->node->children)
-        qbind__index(qbind, nd->children->next->next->node);
+    if ((child = child->next)->node->children)
+        qbind__index(qbind, child->node);
 
     /* chain */
-    if (nd->children->next->next->next)
-        qbind__chain(qbind, nd->children->next->next->next->node);
+    if (child->next)
+        qbind__chain(qbind, child->next->node);
 }
 
 static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)

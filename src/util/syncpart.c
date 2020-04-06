@@ -9,9 +9,6 @@
 #include <util/logger.h>
 #include <util/syncpart.h>
 
-/* TODO: remove FX */
-#include <util/fx.h>
-
 /*
  * Returns 0 if the file is complete, 1 if more data is available and -1 on
  * error.
@@ -91,9 +88,6 @@ int syncpart_write(
 {
     off_t sz;
     FILE * fp;
-    _Bool TMP = fx_file_exist(fn);
-
-    LOGC("FILE `%s` EXISTS: %d", fn, TMP);
 
     fp = fopen(fn, offset ? "a" : "w");
     if (!fp)
@@ -105,17 +99,18 @@ int syncpart_write(
                 fn, log_strerror(errno, ebuf, sizeof(ebuf)));
         return e->nr;
     }
+
     sz = ftello(fp);
 
-    if (offset && !TMP)
+    if (offset && !sz)
     {
-        LOGC("EXPECTING FILE BUT NOT FOUND");
-    }
-    else if (TMP && sz == 0 && offset)
-    {
-        (void) fseek(fp, 0, SEEK_END);
+        /*
+         * On some machines it seems that the FILE pointer is NOT set to the
+         * end of the stream by fopen(fn, "a"), therefore we explicitly use
+         * fseeko(fp, 0, SEEK_END) to jump to the end of the file.
+         */
+        (void) fseeko(fp, 0, SEEK_END);
         sz = ftello(fp);
-        LOGC("GOT SECOND SZ: %zd", sz);
     }
 
     if (sz != offset)

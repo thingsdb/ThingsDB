@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <ex.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <util/logger.h>
 #include <util/syncpart.h>
@@ -87,6 +88,7 @@ int syncpart_write(
 {
     off_t sz;
     FILE * fp;
+    int fd;
 
     fp = fopen(fn, offset ? "ab" : "wb");
     if (!fp)
@@ -117,7 +119,12 @@ int syncpart_write(
     {
         ex_set(e, EX_INTERNAL, "error writing %zu bytes to file `%s`",
                 size, fn);
+        goto done;
     }
+
+    fd = fileno(fp);
+    if (fd > 0)
+        (void) fsync(fd);
 
 done:
     if (fclose(fp) && !e->nr)

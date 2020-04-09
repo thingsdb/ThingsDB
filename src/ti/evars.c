@@ -32,13 +32,13 @@ static void evars__sizet(const char * evar, size_t * sz)
     *sz = (size_t) strtoull(sizetstr, NULL, 10);
 }
 
-static void evars__double(const char * evar, double * d)
+static void evars__abs_double(const char * evar, double * d)
 {
     char * doublestr = getenv(evar);
     if (!doublestr)
         return;
 
-    *d = strtod(doublestr, NULL);
+    *d = fabs(strtod(doublestr, NULL));
 }
 
 static void evars__str(const char * evar, char ** straddr)
@@ -95,10 +95,10 @@ void ti_evars_parse(void)
     evars__u8(
             "THINGSDB_ZONE",
             &ti.cfg->zone);
-    evars__double(
+    evars__abs_double(
             "THINGSDB_QUERY_DURATION_WARN",
             &ti.cfg->query_duration_warn);
-    evars__double(
+    evars__abs_double(
             "THINGSDB_QUERY_DURATION_ERROR",
             &ti.cfg->query_duration_error);
 }

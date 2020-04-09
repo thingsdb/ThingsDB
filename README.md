@@ -10,14 +10,16 @@
 ## Plans and Ideas for the Future
 
 - [ ] Big number support?
-- [ ] support for things with any "raw" keys?
-- [ ] allow procedure arguments as a dictionary
-- [ ] should closures accept any amount of arguments when called? and `nil` values
+- [ ] Support for things with any "raw" keys?
+- [x] Allow procedure arguments as a dictionary
+- [x] Should closures accept any amount of arguments when called? and `nil` values
       when not enough arguments are given? This behavior would be more inline with
       how functions currently handle closures when given as argument.
-- [ ] support for Type closures, see *Thoughts about Type closures*
-
-
+- [ ] Support for Type closures, see *Thoughts about Type closures*
+- [ ] Assign data to set of nodes with an X redundancy and async methods to
+      retreive the data. Biggest issue is how to staty operational while 
+      upscaling.
+      
 ## Thoughts about Type closures
 
 ```

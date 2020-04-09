@@ -182,7 +182,7 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
 
     if (ti_store_restore() || ti_archive_load())
     {
-        log_critical("restore Things has failed");
+        log_critical("restore ThingsDB has failed");
         return;
     }
 

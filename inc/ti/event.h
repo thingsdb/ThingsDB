@@ -31,7 +31,6 @@ typedef union ti_event_u ti_event_via_t;
 #include <ti/collection.h>
 #include <ti/events.h>
 #include <ti/pkg.h>
-#include <ti/prom.h>
 #include <ti/query.h>
 #include <ti/raw.h>
 #include <ti/stream.h>

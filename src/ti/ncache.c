@@ -66,7 +66,6 @@ int ncache__gen_immutable(
     switch (nd->cl_obj->gid)
     {
     case CLERI_GID_T_CLOSURE:
-        assert (!nd->data);
         if (ncache__statement(
                     syntax,
                     vcache,
@@ -80,12 +79,10 @@ int ncache__gen_immutable(
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
-        assert (!nd->data);
         nd->data = ti_vfloat_create(strx_to_double(nd->str));
         break;
     case CLERI_GID_T_INT:
     {
-        assert (!nd->data);
         int64_t i = strx_to_int64(nd->str);
         if (errno == ERANGE)
         {
@@ -96,17 +93,14 @@ int ncache__gen_immutable(
         break;
     }
     case CLERI_GID_T_REGEX:
-        assert (!nd->data);
         nd->data = ti_regex_from_strn(nd->str, nd->len, e);
         if (!nd->data)
             return e->nr;
         break;
     case CLERI_GID_T_STRING:
-        assert (!nd->data);
         nd->data = ti_str_from_ti_string(nd->str, nd->len);
         break;
     case CLERI_GID_T_TEMPLATE:
-        assert (!nd->data);
         for(cleri_children_t * child = nd      /* sequence */
                 ->children->next->node          /* repeat */
                 ->children;
@@ -121,8 +115,6 @@ int ncache__gen_immutable(
                 return e->nr;
         (void) ti_template_build(nd);
         break;
-
-
     default:
         return 0;
     }
@@ -170,10 +162,8 @@ static int ncache__index(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_INDEX);
-
     cleri_children_t * child = nd->children;
-
+    assert (nd->cl_obj->gid == CLERI_GID_INDEX);
     assert (child);
     do
     {

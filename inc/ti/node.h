@@ -7,7 +7,7 @@
 typedef enum
 {
     /*
-     * Offline: node is not connected.
+     * Off-line: node is not connected.
      */
     TI_NODE_STAT_OFFLINE        =0,
 

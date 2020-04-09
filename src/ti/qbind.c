@@ -485,9 +485,6 @@ static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
     uint32_t gid = parent->node->children->next->node->cl_obj->gid;
     cleri_children_t * childb = parent->node->children->next->next;
 
-    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
-            gid <= CLERI_GID_OPR8_TERNARY);
-
     if (childb->node->children->node->cl_obj->gid == CLERI_GID_OPERATIONS &&
         qbind__swap(childb->node->children, gid))
     {
@@ -497,10 +494,6 @@ static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
         parent->node = childb->node->children->node;  /* operations */
 
         gid = parent->node->children->next->node->cl_obj->gid;
-
-        assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
-                gid <= CLERI_GID_OPR8_TERNARY);
-
         syntax_childa = parent->node->children->node->children;
         childb->node->children->node = syntax_childa->node;
         syntax_childa->node = tmp;

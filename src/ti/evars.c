@@ -1,6 +1,7 @@
 /*
  * ti/evars.c
  */
+#include <math.h>
 #include <ti.h>
 #include <ti/evars.h>
 #include <util/fx.h>

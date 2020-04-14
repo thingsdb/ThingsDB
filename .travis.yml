@@ -1,8 +1,16 @@
 language: c
 sudo: required
 dist: bionic
-env:
-  - COMPILER_EVAL="CC=gcc-9 && CXX=g++-9
+
+matrix:
+  include:
+    - compiler: gcc
+      env:
+        - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
+
+before_install:
+  - eval "${MATRIX_EVAL}"
+
 before_script:
   - sudo add-apt-repository main
   - sudo add-apt-repository universe
@@ -14,7 +22,7 @@ before_script:
   - make
   - sudo make install
   - cd ../../Release/
-  - eval "${COMPILER_EVAL}"
+
 script:
   - make test
   - CFLAGS="-Werror -std=gnu11" make

@@ -9,7 +9,7 @@
 #include <ti/do.h>
 #include <ex.h>
 
-TI_INLINE(int) ti_closure_do_statement(
+static inline int ti_closure_do_statement(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e)
@@ -19,8 +19,10 @@ TI_INLINE(int) ti_closure_do_statement(
     return e->nr;
 }
 
-TI_INLINE(int) ti_closure_try_wse(
-        ti_closure_t * closure, ti_query_t * query, ex_t * e)
+static inline int ti_closure_try_wse(
+        ti_closure_t * closure,
+        ti_query_t * query,
+        ex_t * e)
 {
     /*
      * The current implementation never sets the `WSE` flag when bound to a

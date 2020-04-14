@@ -26,7 +26,7 @@ static inline ti_name_t * ti_names_weak_get(const char * str, size_t n)
     return smap_getn(names, str, n);
 }
 
-TI_INLINE(ti_name_t *) ti_names_get(const char * str, size_t n)
+static inline ti_name_t * ti_names_get(const char * str, size_t n)
 {
     ti_name_t * name = smap_getn(names, str, n);
     if (name)

@@ -30,12 +30,6 @@
 #define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
-#if __GNUC__ >= 9
-#define TI_INLINE(__t) static inline __t
-#else
-#define TI_INLINE(__t) static __t __attribute__((unused))
-#endif
-
 /*
  * File name schema to check version info on created files.
  */

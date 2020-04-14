@@ -52,7 +52,7 @@
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 static int fn_call_try(const char *, ti_query_t *, cleri_node_t *, ex_t *);
 
-TI_INLINE(int) fn_not_node_scope(
+static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
@@ -66,7 +66,7 @@ TI_INLINE(int) fn_not_node_scope(
     return e->nr;
 }
 
-TI_INLINE(int) fn_not_thingsdb_scope(
+static inline int fn_not_thingsdb_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
@@ -80,7 +80,7 @@ TI_INLINE(int) fn_not_thingsdb_scope(
     return e->nr;
 }
 
-TI_INLINE(int) fn_nargs(
+static inline int fn_nargs(
         const char * name,
         const char * doc,
         const int n,
@@ -94,7 +94,7 @@ TI_INLINE(int) fn_nargs(
     return e->nr;
 }
 
-TI_INLINE(int) fn_nargs_max(
+static inline int fn_nargs_max(
         const char * name,
         const char * doc,
         const int ma,
@@ -108,7 +108,7 @@ TI_INLINE(int) fn_nargs_max(
     return e->nr;
 }
 
-TI_INLINE(int) fn_nargs_min(
+static inline int fn_nargs_min(
         const char * name,
         const char * doc,
         const int mi,
@@ -136,7 +136,7 @@ static inline int fn_nargs_range(
     ) ? e->nr : 0;
 }
 
-TI_INLINE(int) fn_arg_str(
+static inline int fn_arg_str(
         const char * name,
         const char * doc,
         int argn,
@@ -152,7 +152,7 @@ TI_INLINE(int) fn_arg_str(
     return e->nr;
 }
 
-TI_INLINE(int) fn_arg_int(
+static inline int fn_arg_int(
         const char * name,
         const char * doc,
         int argn,
@@ -168,7 +168,7 @@ TI_INLINE(int) fn_arg_int(
     return e->nr;
 }
 
-TI_INLINE(int) fn_arg_thing(
+static inline int fn_arg_thing(
         const char * name,
         const char * doc,
         int argn,
@@ -185,7 +185,7 @@ TI_INLINE(int) fn_arg_thing(
 }
 
 
-TI_INLINE(int) fn_arg_closure(
+static inline int fn_arg_closure(
         const char * name,
         const char * doc,
         int argn,
@@ -201,7 +201,7 @@ TI_INLINE(int) fn_arg_closure(
     return e->nr;
 }
 
-TI_INLINE(int) fn_arg_bool(
+static inline int fn_arg_bool(
         const char * name,
         const char * doc,
         int argn,
@@ -217,7 +217,7 @@ TI_INLINE(int) fn_arg_bool(
     return e->nr;
 }
 
-TI_INLINE(int) fn_arg_name_check(
+static inline int fn_arg_name_check(
         const char * name,
         const char * doc,
         int argn,
@@ -235,7 +235,7 @@ TI_INLINE(int) fn_arg_name_check(
     return e->nr;
 }
 
-TI_INLINE(int) fn_not_collection_scope(
+static inline int fn_not_collection_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
@@ -249,7 +249,7 @@ TI_INLINE(int) fn_not_collection_scope(
     return e->nr;
 }
 
-TI_INLINE(int) fn_not_thingsdb_or_collection_scope(
+static inline int fn_not_thingsdb_or_collection_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)

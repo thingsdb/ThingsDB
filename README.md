@@ -17,3 +17,4 @@ https://docs.thingsdb.net/v0/getting-started/build-from-source/
 docker build -t thingsdb/itest -f itest/Dockerfile .
 docker run thingsdb/itest:latest
 ```
+

@@ -23,9 +23,8 @@ static inline int langdef_nd_n_function_params(cleri_node_t * nd)
     return (int) ((intptr_t) nd->data);
 }
 
-static inline _Bool langdef_nd_match_str(cleri_node_t * nd, char * str)
-{
-    return strncmp(str, nd->str, nd->len) == 0 && str[nd->len] == '\0';
-}
+#define langdef_nd_match_str(nd__, str__) \
+    (strncmp(str__, nd__->str, nd__->len) == 0 && str__[nd__->len] == '\0')
+
 
 #endif  /* LANGDEF_ND_H_ */

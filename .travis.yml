@@ -29,5 +29,4 @@ before_script:
 
 script:
   - eval "${MATRIX_EVAL}"
-  - make test
   - CFLAGS="-Werror -std=gnu11" make

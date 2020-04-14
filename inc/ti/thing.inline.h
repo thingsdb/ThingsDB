@@ -127,7 +127,7 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
-static inline ti_val_t * ti_thing_val_weak_get(
+TI_STAT_INLI ti_val_t * ti_thing_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {

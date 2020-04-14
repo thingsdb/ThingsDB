@@ -335,7 +335,7 @@ big_t * big_mulbi(const big_t * a, const int64_t b)
 
 double big_mulbd(const big_t * a, const double b)
 {
-    double r = 0, d;
+    double r = 0.0, d;
     uint_fast16_t i, n, k;
     for (i = 0, n = a->n_; i < n; ++i)
     {

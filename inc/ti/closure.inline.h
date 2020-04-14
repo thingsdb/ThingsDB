@@ -9,7 +9,7 @@
 #include <ti/do.h>
 #include <ex.h>
 
-TI_STAT_INLI int ti_closure_do_statement(
+TI_INLINE(int) ti_closure_do_statement(
         ti_closure_t * closure,
         ti_query_t * query,
         ex_t * e)
@@ -19,7 +19,7 @@ TI_STAT_INLI int ti_closure_do_statement(
     return e->nr;
 }
 
-TI_STAT_INLI int ti_closure_try_wse(
+TI_INLINE(int) ti_closure_try_wse(
         ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
     /*

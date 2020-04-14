@@ -80,7 +80,7 @@ static inline int ti_val_make_assignable(
     return -1;
 }
 
-static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
+TI_INLINE(int) ti_val_make_variable(ti_val_t ** val, ex_t * e)
 {
     switch ((ti_val_enum) (*val)->tp)
     {

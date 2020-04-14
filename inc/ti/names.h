@@ -5,6 +5,7 @@
 #define TI_NAMES_H_
 
 #include <stdint.h>
+#include <tiinc.h>
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <util/smap.h>
@@ -25,7 +26,7 @@ static inline ti_name_t * ti_names_weak_get(const char * str, size_t n)
     return smap_getn(names, str, n);
 }
 
-TI_STAT_INLI ti_name_t * ti_names_get(const char * str, size_t n)
+TI_INLINE(ti_name_t *) ti_names_get(const char * str, size_t n)
 {
     ti_name_t * name = smap_getn(names, str, n);
     if (name)

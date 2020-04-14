@@ -31,9 +31,9 @@
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
 #if __GNUC__ >= 9
-#define TI_STAT_INLI static inline
+#define TI_INLINE(__t) static inline __t
 #else
-#define TI_STAT_INLI static
+#define TI_INLINE(__t) static __t __attribute__((unused))
 #endif
 
 /*

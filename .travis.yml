@@ -29,6 +29,10 @@ before_script:
   - make
   - sudo make install
   - cd ../../Release/
+  - rm /usr/bin/gcc
+  - ln -s /usr/bin/gcc-9 /usr/bin/gcc
+  - gcc --version
 
 script:
+  - make test
   - CFLAGS="-Werror -std=gnu11" make

@@ -8,11 +8,6 @@
 #include <langdef/langdef.h>
 #include <string.h>
 
-static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd);
-static inline _Bool langdef_nd_fun_has_one_param(cleri_node_t * nd);
-static inline int langdef_nd_n_function_params(cleri_node_t * nd);
-static inline _Bool langdef_nd_match_str(cleri_node_t * nd, char * str);
-
 static inline _Bool langdef_nd_fun_has_zero_params(cleri_node_t * nd)
 {
     return !nd->children;

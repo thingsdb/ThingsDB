@@ -235,6 +235,9 @@ int ti_backups_restore(void)
     ti_backup_t * backup;
     uint64_t now = util_now_tsec();
 
+    /* prevents a compiler warning */
+    mp_msg.via.str.n = 0;
+
     if (backups__ensure_fn())
         return -1;
 

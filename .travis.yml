@@ -24,6 +24,7 @@ before_script:
   - cd ./libcleri/Release/
   - make
   - sudo make install
+  - cd ../../Release/
 
 script:
   - make test

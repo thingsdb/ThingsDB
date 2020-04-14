@@ -35,4 +35,4 @@ before_script:
 
 script:
   - make test
-  - CFLAGS="-Werror -std=gnu11" make
+  - CFLAGS="-Werror -Winline -std=gnu11" make

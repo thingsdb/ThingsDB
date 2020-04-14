@@ -20,6 +20,7 @@ before_install:
   - eval "${MATRIX_EVAL}"
 
 before_script:
+  - eval "${MATRIX_EVAL}"
   - git clone https://github.com/transceptor-technology/libcleri.git
   - cd ./libcleri/Release/
   - make
@@ -27,5 +28,6 @@ before_script:
   - cd ../../Release/
 
 script:
+  - eval "${MATRIX_EVAL}"
   - make test
   - CFLAGS="-Werror -std=gnu11" make

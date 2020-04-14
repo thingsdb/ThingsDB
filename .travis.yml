@@ -31,5 +31,4 @@ before_script:
   - cd ../../Release/
 
 script:
-  - make test
   - CFLAGS="-Werror -std=gnu11" make

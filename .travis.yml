@@ -12,6 +12,8 @@ before_script:
   - make
   - sudo make install
   - cd ../../Release/
+env:
+  - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9
 script:
   - make test
   - CFLAGS="-Werror -std=gnu11" make

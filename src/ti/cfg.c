@@ -405,7 +405,7 @@ int ti_cfg_ensure_storage_path(void)
     char * storage_path;
 
     if (!fx_is_dir(cfg->storage_path) &&
-        mkdir(cfg->storage_path, TI_DEFAULT_DIR_ACCESS))
+        mkdir(cfg->storage_path, FX_DEFAULT_DIR_ACCESS))
     {
         /* still one thread so `strerror` is fine to use here */
         printf(

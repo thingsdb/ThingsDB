@@ -323,7 +323,7 @@ int ti_archive_init(void)
     if (!archive_path)
         return -1;
 
-    if (!fx_is_dir(archive_path) && mkdir(archive_path, TI_DEFAULT_DIR_ACCESS))
+    if (!fx_is_dir(archive_path) && mkdir(archive_path, FX_DEFAULT_DIR_ACCESS))
     {
         log_errno_file("cannot create archive directory", errno, archive_path);
         return -1;

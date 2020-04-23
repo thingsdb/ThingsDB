@@ -97,6 +97,22 @@ _Bool fx_is_dir(const char * path)
     return !stat(path, &st) && S_ISDIR(st.st_mode);
 }
 
+int fx_mkdir_n(const char * path, size_t n)
+{
+    int rc = 0;
+    char * tmp = strndup(path, n);
+    if (!tmp)
+        return -1;
+    if (!fx_is_dir(tmp))
+    {
+        rc = mkdir(tmp, FX_DEFAULT_DIR_ACCESS);
+        if (rc)
+            log_errno_file("cannot create directory", errno, tmp);
+    }
+    free(tmp);
+    return rc;
+}
+
 int fx_rmdir(const char * path)
 {
     DIR * d = opendir(path);

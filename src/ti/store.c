@@ -137,7 +137,7 @@ int ti_store_init(void)
 {
     char * path = ti.store->store_path;
 
-    if (!fx_is_dir(path) && mkdir(path, TI_DEFAULT_DIR_ACCESS))
+    if (!fx_is_dir(path) && mkdir(path, FX_DEFAULT_DIR_ACCESS))
     {
         log_errno_file("cannot create directory", errno, path);
         return -1;
@@ -177,7 +177,7 @@ int ti_store_store(void)
     /* not need for checking on errors */
     (void) fx_rmdir(store->prev_path);
 
-    if (mkdir(store->tmp_path, TI_DEFAULT_DIR_ACCESS))
+    if (mkdir(store->tmp_path, FX_DEFAULT_DIR_ACCESS))
     {
         log_errno_file("cannot create directory", errno, store->tmp_path);
     }
@@ -207,7 +207,7 @@ int ti_store_store(void)
         if (!store_collection)
             goto failed;
 
-        rc = mkdir(store_collection->collection_path, TI_DEFAULT_DIR_ACCESS);
+        rc = mkdir(store_collection->collection_path, FX_DEFAULT_DIR_ACCESS);
         if (rc)
         {
             log_errno_file("cannot create collection path",

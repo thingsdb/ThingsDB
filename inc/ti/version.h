@@ -13,7 +13,7 @@
 #define TI_VERSION_SYNTAX 0
 
 /* ThingsDB can only connect with servers having at least this version. */
-#define TI_MINIMAL_VERSION "0.4.2"
+#define TI_MINIMAL_VERSION "0.8.0"
 
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha release versions.
@@ -23,7 +23,7 @@
  *  "-alpha-1"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha-0"
+#define TI_VERSION_PRE_RELEASE "-alpha-2"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@transceptor.technology>"

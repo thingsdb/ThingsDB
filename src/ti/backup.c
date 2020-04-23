@@ -6,6 +6,7 @@
 #include <string.h>
 #include <util/util.h>
 #include <util/buf.h>
+#include <util/fx.h>
 #include <ti.h>
 #include <time.h>
 
@@ -144,11 +145,14 @@ char * ti_backup_job(ti_backup_t * backup)
     char * pv = backup->fn_template;
     char * pt = backup->fn_template;
     char * end = pt + strlen(backup->fn_template);
+    size_t offset, path_n = 0;
 
     buf_init(&buf);
     tm_info = gmtime((const time_t *) &now);
 
-    buf_append_str(&buf, "tar --exclude=.lock -czf \"");
+    buf_append_str(&buf, "tar --exclude=.lock --exclude=*.tar.gz -czf \"");
+
+    offset = buf.len;
 
     while(*pt)
     {
@@ -180,10 +184,16 @@ char * ti_backup_job(ti_backup_t * backup)
             continue;
         }
 
+        if (*pt == '/')
+            path_n = buf.len + (pt - pv);
+
         ++pt;
     }
 
     buf_append(&buf, pv, pt - pv);
+
+    if (path_n > 1)
+        (void) fx_mkdir_n(buf.data + offset, path_n - offset);
 
     buf_append_str(&buf, "\" -C \"");
     buf_append_str(&buf, ti.cfg->storage_path);

@@ -150,7 +150,13 @@ char * ti_backup_job(ti_backup_t * backup)
     buf_init(&buf);
     tm_info = gmtime((const time_t *) &now);
 
-    buf_append_str(&buf, "tar --exclude=.lock --exclude=*.tar.gz -czf \"");
+    buf_append_str(
+            &buf,
+            "tar "
+            "--exclude=.lock "
+            "--exclude=*.tar.gz "
+            "--exclude=*backup* "
+            "-czf \"");
 
     offset = buf.len;
 

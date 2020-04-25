@@ -156,6 +156,7 @@ char * ti_backup_job(ti_backup_t * backup)
             "--exclude=.lock "
             "--exclude=*.tar.gz "
             "--exclude=*backup* "
+            "--exclude=lost+found "
             "-czf \"");
 
     offset = buf.len;

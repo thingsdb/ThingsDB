@@ -156,6 +156,23 @@ int ti__wrap_field_thing(
     spec &= TI_SPEC_MASK_NILLABLE;
 
     assert (thing->tp == TI_VAL_THING);
+
+    /*
+     * TODO: the value of spec should be equal or lower then TI_SPEC_OBJECT
+     *       but we hit this assertion once in DutyCalls playground so add
+     *       some extra info on why this is happening.
+     */
+    if (spec > TI_SPEC_OBJECT)
+    {
+        LOGC("spec: %u", spec);
+        LOGC("options: %u", options);
+        LOGC("thing pointer: %p", thing);
+        LOGC("thing id: %"PRIu64, thing->id);
+        LOGC("thing type: %u", thing->type_id);
+        LOGC("thing flags: %u", thing->flags);
+        LOGC("thing ref: %u", thing->ref);
+    }
+
     assert (spec <= TI_SPEC_OBJECT);
 
     if (spec == TI_SPEC_ANY ||

@@ -10,6 +10,11 @@
 #include <util/logger.h>
 #include <uv.h>
 
+/*
+ * TODO: execinfo.h only required for back-trace.
+ */
+#include <execinfo.h>
+
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
 {
     va_list args;
@@ -23,8 +28,16 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
      *       in the code exists */
     if (e->n < 0)
     {
+        void * callstack[128];
+        int i, frames = backtrace(callstack, 128);
+        char ** strs = backtrace_symbols(callstack, frames);
+        for (i = 0; i < frames; ++i)
+            printf("%s\n", strs[i]);
+        free(strs);
+
         e->n = 0;
         e->msg[0] = '\0';
+
         assert(0);
     }
 

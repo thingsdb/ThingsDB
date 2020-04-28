@@ -292,6 +292,9 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     /* update modified time-stamp */
     type->modified_at = mp_modified.via.u64;
 
+    /* clean mappings */
+    ti_type_map_cleanup(type);
+
     return 0;
 }
 
@@ -369,28 +372,31 @@ static int job__mod_type_add(
     if (!name || !spec_raw)
     {
         log_critical(EX_MEMORY_S);
-        goto done;
+        goto fail0;
     }
 
     field = ti_field_create(name, spec_raw, type, &e);
     if (!field)
     {
         log_critical(e.msg);
-        goto done;
+        goto fail0;
     }
 
     if (val && ti_field_init_things(field, &val, ev_id))
     {
         log_critical(EX_MEMORY_S);
-        goto done;
+        goto fail0;
     }
 
     /* update modified time-stamp */
     type->modified_at = mp_modified.via.u64;
 
+    /* clean mappings */
+    ti_type_map_cleanup(type);
+
     rc = 0;
 
-done:
+fail0:
     ti_val_drop(val);
     ti_val_drop((ti_val_t *) spec_raw);
     ti_name_drop(name);
@@ -463,6 +469,9 @@ static int job__mod_type_del(
 
     /* update modified time-stamp */
     type->modified_at = mp_modified.via.u64;
+
+    /* clean mappings */
+    ti_type_map_cleanup(type);
 
     return 0;
 }
@@ -537,14 +546,17 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     if (ti_field_mod(field, spec_raw, 0, &e))
     {
         log_critical(e.msg);
-        goto done;
+        goto fail0;
     }
 
     /* update modified time-stamp */
     type->modified_at = mp_modified.via.u64;
 
+    /* clean mappings */
+    ti_type_map_cleanup(type);
+
     rc = 0;
-done:
+fail0:
     ti_val_drop((ti_val_t *) spec_raw);
     return rc;
 }

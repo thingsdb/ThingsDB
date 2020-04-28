@@ -99,9 +99,14 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
+    if (!is_new_type)
+        /* only required when this is an existing type, note that nodes which
+         * run this by event make this call anyway */
+        ti_type_map_cleanup(type);
+
     is_new_type = false;  /* set always to false to prevent cleanup */
     query->rval = (ti_val_t *) ti_nil_get();
-    ti_type_map_cleanup(type);
+
 
 fail2:
     ti_val_drop((ti_val_t *) thing);

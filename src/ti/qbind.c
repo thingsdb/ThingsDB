@@ -587,8 +587,10 @@ static void qbind__function(
         ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
     ) << TI_QBIND_BIT_EVENT;
 
-    /* update the value cache if no function is found */
+    /* update the value cache if no build-in function is found */
     q->val_cache_n += nd->data == NULL;
+
+    /* only used when no build-in function is found */
     fnname->data = NULL;
 
     /* list (arguments) */

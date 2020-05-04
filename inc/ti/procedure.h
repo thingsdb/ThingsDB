@@ -35,7 +35,7 @@ struct ti_procedure_s
     uint64_t created_at;        /* UNIX time-stamp in seconds */
     ti_raw_t * name;            /* name of the procedure */
     ti_raw_t * doc;             /* documentation, may be NULL */
-    ti_raw_t * def;             /* definition, may be NULL */
+    ti_raw_t * def;             /* formatted definition, may be NULL */
     ti_closure_t * closure;     /* closure */
 };
 

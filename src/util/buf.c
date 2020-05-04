@@ -5,6 +5,7 @@
 #include <util/buf.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 void buf_init(buf_t * buf)
 {
@@ -15,14 +16,15 @@ void buf_init(buf_t * buf)
 
 int buf_append(buf_t * buf, const char * s, size_t n)
 {
-    if (buf->len + n > buf->cap)
+    size_t rsize = buf->len + n;
+
+    if (rsize > buf->cap)
     {
         char * tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
-        while(nsize < buf->cap + n)
+        while(rsize > nsize)
             nsize <<= 1;
-
 
         tmp = realloc(buf->data, nsize);
         if (!tmp)
@@ -36,4 +38,44 @@ int buf_append(buf_t * buf, const char * s, size_t n)
     buf->len += n;
 
     return 0;
+}
+
+int buf_append_fmt(buf_t * buf, const char * fmt, ...)
+{
+    int rc;
+    int nchars;
+    va_list args, args_cp;
+    size_t cap = buf->cap - buf->len;
+
+    va_start(args, fmt);
+    va_copy(args_cp, args);
+
+    nchars = snprintf(buf->data + buf->len, cap, fmt, args);
+    rc = nchars < 0 || nchars > cap;  /* 0 (false) = success */
+
+    if (rc)
+    {
+        char * tmp;
+        size_t nsize = buf->cap ? buf->cap << 1 : 8192;
+
+        while(nchars > nsize)
+            nsize <<= 1;
+
+        tmp = realloc(buf->data, nsize);
+        if (!tmp)
+            goto done;
+
+        buf->data = tmp;
+        buf->cap = nsize;
+
+        nchars = snprintf(buf->data + buf->len, cap, fmt, args_cp);
+
+        rc = nchars < 0 || nchars > cap;  /* 0 (false) = success */
+    }
+
+done:
+    va_end(args);
+    va_end(args_cp);
+
+    return rc;
 }

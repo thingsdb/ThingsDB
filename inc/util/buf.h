@@ -5,6 +5,7 @@
 #define BUF_H_
 
 #include <stddef.h>
+#include <string.h>
 
 typedef struct buf_s buf_t;
 
@@ -13,6 +14,8 @@ int buf_append(buf_t * buf, const char * s, size_t n);
 
 #define buf_append_str(buf__, s__) \
         buf_append(buf__, s__, strlen(s__))
+
+int buf_append_fmt(buf_t * buf, const char * s, ...);
 
 struct buf_s
 {

@@ -15,11 +15,13 @@
 #include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
+#include <ti/fmt.h>
 #include <util/logger.h>
 #include <util/strx.h>
 #include <cleri/node.inline.h>
 
 #define CLOSURE__QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
+#define INDENT 4
 
 static inline _Bool closure__is_unbound(ti_closure_t * closure)
 {
@@ -542,59 +544,16 @@ done:
     return doc ? doc : (ti_raw_t *) ti_val_empty_str();
 }
 
-#define CLOSURE__SN_FMT(__buf, __sz, __n, __fmt, ...)                       \
-do {                                                                        \
-    int __nchars = snprintf(__buf, __n, __fmt, ##__VA_ARGS__);              \
-    if (__nchars < 0) return -1;                                            \
-    __sz += __nchars;                                                       \
-    if ((size_t) __nchars < __n) { __buf += __nchars; __n -= __nchars; }    \
-} while (0)
+ti_raw_t * ti_closure_def(ti_closure_t * closure)
+{
+    ti_raw_t * def;
+    ti_fmt_t fmt;
+    ti_fmt_init(&fmt, INDENT);
 
-#define CLOSURE__NODE_FMT(__buf, __sz, __n, __node)             \
-do {                                                            \
-    size_t __nchars = __node->len;                              \
-    const char * __str = __node->str;                           \
-    __sz += __nchars;                                           \
-    if (__nchars < __n)                                         \
-    {                                                           \
-        (void) memcpy(__buf, __str, __nchars);                  \
-        __buf += __nchars;                                      \
-        __n -= __nchars;                                        \
-    }                                                           \
-} while (0)
+    if (ti_fmt_nd(&fmt, closure->node))
+        return NULL;
 
-//static int closure__scope_fmt(
-//        cleri_node_t * node,
-//        char ** buf,
-//        size_t * n,
-//        size_t * indent)
-//{
-//
-//}
-//
-//static int closure__closure_fmt(
-//        cleri_node_t * node,
-//        char ** buf,
-//        size_t * n,
-//        size_t * indent)
-//{
-//    int sz = 0;
-//    cleri_children_t * child = node->children->next->node->children;
-//
-//    CLOSURE__SN_FMT(*buf, sz, *n, "|");
-//
-//    while (child)
-//    {
-//        CLOSURE__NODE_FMT(*buf, sz, *n, child->node);
-//
-//        if (!child->next || !(child = child->next->next))
-//            break;
-//
-//        CLOSURE__SN_FMT(*buf, sz, *n, ", ");
-//    }
-//
-//    CLOSURE__SN_FMT(*buf, sz, *n, "| ");
-//
-//
-//    return sz;
-//}
+    def = ti_str_create(fmt.buf.data, fmt.buf.len);
+    ti_fmt_clear(&fmt);
+    return def;
+}

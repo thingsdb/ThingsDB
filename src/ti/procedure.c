@@ -64,14 +64,8 @@ ti_raw_t * ti_procedure_doc(ti_procedure_t * procedure)
 ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
 {
     if (!procedure->def)
-    {
-        char * def;
-        size_t n = 0;
-        def = ti_closure_char(procedure->closure, &n);
-        if (!def || !(procedure->def = ti_str_create(def, n)))
-            procedure->def = (ti_raw_t *) ti_val_empty_str();
-        free(def);
-    }
+        /* calculate only once */
+        procedure->def = ti_closure_def(procedure->closure);
     return procedure->def;
 }
 
@@ -81,7 +75,7 @@ int ti_procedure_info_to_pk(
         _Bool with_definition)
 {
     ti_raw_t * doc = ti_procedure_doc(procedure);
-    ti_raw_t * def = ti_procedure_def(procedure);
+    ti_raw_t * def;
 
     if (msgpack_pack_map(pk, 5 + !!with_definition) ||
 
@@ -94,7 +88,7 @@ int ti_procedure_info_to_pk(
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, procedure->created_at) ||
 
-        (with_definition && (
+        (with_definition && (def = ti_procedure_def(procedure)) && (
             mp_pack_str(pk, "definition") ||
             mp_pack_strn(pk, def->data, def->n)
         )) ||

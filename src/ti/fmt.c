@@ -31,7 +31,7 @@ static inline _Bool fmt__chain_is_func(cleri_node_t * nd)
 static inline _Bool fmt__chain_next_is_func(cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children->next->next->next;
-    return  child && fmt__chain_is_func(child->next->node);
+    return  child && fmt__chain_is_func(child->node);
 }
 
 static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
@@ -66,41 +66,6 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
     while ((child = child->next));
 
     return 0;
-}
-
-static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
-{
-    cleri_children_t * child = nd->children->next;
-
-    if (fmt__chain_is_func(nd))
-    {
-        if (!with_indent && fmt__chain_next_is_func(nd))
-        {
-            with_indent = true;
-            ++fmt->indent;
-        }
-    }
-
-    if (with_indent)
-    {
-        if (buf_append_str(&fmt->buf, "\n"))
-            return -1;
-        if (fmt__indent_str(fmt, "."))
-            return -1;
-    }
-    else
-    {
-        if (buf_append_str(&fmt->buf, "."))
-            return -1;
-    }
-
-    /* index */
-    if ((child = child->next)->node->children)
-        if (fmt__index(fmt, child->node))
-            return -1;
-
-    /* chain */
-    return child->next? fmt__chain(fmt, child->next->node, with_indent) : 0;
 }
 
 static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
@@ -209,21 +174,86 @@ static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children;
 
-    if (buf_append(&fmt->buf, child->node->str, child->node->len))
-        return -1;
-
-    if ((child = child->next))
+    if (child->next)
     {
         switch(child->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             return fmt__function(fmt, nd);
         case CLERI_GID_ASSIGN:
-            return fmt__statement(fmt, child->node->children->next->node);
+            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+                buf_append_str(&fmt->buf, " = ") ||
+                fmt__statement(fmt, child->next->node->children->next->node))
+                return -1;
+            break;
         case CLERI_GID_INSTANCE:
-            return fmt__thing(fmt, child->node);
+            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+                fmt__thing(fmt, child->next->node))
+                return -1;
+            break;
         }
+        return 0;
     }
+    return buf_append(&fmt->buf, child->node->str, child->node->len);
+}
+
+static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd->children;
+
+    if (child->next)
+    {
+        switch(child->node->cl_obj->gid)
+        {
+        case CLERI_GID_FUNCTION:
+            return fmt__function(fmt, nd);
+        case CLERI_GID_ASSIGN:
+            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+                buf_append_str(&fmt->buf, " = ") ||
+                fmt__statement(fmt, child->next->node->children->next->node))
+                return -1;
+            break;
+        }
+        return 0;
+    }
+    return buf_append(&fmt->buf, child->node->str, child->node->len);
+}
+
+
+static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
+{
+    cleri_children_t * child = nd->children->next;
+    _Bool set_indent = false;
+
+    if (fmt__chain_is_func(nd) && !with_indent && fmt__chain_next_is_func(nd))
+    {
+        set_indent = true;
+        ++fmt->indent;
+    }
+
+    if (with_indent)
+    {
+        if (buf_append_str(&fmt->buf, "\n") ||
+            fmt__indent_str(fmt, "."))
+            return -1;
+    }
+    else if (buf_append_str(&fmt->buf, "."))
+        return -1;
+
+    if (fmt__name_opt_fa(fmt, nd))
+        return -1;
+
+    /* index */
+    if ((child = child->next)->node->children && fmt__index(fmt, child->node))
+        return -1;
+
+    /* chain */
+    if (child->next && fmt__chain(fmt, child->next->node, with_indent))
+        return -1;
+
+    if (set_indent)
+        --fmt->indent;
+
     return 0;
 }
 
@@ -293,7 +323,7 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     if (buf_append_str(&fmt->buf, "(") ||
-        fmt__statement(fmt, nd) ||
+        fmt__statement(fmt, nd->children->next->node) ||
         buf_append_str(&fmt->buf, ")"))
         return -1;
     return 0;
@@ -340,7 +370,6 @@ static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
         if (buf_append_str(&fmt->buf, "!"))
             return -1;
 
-
     fmt__expr_choice(fmt, nd->children->next->node);
 
     /* index */
@@ -356,6 +385,70 @@ static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
+static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
+    assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
+
+
+    switch (nd->children->next->node->cl_obj->gid)
+    {
+    case CLERI_GID_OPR0_MUL_DIV_MOD:
+    case CLERI_GID_OPR1_ADD_SUB:
+    case CLERI_GID_OPR2_BITWISE_AND:
+    case CLERI_GID_OPR3_BITWISE_XOR:
+    case CLERI_GID_OPR4_BITWISE_OR:
+    case CLERI_GID_OPR5_COMPARE:
+    case CLERI_GID_OPR6_CMP_AND:
+    case CLERI_GID_OPR7_CMP_OR:
+    {
+        cleri_node_t * node;
+        node = nd->children->next->node;
+        if (fmt__statement(fmt, nd->children->node) ||
+            buf_append_fmt(&fmt->buf, " %.*s ", (int) node->len, node->str) ||
+            fmt__statement(fmt, nd->children->next->next->node))
+            return -1;
+        return 0;
+    }
+    case CLERI_GID_OPR8_TERNARY:
+    {
+        cleri_node_t
+            * nd_true = nd->children->next->node->children->next->node,
+            * nd_false = nd->children->next->next->node;
+
+        if (fmt__statement(fmt, nd->children->node))
+            return -1;
+
+        if (nd->len > 20)
+        {
+            ++fmt->indent;
+
+            /* with indent */
+            if (buf_append_str(&fmt->buf, "\n") ||
+                fmt__indent_str(fmt, "? ") ||
+                fmt__statement(fmt, nd_true) ||
+                buf_append_str(&fmt->buf, "\n") ||
+                fmt__indent_str(fmt, ": ") ||
+                fmt__statement(fmt, nd_false)
+            ) return -1;
+
+            --fmt->indent;
+            return 0;
+        }
+
+        if (buf_append_str(&fmt->buf, " ? ") ||
+            fmt__statement(fmt, nd_true) ||
+            buf_append_str(&fmt->buf, " : ") ||
+            fmt__statement(fmt, nd_false))
+            return -1;
+        return 0;
+    }
+    }
+
+    assert (0);
+    return -1;
+}
+
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * node;
@@ -366,8 +459,8 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     {
     case CLERI_GID_EXPRESSION:
         return fmt__expression(fmt, node);
-//    case CLERI_GID_OPERATIONS:
-//        return fmt__operations(node, nd->children, 0);
+    case CLERI_GID_OPERATIONS:
+        return fmt__operations(fmt, node);
     }
     assert (0);
     return -1;

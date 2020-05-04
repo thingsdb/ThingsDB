@@ -1,3 +1,4 @@
+
 /*
  * ti/query.c
  */
@@ -873,6 +874,10 @@ void ti_query_run(ti_query_t * query)
         (void) ti_closure_call(query->closure, query, query->val_cache, &e);
         goto stop;
     }
+
+#ifndef NDEBUG
+    log_debug("[DEBUG] run query: %s", query->querystr);
+#endif
 
     seqchild = query->parseres->tree    /* root */
         ->children->node                /* sequence <comment, list, [deep]> */

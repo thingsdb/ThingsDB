@@ -4,13 +4,22 @@
 #include <assert.h>
 #include <ti/fmt.h>
 #include <langdef/langdef.h>
+#include <util/logger.h>
 
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd);
+
+static inline int fmt__indent(ti_fmt_t * fmt)
+{
+    int spaces = fmt->indent * fmt->indent_spaces;
+    return spaces
+            ? buf_append_fmt(&fmt->buf, "%*s", spaces, "")
+            : 0;
+}
 
 static inline int fmt__indent_str(ti_fmt_t * fmt, const char * str)
 {
     int spaces = fmt->indent * fmt->indent_spaces;
-    return buf_append_fmt(&fmt->buf, "\n%*s%s", spaces, "", str);
+    return buf_append_fmt(&fmt->buf, "%*s%s", spaces, "", str);
 }
 
 static inline _Bool fmt__chain_is_func(cleri_node_t * nd)
@@ -74,6 +83,8 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
 
     if (with_indent)
     {
+        if (buf_append_str(&fmt->buf, "\n"))
+            return -1;
         if (fmt__indent_str(fmt, "."))
             return -1;
     }
@@ -103,7 +114,6 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
             ->children->next->node      /* list */
             ->children;                 /* first child */
 
-
     for(child = first; child; child = child->next ? child->next->next : NULL)
     {
         if (child != first)
@@ -117,9 +127,177 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
     if (buf_append_str(&fmt->buf, "| "))
         return -1;
 
+    return fmt__statement(fmt, nd->children->next->next->next->node);
+}
+
+static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd->children;
+
+    /* function name */
+    if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+        buf_append_str(&fmt->buf, "("))
+        return -1;
+
+    /* list (arguments) */
+    child = child->next->node->children->next->node->children;
+
+    while(child)
+    {
+        if (fmt__statement(fmt, child->node))
+            return -1;
+
+        if ((child = child->next ? child->next->next : NULL))
+            break;
+
+        if (buf_append_str(&fmt->buf, ", "))
+            return -1;
+    }
+
+    return buf_append_str(&fmt->buf, ")");
+}
+
+static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* list */
+            ->children;
+    cleri_node_t * key, * val;
+
+    /* Use indentation if more than 1 element */
+    _Bool with_indent = child && child->next && child->next->next;
+
+    if (with_indent)
+    {
+        if (buf_append_str(&fmt->buf, "{\n"))
+            return -1;
+        ++fmt->indent;
+        do
+        {
+            key = child->node->children->node;
+            val =  child->node->children->next->next->node;
+
+            if (fmt__indent(fmt) ||
+                buf_append(&fmt->buf, key->str, key->len) ||
+                buf_append_str(&fmt->buf, ":") ||
+                fmt__statement(fmt, val) ||
+                buf_append_str(&fmt->buf, ",\n"))
+                return -1;
+        }
+        while (child->next && (child = child->next->next));
+        --fmt->indent;
+
+        return fmt__indent_str(fmt, "}");
+    }
+
+    key = child ? child->node->children->node : NULL;
+    val = child ? child->node->children->next->next->node : NULL;
+
+    if (buf_append_str(&fmt->buf, "{") ||
+        (child && (
+                buf_append(&fmt->buf, key->str, key->len) ||
+                buf_append_str(&fmt->buf, ":") ||
+                fmt__statement(fmt, val)
+        )) ||
+        buf_append_str(&fmt->buf, "}")
+    ) return -1;
+
     return 0;
 }
 
+static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd->children;
+
+    if (buf_append(&fmt->buf, child->node->str, child->node->len))
+        return -1;
+
+    if ((child = child->next))
+    {
+        switch(child->node->cl_obj->gid)
+        {
+        case CLERI_GID_FUNCTION:
+            return fmt__function(fmt, nd);
+        case CLERI_GID_ASSIGN:
+            return fmt__statement(fmt, child->node->children->next->node);
+        case CLERI_GID_INSTANCE:
+            return fmt__thing(fmt, child->node);
+        }
+    }
+    return 0;
+}
+
+static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd          /* sequence */
+            ->children->next->node         /* list */
+            ->children;
+    /* Use indentation if more than 1 element */
+    _Bool with_indent = child && child->next && child->next->next;
+
+    if (with_indent)
+    {
+        if (buf_append_str(&fmt->buf, "[\n"))
+            return -1;
+        ++fmt->indent;
+        do
+        {
+            if (fmt__indent(fmt) ||
+                fmt__statement(fmt, child->node) ||
+                buf_append_str(&fmt->buf, ",\n"))
+                return -1;
+        }
+        while (child->next && (child = child->next->next));
+        --fmt->indent;
+
+        return fmt__indent_str(fmt, "]");
+    }
+
+
+    if (buf_append_str(&fmt->buf, "[") ||
+        (child && fmt__statement(fmt, child->node)) ||
+        buf_append_str(&fmt->buf, "]"))
+        return -1;
+
+    return 0;
+}
+
+static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    cleri_children_t * child = nd           /* seq<{, comment, list, }> */
+            ->children->next->next->node    /* list statements */
+            ->children;                     /* first child, not empty */
+
+
+    /* Blocks are guaranteed to have at least one statement, otherwise it
+     * would be a `thing` instead.
+     */
+    if (buf_append_str(&fmt->buf, "{\n"))
+        return -1;
+
+    ++fmt->indent;
+    do
+    {
+        if (fmt__indent(fmt) ||
+            fmt__statement(fmt, child->node) ||
+            buf_append_str(&fmt->buf, ";\n"))
+            return -1;
+    }
+    while (child->next && (child = child->next->next));
+
+    --fmt->indent;
+
+    return fmt__indent_str(fmt, "}");
+}
+
+static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    if (buf_append_str(&fmt->buf, "(") ||
+        fmt__statement(fmt, nd) ||
+        buf_append_str(&fmt->buf, ")"))
+        return -1;
+    return 0;
+}
 
 static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
 {
@@ -135,9 +313,18 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
         {
         case CLERI_GID_T_CLOSURE:
             return fmt__closure(fmt, nd);
-        default:
-            return buf_append(&fmt->buf, nd->str, nd->len);
         }
+        return buf_append(&fmt->buf, nd->str, nd->len);
+    case CLERI_GID_VAR_OPT_MORE:
+        return fmt__var_opt_fa(fmt, nd);
+    case CLERI_GID_THING:
+        return fmt__thing(fmt, nd);
+    case CLERI_GID_ARRAY:
+        return fmt__array(fmt, nd);
+    case CLERI_GID_BLOCK:
+        return fmt__block(fmt, nd);
+    case CLERI_GID_PARENTHESIS:
+        return fmt__parenthesis(fmt, nd);
     }
 
     assert (0);
@@ -186,10 +373,11 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-void ti_fmt_init(ti_fmt_t * fmt, int indent)
+void ti_fmt_init(ti_fmt_t * fmt, int indent_spaces)
 {
     buf_init(&fmt->buf);
-    fmt->indent = indent;
+    fmt->indent_spaces = indent_spaces;
+    fmt->indent = 0;
 }
 
 void ti_fmt_clear(ti_fmt_t * fmt)

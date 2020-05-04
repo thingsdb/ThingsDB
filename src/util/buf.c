@@ -50,15 +50,15 @@ int buf_append_fmt(buf_t * buf, const char * fmt, ...)
     va_start(args, fmt);
     va_copy(args_cp, args);
 
-    nchars = snprintf(buf->data + buf->len, cap, fmt, args);
-    rc = nchars < 0 || nchars > cap;  /* 0 (false) = success */
+    nchars = vsnprintf(buf->data + buf->len, cap, fmt, args);
+    rc = nchars < 0 || (size_t) nchars > cap;  /* 0 (false) = success */
 
     if (rc)
     {
         char * tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
-        while(nchars > nsize)
+        while((size_t) nchars > nsize)
             nsize <<= 1;
 
         tmp = realloc(buf->data, nsize);
@@ -68,10 +68,14 @@ int buf_append_fmt(buf_t * buf, const char * fmt, ...)
         buf->data = tmp;
         buf->cap = nsize;
 
-        nchars = snprintf(buf->data + buf->len, cap, fmt, args_cp);
+        cap = buf->cap - buf->len;
+        nchars = vsnprintf(buf->data + buf->len, cap, fmt, args_cp);
 
-        rc = nchars < 0 || nchars > cap;  /* 0 (false) = success */
+        rc = nchars < 0 || (size_t) nchars > cap;  /* 0 (false) = success */
     }
+
+    if (rc == 0)
+        buf->len += nchars;
 
 done:
     va_end(args);

@@ -25,6 +25,7 @@
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndeep.h>
+#include <ti/fn/fndef.h>
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelbackup.h>
 #include <ti/fn/fndelcollection.h>
@@ -163,7 +164,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 143,
+    TOTAL_KEYWORDS = 144,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 22,
@@ -335,6 +336,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="contains",          .fn=do__f_contains,             CHAIN_NE},
     {.name="counters",          .fn=do__f_counters,             ROOT_NE},
     {.name="deep",              .fn=do__f_deep,                 ROOT_NE},
+    {.name="def",               .fn=do__f_def,                  CHAIN_NE},
     {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
     {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},

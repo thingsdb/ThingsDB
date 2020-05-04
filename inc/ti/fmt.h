@@ -17,7 +17,7 @@ struct ti_fmt_s
 };
 
 
-void ti_fmt_init(ti_fmt_t * fmt, int indent);
+void ti_fmt_init(ti_fmt_t * fmt, int indent_spaces);
 void ti_fmt_clear(ti_fmt_t * fmt);
 int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd);
 

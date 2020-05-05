@@ -6,6 +6,8 @@
 #include <langdef/langdef.h>
 #include <util/logger.h>
 
+#define INDENT_THRESHOLD 40
+
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd);
 
 static inline int fmt__indent(ti_fmt_t * fmt)
@@ -32,6 +34,12 @@ static inline _Bool fmt__chain_next_is_func(cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children->next->next->next;
     return  child && fmt__chain_is_func(child->node);
+}
+
+static inline _Bool fmt__has_next_chain(cleri_node_t * nd)
+{
+    cleri_children_t * child = nd->children->next->next->next;
+    return  child && child->node->children->next->node->children->next;
 }
 
 static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
@@ -112,7 +120,7 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
         if (fmt__statement(fmt, child->node))
             return -1;
 
-        if ((child = child->next ? child->next->next : NULL))
+        if (!(child = child->next ? child->next->next : NULL))
             break;
 
         if (buf_append_str(&fmt->buf, ", "))
@@ -144,7 +152,7 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
 
             if (fmt__indent(fmt) ||
                 buf_append(&fmt->buf, key->str, key->len) ||
-                buf_append_str(&fmt->buf, ":") ||
+                buf_append_str(&fmt->buf, ": ") ||
                 fmt__statement(fmt, val) ||
                 buf_append_str(&fmt->buf, ",\n"))
                 return -1;
@@ -176,7 +184,7 @@ static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 
     if (child->next)
     {
-        switch(child->node->cl_obj->gid)
+        switch(child->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             return fmt__function(fmt, nd);
@@ -203,7 +211,7 @@ static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 
     if (child->next)
     {
-        switch(child->node->cl_obj->gid)
+        switch(child->next->node->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             return fmt__function(fmt, nd);
@@ -225,9 +233,9 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
     cleri_children_t * child = nd->children->next;
     _Bool set_indent = false;
 
-    if (fmt__chain_is_func(nd) && !with_indent && fmt__chain_next_is_func(nd))
+    if (!with_indent && fmt__has_next_chain(nd) && nd->len > INDENT_THRESHOLD)
     {
-        set_indent = true;
+        with_indent = set_indent = true;
         ++fmt->indent;
     }
 
@@ -240,7 +248,7 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
     else if (buf_append_str(&fmt->buf, "."))
         return -1;
 
-    if (fmt__name_opt_fa(fmt, nd))
+    if (fmt__name_opt_fa(fmt, child->node))
         return -1;
 
     /* index */
@@ -370,7 +378,8 @@ static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
         if (buf_append_str(&fmt->buf, "!"))
             return -1;
 
-    fmt__expr_choice(fmt, nd->children->next->node);
+    if (fmt__expr_choice(fmt, nd->children->next->node))
+        return -1;
 
     /* index */
     if (nd->children->next->next->node->children &&
@@ -419,7 +428,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
         if (fmt__statement(fmt, nd->children->node))
             return -1;
 
-        if (nd->len > 20)
+        if (nd->len > INDENT_THRESHOLD)
         {
             ++fmt->indent;
 

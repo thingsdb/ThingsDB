@@ -326,6 +326,28 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(r'bool(/.*/);'))
         self.assertTrue(await client.query('bool(||nil);'))
 
+    async def test_def(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `def`'):
+            await client.query('nil.def();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `def` is undefined'):
+            await client.query('def();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `def` takes 0 arguments but 1 was given'):
+            await client.query('(||nil).def(1);')
+
+        self.assertEqual(await client.query('(||{nil}).def();'), r'''
+|| {
+    nil;
+}
+'''.strip())
+
     async def test_code(self, client):
         with self.assertRaisesRegex(
                 LookupError,

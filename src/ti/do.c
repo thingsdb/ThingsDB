@@ -369,18 +369,11 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
-    cleri_children_t * child, * seqchild;
+    uint32_t current_var_n = query->vars->n;
+    cleri_children_t * child= nd->children->next->next
+            ->node->children;  /* first child, not empty */
 
-    uint32_t current_varn = query->vars->n;
-
-    seqchild = nd                       /* <{ comment, list s }> */
-        ->children->next->next;         /* list statements */
-
-    child = seqchild->node->children;  /* first child, not empty */
-
-    assert (child);
-
-    while (1)
+    do
     {
         if (ti_do_statement(query, child->node, e))
             return e->nr;
@@ -391,8 +384,9 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_drop(query->rval);
         query->rval = NULL;
     }
+    while (1);
 
-    while (query->vars->n > current_varn)
+    while (query->vars->n > current_var_n)
         ti_query_var_drop_gc(VEC_pop(query->vars), query);
 
     return e->nr;

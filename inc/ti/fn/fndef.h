@@ -12,6 +12,9 @@ static int do__f_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     def = ti_closure_def((ti_closure_t *) query->rval);
+    if (!def)
+        ex_set_mem(e);
+
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) def;
 

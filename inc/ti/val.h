@@ -17,12 +17,13 @@ typedef enum
     TI_VAL_STR,
     TI_VAL_BYTES,       /* MP,STR and BIN all use RAW as underlying type */
     TI_VAL_REGEX,
-    TI_VAL_THING,
+    TI_VAL_THING,       /* instance or object */
     TI_VAL_WRAP,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
+    TI_VAL_ENUM,
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored
@@ -104,6 +105,7 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
+    TI_KIND_C_ENUM      =',',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
@@ -113,6 +115,7 @@ typedef enum
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
+#define TI_KIND_S_ENUM      ","
 
 typedef struct ti_val_s ti_val_t;
 

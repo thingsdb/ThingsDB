@@ -18,6 +18,8 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
+#include <ti/venum.h>
+#include <ti/enum.h>
 #include <ti/verror.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
@@ -245,6 +247,40 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             ex_set_mem(e);
         return (ti_val_t *) wrap;
     }
+    case TI_KIND_C_ENUM:
+    {
+        mp_obj_t mp_enum_id, mp_idx;
+        ti_enum_t * enum_;
+        ti_venum_t * venum;
+
+        if (sz != 1 ||
+            mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
+            mp_next(vup->up, &mp_enum_id) != MP_U64 ||
+            mp_next(vup->up, &mp_idx) != MP_U64)
+        {
+            ex_set(e, EX_BAD_DATA,
+                "enum type must be written according the "
+                "following syntax: {\""TI_KIND_S_ENUM"\": [enum_id, index]");
+            return NULL;
+        }
+
+        enum_= ti_enums_by_id(vup->collection->enums, mp_enum_id.via.u64);
+        if (!enum_)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "cannot find enum with id %"PRIu64,
+                    mp_enum_id.via.u64);
+            return NULL;
+        }
+
+        venum = ti_enum_by_idx(enum_, mp_idx.via.u64);
+        if (!venum)
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "internal index out of range in enumerator `%s`",
+                    enum_->name);
+
+        return (ti_val_t *) venum;
+    }
     }
 
     /* restore the unpack pointer to the first property */
@@ -276,7 +312,6 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-        break;
     case TI_VAL_ARR:
     {
         /* Make sure the arr is converted to a `tuple` and copy the
@@ -294,6 +329,10 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "unexpected `set` which cannot be added to the array");
         return e->nr;
+    case TI_VAL_ENUM:
+        if (ti_val_is_thing(VENUM(val)))
+            varr->flags |= TI_VFLAG_ARR_MHT;
+        break;
     case TI_VAL_TEMPLATE:
         assert (0);
         return e->nr;
@@ -507,6 +546,9 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_CLOSURE:
         ti_closure_destroy((ti_closure_t *) val);
         return;
+    case TI_VAL_ENUM:
+        ti_venum_destroy((ti_venum_t *) val);
+        break;
     case TI_VAL_TEMPLATE:
         ti_template_destroy((ti_template_t *) val);
         return;

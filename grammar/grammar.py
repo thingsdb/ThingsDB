@@ -92,6 +92,7 @@ class LangDef(Grammar):
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
+    enum = Sequence(x_thing, Choice(name, t_closure), '}')
 
     immutable = Choice(
         t_false,
@@ -132,7 +133,7 @@ class LangDef(Grammar):
     assign = Sequence(x_assign, THIS)
 
     name_opt_more = Sequence(name, Optional(Choice(function, assign)))
-    var_opt_more = Sequence(var, Optional(Choice(function, assign, instance)))
+    var_opt_more = Sequence(var, Optional(Choice(function, assign, instance, enum)))
 
     # note: slice is also used for a simple index
     slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)

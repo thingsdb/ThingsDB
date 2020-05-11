@@ -9,6 +9,7 @@
 #include <ti/prop.h>
 #include <ti/vint.h>
 #include <ti/spec.h>
+#include <ti/enum.h>
 #include <util/strx.h>
 
 /*
@@ -62,6 +63,12 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_SET:
         return ti_val_is_set(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     }
+
+    if (spec >= TI_ENUM_ID_FLAG)
+        return ti_val_is_enum(val) && ((ti_enum_t *) val)->enum_id == spec
+                ? 0
+                : TI_SPEC_RVAL_TYPE_ERROR;  /* TODO: maybe return enum error
+                                                to make conversion possible */
 
     assert (spec < TI_SPEC_ANY);
     /*
@@ -123,9 +130,10 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_set(val);
     }
 
-    assert (spec < TI_SPEC_ANY);
     /* any *thing* can be mapped */
-    return ti_val_is_thing(val);
+    return spec >= TI_ENUM_ID_FLAG
+            ? ti_val_is_enum(val) && ((ti_enum_t *) val)->enum_id == spec
+            : ti_val_is_thing(val);
 }
 
 const char * ti__spec_approx_type_str(uint16_t spec)

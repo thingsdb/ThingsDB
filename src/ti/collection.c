@@ -39,6 +39,7 @@ ti_collection_t * ti_collection_create(
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
     collection->types = ti_types_create(collection);
+    collection->enums = ti_enums_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
     collection->created_at = created_at;
 
@@ -65,6 +66,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
+    ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);
     free(collection->lock);
     free(collection);

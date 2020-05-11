@@ -8,6 +8,7 @@
 #include <ti/field.h>
 #include <ti/names.h>
 #include <ti/spec.h>
+#include <ti/enum.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
@@ -25,20 +26,32 @@ static void field__remove_dep(ti_field_t * field)
 
     spec = field->spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto decref;
+        goto decref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto decref_enum;
 
     spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto decref;
+        goto decref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto decref_enum;
 
     return;
 
-decref:
-    idx = 0;
+decref_enum:
+    spec &= TI_ENUM_ID_MASK;
+    type = (ti_type_t *) ti_enums_by_id(
+            field->type->types->collection->enums,
+            spec);
+    goto decref;
+
+decref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
         return;  /* self references are not counted within dependencies */
 
+decref:
+    idx = 0;
     for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
     {
         if (t == type)
@@ -48,8 +61,10 @@ decref:
         }
     }
     --type->refcount;
+    return;
 }
 
+/* Used for detecting circular references between types */
 static int field__dep_check(ti_type_t * dep, ti_type_t * type)
 {
     for (vec_each(dep->fields, ti_field_t, field))
@@ -73,19 +88,30 @@ static int field__add_dep(ti_field_t * field)
 
     spec = field->spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto incref;
+        goto incref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto incref_enum;
 
     spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto incref;
-
+        goto incref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto incref_enum;
     return 0;
 
-incref:
+incref_enum:
+    spec &= TI_ENUM_ID_MASK;
+    type = (ti_type_t *) ti_enums_by_id(
+            field->type->types->collection->enums,
+            spec);
+    goto incref;
+
+incref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
         return 0;  /* self references are not counted within dependencies */
 
+incref:
     if (vec_push(&field->type->dependencies, type))
         return -1;
 
@@ -307,23 +333,36 @@ skip_nesting:
     }
     else
     {
-        ti_type_t * dep = smap_getn(field->type->types->smap, str, n);
+        ti_type_t * dep = ti_types_by_strn(field->type->types, str, n);
         if (!dep)
         {
-            if (field__spec_is_ascii(field, str, n, e))
-                ex_set(e, EX_TYPE_ERROR,
-                        "invalid declaration for `%s` on type `%s`; "
-                        "unknown type `%.*s` in declaration"DOC_SPEC,
-                        field->name->str, field->type->name,
-                        (int) n, str);
-            return e->nr;
+            dep = (ti_type_t *) ti_enums_by_strn(
+                    field->type->types->collection->enums,
+                    str,
+                    n);
+
+            if (!dep)
+            {
+                if (field__spec_is_ascii(field, str, n, e))
+                    ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "unknown type `%.*s` in declaration"DOC_SPEC,
+                            field->name->str, field->type->name,
+                            (int) n, str);
+                return e->nr;
+            }
+
+            /* When an enum is cast to a type, the enum_id becomes type_id */
+            *spec |= dep->type_id | TI_ENUM_ID_FLAG;
         }
+        else
+        {
+            *spec |= dep->type_id;
 
-        *spec |= dep->type_id;
-
-        if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
-            field__dep_check(dep, field->type))
-            goto circular_dep;
+            if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
+                field__dep_check(dep, field->type))
+                goto circular_dep;
+        }
 
         if (vec_push(&field->type->dependencies, dep))
         {
@@ -786,7 +825,7 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     switch ((ti_spec_enum_t) t_spec)
     {
     case TI_SPEC_ANY:
-        return 0;       /* already checked */
+        return false;       /* already checked */
     case TI_SPEC_OBJECT:
         return f_spec < TI_SPEC_ANY;
     case TI_SPEC_RAW:
@@ -818,6 +857,8 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
         return false;
     }
 
+    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
+
     return f_spec < TI_SPEC_ANY;
 }
 
@@ -835,6 +876,17 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 
     t_spec = t_field->nested_spec & TI_SPEC_MASK_NILLABLE;
     f_spec = f_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec >= TI_ENUM_ID_FLAG)
+        return t_spec == f_spec;
+
+    if (f_spec >= TI_ENUM_ID_FLAG)
+    {
+        ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec);
+        f_spec = enum_->spec;
+    }
 
     if (t_spec == f_spec)
         return true;
@@ -858,6 +910,17 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 
     t_spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
     f_spec = f_field->spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec >= TI_ENUM_ID_FLAG)
+        return t_spec == f_spec;
+
+    if (f_spec >= TI_ENUM_ID_FLAG)
+    {
+        ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec);
+        f_spec = enum_->spec;
+    }
 
     /* return `true` when both specifications are equal, and nested accepts
      * anything which is default for all other than `arr` and `set` */

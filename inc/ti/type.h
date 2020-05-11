@@ -52,8 +52,8 @@ struct ti_type_s
     uint64_t modified_at;   /* UNIX time-stamp in seconds */
     char * name;            /* name (null terminated) */
     char * wname;           /* wrapped name (null terminated) */
-    ti_raw_t * rname;
-    ti_raw_t * rwname;
+    ti_raw_t * rname;       /* name as raw type */
+    ti_raw_t * rwname;      /* wrapped name as raw type */
     ti_types_t * types;
     vec_t * dependencies;   /* ti_type_t; contains type where this type is
                                depended on. type may be more than one inside

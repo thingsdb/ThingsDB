@@ -118,6 +118,13 @@ static int wrap__field_val(
                 pk,
                 t_field->nested_spec,
                 options);
+    case TI_VAL_ENUM:
+        return wrap__field_val(
+                t_field,
+                &t_field->nested_spec,
+                ((ti_venum_t *) val)->val,
+                pk,
+                options);
     }
 
     assert(0);

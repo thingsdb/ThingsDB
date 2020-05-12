@@ -13,7 +13,7 @@
 
 typedef struct ti_venum_s ti_venum_t;
 
-ti_venum_t * ti_venum_create(ti_enum_t * enum_, ti_val_t * val);
+ti_venum_t * ti_venum_create(ti_enum_t * enum_, ti_val_t * val, uint16_t idx);
 void ti_venum_destroy(ti_venum_t * venum);
 
 #define VINT(__x) ((ti_vint_t *) (__x))->int_
@@ -23,6 +23,7 @@ struct ti_venum_s
     uint32_t ref;
     uint8_t tp;
     uint8_t _flags;
+    uint16_t idx;       /* index in enum->vec */
     ti_enum_t * enum_;
     ti_val_t * val;
 };

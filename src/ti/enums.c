@@ -3,10 +3,9 @@
  */
 #include <assert.h>
 #include <stdlib.h>
-#include <ti/type.h>
 #include <ti/enum.h>
 #include <ti/enums.h>
-#include <ti/types.inline.h>
+#include <ti/enums.inline.h>
 
 
 ti_enums_t * ti_enums_create(ti_collection_t * collection)
@@ -36,6 +35,20 @@ void ti_enums_destroy(ti_enums_t * enums)
     smap_destroy(enums->smap, NULL);
     imap_destroy(enums->imap, (imap_destroy_cb) ti_enum_destroy);
     free(enums);
+}
+
+int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_)
+{
+    if (imap_add(enums->imap, enum_->enum_id, enum_))
+        return -1;
+
+    if (smap_add(enums->smap, enum_->name, enum_))
+    {
+        (void) imap_pop(enums->imap, enum_->enum_id);
+        return -1;
+    }
+
+    return 0;
 }
 
 uint16_t ti_enums_get_new_id(ti_enums_t * enums, ti_raw_t * rname, ex_t * e)

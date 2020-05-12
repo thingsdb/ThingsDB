@@ -147,7 +147,6 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_array(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
-_Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options);

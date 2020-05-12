@@ -133,7 +133,9 @@ class LangDef(Grammar):
     assign = Sequence(x_assign, THIS)
 
     name_opt_more = Sequence(name, Optional(Choice(function, assign)))
-    var_opt_more = Sequence(var, Optional(Choice(function, assign, instance, enum)))
+    var_opt_more = Sequence(
+        var,
+        Optional(Choice(function, assign, instance, enum)))
 
     # note: slice is also used for a simple index
     slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)
@@ -190,6 +192,9 @@ if __name__ == '__main__':
     # print(res.is_valid)
 
     # res = langdef.parse(r'''|x|...)''')
+    # print(res.is_valid)
+
+    # res = langdef.parse(r'''x = Enum{||'X};''')
     # print(res.is_valid)
 
     # exit(0)

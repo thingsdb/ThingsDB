@@ -14,7 +14,6 @@ typedef struct ti_types_s ti_types_t;
 #include <ti/collection.h>
 #include <ti/raw.h>
 #include <ti/type.h>
-#include <ti/varr.h>
 #include <util/imap.h>
 #include <util/mpack.h>
 #include <util/smap.h>

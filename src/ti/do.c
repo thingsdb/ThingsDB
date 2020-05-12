@@ -549,6 +549,29 @@ static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        nd->data = (ti_val_t *) ti_closure_from_node(
+                nd,
+                (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+                    ? TI_VFLAG_CLOSURE_BTSCOPE
+                    : TI_VFLAG_CLOSURE_BCSCOPE);
+        if (!nd->data)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert (vec_space(query->val_cache));
+        VEC_push(query->val_cache, nd->data);
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
+
+    return e->nr;
+}
+
 static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
@@ -561,24 +584,8 @@ static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (node->cl_obj->gid)
     {
     case CLERI_GID_T_CLOSURE:
-        if (!node->data)
-        {
-
-            node->data = (ti_val_t *) ti_closure_from_node(
-                    node,
-                    (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
-                        ? TI_VFLAG_CLOSURE_BTSCOPE
-                        : TI_VFLAG_CLOSURE_BCSCOPE);
-            if (!node->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        query->rval = node->data;
-        ti_incref(query->rval);
+        if (do__read_closure(query, node, e))
+            return e->nr;
         break;
     case CLERI_GID_T_FALSE:
         query->rval = (ti_val_t *) ti_vbool_get(false);
@@ -898,6 +905,101 @@ done:
     return e->nr;
 }
 
+static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_enum_t * enum_;
+    cleri_node_t * name_nd = nd                 /* sequence */
+            ->children->node;                   /* name */
+
+    nd = nd                                     /* sequence */
+            ->children->next->node              /* enum node */
+            ->children->next->node;             /* name or closure */
+
+    enum_ = ti_enums_by_strn(
+            query->collection->enums,
+            name_nd->str,
+            name_nd->len);
+
+    if (!enum_)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%.*s` is undefined",
+                name_nd->len,
+                name_nd->str);
+        return e->nr;
+    }
+
+    switch(nd->cl_obj->gid)
+    {
+    case CLERI_GID_NAME:
+        query->rval = (ti_val_t *) ti_enum_val_by_strn(
+                enum_,
+                nd->str,
+                nd->len);
+        if (query->rval)
+            ti_incref(query->rval);
+        else
+            ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
+                    enum_->name,
+                    nd->len,
+                    nd->str);
+        break;
+    case CLERI_GID_T_CLOSURE:
+    {
+        ti_closure_t * closure;
+        vec_t * args = NULL;
+        ti_raw_t * rname;
+
+        if (do__read_closure(query, nd, e))
+            return e->nr;
+
+        closure = (ti_closure_t *) query->rval;
+
+        if (closure->vars->n)
+        {
+            uint32_t n = closure->vars->n;
+            args = vec_new(n);
+            if (!args)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+
+            while (n--)
+                VEC_push(args, ti_nil_get());
+        }
+
+        (void) ti_closure_call(closure, query, args, e);
+
+        vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+
+        if (e->nr)
+            return e->nr;
+
+        if (!ti_val_is_str(query->rval))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "enumerator lookup is expecting type `"TI_VAL_STR_S"` "
+                    "but got type `%s` instead",
+                    ti_val_str(query->rval));
+            return e->nr;
+        }
+
+        rname = (ti_raw_t *) query->rval;
+        query->rval = (ti_val_t *) ti_enum_val_by_raw(enum_, rname);
+        if (!query->rval)
+            ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
+                    enum_->name,
+                    (int) rname->n,
+                    (const char *) rname->data);
+        ti_val_drop(rname);
+        break;
+    }
+    }
+
+    return e->nr;
+}
+
 /* changes scope->name and/or scope->thing */
 static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -1052,6 +1154,10 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto nots;
         case CLERI_GID_INSTANCE:
             if (do__instance(query, nd, e))
+                return e->nr;
+            break;
+        case CLERI_GID_ENUM:
+            if (do__enum(query, nd, e))
                 return e->nr;
             break;
         default:

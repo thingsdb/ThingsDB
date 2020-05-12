@@ -464,12 +464,12 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,
-        vec_t * args,
+        vec_t * args,  /* NULL is allowed if the closure accepts no arguments */
         ex_t * e)
 {
     assert (closure);
     assert (closure->vars);
-    assert (args->n == closure->vars->n);
+    assert (closure->vars->n == 0 || args->n == closure->vars->n);
 
     size_t idx = 0;
 

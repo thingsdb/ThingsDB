@@ -656,6 +656,22 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
+static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    nd = nd->children->next->node;
+    switch(nd->cl_obj->gid)
+    {
+    case CLERI_GID_NAME:
+        return;
+    case CLERI_GID_T_CLOSURE:
+        qbind__statement(
+                qbind,
+                nd->children->next->next->next->node);
+        ++qbind->val_cache_n;
+        nd->data = NULL;        /* initialize data to null */
+    }
+}
+
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -672,6 +688,9 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             break;
         case CLERI_GID_INSTANCE:
             qbind__thing(qbind, nd->children->next->node);
+            return;
+        case CLERI_GID_ENUM:
+            qbind__enum(qbind, nd->children->next->node);
             return;
         default:
             assert (0);

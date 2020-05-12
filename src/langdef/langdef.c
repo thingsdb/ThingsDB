@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2020-03-19 17:09:36
+ * Created at: 2020-05-12 10:08:35
  */
 
 #include <langdef/langdef.h>
@@ -112,6 +112,19 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, ")")
     );
     cleri_t * instance = cleri_dup(CLERI_GID_INSTANCE, thing);
+    cleri_t * enum = cleri_sequence(
+        CLERI_GID_ENUM,
+        3,
+        x_thing,
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            2,
+            name,
+            t_closure
+        ),
+        cleri_token(CLERI_NONE, "}")
+    );
     cleri_t * immutable = cleri_choice(
         CLERI_GID_IMMUTABLE,
         CLERI_FIRST_MATCH,
@@ -186,10 +199,11 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            3,
+            4,
             function,
             assign,
-            instance
+            instance,
+            enum
         ))
     );
     cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, CLERI_THIS), cleri_token(CLERI_NONE, ":"), 0, 3, 0);

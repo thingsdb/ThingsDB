@@ -273,7 +273,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        venum = ti_enum_by_idx(enum_, mp_idx.via.u64);
+        venum = ti_enum_val_by_idx(enum_, mp_idx.via.u64);
         if (!venum)
             ex_set(e, EX_LOOKUP_ERROR,
                     "internal index out of range in enumerator `%s`",
@@ -753,7 +753,8 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_STR_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_STR_S"`",
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_ERROR:
@@ -763,7 +764,14 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         if (!v)
             return -1;
         break;
+    case TI_VAL_ENUM:
+        v = VENUM(val);
         ti_incref(v);
+        if (ti_val_convert_to_str(&v, e))
+        {
+            ti_decref(v);
+            return e->nr;
+        }
         break;
     case TI_VAL_TEMPLATE:
         assert(0);
@@ -812,9 +820,19 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
                 ti_val_str(*val));
         return e->nr;
+    case TI_VAL_ENUM:
+        v = VENUM(val);
+        ti_incref(v);
+        if (ti_val_convert_to_bytes(&v, e))
+        {
+            ti_decref(v);
+            return e->nr;
+        }
+        break;
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -838,7 +856,8 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_MP:
     case TI_VAL_BYTES:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_INT_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_INT_S"`",
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
@@ -885,6 +904,19 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         i = (*((ti_verror_t **) val))->code;
         break;
+    case TI_VAL_ENUM:
+    {
+        ti_val_t v = VENUM(*val);
+        ti_incref(v);
+        if (ti_val_convert_to_int(&v, e))
+        {
+            ti_decref(v);
+            return e->nr;
+        }
+        ti_val_drop(*val);
+        *val = v;
+        return 0;
+    }
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -913,7 +945,8 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_MP:
     case TI_VAL_BYTES:
-        ex_set(e, EX_TYPE_ERROR, "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_INT:
@@ -961,6 +994,19 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         d = (double) (*(ti_verror_t **) val)->code;
         break;
+    case TI_VAL_ENUM:
+    {
+        ti_val_t v = VENUM(*val);
+        ti_incref(v);
+        if (ti_val_convert_to_float(&v, e))
+        {
+            ti_decref(v);
+            return e->nr;
+        }
+        ti_val_drop(*val);
+        *val = v;
+        return 0;
+    }
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -988,6 +1034,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_WRAP:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+    case TI_VAL_ENUM:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_LIST_S"`",
                 ti_val_str(*val));
@@ -1017,9 +1064,10 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
+    case TI_VAL_WRAP:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_WRAP:
+    case TI_VAL_ENUM:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
@@ -1101,6 +1149,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         return true;
+    case TI_VAL_ENUM:
+        return ti_val_as_bool(VENUM(val));
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1108,16 +1158,9 @@ _Bool ti_val_as_bool(ti_val_t * val)
     return false;
 }
 
-_Bool ti_val_is_valid_name(ti_val_t * val)
-{
-    return  val->tp == TI_VAL_NAME || (
-            val->tp == TI_VAL_STR && ti_name_is_valid_strn(
-                (const char *) ((ti_raw_t *) val)->data,
-                ((ti_raw_t *) val)->n));
-}
-
 /*
  * Can only be called on values which have a length.
+ * Enum types should have been checked on the value they contain.
  */
 size_t ti_val_get_len(ti_val_t * val)
 {
@@ -1146,6 +1189,8 @@ size_t ti_val_get_len(ti_val_t * val)
         return VSET(val)->n;
     case TI_VAL_CLOSURE:
         break;
+    case TI_VAL_ENUM:
+        return ti_val_get_len(VENUM(val));
     case TI_VAL_ERROR:
         break;
         assert(0);
@@ -1176,6 +1221,11 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
         break;
+    case TI_VAL_ENUM:
+        val = VENUM(val);
+        if (!ti_val_is_thing(val))
+            break;
+        /* fall through */
     case TI_VAL_THING:
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
@@ -1234,6 +1284,8 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
     }
     case TI_VAL_SET:
         return ti_vset_to_pk((ti_vset_t *) val, pk, options);
+    case TI_VAL_ENUM:
+        return ti_val_to_pk(VENUM(val), pk, options);
     }
 
     assert(0);
@@ -1271,6 +1323,9 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_ERROR:
         *sz = ((ti_verror_t *) val)->msg_n + 96;
         return;
+    case TI_VAL_ENUM:
+        ti_val_may_change_pack_sz(VENUM(val), sz);
+        return;
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1299,6 +1354,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
+    case TI_VAL_ENUM:           return ti_venum_name((ti_venum_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1332,6 +1388,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_SET:            return ti_grab(val__sset);
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
+    case TI_VAL_ENUM:           return ti_venum_get_rname((ti_venum_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }

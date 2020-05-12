@@ -1,0 +1,103 @@
+#include <ti/fn/fn.h>
+
+static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+    ti_enum_t * enum_;
+    ti_thing_t * thing;
+    ti_task_t * task;
+    ti_raw_t * rname;
+    size_t n;
+    uint16_t enum_id;
+    uint64_t ts_now = util_now_tsec();
+
+    if (fn_not_collection_scope("set_enum", query, e) ||
+        fn_nargs("set_enum", DOC_SET_ENUM, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_str("set_enum", DOC_SET_ENUM, 1, query->rval, e))
+        return e->nr;
+
+    rname = (ti_raw_t *) query->rval;
+    if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "function `set_enum` expects "
+            "argument 1 to be a valid enum name"DOC_NAMES);
+        return e->nr;
+    }
+
+    enum_ = ti_enums_by_raw(query->collection->enums, rname);
+    if (enum_)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%.*s` already exists",
+                (int) rname->n, (const char *) rname->data);
+        return e->nr;
+    }
+
+    enum_id = ti_enums_get_new_id(query->collection->enums, rname, e);
+    if (e->nr)
+        return e->nr;
+
+    enum_ = ti_enum_create(
+            query->collection->enums,
+            enum_id,
+            (const char *) rname->data,
+            rname->n,
+            ts_now,
+            0);
+
+    if (!enum_)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_enum_try_lock(enum_, e))
+        goto fail0;
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_thing("set_enum", DOC_SET_ENUM, 2, query->rval, e))
+        goto fail1;
+
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_type_init_from_thing(type, thing, e))
+        goto fail2;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        goto fail2;
+
+    /* update modified time-stamp */
+    type->modified_at = ts_now;
+
+    if ((is_new_type && ti_task_add_new_type(task, type)) ||
+        ti_task_add_set_type(task, type))
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
+
+    if (!is_new_type)
+        /* only required when this is an existing type, note that nodes which
+         * run this by event make this call anyway */
+        ti_type_map_cleanup(type);
+
+    is_new_type = false;  /* set always to false to prevent cleanup */
+    query->rval = (ti_val_t *) ti_nil_get();
+
+
+fail2:
+    ti_val_drop((ti_val_t *) thing);
+fail1:
+    ti_enum_unlock(enum_, true /* lock is set for sure */);
+fail0:
+    ti_enum_drop(enum_);
+
+    return e->nr;
+}

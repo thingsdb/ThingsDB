@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <ti/val.h>
+#include <ti/enum.h>
 
 typedef struct ti_venum_s ti_venum_t;
 
@@ -26,9 +27,20 @@ struct ti_venum_s
     ti_val_t * val;
 };
 
-static inline void ti_vint_free(ti_vint_t * vint)
+static inline uint16_t ti_venum_id(ti_venum_t * venum)
 {
-    free(vint);
+    return venum->enum_->enum_id;
 }
 
+static inline const char * ti_venum_name(ti_venum_t * venum)
+{
+    return venum->enum_->name;
+}
+
+static inline ti_raw_t * ti_venum_get_rname(ti_venum_t * venum)
+{
+    ti_raw_t * rname = venum->enum_->rname;
+    ti_incref(rname);
+    return rname;
+}
 #endif  /* TI_VENUM_H_ */

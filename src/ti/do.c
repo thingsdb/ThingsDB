@@ -809,7 +809,7 @@ done:
     return e->nr;
 }
 
-static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_enum_t * enum_;
     cleri_node_t * name_nd = nd                 /* sequence */
@@ -916,6 +916,19 @@ static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     }
 
+    return e->nr;
+}
+
+static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_node_t * enum_nd = nd                 /* sequence */
+            ->children->next->node;             /* enum node */
+
+    if (!enum_nd->data)
+        return do__enum_get(query, nd, e);
+
+    query->rval = enum_nd->data;
+    ti_incref(query->rval);
     return e->nr;
 }
 

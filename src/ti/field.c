@@ -887,7 +887,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
         ti_enum_t * enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec);
-        f_spec = enum_->spec;
+        f_spec = ti_enum_spec(enum_);
     }
 
     if (t_spec == f_spec)
@@ -921,7 +921,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         ti_enum_t * enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec);
-        f_spec = enum_->spec;
+        f_spec = ti_enum_spec(enum_);
     }
 
     /* return `true` when both specifications are equal, and nested accepts

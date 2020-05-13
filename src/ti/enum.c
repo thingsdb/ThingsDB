@@ -51,8 +51,8 @@ void ti_enum_destroy(ti_enum_t * enum_)
     if (!enum_)
         return;
 
-    vec_destroy(enum_->vec, (vec_destroy_cb) ti_field_destroy);
-    imap_destroy(type->t_mappings, type__map_free);
+    vec_destroy(enum_->vec, NULL);
+    smap_destroy(enum_->smap, (vec_destroy_cb) ti_val_drop);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
@@ -61,19 +61,19 @@ void ti_enum_destroy(ti_enum_t * enum_)
     free(type);
 }
 
-const char * ti_enum_tp_str(ti_enum_t * enum_)
-{
-    switch((ti_enum_enum) enum_->tp)
-    {
-    case TI_ENUM_INT:    return TI_VAL_INT_S;
-    case TI_ENUM_FLOAT:  return TI_VAL_FLOAT_S;
-    case TI_ENUM_STR:    return TI_VAL_STR_S;
-    case TI_ENUM_BYTES:  return TI_VAL_BYTES_S;
-    case TI_ENUM_THING:  return TI_VAL_THING_S;
-    }
-    assert(0);
-    return "unknown";
-}
+//const char * ti_enum_tp_str(ti_enum_t * enum_)
+//{
+//    switch((ti_enum_enum) enum_->tp)
+//    {
+//    case TI_ENUM_INT:    return TI_VAL_INT_S;
+//    case TI_ENUM_FLOAT:  return TI_VAL_FLOAT_S;
+//    case TI_ENUM_STR:    return TI_VAL_STR_S;
+//    case TI_ENUM_BYTES:  return TI_VAL_BYTES_S;
+//    case TI_ENUM_THING:  return TI_VAL_THING_S;
+//    }
+//    assert(0);
+//    return "unknown";
+//}
 
 static int enum__set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 {

@@ -510,7 +510,7 @@ nillable:
         field->type->name,
         field->type->name,
         n, n == 1 ? "" : "s");
-    goto undo;
+    goto undo_dep;
 
 incompatible:
     ex_set(e, EX_OPERATION_ERROR,
@@ -524,8 +524,10 @@ incompatible:
         n, n == 1 ? "" : "s",
         (int) prev_spec_raw->n, (const char *) prev_spec_raw->data);
 
-undo:
+undo_dep:
     field__remove_dep(field);
+
+undo:
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;

@@ -4,6 +4,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_enum_t * enum_;
+    ti_venum_t * venum;
 
     if (fn_not_collection_scope("enum", query, e) ||
         fn_nargs("enum", DOC_ENUM, 2, nargs, e) ||
@@ -25,6 +26,19 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next->node, e))
+        return e->nr;
+
+    venum = ti_enum_val_by_val(enum_, query->rval);
+    if (!venum)
+    {
+        switch
+        ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member  `%.*s`",
+                enum_->name,
+                )
+    }
+
 
     return e->nr;
 }

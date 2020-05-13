@@ -34,6 +34,30 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_type_mod(self, client):
+        await client.query('''
+            set_type("A", {b: 'str'});
+            set_type("B", {a: 'A'});
+        ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `b` on type `A`'):
+            await client.query('''
+                mod_type('A', 'mod', 'b', 'B');
+            ''')
+
+        await client.query('''
+            mod_type('A', 'mod', 'b', 'B?');
+        ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'type `B` is used by at least one other type'):
+            await client.query('''
+                del_type('B');
+            ''')
+
     async def test_events(self, client):
         await self.assertEvent(client, r'''
             .arr = range(3);

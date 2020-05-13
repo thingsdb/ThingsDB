@@ -72,7 +72,8 @@ static int fn_new_instance(
         if (f_type != type)
         {
             ex_set(e, EX_TYPE_ERROR,
-                    "cannot create type `%s` from type `%s`"DOC_NEW_TYPE,
+                    "cannot create an instance of type `%s` from type `%s`"
+                    DOC_NEW,
                     type->name,
                     f_type->name);
             goto failed;
@@ -107,17 +108,15 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
 
     if (fn_not_collection_scope("new", query, e) ||
-        fn_nargs("new", DOC_NEW, 2, nargs, e))
-        return e->nr;
-
-    if (ti_do_statement(query, nd->children->node, e))
+        fn_nargs("new", DOC_NEW, 2, nargs, e) ||
+        ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
     if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-            "function `new_type` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW_TYPE,
+            "function `new` expects argument 1 to be of "
+            "type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_NEW,
             ti_val_str(query->rval));
         return e->nr;
     }

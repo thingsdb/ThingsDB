@@ -287,82 +287,90 @@ static inline ti_prop_t * do__get_var_e(
     return prop;
 }
 
+static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_node_t * fname = nd       /* sequence */
+            ->children->node;       /* name node */
+
+    cleri_node_t * args = nd        /* sequence */
+        ->children->next->node      /* function sequence */
+        ->children->next->node;     /* arguments */
+
+    if (query->rval)
+    {
+        if (ti_val_is_thing(query->rval))
+        {
+            ti_wprop_t wprop;
+            ti_thing_t * thing = (ti_thing_t *) query->rval;
+
+            if (do__get_wprop(&wprop, query, thing, fname, e))
+                return e->nr;
+
+            if (!ti_val_is_closure(*wprop.val))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "property `%.*s` is of type `%s` and is not callable",
+                    fname->len,
+                    fname->str,
+                    ti_val_str(*wprop.val));
+                return e->nr;
+            }
+
+            query->rval = *wprop.val;
+            ti_incref(query->rval);
+            ti_val_drop((ti_val_t *) thing);
+
+            return fn_call(query, args, e);
+        }
+
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no function `%.*s`",
+                ti_val_str(query->rval),
+                fname->len,
+                fname->str);
+    }
+    else
+    {
+        ti_prop_t * prop = do__get_var(query, fname);
+        if (prop)
+        {
+            if (!ti_val_is_closure(prop->val))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "variable `%.*s` is of type `%s` and is not callable",
+                    fname->len,
+                    fname->str,
+                    ti_val_str(prop->val));
+                return e->nr;
+            }
+
+            query->rval = prop->val;
+            ti_incref(query->rval);
+
+            return fn_call(query, args, e);
+        }
+
+        ex_set(e, EX_LOOKUP_ERROR,
+                "function `%.*s` is undefined",
+                fname->len,
+                fname->str);
+    }
+    return e->nr;
+}
+
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
 
-    cleri_node_t * args = nd        /* sequence */
-            ->children->next->node  /* function sequence */
-            ->children->next->node; /* arguments */
-
-    if (!nd->data)
-    {
-        cleri_node_t * fname = nd       /* sequence */
-                ->children->node;       /* name node */
-
-        if (query->rval)
-        {
-            if (ti_val_is_thing(query->rval))
-            {
-                ti_wprop_t wprop;
-                ti_thing_t * thing = (ti_thing_t *) query->rval;
-
-                if (do__get_wprop(&wprop, query, thing, fname, e))
-                    return e->nr;
-
-                if (!ti_val_is_closure(*wprop.val))
-                {
-                    ex_set(e, EX_TYPE_ERROR,
-                        "property `%.*s` is of type `%s` and is not callable",
-                        fname->len,
-                        fname->str,
-                        ti_val_str(*wprop.val));
-                    return e->nr;
-                }
-
-                query->rval = *wprop.val;
-                ti_incref(query->rval);
-                ti_val_drop((ti_val_t *) thing);
-
-                return fn_call(query, args, e);
-            }
-
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "type `%s` has no function `%.*s`",
-                    ti_val_str(query->rval),
-                    fname->len,
-                    fname->str);
-        }
-        else
-        {
-            ti_prop_t * prop = do__get_var(query, fname);
-            if (prop)
-            {
-                if (!ti_val_is_closure(prop->val))
-                {
-                    ex_set(e, EX_TYPE_ERROR,
-                        "variable `%.*s` is of type `%s` and is not callable",
-                        fname->len,
-                        fname->str,
-                        ti_val_str(prop->val));
-                    return e->nr;
-                }
-
-                query->rval = prop->val;
-                ti_incref(query->rval);
-
-                return fn_call(query, args, e);
-            }
-
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "function `%.*s` is undefined",
-                    fname->len,
-                    fname->str);
-        }
-        return e->nr;
-    }
-    return ((fn_cb) nd->data)(query, args, e);
+    return nd->data
+            ? ((fn_cb) nd->data)(
+                    query,
+                    nd                              /* sequence */
+                        ->children->next->node      /* function sequence */
+                        ->children->next->node,     /* arguments */
+                    e)
+            : do__function_call(query, nd, e);
 }
 
 static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -569,110 +577,6 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = nd->data;
     ti_incref(query->rval);
 
-    return e->nr;
-}
-
-static int do__immutable(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
-    assert (!e->nr);
-
-    cleri_node_t * node = nd            /* choice */
-            ->children->node;           /* false, nil, true, undefined,
-                                           int, float, string */
-
-    switch (node->cl_obj->gid)
-    {
-    case CLERI_GID_T_CLOSURE:
-        if (do__read_closure(query, node, e))
-            return e->nr;
-        break;
-    case CLERI_GID_T_FALSE:
-        query->rval = (ti_val_t *) ti_vbool_get(false);
-        break;
-    case CLERI_GID_T_FLOAT:
-        if (!node->data)
-        {
-            node->data = ti_vfloat_create(strx_to_double(node->str));
-            if (!node->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        query->rval = node->data;
-        ti_incref(query->rval);
-        break;
-    case CLERI_GID_T_INT:
-        if (!node->data)
-        {
-            int64_t i = strx_to_int64(node->str);
-            if (errno == ERANGE)
-            {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
-                return e->nr;
-            }
-            node->data = ti_vint_create(i);
-            if (!node->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        query->rval = node->data;
-        ti_incref(query->rval);
-        break;
-    case CLERI_GID_T_NIL:
-        query->rval = (ti_val_t *) ti_nil_get();
-        break;
-    case CLERI_GID_T_REGEX:
-        if (!node->data)
-        {
-            node->data = ti_regex_from_strn(node->str, node->len, e);
-            if (!node->data)
-                return e->nr;
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        query->rval = node->data;
-        ti_incref(query->rval);
-        break;
-    case CLERI_GID_T_STRING:
-        if (!node->data)
-        {
-            node->data = ti_str_from_ti_string(node->str, node->len);
-            if (!node->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        query->rval = node->data;
-        ti_incref(query->rval);
-        break;
-    case CLERI_GID_T_TEMPLATE:
-        if (!node->data)
-        {
-            if (ti_template_build(node))
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, node->data);
-        }
-        return ti_template_compile(node->data, query, e);
-    case CLERI_GID_T_TRUE:
-        query->rval = (ti_val_t *) ti_vbool_get(true);
-        break;
-    }
-    assert (e->nr || query->rval);  /* rval must be set when e->nr == 0 */
     return e->nr;
 }
 
@@ -910,10 +814,17 @@ static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_enum_t * enum_;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
+    cleri_node_t * enum_nd = nd                 /* sequence */
+            ->children->next->node;             /* enum node */
 
-    nd = nd                                     /* sequence */
-            ->children->next->node              /* enum node */
-            ->children->next->node;             /* name or closure */
+    if (enum_nd->data)
+    {
+        query->rval = enum_nd->data;
+        ti_incref(query->rval);
+        return e->nr;
+    }
+
+    nd = enum_nd->children->next->node;         /* name or closure */
 
     enum_ = ti_enums_by_strn(
             query->collection->enums,
@@ -932,12 +843,16 @@ static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch(nd->cl_obj->gid)
     {
     case CLERI_GID_NAME:
-        query->rval = (ti_val_t *) ti_enum_val_by_strn(
+        enum_nd->data = (ti_val_t *) ti_enum_val_by_strn(
                 enum_,
                 nd->str,
                 nd->len);
-        if (query->rval)
-            ti_incref(query->rval);
+        if (enum_nd->data)
+        {
+            query->rval = enum_nd->data;
+            VEC_push(query->val_cache, query->rval);
+            query->rval->ref += 2;
+        }
         else
             ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
                     enum_->name,
@@ -987,11 +902,15 @@ static int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         rname = (ti_raw_t *) query->rval;
         query->rval = (ti_val_t *) ti_enum_val_by_raw(enum_, rname);
-        if (!query->rval)
+
+        if (query->rval)
+            ti_incref(query->rval);
+        else
             ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
                     enum_->name,
                     (int) rname->n,
                     (const char *) rname->data);
+
         ti_val_drop(rname);
         break;
     }
@@ -1093,6 +1012,21 @@ failed:
     return e->nr;
 }
 
+static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        if (ti_template_build(nd))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert (vec_space(query->val_cache));
+        VEC_push(query->val_cache, nd->data);
+    }
+    return ti_template_compile(nd->data, query, e);
+}
+
 static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int nots = (int) ((intptr_t) nd->children->node->data);
@@ -1128,8 +1062,84 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__thing_by_id(query, nd, e))
             return e->nr;
         break;
-    case CLERI_GID_IMMUTABLE:
-        if (do__immutable(query, nd, e))
+    case CLERI_GID_T_CLOSURE:
+        if (do__read_closure(query, nd, e))
+            return e->nr;
+        break;
+    case CLERI_GID_T_FALSE:
+        query->rval = (ti_val_t *) ti_vbool_get(false);
+        break;
+    case CLERI_GID_T_FLOAT:
+        if (!nd->data)
+        {
+            nd->data = ti_vfloat_create(strx_to_double(nd->str));
+            if (!nd->data)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, nd->data);
+        }
+        query->rval = nd->data;
+        ti_incref(query->rval);
+        break;
+    case CLERI_GID_T_INT:
+        if (!nd->data)
+        {
+            int64_t i = strx_to_int64(nd->str);
+            if (errno == ERANGE)
+            {
+                ex_set(e, EX_OVERFLOW, "integer overflow");
+                return e->nr;
+            }
+            nd->data = ti_vint_create(i);
+            if (!nd->data)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, nd->data);
+        }
+        query->rval = nd->data;
+        ti_incref(query->rval);
+        break;
+    case CLERI_GID_T_NIL:
+        query->rval = (ti_val_t *) ti_nil_get();
+        break;
+    case CLERI_GID_T_REGEX:
+        if (!nd->data)
+        {
+            nd->data = ti_regex_from_strn(nd->str, nd->len, e);
+            if (!nd->data)
+                return e->nr;
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, nd->data);
+        }
+        query->rval = nd->data;
+        ti_incref(query->rval);
+        break;
+    case CLERI_GID_T_STRING:
+        if (!nd->data)
+        {
+            nd->data = ti_str_from_ti_string(nd->str, nd->len);
+            if (!nd->data)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+            assert (vec_space(query->val_cache));
+            VEC_push(query->val_cache, nd->data);
+        }
+        query->rval = nd->data;
+        ti_incref(query->rval);
+        break;
+    case CLERI_GID_T_TRUE:
+        query->rval = (ti_val_t *) ti_vbool_get(true);
+        break;
+    case CLERI_GID_TEMPLATE:
+        if (do__template(query, nd, e))
             return e->nr;
         break;
     case CLERI_GID_VAR_OPT_MORE:

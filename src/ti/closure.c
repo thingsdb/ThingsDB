@@ -493,6 +493,10 @@ int ti_closure_call(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
+
+    /* Note: expression might be `operations` as well which happen to be fine
+     *       since in that case the other checks are compatible
+     */
     cleri_node_t * node = ti_closure_statement(closure)
             ->children->node                /* expression */
             ->children->next->node;         /* the choice */

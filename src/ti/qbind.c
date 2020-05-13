@@ -658,6 +658,10 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
+    /* Store venum value */
+    nd->data = NULL;
+    ++qbind->val_cache_n;
+
     nd = nd->children->next->node;
     switch(nd->cl_obj->gid)
     {
@@ -755,46 +759,39 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
+    case CLERI_GID_T_CLOSURE:
+        /* investigate the statement, the rest can be skipped */
+        qbind__statement(
+                qbind,
+                nd->children->next->next->next->node);
+        /* fall through */
     case CLERI_GID_THING_BY_ID:
-        nd->data = NULL;
+    case CLERI_GID_T_INT:
+    case CLERI_GID_T_FLOAT:
+    case CLERI_GID_T_STRING:
+    case CLERI_GID_T_REGEX:
         ++qbind->val_cache_n;
+        nd->data = NULL;        /* initialize data to null */
         return;
-    case CLERI_GID_IMMUTABLE:
-        nd = nd->children->node;
-        switch (nd->cl_obj->gid)
-        {
-        case CLERI_GID_T_TEMPLATE:
-        {
-            cleri_children_t * child = nd          /* sequence */
-                    ->children->next->node         /* repeat */
-                    ->children;
+    case CLERI_GID_TEMPLATE:
+    {
+        cleri_children_t * child = nd          /* sequence */
+                ->children->next->node         /* repeat */
+                ->children;
 
-            for (; child; child = child->next)
-            {
-                if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
-                    qbind__statement(
-                            qbind,
-                            child->node->children->next->node);
-                child->node->data = NULL;
-            }
-            ++qbind->val_cache_n;
-            nd->data = NULL;        /* initialize data to null */
-            return;
+        for (; child; child = child->next)
+        {
+            if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
+                qbind__statement(
+                        qbind,
+                        child->node->children->next->node);
+            child->node->data = NULL;
         }
-        case CLERI_GID_T_CLOSURE:
-            /* investigate the statement, the rest can be skipped */
-            qbind__statement(
-                    qbind,
-                    nd->children->next->next->next->node);
-            /* fall through */
-        case CLERI_GID_T_INT:
-        case CLERI_GID_T_FLOAT:
-        case CLERI_GID_T_STRING:
-        case CLERI_GID_T_REGEX:
-            ++qbind->val_cache_n;
-            nd->data = NULL;        /* initialize data to null */
-        }
+
+        ++qbind->val_cache_n;
+        nd->data = NULL;        /* initialize data to null */
         return;
+    }
     case CLERI_GID_VAR_OPT_MORE:
         qbind__var_opt_fa(qbind, nd);
         return;
@@ -829,7 +826,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__statement(qbind, nd->children->next->node);
         return;
     }
-    assert (0);
 }
 
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)

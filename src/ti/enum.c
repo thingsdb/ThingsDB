@@ -124,8 +124,7 @@ static inline int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     }
 
     ex_set(e, EX_TYPE_ERROR,
-            "enum `%s` cannot be created; "
-            "enumerators cannot be created for mixed types; "
+            "enum `%s` cannot be created for mixed types; "
             "got both type `%s` and `%s`",
             enum_->name,
             ti_enum_tp_str(enum_),
@@ -137,6 +136,7 @@ static inline int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
     ti_prop_t * prop = vec_get(thing->items, 0);
+    ti_venum_t * venum;
 
     if (enum__set_enum_tp(enum_, prop->val, e))
         return e->nr;
@@ -145,7 +145,21 @@ static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 
     for (vec_each(thing->items, ti_prop_t, prop))
     {
-        if (prop->val->)
+        if (enum__check_val(enum_, prop->val, e))
+            return e->nr;
+
+        venum = ti_venum_create(enum_, prop->name, prop->val, enum_->vec->n);
+        if (!venum)
+        {
+            ex_set_mem(e);
+            /* TODO: revert?             */
+            return e->nr;
+        }
+
+
+
+
+        VEC_push(enum_->vec, venum);
         if (!idx)
         {
 
@@ -159,6 +173,8 @@ static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
 
 }
+
+
 
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
@@ -179,4 +195,60 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     return ti_thing_is_object(thing)
         ? enum__init_thing_o(enum_, thing, e)
         : enum__init_thing_t(enum_, thing, e);
+}
+
+ti_venum_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+{
+    for(vec_each(enum_->vec, ti_venum_t, venum))
+        if (ti_opr_eq(VENUM(venum), val))
+            return venum;
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_BOOL:
+    case TI_VAL_MP:
+    case TI_VAL_REGEX:
+    case TI_VAL_WRAP:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+    case TI_VAL_ENUM:
+    case TI_VAL_TEMPLATE:
+        break;
+    case TI_VAL_INT:
+        if (enum_->tp != TI_ENUM_INT)
+            goto type_err;
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%s` has no member with value %"PRId64,
+                enum_->name,
+                VINT(val));
+        return NULL;
+    case TI_VAL_FLOAT:
+        if (enum_->tp != TI_ENUM_INT)
+            goto type_err;
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%s` has no member with value %f",
+                enum_->name,
+                VFLOAT(val));
+        return NULL;
+    case TI_VAL_NAME:
+    case TI_VAL_STR:            return TI_VAL_STR_S;
+    case TI_VAL_BYTES:          return TI_VAL_BYTES_S;
+    case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val)
+                                    ? TI_VAL_THING_S
+                                    : ti_thing_type_str((ti_thing_t *) val);
+        assert (0);
+    }
+
+
+
+type_err:
+    ex_set(e, EX_TYPE_ERROR,
+            "enum `%s` is of type `%s` while the "
+            "given value is of type `%s`",
+            enum_->name,
+            ti_enum_str_tp(enum_),
+            ti_val_str(val));
+    return NULL;
 }

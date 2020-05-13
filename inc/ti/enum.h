@@ -20,6 +20,7 @@ enum
 #include <inttypes.h>
 #include <ti/enums.h>
 #include <ti/thing.h>
+#include <ti/venum.h>
 #include <util/vec.h>
 
 typedef int (*enum_conv_cb)(ti_val_t **, ex_t *);
@@ -33,7 +34,9 @@ ti_enum_t * ti_enum_create(
         uint64_t modified_at);
 void ti_enum_drop(ti_enum_t * enum_);
 void ti_enum_destroy(ti_enum_t * enum_);
+const char * ti_enum_tp_str(ti_enum_t * enum_);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
+ti_venum_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 
 typedef enum
 {
@@ -64,7 +67,7 @@ struct ti_enum_s
 
 static inline ti_venum_t * ti_enum_val_by_idx(ti_enum_t * enum_, uint16_t idx)
 {
-    return vec_get_or_null(enum_->venums, idx);
+    return vec_get_or_null(enum_->vec, idx);
 }
 
 static inline ti_venum_t * ti_enum_val_by_strn(
@@ -72,15 +75,27 @@ static inline ti_venum_t * ti_enum_val_by_strn(
         const char * str,
         size_t n)
 {
-    return smap_getn(enum_->lookup, str, n);
+    return smap_getn(enum_->smap, str, n);
 }
 
 static inline ti_venum_t * ti_enum_val_by_raw(
         ti_enum_t * enum_,
         ti_raw_t * raw)
 {
-    return smap_getn(enum_->lookup, (const char *) raw->data, raw->n);
+    return smap_getn(enum_->smap, (const char *) raw->data, raw->n);
 }
+
+static inline ti_venum_t * ti_enum_val_by_val(
+        ti_enum_t * enum_,
+        ti_val_t * val)
+{
+    for(vec_each(enum_->vec, ti_venum_t, venum))
+        if (ti_opr_eq(VENUM(venum), val))
+            return venum;
+    return NULL;
+}
+
+
 
 static inline int ti_enum_try_lock(ti_enum_t * enum_, ex_t * e)
 {

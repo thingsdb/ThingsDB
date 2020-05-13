@@ -126,9 +126,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
         return ti_opr_eq(VENUM(a), b);
     case OPR_ENUM_ENUM:
-        return VENUM(a) == VENUM(b) || (
-                ((ti_venum_t *) a)->enum_ != ((ti_venum_t *) b)->enum_ &&
-                ti_opr_eq(VENUM(a), VENUM(b)));
+        return ti_opr_eq(VENUM(a), VENUM(b));
     }
     return false;
 }

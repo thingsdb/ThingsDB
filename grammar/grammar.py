@@ -54,7 +54,7 @@ class LangDef(Grammar):
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
-    t_template = Sequence(
+    template = Sequence(
         '`',
         Repeat(Choice(
             Regex(r"([^`{}]|``|{{|}})+"),
@@ -93,18 +93,6 @@ class LangDef(Grammar):
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
     enum = Sequence(x_thing, Choice(name, t_closure), '}')
-
-    immutable = Choice(
-        t_false,
-        t_nil,
-        t_true,
-        t_float,
-        t_int,
-        t_string,
-        t_regex,
-        t_closure,
-        t_template,
-    )
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
@@ -165,7 +153,17 @@ class LangDef(Grammar):
         Choice(
             chain,
             thing_by_id,
-            immutable,
+            # start immutable values
+            t_false,
+            t_nil,
+            t_true,
+            t_float,
+            t_int,
+            t_string,
+            t_regex,
+            t_closure,
+            # end immutable values
+            template,
             var_opt_more,
             thing,
             array,

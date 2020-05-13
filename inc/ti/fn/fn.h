@@ -293,7 +293,8 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child->node, e))
+            if (ti_do_statement(query, child->node, e) ||
+                ti_val_make_variable(&query->rval, e))
                 goto fail1;
 
             VEC_push(args, query->rval);

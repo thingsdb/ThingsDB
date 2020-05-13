@@ -34,6 +34,22 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_array_arg(self, client):
+        res = await client.query('''
+            new_procedure('add', |arr, v| arr.push(v));
+            .arr = range(3);
+            run('add', .arr, 3);
+            .arr;
+        ''')
+        self.assertEqual(res, list(range(3)))
+
+        res = await client.query('''
+            .arr = range(5);
+            (|arr, v| arr.push(v)).call(.arr, 5);
+            .arr;
+        ''')
+        self.assertEqual(res, list(range(5)))
+
     async def test_type_mod(self, client):
         await client.query('''
             set_type("A", {b: 'str'});

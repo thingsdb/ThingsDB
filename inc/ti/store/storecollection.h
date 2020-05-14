@@ -31,7 +31,10 @@ char * ti_store_collection_props_fn(
 char * ti_store_collection_things_fn(
         const char * path,
         uint64_t collection_id);
-char * ti_store_collection_types_fn(
+char* ti_store_collection_types_fn(
+        const char * path,
+        uint64_t collection_id);
+char * ti_store_collection_enums_fn(
         const char * path,
         uint64_t collection_id);
 
@@ -45,4 +48,5 @@ struct ti_store_collection_s
     char * procedures_fn;
     char * things_fn;
     char * types_fn;
+    char * enums_fn;
 };

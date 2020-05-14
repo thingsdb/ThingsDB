@@ -20,6 +20,8 @@
 #define DOC_DEEP                    DOC_SEE("collection-api/deep")
 #define DOC_DEL_TYPE                DOC_SEE("collection-api/del_type")
 #define DOC_ENUM                    DOC_SEE("collection-api/enum")
+#define DOC_ENUM_INFO               DOC_SEE("collection-api/enum_info")
+#define DOC_ENUMS_INFO              DOC_SEE("collection-api/enums_info")
 #define DOC_ERR                     DOC_SEE("collection-api/err")
 #define DOC_FLOAT                   DOC_SEE("collection-api/float")
 #define DOC_HAS_TYPE                DOC_SEE("collection-api/has_type")
@@ -193,7 +195,8 @@
 #define DOC_SOCKET_QUERY            DOC_SEE("connect/socket/query")
 #define DOC_SCOPES                  DOC_SEE("overview/scopes")
 #define DOC_SLICES                  DOC_SEE("overview/slices")
-#define DOC_SPEC                    DOC_SEE("data-types/type")
+#define DOC_T_TYPE                  DOC_SEE("data-types/type")
+#define DOC_T_ENUM                  DOC_SEE("data-types/enum")
 #define DOC_WATCHING                DOC_SEE("watching")
 
 /* No functions */

@@ -64,7 +64,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     {
     default:
         assert (a != b);
-        return ti_val_is_enum(b) ? ti_opr_eq(a, VENUM(b)) : false;
+        return false;
     /*
     case OPR_NIL_NIL:
         no need to compare the nil values since they always
@@ -123,10 +123,6 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
     case OPR_ERROR_ERROR:
         return ((ti_verror_t *) a)->code == ((ti_verror_t *) b)->code;
-    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
-        return ti_opr_eq(VENUM(a), b);
-    case OPR_ENUM_ENUM:
-        return ti_opr_eq(VENUM(a), VENUM(b));
     }
     return false;
 }
@@ -145,7 +141,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
          * the error value
          */
         if (ti_val_is_enum(b))
-            return ti_opr_compare(a, VENUM(b), e);
+            return ti_opr_compare(a, VMEMBER(b), e);
 
         if (!e->nr)
             ex_set(e, EX_TYPE_ERROR,
@@ -189,42 +185,9 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     case OPR_BYTES_BYTES:
         return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
     case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
-        return ti_opr_compare(VENUM(a), b, e);
+        return ti_opr_compare(VMEMBER(a), b, e);
     case OPR_ENUM_ENUM:
-        return ti_opr_compare(VENUM(a), VENUM(b), e);
+        return ti_opr_compare(VMEMBER(a), VMEMBER(b), e);
     }
     return 0;
-}
-
-int opr_on_enum(ti_val_t * a, ti_val_t ** enum_b, ex_t * e, opr_enum_cb cb)
-{
-    ti_val_t * vb = VENUM(*enum_b);
-    ti_incref(vb);
-    if (cb(a, &vb, e))
-    {
-        ti_decref(vb);
-        return e->nr;
-    }
-    ti_val_drop(*enum_b);
-    *enum_b = vb;
-    return e->nr;
-}
-
-int opr_on_enum_inplace(
-        ti_val_t * a,
-        ti_val_t ** enum_b,
-        ex_t * e,
-        _Bool inplace,
-        opr_enum_inplace_cb cb)
-{
-    ti_val_t * vb = VENUM(*enum_b);
-    ti_incref(vb);
-    if (cb(a, &vb, e, inplace))
-    {
-        ti_decref(vb);
-        return e->nr;
-    }
-    ti_val_drop(*enum_b);
-    *enum_b = vb;
-    return e->nr;
 }

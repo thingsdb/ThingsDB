@@ -1,5 +1,5 @@
 /*
- * ti/store/things.h
+ * ti/store/storetypes.h
  */
 #ifndef TI_STORE_TYPES_H_
 #define TI_STORE_TYPES_H_

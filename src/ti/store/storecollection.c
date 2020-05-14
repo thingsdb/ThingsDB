@@ -13,6 +13,7 @@ static const char * collection___procedures_fn = "procedures.mp";
 static const char * collection___props_fn      = "props.mp";
 static const char * collection___things_fn     = "things.mp";
 static const char * collection___types_fn      = "types.mp";
+static const char * collection___enums_fn      = "enums.mp";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
@@ -38,13 +39,15 @@ ti_store_collection_t * ti_store_collection_create(
     store_collection->props_fn = fx_path_join(cpath, collection___props_fn);
     store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
     store_collection->types_fn = fx_path_join(cpath, collection___types_fn);
+    store_collection->enums_fn = fx_path_join(cpath, collection___enums_fn);
 
     if (    !store_collection->access_fn ||
             !store_collection->collection_fn ||
             !store_collection->procedures_fn ||
             !store_collection->props_fn ||
             !store_collection->things_fn ||
-            !store_collection->types_fn)
+            !store_collection->types_fn ||
+            !store_collection->enums_fn)
         goto fail1;
 
     return store_collection;
@@ -67,6 +70,7 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->props_fn);
     free(store_collection->things_fn);
     free(store_collection->types_fn);
+    free(store_collection->enums_fn);
     free(store_collection);
 }
 
@@ -216,6 +220,18 @@ char * ti_store_collection_types_fn(
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___types_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_enums_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___enums_fn);
     free(cpath);
     return fn;
 }

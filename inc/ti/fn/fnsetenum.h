@@ -66,31 +66,20 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_type_init_from_thing(type, thing, e))
+    if (ti_enum_init_from_thing(enum_, thing, e))
         goto fail2;
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
         goto fail2;
 
-    /* update modified time-stamp */
-    type->modified_at = ts_now;
-
-    if ((is_new_type && ti_task_add_new_type(task, type)) ||
-        ti_task_add_set_type(task, type))
+    if (ti_task_add_set_enum(task, enum_))
     {
         ex_set_mem(e);
         goto fail2;
     }
 
-    if (!is_new_type)
-        /* only required when this is an existing type, note that nodes which
-         * run this by event make this call anyway */
-        ti_type_map_cleanup(type);
-
-    is_new_type = false;  /* set always to false to prevent cleanup */
     query->rval = (ti_val_t *) ti_nil_get();
-
 
 fail2:
     ti_val_drop((ti_val_t *) thing);

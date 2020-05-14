@@ -8,8 +8,6 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
     switch(perm)
     {
     default:
-        if (ti_val_is_enum(*b))
-            return opr_on_enum(a, b, e, opr__add);
         ex_set(e, EX_TYPE_ERROR,
                 "`+` not supported between `%s` and `%s`",
                 ti_val_str(a), ti_val_str(*b));
@@ -80,11 +78,6 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
 
         return e->nr;
     }
-    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
-        return opr__add(VENUM(a), b, e);
-
-    case OPR_ENUM_ENUM:
-        return opr_on_enum(VENUM(a), b, e, opr__add);
     }
     assert (0);
 

@@ -316,6 +316,10 @@ int ti_store_restore(void)
                 store->store_path,
                 &collection->guid);
         rc = (  -(!store_collection) ||
+                ti_store_enums_restore(
+                        collection->enums,
+                        namesmap,
+                        store_collection->types_fn) ||
                 ti_store_types_restore(
                         collection->types,
                         namesmap,
@@ -329,6 +333,10 @@ int ti_store_restore(void)
                 ti_store_collection_restore(
                         collection,
                         store_collection->collection_fn) ||
+                ti_store_enums_restore_data(
+                        collection->types,
+                        namesmap,
+                        store_collection->enums_fn) ||
                 ti_store_things_restore_data(
                         collection,
                         namesmap,

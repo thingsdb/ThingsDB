@@ -96,7 +96,6 @@ typedef enum
      *   All specials are in the binary 0010xxxx range.
      *   + positive big type
      *   - negative big type
-     *   % date type
      */
     TI_KIND_C_THING     ='#',
     TI_KIND_C_INSTANCE  ='.',
@@ -105,7 +104,7 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
-    TI_KIND_C_ENUM      =',',
+    TI_KIND_C_ENUM      ='%',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"

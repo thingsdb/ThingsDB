@@ -258,7 +258,6 @@ fail_data:
     return -1;
 }
 
-
 int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
 {
     size_t alloc = 64 + rname->n;
@@ -1171,6 +1170,46 @@ int ti_task_add_restore(ti_task_t * task)
     msgpack_pack_map(&pk, 1);
     mp_pack_str(&pk, "restore");
     msgpack_pack_true(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
+{
+    size_t alloc = 8192;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "set_enum");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, enum_->enum_id);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, enum_->created_at);
+
+    mp_pack_str(&pk, "members");
+    ti_type_fields_to_pk(type, &pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

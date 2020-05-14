@@ -658,7 +658,7 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    /* Store venum value */
+    /* Store member value */
     nd->data = NULL;
     ++qbind->val_cache_n;
 

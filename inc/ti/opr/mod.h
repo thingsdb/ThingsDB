@@ -8,9 +8,6 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
     switch (perm)
     {
     default:
-        if (ti_val_is_enum(*b))
-            return opr_on_enum(a, b, e, opr__mod);
-
         ex_set(e, EX_TYPE_ERROR,
                 "`%` not supported between `%s` and `%s`",
                 ti_val_str(a), ti_val_str(*b));
@@ -83,12 +80,6 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
             goto zerodiv;
         int_ = VBOOL(a) % VBOOL(*b);
         break;
-
-    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
-        return opr__mod(VENUM(a), b, e);
-
-    case OPR_ENUM_ENUM:
-        return opr_on_enum(VENUM(a), b, e, opr__mod);
     }
 
     if (ti_val_make_int(b, int_))

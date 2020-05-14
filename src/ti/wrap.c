@@ -122,7 +122,7 @@ static int wrap__field_val(
         return wrap__field_val(
                 t_field,
                 &t_field->nested_spec,
-                ((ti_venum_t *) val)->val,
+                ((ti_member_t *) val)->val,
                 pk,
                 options);
     }

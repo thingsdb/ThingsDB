@@ -130,7 +130,7 @@ static _Bool field__spec_is_ascii(
         ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type declarations must only contain valid ASCII characters"
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name);
         return false;
     }
@@ -203,7 +203,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
-                "type declarations must not be empty"DOC_SPEC,
+                "type declarations must not be empty"DOC_T_TYPE,
                 field->name->str, field->type->name);
         return e->nr;
     }
@@ -260,7 +260,7 @@ skip_nesting:
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `[`; nested array declarations are not allowed"
-            DOC_SPEC, field->name->str, field->type->name);
+            DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }
 
@@ -269,7 +269,7 @@ skip_nesting:
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `{`; nested set declarations are not allowed"
-            DOC_SPEC, field->name->str, field->type->name);
+            DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }
 
@@ -346,7 +346,7 @@ skip_nesting:
                 if (field__spec_is_ascii(field, str, n, e))
                     ex_set(e, EX_TYPE_ERROR,
                             "invalid declaration for `%s` on type `%s`; "
-                            "unknown type `%.*s` in declaration"DOC_SPEC,
+                            "unknown type `%.*s` in declaration"DOC_T_TYPE,
                             field->name->str, field->type->name,
                             (int) n, str);
                 return e->nr;
@@ -381,13 +381,13 @@ skip_nesting:
             ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `"TI_VAL_NIL_S"`",
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name);
         else
             ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name,
                 ti__spec_approx_type_str(field->nested_spec));
         return e->nr;
@@ -406,7 +406,7 @@ invalid:
     ex_set(e, EX_VALUE_ERROR,
         "invalid declaration for `%s` on type `%s`; "
         "expecting a valid type declaration but got `%.*s` instead"
-        DOC_SPEC,
+        DOC_T_TYPE,
         field->name->str, field->type->name,
         (int) field->spec_raw->n,
         (const char *) field->spec_raw->data);
@@ -418,7 +418,7 @@ circular_dep:
         "invalid declaration for `%s` on type `%s`; "
         "missing `?` after declaration `%.*s`; "
         "circular dependencies must be nillable "
-        "at least at one point in the chain"DOC_SPEC,
+        "at least at one point in the chain"DOC_T_TYPE,
         field->name->str, field->type->name,
         (int) field->spec_raw->n,
         (const char *) field->spec_raw->data);

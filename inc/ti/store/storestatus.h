@@ -1,5 +1,5 @@
 /*
- * ti/store/status.h
+ * ti/store/storestatus.h
  */
 #ifndef TI_STORE_STATUS_H_
 #define TI_STORE_STATUS_H_

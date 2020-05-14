@@ -23,6 +23,8 @@ C_SRCS += \
 ../src/ti/counters.c \
 ../src/ti/data.c \
 ../src/ti/do.c \
+../src/ti/enum.c \
+../src/ti/enums.c \
 ../src/ti/epkg.c \
 ../src/ti/evars.c \
 ../src/ti/event.c \
@@ -78,6 +80,7 @@ C_SRCS += \
 ../src/ti/val.c \
 ../src/ti/varr.c \
 ../src/ti/vbool.c \
+../src/ti/venum.c \
 ../src/ti/verror.c \
 ../src/ti/version.c \
 ../src/ti/vfloat.c \
@@ -109,6 +112,8 @@ OBJS += \
 ./src/ti/counters.o \
 ./src/ti/data.o \
 ./src/ti/do.o \
+./src/ti/enum.o \
+./src/ti/enums.o \
 ./src/ti/epkg.o \
 ./src/ti/evars.o \
 ./src/ti/event.o \
@@ -164,6 +169,7 @@ OBJS += \
 ./src/ti/val.o \
 ./src/ti/varr.o \
 ./src/ti/vbool.o \
+./src/ti/venum.o \
 ./src/ti/verror.o \
 ./src/ti/version.o \
 ./src/ti/vfloat.o \
@@ -195,6 +201,8 @@ C_DEPS += \
 ./src/ti/counters.d \
 ./src/ti/data.d \
 ./src/ti/do.d \
+./src/ti/enum.d \
+./src/ti/enums.d \
 ./src/ti/epkg.d \
 ./src/ti/evars.d \
 ./src/ti/event.d \
@@ -250,6 +258,7 @@ C_DEPS += \
 ./src/ti/val.d \
 ./src/ti/varr.d \
 ./src/ti/vbool.d \
+./src/ti/venum.d \
 ./src/ti/verror.d \
 ./src/ti/version.d \
 ./src/ti/vfloat.d \

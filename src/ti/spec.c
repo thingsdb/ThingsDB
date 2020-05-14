@@ -65,7 +65,7 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
     }
 
     if (spec >= TI_ENUM_ID_FLAG)
-        return ti_val_is_enum(val) && ti_venum_id((ti_venum_t *) val) == spec
+        return ti_val_is_enum(val) && ti_member_id((ti_member_t *) val) == spec
                 ? 0
                 : TI_SPEC_RVAL_TYPE_ERROR;  /* TODO: maybe return enum error
                                                 to make conversion possible */
@@ -132,7 +132,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
 
     /* any *thing* can be mapped */
     return spec >= TI_ENUM_ID_FLAG
-            ? ti_val_is_enum(val) && ti_venum_id((ti_venum_t *) val) == spec
+            ? ti_val_is_enum(val) && ti_member_id((ti_member_t *) val) == spec
             : ti_val_is_thing(val);
 }
 

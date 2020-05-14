@@ -11,7 +11,7 @@ static int do__f_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("name", DOC_ENUM_NAME, 0, nargs, e))
         return e->nr;
 
-    name = ((ti_venum_t *) query->rval)->name;
+    name = ((ti_member_t *) query->rval)->name;
     ti_incref(name);
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) name;

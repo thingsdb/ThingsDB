@@ -929,6 +929,7 @@ static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = enum_nd->data;
     ti_incref(query->rval);
+
     return e->nr;
 }
 

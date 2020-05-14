@@ -1,5 +1,5 @@
 /*
- * ti/store/storetypes.h
+ * ti/store/storeenums.h
  */
 #include <assert.h>
 #include <ti.h>
@@ -8,44 +8,34 @@
 #include <ti/raw.inline.h>
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
-#include <ti/type.h>
-#include <ti/types.inline.h>
+#include <ti/enum.h>
+#include <ti/enums.inline.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int rmtype_cb(
-        const uchar * name,
-        size_t n,
-        void * data,
-        msgpack_packer * pk)
-{
-    uintptr_t type_id = (uintptr_t) data;
-    return mp_pack_strn(pk, name, n) || msgpack_pack_uint64(pk, type_id);
-}
-
-static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
+static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
 {
     uintptr_t p;
     if (msgpack_pack_array(pk, 5) ||
-        msgpack_pack_uint16(pk, type->type_id) ||
-        msgpack_pack_uint64(pk, type->created_at) ||
-        msgpack_pack_uint64(pk, type->modified_at) ||
-        mp_pack_strn(pk, type->rname->data, type->rname->n) ||
-        msgpack_pack_map(pk, type->fields->n)
+        msgpack_pack_uint16(pk, enum_->enum_id) ||
+        msgpack_pack_uint64(pk, enum_->created_at) ||
+        msgpack_pack_uint64(pk, enum_->modified_at) ||
+        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
+        msgpack_pack_map(pk, enum_->members->n)
     ) return -1;
 
-    for (vec_each(type->fields, ti_field_t, field))
+    for (vec_each(enum_->members, ti_member_t, member))
     {
-        p = (uintptr_t) field->name;
+        p = (uintptr_t) member->name;
         if (msgpack_pack_uint64(pk, p) ||
-            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            ti_val_to_pk(member->val, pk, TI_VAL_PACK_FILE)
         ) return -1;
     }
 
     return 0;
 }
 
-int ti_store_types_store(ti_types_t * types, const char * fn)
+int ti_store_enums_store(ti_enums_t * enums, const char * fn)
 {
     msgpack_packer pk;
     char namebuf[TI_NAME_MAX];
@@ -58,18 +48,14 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (msgpack_pack_map(&pk, 2) ||
-        /* removed types */
-        mp_pack_str(&pk, "removed") ||
-        msgpack_pack_map(&pk, types->removed->n) ||
-        smap_items(types->removed, namebuf, (smap_item_cb) rmtype_cb, &pk) ||
-        /* active types */
-        mp_pack_str(&pk, "types") ||
-        msgpack_pack_array(&pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) mktype_cb, &pk)
+    if (msgpack_pack_map(&pk, 1) ||
+        /* active enums */
+        mp_pack_str(&pk, "enums") ||
+        msgpack_pack_array(&pk, enums->imap->n) ||
+        imap_walk(enums->imap, (imap_cb) mkenum_cb, &pk)
     ) goto fail;
 
-    log_debug("stored types to file: `%s`", fn);
+    log_debug("stored enumerators to file: `%s`", fn);
     goto done;
 fail:
     log_error("failed to write file: `%s`", fn);
@@ -82,20 +68,16 @@ done:
     return 0;
 }
 
-int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
+/*
+ * Restore enums without values so they can be referenced to by types
+ */
+int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
 {
-    const char * types_position;
-    char namebuf[TI_NAME_MAX+1];
     int rc = -1;
     fx_mmap_t fmap;
     ex_t e = {0};
-    ti_name_t * name;
-    ti_type_t * type;
-    size_t i, ii;
-    uint16_t type_id;
-    uintptr_t utype_id;
-    ti_raw_t * spec;
-    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_created, mp_modified;
+    size_t i;
+    mp_obj_t obj, mp_id, mp_name, mp_created, mp_modified;
     mp_unp_t up;
 
     fx_mmap_init(&fmap, fn);
@@ -104,39 +86,10 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     mp_unp_init(&up, fmap.data, fmap.n);
 
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(&up) != MP_STR ||
         mp_next(&up, &obj) != MP_MAP
     ) goto fail1;
-
-    for (i = obj.via.sz; i--;)
-    {
-        if (mp_next(&up, &mp_name) != MP_STR ||
-            mp_next(&up, &mp_id) != MP_U64
-        ) goto fail1;
-
-        type_id = (uint16_t) mp_id.via.u64;
-        utype_id = (uintptr_t) type_id;
-
-        /*
-         * Update next_id if required; remove the RM_FLAG to compare the real
-         * type id.
-         */
-        type_id &= TI_TYPES_RM_MASK;
-        if (type_id >= types->next_id)
-            types->next_id = type_id + 1;
-
-        memcpy(namebuf, mp_name.via.str.data, mp_name.via.str.n);
-        namebuf[mp_name.via.str.n] = '\0';
-
-        (void) smap_add(types->removed, namebuf, (void *) utype_id);
-    }
-
-    if (mp_skip(&up) != MP_STR ||     /* types key */
-        mp_next(&up, &obj) != MP_ARR
-    ) goto fail1;
-
-    types_position = up.pt;
 
     for (i = obj.via.sz; i--;)
     {
@@ -148,25 +101,54 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_skip(&up) != MP_MAP
         ) goto fail1;
 
-        if (!ti_type_create(
-                types,
+        if (!ti_enum_create(
+                enums,
                 mp_id.via.u64,
                 mp_name.via.str.data,
                 mp_name.via.str.n,
                 mp_created.via.u64,
                 mp_modified.via.u64))
         {
-            log_critical("cannot create type `%.*s`",
+            log_critical("cannot create enum `%.*s`",
                     (int) mp_name.via.str.n,
                     mp_name.via.str.data);
             goto fail1;
         }
     }
 
-    /* restore unpacker to types start */
-    up.pt = types_position;
+    rc = 0;
 
-    for (i = types->imap->n; i--;)
+fail1:
+    if (fx_mmap_close(&fmap))
+        rc = -1;
+fail0:
+    if (rc)
+        log_critical("failed to restore from file: `%s`", fn);
+
+    return rc;
+}
+
+/*
+ * Restore enum data without values so they can be referenced to by types
+ */
+int ti_store_enums_restore_data(ti_enums_t * enums, imap_t * names, const char * fn)
+{
+    const char * enums_position;
+    char namebuf[TI_NAME_MAX+1];
+    int rc = -1;
+    fx_mmap_t fmap;
+    ex_t e = {0};
+    ti_name_t * name;
+    ti_enum_t * enum_;
+    size_t i;
+    uint16_t enum_id;
+    mp_obj_t obj, mp_id, mp_name, mp_created, mp_modified;
+    mp_unp_t up;
+
+    /* restore unpacker to enums start */
+    up.pt = enums_position;
+
+    for (i = enums->imap->n; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -176,8 +158,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_next(&up, &obj) != MP_MAP
         ) goto fail1;
 
-        type = ti_types_by_id(types, mp_id.via.u64);
-        assert (type);
+        enum_ = ti_enums_by_id(enums, mp_id.via.u64);
+        assert (enum_);
 
         for (ii = obj.via.sz; ii--;)
         {
@@ -193,7 +175,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             if (!spec)
                 goto fail1;
 
-            if (!ti_field_create(name, spec, type, &e))
+            if (!ti_member_create(name, spec, enum_, &e))
             {
                 log_critical(e.msg);
                 goto fail1;

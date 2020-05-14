@@ -111,6 +111,5 @@ static inline int ti_type_to_pk(ti_type_t * type, msgpack_packer * pk)
     );
 }
 
-
 #endif  /* TI_TYPE_H_ */
 

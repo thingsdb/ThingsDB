@@ -60,3 +60,28 @@ uint16_t ti_enums_get_new_id(ti_enums_t * enums, ti_raw_t * rname, ex_t * e)
     }
     return enum_id;
 }
+
+static int enums__pack_enum(ti_enum_t * enum_, ti_varr_t * varr)
+{
+    ti_val_t * mpinfo = ti_enum_as_mpval(enum_);
+    if (!mpinfo)
+        return -1;
+    VEC_push(varr->vec, mpinfo);
+    return 0;
+}
+
+ti_varr_t * ti_enums_info(ti_enums_t * enums)
+{
+    ti_varr_t * varr = ti_varr_create(enums->imap->n);
+    if (!varr)
+        return NULL;
+
+    if (imap_walk(enums->imap, (imap_cb) enums__pack_enum, varr))
+    {
+        ti_val_drop((ti_val_t *) varr);
+        return NULL;
+    }
+
+    return varr;
+}
+

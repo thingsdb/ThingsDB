@@ -18,7 +18,7 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
-#include <ti/venum.h>
+#include <ti/member.h>
 #include <ti/enum.h>
 #include <ti/verror.h>
 #include <ti/vfloat.h>
@@ -251,7 +251,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     {
         mp_obj_t mp_enum_id, mp_idx;
         ti_enum_t * enum_;
-        ti_venum_t * venum;
+        ti_member_t * member;
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
@@ -273,13 +273,13 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        venum = ti_enum_val_by_idx(enum_, mp_idx.via.u64);
-        if (!venum)
+        member = ti_enum_val_by_idx(enum_, mp_idx.via.u64);
+        if (!member)
             ex_set(e, EX_LOOKUP_ERROR,
                     "internal index out of range in enumerator `%s`",
                     enum_->name);
 
-        return (ti_val_t *) venum;
+        return (ti_val_t *) member;
     }
     }
 
@@ -330,7 +330,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
                 "unexpected `set` which cannot be added to the array");
         return e->nr;
     case TI_VAL_ENUM:
-        if (ti_val_is_thing(VENUM(val)))
+        if (ti_val_is_thing(VMEMBER(val)))
             varr->flags |= TI_VFLAG_ARR_MHT;
         break;
     case TI_VAL_TEMPLATE:
@@ -547,7 +547,7 @@ void ti_val_destroy(ti_val_t * val)
         ti_closure_destroy((ti_closure_t *) val);
         return;
     case TI_VAL_ENUM:
-        ti_venum_destroy((ti_venum_t *) val);
+        ti_member_destroy((ti_member_t *) val);
         break;
     case TI_VAL_TEMPLATE:
         ti_template_destroy((ti_template_t *) val);
@@ -765,7 +765,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
             return -1;
         break;
     case TI_VAL_ENUM:
-        v = VENUM(val);
+        v = VMEMBER(val);
         ti_incref(v);
         if (ti_val_convert_to_str(&v, e))
         {
@@ -825,7 +825,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_ENUM:
-        v = VENUM(val);
+        v = VMEMBER(val);
         ti_incref(v);
         if (ti_val_convert_to_bytes(&v, e))
         {
@@ -906,7 +906,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ENUM:
     {
-        ti_val_t v = VENUM(*val);
+        ti_val_t v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_int(&v, e))
         {
@@ -996,7 +996,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ENUM:
     {
-        ti_val_t v = VENUM(*val);
+        ti_val_t v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_float(&v, e))
         {
@@ -1150,7 +1150,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_ERROR:
         return true;
     case TI_VAL_ENUM:
-        return ti_val_as_bool(VENUM(val));
+        return ti_val_as_bool(VMEMBER(val));
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1190,7 +1190,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ENUM:
-        return ti_val_get_len(VENUM(val));
+        return ti_val_get_len(VMEMBER(val));
     case TI_VAL_ERROR:
         break;
         assert(0);
@@ -1222,7 +1222,7 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_REGEX:
         break;
     case TI_VAL_ENUM:
-        val = VENUM(val);
+        val = VMEMBER(val);
         if (!ti_val_is_thing(val))
             break;
         /* fall through */
@@ -1285,7 +1285,7 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
     case TI_VAL_SET:
         return ti_vset_to_pk((ti_vset_t *) val, pk, options);
     case TI_VAL_ENUM:
-        return ti_val_to_pk(VENUM(val), pk, options);
+        return ti_val_to_pk(VMEMBER(val), pk, options);
     }
 
     assert(0);
@@ -1324,7 +1324,7 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
         *sz = ((ti_verror_t *) val)->msg_n + 96;
         return;
     case TI_VAL_ENUM:
-        ti_val_may_change_pack_sz(VENUM(val), sz);
+        ti_val_may_change_pack_sz(VMEMBER(val), sz);
         return;
     case TI_VAL_TEMPLATE:
         assert (0);
@@ -1354,7 +1354,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
-    case TI_VAL_ENUM:           return ti_venum_name((ti_venum_t *) val);
+    case TI_VAL_ENUM:           return ti_member_name((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1388,7 +1388,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_SET:            return ti_grab(val__sset);
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
-    case TI_VAL_ENUM:           return ti_venum_get_rname((ti_venum_t *) val);
+    case TI_VAL_ENUM:           return ti_member_get_rname((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }

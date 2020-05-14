@@ -11,6 +11,7 @@ typedef struct ti_enums_s ti_enums_t;
 #include <ti/collection.h>
 #include <ti/raw.h>
 #include <ti/enum.h>
+#include <ti/varr.h>
 #include <util/imap.h>
 #include <util/mpack.h>
 #include <util/smap.h>

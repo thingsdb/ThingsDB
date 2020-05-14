@@ -7,8 +7,6 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
     switch(perm)
     {
     default:
-        if (ti_val_is_enum(*b))
-            return opr_on_enum_inplace(a, b, e, inplace, opr__and);
         ex_set(e, EX_TYPE_ERROR,
                 "bitwise `&` not supported between `%s` and `%s`",
                 ti_val_str(a), ti_val_str(*b));
@@ -50,11 +48,6 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
             *b = (ti_val_t *) vset;
         }
         return e->nr;
-    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
-        return opr__and(VENUM(a), b, e);
-
-    case OPR_ENUM_ENUM:
-        return opr_on_enum_inplace(VENUM(a), b, e, inplace, opr__and);
     }
     if (ti_val_make_int(b, int_))
         ex_set_mem(e);

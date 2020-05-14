@@ -71,8 +71,7 @@ static cleri_node_t * closure__node_from_strn(
     node = node                             /* List of statements */
             ->children->node                /* Sequence - statement */
             ->children->node                /* expression */
-            ->children->next->node          /* Choice - immutable */
-            ->children->node;               /* closure */
+            ->children->next->node;         /* Choice - closure */
 
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
@@ -532,11 +531,10 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->node->children->next      /* node=expression */
             ->node;                     /* node=the choice */
 
-    if (node->cl_obj->gid != CLERI_GID_IMMUTABLE ||
-        node->children->node->cl_obj->gid != CLERI_GID_T_STRING)
+    if (node->cl_obj->gid != CLERI_GID_T_STRING)
         goto done;
 
-    doc = node->children->node->data;
+    doc = node->data;
     if (doc)
         /* from cache */
         ti_incref(doc);

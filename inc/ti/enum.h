@@ -20,7 +20,7 @@ enum
 #include <inttypes.h>
 #include <ti/enums.h>
 #include <ti/thing.h>
-#include <ti/venum.h>
+#include <ti/member.h>
 #include <util/vec.h>
 
 typedef int (*enum_conv_cb)(ti_val_t **, ex_t *);
@@ -34,8 +34,13 @@ ti_enum_t * ti_enum_create(
         uint64_t modified_at);
 void ti_enum_drop(ti_enum_t * enum_);
 void ti_enum_destroy(ti_enum_t * enum_);
+int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e);
+int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
+int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
+int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
-ti_venum_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
+ti_member_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
+ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
 
 typedef enum
 {
@@ -76,13 +81,14 @@ struct ti_enum_s
     enum_conv_cb conv_cb;   /* conversion callback */
     char * name;            /* name (null terminated) */
     ti_raw_t * rname;       /* name as raw type */
-    vec_t * vec;
-    smap_t * smap;
+    vec_t * members;        /* members stored by index */
+    smap_t * smap;          /* member lookup by name */
 };
 
-static inline ti_venum_t * ti_enum_val_by_idx(ti_enum_t * enum_, uint16_t idx)
+
+static inline ti_member_t * ti_enum_val_by_idx(ti_enum_t * enum_, uint16_t idx)
 {
-    return vec_get_or_null(enum_->vec, idx);
+    return vec_get_or_null(enum_->members, idx);
 }
 
 static inline uint16_t ti_enum_spec(ti_enum_t * enum_)
@@ -95,7 +101,7 @@ static inline const char * ti_enum_tp_str(ti_enum_t * enum_)
     return ti_enum_str_map[enum_->enum_tp];
 }
 
-static inline ti_venum_t * ti_enum_val_by_strn(
+static inline ti_member_t * ti_enum_val_by_strn(
         ti_enum_t * enum_,
         const char * str,
         size_t n)
@@ -103,24 +109,12 @@ static inline ti_venum_t * ti_enum_val_by_strn(
     return smap_getn(enum_->smap, str, n);
 }
 
-static inline ti_venum_t * ti_enum_val_by_raw(
+static inline ti_member_t * ti_enum_val_by_raw(
         ti_enum_t * enum_,
         ti_raw_t * raw)
 {
     return smap_getn(enum_->smap, (const char *) raw->data, raw->n);
 }
-
-static inline ti_venum_t * ti_enum_val_by_val(
-        ti_enum_t * enum_,
-        ti_val_t * val)
-{
-    for(vec_each(enum_->vec, ti_venum_t, venum))
-        if (ti_opr_eq(VENUM(venum), val))
-            return venum;
-    return NULL;
-}
-
-
 
 static inline int ti_enum_try_lock(ti_enum_t * enum_, ex_t * e)
 {
@@ -147,4 +141,27 @@ static inline void ti_enum_unlock(ti_enum_t * enum_, int lock_was_set)
         enum_->flags &= ~TI_ENUM_FLAG_LOCK;
 }
 
-#endif  /* TI_VENUM_H_ */
+static inline int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+{
+    return (
+        msgpack_pack_map(pk, 5) ||
+        mp_pack_str(pk, "enum_id") ||
+        msgpack_pack_uint16(pk, enum_->enum_id) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, enum_->created_at) ||
+
+        mp_pack_str(pk, "modified_at") ||
+        (enum_->modified_at
+            ? msgpack_pack_uint64(pk, enum_->modified_at)
+            : msgpack_pack_nil(pk)) ||
+
+        mp_pack_str(pk, "members") ||
+        ti_enum_members_to_pk(enum_, pk)
+    );
+}
+
+#endif  /* TI_MEMBER_H_ */

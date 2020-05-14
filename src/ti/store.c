@@ -8,6 +8,7 @@
 #include <ti/store/storeaccess.h>
 #include <ti/store/storecollection.h>
 #include <ti/store/storecollections.h>
+#include <ti/store/storeenums.h>
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
@@ -216,6 +217,9 @@ int ti_store_store(void)
         else
         {
             rc = (
+                ti_store_enums_store(
+                        collection->enums,
+                        store_collection->enums_fn) ||
                 ti_store_types_store(
                         collection->types,
                         store_collection->types_fn) ||
@@ -318,8 +322,7 @@ int ti_store_restore(void)
         rc = (  -(!store_collection) ||
                 ti_store_enums_restore(
                         collection->enums,
-                        namesmap,
-                        store_collection->types_fn) ||
+                        store_collection->enums_fn) ||
                 ti_store_types_restore(
                         collection->types,
                         namesmap,
@@ -333,8 +336,8 @@ int ti_store_restore(void)
                 ti_store_collection_restore(
                         collection,
                         store_collection->collection_fn) ||
-                ti_store_enums_restore_data(
-                        collection->types,
+                ti_store_enums_restore_members(
+                        collection->enums,
                         namesmap,
                         store_collection->enums_fn) ||
                 ti_store_things_restore_data(

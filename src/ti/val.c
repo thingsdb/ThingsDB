@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti/closure.h>
+#include <ti/enum.h>
+#include <ti/enums.inline.h>
+#include <ti/member.h>
+#include <ti/member.inline.h>
 #include <ti/nil.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -18,8 +22,6 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
-#include <ti/member.h>
-#include <ti/enum.h>
 #include <ti/verror.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
@@ -523,8 +525,7 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_ERROR:
-        free(val);
-        return;
+        break;
     case TI_VAL_NAME:
         ti_name_destroy((ti_name_t *) val);
         return;
@@ -553,6 +554,8 @@ void ti_val_destroy(ti_val_t * val)
         ti_template_destroy((ti_template_t *) val);
         return;
     }
+
+    free(val);
 }
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
@@ -906,7 +909,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ENUM:
     {
-        ti_val_t v = VMEMBER(*val);
+        ti_val_t * v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_int(&v, e))
         {
@@ -996,7 +999,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_ENUM:
     {
-        ti_val_t v = VMEMBER(*val);
+        ti_val_t * v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_float(&v, e))
         {
@@ -1220,12 +1223,13 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
-        break;
     case TI_VAL_ENUM:
-        val = VMEMBER(val);
-        if (!ti_val_is_thing(val))
-            break;
-        /* fall through */
+        /* enum can be skipped; even a thing on an enum is guaranteed to
+         * have an ID since they are triggered when creating or changing the
+         * enumerator
+         */
+        break;
+
     case TI_VAL_THING:
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
@@ -1354,7 +1358,8 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
-    case TI_VAL_ENUM:           return ti_member_name((ti_member_t *) val);
+    case TI_VAL_ENUM:
+        return ti_member_enum_name((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1388,7 +1393,8 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_SET:            return ti_grab(val__sset);
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
-    case TI_VAL_ENUM:           return ti_member_get_rname((ti_member_t *) val);
+    case TI_VAL_ENUM:
+        return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
     }

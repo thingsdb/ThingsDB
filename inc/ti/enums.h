@@ -20,7 +20,7 @@ ti_enums_t * ti_enums_create(ti_collection_t * collection);
 void ti_enums_destroy(ti_enums_t * enums);
 int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_);
 void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_);
-uint16_t ti_enums_get_new_id(ti_enums_t * enums, ti_raw_t * rname, ex_t * e);
+uint16_t ti_enums_get_new_id(ti_enums_t * enums, ex_t * e);
 ti_varr_t * ti_enums_info(ti_enums_t * enums);
 int ti_enums_to_pk(ti_enums_t * enums, msgpack_packer * pk);
 

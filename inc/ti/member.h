@@ -6,21 +6,21 @@
 
 #define VMEMBER(__x) ((ti_member_t *) (__x))->val
 
+typedef struct ti_member_s ti_member_t;
+
 #include <stdlib.h>
 #include <inttypes.h>
+#include <ex.h>
 #include <ti/val.h>
+#include <ti/name.h>
 #include <ti/enum.h>
-
-typedef struct ti_member_s ti_member_t;
 
 ti_member_t * ti_member_create(
         ti_enum_t * enum_,
         ti_name_t * name,
         ti_val_t * val,
-        uint16_t idx);
+        ex_t * e);
 void ti_member_destroy(ti_member_t * member);
-
-#define VINT(__x) ((ti_vint_t *) (__x))->int_
 
 struct ti_member_s
 {

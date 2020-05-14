@@ -55,7 +55,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val);
 const char * ti__spec_approx_type_str(uint16_t spec);
 ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec);
 
-static inline ti_spec_is_enum(uint16_t spec)
+static inline _Bool ti_spec_is_enum(uint16_t spec)
 {
     return (spec & TI_SPEC_MASK_NILLABLE) >= 0x6000;
 }

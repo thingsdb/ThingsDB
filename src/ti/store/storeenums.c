@@ -6,7 +6,7 @@
 #include <ti/field.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
-#include <ti/store/storetypes.h>
+#include <ti/store/storeenums.h>
 #include <ti/things.h>
 #include <ti/enum.h>
 #include <ti/enums.inline.h>
@@ -38,7 +38,6 @@ static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
 int ti_store_enums_store(ti_enums_t * enums, const char * fn)
 {
     msgpack_packer pk;
-    char namebuf[TI_NAME_MAX];
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -75,7 +74,6 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
 {
     int rc = -1;
     fx_mmap_t fmap;
-    ex_t e = {0};
     size_t i;
     mp_obj_t obj, mp_id, mp_name, mp_created, mp_modified;
     mp_unp_t up;
@@ -131,22 +129,36 @@ fail0:
 /*
  * Restore enum data without values so they can be referenced to by types
  */
-int ti_store_enums_restore_data(ti_enums_t * enums, imap_t * names, const char * fn)
+int ti_store_enums_restore_members(
+        ti_enums_t * enums,
+        imap_t * names,
+        const char * fn)
 {
-    const char * enums_position;
-    char namebuf[TI_NAME_MAX+1];
     int rc = -1;
     fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name;
     ti_enum_t * enum_;
-    size_t i;
-    uint16_t enum_id;
-    mp_obj_t obj, mp_id, mp_name, mp_created, mp_modified;
+    ti_val_t * val;
+    size_t i, ii;
+    mp_obj_t obj, mp_id, mp_val;
     mp_unp_t up;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = enums->collection,
+            .up = &up,
+    };
 
-    /* restore unpacker to enums start */
-    up.pt = enums_position;
+    fx_mmap_init(&fmap, fn);
+    if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
+        goto fail0;
+
+    mp_unp_init(&up, fmap.data, fmap.n);
+
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_skip(&up) != MP_STR ||
+        mp_next(&up, &obj) != MP_MAP
+    ) goto fail1;
 
     for (i = enums->imap->n; i--;)
     {
@@ -161,27 +173,34 @@ int ti_store_enums_restore_data(ti_enums_t * enums, imap_t * names, const char *
         enum_ = ti_enums_by_id(enums, mp_id.via.u64);
         assert (enum_);
 
+        if (ti_enum_prealloc(enum_, obj.via.sz, &e))
+        {
+            log_critical(e.msg);
+            goto fail1;
+        }
+
         for (ii = obj.via.sz; ii--;)
         {
             if (mp_next(&up, &mp_id) != MP_U64 ||
-                mp_next(&up, &mp_spec) != MP_STR
+                mp_next(&up, &mp_val) == MP_ERR
             ) goto fail1;
 
             name = imap_get(names, mp_id.via.u64);
             if (!name)
                 goto fail1;
 
-            spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
-            if (!spec)
+            val = ti_val_from_unp(&vup);
+            if (!val)
                 goto fail1;
 
-            if (!ti_member_create(name, spec, enum_, &e))
+            if (!ti_member_create(enum_, name, val, &e))
             {
+                ti_val_drop(val);
                 log_critical(e.msg);
                 goto fail1;
             }
 
-            ti_decref(spec);
+            ti_decref(val);  /* we do not need the reference anymore */
         }
     }
 

@@ -1192,6 +1192,11 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
+    if (enum_->enum_tp == TI_ENUM_THING)
+        for(vec_each(enum_->members, ti_member_t, member))
+            if (ti_val_gen_ids(member->val))
+                return -1;
+
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
 
@@ -1209,7 +1214,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     msgpack_pack_uint64(&pk, enum_->created_at);
 
     mp_pack_str(&pk, "members");
-    ti_type_fields_to_pk(type, &pk);
+    ti_enum_members_to_pk(enum_, &pk, TI_VAL_PACK_TASK);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

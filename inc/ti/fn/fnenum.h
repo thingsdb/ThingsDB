@@ -30,7 +30,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;
 
-    member = ti_enum_val_by_val_e(enum_, query->rval, e);
+    member = ti_enum_member_by_val_e(enum_, query->rval, e);
     if (!member)
         return e->nr;
 

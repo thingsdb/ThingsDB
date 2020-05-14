@@ -31,6 +31,12 @@ typedef enum
                            handled like all other value type. */
 } ti_val_enum;
 
+/*
+ * enum cache is not a real value type but used for stored closure to pre-cache
+ *
+ */
+#define TI_VAL_ENUM_CACHE 255
+
 #define TI_VAL_NIL_S        "nil"
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"

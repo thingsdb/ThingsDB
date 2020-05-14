@@ -12,6 +12,7 @@
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
+#include <ti/enums.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vint.h>

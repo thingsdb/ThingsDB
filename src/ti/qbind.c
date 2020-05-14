@@ -658,22 +658,14 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    /* Store member value */
-    nd->data = NULL;
-    ++qbind->val_cache_n;
+    nd->data = NULL;        /* member */
+    ++qbind->val_cache_n;   /* member of closure, not both */
 
     nd = nd->children->next->node;
-    switch(nd->cl_obj->gid)
-    {
-    case CLERI_GID_NAME:
-        return;
-    case CLERI_GID_T_CLOSURE:
-        qbind__statement(
-                qbind,
-                nd->children->next->next->next->node);
-        ++qbind->val_cache_n;
-        nd->data = NULL;        /* initialize data to null */
-    }
+    nd->data = NULL;        /* closure or value cache */
+
+    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
+        qbind__statement(qbind, nd->children->next->next->next->node);
 }
 
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
@@ -693,7 +685,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
         case CLERI_GID_INSTANCE:
             qbind__thing(qbind, nd->children->next->node);
             return;
-        case CLERI_GID_ENUM:
+        case CLERI_GID_ENUM_:
             qbind__enum(qbind, nd->children->next->node);
             return;
         default:

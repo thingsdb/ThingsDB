@@ -194,6 +194,41 @@ static inline int ncache__thing(
     return e->nr;
 }
 
+static int ncache__enum(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    nd->data = NULL;  /* member value */
+
+    nd = nd->children->next->node;
+    switch(nd->cl_obj->gid)
+    {
+    case CLERI_GID_NAME:
+        nd->data = vcache;  /* trick so we can assign a enum value to the
+                               correct cache */
+        break;
+    case CLERI_GID_T_CLOSURE:
+        if (ncache__statement(
+                    syntax,
+                    vcache,
+                    nd->children->next->next->next->node,
+                    e))
+            return e->nr;
+        nd->data = ti_closure_from_node(
+                nd,
+                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
+                            ? TI_VFLAG_CLOSURE_BTSCOPE
+                            : TI_VFLAG_CLOSURE_BCSCOPE);
+        if (nd->data)
+            VEC_push(vcache, nd->data);
+        else
+            ex_set_mem(e);
+    }
+    return e->nr;
+}
+
 static int ncache__varname_opt_fa(
         ti_qbind_t * syntax,
         vec_t * vcache,
@@ -223,11 +258,9 @@ static int ncache__varname_opt_fa(
                 e)
         ) || ncache__gen_name(vcache, nd->children->node, e) ? e->nr : 0;
     case CLERI_GID_INSTANCE:
-        return ncache__thing(
-                syntax,
-                vcache,
-                nd->children->next->node,
-                e);
+        return ncache__thing(syntax, vcache, nd->children->next->node, e);
+    case CLERI_GID_ENUM_:
+        return ncache__enum(syntax, vcache, nd->children->next->node, e);
     }
 
     assert (0);

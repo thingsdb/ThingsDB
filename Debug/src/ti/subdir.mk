@@ -35,6 +35,7 @@ C_SRCS += \
 ../src/ti/index.c \
 ../src/ti/job.c \
 ../src/ti/mapping.c \
+../src/ti/member.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/ncache.c \
@@ -80,7 +81,6 @@ C_SRCS += \
 ../src/ti/val.c \
 ../src/ti/varr.c \
 ../src/ti/vbool.c \
-../src/ti/venum.c \
 ../src/ti/verror.c \
 ../src/ti/version.c \
 ../src/ti/vfloat.c \
@@ -124,6 +124,7 @@ OBJS += \
 ./src/ti/index.o \
 ./src/ti/job.o \
 ./src/ti/mapping.o \
+./src/ti/member.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/ncache.o \
@@ -169,7 +170,6 @@ OBJS += \
 ./src/ti/val.o \
 ./src/ti/varr.o \
 ./src/ti/vbool.o \
-./src/ti/venum.o \
 ./src/ti/verror.o \
 ./src/ti/version.o \
 ./src/ti/vfloat.o \
@@ -213,6 +213,7 @@ C_DEPS += \
 ./src/ti/index.d \
 ./src/ti/job.d \
 ./src/ti/mapping.d \
+./src/ti/member.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/ncache.d \
@@ -258,7 +259,6 @@ C_DEPS += \
 ./src/ti/val.d \
 ./src/ti/varr.d \
 ./src/ti/vbool.d \
-./src/ti/venum.d \
 ./src/ti/verror.d \
 ./src/ti/version.d \
 ./src/ti/vfloat.d \

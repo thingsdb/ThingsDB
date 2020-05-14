@@ -1,23 +1,24 @@
 /*
  * ti/do.c
  */
+#include <cleri/cleri.h>
 #include <doc.h>
-#include <ti/fn/fn.h>
+#include <langdef/langdef.h>
+#include <langdef/nd.h>
 #include <ti/auth.h>
 #include <ti/do.h>
+#include <ti/enums.inline.h>
+#include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
 #include <ti/index.h>
 #include <ti/names.h>
 #include <ti/nil.h>
-#include <ti/template.h>
 #include <ti/opr/oprinc.h>
 #include <ti/regex.h>
 #include <ti/task.h>
-#include <ti/vint.h>
-#include <cleri/cleri.h>
-#include <langdef/nd.h>
-#include <langdef/langdef.h>
+#include <ti/template.h>
 #include <ti/thing.inline.h>
+#include <ti/vint.h>
 #include <util/strx.h>
 
 
@@ -817,13 +818,6 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * enum_nd = nd                 /* sequence */
             ->children->next->node;             /* enum node */
 
-    if (enum_nd->data)
-    {
-        query->rval = enum_nd->data;
-        ti_incref(query->rval);
-        return e->nr;
-    }
-
     nd = enum_nd->children->next->node;         /* name or closure */
 
     enum_ = ti_enums_by_strn(
@@ -843,14 +837,20 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch(nd->cl_obj->gid)
     {
     case CLERI_GID_NAME:
-        enum_nd->data = (ti_val_t *) ti_enum_val_by_strn(
+        enum_nd->data = (ti_val_t *) ti_enum_member_by_strn(
                 enum_,
                 nd->str,
                 nd->len);
         if (enum_nd->data)
         {
+            /*
+             * In an unbound closure we have space reserved to store the enum
+             * member in the closure cache. This means that the member will be
+             * in use from this point on, until the closure is removed.
+             */
+            vec_t * vec = nd->data ? nd->data : query->val_cache;
             query->rval = enum_nd->data;
-            VEC_push(query->val_cache, query->rval);
+            VEC_push(vec, query->rval);
             query->rval->ref += 2;
         }
         else
@@ -901,7 +901,7 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         rname = (ti_raw_t *) query->rval;
-        query->rval = (ti_val_t *) ti_enum_val_by_raw(enum_, rname);
+        query->rval = (ti_val_t *) ti_enum_member_by_raw(enum_, rname);
 
         if (query->rval)
             ti_incref(query->rval);
@@ -911,7 +911,7 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     (int) rname->n,
                     (const char *) rname->data);
 
-        ti_val_drop(rname);
+        ti_val_drop((ti_val_t *) rname);
         break;
     }
     }
@@ -1180,7 +1180,7 @@ static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (do__instance(query, nd, e))
                 return e->nr;
             break;
-        case CLERI_GID_ENUM:
+        case CLERI_GID_ENUM_:
             if (do__enum(query, nd, e))
                 return e->nr;
             break;

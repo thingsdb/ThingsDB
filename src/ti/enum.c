@@ -2,6 +2,12 @@
  * ti/enum.c
  */
 #include <ti/enum.h>
+#include <ti/raw.inline.h>
+#include <ti/thing.inline.h>
+#include <ti/opr.h>
+#include <ti/vint.h>
+#include <ti/vfloat.h>
+#include <util/vec.h>
 #include <doc.h>
 
 ti_enum_t * ti_enum_create(
@@ -51,13 +57,10 @@ void ti_enum_destroy(ti_enum_t * enum_)
 int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
 {
     if (!sz)
-    {
         ex_set(e, EX_VALUE_ERROR, "cannot create an empty enum type");
-        return e->nr;
-    }
-    enum_->members = vec_reserve(&enum_->members, sz);
-    if (!enum_->members)
+    else if (vec_reserve(&enum_->members, sz))
         ex_set_mem(e);
+
     return e->nr;
 }
 
@@ -84,7 +87,7 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 
 int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 {
-    ti_member_t * member = ti_enum_val_by_val(enum_, val);
+    ti_member_t * member = ti_enum_member_by_val(enum_, val);
 
     if (member)
     {
@@ -142,7 +145,7 @@ int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e)
         return e->nr;
     }
 
-    if (vec_push(enum_->members, member))
+    if (vec_push(&enum_->members, member))
         ex_set_mem(e);
     else if (smap_add(enum_->smap, member->name->str, member))
     {
@@ -184,7 +187,7 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 }
 
 /* adds a map with key/value pairs */
-int ti_enum_members_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+int ti_enum_members_to_pk(ti_enum_t * enum_, msgpack_packer * pk, int options)
 {
     if (msgpack_pack_array(pk, enum_->members->n))
         return -1;
@@ -193,14 +196,25 @@ int ti_enum_members_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
     {
         if (msgpack_pack_array(pk, 2) ||
             mp_pack_strn(pk, member->name->str, member->name->n) ||
-            ti_val_to_pk(member->val, pk, ))
+            ti_val_to_pk(member->val, pk, options))
             return -1;
     }
 
     return 0;
 }
 
-ti_member_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val)
+{
+    for(vec_each(enum_->members, ti_member_t, member))
+        if (ti_opr_eq(VMEMBER(member), val))
+            return member;
+    return NULL;
+}
+
+ti_member_t * ti_enum_member_by_val_e(
+        ti_enum_t * enum_,
+        ti_val_t * val,
+        ex_t * e)
 {
     for(vec_each(enum_->members, ti_member_t, member))
         if (ti_opr_eq(VMEMBER(member), val))
@@ -277,7 +291,7 @@ ti_member_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
             "enum `%s` is expecting a value of type `%s` "
             "but got type `%s` instead",
             enum_->name,
-            ti_enum_str_tp(enum_),
+            ti_enum_tp_str(enum_),
             ti_val_str(val));
     return NULL;
 }

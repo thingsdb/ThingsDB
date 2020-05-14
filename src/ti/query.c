@@ -243,6 +243,7 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+    case TI_VAL_ENUM:
         return 0;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
@@ -326,6 +327,7 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+    case TI_VAL_ENUM:
         return 0;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))

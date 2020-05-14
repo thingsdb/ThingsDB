@@ -345,13 +345,15 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
         return fmt__chain(fmt, nd, false);
     case CLERI_GID_THING_BY_ID:
         return buf_append(&fmt->buf, nd->str, nd->len);
-    case CLERI_GID_IMMUTABLE:
-        nd = nd->children->node;
-        switch (nd->cl_obj->gid)
-        {
-        case CLERI_GID_T_CLOSURE:
-            return fmt__closure(fmt, nd);
-        }
+    case CLERI_GID_T_CLOSURE:
+        return fmt__closure(fmt, nd);
+    case CLERI_GID_T_FALSE:
+    case CLERI_GID_T_FLOAT:
+    case CLERI_GID_T_INT:
+    case CLERI_GID_T_NIL:
+    case CLERI_GID_T_REGEX:
+    case CLERI_GID_T_STRING:
+    case CLERI_GID_T_TRUE:
         return buf_append(&fmt->buf, nd->str, nd->len);
     case CLERI_GID_VAR_OPT_MORE:
         return fmt__var_opt_fa(fmt, nd);

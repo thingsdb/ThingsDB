@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2020-05-13 15:31:11
+ * Created at: 2020-05-14 20:49:24
  */
 
 #include <langdef/langdef.h>
@@ -112,8 +112,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_token(CLERI_NONE, ")")
     );
     cleri_t * instance = cleri_dup(CLERI_GID_INSTANCE, thing);
-    cleri_t * enum = cleri_sequence(
-        CLERI_GID_ENUM,
+    cleri_t * enum_ = cleri_sequence(
+        CLERI_GID_ENUM_,
         3,
         x_thing,
         cleri_choice(
@@ -189,7 +189,7 @@ cleri_grammar_t * compile_langdef(void)
             function,
             assign,
             instance,
-            enum
+            enum_
         ))
     );
     cleri_t * slice = cleri_list(CLERI_GID_SLICE, cleri_optional(CLERI_NONE, CLERI_THIS), cleri_token(CLERI_NONE, ":"), 0, 3, 0);

@@ -35,7 +35,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    enum_id = ti_enums_get_new_id(query->collection->enums, rname, e);
+    enum_id = ti_enums_get_new_id(query->collection->enums, e);
     if (e->nr)
         return e->nr;
 

@@ -37,9 +37,14 @@ void ti_enum_destroy(ti_enum_t * enum_);
 int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e);
 int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
-int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member);
+int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
-ti_member_t * ti_enum_val_by_val_e(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
+int ti_enum_members_to_pk(ti_enum_t * enum_, msgpack_packer * pk, int options);
+ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val);
+ti_member_t * ti_enum_member_by_val_e(
+        ti_enum_t * enum_,
+        ti_val_t * val,
+        ex_t * e);
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
 
 typedef enum
@@ -51,7 +56,9 @@ typedef enum
     TI_ENUM_THING,
 } ti_enum_enum;
 
- uint16_t ti_enum_spec_map[] = {
+#include <ti/spec.h>
+
+static uint16_t ti_enum_spec_map[] = {
     TI_SPEC_INT,
     TI_SPEC_FLOAT,
     TI_SPEC_STR,
@@ -101,7 +108,7 @@ static inline const char * ti_enum_tp_str(ti_enum_t * enum_)
     return ti_enum_str_map[enum_->enum_tp];
 }
 
-static inline ti_member_t * ti_enum_val_by_strn(
+static inline ti_member_t * ti_enum_member_by_strn(
         ti_enum_t * enum_,
         const char * str,
         size_t n)
@@ -109,7 +116,7 @@ static inline ti_member_t * ti_enum_val_by_strn(
     return smap_getn(enum_->smap, str, n);
 }
 
-static inline ti_member_t * ti_enum_val_by_raw(
+static inline ti_member_t * ti_enum_member_by_raw(
         ti_enum_t * enum_,
         ti_raw_t * raw)
 {
@@ -160,7 +167,7 @@ static inline int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
             : msgpack_pack_nil(pk)) ||
 
         mp_pack_str(pk, "members") ||
-        ti_enum_members_to_pk(enum_, pk)
+        ti_enum_members_to_pk(enum_, pk, 0)  /* only ID's for one level */
     );
 }
 

@@ -63,7 +63,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     mp_obj_t mp_key, mp_val;
     const char * restore_point;
     if (!sz)
-        return (ti_val_t *) ti_thing_new_from_unp(vup, sz, e);
+        return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
 
     restore_point = vup->up->pt;
 
@@ -90,7 +90,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "expecting an integer value as thing id");
             return NULL;
         }
-        return (ti_val_t *) ti_things_thing_o_from_unp(
+        return (ti_val_t *) ti_things_thing_o_from_vup(
                 vup,
                 mp_val.via.u64,
                 sz,
@@ -108,7 +108,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "expecting exactly 3 key value pairs for a type");
             return NULL;
         }
-        return (ti_val_t *) ti_things_thing_t_from_unp(vup, e);
+        return (ti_val_t *) ti_things_thing_t_from_vup(vup, e);
     case TI_KIND_C_CLOSURE:
     {
         ti_qbind_t syntax = {
@@ -249,7 +249,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             ex_set_mem(e);
         return (ti_val_t *) wrap;
     }
-    case TI_KIND_C_ENUM:
+    case TI_KIND_C_MEMBER:
     {
         mp_obj_t mp_enum_id, mp_idx;
         ti_enum_t * enum_;
@@ -262,7 +262,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         {
             ex_set(e, EX_BAD_DATA,
                 "enum type must be written according the "
-                "following syntax: {\""TI_KIND_S_ENUM"\": [enum_id, index]");
+                "following syntax: {\""TI_KIND_S_MEMBER"\": [enum_id, index]");
             return NULL;
         }
 
@@ -287,7 +287,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
     /* restore the unpack pointer to the first property */
     vup->up->pt = restore_point;
-    return (ti_val_t *) ti_thing_new_from_unp(vup, sz, e);
+    return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
 }
 
 /*
@@ -331,7 +331,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "unexpected `set` which cannot be added to the array");
         return e->nr;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         if (ti_val_is_thing(VMEMBER(val)))
             varr->flags |= TI_VFLAG_ARR_MHT;
         break;
@@ -348,7 +348,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 /*
  * Return NULL when failed and `e` is set to an appropriate error message
  */
-ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
+ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
 {
     mp_obj_t obj;
     mp_enum_t tp = mp_next(vup->up, &obj);
@@ -418,7 +418,7 @@ ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e)
         }
         while (n--)
         {
-            v = ti_val_from_unp_e(vup, e);
+            v = ti_val_from_vup_e(vup, e);
             if (!v || val__push(varr, v, e))
             {
                 ti_val_drop(v);
@@ -547,7 +547,7 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_CLOSURE:
         ti_closure_destroy((ti_closure_t *) val);
         return;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         ti_member_destroy((ti_member_t *) val);
         break;
     case TI_VAL_TEMPLATE:
@@ -583,12 +583,12 @@ int ti_val_make_float(ti_val_t ** val, double d)
 /*
  * Return NULL when failed. Otherwise a new value with a reference.
  */
-ti_val_t * ti_val_from_unp(ti_vup_t * vup)
+ti_val_t * ti_val_from_vup(ti_vup_t * vup)
 {
     ex_t e = {0};
     ti_val_t * val;
 
-    val = ti_val_from_unp_e(vup, &e);
+    val = ti_val_from_vup_e(vup, &e);
     if (e.nr)
         log_error("failed to unpack value: %s (%d) ", e.msg, e.nr);
     return val;
@@ -767,7 +767,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         if (!v)
             return -1;
         break;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         v = VMEMBER(val);
         ti_incref(v);
         if (ti_val_convert_to_str(&v, e))
@@ -827,7 +827,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
                 "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
                 ti_val_str(*val));
         return e->nr;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         v = VMEMBER(val);
         ti_incref(v);
         if (ti_val_convert_to_bytes(&v, e))
@@ -907,7 +907,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         i = (*((ti_verror_t **) val))->code;
         break;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
     {
         ti_val_t * v = VMEMBER(*val);
         ti_incref(v);
@@ -997,7 +997,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_ERROR:
         d = (double) (*(ti_verror_t **) val)->code;
         break;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
     {
         ti_val_t * v = VMEMBER(*val);
         ti_incref(v);
@@ -1037,7 +1037,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_WRAP:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_LIST_S"`",
                 ti_val_str(*val));
@@ -1070,7 +1070,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_WRAP:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
@@ -1152,7 +1152,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         return true;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return ti_val_as_bool(VMEMBER(val));
     case TI_VAL_TEMPLATE:
         assert(0);
@@ -1192,7 +1192,7 @@ size_t ti_val_get_len(ti_val_t * val)
         return VSET(val)->n;
     case TI_VAL_CLOSURE:
         break;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
     case TI_VAL_ERROR:
         break;
@@ -1223,7 +1223,7 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         /* enum can be skipped; even a thing on an enum is guaranteed to
          * have an ID since they are triggered when creating or changing the
          * enumerator
@@ -1288,8 +1288,8 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
     }
     case TI_VAL_SET:
         return ti_vset_to_pk((ti_vset_t *) val, pk, options);
-    case TI_VAL_ENUM:
-        return ti_val_to_pk(VMEMBER(val), pk, options);
+    case TI_VAL_MEMBER:
+        return ti_member_to_pk((ti_member_t *) val, pk, options);
     }
 
     assert(0);
@@ -1327,7 +1327,7 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_ERROR:
         *sz = ((ti_verror_t *) val)->msg_n + 96;
         return;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         ti_val_may_change_pack_sz(VMEMBER(val), sz);
         return;
     case TI_VAL_TEMPLATE:
@@ -1358,7 +1358,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return ti_member_enum_name((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);
@@ -1393,7 +1393,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_SET:            return ti_grab(val__sset);
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
     case TI_VAL_TEMPLATE:
         assert (0);

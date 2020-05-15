@@ -89,8 +89,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail2;
 
-    /* update modified time-stamp */
-    type->modified_at = ts_now;
+    /* update modified time-stamp if this is an existing type */
+    if (!is_new_type)
+        type->modified_at = ts_now;
 
     if ((is_new_type && ti_task_add_new_type(task, type)) ||
         ti_task_add_set_type(task, type))

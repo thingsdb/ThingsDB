@@ -51,6 +51,12 @@ int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_)
     return 0;
 }
 
+void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_)
+{
+    (void) imap_pop(enums->imap, enum_->enum_id);
+    (void) smap_pop(enums->smap, enum_->name);
+}
+
 uint16_t ti_enums_get_new_id(ti_enums_t * enums, ex_t * e)
 {
     uint16_t enum_id = imap_unused_id(enums->imap, TI_ENUM_ID_MASK);

@@ -824,10 +824,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_mod(
-        ti_task_t * task,
-        ti_field_t * field,
-        uint64_t modified_at)
+int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
 {
     size_t alloc = 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
@@ -847,7 +844,7 @@ int ti_task_add_mod_type_mod(
     msgpack_pack_uint16(&pk, field->type->type_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, modified_at);
+    msgpack_pack_uint64(&pk, field->type->modified_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, field->name->str, field->name->n);
@@ -1205,7 +1202,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "set_enum");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "enum_id");
     msgpack_pack_uint16(&pk, enum_->enum_id);
@@ -1213,8 +1210,184 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, enum_->created_at);
 
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, enum_->rname->data, enum_->rname->n);
+
     mp_pack_str(&pk, "members");
-    ti_enum_members_to_pk(enum_, &pk, TI_VAL_PACK_TASK);
+    if (ti_enum_members_to_pk(enum_, &pk, TI_VAL_PACK_TASK))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
+{
+    size_t alloc = 8192;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (ti_val_gen_ids(member->val))
+        return -1;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_enum_add");
+    msgpack_pack_map(&pk, 4);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, member->name->str, member->name->n);
+
+    mp_pack_str(&pk, "value");
+    if (ti_val_to_pk(member->val, &pk, TI_VAL_PACK_TASK))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_enum_del");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+
+    mp_pack_str(&pk, "index");
+    msgpack_pack_uint16(&pk, member->idx);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
+{
+    size_t alloc = 8192;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (ti_val_gen_ids(member->val))
+        return -1;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_enum_mod");
+    msgpack_pack_map(&pk, 4);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+
+    mp_pack_str(&pk, "index");
+    msgpack_pack_uint16(&pk, member->idx);
+
+    mp_pack_str(&pk, "value");
+    if (ti_val_to_pk(member->val, &pk, TI_VAL_PACK_TASK))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "del_enum");
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

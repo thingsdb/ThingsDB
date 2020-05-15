@@ -235,7 +235,7 @@ void ti_thing_clear(ti_thing_t * thing)
     }
 }
 
-int ti_thing_props_from_unp(
+int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
         size_t sz,
@@ -261,7 +261,7 @@ int ti_thing_props_from_unp(
         }
 
         name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
-        val = ti_val_from_unp_e(vup, e);
+        val = ti_val_from_vup_e(vup, e);
 
         if (!val || !name || ti_val_make_assignable(&val, thing, name, e) ||
             !ti_thing_o_prop_set(thing, name, val))
@@ -276,7 +276,7 @@ int ti_thing_props_from_unp(
     return e->nr;
 }
 
-ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
+ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     ti_thing_t * thing;
 
@@ -295,7 +295,7 @@ ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
         return NULL;
     }
 
-    if (ti_thing_props_from_unp(thing, vup, sz, e))
+    if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;  /* error is set */

@@ -86,11 +86,13 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(&up) != MP_STR ||
-        mp_next(&up, &obj) != MP_MAP
+        mp_next(&up, &obj) != MP_ARR
     ) goto fail1;
 
     for (i = obj.via.sz; i--;)
     {
+        ti_enum_t * enum_;
+
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_created) != MP_U64 ||
@@ -99,17 +101,23 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
             mp_skip(&up) != MP_MAP
         ) goto fail1;
 
-        if (!ti_enum_create(
-                enums,
+        enum_ = ti_enum_create(
                 mp_id.via.u64,
                 mp_name.via.str.data,
                 mp_name.via.str.n,
                 mp_created.via.u64,
-                mp_modified.via.u64))
+                mp_modified.via.u64);
+        if (!enum_)
         {
             log_critical("cannot create enum `%.*s`",
                     (int) mp_name.via.str.n,
                     mp_name.via.str.data);
+            goto fail1;
+        }
+
+        if (ti_enums_add(enums, enum_))
+        {
+            ti_enum_destroy(enum_);
             goto fail1;
         }
     }
@@ -121,7 +129,7 @@ fail1:
         rc = -1;
 fail0:
     if (rc)
-        log_critical("failed to restore from file: `%s`", fn);
+        log_critical("failed to restore enums from file: `%s`", fn);
 
     return rc;
 }
@@ -141,7 +149,7 @@ int ti_store_enums_restore_members(
     ti_enum_t * enum_;
     ti_val_t * val;
     size_t i, ii;
-    mp_obj_t obj, mp_id, mp_val;
+    mp_obj_t obj, mp_id;
     mp_unp_t up;
     ti_vup_t vup = {
             .isclient = false,
@@ -157,7 +165,7 @@ int ti_store_enums_restore_members(
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(&up) != MP_STR ||
-        mp_next(&up, &obj) != MP_MAP
+        mp_next(&up, &obj) != MP_ARR
     ) goto fail1;
 
     for (i = enums->imap->n; i--;)
@@ -181,15 +189,14 @@ int ti_store_enums_restore_members(
 
         for (ii = obj.via.sz; ii--;)
         {
-            if (mp_next(&up, &mp_id) != MP_U64 ||
-                mp_next(&up, &mp_val) == MP_ERR
-            ) goto fail1;
+            if (mp_next(&up, &mp_id) != MP_U64)
+                goto fail1;
 
             name = imap_get(names, mp_id.via.u64);
             if (!name)
                 goto fail1;
 
-            val = ti_val_from_unp(&vup);
+            val = ti_val_from_vup(&vup);
             if (!val)
                 goto fail1;
 
@@ -211,7 +218,7 @@ fail1:
         rc = -1;
 fail0:
     if (rc)
-        log_critical("failed to restore from file: `%s`", fn);
+        log_critical("failed to restore members from file: `%s`", fn);
 
     return rc;
 }

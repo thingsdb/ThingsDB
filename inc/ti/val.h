@@ -23,7 +23,7 @@ typedef enum
     TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
-    TI_VAL_ENUM,
+    TI_VAL_MEMBER,      /* enum member */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored
@@ -110,7 +110,7 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
-    TI_KIND_C_ENUM      ='%',
+    TI_KIND_C_MEMBER    ='%',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
@@ -120,7 +120,7 @@ typedef enum
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
-#define TI_KIND_S_ENUM      ","
+#define TI_KIND_S_MEMBER    ","
 
 typedef struct ti_val_s ti_val_t;
 
@@ -138,8 +138,8 @@ void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
-ti_val_t * ti_val_from_unp(ti_vup_t * vup);
-ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e);
+ti_val_t * ti_val_from_vup(ti_vup_t * vup);
+ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
 ti_val_t * ti_val_borrow_tar_gz_str(void);
 ti_val_t * ti_val_empty_bin(void);
@@ -175,7 +175,7 @@ static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_set(ti_val_t * val);
 static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_is_wrap(ti_val_t * val);
-static inline _Bool ti_val_is_enum(ti_val_t * val);
+static inline _Bool ti_val_is_member(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
@@ -275,9 +275,9 @@ static inline _Bool ti_val_is_wrap(ti_val_t * val)
     return val->tp == TI_VAL_WRAP;
 }
 
-static inline _Bool ti_val_is_enum(ti_val_t * val)
+static inline _Bool ti_val_is_member(ti_val_t * val)
 {
-    return val->tp == TI_VAL_ENUM;
+    return val->tp == TI_VAL_MEMBER;
 }
 
 static inline _Bool ti_val_is_array(ti_val_t * val)

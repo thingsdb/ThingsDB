@@ -21,14 +21,17 @@ ti_member_t * ti_member_create(
         ti_val_t * val,
         ex_t * e);
 void ti_member_destroy(ti_member_t * member);
+void ti_member_drop(ti_member_t * member);
+void ti_member_del(ti_member_t * member);
+int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e);
 
 struct ti_member_s
 {
     uint32_t ref;
     uint8_t tp;
     uint8_t _flags;
-    uint16_t member_idx;    /* index in enum_->vec */
-    ti_enum_t * enum_;
+    uint16_t idx;           /* index in enum_->vec */
+    ti_enum_t * enum_;      /* maybe NULL when stored in cache. (cache only) */
     ti_name_t * name;       /* with reference */
     ti_val_t * val;         /* with reference */
 };

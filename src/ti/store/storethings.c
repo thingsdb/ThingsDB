@@ -240,7 +240,7 @@ int ti_store_things_restore_data(
                     goto fail1;
                 }
 
-                val = ti_val_from_unp(&vup);
+                val = ti_val_from_vup(&vup);
 
                 if (!val || ti_val_make_assignable(&val, thing, name, &e) ||
                     !ti_thing_o_prop_add(thing, name, val))
@@ -263,7 +263,7 @@ int ti_store_things_restore_data(
 
             for (vec_each(type->fields, ti_field_t, field))
             {
-                val = ti_val_from_unp(&vup);
+                val = ti_val_from_vup(&vup);
                 if (!val ||
                     ti_val_make_assignable(&val, thing, field->name, &e))
                     goto fail1;

@@ -34,12 +34,12 @@ ti_thing_t * ti_thing_t_create(
         ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
-int ti_thing_props_from_unp(
+int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
         size_t sz,
         ex_t * e);
-ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e);
+ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e);
 ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,

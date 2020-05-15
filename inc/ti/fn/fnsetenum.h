@@ -7,7 +7,6 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     ti_raw_t * rname;
-    size_t n;
     uint16_t enum_id;
     uint64_t ts_now = util_now_tsec();
 
@@ -40,7 +39,6 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     enum_ = ti_enum_create(
-            query->collection->enums,
             enum_id,
             (const char *) rname->data,
             rname->n,
@@ -53,40 +51,50 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_enum_try_lock(enum_, e))
+    if (ti_enums_add(query->collection->enums, enum_))
+    {
+        ex_set_mem(e);
         goto fail0;
+    }
+
+    if (ti_enum_try_lock(enum_, e))
+        goto fail1;
 
     ti_val_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
         fn_arg_thing("set_enum", DOC_SET_ENUM, 2, query->rval, e))
-        goto fail1;
+        goto fail2;
 
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
     if (ti_enum_init_from_thing(enum_, thing, e))
-        goto fail2;
+        goto fail3;
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
-        goto fail2;
+        goto fail3;
 
     if (ti_task_add_set_enum(task, enum_))
     {
         ex_set_mem(e);
-        goto fail2;
+        goto fail3;
     }
 
     query->rval = (ti_val_t *) ti_nil_get();
 
-fail2:
+fail3:
     ti_val_drop((ti_val_t *) thing);
-fail1:
+fail2:
     ti_enum_unlock(enum_, true /* lock is set for sure */);
+fail1:
+    if (e->nr)
+        ti_enums_del(query->collection->enums, enum_);
 fail0:
-    ti_enum_drop(enum_);
+    if (e->nr)
+        ti_enum_destroy(enum_);
 
     return e->nr;
 }

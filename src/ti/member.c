@@ -35,7 +35,7 @@ ti_member_t * ti_member_create(
     }
 
     member->ref = 1;
-    member->tp = TI_VAL_ENUM;
+    member->tp = TI_VAL_MEMBER;
 
     member->name = name;
     member->val = val;
@@ -58,7 +58,39 @@ void ti_member_destroy(ti_member_t * member)
     if (!member)
         return;
 
-    ti_val_drop(member->val);
     ti_name_drop(member->name);
+    ti_val_drop(member->val);
+
     free(member);
+}
+
+void ti_member_drop(ti_member_t * member)
+{
+    ti_name_drop(member->name);
+    ti_val_drop(member->val);
+
+    member->name = NULL;
+    member->val = NULL;
+    member->enum_ = NULL;
+
+    if (!--member->ref)
+        ti_member_destroy(member);
+}
+
+void ti_member_del(ti_member_t * member)
+{
+    ti_enum_del_member(member->enum_, member);
+    ti_member_drop(member);
+}
+
+int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
+{
+    if (ti_enum_check_val(member->enum_, val, e))
+        return e->nr;
+
+    ti_val_drop(member->val);
+    member->val = val;
+    ti_incref(val);
+
+    return 0;
 }

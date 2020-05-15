@@ -17,6 +17,7 @@
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
 #include <ti/do.h>
+#include <ti/enums.inline.h>
 #include <ti/field.h>
 #include <ti/names.h>
 #include <ti/nil.h>

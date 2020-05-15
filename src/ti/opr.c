@@ -140,7 +140,7 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         /* careful, `e` might already be set, in which case we should not touch
          * the error value
          */
-        if (ti_val_is_enum(b))
+        if (ti_val_is_member(b))
             return ti_opr_compare(a, VMEMBER(b), e);
 
         if (!e->nr)

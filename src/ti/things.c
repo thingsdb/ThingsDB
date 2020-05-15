@@ -122,7 +122,7 @@ ti_thing_t * ti_things_create_thing_t(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_o_from_unp(
+ti_thing_t * ti_things_thing_o_from_vup(
         ti_vup_t * vup,
         uint64_t thing_id,
         size_t sz,
@@ -170,7 +170,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
 
     ti_update_next_thing_id(thing_id);
 
-    if (ti_thing_props_from_unp(thing, vup, sz, e))
+    if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;
@@ -179,7 +179,7 @@ ti_thing_t * ti_things_thing_o_from_unp(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
+ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
 {
     ti_thing_t * thing;
     ti_type_t * type;
@@ -243,7 +243,7 @@ ti_thing_t * ti_things_thing_t_from_unp(ti_vup_t * vup, ex_t * e)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = ti_val_from_unp_e(vup, e);
+        ti_val_t * val = ti_val_from_vup_e(vup, e);
 
         if (!val || ti_field_make_assignable(field, &val, thing, e))
         {

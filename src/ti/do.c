@@ -18,6 +18,7 @@
 #include <ti/task.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
+#include <ti/member.inline.h>
 #include <ti/vint.h>
 #include <util/strx.h>
 
@@ -884,8 +885,11 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 VEC_push(args, ti_nil_get());
         }
 
+        query->rval = NULL;
         (void) ti_closure_call(closure, query, args, e);
 
+        /* cleanup closure and arguments */
+        ti_val_drop((ti_val_t *) closure);
         vec_destroy(args, (vec_destroy_cb) ti_val_drop);
 
         if (e->nr)
@@ -923,14 +927,14 @@ static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * enum_nd = nd                 /* sequence */
             ->children->next->node;             /* enum node */
+    query->rval = (ti_val_t *) ti_member_from_cache(&enum_nd->data);
 
-    if (!enum_nd->data)
-        return do__enum_get(query, nd, e);
-
-    query->rval = enum_nd->data;
-    ti_incref(query->rval);
-
-    return e->nr;
+    if (query->rval)
+    {
+        ti_incref(query->rval);
+        return 0;
+    }
+    return do__enum_get(query, nd, e);
 }
 
 /* changes scope->name and/or scope->thing */

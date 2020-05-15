@@ -235,7 +235,7 @@ static void type__mod(
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    if (ti_task_add_mod_type_mod(task, field, type->modified_at))
+    if (ti_task_add_mod_type_mod(task, field))
     {
         ex_set_mem(e);
         return;

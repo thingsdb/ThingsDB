@@ -24,18 +24,6 @@ static inline int fmt__indent_str(ti_fmt_t * fmt, const char * str)
     return buf_append_fmt(&fmt->buf, "%*s%s", spaces, "", str);
 }
 
-static inline _Bool fmt__chain_is_func(cleri_node_t * nd)
-{
-    cleri_children_t * child = nd->children->next->node->children->next;
-    return  child && child->node->cl_obj->gid == CLERI_GID_FUNCTION;
-}
-
-static inline _Bool fmt__chain_next_is_func(cleri_node_t * nd)
-{
-    cleri_children_t * child = nd->children->next->next->next;
-    return  child && fmt__chain_is_func(child->node);
-}
-
 static inline _Bool fmt__has_next_chain(cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children->next->next->next;

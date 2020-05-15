@@ -243,7 +243,7 @@ int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return 0;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
@@ -327,7 +327,7 @@ int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return 0;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
@@ -520,7 +520,7 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
             return e->nr;
         }
 
-        argval = ti_val_from_unp_e(vup, e);
+        argval = ti_val_from_vup_e(vup, e);
         if (!argval)
         {
             assert (e->nr);
@@ -605,7 +605,7 @@ static int query__run_arr_props(
 
     for (size_t idx = 0; idx < n; ++idx)
     {
-        ti_val_t * val = ti_val_from_unp_e(vup, e);
+        ti_val_t * val = ti_val_from_vup_e(vup, e);
         if (!val)
         {
             assert (e->nr);
@@ -652,7 +652,7 @@ static int query__run_map_props(
             continue;
         }
 
-        val = ti_val_from_unp_e(vup, e);
+        val = ti_val_from_vup_e(vup, e);
         if (!val)
         {
             assert (e->nr);

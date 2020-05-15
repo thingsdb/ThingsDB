@@ -52,7 +52,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return 0;
     case TI_VAL_ARR:
         if (ti_varr_to_list((ti_varr_t **) val))
@@ -97,7 +97,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
         return 0;
     case TI_VAL_ARR:
         if (((ti_varr_t *) *val)->parent && ti_varr_to_list((ti_varr_t **) val))

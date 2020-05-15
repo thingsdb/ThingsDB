@@ -348,7 +348,7 @@ static int rjob__new_procedure(mp_unp_t * up)
     }
 
     rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
-    closure = (ti_closure_t *) ti_val_from_unp(&vup);
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||

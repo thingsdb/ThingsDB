@@ -6,12 +6,12 @@
 #include <ti/thing.inline.h>
 #include <ti/opr.h>
 #include <ti/vint.h>
+#include <ti/names.h>
 #include <ti/vfloat.h>
 #include <util/vec.h>
 #include <doc.h>
 
 ti_enum_t * ti_enum_create(
-        ti_enums_t * enums,
         uint16_t enum_id,
         const char * name,
         size_t name_n,
@@ -32,8 +32,7 @@ ti_enum_t * ti_enum_create(
     enum_->created_at = created_at;
     enum_->modified_at = modified_at;
 
-    if (!enum_->name || !enum_->rname || !enum_->smap || !enum_->members ||
-            ti_enums_add(enums, enum_))
+    if (!enum_->name || !enum_->rname || !enum_->smap)
     {
         ti_enum_destroy(enum_);
         return NULL;
@@ -47,8 +46,8 @@ void ti_enum_destroy(ti_enum_t * enum_)
     if (!enum_)
         return;
 
-    vec_destroy(enum_->members, NULL);
-    smap_destroy(enum_->smap, (vec_destroy_cb) ti_val_drop);
+    smap_destroy(enum_->smap, NULL);
+    vec_destroy(enum_->members, (vec_destroy_cb) ti_member_drop);
     ti_val_drop((ti_val_t *) enum_->rname);
     free(enum_->name);
     free(enum_);
@@ -156,6 +155,19 @@ int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e)
     return e->nr;
 }
 
+void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
+{
+    ti_member_t * swap;
+
+    (void) vec_swap_remove(enum_->members, member->idx);
+
+    swap = vec_get_or_null(enum_->members, member->idx);
+    if (swap)
+        swap->idx = member->idx;
+
+    (void) smap_pop(enum_->smap, member->name->str);
+}
+
 static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
     for (vec_each(thing->items, ti_prop_t, prop))
@@ -184,6 +196,70 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     return ti_thing_is_object(thing)
         ? enum__init_thing_o(enum_, thing, e)
         : enum__init_thing_t(enum_, thing, e);
+}
+
+int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+{
+    ti_name_t * name = NULL;
+    ti_val_t * val = NULL;
+    mp_obj_t obj, mp_name;
+    size_t i;
+
+    if (mp_next(vup->up, &obj) != MP_ARR)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking members for enum `%s`;"
+                "expecting the members as an array",
+                enum_->name);
+        return e->nr;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(vup->up, &mp_name) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking members for enum `%s`;"
+                    "expecting an array with two values",
+                    enum_->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking members for enum `%s`;"
+                    "member names must follow the naming rules"DOC_NAMES,
+                    enum_->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name)
+            goto failed;
+
+        val = ti_val_from_vup_e(vup, e);
+        if (!val)
+            goto failed;
+
+        if (!ti_member_create(enum_, name, val, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(val);
+    }
+
+    return e->nr;
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+
+    ti_name_drop(name);
+    ti_val_drop(val);
+
+    return e->nr;
 }
 
 /* adds a map with key/value pairs */
@@ -231,7 +307,7 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
-    case TI_VAL_ENUM:
+    case TI_VAL_MEMBER:
     case TI_VAL_TEMPLATE:
         break;
 

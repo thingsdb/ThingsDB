@@ -210,7 +210,7 @@ cfgparser_section_t * cfgparser_section(
 
 /*
  * Creates and returns a new options. NULL is returned in case the option
- * already existed.
+ * already exists.
  *
  * Warning: in case of an allocation error we also return NULL
  */
@@ -254,7 +254,7 @@ cfgparser_option_t * cfgparser_string_option(
 
 /*
  * Creates and returns a new options. NULL is returned in case the option
- * already existed.
+ * already exists.
  *
  * Warning: in case of an allocation error we also return NULL
  */
@@ -288,7 +288,7 @@ cfgparser_option_t * cfgparser_integer_option(
 
 /*
  * Creates and returns a new options. NULL is returned in case the option
- * already existed.
+ * already exists.
  *
  * Warning: in case of an allocation error we also return NULL
  */

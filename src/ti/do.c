@@ -923,16 +923,39 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
+{
+    ti_member_t * member = enum_nd->data;
+
+    vec_t * vec = enum_nd->children->next->node->data;
+    uint32_t idx = 0;
+
+    for (vec_each(vec, void, data), ++idx)
+        if (data == member)
+            break;
+
+    assert (idx < vec->n);
+
+    vec_swap_remove(vec, idx);
+    ti_member_drop(member);
+    enum_nd->data = NULL;
+}
+
 static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * enum_nd = nd                 /* sequence */
             ->children->next->node;             /* enum node */
-    query->rval = (ti_val_t *) ti_member_from_cache(&enum_nd->data);
 
-    if (query->rval)
+    if (enum_nd->data)
     {
-        ti_incref(query->rval);
-        return 0;
+        ti_member_t * member = enum_nd->data;
+        if (member->enum_)
+        {
+            ti_incref(member);
+            query->rval = (ti_val_t *) member;
+            return 0;
+        }
+        do__clear_enum_cache(enum_nd);
     }
     return do__enum_get(query, nd, e);
 }

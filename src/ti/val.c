@@ -275,7 +275,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        member = ti_enum_val_by_idx(enum_, mp_idx.via.u64);
+        member = ti_enum_member_by_idx(enum_, mp_idx.via.u64);
         if (!member)
             ex_set(e, EX_LOOKUP_ERROR,
                     "internal index out of range in enumerator `%s`",

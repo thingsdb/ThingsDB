@@ -25,20 +25,6 @@ static inline ti_raw_t * ti_member_enum_get_rname(ti_member_t * member)
     return rname;
 }
 
-static inline ti_member_t * ti_member_from_cache(void ** cache)
-{
-    if (!*cache)
-        return NULL;
-
-    if ((*(ti_member_t **) cache)->enum_ == NULL)
-    {
-        if (!--(*(ti_member_t **) cache)->ref)
-            free(cache);
-        *cache = NULL;
-    }
-    return *cache;
-}
-
 static inline int ti_member_to_pk(
         ti_member_t * member,
         msgpack_packer * pk,

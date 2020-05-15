@@ -21,7 +21,7 @@ static void type__add(
     if (field)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "property `%s` already exist on type `%s`",
+                "property `%s` already exists on type `%s`",
                 name->str, type->name);
         return;
     }

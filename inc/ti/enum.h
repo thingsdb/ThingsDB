@@ -93,11 +93,6 @@ struct ti_enum_s
 };
 
 
-static inline ti_member_t * ti_enum_val_by_idx(ti_enum_t * enum_, uint16_t idx)
-{
-    return vec_get_or_null(enum_->members, idx);
-}
-
 static inline uint16_t ti_enum_spec(ti_enum_t * enum_)
 {
     return ti_enum_spec_map[enum_->enum_tp];
@@ -106,6 +101,13 @@ static inline uint16_t ti_enum_spec(ti_enum_t * enum_)
 static inline const char * ti_enum_tp_str(ti_enum_t * enum_)
 {
     return ti_enum_str_map[enum_->enum_tp];
+}
+
+static inline ti_member_t * ti_enum_member_by_idx(
+        ti_enum_t * enum_,
+        uint16_t idx)
+{
+    return vec_get_or_null(enum_->members, idx);
 }
 
 static inline ti_member_t * ti_enum_member_by_strn(

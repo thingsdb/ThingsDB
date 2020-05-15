@@ -17,7 +17,15 @@ ti_member_t * ti_member_create(
         ti_val_t * val,
         ex_t * e)
 {
-    ti_member_t * member;
+    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    if (member)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "member `%s` on `%s` already exists"DOC_T_ENUM,
+                member->name->str,
+                enum_->name);
+        return NULL;
+    }
 
     if (enum_->members->n == 0)
         ti_enum_set_enum_tp(enum_, val, e);

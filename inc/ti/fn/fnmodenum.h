@@ -116,7 +116,6 @@ static void enum__mod(
 
     if (ti_member_set_value(member, query->rval, e))
         return;
-    query->rval = NULL;  /* the reference is moved */
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)

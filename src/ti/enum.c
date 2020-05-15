@@ -137,12 +137,16 @@ int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
  */
 int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e)
 {
-    if (enum_->members->n == UINT16_MAX)
+    uint32_t n = enum_->members->n;
+
+    if (n == UINT16_MAX)
     {
         ex_set(e, EX_MAX_QUOTA,
                 "maximum number of enum members has been reached");
         return e->nr;
     }
+
+    member->idx = n;
 
     if (vec_push(&enum_->members, member))
         ex_set_mem(e);
@@ -213,6 +217,9 @@ int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
                 enum_->name);
         return e->nr;
     }
+
+    if (ti_enum_prealloc(enum_, obj.via.sz, e))
+        return e->nr;
 
     for (i = obj.via.sz; i--;)
     {

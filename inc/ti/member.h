@@ -31,7 +31,7 @@ struct ti_member_s
     uint8_t tp;
     uint8_t _flags;
     uint16_t idx;           /* index in enum_->vec */
-    ti_enum_t * enum_;      /* maybe NULL when stored in cache. (cache only) */
+    ti_enum_t * enum_;      /* parent enum */
     ti_name_t * name;       /* with reference */
     ti_val_t * val;         /* with reference */
 };

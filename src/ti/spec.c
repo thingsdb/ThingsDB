@@ -13,6 +13,14 @@
 #include <ti/member.inline.h>
 #include <util/strx.h>
 
+static inline _Bool spec__enum_eq_to_val(uint16_t spec, ti_val_t * val)
+{
+    return (
+        ti_val_is_member(val) &&
+        ti_member_enum_id((ti_member_t *) val) == (spec & TI_ENUM_ID_MASK)
+    );
+}
+
 /*
  * Returns 0 if the given value is valid for this field
  */
@@ -66,10 +74,7 @@ ti_spec_rval_enum ti__spec_check_val(uint16_t spec, ti_val_t * val)
     }
 
     if (spec >= TI_ENUM_ID_FLAG)
-        return (
-            ti_val_is_member(val) &&
-            ti_member_enum_id((ti_member_t *) val) == spec
-        ) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+        return spec__enum_eq_to_val(spec, val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
 
     assert (spec < TI_SPEC_ANY);
     /*
@@ -133,7 +138,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
 
     /* any *thing* can be mapped */
     return spec >= TI_ENUM_ID_FLAG
-        ? ti_val_is_member(val) && ti_member_enum_id((ti_member_t *) val) == spec
+        ? spec__enum_eq_to_val(spec, val)
         : ti_val_is_thing(val);
 }
 

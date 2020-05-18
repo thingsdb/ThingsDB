@@ -58,6 +58,7 @@
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
 #include <ti/fn/fnhastoken.h>
+#include <ti/fn/fnhasenum.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
@@ -173,7 +174,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 153,
+    TOTAL_KEYWORDS = 154,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 2,
@@ -374,6 +375,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
     {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
+    {.name="has_enum",          .fn=do__f_has_enum,             ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},

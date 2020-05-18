@@ -150,7 +150,7 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
         {
             register const char * ws = wordlist[key];
 
-            if (strlen(ws) == n && !memcmp (s, ws, n))
+            if (strlen(ws) == n && !memcmp(s, ws, n))
                 return true;
         }
     }

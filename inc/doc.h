@@ -25,6 +25,7 @@
 #define DOC_ENUMS_INFO              DOC_SEE("collection-api/enums_info")
 #define DOC_ERR                     DOC_SEE("collection-api/err")
 #define DOC_FLOAT                   DOC_SEE("collection-api/float")
+#define DOC_HAS_ENUM                DOC_SEE("collection-api/has_enum")
 #define DOC_HAS_TYPE                DOC_SEE("collection-api/has_type")
 #define DOC_IF                      DOC_SEE("collection-api/if")
 #define DOC_INT                     DOC_SEE("collection-api/int")

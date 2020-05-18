@@ -157,6 +157,57 @@ class TestType(TestBase):
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
+    async def test_enum_wrap(self, client0):
+        await client0.query(r'''
+            set_type('TColor', {
+                name: 'str',
+                code: 'str'
+            });
+            set_enum('Color', {
+                RED: TColor{
+                    name: 'red',
+                    code: 'ff0000'
+                },
+                GREEN: TColor{
+                    name: 'red',
+                    code: '00ff00'
+                },
+                BLUE: TColor{
+                    name: 'blue',
+                    code: '0000ff'
+                }
+            });
+            set_type('Brick', {
+                part_nr: 'int',
+                color: 'Color',
+            });
+
+            .bricks = [
+                Brick{
+                    part_nr: 12,
+                    color: Color{RED}
+                },
+                Brick{
+                    part_nr: 13,
+                    color: Color{GREEN}
+                },
+            ];
+
+            set_type('_Name', {
+                name: 'str'
+            });
+
+            set_type('_ColorName', {
+                color: '_Name'
+            });
+        ''')
+
+        brick_color_names = await client0.query(r'''
+            return(.bricks.map(|b| b.wrap('_ColorName')), 2);
+        ''')
+
+        self.assertEqual(brick_color_names, [])
+
     async def test_wrap(self, client0):
         only_name = await client0.query(r'''
             set_type('_Name', {name: 'any'});

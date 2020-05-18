@@ -15,6 +15,7 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import SyntaxError
 
 
 class TestEnum(TestBase):
@@ -348,6 +349,34 @@ class TestEnum(TestBase):
                 mod_enum("Color", "del", "YELLOW");
             '''), None)
 
+    async def test_has_enum(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `regex` has no function `has_enum`'):
+            await client.query('/.*/.has_enum();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_enum` takes 1 argument but 0 were given'):
+            await client.query('has_enum();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `has_enum` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'has_enum(nil);')
+
+        self.assertTrue(await client.query(r'has_enum("Color");'))
+        self.assertFalse(await client.query(r'has_enum("X");'))
+
     async def test_enum_info(self, client):
         self.assertIs(await client.query(r'''
             set_enum('Color', {
@@ -438,6 +467,77 @@ class TestEnum(TestBase):
                 BLUE: '#0000FF'
             });
             '''), None)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 6, unexpected character `1`'):
+            await client.query('Color{1};')
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 6, unexpected character'):
+            await client.query('Color{"RED"};')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enumerator lookup is expecting type `str` but '
+                r'got type `int` instead'):
+            await client.query('Color{||1};')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `PURPLE`'):
+            await client.query('Color{PURPLE};')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `PURPLE`'):
+            await client.query('Color{||"PURPLE"};')
+
+        self.assertEqual(await client.query('Color{||"RED"};'), "#FF0000")
+        self.assertEqual(await client.query('Color{RED};'), "#FF0000")
+
+    async def test_name(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `name`'):
+            await client.query('"Color".name();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `name` takes 0 arguments but 2 were given'):
+            await client.query('Color{RED}.name(1, 2);')
+
+        self.assertEqual(await client.query('Color{RED}.name()'), 'RED')
+
+    async def test_value(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `value`'):
+            await client.query('"Color".value();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `value` takes 0 arguments but 2 were given'):
+            await client.query('Color{RED}.value(1, 2);')
+
+        self.assertEqual(await client.query('Color{RED}.value()'), '#FF0000')
 
     async def test_isenum(self, client):
         self.assertIs(await client.query(r'''

@@ -34,6 +34,8 @@ static inline int ti_member_to_pk(
         ? ti_val_to_pk(member->val, pk, options)
         : -(msgpack_pack_map(pk, 1) ||
             mp_pack_strn(pk, TI_KIND_S_MEMBER, 1) ||
+            msgpack_pack_array(pk, 2) ||
+            msgpack_pack_uint16(pk, member->enum_->enum_id) ||
             msgpack_pack_uint16(pk, member->idx));
 }
 

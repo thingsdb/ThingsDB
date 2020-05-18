@@ -899,7 +899,7 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "enumerator lookup is expecting type `"TI_VAL_STR_S"` "
-                    "but got type `%s` instead",
+                    "but got type `%s` instead"DOC_T_ENUM,
                     ti_val_str(query->rval));
             return e->nr;
         }

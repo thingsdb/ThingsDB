@@ -75,6 +75,255 @@ class TestEnum(TestBase):
                 'enum `Color` already exists'):
             await client.query(r'''set_enum('Color', {X: 1});''')
 
+    async def test_enum(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });'''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `enum`'):
+            await client.query('(1).enum();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `enum` takes 2 arguments but 1 was given'):
+            await client.query('enum("00FF00");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `enum` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'enum(nil, "#00FF00");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `X` not found'):
+            await client.query(r'enum("X", "#00FF00");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum name must follow the naming rules'):
+            await client.query(r'enum("!", "#00FF00");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enum `Color` is expecting a value of type `str` '
+                r'but got type `int` instead'):
+            await client.query(r'enum("Color", 1);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member with value `RED'):
+            await client.query(r'enum("Color", "RED");')
+
+        self.assertEqual(
+            await client.query('enum("Color", "#00FF00");'),
+            "#00FF00")
+
+    async def test_del_enum(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            set_type('Brick', {
+                color: 'Color'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `del_enum`'):
+            await client.query('(1).del_enum();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `del_enum` takes 1 argument but 0 were given'):
+            await client.query('del_enum();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `del_enum` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'del_enum(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `X` not found'):
+            await client.query(r'del_enum("X");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum name must follow the naming rules'):
+            await client.query(r'del_enum("");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'enum `Color` is used by at least one type'):
+            await client.query(r'del_enum("Color");')
+
+        await client.query(r'''
+            del_type('Brick');
+            .color = Color{GREEN};
+        ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'enum member `Color{GREEN}` is still being used'):
+            await client.query(r'del_enum("Color");')
+
+        await client.query(r'''.del("color");''')
+
+        self.assertIs(await client.query(r'del_enum("Color");'), None)
+
+    async def test_mod_enum(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `mod_enum`'):
+            await client.query('"Color".mod_enum();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `mod_enum` requires at least 3 arguments '
+                'but 0 were given'):
+            await client.query('mod_enum();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `mod_enum` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'mod_enum(nil, nil, nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `X` not found'):
+            await client.query(r'mod_enum("X", nil, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum name must follow the naming rules'):
+            await client.query(r'mod_enum("", nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_enum` expects argument 2 to be of '
+                r'type `str` but got type `nil` instead'):
+            await client.query(r'mod_enum("Color", nil, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_enum` expects argument 2 to be `add`, `del` '
+                r'or `mod` but got `x` instead'):
+            await client.query(r'mod_enum("Color", "x", "x");')
+
+        # Section ADD
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_enum` with task `add` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'mod_enum("Color", "add", "x");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enumerators must not contain members of mixed types; '
+                r'got both type `str` and `nil` for enum `Color'):
+            await client.query(r'mod_enum("Color", "add", "YELLOW", nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum values must be unique; the given value is already '
+                r'used by `Color{GREEN}`'):
+            await client.query(r'''
+                mod_enum("Color", "add", "YELLOW", "#00FF00");
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'member `GREEN` on `Color` already exists'):
+            await client.query(r'''
+                mod_enum("Color", "add", "GREEN", "#00FF00");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "add", "YELLOW", "#FFFF00");
+            '''), None)
+
+        await client.query('.color = Color{YELLOW};')
+
+        # Section MOD
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_enum` with task `mod` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'mod_enum("Color", "mod", "x");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `x'):
+            await client.query(r'mod_enum("Color", "mod", "x", "#EEEE11");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enumerators must not contain members of mixed types; '
+                r'got both type `str` and `int` for enum `Color'):
+            await client.query(r'mod_enum("Color", "mod", "YELLOW", 1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum values must be unique; the given value is '
+                r'already used by `Color{GREEN}`'):
+            await client.query(r'''
+                mod_enum("Color", "mod", "YELLOW", "#00FF00");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "mod", "YELLOW", "#FFFF00");
+            '''), None)
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "mod", "YELLOW", "#EEEE11");
+            '''), None)
+
+        # Section DEL
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_enum` with task `del` takes 3 arguments '
+                r'but 4 were given'):
+            await client.query(r'mod_enum("Color", "del", "x", "y");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_enum` expects argument 3 to '
+                r'follow the naming rules'):
+            await client.query(r'mod_enum("Color", "del", "!");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `x`'):
+            await client.query(r'mod_enum("Color", "del", "x");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'enum member `Color{YELLOW}` is still being used'):
+            await client.query(r'mod_enum("Color", "del", "YELLOW");')
+
+        self.assertIs(await client.query(r'''
+                .del("color");
+                mod_enum("Color", "del", "YELLOW");
+            '''), None)
 
 
 if __name__ == '__main__':

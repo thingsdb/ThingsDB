@@ -91,10 +91,10 @@ int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     if (member)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "cannot create enum member `%s` on `%s`; "
-                "each value must be unique"DOC_T_ENUM,
-                member->name->str,
-                enum_->name);
+                "enum values must be unique; the given value is already "
+                "used by `%s{%s}`"DOC_T_ENUM,
+                enum_->name,
+                member->name->str);
         return e->nr;
     }
 

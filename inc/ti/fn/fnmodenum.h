@@ -8,13 +8,18 @@ static void enum__add(
         ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+
     static const char * fnname = "mod_enum` with task `add";
-    cleri_children_t * child = nd->children->next->next->next->next->next->next;
+    cleri_children_t * child;
     ti_task_t * task;
     ti_member_t * member;
 
-    if (fn_nargs(fnname, DOC_MOD_ENUM_ADD, 4, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+    if (fn_nargs(fnname, DOC_MOD_ENUM_ADD, 4, nargs, e))
+        return;
+
+    child = nd->children->next->next->next->next->next->next;
+
+    if (ti_do_statement(query, child->node, e))
         return;
 
     member = ti_member_create(enum_, name, query->rval, e);
@@ -93,12 +98,14 @@ static void enum__mod(
 {
     const int nargs = langdef_nd_n_function_params(nd);
     static const char * fnname = "mod_enum` with task `mod";
-    cleri_children_t * child = nd->children->next->next->next->next->next->next;
+    cleri_children_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
     ti_task_t * task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_MOD, 4, nargs, e))
         return;
+
+    child = nd->children->next->next->next->next->next->next;
 
     if (!member)
     {

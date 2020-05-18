@@ -25,11 +25,18 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    enum_ = ti_enums_by_raw(query->collection->enums, rname);
-    if (enum_)
+    if (ti_enums_by_raw(query->collection->enums, rname))
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "enum `%.*s` already exists",
+                (int) rname->n, (const char *) rname->data);
+        return e->nr;
+    }
+
+    if (ti_types_by_raw(query->collection->types, rname))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%.*s` already exists",
                 (int) rname->n, (const char *) rname->data);
         return e->nr;
     }

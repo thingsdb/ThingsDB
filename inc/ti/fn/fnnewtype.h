@@ -31,6 +31,14 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (ti_enums_by_raw(query->collection->enums, rname))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%.*s` already exists",
+                (int) rname->n, (const char *) rname->data);
+        return e->nr;
+    }
+
     type_id = ti_types_get_new_id(query->collection->types, rname, e);
     if (e->nr)
         return e->nr;

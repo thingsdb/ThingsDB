@@ -32,6 +32,7 @@
 #define DOC_ISASCII                 DOC_SEE("collection-api/isascii")
 #define DOC_ISBOOL                  DOC_SEE("collection-api/isbool")
 #define DOC_ISBYTES                 DOC_SEE("collection-api/isbytes")
+#define DOC_ISENUM                  DOC_SEE("collection-api/isenum")
 #define DOC_ISERR                   DOC_SEE("collection-api/iserr")
 #define DOC_ISFLOAT                 DOC_SEE("collection-api/isfloat")
 #define DOC_ISINF                   DOC_SEE("collection-api/isinf")

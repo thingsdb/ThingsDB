@@ -63,6 +63,24 @@ class TestEnum(TestBase):
                 'but got type `nil` instead'):
             await client.query(r'''set_enum('Color', nil);''')
 
+        await client.query(r'''
+            set_type('Brick', {
+                color: 'str'
+            });
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `Brick` already exists'):
+            await client.query(r'''set_enum('Brick', {X: 1});''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'cannot create an empty enum type'):
+            await client.query(r'''
+                set_enum('Color', {});
+            ''')
+
         self.assertIs(await client.query(r'''
             set_enum('Color', {
                 RED: '#FF0000',
@@ -324,6 +342,127 @@ class TestEnum(TestBase):
                 .del("color");
                 mod_enum("Color", "del", "YELLOW");
             '''), None)
+
+    async def test_enum_info(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `enum_info`'):
+            await client.query('"Color".enum_info();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `enum_info` takes 1 argument '
+                'but 0 were given'):
+            await client.query('enum_info();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `enum_info` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'enum_info(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `X` not found'):
+            await client.query(r'enum_info("X");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'enum name must follow the naming rules'):
+            await client.query(r'enum_info("");')
+
+        info = await client.query(r'enum_info("Color");')
+
+        print(info)
+
+        self.assertEqual(len(info), 5)
+        self.assertTrue(isinstance(info['enum_id'], int))
+        self.assertTrue(isinstance(info['name'], str))
+        self.assertTrue(isinstance(info['created_at'], int))
+        self.assertTrue(isinstance(info['members'], list))
+        self.assertEqual(info['members'], [
+            ['RED', '#FF0000'], ['GREEN', '#00FF00'], ['BLUE', '#0000FF']
+        ])
+
+    async def test_enums_info(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `enums_info`'):
+            await client.query('"Color".enums_info();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `enums_info` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('enums_info(1);')
+
+        enums_info = await client.query(r'enums_info();')
+
+        info = enums_info[0]
+
+        self.assertEqual(len(info), 5)
+        self.assertTrue(isinstance(info['enum_id'], int))
+        self.assertTrue(isinstance(info['name'], str))
+        self.assertTrue(isinstance(info['created_at'], int))
+        self.assertTrue(isinstance(info['members'], list))
+        self.assertEqual(info['members'], [
+            ['RED', '#FF0000'], ['GREEN', '#00FF00'], ['BLUE', '#0000FF']
+        ])
+
+    async def test_syntax(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+    async def test_isenum(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `isenum` takes 1 argument but 2 were given'):
+            await client.query('isenum(1, 2);')
+
+        self.assertTrue(await client.query(
+            'isenum( enum("Color", "#FF0000") );'
+        ))
+        self.assertTrue(await client.query('isenum( Color{RED} ); '))
+        self.assertTrue(await client.query('''
+            isenum({
+                color = "GREEN";
+                Color{||color};
+            });
+        '''))
+
+        self.assertFalse(await client.query('isenum( Color{RED}.value() ); '))
+        self.assertFalse(await client.query('isenum( Color{RED}.name() ); '))
+        self.assertFalse(await client.query('isenum( "RED" );'))
+        self.assertFalse(await client.query('isenum( "#0000FF" );'))
 
 
 if __name__ == '__main__':

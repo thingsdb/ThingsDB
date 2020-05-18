@@ -120,7 +120,7 @@ typedef enum
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
-#define TI_KIND_S_MEMBER    ","
+#define TI_KIND_S_MEMBER    "%"
 
 typedef struct ti_val_s ti_val_t;
 

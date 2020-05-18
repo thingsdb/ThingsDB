@@ -314,6 +314,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+        break;
     case TI_VAL_ARR:
     {
         /* Make sure the arr is converted to a `tuple` and copy the

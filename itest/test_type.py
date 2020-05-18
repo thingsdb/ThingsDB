@@ -37,6 +37,14 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mod_arr(self, client):
+        await client.query(r'''
+            set_type('X', {arr: '[str?]'});
+            x = X{arr: [nil]};
+            .x = X{arr: [nil]};
+            mod_type('X', 'add', 'arr2', '[str]', [""]);
+        ''')
+
     async def test_set_prop(self, client):
         await client.query(r'''
             set_type('Pet', {});
@@ -532,7 +540,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'property `toe` already exist on type `Tac`'):
+                r'property `toe` already exists on type `Tac`'):
             await client.query(r'''
                 mod_type('Tac', 'add', 'toe', 'any');
             ''')

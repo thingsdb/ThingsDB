@@ -13,6 +13,150 @@
 #include <ti/member.inline.h>
 #include <util/strx.h>
 
+/*
+ * The following `enum` and `asso_values` are generated using `gperf` and
+ * the utility `pcregrep` to generate the input.
+ *
+ * Command:
+ *
+ *    pcregrep -o1 ' :: `(\w+)' spec.c | gperf -E -k '*,1,$' -m 200
+
+  :: `str`
+  :: `utf8`
+  :: `raw`
+  :: `bytes`
+  :: `bool`
+  :: `int`
+  :: `uint`
+  :: `pint`
+  :: `nint`
+  :: `float`
+  :: `number`
+  :: `thing`
+  :: `any`
+  :: `closure`
+  :: `regex`
+  :: `error`
+  :: `set`
+  :: `tuple`
+  :: `list`
+  :: `nil`
+
+ */
+
+enum
+{
+    TOTAL_KEYWORDS = 20,
+    MIN_WORD_LENGTH = 3,
+    MAX_WORD_LENGTH = 7,
+    MIN_HASH_VALUE = 6,
+    MAX_HASH_VALUE = 25
+};
+
+static inline unsigned int spec__hash(
+        register const char * s,
+        register size_t n)
+{
+    static unsigned char asso_values[] =
+    {
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 14, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26,  4,  0,  9,
+        26,  0,  4,  8,  1,  3, 26, 26,  0, 11,
+        2,  7,  1, 26,  1,  0,  3,  0, 26, 11,
+        7,  8, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+        26, 26, 26, 26, 26, 26
+    };
+
+    register unsigned int hval = n;
+
+    switch (hval)
+    {
+        default:
+            hval += asso_values[(unsigned char)s[6]];
+            /*fall through*/
+        case 6:
+            hval += asso_values[(unsigned char)s[5]];
+            /*fall through*/
+        case 5:
+            hval += asso_values[(unsigned char)s[4]];
+            /*fall through*/
+        case 4:
+            hval += asso_values[(unsigned char)s[3]];
+            /*fall through*/
+        case 3:
+            hval += asso_values[(unsigned char)s[2]];
+            /*fall through*/
+        case 2:
+            hval += asso_values[(unsigned char)s[1]];
+            /*fall through*/
+        case 1:
+            hval += asso_values[(unsigned char)s[0]];
+            break;
+    }
+    return hval;
+}
+
+_Bool ti_spec_is_reserved(register const char * s, register size_t n)
+{
+    static const char * wordlist[] =
+    {
+        "", "", "", "", "", "",
+        "set",
+        "str",
+        "nil",
+        "tuple",
+        "list",
+        "int",
+        "uint",
+        "pint",
+        "nint",
+        "error",
+        "bytes",
+        "any",
+        "bool",
+        "raw",
+        "number",
+        "regex",
+        "thing",
+        "float",
+        "closure",
+        "utf8"
+    };
+
+    if (n <= MAX_WORD_LENGTH && n >= MIN_WORD_LENGTH)
+    {
+        register unsigned int key = spec__hash (s, n);
+        if (key <= MAX_HASH_VALUE)
+        {
+            register const char * ws = wordlist[key];
+
+            if (strlen(ws) == n && !memcmp (s, ws, n))
+                return true;
+        }
+    }
+    return false;
+}
+
 static inline _Bool spec__enum_eq_to_val(uint16_t spec, ti_val_t * val)
 {
     return (

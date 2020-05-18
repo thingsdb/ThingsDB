@@ -76,6 +76,11 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
+                'name `nil` is reserved'):
+            await client.query(r'''set_enum('nil', {X: 1});''')
+
+        with self.assertRaisesRegex(
+                ValueError,
                 'cannot create an empty enum type'):
             await client.query(r'''
                 set_enum('Color', {});

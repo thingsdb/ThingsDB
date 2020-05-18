@@ -469,7 +469,61 @@ ti_field_t * ti_field_create(
     return field;
 }
 
-int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
+typedef struct
+{
+    ti_data_t * data;
+    ti_name_t * name;
+    ti_val_t ** vaddr;
+    uint64_t val_idx;
+    uint16_t type_id;
+    ex_t e;
+} field__mod_t;
+
+static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
+{
+    if (thing->type_id == field->type->type_id)
+    {
+        ti_val_t * val = vec_get(thing->items, field->idx);
+
+        switch (val->tp)
+        {
+        case TI_VAL_NIL:
+            return 0;
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_MP:
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+            assert(0);
+            return 0;
+        case TI_VAL_ARR:
+            ((ti_varr_t *) val)->spec = field->nested_spec;
+            return 0;
+        case TI_VAL_SET:
+            ((ti_vset_t *) val)->spec = field->nested_spec;
+            return 0;
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+        case TI_VAL_MEMBER:
+        case TI_VAL_TEMPLATE:
+            assert(0);
+            return 0;
+        }
+    }
+    return 0;
+}
+
+int ti_field_mod(
+        ti_field_t * field,
+        ti_raw_t * spec_raw,
+        vec_t * vars,
+        size_t n,
+        ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
     uint16_t prev_spec = field->spec;
@@ -492,7 +546,21 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
     case TI_SPEC_MOD_NESTED:
         switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
         {
-        case TI_SPEC_MOD_SUCCESS:           goto success;
+        case TI_SPEC_MOD_SUCCESS:
+            imap_walk(
+                field->type->types->collection->things,
+                (imap_cb) field__mod_nested_cb,
+                field);
+            /* check for variable to update, val_cache is not required
+             * since only things with an id are store in cache
+             */
+            if (vars) for (vec_each(vars, ti_prop_t, prop))
+            {
+                ti_thing_t * thing = (ti_thing_t *) prop->val;
+                if (thing->tp == TI_VAL_THING && thing->id == 0)
+                    (void) field__mod_nested_cb(thing, field);
+            }
+            goto success;
         case TI_SPEC_MOD_ERR:               goto incompatible;
         case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
         case TI_SPEC_MOD_NESTED:            goto incompatible;

@@ -54,6 +54,8 @@ class TestAdvanced(TestBase):
         await client.query('''
             set_type("A", {b: 'str'});
             set_type("B", {a: 'A'});
+            set_type("X", {arr: '[str]'});
+            .x = X{arr: []};
         ''')
 
         with self.assertRaisesRegex(
@@ -73,6 +75,19 @@ class TestAdvanced(TestBase):
             await client.query('''
                 del_type('B');
             ''')
+
+        self.assertEqual(
+            await client.query('''
+                a = X{arr:[]};
+                mod_type('X', 'mod', 'arr', '[str?]');
+                a.arr.push(nil);
+                a.arr;
+            '''),
+            [None])
+
+        await client.query('''
+            .x.arr.push(nil);
+        ''')
 
     async def test_events(self, client):
         await self.assertEvent(client, r'''

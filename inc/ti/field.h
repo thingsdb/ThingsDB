@@ -10,6 +10,7 @@ typedef struct ti_field_s ti_field_t;
 #include <ti/raw.h>
 #include <ti/val.h>
 #include <ti/thing.h>
+#include <util/vec.h>
 #include <inttypes.h>
 #include <ex.h>
 
@@ -18,7 +19,12 @@ ti_field_t * ti_field_create(
         ti_raw_t * spec_raw,
         ti_type_t * type,
         ex_t * e);
-int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e);
+int ti_field_mod(
+        ti_field_t * field,
+        ti_raw_t * spec_raw,
+        vec_t * vars,
+        size_t n,
+        ex_t * e);
 int ti_field_del(ti_field_t * field, uint64_t ev_id);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);

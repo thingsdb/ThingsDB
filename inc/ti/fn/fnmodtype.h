@@ -225,7 +225,7 @@ static void type__mod(
 
     n = ti_query_count_type(query, type);
 
-    if (ti_field_mod(field, (ti_raw_t *) query->rval, n, e))
+    if (ti_field_mod(field, (ti_raw_t *) query->rval, query->vars, n, e))
         return;
 
     task = ti_task_get_task(query->ev, query->collection->root, e);

@@ -34,6 +34,15 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_reuse_var(self, client):
+        res = await client.query('''
+            x = true;
+            count = refs(true);
+            x = false;
+            assert (refs(true) < count);
+        ''')
+        self.assertTrue(res)
+
     async def test_array_arg(self, client):
         res = await client.query('''
             new_procedure('add', |arr, v| arr.push(v));

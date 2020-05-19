@@ -75,6 +75,7 @@ struct ti_query_s
                                      * @node or @thingsdb
                                      */
     char * querystr;            /* 0 terminated query string */
+
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
     ti_query_via_t via;         /* with reference */
@@ -89,6 +90,7 @@ struct ti_query_s
                                    only wrapped values and things will be added
                                    since they are by reference */
     util_time_t time;           /* time query duration */
+    uint32_t block_stack;       /* variable in block start here */
 };
 
 static inline _Bool ti_query_will_update(ti_query_t * query)

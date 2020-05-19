@@ -379,10 +379,11 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
-    uint32_t current_var_n = query->vars->n;
+    uint32_t prev_block_stack = query->block_stack;
     cleri_children_t * child= nd->children->next->next
             ->node->children;  /* first child, not empty */
 
+    query->block_stack = query->vars->n;
     do
     {
         if (ti_do_statement(query, child->node, e))
@@ -396,9 +397,10 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     while (1);
 
-    while (query->vars->n > current_var_n)
+    while (query->vars->n > query->block_stack)
         ti_query_var_drop_gc(VEC_pop(query->vars), query);
 
+    query->block_stack = prev_block_stack;
     return e->nr;
 }
 
@@ -985,6 +987,31 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static inline ti_prop_t * do__prop_scope(ti_query_t * query, ti_name_t * name)
+{
+    register uint32_t n = query->vars->n;
+    register uint32_t end = query->block_stack;
+
+    while (n-- > end)
+    {
+        ti_prop_t * prop = vec_get(query->vars, n);
+        if (prop->name == name)
+            return prop;
+    }
+    return NULL;
+}
+
+static inline ti_name_t * do__ensure_name_cache(
+        ti_query_t * query,
+        cleri_node_t * nd)
+{
+    assert (nd->data == NULL);
+    ti_name_t * name = nd->data = ti_names_get(nd->str, nd->len);
+    if (name)
+        VEC_push(query->val_cache, name);
+    return name;
+}
+
 static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_MORE);
@@ -1027,10 +1054,22 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_make_variable(&query->rval, e))
         goto failed;
 
-    name = ti_names_get(name_nd->str, name_nd->len);
+    name = name_nd->data
+            ? name_nd->data
+            : do__ensure_name_cache(query, name_nd);
     if (!name)
         goto alloc_err;
 
+    prop = do__prop_scope(query, name);
+    if (prop)
+    {
+        ti_val_drop(prop->val);
+        prop->val = query->rval;
+        ti_incref(prop->val);
+        return e->nr;
+    }
+
+    ti_incref(name);
     prop = ti_prop_create(name, query->rval);
     if (!prop)
         goto alloc_err;

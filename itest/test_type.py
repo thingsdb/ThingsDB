@@ -157,7 +157,7 @@ class TestType(TestBase):
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
-    async def test_enum_wrap(self, client0):
+    async def test_enum_wrap_thing(self, client0):
         await client0.query(r'''
             set_type('TColor', {
                 name: 'str',
@@ -238,6 +238,63 @@ class TestType(TestBase):
             self.assertIn('#', color)
             self.assertIn('name', color)
             self.assertEqual(len(color), 2)
+
+    async def test_enum_wrap_int(self, client0):
+        await client0.query(r'''
+            set_type('TColor', {
+                name: 'str',
+                code: 'str'
+            });
+            set_enum('Color', {
+                RED: 0,
+                GREEN: 1,
+                BLUE: 2,
+            });
+            set_type('Brick', {
+                part_nr: 'int',
+                color: 'Color',
+            });
+
+            set_type('Brick2', {
+                part_nr: 'int',
+                color: 'uint',
+            });
+
+            .bricks = [
+                Brick{
+                    part_nr: 12,
+                    color: Color{RED}
+                },
+                Brick2{
+                    part_nr: 13,
+                    color: Color{GREEN}.value()
+                },
+                {
+                    part_nr: 14,
+                    color: Color{BLUE}
+                },
+                {
+                    part_nr: 15,
+                    color: 3
+                },
+            ];
+
+            set_type('_Color', {
+                color: 'int'
+            });
+        ''')
+
+        bricks = await client0.query(r'''
+            return(.bricks.map(|b| b.wrap('_Color')), 2);
+        ''')
+
+        print(bricks)
+        self.assertEqual(len(bricks), 4)
+        for brick in bricks:
+            self.assertEqual(len(brick), 2)
+            self.assertIn('#', brick)
+            self.assertIn('color', brick)
+            self.assertIsInstance(brick['color'], int)
 
     async def test_wrap(self, client0):
         only_name = await client0.query(r'''

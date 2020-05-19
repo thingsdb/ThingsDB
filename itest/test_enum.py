@@ -281,6 +281,17 @@ class TestEnum(TestBase):
                 mod_enum("Color", "add", "GREEN", "#00FF00");
             ''')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change enum `Color` while the enumerator '
+                r'is being used'):
+            await client.query(r'''
+                mod_enum("Color", "add", "YELLOW", {
+                    mod_enum("Color", "add", "YELLOW", "#FFFF00");
+                    "#FFFF00";
+                });
+            ''')
+
         self.assertIs(await client.query(r'''
                 mod_enum("Color", "add", "YELLOW", "#FFFF00");
             '''), None)
@@ -414,8 +425,6 @@ class TestEnum(TestBase):
             await client.query(r'enum_info("");')
 
         info = await client.query(r'enum_info("Color");')
-
-        print(info)
 
         self.assertEqual(len(info), 5)
         self.assertTrue(isinstance(info['enum_id'], int))

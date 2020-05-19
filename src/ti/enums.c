@@ -90,4 +90,3 @@ ti_varr_t * ti_enums_info(ti_enums_t * enums)
 
     return varr;
 }
-

@@ -37,7 +37,7 @@ static void things__gc_mark_varr(ti_varr_t * varr)
             ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
             if (thing->flags & TI_VFLAG_THING_SWEEP)
                 things__gc_mark_thing(thing);
-            return;
+            continue;
         }
         case TI_VAL_ARR:
         {
@@ -261,6 +261,20 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     return thing;
 }
 
+static int things__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
+{
+    if (enum_->enum_tp == TI_ENUM_THING)
+    {
+        for (vec_each(enum_->members, ti_member_t, member))
+        {
+            ti_thing_t * thing = (ti_thing_t *) VMEMBER(member);
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
+                things__gc_mark_thing(thing);
+        }
+    }
+    return 0;
+}
+
 int ti_things_gc(imap_t * things, ti_thing_t * root)
 {
     size_t n = 0;
@@ -277,7 +291,13 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     (void) ti_sleep(1);  /* sleeps are here to allow thread switching */
 
     if (root)
+    {
+        imap_walk(
+                root->collection->enums->imap,
+                (imap_cb) things__mark_enum_cb,
+                NULL);
         things__gc_mark_thing(root);
+    }
 
     (void) ti_sleep(1);
 

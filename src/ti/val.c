@@ -281,6 +281,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "internal index out of range in enumerator `%s`",
                     enum_->name);
 
+        ti_incref(member);
         return (ti_val_t *) member;
     }
     }

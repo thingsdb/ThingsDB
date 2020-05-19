@@ -204,8 +204,8 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 
 int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
 {
-    ti_name_t * name = NULL;
-    ti_val_t * val = NULL;
+    ti_name_t * name;
+    ti_val_t * val;
     mp_obj_t obj, mp_name;
     size_t i;
 
@@ -223,6 +223,8 @@ int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
 
     for (i = obj.via.sz; i--;)
     {
+        val = NULL;
+
         if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(vup->up, &mp_name) != MP_STR)
         {

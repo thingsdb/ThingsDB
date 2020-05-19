@@ -23,6 +23,8 @@ C_SRCS += \
 ../src/ti/counters.c \
 ../src/ti/data.c \
 ../src/ti/do.c \
+../src/ti/enum.c \
+../src/ti/enums.c \
 ../src/ti/epkg.c \
 ../src/ti/evars.c \
 ../src/ti/event.c \
@@ -33,6 +35,7 @@ C_SRCS += \
 ../src/ti/index.c \
 ../src/ti/job.c \
 ../src/ti/mapping.c \
+../src/ti/member.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/ncache.c \
@@ -109,6 +112,8 @@ OBJS += \
 ./src/ti/counters.o \
 ./src/ti/data.o \
 ./src/ti/do.o \
+./src/ti/enum.o \
+./src/ti/enums.o \
 ./src/ti/epkg.o \
 ./src/ti/evars.o \
 ./src/ti/event.o \
@@ -119,6 +124,7 @@ OBJS += \
 ./src/ti/index.o \
 ./src/ti/job.o \
 ./src/ti/mapping.o \
+./src/ti/member.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/ncache.o \
@@ -195,6 +201,8 @@ C_DEPS += \
 ./src/ti/counters.d \
 ./src/ti/data.d \
 ./src/ti/do.d \
+./src/ti/enum.d \
+./src/ti/enums.d \
 ./src/ti/epkg.d \
 ./src/ti/evars.d \
 ./src/ti/event.d \
@@ -205,6 +213,7 @@ C_DEPS += \
 ./src/ti/index.d \
 ./src/ti/job.d \
 ./src/ti/mapping.d \
+./src/ti/member.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/ncache.d \

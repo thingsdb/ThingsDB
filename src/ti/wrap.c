@@ -121,7 +121,7 @@ static int wrap__field_val(
     case TI_VAL_MEMBER:
         return wrap__field_val(
                 t_field,
-                &t_field->nested_spec,
+                spec,
                 VMEMBER(val),
                 pk,
                 options);

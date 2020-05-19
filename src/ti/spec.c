@@ -234,6 +234,12 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
 {
     assert (~spec & TI_SPEC_NILLABLE);
 
+    if (spec >= TI_ENUM_ID_FLAG)
+        return spec__enum_eq_to_val(spec, val);
+
+    if (ti_val_is_member(val))
+        val = VMEMBER(val);
+
     switch ((ti_spec_enum_t) spec)
     {
     case TI_SPEC_ANY:
@@ -281,9 +287,7 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val)
     }
 
     /* any *thing* can be mapped */
-    return spec >= TI_ENUM_ID_FLAG
-        ? spec__enum_eq_to_val(spec, val)
-        : ti_val_is_thing(val);
+    return ti_val_is_thing(val);
 }
 
 const char * ti__spec_approx_type_str(uint16_t spec)

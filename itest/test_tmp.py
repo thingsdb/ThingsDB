@@ -30,7 +30,7 @@ class TestTmp(TestBase):
         client.set_default_scope('//stuff')
 
         # add another node for query validation
-        await self.node1.join_until_ready(client)
+        # await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -39,10 +39,54 @@ class TestTmp(TestBase):
 
     async def test_mod_arr(self, client):
         await client.query(r'''
-            set_type('X', {});
-            .x = X{};
-            mod_type('X', 'add', 'arr2', '[str]', [""]);
+            set_type('TColor', {
+                name: 'str',
+                code: 'str'
+            });
+            set_enum('Color', {
+                RED: TColor{
+                    name: 'red',
+                    code: 'ff0000'
+                },
+                GREEN: TColor{
+                    name: 'red',
+                    code: '00ff00'
+                },
+                BLUE: TColor{
+                    name: 'blue',
+                    code: '0000ff'
+                }
+            });
+            set_type('Brick', {
+                part_nr: 'int',
+                color: 'Color',
+            });
+
+            set_type('Brick2', {
+                part_nr: 'int',
+                color: 'thing',
+            });
+
+
+
+            set_type('_Name', {
+                name: 'str'
+            });
+
+            set_type('_ColorName', {
+                color: '_Name'
+            });
         ''')
+
+        # self.assertEqual(len(brick_color_names), 1)
+        # for brick in brick_color_names:
+        #     self.assertIn('#', brick)
+        #     self.assertIn('color', brick)
+        #     self.assertEqual(len(brick), 2)
+        #     color = brick['color']
+        #     self.assertIn('#', color)
+        #     self.assertIn('name', color)
+        #     self.assertEqual(len(color), 2)
 
 
 if __name__ == '__main__':

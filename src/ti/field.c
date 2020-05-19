@@ -930,7 +930,7 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
 
     assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
 
-    return f_spec < TI_SPEC_ANY;
+    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)

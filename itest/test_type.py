@@ -182,14 +182,37 @@ class TestType(TestBase):
                 color: 'Color',
             });
 
+            set_type('Brick2', {
+                part_nr: 'int',
+                color: 'thing',
+            });
+
             .bricks = [
                 Brick{
                     part_nr: 12,
                     color: Color{RED}
                 },
-                Brick{
+                Brick2{
                     part_nr: 13,
-                    color: Color{GREEN}
+                    color: Color{GREEN}.value()
+                },
+                {
+                    part_nr: 14,
+                    color: Color{BLUE}
+                },
+                {
+                    part_nr: 15,
+                    color: {
+                        name: 'magenta',
+                        code: 'ff00ff'
+                    }
+                },
+                {
+                    part_nr: 16,
+                    color: TColor{
+                        name: 'yellow',
+                        code: 'ffff00'
+                    }
                 },
             ];
 
@@ -206,7 +229,15 @@ class TestType(TestBase):
             return(.bricks.map(|b| b.wrap('_ColorName')), 2);
         ''')
 
-        self.assertEqual(brick_color_names, [])
+        self.assertEqual(len(brick_color_names), 5)
+        for brick in brick_color_names:
+            self.assertIn('#', brick)
+            self.assertIn('color', brick)
+            self.assertEqual(len(brick), 2)
+            color = brick['color']
+            self.assertIn('#', color)
+            self.assertIn('name', color)
+            self.assertEqual(len(color), 2)
 
     async def test_wrap(self, client0):
         only_name = await client0.query(r'''

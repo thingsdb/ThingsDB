@@ -78,6 +78,17 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
     mp_obj_t obj, mp_id, mp_name, mp_created, mp_modified;
     mp_unp_t up;
 
+    if (!fx_file_exist(fn))
+    {
+        log_warning(
+                "no enumerations found for collection `%.*s`; "
+                "file `%s` is missing",
+                (int) enums->collection->name->n,
+                (const char *) enums->collection->name->data,
+                fn);
+        return 0;
+    }
+
     fx_mmap_init(&fmap, fn);
     if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
         goto fail0;
@@ -156,6 +167,9 @@ int ti_store_enums_restore_members(
             .collection = enums->collection,
             .up = &up,
     };
+
+    if (!enums->imap->n)
+        return 0;  /* no enum to unpack */
 
     fx_mmap_init(&fmap, fn);
     if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */

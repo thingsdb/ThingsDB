@@ -110,6 +110,12 @@ int ti_collections_gc_collect_dropped(void)
     ti_collection_t * collection;
     while ((collection = vec_pop(collections->dropped)))
     {
+        /* drop enumerators; this is required since we no longer mark the
+         * enumerators when they contain things so they need to be dropped
+         * before the garbage collector will remove them */
+        ti_enums_destroy(collection->enums);
+        collection->enums = NULL;
+
         if (ti_things_gc(collection->things, NULL))
         {
             rc = -1;

@@ -14,6 +14,7 @@
 
 #define TI_OPR_PERM(_a, _b) ((_a)->tp<<4|(_b)->tp)
 
+
 typedef enum
 {
     OPR_NIL_NIL             =TI_VAL_NIL<<4|TI_VAL_NIL,
@@ -31,6 +32,7 @@ typedef enum
     OPR_NIL_SET             =TI_VAL_NIL<<4|TI_VAL_SET,
     OPR_NIL_CLOSURE         =TI_VAL_NIL<<4|TI_VAL_CLOSURE,
     OPR_NIL_ERROR           =TI_VAL_NIL<<4|TI_VAL_ERROR,
+    OPR_NIL_ENUM            =TI_VAL_NIL<<4|TI_VAL_MEMBER,
 
     OPR_INT_NIL             =TI_VAL_INT<<4|TI_VAL_NIL,
     OPR_INT_INT             =TI_VAL_INT<<4|TI_VAL_INT,
@@ -47,6 +49,7 @@ typedef enum
     OPR_INT_SET             =TI_VAL_INT<<4|TI_VAL_SET,
     OPR_INT_CLOSURE         =TI_VAL_INT<<4|TI_VAL_CLOSURE,
     OPR_INT_ERROR           =TI_VAL_INT<<4|TI_VAL_ERROR,
+    OPR_INT_ENUM            =TI_VAL_INT<<4|TI_VAL_MEMBER,
 
     OPR_FLOAT_NIL           =TI_VAL_FLOAT<<4|TI_VAL_NIL,
     OPR_FLOAT_INT           =TI_VAL_FLOAT<<4|TI_VAL_INT,
@@ -63,6 +66,7 @@ typedef enum
     OPR_FLOAT_SET           =TI_VAL_FLOAT<<4|TI_VAL_SET,
     OPR_FLOAT_CLOSURE       =TI_VAL_FLOAT<<4|TI_VAL_CLOSURE,
     OPR_FLOAT_ERROR         =TI_VAL_FLOAT<<4|TI_VAL_ERROR,
+    OPR_FLOAT_ENUM          =TI_VAL_FLOAT<<4|TI_VAL_MEMBER,
 
     OPR_BOOL_NIL            =TI_VAL_BOOL<<4|TI_VAL_NIL,
     OPR_BOOL_INT            =TI_VAL_BOOL<<4|TI_VAL_INT,
@@ -79,6 +83,7 @@ typedef enum
     OPR_BOOL_SET            =TI_VAL_BOOL<<4|TI_VAL_SET,
     OPR_BOOL_CLOSURE        =TI_VAL_BOOL<<4|TI_VAL_CLOSURE,
     OPR_BOOL_ERROR          =TI_VAL_BOOL<<4|TI_VAL_ERROR,
+    OPR_BOOL_ENUM           =TI_VAL_BOOL<<4|TI_VAL_MEMBER,
 
     OPR_MP_NIL              =TI_VAL_MP<<4|TI_VAL_NIL,
     OPR_MP_INT              =TI_VAL_MP<<4|TI_VAL_INT,
@@ -95,6 +100,7 @@ typedef enum
     OPR_MP_SET              =TI_VAL_MP<<4|TI_VAL_SET,
     OPR_MP_CLOSURE          =TI_VAL_MP<<4|TI_VAL_CLOSURE,
     OPR_MP_ERROR            =TI_VAL_MP<<4|TI_VAL_ERROR,
+    OPR_MP_ENUM             =TI_VAL_MP<<4|TI_VAL_MEMBER,
 
     OPR_NAME_NIL            =TI_VAL_NAME<<4|TI_VAL_NIL,
     OPR_NAME_INT            =TI_VAL_NAME<<4|TI_VAL_INT,
@@ -111,6 +117,7 @@ typedef enum
     OPR_NAME_SET            =TI_VAL_NAME<<4|TI_VAL_SET,
     OPR_NAME_CLOSURE        =TI_VAL_NAME<<4|TI_VAL_CLOSURE,
     OPR_NAME_ERROR          =TI_VAL_NAME<<4|TI_VAL_ERROR,
+    OPR_NAME_ENUM           =TI_VAL_NAME<<4|TI_VAL_MEMBER,
 
     OPR_STR_NIL             =TI_VAL_STR<<4|TI_VAL_NIL,
     OPR_STR_INT             =TI_VAL_STR<<4|TI_VAL_INT,
@@ -127,6 +134,7 @@ typedef enum
     OPR_STR_SET             =TI_VAL_STR<<4|TI_VAL_SET,
     OPR_STR_CLOSURE         =TI_VAL_STR<<4|TI_VAL_CLOSURE,
     OPR_STR_ERROR           =TI_VAL_STR<<4|TI_VAL_ERROR,
+    OPR_STR_ENUM            =TI_VAL_STR<<4|TI_VAL_MEMBER,
 
     OPR_BYTES_NIL           =TI_VAL_BYTES<<4|TI_VAL_NIL,
     OPR_BYTES_INT           =TI_VAL_BYTES<<4|TI_VAL_INT,
@@ -143,6 +151,7 @@ typedef enum
     OPR_BYTES_SET           =TI_VAL_BYTES<<4|TI_VAL_SET,
     OPR_BYTES_CLOSURE       =TI_VAL_BYTES<<4|TI_VAL_CLOSURE,
     OPR_BYTES_ERROR         =TI_VAL_BYTES<<4|TI_VAL_ERROR,
+    OPR_BYTES_ENUM          =TI_VAL_BYTES<<4|TI_VAL_MEMBER,
 
     OPR_REGEX_NIL           =TI_VAL_REGEX<<4|TI_VAL_NIL,
     OPR_REGEX_INT           =TI_VAL_REGEX<<4|TI_VAL_INT,
@@ -159,6 +168,7 @@ typedef enum
     OPR_REGEX_SET           =TI_VAL_REGEX<<4|TI_VAL_SET,
     OPR_REGEX_CLOSURE       =TI_VAL_REGEX<<4|TI_VAL_CLOSURE,
     OPR_REGEX_ERROR         =TI_VAL_REGEX<<4|TI_VAL_ERROR,
+    OPR_REGEX_ENUM          =TI_VAL_REGEX<<4|TI_VAL_MEMBER,
 
     OPR_THING_NIL           =TI_VAL_THING<<4|TI_VAL_NIL,
     OPR_THING_INT           =TI_VAL_THING<<4|TI_VAL_INT,
@@ -175,6 +185,7 @@ typedef enum
     OPR_THING_SET           =TI_VAL_THING<<4|TI_VAL_SET,
     OPR_THING_CLOSURE       =TI_VAL_THING<<4|TI_VAL_CLOSURE,
     OPR_THING_ERROR         =TI_VAL_THING<<4|TI_VAL_ERROR,
+    OPR_THING_ENUM          =TI_VAL_THING<<4|TI_VAL_MEMBER,
 
     OPR_WRAP_NIL            =TI_VAL_WRAP<<4|TI_VAL_NIL,
     OPR_WRAP_INT            =TI_VAL_WRAP<<4|TI_VAL_INT,
@@ -191,6 +202,7 @@ typedef enum
     OPR_WRAP_SET            =TI_VAL_WRAP<<4|TI_VAL_SET,
     OPR_WRAP_CLOSURE        =TI_VAL_WRAP<<4|TI_VAL_CLOSURE,
     OPR_WRAP_ERROR          =TI_VAL_WRAP<<4|TI_VAL_ERROR,
+    OPR_WRAP_ENUM           =TI_VAL_WRAP<<4|TI_VAL_MEMBER,
 
     OPR_ARR_NIL             =TI_VAL_ARR<<4|TI_VAL_NIL,
     OPR_ARR_INT             =TI_VAL_ARR<<4|TI_VAL_INT,
@@ -207,6 +219,7 @@ typedef enum
     OPR_ARR_SET             =TI_VAL_ARR<<4|TI_VAL_SET,
     OPR_ARR_CLOSURE         =TI_VAL_ARR<<4|TI_VAL_CLOSURE,
     OPR_ARR_ERROR           =TI_VAL_ARR<<4|TI_VAL_ERROR,
+    OPR_ARR_ENUM            =TI_VAL_ARR<<4|TI_VAL_MEMBER,
 
     OPR_SET_NIL             =TI_VAL_SET<<4|TI_VAL_NIL,
     OPR_SET_INT             =TI_VAL_SET<<4|TI_VAL_INT,
@@ -223,6 +236,7 @@ typedef enum
     OPR_SET_SET             =TI_VAL_SET<<4|TI_VAL_SET,
     OPR_SET_CLOSURE         =TI_VAL_SET<<4|TI_VAL_CLOSURE,
     OPR_SET_ERROR           =TI_VAL_SET<<4|TI_VAL_ERROR,
+    OPR_SET_ENUM            =TI_VAL_SET<<4|TI_VAL_MEMBER,
 
     OPR_CLOSURE_NIL         =TI_VAL_CLOSURE<<4|TI_VAL_NIL,
     OPR_CLOSURE_INT         =TI_VAL_CLOSURE<<4|TI_VAL_INT,
@@ -239,6 +253,7 @@ typedef enum
     OPR_CLOSURE_SET         =TI_VAL_CLOSURE<<4|TI_VAL_SET,
     OPR_CLOSURE_CLOSURE     =TI_VAL_CLOSURE<<4|TI_VAL_CLOSURE,
     OPR_CLOSURE_ERROR       =TI_VAL_CLOSURE<<4|TI_VAL_ERROR,
+    OPR_CLOSURE_ENUM        =TI_VAL_CLOSURE<<4|TI_VAL_MEMBER,
 
     OPR_ERROR_NIL           =TI_VAL_ERROR<<4|TI_VAL_NIL,
     OPR_ERROR_INT           =TI_VAL_ERROR<<4|TI_VAL_INT,
@@ -255,6 +270,24 @@ typedef enum
     OPR_ERROR_SET           =TI_VAL_ERROR<<4|TI_VAL_SET,
     OPR_ERROR_CLOSURE       =TI_VAL_ERROR<<4|TI_VAL_CLOSURE,
     OPR_ERROR_ERROR         =TI_VAL_ERROR<<4|TI_VAL_ERROR,
+    OPR_ERROR_ENUM          =TI_VAL_ERROR<<4|TI_VAL_MEMBER,
+
+    OPR_ENUM_NIL           =TI_VAL_MEMBER<<4|TI_VAL_NIL,
+    OPR_ENUM_INT           =TI_VAL_MEMBER<<4|TI_VAL_INT,
+    OPR_ENUM_FLOAT         =TI_VAL_MEMBER<<4|TI_VAL_FLOAT,
+    OPR_ENUM_BOOL          =TI_VAL_MEMBER<<4|TI_VAL_BOOL,
+    OPR_ENUM_MP            =TI_VAL_MEMBER<<4|TI_VAL_MP,
+    OPR_ENUM_NAME          =TI_VAL_MEMBER<<4|TI_VAL_NAME,
+    OPR_ENUM_STR           =TI_VAL_MEMBER<<4|TI_VAL_STR,
+    OPR_ENUM_BYTES         =TI_VAL_MEMBER<<4|TI_VAL_BYTES,
+    OPR_ENUM_REGEX         =TI_VAL_MEMBER<<4|TI_VAL_REGEX,
+    OPR_ENUM_THING         =TI_VAL_MEMBER<<4|TI_VAL_THING,
+    OPR_ENUM_WRAP          =TI_VAL_MEMBER<<4|TI_VAL_WRAP,
+    OPR_ENUM_ARR           =TI_VAL_MEMBER<<4|TI_VAL_ARR,
+    OPR_ENUM_SET           =TI_VAL_MEMBER<<4|TI_VAL_SET,
+    OPR_ENUM_CLOSURE       =TI_VAL_MEMBER<<4|TI_VAL_CLOSURE,
+    OPR_ENUM_ERROR         =TI_VAL_MEMBER<<4|TI_VAL_ERROR,
+    OPR_ENUM_ENUM          =TI_VAL_MEMBER<<4|TI_VAL_MEMBER,
 } ti_opr_perm_t;
 
 #endif  /* TI_OPR_OPRINC_H_ */

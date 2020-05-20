@@ -150,7 +150,7 @@ static inline int type__field(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "expecting a type definition to be type `"TI_VAL_STR_S"` "
-                "but got type `%s` instead"DOC_SPEC,
+                "but got type `%s` instead"DOC_T_TYPE,
                 ti_val_str(val));
         return e->nr;
     }

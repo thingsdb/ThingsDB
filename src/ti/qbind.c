@@ -29,6 +29,7 @@
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelbackup.h>
 #include <ti/fn/fndelcollection.h>
+#include <ti/fn/fndelenum.h>
 #include <ti/fn/fndelexpired.h>
 #include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
@@ -38,6 +39,9 @@
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
 #include <ti/fn/fnendswith.h>
+#include <ti/fn/fnenum.h>
+#include <ti/fn/fnenuminfo.h>
+#include <ti/fn/fnenumsinfo.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
 #include <ti/fn/fnevery.h>
@@ -54,6 +58,7 @@
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
 #include <ti/fn/fnhastoken.h>
+#include <ti/fn/fnhasenum.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
@@ -64,6 +69,7 @@
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
 #include <ti/fn/fnisbytes.h>
+#include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
 #include <ti/fn/fnisinf.h>
@@ -82,8 +88,10 @@
 #include <ti/fn/fnlist.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
+#include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodtype.h>
 #include <ti/fn/fnmsg.h>
+#include <ti/fn/fnname.h>
 #include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewbackup.h>
 #include <ti/fn/fnnewcollection.h>
@@ -115,6 +123,7 @@
 #include <ti/fn/fnrevoke.h>
 #include <ti/fn/fnrun.h>
 #include <ti/fn/fnset.h>
+#include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettype.h>
@@ -136,6 +145,7 @@
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
+#include <ti/fn/fnvalue.h>
 #include <ti/fn/fnvalues.h>
 #include <ti/fn/fnwatch.h>
 #include <ti/fn/fnwrap.h>
@@ -164,11 +174,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 144,
+    TOTAL_KEYWORDS = 154,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 22,
-    MAX_HASH_VALUE = 274
+    MIN_HASH_VALUE = 2,
+    MAX_HASH_VALUE = 343
 };
 
 static inline unsigned int qbind__hash(
@@ -177,32 +187,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275,  11, 275,  10, 275,   7, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275,   7, 275,   8,  26,  18,
-         20,   8,  21,  61,  56,   6, 275,  49,  13,  15,
-          9,   9,  29,   7,   7,   6,   6,  22,  62,  88,
-         82,  75,  13, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
-        275, 275, 275, 275, 275, 275
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344,   4, 344,   3, 344,   1, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344,   2, 344,   3,  47,  27,
+          0,   5,  21,  31,  59,   0, 344,  60,  14, 101,
+          8,  15,  24,   0,   2,   0,   0,  27,  73,  83,
+         51, 121,   0, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344, 344, 344, 344, 344,
+        344, 344, 344, 344, 344, 344
     };
 
     register unsigned int hval = n;
@@ -339,6 +349,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="def",               .fn=do__f_def,                  CHAIN_NE},
     {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
+    {.name="del_enum",          .fn=do__f_del_enum,             ROOT_CE},
     {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},
     {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
     {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
@@ -349,6 +360,9 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
+    {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
+    {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
+    {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
@@ -361,6 +375,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
     {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
+    {.name="has_enum",          .fn=do__f_has_enum,             ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
@@ -375,6 +390,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="isascii",           .fn=do__f_isascii,              ROOT_NE},
     {.name="isbool",            .fn=do__f_isbool,               ROOT_NE},
     {.name="isbytes",           .fn=do__f_isbytes,              ROOT_NE},
+    {.name="isenum",            .fn=do__f_isenum,               ROOT_NE},
     {.name="iserr",             .fn=do__f_iserr,                ROOT_NE},
     {.name="isfloat",           .fn=do__f_isfloat,              ROOT_NE},
     {.name="isinf",             .fn=do__f_isinf,                ROOT_NE},
@@ -395,8 +411,10 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
     {.name="map",               .fn=do__f_map,                  CHAIN_NE},
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
+    {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
     {.name="msg",               .fn=do__f_msg,                  CHAIN_NE},
+    {.name="name",              .fn=do__f_name,                 CHAIN_NE},
     {.name="new_backup",        .fn=do__f_new_backup,           ROOT_NE},
     {.name="new_collection",    .fn=do__f_new_collection,       ROOT_TE},
     {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
@@ -431,6 +449,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
+    {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
@@ -456,6 +475,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
     {.name="users_info",        .fn=do__f_users_info,           ROOT_NE},
     {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
+    {.name="value",             .fn=do__f_value,                CHAIN_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
     {.name="watch",             .fn=do__f_watch,                CHAIN_NE},
     {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},
@@ -656,6 +676,18 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
+static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    nd->data = NULL;        /* member */
+    ++qbind->val_cache_n;   /* member of closure, not both */
+
+    nd = nd->children->next->node;
+    nd->data = NULL;        /* closure or value cache */
+
+    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
+        qbind__statement(qbind, nd->children->next->next->next->node);
+}
+
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -672,6 +704,9 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             break;
         case CLERI_GID_INSTANCE:
             qbind__thing(qbind, nd->children->next->node);
+            return;
+        case CLERI_GID_ENUM_:
+            qbind__enum(qbind, nd->children->next->node);
             return;
         default:
             assert (0);
@@ -736,46 +771,39 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
+    case CLERI_GID_T_CLOSURE:
+        /* investigate the statement, the rest can be skipped */
+        qbind__statement(
+                qbind,
+                nd->children->next->next->next->node);
+        /* fall through */
     case CLERI_GID_THING_BY_ID:
-        nd->data = NULL;
+    case CLERI_GID_T_INT:
+    case CLERI_GID_T_FLOAT:
+    case CLERI_GID_T_STRING:
+    case CLERI_GID_T_REGEX:
         ++qbind->val_cache_n;
+        nd->data = NULL;        /* initialize data to null */
         return;
-    case CLERI_GID_IMMUTABLE:
-        nd = nd->children->node;
-        switch (nd->cl_obj->gid)
-        {
-        case CLERI_GID_T_TEMPLATE:
-        {
-            cleri_children_t * child = nd          /* sequence */
-                    ->children->next->node         /* repeat */
-                    ->children;
+    case CLERI_GID_TEMPLATE:
+    {
+        cleri_children_t * child = nd          /* sequence */
+                ->children->next->node         /* repeat */
+                ->children;
 
-            for (; child; child = child->next)
-            {
-                if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
-                    qbind__statement(
-                            qbind,
-                            child->node->children->next->node);
-                child->node->data = NULL;
-            }
-            ++qbind->val_cache_n;
-            nd->data = NULL;        /* initialize data to null */
-            return;
+        for (; child; child = child->next)
+        {
+            if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
+                qbind__statement(
+                        qbind,
+                        child->node->children->next->node);
+            child->node->data = NULL;
         }
-        case CLERI_GID_T_CLOSURE:
-            /* investigate the statement, the rest can be skipped */
-            qbind__statement(
-                    qbind,
-                    nd->children->next->next->next->node);
-            /* fall through */
-        case CLERI_GID_T_INT:
-        case CLERI_GID_T_FLOAT:
-        case CLERI_GID_T_STRING:
-        case CLERI_GID_T_REGEX:
-            ++qbind->val_cache_n;
-            nd->data = NULL;        /* initialize data to null */
-        }
+
+        ++qbind->val_cache_n;
+        nd->data = NULL;        /* initialize data to null */
         return;
+    }
     case CLERI_GID_VAR_OPT_MORE:
         qbind__var_opt_fa(qbind, nd);
         return;
@@ -810,7 +838,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__statement(qbind, nd->children->next->node);
         return;
     }
-    assert (0);
 }
 
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)

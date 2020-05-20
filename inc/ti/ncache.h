@@ -25,5 +25,4 @@ struct ti_ncache_s
     vec_t * val_cache;
 };
 
-
 #endif /* TI_NCACHE_H_ */

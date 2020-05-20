@@ -1,5 +1,5 @@
 /*
- * ti/store/types.h
+ * ti/store/storetypes.h
  */
 #include <assert.h>
 #include <ti.h>

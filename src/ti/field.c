@@ -8,9 +8,11 @@
 #include <ti/field.h>
 #include <ti/names.h>
 #include <ti/spec.h>
+#include <ti/enum.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
+#include <ti/enums.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vint.h>
@@ -25,20 +27,32 @@ static void field__remove_dep(ti_field_t * field)
 
     spec = field->spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto decref;
+        goto decref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto decref_enum;
 
     spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto decref;
+        goto decref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto decref_enum;
 
     return;
 
-decref:
-    idx = 0;
+decref_enum:
+    spec &= TI_ENUM_ID_MASK;
+    type = (ti_type_t *) ti_enums_by_id(
+            field->type->types->collection->enums,
+            spec);
+    goto decref;
+
+decref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
         return;  /* self references are not counted within dependencies */
 
+decref:
+    idx = 0;
     for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
     {
         if (t == type)
@@ -48,8 +62,10 @@ decref:
         }
     }
     --type->refcount;
+    return;
 }
 
+/* Used for detecting circular references between types */
 static int field__dep_check(ti_type_t * dep, ti_type_t * type)
 {
     for (vec_each(dep->fields, ti_field_t, field))
@@ -73,19 +89,30 @@ static int field__add_dep(ti_field_t * field)
 
     spec = field->spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto incref;
+        goto incref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto incref_enum;
 
     spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
     if (spec < TI_SPEC_ANY)
-        goto incref;
-
+        goto incref_type;
+    if (spec >= TI_ENUM_ID_FLAG)
+        goto incref_enum;
     return 0;
 
-incref:
+incref_enum:
+    spec &= TI_ENUM_ID_MASK;
+    type = (ti_type_t *) ti_enums_by_id(
+            field->type->types->collection->enums,
+            spec);
+    goto incref;
+
+incref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
         return 0;  /* self references are not counted within dependencies */
 
+incref:
     if (vec_push(&field->type->dependencies, type))
         return -1;
 
@@ -104,7 +131,7 @@ static _Bool field__spec_is_ascii(
         ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type declarations must only contain valid ASCII characters"
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name);
         return false;
     }
@@ -177,7 +204,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
-                "type declarations must not be empty"DOC_SPEC,
+                "type declarations must not be empty"DOC_T_TYPE,
                 field->name->str, field->type->name);
         return e->nr;
     }
@@ -234,7 +261,7 @@ skip_nesting:
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `[`; nested array declarations are not allowed"
-            DOC_SPEC, field->name->str, field->type->name);
+            DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }
 
@@ -243,7 +270,7 @@ skip_nesting:
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `{`; nested set declarations are not allowed"
-            DOC_SPEC, field->name->str, field->type->name);
+            DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }
 
@@ -307,23 +334,36 @@ skip_nesting:
     }
     else
     {
-        ti_type_t * dep = smap_getn(field->type->types->smap, str, n);
+        ti_type_t * dep = ti_types_by_strn(field->type->types, str, n);
         if (!dep)
         {
-            if (field__spec_is_ascii(field, str, n, e))
-                ex_set(e, EX_TYPE_ERROR,
-                        "invalid declaration for `%s` on type `%s`; "
-                        "unknown type `%.*s` in declaration"DOC_SPEC,
-                        field->name->str, field->type->name,
-                        (int) n, str);
-            return e->nr;
+            dep = (ti_type_t *) ti_enums_by_strn(
+                    field->type->types->collection->enums,
+                    str,
+                    n);
+
+            if (!dep)
+            {
+                if (field__spec_is_ascii(field, str, n, e))
+                    ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "unknown type `%.*s` in declaration"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            (int) n, str);
+                return e->nr;
+            }
+
+            /* When an enum is cast to a type, the enum_id becomes type_id */
+            *spec |= dep->type_id | TI_ENUM_ID_FLAG;
         }
+        else
+        {
+            *spec |= dep->type_id;
 
-        *spec |= dep->type_id;
-
-        if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
-            field__dep_check(dep, field->type))
-            goto circular_dep;
+            if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
+                field__dep_check(dep, field->type))
+                goto circular_dep;
+        }
 
         if (vec_push(&field->type->dependencies, dep))
         {
@@ -342,13 +382,13 @@ skip_nesting:
             ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `"TI_VAL_NIL_S"`",
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name);
         else
             ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
-                DOC_SPEC,
+                DOC_T_TYPE,
                 field->name->str, field->type->name,
                 ti__spec_approx_type_str(field->nested_spec));
         return e->nr;
@@ -367,7 +407,7 @@ invalid:
     ex_set(e, EX_VALUE_ERROR,
         "invalid declaration for `%s` on type `%s`; "
         "expecting a valid type declaration but got `%.*s` instead"
-        DOC_SPEC,
+        DOC_T_TYPE,
         field->name->str, field->type->name,
         (int) field->spec_raw->n,
         (const char *) field->spec_raw->data);
@@ -379,7 +419,7 @@ circular_dep:
         "invalid declaration for `%s` on type `%s`; "
         "missing `?` after declaration `%.*s`; "
         "circular dependencies must be nillable "
-        "at least at one point in the chain"DOC_SPEC,
+        "at least at one point in the chain"DOC_T_TYPE,
         field->name->str, field->type->name,
         (int) field->spec_raw->n,
         (const char *) field->spec_raw->data);
@@ -429,7 +469,61 @@ ti_field_t * ti_field_create(
     return field;
 }
 
-int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
+typedef struct
+{
+    ti_data_t * data;
+    ti_name_t * name;
+    ti_val_t ** vaddr;
+    uint64_t val_idx;
+    uint16_t type_id;
+    ex_t e;
+} field__mod_t;
+
+static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
+{
+    if (thing->type_id == field->type->type_id)
+    {
+        ti_val_t * val = vec_get(thing->items, field->idx);
+
+        switch (val->tp)
+        {
+        case TI_VAL_NIL:
+            return 0;
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_MP:
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+            assert(0);
+            return 0;
+        case TI_VAL_ARR:
+            ((ti_varr_t *) val)->spec = field->nested_spec;
+            return 0;
+        case TI_VAL_SET:
+            ((ti_vset_t *) val)->spec = field->nested_spec;
+            return 0;
+        case TI_VAL_CLOSURE:
+        case TI_VAL_ERROR:
+        case TI_VAL_MEMBER:
+        case TI_VAL_TEMPLATE:
+            assert(0);
+            return 0;
+        }
+    }
+    return 0;
+}
+
+int ti_field_mod(
+        ti_field_t * field,
+        ti_raw_t * spec_raw,
+        vec_t * vars,
+        size_t n,
+        ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
     uint16_t prev_spec = field->spec;
@@ -452,7 +546,21 @@ int ti_field_mod(ti_field_t * field, ti_raw_t * spec_raw, size_t n, ex_t * e)
     case TI_SPEC_MOD_NESTED:
         switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
         {
-        case TI_SPEC_MOD_SUCCESS:           goto success;
+        case TI_SPEC_MOD_SUCCESS:
+            imap_walk(
+                field->type->types->collection->things,
+                (imap_cb) field__mod_nested_cb,
+                field);
+            /* check for variable to update, val_cache is not required
+             * since only things with an id are store in cache
+             */
+            if (vars) for (vec_each(vars, ti_prop_t, prop))
+            {
+                ti_thing_t * thing = (ti_thing_t *) prop->val;
+                if (thing->tp == TI_VAL_THING && thing->id == 0)
+                    (void) field__mod_nested_cb(thing, field);
+            }
+            goto success;
         case TI_SPEC_MOD_ERR:               goto incompatible;
         case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
         case TI_SPEC_MOD_NESTED:            goto incompatible;
@@ -788,7 +896,7 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     switch ((ti_spec_enum_t) t_spec)
     {
     case TI_SPEC_ANY:
-        return 0;       /* already checked */
+        return false;       /* already checked */
     case TI_SPEC_OBJECT:
         return f_spec < TI_SPEC_ANY;
     case TI_SPEC_RAW:
@@ -820,7 +928,9 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
         return false;
     }
 
-    return f_spec < TI_SPEC_ANY;
+    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
+
+    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
@@ -837,6 +947,17 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 
     t_spec = t_field->nested_spec & TI_SPEC_MASK_NILLABLE;
     f_spec = f_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec >= TI_ENUM_ID_FLAG)
+        return t_spec == f_spec;
+
+    if (f_spec >= TI_ENUM_ID_FLAG)
+    {
+        ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec & TI_ENUM_ID_MASK);
+        f_spec = ti_enum_spec(enum_);
+    }
 
     if (t_spec == f_spec)
         return true;
@@ -860,6 +981,17 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 
     t_spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
     f_spec = f_field->spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec >= TI_ENUM_ID_FLAG)
+        return t_spec == f_spec;
+
+    if (f_spec >= TI_ENUM_ID_FLAG)
+    {
+        ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec & TI_ENUM_ID_MASK);
+        f_spec = ti_enum_spec(enum_);
+    }
 
     /* return `true` when both specifications are equal, and nested accepts
      * anything which is default for all other than `arr` and `set` */

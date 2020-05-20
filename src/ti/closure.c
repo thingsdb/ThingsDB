@@ -71,8 +71,7 @@ static cleri_node_t * closure__node_from_strn(
     node = node                             /* List of statements */
             ->children->node                /* Sequence - statement */
             ->children->node                /* expression */
-            ->children->next->node          /* Choice - immutable */
-            ->children->node;               /* closure */
+            ->children->next->node;         /* Choice - closure */
 
     if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
     {
@@ -464,12 +463,12 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,
-        vec_t * args,
+        vec_t * args,  /* NULL is allowed if the closure accepts no arguments */
         ex_t * e)
 {
     assert (closure);
     assert (closure->vars);
-    assert (args->n == closure->vars->n);
+    assert (closure->vars->n == 0 || args->n == closure->vars->n);
 
     size_t idx = 0;
 
@@ -493,6 +492,10 @@ int ti_closure_call(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
+
+    /* Note: expression might be `operations` as well which happen to be fine
+     *       since in that case the other checks are compatible
+     */
     cleri_node_t * node = ti_closure_statement(closure)
             ->children->node                /* expression */
             ->children->next->node;         /* the choice */
@@ -528,11 +531,10 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
             ->node->children->next      /* node=expression */
             ->node;                     /* node=the choice */
 
-    if (node->cl_obj->gid != CLERI_GID_IMMUTABLE ||
-        node->children->node->cl_obj->gid != CLERI_GID_T_STRING)
+    if (node->cl_obj->gid != CLERI_GID_T_STRING)
         goto done;
 
-    doc = node->children->node->data;
+    doc = node->data;
     if (doc)
         /* from cache */
         ti_incref(doc);

@@ -26,7 +26,6 @@ static int archive__load_file(ti_archfile_t * archfile)
     mp_unp_t up;
     mp_obj_t obj, mp_pkg;
     fx_mmap_t fmap;
-//    ti_event_t * event = queue_first(ti_.events->queue);
     ti_epkg_t * epkg;
 
     log_debug("loading archive file `%s`", archfile->fn);

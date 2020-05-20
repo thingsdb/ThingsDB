@@ -22,6 +22,7 @@
 #include <ti/verror.h>
 #include <ti/vset.h>
 
+
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
     switch (*nd->str)
@@ -138,10 +139,14 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         /* careful, `e` might already be set, in which case we should not touch
          * the error value
          */
+        if (ti_val_is_member(b))
+            return ti_opr_compare(a, VMEMBER(b), e);
+
         if (!e->nr)
             ex_set(e, EX_TYPE_ERROR,
                 "`<` not supported between `%s` and `%s`",
                 ti_val_str(a), ti_val_str(b));
+
         return 0;
     case OPR_INT_INT:
         return (VINT(a) > VINT(b)) - (VINT(a) < VINT(b));
@@ -178,6 +183,10 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:
         return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
+    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
+        return ti_opr_compare(VMEMBER(a), b, e);
+    case OPR_ENUM_ENUM:
+        return ti_opr_compare(VMEMBER(a), VMEMBER(b), e);
     }
     return 0;
 }

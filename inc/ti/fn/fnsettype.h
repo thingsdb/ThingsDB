@@ -22,6 +22,22 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         uint16_t type_id;
         ti_raw_t * rname = (ti_raw_t *) query->rval;
 
+        if (ti_spec_is_reserved((const char *) rname->data, rname->n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "name `%.*s` is reserved",
+                    (int) rname->n, (const char *) rname->data);
+            return e->nr;
+        }
+
+        if (ti_enums_by_raw(query->collection->enums, rname))
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "enum `%.*s` already exists",
+                    (int) rname->n, (const char *) rname->data);
+            return e->nr;
+        }
+
         if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
         {
             ex_set(e, EX_VALUE_ERROR,
@@ -89,8 +105,9 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail2;
 
-    /* update modified time-stamp */
-    type->modified_at = ts_now;
+    /* update modified time-stamp if this is an existing type */
+    if (!is_new_type)
+        type->modified_at = ts_now;
 
     if ((is_new_type && ti_task_add_new_type(task, type)) ||
         ti_task_add_set_type(task, type))

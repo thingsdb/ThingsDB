@@ -17,6 +17,7 @@
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
 #include <ti/do.h>
+#include <ti/enums.inline.h>
 #include <ti/field.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -270,42 +271,45 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
     ti_closure_t * closure;
-    vec_t * args;
-    size_t n;
+    vec_t * args = NULL;
 
     if (!ti_val_is_closure(query->rval))
         return fn_call_try("call", query, nd, e);
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
-    n = closure->vars->n;
 
-    args = vec_new(n);
-    if (!args)
+    if (closure->vars->n)
     {
-        ex_set_mem(e);
-        goto fail0;
+        uint32_t n = closure->vars->n;
+
+        args = vec_new(n);
+        if (!args)
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        while (child && n)
+        {
+            --n;  // outside `while` so we do not go below zero
+
+            if (ti_do_statement(query, child->node, e) ||
+                ti_val_make_variable(&query->rval, e))
+                goto fail1;
+
+            VEC_push(args, query->rval);
+            query->rval = NULL;
+
+            if (!child->next)
+                break;
+
+            child = child->next->next;
+        }
+
+        while (n--)
+            VEC_push(args, ti_nil_get());
     }
-
-    while (child && n)
-    {
-        --n;  // outside while so we do not go below zero
-
-        if (ti_do_statement(query, child->node, e) ||
-            ti_val_make_variable(&query->rval, e))
-            goto fail1;
-
-        VEC_push(args, query->rval);
-        query->rval = NULL;
-
-        if (!child->next)
-            break;
-
-        child = child->next->next;
-    }
-
-    while (n--)
-        VEC_push(args, ti_nil_get());
 
     (void) ti_closure_call(closure, query, args, e);
 

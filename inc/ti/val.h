@@ -17,18 +17,25 @@ typedef enum
     TI_VAL_STR,
     TI_VAL_BYTES,       /* MP,STR and BIN all use RAW as underlying type */
     TI_VAL_REGEX,
-    TI_VAL_THING,
+    TI_VAL_THING,       /* instance or object */
     TI_VAL_WRAP,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
+    TI_VAL_MEMBER,      /* enum member */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored
                            closure; therefore template does not need to be
                            handled like all other value type. */
 } ti_val_enum;
+
+/*
+ * enum cache is not a real value type but used for stored closure to pre-cache
+ *
+ */
+#define TI_VAL_ENUM_CACHE 255
 
 #define TI_VAL_NIL_S        "nil"
 #define TI_VAL_INT_S        "int"
@@ -95,7 +102,6 @@ typedef enum
      *   All specials are in the binary 0010xxxx range.
      *   + positive big type
      *   - negative big type
-     *   % date type
      */
     TI_KIND_C_THING     ='#',
     TI_KIND_C_INSTANCE  ='.',
@@ -104,6 +110,7 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
+    TI_KIND_C_MEMBER    ='%',
 } ti_val_kind;
 
 #define TI_KIND_S_THING     "#"
@@ -113,6 +120,7 @@ typedef enum
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
+#define TI_KIND_S_MEMBER    "%"
 
 typedef struct ti_val_s ti_val_t;
 
@@ -130,8 +138,8 @@ void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
-ti_val_t * ti_val_from_unp(ti_vup_t * vup);
-ti_val_t * ti_val_from_unp_e(ti_vup_t * vup, ex_t * e);
+ti_val_t * ti_val_from_vup(ti_vup_t * vup);
+ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e);
 ti_val_t * ti_val_empty_str(void);
 ti_val_t * ti_val_borrow_tar_gz_str(void);
 ti_val_t * ti_val_empty_bin(void);
@@ -144,7 +152,6 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_array(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
-_Bool ti_val_is_valid_name(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options);
@@ -168,6 +175,7 @@ static inline _Bool ti_val_is_regex(ti_val_t * val);
 static inline _Bool ti_val_is_set(ti_val_t * val);
 static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_is_wrap(ti_val_t * val);
+static inline _Bool ti_val_is_member(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);
@@ -265,6 +273,11 @@ static inline _Bool ti_val_is_thing(ti_val_t * val)
 static inline _Bool ti_val_is_wrap(ti_val_t * val)
 {
     return val->tp == TI_VAL_WRAP;
+}
+
+static inline _Bool ti_val_is_member(ti_val_t * val)
+{
+    return val->tp == TI_VAL_MEMBER;
 }
 
 static inline _Bool ti_val_is_array(ti_val_t * val)

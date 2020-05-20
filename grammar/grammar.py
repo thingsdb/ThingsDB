@@ -54,7 +54,7 @@ class LangDef(Grammar):
     r_single_quote = Regex(r"(?:'(?:[^']*)')+")
     r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
 
-    t_template = Sequence(
+    template = Sequence(
         '`',
         Repeat(Choice(
             Regex(r"([^`{}]|``|{{|}})+"),
@@ -92,18 +92,7 @@ class LangDef(Grammar):
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
-
-    immutable = Choice(
-        t_false,
-        t_nil,
-        t_true,
-        t_float,
-        t_int,
-        t_string,
-        t_regex,
-        t_closure,
-        t_template,
-    )
+    enum_ = Sequence(x_thing, Choice(name, t_closure), '}')
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
@@ -132,7 +121,9 @@ class LangDef(Grammar):
     assign = Sequence(x_assign, THIS)
 
     name_opt_more = Sequence(name, Optional(Choice(function, assign)))
-    var_opt_more = Sequence(var, Optional(Choice(function, assign, instance)))
+    var_opt_more = Sequence(
+        var,
+        Optional(Choice(function, assign, instance, enum_)))
 
     # note: slice is also used for a simple index
     slice = List(Optional(THIS), delimiter=':', ma=3, opt=False)
@@ -162,7 +153,17 @@ class LangDef(Grammar):
         Choice(
             chain,
             thing_by_id,
-            immutable,
+            # start immutable values
+            t_false,
+            t_nil,
+            t_true,
+            t_float,
+            t_int,
+            t_string,
+            t_regex,
+            t_closure,
+            # end immutable values
+            template,
             var_opt_more,
             thing,
             array,
@@ -189,6 +190,9 @@ if __name__ == '__main__':
     # print(res.is_valid)
 
     # res = langdef.parse(r'''|x|...)''')
+    # print(res.is_valid)
+
+    # res = langdef.parse(r'''x = Enum{||'X};''')
     # print(res.is_valid)
 
     # exit(0)

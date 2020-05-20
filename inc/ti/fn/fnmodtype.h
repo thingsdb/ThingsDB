@@ -21,7 +21,7 @@ static void type__add(
     if (field)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "property `%s` already exist on type `%s`",
+                "property `%s` already exists on type `%s`",
                 name->str, type->name);
         return;
     }
@@ -225,7 +225,7 @@ static void type__mod(
 
     n = ti_query_count_type(query, type);
 
-    if (ti_field_mod(field, (ti_raw_t *) query->rval, n, e))
+    if (ti_field_mod(field, (ti_raw_t *) query->rval, query->vars, n, e))
         return;
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
@@ -235,7 +235,7 @@ static void type__mod(
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    if (ti_task_add_mod_type_mod(task, field, type->modified_at))
+    if (ti_task_add_mod_type_mod(task, field))
     {
         ex_set_mem(e);
         return;

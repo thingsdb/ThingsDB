@@ -15,6 +15,8 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
+#include <ti/enums.inline.h>
+#include <ti/member.inline.h>
 #include <ti/vset.h>
 #include <ti/vup.h>
 #include <util/mpack.h>
@@ -70,7 +72,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
 
     for (i = obj.via.sz; i--;)
     {
-        t = (ti_thing_t *) ti_val_from_unp(&vup);
+        t = (ti_thing_t *) ti_val_from_vup(&vup);
 
         if (!t || !ti_val_is_thing((ti_val_t *) t) || ti_vset_add(vset, t))
         {
@@ -128,7 +130,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    val = ti_val_from_unp(&vup);
+    val = ti_val_from_vup(&vup);
     if (!val)
     {
         log_critical(
@@ -222,7 +224,6 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
 
     if (!type)
     {
-        ti_type_drop(type);
         log_critical(
             "job `new_type` for "TI_COLLECTION_ID" is invalid; "
             "cannot create type id %"PRIu64,
@@ -231,6 +232,81 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
     }
 
     return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'enum_id':.., 'members':.. }
+ *
+ * Note: decided to `panic` in case of failures since it might mess up
+ *       the database in case of failure.
+ */
+static int job__set_enum(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    mp_obj_t obj, mp_id, mp_name, mp_created;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+            "job `set_enum` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (enum_)
+    {
+        log_critical(
+                "job `set_enum` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" already found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    enum_ = ti_enum_create(
+            mp_id.via.u64,
+            mp_name.via.str.data,
+            mp_name.via.str.n,
+            mp_created.via.u64,
+            0);  /* modified_at = 0 */
+
+    if (!enum_ || ti_enums_add(collection->enums, enum_))
+    {
+        log_critical(EX_MEMORY_S);
+        goto fail0;
+    }
+
+    if (ti_enum_init_from_vup(enum_, &vup, &e))
+    {
+        log_critical(e.msg);
+        goto fail1;
+    }
+
+    /* update created time-stamp */
+    enum_->created_at = mp_created.via.u64;
+
+    return 0;
+
+fail1:
+    ti_enums_del(collection->enums, enum_);
+fail0:
+    ti_enum_destroy(enum_);
+    return -1;
 }
 
 /*
@@ -301,6 +377,200 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
+static int job__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_enum_t * enum_;
+    ti_name_t * name;
+    ti_member_t * member;
+    ti_val_t * val = NULL;
+    mp_obj_t obj, mp_id, mp_name, mp_modified;
+    int rc = -1;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `mod_enum_add` for "TI_COLLECTION_ID" is invalid",
+                vup.collection->root->id);
+        return rc;
+    }
+
+    enum_ = ti_enums_by_id(vup.collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `mod_enum_add` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" not found",
+                vup.collection->root->id, mp_id.via.u64);
+        return rc;
+    }
+
+    name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+    if (!name)
+    {
+        log_critical(EX_MEMORY_S);
+        goto fail0;
+    }
+
+    val = ti_val_from_vup(&vup);
+    if (!val)
+        goto fail0;
+
+    member = ti_member_create(enum_, name, val, &e);
+    if (!member)
+    {
+        log_critical(e.msg);
+        goto fail0;
+    }
+
+    /* update modified time-stamp */
+    enum_->modified_at = mp_modified.via.u64;
+
+    rc = 0;
+
+fail0:
+    ti_val_drop(val);
+    ti_name_drop(name);
+    return rc;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int job__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    ti_member_t * member;
+    mp_obj_t obj, mp_id, mp_index, mp_modified;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_index) != MP_U64)
+    {
+        log_critical(
+                "job `mod_enum_del` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `mod_enum_del` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    member = ti_enum_member_by_idx(enum_, mp_index.via.u64);
+    if (!member)
+    {
+        log_critical(
+                "job `mod_enum_del` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %u; index %"PRIu64" out of range",
+                collection->root->id, enum_->enum_id, mp_index.via.u64);
+        return -1;
+    }
+
+    /* update modified time-stamp */
+    enum_->modified_at = mp_modified.via.u64;
+
+    ti_member_del(member);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int job__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    ti_member_t * member;
+    ti_val_t * val;
+    mp_obj_t obj, mp_id, mp_index, mp_modified;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_index) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `mod_enum_mod` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    member = ti_enum_member_by_idx(enum_, mp_index.via.u64);
+    if (!member)
+    {
+        log_critical(
+                "job `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %u; index %"PRIu64" out of range",
+                collection->root->id, enum_->enum_id, mp_index.via.u64);
+        return -1;
+    }
+
+    val = ti_val_from_vup(&vup);
+    if (!val)
+        return -1;
+
+
+    (void) ti_member_set_value(member, val, &e);
+
+    ti_val_drop(val);
+
+    if (e.nr)
+        log_critical(e.msg);
+    else
+        /* update modified time-stamp */
+        enum_->modified_at = mp_modified.via.u64;
+
+    return e.nr;
+}
+
+/*
+ * Returns 0 on success
+ */
 static int job__mod_type_add(
         ti_thing_t * thing,
         mp_unp_t * up,
@@ -346,7 +616,7 @@ static int job__mod_type_add(
             return rc;
         }
 
-        val = ti_val_from_unp(&vup);
+        val = ti_val_from_vup(&vup);
         if (!val)
         {
             log_critical(
@@ -543,7 +813,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         return rc;
     }
 
-    if (ti_field_mod(field, spec_raw, 0, &e))
+    if (ti_field_mod(field, spec_raw, NULL, 0, &e))
     {
         log_critical(e.msg);
         goto fail0;
@@ -676,7 +946,7 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     }
 
     rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
-    closure = (ti_closure_t *) ti_val_from_unp(&vup);
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
     procedure = NULL;
 
     if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
@@ -706,6 +976,56 @@ failed:
     ti_val_drop((ti_val_t *) rname);
     ti_val_drop((ti_val_t *) closure);
     return -1;
+}
+
+
+/*
+ * Returns 0 on success
+ * - for example: enum_id
+ */
+static int job__del_enum(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    mp_obj_t mp_id;
+    ti_enum_t * enum_;
+
+    if (mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "job `del_enum` from collection "TI_COLLECTION_ID": "
+                "expecting an integer enum id",
+                collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `del_enum` from collection "TI_COLLECTION_ID": "
+                "enum with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    if (enum_->refcount)
+    {
+        log_critical(
+                "job `del_enum` from collection "TI_COLLECTION_ID": "
+                "enum with id %u still has %"PRIu64" references",
+                collection->root->id, mp_id.via.u64, enum_->refcount);
+        return -1;
+    }
+
+    /* NOTE: members may have more than one reference at this point
+     *       because they might be in use in stored closures as cached
+     *       values.
+     */
+
+    ti_enums_del(collection->enums, enum_);
+    ti_enum_destroy(enum_);
+
+    return 0;
 }
 
 
@@ -911,7 +1231,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
 
     while(n--)
     {
-        ti_val_t * val = ti_val_from_unp(&vup);
+        ti_val_t * val = ti_val_from_vup(&vup);
 
         if (!val)  /* both <0 and >0 are not correct since we should have n values */
         {
@@ -967,6 +1287,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case 'd':
         if (mp_str_eq(&mp_job, "del"))
             return job__del(thing, up);
+        if (mp_str_eq(&mp_job, "del_enum"))
+            return job__del_enum(thing, up);
         if (mp_str_eq(&mp_job, "del_type"))
             return job__del_type(thing, up);
         if (mp_str_eq(&mp_job, "del_procedure"))
@@ -979,6 +1301,12 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__new_procedure(thing, up);
         break;
     case 'm':
+        if (mp_str_eq(&mp_job, "mod_enum_add"))
+            return job__mod_enum_add(thing, up);
+        if (mp_str_eq(&mp_job, "mod_enum_del"))
+            return job__mod_enum_del(thing, up);
+        if (mp_str_eq(&mp_job, "mod_enum_mod"))
+            return job__mod_enum_mod(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_add"))
             return job__mod_type_add(thing, up, ev_id);
         if (mp_str_eq(&mp_job, "mod_type_del"))
@@ -995,6 +1323,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__set(thing, up);
         if (mp_str_eq(&mp_job, "splice"))
             return job__splice(thing, up);
+        if (mp_str_eq(&mp_job, "set_enum"))
+            return job__set_enum(thing, up);
         if (mp_str_eq(&mp_job, "set_type"))
             return job__set_type(thing, up);
         break;

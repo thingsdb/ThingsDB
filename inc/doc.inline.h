@@ -19,6 +19,7 @@ static inline const char * doc_len(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_LEN;
     case TI_VAL_ARR:            return DOC_LIST_LEN;
     case TI_VAL_SET:            return DOC_SET_LEN;
+    case TI_VAL_MEMBER:         return doc_len(VMEMBER(val));
     default:                    return NULL;
     }
 }

@@ -15,6 +15,7 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ex.h>
 #include <ti/type.h>
 #include <ti/types.h>
+#include <ti/enums.h>
 #include <ti/val.h>
 
 ti_collection_t * ti_collection_create(
@@ -43,6 +44,7 @@ struct ti_collection_s
     vec_t * procedures;     /* ti_procedure_t */
     ti_thing_t * root;
     ti_types_t * types;
+    ti_enums_t * enums;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
 };
 

@@ -37,6 +37,14 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mod_arr(self, client):
+        await client.query(r'''
+            set_type('X', {arr: '[str?]'});
+            x = X{arr: [nil]};
+            .x = X{arr: [nil]};
+            mod_type('X', 'add', 'arr2', '[str]', [""]);
+        ''')
+
     async def test_set_prop(self, client):
         await client.query(r'''
             set_type('Pet', {});
@@ -148,6 +156,144 @@ class TestType(TestBase):
         self.assertEqual(iris_node0, iris_node1)
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
+
+    async def test_enum_wrap_thing(self, client0):
+        await client0.query(r'''
+            set_type('TColor', {
+                name: 'str',
+                code: 'str'
+            });
+            set_enum('Color', {
+                RED: TColor{
+                    name: 'red',
+                    code: 'ff0000'
+                },
+                GREEN: TColor{
+                    name: 'red',
+                    code: '00ff00'
+                },
+                BLUE: TColor{
+                    name: 'blue',
+                    code: '0000ff'
+                }
+            });
+            set_type('Brick', {
+                part_nr: 'int',
+                color: 'Color',
+            });
+
+            set_type('Brick2', {
+                part_nr: 'int',
+                color: 'thing',
+            });
+
+            .bricks = [
+                Brick{
+                    part_nr: 12,
+                    color: Color{RED}
+                },
+                Brick2{
+                    part_nr: 13,
+                    color: Color{GREEN}.value()
+                },
+                {
+                    part_nr: 14,
+                    color: Color{BLUE}
+                },
+                {
+                    part_nr: 15,
+                    color: {
+                        name: 'magenta',
+                        code: 'ff00ff'
+                    }
+                },
+                {
+                    part_nr: 16,
+                    color: TColor{
+                        name: 'yellow',
+                        code: 'ffff00'
+                    }
+                },
+            ];
+
+            set_type('_Name', {
+                name: 'str'
+            });
+
+            set_type('_ColorName', {
+                color: '_Name'
+            });
+        ''')
+
+        brick_color_names = await client0.query(r'''
+            return(.bricks.map(|b| b.wrap('_ColorName')), 2);
+        ''')
+
+        self.assertEqual(len(brick_color_names), 5)
+        for brick in brick_color_names:
+            self.assertIn('#', brick)
+            self.assertIn('color', brick)
+            self.assertEqual(len(brick), 2)
+            color = brick['color']
+            self.assertIn('#', color)
+            self.assertIn('name', color)
+            self.assertEqual(len(color), 2)
+
+    async def test_enum_wrap_int(self, client0):
+        await client0.query(r'''
+            set_type('TColor', {
+                name: 'str',
+                code: 'str'
+            });
+            set_enum('Color', {
+                RED: 0,
+                GREEN: 1,
+                BLUE: 2,
+            });
+            set_type('Brick', {
+                part_nr: 'int',
+                color: 'Color',
+            });
+
+            set_type('Brick2', {
+                part_nr: 'int',
+                color: 'uint',
+            });
+
+            .bricks = [
+                Brick{
+                    part_nr: 12,
+                    color: Color{RED}
+                },
+                Brick2{
+                    part_nr: 13,
+                    color: Color{GREEN}.value()
+                },
+                {
+                    part_nr: 14,
+                    color: Color{BLUE}
+                },
+                {
+                    part_nr: 15,
+                    color: 3
+                },
+            ];
+
+            set_type('_Color', {
+                color: 'int'
+            });
+        ''')
+
+        bricks = await client0.query(r'''
+            return(.bricks.map(|b| b.wrap('_Color')), 2);
+        ''')
+
+        self.assertEqual(len(bricks), 4)
+        for brick in bricks:
+            self.assertEqual(len(brick), 2)
+            self.assertIn('#', brick)
+            self.assertIn('color', brick)
+            self.assertIsInstance(brick['color'], int)
 
     async def test_wrap(self, client0):
         only_name = await client0.query(r'''
@@ -532,7 +678,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'property `toe` already exist on type `Tac`'):
+                r'property `toe` already exists on type `Tac`'):
             await client.query(r'''
                 mod_type('Tac', 'add', 'toe', 'any');
             ''')

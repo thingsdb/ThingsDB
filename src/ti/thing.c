@@ -9,6 +9,7 @@
 #include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/enums.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
@@ -235,7 +236,7 @@ void ti_thing_clear(ti_thing_t * thing)
     }
 }
 
-int ti_thing_props_from_unp(
+int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
         size_t sz,
@@ -261,7 +262,7 @@ int ti_thing_props_from_unp(
         }
 
         name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
-        val = ti_val_from_unp_e(vup, e);
+        val = ti_val_from_vup_e(vup, e);
 
         if (!val || !name || ti_val_make_assignable(&val, thing, name, e) ||
             !ti_thing_o_prop_set(thing, name, val))
@@ -276,7 +277,7 @@ int ti_thing_props_from_unp(
     return e->nr;
 }
 
-ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
+ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     ti_thing_t * thing;
 
@@ -295,7 +296,7 @@ ti_thing_t * ti_thing_new_from_unp(ti_vup_t * vup, size_t sz, ex_t * e)
         return NULL;
     }
 
-    if (ti_thing_props_from_unp(thing, vup, sz, e))
+    if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
         ti_val_drop((ti_val_t *) thing);
         return NULL;  /* error is set */
@@ -687,7 +688,7 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, is_collection ? 5 : 3);
+    msgpack_pack_map(&pk, is_collection ? 6 : 3);
 
     mp_pack_str(&pk, "event");
     msgpack_pack_uint64(&pk, ti.node->cevid);
@@ -703,6 +704,8 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
     }
 
     if (is_collection && (
+            mp_pack_str(&pk, "enums") ||
+            ti_enums_to_pk(collection->enums, &pk) ||
             mp_pack_str(&pk, "types") ||
             ti_types_to_pk(collection->types, &pk) ||
             mp_pack_str(&pk, "procedures") ||

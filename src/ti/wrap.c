@@ -118,6 +118,13 @@ static int wrap__field_val(
                 pk,
                 t_field->nested_spec,
                 options);
+    case TI_VAL_MEMBER:
+        return wrap__field_val(
+                t_field,
+                spec,
+                VMEMBER(val),
+                pk,
+                options);
     }
 
     assert(0);

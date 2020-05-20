@@ -92,7 +92,7 @@ int ti_store_procedures_restore(
         ) goto fail1;
 
         rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
-        closure = (ti_closure_t *) ti_val_from_unp(&vup);
+        closure = (ti_closure_t *) ti_val_from_vup(&vup);
         procedure = NULL;
 
         if (!rname ||

@@ -622,6 +622,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_BOOL:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
     case TI_VAL_FLOAT:
     case TI_VAL_INT:
     case TI_VAL_MP:

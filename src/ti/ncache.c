@@ -60,9 +60,6 @@ int ncache__gen_immutable(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_IMMUTABLE);
-
-    nd = nd->children->node;
     switch (nd->cl_obj->gid)
     {
     case CLERI_GID_T_CLOSURE:
@@ -99,21 +96,6 @@ int ncache__gen_immutable(
         break;
     case CLERI_GID_T_STRING:
         nd->data = ti_str_from_ti_string(nd->str, nd->len);
-        break;
-    case CLERI_GID_T_TEMPLATE:
-        for(cleri_children_t * child = nd      /* sequence */
-                ->children->next->node          /* repeat */
-                ->children;
-            child;
-            child = child->next)
-            if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE &&
-                ncache__statement(
-                        syntax,
-                        vcache,
-                        child->node->children->next->node,
-                        e))
-                return e->nr;
-        (void) ti_template_build(nd);
         break;
     default:
         return 0;
@@ -212,6 +194,41 @@ static inline int ncache__thing(
     return e->nr;
 }
 
+static int ncache__enum(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    nd->data = NULL;  /* member value */
+
+    nd = nd->children->next->node;
+    switch(nd->cl_obj->gid)
+    {
+    case CLERI_GID_NAME:
+        nd->data = vcache;  /* trick so we can assign a enum value to the
+                               correct cache */
+        break;
+    case CLERI_GID_T_CLOSURE:
+        if (ncache__statement(
+                    syntax,
+                    vcache,
+                    nd->children->next->next->next->node,
+                    e))
+            return e->nr;
+        nd->data = ti_closure_from_node(
+                nd,
+                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
+                            ? TI_VFLAG_CLOSURE_BTSCOPE
+                            : TI_VFLAG_CLOSURE_BCSCOPE);
+        if (nd->data)
+            VEC_push(vcache, nd->data);
+        else
+            ex_set_mem(e);
+    }
+    return e->nr;
+}
+
 static int ncache__varname_opt_fa(
         ti_qbind_t * syntax,
         vec_t * vcache,
@@ -241,11 +258,9 @@ static int ncache__varname_opt_fa(
                 e)
         ) || ncache__gen_name(vcache, nd->children->node, e) ? e->nr : 0;
     case CLERI_GID_INSTANCE:
-        return ncache__thing(
-                syntax,
-                vcache,
-                nd->children->next->node,
-                e);
+        return ncache__thing(syntax, vcache, nd->children->next->node, e);
+    case CLERI_GID_ENUM_:
+        return ncache__enum(syntax, vcache, nd->children->next->node, e);
     }
 
     assert (0);
@@ -278,6 +293,36 @@ static int ncache__chain(
     return e->nr;
 }
 
+static int ncache__gen_template(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    for(cleri_children_t * child = nd       /* sequence */
+            ->children->next->node          /* repeat */
+            ->children;
+        child;
+        child = child->next)
+        if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE &&
+            ncache__statement(
+                    syntax,
+                    vcache,
+                    child->node->children->next->node,
+                    e))
+            return e->nr;
+
+    if (ti_template_build(nd) == 0)
+    {
+        assert (vec_space(vcache));
+        VEC_push(vcache, nd->data);
+    }
+    else
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
 static int ncache__expr_choice(
         ti_qbind_t * syntax,
         vec_t * vcache,
@@ -293,8 +338,43 @@ static int ncache__expr_choice(
         if (!nd->data)
             ex_set_mem(e);
         return e->nr;
-    case CLERI_GID_IMMUTABLE:
-        return ncache__gen_immutable(syntax, vcache, nd, e);
+    case CLERI_GID_T_CLOSURE:
+        if (ncache__statement(
+                    syntax,
+                    vcache,
+                    nd->children->next->next->next->node,
+                    e))
+            return e->nr;
+        nd->data = ti_closure_from_node(
+                nd,
+                (syntax->flags & TI_QBIND_FLAG_THINGSDB)
+                            ? TI_VFLAG_CLOSURE_BTSCOPE
+                            : TI_VFLAG_CLOSURE_BCSCOPE);
+        break;
+    case CLERI_GID_T_FLOAT:
+        nd->data = ti_vfloat_create(strx_to_double(nd->str));
+        break;
+    case CLERI_GID_T_INT:
+    {
+        int64_t i = strx_to_int64(nd->str);
+        if (errno == ERANGE)
+        {
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            return e->nr;
+        }
+        nd->data = ti_vint_create(i);
+        break;
+    }
+    case CLERI_GID_T_REGEX:
+        nd->data = ti_regex_from_strn(nd->str, nd->len, e);
+        if (!nd->data)
+            return e->nr;
+        break;
+    case CLERI_GID_T_STRING:
+        nd->data = ti_str_from_ti_string(nd->str, nd->len);
+        break;
+    case CLERI_GID_TEMPLATE:
+        return ncache__gen_template(syntax, vcache, nd, e);
     case CLERI_GID_VAR_OPT_MORE:
         return ncache__varname_opt_fa(syntax, vcache, nd, e);
     case CLERI_GID_THING:
@@ -328,9 +408,18 @@ static int ncache__expr_choice(
                 e);
     case CLERI_GID_PARENTHESIS:
         return ncache__statement(syntax, vcache, nd->children->next->node, e);
+    default:
+        return e->nr;
     }
 
-    assert (0);
+    /* immutable values should `break` in the switch statement above */
+    assert (vec_space(vcache));
+
+    if (nd->data)
+        VEC_push(vcache, nd->data);
+    else
+        ex_set_mem(e);
+
     return e->nr;
 }
 

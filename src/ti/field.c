@@ -353,6 +353,17 @@ skip_nesting:
                 return e->nr;
             }
 
+            if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
+            {
+                ex_set(e, EX_VALUE_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "type `"TI_VAL_SET_S"` cannot contain enum type `%.*s`"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name,
+                    (int) n, str);
+                return e->nr;
+            }
+
             /* When an enum is cast to a type, the enum_id becomes type_id */
             *spec |= dep->type_id | TI_ENUM_ID_FLAG;
         }

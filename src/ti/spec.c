@@ -311,7 +311,7 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_ARR:           return TI_VAL_LIST_S;
     case TI_SPEC_SET:           return TI_VAL_SET_S;
     }
-    return "thing";
+    return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
 
 ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)

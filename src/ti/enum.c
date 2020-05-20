@@ -75,8 +75,8 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     case TI_VAL_THING:          enum_->enum_tp = TI_ENUM_THING;  break;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "enum `%s` cannot be created; "
-                "enumerators cannot be created for values of type `%s`"
+                "failed to create enum type `%s`; "
+                "enumerators cannot be created for values with type `%s`"
                 DOC_T_ENUM,
                 enum_->name,
                 ti_val_str(val));

@@ -64,6 +64,12 @@ class TestEnum(TestBase):
                 'but got type `nil` instead'):
             await client.query(r'''set_enum('Color', nil);''')
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create enum type `Color`; enumerators cannot '
+                r'be created for values with type `bool`'):
+            await client.query(r'''set_enum('Color', {X: true});''')
+
         await client.query(r'''
             set_type('Brick', {
                 color: 'str'

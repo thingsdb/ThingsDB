@@ -288,7 +288,6 @@ class TestType(TestBase):
             return(.bricks.map(|b| b.wrap('_Color')), 2);
         ''')
 
-        print(bricks)
         self.assertEqual(len(bricks), 4)
         for brick in bricks:
             self.assertEqual(len(brick), 2)

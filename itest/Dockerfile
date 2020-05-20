@@ -1,4 +1,4 @@
-FROM ubuntu:19.10 as builder
+FROM ubuntu:20.04 as builder
 RUN apt-get update && \
     apt-get install -y \
         git \
@@ -17,7 +17,7 @@ COPY ./inc/ ./inc/
 COPY ./Release/ ./Release/    
 RUN cd ./Release && \
     make clean && \
-    CFLAGS="-Werror" make
+    CFLAGS="-Werror -Winline" make
 
 FROM python
 RUN apt-get update && \

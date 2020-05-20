@@ -551,7 +551,7 @@ void ti_val_destroy(ti_val_t * val)
         return;
     case TI_VAL_MEMBER:
         ti_member_destroy((ti_member_t *) val);
-        break;
+        return;
     case TI_VAL_TEMPLATE:
         ti_template_destroy((ti_template_t *) val);
         return;

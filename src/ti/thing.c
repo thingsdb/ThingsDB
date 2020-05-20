@@ -9,6 +9,7 @@
 #include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/enums.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
@@ -687,7 +688,7 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, is_collection ? 5 : 3);
+    msgpack_pack_map(&pk, is_collection ? 6 : 3);
 
     mp_pack_str(&pk, "event");
     msgpack_pack_uint64(&pk, ti.node->cevid);
@@ -703,6 +704,8 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
     }
 
     if (is_collection && (
+            mp_pack_str(&pk, "enums") ||
+            ti_enums_to_pk(collection->enums, &pk) ||
             mp_pack_str(&pk, "types") ||
             ti_types_to_pk(collection->types, &pk) ||
             mp_pack_str(&pk, "procedures") ||

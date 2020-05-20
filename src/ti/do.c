@@ -937,7 +937,6 @@ static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
             break;
 
     assert (idx < vec->n);
-
     vec_swap_remove(vec, idx);
     ti_member_drop(member);
     enum_nd->data = NULL;

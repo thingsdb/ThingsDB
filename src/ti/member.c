@@ -74,12 +74,15 @@ void ti_member_destroy(ti_member_t * member)
 
 void ti_member_drop(ti_member_t * member)
 {
-    ti_name_drop(member->name);
-    ti_val_drop(member->val);
+    ti_name_t * name = member->name;
+    ti_val_t * val = member->val;
 
     member->name = NULL;
     member->val = NULL;
     member->enum_ = NULL;
+
+    ti_name_drop(name);
+    ti_val_drop(val);
 
     if (!--member->ref)
         ti_member_destroy(member);

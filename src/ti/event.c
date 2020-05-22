@@ -254,7 +254,12 @@ void ti_event_missing_event(uint64_t event_id)
 
     node = ti_nodes_random_ready_node();
     if (!node)
+    {
+        log_warning(
+                "cannot find a ready node to ask for missing"TI_EVENT_ID,
+                event_id);
         return;
+    }
 
     if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
         return;
@@ -270,6 +275,10 @@ void ti_event_missing_event(uint64_t event_id)
         free(pkg);
     else
         event__req_id = event_id;
+
+    log_warning(
+            "request missing "TI_EVENT_ID" from "TI_NODE_ID,
+            event_id, node->id);
 }
 
 /* (Log function)

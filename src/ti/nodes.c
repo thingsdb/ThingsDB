@@ -1045,7 +1045,7 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
     if (epkg)
         (void) ti_stream_write_rpkg(stream, (ti_rpkg_t *) epkg);
 
-    log_info("%s missing "TI_EVENT_ID"; (request from "TI_NODE_ID")",
+    log_warning("%s missing "TI_EVENT_ID"; (request from "TI_NODE_ID")",
             epkg ? "respond with event to" : "cannot find",
             mp_id.via.u64,
             other_node->id);

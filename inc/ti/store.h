@@ -28,8 +28,8 @@ struct ti_store_s
     char * tmp_path;
     char * users_fn;
     size_t fn_offset;
-    vec_t * collection_ids;      /* stored collection id's, uint64_t */
-    uint64_t last_stored_event_id;
+    vec_t * collection_ids;         /* stored collection id's, uint64_t */
+    uint64_t last_stored_event_id;  /* last event ID in full database store */
 };
 
 #endif /* TI_STORE_H_ */

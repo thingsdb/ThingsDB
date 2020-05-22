@@ -91,7 +91,7 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
                 (int) enums->collection->name->n,
                 (const char *) enums->collection->name->data,
                 fn);
-        return 0;
+        return ti_store_enums_store(enums, fn);
     }
 
     fx_mmap_init(&fmap, fn);

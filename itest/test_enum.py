@@ -105,6 +105,16 @@ class TestEnum(TestBase):
                 'enum `Color` already exists'):
             await client.query(r'''set_enum('Color', {X: 1});''')
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `colors` on type `FailSpec`; '
+                r'type `set` cannot contain enum type `Color`'):
+            await client.query(r'''
+                set_type('FailSpec', {
+                    colors: '{Color}'
+                });
+            ''')
+
     async def test_enum(self, client):
         self.assertIs(await client.query(r'''
             set_enum('Color', {

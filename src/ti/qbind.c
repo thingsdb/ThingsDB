@@ -535,6 +535,8 @@ static _Bool qbind__operations(
     uint32_t gid = parent->node->children->next->node->cl_obj->gid;
     cleri_children_t * childb = parent->node->children->next->next;
 
+    parent->node->data = ti_do_operations;
+
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);
 
@@ -846,6 +848,8 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
     intptr_t nots = 0;
     assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
+    nd->data = ti_do_expression;
+
     for (child = nd->children->node->children; child; child = child->next)
         ++nots;
 
@@ -878,7 +882,6 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__operations(qbind, nd->children, 0);
         return;
     }
-    assert (0);
 }
 
 /*

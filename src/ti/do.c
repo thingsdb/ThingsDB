@@ -463,7 +463,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
     assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
@@ -1106,7 +1106,7 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_template_compile(nd->data, query, e);
 }
 
-static int do__expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int nots = (int) ((intptr_t) nd->children->node->data);
     cleri_children_t * child = nd               /* sequence */
@@ -1295,23 +1295,4 @@ nots:
     }
 
     return e->nr;
-}
-
-int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
-    assert (query->rval == NULL);
-
-    nd = nd->children->node;
-
-    switch (nd->cl_obj->gid)
-    {
-    case CLERI_GID_EXPRESSION:
-        return do__expression(query, nd, e);
-    case CLERI_GID_OPERATIONS:
-        return do__operations(query, nd, e);
-    }
-
-    assert (0);
-    return -1;
 }

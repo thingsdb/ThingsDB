@@ -7,7 +7,20 @@
 #include <ti/query.h>
 #include <cleri/cleri.h>
 #include <ex.h>
+#include <langdef/langdef.h>
 
-int ti_do_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+typedef int (*ti_do_cb)(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+
+int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+
+static inline int ti_do_statement(
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    /* Calls ti_do_expression(..) or ti_do_operations(..) */
+    return ((ti_do_cb) nd->children->node->data)(query, nd->children->node, e);
+}
 
 #endif /* TI_DO_H_ */

@@ -1374,6 +1374,48 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
+{
+    size_t alloc = 96 + member->name->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_enum_ren");
+    msgpack_pack_map(&pk, 4);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+
+    mp_pack_str(&pk, "index");
+    msgpack_pack_uint16(&pk, member->idx);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, member->name->str, member->name->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_)
 {
     size_t alloc = 64;

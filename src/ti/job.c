@@ -571,6 +571,69 @@ static int job__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
+static int job__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    ti_member_t * member;
+    ti_name_t * name;
+    mp_obj_t obj, mp_id, mp_index, mp_modified, mp_name;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_index) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical(
+                "job `mod_enum_ren` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    member = ti_enum_member_by_idx(enum_, mp_index.via.u64);
+    if (!member)
+    {
+        log_critical(
+                "job `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %u; index %"PRIu64" out of range",
+                collection->root->id, enum_->enum_id, mp_index.via.u64);
+        return -1;
+    }
+
+    (void) ti_member_set_name(
+            member,
+            mp_name.via.str.data,
+            mp_name.via.str.n,
+            &e);
+
+    if (e.nr)
+        log_critical(e.msg);
+    else
+        /* update modified time-stamp */
+        enum_->modified_at = mp_modified.via.u64;
+
+    return e.nr;
+}
+
+/*
+ * Returns 0 on success
+ */
 static int job__mod_type_add(
         ti_thing_t * thing,
         mp_unp_t * up,
@@ -1307,6 +1370,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__mod_enum_del(thing, up);
         if (mp_str_eq(&mp_job, "mod_enum_mod"))
             return job__mod_enum_mod(thing, up);
+        if (mp_str_eq(&mp_job, "mod_enum_ren"))
+            return job__mod_enum_ren(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_add"))
             return job__mod_type_add(thing, up, ev_id);
         if (mp_str_eq(&mp_job, "mod_type_del"))

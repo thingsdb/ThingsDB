@@ -135,6 +135,56 @@ static void enum__mod(
         ex_set_mem(e);
 }
 
+static void enum__ren(
+        ti_query_t * query,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+    static const char * fnname = "mod_enum` with task `ren";
+    cleri_children_t * child;
+    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_task_t * task;
+    ti_raw_t * rname;
+
+    if (fn_nargs(fnname, DOC_MOD_ENUM_REN, 4, nargs, e))
+        return;
+
+    child = nd->children->next->next->next->next->next->next;
+
+    if (!member)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%s` has no member `%s`",
+                enum_->name, name->str);
+        return;
+    }
+
+    if (ti_do_statement(query, child->node, e) ||
+        fn_arg_str(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
+        return;
+
+    if (ti_opr_eq(member->name, query->rval))
+        return;  /* do nothing, name is equal to current name */
+
+    rname = (ti_raw_t *) query->rval;
+
+    if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
+        return;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        return;
+
+    /* update modified time-stamp */
+    enum_->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_enum_ren(task, member))
+        ex_set_mem(e);
+}
+
 static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_enum_t * enum_;
@@ -198,9 +248,15 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    if (ti_raw_eq_strn(rmod, "ren", 3))
+    {
+        enum__ren(query, enum_, name, nd, e);
+        goto done;
+    }
+
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_enum` expects argument 2 to be "
-            "`add`, `del` or `mod` but got `%.*s` instead"DOC_MOD_ENUM,
+            "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_ENUM,
             (int) rmod->n, (const char *) rmod->data);
 
 done:

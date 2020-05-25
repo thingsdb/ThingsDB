@@ -105,3 +105,33 @@ int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
 
     return 0;
 }
+
+int ti_member_set_name(
+        ti_member_t * member,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (ti_enum_member_by_strn(member->enum_, s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "member `%s` on `%s` already exists"DOC_T_ENUM,
+                member->name->str,
+                member->enum_->name);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    ti_name_drop(member->name);
+    member->name = name;
+
+    return 0;
+}

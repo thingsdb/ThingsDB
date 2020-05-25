@@ -466,7 +466,6 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
-    assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
     assert (query->rval == NULL);
 
     switch (nd->children->next->node->cl_obj->gid)
@@ -928,7 +927,6 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
 {
     ti_member_t * member = enum_nd->data;
-
     vec_t * vec = enum_nd->children->next->node->data;
     uint32_t idx = 0;
 

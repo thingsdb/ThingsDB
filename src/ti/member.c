@@ -3,6 +3,7 @@
  */
 
 #include <ti/member.h>
+#include <ti/names.h>
 #include <doc.h>
 
 /*
@@ -74,6 +75,12 @@ void ti_member_destroy(ti_member_t * member)
 
 void ti_member_drop(ti_member_t * member)
 {
+    if (member && !--member->ref)
+        ti_member_destroy(member);
+}
+
+void ti_member_remove(ti_member_t * member)
+{
     ti_name_t * name = member->name;
     ti_val_t * val = member->val;
 
@@ -84,14 +91,13 @@ void ti_member_drop(ti_member_t * member)
     ti_name_drop(name);
     ti_val_drop(val);
 
-    if (!--member->ref)
-        ti_member_destroy(member);
+    ti_member_drop(member);
 }
 
 void ti_member_del(ti_member_t * member)
 {
     ti_enum_del_member(member->enum_, member);
-    ti_member_drop(member);
+    ti_member_remove(member);
 }
 
 int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
@@ -112,26 +118,33 @@ int ti_member_set_name(
         size_t n,
         ex_t * e)
 {
-    ti_name_t * name;
-
-    if (ti_enum_member_by_strn(member->enum_, s, n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "member `%s` on `%s` already exists"DOC_T_ENUM,
-                member->name->str,
-                member->enum_->name);
-        return e->nr;
-    }
-
-    name = ti_names_get(s, n);
+    ti_name_t * name = ti_names_get(s, n);
     if (!name)
     {
         ex_set_mem(e);
         return e->nr;
     }
 
+    switch(smap_add(member->enum_->smap, name->str, member))
+    {
+    case SMAP_ERR_ALLOC:
+        ex_set_mem(e);
+        goto fail0;
+    case SMAP_ERR_EXIST:
+        ex_set(e, EX_VALUE_ERROR,
+                "member `%s` on `%s` already exists"DOC_T_ENUM,
+                name->str,
+                member->enum_->name);
+        goto fail0;
+    }
+
+    (void) smap_pop(member->enum_->smap, member->name->str);
     ti_name_drop(member->name);
     member->name = name;
 
     return 0;
+
+fail0:
+    ti_name_drop(name);
+    return e->nr;
 }

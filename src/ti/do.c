@@ -948,7 +948,14 @@ static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (enum_nd->data)
     {
         ti_member_t * member = enum_nd->data;
-        if (member->enum_)
+        cleri_node_t * name_nd = enum_nd->children->next->node;
+
+        /* enum_ is set to NULL when the enum is removed;
+         * the name must be checked to support a rename of the member name;
+         */
+        if (member->enum_ &&
+            member->name->n == name_nd->len &&
+            !memcmp(member->name->str, name_nd->str, name_nd->len))
         {
             ti_incref(member);
             query->rval = (ti_val_t *) member;

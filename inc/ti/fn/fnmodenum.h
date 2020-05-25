@@ -166,7 +166,7 @@ static void enum__ren(
         fn_arg_str(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
         return;
 
-    if (ti_opr_eq(member->name, query->rval))
+    if (ti_opr_eq((ti_val_t *) member->name, query->rval))
         return;  /* do nothing, name is equal to current name */
 
     rname = (ti_raw_t *) query->rval;

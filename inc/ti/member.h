@@ -22,6 +22,7 @@ ti_member_t * ti_member_create(
         ex_t * e);
 void ti_member_destroy(ti_member_t * member);
 void ti_member_drop(ti_member_t * member);
+void ti_member_remove(ti_member_t * member);
 void ti_member_del(ti_member_t * member);
 int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e);
 int ti_member_set_name(

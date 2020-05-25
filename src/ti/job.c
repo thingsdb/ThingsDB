@@ -577,7 +577,6 @@ static int job__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
     ti_collection_t * collection = thing->collection;
     ti_enum_t * enum_;
     ti_member_t * member;
-    ti_name_t * name;
     mp_obj_t obj, mp_id, mp_index, mp_modified, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||

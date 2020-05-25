@@ -838,7 +838,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     }
     case CLERI_GID_PARENTHESIS:
         qbind__statement(qbind, nd->children->next->node);
-        return;
     }
 }
 
@@ -880,7 +879,6 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         return;
     case CLERI_GID_OPERATIONS:
         qbind__operations(qbind, nd->children, 0);
-        return;
     }
 }
 
@@ -902,9 +900,9 @@ void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 
     if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
     {
-        cleri_children_t * child = nd->children;
-
-        for (; child; child = child->next->next)
+        for (cleri_children_t * child = nd->children;
+             child;
+             child = child->next->next)
         {
             qbind__statement(qbind, child->node);   /* statement */
 

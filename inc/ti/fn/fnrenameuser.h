@@ -13,7 +13,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("rename_user", DOC_RENAME_USER, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("rename_user", DOC_RENAME_USER, 1, query->rval, e))
+        fn_arg_str_slow("rename_user", DOC_RENAME_USER, 1, query->rval, e))
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;
@@ -25,7 +25,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
-        fn_arg_str("rename_user", DOC_RENAME_USER, 2, query->rval, e))
+        fn_arg_str_slow("rename_user", DOC_RENAME_USER, 2, query->rval, e))
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;

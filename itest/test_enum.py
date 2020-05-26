@@ -265,8 +265,8 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'function `mod_enum` expects argument 2 to be `add`, `del` '
-                r'or `mod` but got `x` instead'):
+                r'function `mod_enum` expects argument 2 to be `add`, `del`, '
+                r'`mod` or `ren` but got `x` instead'):
             await client.query(r'mod_enum("Color", "x", "x");')
 
         # Section ADD
@@ -288,6 +288,14 @@ class TestEnum(TestBase):
                 r'used by `Color{GREEN}`'):
             await client.query(r'''
                 mod_enum("Color", "add", "YELLOW", "#00FF00");
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_enum` expects argument 3 to '
+                r'follow the naming rules'):
+            await client.query(r'''
+                mod_enum("Color", "add", "#YELLOW", "#0000FF");
             ''')
 
         with self.assertRaisesRegex(
@@ -348,6 +356,44 @@ class TestEnum(TestBase):
                 mod_enum("Color", "mod", "YELLOW", "#EEEE11");
             '''), None)
 
+        # Section REN
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_enum` with task `ren` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'mod_enum("Color", "ren", "x");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `x'):
+            await client.query(r'mod_enum("Color", "ren", "x", "y");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_enum` with task `ren` expects argument 4 to '
+                r'be of type `str` but got type `int` instead'):
+            await client.query(r'mod_enum("Color", "ren", "YELLOW", 1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'member name must follow the naming rules'):
+            await client.query(r'mod_enum("Color", "ren", "YELLOW", "#Y");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'member `RED` on `Color` already exists'):
+            await client.query(r'''
+                mod_enum("Color", "ren", "YELLOW", "RED");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "ren", "YELLOW", "ORANGE");
+            '''), None)
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "ren", "ORANGE", "ORANGE");
+            '''), None)
+
         # Section DEL
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -368,12 +414,12 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'enum member `Color{YELLOW}` is still being used'):
-            await client.query(r'mod_enum("Color", "del", "YELLOW");')
+                r'enum member `Color{ORANGE}` is still being used'):
+            await client.query(r'mod_enum("Color", "del", "ORANGE");')
 
         self.assertIs(await client.query(r'''
                 .del("color");
-                mod_enum("Color", "del", "YELLOW");
+                mod_enum("Color", "del", "ORANGE");
             '''), None)
 
     async def test_has_enum(self, client):

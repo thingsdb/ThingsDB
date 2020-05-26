@@ -9,6 +9,7 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
+#include <ti/fn/fn.h>
 #include <ti/fn/fnadd.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnbackupinfo.h>

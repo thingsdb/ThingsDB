@@ -621,6 +621,43 @@ success:
     return 0;
 }
 
+int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_field_by_name(field->type, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "property `%s` already exists on type `%s`"DOC_T_TYPE,
+                name->str,
+                field->type->name);
+        goto fail0;
+    }
+
+    ti_name_drop(field->name);
+    field->name = name;
+
+    return 0;
+
+fail0:
+    ti_name_drop(name);
+    return e->nr;
+}
+
 static void field__del_watch(
         ti_thing_t * thing,
         ti_data_t * data,

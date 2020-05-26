@@ -68,6 +68,10 @@ int ti_task_add_mod_type_del(
         ti_type_t * type,
         ti_name_t * name);
 int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field);
+int ti_task_add_mod_type_ren(
+        ti_task_t * task,
+        ti_field_t * field,
+        ti_name_t * oldname);
 int ti_task_add_del_node(ti_task_t * task, uint32_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
@@ -92,6 +96,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member);
+int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
 
 struct ti_task_s

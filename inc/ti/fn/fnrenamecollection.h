@@ -20,7 +20,12 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
-        fn_arg_str("rename_collection", DOC_RENAME_COLLECTION, 2, query->rval, e) ||
+        fn_arg_str_slow(
+                "rename_collection",
+                DOC_RENAME_COLLECTION,
+                2,
+                query->rval,
+                e) ||
         ti_collection_rename(collection, (ti_raw_t *) query->rval, e) ||
         !(task = ti_task_get_task(query->ev, ti.thing0, e)))
         return e->nr;

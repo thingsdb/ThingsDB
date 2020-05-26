@@ -31,7 +31,7 @@ static void type__add(
 
     if (!task ||
         ti_do_statement(query, child->node, e) ||
-        fn_arg_str(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
+        fn_arg_str_slow(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
         return;
 
     n = ti_query_count_type(query, type);
@@ -220,7 +220,7 @@ static void type__mod(
             query,
             nd->children->next->next->next->next->next->next->node,
             e) ||
-        fn_arg_str(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
+        fn_arg_str_slow(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
         return;
 
     n = ti_query_count_type(query, type);
@@ -271,7 +271,7 @@ static void type__ren(
             query,
             nd->children->next->next->next->next->next->next->node,
             e) ||
-        fn_arg_str(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
+            fn_arg_str_slow(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
         return;
 
     if (ti_opr_eq((ti_val_t *) field->name, query->rval))
@@ -310,7 +310,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
         ti_do_statement(query, child->node, e) ||
-        fn_arg_str("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
+        fn_arg_str_slow("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
         return e->nr;
 
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);

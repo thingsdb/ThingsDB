@@ -153,6 +153,13 @@ static inline int fn_arg_str(
     return e->nr;
 }
 
+int fn_arg_str_slow(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e);
+
 static inline int fn_arg_int(
         const char * name,
         const char * doc,

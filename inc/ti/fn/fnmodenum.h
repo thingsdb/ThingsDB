@@ -163,7 +163,7 @@ static void enum__ren(
     }
 
     if (ti_do_statement(query, child->node, e) ||
-        fn_arg_str(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
+        fn_arg_str_slow(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
         return;
 
     if (ti_opr_eq((ti_val_t *) member->name, query->rval))
@@ -196,7 +196,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_collection_scope("mod_enum", query, e) ||
         fn_nargs_min("mod_enum", DOC_MOD_ENUM, 3, nargs, e) ||
         ti_do_statement(query, child->node, e) ||
-        fn_arg_str("mod_enum", DOC_MOD_ENUM, 1, query->rval, e))
+        fn_arg_str_slow("mod_enum", DOC_MOD_ENUM, 1, query->rval, e))
         return e->nr;
 
     enum_ = ti_enums_by_raw(query->collection->enums, (ti_raw_t *) query->rval);

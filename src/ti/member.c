@@ -118,7 +118,16 @@ int ti_member_set_name(
         size_t n,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_get(s, n);
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "member name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
     if (!name)
     {
         ex_set_mem(e);

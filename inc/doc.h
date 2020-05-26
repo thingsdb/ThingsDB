@@ -57,6 +57,7 @@
 #define DOC_MOD_TYPE_ADD            DOC_SEE("collection-api/mod_type/add")
 #define DOC_MOD_TYPE_DEL            DOC_SEE("collection-api/mod_type/del")
 #define DOC_MOD_TYPE_MOD            DOC_SEE("collection-api/mod_type/mod")
+#define DOC_MOD_TYPE_REN            DOC_SEE("collection-api/mod_type/ren")
 #define DOC_NEW                     DOC_SEE("collection-api/new")
 #define DOC_NEW_TYPE                DOC_SEE("collection-api/new_type")
 #define DOC_NOW                     DOC_SEE("collection-api/now")

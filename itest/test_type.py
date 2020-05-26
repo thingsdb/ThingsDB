@@ -403,6 +403,212 @@ class TestType(TestBase):
             mod_type('Foo', 'del', 'foo');
         ''')
 
+    async def test_mod(self, client):
+        await client.query(r'''
+            set_type('Person', {
+                name: 'str',
+                age: 'uint',
+            });
+            .iris = Person{name: 'Iris', age: 7};
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `mod_type`'):
+            await client.query('"Color".mod_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `mod_type` requires at least 3 arguments '
+                'but 0 were given'):
+            await client.query('mod_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `mod_type` expects argument 1 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query(r'mod_type(nil, nil, nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `X` not found'):
+            await client.query(r'mod_type("X", nil, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'type name must follow the naming rules'):
+            await client.query(r'mod_type("", nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_type` expects argument 2 to be of '
+                r'type `str` but got type `nil` instead'):
+            await client.query(r'mod_type("Person", nil, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_type` expects argument 2 to be `add`, `del`, '
+                r'`mod` or `ren` but got `x` instead'):
+            await client.query(r'mod_type("Person", "x", "x");')
+
+        # section ADD
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `add` requires at least 4 '
+                r'arguments but 3 were given'):
+            await client.query(r'mod_type("Person", "add", "x");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_type` with task `add` expects argument 4 '
+                r'to be of type `str` but got type `nil` instead'):
+            await client.query(r'''
+                mod_type("Person", "add", "hair_type", nil, nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `mod_type` with task `add` requires an initial '
+                r'value when adding a property to a type with one or more '
+                r'instances; '
+                r'1 active instance of type `Person` has been found'):
+            await client.query(r'''
+                mod_type("Person", "add", "hair_type", "str");
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `hair_type` on type `Person`; '
+                r'unknown type `invalid` in declaration'):
+            await client.query(r'''
+                mod_type("Person", "add", "hair_type", "invalid", nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `Person`; type `nil` is invalid '
+                r'for property `hair_type` with definition `str'):
+            await client.query(r'''
+                mod_type("Person", "add", "hair_type", "str", nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'property `age` already exists on type `Person`'):
+            await client.query(r'''
+                mod_type("Person", "add", "age", "str", 'blonde');
+            ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `Person` while the type '
+                r'is being used'):
+            await client.query(r'''
+                mod_type("Person", "add", "hair_type", {
+                    mod_type("Person", "add", "hair_type", "str", "blonde");
+                    "str";
+                }, "blonde");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "add", "hair_type", "str", "blonde");
+            '''), None)
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+
+        # section MOD
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `mod` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'mod_type("Person", "mod", "x");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property `x'):
+            await client.query(r'mod_type("Person", "mod", "x", "#EEEE11");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `int` to `hair_type` on '
+                r'type `Person`; type `Person` has 1 active instance and '
+                r'the old declaration `str` is not compatible with the new '
+                r'declaration'):
+            await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "int");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "any");
+            '''), None)
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+
+        # Section REN
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `ren` takes 4 arguments '
+                r'but 3 were given'):
+            await client.query(r'mod_type("Person", "ren", "x");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property `x'):
+            await client.query(r'mod_type("Person", "ren", "x", "y");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_type` with task `ren` expects argument 4 to '
+                r'be of type `str` but got type `int` instead'):
+            await client.query(r'mod_type("Person", "ren", "hair_type", 1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property name must follow the naming rules'):
+            await client.query(r'''
+                mod_type("Person", "ren", "hair_type", "!hair");
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `age` already exists on type `Person`'):
+            await client.query(r'''
+                mod_type("Person", "ren", "hair_type", "age");
+            ''')
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "ren", "hair_type", "hair");
+            '''), None)
+
+        self.assertEqual(await client.query(r'.iris.hair;'), "blonde")
+
+        # Section DEL
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `del` takes 3 arguments '
+                r'but 4 were given'):
+            await client.query(r'mod_type("Person", "del", "x", "y");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_type` expects argument 3 to '
+                r'follow the naming rules'):
+            await client.query(r'mod_type("Person", "del", "!");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property `x`'):
+            await client.query(r'mod_type("Person", "del", "x");')
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "del", "hair");
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property `hair`'):
+            await client.query(r'.iris.hair;')
+
     async def test_del_type(self, client):
         await client.query(r'''
             new_type('Tic');

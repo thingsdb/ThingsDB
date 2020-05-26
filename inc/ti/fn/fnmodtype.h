@@ -242,6 +242,63 @@ static void type__mod(
     }
 }
 
+static void type__ren(
+        ti_query_t * query,
+        ti_type_t * type,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `ren";
+    const int nargs = langdef_nd_n_function_params(nd);
+    ti_field_t * field = ti_field_by_name(type, name);
+    ti_task_t * task;
+    ti_name_t * oldname;
+    ti_raw_t * rname;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_REN, 4, nargs, e))
+        return;
+
+    if (!field)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no property `%s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (ti_do_statement(
+            query,
+            nd->children->next->next->next->next->next->next->node,
+            e) ||
+        fn_arg_str(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
+        return;
+
+    if (ti_opr_eq((ti_val_t *) field->name, query->rval))
+        return;  /* do nothing, name is equal to current name */
+
+    rname = (ti_raw_t *) query->rval;
+
+    oldname = field->name;
+    ti_incref(oldname);
+
+    if (ti_field_set_name(field, (const char *) rname->data, rname->n, e))
+        goto done;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        goto done;
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_type_ren(task, field, oldname))
+        ex_set_mem(e);
+
+done:
+    ti_name_drop(oldname);
+}
+
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
@@ -305,9 +362,15 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    if (ti_raw_eq_strn(rmod, "ren", 3))
+    {
+        type__ren(query, type, name, nd, e);
+        goto done;
+    }
+
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del` or `mod` but got `%.*s` instead"DOC_MOD_TYPE,
+            "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 
 done:

@@ -53,6 +53,13 @@
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
 static int fn_call_try(const char *, ti_query_t *, cleri_node_t *, ex_t *);
 
+int fn_arg_str_slow(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e);
+
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,

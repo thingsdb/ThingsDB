@@ -10,7 +10,6 @@ RM := rm -rf
 -include sources.mk
 -include src/util/subdir.mk
 -include src/ti/store/subdir.mk
--include src/ti/fn/subdir.mk
 -include src/ti/subdir.mk
 -include src/langdef/subdir.mk
 -include src/subdir.mk

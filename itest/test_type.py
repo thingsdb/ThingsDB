@@ -500,6 +500,14 @@ class TestType(TestBase):
             ''')
 
         with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_type` expects argument 3 to follow '
+                r'the naming rules'):
+            await client.query(r'''
+                mod_type("Person", "add", "!hair_type", "str", 'blonde');
+            ''')
+
+        with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change type `Person` while the type '
                 r'is being used'):

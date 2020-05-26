@@ -292,6 +292,14 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
+                r'function `mod_enum` expects argument 3 to '
+                r'follow the naming rules'):
+            await client.query(r'''
+                mod_enum("Color", "add", "#YELLOW", "#0000FF");
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
                 r'member `GREEN` on `Color` already exists'):
             await client.query(r'''
                 mod_enum("Color", "add", "GREEN", "#00FF00");

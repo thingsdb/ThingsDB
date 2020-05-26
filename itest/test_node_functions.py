@@ -42,7 +42,7 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 15)
+        self.assertEqual(len(counters), 16)
 
         self.assertIn("queries_success", counters)
         self.assertIn("queries_with_error", counters)
@@ -59,6 +59,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("longest_event_duration", counters)
         self.assertIn("average_query_duration", counters)
         self.assertIn("average_event_duration", counters)
+        self.assertIn("started_at", counters)
 
         self.assertTrue(isinstance(counters["queries_success"], int))
         self.assertTrue(isinstance(counters["queries_with_error"], int))
@@ -75,6 +76,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["longest_event_duration"], float))
         self.assertTrue(isinstance(counters["average_query_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
+        self.assertTrue(isinstance(counters["started_at"], int))
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(

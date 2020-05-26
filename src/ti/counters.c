@@ -27,7 +27,7 @@ void ti_counters_destroy(void)
 
 void ti_counters_reset(void)
 {
-    (void) clock_gettime(TI_CLOCK_MONOTONIC, &counters->reset_time);
+    counters->started_at = util_now_tsec();
     counters->queries_success = 0;
     counters->queries_with_error = 0;
     counters->watcher_failed = 0;
@@ -94,7 +94,7 @@ double ti_counters_upd_success_query(struct timespec * start)
 int ti_counters_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 15) ||
+        msgpack_pack_map(pk, 16) ||
 
         mp_pack_str(pk, "queries_success") ||
         msgpack_pack_uint64(pk, counters->queries_success) ||
@@ -143,7 +143,10 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "average_event_duration") ||
         msgpack_pack_double(pk, counters->events_committed
             ? counters->total_event_duration / counters->events_committed
-            : 0.0)
+            : 0.0) ||
+
+        mp_pack_str(pk, "started_at") ||
+        msgpack_pack_uint64(pk, counters->started_at)
     );
 }
 

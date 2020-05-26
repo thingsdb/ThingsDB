@@ -27,7 +27,7 @@ void ti_counters_destroy(void)
 
 void ti_counters_reset(void)
 {
-    (void) clock_gettime(TI_CLOCK_MONOTONIC, &counters->started_at);
+    counters->started_at = util_now_tsec();
     counters->queries_success = 0;
     counters->queries_with_error = 0;
     counters->watcher_failed = 0;
@@ -146,7 +146,7 @@ int ti_counters_to_pk(msgpack_packer * pk)
             : 0.0) ||
 
         mp_pack_str(pk, "started_at") ||
-        msgpack_pack_uint64(pk, counters->started_at.tv_sec)
+        msgpack_pack_uint64(pk, counters->started_at)
     );
 }
 

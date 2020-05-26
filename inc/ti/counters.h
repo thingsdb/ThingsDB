@@ -21,7 +21,7 @@ ti_val_t * ti_counters_as_mpval(void);
 
 struct ti_counters_s
 {
-    struct timespec started_at;     /* time when counters were reset */
+    uint64_t started_at;     /* time when counters were reset */
     uint64_t queries_success;       /* node queries where this node acted as
                                        the master node and the query was
                                        successful finished

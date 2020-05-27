@@ -608,6 +608,13 @@ static void events__loop(uv_async_t * UNUSED(handle))
                 " is already committed",
                 ev->id, *cevid_p);
 
+            /*
+             * TODO: We might create some kind of queue where to put skipped
+             *       events. The best option would probably to get the event
+             *       mixed inside the archive, so the node can mark a flag
+             *       and perform a re-load using the existing archive combined
+             *       with the skipped events.
+             */
             ++ti.counters->events_skipped;
 
             goto shift_drop_loop;

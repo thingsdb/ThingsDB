@@ -71,7 +71,7 @@ struct ti_event_s
     ti_event_via_t via;
     ti_collection_t * collection;   /* collection with reference or NULL */
     vec_t * _tasks;                 /* ti_task_t */
-    util_time_t time;           /* timing an event, used for elapsed
+    util_time_t time;               /* timing an event, used for elapsed
                                      * time etc.
                                      */
 };

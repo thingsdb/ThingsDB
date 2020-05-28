@@ -152,6 +152,7 @@
 #include <ti/fn/fnwrap.h>
 #include <ti/fn/fnwse.h>
 #include <ti/qbind.h>
+#include <ti/preopr.h>
 
 #define qbind__set_collection_event(__f) \
     (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_EVENT
@@ -844,16 +845,16 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_children_t * child;
-    intptr_t nots = 0;
+    cleri_node_t * node;
+    intptr_t preopr;
+
     assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
     nd->data = ti_do_expression;
 
-    for (child = nd->children->node->children; child; child = child->next)
-        ++nots;
-
-    nd->children->node->data = (void *) nots;
+    node = nd->children->node;
+    preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
+    node->data = (void *) preopr;
 
     qbind__expr_choice(qbind, nd->children->next->node);
 

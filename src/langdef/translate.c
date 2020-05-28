@@ -29,7 +29,7 @@ const char * langdef_translate(cleri_t * elem)
     case CLERI_GID_X_CLOSURE:
     case CLERI_GID_X_FUNCTION:
     case CLERI_GID_X_INDEX:
-    case CLERI_GID_X_NOT:
+    case CLERI_GID_X_PREOPR:
     case CLERI_GID_X_PARENTHESIS:
     case CLERI_GID_X_TERNARY:
     case CLERI_GID_X_THING:

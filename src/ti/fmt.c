@@ -2,6 +2,7 @@
  * ti/fmt.c
  */
 #include <assert.h>
+#include <ctype.h>
 #include <ti/fmt.h>
 #include <langdef/langdef.h>
 #include <util/logger.h>
@@ -395,14 +396,22 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
+static int fmt__preopr(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    size_t n = nd->len;
+    const char * s = nd->str;
+    for(; n; --n, ++s)
+        if (!isspace(*s) && buf_write(&fmt->buf, *s))
+            return -1;
+    return 0;
+}
+
 static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child;
     assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
-    for (child = nd->children->node->children; child; child = child->next)
-        if (buf_append_str(&fmt->buf, "!"))
-            return -1;
+    if (fmt__preopr(fmt, nd->children->node))
+        return -1;
 
     if (fmt__expr_choice(fmt, nd->children->next->node))
         return -1;

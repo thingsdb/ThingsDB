@@ -231,6 +231,38 @@ class TestOperators(TestBase):
         ''')
         self.assertEqual(set(res), {10, 20, 30, 41, 42, 50})
 
+    async def test_preopr(self, client):
+        self.assertIs(await client.query(r'''
+            !true;
+        '''), False)
+        self.assertIs(await client.query(r'''
+            !!true;
+        '''), True)
+        self.assertIs(await client.query(r'''
+            !! 42;
+        '''), True)
+        self.assertEqual(await client.query(r'''
+            -!! 42;
+        '''), -1)
+        self.assertEqual(await client.query(r'''
+            -!!-! 42;
+        '''), 0)
+        self.assertEqual(await client.query(r'''
+            --3.14;
+        '''), 3.14)
+        self.assertEqual(await client.query(r'''
+            -true;
+        '''), -1)
+        self.assertEqual(await client.query(r'''
+            ++true;
+        '''), 1)
+        self.assertEqual(await client.query(r'''
+            +false;
+        '''), 0)
+        self.assertEqual(await client.query(r'''
+            (|x| - ! x).def();
+        '''), "|x| -!x")
+
 
 if __name__ == '__main__':
     run_test(TestOperators())

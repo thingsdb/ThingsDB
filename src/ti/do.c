@@ -20,6 +20,7 @@
 #include <ti/thing.inline.h>
 #include <ti/member.inline.h>
 #include <ti/vint.h>
+#include <ti/preopr.h>
 #include <util/strx.h>
 
 
@@ -1113,7 +1114,7 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int nots = (int) ((intptr_t) nd->children->node->data);
+    int preopr = (int) ((intptr_t) nd->children->node->data);
     cleri_children_t * child = nd               /* sequence */
             ->children                          /* first child, not */
             ->next;
@@ -1141,7 +1142,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
 
         /* nothing is possible after a chain */
-        goto nots;
+        goto preopr;
     case CLERI_GID_THING_BY_ID:
         if (do__thing_by_id(query, nd, e))
             return e->nr;
@@ -1245,7 +1246,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
 
             /* nothing is possible after assign since it ends with a scope */
-            goto nots;
+            goto preopr;
         case CLERI_GID_INSTANCE:
             if (do__instance(query, nd, e))
                 return e->nr;
@@ -1291,13 +1292,6 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (child->next && do__chain(query, child->next->node, e))
         return e->nr;
 
-nots:
-    if (nots)
-    {
-        _Bool b = ti_val_as_bool(query->rval);
-        ti_val_drop(query->rval);
-        query->rval = (ti_val_t *) ti_vbool_get((nots & 1) ^ b);
-    }
-
-    return e->nr;
+preopr:
+    return preopr ? ti_preopr_calc(preopr, &query->rval, e) : e->nr;
 }

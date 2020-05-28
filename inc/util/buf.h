@@ -11,6 +11,7 @@ typedef struct buf_s buf_t;
 
 void buf_init(buf_t * buf);
 int buf_append(buf_t * buf, const char * s, size_t n);
+int buf_write(buf_t * buf, const char c);
 
 #define buf_append_str(buf__, s__) \
         buf_append(buf__, s__, strlen(s__))

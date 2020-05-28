@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2020-05-14 20:49:24
+ * Created at: 2020-05-28 16:53:55
  */
 
 #include <langdef/langdef.h>
@@ -26,8 +26,8 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_closure = cleri_token(CLERI_GID_X_CLOSURE, "|");
     cleri_t * x_function = cleri_token(CLERI_GID_X_FUNCTION, "(");
     cleri_t * x_index = cleri_token(CLERI_GID_X_INDEX, "[");
-    cleri_t * x_not = cleri_token(CLERI_GID_X_NOT, "!");
     cleri_t * x_parenthesis = cleri_token(CLERI_GID_X_PARENTHESIS, "(");
+    cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*!|\\s*[\\-+](?=[^0-9]))*");
     cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
     cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
@@ -65,7 +65,6 @@ cleri_grammar_t * compile_langdef(void)
         r_double_quote
     );
     cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
-    cleri_t * o_not = cleri_repeat(CLERI_GID_O_NOT, x_not, 0, 0);
     cleri_t * comments = cleri_repeat(CLERI_GID_COMMENTS, cleri_choice(
         CLERI_NONE,
         CLERI_FIRST_MATCH,
@@ -229,7 +228,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * expression = cleri_sequence(
         CLERI_GID_EXPRESSION,
         4,
-        o_not,
+        x_preopr,
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,

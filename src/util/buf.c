@@ -40,6 +40,25 @@ int buf_append(buf_t * buf, const char * s, size_t n)
     return 0;
 }
 
+int buf_write(buf_t * buf, const char c)
+{
+    if (buf->len == buf->cap)
+    {
+        char * tmp;
+        size_t nsize = buf->cap ? buf->cap << 1 : 8192;
+
+        tmp = realloc(buf->data, nsize);
+        if (!tmp)
+            return -1;
+
+        buf->data = tmp;
+        buf->cap = nsize;
+    }
+
+    buf->data[buf->len++] = c;
+    return 0;
+}
+
 int buf_append_fmt(buf_t * buf, const char * fmt, ...)
 {
     int rc;

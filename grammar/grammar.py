@@ -18,6 +18,15 @@ from pyleri import (
     THIS,
 )
 
+
+# r = re.compile(r'(\s*!|\s*[\-+](?=[^0-9]))*')
+# m = r.match('+! ! -123;')
+# if m:
+#     print(m.groups())
+# print(m)
+# exit(0)
+
+
 # names have a max length of 255 characters
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}'
 
@@ -46,8 +55,8 @@ class LangDef(Grammar):
     x_closure = Token('|')
     x_function = Token('(')
     x_index = Token('[')
-    x_not = Token('!')
     x_parenthesis = Token('(')
+    x_preopr = Regex(r'(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
 
@@ -75,7 +84,6 @@ class LangDef(Grammar):
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
 
-    o_not = Repeat(x_not)
     comments = Repeat(Choice(
         Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
         Regex(r'(?s)/\*.*?\*/'),  # Block comment
@@ -149,7 +157,7 @@ class LangDef(Grammar):
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
     expression = Sequence(
-        o_not,
+        x_preopr,
         Choice(
             chain,
             thing_by_id,
@@ -192,7 +200,7 @@ if __name__ == '__main__':
     # res = langdef.parse(r'''|x|...)''')
     # print(res.is_valid)
 
-    # res = langdef.parse(r'''x = Enum{||'X};''')
+    # res = langdef.parse(r'''a = 5;''')
     # print(res.is_valid)
 
     # exit(0)

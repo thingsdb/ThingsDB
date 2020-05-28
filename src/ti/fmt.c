@@ -40,7 +40,7 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
                 ->children->next->node         /* slice */
                 ->children;
 
-        if (buf_append_str(&fmt->buf, "["))
+        if (buf_write(&fmt->buf, '['))
             return -1;
 
 
@@ -48,7 +48,7 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
             if (c->node->cl_obj->gid == CLERI_GID_STATEMENT)
                 fmt__statement(fmt, c->node);
 
-        if (buf_append_str(&fmt->buf, "]"))
+        if (buf_write(&fmt->buf, ']'))
             return -1;
 
         if (child->node->children->next->next->next && (
@@ -69,7 +69,7 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_children_t * first, * child;
 
-    if (buf_append_str(&fmt->buf, "|"))
+    if (buf_write(&fmt->buf, '|'))
         return -1;
 
     first = nd                          /* sequence */
@@ -98,7 +98,7 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
 
     /* function name */
     if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
-        buf_append_str(&fmt->buf, "("))
+        buf_write(&fmt->buf, '('))
         return -1;
 
     /* list (arguments) */
@@ -116,7 +116,7 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
             return -1;
     }
 
-    return buf_append_str(&fmt->buf, ")");
+    return buf_write(&fmt->buf, ')');
 }
 
 static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
@@ -129,7 +129,7 @@ static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
 
     /* enum name */
     if (buf_append(&fmt->buf, name_nd->str, name_nd->len) ||
-        buf_append_str(&fmt->buf, "{"))
+        buf_write(&fmt->buf, '{'))
         return -1;
 
     switch(nd->cl_obj->gid)
@@ -145,7 +145,7 @@ static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
         break;
     }
 
-    return buf_append_str(&fmt->buf, "}");
+    return buf_write(&fmt->buf, '}');
 }
 
 
@@ -185,13 +185,13 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
     key = child ? child->node->children->node : NULL;
     val = child ? child->node->children->next->next->node : NULL;
 
-    if (buf_append_str(&fmt->buf, "{") ||
+    if (buf_write(&fmt->buf, '{') ||
         (child && (
                 buf_append(&fmt->buf, key->str, key->len) ||
-                buf_append_str(&fmt->buf, ":") ||
+                buf_append_str(&fmt->buf, ": ") ||
                 fmt__statement(fmt, val)
         )) ||
-        buf_append_str(&fmt->buf, "}")
+        buf_write(&fmt->buf, '}')
     ) return -1;
 
     return 0;
@@ -262,11 +262,11 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
 
     if (with_indent)
     {
-        if (buf_append_str(&fmt->buf, "\n") ||
+        if (buf_write(&fmt->buf, '\n') ||
             fmt__indent_str(fmt, "."))
             return -1;
     }
-    else if (buf_append_str(&fmt->buf, "."))
+    else if (buf_write(&fmt->buf, '.'))
         return -1;
 
     if (fmt__name_opt_fa(fmt, child->node))
@@ -316,9 +316,9 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
     }
 
 
-    if (buf_append_str(&fmt->buf, "[") ||
+    if (buf_write(&fmt->buf, '[') ||
         (child && fmt__statement(fmt, child->node)) ||
-        buf_append_str(&fmt->buf, "]"))
+        buf_write(&fmt->buf, ']'))
         return -1;
 
     return 0;
@@ -354,9 +354,9 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    if (buf_append_str(&fmt->buf, "(") ||
+    if (buf_write(&fmt->buf, '(') ||
         fmt__statement(fmt, nd->children->next->node) ||
-        buf_append_str(&fmt->buf, ")"))
+        buf_write(&fmt->buf, ')'))
         return -1;
     return 0;
 }
@@ -468,10 +468,10 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
             ++fmt->indent;
 
             /* with indent */
-            if (buf_append_str(&fmt->buf, "\n") ||
+            if (buf_write(&fmt->buf, '\n') ||
                 fmt__indent_str(fmt, "? ") ||
                 fmt__statement(fmt, nd_true) ||
-                buf_append_str(&fmt->buf, "\n") ||
+                buf_write(&fmt->buf, '\n') ||
                 fmt__indent_str(fmt, ": ") ||
                 fmt__statement(fmt, nd_false)
             ) return -1;

@@ -66,7 +66,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
     buf_append_str(&buf, "./store/users.mp ");
     buf_append_str(&buf, "2>&1");
 
-    if (buf_append(&buf, "\0", 1))
+    if (buf_write(&buf, '\0'))
     {
         free(buf.data);
         ex_set_mem(e);

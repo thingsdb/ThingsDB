@@ -18,15 +18,6 @@ from pyleri import (
     THIS,
 )
 
-
-# r = re.compile(r'(\s*!|\s*[\-+](?=[^0-9]))*')
-# m = r.match('+! ! -123;')
-# if m:
-#     print(m.groups())
-# print(m)
-# exit(0)
-
-
 # names have a max length of 255 characters
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}'
 

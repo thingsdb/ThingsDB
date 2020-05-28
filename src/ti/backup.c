@@ -206,7 +206,7 @@ char * ti_backup_job(ti_backup_t * backup)
     buf_append_str(&buf, ti.cfg->storage_path);
     buf_append_str(&buf, "\" . 2>&1");
 
-    if (buf_append(&buf, "\0", 1))
+    if (buf_write(&buf, '\0'))
     {
         free(buf.data);
         return NULL;

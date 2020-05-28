@@ -253,6 +253,12 @@ class TestTypes(TestBase):
             res;
         '''), [[3, 18], [2, 16], [1, 14], [0, 12]])
 
+        # Test formatting
+        self.assertEqual(await client.query(r'''
+            c = || {x:5};
+            c.def()
+        '''), r"|| {x: 5}")
+
     async def test_integer(self, client):
         with self.assertRaisesRegex(
                 OverflowError,

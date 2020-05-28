@@ -262,6 +262,9 @@ class TestOperators(TestBase):
         self.assertEqual(await client.query(r'''
             (|x| - ! x).def();
         '''), "|x| -!x")
+        self.assertEqual(await client.query(r'''
+            (|| - !! +5).def();
+        '''), "|| -!!+5")
 
 
 if __name__ == '__main__':

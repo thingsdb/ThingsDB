@@ -437,6 +437,66 @@ circular_dep:
     return e->nr;
 }
 
+ti_val_t * field__get_dval(ti_field_t * field)
+{
+    uint16_t spec = field->spec;
+
+    if (spec & TI_SPEC_NILLABLE)
+         return (ti_val_t *) ti_nil_get();
+
+    spec &= TI_SPEC_MASK_NILLABLE;
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        return (ti_val_t *) ti_nil_get();
+    case TI_SPEC_OBJECT:
+        return (ti_val_t *) ti_thing_o_create(
+                0,      /* id */
+                0,      /* initial size */
+                field->type->types->collection);
+    case TI_SPEC_RAW:
+    case TI_SPEC_STR:
+    case TI_SPEC_UTF8:
+        return (ti_val_t *) ti_val_empty_str();
+    case TI_SPEC_BYTES:
+        return (ti_val_t *) ti_val_empty_bin();
+    case TI_SPEC_INT:
+    case TI_SPEC_UINT:
+        return (ti_val_t *) ti_vint_create(0);
+    case TI_SPEC_PINT:
+        return (ti_val_t *) ti_vint_create(1);
+    case TI_SPEC_NINT:
+        return (ti_val_t *) ti_vint_create(-1);
+    case TI_SPEC_FLOAT:
+        return (ti_val_t *) ti_vfloat_create(0.0);
+    case TI_SPEC_NUMBER:
+        return (ti_val_t *) ti_vint_create(0);
+    case TI_SPEC_BOOL:
+        return (ti_val_t *) ti_vbool_get(false);
+    case TI_SPEC_ARR:
+    {
+         ti_varr_t * varr = ti_varr_create(0);
+         if (varr)
+             varr->spec = field->nested_spec;
+         return (ti_val_t *) varr;
+    }
+    case TI_SPEC_SET:
+    {
+        ti_vset_t * vset = ti_vset_create(0);
+        if (vset)
+            vset->spec = field->nested_spec;
+        return (ti_val_t *) vset;
+    }
+    }
+
+    return spec < TI_SPEC_ANY
+            ? ti_type_val(ti_types_by_id(field->type->types, spec))
+            : ti_enum_val(ti_enums_by_id(
+                    field->type->types->collection->enums,
+                    spec));
+}
+
 /*
  * If successful, the reference counter for `name` and `spec_raw` will
  * increase.

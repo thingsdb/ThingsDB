@@ -2,6 +2,7 @@
  * ti/preopr.c
  */
 #include <assert.h>
+#include <ctype.h>
 #include <ti/preopr.h>
 #include <ti/vint.h>
 #include <ti/vfloat.h>
@@ -33,7 +34,10 @@ int ti_preopr_bind(const char * s, size_t n)
     register int nots = 0;
 
     if (!n)
-        return preopr;
+        return preopr;  /* return 0 */
+
+    assert (!isspace(*s));  /* white space is allowed, but not at the
+                               beginning or end */
 
     switch(*s)
     {
@@ -52,17 +56,22 @@ int ti_preopr_bind(const char * s, size_t n)
         switch(*(++s))
         {
         case '-':
-            negative += !nots;
+            negative += !nots;  /* negative signs on the right of a ! have no
+                                   logic meaning and can be ignored */
             break;
         case '!':
             ++nots;
         }
     }
+
+    assert (!isspace(*s));  /* white space is allowed, but not at the
+                               beginning or end */
+
     preopr |= (
-        ((nots & 1) << PO__FALSE) |
-        ((!!nots) << PO__BOOL) |
+        ((nots & 1)     << PO__FALSE) |
+        ((!!nots)       << PO__BOOL) |
         ((negative & 1) << PO__NEGATIVE) |
-        ((*s != '!') << PO__CHK_NUM)
+        ((*s != '!')    << PO__CHK_NUM)
     );
 
     return preopr;
@@ -72,6 +81,11 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = *val;
 
+    /*
+     * Flag PO__FLAG_CHK_NUM is set if a sequence of +- and ! ends with a
+     * plus or minus sign. In this case the variable needs to be checked if
+     * it supports a plus or minus sign.
+     */
     if ((preopr & PO__FLAG_CHK_NUM) &&
         v->tp != TI_VAL_INT &&
         v->tp != TI_VAL_FLOAT &&
@@ -83,12 +97,15 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         return e->nr;
     }
 
+    /*
+     * Flag PO__FLAG_CHK_NUM is set if one or more not signs (!) are used in
+     * the sequence, meaning that the end value if one of -1, 0, 1, true or
+     * false.
+     */
     if (preopr & PO__FLAG_BOOL)
     {
         _Bool b = (preopr & PO__FLAG_FALSE) ^ ti_val_as_bool(v);
-
         ti_val_drop(v);
-
         *val = preopr & PO__FLAG_AS_NUM
             ? (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? -b : b)
             : (ti_val_t *) ti_vbool_get(b);
@@ -98,6 +115,11 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
 
     assert (preopr & PO__FLAG_AS_NUM);
 
+    /*
+     * No ! is used in the sequence, so the number is unchanged, or the
+     * negative of the current value. Boolean values must convert to either
+     * 0, 1, or -1.
+     */
     switch(v->tp)
     {
     case TI_VAL_INT:
@@ -128,7 +150,6 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     case TI_VAL_BOOL:
     {
         _Bool b = VBOOL(v);
-
         ti_val_drop(v);
         *val = (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? -b : b);
         break;

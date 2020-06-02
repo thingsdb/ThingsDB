@@ -5,16 +5,19 @@
 #include <doc.h>
 #include <stdlib.h>
 #include <ti/data.h>
+#include <ti/enum.h>
+#include <ti/enums.inline.h>
 #include <ti/field.h>
 #include <ti/names.h>
+#include <ti/nil.h>
 #include <ti/spec.h>
-#include <ti/enum.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
 #include <ti/types.inline.h>
-#include <ti/enums.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
+#include <ti/vbool.h>
+#include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
 #include <util/strx.h>
@@ -437,7 +440,7 @@ circular_dep:
     return e->nr;
 }
 
-ti_val_t * field__get_dval(ti_field_t * field)
+ti_val_t * ti_field_dval(ti_field_t * field)
 {
     uint16_t spec = field->spec;
 
@@ -479,20 +482,22 @@ ti_val_t * field__get_dval(ti_field_t * field)
          ti_varr_t * varr = ti_varr_create(0);
          if (varr)
              varr->spec = field->nested_spec;
+
          return (ti_val_t *) varr;
     }
     case TI_SPEC_SET:
     {
-        ti_vset_t * vset = ti_vset_create(0);
+        ti_vset_t * vset = ti_vset_create();
         if (vset)
             vset->spec = field->nested_spec;
+
         return (ti_val_t *) vset;
     }
     }
 
     return spec < TI_SPEC_ANY
-            ? ti_type_val(ti_types_by_id(field->type->types, spec))
-            : ti_enum_val(ti_enums_by_id(
+            ? ti_type_dval(ti_types_by_id(field->type->types, spec))
+            : ti_enum_dval(ti_enums_by_id(
                     field->type->types->collection->enums,
                     spec));
 }
@@ -1231,3 +1236,4 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     free(addjob.data);
     return rc;
 }
+

@@ -62,7 +62,7 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_mod_type_add(
         ti_task_t * task,
         ti_type_t * type,
-        ti_val_t * val);
+        ti_val_t * dval);
 int ti_task_add_mod_type_del(
         ti_task_t * task,
         ti_type_t * type,

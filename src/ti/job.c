@@ -668,6 +668,10 @@ static int job__mod_type_add(
         return rc;
     }
 
+    /*
+     * TODO: since version 0.9.2 (June 2020), the initial value is no longer
+     *       optional but always added to the `mod_type_add` job.
+     */
     if (obj.via.sz == 5)
     {
         if (mp_skip(up) != MP_STR )
@@ -716,7 +720,7 @@ static int job__mod_type_add(
 
     if (val && ti_field_init_things(field, &val, ev_id))
     {
-        log_critical(EX_MEMORY_S);
+        ti_panic("unrecoverable state after `mod_type_add` job");
         goto fail0;
     }
 

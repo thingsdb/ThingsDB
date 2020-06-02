@@ -55,7 +55,6 @@ _Bool ti__spec_maps_to_val(uint16_t spec, ti_val_t * val);
 const char * ti__spec_approx_type_str(uint16_t spec);
 ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec);
 _Bool ti_spec_is_reserved(register const char * s, register size_t n);
-ti_val_t * ti_spec_val(uint16_t spec);
 
 static inline _Bool ti_spec_is_enum(uint16_t spec)
 {

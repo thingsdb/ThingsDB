@@ -23,6 +23,43 @@ static inline _Bool ti_val_is_instance(ti_val_t * val)
     return val->tp == TI_VAL_THING && ti_thing_is_instance((ti_thing_t *) val);
 }
 
+static inline void ti_val_attach(
+        ti_val_t * val,
+        ti_thing_t * parent,
+        ti_name_t * name)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_MP:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_CLOSURE:
+        return;
+    case TI_VAL_ARR:
+        ((ti_varr_t *) val)->parent = parent;
+        ((ti_varr_t *) val)->name = name;
+        return;
+    case TI_VAL_SET:
+        ((ti_vset_t *) val)->parent = parent;
+        ((ti_vset_t *) val)->name = name;
+        return;
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return;
+}
+
 /*
  * although the underlying pointer might point to a new value after calling
  * this function, the `old` pointer value can still be used and has at least

@@ -43,6 +43,7 @@ ti_field_t * ti_field_by_strn_e(
         size_t n,
         ex_t * e);
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
+ti_val_t * ti_field_dval(ti_field_t * field);
 
 struct ti_field_s
 {

@@ -314,49 +314,6 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
 
-ti_val_t * ti_spec_val(uint16_t spec, ti_collection_t * collection)
-{
-    if (spec & TI_SPEC_NILLABLE)
-        return ti_nil_get();
-
-    spec &= TI_SPEC_MASK_NILLABLE;
-
-    switch ((ti_spec_enum_t) spec)
-    {
-    case TI_SPEC_ANY:
-        return ti_nil_get();
-    case TI_SPEC_OBJECT:
-        return ti_thing_o_create(0, 0, collection);
-    case TI_SPEC_RAW:
-    case TI_SPEC_STR:
-    case TI_SPEC_UTF8:
-        return ti_val_empty_str();
-    case TI_SPEC_BYTES:
-        return ti_val_empty_bin();
-    case TI_SPEC_INT:
-    case TI_SPEC_UINT:
-        return ti_vint_create(0);
-    case TI_SPEC_PINT:
-        return ti_vint_create(1);
-    case TI_SPEC_NINT:
-        return ti_vint_create(-1);
-    case TI_SPEC_FLOAT:
-        return ti_vfloat_create(0.0);
-    case TI_SPEC_NUMBER:
-        return ti_vint_create(0);
-    case TI_SPEC_BOOL:
-        return ti_vbool_get(false);
-    case TI_SPEC_ARR:
-        return ti_varr_create(0);
-    case TI_SPEC_SET:
-        return ti_vset_create(0);
-    }
-
-    return spec < TI_SPEC_ANY
-            ? ti_type_val(spec, collection)
-            : ti_enum_val(spec);
-}
-
 ti_spec_mod_enum ti__spec_check_mod(uint16_t ospec, uint16_t nspec)
 {
     if ((nspec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)

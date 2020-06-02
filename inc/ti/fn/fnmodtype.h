@@ -1,5 +1,65 @@
 #include <ti/fn/fn.h>
 
+
+typedef struct
+{
+    ti_field_t * field;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ex_t * e;
+} type__mod_t;
+
+static int type__mod_cb(ti_thing_t * thing, type__mod_t * w)
+{
+    ti_task_t * task;
+    ti_prop_t * prop;
+    ex_t ex = {0};
+
+    if (thing->type_id != w->field->type->type_id)
+        return 0;
+
+    if (w->closure->vars->n)
+    {
+        ti_incref(thing);
+        prop = vec_get(w->closure->vars, 0);
+        ti_val_drop(prop->val);
+        prop->val = (ti_val_t *) thing;
+    }
+
+    if (ti_closure_do_statement(w->closure, w->query, &ex) ||
+        ti_val_is_nil(w->query->rval) ||
+        w->query->rval == vec_get(thing->items, w->field->idx) ||
+        ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
+
+    {
+        if (w->e->nr == 0 && ex.nr)
+        {
+            ex_set(w->e, EX_OPERATION_ERROR,
+                    "field `%s` is added to type `%s` but at least one error "
+                    "has occurred using the given callback; %s",
+                    w->field->name->str,
+                    w->field->type->name,
+                    ex.msg);
+        }
+
+        ti_val_drop(w->query->rval);
+    }
+    else
+    {
+        ti_val_drop(vec_set(thing->items, w->query->rval, w->field->idx));
+
+        if (thing->id)
+        {
+            task = ti_task_get_task(w->query->ev, thing, w->e);
+            if (task && ti_task_add_set(task, w->field->name, w->query->rval))
+                ex_set_mem(w->e);
+        }
+    }
+
+    w->query->rval = NULL;
+    return 0;
+}
+
 static void type__add(
         ti_query_t * query,
         ti_type_t * type,
@@ -8,11 +68,12 @@ static void type__add(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `add";
-    size_t n = 0;
     cleri_children_t * child;
     ti_task_t * task;
     ti_raw_t * spec_raw;
+    ti_val_t * dval;
     ti_field_t * field = ti_field_by_name(type, name);
+    ti_closure_t * closure;
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
@@ -34,29 +95,17 @@ static void type__add(
         fn_arg_str_slow(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
         return;
 
-    n = ti_query_count_type(query, type);
     spec_raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (n)
+    if (nargs == 5)
     {
-        if (nargs != 5)
-        {
-            ex_set(e, EX_OPERATION_ERROR,
-                "function `%s` requires an initial value when "
-                "adding a property to a type with one or more instances; "
-                "%zu active instance%s of type `%s` %s been found"DOC_MOD_TYPE_ADD,
-                fnname, n, n == 1 ? "" : "s", type->name,
-                n == 1 ? "has" : "have");
-            goto fail0;
-        }
-
         /*
-         * The initial value must be read before creating the new field so
-         * the scope will be handled according the `old` type for the case
-         * where a reference to the own type is made.
+         * Statements must be parsed before creating a new field since
+         * potentially generated instances of this type must be without the
+         * new field.
          */
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, child->next->next->node, e))
             goto fail0;
     }
 
@@ -66,69 +115,121 @@ static void type__add(
 
     ti_decref(spec_raw);
 
-    if (n)
+    if (query->rval && !ti_val_is_closure(query->rval))
     {
-        assert (query->rval);
         if (ti_field_make_assignable(field, &query->rval, NULL, e))
             goto fail1;
 
-        /* here we create the ID's for optional new things */
-        if (ti_val_gen_ids(query->rval))
+        dval = query->rval;
+        query->rval = NULL;
+    }
+    else
+    {
+        dval = ti_field_dval(field);
+        if (!dval)
         {
             ex_set_mem(e);
             goto fail1;
         }
+    }
+
+    closure = (ti_closure_t *) query->rval;
+
+    if (closure)
+    {
+        if (ti_closure_try_wse(closure, query, e) ||
+            ti_closure_inc(closure, query, e))
+            goto fail2;
+    }
+
+
+    /* here we create the ID's for optional new things */
+    if (ti_val_gen_ids(dval))
+    {
+        ex_set_mem(e);
+        goto fail3;
     }
 
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    /* query->rval might be null; when there are no instances */
-    if (ti_task_add_mod_type_add(task, type, query->rval))
+    if (ti_task_add_mod_type_add(task, type, dval))
     {
         ex_set_mem(e);
-        goto fail1;
+        goto fail3;
     }
 
-    if (n)
+    for (vec_each(query->vars, ti_prop_t, prop))
     {
-        assert (query->rval);
+        ti_thing_t * thing = (ti_thing_t *) prop->val;
+        if (thing->tp == TI_VAL_THING &&
+            thing->id == 0 &&
+            thing->type_id == type->type_id)
+        {
+            if (ti_val_make_assignable(&dval, thing, prop->name, e))
+                goto panic;
 
-        /* check for variable to update, val_cache is not required since only
-         * things with an id are stored in cache
-         */
+            if (vec_push(&thing->items, dval))
+            {
+                ex_set_mem(e);
+                goto panic;
+            }
+
+            ti_incref(dval);
+        }
+    }
+
+    /*
+     * This function will generate all the initial values on existing
+     * instances; it must run after task generation so the task contains
+     * possible self references according the `old` type definition;
+     */
+    if (ti_field_init_things(field, &dval, query->ev->id))
+    {
+        ex_set_mem(e);
+        goto panic;
+    }
+
+    ti_val_drop(dval);
+
+    if (closure)
+    {
+        type__mod_t addjob = {
+                .field = field,
+                .closure = closure,
+                .query = query,
+                .e = e,
+        };
+
+        query->rval = NULL;
+
         for (vec_each(query->vars, ti_prop_t, prop))
         {
             ti_thing_t * thing = (ti_thing_t *) prop->val;
-            if (thing->tp == TI_VAL_THING &&
-                thing->id == 0 &&
-                thing->type_id == type->type_id)
-            {
-                if (ti_val_make_assignable(&query->rval, thing, prop->name, e))
-                    goto fail1;
 
-                if (vec_push(&thing->items, query->rval))
-                {
-                    ex_set_mem(e);
-                    goto fail1;
-                }
-
-                ti_incref(query->rval);
-            }
+            if (thing->tp == TI_VAL_THING && thing->id == 0)
+                (void) type__mod_cb(thing, &addjob);
         }
 
-        /*
-         * This function will generate all the initial values on existing
-         * instances; it must run after task generation so the task contains
-         * possible self references according the `old` type definition;
-         */
-        if (ti_field_init_things(field, &query->rval, query->ev->id))
-        {
-            ex_set_mem(e);
-            goto fail1;
-        }
+        (void) imap_walk(
+                query->collection->things,
+                (imap_cb) type__mod_cb,
+                &addjob);
+
+        ti_closure_dec(closure, query);
+        ti_val_drop((ti_val_t *) closure);
     }
-    return;  /* success */
+
+    return;
+
+panic:
+    ti_panic("unrecoverable state after using mod_type(...)");
+
+fail3:
+    ti_closure_dec(closure, query);
+
+fail2:
+    ti_val_drop(dval);
 
 fail1:
     assert (e->nr);

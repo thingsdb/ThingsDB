@@ -24,6 +24,7 @@ static inline void ** vec_get_addr(vec_t * vec, uint32_t i);
 static inline void * vec_get_or_null(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
+static inline void vec_swap(vec_t * vec, uint32_t i, uint32_t j);
 void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to);
 void * vec_remove(vec_t * vec, uint32_t i);
 void * vec_swap_remove(vec_t * vec, uint32_t i);
@@ -44,6 +45,10 @@ _Bool vec_is_sorting(void);
 
 /* unsafe macro for vec_push() which assumes the vector has enough space */
 #define VEC_pop(vec__) (vec__)->data[--(vec__)->n]
+
+#define VEC_first(vec__) (vec__)->data[0]
+
+#define VEC_last(vec__) (vec__)->data[(vec__)->n-1]
 
 /* use vec_each in a for loop to go through all values by it's address */
 #define vec_each_addr(vec__, dt__, var__) \
@@ -140,5 +145,13 @@ static inline int vec_push_create(vec_t ** vec, void * data)
     VEC_push(*vec, data);
     return 0;
 }
+
+static inline void vec_swap(vec_t * vec, uint32_t i, uint32_t j)
+{
+    void * tmp = vec->data[i];
+    vec->data[i] = vec->data[j];
+    vec->data[j] = tmp;
+}
+
 
 #endif /* VEC_H_ */

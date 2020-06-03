@@ -45,6 +45,50 @@ fail0:
     ti_member_del(member);  /* failed */
 }
 
+static void enum__def(
+        ti_query_t * query,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+
+    static const char * fnname = "mod_enum` with task `def";
+    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_task_t * task;
+
+    if (fn_nargs(fnname, DOC_MOD_ENUM_DEF, 3, nargs, e))
+        return;
+
+    if (!member)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "enum `%s` has no member `%s`",
+                enum_->name, name->str);
+        return;
+    }
+
+    if (!member->idx)
+        return;  /* already set as default */
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        return;
+
+    /* update modified time-stamp */
+    enum_->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_enum_def(task, member))
+    {
+        ex_set_mem(e);
+        return;
+    }
+
+    ti_member_def(member);
+}
+
+
 static void enum__del(
         ti_query_t * query,
         ti_enum_t * enum_,
@@ -233,6 +277,12 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "add", 3))
     {
         enum__add(query, enum_, name, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "def", 3))
+    {
+        enum__def(query, enum_, name, nd, e);
         goto done;
     }
 

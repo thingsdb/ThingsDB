@@ -403,3 +403,30 @@ ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
     return (ti_val_t *) raw;
 }
 
+int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+{
+    ti_member_t * def = VEC_first(enum_->members);
+    return (
+        msgpack_pack_map(pk, 6) ||
+        mp_pack_str(pk, "enum_id") ||
+        msgpack_pack_uint16(pk, enum_->enum_id) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
+
+        mp_pack_str(pk, "default") ||
+        mp_pack_strn(pk, def->name->str, def->name->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, enum_->created_at) ||
+
+        mp_pack_str(pk, "modified_at") ||
+        (enum_->modified_at
+            ? msgpack_pack_uint64(pk, enum_->modified_at)
+            : msgpack_pack_nil(pk)) ||
+
+        mp_pack_str(pk, "members") ||
+        ti_enum_members_to_pk(enum_, pk, 0)  /* only ID's for one level */
+    );
+}
+

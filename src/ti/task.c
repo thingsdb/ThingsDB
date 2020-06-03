@@ -730,7 +730,7 @@ int ti_task_add_mod_type_add(
         ti_type_t * type,
         ti_val_t * dval)
 {
-    ti_field_t * field = vec_last(type->fields);
+    ti_field_t * field = VEC_last(type->fields);
     size_t alloc = dval ? 8192 : 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
     msgpack_packer pk;
@@ -1327,6 +1327,45 @@ fail_data:
 
 fail_pack:
     msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_enum_def");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+
+    mp_pack_str(&pk, "index");
+    msgpack_pack_uint16(&pk, member->idx);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
     return -1;
 }
 

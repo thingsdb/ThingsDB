@@ -100,6 +100,14 @@ void ti_member_del(ti_member_t * member)
     ti_member_remove(member);
 }
 
+void ti_member_def(ti_member_t * member)
+{
+    ti_member_t * tmp = VEC_first(member->enum_->members);
+    tmp->idx = member->idx;
+    member->idx = 0;
+    vec_swap(member->enum_->members, member->idx, tmp->idx);
+}
+
 int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
 {
     if (ti_enum_check_val(member->enum_, val, e))

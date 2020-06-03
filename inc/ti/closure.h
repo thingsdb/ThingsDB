@@ -37,6 +37,7 @@ int ti_closure_vars_nameval(
         ti_val_t * val,
         ex_t * e);
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i);
+int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t);
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,

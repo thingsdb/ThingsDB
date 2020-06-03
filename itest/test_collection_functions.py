@@ -1806,6 +1806,11 @@ class TestCollectionFunctions(TestBase):
                 'reduce on empty list with no initial value set'):
             await client.query('[].reduce(|a, b| a+b);')
 
+        with self.assertRaisesRegex(
+                LookupError,
+                'reduce on empty set with no initial value set'):
+            await client.query('set().reduce(|a, b| a+b);')
+
         res = await client.query(r'''
             .list.reduce(|a, b| a+b);
         ''')
@@ -1825,6 +1830,13 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'''
             set({x: 1}, {x: 2}, {x: 3}).reduce(|i, x| i + x.x, 0);
         '''), 6)
+        self.assertEqual(await client.query(r'''
+            set({x: 0}).reduce(|| 5);
+        '''), {"x": 0})
+
+        self.assertIs(await client.query(r'''
+            set({x: 6}, {x: 7}).reduce(|i, x, id| id);
+        '''), None)
 
     async def test_refs(self, client):
         with self.assertRaisesRegex(

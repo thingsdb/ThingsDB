@@ -13,6 +13,7 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
 
     if (!w->query->rval)
     {
+        ti_incref(t);
         w->query->rval = (ti_val_t *) t;
         return 0;
     }
@@ -20,6 +21,18 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     switch(w->closure->vars->n)
     {
     default:
+    case 3:
+        prop = vec_get(w->closure->vars, 2);
+        ti_val_drop(prop->val);
+        prop->val = t->id
+                ? (ti_val_t *) ti_vint_create((int64_t) t->id)
+                : (ti_val_t *) ti_nil_get();
+        if (!prop->val)
+        {
+            ex_set_mem(w->e);
+            return w->e->nr;
+        }
+        /* fall through */
     case 2:
         prop = vec_get(w->closure->vars, 1);
         ti_incref(t);
@@ -150,7 +163,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         else if (imap->n == 0)
         {
             ex_set(e, EX_LOOKUP_ERROR,
-                    "reduce on empty sel with no initial value set");
+                    "reduce on empty set with no initial value set");
             goto fail2;
         }
 

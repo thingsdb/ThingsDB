@@ -460,6 +460,33 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
+int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 2:
+        prop = vec_get(closure->vars, 1);
+        ti_val_drop(prop->val);
+        prop->val = t->id
+                ? (ti_val_t *) ti_vint_create((int64_t) t->id)
+                : (ti_val_t *) ti_nil_get();
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        prop = vec_get(closure->vars, 0);
+        ti_incref(t);
+        ti_val_drop(prop->val);
+        prop->val = (ti_val_t *) t;
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,

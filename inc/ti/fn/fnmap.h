@@ -10,7 +10,7 @@ typedef struct
 
 static int map__walk_set(ti_thing_t * t, map__walk_t * w)
 {
-    if (ti_closure_vars_val_idx(w->closure, (ti_val_t *) t, t->id) ||
+    if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e) ||
         ti_varr_append(w->varr, (void **) &w->query->rval, w->e))
         return -1;

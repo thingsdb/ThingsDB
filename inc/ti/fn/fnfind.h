@@ -10,7 +10,7 @@ typedef struct
 static int find__walk_set(ti_thing_t * t, find__walk_t * w)
 {
     _Bool found;
-    if (ti_closure_vars_val_idx(w->closure, (ti_val_t *) t, t->id))
+    if (ti_closure_vars_vset(w->closure, t))
     {
         ex_set_mem(w->e);
         return -1;

@@ -99,7 +99,7 @@ typedef struct
 
 static int remove__walk(ti_thing_t * t, remove__walk_t * w)
 {
-    if (ti_closure_vars_val_idx(w->closure, (ti_val_t *) t, t->id))
+    if (ti_closure_vars_vset(w->closure, t))
     {
         ex_set_mem(w->e);
         return -1;

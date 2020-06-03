@@ -2,6 +2,7 @@
 
 * Accept a closure when adding a type definition, issue #10.
 * Initialize type using default values, issue #25.
+* Change default value for enum type, issue #26.
 
 # v0.9.1
 

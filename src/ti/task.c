@@ -728,10 +728,10 @@ fail_data:
 int ti_task_add_mod_type_add(
         ti_task_t * task,
         ti_type_t * type,
-        ti_val_t * val)
+        ti_val_t * dval)
 {
     ti_field_t * field = vec_last(type->fields);
-    size_t alloc = val ? 8192 : 64 + field->name->n + field->spec_raw->n;
+    size_t alloc = dval ? 8192 : 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -743,7 +743,7 @@ int ti_task_add_mod_type_add(
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "mod_type_add");
-    msgpack_pack_map(&pk, val ? 5 : 4);
+    msgpack_pack_map(&pk, dval ? 5 : 4);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -757,10 +757,10 @@ int ti_task_add_mod_type_add(
     mp_pack_str(&pk, "spec");
     mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n);
 
-    if (val)
+    if (dval)
     {
-        mp_pack_str(&pk, "init");
-        if (ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+        mp_pack_str(&pk, "dval");
+        if (ti_val_to_pk(dval, &pk, TI_VAL_PACK_TASK))
             goto fail_pack;
     }
 

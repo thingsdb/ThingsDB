@@ -15,6 +15,7 @@
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.inline.h>
+#include <ti/val.inline.h>
 #include <ti/type.h>
 
 static char * type__wrap_name(const char * name, size_t n)
@@ -400,4 +401,27 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 
     (void) imap_add(t_type->t_mappings, f_type->type_id, mappings);
     return mappings;
+}
+
+ti_val_t * ti_type_dval(ti_type_t * type)
+{
+    ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
+    if (!thing)
+        return NULL;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        ti_val_t * val = ti_field_dval(field);
+        if (!val)
+        {
+            ti_thing_destroy(thing);
+            return NULL;
+        }
+
+        ti_val_attach(val, thing, field->name);
+
+        VEC_push(thing->items, val);
+    }
+
+    return (ti_val_t *) thing;
 }

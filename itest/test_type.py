@@ -468,13 +468,17 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'function `mod_type` with task `add` requires an initial '
-                r'value when adding a property to a type with one or more '
-                r'instances; '
-                r'1 active instance of type `Person` has been found'):
+                r'field `hair_type` is added to type `Person` but at least '
+                r'one error has occurred using the given callback; mismatch '
+                r'in type `Person`; type `int` is invalid for '
+                r'property `hair_type` with definition `str'):
             await client.query(r'''
-                mod_type("Person", "add", "hair_type", "str");
+                mod_type("Person", "add", "hair_type", "str", ||4);
             ''')
+
+        await client.query(r'''
+            mod_type("Person", "del", "hair_type");
+        ''')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -1004,6 +1008,56 @@ class TestType(TestBase):
         self.assertEqual(
             await client.query(r'_nint{test:-6}.wrap("_number")'),
             {'test': -6})
+
+    async def test_mod_type_closure(self, client0):
+        await client0.query(r'''
+            set_type('Chat', {
+                messages: '[str]'
+            });
+            set_type('Room', {
+                name: 'str',
+            });
+            .room_a = Room{name: 'room A'};
+            .room_b = Room{name: 'room B'};
+            mod_type('Room', 'add', 'chat', 'Chat');
+
+            .room_a.chat.messages.push('Just one instance');
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.messages[0];')
+            self.assertEqual(msg, 'Just one instance')
+
+            msg = await client.query('.room_b.chat.messages[0];')
+            self.assertEqual(msg, 'Just one instance')
+
+        await client0.query(r'''
+            mod_type('Room', 'del', 'chat');
+            mod_type('Room', 'add', 'chat', 'Chat', |room| {
+                Chat{messages: [`Welcome in {room.name}`]}
+            });
+        ''')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.messages[0];')
+            self.assertEqual(msg, 'Welcome in room A')
+
+            msg = await client.query('.room_b.chat.messages[0];')
+            self.assertEqual(msg, 'Welcome in room B')
+
+        client1.close()
+        await client1.wait_closed()
 
 
 if __name__ == '__main__':

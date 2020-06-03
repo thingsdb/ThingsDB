@@ -173,4 +173,10 @@ static inline int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
     );
 }
 
+static inline ti_val_t * ti_enum_dval(ti_enum_t * enum_)
+{
+    return vec_get(enum_->members, 0);
+}
+
+
 #endif  /* TI_MEMBER_H_ */

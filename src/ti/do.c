@@ -780,24 +780,20 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (n < type->fields->n)
     {
-        /* fill optional fields or error if required fields are missing */
+        /* fill missing fields */
         for (vec_each(type->fields, ti_field_t, field))
         {
             if (!vec_get(thing->items, field->idx))
             {
-                if (field->spec & TI_SPEC_NILLABLE)
+                ti_val_t * val = ti_field_dval(field);
+                if (!val)
                 {
-                    vec_set(thing->items, ti_nil_get(), field->idx);
-                }
-                else
-                {
-                    ex_set(e, EX_LOOKUP_ERROR,
-                            "cannot create type `%s`; "
-                            "property `%s` is missing",
-                            type->name,
-                            field->name->str);
+                    ex_set_mem(e);
                     goto fail;
                 }
+
+                ti_val_attach(val, thing, field->name);
+                vec_set(thing->items, val, field->idx);
             }
         }
     }

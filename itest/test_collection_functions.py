@@ -1822,6 +1822,9 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             await client.query(r'[0,9,9].reduce(|a,_,i|a+i);'),
             0 + 1 + 2)
+        self.assertEqual(await client.query(r'''
+            set({x: 1}, {x: 2}, {x: 3}).reduce(|i, x| i + x.x, 0);
+        '''), 6)
 
     async def test_refs(self, client):
         with self.assertRaisesRegex(
@@ -2133,8 +2136,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `set` has no function `every`'):
-            await client.query('set().every(||true);')
+                'type `int` has no function `every`'):
+            await client.query('(1).every(||true);')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -2155,6 +2158,13 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('[1, 2, 3].every(|x| x > 2)'))
         self.assertTrue(await client.query('[1, 2, 3].every(|x| x <= 3)'))
         self.assertTrue(await client.query('[].every(||false)'))
+        self.assertFalse(await client.query(r'''
+            set({x: 1}, {x: 2}, {x: 3}).every(|x| x.x > 2)
+        '''))
+        self.assertTrue(await client.query(r'''
+            set({x: 1}, {x: 2}, {x: 3}).every(|x| x.x <= 3)
+        '''))
+        self.assertTrue(await client.query('set().every(||false)'))
 
     async def test_some(self, client):
         with self.assertRaisesRegex(
@@ -2181,6 +2191,13 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('[1, 2, 3].some(|x| x > 2)'))
         self.assertFalse(await client.query('[1, 2, 3].some(|x| x > 3)'))
         self.assertFalse(await client.query('[].some(||true)'))
+        self.assertTrue(await client.query(r'''
+            set({x: 1}, {x: 2}, {x: 3}).some(|x| x.x > 2)
+        '''))
+        self.assertFalse(await client.query(r'''
+             set({x: 1}, {x: 2}, {x: 3}).some(|x| x.x > 3)
+        '''))
+        self.assertFalse(await client.query('set().some(||true)'))
 
     async def test_sort(self, client):
         with self.assertRaisesRegex(

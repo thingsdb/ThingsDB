@@ -45,6 +45,35 @@ static inline const char * doc_find(ti_val_t * val)
     }
 }
 
+static inline const char * doc_some(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ARR:            return DOC_LIST_SOME;
+    case TI_VAL_SET:            return DOC_SET_SOME;
+    default:                    return NULL;
+    }
+}
+
+static inline const char * doc_every(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ARR:            return DOC_LIST_EVERY;
+    case TI_VAL_SET:            return DOC_SET_EVERY;
+    default:                    return NULL;
+    }
+}
+
+static inline const char * doc_reduce(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_ARR:            return DOC_LIST_REDUCE;
+    case TI_VAL_SET:            return DOC_SET_REDUCE;
+    default:                    return NULL;
+    }
+}
 
 static inline const char * doc_has(ti_val_t * val)
 {

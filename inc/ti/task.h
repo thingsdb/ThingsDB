@@ -94,6 +94,7 @@ int ti_task_add_splice(
 int ti_task_add_restore(ti_task_t * task);
 int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member);
+int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);

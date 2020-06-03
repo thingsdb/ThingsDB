@@ -449,6 +449,58 @@ fail0:
 /*
  * Returns 0 on success
  */
+static int job__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    ti_member_t * member;
+    mp_obj_t obj, mp_id, mp_index, mp_modified;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_index) != MP_U64)
+    {
+        log_critical(
+                "job `mod_enum_def` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `mod_enum_def` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    member = ti_enum_member_by_idx(enum_, mp_index.via.u64);
+    if (!member)
+    {
+        log_critical(
+                "job `mod_enum_def` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %u; index %"PRIu64" out of range",
+                collection->root->id, enum_->enum_id, mp_index.via.u64);
+        return -1;
+    }
+
+    /* update modified time-stamp */
+    enum_->modified_at = mp_modified.via.u64;
+
+    ti_member_def(member);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
 static int job__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
@@ -1442,6 +1494,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case 'm':
         if (mp_str_eq(&mp_job, "mod_enum_add"))
             return job__mod_enum_add(thing, up);
+        if (mp_str_eq(&mp_job, "mod_enum_def"))
+            return job__mod_enum_def(thing, up);
         if (mp_str_eq(&mp_job, "mod_enum_del"))
             return job__mod_enum_del(thing, up);
         if (mp_str_eq(&mp_job, "mod_enum_mod"))

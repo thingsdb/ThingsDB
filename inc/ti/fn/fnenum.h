@@ -7,7 +7,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_member_t * member;
 
     if (fn_not_collection_scope("enum", query, e) ||
-        fn_nargs("enum", DOC_ENUM, 2, nargs, e) ||
+        fn_nargs_range("enum", DOC_ENUM, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
@@ -26,6 +26,13 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_drop(query->rval);
     query->rval = NULL;
+
+    if (nargs == 1)
+    {
+        query->rval = ti_enum_dval(enum_);
+        ti_incref(query->rval);
+        return e->nr;
+    }
 
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;

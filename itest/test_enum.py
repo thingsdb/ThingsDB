@@ -130,8 +130,15 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `enum` takes 2 arguments but 1 was given'):
-            await client.query('enum("00FF00");')
+                'function `enum` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('enum();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `enum` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('enum("X", "#00FF00", nil);')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -322,6 +329,31 @@ class TestEnum(TestBase):
 
         await client.query('.color = Color{YELLOW};')
 
+        # Section DEF
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_enum` with task `def` takes 3 arguments '
+                r'but 4 were given'):
+            await client.query(r'mod_enum("Color", "def", "x", "y");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_enum` expects argument 3 to '
+                r'follow the naming rules'):
+            await client.query(r'mod_enum("Color", "def", "!");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member `x`'):
+            await client.query(r'mod_enum("Color", "def", "x");')
+
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "def", "BLUE");
+            '''), None)
+        self.assertEqual(await client.query(r'''
+                enum('Color').name();
+            '''), 'BLUE')
+
         # Section MOD
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -488,10 +520,12 @@ class TestEnum(TestBase):
 
         info = await client.query(r'enum_info("Color");')
 
-        self.assertEqual(len(info), 5)
+        self.assertEqual(len(info), 6)
         self.assertTrue(isinstance(info['enum_id'], int))
         self.assertTrue(isinstance(info['name'], str))
+        self.assertTrue(isinstance(info['default'], str))
         self.assertTrue(isinstance(info['created_at'], int))
+        self.assertIs(info['modified_at'], None)
         self.assertTrue(isinstance(info['members'], list))
         self.assertEqual(info['members'], [
             ['RED', '#FF0000'], ['GREEN', '#00FF00'], ['BLUE', '#0000FF']
@@ -521,10 +555,12 @@ class TestEnum(TestBase):
 
         info = enums_info[0]
 
-        self.assertEqual(len(info), 5)
+        self.assertEqual(len(info), 6)
         self.assertTrue(isinstance(info['enum_id'], int))
         self.assertTrue(isinstance(info['name'], str))
+        self.assertTrue(isinstance(info['default'], str))
         self.assertTrue(isinstance(info['created_at'], int))
+        self.assertIs(info['modified_at'], None)
         self.assertTrue(isinstance(info['members'], list))
         self.assertEqual(info['members'], [
             ['RED', '#FF0000'], ['GREEN', '#00FF00'], ['BLUE', '#0000FF']

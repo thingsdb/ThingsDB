@@ -338,7 +338,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 static void away__reset_sleep(void)
 {
     vec_t * nodes_vec = ti.nodes->vec;
-    away->away_node_id = ((ti_node_t *) vec_first(nodes_vec))->id;
+    away->away_node_id = ((ti_node_t *) VEC_first(nodes_vec))->id;
     away__update_sleep();
 }
 

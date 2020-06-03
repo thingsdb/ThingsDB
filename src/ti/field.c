@@ -499,7 +499,7 @@ ti_val_t * ti_field_dval(ti_field_t * field)
             ? ti_type_dval(ti_types_by_id(field->type->types, spec))
             : ti_enum_dval(ti_enums_by_id(
                     field->type->types->collection->enums,
-                    spec));
+                    spec & TI_ENUM_ID_MASK));
 }
 
 /*

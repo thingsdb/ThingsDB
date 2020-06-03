@@ -46,6 +46,7 @@ ti_member_t * ti_enum_member_by_val_e(
         ti_val_t * val,
         ex_t * e);
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
+int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk);
 
 typedef enum
 {
@@ -150,32 +151,9 @@ static inline void ti_enum_unlock(ti_enum_t * enum_, int lock_was_set)
         enum_->flags &= ~TI_ENUM_FLAG_LOCK;
 }
 
-static inline int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
-{
-    return (
-        msgpack_pack_map(pk, 5) ||
-        mp_pack_str(pk, "enum_id") ||
-        msgpack_pack_uint16(pk, enum_->enum_id) ||
-
-        mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
-
-        mp_pack_str(pk, "created_at") ||
-        msgpack_pack_uint64(pk, enum_->created_at) ||
-
-        mp_pack_str(pk, "modified_at") ||
-        (enum_->modified_at
-            ? msgpack_pack_uint64(pk, enum_->modified_at)
-            : msgpack_pack_nil(pk)) ||
-
-        mp_pack_str(pk, "members") ||
-        ti_enum_members_to_pk(enum_, pk, 0)  /* only ID's for one level */
-    );
-}
-
 static inline ti_val_t * ti_enum_dval(ti_enum_t * enum_)
 {
-    return vec_get(enum_->members, 0);
+    return VEC_first(enum_->members);
 }
 
 

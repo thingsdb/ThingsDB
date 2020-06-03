@@ -50,6 +50,7 @@
 #define DOC_LIST                    DOC_SEE("collection-api/list")
 #define DOC_MOD_ENUM                DOC_SEE("collection-api/mod_enum")
 #define DOC_MOD_ENUM_ADD            DOC_SEE("collection-api/mod_enum/add")
+#define DOC_MOD_ENUM_DEF            DOC_SEE("collection-api/mod_enum/def")
 #define DOC_MOD_ENUM_DEL            DOC_SEE("collection-api/mod_enum/del")
 #define DOC_MOD_ENUM_MOD            DOC_SEE("collection-api/mod_enum/mod")
 #define DOC_MOD_ENUM_REN            DOC_SEE("collection-api/mod_enum/ren")

@@ -99,6 +99,7 @@ ti_vint_t * ti_vint_create(int64_t i)
     ti_vint_t * vint;
     if (-(1<<7) <= i && i < 1<<7)
     {
+        /* Integer values in the range -128-127 are allocated on the stack */
         uint8_t x = (uint8_t) i;
         vint = &vint__cache[x];
         ti_incref(vint);

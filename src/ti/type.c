@@ -38,7 +38,8 @@ ti_type_t * ti_type_create(
     if (!type)
         return NULL;
 
-    type->refcount = 0;
+    type->refcount = 0;  /* only incremented when this type
+                            is used by another type */
     type->type_id = type_id;
     type->flags = 0;
     type->name = strndup(name, name_n);
@@ -62,12 +63,14 @@ ti_type_t * ti_type_create(
     return type;
 }
 
+/* used as a callback function and removes all cached type mappings */
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
     vec_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id), free);
     return 0;
 }
 
+/* used as a callback function and destroys all type mappings */
 static void type__map_free(void * vec)
 {
     vec_destroy(vec, free);

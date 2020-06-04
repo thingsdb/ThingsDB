@@ -1,4 +1,4 @@
-# v0.9.2 (alpha)
+# v0.9.2
 
 * Accept a closure when adding a type definition, issue #10.
 * Initialize type using default values, issue #25.

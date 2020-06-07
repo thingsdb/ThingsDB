@@ -1485,6 +1485,10 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         if (mp_str_eq(&mp_job, "del_procedure"))
             return job__del_procedure(thing, up);
         break;
+    case 'e':
+        if (mp_str_eq(&mp_job, "event"))
+            return mp_skip(up) == MP_ERR ? -1 : 0;
+        break;
     case 'n':
         if (mp_str_eq(&mp_job, "new_type"))
             return job__new_type(thing, up);

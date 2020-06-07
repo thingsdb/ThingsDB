@@ -1529,3 +1529,47 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_emit(ti_task_t * task, ti_raw_t * revent, vec_t * vec)
+{
+    size_t alloc = 8192;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "event");
+
+    msgpack_pack_array(&pk, 1 + (vec ? vec->n : 0));
+
+    /* the first in the array is the event, followed by optional data */
+    if (mp_pack_strn(&pk,revent->data, revent->n))
+        goto fail_pack;
+
+    /* no need to generate ID's since the values might not be stored */
+    if (vec)
+        for (vec_each(vec, ti_val_t, val))
+            if (ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+                goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+

@@ -171,6 +171,7 @@
 #define DOC_STR_STARTSWITH          DOC_SEE("data-types/str/startswith")
 #define DOC_STR_TEST                DOC_SEE("data-types/str/test")
 #define DOC_STR_UPPER               DOC_SEE("data-types/str/upper")
+#define DOC_THING_ASSIGN            DOC_SEE("data-types/thing/assign")
 #define DOC_THING_DEL               DOC_SEE("data-types/thing/del")
 #define DOC_THING_EACH              DOC_SEE("data-types/thing/each")
 #define DOC_THING_EMIT              DOC_SEE("data-types/thing/emit")

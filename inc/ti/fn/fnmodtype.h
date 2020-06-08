@@ -30,7 +30,6 @@ static int type__mod_cb(ti_thing_t * thing, type__mod_t * w)
         ti_val_is_nil(w->query->rval) ||
         w->query->rval == vec_get(thing->items, w->field->idx) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
-
     {
         if (w->e->nr == 0 && ex.nr)
         {

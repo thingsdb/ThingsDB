@@ -34,6 +34,20 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_new(self, client):
+        res = await client.query('''
+            set_type('Count', {
+                arr: '[int]'
+            });
+
+            x = {arr: [1, 2, 3]};
+
+            c = new('Count', x);
+            c.arr.push(4);
+            x.arr;
+        ''')
+        self.assertEqual(res, [1, 2, 3])
+
     async def test_reuse_var(self, client):
         res = await client.query('''
             x = true;

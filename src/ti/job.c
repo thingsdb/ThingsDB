@@ -167,7 +167,10 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     }
     else
     {
-        ti_thing_t_prop_set(thing, name, val);
+        ti_thing_t_prop_set(
+                thing,
+                ti_field_by_name(ti_thing_type(thing), name),
+                val);
     }
 
     return 0;

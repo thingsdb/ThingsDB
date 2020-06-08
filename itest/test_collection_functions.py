@@ -529,6 +529,69 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query(r'.del("greet");'), None)
         self.assertFalse(await client.query(r'.has("greet");'))
 
+    async def test_assign(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `list` has no function `assign`'):
+            await client.query(r'[].assign({});')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `assign` is undefined'):
+            await client.query(r'assign({});')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `assign` takes 1 argument '
+                'but 0 were given'):
+            await client.query('.assign();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `thing` while the value is being used'):
+            await client.query('.x = 1; .map(|| .assign( {} ) );')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `assign` expects argument 1 to be of type `thing` '
+                r'but got type `nil` instead'):
+            await client.query('.assign(nil);')
+
+        self.assertIs(await client.query(r'.assign({});'), None)
+        self.assertEqual(await client.query(r'.assign({a: 42}); .a;'), 42)
+        res = await client.query(r'''
+            set_type('Person', {name: 'str'});
+            .p1 = Person{};
+            .p2 = Person{};
+            .t1 = {a: 1, b: 2};
+            .t2 = {a: 1, b: 2};
+            .p1.assign({name: 'Iris'});
+            .p2.assign(.p1);
+            .t1.assign({
+                b: 4, c: 5
+            });
+            .t2.assign(.p1);
+            [.p1.name, .p2.name, .t1.filter(||true), .t2.filter(||true)];
+        ''')
+        self.assertEqual(res, [
+            'Iris',
+            'Iris',
+            {"a": 1, "b": 4, "c": 5},
+            {"a": 1, "b": 2, "name": 'Iris'}
+        ])
+
+        res = await client.query(r'''
+            .p = Person{name: 'Iris'};
+            try(
+                .p.assign({
+                    name: 4,
+                    age: 5,
+                })
+            );
+            .p.filter(||true);
+        ''')
+        self.assertEqual(res, {"name": "Iris"})
+
     async def test_emit(self, client):
         await client.query(r'.greet = "Hello world";')
 

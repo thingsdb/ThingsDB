@@ -55,7 +55,7 @@ class TestNested(TestBase):
             client.close()
             await client.wait_closed()
 
-    async def _test_push_loop(self, client0, client1, client2):
+    async def test_push_loop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [1, 2];
             .map(|k, v| {

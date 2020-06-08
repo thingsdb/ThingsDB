@@ -30,7 +30,6 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         query->rval = ti_enum_dval(enum_);
-        ti_incref(query->rval);
         return e->nr;
     }
 

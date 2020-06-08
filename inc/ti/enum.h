@@ -151,10 +151,4 @@ static inline void ti_enum_unlock(ti_enum_t * enum_, int lock_was_set)
         enum_->flags &= ~TI_ENUM_FLAG_LOCK;
 }
 
-static inline ti_val_t * ti_enum_dval(ti_enum_t * enum_)
-{
-    return VEC_first(enum_->members);
-}
-
-
 #endif  /* TI_MEMBER_H_ */

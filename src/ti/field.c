@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti/data.h>
 #include <ti/enum.h>
+#include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/field.h>
 #include <ti/names.h>

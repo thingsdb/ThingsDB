@@ -39,6 +39,7 @@
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
+#include <ti/fn/fnemit.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
@@ -176,7 +177,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 154,
+    TOTAL_KEYWORDS = 155,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 2,
@@ -361,6 +362,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del",               .fn=do__f_del,                  CHAIN_CE},
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
+    {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
     {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},

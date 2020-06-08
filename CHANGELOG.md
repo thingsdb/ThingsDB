@@ -1,3 +1,8 @@
+# v0.9.3 (alpha)
+
+* Added `emit(..)` function for broadcasting events, issue #31.
+
+
 # v0.9.2
 
 * Accept a closure when adding a type definition, issue #10.
@@ -5,6 +10,7 @@
 * Added option to change default value for enum type, issue #26.
 * Fixed iterating over a set returning `nil` instead of `0`, issue #29.
 * Added `reduce(..)`, `some(..)` and `every(..)` for the `set` type, issue #24.
+
 
 # v0.9.1
 

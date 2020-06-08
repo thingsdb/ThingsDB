@@ -529,6 +529,30 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query(r'.del("greet");'), None)
         self.assertFalse(await client.query(r'.has("greet");'))
 
+    async def test_emit(self, client):
+        await client.query(r'.greet = "Hello world";')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `emit`'):
+            await client.query('.greet.emit("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `emit` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('.emit();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `emit` expects argument 1 to be of type `str` '
+                r'but got type `nil` instead'):
+            await client.query('.emit(nil);')
+
+        self.assertIs(await client.query(r'.emit("greet");'), None)
+        await client.query(r'.bob = {};')
+        await client.query(r'.bob.emit("msg", .del("bob"));')
+
     async def test_doc(self, client):
         with self.assertRaisesRegex(
                 LookupError,

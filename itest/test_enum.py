@@ -676,6 +676,22 @@ class TestEnum(TestBase):
         self.assertFalse(await client.query('isenum( "RED" );'))
         self.assertFalse(await client.query('isenum( "#0000FF" );'))
 
+    async def test_enum_type(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            set_type('Brick', {color: 'Color'});
+            .b = Brick{};
+            nil;
+            '''), None)
+
+        self.assertEqual(await client.query(r'''
+            .b.color.name()
+            '''), 'RED')
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

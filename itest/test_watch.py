@@ -20,6 +20,9 @@ from thingsdb.client.abc.events import Events
 
 
 class TestEvents(Events):
+
+    messages = []
+
     def __init__(self, client):
         super().__init__()
         self.client = client
@@ -89,6 +92,11 @@ class Thing:
     def _job_splice(self, splice_job):
         raise NotImplementedError
 
+    def _job_event(self, ev):
+        event, *args = ev
+        if (event == 'msg'):
+            TestEvents.messages.append(args[0])
+
     def _job_del(self, job_del):
         for prop in job_del:
             delattr(self, prop)
@@ -107,6 +115,7 @@ class Thing:
     _UPDMAP = {
         'set': _job_set,
         'del': _job_del,
+        'event': _job_event,
         'splice': _job_splice,
         'add': _job_add,
         'remove': _job_remove,
@@ -151,6 +160,7 @@ class TestWatch(TestBase):
             client.close()
             await client.wait_closed()
 
+
     async def test_watch(self, ev0, ev1, ev2):
         iris = await ev0.client.query('.iris = {};')
 
@@ -171,6 +181,40 @@ class TestWatch(TestBase):
         self.assertEqual(iris0.name, 'Iris')
         self.assertEqual(iris1.name, 'Iris')
         self.assertEqual(iris2.name, 'Iris')
+
+        await iris0.unwatch()
+        await iris1.unwatch()
+        await iris2.unwatch()
+
+    async def test_emit(self, ev0, ev1, ev2):
+        iris = await ev0.client.query('.iris = {};')
+
+        await asyncio.sleep(0.5)
+
+        iris0 = Thing(ev0, iris['#'])
+        iris1 = Thing(ev1, iris['#'])
+        iris2 = Thing(ev2, iris['#'])
+
+        await iris0.watch()
+        await iris1.watch()
+        await iris2.watch()
+
+        await ev0.client.query('.iris.emit("msg", "from ev0");')
+        await ev1.client.query('.iris.emit("msg", "from ev1");')
+        await ev2.client.query('.iris.emit("msg", "from ev2");')
+
+        await asyncio.sleep(0.5)
+
+        self.assertEqual(TestEvents.messages, [
+            'from ev0',
+            'from ev0',
+            'from ev0',
+            'from ev1',
+            'from ev1',
+            'from ev1',
+            'from ev2',
+            'from ev2',
+            'from ev2'])
 
         await iris0.unwatch()
         await iris1.unwatch()

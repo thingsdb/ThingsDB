@@ -396,14 +396,14 @@ ti_prop_t * ti_thing_o_prop_set(
 }
 
 /*
- * Does not increment the `name` and `val` reference counters.
+ * Does not increment the `val` reference counters.
  */
-void ti_thing_t_prop_set(ti_thing_t * thing, ti_name_t * name, ti_val_t * val)
+void ti_thing_t_prop_set(
+        ti_thing_t * thing,
+        ti_field_t * field,
+        ti_val_t * val)
 {
-    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
-            thing->items,
-            ti_field_by_name(ti_thing_type(thing), name)->idx);
-
+    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
     ti_val_drop(*vaddr);
     *vaddr = val;
 }

@@ -2,6 +2,8 @@
 
 * Added `emit(..)` function for broadcasting events, issue #31.
 * Fixed error in generating a new type instance with enumerators, issue #33.
+* Fixed invalid copy of list when using the `new(..)` function, issue #36.
+* Added a new function `assign(..)`, issue #32.
 
 
 # v0.9.2

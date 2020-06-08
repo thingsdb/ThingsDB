@@ -82,10 +82,16 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
             else
             {
-                if (ti_field_make_assignable(field, &val, new_thing, e))
-                    goto failed;
+                val->ref += from_thing->ref > 1;
 
-                ti_incref(val);
+                if (ti_field_make_assignable(field, &val, new_thing, e))
+                {
+                    if (from_thing->ref > 1)
+                        ti_val_drop(val);
+                    goto failed;
+                }
+
+                val->ref += from_thing->ref == 1;
             }
             VEC_push(new_thing->items, val);
         }
@@ -107,10 +113,17 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_val_t * val = vec_get(from_thing->items, field->idx);
 
-            if (ti_val_make_assignable(&val, from_thing, field->name, e))
-                goto failed;
+            val->ref += from_thing->ref > 1;
 
-            ti_incref(val);
+            if (ti_val_make_assignable(&val, new_thing, field->name, e))
+            {
+                if (from_thing->ref > 1)
+                    ti_val_drop(val);
+                goto failed;
+            }
+
+            val->ref += from_thing->ref == 1;
+
             VEC_push(new_thing->items, val);
         }
     }

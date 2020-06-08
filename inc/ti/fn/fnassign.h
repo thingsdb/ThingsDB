@@ -57,7 +57,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * // without lock it breaks even with normal variable, luckily map puts
      * // a lock.
      * tmp.map(|| {
-     *     tmp.del('x');
+     *     tmp.assign({x: 1});
      * }
      */
     if (ti_val_try_lock(query->rval, e))

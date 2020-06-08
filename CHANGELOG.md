@@ -1,6 +1,7 @@
 # v0.9.3 (alpha)
 
 * Added `emit(..)` function for broadcasting events, issue #31.
+* Fixed error in generating a new type instance with enumerators, issue #33.
 
 
 # v0.9.2

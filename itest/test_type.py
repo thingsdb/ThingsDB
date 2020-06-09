@@ -397,6 +397,7 @@ class TestType(TestBase):
             ].map(|| Foo{});
             .arr.map(|foo, i| foo.foo = .arr[i-1]);
             .del('arr');
+            nil;
         ''')
 
         await client.query(r'''

@@ -526,7 +526,7 @@ class TestCollectionFunctions(TestBase):
                 r'thing `#\d+` has no property `x`'):
             await client.query('.del("x");')
 
-        self.assertIs(await client.query(r'.del("greet");'), None)
+        self.assertIs(await client.query(r'.del("greet");'), "Hello world")
         self.assertFalse(await client.query(r'.has("greet");'))
 
     async def test_assign(self, client):
@@ -557,7 +557,7 @@ class TestCollectionFunctions(TestBase):
                 r'but got type `nil` instead'):
             await client.query('.assign(nil);')
 
-        self.assertIs(await client.query(r'.assign({});'), None)
+        self.assertIs(await client.query(r'{a: 1}.assign({});'), {"a": 1})
         self.assertEqual(await client.query(r'.assign({a: 42}); .a;'), 42)
         res = await client.query(r'''
             set_type('Person', {name: 'str'});

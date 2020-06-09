@@ -613,6 +613,14 @@ _Bool ti_away_is_working(void)
     return away->status == AWAY__STATUS_WORKING;
 }
 
+_Bool ti_away_is_busy(void)
+{
+    return (
+            away->status == AWAY__STATUS_WORKING ||
+            away->status == AWAY__STATUS_SYNCING
+    );
+}
+
 int ti_away_syncer(ti_stream_t * stream, uint64_t first)
 {
     ti_syncer_t * syncer;

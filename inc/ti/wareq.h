@@ -27,7 +27,7 @@ struct ti_wareq_s
     ti_stream_t * stream;               /* with reference */
     ti_collection_t * collection;       /* with reference, or null for root */
     vec_t * thing_ids;
-    uv_async_t * task;
+    uv_handle_t * task;
 };
 
 #endif  /* TI_WAREQ_H_ */

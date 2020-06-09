@@ -81,4 +81,10 @@ static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b)
     return a->n >= b->n && memcmp(a->data + a->n - b->n, b->data, b->n) == 0;
 }
 
+static inline void ti_raw_drop(ti_raw_t * r)
+{
+    if (r && !--r->ref)
+        free(r);
+}
+
 #endif /* TI_RAW_H_ */

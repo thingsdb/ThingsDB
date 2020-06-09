@@ -20,6 +20,31 @@ static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__watch_cb(uv_async_t * task);
 static void wareq__unwatch_cb(uv_async_t * task);
 
+
+static inline void * wareq__id(uint64_t id)
+{
+    #if TI_IS64BIT
+    uintptr_t idp = (uintptr_t) id;
+    #else
+    uint64_t * idp = malloc(sizeof(uint64_t));
+    if (!idp)
+        return NULL;
+
+    *idp = (uint64_t) id;
+    #endif
+
+    return (void *) idp;
+}
+
+static inline void wareq__vec_destoroy(vec_t * vec)
+{
+    #if TI_IS64BIT
+    vec_destroy(vec, NULL);
+    #else
+    vec_destroy(vec, free);
+    #endif
+}
+
 /*
  * Create a watch or unwatch request.
  *   Argument `task` should be either "watch" or "unwatch" (watch / unwatch)
@@ -77,6 +102,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
 
     for (i = 0; i < nargs; ++i)
     {
+        void * idp;
         if (!mp_may_cast_u64(mp_next(&up, &mp_id)))
         {
             ex_set(e, EX_BAD_DATA,
@@ -84,19 +110,8 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             return e->nr;
         }
 
-        #if TI_IS64BIT
-        uintptr_t id = (uintptr_t) mp_id.via.u64;
-        #else
-        uint64_t * id = malloc(sizeof(uint64_t));
-        if (!id)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        *id = (uint64_t) mp_id.via.blau64;
-        #endif
-
-        VEC_push(wareq->thing_ids, (void *) id);
+        idp = wareq__id(mp_id.via.u64);
+        VEC_push(wareq->thing_ids, idp);
     }
 
     return e->nr;
@@ -194,11 +209,7 @@ int ti_wareq_run(ti_wareq_t * wareq)
 
 static void wareq__destroy(ti_wareq_t * wareq)
 {
-    #if TI_IS64BIT
-    vec_destroy(wareq->thing_ids, NULL);
-    #else
-    vec_destroy(wareq->thing_ids, free);
-    #endif
+    wareq__vec_destoroy(wareq->thing_ids);
     ti_stream_drop(wareq->stream);
     ti_collection_drop(wareq->collection);
     free(wareq->task);
@@ -216,6 +227,8 @@ static void wareq__watch_cb(uv_async_t * task)
     ti_wareq_t * wareq = task->data;
     ti_thing_t * thing;
     uint32_t n;
+    vec_t * vec = NULL;
+    _Bool reschedule;
 
     if (!wareq->collection || !wareq->thing_ids)
     {
@@ -226,6 +239,13 @@ static void wareq__watch_cb(uv_async_t * task)
     n = wareq->thing_ids->n;
 
     uv_mutex_lock(wareq->collection->lock);
+
+    /*
+     * When this node is in away mode and the queue contains events, it may
+     * be that the client has received new ID's which are not yet processed
+     * by this node; In this case we should reschedule when ID's are missing;
+     */
+    reschedule = (!ti_events_is_empty() && ti_away_is_busy());
 
     while (n--)
     {
@@ -241,6 +261,14 @@ static void wareq__watch_cb(uv_async_t * task)
 
         if (!thing)
         {
+            if (reschedule)
+            {
+                void * idp = wareq__id(id);
+                if (vec_push_create(&vec, idp))
+                    log_critical(EX_MEMORY_S);
+                continue;
+            }
+
             ti_warn(wareq->stream,
                     TI_WARN_THING_NOT_FOUND,
                     "failed to watch thing "TI_THING_ID", "
@@ -259,6 +287,53 @@ static void wareq__watch_cb(uv_async_t * task)
     }
 
     uv_mutex_unlock(wareq->collection->lock);
+
+    if (vec)
+    {
+        if (ti.node->status != TI_NODE_STAT_SHUTTING_DOWN)
+        {
+            wareq__vec_destoroy(wareq->thing_ids);
+            wareq->thing_ids = vec;
+
+            if (wareq->task->type == UV_TIMER)
+                return;
+
+            log_debug(
+                "start watch retry procedure for %"PRIu32" missing thing%s "
+                "for stream `%s`",
+                vec->n, vec->n == 1 ? "" : "s",
+                ti_stream_name(wareq->stream));
+
+            uv_close((uv_handle_t *) wareq->task, (uv_close_cb) free);
+
+            wareq->task = malloc(sizeof(uv_timer_t));
+            if (!wareq->task)
+            {
+                log_critical(EX_MEMORY_S);
+                return;  /* may leak a few bytes */
+            }
+
+            if (uv_timer_init(ti.loop, wareq->task) ||
+                uv_timer_start(
+                        wareq->task,
+                        (uv_timer_cb) wareq__watch_cb,
+                        250, 250))
+            {
+                log_critical(EX_INTERNAL_S);
+            }
+
+            return;
+        }
+        wareq__vec_destoroy(vec);
+    }
+
+    if (wareq->task->type == UV_TIMER)
+    {
+        log_debug(
+                "stop watch retry procedure for missing things "
+                "for stream `%s`", ti_stream_name(wareq->stream));
+        uv_timer_stop((uv_timer_t *) task);
+    }
 
     ti_wareq_destroy(wareq);
 }

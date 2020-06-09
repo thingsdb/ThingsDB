@@ -6,6 +6,8 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * name_nd;
     ti_task_t * task;
     ti_thing_t * thing;
+    ti_prop_t * prop;
+    ti_raw_t * rname;
 
     if (!ti_val_is_object(query->rval))
         return fn_call_try("del", query, nd, e);
@@ -31,27 +33,39 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     name_nd = nd->children->node;
 
     if (ti_do_statement(query, name_nd, e) ||
-        fn_arg_str("del", DOC_THING_DEL, 1, query->rval, e) ||
-        ti_thing_o_del_e(thing, (ti_raw_t *) query->rval, e))
-        goto unlock;
+        fn_arg_str("del", DOC_THING_DEL, 1, query->rval, e))
+        goto fail0;
+
+    rname = (ti_raw_t *) query->rval;
+
+    prop = ti_thing_o_del_e(thing, rname, e);
+    if (!prop)
+        goto fail0;  /* error is set, rname is still bound to query */
+
+    query->rval = (ti_val_t *) prop->val;
+
+    ti_val_attach(query->rval, NULL, NULL);
+
+    prop->val = NULL;
+    ti_prop_destroy(prop);
 
     if (thing->id)
     {
         task = ti_task_get_task(query->ev, thing, e);
         if (!task)
-            goto unlock;
+            goto fail1;
 
-        if (ti_task_add_del(task, (ti_raw_t *) query->rval))
+        if (ti_task_add_del(task, rname))
         {
             ex_set_mem(e);
-            goto unlock;
+            goto fail1;
         }
     }
 
-    ti_val_drop(query->rval);
-    query->rval = (ti_val_t *) ti_nil_get();
+fail1:
+    ti_raw_drop(rname);
 
-unlock:
+fail0:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
     ti_val_drop((ti_val_t *) thing);
     return e->nr;

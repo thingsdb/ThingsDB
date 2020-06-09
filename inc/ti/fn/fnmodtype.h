@@ -1,5 +1,16 @@
 #include <ti/fn/fn.h>
 
+static inline int modtype__is_locked_cb(ti_thing_t * thing, ti_type_t * type)
+{
+    return thing->type_id == type->type_id && (thing->flags & TI_VFLAG_LOCK);
+}
+
+static inline int modtype__unlocked_cb(ti_thing_t * thing, ti_type_t * type)
+{
+    if (thing->type_id == type->type_id)
+        thing->flags &= ~TI_VFLAG_LOCK;
+    return 0;
+}
 
 typedef struct
 {
@@ -7,9 +18,9 @@ typedef struct
     ti_closure_t * closure;
     ti_query_t * query;
     ex_t * e;
-} type__mod_t;
+} modtype__add_t;
 
-static int type__mod_cb(ti_thing_t * thing, type__mod_t * w)
+static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 {
     ti_task_t * task;
     ti_prop_t * prop;
@@ -34,8 +45,8 @@ static int type__mod_cb(ti_thing_t * thing, type__mod_t * w)
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION_ERROR,
-                    "field `%s` is added to type `%s` but at least one error "
-                    "has occurred using the given callback; %s",
+                    "field `%s` is added to type `%s` but at least one "
+                    "error has occurred using the given callback; %s",
                     w->field->name->str,
                     w->field->type->name,
                     ex.msg);
@@ -54,6 +65,90 @@ static int type__mod_cb(ti_thing_t * thing, type__mod_t * w)
                 ex_set_mem(w->e);
         }
     }
+
+    w->query->rval = NULL;
+    return 0;
+}
+
+typedef struct
+{
+    ti_field_t * field;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ti_val_t * dval;
+    ex_t * e;
+} modtype__mod_t;
+
+static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
+{
+    ti_task_t * task;
+    ti_prop_t * prop;
+    ex_t ex = {0};
+
+    if (thing->type_id != w->field->type->type_id)
+        return 0;
+
+    if (w->closure->vars->n)
+    {
+        ti_incref(thing);
+        prop = vec_get(w->closure->vars, 0);
+        ti_val_drop(prop->val);
+        prop->val = (ti_val_t *) thing;
+    }
+
+    if (ti_closure_do_statement(w->closure, w->query, &ex) ||
+        ti_val_is_nil(w->query->rval) ||
+        ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
+    {
+        ti_val_t * val = vec_get(thing->items, w->field->idx);
+        if (w->e->nr == 0 && ex.nr)
+        {
+            ex_set(w->e, EX_OPERATION_ERROR,
+                    "field `%s` on type `%s` is modified but at least one "
+                    "error has occurred using the given callback; %s",
+                    w->field->name->str,
+                    w->field->type->name,
+                    ex.msg);
+        }
+
+        ti_val_drop(w->query->rval);
+
+        /*
+         * no copy is required if the value has only one reference, therefore
+         * it is safe to use `ti_field_make_assignable(..)` and this also
+         * ensures that not much work has to be done since no copy of a set
+         * or list will be made.
+         */
+        if (ti_field_make_assignable(w->field, &val, thing, &ex))
+        {
+            ti_incref(w->dval);
+            ti_val_drop(vec_set(thing->items, w->dval, w->field->idx));
+
+            if (thing->id)
+            {
+                task = ti_task_get_task(w->query->ev, thing, w->e);
+                if (task && ti_task_add_set(task, w->field->name, w->dval))
+                    ex_set_mem(w->e);
+            }
+        }
+    }
+    else
+    {
+        ti_val_drop(vec_set(thing->items, w->query->rval, w->field->idx));
+
+        if (thing->id)
+        {
+            task = ti_task_get_task(w->query->ev, thing, w->e);
+            if (task && ti_task_add_set(task, w->field->name, w->query->rval))
+                ex_set_mem(w->e);
+        }
+    }
+
+    /* none of the affected things may have a lock, (checked beforehand) */
+    assert (~thing->flags & TI_VFLAG_LOCK);
+
+    /* lock each thing so this value is final while modifying this type */
+    thing->flags |= TI_VFLAG_LOCK;
 
     w->query->rval = NULL;
     return 0;
@@ -141,7 +236,6 @@ static void type__add(
             goto fail2;
     }
 
-
     /* here we create the ID's for optional new things */
     if (ti_val_gen_ids(dval))
     {
@@ -193,7 +287,7 @@ static void type__add(
 
     if (closure)
     {
-        type__mod_t addjob = {
+        modtype__add_t addjob = {
                 .field = field,
                 .closure = closure,
                 .query = query,
@@ -207,12 +301,12 @@ static void type__add(
             ti_thing_t * thing = (ti_thing_t *) prop->val;
 
             if (thing->tp == TI_VAL_THING && thing->id == 0)
-                (void) type__mod_cb(thing, &addjob);
+                (void) modtype__add_cb(thing, &addjob);
         }
 
         (void) imap_walk(
                 query->collection->things,
-                (imap_cb) type__mod_cb,
+                (imap_cb) modtype__add_cb,
                 &addjob);
 
         ti_closure_dec(closure, query);
@@ -292,6 +386,77 @@ static void type__del(
         ex_set_mem(e);
 }
 
+static int type__mod_using_callback(
+        const char * fnname,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ti_field_t * field,
+        ti_raw_t * spec_raw,
+        ti_task_t * task,
+        ex_t * e)
+{
+    ti_closure_t * closure;
+
+    if (ti_do_statement(query, nd, e) ||
+        fn_arg_closure(fnname, DOC_MOD_TYPE_MOD, 5, query->rval, e))
+        return e->nr;
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    modtype__mod_t modjob = {
+            .field = ti_field_as_new(field, spec_raw, e),
+            .closure = closure,
+            .query = query,
+            .dval = NULL,
+            .e = e,
+    };
+
+    if (!modjob.field)
+        goto fail1;  /* error is set */
+
+    modjob.dval = ti_field_dval(modjob.field);
+    if (!modjob.dval)
+        goto fail2;  /* error is set */
+
+    if (ti_field_mod(field, ti_val_borrow_any_str(), query->vars, e))
+        goto fail3;
+
+    /* update modified time-stamp */
+    field->type->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_type_mod(task, modjob.field))
+    {
+        ex_set_mem(e);
+        goto fail3;
+    }
+
+    (void) imap_walk(
+            query->collection->things,
+            (imap_cb) modtype__mod_cb,
+            &modjob);
+
+    (void) imap_walk(
+            query->collection->things,
+            (imap_cb) modtype__unlocked_cb,
+            &modjob);
+
+    ti_field_replace(field, &modjob.field);
+fail3:
+    ti_val_drop(modjob.dval);
+fail2:
+    ti_field_destroy_dep(modjob.field);  /* modjob.field may be NULL */
+fail1:
+    ti_closure_dec(closure, query);
+fail0:
+    ti_val_drop((ti_closure_t *) closure);
+    return e->nr;
+}
+
 static void type__mod(
         ti_query_t * query,
         ti_type_t * type,
@@ -303,9 +468,10 @@ static void type__mod(
     const int nargs = langdef_nd_n_function_params(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_task_t * task;
-    size_t n;
+    ti_raw_t * spec_raw;
+    cleri_children_t * child;
 
-    if (fn_nargs(fnname, DOC_MOD_TYPE_MOD, 4, nargs, e))
+    if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
 
     if (!field)
@@ -316,30 +482,44 @@ static void type__mod(
         return;
     }
 
-    if (ti_do_statement(
-            query,
-            nd->children->next->next->next->next->next->next->node,
-            e) ||
-        fn_arg_str_slow(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
+    child = nd->children->next->next->next->next->next->next;
+
+    if (ti_do_statement(query, child->node, e) ||
+        fn_arg_str_slow(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e) ||
+        !(task = ti_task_get_task(query->ev, query->collection->root, e)))
         return;
 
-    n = ti_query_count_type(query, type);
+    spec_raw = (ti_raw_t *) query->rval;
+    query->rval = NULL;
 
-    if (ti_field_mod(field, (ti_raw_t *) query->rval, query->vars, n, e))
-        return;
-
-    task = ti_task_get_task(query->ev, query->collection->root, e);
-    if (!task)
-        return;
-
-    /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
-
-    if (ti_task_add_mod_type_mod(task, field))
+    if (nargs == 4)
     {
-        ex_set_mem(e);
-        return;
+        if (ti_field_mod(field, spec_raw, query->vars, e))
+            goto fail;
+
+        /* update modified time-stamp */
+        type->modified_at = util_now_tsec();
+
+        if (ti_task_add_mod_type_mod(task, field))
+        {
+            ex_set_mem(e);
+            goto fail;
+        }
     }
+    else
+    {
+        (void) type__mod_using_callback(
+                fnname,
+                query,
+                child->next->next->node,
+                field,
+                spec_raw,
+                task,
+                e);
+    }
+
+fail:
+    ti_val_drop((ti_val_t *) spec_raw);
 }
 
 static void type__ren(
@@ -416,6 +596,22 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
     if (!type)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
+
+    /* Locks may be acquired when reading one of the arguments; This is fine
+     * since then they also are guaranteed to be released once the argument
+     * is read. It is not a good state if one of the affected things has a
+     * lock outside this function call.
+     */
+    if (imap_walk(
+            query->collection->things,
+            (imap_cb) modtype__is_locked_cb,
+            type))
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+            "cannot change type `%s` while one of the instances is being used",
+            type->name);
+        return e->nr;
+    }
 
     if (ti_type_try_lock(type, e))
         return e->nr;

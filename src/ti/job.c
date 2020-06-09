@@ -934,7 +934,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         return rc;
     }
 
-    if (ti_field_mod(field, spec_raw, NULL, 0, &e))
+    if (ti_field_mod_force(field, spec_raw, &e))
     {
         log_critical(e.msg);
         goto fail0;

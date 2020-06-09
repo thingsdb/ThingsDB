@@ -498,8 +498,8 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
     return false;
 }
 
-/* Returns 0 if the property is removed, -1 in case of an error */
-int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+/* Returns the removed property or NULL in case of an error */
+ti_prop_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
     assert (ti_thing_is_object(thing));
 
@@ -513,16 +513,15 @@ int ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
             if (prop->name == name)
             {
                 if (thing__val_locked(thing, prop->name, prop->val, e))
-                    return e->nr;
+                    return NULL;
 
-                ti_prop_destroy(vec_swap_remove(thing->items, i));
-                return 0;
+                return vec_swap_remove(thing->items, i);
             }
         }
     }
 
     ti_thing_set_not_found(thing, name, rname, e);
-    return e->nr;
+    return NULL;
 }
 
 static _Bool thing_o__get_by_name(

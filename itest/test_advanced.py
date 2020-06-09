@@ -34,6 +34,38 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mod_to_any(self, client):
+        res = await client.query('''
+            set_type('X', {
+                arr: '[int]'
+            });
+            .x = X{};
+
+            mod_type('X', 'mod', 'arr', 'any');
+
+            .x.arr.push('Hello!');
+            .x.arr.len()
+        ''')
+        self.assertEqual(res, 1)
+
+    async def test_mod_del_in_use(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'type `X` xxx'):
+            res = await client.query('''
+                set_type('X', {
+                    a: 'int',
+                    b: 'int',
+                    c: 'int'
+                });
+                .x = X{};
+                i = 0;
+                .x.map(|k, v| {
+                    if(i == 0, mod_type('X', 'del', 'c'));
+                    i += 1;
+                });
+            ''')
+
     async def test_new(self, client):
         res = await client.query('''
             set_type('Count', {

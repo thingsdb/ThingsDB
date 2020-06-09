@@ -19,16 +19,19 @@ ti_field_t * ti_field_create(
         ti_raw_t * spec_raw,
         ti_type_t * type,
         ex_t * e);
+ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e);
+void ti_field_replace(ti_field_t * field, ti_field_t ** with_field);
+int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e);
 int ti_field_mod(
         ti_field_t * field,
         ti_raw_t * spec_raw,
         vec_t * vars,
-        size_t n,
         ex_t * e);
 int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e);
 int ti_field_del(ti_field_t * field, uint64_t ev_id);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
+void ti_field_destroy_dep(ti_field_t * field);
 int ti_field_make_assignable(
         ti_field_t * field,
         ti_val_t ** val,

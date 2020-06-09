@@ -618,7 +618,7 @@ ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
         return NULL;  /* error is set */
     }
 
-    return field;
+    return new_field;
 }
 
 /*
@@ -631,7 +631,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
 
     field__remove_dep(field);
 
-    ti_raw_drop(field->spec_raw);
+    ti_val_drop((ti_val_t *) field->spec_raw);
     field->spec = (*with_field)->spec;
     field->nested_spec = (*with_field)->nested_spec;
     field->spec_raw = (*with_field)->spec_raw;
@@ -721,7 +721,7 @@ nillable:
 
 incompatible:
     ex_set(e, EX_OPERATION_ERROR,
-        "cannot apply type declaration `%.*s` to `%s` on type `%s` without a"
+        "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration `%.*s` "
         "is not compatible with the new declaration"DOC_MOD_TYPE_MOD,
         (int) spec_raw->n, (const char *) spec_raw->data,

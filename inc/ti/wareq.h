@@ -13,6 +13,10 @@ typedef struct ti_wareq_s ti_wareq_t;
 #include <ti/scope.h>
 #include <util/vec.h>
 
+ti_wareq_t * ti_wareq_create(
+        ti_stream_t * stream,
+        ti_collection_t * collection,
+        const char * task);
 ti_wareq_t * ti_wareq_may_create(
         ti_scope_t * scope,
         ti_stream_t * stream,
@@ -29,5 +33,20 @@ struct ti_wareq_s
     vec_t * thing_ids;
     uv_handle_t * task;
 };
+
+static inline void * ti_wareq_id(uint64_t id)
+{
+    #if TI_IS64BIT
+    uintptr_t idp = (uintptr_t) id;
+    #else
+    uint64_t * idp = malloc(sizeof(uint64_t));
+    if (!idp)
+        return NULL;
+
+    *idp = (uint64_t) id;
+    #endif
+
+    return (void *) idp;
+}
 
 #endif  /* TI_WAREQ_H_ */

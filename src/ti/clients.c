@@ -175,7 +175,7 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
     else if (ti.node->status <= TI_NODE_STAT_BUILDING)
     {
         ex_set(e, EX_NODE_ERROR,
-                TI_NODE_ID" is not ready to handle query requests",
+                TI_NODE_ID" is not ready to handle client requests",
                 ti.node->id);
     }
     return e->nr;
@@ -308,6 +308,14 @@ static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto finish;
+
+    if (ti.node->status <= TI_NODE_STAT_SYNCHRONIZING)
+    {
+        ex_set(&e, EX_NODE_ERROR,
+                TI_NODE_ID" is not ready to handle watch requests",
+                ti.node->id);
+        goto finish;
+    }
 
     wareq = ti_wareq_may_create(&scope, stream, pkg, "watch", &e);
     if (e.nr)

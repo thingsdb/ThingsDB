@@ -63,7 +63,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 fail1:
-    ti_raw_drop(rname);
+    ti_val_drop((ti_val_t *) rname);
 
 fail0:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);

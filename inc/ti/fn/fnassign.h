@@ -75,7 +75,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     tsrc = (ti_thing_t *) query->rval;
-    query->rval = thing;
+    query->rval = (ti_val_t *) thing;
     ti_incref(thing);
 
     if (thing->id && !(task = ti_task_get_task(query->ev, thing, e)))

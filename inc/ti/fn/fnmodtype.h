@@ -101,18 +101,9 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
         ti_val_t * val = vec_get(thing->items, w->field->idx);
-        if (w->e->nr == 0 && ex.nr)
-        {
-            ex_set(w->e, EX_OPERATION_ERROR,
-                    "field `%s` on type `%s` is modified but at least one "
-                    "error has occurred using the given callback; %s",
-                    w->field->name->str,
-                    w->field->type->name,
-                    ex.msg);
-        }
 
+        /* the return value will not be used */
         ti_val_drop(w->query->rval);
-
         /*
          * no copy is required if the value has only one reference, therefore
          * it is safe to use `ti_field_make_assignable(..)` and this also
@@ -130,6 +121,16 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
                 if (task && ti_task_add_set(task, w->field->name, w->dval))
                     ex_set_mem(w->e);
             }
+        }
+
+        if (w->e->nr == 0 && ex.nr)
+        {
+            ex_set(w->e, EX_OPERATION_ERROR,
+                    "field `%s` on type `%s` is modified but at least one "
+                    "error has occurred using the given callback; %s",
+                    w->field->name->str,
+                    w->field->type->name,
+                    ex.msg);
         }
     }
     else
@@ -304,6 +305,7 @@ static void type__add(
                 (void) modtype__add_cb(thing, &addjob);
         }
 
+        /* TODO: this breaks.. what if things are added? */
         (void) imap_walk(
                 query->collection->things,
                 (imap_cb) modtype__add_cb,
@@ -423,7 +425,11 @@ static int type__mod_using_callback(
     if (!modjob.dval)
         goto fail2;  /* error is set */
 
-    if (ti_field_mod(field, ti_val_borrow_any_str(), query->vars, e))
+    if (ti_field_mod(
+            field,
+            (ti_raw_t *) ti_val_borrow_any_str(),
+            query->vars,
+            e))
         goto fail3;
 
     /* update modified time-stamp */
@@ -453,7 +459,7 @@ fail2:
 fail1:
     ti_closure_dec(closure, query);
 fail0:
-    ti_val_drop((ti_closure_t *) closure);
+    ti_val_drop((ti_val_t *) closure);
     return e->nr;
 }
 

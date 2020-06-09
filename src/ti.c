@@ -958,6 +958,11 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     switch (handle->type)
     {
     case UV_ASYNC:
+        /* Stop watching is possible since the last moment before shutting down
+         * and starts an a-sync task;
+         */
+        log_error("non closing a-sync task found; this may leak a few bytes");
+        /* fall through */
     case UV_SIGNAL:
         uv_close(handle, NULL);
         break;
@@ -987,7 +992,7 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
             ti__delayed_start_stop();
         else
         {
-            log_error("non closing timer found");
+            log_error("non closing timer found; this may leak a few bytes");
             uv_timer_stop((uv_timer_t *) handle);
             uv_close(handle, NULL);
         }

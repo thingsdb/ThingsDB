@@ -177,7 +177,6 @@ static inline _Bool ti_val_is_set(ti_val_t * val);
 static inline _Bool ti_val_is_thing(ti_val_t * val);
 static inline _Bool ti_val_is_wrap(ti_val_t * val);
 static inline _Bool ti_val_is_member(ti_val_t * val);
-static inline _Bool ti_val_is_locked(ti_val_t * val);
 static inline _Bool ti_val_has_len(ti_val_t * val);
 static inline _Bool ti_val_overflow_cast(double d);
 static inline void ti_val_drop(ti_val_t * val);

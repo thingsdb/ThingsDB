@@ -532,9 +532,15 @@ class TestType(TestBase):
         # section MOD
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                r'function `mod_type` with task `mod` takes 4 arguments '
-                r'but 3 were given'):
+                r'function `mod_type` with task `mod` requires at '
+                r'least 4 arguments but 3 were give'):
             await client.query(r'mod_type("Person", "mod", "x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `mod` takes at '
+                r'most 5 arguments but 6 were give'):
+            await client.query(r'mod_type("Person", "mod", "x", 0, 0, 0);')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -544,9 +550,9 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot apply type declaration `int` to `hair_type` on '
-                r'type `Person`; type `Person` has 1 active instance and '
-                r'the old declaration `str` is not compatible with the new '
-                r'declaration'):
+                r'type `Person` without a closure to migrate existing '
+                r'instances; the old declaration `str` is not compatible '
+                r'with the new declaration'):
             await client.query(r'''
                 mod_type("Person", "mod", "hair_type", "int");
             ''')
@@ -555,7 +561,70 @@ class TestType(TestBase):
                 mod_type("Person", "mod", "hair_type", "any");
             '''), None)
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_type` with task `mod` expects argument 5 to '
+                r'be of type `closure` but got type `str` instead;'):
+            await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "str", "");
+            ''')
+
         self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+
+        await client.query(r'''
+            mod_type("Person", "mod", "hair_type", "str", |p| {
+                p.hair_type.upper();
+            });
+        ''')
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "BLONDE")
+
+        await client.query(r'''
+            mod_type("Person", "mod", "hair_type", "utf8", |p| {
+                p.hair_type = p.hair_type.lower();
+                nil;
+            });
+        ''')
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `hair_type` on type `Person` is modified but at least '
+                r'one error has occurred using the given callback; '
+                r'mismatch in type `Person`; type `int` is invalid for '
+                r'property `hair_type` with definition `str`'):
+            await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "str", || {
+                    1;
+                });
+            ''')
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "any");
+                .tess = Person{hair_type: 123};
+                nil;
+            '''), None)
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+        self.assertEqual(await client.query(r'.tess.hair_type;'), 123)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `hair_type` on type `Person` is modified but at '
+                r'least one error has occurred using the given callback; '
+                r'mismatch in type `Person`; type `int` is invalid for '
+                r'property `hair_type` with definition `str`'):
+            await client.query(r'''
+                mod_type("Person", "mod", "hair_type", "str", |p| {
+                    nil;
+                });
+            ''')
+
+        self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
+        self.assertEqual(await client.query(r'.tess.hair_type;'), "")
 
         # Section REN
         with self.assertRaisesRegex(
@@ -850,8 +919,8 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                r'function `mod_type` with task `mod` takes 4 arguments '
-                r'but 3 were given'):
+                r'function `mod_type` with task `mod` requires at '
+                r'least 4 arguments but 3 were given'):
             await client.query(r'''
                 mod_type('Tac', 'mod', 'card');
             ''')
@@ -1010,7 +1079,7 @@ class TestType(TestBase):
             await client.query(r'_nint{test:-6}.wrap("_number")'),
             {'test': -6})
 
-    async def test_mod_type_closure(self, client0):
+    async def test_mod_type_add_closure(self, client0):
         await client0.query(r'''
             set_type('Chat', {
                 messages: '[str]'
@@ -1056,6 +1125,76 @@ class TestType(TestBase):
 
             msg = await client.query('.room_b.chat.messages[0];')
             self.assertEqual(msg, 'Welcome in room B')
+
+        client1.close()
+        await client1.wait_closed()
+
+    async def test_mod_type_mod_closure(self, client0):
+        await client0.query(r'''
+            set_type('Chat', {
+                name: 'str',
+                messages: '[str]'
+            });
+            set_type('Room', {
+                chat: 'str',
+            });
+            .room_a = Room{chat: 'room A'};
+            .room_b = Room{chat: 'room B'};
+
+            try(mod_type('Room', 'mod', 'chat', 'Chat', || nil));
+
+            .room_a.chat.messages.push('Just one instance');
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.messages[0];')
+            self.assertEqual(msg, 'Just one instance')
+
+            msg = await client.query('.room_b.chat.messages[0];')
+            self.assertEqual(msg, 'Just one instance')
+
+            name = await client.query('.room_a.chat.name;')
+            self.assertEqual(name, '')
+
+            name = await client.query('.room_b.chat.name;')
+            self.assertEqual(name, '')
+
+        await client0.query(r'''
+            mod_type('Room', 'mod', 'chat', 'str');
+            .room_a.chat = 'room A';
+            .room_b.chat = 'room B';
+
+            mod_type('Room', 'mod', 'chat', 'Chat', |room| Chat{
+                name: room.chat,
+                messages: [`Welcome in {room.name}`]
+            });
+
+            .room_a.chat.messages.push('Just one instance');
+        ''')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.messages[0];')
+            self.assertEqual(msg, 'Welcome in room A')
+
+            msg = await client.query('.room_b.chat.messages[0];')
+            self.assertEqual(msg, 'Welcome in room B')
+
+            name = await client.query('.room_a.chat.name;')
+            self.assertEqual(name, 'room A')
+
+            name = await client.query('.room_b.chat.name;')
+            self.assertEqual(name, 'room C')
 
         client1.close()
         await client1.wait_closed()

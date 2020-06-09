@@ -21,21 +21,6 @@ static void wareq__watch_cb(uv_async_t * task);
 static void wareq__unwatch_cb(uv_async_t * task);
 
 
-static inline void * wareq__id(uint64_t id)
-{
-    #if TI_IS64BIT
-    uintptr_t idp = (uintptr_t) id;
-    #else
-    uint64_t * idp = malloc(sizeof(uint64_t));
-    if (!idp)
-        return NULL;
-
-    *idp = (uint64_t) id;
-    #endif
-
-    return (void *) idp;
-}
-
 static inline void wareq__vec_destoroy(vec_t * vec)
 {
     #if TI_IS64BIT
@@ -49,7 +34,7 @@ static inline void wareq__vec_destoroy(vec_t * vec)
  * Create a watch or unwatch request.
  *   Argument `task` should be either "watch" or "unwatch" (watch / unwatch)
  */
-static ti_wareq_t * wareq__create(
+ti_wareq_t * ti_wareq_create(
         ti_stream_t * stream,
         ti_collection_t * collection,
         const char * task)
@@ -67,7 +52,7 @@ static ti_wareq_t * wareq__create(
 
     if (!wareq->task || uv_async_init(
             ti.loop,
-            wareq->task,
+            (uv_async_t *) wareq->task,
             *task == 'w' ? wareq__watch_cb : wareq__unwatch_cb))
     {
         wareq__destroy(wareq);
@@ -110,7 +95,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
             return e->nr;
         }
 
-        idp = wareq__id(mp_id.via.u64);
+        idp = ti_wareq_id(mp_id.via.u64);
         VEC_push(wareq->thing_ids, idp);
     }
 
@@ -162,14 +147,14 @@ ti_wareq_t * ti_wareq_may_create(
 
         if (scope->via.node_id != ti.node->id)
             ex_set(e, EX_LOOKUP_ERROR,
-                    "watch request to a `@node` scope are only allowed to "
+                    "watching a `@node` scope is only allowed to "
                     "the node the client is connected to; change the scope "
                     "to simply `@n` if this is what you want");
 
         return NULL;
     case TI_SCOPE_THINGSDB:
         ex_set(e, EX_LOOKUP_ERROR,
-                "watch request to the `@thingsdb` scope are not possible");
+                "it is not possible to watch the `@thingsdb` scope");
         return NULL;
     }
 
@@ -178,7 +163,7 @@ ti_wareq_t * ti_wareq_may_create(
     if (ti_access_check_err(collection->access, user, TI_AUTH_WATCH, e))
         return NULL;
 
-    wareq = wareq__create(stream, collection, task);
+    wareq = ti_wareq_create(stream, collection, task);
     if (!wareq)
     {
         ex_set_mem(e);
@@ -204,7 +189,7 @@ void ti_wareq_destroy(ti_wareq_t * wareq)
 
 int ti_wareq_run(ti_wareq_t * wareq)
 {
-    return uv_async_send(wareq->task);
+    return uv_async_send((uv_async_t *) wareq->task);
 }
 
 static void wareq__destroy(ti_wareq_t * wareq)
@@ -263,7 +248,7 @@ static void wareq__watch_cb(uv_async_t * task)
         {
             if (reschedule)
             {
-                void * idp = wareq__id(id);
+                void * idp = ti_wareq_id(id);
                 if (vec_push_create(&vec, idp))
                     log_critical(EX_MEMORY_S);
                 continue;
@@ -313,9 +298,11 @@ static void wareq__watch_cb(uv_async_t * task)
                 return;  /* may leak a few bytes */
             }
 
-            if (uv_timer_init(ti.loop, wareq->task) ||
+            wareq->task->data = wareq;
+
+            if (uv_timer_init(ti.loop, (uv_timer_t *) wareq->task) ||
                 uv_timer_start(
-                        wareq->task,
+                        (uv_timer_t *) wareq->task,
                         (uv_timer_cb) wareq__watch_cb,
                         250, 250))
             {

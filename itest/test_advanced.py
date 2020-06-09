@@ -44,14 +44,15 @@ class TestAdvanced(TestBase):
             mod_type('X', 'mod', 'arr', 'any');
 
             .x.arr.push('Hello!');
-            .x.arr.len()
+            .x.arr.len();
         ''')
         self.assertEqual(res, 1)
 
     async def test_mod_del_in_use(self, client):
         with self.assertRaisesRegex(
                 OperationError,
-                r'type `X` xxx'):
+                r'cannot change type `X` while one of the '
+                r'instances is being used'):
             res = await client.query('''
                 set_type('X', {
                     a: 'int',
@@ -115,13 +116,16 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'invalid declaration for `b` on type `A`'):
+                r'invalid declaration for `b` on type `A`; '
+                r'missing `\?` after declaration `B`; '
+                r'circular dependencies must be nillable at least '
+                r'at one point in the chain'):
             await client.query('''
                 mod_type('A', 'mod', 'b', 'B');
             ''')
 
         await client.query('''
-            mod_type('A', 'mod', 'b', 'B?');
+            mod_type('A', 'mod', 'b', 'B?', ||nil);
         ''')
 
         with self.assertRaisesRegex(

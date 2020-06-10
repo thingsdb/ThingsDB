@@ -18,6 +18,7 @@ void ti_away_reschedule(void);
 void ti_away_stop(void);
 _Bool ti_away_accept(uint32_t node_id);
 _Bool ti_away_is_working(void);
+_Bool ti_away_is_busy(void);
 int ti_away_syncer(ti_stream_t * stream, uint64_t first);
 void ti_away_syncer_done(ti_stream_t * stream);
 

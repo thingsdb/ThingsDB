@@ -34,6 +34,102 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mod_type_mod_advanced2(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `chat` on type `Room` is modified but at least one '
+                r'new instance was made with an inappropriate value which in '
+                r'response is changed to default by ThingsDB; mismatch in '
+                r'type `Room`; type `int` is invalid for property `chat` with '
+                r'definition `Room\?`'):
+            await client.query(r'''
+                set_type('Chat', {
+                    messages: '[str]'
+                });
+
+                set_type('Room', {
+                    name: 'str',
+                    chat: 'str'
+                });
+
+                .room_a = Room{name: 'room A'};
+                .room_b = Room{name: 'room B'};
+
+                mod_type('Room', 'mod', 'chat', 'Room?', |room| {
+                    // Here, we can create "Room" since chat allows "any"
+                    // value at this point. However, new rooms must be modified
+                    // accordinly afterwards
+                    Room{name: `sub{room.name}`, chat: 123};
+                });
+            ''')
+
+        msg = await client.query('.room_a.chat.name;')
+        self.assertEqual(msg, 'subroom A')
+
+        msg = await client.query('.room_b.chat.name;')
+        self.assertEqual(msg, 'subroom B')
+
+        self.assertIs(await client.query('.room_a.chat.chat;'), None)
+        self.assertIs(await client.query('.room_b.chat.chat;'), None)
+
+    async def test_type_count(self, client):
+        res = await client.query(r'''
+            new_type("X");
+            set_type("X", {other: 'X?'});
+
+            x = X{};
+            a = [X{}];
+            s = set(X{});
+            y = X{};
+            y.other = X{};
+            t = {
+                x: X{},
+                a: [X{}]
+            };
+
+            .x = X{};
+            .a = [X{}];
+            .s = set(X{});
+            .y = X{};
+            .y.other = X{};
+
+            type_count('X');
+        ''')
+        self.assertEqual(res, 12)
+
+    async def test_mod_to_any(self, client):
+        res = await client.query('''
+            set_type('X', {
+                arr: '[int]'
+            });
+            .x = X{};
+
+            mod_type('X', 'mod', 'arr', 'any');
+
+            .x.arr.push('Hello!');
+            .x.arr.len();
+        ''')
+        self.assertEqual(res, 1)
+
+    async def test_mod_del_in_use(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `X` while one of the '
+                r'instances is being used'):
+            res = await client.query('''
+                set_type('X', {
+                    a: 'int',
+                    b: 'int',
+                    c: 'int'
+                });
+                .x = X{};
+                i = 0;
+                .x.map(|k, v| {
+                    if(i == 0, mod_type('X', 'del', 'c'));
+                    i += 1;
+                });
+            ''')
+
     async def test_new(self, client):
         res = await client.query('''
             set_type('Count', {
@@ -83,13 +179,16 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'invalid declaration for `b` on type `A`'):
+                r'invalid declaration for `b` on type `A`; '
+                r'missing `\?` after declaration `B`; '
+                r'circular dependencies must be nillable at least '
+                r'at one point in the chain'):
             await client.query('''
                 mod_type('A', 'mod', 'b', 'B');
             ''')
 
         await client.query('''
-            mod_type('A', 'mod', 'b', 'B?');
+            mod_type('A', 'mod', 'b', 'B?', ||nil);
         ''')
 
         with self.assertRaisesRegex(

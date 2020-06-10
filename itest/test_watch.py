@@ -48,22 +48,24 @@ class TestEvents(Events):
         thing.on_init(data['event'], thing_dict)
 
     def on_watch_update(self, data):
-        thing = self._things.get(data.pop('#'))
-        assert thing
+        id = data.pop('#')
+        thing = self._things.get(id)
+        assert thing, f'missing thing with id {id}'
 
         thing.on_update(data['event'], data.pop('jobs'))
 
     def on_watch_delete(self, data):
-        thing = self._things.get(data.pop('#'))
-        assert thing
-
-        thing.on_delete()
+        id = data.pop('#')
+        thing = self._things.get(id)
+        if thing:
+            thing.on_delete()
 
     def on_watch_stop(self, data):
         pass
 
 
 class Thing:
+
     def __init__(self, evhandler, id):
         self._id = id
         self._evhandler = evhandler
@@ -89,8 +91,11 @@ class Thing:
         for prop, val in set_job.items():
             setattr(self, prop, val)
 
-    def _job_splice(self, splice_job):
-        raise NotImplementedError
+    def _job_splice(self, pair):
+        (_k, v), = pair.items()
+
+        _index, _count, *items = v
+        self.push_cb(self._evhandler, items)
 
     def _job_event(self, ev):
         event, *args = ev
@@ -160,7 +165,6 @@ class TestWatch(TestBase):
             client.close()
             await client.wait_closed()
 
-
     async def test_watch(self, ev0, ev1, ev2):
         iris = await ev0.client.query('.iris = {};')
 
@@ -219,6 +223,45 @@ class TestWatch(TestBase):
         await iris0.unwatch()
         await iris1.unwatch()
         await iris2.unwatch()
+
+    async def test_missing_away_mode(self, ev0, ev1, ev2):
+        store = await ev0.client.query(r'.store = {arr: []};')
+
+        await asyncio.sleep(0.6)
+
+        store0 = Thing(ev0, store['#'])
+        store1 = Thing(ev1, store['#'])
+        store2 = Thing(ev2, store['#'])
+
+        await store0.watch()
+        await store1.watch()
+        await store2.watch()
+
+        watch_list = []
+
+        def push_cb(ev, items):
+            for item in items:
+                # this is the actual test, the ID must exist on the node
+                # after an event with this ID is received (even in away mode)
+                i = Thing(ev, item['#'])
+                asyncio.ensure_future(i.watch())
+                watch_list.append(i)
+
+        store0.push_cb = push_cb
+        store1.push_cb = push_cb
+        store2.push_cb = push_cb
+
+        for _ in range(120):
+            await ev0.client.query(r'.store.arr.push({x: 41});')
+            await asyncio.sleep(0.2)
+
+        await ev0.client.query(r'.store.arr.each(|x| x.x += 1);')
+
+        await asyncio.sleep(1.6)
+
+        self.assertEqual(len(watch_list), 120 * 3)
+        for i in watch_list:
+            self.assertEqual(i.x, 42)
 
     async def test_away_mode(self, ev0, ev1, ev2):
         evmap = [ev for ev in (ev0, ev1, ev2)]

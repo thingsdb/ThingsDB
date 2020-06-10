@@ -35,6 +35,7 @@
 
 static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
+static ti_val_t * val__sany;
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
@@ -456,6 +457,7 @@ int ti_val_init_common(void)
 {
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
+    val__sany = (ti_val_t *) ti_str_from_str("any");
     val__snil = (ti_val_t *) ti_str_from_str(TI_VAL_NIL_S);
     val__strue = (ti_val_t *) ti_str_from_str("true");
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
@@ -479,7 +481,8 @@ int ti_val_init_common(void)
         !val__sfalse || !val__sbool || !val__sint || !val__sfloat ||
         !val__sstr || !val__sbytes || !val__sinfo || !val__sregex ||
         !val__serror || !val__sclosure || !val__slist || !val__stuple ||
-        !val__sset || !val__sthing || !val__swthing || !val__tar_gz_str)
+        !val__sset || !val__sthing || !val__swthing || !val__tar_gz_str ||
+        !val__sany)
     {
         ti_val_drop_common();
         return -1;
@@ -491,6 +494,7 @@ void ti_val_drop_common(void)
 {
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
+    ti_val_drop(val__sany);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
@@ -600,6 +604,11 @@ ti_val_t * ti_val_empty_str(void)
 {
     ti_incref(val__empty_str);
     return val__empty_str;
+}
+
+ti_val_t * ti_val_borrow_any_str(void)
+{
+    return val__sany;
 }
 
 ti_val_t * ti_val_borrow_tar_gz_str(void)

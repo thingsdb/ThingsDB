@@ -31,7 +31,6 @@ int ti_collection_rename(
         ti_raw_t * rname,
         ex_t * e);
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection);
-size_t ti_collection_ntype(ti_collection_t * collection, ti_type_t * type);
 
 struct ti_collection_s
 {

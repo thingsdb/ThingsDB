@@ -29,6 +29,7 @@ from test_wrap import TestWrap
 
 
 if __name__ == '__main__':
+    run_test(TestNested())  # TODO: seems to fail sometimes, on top to verity
     run_test(TestAdvanced())
     run_test(TestArguments())
     run_test(TestBackup())
@@ -40,7 +41,6 @@ if __name__ == '__main__':
     run_test(TestHTTPAPI())
     run_test(TestIndexSlice())
     run_test(TestMultiNode())
-    run_test(TestNested())
     run_test(TestNodeFunctions())
     run_test(TestNodes())
     run_test(TestOperators())

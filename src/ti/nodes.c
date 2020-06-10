@@ -17,6 +17,7 @@
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
 #include <ti/version.h>
+#include <ti/wareq.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -1056,7 +1057,7 @@ static void nodes__on_fwd_wu(
         ti_pkg_t * pkg,
         const char * action)  /* action = "watch" or "unwatch" */
 {
-    ti_thing_t * thing;
+    ti_wareq_t * wareq;
     ti_collection_t * collection;
     ti_fwd_t * fwd;
     ti_req_t * req;
@@ -1106,25 +1107,19 @@ static void nodes__on_fwd_wu(
         return;
     }
 
-    uv_mutex_lock(collection->lock);
-
-    thing = imap_get(collection->things, mp_tid.via.u64);
-    if (thing)
+    wareq = ti_wareq_create(fwd->stream, collection, action);
+    if (!wareq || !(wareq->thing_ids = vec_new(1)))
     {
-        int rc = *action == 'w'
-                ? ti_thing_watch_init(thing, fwd->stream)
-                : ti_thing_unwatch(thing, fwd->stream);
-        if (rc)
-            log_error("%s() has failed (%d)", action, rc);
-    }
-    else
-    {
-        log_warning(
-                "cannot find "TI_THING_ID" in "TI_COLLECTION_ID,
-                mp_tid.via.u64, mp_cid.via.u64);
+        ti_wareq_destroy(wareq);
+        log_critical(EX_MEMORY_S);
+        return;
     }
 
-    uv_mutex_unlock(collection->lock);
+    VEC_push(wareq->thing_ids, ti_wareq_id(mp_tid.via.u64));
+
+    if (ti_wareq_run(wareq))
+        ti_wareq_destroy(wareq);
+    return;  /* success */
 }
 
 static const char * nodes__get_status_fn(void)

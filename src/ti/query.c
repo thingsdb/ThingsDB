@@ -1078,18 +1078,126 @@ ti_thing_t * ti_query_thing_from_id(
     return thing;
 }
 
-size_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
+typedef struct
 {
-    size_t n = 0;
-    for (vec_each(query->vars, ti_prop_t, prop))
+    ssize_t n;
+    uint16_t type_id;
+} query__count_t;
+
+static inline int query__count(ti_thing_t * t, query__count_t * c)
+{
+    c->n += t->type_id == c->type_id;
+    return 0;
+}
+
+ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
+{
+    query__count_t c = {
+            .n = 0,
+            .type_id = type->type_id
+    };
+
+    if (ti_query_vars_walk(query->vars, (imap_cb) query__count, &c))
+        return -1;
+
+    (void) imap_walk(query->collection->things, (imap_cb) query__count, &c);
+
+    return c.n;
+}
+
+static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap);
+
+static int query__get_things(ti_val_t * val, imap_t * imap)
+{
+    int rc;
+
+    switch((ti_val_enum) val->tp)
     {
-        ti_thing_t * thing = (ti_thing_t *) prop->val;
-        if (thing->tp == TI_VAL_THING &&
-            thing->id == 0 &&
-            thing->type_id == type->type_id)
-            ++n;
+    case TI_VAL_NIL:
+    case TI_VAL_BOOL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_MP:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_ERROR:
+    case TI_VAL_NAME:
+    case TI_VAL_REGEX:
+        break;
+    case TI_VAL_THING:
+        return query__var_walk_thing((ti_thing_t *) val, imap);
+    case TI_VAL_WRAP:
+        return query__var_walk_thing(((ti_wrap_t *) val)->thing, imap);
+    case TI_VAL_ARR:
+        if (ti_varr_may_have_things((ti_varr_t *) val))
+            for (vec_each(VARR(val), ti_val_t, v))
+                if ((rc = query__get_things(v, imap)))
+                    return rc;
+        break;
+    case TI_VAL_SET:
+        return imap_walk(VSET(val), (imap_cb) query__var_walk_thing, imap);
+    case TI_VAL_CLOSURE:
+    case TI_VAL_MEMBER:  /* things as a member have an id */
+    case TI_VAL_TEMPLATE:
+        break;
     }
-    n += ti_collection_ntype(query->collection, type);
-    return n;
+
+    return 0;
+}
+
+static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
+{
+    if (thing->id)
+        return 0;
+
+    switch (imap_add(imap, ti_thing_key(thing), thing))
+    {
+    case IMAP_ERR_ALLOC:
+        return -1;
+    case IMAP_ERR_EXIST:
+        return 0;
+    }
+
+    /* SUCCESS, get a reference */
+
+    ti_incref(thing);
+
+    if (ti_thing_is_object(thing))
+    {
+        for (vec_each(thing->items, ti_prop_t, prop))
+            if (query__get_things(prop->val, imap))
+                return -1;
+    }
+    else
+    {
+        for (vec_each(thing->items, ti_val_t, val))
+            if (query__get_things(val, imap))
+                return -1;
+    }
+    return 0;
+}
+
+/*
+ * While walking the things, each thing has a reference so if can not be
+ * removed even if the callback tries to drop the thing.
+ *
+ * The callback will only be called on things without an ID.
+ */
+int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args)
+{
+    int rc;
+    imap_t * imap = imap_create();
+    if (!imap)
+        return -1;
+
+    for (vec_each(vars, ti_prop_t, prop))
+        if ((rc = query__get_things(prop->val, imap)))
+            goto fail;
+
+    rc = imap_walk(imap, cb, args);
+
+fail:
+    imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
+    return rc;
 }
 

@@ -158,25 +158,3 @@ ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
 
     return (ti_val_t *) raw;
 }
-
-typedef struct
-{
-    size_t n;
-    uint16_t type_id;
-} collection__count_t;
-
-static inline int collection__count(ti_thing_t * t, collection__count_t * c)
-{
-    c->n += t->type_id == c->type_id;
-    return 0;
-}
-
-size_t ti_collection_ntype(ti_collection_t * collection, ti_type_t * type)
-{
-    collection__count_t c = {
-            .n = 0,
-            .type_id = type->type_id
-    };
-    imap_walk(collection->things, (imap_cb) collection__count, &c);
-    return c.n;
-}

@@ -70,10 +70,13 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, name_nd, e) ||
         fn_arg_thing("assign", DOC_THING_ASSIGN, 1, query->rval, e))
+    {
         goto fail0;
+    }
 
     tsrc = (ti_thing_t *) query->rval;
-    query->rval = (ti_val_t *) ti_nil_get();
+    query->rval = (ti_val_t *) thing;
+    ti_incref(thing);
 
     if (thing->id && !(task = ti_task_get_task(query->ev, thing, e)))
         goto fail1;

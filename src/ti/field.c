@@ -595,11 +595,91 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
     return 0;
 }
 
+ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
+{
+    ti_field_t * new_field = malloc(sizeof(ti_field_t));
+    if (!new_field)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    new_field->idx = field->idx;
+    new_field->name = field->name;
+    new_field->spec_raw = spec_raw;
+    new_field->type = field->type;
+
+    ti_incref(new_field->name);
+    ti_incref(new_field->spec_raw);
+
+    if (field__init(new_field, e))
+    {
+        ti_field_destroy(new_field);
+        return NULL;  /* error is set */
+    }
+
+    return new_field;
+}
+
+/*
+ * Destroys `with_field` and sets this pointer to NULL
+ */
+void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
+{
+    assert (field->idx == (*with_field)->idx);
+    assert (field->type == (*with_field)->type);
+
+    field__remove_dep(field);
+
+    ti_val_drop((ti_val_t *) field->spec_raw);
+    field->spec = (*with_field)->spec;
+    field->nested_spec = (*with_field)->nested_spec;
+    field->spec_raw = (*with_field)->spec_raw;
+
+    ti_incref(field->spec_raw);
+
+    ti_field_destroy(*with_field);  /* dependencies are moved */
+    *with_field = NULL;
+}
+
+int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
+{
+    ti_raw_t * prev_spec_raw = field->spec_raw;
+    uint16_t prev_spec = field->spec;
+    uint16_t prev_nested_spec = field->nested_spec;
+
+    field__remove_dep(field);
+
+    field->spec_raw = spec_raw;
+
+    if (field__init(field, e))
+        goto undo;
+
+    if (prev_nested_spec != field->nested_spec)
+    {
+        (void) imap_walk(
+            field->type->types->collection->things,
+            (imap_cb) field__mod_nested_cb,
+            field);
+    }
+
+    ti_incref(spec_raw);
+    ti_val_drop((ti_val_t *) prev_spec_raw);
+    return 0;
+
+undo:
+    field->spec_raw = prev_spec_raw;
+    field->spec = prev_spec;
+    field->nested_spec = prev_nested_spec;
+    (void) field__add_dep(field);
+
+    return e->nr;
+}
+
 int ti_field_mod(
         ti_field_t * field,
         ti_raw_t * spec_raw,
         vec_t * vars,
-        size_t n,
         ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
@@ -612,9 +692,6 @@ int ti_field_mod(
     if (field__init(field, e))
         goto undo;
 
-    if (!n)
-        goto success;
-
     switch (ti__spec_check_mod(prev_spec, field->spec))
     {
     case TI_SPEC_MOD_SUCCESS:           goto success;
@@ -623,21 +700,7 @@ int ti_field_mod(
     case TI_SPEC_MOD_NESTED:
         switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
         {
-        case TI_SPEC_MOD_SUCCESS:
-            imap_walk(
-                field->type->types->collection->things,
-                (imap_cb) field__mod_nested_cb,
-                field);
-            /* check for variable to update, val_cache is not required
-             * since only things with an id are store in cache
-             */
-            if (vars) for (vec_each(vars, ti_prop_t, prop))
-            {
-                ti_thing_t * thing = (ti_thing_t *) prop->val;
-                if (thing->tp == TI_VAL_THING && thing->id == 0)
-                    (void) field__mod_nested_cb(thing, field);
-            }
-            goto success;
+        case TI_SPEC_MOD_SUCCESS:           goto success;
         case TI_SPEC_MOD_ERR:               goto incompatible;
         case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
         case TI_SPEC_MOD_NESTED:            goto incompatible;
@@ -648,26 +711,22 @@ int ti_field_mod(
 
 nillable:
     ex_set(e, EX_OPERATION_ERROR,
-        "cannot apply type declaration `%.*s` to `%s` on type `%s`; "
-        "type `%s` has %zu active instance%s and the old declaration "
+        "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
+        "closure to migrate existing instances; the old declaration "
         "was nillable while the new declaration is not"DOC_MOD_TYPE_MOD,
         (int) spec_raw->n, (const char *) spec_raw->data,
         field->name->str,
-        field->type->name,
-        field->type->name,
-        n, n == 1 ? "" : "s");
+        field->type->name);
     goto undo_dep;
 
 incompatible:
     ex_set(e, EX_OPERATION_ERROR,
-        "cannot apply type declaration `%.*s` to `%s` on type `%s`; "
-        "type `%s` has %zu active instance%s and the old declaration `%.*s` "
+        "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
+        "closure to migrate existing instances; the old declaration `%.*s` "
         "is not compatible with the new declaration"DOC_MOD_TYPE_MOD,
         (int) spec_raw->n, (const char *) spec_raw->data,
         field->name->str,
         field->type->name,
-        field->type->name,
-        n, n == 1 ? "" : "s",
         (int) prev_spec_raw->n, (const char *) prev_spec_raw->data);
 
 undo_dep:
@@ -682,6 +741,25 @@ undo:
     return e->nr;
 
 success:
+    if (prev_nested_spec != field->nested_spec)
+    {
+        /* check for variable to update, val_cache is not required
+         * since only things with an id are store in cache
+         */
+        if (vars && ti_query_vars_walk(
+                vars,
+                (imap_cb) field__mod_nested_cb,
+                field))
+        {
+            ex_set_mem(e);
+            goto undo_dep;
+        }
+
+        (void) imap_walk(
+            field->type->types->collection->things,
+            (imap_cb) field__mod_nested_cb,
+            field);
+    }
     ti_incref(spec_raw);
     ti_val_drop((ti_val_t *) prev_spec_raw);
     return 0;
@@ -818,6 +896,14 @@ void ti_field_destroy(ti_field_t * field)
     ti_val_drop((ti_val_t *) field->spec_raw);
 
     free(field);
+}
+
+void ti_field_destroy_dep(ti_field_t * field)
+{
+    if (!field)
+        return;
+    field__remove_dep(field);
+    ti_field_destroy(field);
 }
 
 static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)

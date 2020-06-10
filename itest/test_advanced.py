@@ -97,6 +97,24 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, 12)
 
+        res = await client.query(r'''
+            new_type("Y");
+            set_type("Y", {other: 'Y?'});
+
+            y = Y{};
+            y.other = y;
+
+            r = {};
+            r.r = r;
+            x = {
+                y: y,
+                r: r
+            };
+
+            type_count('Y');
+        ''')
+        self.assertEqual(res, 1)
+
     async def test_mod_to_any(self, client):
         res = await client.query('''
             set_type('X', {

@@ -11,6 +11,7 @@
 * Fixed `list` or `set` may keep restriction after using mod_type(), issue #38.
 * Allow the `mod` action for function `mod_type(..)` to use a closure and remove specification restriction, issue #34.
 
+
 # v0.9.2
 
 * Accept a closure when adding a type definition, issue #10.

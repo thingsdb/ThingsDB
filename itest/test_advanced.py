@@ -34,6 +34,31 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_type_count(self, client):
+        res = await client.query(r'''
+            new_type("X");
+            set_type("X", {other: 'X?'});
+
+            x = X{};
+            a = [X{}];
+            s = set(X{});
+            y = X{};
+            y.other = X{};
+            t = {
+                x: X{},
+                a: [X{}]
+            };
+
+            .x = X{};
+            .a = [X{}];
+            .s = set(X{});
+            .y = X{};
+            .y.other = X{};
+
+            type_count('X');
+        ''')
+        self.assertEqual(res, 12)
+
     async def test_mod_to_any(self, client):
         res = await client.query('''
             set_type('X', {

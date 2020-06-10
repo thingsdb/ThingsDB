@@ -5,6 +5,7 @@
 #define TI_QUERY_H_
 
 typedef struct ti_query_s ti_query_t;
+typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 #include <cleri/cleri.h>
 #include <ti/collection.h>
@@ -21,6 +22,8 @@ typedef struct ti_query_s ti_query_t;
 #include <ti/scope.h>
 #include <ti/closure.h>
 #include <util/omap.h>
+
+
 
 typedef int (*ti_query_unpack_cb) (
         ti_query_t *,
@@ -57,9 +60,10 @@ ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
         int64_t thing_id,
         ex_t * e);
-size_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
+ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
+int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args);
 
 typedef union
 {

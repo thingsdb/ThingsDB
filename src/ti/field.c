@@ -743,20 +743,22 @@ undo:
 success:
     if (prev_nested_spec != field->nested_spec)
     {
+        /* check for variable to update, val_cache is not required
+         * since only things with an id are store in cache
+         */
+        if (vars && ti_query_vars_walk(
+                vars,
+                (imap_cb) field__mod_nested_cb,
+                field))
+        {
+            ex_set_mem(e);
+            goto undo_dep;
+        }
+
         (void) imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
             field);
-
-        /* check for variable to update, val_cache is not required
-         * since only things with an id are store in cache
-         */
-        if (vars) for (vec_each(vars, ti_prop_t, prop))
-        {
-            ti_thing_t * thing = (ti_thing_t *) prop->val;
-            if (thing->tp == TI_VAL_THING && thing->id == 0)
-                (void) field__mod_nested_cb(thing, field);
-        }
     }
     ti_incref(spec_raw);
     ti_val_drop((ti_val_t *) prev_spec_raw);

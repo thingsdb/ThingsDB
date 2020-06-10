@@ -6,7 +6,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_thing_t * thing;
     ti_task_t * task;
-    size_t n;
+    ssize_t n;
     uint64_t ts_now = util_now_tsec();
     _Bool is_new_type = false;
 
@@ -87,11 +87,14 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     n = ti_query_count_type(query, type);
     if (n)
     {
-        ex_set(e, EX_OPERATION_ERROR,
-            "function `set_type` can only be used on a type without active "
-            "instances; %zu active instance%s of type `%s` %s been found"
-            DOC_SET_TYPE,
-            n, n == 1 ? "" : "s", type->name, n == 1 ? "has" : "have");
+        if (n < 0)
+            ex_set_mem(e);
+        else
+            ex_set(e, EX_OPERATION_ERROR,
+                "function `set_type` can only be used on a type without active "
+                "instances; %zd active instance%s of type `%s` %s been found"
+                DOC_SET_TYPE,
+                n, n == 1 ? "" : "s", type->name, n == 1 ? "has" : "have");
         goto fail1;
     }
 

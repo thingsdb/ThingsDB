@@ -14,6 +14,57 @@ static inline int modtype__unlocked_cb(ti_thing_t * thing, ti_type_t * type)
 
 typedef struct
 {
+    ti_name_t * name;
+    ti_val_t * dval;
+    ti_type_t * type;
+    ex_t * e;
+} modtype__addv_t;
+
+static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
+{
+    if (thing->type_id == w->type->type_id)
+    {
+        if (ti_val_make_assignable(&w->dval, thing, w->name, w->e))
+            return w->e->nr;
+
+        if (vec_push(&thing->items, w->dval))
+        {
+            ex_set_mem(w->e);
+            return w->e->nr;
+        }
+
+        ti_incref(w->dval);
+    }
+    return 0;
+}
+
+static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
+{
+    if (thing->type_id == field->type->type_id)
+        ti_val_drop(vec_swap_remove(thing->items, field->idx));
+    return 0;
+}
+
+typedef struct
+{
+    ti_type_t * type;
+    imap_t * imap;
+} modtype__collect_t;
+
+static int modtype__collect_cb(ti_thing_t * thing, modtype__collect_t * w)
+{
+    if (thing->type_id == w->type->type_id)
+    {
+        if (imap_add(w->imap, ti_thing_key(thing), thing))
+            return -1;
+
+        ti_incref(thing);
+    }
+    return 0;
+}
+
+typedef struct
+{
     ti_field_t * field;
     ti_closure_t * closure;
     ti_query_t * query;
@@ -26,8 +77,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     ti_prop_t * prop;
     ex_t ex = {0};
 
-    if (thing->type_id != w->field->type->type_id)
-        return 0;
+    assert (thing->type_id == w->field->type->type_id);
 
     if (w->closure->vars->n)
     {
@@ -85,8 +135,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     ti_prop_t * prop;
     ex_t ex = {0};
 
-    if (thing->type_id != w->field->type->type_id)
-        return 0;
+    assert (thing->type_id == w->field->type->type_id);
 
     if (w->closure->vars->n)
     {
@@ -153,6 +202,65 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
     w->query->rval = NULL;
     return 0;
+}
+
+static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
+{
+    ti_task_t * task;
+    ex_t ex = {0};
+    ti_val_t * val = vec_get(thing->items, w->field->idx);
+
+    /* TODO : remove LOGC */
+    LOGC("change thing after cb");
+
+    assert (thing->type_id == w->field->type->type_id);
+
+    /*
+     * no copy is required if the value has only one reference, therefore
+     * it is safe to use `ti_field_make_assignable(..)` and this also
+     * ensures that not much work has to be done since no copy of a set
+     * or list will be made.
+     */
+    if (ti_field_make_assignable(w->field, &val, thing, &ex))
+    {
+        ti_incref(w->dval);
+        ti_val_drop(vec_set(thing->items, w->dval, w->field->idx));
+
+        if (thing->id)
+        {
+            task = ti_task_get_task(w->query->ev, thing, w->e);
+            if (task && ti_task_add_set(task, w->field->name, w->dval))
+                ex_set_mem(w->e);
+        }
+    }
+
+    return 0;
+}
+
+static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
+{
+    modtype__collect_t collect = {
+            .imap = imap_create(),
+            .type = type,
+    };
+
+    if (!collect.imap)
+        return NULL;
+
+    if (ti_query_vars_walk(
+            query->vars,
+            (imap_cb) modtype__collect_cb,
+            &collect) ||
+        imap_walk(
+                query->collection->things,
+                (imap_cb) modtype__collect_cb,
+                &collect))
+    {
+        imap_destroy(collect.imap, (imap_destroy_cb) ti_val_drop);
+        return NULL;
+    }
+
+    return collect.imap;
 }
 
 static void type__add(
@@ -253,24 +361,18 @@ static void type__add(
         goto fail3;
     }
 
-    for (vec_each(query->vars, ti_prop_t, prop))
+    modtype__addv_t addvjob = {
+            .name = field->name,
+            .dval = dval,
+            .type = type,
+            .e = e,
+    };
+
+    if (ti_query_vars_walk(query->vars, (imap_cb) modtype__addv_cb, &addvjob))
     {
-        ti_thing_t * thing = (ti_thing_t *) prop->val;
-        if (thing->tp == TI_VAL_THING &&
-            thing->id == 0 &&
-            thing->type_id == type->type_id)
-        {
-            if (ti_val_make_assignable(&dval, thing, prop->name, e))
-                goto panic;
-
-            if (vec_push(&thing->items, dval))
-            {
-                ex_set_mem(e);
-                goto panic;
-            }
-
-            ti_incref(dval);
-        }
+        if (!e->nr)
+            ex_set_mem(e);
+        goto panic;
     }
 
     /*
@@ -288,6 +390,7 @@ static void type__add(
 
     if (closure)
     {
+        imap_t * imap;
         modtype__add_t addjob = {
                 .field = field,
                 .closure = closure,
@@ -295,21 +398,21 @@ static void type__add(
                 .e = e,
         };
 
-        query->rval = NULL;
-
-        for (vec_each(query->vars, ti_prop_t, prop))
+        imap = modtype__collect_things(query, type);
+        if (!imap)
         {
-            ti_thing_t * thing = (ti_thing_t *) prop->val;
-
-            if (thing->tp == TI_VAL_THING && thing->id == 0)
-                (void) modtype__add_cb(thing, &addjob);
+            ex_set_mem(e);
+            goto panic;
         }
 
-        /* TODO: this breaks.. what if things are added? */
+        query->rval = NULL;
+
         (void) imap_walk(
-                query->collection->things,
+                imap,
                 (imap_cb) modtype__add_cb,
                 &addjob);
+
+        imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
 
         ti_closure_dec(closure, query);
         ti_val_drop((ti_val_t *) closure);
@@ -366,13 +469,13 @@ static void type__del(
     /* check for variable to update, val_cache is not required since only
      * things with an id are store in cache
      */
-    for (vec_each(query->vars, ti_prop_t, prop))
+    if (ti_query_vars_walk(
+            query->vars,
+            (imap_cb) modtype__delv_cb,
+            field))
     {
-        ti_thing_t * thing = (ti_thing_t *) prop->val;
-        if (thing->tp == TI_VAL_THING &&
-            thing->id == 0 &&
-            thing->type_id == type->type_id)
-            ti_val_drop(vec_swap_remove(thing->items, field->idx));
+        ex_set_mem(e);
+        return;
     }
 
     if (ti_field_del(field, query->ev->id))
@@ -398,6 +501,7 @@ static int type__mod_using_callback(
         ex_t * e)
 {
     ti_closure_t * closure;
+    imap_t * imap, * imap_after;
 
     if (ti_do_statement(query, nd, e) ||
         fn_arg_closure(fnname, DOC_MOD_TYPE_MOD, 5, query->rval, e))
@@ -425,12 +529,21 @@ static int type__mod_using_callback(
     if (!modjob.dval)
         goto fail2;  /* error is set */
 
+    imap = modtype__collect_things(query, field->type);
+    if (!imap)
+    {
+        ex_set_mem(e);
+        goto fail3;
+    }
+
     if (ti_field_mod(
             field,
             (ti_raw_t *) ti_val_borrow_any_str(),
             query->vars,
             e))
-        goto fail3;
+        goto fail4;
+
+    /* From now on it is critical and we should panic */
 
     /* update modified time-stamp */
     field->type->modified_at = util_now_tsec();
@@ -438,20 +551,30 @@ static int type__mod_using_callback(
     if (ti_task_add_mod_type_mod(task, modjob.field))
     {
         ex_set_mem(e);
-        goto fail3;
+        goto panic;
     }
 
     (void) imap_walk(
-            query->collection->things,
+            imap,
             (imap_cb) modtype__mod_cb,
             &modjob);
 
-    (void) imap_walk(
-            query->collection->things,
-            (imap_cb) modtype__unlocked_cb,
-            &modjob);
+    imap_after = modtype__collect_things(query, field->type);
+    if (imap_after)
+    {
+        imap_difference_inplace(imap_after, imap);
+
+        (void) imap_walk(
+                imap,
+                (imap_cb) modtype__mod_after_cb,
+                &modjob);
+
+        imap_destroy(imap_after, (imap_destroy_cb) ti_val_drop);
+    }
 
     ti_field_replace(field, &modjob.field);
+fail4:
+    imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
 fail3:
     ti_val_drop(modjob.dval);
 fail2:
@@ -461,6 +584,9 @@ fail1:
 fail0:
     ti_val_drop((ti_val_t *) closure);
     return e->nr;
+panic:
+    ti_panic("unrecoverable state after using mod_type(...)");
+    goto fail4;
 }
 
 static void type__mod(
@@ -585,6 +711,38 @@ done:
     ti_name_drop(oldname);
 }
 
+static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
+{
+    int rc = ti_query_vars_walk(
+            query->vars,
+            (imap_cb) modtype__is_locked_cb,
+            type);
+
+    if (rc)
+    {
+        if (rc < 0)
+            goto memerror;
+        goto locked;
+    }
+
+    if (imap_walk(
+            query->collection->things,
+            (imap_cb) modtype__is_locked_cb,
+            type))
+        goto locked;
+
+    return 0;
+
+locked:
+    ex_set(e, EX_OPERATION_ERROR,
+        "cannot change type `%s` while one of the instances is being used",
+        type->name);
+    return e->nr;
+memerror:
+    ex_set_mem(e);
+    return e->nr;
+}
+
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
@@ -608,18 +766,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * is read. It is not a good state if one of the affected things has a
      * lock outside this function call.
      */
-    if (imap_walk(
-            query->collection->things,
-            (imap_cb) modtype__is_locked_cb,
-            type))
-    {
-        ex_set(e, EX_OPERATION_ERROR,
-            "cannot change type `%s` while one of the instances is being used",
-            type->name);
-        return e->nr;
-    }
-
-    if (ti_type_try_lock(type, e))
+    if (modtype__has_lock(query, type, e) || ti_type_try_lock(type, e))
         return e->nr;
 
     ti_val_drop(query->rval);

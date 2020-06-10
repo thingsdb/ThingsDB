@@ -298,6 +298,21 @@ typedef struct
     size_t n;
 } qbind__fmap_t;
 
+/*
+ * Every function which might return a pointer to a mutable value, other than
+ * a thing, must start with X... This is not true if you can guarantee that or,
+ * the return value does not require an event, or if the function itself is
+ * already making an event. (then the optimization has no meaning anyway)
+ *
+ * For example:
+ *   t = .my_stored_thing;
+ *   t.get('arr').push(42);  // Requires an event, arr is still a pointer.
+ *
+ *   arr = t.get('arr');
+ *   arr.push(42);  // Does not require an event, since arr is assigned and
+ *                  // therefore copied.
+ */
+
 #define ROOT_NE \
         .flags=FN__FLAG_ROOT|FN__FLAG_AS_ON_VAR
 #define ROOT_BE \
@@ -603,13 +618,13 @@ static void qbind__function(
             n >= MIN_WORD_LENGTH &&
             key <= MAX_HASH_VALUE
     ) ? qbind__map[key] : NULL;
-    register uint8_t fmflags = fmap ? fmap->flags : 0;
-
-    nd->data = (
-            ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmflags) &&
+    register uint8_t fmflags = (
+            fmap &&
             fmap->n == n &&
-            memcmp(fnname->str, fmap->name, n) == 0
-    ) ? fmap->fn : NULL;
+            ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
+            memcmp(fnname->str, fmap->name, n) == 0) ? fmap->flags : 0;
+
+    nd->data = fmflags ? fmap->fn : NULL;
 
     /* may set event flag */
     q->flags |= (

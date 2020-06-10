@@ -4,7 +4,12 @@
 * Fixed error in generating a new type instance with enumerators, issue #33.
 * Fixed invalid copy of list when using the `new(..)` function, issue #36.
 * Added a new function `assign(..)`, issue #32.
-
+* Fixed incorrect type count when using thing as variable, issue #42.
+* Fixed missing Thing ID after receiving a new thing by an event, issue #41.
+* Changed the return value for function `.del(..)`, issue #40. 
+* Fixed instances may be in use while changing a type, issue #39.
+* Fixed `list` or `set` may keep restriction after using mod_type(), issue #38.
+* Allow the `mod` action for function `mod_type(..)` to use a closure and remove specification restriction, issue #34.
 
 # v0.9.2
 

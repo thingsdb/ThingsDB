@@ -227,6 +227,8 @@ class TestWatch(TestBase):
     async def test_missing_away_mode(self, ev0, ev1, ev2):
         store = await ev0.client.query(r'.store = {arr: []};')
 
+        await asyncio.sleep(0.6)
+
         store0 = Thing(ev0, store['#'])
         store1 = Thing(ev1, store['#'])
         store2 = Thing(ev2, store['#'])
@@ -239,6 +241,8 @@ class TestWatch(TestBase):
 
         def push_cb(ev, items):
             for item in items:
+                # this is the actual test, the ID must exist on the node
+                # after an event with this ID is received (even in away mode)
                 i = Thing(ev, item['#'])
                 asyncio.ensure_future(i.watch())
                 watch_list.append(i)
@@ -253,7 +257,7 @@ class TestWatch(TestBase):
 
         await ev0.client.query(r'.store.arr.each(|x| x.x += 1);')
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1.6)
 
         self.assertEqual(len(watch_list), 120 * 3)
         for i in watch_list:

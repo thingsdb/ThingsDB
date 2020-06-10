@@ -34,6 +34,44 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_mod_type_mod_advanced2(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `chat` on type `Room` is modified but at least one '
+                r'new instance was made with an inappropriate value which in '
+                r'response is changed to default by ThingsDB; mismatch in '
+                r'type `Room`; type `int` is invalid for property `chat` with '
+                r'definition `Room\?`'):
+            await client.query(r'''
+                set_type('Chat', {
+                    messages: '[str]'
+                });
+
+                set_type('Room', {
+                    name: 'str',
+                    chat: 'str'
+                });
+
+                .room_a = Room{name: 'room A'};
+                .room_b = Room{name: 'room B'};
+
+                mod_type('Room', 'mod', 'chat', 'Room?', |room| {
+                    // Here, we can create "Room" since chat allows "any"
+                    // value at this point. However, new rooms must be modified
+                    // accordinly afterwards
+                    Room{name: `sub{room.name}`, chat: 123};
+                });
+            ''')
+
+        msg = await client.query('.room_a.chat.name;')
+        self.assertEqual(msg, 'subroom A')
+
+        msg = await client.query('.room_b.chat.name;')
+        self.assertEqual(msg, 'subroom B')
+
+        self.assertIs(await client.query('.room_a.chat.chat;'), None)
+        self.assertIs(await client.query('.room_b.chat.chat;'), None)
+
     async def test_type_count(self, client):
         res = await client.query(r'''
             new_type("X");

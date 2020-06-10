@@ -613,8 +613,8 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'field `hair_type` on type `Person` is modified but at '
-                r'least one error has occurred using the given callback; '
+                r'field `hair_type` on type `Person` is modified but at least '
+                r'one failed attempt was made to keep the original value; '
                 r'mismatch in type `Person`; type `int` is invalid for '
                 r'property `hair_type` with definition `str`'):
             await client.query(r'''
@@ -1167,13 +1167,15 @@ class TestType(TestBase):
             self.assertEqual(name, '')
 
         await client0.query(r'''
-            mod_type('Room', 'mod', 'chat', 'str', ||nil);
+            mod_type('Room', 'mod', 'chat', 'str', ||'');
             .room_a.chat = 'room A';
             .room_b.chat = 'room B';
+        ''')
 
+        await client0.query(r'''
             mod_type('Room', 'mod', 'chat', 'Chat', |room| Chat{
                 name: room.chat,
-                messages: [`Welcome in {room.name}`]
+                messages: [`Welcome in {room.chat}`]
             });
 
             .room_a.chat.messages.push('Just one instance');
@@ -1194,10 +1196,134 @@ class TestType(TestBase):
             self.assertEqual(name, 'room A')
 
             name = await client.query('.room_b.chat.name;')
-            self.assertEqual(name, 'room C')
+            self.assertEqual(name, 'room B')
 
         client1.close()
         await client1.wait_closed()
+
+    async def test_mod_type_mod_advanced0(self, client0):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `chat` is added to type `Room` but at least one '
+                r'error has occurred using the given callback; mismatch in '
+                r'type `Room`; type `int` is invalid for property `chat` with '
+                r'definition `Room\?`'):
+            await client0.query(r'''
+                set_type('Chat', {
+                    messages: '[str]'
+                });
+
+                set_type('Room', {
+                    name: 'str',
+                });
+
+                .room_a = Room{name: 'room A'};
+                .room_b = Room{name: 'room B'};
+
+                mod_type('Room', 'add', 'chat', 'Room?', |room| {
+                    Room{name: `sub{room.name}`, chat: 123};
+                });
+            ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            self.assertIs(await client.query('.room_a.chat;'), None)
+            self.assertIs(await client.query('.room_b.chat;'), None)
+
+    async def test_mod_type_mod_advanced1(self, client0):
+        await client0.query(r'''
+            set_type('Chat', {
+                messages: '[str]'
+            });
+
+            set_type('Room', {
+                name: 'str',
+            });
+
+            .room_a = Room{name: 'room A'};
+            .room_b = Room{name: 'room B'};
+
+            mod_type('Room', 'add', 'chat', 'Room?', |room| {
+                Room{name: `sub{room.name}`};
+            });
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.name;')
+            self.assertEqual(msg, 'subroom A')
+
+            msg = await client.query('.room_b.chat.name;')
+            self.assertEqual(msg, 'subroom B')
+
+            self.assertIs(await client.query('.room_a.chat.chat;'), None)
+            self.assertIs(await client.query('.room_b.chat.chat;'), None)
+
+        await client0.query(r'''
+            room_c = Room{};
+
+            mod_type('Room', 'mod', 'chat', 'Chat', |room| Chat{
+                messages: [`Welcome in {room.name}`]
+            });
+        ''')
+
+    async def test_mod_type_mod_advanced2(self, client0):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `chat` on type `Room` is modified but at least one '
+                r'new instance was made with an inappropriate value which in '
+                r'response is changed to default by ThingsDB; mismatch in '
+                r'type `Room`; type `int` is invalid for property `chat` with '
+                r'definition `Room\?`'):
+            await client0.query(r'''
+                set_type('Chat', {
+                    messages: '[str]'
+                });
+
+                set_type('Room', {
+                    name: 'str',
+                    chat: 'str'
+                });
+
+                .room_a = Room{name: 'room A'};
+                .room_b = Room{name: 'room B'};
+
+                mod_type('Room', 'mod', 'chat', 'Room?', |room| {
+                    // Here, we can create "Room" since chat allows "any"
+                    // value at this point. However, new rooms must be modified
+                    // accordinly afterwards
+                    Room{name: `sub{room.name}`, chat: 123};
+                });
+            ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            msg = await client.query('.room_a.chat.name;')
+            self.assertEqual(msg, 'subroom A')
+
+            msg = await client.query('.room_b.chat.name;')
+            self.assertEqual(msg, 'subroom B')
+
+            self.assertIs(await client.query('.room_a.chat.chat;'), None)
+            self.assertIs(await client.query('.room_b.chat.chat;'), None)
 
 
 if __name__ == '__main__':

@@ -1167,7 +1167,7 @@ class TestType(TestBase):
             self.assertEqual(name, '')
 
         await client0.query(r'''
-            mod_type('Room', 'mod', 'chat', 'str');
+            mod_type('Room', 'mod', 'chat', 'str', ||nil);
             .room_a.chat = 'room A';
             .room_b.chat = 'room B';
 

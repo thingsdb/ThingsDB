@@ -5,10 +5,9 @@ static inline int modtype__is_locked_cb(ti_thing_t * thing, ti_type_t * type)
     return thing->type_id == type->type_id && (thing->flags & TI_VFLAG_LOCK);
 }
 
-static inline int modtype__unlocked_cb(ti_thing_t * thing, ti_type_t * type)
+static inline int modtype__unlocked_cb(ti_thing_t * thing, void * UNUSED(arg))
 {
-    if (thing->type_id == type->type_id)
-        thing->flags &= ~TI_VFLAG_LOCK;
+    thing->flags &= ~TI_VFLAG_LOCK;
     return 0;
 }
 
@@ -559,13 +558,18 @@ static int type__mod_using_callback(
             (imap_cb) modtype__mod_cb,
             &modjob);
 
+    (void) imap_walk(
+            imap,
+            (imap_cb) modtype__unlocked_cb,
+            NULL);
+
     imap_after = modtype__collect_things(query, field->type);
     if (imap_after)
     {
         imap_difference_inplace(imap_after, imap);
 
         (void) imap_walk(
-                imap,
+                imap_after,
                 (imap_cb) modtype__mod_after_cb,
                 &modjob);
 

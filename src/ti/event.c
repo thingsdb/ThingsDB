@@ -335,6 +335,10 @@ int ti_event_run(ti_event_t * ev)
 
     for (i = obj.via.sz; i--;)
     {
+        /*
+         * Loop over event tasks. Each iteration is a task related to a
+         * thing.
+         */
         if (mp_next(&up, &mp_id) != MP_U64)
             goto fail_mp_data;
 

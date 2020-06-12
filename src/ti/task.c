@@ -1529,7 +1529,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_emit(ti_task_t * task, ti_raw_t * revent, vec_t * vec)
+int ti_task_add_event(ti_task_t * task, ti_raw_t * revent, vec_t * vec)
 {
     size_t alloc = 8192;
     ti_data_t * data;

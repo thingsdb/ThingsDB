@@ -99,7 +99,7 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
-int ti_task_add_emit(ti_task_t * task, ti_raw_t * revent, vec_t * vec);
+int ti_task_add_event(ti_task_t * task, ti_raw_t * revent, vec_t * vec);
 
 struct ti_task_s
 {

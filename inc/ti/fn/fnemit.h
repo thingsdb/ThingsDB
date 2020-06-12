@@ -53,7 +53,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto fail2;
 
-        if (ti_task_add_emit(task, revent, vec))
+        if (ti_task_add_event(task, revent, vec))
             ex_set_mem(e);
     }
 

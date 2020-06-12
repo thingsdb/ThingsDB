@@ -11,8 +11,15 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     assert_node = nd->children->node;
 
-    if (ti_do_statement(query, assert_node, e) || ti_val_as_bool(query->rval))
+    if (ti_do_statement(query, assert_node, e))
         return e->nr;
+
+    if (ti_val_as_bool(query->rval))
+    {
+        ti_val_drop(query->rval);
+        query->rval = (ti_val_t *) ti_nil_get();
+        return e->nr;  /* success */
+    }
 
     if (nargs == 1)
     {

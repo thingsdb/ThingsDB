@@ -75,6 +75,7 @@
 #define DOC_THING                   DOC_SEE("collection-api/thing")
 #define DOC_TRY                     DOC_SEE("collection-api/try")
 #define DOC_TYPE                    DOC_SEE("collection-api/type")
+#define DOC_TYPE_ASSERT             DOC_SEE("collection-api/type_assert")
 #define DOC_TYPE_COUNT              DOC_SEE("collection-api/type_count")
 #define DOC_TYPE_INFO               DOC_SEE("collection-api/type_info")
 #define DOC_TYPES_INFO              DOC_SEE("collection-api/types_info")

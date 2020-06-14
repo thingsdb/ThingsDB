@@ -1,4 +1,10 @@
-# v0.9.3 (alpha)
+# v0.9.4 (alpha)
+
+* Added a new function `type_assert()`, issue #45.
+* Changed return value for function `assert()` to `nil`, issue #44.
+
+
+# v0.9.3
 
 * Added `emit(..)` function for broadcasting events, issue #31.
 * Fixed error in generating a new type instance with enumerators, issue #33.

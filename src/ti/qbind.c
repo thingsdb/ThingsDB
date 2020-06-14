@@ -140,6 +140,7 @@
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
+#include <ti/fn/fntypeassert.h>
 #include <ti/fn/fntypecount.h>
 #include <ti/fn/fntypeinfo.h>
 #include <ti/fn/fntypesinfo.h>
@@ -178,7 +179,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 156,
+    TOTAL_KEYWORDS = 157,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 13,
@@ -196,14 +197,14 @@ static inline unsigned int qbind__hash(
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
-        338, 338,  12, 338,  11, 338,   3, 338, 338, 338,
+        338, 338,  12, 338,  12, 338,   3, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
-        338, 338, 338, 338, 338,   4, 338,   5,  22,  15,
-        14,   5,  27,  65,  73,   3, 338, 101,  17,  94,
-        6,  13,  38,   5,   4,   3,   3,   7, 109,  85,
-        36, 116,   3, 338, 338, 338, 338, 338, 338, 338,
+        338, 338, 338, 338, 338,   4, 338,   5,  27,  15,
+         14,   5,  27,  65,  73,   3, 338,  78,  17,  94,
+          6,  13,  38,   5,   4,   3,   3,   7, 102,  85,
+         14, 138,   3, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
@@ -349,7 +350,7 @@ typedef struct
 qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
-    {.name="assert",            .fn=do__f_assert,               XROOT_NE},
+    {.name="assert",            .fn=do__f_assert,               ROOT_NE},
     {.name="assign",            .fn=do__f_assign,               CHAIN_CE},
     {.name="auth_err",          .fn=do__f_auth_err,             ROOT_NE},
     {.name="backup_info",       .fn=do__f_backup_info,          ROOT_NE},
@@ -486,6 +487,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="try",               .fn=do__f_try,                  XROOT_NE},
+    {.name="type_assert",       .fn=do__f_type_assert,          ROOT_NE},
     {.name="type_count",        .fn=do__f_type_count,           ROOT_NE},
     {.name="type_err",          .fn=do__f_type_err,             ROOT_NE},
     {.name="type_info",         .fn=do__f_type_info,            ROOT_NE},

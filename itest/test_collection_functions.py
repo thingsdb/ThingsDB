@@ -117,7 +117,9 @@ class TestCollectionFunctions(TestBase):
         else:
             raise Exception('AssertionError not raised')
 
-        self.assertEqual(await client.query('assert((2>1)); 42;'), 42)
+        self.assertIs(await client.query('''
+            assert(2>1);
+        '''), None)
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -144,6 +146,58 @@ class TestCollectionFunctions(TestBase):
             await client.query(
                 'assert(false, blob);',
                 blob=pickle.dumps({}))
+
+    async def test_type_assert(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid type `str`'):
+            await client.query('type_assert("x", "int");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid type `str`'):
+            await client.query('type_assert("x", ["int", "float"]);')
+
+        try:
+            await client.query('type_assert(1, "str", "my custom message");')
+        except TypeError as e:
+            self.assertEqual(str(e), 'my custom message')
+            self.assertEqual(e.error_code, Err.EX_TYPE_ERROR)
+        else:
+            raise Exception('AssertionError not raised')
+
+        self.assertEqual(await client.query('type_assert(2, "int"); 4;'), 4)
+        self.assertEqual(await client.query('''
+            type_assert(2, ["str", "int"]);
+            "ok";
+        '''), "ok")
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `type_assert` requires at least 2 arguments '
+                'but 0 were given'):
+            await client.query('type_assert();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `type_assert` takes at most 3 arguments '
+                'but 4 were given'):
+            await client.query('type_assert(true, "bool", 1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `type_assert` expects argument 2 to be of '
+                r'type `str`, type `list` or type `tuple` but got '
+                r'type `nil` instead;'):
+            await client.query('type_assert(false, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `type_assert` expects argument 2 to be a list '
+                r'or tuple of type `str` but got type `int` instead;'):
+            await client.query('''
+                type_assert(1, [4, "int"]);
+            ''')
 
     async def test_assert_err(self, client):
         with self.assertRaisesRegex(

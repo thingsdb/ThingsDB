@@ -11,6 +11,7 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     type_str = ti_val_strv(query->rval);
+    ti_val_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e))
@@ -31,7 +32,7 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (!ti_val_is_str(val))
             {
                 ex_set(e, EX_TYPE_ERROR,
-                        "function `type_assert` expects argument 2 to be a"
+                        "function `type_assert` expects argument 2 to be a "
                         TI_VAL_LIST_S " or "TI_VAL_TUPLE_S" of "
                         "type `"TI_VAL_STR_S"` but got type `%s` instead"
                         DOC_TYPE_ASSERT,
@@ -45,7 +46,6 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto invalid;
     }
 
-wrong_argment:
     ex_set(e, EX_TYPE_ERROR,
             "function `type_assert` expects argument 2 to be of "
             "type `"TI_VAL_STR_S"`, type `"TI_VAL_LIST_S"` or "

@@ -454,6 +454,16 @@ class TestEnum(TestBase):
                 mod_enum("Color", "del", "ORANGE");
             '''), None)
 
+        self.assertIs(await client.query(r'''
+                mod_enum("Color", "del", "RED");
+                mod_enum("Color", "del", "GREEN");
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'cannot delete `Color{BLUE}` as this is the last enum membe'):
+            await client.query(r'mod_enum("Color", "del", "BLUE");')
+
     async def test_has_enum(self, client):
         self.assertIs(await client.query(r'''
             set_enum('Color', {

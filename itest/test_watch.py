@@ -207,6 +207,14 @@ class TestWatch(TestBase):
         await ev1.client.query('.iris.emit("msg", "from ev1");')
         await ev2.client.query('.iris.emit("msg", "from ev2");')
 
+        await ev0.client.query('.iris.emit("msg", {msg: "ev0"});')
+        await ev1.client.query('.iris.emit("msg", {msg: "ev1"});')
+        await ev2.client.query('.iris.emit("msg", {msg: "ev2"});')
+
+        await ev0.client.query('.iris.emit(0, "msg", {msg: "ev0"});')
+        await ev1.client.query('.iris.emit(0, "msg", {msg: "ev1"});')
+        await ev2.client.query('.iris.emit(0, "msg", {msg: "ev2"});')
+
         await asyncio.sleep(0.5)
 
         self.assertEqual(TestEvents.messages, [
@@ -218,7 +226,18 @@ class TestWatch(TestBase):
             'from ev1',
             'from ev2',
             'from ev2',
-            'from ev2'])
+            'from ev2',
+            {"msg": "ev0"},
+            {"msg": "ev0"},
+            {"msg": "ev0"},
+            {"msg": "ev1"},
+            {"msg": "ev1"},
+            {"msg": "ev1"},
+            {"msg": "ev2"},
+            {"msg": "ev2"},
+            {"msg": "ev2"},
+            {}, {}, {}, {}, {}, {}, {}, {}, {}
+        ])
 
         await iris0.unwatch()
         await iris1.unwatch()

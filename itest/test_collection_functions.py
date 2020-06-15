@@ -662,9 +662,33 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `emit` expects argument 1 to be of type `str` '
-                r'but got type `nil` instead'):
+                r'function `emit` expects the `event` argument to be of '
+                r'type `str` but got type `nil` instead'):
             await client.query('.emit(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 and 127 '
+                r'but got 200 instead'):
+            await client.query('.emit(200, "a");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 and 127 '
+                r'but got -2 instead'):
+            await client.query('.emit(-2, "a");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `emit` expects the `event` argument to be of '
+                r'type `str` but got type `nil` instead'):
+            await client.query('.emit(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `emit` expects the `event` argument to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('.emit(0, 1);')
 
         self.assertIs(await client.query(r'.emit("greet");'), None)
         await client.query(r'.bob = {};')

@@ -2,6 +2,8 @@
 
 * Added a new function `type_assert()`, issue #45.
 * Changed return value for function `assert()` to `nil`, issue #44.
+* Fixed removing the last enumerator member, issue #48.
+* Changed `emit(..)` to contain values like query results, issue #47.
 
 
 # v0.9.3

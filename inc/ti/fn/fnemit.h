@@ -4,9 +4,12 @@
 static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+    int sargs = 1;
+    int deep = 1;
     ti_thing_t * thing;
     ti_raw_t * revent;
     vec_t * vec = NULL;
+    cleri_children_t * child = nd->children;
 
     if (!ti_val_is_thing(query->rval))
         return fn_call_try("emit", query, nd, e);
@@ -17,18 +20,61 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("emit", DOC_THING_EMIT, 1, query->rval, e))
+    if (ti_do_statement(query, child->node, e))
         goto fail0;
+
+    if (ti_val_is_int(query->rval))
+    {
+        int64_t deepi;
+
+        if (nargs == 1)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                "function `emit` requires at least 2 arguments "
+                "when `deep` is used but 1 was given "DOC_THING_EMIT);
+            goto fail0;
+        }
+
+        ++sargs;
+
+        deepi = VINT(query->rval);
+
+        if (deepi < 0 || deepi > MAX_DEEP_HINT)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "expecting a `deep` value between 0 and %d "
+                    "but got %"PRId64" instead",
+                    MAX_DEEP_HINT, deepi);
+            goto fail0;
+        }
+
+        deep = (int) deepi;
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+
+        if (ti_do_statement(query, (child = child->next->next)->node, e))
+            goto fail0;
+    }
+
+    if (!ti_val_is_str(query->rval))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "function `emit` expects the `event` argument to be of "
+                "type `"TI_VAL_STR_S"` but got type `%s` instead"
+                DOC_THING_EMIT,
+                ti_val_str(query->rval));
+        goto fail0;
+    }
 
     revent = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (nargs > 1)
+    if (nargs > sargs)
     {
-        cleri_children_t * child = nd->children->next->next;
+        child = child->next->next;
 
-        vec = vec_new(nargs-1);
+        vec = vec_new(nargs-sargs);
         if (!vec)
         {
             ex_set_mem(e);
@@ -44,7 +90,6 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = NULL;
         }
         while (child->next && (child = child->next->next));
-
     }
 
     if (thing->id)
@@ -53,7 +98,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task)
             goto fail2;
 
-        if (ti_task_add_event(task, revent, vec))
+        if (ti_task_add_event(task, revent, vec, deep))
             ex_set_mem(e);
     }
 

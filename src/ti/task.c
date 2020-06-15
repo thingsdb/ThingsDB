@@ -1529,7 +1529,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_event(ti_task_t * task, ti_raw_t * revent, vec_t * vec)
+int ti_task_add_event(
+        ti_task_t * task,
+        ti_raw_t * revent,
+        vec_t * vec,
+        int deep)
 {
     size_t alloc = 8192;
     ti_data_t * data;
@@ -1552,7 +1556,7 @@ int ti_task_add_event(ti_task_t * task, ti_raw_t * revent, vec_t * vec)
     /* no need to generate ID's since the values might not be stored */
     if (vec)
         for (vec_each(vec, ti_val_t, val))
-            if (ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            if (ti_val_to_pk(val, &pk, deep))
                 goto fail_pack;
 
     data = (ti_data_t *) buffer.data;

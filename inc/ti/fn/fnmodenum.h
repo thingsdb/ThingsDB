@@ -112,6 +112,14 @@ static void enum__del(
         return;
     }
 
+    if (enum_->members->n == 1)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "cannot delete `%s{%s}` as this is the last enum member",
+                enum_->name, name->str);
+        return;
+    }
+
     if (member->ref > 1)
     {
         ex_set(e, EX_OPERATION_ERROR,

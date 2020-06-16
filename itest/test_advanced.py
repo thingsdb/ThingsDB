@@ -169,7 +169,7 @@ class TestAdvanced(TestBase):
             x = false;
             assert (refs(true) < count);
         ''')
-        self.assertTrue(res)
+        self.assertIs(res, None)
 
     async def test_array_arg(self, client):
         res = await client.query('''

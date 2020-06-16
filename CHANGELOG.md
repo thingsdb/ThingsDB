@@ -1,4 +1,4 @@
-# v0.9.4 (alpha)
+# v0.9.4
 
 * Added a new function `type_assert()`, issue #45.
 * Changed return value for function `assert()` to `nil`, issue #44.

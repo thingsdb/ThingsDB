@@ -20,14 +20,6 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("new_backup", DOC_NEW_BACKUP, 1, query->rval, e))
         return e->nr;
 
-    if (ti.nodes->vec->n == 1)
-    {
-        ex_set(e, EX_OPERATION_ERROR,
-            "at least 2 nodes are required to make a backup"
-            DOC_NEW_BACKUP);
-        return e->nr;
-    }
-
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 

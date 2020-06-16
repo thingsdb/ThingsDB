@@ -429,7 +429,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
     static const char * away__skip_msg = "not going in away mode (%s)";
     ti_node_t * node;
 
-    if (ti.nodes->vec->n == 1)
+    if (ti.nodes->vec->n == 1 && !ti_backups_require_away())
     {
         log_debug(away__skip_msg, "running as single node");
         return;

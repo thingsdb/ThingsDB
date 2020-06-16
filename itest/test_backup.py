@@ -29,13 +29,6 @@ class TestBackup(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('/n/0')
 
-        with self.assertRaisesRegex(
-                OperationError,
-                r'at least 2 nodes are required to make a backup'):
-            await client.query(r'''
-                new_backup('/tmp/test.tar.gz');
-            ''')
-
         # add another node otherwise backups are not possible
         await self.node1.join_until_ready(client)
 

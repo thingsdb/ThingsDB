@@ -1,3 +1,8 @@
+# v0.9.5 (alpha)
+
+* Allow creating backups on a single node, issue #50.
+
+
 # v0.9.4
 
 * Added a new function `type_assert()`, issue #45.

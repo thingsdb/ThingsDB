@@ -47,6 +47,7 @@
 #include <ti/fn/fnenumsinfo.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
+#include <ti/fn/fneventid.h>
 #include <ti/fn/fnevery.h>
 #include <ti/fn/fnextend.h>
 #include <ti/fn/fnfilter.h>
@@ -58,10 +59,10 @@
 #include <ti/fn/fnhas.h>
 #include <ti/fn/fnhasbackup.h>
 #include <ti/fn/fnhascollection.h>
+#include <ti/fn/fnhasenum.h>
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
 #include <ti/fn/fnhastoken.h>
-#include <ti/fn/fnhasenum.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
@@ -179,7 +180,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 157,
+    TOTAL_KEYWORDS = 158,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 13,
@@ -219,7 +220,6 @@ static inline unsigned int qbind__hash(
         338, 338, 338, 338, 338, 338, 338, 338, 338, 338,
         338, 338, 338, 338, 338, 338
     };
-
 
     register unsigned int hval = n;
 
@@ -387,6 +387,7 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
+    {.name="event_id",          .fn=do__f_event_id,             ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},

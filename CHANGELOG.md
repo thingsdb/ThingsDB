@@ -1,6 +1,7 @@
 # v0.9.5 (alpha)
 
 * Allow creating backups on a single node, issue #50.
+* Added a new function `event_id()`, issue #51.
 
 
 # v0.9.4

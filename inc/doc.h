@@ -24,6 +24,7 @@
 #define DOC_ENUM_INFO               DOC_SEE("collection-api/enum_info")
 #define DOC_ENUMS_INFO              DOC_SEE("collection-api/enums_info")
 #define DOC_ERR                     DOC_SEE("collection-api/err")
+#define DOC_EVENT_ID                DOC_SEE("collection-api/event_id")
 #define DOC_FLOAT                   DOC_SEE("collection-api/float")
 #define DOC_HAS_ENUM                DOC_SEE("collection-api/has_enum")
 #define DOC_HAS_TYPE                DOC_SEE("collection-api/has_type")

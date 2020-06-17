@@ -545,6 +545,20 @@ class TestCollectionFunctions(TestBase):
             deep();
         '''), 2)
 
+    async def test_event_id(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `event_id`'):
+            await client.query('nil.event_id();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `event_id` takes 0 arguments but 1 was given'):
+            await client.query('event_id(nil);')
+
+        self.assertIs(await client.query('event_id();'), None)
+        self.assertIsInstance(await client.query('wse(event_id());'), int)
+
     async def test_del(self, client):
         await client.query(r'.greet = "Hello world";')
 

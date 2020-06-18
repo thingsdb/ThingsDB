@@ -2,6 +2,8 @@
 
 * Allow creating backups on a single node, issue #50.
 * Added a new function `event_id()`, issue #51.
+* Fixed bug when using `wrap(..)` in thingsdb or node scope, issue #53.
+* Support `Type(..)` and `Enum(..)` syntax, issue #54.
 
 
 # v0.9.4

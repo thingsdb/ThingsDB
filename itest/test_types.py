@@ -113,6 +113,47 @@ class TestTypes(TestBase):
                 `valid: {7*99} wrong: {613/0} never: {80*80}`;
             ''')
 
+    async def test_instance(self, client):
+        game = await client.query(r'''
+            set_type('Game', {name: 'str'});
+            .game = Game{name: "TicTacToe"};
+        ''')
+        self.assertEqual(await client.query(r'''
+            Game(game_id);
+        ''', game_id=game['#']), game)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`#[0-9]+` is of type `thing`, not `Game`'):
+            await client.query(r'''
+                Game(.id());
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert type `nil` to `Game`'):
+            await client.query(r'''
+                Game(nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'collection `stuff` has no `thing` with id 12345'):
+            await client.query(r'''
+                Game(12345);
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'type `Game` takes at most 1 argument but 2 were given'):
+            await client.query(r'''
+                Game(0, 1);
+            ''')
+
+        self.assertEqual(await client.query(r'''
+            Game();
+        '''), {"name": ""})
+
     async def test_thing(self, client):
         self.assertEqual(await client.query(r'''
             [{}.id(), [{}][0].id()];

@@ -290,6 +290,128 @@ static inline ti_prop_t * do__get_var_e(
     return prop;
 }
 
+static int do__get_type_instance(
+        ti_type_t * type,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+
+    if (nargs == 1)
+    {
+        int64_t id;
+        ti_thing_t * thing;
+        int lock_was_set = ti_type_ensure_lock(type);
+
+        (void) ti_do_statement(query, nd->children->node, e);
+
+        ti_type_unlock(type, lock_was_set);
+
+        if (e->nr)
+            return e->nr;
+
+        if (!ti_val_is_int(query->rval))
+        {
+            if (!ti_val_is_thing(query->rval))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "cannot convert type `%s` to `%s`",
+                        ti_val_str(query->rval),
+                        type->name);
+                return e->nr;
+            }
+
+            thing = ti_type_from_thing(type, (ti_thing_t *) query->rval, e);
+
+            ti_val_drop(query->rval);  /* from_thing */
+            query->rval = (ti_val_t *) thing;
+
+            return e->nr;
+        }
+
+        id = VINT(query->rval);
+        thing = ti_query_thing_from_id(query, id, e);
+        if (!thing)
+            return e->nr;
+
+        if (thing->type_id != type->type_id)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    TI_THING_ID" is of type `%s`, not `%s`",
+                    thing->id, ti_val_str((ti_val_t *) thing), type->name);
+            ti_decref(thing);
+            return e->nr;
+        }
+
+        ti_val_drop(query->rval);
+        query->rval = (ti_val_t *) thing;
+
+        return 0;
+    }
+
+    if (nargs > 1)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+            "type `%s` takes at most 1 argument but %d were given",
+            type->name,
+            nargs);
+        return e->nr;
+    }
+
+    query->rval = ti_type_dval(type);
+    if (!query->rval)
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
+static int do__get_enum_member(
+        ti_enum_t * enum_,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+
+    if (nargs == 1)
+    {
+        ti_member_t * member;
+        int lock_was_set = ti_enum_ensure_lock(enum_);
+
+        (void) ti_do_statement(query, nd->children->node, e);
+
+        ti_enum_unlock(enum_, lock_was_set);
+
+        if (e->nr)
+            return e->nr;
+
+        member = ti_enum_member_by_val_e(enum_, query->rval, e);
+        if (!member)
+            return e->nr;
+
+        ti_incref(member);
+
+        ti_val_drop(query->rval);
+        query->rval = (ti_val_t *) member;
+
+        return e->nr;
+    }
+
+    if (nargs > 1)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+            "enum `%s` takes at most 1 argument but %d were given",
+            enum_->name,
+            nargs);
+        return e->nr;
+    }
+
+    query->rval = ti_enum_dval(enum_);
+    return e->nr;
+}
+
+
 static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * fname = nd       /* sequence */
@@ -334,7 +456,28 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ti_prop_t * prop = do__get_var(query, fname);
+        ti_prop_t * prop;
+
+        if (query->collection)
+        {
+            ti_enum_t * enum_;
+            ti_type_t * type = ti_types_by_strn(
+                    query->collection->types,
+                    fname->str,
+                    fname->len);
+
+            if (type)
+                return do__get_type_instance(type, query, args, e);
+
+            enum_ = ti_enums_by_strn(
+                        query->collection->enums,
+                        fname->str,
+                        fname->len);
+            if (enum_)
+                return do__get_enum_member(enum_, query, args, e);
+        }
+
+        prop = do__get_var(query, fname);
         if (prop)
         {
             if (!ti_val_is_closure(prop->val))

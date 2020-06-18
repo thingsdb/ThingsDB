@@ -428,3 +428,85 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
     return (ti_val_t *) thing;
 }
+
+ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
+{
+    ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
+    if (!thing)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    if (ti_thing_is_object(from))
+    {
+        ti_val_t * val;
+        for (vec_each(type->fields, ti_field_t, field))
+        {
+            val = ti_thing_o_val_weak_get(from, field->name);
+            if (!val)
+            {
+                val = ti_field_dval(field);
+                if (!val)
+                {
+                    ex_set_mem(e);
+                    goto failed;
+                }
+
+                ti_val_attach(val, thing, field->name);
+            }
+            else
+            {
+                val->ref += from->ref > 1;
+
+                if (ti_field_make_assignable(field, &val, thing, e))
+                {
+                    if (from->ref > 1)
+                        ti_val_drop(val);
+                    goto failed;
+                }
+
+                val->ref += from->ref == 1;
+            }
+            VEC_push(thing->items, val);
+        }
+    }
+    else
+    {
+        ti_type_t * f_type = ti_thing_type(from);
+        if (f_type != type)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "cannot create an instance of type `%s` from type `%s`"
+                    DOC_NEW,
+                    type->name,
+                    f_type->name);
+            goto failed;
+        }
+
+        for (vec_each(type->fields, ti_field_t, field))
+        {
+            ti_val_t * val = vec_get(from->items, field->idx);
+
+            val->ref += from->ref > 1;
+
+            if (ti_val_make_assignable(&val, thing, field->name, e))
+            {
+                if (from->ref > 1)
+                    ti_val_drop(val);
+                goto failed;
+            }
+
+            val->ref += from->ref == 1;
+
+            VEC_push(thing->items, val);
+        }
+    }
+
+    return thing;
+
+failed:
+    assert (e->nr);
+    ti_val_drop((ti_val_t *) thing);
+    return NULL;
+}

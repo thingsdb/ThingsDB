@@ -115,6 +115,26 @@ class TestEnum(TestBase):
                 });
             ''')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change enum `Color` while the enumerator '
+                r'is being used'):
+            await client.query(r'''
+                enum('Color', {
+                    mod_enum('Color', 'add', 'YELLOW', '...');
+                });
+            ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change enum `Color` while the enumerator '
+                r'is being used'):
+            await client.query(r'''
+                Color({
+                    del_enum('Color');
+                });
+            ''')
+
     async def test_enum(self, client):
         self.assertIs(await client.query(r'''
             set_enum('Color', {
@@ -491,6 +511,33 @@ class TestEnum(TestBase):
 
         self.assertTrue(await client.query(r'has_enum("Color");'))
         self.assertFalse(await client.query(r'has_enum("X");'))
+
+    async def test_enum_init(self, client):
+        self.assertIs(await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+            '''), None)
+
+        await client.query(r'''
+            assert( Color{GREEN} == Color{||'GREEN'} );
+            assert( Color{GREEN} == Color("#00FF00") );
+            assert( Color{GREEN} == enum('Color', "#00FF00") );
+            assert( enum('Color') == Color() );
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enum `Color` is expecting a value of type `str` but '
+                r'got type `int` instead'):
+            await client.query('Color(1);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` has no member with value `x`'):
+            await client.query('Color("x");')
 
     async def test_enum_info(self, client):
         self.assertIs(await client.query(r'''

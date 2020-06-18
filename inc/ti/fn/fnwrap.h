@@ -19,9 +19,15 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("wrap", DOC_THING_WRAP, 1, query->rval, e))
         goto fail0;
 
-    type = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
+    type = query->collection
+        ? ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval)
+        : NULL;
+
     if (!type)
-        return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
+    {
+        (void) ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
+        goto fail0;
+    }
 
     ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_wrap_create(thing, type->type_id);

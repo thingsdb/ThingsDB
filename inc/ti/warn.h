@@ -10,6 +10,7 @@
 typedef enum
 {
     TI_WARN_THING_NOT_FOUND=1,
+    TI_WARN_OBSOLETE_ENUM_SYNTAX=2,
 } ti_warn_enum_t;
 
 #include <ti/warn.h>

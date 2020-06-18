@@ -304,6 +304,11 @@ class TestType(TestBase):
             }.wrap('_Name');
         ''')
 
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `X` not found'):
+            await client0.query('''{}.wrap('X');''', scope='@t')
+
         self.assertEqual(only_name['name'], 'Iris')
         self.assertIn('#', only_name)
 

@@ -268,6 +268,10 @@ done:
     return e->nr;
 }
 
+/*
+ * Get variable by name from cache, or if the name is not in cache, cache
+ * the property name.
+ */
 static inline ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd)
 {
     return nd->data
@@ -277,6 +281,9 @@ static inline ti_prop_t * do__get_var(ti_query_t * query, cleri_node_t * nd)
                 : NULL);
 }
 
+/*
+ * Get variable or set an error message if the variable is not found.
+ */
 static inline ti_prop_t * do__get_var_e(
         ti_query_t * query,
         cleri_node_t * nd,
@@ -290,6 +297,11 @@ static inline ti_prop_t * do__get_var_e(
     return prop;
 }
 
+/*
+ * Call a Type. Creates a new, empty, instance without arguments, returns
+ * an existing instance if an ID is given, or a new instance based on a
+ * given thing when a thing is given as argument.
+ */
 static int do__get_type_instance(
         ti_type_t * type,
         ti_query_t * query,
@@ -461,14 +473,19 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (query->collection)
         {
             ti_enum_t * enum_;
-            ti_type_t * type = ti_types_by_strn(
+            ti_type_t * type;
+
+            /* Try Type first as this is probably more common */
+            type = ti_types_by_strn(
                     query->collection->types,
                     fname->str,
                     fname->len);
-
             if (type)
                 return do__get_type_instance(type, query, args, e);
 
+            /* Try enum, there is never an overlap with Type since they are
+             * unique with respect to each other
+             */
             enum_ = ti_enums_by_strn(
                         query->collection->enums,
                         fname->str,
@@ -477,6 +494,9 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return do__get_enum_member(enum_, query, args, e);
         }
 
+        /* Props with build-in function names, and/or exist as Type/Enum name
+         * are not reached.
+         */
         prop = do__get_var(query, fname);
         if (prop)
         {

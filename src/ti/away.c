@@ -48,12 +48,17 @@ enum away__severity
     AWAY__SEVERITY_MAJOR,  /* major reason to got into away mode */
 };
 
-static enum away__severity away__get_severity(void)
+static _Bool away__has_major_severity(void)
 {
-    return ti_nodes_require_sync() || ti_backups_require_away()
-            ? AWAY__SEVERITY_MAJOR
-            : ti.archive->queue->n
+    return ti_nodes_require_sync() || ti_backups_require_away();
+}
+
+static enum away__severity away__get_minor_severity_first(void)
+{
+    return ti.archive->queue->n
             ? AWAY__SEVERITY_MINOR
+            : away__has_major_severity()
+            ? AWAY__SEVERITY_MAJOR
             : AWAY__SEVERITY_NONE;
 }
 
@@ -470,7 +475,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
-    sev = away__get_severity();
+    sev = away__get_minor_severity_first();
 
     if (sev == AWAY__SEVERITY_NONE)
     {
@@ -493,7 +498,8 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
 
     if (ti_events_in_queue() &&
         sev == AWAY__SEVERITY_MINOR &&
-        away->skip_count)
+        away->skip_count &&
+        !away__has_major_severity())
     {
         log_debug(
                 "not going in away mode "

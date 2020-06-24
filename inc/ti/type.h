@@ -61,6 +61,7 @@ struct ti_type_s
                                this vector but a self dependency is not
                                included, order is not important */
     vec_t * fields;         /* ti_field_t */
+    smap_t * methods;       /* method name/ ti_closure_t */
     imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
 };
 

@@ -52,6 +52,7 @@ ti_type_t * ti_type_create(
     type->t_mappings = imap_create();
     type->created_at = created_at;
     type->modified_at = modified_at;
+    type->methods = smap_create();
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->t_mappings || ti_types_add(types, type))
@@ -128,6 +129,7 @@ void ti_type_destroy(ti_type_t * type)
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     imap_destroy(type->t_mappings, type__map_free);
+    smap_destroy(type->methods, (smap_destroy_cb) ti_val_drop);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
@@ -144,28 +146,36 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
     return n;
 }
 
-static inline int type__field(
+static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e)
 {
-    if (!ti_val_is_str(val))
+    if (ti_val_is_str(val))
     {
-        ex_set(e, EX_TYPE_ERROR,
-                "expecting a type definition to be type `"TI_VAL_STR_S"` "
-                "but got type `%s` instead"DOC_T_TYPE,
-                ti_val_str(val));
+        (void) ti_field_create(name, (ti_raw_t *) val, type, e);
         return e->nr;
     }
-    (void) ti_field_create(name, (ti_raw_t *) val, type, e);
+
+    if (ti_val_is_closure(val))
+    {
+        smap_add(type->methods)
+    }
+
+    ex_set(e, EX_TYPE_ERROR,
+            "expecting a method of type `"TI_VAL_CLOSURE_S"` "
+            "or a definition of type `"TI_VAL_STR_S"` "
+            "but got type `%s` instead"DOC_T_TYPE,
+            ti_val_str(val));
+
     return e->nr;
 }
 
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
     for (vec_each(thing->items, ti_prop_t, prop))
-        if (type__field(type, prop->name, prop->val, e))
+        if (type__assign(type, prop->name, prop->val, e))
             return e->nr;
     return 0;
 }
@@ -175,7 +185,7 @@ static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     ti_name_t * name;
     ti_val_t * val;
     for (thing_t_each(thing, name, val))
-        if (type__field(type, name, val, e))
+        if (type__assign(type, name, val, e))
             return e->nr;
     return 0;
 }

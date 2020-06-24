@@ -26,7 +26,7 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(pk, 5) ||
+    if (msgpack_pack_array(pk, 6) ||
         msgpack_pack_uint16(pk, type->type_id) ||
         msgpack_pack_uint64(pk, type->created_at) ||
         msgpack_pack_uint64(pk, type->modified_at) ||
@@ -41,6 +41,11 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
             mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
         ) return -1;
     }
+
+    if (msgpack_pack_map(pk, type->methods->n))
+        return -1;
+
+    smap_items(type->methods)
 
     return 0;
 }

@@ -230,7 +230,7 @@ static void wareq__watch_cb(uv_async_t * task)
      * be that the client has received new ID's which are not yet processed
      * by this node; In this case we should reschedule when ID's are missing;
      */
-    reschedule = (!ti_events_is_empty() && ti_away_is_busy());
+    reschedule = ti_events_in_queue() && ti_away_is_busy();
 
     while (n--)
     {

@@ -71,9 +71,9 @@ static inline _Bool ti_events_cache_dropped_thing(ti_thing_t * thing)
     return keep;
 }
 
-static inline _Bool ti_events_is_empty(void)
+static inline _Bool ti_events_in_queue(void)
 {
-    return events_.queue->n == 0;
+    return events_.queue->n != 0;
 }
 
 #endif /* TI_EVENTS_H_ */

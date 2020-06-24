@@ -23,6 +23,8 @@ static uv_timer_t away__uv_waiter;
 #define AWAY__RESET_COUNTER 5   /* reset expect after X times reject   */
 #define AWAY__SOON_TIMER 10000  /* in soon mode for X seconds  */
 #define AWAY__BLOCK_TIME 15000  /* block accepting for X seconds */
+#define AWAY__SKIP_COUNT 25     /* skip away mode X times when events are
+                                   pending */
 
 enum away__status
 {
@@ -39,13 +41,20 @@ enum away__status
     AWAY__STATUS_SYNCING,
 };
 
-static _Bool away__required(void)
+enum away__severity
 {
-    return (
-        ti.archive->queue->n ||
-        ti_nodes_require_sync() ||
-        ti_backups_require_away()
-    );
+    AWAY__SEVERITY_NONE,   /* no need to go into away mode */
+    AWAY__SEVERITY_MINOR,  /* minor reason to go into away mode */
+    AWAY__SEVERITY_MAJOR,  /* major reason to got into away mode */
+};
+
+static enum away__severity away__get_severity(void)
+{
+    return ti_nodes_require_sync() || ti_backups_require_away()
+            ? AWAY__SEVERITY_MAJOR
+            : ti.archive->queue->n
+            ? AWAY__SEVERITY_MINOR
+            : AWAY__SEVERITY_NONE;
 }
 
 static const char * away__status_str(void)
@@ -265,6 +274,7 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
 static void away__work_finish(uv_work_t * UNUSED(work), int status)
 {
     away->status = AWAY__STATUS_SYNCING;
+    away->skip_count = AWAY__SKIP_COUNT;  /* reset skip counter */
 
     int rc;
     if (status)
@@ -428,6 +438,7 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
 {
     static const char * away__skip_msg = "not going in away mode (%s)";
     ti_node_t * node;
+    enum away__severity sev;
 
     if (ti.nodes->vec->n == 1 && !ti_backups_require_away())
     {
@@ -459,7 +470,9 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
-    if (!away__required())
+    sev = away__get_severity();
+
+    if (sev == AWAY__SEVERITY_NONE)
     {
         log_debug(away__skip_msg, "no reason for going into away mode");
         return;
@@ -478,6 +491,19 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
+    if (ti_events_in_queue() &&
+        sev == AWAY__SEVERITY_MINOR &&
+        away->skip_count)
+    {
+        log_debug(
+                "not going in away mode "
+                "(events are pending and severity is minor; "
+                "skip %u more time%s)",
+                away->skip_count, away->skip_count == 1 ? "" : "s");
+        --away->skip_count;
+        return;
+    }
+
     away->status = AWAY__STATUS_REQ_AWAY;
     away__req_away_id();
 }
@@ -490,6 +516,7 @@ int ti_away_create(void)
 
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
+    away->skip_count = AWAY__SKIP_COUNT;
     away->away_node_id = 0;
     away->sleep = 0;
 

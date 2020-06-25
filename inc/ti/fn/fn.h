@@ -23,6 +23,8 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/field.h>
+#include <ti/member.h>
+#include <ti/member.inline.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr.h>
@@ -36,6 +38,7 @@
 #include <ti/scope.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
+#include <ti/token.h>
 #include <ti/types.inline.h>
 #include <ti/users.h>
 #include <ti/val.inline.h>
@@ -45,7 +48,7 @@
 #include <ti/vint.h>
 #include <ti/vset.h>
 #include <ti/warn.h>
-#include <ti/wprop.h>
+#include <ti/wprop.t.h>
 #include <ti/wrap.h>
 #include <tiinc.h>
 #include <util/cryptx.h>

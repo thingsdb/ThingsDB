@@ -4,20 +4,15 @@
 #ifndef TI_TYPE_H_
 #define TI_TYPE_H_
 
-typedef struct ti_type_s ti_type_t;
-
-enum
-{
-    TI_TYPE_FLAG_LOCK       =1<<0,
-};
-
 #include <ex.h>
 #include <inttypes.h>
+#include <ti/closure.t.h>
 #include <ti/thing.h>
-#include <ti/types.h>
-#include <ti/val.h>
-#include <util/vec.h>
+#include <ti/type.t.h>
+#include <ti/types.t.h>
+#include <ti/val.t.h>
 #include <util/mpack.h>
+#include <util/vec.h>
 
 ti_type_t * ti_type_create(
         ti_types_t * types,
@@ -38,32 +33,11 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 ti_val_t * ti_type_dval(ti_type_t * type);
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e);
-
-struct ti_type_s
-{
-    uint32_t refcount;      /* this counter will be incremented and decremented
-                               by other types; the type may only be removed
-                               when this counter is equal to zero otherwise
-                               other types will break; self references are not
-                               included in this counter */
-    uint16_t type_id;       /* type id */
-    uint8_t flags;          /* type flags */
-    uint8_t pad0_;
-    uint64_t created_at;    /* UNIX time-stamp in seconds */
-    uint64_t modified_at;   /* UNIX time-stamp in seconds */
-    char * name;            /* name (null terminated) */
-    char * wname;           /* wrapped name (null terminated) */
-    ti_raw_t * rname;       /* name as raw type */
-    ti_raw_t * rwname;      /* wrapped name as raw type */
-    ti_types_t * types;
-    vec_t * dependencies;   /* ti_type_t; contains type where this type is
-                               depended on. type may be more than one inside
-                               this vector but a self dependency is not
-                               included, order is not important */
-    vec_t * fields;         /* ti_field_t */
-    smap_t * methods;       /* method name/ ti_closure_t */
-    imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
-};
+int ti_type_add_method(
+        ti_type_t * type,
+        ti_name_t * name,
+        ti_closure_t * closure,
+        ex_t * e);
 
 static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {

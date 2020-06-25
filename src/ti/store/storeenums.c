@@ -3,13 +3,15 @@
  */
 #include <assert.h>
 #include <ti.h>
+#include <ti/enum.h>
+#include <ti/enums.inline.h>
 #include <ti/field.h>
+#include <ti/member.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storeenums.h>
 #include <ti/things.h>
-#include <ti/enum.h>
-#include <ti/enums.inline.h>
+#include <ti/val.inline.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 

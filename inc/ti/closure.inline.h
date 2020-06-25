@@ -4,10 +4,11 @@
 #ifndef TI_CLOSURE_INLINE_H_
 #define TI_CLOSURE_INLINE_H_
 
-#include <ti/closure.h>
-#include <ti/query.h>
-#include <ti/do.h>
+#include <doc.h>
 #include <ex.h>
+#include <ti/closure.h>
+#include <ti/do.h>
+#include <ti/query.h>
 
 static inline int ti_closure_do_statement(
         ti_closure_t * closure,

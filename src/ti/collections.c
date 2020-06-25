@@ -1,18 +1,21 @@
 /*
  * ti/collections.c
  */
-#include <stdlib.h>
 #include <assert.h>
+#include <doc.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ti.h>
+#include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
 #include <ti/collections.h>
-#include <ti/auth.h>
+#include <ti/enums.h>
 #include <ti/proto.h>
-#include <ti/vint.h>
-#include <ti/access.h>
 #include <ti/things.h>
-#include <ti.h>
+#include <ti/val.inline.h>
+#include <ti/vint.h>
 #include <util/vec.h>
 
 static ti_collections_t * collections;

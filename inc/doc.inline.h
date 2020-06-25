@@ -5,8 +5,9 @@
 #define DOC_INLINE_H_
 
 #include <doc.h>
-#include <ti/val.h>
+#include <ti/member.t.h>
 #include <ti/thing.h>
+#include <ti/val.h>
 #include <ti/varr.h>
 
 static inline const char * doc_len(ti_val_t * val)

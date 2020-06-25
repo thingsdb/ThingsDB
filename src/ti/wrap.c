@@ -6,6 +6,7 @@
 #include <ti/closure.h>
 #include <ti/field.h>
 #include <ti/mapping.h>
+#include <ti/member.h>
 #include <ti/regex.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>

@@ -2,10 +2,11 @@
  * ti/sync.c
  */
 #include <assert.h>
-#include <ti/sync.h>
-#include <ti/proto.h>
 #include <ti.h>
 #include <ti/nodes.h>
+#include <ti/proto.h>
+#include <ti/req.h>
+#include <ti/sync.h>
 #include <util/mpack.h>
 
 /*

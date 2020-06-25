@@ -4,15 +4,14 @@
 #ifndef TI_FIELD_H_
 #define TI_FIELD_H_
 
-typedef struct ti_field_s ti_field_t;
-
-#include <ti/name.h>
-#include <ti/raw.h>
-#include <ti/val.h>
-#include <ti/thing.h>
-#include <util/vec.h>
-#include <inttypes.h>
 #include <ex.h>
+#include <inttypes.h>
+#include <ti/field.t.h>
+#include <ti/name.t.h>
+#include <ti/raw.t.h>
+#include <ti/thing.t.h>
+#include <ti/val.t.h>
+#include <util/vec.h>
 
 ti_field_t * ti_field_create(
         ti_name_t * name,
@@ -47,17 +46,5 @@ ti_field_t * ti_field_by_strn_e(
         ex_t * e);
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
 ti_val_t * ti_field_dval(ti_field_t * field);
-
-struct ti_field_s
-{
-    ti_name_t * name;
-    ti_raw_t * spec_raw;
-    ti_type_t * type;           /* parent type */
-    uint16_t spec;
-    uint16_t nested_spec;       /* array/set have a nested specification */
-    uint32_t idx;               /* index of the field withing the type */
-};
-
-
 
 #endif  /* TI_FIELD_H_ */

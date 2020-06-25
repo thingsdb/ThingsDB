@@ -6,6 +6,7 @@
 #include <ti/type.h>
 #include <ti/types.h>
 #include <ti/types.inline.h>
+#include <ti/val.inline.h>
 
 
 ti_types_t * ti_types_create(ti_collection_t * collection)

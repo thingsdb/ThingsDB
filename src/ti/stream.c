@@ -5,12 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <ti/stream.h>
-#include <util/logger.h>
-#include <ti/tcp.h>
-#include <ti/pipe.h>
-#include <ti/write.h>
 #include <ti.h>
+#include <ti/pipe.h>
+#include <ti/req.h>
+#include <ti/stream.h>
+#include <ti/tcp.h>
+#include <ti/watch.h>
+#include <ti/write.h>
+#include <util/logger.h>
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);

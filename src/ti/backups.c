@@ -2,13 +2,13 @@
  * ti/backups.h
  */
 #include <stdlib.h>
-
-#include <ti/backups.h>
-#include <ti/backup.h>
 #include <ti.h>
-#include <util/util.h>
+#include <ti/backup.h>
+#include <ti/backups.h>
+#include <ti/val.inline.h>
 #include <util/buf.h>
 #include <util/fx.h>
+#include <util/util.h>
 
 static const char * backups__fn             = "node_backups.mp";
 

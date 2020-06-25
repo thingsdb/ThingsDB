@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <ti/vset.h>
 #include <tiinc.h>
 #include <util/logger.h>

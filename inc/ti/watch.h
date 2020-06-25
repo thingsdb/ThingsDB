@@ -7,14 +7,10 @@
 #ifndef TI_WATCH_H_
 #define TI_WATCH_H_
 
-typedef struct ti_watch_s ti_watch_t;
-
-#include <ti/rpkg.h>
-#include <ex.h>
-#include <ti/user.h>
-#include <ti/stream.h>
-#include <ti/thing.h>
-#include <util/logger.h>
+#include <inttypes.h>
+#include <ti/rpkg.t.h>
+#include <ti/stream.t.h>
+#include <ti/watch.t.h>
 
 ti_watch_t * ti_watch_create(ti_stream_t * stream);
 void ti_watch_drop(ti_watch_t * watch);
@@ -28,10 +24,5 @@ ti_rpkg_t * ti_watch_rpkg(
         uint64_t event_id,
         const unsigned char * jobs,
         size_t size);
-
-struct ti_watch_s
-{
-    ti_stream_t * stream;       /* weak reference */
-};
 
 #endif  /* TI_WATCH_H_ */

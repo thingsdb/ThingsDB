@@ -4,14 +4,10 @@
 #ifndef TI_VARR_H_
 #define TI_VARR_H_
 
-typedef struct ti_varr_s ti_varr_t;
-typedef struct ti_tuple_s ti_tuple_t;
-
-#define VARR(__x)  ((ti_varr_t *) (__x))->vec
-
-#include <inttypes.h>
-#include <util/vec.h>
 #include <ex.h>
+#include <stdint.h>
+#include <ti/varr.t.h>
+#include <util/vec.h>
 
 ti_varr_t * ti_varr_create(size_t sz);
 ti_varr_t * ti_varr_from_vec(vec_t * vec);
@@ -26,37 +22,6 @@ int ti_varr_to_list(ti_varr_t ** varr);
 int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e);
 int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e);
 _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb);
-static inline _Bool ti_varr_may_have_things(ti_varr_t * varr);
-static inline _Bool ti_varr_is_list(ti_varr_t * varr);
-static inline _Bool ti_varr_is_tuple(ti_varr_t * varr);
-static inline _Bool ti_varr_eq(ti_varr_t * va, ti_varr_t * vb);
-static inline int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e);
-
-struct ti_tuple_s
-{
-    uint32_t ref;
-    uint8_t tp;
-    uint8_t flags;
-    uint16_t spec;
-    vec_t * vec;
-};
-
-#include <ti/thing.h>
-#include <ti/name.h>
-
-struct ti_varr_s
-{
-    uint32_t ref;
-    uint8_t tp;
-    uint8_t flags;
-    uint16_t spec;
-    vec_t * vec;
-    ti_thing_t * parent;    /* without reference,
-                               NULL when this is a variable or tuple */
-    ti_name_t * name;       /* without reference */
-};
-
-#include <ti/val.h>
 
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
 {
@@ -92,7 +57,6 @@ static inline int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
 
     return e->nr;
 }
-
 
 #endif  /* TI_VARR_H_ */
 

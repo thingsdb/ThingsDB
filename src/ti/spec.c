@@ -2,15 +2,16 @@
  * ti/type.c
  */
 #include <assert.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <ti/type.h>
-#include <ti/prop.h>
-#include <ti/vint.h>
-#include <ti/spec.h>
+#include <stdlib.h>
 #include <ti/enum.h>
 #include <ti/member.inline.h>
+#include <ti/prop.h>
+#include <ti/spec.h>
+#include <ti/type.h>
+#include <ti/val.inline.h>
+#include <ti/vint.h>
 #include <util/strx.h>
 
 /*

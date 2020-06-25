@@ -2,19 +2,19 @@
  * ti/ncache.c
  */
 #include <assert.h>
-#include <util/logger.h>
-#include <util/strx.h>
-#include <ti/ncache.h>
-#include <ti/val.h>
-#include <ti/vfloat.h>
-#include <ti/vint.h>
+#include <langdef/langdef.h>
+#include <ti/closure.h>
 #include <ti/names.h>
+#include <ti/ncache.h>
+#include <ti/raw.h>
 #include <ti/regex.h>
 #include <ti/template.h>
-#include <ti/raw.h>
-#include <ti/closure.h>
-#include <langdef/langdef.h>
-
+#include <ti/val.h>
+#include <ti/val.inline.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
+#include <util/logger.h>
+#include <util/strx.h>
 
 static int ncache__statement(
         ti_qbind_t * syntax,

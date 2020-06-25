@@ -2,21 +2,25 @@
  * ti/collection.c
  */
 #include <assert.h>
+#include <doc.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti.h>
 #include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
+#include <ti/enums.h>
 #include <ti/name.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/procedure.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.h>
 #include <ti/things.h>
-#include <ti/procedure.h>
-#include <ti.h>
-#include <util/strx.h>
+#include <ti/types.h>
+#include <ti/val.inline.h>
 #include <util/fx.h>
+#include <util/strx.h>
 
 
 static const size_t ti_collection_min_name = 1;

@@ -8,10 +8,12 @@
 #include <ti/procedures.h>
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
-#include <ti/rjob.h>
 #include <ti/restore.h>
+#include <ti/rjob.h>
+#include <ti/token.h>
 #include <ti/users.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>

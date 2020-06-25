@@ -6,9 +6,10 @@
 #include <assert.h>
 #include <ti/opr.h>
 #include <ti/raw.h>
+#include <ti/val.inline.h>
 #include <ti/vbool.h>
-#include <ti/vint.h>
 #include <ti/vfloat.h>
+#include <ti/vint.h>
 #include <ti/vset.h>
 #include <util/logger.h>
 

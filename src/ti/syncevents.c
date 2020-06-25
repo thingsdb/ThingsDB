@@ -1,9 +1,12 @@
 /* ti/syncevents.c
  */
 #include <assert.h>
-#include <ti/proto.h>
 #include <ti.h>
+#include <ti/epkg.inline.h>
 #include <ti/nodes.h>
+#include <ti/proto.h>
+#include <ti/req.h>
+#include <ti/epkg.h>
 #include <ti/syncevents.h>
 #include <util/mpack.h>
 #include <util/syncpart.h>

@@ -1,11 +1,11 @@
 /*
  * ti/watch.h
  */
-#include <ti/watch.h>
-#include <ti.h>
-#include <ti/proto.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/proto.h>
+#include <ti/watch.h>
 #include <util/mpack.h>
 
 

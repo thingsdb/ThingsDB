@@ -4,13 +4,9 @@
 #ifndef TI_TOKEN_H_
 #define TI_TOKEN_H_
 
-typedef struct ti_token_s ti_token_t;
-typedef char ti_token_key_t[22];    /* token using 22 base64 characters */
-
+#include <stdlib.h>
 #include <stdint.h>
-#include <ti/raw.h>
-#include <ti/val.h>
-#include <ex.h>
+#include <ti/token.t.h>
 
 ti_token_t * ti_token_create(
         ti_token_key_t * key,       /* NULL will generate a new key */
@@ -19,14 +15,6 @@ ti_token_t * ti_token_create(
         const char * description,
         size_t description_sz);
 void ti_token_destroy(ti_token_t * token);
-
-struct ti_token_s
-{
-    ti_token_key_t key;         /* contains the token key */
-    uint64_t expire_ts;         /* 0 if not set (UNIX time in seconds) */
-    uint64_t created_at;        /* UNIX time in seconds */
-    char * description;         /* may be empty */
-};
 
 
 #endif /* TI_TOKEN_H_ */

@@ -4,23 +4,21 @@
 #ifndef TI_THING_H_
 #define TI_THING_H_
 
-typedef struct ti_thing_s  ti_thing_t;
-
 #include <assert.h>
 #include <stdint.h>
-#include <ti/collection.h>
-#include <ti/field.h>
-#include <ti/name.h>
-#include <ti/prop.h>
-#include <ti/raw.h>
-#include <ti/spec.h>
-#include <ti/stream.h>
-#include <ti/type.h>
-#include <ti/val.h>
-#include <ti/vup.h>
-#include <ti/watch.h>
-#include <ti/wprop.h>
-#include <util/imap.h>
+#include <ti/collection.t.h>
+#include <ti/field.t.h>
+#include <ti/name.t.h>
+#include <ti/prop.t.h>
+#include <ti/raw.t.h>
+#include <ti/spec.t.h>
+#include <ti/stream.t.h>
+#include <ti/thing.t.h>
+#include <ti/type.t.h>
+#include <ti/val.t.h>
+#include <ti/vup.t.h>
+#include <ti/watch.t.h>
+#include <ti/wprop.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
 
@@ -90,26 +88,6 @@ int ti_thing_t_set_val_from_strn(
         size_t n,
         ti_val_t ** val,
         ex_t * e);
-
-struct ti_thing_s
-{
-    uint32_t ref;
-    uint8_t tp;
-    uint8_t flags;
-    uint16_t type_id;
-
-    uint64_t id;
-    ti_collection_t * collection;   /* thing belongs to this collection;
-                                     * only `null` when in thingsdb or node
-                                     * scope, but never in a collection scope
-                                     */
-    vec_t * items;                  /* vec contains ti_prop_t or ti_val_t,
-                                     * depending if a thing is an object or
-                                     * instance */
-    vec_t * watchers;               /* vec contains ti_watch_t,
-                                       NULL if no watchers,  */
-};
-
 
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {

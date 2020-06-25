@@ -3,26 +3,32 @@
  * ti/query.c
  */
 #include <assert.h>
+#include <doc.h>
 #include <errno.h>
 #include <langdef/nd.h>
 #include <langdef/translate.h>
 #include <stdlib.h>
-#include <ti/closure.h>
 #include <ti.h>
+#include <ti/api.h>
+#include <ti/closure.h>
 #include <ti/collections.h>
-#include <ti/do.h>
-#include <ti/procedures.h>
-#include <ti/epkg.h>
-#include <ti/proto.h>
-#include <ti/names.h>
-#include <ti/query.h>
-#include <ti/nil.h>
-#include <ti/wrap.h>
-#include <ti/task.h>
 #include <ti/data.h>
-#include <util/strx.h>
-#include <ti/vset.h>
+#include <ti/do.h>
+#include <ti/epkg.h>
+#include <ti/epkg.inline.h>
+#include <ti/event.h>
+#include <ti/names.h>
+#include <ti/nil.h>
+#include <ti/procedures.h>
+#include <ti/proto.h>
+#include <ti/query.h>
 #include <ti/query.inline.h>
+#include <ti/task.h>
+#include <ti/val.inline.h>
+#include <ti/varr.h>
+#include <ti/vset.h>
+#include <ti/wrap.h>
+#include <util/strx.h>
 
 
 /*

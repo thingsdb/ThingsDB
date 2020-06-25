@@ -2,14 +2,16 @@
  * ti/users.h
  */
 #include <assert.h>
+#include <doc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
-#include <ti/users.h>
 #include <ti/token.h>
+#include <ti/users.h>
+#include <ti/val.inline.h>
 #include <util/cryptx.h>
 #include <util/logger.h>
 #include <util/util.h>

@@ -1,10 +1,12 @@
 /*
  * ti/member.c
  */
-
+#include <doc.h>
+#include <ti/enum.h>
+#include <ti/enum.inline.h>
 #include <ti/member.h>
 #include <ti/names.h>
-#include <doc.h>
+#include <ti/val.inline.h>
 
 /*
  * Increases the reference of `name` and `val` on success.

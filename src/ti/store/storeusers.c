@@ -7,6 +7,7 @@
 #include <ti.h>
 #include <ti/store/storeusers.h>
 #include <ti/users.h>
+#include <ti/token.h>
 #include <util/fx.h>
 #include <util/logger.h>
 #include <util/mpack.h>

@@ -11,12 +11,14 @@
 #include <stdlib.h>
 #include <ti/field.h>
 #include <ti/mapping.h>
+#include <ti/method.h>
 #include <ti/names.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.inline.h>
-#include <ti/val.inline.h>
 #include <ti/type.h>
+#include <ti/types.h>
+#include <ti/val.inline.h>
 
 static char * type__wrap_name(const char * name, size_t n)
 {
@@ -129,7 +131,7 @@ void ti_type_destroy(ti_type_t * type)
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     imap_destroy(type->t_mappings, type__map_free);
-    smap_destroy(type->methods, (smap_destroy_cb) ti_val_drop);
+    smap_destroy(type->methods, (smap_destroy_cb) ti_method_destroy);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
@@ -146,6 +148,18 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
     return n;
 }
 
+int ti_type_add_method(
+        ti_type_t * type,
+        ti_name_t * name,
+        ti_closure_t * closure,
+        ex_t * e)
+{
+    ti_method_t * method = ti_method_create(name, closure);
+    if (!method || smap_add(type->methods, name->str, method))
+        ex_set_internal(e);
+    return e->nr;
+}
+
 static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,
@@ -159,9 +173,7 @@ static inline int type__assign(
     }
 
     if (ti_val_is_closure(val))
-    {
-        smap_add(type->methods)
-    }
+        return ti_type_add_method(type, name, (ti_closure_t *) val, e);
 
     ex_set(e, EX_TYPE_ERROR,
             "expecting a method of type `"TI_VAL_CLOSURE_S"` "

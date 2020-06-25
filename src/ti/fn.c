@@ -8,7 +8,6 @@ int fn_arg_str_slow(
         ex_t * e)
 {
     if (!ti_val_is_str(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_STR_S"` but got type `%s` instead%s",

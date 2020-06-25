@@ -3,7 +3,9 @@
  */
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/name.h>
 #include <ti/prop.h>
+#include <ti/val.inline.h>
 
 ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_t * val)
 {

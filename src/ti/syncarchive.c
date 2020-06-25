@@ -2,9 +2,11 @@
  * ti/syncarchive.c
  */
 #include <assert.h>
-#include <ti/proto.h>
 #include <ti.h>
+#include <ti/archfile.h>
 #include <ti/nodes.h>
+#include <ti/proto.h>
+#include <ti/req.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <util/mpack.h>

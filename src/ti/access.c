@@ -2,11 +2,13 @@
  * ti/access.c
  */
 #include <assert.h>
+#include <doc.h>
+#include <ex.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/users.h>
-#include <ti.h>
 #include <util/logger.h>
 
 /*

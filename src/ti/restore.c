@@ -1,11 +1,13 @@
 /*
  * ti/restore.c
  */
+#include <ti.h>
+#include <ti/epkg.inline.h>
+#include <ti/event.h>
 #include <ti/restore.h>
 #include <util/buf.h>
 #include <util/vec.h>
 #include <uv.h>
-#include <ti.h>
 
 static uv_timer_t restore__timer;
 

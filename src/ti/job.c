@@ -3,7 +3,12 @@
  */
 #include <assert.h>
 #include <ti.h>
+#include <ti/enum.h>
+#include <ti/enum.inline.h>
+#include <ti/enums.inline.h>
+#include <ti/field.h>
 #include <ti/job.h>
+#include <ti/member.inline.h>
 #include <ti/name.h>
 #include <ti/names.h>
 #include <ti/procedure.h>
@@ -15,10 +20,8 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
-#include <ti/enums.inline.h>
-#include <ti/member.inline.h>
 #include <ti/vset.h>
-#include <ti/vup.h>
+#include <ti/vup.t.h>
 #include <util/mpack.h>
 
 /*

@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <doc.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/data.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
@@ -11,6 +12,7 @@
 #include <ti/field.h>
 #include <ti/names.h>
 #include <ti/nil.h>
+#include <ti/query.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
@@ -21,6 +23,7 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/watch.h>
 #include <util/strx.h>
 
 static void field__remove_dep(ti_field_t * field)

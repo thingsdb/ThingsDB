@@ -20,13 +20,13 @@
 #include <ti/connect.h>
 #include <ti/counters.h>
 #include <ti/events.h>
-#include <ti/node.h>
+#include <ti/node.t.h>
 #include <ti/nodes.h>
 #include <ti/store.h>
 #include <ti/sync.h>
 #include <ti/tcp.h>
 #include <ti/users.h>
-#include <ti/val.h>
+#include <ti/val.t.h>
 #include <tiinc.h>
 #include <unistd.h>
 #include <util/logger.h>

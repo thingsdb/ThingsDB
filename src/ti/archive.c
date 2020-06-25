@@ -4,13 +4,15 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <ti/epkg.h>
-#include <ti/events.h>
 #include <ti.h>
-#include <util/logger.h>
-#include <util/fx.h>
-#include <util/util.h>
+#include <ti/archfile.h>
+#include <ti/epkg.h>
+#include <ti/epkg.inline.h>
+#include <ti/events.h>
 #include <unistd.h>
+#include <util/fx.h>
+#include <util/logger.h>
+#include <util/util.h>
 
 
 #define ARCHIVE__THRESHOLD_FULL 0

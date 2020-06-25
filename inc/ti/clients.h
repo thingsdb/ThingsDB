@@ -4,12 +4,10 @@
 #ifndef TI_CLIENTS_H_
 #define TI_CLIENTS_H_
 
-#include <util/vec.h>
+#include <ti/pkg.t.h>
+#include <ti/req.t.h>
+#include <ti/rpkg.t.h>
 #include <uv.h>
-#include <ti/stream.h>
-#include <ti/pkg.h>
-#include <ti/rpkg.h>
-#include <ti/req.h>
 
 typedef struct ti_clients_s ti_clients_t;
 

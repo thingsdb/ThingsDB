@@ -8,6 +8,7 @@
 #include <ti/procedures.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storeprocedures.h>
+#include <ti/val.inline.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 

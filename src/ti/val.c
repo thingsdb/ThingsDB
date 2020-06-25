@@ -5,8 +5,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti.h>
 #include <ti/closure.h>
 #include <ti/enum.h>
+#include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
@@ -16,6 +18,7 @@
 #include <ti/raw.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/scope.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
 #include <ti/things.h>

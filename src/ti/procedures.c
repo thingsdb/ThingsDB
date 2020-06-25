@@ -2,6 +2,7 @@
  * ti/procedures.c
  */
 #include <ti/procedures.h>
+#include <ti/val.inline.h>
 
 /*
  * Returns 0 if added, >0 if already exists or <0 in case of an error

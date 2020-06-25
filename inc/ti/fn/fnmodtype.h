@@ -295,13 +295,14 @@ static void type__add(
     ti_raw_t * spec_raw;
     ti_val_t * dval;
     ti_field_t * field = ti_field_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_closure_t * closure;
     const int nargs = langdef_nd_n_function_params(nd);
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
 
-    if (field)
+    if (field || method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "property `%s` already exists on type `%s`",
@@ -311,9 +312,22 @@ static void type__add(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e) ||
-        fn_arg_str_slow(fnname, DOC_MOD_TYPE_ADD, 4, query->rval, e))
+    if (ti_do_statement(query, child->node, e))
         return;
+
+    if (ti_val_is_closure(query->rval))
+    {
+        /* TODO: add method */
+    }
+    else if (!ti_val_is_str(query->rval))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument 4 to be of "
+            "type `"TI_VAL_STR_S"` or type `"TI_VAL_CLOSURE_S"` "
+            "but got type `%s` instead"DOC_MOD_TYPE_ADD,
+            fnname, ti_val_str(query->rval));
+        return;
+    }
 
     spec_raw = (ti_raw_t *) query->rval;
     query->rval = NULL;

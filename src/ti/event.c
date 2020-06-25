@@ -8,6 +8,8 @@
 #include <ti.h>
 #include <ti/collection.h>
 #include <ti/collections.h>
+#include <ti/epkg.h>
+#include <ti/epkg.inline.h>
 #include <ti/event.h>
 #include <ti/job.h>
 #include <ti/node.h>

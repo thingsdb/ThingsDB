@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/name.h>
 #include <ti/store.h>
 #include <ti/store/storeaccess.h>
 #include <ti/store/storecollection.h>

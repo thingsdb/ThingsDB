@@ -12,7 +12,7 @@ enum
 
 typedef struct ti_build_s ti_build_t;
 
-#include <ti/stream.h>
+#include <ti/stream.t.h>
 #include <util/omap.h>
 
 int ti_build_create(void);

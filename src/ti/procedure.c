@@ -13,6 +13,7 @@
 #include <ti/procedure.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
+#include <ti/val.inline.h>
 #include <tiinc.h>
 #include <util/logger.h>
 

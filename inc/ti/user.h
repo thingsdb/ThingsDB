@@ -4,22 +4,14 @@
 #ifndef TI_USER_H_
 #define TI_USER_H_
 
-typedef struct ti_user_s  ti_user_t;
-
 #include <ex.h>
 #include <stdint.h>
-#include <ti/raw.h>
-#include <ti/token.h>
-#include <ti/val.h>
+#include <ti/raw.t.h>
+#include <ti/token.t.h>
+#include <ti/user.t.h>
+#include <ti/val.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
-
-extern const char * ti_user_def_name;
-extern const char * ti_user_def_pass;
-extern const unsigned int ti_min_name;
-extern const unsigned int ti_max_name;
-extern const unsigned int ti_min_pass;
-extern const unsigned int ti_max_pass;
 
 ti_user_t* ti_user_create(
         uint64_t id,
@@ -37,16 +29,6 @@ int ti_user_set_pass(ti_user_t * user, const char * pass);
 int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk);
 ti_val_t * ti_user_as_mpval(ti_user_t * user);
 ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key);
-
-struct ti_user_s
-{
-    uint32_t ref;
-    uint64_t id;
-    uint64_t created_at;    /* UNIX time-stamp in seconds */
-    ti_raw_t * name;
-    char * encpass;         /* may be NULL if no password is set */
-    vec_t * tokens;         /* ti_token_t */
-};
 
 static inline int ti_user_add_token(ti_user_t * user, ti_token_t * token)
 {

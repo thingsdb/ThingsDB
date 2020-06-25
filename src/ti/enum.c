@@ -1,15 +1,18 @@
 /*
  * ti/enum.c
  */
+#include <doc.h>
 #include <ti/enum.h>
+#include <ti/enum.inline.h>
+#include <ti/member.h>
+#include <ti/names.h>
+#include <ti/opr.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.inline.h>
-#include <ti/opr.h>
-#include <ti/vint.h>
-#include <ti/names.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
+#include <ti/vint.h>
 #include <util/vec.h>
-#include <doc.h>
 
 ti_enum_t * ti_enum_create(
         uint16_t enum_id,

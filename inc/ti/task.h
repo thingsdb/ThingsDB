@@ -16,16 +16,19 @@ typedef enum
 typedef struct ti_task_s ti_task_t;
 
 #include <inttypes.h>
-#include <ti/collection.h>
-#include <ti/field.h>
-#include <ti/name.h>
-#include <ti/pkg.h>
+#include <ti/collection.t.h>
+#include <ti/enum.t.h>
+#include <ti/field.t.h>
+#include <ti/member.t.h>
+#include <ti/name.t.h>
+#include <ti/pkg.t.h>
 #include <ti/procedure.h>
-#include <ti/thing.h>
-#include <ti/token.h>
-#include <ti/type.h>
-#include <ti/user.h>
-#include <ti/val.h>
+#include <ti/thing.t.h>
+#include <ti/token.t.h>
+#include <ti/type.t.h>
+#include <ti/user.t.h>
+#include <ti/val.t.h>
+#include <ti/varr.t.h>
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);

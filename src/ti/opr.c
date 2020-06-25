@@ -16,11 +16,12 @@
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
 
-#include <ti/wrap.h>
+#include <ti/member.h>
 #include <ti/regex.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
 #include <ti/vset.h>
+#include <ti/wrap.h>
 
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)

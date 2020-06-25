@@ -1,23 +1,25 @@
 /*
  * ti/clients.c
  */
-#include <ti/node.h>
-#include <ti/write.h>
-#include <ti/proto.h>
-#include <stdbool.h>
 #include <assert.h>
 #include <ex.h>
-#include <ti/clients.h>
-#include <ti/users.h>
+#include <stdbool.h>
 #include <ti.h>
-#include <ti/query.h>
-#include <ti/wareq.h>
-#include <ti/auth.h>
 #include <ti/access.h>
-#include <ti/req.h>
+#include <ti/auth.h>
+#include <ti/clients.h>
 #include <ti/fwd.h>
+#include <ti/node.h>
+#include <ti/proto.h>
+#include <ti/query.h>
 #include <ti/query.inline.h>
+#include <ti/req.h>
 #include <ti/scope.h>
+#include <ti/thing.h>
+#include <ti/users.h>
+#include <ti/wareq.h>
+#include <ti/watch.h>
+#include <ti/write.h>
 #include <ti/write.h>
 #include <util/mpack.h>
 

@@ -1,14 +1,13 @@
 /*
- * ti/vup.h
+ * ti/vup.t.h
  */
-#ifndef TI_VUP_H_
-#define TI_VUP_H_
-
+#ifndef TI_VUP_T_H_
+#define TI_VUP_T_H_
 
 typedef struct ti_vup_s ti_vup_t;
 
 #include <util/mpack.h>
-#include <ti/collection.h>
+#include <ti/collection.t.h>
 
 struct ti_vup_s
 {
@@ -17,5 +16,4 @@ struct ti_vup_s
     _Bool isclient;
 };
 
-
-#endif  /* TI_VUP_H_ */
+#endif  /* TI_VUP_T_H_ */

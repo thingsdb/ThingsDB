@@ -2,15 +2,16 @@
  * ti/away.c
  */
 #include <assert.h>
+#include <ti.h>
 #include <ti/away.h>
 #include <ti/proto.h>
 #include <ti/quorum.h>
-#include <ti/things.h>
-#include <ti/syncer.h>
-#include <ti/syncfull.h>
 #include <ti/syncarchive.h>
+#include <ti/syncer.h>
 #include <ti/syncevents.h>
-#include <ti.h>
+#include <ti/syncfull.h>
+#include <ti/things.h>
+#include <ti/watch.h>
 #include <util/logger.h>
 #include <util/util.h>
 #include <uv.h>

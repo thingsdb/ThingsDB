@@ -3,13 +3,16 @@
  */
 #include <assert.h>
 #include <ti.h>
+#include <ti/closure.h>
 #include <ti/field.h>
+#include <ti/method.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
 #include <ti/type.h>
 #include <ti/types.inline.h>
+#include <ti/val.inline.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
@@ -21,6 +24,14 @@ static int rmtype_cb(
 {
     uintptr_t type_id = (uintptr_t) data;
     return mp_pack_strn(pk, name, n) || msgpack_pack_uint64(pk, type_id);
+}
+
+static int mkmethod_cb(ti_method_t * method, msgpack_packer * pk)
+{
+    uintptr_t p = (uintptr_t) method->name;
+    return
+        msgpack_pack_uint64(pk, p) ||
+        ti_closure_to_pk(method->closure, pk);
 }
 
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
@@ -42,10 +53,9 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
         ) return -1;
     }
 
-    if (msgpack_pack_map(pk, type->methods->n))
+    if (msgpack_pack_map(pk, type->methods->n) ||
+        smap_values(type->methods, (smap_val_cb) mkmethod_cb, pk))
         return -1;
-
-    smap_items(type->methods)
 
     return 0;
 }
@@ -92,6 +102,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     const char * types_position;
     char namebuf[TI_NAME_MAX+1];
     int rc = -1;
+    _Bool rewrite = false;
     fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name;
@@ -102,6 +113,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     ti_raw_t * spec;
     mp_obj_t obj, mp_id, mp_name, mp_spec, mp_created, mp_modified;
     mp_unp_t up;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = types->collection,
+            .up = &up,
+    };
 
     fx_mmap_init(&fmap, fn);
     if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
@@ -145,12 +161,31 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
+        if (mp_next(&up, &obj) != MP_ARR)
+            goto fail1;
+
+        if (obj.via.sz != 6)
+        {
+            /*
+             * TODO: This code is for compatibility with ThingsDB v0.9.5 and
+             *       lower.
+             */
+            rewrite = true;
+            if (obj.via.sz != 5 ||
+                mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_modified) != MP_U64 ||
+                mp_next(&up, &mp_name) != MP_STR ||
+                mp_skip(&up) != MP_MAP
+            ) goto fail1;
+        }
+        else if (
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_created) != MP_U64 ||
             mp_next(&up, &mp_modified) != MP_U64 ||
             mp_next(&up, &mp_name) != MP_STR ||
-            mp_skip(&up) != MP_MAP
+            mp_skip(&up) != MP_MAP ||   /* fields */
+            mp_skip(&up) != MP_MAP      /* methods */
         ) goto fail1;
 
         if (!ti_type_create(
@@ -173,7 +208,12 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     for (i = types->imap->n; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
+        /*
+         * TODO: This code is for compatibility with ThingsDB v0.9.5 and
+         *       might be changed to obj.via.sz != 6 when backwards
+         *       compatibility may be dropped.
+         */
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz < 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_skip(&up) != MP_U64 ||  /* created */
             mp_skip(&up) != MP_U64 ||  /* modified */
@@ -206,6 +246,36 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             ti_decref(spec);
         }
+
+        if (obj.via.sz == 5)
+            continue;  /* TODO: only for compatibility, see above */
+
+        if (mp_next(&up, &obj) != MP_MAP)
+            goto fail1;
+
+        for (ii = obj.via.sz; ii--;)
+        {
+            ti_val_t * val;
+
+            if (mp_next(&up, &mp_id) != MP_U64)
+                goto fail1;
+
+            name = imap_get(names, mp_id.via.u64);
+            if (!name)
+                goto fail1;
+
+            val = ti_val_from_vup(&vup);
+            if (!val || !ti_val_is_closure(val))
+                goto fail1;
+
+            if (ti_type_add_method(type, name, (ti_closure_t *) val, &e))
+            {
+                log_critical(e.msg);
+                goto fail1;
+            }
+
+            ti_decref(val);
+        }
     }
 
     rc = 0;
@@ -216,6 +286,12 @@ fail1:
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
+
+    if (rewrite && rc == 0)
+    {
+        log_warning("rewrite file: `%s`");
+        return ti_store_types_store(types, fn);
+    }
 
     return rc;
 }

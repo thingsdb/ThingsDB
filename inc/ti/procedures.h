@@ -5,7 +5,8 @@
 #define TI_PROCEDURES_H_
 
 #include <ti/procedure.h>
-#include <ti/val.h>
+#include <ti/val.t.h>
+#include <ti/varr.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
 

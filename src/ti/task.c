@@ -4,14 +4,17 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/task.h>
+#include <ti/data.h>
+#include <ti/enum.inline.h>
+#include <ti/field.h>
 #include <ti/ncache.h>
 #include <ti/proto.h>
 #include <ti/raw.h>
-#include <ti/field.h>
-#include <ti/data.h>
-#include <util/mpack.h>
+#include <ti/task.h>
+#include <ti/type.h>
+#include <ti/val.inline.h>
 #include <util/cryptx.h>
+#include <util/mpack.h>
 
 static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
 {

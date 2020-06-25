@@ -8,9 +8,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ti/raw.t.h>
 #include <tiinc.h>
-
-typedef struct ti_raw_s ti_raw_t;
 
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n);
 void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n);
@@ -47,16 +46,6 @@ static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n);
-
-struct ti_raw_s
-{
-    uint32_t ref;
-    uint8_t tp;
-    uint8_t _flags;
-    uint16_t _pad0;
-    uint32_t n;
-    unsigned char data[];
-};
 
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b)
 {

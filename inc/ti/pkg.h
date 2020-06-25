@@ -4,14 +4,10 @@
 #ifndef TI_PKG_H_
 #define TI_PKG_H_
 
-/* 1GB */
-#define TI_PKG_MAX_SIZE 1073741824
-
-typedef struct ti_pkg_s ti_pkg_t;
-
 #include <stdint.h>
 #include <stddef.h>
 #include <ex.h>
+#include <ti/pkg.t.h>
 
 ti_pkg_t * ti_pkg_new(
         uint16_t id,
@@ -27,14 +23,6 @@ void ti_pkg_log(ti_pkg_t * pkg);
 void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp);
 static inline size_t ti_pkg_sz(ti_pkg_t * pkg);
 
-struct ti_pkg_s
-{
-    uint32_t n;     /* size of data */
-    uint16_t id;    /* id 0 is used for fire-and-forget packages */
-    uint8_t tp;     /* see proto.h for protocol types */
-    uint8_t ntp;    /* used as check-bit */
-    unsigned char data[];
-};
 
 /* setting ntp is to avoid ~ unsigned warn */
 #define ti_pkg_check(pkg__) (\

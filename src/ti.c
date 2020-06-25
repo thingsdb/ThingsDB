@@ -23,6 +23,7 @@
 #include <ti/things.h>
 #include <ti/user.h>
 #include <ti/users.h>
+#include <ti/val.inline.h>
 #include <ti/verror.h>
 #include <ti/version.h>
 #include <ti/web.h>

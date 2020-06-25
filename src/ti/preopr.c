@@ -4,9 +4,10 @@
 #include <assert.h>
 #include <ctype.h>
 #include <ti/preopr.h>
-#include <ti/vint.h>
-#include <ti/vfloat.h>
+#include <ti/val.inline.h>
 #include <ti/vbool.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
 #include <util/logger.h>
 
 enum

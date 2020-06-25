@@ -4,15 +4,14 @@
 #ifndef TI_BACKUPS_H_
 #define TI_BACKUPS_H_
 
-
-#include <uv.h>
-#include <ti/varr.h>
-#include <ti/val.h>
-#include <ti/backup.h>
-#include <util/omap.h>
-#include <ex.h>
-
 typedef struct ti_backups_s ti_backups_t;
+
+#include <ex.h>
+#include <ti/backup.h>
+#include <ti/val.t.h>
+#include <ti/varr.t.h>
+#include <util/omap.h>
+#include <uv.h>
 
 int ti_backups_create(void);
 void ti_backups_destroy(void);

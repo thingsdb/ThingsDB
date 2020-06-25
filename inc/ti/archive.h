@@ -7,12 +7,9 @@
 typedef struct ti_archive_s  ti_archive_t;
 
 #include <stdint.h>
-#include <ti/archive.h>
-#include <ti/epkg.h>
+#include <ti/epkg.t.h>
 #include <util/queue.h>
 #include <util/vec.h>
-#include <ti/archfile.h>
-
 
 struct ti_archive_s
 {

@@ -4,10 +4,14 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/epkg.h>
+#include <ti/epkg.inline.h>
 #include <ti/event.h>
 #include <ti/events.h>
 #include <ti/proto.h>
+#include <ti/query.h>
 #include <ti/quorum.h>
+#include <ti/thing.h>
 #include <util/fx.h>
 #include <util/logger.h>
 #include <util/mpack.h>

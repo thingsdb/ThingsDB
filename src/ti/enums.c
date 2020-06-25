@@ -6,7 +6,8 @@
 #include <ti/enum.h>
 #include <ti/enums.h>
 #include <ti/enums.inline.h>
-
+#include <ti/val.h>
+#include <ti/val.inline.h>
 
 ti_enums_t * ti_enums_create(ti_collection_t * collection)
 {

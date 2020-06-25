@@ -4,12 +4,15 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/enum.h>
+#include <ti/field.h>
 #include <ti/names.h>
 #include <ti/prop.h>
 #include <ti/thing.inline.h>
 #include <ti/things.h>
 #include <ti/types.inline.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vset.h>
 #include <ti/watch.h>

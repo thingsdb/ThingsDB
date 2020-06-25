@@ -1,17 +1,13 @@
 /*
- * req.h
+ * ti/req.h
  */
 #ifndef TI_REQ_H_
 #define TI_REQ_H_
 
-typedef struct ti_req_s ti_req_t;
-
-#include <uv.h>
-#include <ti/stream.h>
-#include <ti/pkg.h>
-#include <ex.h>
-
-typedef void (*ti_req_cb)(ti_req_t * req, ex_enum status);
+#include <inttypes.h>
+#include <ti/pkg.t.h>
+#include <ti/req.t.h>
+#include <ti/stream.t.h>
 
 int ti_req_create(
         ti_stream_t * stream,
@@ -22,15 +18,5 @@ int ti_req_create(
 void ti_req_destroy(ti_req_t * req);
 void ti_req_cancel(ti_req_t * req);
 void ti_req_result(ti_req_t * req);
-
-struct ti_req_s
-{
-    ti_stream_t * stream;
-    ti_pkg_t * pkg_req;
-    ti_pkg_t * pkg_res;
-    void * data;
-    uv_timer_t * timer;
-    ti_req_cb cb_;
-};
 
 #endif /* TI_REQ_H_ */

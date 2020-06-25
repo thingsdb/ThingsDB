@@ -6,6 +6,7 @@
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/val.h>
+#include <ti/val.inline.h>
 #include <util/logger.h>
 
 

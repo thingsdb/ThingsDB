@@ -5,15 +5,19 @@
 #include <doc.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/enums.h>
+#include <ti/events.inline.h>
+#include <ti/field.h>
 #include <ti/names.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
-#include <ti/enums.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
+#include <ti/types.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
+#include <ti/watch.h>
 #include <util/logger.h>
 #include <util/mpack.h>
 

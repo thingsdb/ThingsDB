@@ -1,0 +1,19 @@
+/*
+ * ti/rpkg.t.h
+ */
+#ifndef TI_RPKG_T_H_
+#define TI_RPKG_T_H_
+
+typedef struct ti_rpkg_s ti_rpkg_t;
+
+#include <inttypes.h>
+#include <ti/pkg.t.h>
+
+struct ti_rpkg_s
+{
+    uint32_t ref;
+    uint32_t pad0;      /* required for alignment with ti_epkg_t */
+    ti_pkg_t * pkg;     /* must align with ti_epkg_t             */
+};
+
+#endif  /* TI_RPKG_T_H_ */

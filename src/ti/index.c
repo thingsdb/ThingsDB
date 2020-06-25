@@ -1,7 +1,9 @@
 /*
  * ti/index.c
  */
+#include <langdef/langdef.h>
 #include <ti/do.h>
+#include <ti/field.h>
 #include <ti/index.h>
 #include <ti/name.h>
 #include <ti/names.h>
@@ -9,9 +11,9 @@
 #include <ti/opr/oprinc.h>
 #include <ti/prop.h>
 #include <ti/task.h>
-#include <ti/vint.h>
-#include <langdef/langdef.h>
 #include <ti/thing.inline.h>
+#include <ti/val.inline.h>
+#include <ti/vint.h>
 
 static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
 {

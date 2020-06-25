@@ -5,6 +5,8 @@
 #define TI_MEMBER_INLINE_H_
 
 #include <ti/member.h>
+#include <ti/val.h>
+#include <tiinc.h>
 #include <util/mpack.h>
 
 

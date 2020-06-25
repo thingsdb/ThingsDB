@@ -1,9 +1,11 @@
 /*
  * ti/template.c
  */
-#include <ti/val.h>
-#include <ti/template.h>
 #include <cleri/node.inline.h>
+#include <ti/do.h>
+#include <ti/template.h>
+#include <ti/val.h>
+#include <ti/val.inline.h>
 
 typedef struct
 {

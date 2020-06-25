@@ -6,6 +6,8 @@
 
 #include <ti/type.h>
 #include <ti/thing.h>
+#include <ti/name.h>
+#include <ti/raw.h>
 #include <doc.h>
 
 /* returns IMAP_ERR_EXIST if the thing is already in the map */

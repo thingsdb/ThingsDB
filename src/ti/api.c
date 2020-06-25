@@ -2,14 +2,17 @@
  * ti/api.c
  */
 #define _GNU_SOURCE
-#include <ti/api.h>
-#include <ti.h>
+#include <doc.h>
 #include <stdlib.h>
-#include <util/mpjson.h>
-#include <util/logger.h>
-#include <ti/auth.h>
+#include <ti.h>
 #include <ti/access.h>
+#include <ti/api.h>
+#include <ti/auth.h>
 #include <ti/query.inline.h>
+#include <ti/req.h>
+#include <ti/scope.h>
+#include <util/logger.h>
+#include <util/mpjson.h>
 
 
 #define API__HEADER_MAX_SZ 256

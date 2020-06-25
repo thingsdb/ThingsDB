@@ -4,9 +4,14 @@
 #ifndef TI_SPEC_INLINE_H_
 #define TI_SPEC_INLINE_H_
 
-#include <ti/val.h>
+#include <ti/val.inline.h>
 #include <ti/spec.h>
 #include <inttypes.h>
+
+static inline _Bool ti_spec_is_enum(uint16_t spec)
+{
+    return (spec & TI_SPEC_MASK_NILLABLE) >= 0x6000;
+}
 
 static inline ti_spec_rval_enum ti_spec_check_val(
         uint16_t spec,

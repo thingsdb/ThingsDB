@@ -5,6 +5,7 @@
 #include <ti/do.h>
 #include <ti/field.h>
 #include <ti/index.h>
+#include <ti/method.h>
 #include <ti/name.h>
 #include <ti/names.h>
 #include <ti/nil.h>

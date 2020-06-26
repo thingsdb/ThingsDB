@@ -329,7 +329,8 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     ti_type_t * type;
     mp_obj_t obj, mp_id, mp_modified;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+    /* TODO: For compatibility with versions before v0.9.6 */
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 3 && obj.via.sz != 4) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -361,7 +362,7 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (ti_type_init_from_unp(type, up, &e))
+    if (ti_type_init_from_unp(type, up, &e, obj.via.sz == 4))
     {
         log_critical(
             "job `set_type` for "TI_COLLECTION_ID" has failed; "

@@ -25,6 +25,7 @@
 #include <ti/field.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
+#include <ti/method.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr.h>
@@ -58,7 +59,15 @@
 #include <uv.h>
 
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);
-static int fn_call_try(const char *, ti_query_t *, cleri_node_t *, ex_t *);
+static int fn_call_try_n(
+        const char *,
+        size_t,
+        ti_query_t *,
+        cleri_node_t *,
+        ex_t *);
+
+#define fn_call_try(__name, __q, __nd, __e) \
+    fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
 int fn_arg_str_slow(
         const char * name,
@@ -334,40 +343,30 @@ fail0:
     return e->nr;
 }
 
-static int fn_call_try(
+static int fn_call_o_try_n(
         const char * name,
+        size_t n,
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
 {
+    ti_name_t * name_ = ti_names_weak_get_str(name);
+    ti_thing_t * thing = (ti_thing_t *) query->rval;
     ti_val_t * val;
-    ti_thing_t * thing;
-    ti_name_t * name_;
 
-    if (!ti_val_is_thing(query->rval))
+    if (!name_ || !(val = ti_thing_o_val_weak_get(thing, name_)))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `%s`",
-                ti_val_str(query->rval), name);
-        return e->nr;
-    }
-
-    thing = (ti_thing_t *) query->rval;
-    name_ = ti_names_weak_get_str(name);
-
-    if (!name_ || !(val = ti_thing_val_weak_get(thing, name_)))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%s`",
-                thing->id, name);
+                "thing "TI_THING_ID" has no property `%.*s`",
+                thing->id, n, name);
         return e->nr;
     }
 
     if (!ti_val_is_closure(val))
     {
         ex_set(e, EX_TYPE_ERROR,
-            "property `%s` is of type `%s` and is not callable",
-            name, ti_val_str(val));
+            "property `%.*s` is of type `%s` and is not callable",
+            n, name, ti_val_str(val));
         return e->nr;
     }
 
@@ -376,6 +375,72 @@ static int fn_call_try(
     ti_val_drop((ti_val_t *) thing);
 
     return fn_call(query, nd, e);
+}
+
+static int fn_call_t_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_name_t * name_ = ti_names_weak_get(name, n);
+    ti_thing_t * thing = (ti_thing_t *) query->rval;
+    ti_type_t * type = ti_thing_type(thing);
+    ti_method_t * method;
+    ti_val_t * val;
+
+    if (!name_)
+        goto no_prop_err;
+
+    if ((method = ti_method_by_name(type, name_)))
+        return ti_method_call(method, type, query, nd, e);
+
+    if ((val = ti_thing_t_val_weak_get(thing, name_)))
+    {
+        if (!ti_val_is_closure(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "property `%.*s` is of type `%s` and is not callable",
+                n, name, ti_val_str(val));
+            return e->nr;
+        }
+
+        query->rval = val;
+        ti_incref(val);
+        ti_val_drop((ti_val_t *) thing);
+
+        return fn_call(query, nd, e);
+    }
+
+no_prop_err:
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no property or method `%.*s`",
+            type->name, n, name);
+    return e->nr;
+}
+
+#define fn_call_try(__name, __q, __nd, __e) \
+    fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
+
+static int fn_call_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    if (!ti_val_is_thing(query->rval))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no function `%.*s`",
+                ti_val_str(query->rval), n, name);
+        return e->nr;
+    }
+
+    return ti_thing_is_object((ti_thing_t *) query->rval)
+            ? fn_call_o_try_n(name, n, query, nd, e)
+            : fn_call_t_try_n(name, n, query, nd, e);
 }
 
 #endif /* TI_FN_FN_H_ */

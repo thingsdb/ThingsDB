@@ -94,7 +94,7 @@ static inline void ti_thing_set_not_found(
                     (int) rname->n, (const char *) rname->data);
         else
             ex_set(e, EX_LOOKUP_ERROR,
-                    "type `%s` has no property `%.*s`",
+                    "type `%s` has no property or method `%.*s`",
                     ti_thing_type(thing)->name,
                     (int) rname->n, (const char *) rname->data);
     }
@@ -120,7 +120,7 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    assert (!ti_thing_is_object(thing));
+    assert (ti_thing_is_instance(thing));
     ti_name_t * n;
     ti_val_t * v;
     for (thing_t_each(thing, n, v))

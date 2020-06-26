@@ -1205,7 +1205,6 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             : field__maps_to_spec(t_spec, f_spec);
 }
 
-
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
 {
     for (vec_each(type->fields, ti_field_t, field))

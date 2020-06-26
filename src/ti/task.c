@@ -236,7 +236,7 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "set_type");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -246,6 +246,9 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);
+
+    mp_pack_str(&pk, "methods");
+    ti_type_methods_to_pk(type, &pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

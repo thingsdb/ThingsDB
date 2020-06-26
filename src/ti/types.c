@@ -99,22 +99,33 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
     return (uint16_t) utype;
 }
 
-static int types__pack_type(ti_type_t * type, ti_varr_t * varr)
+typedef struct
 {
-    ti_val_t * mpinfo = ti_type_as_mpval(type);
+    ti_varr_t * varr;
+    _Bool with_definition;
+} types__info_cb;
+
+static int types__pack_type(ti_type_t * type, types__info_cb * w)
+{
+    ti_val_t * mpinfo = ti_type_as_mpval(type, w->with_definition);
     if (!mpinfo)
         return -1;
-    VEC_push(varr->vec, mpinfo);
+    VEC_push(w->varr->vec, mpinfo);
     return 0;
 }
 
-ti_varr_t * ti_types_info(ti_types_t * types)
+ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition)
 {
     ti_varr_t * varr = ti_varr_create(types->imap->n);
     if (!varr)
         return NULL;
 
-    if (imap_walk(types->imap, (imap_cb) types__pack_type, varr))
+    types__info_cb info_cb = {
+            .varr = varr,
+            .with_definition = with_definition,
+    };
+
+    if (imap_walk(types->imap, (imap_cb) types__pack_type, &info_cb))
     {
         ti_val_drop((ti_val_t *) varr);
         return NULL;
@@ -123,10 +134,15 @@ ti_varr_t * ti_types_info(ti_types_t * types)
     return varr;
 }
 
+static inline int types__to_pk_cb(ti_type_t * type, msgpack_packer * pk)
+{
+    return ti_type_to_pk(type, pk, false);
+}
+
 int ti_types_to_pk(ti_types_t * types, msgpack_packer * pk)
 {
     return (
         msgpack_pack_array(pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) ti_type_to_pk, pk)
+        imap_walk(types->imap, (imap_cb) types__to_pk_cb, pk)
     );
 }

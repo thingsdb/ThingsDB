@@ -26,14 +26,6 @@ static int rmtype_cb(
     return mp_pack_strn(pk, name, n) || msgpack_pack_uint64(pk, type_id);
 }
 
-static int mkmethod_cb(ti_method_t * method, msgpack_packer * pk)
-{
-    uintptr_t p = (uintptr_t) method->name;
-    return
-        msgpack_pack_uint64(pk, p) ||
-        ti_closure_to_pk(method->closure, pk);
-}
-
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
@@ -53,9 +45,16 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
         ) return -1;
     }
 
-    if (msgpack_pack_map(pk, type->methods->n) ||
-        smap_values(type->methods, (smap_val_cb) mkmethod_cb, pk))
+    if (msgpack_pack_map(pk, type->methods->n))
         return -1;
+
+    for (vec_each(type->methods, ti_method_t, method))
+    {
+        p = (uintptr_t) method->name;
+        if (msgpack_pack_uint64(pk, p) ||
+            ti_closure_to_pk(method->closure, pk)
+        ) return -1;
+    }
 
     return 0;
 }
@@ -167,8 +166,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         if (obj.via.sz != 6)
         {
             /*
-             * TODO: This code is for compatibility with ThingsDB v0.9.5 and
-             *       lower.
+             * TODO: This code is for compatibility with ThingsDB versions
+             *       before v0.9.6.
              */
             rewrite = true;
             if (obj.via.sz != 5 ||
@@ -209,8 +208,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     for (i = types->imap->n; i--;)
     {
         /*
-         * TODO: This code is for compatibility with ThingsDB v0.9.5 and
-         *       might be changed to obj.via.sz != 6 when backwards
+         * TODO: This code is for compatibility with ThingsDB version before
+         *       v0.9.6 and might be changed to obj.via.sz != 6 when backwards
          *       compatibility may be dropped.
          */
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz < 5 ||

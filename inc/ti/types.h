@@ -18,7 +18,7 @@ void ti_types_destroy(ti_types_t * types);
 int ti_types_add(ti_types_t * types, ti_type_t * type);
 void ti_types_del(ti_types_t * types, ti_type_t * type);
 uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e);
-ti_varr_t * ti_types_info(ti_types_t * types);
+ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition);
 int ti_types_to_pk(ti_types_t * types, msgpack_packer * pk);
 
 #endif /* TI_TYPES_H_ */

@@ -8,7 +8,13 @@ static int do__f_types_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("types_info", DOC_TYPES_INFO, 0, nargs, e))
         return e->nr;
 
-    query->rval = (ti_val_t *) ti_types_info(query->collection->types);
+    query->rval = (ti_val_t *) ti_types_info(
+            query->collection->types,
+            ti_access_check(
+                query->collection->access,
+                query->user,
+                TI_AUTH_MODIFY));
+
     if (!query->rval)
         ex_set_mem(e);
 

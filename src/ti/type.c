@@ -54,7 +54,7 @@ ti_type_t * ti_type_create(
     type->t_mappings = imap_create();
     type->created_at = created_at;
     type->modified_at = modified_at;
-    type->methods = smap_create();
+    type->methods = vec_new(0);
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->t_mappings || ti_types_add(types, type))
@@ -130,8 +130,8 @@ void ti_type_destroy(ti_type_t * type)
         return;
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
+    vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
     imap_destroy(type->t_mappings, type__map_free);
-    smap_destroy(type->methods, (smap_destroy_cb) ti_method_destroy);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
@@ -155,8 +155,18 @@ int ti_type_add_method(
         ex_t * e)
 {
     ti_method_t * method = ti_method_create(name, closure);
-    if (!method || smap_add(type->methods, name->str, method))
-        ex_set_internal(e);
+    if (!method)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (vec_push(&type->methods, method))
+    {
+        ex_set_mem(e);
+        ti_method_destroy(method);
+    }
+
     return e->nr;
 }
 
@@ -287,12 +297,22 @@ failed:
     return e->nr;
 }
 
-int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
+int ti_type_init_from_unp(
+        ti_type_t * type,
+        mp_unp_t * up,
+        ex_t * e,
+        _Bool with_methods)
 {
     ti_name_t * name;
     ti_raw_t * spec_raw;
-    mp_obj_t obj, mp_field, mp_spec;
+    mp_obj_t obj, mp_name, mp_spec;
     size_t i;
+    ti_val_t * val = NULL;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = type->types->collection,
+            .up = up,
+    };
 
     if (mp_next(up, &obj) != MP_ARR)
     {
@@ -309,7 +329,7 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
     for (i = obj.via.sz; i--;)
     {
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
-            mp_next(up, &mp_field) != MP_STR ||
+            mp_next(up, &mp_name) != MP_STR ||
             mp_next(up, &mp_spec) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
@@ -319,7 +339,7 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
             return e->nr;
         }
 
-        if (!ti_name_is_valid_strn(mp_field.via.str.data, mp_field.via.str.n))
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
                     "failed unpacking fields for type `%s`;"
@@ -328,7 +348,7 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
             return e->nr;
         }
 
-        name = ti_names_get(mp_field.via.str.data, mp_field.via.str.n);
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
         spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
 
         if (!name || !spec_raw ||
@@ -339,12 +359,71 @@ int ti_type_init_from_unp(ti_type_t * type, mp_unp_t * up, ex_t * e)
         ti_decref(spec_raw);
     }
 
-    return e->nr;
+    if (!with_methods)
+        return e->nr;
+
+    if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_MAP)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking methods for type `%s`;"
+                "expecting the methods as a map",
+                type->name);
+        return e->nr;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &mp_name) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking methods for type `%s`;"
+                    "expecting a map with a string a method name",
+                    type->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for type `%s`;"
+                    "methods must follow the naming rules"DOC_NAMES,
+                    type->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name)
+            goto failed;
+
+        val = ti_val_from_vup_e(&vup, e);
+        if (!val)
+            goto failed;
+
+        if (!ti_val_is_closure(val))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for type `%s`;"
+                    "methods must have type `"TI_VAL_CLOSURE_S"` as value "
+                    "but got type `%s` instead",
+                    type->name,
+                    ti_val_str(val));
+            goto failed;
+        }
+
+        if (ti_type_add_method(type, name, (ti_closure_t *) val, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(val);
+    }
+
+    return 0;  /* success */
 
 failed:
     if (!e->nr)
         ex_set_mem(e);
 
+    ti_val_drop(val);
     ti_name_drop(name);
     ti_val_drop((ti_val_t *) spec_raw);
 
@@ -368,7 +447,63 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_type_as_mpval(ti_type_t * type)
+/* adds a map with key/value pairs */
+int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    if (msgpack_pack_map(pk, type->methods->n))
+        return -1;
+
+    for (vec_each(type->methods, ti_method_t, method))
+    {
+        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+            ti_closure_to_pk(method->closure, pk)
+        ) return -1;
+    }
+
+    return 0;
+}
+
+/* adds a map with key/value pairs */
+int ti_type_methods_info_to_pk(
+        ti_type_t * type,
+        msgpack_packer * pk,
+        _Bool with_definition)
+{
+    if (msgpack_pack_map(pk, type->methods->n))
+        return -1;
+
+    for (vec_each(type->methods, ti_method_t, method))
+    {
+        ti_raw_t * doc = ti_method_doc(method);
+        ti_raw_t * def;
+
+        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+
+            msgpack_pack_map(pk, 3 + !!with_definition) ||
+
+            mp_pack_str(pk, "doc") ||
+            mp_pack_strn(pk, doc->data, doc->n) ||
+
+            (with_definition && (def = ti_method_def(method)) && (
+                mp_pack_str(pk, "definition") ||
+                mp_pack_strn(pk, def->data, def->n)
+            )) ||
+
+            mp_pack_str(pk, "with_side_effects") ||
+            mp_pack_bool(pk, method->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
+
+            mp_pack_str(pk, "arguments") ||
+            msgpack_pack_array(pk, method->closure->vars->n))
+            return -1;
+
+        for (vec_each(method->closure->vars, ti_prop_t, prop))
+            if (mp_pack_str(pk, prop->name->str))
+                return -1;
+    }
+    return 0;
+}
+
+ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
 {
     ti_raw_t * raw;
     msgpack_packer pk;
@@ -377,7 +512,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_type_to_pk(type, &pk))
+    if (ti_type_to_pk(type, &pk, with_definition))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

@@ -8,6 +8,7 @@
 #include <ti/enums.h>
 #include <ti/events.inline.h>
 #include <ti/field.h>
+#include <ti/method.h>
 #include <ti/names.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
@@ -550,17 +551,24 @@ static _Bool thing_t__get_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    ti_name_t * n;
-    ti_val_t ** v;
-    for (thing_t_each_addr(thing, n, v))
+    ti_type_t * type = ti_thing_type(thing);
+    ti_field_t * field;
+    ti_method_t * method;
+
+    if ((field = ti_field_by_name(type, name)))
     {
-        if (n == name)
-        {
-            wprop->name = name;
-            wprop->val = v;
-            return true;
-        }
+        wprop->name = name;
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+        return true;
     }
+
+    if ((method = ti_method_by_name(type, name)))
+    {
+        wprop->name = name;
+        wprop->val = (ti_val_t **) (&method->closure);
+        return true;
+    }
+
     return false;
 }
 

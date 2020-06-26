@@ -105,6 +105,7 @@ static inline int do__o_get_wprop(
     ex_set(e, EX_LOOKUP_ERROR,
             "thing "TI_THING_ID" has no property `%.*s`",
             thing->id, (int) nd->len, nd->str);
+
     return e->nr;
 }
 
@@ -115,22 +116,34 @@ static inline int do__t_get_wprop(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_field_t * field;
     ti_type_t * type = ti_thing_type(thing);
     ti_name_t * name = nd->data ? nd->data : do__cache_name(query, nd);
 
-    if (name && (field = ti_field_by_name(type, name)))
+    if (name)
     {
-        wprop->name = field->name;
-        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
-        return 0;
+        ti_field_t * field;
+        ti_method_t * method;
+
+        if ((field = ti_field_by_name(type, name)))
+        {
+            wprop->name = name;
+            wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+            return 0;
+        }
+
+        if ((method = ti_method_by_name(type, name)))
+        {
+            wprop->name = name;
+            wprop->val = (ti_val_t **) (&method->closure);
+            return 0;
+        }
     }
 
     wprop->name = NULL;
     wprop->val = NULL;
 
     ex_set(e, EX_LOOKUP_ERROR,
-            "type `%s` has no property `%.*s`",
+            "type `%s` has no property or method `%.*s`",
             type->name, (int) nd->len, nd->str);
     return e->nr;
 }
@@ -433,94 +446,62 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ->children->next->node      /* function sequence */
         ->children->next->node;     /* arguments */
 
+    ti_prop_t * prop;
+
     if (query->rval)
+        return fn_call_try_n(fname->str, fname->len, query, nd, e);
+
+    if (query->collection)
     {
-        if (ti_val_is_thing(query->rval))
-        {
-            ti_wprop_t wprop;
-            ti_thing_t * thing = (ti_thing_t *) query->rval;
+        ti_enum_t * enum_;
+        ti_type_t * type;
 
-            if (do__get_wprop(&wprop, query, thing, fname, e))
-                return e->nr;
+        /* Try Type first as this is probably more common */
+        type = ti_types_by_strn(
+                query->collection->types,
+                fname->str,
+                fname->len);
+        if (type)
+            return do__get_type_instance(type, query, args, e);
 
-            if (!ti_val_is_closure(*wprop.val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                    "property `%.*s` is of type `%s` and is not callable",
-                    fname->len,
-                    fname->str,
-                    ti_val_str(*wprop.val));
-                return e->nr;
-            }
-
-            query->rval = *wprop.val;
-            ti_incref(query->rval);
-            ti_val_drop((ti_val_t *) thing);
-
-            return fn_call(query, args, e);
-        }
-
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `%.*s`",
-                ti_val_str(query->rval),
-                fname->len,
-                fname->str);
-    }
-    else
-    {
-        ti_prop_t * prop;
-
-        if (query->collection)
-        {
-            ti_enum_t * enum_;
-            ti_type_t * type;
-
-            /* Try Type first as this is probably more common */
-            type = ti_types_by_strn(
-                    query->collection->types,
+        /* Try enum, there is never an overlap with Type since they are
+         * unique with respect to each other
+         */
+        enum_ = ti_enums_by_strn(
+                    query->collection->enums,
                     fname->str,
                     fname->len);
-            if (type)
-                return do__get_type_instance(type, query, args, e);
-
-            /* Try enum, there is never an overlap with Type since they are
-             * unique with respect to each other
-             */
-            enum_ = ti_enums_by_strn(
-                        query->collection->enums,
-                        fname->str,
-                        fname->len);
-            if (enum_)
-                return do__get_enum_member(enum_, query, args, e);
-        }
-
-        /* Props with build-in function names, and/or exist as Type/Enum name
-         * are not reached.
-         */
-        prop = do__get_var(query, fname);
-        if (prop)
-        {
-            if (!ti_val_is_closure(prop->val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                    "variable `%.*s` is of type `%s` and is not callable",
-                    fname->len,
-                    fname->str,
-                    ti_val_str(prop->val));
-                return e->nr;
-            }
-
-            query->rval = prop->val;
-            ti_incref(query->rval);
-
-            return fn_call(query, args, e);
-        }
-
-        ex_set(e, EX_LOOKUP_ERROR,
-                "function `%.*s` is undefined",
-                fname->len,
-                fname->str);
+        if (enum_)
+            return do__get_enum_member(enum_, query, args, e);
     }
+
+    /* Props with build-in function names, and/or exist as Type/Enum name
+     * are not reached.
+     */
+    prop = do__get_var(query, fname);
+    if (prop)
+    {
+        if (!ti_val_is_closure(prop->val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "variable `%.*s` is of type `%s` and is not callable",
+                fname->len,
+                fname->str,
+                ti_val_str(prop->val));
+            return e->nr;
+        }
+
+        query->rval = prop->val;
+        ti_incref(query->rval);
+
+        return fn_call(query, args, e);
+    }
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "function `%.*s` is undefined",
+            fname->len,
+            fname->str);
+
     return e->nr;
 }
 

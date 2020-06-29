@@ -1,3 +1,9 @@
+# v0.9.6 (alpha)
+
+* Prevent quick away mode while processing many events, issue #57.
+* ThingDB `Type` may be extended using methods, issue #56.
+
+
 # v0.9.5
 
 * Allow creating backups on a single node, issue #50.

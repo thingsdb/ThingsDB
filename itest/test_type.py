@@ -73,6 +73,27 @@ class TestType(TestBase):
                 .t.p.animal.add({});
             ''')
 
+    async def test_method(self, client):
+        await client.query(r'''
+            set_type('Person', {
+                name: 'str',
+                upper: |this| this.name.upper(),
+                to_upper: |this| this.name = this.name.upper(),
+            });
+            .iris = Person{name: 'Iris'};
+        ''')
+
+        self.assertEqual(await client.query('.iris.upper();'), 'IRIS')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'xxx'):
+            self.assertEqual(await client.query('.iris.to_upper();'), 'Iris')
+
+        self.assertEqual(await client.query('.iris.name;'), 'Iris')
+        self.assertEqual(await client.query('wse(.iris.to_upper();'), 'IRIS')
+        self.assertEqual(await client.query('.iris.name;'), 'IRISS')
+
     async def test_new_type(self, client):
         await client.query(r'''
             set_type('User', {

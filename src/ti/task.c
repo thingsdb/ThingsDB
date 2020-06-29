@@ -7,6 +7,7 @@
 #include <ti/data.h>
 #include <ti/enum.inline.h>
 #include <ti/field.h>
+#include <ti/method.h>
 #include <ti/ncache.h>
 #include <ti/proto.h>
 #include <ti/raw.h>
@@ -731,7 +732,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_add(
+int ti_task_add_mod_type_add_field(
         ti_task_t * task,
         ti_type_t * type,
         ti_val_t * dval)
@@ -769,6 +770,56 @@ int ti_task_add_mod_type_add(
         if (ti_val_to_pk(dval, &pk, TI_VAL_PACK_TASK))
             goto fail_pack;
     }
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
+{
+    ti_method_t * method = VEC_last(type->methods);
+    LOGC("len closure: %u", ti_closure_statement(method->closure)->len);
+    size_t alloc = \
+            80 + ti_closure_statement(method->closure)->len + method->name->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_type_add");
+    msgpack_pack_map(&pk, 4);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, method->name->str, method->name->n);
+
+    mp_pack_str(&pk, "closure");
+    if (ti_closure_to_pk(method->closure, &pk))
+        goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -830,7 +881,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
+int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
 {
     size_t alloc = 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
@@ -870,15 +921,61 @@ int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field)
 fail_data:
     free(data);
     return -1;
+}
 
+int ti_task_add_mod_type_mod_method(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_method_t * method)
+{
+    size_t alloc = \
+            80 + method->name->n + ti_closure_statement(method->closure)->len;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_type_mod");
+    msgpack_pack_map(&pk, 4);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, method->name->str, method->name->n);
+
+    mp_pack_str(&pk, "closure");
+    ti_closure_to_pk(method->closure, &pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
 }
 
 int ti_task_add_mod_type_ren(
         ti_task_t * task,
-        ti_field_t * field,
-        ti_name_t * oldname)
+        ti_type_t * type,
+        ti_name_t * oldname,
+        ti_name_t * newname)
 {
-    size_t alloc = 64 + field->name->n + oldname->n;
+    size_t alloc = 64 + oldname->n + newname->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -893,16 +990,16 @@ int ti_task_add_mod_type_ren(
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
-    msgpack_pack_uint16(&pk, field->type->type_id);
+    msgpack_pack_uint16(&pk, type->type_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, field->type->modified_at);
+    msgpack_pack_uint64(&pk, type->modified_at);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, oldname->str, oldname->n);
 
     mp_pack_str(&pk, "to");
-    mp_pack_strn(&pk, field->name->str, field->name->n);
+    mp_pack_strn(&pk, newname->str, newname->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

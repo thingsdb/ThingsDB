@@ -9,6 +9,7 @@
 #include <ti/field.h>
 #include <ti/job.h>
 #include <ti/member.inline.h>
+#include <ti/method.h>
 #include <ti/name.h>
 #include <ti/names.h>
 #include <ti/procedure.h>
@@ -703,7 +704,7 @@ static int job__mod_type_add(
     ti_raw_t * spec_raw;
     ti_field_t * field;
     ti_val_t * val = NULL;
-    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_modified;
+    mp_obj_t obj, mp_id, mp_name, mp_target, mp_spec, mp_modified;
     int rc = -1;
     ti_vup_t vup = {
             .isclient = false,
@@ -718,38 +719,12 @@ static int job__mod_type_add(
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_spec) != MP_STR)
+        mp_next(up, &mp_target) != MP_STR)  /* spec or method */
     {
         log_critical(
                 "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
                 vup.collection->root->id);
         return rc;
-    }
-
-    /*
-     * TODO: since version 0.9.2 (June 2020), the initial value is no longer
-     *       optional but always added to the `mod_type_add` job.
-     */
-    if (obj.via.sz == 5)
-    {
-        if (mp_skip(up) != MP_STR )
-        {
-            log_critical(
-                    "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
-                    vup.collection->root->id);
-            return rc;
-        }
-
-        val = ti_val_from_vup(&vup);
-        if (!val)
-        {
-            log_critical(
-                    "job `mod_type_add` for "TI_COLLECTION_ID" has failed; "
-                    "error reading initial value",
-                    vup.collection->root->id);
-            return rc;
-        }
     }
 
     type = ti_types_by_id(vup.collection->types, mp_id.via.u64);
@@ -763,24 +738,107 @@ static int job__mod_type_add(
     }
 
     name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
-    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
-    if (!name || !spec_raw)
+    if (!name)
     {
         log_critical(EX_MEMORY_S);
         goto fail0;
+    }
+
+    if (mp_str_eq(&mp_target, "spec"))
+    {
+        if (mp_next(up, &mp_spec) != MP_STR)
+        {
+            log_critical(
+                    "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
+                    vup.collection->root->id);
+            goto fail0;
+        }
+    }
+    else if (mp_str_eq(&mp_target, "closure"))
+    {
+        val = ti_val_from_vup(&vup);
+
+        if (!val)
+        {
+            log_critical(
+                    "job `mod_type_add` for "TI_COLLECTION_ID" has failed; "
+                    "error reading method",
+                    vup.collection->root->id);
+            goto fail0;
+        }
+
+        if (!ti_val_is_closure(val))
+        {
+            log_critical(
+                    "job `mod_type_add` for "TI_COLLECTION_ID" has failed; "
+                    "expecting closure as method but got `%s`",
+                    vup.collection->root->id, ti_val_str(val));
+            goto fail0;
+        }
+
+        if (ti_type_add_method(type, name, (ti_closure_t *) val, &e))
+        {
+            log_critical(e.msg);
+            goto fail0;
+        }
+
+        ti_decref(name);
+        ti_decref(val);
+
+        return 0;
+    }
+    else
+    {
+        log_critical(
+                "job `mod_type_add` for "TI_COLLECTION_ID" is invalid; "
+                "expecting `spec` or `closure`",
+                vup.collection->root->id);
+        goto fail0;
+    }
+
+    /*
+     * TODO: since version 0.9.2 (June 2020), the initial value is no longer
+     *       optional but always added to the `mod_type_add` job.
+     */
+    if (obj.via.sz == 5)
+    {
+        if (mp_skip(up) != MP_STR )
+        {
+            log_critical(
+                    "job `mod_type_add` for "TI_COLLECTION_ID" is invalid",
+                    vup.collection->root->id);
+            goto fail0;
+        }
+
+        val = ti_val_from_vup(&vup);
+        if (!val)
+        {
+            log_critical(
+                    "job `mod_type_add` for "TI_COLLECTION_ID" has failed; "
+                    "error reading initial value",
+                    vup.collection->root->id);
+            goto fail0;
+        }
+    }
+
+    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+    if (!spec_raw)
+    {
+        log_critical(EX_MEMORY_S);
+        goto fail1;
     }
 
     field = ti_field_create(name, spec_raw, type, &e);
     if (!field)
     {
         log_critical(e.msg);
-        goto fail0;
+        goto fail1;
     }
 
     if (val && ti_field_init_things(field, &val, ev_id))
     {
         ti_panic("unrecoverable state after `mod_type_add` job");
-        goto fail0;
+        goto fail1;
     }
 
     /* update modified time-stamp */
@@ -791,9 +849,10 @@ static int job__mod_type_add(
 
     rc = 0;
 
+fail1:
+    ti_val_drop((ti_val_t *) spec_raw);
 fail0:
     ti_val_drop(val);
-    ti_val_drop((ti_val_t *) spec_raw);
     ti_name_drop(name);
     return rc;
 }
@@ -810,6 +869,7 @@ static int job__mod_type_del(
     ti_type_t * type;
     ti_name_t * name;
     ti_field_t * field;
+    ti_method_t * method;
     mp_obj_t obj, mp_id, mp_name, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -847,28 +907,39 @@ static int job__mod_type_del(
     }
 
     field = ti_field_by_name(type, name);
-    if (!field)
+    if (field)
     {
-        log_critical(
-                "job `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
-                "type `%s` has no property `%s`",
-                collection->root->id, type->name, name->str);
-        return -1;
+        if (ti_field_del(field, ev_id))
+        {
+            log_critical(EX_MEMORY_S);
+            return -1;
+        }
+
+        /* update modified time-stamp */
+        type->modified_at = mp_modified.via.u64;
+
+        /* clean mappings */
+        ti_type_map_cleanup(type);
+
+        return 0;
     }
 
-    if (ti_field_del(field, ev_id))
+    method = ti_method_by_name(type, name);
+    if (method)
     {
-        log_critical(EX_MEMORY_S);
-        return -1;
+        ti_type_remove_method(type, name);
+
+        /* update modified time-stamp */
+        type->modified_at = mp_modified.via.u64;
+
+        return 0;
     }
 
-    /* update modified time-stamp */
-    type->modified_at = mp_modified.via.u64;
-
-    /* clean mappings */
-    ti_type_map_cleanup(type);
-
-    return 0;
+    log_critical(
+            "job `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
+            "type `%s` has no property or method `%s`",
+            collection->root->id, type->name, name->str);
+    return -1;
 }
 
 /*
@@ -876,14 +947,14 @@ static int job__mod_type_del(
  */
 static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 {
-    int rc = -1;
     ex_t e = {0};
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     ti_name_t * name;
-    ti_field_t * field;
+
     ti_raw_t * spec_raw;
-    mp_obj_t obj, mp_id, mp_name, mp_spec, mp_modified;
+    ti_val_t * val = NULL;
+    mp_obj_t obj, mp_id, mp_name, mp_target, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
         mp_skip(up) != MP_STR ||
@@ -892,13 +963,12 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_spec) != MP_STR)
+        mp_next(up, &mp_target) != MP_STR)
     {
         log_critical(
                 "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
                 collection->root->id);
-        return rc;
+        return -1;
     }
 
     type = ti_types_by_id(collection->types, mp_id.via.u64);
@@ -908,7 +978,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
                 "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 collection->root->id, mp_id.via.u64);
-        return rc;
+        return -1;
     }
 
     name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
@@ -918,42 +988,107 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
                 "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
                 collection->root->id, mp_id.via.u64);
-        return rc;
+        return -1;
     }
 
-    field = ti_field_by_name(type, name);
-    if (!field)
+    if (mp_str_eq(&mp_target, "spec"))
     {
-        log_critical(
-                "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
-                "type `%s` has no property `%s`",
-                collection->root->id, type->name, name->str);
-        return rc;
+        mp_obj_t mp_spec;
+        ti_field_t * field = ti_field_by_name(type, name);
+
+        if (!field)
+        {
+            log_critical(
+                    "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                    "type `%s` has no property `%s`",
+                    collection->root->id, type->name, name->str);
+            return -1;
+        }
+
+        if (mp_next(up, &mp_spec) != MP_STR)
+        {
+            log_critical(
+                    "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
+                    collection->root->id);
+            return -1;
+        }
+
+        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+        if (!spec_raw)
+        {
+            log_critical(EX_MEMORY_S);
+            return -1;
+        }
+
+        if (ti_field_mod_force(field, spec_raw, &e))
+        {
+            log_critical(e.msg);
+            ti_val_drop((ti_val_t *) spec_raw);
+            return -1;
+        }
+
+        /* update modified time-stamp */
+        type->modified_at = mp_modified.via.u64;
+
+        /* clean mappings */
+        ti_type_map_cleanup(type);
+
+        return 0;
     }
 
-    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
-    if (!spec_raw)
+    if (mp_str_eq(&mp_target, "closure"))
     {
-        log_critical(EX_MEMORY_S);
-        return rc;
+        ti_vup_t vup = {
+                .isclient = false,
+                .collection = collection,
+                .up = up,
+        };
+        ti_method_t * method = ti_method_by_name(type, name);
+
+        if (!method)
+        {
+            log_critical(
+                    "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
+                    "type `%s` has no method `%s`",
+                    collection->root->id, type->name, name->str);
+            return -1;
+        }
+
+        val = ti_val_from_vup(&vup);
+        if (!val)
+        {
+            log_critical(
+                    "job `mod_type_mod` for "TI_COLLECTION_ID" has failed; "
+                    "error reading method",
+                    collection->root->id);
+            return -1;
+        }
+
+        if (!ti_val_is_closure(val))
+        {
+            log_critical(
+                    "job `mod_type_mod` for "TI_COLLECTION_ID" has failed; "
+                    "expecting closure as method but got `%s`",
+                    collection->root->id, ti_val_str(val));
+            ti_val_drop(val);
+            return -1;
+        }
+
+        ti_val_drop((ti_val_t *) method->closure);
+        method->closure = (ti_closure_t *) val;
+
+        /* update modified time-stamp */
+        type->modified_at = mp_modified.via.u64;
+
+        return 0;
     }
 
-    if (ti_field_mod_force(field, spec_raw, &e))
-    {
-        log_critical(e.msg);
-        goto fail0;
-    }
+    log_critical(
+            "job `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
+            "expecting `spec` or `closure`",
+            collection->root->id);
 
-    /* update modified time-stamp */
-    type->modified_at = mp_modified.via.u64;
-
-    /* clean mappings */
-    ti_type_map_cleanup(type);
-
-    rc = 0;
-fail0:
-    ti_val_drop((ti_val_t *) spec_raw);
-    return rc;
+    return -1;
 }
 
 /*
@@ -967,6 +1102,7 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     ti_type_t * type;
     ti_name_t * name;
     ti_field_t * field;
+    ti_method_t * method;
     mp_obj_t obj, mp_id, mp_name, mp_to, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
@@ -1006,27 +1142,42 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     }
 
     field = ti_field_by_name(type, name);
-    if (!field)
+    if (field)
     {
-        log_critical(
-                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
-                "type `%s` has no property `%s`",
-                collection->root->id, type->name, name->str);
-        return rc;
+        if (ti_field_set_name(field, mp_to.via.str.data, mp_to.via.str.n, &e))
+            log_critical(e.msg);
+        else
+            /* update modified time-stamp */
+            type->modified_at = mp_modified.via.u64;
+
+        /* clean mappings */
+        ti_type_map_cleanup(type);
+
+        return e.nr;
     }
 
-    (void) ti_field_set_name(field, mp_to.via.str.data, mp_to.via.str.n, &e);
+    method = ti_method_by_name(type, name);
+    if (method)
+    {
+        if (ti_method_set_name(
+                method,
+                type,
+                mp_to.via.str.data,
+                mp_to.via.str.n,
+                &e))
+            log_critical(e.msg);
+        else
+            /* update modified time-stamp */
+            type->modified_at = mp_modified.via.u64;
 
-    if (e.nr)
-        log_critical(e.msg);
-    else
-        /* update modified time-stamp */
-        type->modified_at = mp_modified.via.u64;
+        return e.nr;
+    }
 
-    /* clean mappings */
-    ti_type_map_cleanup(type);
-
-    return e.nr;
+    log_critical(
+            "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+            "type `%s` has no property or method `%s`",
+            collection->root->id, type->name, name->str);
+    return rc;
 }
 
 /*

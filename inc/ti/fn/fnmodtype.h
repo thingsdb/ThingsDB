@@ -305,7 +305,7 @@ static void type__add(
     if (field || method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "property `%s` already exists on type `%s`",
+                "property or method `%s` already exists on type `%s`",
                 name->str, type->name);
         return;
     }
@@ -317,7 +317,37 @@ static void type__add(
 
     if (ti_val_is_closure(query->rval))
     {
-        /* TODO: add method */
+        ti_closure_t * closure = (ti_closure_t *) query->rval;
+
+        if (nargs == 5)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when used to "
+                    "add a new method"DOC_MOD_TYPE_ADD,
+                    fnname);
+            return;
+        }
+
+        if (ti_closure_unbound(closure, e))
+            return;
+
+        task = ti_task_get_task(query->ev, query->collection->root, e);
+        if (!task)
+        {
+            ex_set_mem(e);
+            return;
+        }
+
+        if (ti_type_add_method(type, name, closure, e))
+            return;
+
+        if (ti_task_add_mod_type_add_method(task, type))
+        {
+            ti_type_remove_method(type, name);
+            ex_set_mem(e);
+        }
+
+        return;
     }
     else if (!ti_val_is_str(query->rval))
     {
@@ -395,7 +425,7 @@ static void type__add(
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    if (ti_task_add_mod_type_add(task, type, dval))
+    if (ti_task_add_mod_type_add_field(task, type, dval))
     {
         ex_set_mem(e);
         goto fail3;
@@ -497,15 +527,16 @@ static void type__del(
     static const char * fnname = "mod_type` with task `del";
     const int nargs = langdef_nd_n_function_params(nd);
     ti_field_t * field = ti_field_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
         return;
 
-    if (!field)
+    if (!field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no property `%s`",
+                "type `%s` has no property or method `%s`",
                 type->name, name->str);
         return;
     }
@@ -513,6 +544,12 @@ static void type__del(
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
         return;
+
+    if (method)
+    {
+        ti_type_remove_method(type, name);
+        goto done;
+    }
 
     /* check for variable to update, val_cache is not required since only
      * things with an id are store in cache
@@ -532,6 +569,7 @@ static void type__del(
         return;
     }
 
+done:
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
@@ -601,7 +639,7 @@ static int type__mod_using_callback(
     field->type->modified_at = util_now_tsec();
 
     /* add a modify to any */
-    if (ti_task_add_mod_type_mod(task, field))
+    if (ti_task_add_mod_type_mod_field(task, field))
     {
         ex_set_mem(e);
         goto panic;
@@ -639,7 +677,7 @@ static int type__mod_using_callback(
     if (!task)
         goto panic;
 
-    if (ti_task_add_mod_type_mod(task, modjob.field))
+    if (ti_task_add_mod_type_mod_field(task, modjob.field))
     {
         ex_set_mem(e);
         goto panic;
@@ -672,62 +710,131 @@ static void type__mod(
     static const char * fnname = "mod_type` with task `mod";
     const int nargs = langdef_nd_n_function_params(nd);
     ti_field_t * field = ti_field_by_name(type, name);
-    ti_raw_t * spec_raw;
+    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
+
     cleri_children_t * child;
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
 
-    if (!field)
+    if (!field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no property `%s`",
+                "type `%s` has no property or method `%s`",
                 type->name, name->str);
         return;
     }
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e) ||
-        fn_arg_str_slow(fnname, DOC_MOD_TYPE_MOD, 4, query->rval, e))
+    if (ti_do_statement(query, child->node, e))
         return;
 
-    spec_raw = (ti_raw_t *) query->rval;
-    query->rval = NULL;
-
-    if (nargs == 4)
+    if (ti_val_is_closure(query->rval))
     {
         ti_task_t * task;
+        ti_closure_t * closure = (ti_closure_t *) query->rval;
 
-        if (ti_field_mod(field, spec_raw, query->vars, e))
-            goto fail;
+        if (nargs == 5)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when used to "
+                    "modify a method"DOC_MOD_TYPE_MOD,
+                    fnname);
+            return;
+        }
+
+        if (!method)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a property into a method"DOC_MOD_TYPE_MOD,
+                fnname, ti_val_str(query->rval));
+            return;
+        }
+
+        if (ti_closure_unbound(closure, e))
+            return;
 
         task = ti_task_get_task(query->ev, query->collection->root, e);
         if (!task)
-            goto fail;
-
-        /* update modified time-stamp */
-        type->modified_at = util_now_tsec();
-
-        if (ti_task_add_mod_type_mod(task, field))
         {
             ex_set_mem(e);
-            goto fail;
+            return;
         }
-    }
-    else
-    {
-        (void) type__mod_using_callback(
-                fnname,
-                query,
-                child->next->next->node,
-                field,
-                spec_raw,
-                e);
+
+        ti_val_drop((ti_val_t *) method->closure);
+        method->closure = closure;
+
+        ti_incref(closure);
+
+        if (ti_type_add_method(type, name, closure, e))
+            return;
+
+        if (ti_task_add_mod_type_mod_method(task, type, method))
+        {
+            ti_type_remove_method(type, name);
+            ex_set_mem(e);
+        }
+
+        return;
     }
 
+    if (ti_val_is_str(query->rval))
+    {
+        ti_raw_t * spec_raw;
+
+        if (!field)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a method into a property"DOC_MOD_TYPE_MOD,
+                fnname, ti_val_str(query->rval));
+            return;
+        }
+        /* continue modifying a field */
+
+        spec_raw = (ti_raw_t *) query->rval;
+        query->rval = NULL;
+
+        if (nargs == 4)
+        {
+            ti_task_t * task;
+
+            if (ti_field_mod(field, spec_raw, query->vars, e))
+                goto fail;
+
+            task = ti_task_get_task(query->ev, query->collection->root, e);
+            if (!task)
+                goto fail;
+
+            /* update modified time-stamp */
+            type->modified_at = util_now_tsec();
+
+            if (ti_task_add_mod_type_mod_field(task, field))
+            {
+                ex_set_mem(e);
+                goto fail;
+            }
+        }
+        else
+        {
+            (void) type__mod_using_callback(
+                    fnname,
+                    query,
+                    child->next->next->node,
+                    field,
+                    spec_raw,
+                    e);
+        }
 fail:
-    ti_val_drop((ti_val_t *) spec_raw);
+        ti_val_drop((ti_val_t *) spec_raw);
+        return;
+    }
+
+    ex_set(e, EX_TYPE_ERROR,
+        "function `%s` expects argument 4 to be of "
+        "type `"TI_VAL_STR_S"` or type `"TI_VAL_CLOSURE_S"` "
+        "but got type `%s` instead"DOC_MOD_TYPE_MOD,
+        fnname, ti_val_str(query->rval));
 }
 
 static void type__ren(
@@ -740,17 +847,19 @@ static void type__ren(
     static const char * fnname = "mod_type` with task `ren";
     const int nargs = langdef_nd_n_function_params(nd);
     ti_field_t * field = ti_field_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
     ti_name_t * oldname;
+    ti_name_t * newname;
     ti_raw_t * rname;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_REN, 4, nargs, e))
         return;
 
-    if (!field)
+    if (!field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no property `%s`",
+                "type `%s` has no property or method `%s`",
                 type->name, name->str);
         return;
     }
@@ -762,16 +871,36 @@ static void type__ren(
             fn_arg_str_slow(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
         return;
 
-    if (ti_opr_eq((ti_val_t *) field->name, query->rval))
-        return;  /* do nothing, name is equal to current name */
-
     rname = (ti_raw_t *) query->rval;
 
-    oldname = field->name;
+    oldname = field ? field->name : method->name;
     ti_incref(oldname);
 
-    if (ti_field_set_name(field, (const char *) rname->data, rname->n, e))
-        goto done;
+    /* method */
+    if (ti_opr_eq((ti_val_t *) oldname, query->rval))
+        goto done;  /* do nothing, name is equal to current name */
+
+    if (method)
+    {
+        if (ti_method_set_name(
+                method,
+                type,
+                (const char *) rname->data,
+                rname->n,
+                e))
+            goto done;
+        newname = method->name;
+    }
+    else
+    {
+        if (ti_field_set_name(
+                field,
+                (const char *) rname->data,
+                rname->n,
+                e))
+            goto done;
+        newname = field->name;
+    }
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
@@ -780,7 +909,7 @@ static void type__ren(
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    if (ti_task_add_mod_type_ren(task, field, oldname))
+    if (ti_task_add_mod_type_ren(task, type, oldname, newname))
         ex_set_mem(e);
 
 done:

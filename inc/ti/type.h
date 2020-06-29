@@ -7,7 +7,8 @@
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/closure.t.h>
-#include <ti/thing.h>
+#include <ti/name.t.h>
+#include <ti/thing.t.h>
 #include <ti/type.t.h>
 #include <ti/types.t.h>
 #include <ti/val.t.h>
@@ -42,6 +43,7 @@ int ti_type_add_method(
         ti_name_t * name,
         ti_closure_t * closure,
         ex_t * e);
+void ti_type_remove_method(ti_type_t * type, ti_name_t * name);
 int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk);
 int ti_type_methods_info_to_pk(
         ti_type_t * type,

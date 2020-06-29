@@ -2,7 +2,7 @@
  * ti/method.h
  */
 #ifndef TI_METHOD_T_H_
-#define TI_MEHTOD_T_H_
+#define TI_METHOD_T_H_
 
 typedef struct ti_method_s ti_method_t;
 
@@ -18,4 +18,4 @@ struct ti_method_s
     ti_closure_t * closure;         /* closure */
 };
 
-#endif  /* TI_MEHTOD_T_H_ */
+#endif  /* TI_METHOD_T_H_ */

@@ -10,6 +10,7 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/field.h>
+#include <ti/method.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/query.h>
@@ -786,12 +787,13 @@ int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e)
         return e->nr;
     }
 
-    if (ti_field_by_name(field->type, name))
+    if (ti_field_by_name(field->type, name) ||
+        ti_method_by_name(field->type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
-                "property `%s` already exists on type `%s`"DOC_T_TYPE,
-                name->str,
-                field->type->name);
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPE,
+            name->str,
+            field->type->name);
         goto fail0;
     }
 

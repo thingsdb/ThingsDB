@@ -170,6 +170,19 @@ int ti_type_add_method(
     return e->nr;
 }
 
+void ti_type_remove_method(ti_type_t * type, ti_name_t * name)
+{
+    size_t idx = 0;
+    for (vec_each(type->methods, ti_method_t, m), ++idx)
+    {
+        if (m->name == name)
+        {
+            ti_method_destroy(vec_swap_remove(type->methods, idx));
+            return;
+        }
+    }
+}
+
 static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,

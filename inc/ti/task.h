@@ -4,25 +4,16 @@
 #ifndef TI_TASK_H_
 #define TI_TASK_H_
 
-typedef enum
-{
-    TI_TASK_ASSIGN,
-    TI_TASK_DEL,
-    TI_TASK_PUSH,
-    TI_TASK_SET,
-    TI_TASK_UNSET,
-} ti_task_enum;
-
-typedef struct ti_task_s ti_task_t;
-
 #include <inttypes.h>
 #include <ti/collection.t.h>
 #include <ti/enum.t.h>
 #include <ti/field.t.h>
 #include <ti/member.t.h>
+#include <ti/method.t.h>
 #include <ti/name.t.h>
 #include <ti/pkg.t.h>
 #include <ti/procedure.h>
+#include <ti/task.t.h>
 #include <ti/thing.t.h>
 #include <ti/token.t.h>
 #include <ti/type.t.h>
@@ -62,19 +53,27 @@ int ti_task_add_new_token(
         ti_user_t * user,
         ti_token_t * token);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
-int ti_task_add_mod_type_add(
+int ti_task_add_mod_type_add_field(
         ti_task_t * task,
         ti_type_t * type,
         ti_val_t * dval);
+int ti_task_add_mod_type_add_method(
+        ti_task_t * task,
+        ti_type_t * type);
 int ti_task_add_mod_type_del(
         ti_task_t * task,
         ti_type_t * type,
         ti_name_t * name);
-int ti_task_add_mod_type_mod(ti_task_t * task, ti_field_t * field);
+int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field);
+int ti_task_add_mod_type_mod_method(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_method_t * method);
 int ti_task_add_mod_type_ren(
         ti_task_t * task,
-        ti_field_t * field,
-        ti_name_t * oldname);
+        ti_type_t * type,
+        ti_name_t * oldname,
+        ti_name_t * newname);
 int ti_task_add_del_node(ti_task_t * task, uint32_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
@@ -107,13 +106,5 @@ int ti_task_add_event(
         ti_raw_t * revent,
         vec_t * vec,
         int deep);
-
-struct ti_task_s
-{
-    uint64_t event_id;
-    size_t approx_sz;
-    ti_thing_t * thing;     /* with reference */
-    vec_t * jobs;           /* q-pack (unsigned char *) */
-};
 
 #endif /* TI_TASK_H_ */

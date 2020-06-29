@@ -2,10 +2,13 @@
  * ti/method.c
  */
 #include <tiinc.h>
+#include <doc.h>
 #include <ti/closure.h>
 #include <ti/do.h>
+#include <ti/field.h>
 #include <ti/method.h>
 #include <ti/name.h>
+#include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/type.h>
 #include <ti/val.h>
@@ -118,5 +121,47 @@ fail0:
     ti_type_unlock(type, lock_was_set);
     ti_val_drop((ti_val_t *) thing);
 
+    return e->nr;
+}
+
+int ti_method_set_name(
+        ti_method_t * method,
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "method name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_field_by_name(type, name) || ti_method_by_name(type, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPE,
+            name->str,
+            type->name);
+        goto fail0;
+    }
+
+    ti_name_drop(method->name);
+    method->name = name;
+
+    return 0;
+
+fail0:
+    ti_name_drop(name);
     return e->nr;
 }

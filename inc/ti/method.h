@@ -24,5 +24,11 @@ int ti_method_call(
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e);
+int ti_method_set_name(
+        ti_method_t * method,
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e);
 
 #endif  /* TI_MEHTOD_H_ */

@@ -86,13 +86,35 @@ class TestType(TestBase):
         self.assertEqual(await client.query('.iris.upper();'), 'IRIS')
 
         with self.assertRaisesRegex(
-                TypeError,
-                r'xxx'):
+                OperationError,
+                r'stored closures with side effects must be '
+                r'wrapped using `wse\(...\)`'):
             self.assertEqual(await client.query('.iris.to_upper();'), 'Iris')
 
         self.assertEqual(await client.query('.iris.name;'), 'Iris')
-        self.assertEqual(await client.query('wse(.iris.to_upper();'), 'IRIS')
-        self.assertEqual(await client.query('.iris.name;'), 'IRISS')
+        self.assertEqual(await client.query('wse(.iris.to_upper());'), 'IRIS')
+        self.assertEqual(await client.query('.iris.name;'), 'IRIS')
+        self.assertEqual(
+            await client.query('.iris.upper.def()'),
+            '|this| this.name.upper()')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property `upper'):
+            await client.query('.iris.upper = ||nil;')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `nil` has no properties'):
+            await client.query('.iris.get("upper").call();')
+
+        self.assertEqual(
+            await client.query('.iris["upper"].call(.iris);'),
+            'IRIS')
+
+        self.assertEqual(
+            await client.query('.iris.get("upper").call(.iris);'),
+            'IRIS')
 
     async def test_new_type(self, client):
         await client.query(r'''
@@ -435,6 +457,7 @@ class TestType(TestBase):
             set_type('Person', {
                 name: 'str',
                 age: 'uint',
+                ucase: |this| this.name.ucase(),
             });
             .iris = Person{name: 'Iris', age: 7};
         ''')
@@ -487,8 +510,9 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `mod_type` with task `add` expects argument 4 '
-                r'to be of type `str` but got type `nil` instead'):
+                r'function `mod_type` with task `add` expects argument 4 to '
+                r'be of type `str` or type `closure` but got type `nil` '
+                r'instead'):
             await client.query(r'''
                 mod_type("Person", "add", "hair_type", nil, nil);
             ''')
@@ -525,7 +549,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'property `age` already exists on type `Person`'):
+                r'property or method `age` already exists on type `Person`'):
             await client.query(r'''
                 mod_type("Person", "add", "age", "str", 'blonde');
             ''')
@@ -555,6 +579,17 @@ class TestType(TestBase):
 
         self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
 
+        await client.query(r'''
+                mod_type("Person", "add", "birthday", |this| {
+                    this.age += 1;
+                    `Hooray, {this.name} is {this.age} years old!`
+                });
+            ''')
+
+        self.assertEqual(
+            await client.query(r'wse(.iris.birthday());'),
+            "Hooray, Iris is 8 years old!")
+
         # section MOD
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -570,7 +605,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Person` has no property `x'):
+                r'type `Person` has no property or method `x'):
             await client.query(r'mod_type("Person", "mod", "x", "#EEEE11");')
 
         with self.assertRaisesRegex(
@@ -630,9 +665,23 @@ class TestType(TestBase):
 
         self.assertIs(await client.query(r'''
                 mod_type("Person", "mod", "hair_type", "any");
-                .tess = Person{hair_type: 123};
+                .tess = Person{name: 'Tess', hair_type: 123};
                 nil;
             '''), None)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a property into a method'):
+            await client.query(r'''
+                mod_type("Person", "mod", "hair_type", ||nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a method into a property'):
+            await client.query(r'''
+                mod_type("Person", "mod", "birthday", 'str');
+            ''')
 
         self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
         self.assertEqual(await client.query(r'.tess.hair_type;'), 123)
@@ -652,6 +701,16 @@ class TestType(TestBase):
         self.assertEqual(await client.query(r'.iris.hair_type;'), "blonde")
         self.assertEqual(await client.query(r'.tess.hair_type;'), "")
 
+        await client.query(r'''
+                mod_type("Person", "mod", "birthday", |this, when| {
+                    `The birthday of {this.name} is on {when}!`
+                });
+            ''')
+
+        self.assertEqual(
+            await client.query(r'.tess.birthday("Monday");'),
+            "The birthday of Tess is on Monday!")
+
         # Section REN
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -661,7 +720,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Person` has no property `x'):
+                r'type `Person` has no property or method `x'):
             await client.query(r'mod_type("Person", "ren", "x", "y");')
 
         with self.assertRaisesRegex(
@@ -679,7 +738,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'property `age` already exists on type `Person`'):
+                r'property or method `age` already exists on type `Person`'):
             await client.query(r'''
                 mod_type("Person", "ren", "hair_type", "age");
             ''')
@@ -689,6 +748,21 @@ class TestType(TestBase):
             '''), None)
 
         self.assertEqual(await client.query(r'.iris.hair;'), "blonde")
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'method name must follow the naming rules'):
+            await client.query(r'''
+                    mod_type("Person", "ren", "birthday", "happy bithday");
+                ''')
+
+        await client.query(r'''
+                mod_type("Person", "ren", "birthday", "happy_birthday");
+            ''')
+
+        self.assertEqual(
+            await client.query(r'.iris.happy_birthday("Tuesday");'),
+            "The birthday of Iris is on Tuesday!")
 
         # Section DEL
         with self.assertRaisesRegex(
@@ -705,7 +779,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Person` has no property `x`'):
+                r'type `Person` has no property or method `x`'):
             await client.query(r'mod_type("Person", "del", "x");')
 
         self.assertIs(await client.query(r'''
@@ -714,8 +788,17 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Person` has no property `hair`'):
+                r'type `Person` has no property or method `hair`'):
             await client.query(r'.iris.hair;')
+
+        self.assertIs(await client.query(r'''
+                mod_type("Person", "del", "happy_birthday");
+            '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Person` has no property or method `happy_birthday`'):
+            await client.query(r'.iris.happy_birthday();')
 
     async def test_del_type(self, client):
         await client.query(r'''
@@ -754,7 +837,7 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Foo` has no property `card`'):
+                r'type `Foo` has no property or method `card`'):
             await client.query(r'''
                 mod_type('Foo', 'del', 'card');
             ''')
@@ -985,14 +1068,14 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'type `Tac` has no property `card`'):
+                r'type `Tac` has no property or method `card`'):
             await client.query(r'''
                 mod_type('Tac', 'mod', 'card', 'any');
             ''')
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'property `toe` already exists on type `Tac`'):
+                r'property or method `toe` already exists on type `Tac`'):
             await client.query(r'''
                 mod_type('Tac', 'add', 'toe', 'any');
             ''')

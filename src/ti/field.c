@@ -1221,7 +1221,7 @@ ti_field_t * ti_field_by_strn_e(
         size_t n,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_weak_get(str, n);
+    ti_name_t * name = ti_names_weak_get_strn(str, n);
     if (name)
         for (vec_each(type->fields, ti_field_t, field))
             if (field->name == name)

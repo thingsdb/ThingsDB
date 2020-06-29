@@ -70,7 +70,7 @@ failed:
 static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
 {
     assert (nd->data == NULL);
-    ti_name_t * name = nd->data = ti_names_weak_get(nd->str, nd->len);
+    ti_name_t * name = nd->data = ti_names_weak_get_strn(nd->str, nd->len);
     if (name)
     {
         ti_incref(name);
@@ -449,7 +449,7 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_prop_t * prop;
 
     if (query->rval)
-        return fn_call_try_n(fname->str, fname->len, query, nd, e);
+        return fn_call_try_n(fname->str, fname->len, query, args, e);
 
     if (query->collection)
     {
@@ -900,7 +900,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         scope = child->node                         /* sequence */
                 ->children->next->next->node;       /* scope */
 
-        name = ti_names_weak_get(name_nd->str, name_nd->len);
+        name = ti_names_weak_get_strn(name_nd->str, name_nd->len);
         if (!name)
             continue;
 

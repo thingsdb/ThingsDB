@@ -317,10 +317,10 @@ int ti_type_init_from_unp(
         _Bool with_methods)
 {
     ti_name_t * name;
-    ti_raw_t * spec_raw;
     mp_obj_t obj, mp_name, mp_spec;
     size_t i;
     ti_val_t * val = NULL;
+    ti_raw_t * spec_raw = NULL;
     ti_vup_t vup = {
             .isclient = false,
             .collection = type->types->collection,

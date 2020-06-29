@@ -276,7 +276,7 @@ class TestWatch(TestBase):
 
         await ev0.client.query(r'.store.arr.each(|x| x.x += 1);')
 
-        await asyncio.sleep(1.6)
+        await asyncio.sleep(2.6)
 
         self.assertEqual(len(watch_list), 120 * 3)
         for i in watch_list:

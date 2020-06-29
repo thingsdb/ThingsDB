@@ -8,7 +8,6 @@
 #include <ti/enum.inline.h>
 #include <ti/field.h>
 #include <ti/method.h>
-#include <ti/ncache.h>
 #include <ti/proto.h>
 #include <ti/raw.h>
 #include <ti/task.h>
@@ -602,8 +601,7 @@ fail_data:
 
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
 {
-    ti_ncache_t * ncache = procedure->closure->node->data;
-    size_t alloc = strlen(ncache->query) + procedure->name->n + 64;
+    size_t alloc = procedure->closure->node->len + procedure->name->n + 64;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -792,9 +790,7 @@ fail_pack:
 int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
 {
     ti_method_t * method = VEC_last(type->methods);
-    LOGC("len closure: %u", ti_closure_statement(method->closure)->len);
-    size_t alloc = \
-            80 + ti_closure_statement(method->closure)->len + method->name->n;
+    size_t alloc = 80 + method->closure->node->len + method->name->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -928,8 +924,7 @@ int ti_task_add_mod_type_mod_method(
         ti_type_t * type,
         ti_method_t * method)
 {
-    size_t alloc = \
-            80 + method->name->n + ti_closure_statement(method->closure)->len;
+    size_t alloc = 80 + method->name->n + method->closure->node->len;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;

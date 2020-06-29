@@ -350,7 +350,7 @@ static int fn_call_o_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_name_t * name_ = ti_names_weak_get_str(name);
+    ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     ti_val_t * val;
 
@@ -384,7 +384,7 @@ static int fn_call_t_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_name_t * name_ = ti_names_weak_get(name, n);
+    ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     ti_type_t * type = ti_thing_type(thing);
     ti_method_t * method;

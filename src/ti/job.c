@@ -53,7 +53,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
+    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(
@@ -896,7 +896,7 @@ static int job__mod_type_del(
         return -1;
     }
 
-    name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
+    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!name)
     {
         log_critical(
@@ -981,7 +981,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
+    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!name)
     {
         log_critical(
@@ -1020,10 +1020,13 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        if (ti_field_mod_force(field, spec_raw, &e))
+        (void) ti_field_mod_force(field, spec_raw, &e);
+
+        ti_val_drop((ti_val_t *) spec_raw);
+
+        if (e.nr)
         {
             log_critical(e.msg);
-            ti_val_drop((ti_val_t *) spec_raw);
             return -1;
         }
 
@@ -1131,7 +1134,7 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
         return rc;
     }
 
-    name = ti_names_weak_get(mp_name.via.str.data, mp_name.via.str.n);
+    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!name)
     {
         log_critical(
@@ -1201,7 +1204,7 @@ static int job__del(ti_thing_t * thing, mp_unp_t * up)
 
     /* the job is already validated so getting the name will most likely
      * succeed */
-    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
+    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !ti_thing_o_del(thing, name))
     {
         if (ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
@@ -1445,7 +1448,7 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
+    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(
@@ -1528,7 +1531,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get(mp_prop.via.str.data, mp_prop.via.str.n);
+    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
     if (!name || !(varr = (ti_varr_t *) ti_thing_val_weak_get(thing, name)))
     {
         log_critical(

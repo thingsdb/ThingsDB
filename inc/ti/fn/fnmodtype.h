@@ -762,10 +762,7 @@ static void type__mod(
             return;
         }
 
-        ti_val_drop((ti_val_t *) method->closure);
-        method->closure = closure;
-
-        ti_incref(closure);
+        ti_method_set_closure(method, closure);
 
         if (ti_type_add_method(type, name, closure, e))
             return;

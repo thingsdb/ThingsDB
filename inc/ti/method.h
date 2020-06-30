@@ -30,5 +30,6 @@ int ti_method_set_name(
         const char * s,
         size_t n,
         ex_t * e);
+void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure);
 
 #endif  /* TI_MEHTOD_H_ */

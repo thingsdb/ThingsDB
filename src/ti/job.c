@@ -1077,8 +1077,8 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        ti_val_drop((ti_val_t *) method->closure);
-        method->closure = (ti_closure_t *) val;
+        ti_method_set_closure(method, (ti_closure_t *) val);
+        ti_decref(val);
 
         /* update modified time-stamp */
         type->modified_at = mp_modified.via.u64;

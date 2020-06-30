@@ -165,3 +165,12 @@ fail0:
     ti_name_drop(name);
     return e->nr;
 }
+
+void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure)
+{
+    ti_val_drop((ti_val_t *) method->def);
+    ti_val_drop((ti_val_t *) method->doc);
+    ti_val_drop((ti_val_t *) method->closure);
+    method->closure = closure;
+    ti_incref(closure);
+}

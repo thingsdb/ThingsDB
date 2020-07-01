@@ -38,6 +38,13 @@
 #include <util/util.h>
 #include <yajl/yajl_version.h>
 
+#ifndef NDEBUG
+/* these imports are required for sanity checks only */
+#include <ti/nil.h>
+#include <ti/vbool.h>
+#include <ti/vint.h>
+#endif
+
 ti_t ti;
 
 /* settings, nodes etc. */
@@ -140,6 +147,12 @@ void ti_destroy(void)
 
     /* remove late */
     ti_val_drop_common();
+    ti_do_drop();
+
+    /* sanity check to see if all references are removed as expected */
+    assert(ti_vbool_no_ref());
+    assert(ti_nil_no_ref());
+    assert(ti_vint_no_ref());
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
@@ -179,12 +192,11 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
-    ti_do_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
 
-    if (ti_val_init_common())
+    if (ti_do_init() || ti_val_init_common())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -192,6 +204,8 @@ int ti_init(void)
 
     return (ti.fn && ti.node_fn) ? ti_store_create() : -1;
 }
+
+
 
 int ti_build_node(void)
 {

@@ -26,4 +26,9 @@ static inline ti_nil_t * ti_nil_get(void)
     return &nil__val;
 }
 
+static inline _Bool ti_nil_no_ref(void)
+{
+    return nil__val.ref == 1;
+}
+
 #endif  /* TI_NIL_H_ */

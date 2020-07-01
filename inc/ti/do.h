@@ -13,7 +13,8 @@ typedef int (*ti_do_cb)(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-void ti_do_init(void);
+int ti_do_init(void);
+void ti_do_drop(void);
 
 static inline int ti_do_statement(
         ti_query_t * query,

@@ -834,7 +834,7 @@ do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];
 
-void ti_do_init(void)
+int ti_do_init(void)
 {
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
@@ -843,12 +843,29 @@ void ti_do_init(void)
 
         fixed->n = strlen(fixed->name);
         fixed->val = (ti_val_t *) ti_vint_create(fixed->value);
+        if (!fixed->val)
+        {
+            ti_do_drop();
+            return -1;
+        }
+
         key = do__hash(fixed->name, fixed->n);
 
+        assert (fixed->val);
         assert (do__fixed_map[key] == NULL);
         assert (key <= MAX_HASH_VALUE);
 
         do__fixed_map[key] = fixed;
+    }
+    return 0;
+}
+
+void ti_do_drop(void)
+{
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
+    {
+        do__fixed_t * fixed = &do__fixed_mapping[i];
+        ti_val_drop(fixed->val);
     }
 }
 

@@ -24,3 +24,8 @@ ti_vbool_t * ti_vbool_get(_Bool b)
     ti_incref(vbool);
     return vbool;
 }
+
+_Bool ti_vbool_no_ref(void)
+{
+    return vbool__true.ref == 1 && vbool__false.ref == 1;
+}

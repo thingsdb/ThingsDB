@@ -43,6 +43,7 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_del_node(task, node_id))
         ex_set_mem(e);  /* task cleanup is not required */
 
+    ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

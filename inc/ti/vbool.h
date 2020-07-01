@@ -19,5 +19,6 @@ struct ti_vbool_s
 };
 
 ti_vbool_t * ti_vbool_get(_Bool b);
+_Bool ti_vbool_no_ref(void);
 
 #endif  /* TI_VBOOL_H_ */

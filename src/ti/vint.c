@@ -116,3 +116,11 @@ ti_vint_t * ti_vint_create(int64_t i)
     return vint;
 }
 
+_Bool ti_vint_no_ref(void)
+{
+    for (size_t i = 0; i < 256; ++i)
+        if (vint__cache[i].ref != 1)
+            return false;
+    return true;
+}
+

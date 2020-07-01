@@ -1,4 +1,4 @@
-# v0.9.6 (alpha)
+# v0.9.6
 
 * ThingDB `Type` may be extended using methods, issue #56.
 * Prevent quick away mode while processing many events, issue #57.

@@ -1,8 +1,9 @@
 # v0.9.6 (alpha)
 
-* Prevent quick away mode while processing many events, issue #57.
 * ThingDB `Type` may be extended using methods, issue #56.
-
+* Prevent quick away mode while processing many events, issue #57.
+* Expose `Type` methods when wrapping a thing, issue #58.
+* Use fast hash method to find constant names, issue #59.
 
 # v0.9.5
 

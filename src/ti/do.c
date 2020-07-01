@@ -859,13 +859,11 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     register size_t n = nd->len;
     register uint32_t key = do__hash(nd->str, n);
-    register do__fixed_t * fixed = (
-            n <= MAX_WORD_LENGTH &&
-            n >= MIN_WORD_LENGTH &&
-            key <= MAX_HASH_VALUE
-    ) ? do__fixed_map[key] : NULL;
+    register do__fixed_t * fixed = key <= MAX_HASH_VALUE
+            ? do__fixed_map[key]
+            : NULL;
 
-    if (fixed && memcmp(nd->str, fixed->name, n) == 0)
+    if (fixed && fixed->n == n && memcmp(fixed->name, nd->str, n) == 0)
     {
         query->rval = fixed->val;
         ti_incref(query->rval);

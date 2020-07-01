@@ -616,11 +616,9 @@ static void qbind__function(
     register intptr_t nargs = 0;
     register size_t n = fnname->len;
     register uint32_t key = qbind__hash(fnname->str, n);
-    register qbind__fmap_t * fmap = (
-            n <= MAX_WORD_LENGTH &&
-            n >= MIN_WORD_LENGTH &&
-            key <= MAX_HASH_VALUE
-    ) ? qbind__fn_map[key] : NULL;
+    register qbind__fmap_t * fmap = key <= MAX_HASH_VALUE
+            ? qbind__fn_map[key]
+            : NULL;
     register uint8_t fmflags = (
             fmap &&
             fmap->n == n &&

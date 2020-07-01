@@ -11,6 +11,7 @@
 #include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collections.h>
+#include <ti/do.h>
 #include <ti/event.h>
 #include <ti/names.h>
 #include <ti/procedure.h>
@@ -178,6 +179,7 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
+    ti_do_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;

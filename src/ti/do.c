@@ -728,49 +728,153 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+/*
+pcregrep -o1 '\.name\=\"(\w+)' do.c | gperf -E -k '*,1,$' -m 200
+*/
+
+enum
+{
+    TOTAL_KEYWORDS = 11,
+    MIN_WORD_LENGTH = 3,
+    MAX_WORD_LENGTH = 8,
+    MIN_HASH_VALUE = 3,
+    MAX_HASH_VALUE = 13
+};
+
+static inline unsigned int do__hash(
+        register const char * s,
+        register size_t n)
+{
+    static unsigned char asso_values[] =
+    {
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14,  0,  4,  0,  3,  1,
+        0,  0,  7,  0, 14, 14,  3,  0,  0,  0,
+        14, 14,  0, 14,  0,  0, 14,  0, 14,  0,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14
+    };
+
+    register unsigned int hval = n;
+
+    switch (hval)
+    {
+        default:
+            hval += asso_values[(unsigned char)s[7]];
+            /*fall through*/
+        case 7:
+            hval += asso_values[(unsigned char)s[6]];
+            /*fall through*/
+        case 6:
+            hval += asso_values[(unsigned char)s[5]];
+            /*fall through*/
+        case 5:
+            hval += asso_values[(unsigned char)s[4]];
+            /*fall through*/
+        case 4:
+            hval += asso_values[(unsigned char)s[3]];
+            /*fall through*/
+        case 3:
+            hval += asso_values[(unsigned char)s[2]];
+            /*fall through*/
+        case 2:
+            hval += asso_values[(unsigned char)s[1]];
+            /*fall through*/
+        case 1:
+            hval += asso_values[(unsigned char)s[0]];
+            break;
+    }
+
+    return hval;
+}
+
+
+typedef struct
+{
+    char name[MAX_WORD_LENGTH+1];
+    int value;
+    ti_val_t * val;
+    size_t n;
+} do__fixed_t;
+
+
+do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
+    {.name="READ",                  .value=TI_AUTH_READ},
+    {.name="MODIFY",                .value=TI_AUTH_MODIFY},
+    {.name="WATCH",                 .value=TI_AUTH_WATCH},
+    {.name="RUN",                   .value=TI_AUTH_RUN},
+    {.name="GRANT",                 .value=TI_AUTH_GRANT},
+    {.name="FULL",                  .value=TI_AUTH_MASK_FULL},
+    {.name="DEBUG",                 .value=LOGGER_DEBUG},
+    {.name="INFO",                  .value=LOGGER_INFO},
+    {.name="WARNING",               .value=LOGGER_WARNING},
+    {.name="ERROR",                 .value=LOGGER_ERROR},
+    {.name="CRITICAL",              .value=LOGGER_CRITICAL},
+};
+
+static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];
+
+void ti_do_init(void)
+{
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
+    {
+        uint32_t key;
+        do__fixed_t * fixed = &do__fixed_mapping[i];
+
+        fixed->n = strlen(fixed->name);
+        fixed->val = (ti_val_t *) ti_vint_create(fixed->value);
+        key = do__hash(fixed->name, fixed->n);
+
+        assert (do__fixed_map[key] == NULL);
+        assert (key <= MAX_HASH_VALUE);
+
+        do__fixed_map[key] = fixed;
+    }
+}
+
 static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
-    assert (ti_name_is_valid_strn(nd->str, nd->len));
 
-    int i
-        = langdef_nd_match_str(nd, "READ")
-        ? TI_AUTH_READ
-        : langdef_nd_match_str(nd, "MODIFY")
-        ? TI_AUTH_MODIFY
-        : langdef_nd_match_str(nd, "WATCH")
-        ? TI_AUTH_WATCH
-        : langdef_nd_match_str(nd, "RUN")
-        ? TI_AUTH_RUN
-        : langdef_nd_match_str(nd, "GRANT")
-        ? TI_AUTH_GRANT
-        : langdef_nd_match_str(nd, "FULL")
-        ? TI_AUTH_MASK_FULL
-        : langdef_nd_match_str(nd, "DEBUG")
-        ? LOGGER_DEBUG
-        : langdef_nd_match_str(nd, "INFO")
-        ? LOGGER_INFO
-        : langdef_nd_match_str(nd, "WARNING")
-        ? LOGGER_WARNING
-        : langdef_nd_match_str(nd, "ERROR")
-        ? LOGGER_ERROR
-        : langdef_nd_match_str(nd, "CRITICAL")
-        ? LOGGER_CRITICAL
-        : -1;
+    register size_t n = nd->len;
+    register uint32_t key = do__hash(nd->str, n);
+    register do__fixed_t * fixed = (
+            n <= MAX_WORD_LENGTH &&
+            n >= MIN_WORD_LENGTH &&
+            key <= MAX_HASH_VALUE
+    ) ? do__fixed_map[key] : NULL;
 
-    if (i < 0)
+    if (fixed && memcmp(nd->str, fixed->name, n) == 0)
     {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "variable `%.*s` is undefined",
-                (int) nd->len, nd->str);
+        query->rval = fixed->val;
+        ti_incref(query->rval);
+        return 0;
     }
-    else
-    {
-        query->rval = (ti_val_t *) ti_vint_create(i);
-        if (!query->rval)
-            ex_set_mem(e);
-    }
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "variable `%.*s` is undefined",
+            (int) nd->len, nd->str);
 
     return e->nr;
 }

@@ -347,7 +347,7 @@ typedef struct
 #define XBOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT
 
-qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
+qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
     {.name="assert",            .fn=do__f_assert,               ROOT_NE},
@@ -508,22 +508,22 @@ qbind__fmap_t fn_mapping[TOTAL_KEYWORDS] = {
     {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
 };
 
-static qbind__fmap_t * qbind__map[MAX_HASH_VALUE+1];
+static qbind__fmap_t * qbind__fn_map[MAX_HASH_VALUE+1];
 
 void ti_qbind_init(void)
 {
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         uint32_t key;
-        qbind__fmap_t * fmap = &fn_mapping[i];
+        qbind__fmap_t * fmap = &qbind__fn_mapping[i];
 
         fmap->n = strlen(fmap->name);
         key = qbind__hash(fmap->name, fmap->n);
 
-        assert (qbind__map[key] == NULL);
+        assert (qbind__fn_map[key] == NULL);
         assert (key <= MAX_HASH_VALUE);
 
-        qbind__map[key] = fmap;
+        qbind__fn_map[key] = fmap;
     }
 }
 
@@ -620,7 +620,7 @@ static void qbind__function(
             n <= MAX_WORD_LENGTH &&
             n >= MIN_WORD_LENGTH &&
             key <= MAX_HASH_VALUE
-    ) ? qbind__map[key] : NULL;
+    ) ? qbind__fn_map[key] : NULL;
     register uint8_t fmflags = (
             fmap &&
             fmap->n == n &&

@@ -5,6 +5,7 @@
 * Expose `Type` methods when wrapping a thing, issue #58.
 * Use fast hash method to find constant names, issue #59.
 * Fixed function `del_node()` which could leak some data, issue #60.
+* Fixed restore old types for backwards compatibility, issue #61.
 
 # v0.9.5
 

@@ -34,6 +34,41 @@ class TestWrap(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_wrap_metheod(self, client):
+        res = await client.query(r'''
+            set_type('Math', {
+                multiply: |this| this.x * this.y,
+                add: |this| this.x + this.y,
+            });
+            set_type('XY', {
+                x: 'number',
+                y: 'number',
+            });
+            XY{x: 7, y: 6}.wrap('Math').multiply();
+        ''')
+
+        self.assertEqual(res, 42)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Math` has no method `sqrt`'):
+            await client.query(r'''
+                XY{}.wrap("Math").sqrt();
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Math` has no method `id`'):
+            await client.query(r'''
+                XY{}.wrap("Math").id();
+            ''')
+
+        res = await client.query(r'''
+            XY{x: 1.5, y: 2.5}.wrap('Math').add();
+        ''')
+
+        self.assertEqual(res, 4)
+
     async def test_wrap(self, client):
         await client.query(r'''
             set_type(new_type('User'), {

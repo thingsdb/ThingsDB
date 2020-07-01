@@ -51,6 +51,7 @@
 #include <ti/warn.h>
 #include <ti/wprop.t.h>
 #include <ti/wrap.h>
+#include <ti/wrap.inline.h>
 #include <tiinc.h>
 #include <util/cryptx.h>
 #include <util/strx.h>
@@ -420,6 +421,48 @@ no_prop_err:
     return e->nr;
 }
 
+static int fn_call_w_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_name_t * name_;
+    ti_method_t * method;
+    ti_wrap_t * wrap = (ti_wrap_t *) query->rval;
+    ti_thing_t * thing = wrap->thing;
+    ti_type_t * type = ti_wrap_maybe_type(wrap);
+
+    if (!type)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no function `%.*s`",
+                ti_val_str(query->rval), n, name);
+        return e->nr;
+    }
+
+    name_ = ti_names_weak_get_strn(name, n);
+    if (!name_)
+        goto no_method_err;
+
+    method = ti_method_by_name(type, name_);
+    if (!method)
+        goto no_method_err;
+
+    ti_incref(thing);
+    ti_val_drop(query->rval);
+    query->rval = (ti_val_t *) thing;
+
+    return ti_method_call(method, type, query, nd, e);
+
+no_method_err:
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no method `%.*s`",
+            type->name, n, name);
+    return e->nr;
+}
+
 #define fn_call_try(__name, __q, __nd, __e) \
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
@@ -430,17 +473,18 @@ static int fn_call_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    if (!ti_val_is_thing(query->rval))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "type `%s` has no function `%.*s`",
-                ti_val_str(query->rval), n, name);
-        return e->nr;
-    }
+    if (ti_val_is_thing(query->rval))
+        return ti_thing_is_object((ti_thing_t *) query->rval)
+                ? fn_call_o_try_n(name, n, query, nd, e)
+                : fn_call_t_try_n(name, n, query, nd, e);
 
-    return ti_thing_is_object((ti_thing_t *) query->rval)
-            ? fn_call_o_try_n(name, n, query, nd, e)
-            : fn_call_t_try_n(name, n, query, nd, e);
+    if (ti_val_is_wrap(query->rval))
+        return fn_call_w_try_n(name, n, query, nd, e);
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no function `%.*s`",
+            ti_val_str(query->rval), n, name);
+    return e->nr;
 }
 
 #endif /* TI_FN_FN_H_ */

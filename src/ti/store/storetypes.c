@@ -101,7 +101,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     const char * types_position;
     char namebuf[TI_NAME_MAX+1];
     int rc = -1;
-    _Bool rewrite = false;
+    _Bool old_types = false;
     fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name;
@@ -169,7 +169,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              * TODO: This code is for compatibility with ThingsDB versions
              *       before v0.9.6.
              */
-            rewrite = true;
+            old_types = true;
             if (obj.via.sz != 5 ||
                 mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
@@ -246,7 +246,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             ti_decref(spec);
         }
 
-        if (obj.via.sz == 5)
+        if (old_types)
             continue;  /* TODO: only for compatibility, see above */
 
         if (mp_next(&up, &obj) != MP_MAP)
@@ -285,12 +285,6 @@ fail1:
 fail0:
     if (rc)
         log_critical("failed to restore from file: `%s`", fn);
-
-    if (rewrite && rc == 0)
-    {
-        log_warning("rewrite file: `%s`");
-        return ti_store_types_store(types, fn);
-    }
 
     return rc;
 }

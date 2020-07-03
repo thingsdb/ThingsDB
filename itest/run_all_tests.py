@@ -29,15 +29,15 @@ from test_wrap import TestWrap
 
 
 if __name__ == '__main__':
-    #run_test(TestNested())  # TODO: seems to fail sometimes, on top to verity
-    #run_test(TestAdvanced())
-    #run_test(TestArguments())
-    #run_test(TestBackup())
-    #run_test(TestCollectionFunctions())
-    #run_test(TestDocUrl())
-    #run_test(TestEnum())
-    #run_test(TestEvents())
-    #run_test(TestGC())
+    run_test(TestNested())  # TODO: seems to fail sometimes, on top to verity
+    run_test(TestAdvanced())
+    run_test(TestArguments())
+    run_test(TestBackup())
+    run_test(TestCollectionFunctions())
+    run_test(TestDocUrl())
+    run_test(TestEnum())
+    run_test(TestEvents())
+    run_test(TestGC())
     run_test(TestHTTPAPI())
     run_test(TestIndexSlice())
     run_test(TestMultiNode())

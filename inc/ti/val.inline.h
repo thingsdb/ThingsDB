@@ -14,7 +14,7 @@
 #include <ti/varr.h>
 #include <ti/vset.h>
 
-static inline void ti_val_safe_drop(ti_val_t * val)
+static inline void ti_val_drop(ti_val_t * val)
 {
     if (val && !--val->ref)
         ti_val_destroy(val);
@@ -26,7 +26,7 @@ static inline void ti_val_unsafe_drop(ti_val_t * val)
         ti_val_destroy(val);
 }
 
-static inline void ti_val_gc_drop(ti_val_t * val)
+static inline void ti_val_unsafe_gc_drop(ti_val_t * val)
 {
     if (!--val->ref)
         ti_val_destroy(val);
@@ -34,15 +34,10 @@ static inline void ti_val_gc_drop(ti_val_t * val)
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
 
-static inline void ti_val_drop(ti_val_t * val)
+static inline void ti_val_gc_drop(ti_val_t * val)
 {
     if (val)
-    {
-        if (!--val->ref)
-            ti_val_destroy(val);
-        else
-            ti_thing_may_push_gc((ti_thing_t *) val);
-    }
+        ti_val_unsafe_gc_drop(val);
 }
 
 static inline _Bool ti_val_is_arr(ti_val_t * val)

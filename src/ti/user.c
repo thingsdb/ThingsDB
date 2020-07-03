@@ -129,7 +129,7 @@ void ti_user_drop(ti_user_t * user)
     if (user && !--user->ref)
     {
         free(user->encpass);
-        ti_val_safe_drop((ti_val_t *) user->name);
+        ti_val_drop((ti_val_t *) user->name);
         vec_destroy(user->tokens, (vec_destroy_cb) ti_token_destroy);
         free(user);
     }

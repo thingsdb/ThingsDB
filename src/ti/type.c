@@ -132,8 +132,8 @@ void ti_type_destroy(ti_type_t * type)
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
     imap_destroy(type->t_mappings, type__map_free);
-    ti_val_safe_drop((ti_val_t *) type->rname);
-    ti_val_safe_drop((ti_val_t *) type->rwname);
+    ti_val_drop((ti_val_t *) type->rname);
+    ti_val_drop((ti_val_t *) type->rwname);
     free(type->dependencies);
     free(type->name);
     free(type->wname);
@@ -305,7 +305,7 @@ failed:
         ex_set_mem(e);
 
     ti_name_drop(name);
-    ti_val_safe_drop((ti_val_t *) spec_raw);
+    ti_val_drop((ti_val_t *) spec_raw);
 
     return e->nr;
 }
@@ -437,8 +437,8 @@ failed:
         ex_set_mem(e);
 
     ti_name_drop(name);
-    ti_val_safe_drop(val);
-    ti_val_safe_drop((ti_val_t *) spec_raw);
+    ti_val_drop(val);
+    ti_val_drop((ti_val_t *) spec_raw);
 
     return e->nr;
 }
@@ -632,7 +632,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
                     if (from->ref > 1)
-                        ti_val_gc_drop(val);
+                        ti_val_unsafe_gc_drop(val);
                     goto failed;
                 }
 
@@ -663,7 +663,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             if (ti_val_make_assignable(&val, thing, field->name, e))
             {
                 if (from->ref > 1)
-                    ti_val_gc_drop(val);
+                    ti_val_unsafe_gc_drop(val);
                 goto failed;
             }
 

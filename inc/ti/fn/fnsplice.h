@@ -101,7 +101,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
 
     /* required since query->rval may not be NULL */
-    ti_val_safe_drop(query->rval);
+    ti_val_drop(query->rval);
 
     query->rval = (ti_val_t *) retv;
     varr->vec->n = new_n;

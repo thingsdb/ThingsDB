@@ -36,7 +36,7 @@ void ti_vset_destroy(ti_vset_t * vset)
 {
     if (!vset)
         return;
-    imap_destroy(vset->imap, (imap_destroy_cb) ti_val_gc_drop);
+    imap_destroy(vset->imap, (imap_destroy_cb) ti_val_unsafe_gc_drop);
     free(vset);
 }
 

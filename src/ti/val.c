@@ -427,7 +427,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             v = ti_val_from_vup_e(vup, e);
             if (!v || val__push(varr, v, e))
             {
-                ti_val_safe_drop(v);
+                ti_val_drop(v);
                 ti_val_unsafe_drop((ti_val_t *) varr);
                 return NULL;  /* error `e` is set in both cases */
             }
@@ -495,27 +495,27 @@ int ti_val_init_common(void)
 
 void ti_val_drop_common(void)
 {
-    ti_val_safe_drop(val__empty_bin);
-    ti_val_safe_drop(val__empty_str);
-    ti_val_safe_drop(val__sany);
-    ti_val_safe_drop(val__snil);
-    ti_val_safe_drop(val__strue);
-    ti_val_safe_drop(val__sfalse);
-    ti_val_safe_drop(val__sbool);
-    ti_val_safe_drop(val__sint);
-    ti_val_safe_drop(val__sfloat);
-    ti_val_safe_drop(val__sstr);
-    ti_val_safe_drop(val__sbytes);
-    ti_val_safe_drop(val__sinfo);
-    ti_val_safe_drop(val__sregex);
-    ti_val_safe_drop(val__serror);
-    ti_val_safe_drop(val__sclosure);
-    ti_val_safe_drop(val__slist);
-    ti_val_safe_drop(val__stuple);
-    ti_val_safe_drop(val__sset);
-    ti_val_safe_drop(val__sthing);
-    ti_val_safe_drop(val__swthing);
-    ti_val_safe_drop(val__tar_gz_str);
+    ti_val_drop(val__empty_bin);
+    ti_val_drop(val__empty_str);
+    ti_val_drop(val__sany);
+    ti_val_drop(val__snil);
+    ti_val_drop(val__strue);
+    ti_val_drop(val__sfalse);
+    ti_val_drop(val__sbool);
+    ti_val_drop(val__sint);
+    ti_val_drop(val__sfloat);
+    ti_val_drop(val__sstr);
+    ti_val_drop(val__sbytes);
+    ti_val_drop(val__sinfo);
+    ti_val_drop(val__sregex);
+    ti_val_drop(val__serror);
+    ti_val_drop(val__sclosure);
+    ti_val_drop(val__slist);
+    ti_val_drop(val__stuple);
+    ti_val_drop(val__sset);
+    ti_val_drop(val__sthing);
+    ti_val_drop(val__swthing);
+    ti_val_drop(val__tar_gz_str);
 }
 
 void ti_val_destroy(ti_val_t * val)

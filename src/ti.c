@@ -132,7 +132,7 @@ void ti_destroy(void)
     ti_collections_destroy();
     ti_users_destroy();
     ti_store_destroy();
-    ti_val_safe_drop((ti_val_t *) ti.thing0);
+    ti_val_drop((ti_val_t *) ti.thing0);
 
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);

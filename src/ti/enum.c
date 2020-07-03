@@ -270,7 +270,7 @@ failed:
         ex_set_mem(e);
 
     ti_name_drop(name);
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
 
     return e->nr;
 }

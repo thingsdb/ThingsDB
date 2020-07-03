@@ -115,8 +115,8 @@ int ti_store_procedures_restore(
 
 fail2:
     ti_procedure_destroy(procedure);
-    ti_val_safe_drop((ti_val_t *) rname);
-    ti_val_safe_drop((ti_val_t *) closure);
+    ti_val_drop((ti_val_t *) rname);
+    ti_val_drop((ti_val_t *) closure);
 
 done:
 fail1:

@@ -85,7 +85,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
                     "error while reading value for property: `%s`",
                     thing->id,
                     name->str);
-            ti_val_safe_drop((ti_val_t *) t);
+            ti_val_drop((ti_val_t *) t);
             return -1;
         }
     }
@@ -180,7 +180,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 
 fail:
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
     ti_name_unsafe_drop(name);
     return -1;
 }
@@ -449,7 +449,7 @@ static int job__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
     rc = 0;
 
 fail0:
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return rc;
 }
@@ -617,7 +617,7 @@ static int job__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
 
     (void) ti_member_set_value(member, val, &e);
 
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
 
     if (e.nr)
         log_critical(e.msg);
@@ -850,9 +850,9 @@ static int job__mod_type_add(
     rc = 0;
 
 fail1:
-    ti_val_safe_drop((ti_val_t *) spec_raw);
+    ti_val_drop((ti_val_t *) spec_raw);
 fail0:
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
     ti_name_drop(name);
     return rc;
 }
@@ -1022,7 +1022,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 
         (void) ti_field_mod_force(field, spec_raw, &e);
 
-        ti_val_safe_drop((ti_val_t *) spec_raw);
+        ti_val_drop((ti_val_t *) spec_raw);
 
         if (e.nr)
         {
@@ -1073,7 +1073,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
                     "job `mod_type_mod` for "TI_COLLECTION_ID" has failed; "
                     "expecting closure as method but got `%s`",
                     collection->root->id, ti_val_str(val));
-            ti_val_safe_drop(val);
+            ti_val_drop(val);
             return -1;
         }
 
@@ -1325,8 +1325,8 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
 
 failed:
     ti_procedure_destroy(procedure);
-    ti_val_safe_drop((ti_val_t *) rname);
-    ti_val_safe_drop((ti_val_t *) closure);
+    ti_val_drop((ti_val_t *) rname);
+    ti_val_drop((ti_val_t *) closure);
     return -1;
 }
 

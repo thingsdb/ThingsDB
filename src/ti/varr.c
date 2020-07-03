@@ -130,7 +130,7 @@ void ti_varr_destroy(ti_varr_t * varr)
 {
     if (!varr)
         return;
-    vec_destroy(varr->vec, (vec_destroy_cb) ti_val_gc_drop);
+    vec_destroy(varr->vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
     free(varr);
 }
 
@@ -210,7 +210,7 @@ int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
     if (ti_varr_val_prepare(to, v, e))
         return e->nr;
 
-    ti_val_gc_drop((ti_val_t *) vec_get(to->vec, idx));
+    ti_val_unsafe_gc_drop((ti_val_t *) vec_get(to->vec, idx));
     to->vec->data[idx] = *v;
     return 0;
 }

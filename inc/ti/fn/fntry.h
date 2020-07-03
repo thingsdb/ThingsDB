@@ -23,7 +23,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* make sure the return value is dropped */
-    ti_val_safe_drop(query->rval);
+    ti_val_drop(query->rval);
 
     e->nr = 0;
 

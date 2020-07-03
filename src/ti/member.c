@@ -70,7 +70,7 @@ void ti_member_destroy(ti_member_t * member)
         return;
 
     ti_name_drop(member->name);
-    ti_val_safe_drop(member->val);
+    ti_val_drop(member->val);
 
     free(member);
 }
@@ -91,7 +91,7 @@ void ti_member_remove(ti_member_t * member)
     member->enum_ = NULL;
 
     ti_name_drop(name);
-    ti_val_safe_drop(val);
+    ti_val_drop(val);
 
     ti_member_drop(member);
 }
@@ -115,7 +115,7 @@ int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
     if (ti_enum_check_val(member->enum_, val, e))
         return e->nr;
 
-    ti_val_safe_drop(member->val);
+    ti_val_drop(member->val);
     member->val = val;
     ti_incref(val);
 

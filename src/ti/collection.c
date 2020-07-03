@@ -66,7 +66,7 @@ void ti_collection_destroy(ti_collection_t * collection)
         return;
 
     imap_destroy(collection->things, NULL);
-    ti_val_safe_drop((ti_val_t *) collection->name);
+    ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
@@ -81,7 +81,7 @@ void ti_collection_drop(ti_collection_t * collection)
     if (!collection || --collection->ref)
         return;
 
-    ti_val_safe_drop((ti_val_t *) collection->root);
+    ti_val_drop((ti_val_t *) collection->root);
 
     if (!collection->things->n)
     {

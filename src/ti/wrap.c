@@ -39,7 +39,7 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
 {
     if (!wrap)
         return;
-    ti_val_gc_drop((ti_val_t *) wrap->thing);
+    ti_val_unsafe_gc_drop((ti_val_t *) wrap->thing);
     free(wrap);
 }
 

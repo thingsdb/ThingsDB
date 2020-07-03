@@ -29,7 +29,7 @@ static inline int assign__set_o(
 
 failed:
     if (parent_ref > 1)
-        ti_val_gc_drop(val);
+        ti_val_unsafe_gc_drop(val);
     if (e->nr == 0)
         ex_set_mem(e);
 
@@ -134,7 +134,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
                     if (parent_ref > 1)
-                        ti_val_gc_drop(val);
+                        ti_val_unsafe_gc_drop(val);
                     goto fail2;
                 }
 
@@ -183,7 +183,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_val_make_assignable(&val, thing, field->name, e))
                 {
                     if (parent_ref > 1)
-                        ti_val_gc_drop(val);
+                        ti_val_unsafe_gc_drop(val);
                     goto fail1;
                 }
 

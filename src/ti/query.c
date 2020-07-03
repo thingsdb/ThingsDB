@@ -231,14 +231,14 @@ void ti_query_destroy(ti_query_t * query)
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
 
-    ti_val_safe_drop(query->rval);
+    ti_val_drop(query->rval);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
 
     free(query->vars);
 
-    ti_val_safe_drop((ti_val_t *) query->closure);
+    ti_val_drop((ti_val_t *) query->closure);
 
     ti_collection_drop(query->collection);
 

@@ -379,7 +379,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* restore property values */
         for (vec_each_rev(closure->vars, ti_prop_t, p))
         {
-            ti_val_gc_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = VEC_pop(closure->stacked);
         }
 
@@ -394,7 +394,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* reset props */
         for (vec_each(closure->vars, ti_prop_t, p))
         {
-            ti_val_gc_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = (ti_val_t *) ti_nil_get();
         }
     }

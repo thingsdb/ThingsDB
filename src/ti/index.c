@@ -239,7 +239,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     }
 
     for (step = start; step < stop; ++step)
-        ti_val_gc_drop(vec_get(varr->vec, step));
+        ti_val_unsafe_gc_drop(vec_get(varr->vec, step));
 
     memmove(
         varr->vec->data + start + n,
@@ -498,7 +498,7 @@ static inline int index__upd_prop(
             : index__t_upd_prop(wprop, query, thing, rname, tokens_nd, e))
         return e->nr;
 
-    ti_val_gc_drop(*wprop->val);
+    ti_val_unsafe_gc_drop(*wprop->val);
     *wprop->val = query->rval;
     ti_incref(query->rval);
 

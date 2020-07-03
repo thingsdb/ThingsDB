@@ -101,7 +101,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
                     ex.msg);
         }
 
-        ti_val_safe_drop(w->query->rval);
+        ti_val_drop(w->query->rval);
     }
     else
     {
@@ -164,7 +164,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         }
 
         /* the return value will not be used */
-        ti_val_safe_drop(w->query->rval);
+        ti_val_drop(w->query->rval);
 
         /*
          * no copy is required if the value has only one reference, therefore
@@ -1035,7 +1035,7 @@ done:
     {
         ti_type_map_cleanup(type);
 
-        ti_val_safe_drop(query->rval);
+        ti_val_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
     ti_name_unsafe_drop(name);

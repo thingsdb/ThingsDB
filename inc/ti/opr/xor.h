@@ -34,7 +34,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
             imap_symmdiff_move(
                     VSET(a),
                     VSET(*b),
-                    (imap_destroy_cb) ti_val_gc_drop);
+                    (imap_destroy_cb) ti_val_unsafe_gc_drop);
             ti_val_unsafe_drop(*b);
             ti_incref(a);
             *b = a;

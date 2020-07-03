@@ -216,7 +216,7 @@ static inline int do__upd_prop(
             : do__t_upd_prop(wprop, query, thing, name_nd, tokens_nd, e))
         return e->nr;
 
-    ti_val_gc_drop(*wprop->val);
+    ti_val_unsafe_gc_drop(*wprop->val);
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
@@ -1033,7 +1033,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         val = vec_get(thing->items, field->idx);
         if (val)
-            ti_val_gc_drop(val);
+            ti_val_unsafe_gc_drop(val);
         else
             ++n;
         vec_set(thing->items, query->rval, field->idx);
@@ -1327,7 +1327,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     prop = do__prop_scope(query, name);
     if (prop)
     {
-        ti_val_gc_drop(prop->val);
+        ti_val_unsafe_gc_drop(prop->val);
         prop->val = query->rval;
         ti_incref(prop->val);
         return e->nr;

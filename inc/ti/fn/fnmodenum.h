@@ -320,7 +320,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 done:
     if (e->nr == 0)
     {
-        ti_val_safe_drop(query->rval);
+        ti_val_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
     ti_name_unsafe_drop(name);

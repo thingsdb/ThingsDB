@@ -124,7 +124,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 fail2:
     if (!e->nr)
         ex_set_mem(e);
-    ti_val_safe_drop((ti_val_t *) retvarr);
+    ti_val_drop((ti_val_t *) retvarr);
 
 done:
     ti_closure_dec(closure, query);

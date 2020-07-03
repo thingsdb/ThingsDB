@@ -34,8 +34,8 @@ void ti_method_destroy(ti_method_t * method)
 {
     ti_name_unsafe_drop(method->name);
     ti_val_unsafe_drop((ti_val_t *) method->closure);
-    ti_val_safe_drop((ti_val_t *) method->def);
-    ti_val_safe_drop((ti_val_t *) method->doc);
+    ti_val_drop((ti_val_t *) method->def);
+    ti_val_drop((ti_val_t *) method->doc);
     free(method);
 }
 
@@ -168,8 +168,8 @@ fail0:
 
 void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure)
 {
-    ti_val_safe_drop((ti_val_t *) method->def);
-    ti_val_safe_drop((ti_val_t *) method->doc);
+    ti_val_drop((ti_val_t *) method->def);
+    ti_val_drop((ti_val_t *) method->doc);
     ti_val_unsafe_drop((ti_val_t *) method->closure);
     method->closure = closure;
     ti_incref(closure);

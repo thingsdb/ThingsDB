@@ -98,6 +98,6 @@ void ti_regex_destroy(ti_regex_t * regex)
 
     pcre2_match_data_free(regex->match_data);
     pcre2_code_free(regex->code);
-    ti_val_safe_drop((ti_val_t *) regex->pattern);
+    ti_val_drop((ti_val_t *) regex->pattern);
     free(regex);
 }

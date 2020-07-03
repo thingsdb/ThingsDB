@@ -171,7 +171,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 fail2:
     if (!e->nr)
         ex_set_mem(e);
-    ti_val_safe_drop(retval);
+    ti_val_drop(retval);
 
 done:
     ti_closure_dec(closure, query);

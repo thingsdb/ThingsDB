@@ -237,7 +237,7 @@ void ti_thing_clear(ti_thing_t * thing)
     {
         ti_val_t * val;
         while ((val = vec_pop(thing->items)))
-            ti_val_gc_drop(val);
+            ti_val_unsafe_gc_drop(val);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
@@ -278,7 +278,7 @@ int ti_thing_props_from_vup(
         {
             if (!e->nr)
                 ex_set_mem(e);
-            ti_val_safe_drop(val);
+            ti_val_drop(val);
             ti_name_drop(name);
             return e->nr;
         }
@@ -355,7 +355,7 @@ static int thing_o__prop_set_e(
                 return e->nr;
 
             ti_decref(name);
-            ti_val_gc_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = val;
 
             return e->nr;
@@ -388,7 +388,7 @@ ti_prop_t * ti_thing_o_prop_set(
         if (p->name == name)
         {
             ti_decref(name);
-            ti_val_gc_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = val;
             return p;
         }
@@ -413,7 +413,7 @@ void ti_thing_t_prop_set(
         ti_val_t * val)
 {
     ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
-    ti_val_gc_drop(*vaddr);
+    ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = val;
 }
 
@@ -479,7 +479,7 @@ int ti_thing_t_set_val_from_strn(
     if (thing__val_locked(thing, field->name, *vaddr, e))
         return e->nr;
 
-    ti_val_gc_drop(*vaddr);
+    ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = *val;
 
     ti_incref(*val);

@@ -28,7 +28,7 @@ static int do__f_has_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     has_token = ti_users_has_token((ti_token_key_t *) rkey->data);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_token);
 
     return e->nr;

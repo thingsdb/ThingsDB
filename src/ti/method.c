@@ -33,9 +33,9 @@ ti_method_t * ti_method_create(ti_name_t * name, ti_closure_t * closure)
 void ti_method_destroy(ti_method_t * method)
 {
     ti_name_drop(method->name);
-    ti_val_drop((ti_val_t *) method->closure);
-    ti_val_drop((ti_val_t *) method->def);
-    ti_val_drop((ti_val_t *) method->doc);
+    ti_val_unsafe_drop((ti_val_t *) method->closure);
+    ti_val_safe_drop((ti_val_t *) method->def);
+    ti_val_safe_drop((ti_val_t *) method->doc);
     free(method);
 }
 
@@ -115,11 +115,11 @@ int ti_method_call(
     (void) ti_closure_call(method->closure, query, args, e);
 
 fail1:
-    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
 
 fail0:
     ti_type_unlock(type, lock_was_set);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
 
     return e->nr;
 }
@@ -168,9 +168,9 @@ fail0:
 
 void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure)
 {
-    ti_val_drop((ti_val_t *) method->def);
-    ti_val_drop((ti_val_t *) method->doc);
-    ti_val_drop((ti_val_t *) method->closure);
+    ti_val_safe_drop((ti_val_t *) method->def);
+    ti_val_safe_drop((ti_val_t *) method->doc);
+    ti_val_unsafe_drop((ti_val_t *) method->closure);
     method->closure = closure;
     ti_incref(closure);
 }

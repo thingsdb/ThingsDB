@@ -12,7 +12,7 @@ static int each__walk_set(ti_thing_t * t, each__walk_t * w)
     if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
-    ti_val_drop(w->query->rval);
+    ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
     return 0;
 }
@@ -59,7 +59,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_closure_vars_prop(closure, p, e) ||
                     ti_closure_do_statement(closure, query, e))
                     goto fail2;
-                ti_val_drop(query->rval);
+                ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
             }
         }
@@ -72,7 +72,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_closure_vars_nameval(closure, name, val, e) ||
                     ti_closure_do_statement(closure, query, e))
                     goto fail2;
-                ti_val_drop(query->rval);
+                ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
             }
         }
@@ -86,7 +86,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_closure_vars_val_idx(closure, v, idx) ||
                 ti_closure_do_statement(closure, query, e))
                 goto fail2;
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = NULL;
         }
         break;
@@ -115,10 +115,10 @@ fail2:
     ti_closure_dec(closure, query);
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
     ti_val_unlock(iterval, lock_was_set);
-    ti_val_drop(iterval);
+    ti_val_unsafe_drop(iterval);
     return e->nr;
 }

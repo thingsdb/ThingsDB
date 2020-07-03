@@ -223,7 +223,7 @@ int ti_store_enums_restore_members(
 
             if (!ti_member_create(enum_, name, val, &e))
             {
-                ti_val_drop(val);
+                ti_val_unsafe_drop(val);
                 log_critical(e.msg);
                 goto fail1;
             }

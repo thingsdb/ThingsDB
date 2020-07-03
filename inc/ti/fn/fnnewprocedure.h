@@ -30,7 +30,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
         fn_arg_closure("new_procedure", DOC_NEW_PROCEDURE, 2, query->rval, e))
-        goto fail0;;
+        goto fail0;
 
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
@@ -79,9 +79,9 @@ fail2:
 
 done:
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
-    ti_val_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

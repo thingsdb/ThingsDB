@@ -70,7 +70,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
         raw = ti_raw_cat((ti_raw_t *) a, (ti_raw_t *) *b);
         if (raw)
         {
-            ti_val_drop(*b);
+            ti_val_unsafe_drop(*b);
             *b = (ti_val_t *) raw;
         }
         else

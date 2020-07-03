@@ -23,8 +23,8 @@ static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     pa = vec_get(cc->closure->vars, 0);
     pb = vec_get(cc->closure->vars, 1);
 
-    ti_val_drop(pa->val);
-    ti_val_drop(pb->val);
+    ti_val_unsafe_drop(pa->val);
+    ti_val_unsafe_drop(pb->val);
 
     pa->val = va;
     pb->val = vb;
@@ -43,7 +43,7 @@ static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
     i = VINT(cc->query->rval);
 
-    ti_val_drop(cc->query->rval);
+    ti_val_unsafe_drop(cc->query->rval);
     cc->query->rval = NULL;
 
     return i < INT_MIN ? INT_MIN : i > INT_MAX ? INT_MAX : i;
@@ -59,7 +59,7 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
     ti_incref(va);
     p = vec_get(cc->closure->vars, 0);
-    ti_val_drop(p->val);
+    ti_val_unsafe_drop(p->val);
     p->val = va;
 
     if (ti_closure_do_statement(cc->closure, cc->query, cc->e))
@@ -70,12 +70,12 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
     ti_incref(vb);
     p = vec_get(cc->closure->vars, 0);
-    ti_val_drop(p->val);
+    ti_val_unsafe_drop(p->val);
     p->val = vb;
 
     if (ti_closure_do_statement(cc->closure, cc->query, cc->e))
     {
-        ti_val_drop(va);
+        ti_val_unsafe_drop(va);
         return 0;
     }
 
@@ -84,8 +84,8 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
     i = cc->cb(va, vb, cc->e);
 
-    ti_val_drop(va);
-    ti_val_drop(vb);
+    ti_val_unsafe_drop(va);
+    ti_val_unsafe_drop(vb);
 
     return i;
 }
@@ -140,7 +140,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         reverse = VBOOL(query->rval);
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         vec_sort_r(
@@ -179,7 +179,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         reverse = VBOOL(query->rval);
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         if (closure->vars->n == 2)
@@ -220,16 +220,16 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (e->nr)
         goto fail1;
 
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 done:
     query->rval = (ti_val_t *) varr;
     return e->nr;
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }

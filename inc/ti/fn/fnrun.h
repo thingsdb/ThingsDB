@@ -29,7 +29,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop((ti_val_t *) query->rval);
+    ti_val_unsafe_drop((ti_val_t *) query->rval);
     query->rval = NULL;
     ti_incref(closure);  /* take a reference */
 
@@ -50,7 +50,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     (void) ti_closure_call(closure, query, args, e);
 
 failed:
-    ti_val_drop((ti_val_t *) closure);
-    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+    ti_val_unsafe_drop((ti_val_t *) closure);
+    vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
     return e->nr;
 }

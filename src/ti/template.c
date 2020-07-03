@@ -222,7 +222,7 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
             nd->data = NULL;
             memcpy(ptr, expr->data, expr->n);
             ptr += expr->n;
-            ti_val_drop((ti_val_t *) expr);
+            ti_val_unsafe_drop((ti_val_t *) expr);
         }
     }
 
@@ -239,7 +239,7 @@ failed:
         if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
         {
             cleri_node_t * nd = child->node;
-            ti_val_drop(nd->data);
+            ti_val_safe_drop(nd->data);
             nd->data = NULL;
         }
     }
@@ -261,7 +261,7 @@ void ti_template_destroy(ti_template_t * template)
         if (nd->cl_obj->tp == CLERI_TP_REGEX)
             free(nd->data);
         else
-            ti_val_drop(nd->data);
+            ti_val_safe_drop(nd->data);
     }
 
     cleri__node_free(template->node);

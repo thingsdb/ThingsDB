@@ -40,7 +40,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
-        ti_val_drop(vec_swap_remove(thing->items, field->idx));
+        ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
     return 0;
 }
 
@@ -82,7 +82,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     {
         ti_incref(thing);
         prop = vec_get(w->closure->vars, 0);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) thing;
     }
 
@@ -101,11 +101,14 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
                     ex.msg);
         }
 
-        ti_val_drop(w->query->rval);
+        ti_val_safe_drop(w->query->rval);
     }
     else
     {
-        ti_val_drop(vec_set(thing->items, w->query->rval, w->field->idx));
+        ti_val_unsafe_drop(vec_set(
+                thing->items,
+                w->query->rval,
+                w->field->idx));
 
         if (thing->id)
         {
@@ -140,7 +143,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     {
         ti_incref(thing);
         prop = vec_get(w->closure->vars, 0);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) thing;
     }
 
@@ -161,7 +164,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         }
 
         /* the return value will not be used */
-        ti_val_drop(w->query->rval);
+        ti_val_safe_drop(w->query->rval);
 
         /*
          * no copy is required if the value has only one reference, therefore
@@ -172,7 +175,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         if (ti_field_make_assignable(w->field, &val, thing, &ex))
         {
             ti_incref(w->dval);
-            ti_val_drop(vec_set(thing->items, w->dval, w->field->idx));
+            ti_val_unsafe_drop(vec_set(thing->items, w->dval, w->field->idx));
 
             if (thing->id)
             {
@@ -195,7 +198,10 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     }
     else
     {
-        ti_val_drop(vec_set(thing->items, w->query->rval, w->field->idx));
+        ti_val_unsafe_drop(vec_set(
+                thing->items,
+                w->query->rval,
+                w->field->idx));
 
         if (thing->id)
         {
@@ -232,7 +238,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
     if (ti_field_make_assignable(w->field, &val, thing, &ex))
     {
         ti_incref(w->dval);
-        ti_val_drop(vec_set(thing->items, w->dval, w->field->idx));
+        ti_val_unsafe_drop(vec_set(thing->items, w->dval, w->field->idx));
 
         if (thing->id)
         {
@@ -275,7 +281,7 @@ static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
                 (imap_cb) modtype__collect_cb,
                 &collect))
     {
-        imap_destroy(collect.imap, (imap_destroy_cb) ti_val_drop);
+        imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
         return NULL;
     }
 
@@ -456,7 +462,7 @@ static void type__add(
         goto panic;
     }
 
-    ti_val_drop(dval);
+    ti_val_unsafe_drop(dval);
     dval = NULL;
 
     if (closure)
@@ -490,10 +496,10 @@ static void type__add(
                 (imap_cb) modtype__add_cb,
                 &addjob);
 
-        imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
+        imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
 
         ti_closure_dec(closure, query);
-        ti_val_drop((ti_val_t *) closure);
+        ti_val_unsafe_drop((ti_val_t *) closure);
     }
 
     return;
@@ -505,7 +511,7 @@ fail3:
     ti_closure_dec(closure, query);
 
 fail2:
-    ti_val_drop(dval);
+    ti_val_unsafe_drop(dval);
 
 fail1:
     assert (e->nr);
@@ -513,7 +519,7 @@ fail1:
     return;  /* failed */
 
 fail0:
-    ti_val_drop((ti_val_t *) spec_raw);
+    ti_val_unsafe_drop((ti_val_t *) spec_raw);
     return;  /* failed */
 }
 
@@ -668,7 +674,7 @@ static int type__mod_using_callback(
                 (imap_cb) modtype__mod_after_cb,
                 &modjob);
 
-        imap_destroy(imap_after, (imap_destroy_cb) ti_val_drop);
+        imap_destroy(imap_after, (imap_destroy_cb) ti_val_unsafe_drop);
     }
 
     /* get a new task since the order of the task must be after the changes
@@ -685,15 +691,15 @@ static int type__mod_using_callback(
 
     ti_field_replace(field, &modjob.field);
 fail4:
-    imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
+    imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
 fail3:
-    ti_val_drop(modjob.dval);
+    ti_val_unsafe_drop(modjob.dval);
 fail2:
     ti_field_destroy_dep(modjob.field);  /* modjob.field may be NULL */
 fail1:
     ti_closure_dec(closure, query);
 fail0:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
     return e->nr;
 panic:
     ti_panic("unrecoverable state after using mod_type(...)");
@@ -823,7 +829,7 @@ static void type__mod(
                     e);
         }
 fail:
-        ti_val_drop((ti_val_t *) spec_raw);
+        ti_val_unsafe_drop((ti_val_t *) spec_raw);
         return;
     }
 
@@ -971,7 +977,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (modtype__has_lock(query, type, e) || ti_type_try_lock(type, e))
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
@@ -992,7 +998,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_raw_eq_strn(rmod, "add", 3))
@@ -1029,13 +1035,13 @@ done:
     {
         ti_type_map_cleanup(type);
 
-        ti_val_drop(query->rval);
+        ti_val_safe_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
     ti_name_drop(name);
 
 fail1:
-    ti_val_drop((ti_val_t *) rmod);
+    ti_val_unsafe_drop((ti_val_t *) rmod);
 fail0:
     ti_type_unlock(type, true /* lock is set for sure */);
     return e->nr;

@@ -25,6 +25,6 @@ static int do__f_base64_decode(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!query->rval)
         ex_set_mem(e);
 
-    ti_val_drop((ti_val_t *) src);
+    ti_val_unsafe_drop((ti_val_t *) src);
     return e->nr;
 }

@@ -13,7 +13,7 @@ static int do__f_unwrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = ((ti_wrap_t *) query->rval)->thing;
     ti_incref(thing);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) thing;
 
     return 0;

@@ -31,7 +31,7 @@ static int do__f_unwatch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         log_error("unwatch() has failed (%d)", rc);
 
 done:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

@@ -11,7 +11,7 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     type_str = ti_val_strv(query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e))
@@ -55,7 +55,7 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 invalid:
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (nargs == 3)
@@ -82,10 +82,10 @@ invalid:
     goto done;
 
 success:
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
 done:
-    ti_val_drop(type_str);
+    ti_val_unsafe_drop(type_str);
     return e->nr;
 }

@@ -29,7 +29,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!thing)
             return e->nr;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) thing;
 
         return e->nr;

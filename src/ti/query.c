@@ -184,222 +184,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
-static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query);
-static inline void query__t_mark_gc(ti_thing_t * thing, ti_query_t * query);
 
-int ti_query_mark_gc(ti_val_t * val, ti_query_t * query)
-{
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_THING:
-    {
-        ti_thing_t * thing = (ti_thing_t *) val;
-        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
-        {
-            /* prevents loop and double add to `garbage` */
-            thing->flags &= ~TI_VFLAG_THING_SWEEP;
-
-            query__t_mark_gc(thing, query);
-
-            if (thing->ref > 1)
-            {
-                if (vec_push_create(&query->gc, thing))
-                    return -1;
-
-                ti_incref(thing);
-            }
-            else
-                /* restore sweep flag since the thing is not added to GC */
-                thing->flags |= TI_VFLAG_THING_SWEEP;
-        }
-        return 0;
-    }
-    case TI_VAL_WRAP:
-    {
-        ti_wrap_t * wrap = (ti_wrap_t *) val;
-        ti_thing_t * thing = wrap->thing;
-        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
-        {
-            /* prevents loop and double add to `garbage` */
-            thing->flags &= ~TI_VFLAG_THING_SWEEP;
-
-            query__t_mark_gc(thing, query);
-
-            if (wrap->ref > 1 || thing->ref > 1)
-            {
-                if (vec_push_create(&query->gc, thing))
-                    return -1;
-
-                ti_incref(thing);
-            }
-            else
-                /* restore sweep flag since the thing is not added to GC */
-                thing->flags |= TI_VFLAG_THING_SWEEP;
-        }
-        return 0;
-    }
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_MP:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-        return 0;
-    case TI_VAL_ARR:
-        if (ti_varr_may_have_things((ti_varr_t *) val))
-        {
-            vec_t * vec = VARR(val);
-            for (vec_each(vec, ti_val_t, v))
-                ti_query_mark_gc(v, query);
-        }
-        return 0;
-    case TI_VAL_SET:
-        return imap_walk(VSET(val), (imap_cb) ti_query_mark_gc, query);
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        return -1;
-    }
-    assert (0);
-    return -1;
-}
-
-int ti_query_val_gc(ti_val_t * val, ti_query_t * query)
-{
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_THING:
-    {
-        ti_thing_t * thing = (ti_thing_t *) val;
-        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
-        {
-            if (thing->ref > 1)
-            {
-                /* prevents loop and double add to `garbage` */
-                thing->flags &= ~TI_VFLAG_THING_SWEEP;
-
-                query__t_mark_gc(thing, query);
-
-                if (vec_push_create(&query->gc, thing))
-                    return -1;
-
-                ti_incref(thing);
-                return 0;
-            }
-
-            assert (thing->ref == 1);
-            query__t_clean_gc(thing, query);
-        }
-        return 0;
-    }
-    case TI_VAL_WRAP:
-    {
-        ti_wrap_t * wrap = (ti_wrap_t *) val;
-        ti_thing_t * thing = wrap->thing;
-        if (!thing->id && (thing->flags & TI_VFLAG_THING_SWEEP))
-        {
-            if (wrap->ref > 1 || thing->ref > 1)
-            {
-                /* prevents loop and double add to `garbage` */
-                thing->flags &= ~TI_VFLAG_THING_SWEEP;
-
-                query__t_mark_gc(thing, query);
-
-                if (vec_push_create(&query->gc, thing))
-                    return -1;
-
-                ti_incref(thing);
-                return 0;
-            }
-
-            assert (wrap->ref == 1 && thing->ref == 1);
-            query__t_clean_gc(thing, query);
-        }
-        return 0;
-    }
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_MP:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-        return 0;
-    case TI_VAL_ARR:
-        if (ti_varr_may_have_things((ti_varr_t *) val))
-        {
-            vec_t * vec = VARR(val);
-            if (val->ref == 1)
-            {
-                ti_val_t * v;
-                while((v = vec_pop(vec)))
-                {
-                    ti_query_val_gc(v, query);
-                    ti_val_drop(v);
-                }
-            }
-            else
-                for (vec_each(vec, ti_val_t, v))
-                    ti_query_mark_gc(v, query);
-        }
-        return 0;
-    case TI_VAL_SET:
-        return imap_walk(
-                VSET(val),
-                (imap_cb) (val->ref == 1 ? ti_query_val_gc : ti_query_mark_gc),
-                query);
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        return -1;
-    }
-    assert (0);
-    return -1;
-}
-
-static inline void query__t_mark_gc(ti_thing_t * thing, ti_query_t * query)
-{
-    if (ti_thing_is_object(thing))
-        for (vec_each(thing->items, ti_prop_t, prop))
-            ti_query_mark_gc(prop->val, query);
-    else
-        for (vec_each(thing->items, ti_val_t, val))
-            ti_query_mark_gc(val, query);
-}
-
-static inline void query__t_clean_gc(ti_thing_t * thing, ti_query_t * query)
-{
-    if (ti_thing_is_object(thing))
-    {
-        ti_prop_t * prop;
-        while((prop = vec_pop(thing->items)))
-        {
-            ti_query_val_gc(prop->val, query);
-            ti_prop_destroy(prop);
-        }
-    }
-    else
-    {
-        ti_val_t * v;
-        while((v = vec_pop(thing->items)))
-        {
-            ti_query_val_gc(v, query);
-            ti_val_drop(v);
-        }
-        /* convert to a simple object since the thing is not
-         * type compliant anymore */
-        thing->type_id = TI_SPEC_OBJECT;
-    }
-}
 
 ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
 {
@@ -428,34 +213,6 @@ ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
     return query;
 }
 
-static void query__gc_destroy(vec_t * vec)
-{
-    ti_thing_t * thing;
-    if (!vec)
-        return;
-
-    for (vec_each(vec, ti_thing_t, thing))
-        if (!thing->id)
-            thing->ref = 0;
-
-    for (vec_each(vec, ti_thing_t, thing))
-        if (!thing->id)
-            ti_thing_clear(thing);
-
-    while((thing = vec_pop(vec)))
-    {
-        if (thing->id)
-        {
-            thing->flags |= TI_VFLAG_THING_SWEEP;
-            ti_val_drop((ti_val_t *) thing);
-            continue;
-        }
-        ti_thing_destroy(thing);
-    }
-
-    free(vec);
-}
-
 void ti_query_destroy(ti_query_t * query)
 {
     if (!query)
@@ -464,7 +221,7 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
 
     if (query->qbind.flags & TI_QBIND_FLAG_API)
         ti_api_release(query->via.api_request);
@@ -474,19 +231,22 @@ void ti_query_destroy(ti_query_t * query)
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
 
+    ti_val_safe_drop(query->rval);
+
     while(query->vars->n)
-        ti_query_var_drop_gc(VEC_pop(query->vars), query);
+        ti_prop_destroy(VEC_pop(query->vars));
+
     free(query->vars);
 
-    ti_val_drop((ti_val_t *) query->closure);
-    ti_val_drop(query->rval);
+    ti_val_safe_drop((ti_val_t *) query->closure);
+
     ti_collection_drop(query->collection);
 
     /*
      * Garbage collection at least after cleaning the return value, otherwise
      * the value might already be destroyed.
      */
-    query__gc_destroy(query->gc);
+    ti_thing_clean_gc();
 
     free(query->querystr);
     free(query);
@@ -539,7 +299,7 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
         if (!prop)
         {
             ti_name_drop(name);
-            ti_val_drop(argval);
+            ti_val_unsafe_drop(argval);
             ex_set_mem(e);
             return e->nr;
         }
@@ -621,7 +381,7 @@ static int query__run_arr_props(
                 (const char *) procedure->name->data);
             return e->nr;
         }
-        ti_val_drop(vec_set(query->val_cache, val, idx));
+        ti_val_unsafe_drop(vec_set(query->val_cache, val, idx));
     }
     return e->nr;
 }
@@ -670,7 +430,7 @@ static int query__run_map_props(
             return e->nr;
         }
 
-        ti_val_drop(vec_set(query->val_cache, val, idx));
+        ti_val_unsafe_drop(vec_set(query->val_cache, val, idx));
     }
     return e->nr;
 }
@@ -909,7 +669,7 @@ void ti_query_run(ti_query_t * query)
         if (!child->next || !(child = child->next->next))
             break;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -1203,7 +963,7 @@ int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args)
     rc = imap_walk(imap, cb, args);
 
 fail:
-    imap_destroy(imap, (imap_destroy_cb) ti_val_drop);
+    imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
     return rc;
 }
 

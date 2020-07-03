@@ -28,9 +28,12 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
         return NULL;
 
     task->event_id = event_id;
-    task->thing = ti_grab(thing);
+    task->thing = thing;
     task->jobs = vec_new(1);
     task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
+
+    ti_incref(thing);
+
     if (!task->jobs)
     {
         ti_task_destroy(task);
@@ -66,7 +69,7 @@ void ti_task_destroy(ti_task_t * task)
     if (!task)
         return;
     vec_destroy(task->jobs, free);
-    ti_val_drop((ti_val_t *) task->thing);
+    ti_val_unsafe_drop((ti_val_t *) task->thing);
     free(task);
 }
 

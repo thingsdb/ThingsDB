@@ -16,7 +16,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!procedure)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = ti_procedure_as_mpval(procedure, ti_access_check(
             ti_query_access(query),
             query->user,

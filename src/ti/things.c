@@ -103,7 +103,7 @@ ti_thing_t * ti_things_create_thing_o(
     ti_thing_t * thing = ti_thing_o_create(id, init_sz, collection);
     if (!thing || ti_thing_to_map(thing))
     {
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_safe_drop((ti_val_t *) thing);
         return NULL;
     }
     return thing;
@@ -118,7 +118,7 @@ ti_thing_t * ti_things_create_thing_t(
     ti_thing_t * thing = ti_thing_t_create(id, type, collection);
     if (!thing || ti_thing_to_map(thing))
     {
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_safe_drop((ti_val_t *) thing);
         return NULL;
     }
     return thing;
@@ -175,7 +175,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
 
     if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_unsafe_drop((ti_val_t *) thing);
         return NULL;
     }
     return thing;
@@ -253,8 +253,8 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
             ex_append(e, "; error while loading field `%s` for type `%s`",
                     field->name->str,
                     type->name);
-            ti_val_drop(val);
-            ti_val_drop((ti_val_t *) thing);
+            ti_val_safe_drop(val);
+            ti_val_unsafe_drop((ti_val_t *) thing);
             return NULL;
         }
 

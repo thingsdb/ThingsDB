@@ -13,7 +13,7 @@ static int do__f_value(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     val = VMEMBER(query->rval);
     ti_incref(val);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = val;
 
     return 0;

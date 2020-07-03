@@ -24,7 +24,7 @@ static int do__f_set_log_level(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     logger_set_level(log_level);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

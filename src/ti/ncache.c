@@ -49,7 +49,7 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
 {
     if (!ncache)
         return;
-    vec_destroy(ncache->val_cache, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(ncache->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
     free(ncache->query);
     free(ncache);
 }

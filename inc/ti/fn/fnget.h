@@ -22,7 +22,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     found = ti_thing_get_by_raw(&wprop, thing, (ti_raw_t *) query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
 
     if (!found)
     {
@@ -41,6 +41,6 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_incref(query->rval);
 
 done:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }

@@ -13,7 +13,7 @@ static int do__f_has_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (e->nr == EX_TYPE_ERROR)
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(e->nr == 0);
 
     ex_clear(e);

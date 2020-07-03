@@ -21,7 +21,7 @@ static int do__f_backup_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = ti_backups_backup_as_mpval((uint64_t) backup_id, e);
 
     return e->nr;

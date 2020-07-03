@@ -24,7 +24,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_backups_del_backup((uint64_t) backup_id, e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

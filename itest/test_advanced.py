@@ -34,6 +34,89 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_query_gc(self, client):
+        self.assertEqual(await client.query(r'''
+            x = {};
+            x.x = x;
+            x = 5;
+        '''), 5)
+
+        self.assertEqual(await client.query(r'''
+            x = {};
+            x.y = {};
+            x.y.y = x.y;
+            x.set('y', 5);
+        '''), 5)
+
+        self.assertEqual(await client.query(r'''
+            x = [{}];
+            x[0].x = x[0];
+            x.pop();
+        '''), {"x": {}})
+
+        self.assertEqual(await client.query(r'''
+            {
+                x = [{}];
+                x[0].x = x[0];
+                x.pop();
+            };
+        '''), {"x": {}})
+
+        self.assertEqual(await client.query(r'''
+            {
+                x = [{}];
+                x[0].x = x[0];
+                x.pop();
+            };
+            5;
+        '''), 5)
+
+        self.assertEqual(await client.query(r'''
+            {
+                {
+                    x = [{}];
+                    x[0].x = x[0];
+                    x.pop();
+                };
+                5;
+            }
+        '''), 5)
+
+        self.assertIs(await client.query(r'''
+            !!{
+                x = [{}];
+                bool(x[0].x = x[0]);
+                x.pop()
+            };
+        '''), True)
+
+        self.assertIs(await client.query(r'''
+            {
+                x = [{}];
+                bool(x[0].x = x[0]);
+                x.pop()
+            } && true;
+        '''), True)
+
+        self.assertIs(await client.query(r'''
+            {
+                x = [{}];
+                bool(x[0].x = x[0]);
+                x.pop()
+            }.id();
+        '''), None)
+
+        self.assertEqual(await client.query(r'''
+            x = {
+                y: {}
+            };
+            x.y.x = x;
+            x.y.z = {};
+            x.y.z.z = x.y.z;
+            x.y.z.arr = [x, x.y, x.y.z];
+            5;
+        '''), 5)
+
     async def test_mod_type_mod_advanced2(self, client):
         with self.assertRaisesRegex(
                 OperationError,

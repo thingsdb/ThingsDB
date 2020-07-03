@@ -635,7 +635,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
 
     field__remove_dep(field);
 
-    ti_val_drop((ti_val_t *) field->spec_raw);
+    ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
     field->spec = (*with_field)->spec;
     field->nested_spec = (*with_field)->nested_spec;
     field->spec_raw = (*with_field)->spec_raw;
@@ -668,7 +668,7 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     }
 
     ti_incref(spec_raw);
-    ti_val_drop((ti_val_t *) prev_spec_raw);
+    ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
     return 0;
 
 undo:
@@ -765,7 +765,7 @@ success:
             field);
     }
     ti_incref(spec_raw);
-    ti_val_drop((ti_val_t *) prev_spec_raw);
+    ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
     return 0;
 }
 
@@ -861,9 +861,9 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
             if (ti_thing_has_watchers(thing))
                 field__del_watch(thing, data, ev_id);
 
-            ti_val_drop(vec_swap_remove(thing->items, field->idx));
+            ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
         }
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_unsafe_drop((ti_val_t *) thing);
     }
 
     free(data);
@@ -898,7 +898,8 @@ void ti_field_destroy(ti_field_t * field)
         return;
 
     ti_name_drop(field->name);
-    ti_val_drop((ti_val_t *) field->spec_raw);
+    if (field->spec_raw)
+        ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
 
     free(field);
 }

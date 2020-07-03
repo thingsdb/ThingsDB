@@ -65,7 +65,7 @@ static int index__read_slice_indices(
         else if (index__slice_also_not_nil(query->rval, e))
             return e->nr;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         child = child->next;
@@ -94,7 +94,7 @@ static int index__read_slice_indices(
         else if (index__slice_also_not_nil(query->rval, e))
             return e->nr;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         child = child->next;
@@ -133,7 +133,7 @@ static int index__read_slice_indices(
         else if (index__slice_also_not_nil(query->rval, e))
             return e->nr;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -155,7 +155,7 @@ static int index__slice_raw(ti_query_t * query, cleri_node_t * slice, ex_t * e)
         ex_set_mem(e);
 
 done:
-    ti_val_drop((ti_val_t *) source);
+    ti_val_unsafe_drop((ti_val_t *) source);
     return e->nr;
 }
 
@@ -174,7 +174,7 @@ static int index__slice_arr(ti_query_t * query, cleri_node_t * slice, ex_t * e)
         ex_set_mem(e);
 
 done:
-    ti_val_drop((ti_val_t *) source);
+    ti_val_unsafe_drop((ti_val_t *) source);
     return e->nr;
 }
 
@@ -239,7 +239,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     }
 
     for (step = start; step < stop; ++step)
-        ti_val_drop(vec_get(varr->vec, step));
+        ti_val_gc_drop(vec_get(varr->vec, step));
 
     memmove(
         varr->vec->data + start + n,
@@ -252,7 +252,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     else for (vec_each(evarr->vec, ti_val_t, v))
         ti_incref(v);
 
-    ti_val_drop(query->rval);  /* evarr cannot be used anymore */
+    ti_val_unsafe_drop(query->rval);  /* evarr cannot be used anymore */
     query->rval = (ti_val_t *) ti_nil_get();
 
     varr->vec->n = new_n;
@@ -275,7 +275,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 
 }
@@ -303,7 +303,7 @@ static int index__numeric(
 
     i = VINT(query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (i < 0)
@@ -335,7 +335,7 @@ static int index__index_raw(
         ex_set_mem(e);
 
 done:
-    ti_val_drop((ti_val_t *) source);
+    ti_val_unsafe_drop((ti_val_t *) source);
     return e->nr;
 }
 
@@ -356,7 +356,7 @@ static int index__index_arr(
     ti_incref(query->rval);
 
 done:
-    ti_val_drop((ti_val_t *) source);
+    ti_val_unsafe_drop((ti_val_t *) source);
     return e->nr;
 }
 
@@ -384,7 +384,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         if (ti_opr_a_to_b(val, ass_tokens, &query->rval, e))
             goto fail1;
 
-        ti_val_drop(val);
+        ti_val_unsafe_drop(val);
         varr->vec->data[idx] = query->rval;
     }
     else if(ti_varr_set(varr, (void **) &query->rval, idx, e))
@@ -410,7 +410,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }
 
@@ -435,12 +435,12 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
     if (ti_thing_get_by_raw_e(&wprop, thing, (ti_raw_t *) query->rval, e))
         goto fail0;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = *wprop.val;
     ti_incref(query->rval);
 
 fail0:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 
@@ -498,7 +498,7 @@ static inline int index__upd_prop(
             : index__t_upd_prop(wprop, query, thing, rname, tokens_nd, e))
         return e->nr;
 
-    ti_val_drop(*wprop->val);
+    ti_val_gc_drop(*wprop->val);
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
@@ -563,10 +563,10 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     }
 
 fail1:
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_unsafe_drop((ti_val_t *) rname);
 fail0:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 

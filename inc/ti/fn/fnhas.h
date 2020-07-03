@@ -17,11 +17,11 @@ static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
 
     has = ti_vset_has(vset, (ti_thing_t *) query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has);
 
 fail1:
-    ti_val_drop((ti_val_t *) vset);
+    ti_val_unsafe_drop((ti_val_t *) vset);
     return e->nr;
 }
 
@@ -43,12 +43,12 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     name = ti_names_weak_from_raw((ti_raw_t *) query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
             name && ti_thing_val_weak_get(thing, name));
 
 fail1:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 

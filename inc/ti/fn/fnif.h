@@ -18,13 +18,13 @@ static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         goto done;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
     if (ti_do_statement(query, nd, e))
         return e->nr;
 
 done:
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
     return e->nr;
 }

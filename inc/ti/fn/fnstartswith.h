@@ -20,10 +20,10 @@ static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto failed;
 
     startswith = ti_raw_startswith(raw, (ti_raw_t *) query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(startswith);
 
 failed:
-    ti_val_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

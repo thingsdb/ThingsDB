@@ -12,7 +12,7 @@ static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     type_str = ti_val_strv(query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = type_str;
 
     return e->nr;

@@ -16,7 +16,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
         return e->nr;
     assert (collection);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
@@ -33,7 +33,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     if (ti_task_add_rename_collection(task, collection))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

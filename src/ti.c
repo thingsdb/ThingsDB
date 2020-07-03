@@ -132,7 +132,7 @@ void ti_destroy(void)
     ti_collections_destroy();
     ti_users_destroy();
     ti_store_destroy();
-    ti_val_drop((ti_val_t *) ti.thing0);
+    ti_val_safe_drop((ti_val_t *) ti.thing0);
 
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
@@ -146,6 +146,7 @@ void ti_destroy(void)
     ti_names_destroy();
 
     /* remove late */
+    ti_thing_destroy_gc();
     ti_val_drop_common();
     ti_do_drop();
 
@@ -196,7 +197,7 @@ int ti_init(void)
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
 
-    if (ti_do_init() || ti_val_init_common())
+    if (ti_do_init() || ti_val_init_common() || ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);

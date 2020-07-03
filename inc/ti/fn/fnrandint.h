@@ -14,7 +14,7 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     a = VINT(query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
@@ -55,7 +55,7 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         a += rand() % b;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create(a);
 
     if (!query->rval)

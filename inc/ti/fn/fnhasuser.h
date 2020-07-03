@@ -20,7 +20,7 @@ static int do__f_has_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             (const char *) uname->data,
             uname->n);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_user);
 
     return e->nr;

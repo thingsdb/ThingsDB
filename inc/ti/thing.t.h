@@ -10,6 +10,8 @@ typedef struct ti_thing_s  ti_thing_t;
 #include <ti/collection.t.h>
 #include <util/vec.h>
 
+extern vec_t * ti_thing_gc_vec;
+
 struct ti_thing_s
 {
     uint32_t ref;

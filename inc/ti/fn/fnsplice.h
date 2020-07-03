@@ -25,7 +25,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
 
     i = VINT(query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
     child = child->next->next;
 
@@ -36,7 +36,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     c = VINT(query->rval);
     current_n = varr->vec->n;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (i < 0)
@@ -101,7 +101,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
 
     /* required since query->rval may not be NULL */
-    ti_val_drop(query->rval);
+    ti_val_safe_drop(query->rval);
 
     query->rval = (ti_val_t *) retv;
     varr->vec->n = new_n;
@@ -114,7 +114,7 @@ alloc_err:
 
 fail2:
     while (x--)
-        ti_val_drop(vec_pop(varr->vec));
+        ti_val_unsafe_drop(vec_pop(varr->vec));
 
     memmove(
         varr->vec->data + i + n,
@@ -125,12 +125,12 @@ fail2:
         VEC_push(varr->vec, vec_get(retv->vec, x));
 
     retv->vec->n = 0;
-    ti_val_drop((ti_val_t *) retv);
+    ti_val_unsafe_drop((ti_val_t *) retv);
     varr->vec->n = current_n;
 
 done:
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }

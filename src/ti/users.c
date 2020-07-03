@@ -265,7 +265,7 @@ ti_user_t * ti_users_auth_by_basic(const char * b64, size_t n, ex_t * e)
 failed:
     ex_set(e, EX_AUTH_ERROR, "invalid basic authentication");
 done:
-    ti_val_drop((ti_val_t *) auth);
+    ti_val_unsafe_drop((ti_val_t *) auth);
     return user;
 }
 
@@ -299,7 +299,7 @@ ti_varr_t * ti_users_info(void)
         ti_val_t * mpinfo = ti_user_as_mpval(user);
         if (!mpinfo)
         {
-            ti_val_drop((ti_val_t *) varr);
+            ti_val_unsafe_drop((ti_val_t *) varr);
             return NULL;
         }
         VEC_push(varr->vec, mpinfo);

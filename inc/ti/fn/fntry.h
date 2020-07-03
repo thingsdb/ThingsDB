@@ -23,7 +23,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* make sure the return value is dropped */
-    ti_val_drop(query->rval);
+    ti_val_safe_drop(query->rval);
 
     e->nr = 0;
 
@@ -53,13 +53,13 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if ((ex_enum) ((ti_verror_t * ) query->rval)->code == errnr)
         {
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = (ti_val_t *) verror;
             assert (e->nr == 0);
             return e->nr;
         }
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
     while (child->next && (child = child->next->next));
@@ -67,6 +67,6 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_verror_to_e(verror, e);
 
 failed:
-    ti_val_drop((ti_val_t *) verror);
+    ti_val_unsafe_drop((ti_val_t *) verror);
     return e->nr;
 }

@@ -16,7 +16,7 @@ static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!procedure)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
 
     query->rval = (ti_val_t *) ti_closure_doc(procedure->closure);
 

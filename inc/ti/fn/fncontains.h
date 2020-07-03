@@ -20,10 +20,10 @@ static int do__f_contains(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto failed;
 
     contains = ti_raw_contains(raw, (ti_raw_t *) query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(contains);
 
 failed:
-    ti_val_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

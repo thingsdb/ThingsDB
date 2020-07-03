@@ -106,7 +106,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     if (preopr & PO__FLAG_BOOL)
     {
         _Bool b = (preopr & PO__FLAG_FALSE) ^ ti_val_as_bool(v);
-        ti_val_drop(v);
+        ti_val_unsafe_drop(v);
         *val = preopr & PO__FLAG_AS_NUM
             ? (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? -b : b)
             : (ti_val_t *) ti_vbool_get(b);
@@ -132,7 +132,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
                 ex_set(e, EX_OVERFLOW, "integer overflow");
                 return e->nr;
             }
-            ti_val_drop(v);
+            ti_val_unsafe_drop(v);
             *val = (ti_val_t *) ti_vint_create(-i);
             if (!*val)
                 ex_set_mem(e);
@@ -142,7 +142,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         if (preopr & PO__FLAG_NEGATIVE)
         {
             double nd = -VFLOAT(v);
-            ti_val_drop(v);
+            ti_val_unsafe_drop(v);
             *val = (ti_val_t *) ti_vfloat_create(nd);
             if (!*val)
                 ex_set_mem(e);
@@ -151,7 +151,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     case TI_VAL_BOOL:
     {
         _Bool b = VBOOL(v);
-        ti_val_drop(v);
+        ti_val_unsafe_drop(v);
         *val = (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? -b : b);
         break;
     }

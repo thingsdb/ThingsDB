@@ -25,7 +25,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e))
@@ -66,7 +66,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_set_password(task, user))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
 done:

@@ -11,7 +11,7 @@ static int do__f_iserr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     is_error = ti_val_is_error(query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(is_error);
 
     return e->nr;

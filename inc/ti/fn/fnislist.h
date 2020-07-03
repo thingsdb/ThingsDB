@@ -11,7 +11,7 @@ static int do__f_islist(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     is_list = ti_val_is_list(query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(is_list);
 
     return e->nr;

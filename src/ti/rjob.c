@@ -377,8 +377,8 @@ static int rjob__new_procedure(mp_unp_t * up)
 
 failed:
     ti_procedure_destroy(procedure);
-    ti_val_drop((ti_val_t *) rname);
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_safe_drop((ti_val_t *) rname);
+    ti_val_safe_drop((ti_val_t *) closure);
     return -1;
 }
 
@@ -546,7 +546,7 @@ static int rjob__rename_collection(mp_unp_t * up)
     assert (e.nr == 0);
 
     (void) ti_collection_rename(collection, rname, &e);
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_safe_drop((ti_val_t *) rname);
 
     return e.nr;
 }
@@ -590,7 +590,7 @@ static int rjob__rename_user(mp_unp_t * up)
     assert (e.nr == 0);
 
     ti_user_rename(user, rname, &e);
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_safe_drop((ti_val_t *) rname);
 
     return e.nr;
 }

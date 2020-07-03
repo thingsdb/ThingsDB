@@ -36,7 +36,7 @@ void ti_vset_destroy(ti_vset_t * vset)
 {
     if (!vset)
         return;
-    imap_destroy(vset->imap, (imap_destroy_cb) ti_val_drop);
+    imap_destroy(vset->imap, (imap_destroy_cb) ti_val_gc_drop);
     free(vset);
 }
 
@@ -86,7 +86,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     for (vec_each(list->vec, ti_val_t, val))
         ti_incref(val);
 
-    ti_val_drop((ti_val_t *) *vsetaddr);
+    ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
     *vsetaddr = (ti_vset_t *) list;
 
     return 0;

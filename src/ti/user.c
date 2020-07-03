@@ -129,7 +129,7 @@ void ti_user_drop(ti_user_t * user)
     if (user && !--user->ref)
     {
         free(user->encpass);
-        ti_val_drop((ti_val_t *) user->name);
+        ti_val_safe_drop((ti_val_t *) user->name);
         vec_destroy(user->tokens, (vec_destroy_cb) ti_token_destroy);
         free(user);
     }
@@ -213,7 +213,7 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;
 
-    ti_val_drop((ti_val_t *) user->name);
+    ti_val_unsafe_drop((ti_val_t *) user->name);
     user->name = ti_grab(name);
 
     return e->nr;

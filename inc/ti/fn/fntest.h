@@ -28,10 +28,10 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     has_match = ti_regex_test((ti_regex_t *) query->rval, raw);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_match);
 
 failed:
-    ti_val_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

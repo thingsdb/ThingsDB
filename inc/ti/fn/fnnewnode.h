@@ -36,7 +36,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
@@ -54,7 +54,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 3)
     {
         int64_t iport;
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         /* Read the port number from arguments */
@@ -101,7 +101,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->ev->flags |= TI_EVENT_FLAG_SAVE;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) node->id);
     if (!query->rval)
         ex_set_mem(e);

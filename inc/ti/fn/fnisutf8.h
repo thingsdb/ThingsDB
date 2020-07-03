@@ -14,7 +14,7 @@ static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     is_utf8 = ti_val_is_str(query->rval) &&
             strx_is_utf8n((const char *) raw->data, raw->n);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(is_utf8);
 
     return e->nr;

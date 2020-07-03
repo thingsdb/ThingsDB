@@ -16,7 +16,7 @@ static int do__f_has_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     has_enum = !!ti_enums_by_raw(query->collection->enums, rname);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_enum);
 
     return e->nr;
